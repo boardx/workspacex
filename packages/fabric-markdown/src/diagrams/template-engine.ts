@@ -550,10 +550,10 @@ export function missingTemplateFields(code: string, impliedKey?: string): string
  * Build the canvas model for a template. `fenceKey` forces a spec (used by
  * the ```persona alias); otherwise the text's `模板:` line decides.
  */
-export function templateToModel(code: string, fenceKey?: string): DiagramModel {
+export function templateToModel(code: string, fenceKey?: string, explicitSpec?: TemplateSpec): DiagramModel {
   const parsed = parseTemplateText(code, fenceKey);
   const key = fenceKey ?? parsed.templateKey ?? '';
-  const spec = templates.get(key);
+  const spec = explicitSpec?.key === key ? explicitSpec : templates.get(key);
   if (!spec) {
     const known = [...templates.keys()].join(', ');
     throw new Error(`未知画布模板 "${key}"（可用: ${known}）`);
@@ -910,9 +910,9 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
 // Serialization
 // ---------------------------------------------------------------------------
 
-export function serializeTemplate(model: DiagramModel): string {
+export function serializeTemplate(model: DiagramModel, explicitSpec?: TemplateSpec): string {
   const key = String(model.meta?.templateKey ?? '');
-  const spec = templates.get(key);
+  const spec = explicitSpec?.key === key ? explicitSpec : templates.get(key);
   const lines: string[] = [];
   // ```persona fences imply their template; ```canvas blocks carry the key.
   if (key && key !== 'persona') lines.push(`模板: ${key}`);

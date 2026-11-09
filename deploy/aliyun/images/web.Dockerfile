@@ -8,6 +8,7 @@ RUN corepack enable && npm_config_registry="$NPM_REGISTRY" corepack prepare pnpm
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY patches ./patches
 COPY packages ./packages
+COPY shared ./shared
 COPY skills/localizations ./skills/localizations
 COPY apps/web ./apps/web
 # Next typechecks the checked-in Playwright config and its external imports.

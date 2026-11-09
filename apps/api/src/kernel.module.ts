@@ -1,3 +1,4 @@
+import {listTemplates} from "./application/canvas/list-templates";
 import { PlatformSkillReviewController } from "./interface/controllers/platform-skill-review.controller";
 import { AI_CATALOG_ADMIN_SERVICE, AiCatalogAdminService } from "./application/ai-catalog/admin-service";
 import { AI_CATALOG_STORAGE, type AiCatalogStorage } from "./application/ai-catalog/storage-port";
@@ -3556,8 +3557,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     {
       provide: WHITEBOARD_OPERATION_SERVICE,
-      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator,audit:PgWhiteboardOperationRepository) => new WhiteboardOperationService(db, collaboration, audit,undefined,objects,validator,new PgWhiteboardOperationUndoStore(collaboration,objects)),
-      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_OPERATION_AUDIT_REPOSITORY],
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator,audit:PgWhiteboardOperationRepository,templates:CanvasTemplateRepository,identity:IdentityRepository,ids:DecisionIdFactory) => new WhiteboardOperationService(db, collaboration, audit,undefined,objects,validator,new PgWhiteboardOperationUndoStore(collaboration,objects),async principal=>(await listTemplates({templates,identity,ids},{orgId:principal.orgId,userId:principal.userId})).templates),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_OPERATION_AUDIT_REPOSITORY,CANVAS_TEMPLATE_REPOSITORY,IDENTITY_REPOSITORY,DECISION_ID_FACTORY],
     },
     ...(BOARD_AGENT_API_ACCEPTANCE ? [{
       provide: WHITEBOARD_ACTOR_SERVICE,

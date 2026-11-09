@@ -73,6 +73,11 @@ test('project and organization Board targets · real placement handoff, cancel a
   });
   try{
     token=await login(page);
+    const customKey=`placement-six-${randomUUID()}`;
+    const customSections=Array.from({length:6},(_,i)=>({sectionId:`s${i}`,name:`分区${i}`,type:'便利贴列表',order:i,required:false,capacity:3,layout:{col:(i%3)*2+1,row:Math.floor(i/3)*4+1,w:2,h:4,cols:1,max:3,tone:1,overflow:'缩小字号'}}));
+    await ownedDatabase(async connection=>{
+      await connection.query(`INSERT INTO canvas_templates (org_id,key,version,display_name,status,builtin,visibility,underlying_type,sections,tags,layout_source,size,grid_cols,grid_rows) VALUES ($1,$2,1,$3,'published',false,'org-wide','canvas',$4::jsonb,'{}','user-edited','A1',6,8)`,[FULLSTACK_E2E.orgId,customKey,'六格组织模板',JSON.stringify(customSections)]);
+    });
     const createBoard=async(name:string)=>{
       const board=await(await call(api,token!,'POST','/whiteboards',{requestId:randomUUID(),name})).json() as {id:string;name:string};
       boards.push(board);return board;
@@ -102,7 +107,7 @@ test('project and organization Board targets · real placement handoff, cancel a
       const projectQuery=projectId?`?projectId=${encodeURIComponent(projectId)}`:'';
       const nonce=randomUUID(),label=`Fresh placement ${nonce.slice(0,8)}`;
       const lang=projectId?'canvas':'mermaid',prefix=lang==='canvas'?'chat-canvas':'chat-diagram';
-      const diagram=lang==='canvas'?['模板: empathy','','## 想的与感受到的',`- ${label}`,'','## 听到的','- 团队希望清楚地确认插入位置','','## 看到的','- 现有白板包含应当保留的工作内容','','## 说的与做的','- 先预览位置再确认插入','','## 痛点','- 插入重叠会遮挡原有内容','','## 收益','- 同一白板完整保留新旧内容']:['flowchart TD',` FreshA["${label}"] --> FreshB["Fresh target"]`];
+      const diagram=lang==='canvas'?[`模板: ${customKey}`,'',...customSections.flatMap(section=>[`## ${section.name}`,`- ${label} ${section.name}`,''])]:['flowchart TD',` FreshA["${label}"] --> FreshB["Fresh target"]`];
       const body=[`Board placement source ${nonce}`,'','```'+lang,...diagram,'```'].join('\n');
       const messageId=`placement-source-${randomUUID()}`;
       await ownedDatabase(async connection=>{
@@ -179,7 +184,7 @@ test('project and organization Board targets · real placement handoff, cancel a
       // Saving serializes the actual rendered model, so canonical text may differ from the reply.
       for(const block of [savedBlocks[0]!,replyBlocks[0]!]){
         expect(block.closed).toBe(true);expect(block.lang).toBe(lang);expect(block.code).toContain(label);
-        if(lang==='canvas')expect(block.code).toMatch(/^模板:\s*empathy\s*$/m);
+        if(lang==='canvas')expect(block.code).toContain(`模板: ${customKey}`);
         else expect(block.code).toMatch(/^flowchart\s/m);
       }
       const sourceHash=createHash('sha256').update(savedSource.markdown).digest('hex');
@@ -189,6 +194,7 @@ test('project and organization Board targets · real placement handoff, cancel a
       const handoff=receipt.request().postDataJSON() as Handoff;expect(handoff.layout.artifactId).toBe(artifactId);expect(handoff.layout.sourceRevision).toBe(sourceRevision);
       expect(handoff.layout.diagramKind).toBe(lang==='canvas'?'template':'flowchart');
       expect(handoff.layout.objects.some(object=>object.text.includes(label))).toBe(true);
+      if(lang==='canvas')expect(handoff.layout.objects.filter(object=>object.style.dataJson&&JSON.parse(String(object.style.dataJson)).role==='section')).toHaveLength(6);
       const saveIndex=wireOrder.indexOf(`save:${new URL(saveResponse.url()).pathname}`),sourceIndex=wireOrder.indexOf(`source:${new URL(sourceResponse.url()).pathname}`),handoffIndex=wireOrder.indexOf(`handoff:${new URL(receipt.url()).pathname}`);
       expect(saveIndex).toBeGreaterThanOrEqual(0);expect(sourceIndex).toBeGreaterThan(saveIndex);expect(handoffIndex).toBeGreaterThan(sourceIndex);
       const committed=await read(board.id);expect(committed.revision.seq).toBeGreaterThan(original.get(board.id)!.revision.seq);
@@ -218,7 +224,7 @@ test('project and organization Board targets · real placement handoff, cancel a
       const scopeReads=listReads.slice(readStart);
       if(scope==='project')expect(scopeReads.some(url=>new URL(url).pathname.endsWith(`/projects/${FULLSTACK_E2E.projectId}/resources`))).toBe(true);
       else expect(scopeReads.some(url=>new URL(url).pathname.endsWith('/whiteboards')&&new URL(url).searchParams.has('cursor'))).toBe(true);
-      evidence.push({scope,lang,templateKey:lang==='canvas'?'empathy':null,boardId:board.id,threadId,messageId:reply.id,generation:'not-executed',assistantHash:createHash('sha256').update(reply.text).digest('hex'),artifactId,sourceHash,layoutHash:handoff.layout.layoutHash,revision:committed.revision,sourceRevision,cancelWrites:0,sourceSaves:1,saveIndex,sourceIndex,handoffIndex,listReads:scopeReads});
+      evidence.push({scope,lang,templateKey:lang==='canvas'?customKey:null,boardId:board.id,threadId,messageId:reply.id,generation:'not-executed',assistantHash:createHash('sha256').update(reply.text).digest('hex'),artifactId,sourceHash,layoutHash:handoff.layout.layoutHash,revision:committed.revision,sourceRevision,cancelWrites:0,sourceSaves:1,saveIndex,sourceIndex,handoffIndex,listReads:scopeReads});
     }
     const evidencePath=info.outputPath('chat-board-target-placement-evidence.json');writeFileSync(evidencePath,JSON.stringify({boundary:'Generation not executed: only an assistant message was inserted into this spec-owned real thread in the isolated database. No HTTP fixtures: actual message readback, source save/readback/revision, project links, board pagination, handoffs and persistence.',scopes:evidence},null,2));
     await info.attach('chat-board-target-placement-evidence',{path:evidencePath,contentType:'application/json'});
