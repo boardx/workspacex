@@ -28,3 +28,10 @@ Follow-up after CI failure:
 - Thin gateway + history trim + assembly: 23 passed; independent review found no P1/P2.
 - Previous Web typecheck dependency rebuild was rechecked successfully before the original push (35/35 checks).
 - Full previously failing usage-unit lane: 70 files / 677 tests passed. Merged composer/voice UI: 29 passed. Executor is 1368 lines under the unchanged 1393 ceiling.
+
+Review follow-up (discussion_r4510110379):
+- The organization opt-out marker must not appear as a revocable normal grant: revoking it would increase authority.
+- Reproduced list leakage and direct-ID revocation with both existing controllers and the real in-memory store (two RED cases).
+- Generic listing filters the policy marker; generic DELETE returns GRANT_NOT_FOUND for its id before mutation. Dedicated policy API remains the only way to change it.
+- Ordinary grant deletion still works, and opt-out remains false/enforced after list and revoke attempts.
+- Added these regressions to the lightweight usage-unit lane: 71 files / 680 tests passed. Independent security re-review: no remaining P1/P2.
