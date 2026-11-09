@@ -119,3 +119,12 @@ describe("v2 composer 的可及名（issue #3022 ②）", () => {
     expect(screen.getByRole("textbox", { name: COMPOSER_ACCESSIBLE_NAME })).toBe(input);
   });
 });
+
+
+it("hides document approval and realtime conversation entries while retaining voice input", async () => {
+  mount();
+  await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toBeVisible());
+  expect(screen.queryByTestId("chat-document-generation-auto-approve")).toBeNull();
+  expect(screen.queryByRole("button", { name: /实时对话/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /语音输入/ })).toBeVisible();
+});

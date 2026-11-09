@@ -3,7 +3,7 @@ import { planPermissions as C } from "@repo/contracts";
 import {
   TOOL_PERMISSION_GRANT_STORE, type ToolPermissionGrantStore,
 } from "../../application/agent-run/tool-permission-grants";
-import { DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS } from "../../domain/agent-run/document-generation-skills";
+import { DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS } from "../../domain/agent-run/document-generation-skills";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -17,7 +17,7 @@ import { CurrentPrincipal } from "../current-principal.decorator";
  * `tool-permission-grant.controller.ts` 的 `listStandingToolGrants`/
  * `revokeStandingToolGrant` 面向**任意工具名**的组织级授权，一条 forever 授权能放行
  * 同组织所有人对该工具名的每次调用——收回它因此判组织 admin（该文件头注的论证）。
- * 本开关的地址被死死钉在 `DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS` 这一个
+ * 本开关的地址被死死钉在 `DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS` 这一个
  * 常量上，且只在 `tool-permission-gate.ts` 里被四个锁定文档 skill 的可归因调用读取
  * （`resolveDocumentGenerationGrantAddress` 非空时才会去查这个地址）——范围已经在
  * 写入之前就被代码锁死，不是"写下什么就放行什么"的通用能力，因此不需要组织
@@ -47,11 +47,11 @@ export class DocumentGenerationAutoApproveController {
     const orgId = toOrgId(principal.orgId);
     const input = C.operations.setDocumentGenerationAutoApprove.in.parse(body);
     return this.run(async () => {
-      if (input.enabled) {
-        await this.grants.grantStanding(orgId, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, principal.userId);
+      if (!input.enabled) {
+        await this.grants.grantStanding(orgId, DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS, principal.userId);
       } else {
         const rows = await this.grants.listStanding(orgId);
-        const existing = rows.find((row) => row.toolName === DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS);
+        const existing = rows.find((row) => row.toolName === DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS);
         if (existing) await this.grants.revokeStanding(orgId, existing.grantId, principal.userId);
       }
       const enabled = await this.isEnabled(orgId);
@@ -59,9 +59,10 @@ export class DocumentGenerationAutoApproveController {
     });
   }
 
+  // No stored opt-out means enabled; GET and the execution gate share this policy.
   private async isEnabled(orgId: ReturnType<typeof toOrgId>): Promise<boolean> {
     const rows = await this.grants.listStanding(orgId);
-    return rows.some((row) => row.toolName === DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS);
+    return !rows.some((row) => row.toolName === DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS);
   }
 
   /** 下层故障 → HTTP，一处。不回显 `e.message`（`lint-error-leak` 的同一条纪律）。 */

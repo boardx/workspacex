@@ -129,11 +129,11 @@ export const CALL_SKILL_TOOL_NAME = "call_skill";
 export const NATIVE_L2_MANIFEST_TOOL_NAME = "execute";
 
 /**
- * composer 开关「自动批准文档生成所需权限」落地成的组织级 standing grant 地址
- * （`tool_permission_grants.tool_name` 的值）——刻意与任何真实工具名不同形（含冒号），
- * 不会与任何工具的裸授权地址碰撞。
+ * Document generation is approved by default. This organization-scoped marker
+ * records an explicit opt-out using the existing standing-policy store.
+ * It is not a tool grant and cannot match an actual tool's bare address.
  */
-export const DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS = "document_generation:auto_approve";
+export const DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS = "document_generation:auto_approve_disabled";
 
 /**
  * legacy `call_skill` 中断的授权寻址：目标 skill 在锁定清单内 ⇒ 收紧成

@@ -204,7 +204,7 @@ export type KernelHitlSkillNames = z.infer<typeof KernelHitlSkillNames>;
  * （`apps/api` 的 `document-generation-skills.ts` 头注：范围锁死在这四个 skill
  * 各自声明的工具清单上，不是"以后都允许"那种全宽口径开关——复用同一套 standing
  * grant 存储（`tool_permission_grants` scope='forever'，地址是专用常量
- * `document_generation:auto_approve`），但不走 #3068 那条组织 admin 专用路由：
+ * `document_generation:auto_approve_disabled`），但不走 #3068 那条组织 admin 专用路由：
  * 这是一个刻意收窄、预先审过范围的单一能力开关，任何组织成员都能开/关，不是
  * 通用的工具授权管理面。
  */

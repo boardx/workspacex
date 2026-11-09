@@ -29,7 +29,8 @@ import { ComposerVoiceControl } from "@/components/chat/chat-composer-voice-cont
 import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button";
 import { appendTranscript } from "@/lib/use-asr-draft";
 import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
-import { ChatRealtimeVoiceEntry } from "@/components/chat/chat-realtime-voice-entry";
+// Realtime conversation entry is temporarily hidden.
+// import { ChatRealtimeVoiceEntry } from "@/components/chat/chat-realtime-voice-entry";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
 import { SessionBriefing } from "@/components/chat/knowledge/session-briefing";
@@ -41,7 +42,8 @@ import { Button } from "@/components/ui/button";
 // 文件头的完整取证）。同 `CopilotKitV2AgentInterrupts` 的既有先例——独立文件、`return
 // null`、直接挂进 JSX，不在这个已经很大的文件里再叠一段 `useHumanInTheLoop` 内联注册。
 import { ChatHostToolPermission } from "@/components/chat/chat-host-tool-permission";
-import { DocumentGenerationAutoApproveToggle } from "@/components/chat/document-generation-auto-approve-toggle";
+// Document generation approval defaults on server-side; toggle temporarily hidden.
+// import { DocumentGenerationAutoApproveToggle } from "@/components/chat/document-generation-auto-approve-toggle";
 import type { CopilotKitV2PanelViewProps } from "./copilotkit-v2-panel-body";
 
 /** Presentation only. The stable controller owns every session, hook and callback. */
@@ -118,7 +120,7 @@ export function CopilotKitV2PanelView({
   runningReplyAck,
   scrollMessagesToBottom,
   selectedAgentId,
-  selectedVoiceAgent,
+  // selectedVoiceAgent,
   send,
   sendDisabled,
   sendDisabledReason,
@@ -145,9 +147,9 @@ export function CopilotKitV2PanelView({
   templateSuggestions,
   threadId,
   userMessageAttachmentsContextValue,
+  // voiceThread,
   visibleAttachmentOptions,
   voice,
-  voiceThread,
 }: CopilotKitV2PanelViewProps): JSX.Element {
   const { t, locale } = useI18n();
   return (
@@ -753,7 +755,7 @@ export function CopilotKitV2PanelView({
                 </span>
                 {/* issue #3440 —— composer 默认开关：打开后 PDF/Word/Excel/PPT 生成全程
                     零确认（清单之外的调用不受这个开关影响，见组件头注）。*/}
-                <DocumentGenerationAutoApproveToggle disabled={sessionToken === null} />
+                {/* <DocumentGenerationAutoApproveToggle disabled={sessionToken === null} /> */}
                 {/* issue #2770 —— 此处曾有 ✦「任务模式」与 ☑「每次都先计划」两颗开关，
                     见上方 state 区的头注：要不要先计划现在由内核自动判，不再要用户选。 */}
                 {/* 2026-09-03（对照设计参照图收拢）—— 「能力：自动匹配」从卡片上方
@@ -791,12 +793,14 @@ export function CopilotKitV2PanelView({
               </div>
               {/* 右：语音分段胶囊（唯一麦克风入口，设备菜单在它右侧箭头）+ 发送 / 停止。 */}
               <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-3">
+                {/* Temporarily hidden:
                 <ChatRealtimeVoiceEntry
                   disabled={!canWrite || archived || agent.isRunning || sessionToken === null}
                   agent={selectedVoiceAgent}
                   resolveThreadId={voiceThread.resolveThreadId}
                   onEnded={voiceThread.onEnded}
                 />
+                */}
                 <ComposerVoiceControl
                   status={speech.status}
                   phase={voice.phase}

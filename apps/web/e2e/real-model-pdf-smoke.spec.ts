@@ -155,22 +155,6 @@ async function readDocumentAutoApproveFromApi(page: Page): Promise<boolean> {
   return body.enabled as boolean;
 }
 
-async function setDocumentAutoApproveFromUi(page: Page, enabled: boolean): Promise<void> {
-  const toggle = page.getByTestId("chat-document-generation-auto-approve-toggle");
-  const expected = enabled ? "true" : "false";
-  if (await toggle.getAttribute("aria-checked") === expected) return;
-
-  const responsePromise = page.waitForResponse((response) => {
-    const path = new URL(response.url()).pathname;
-    return response.request().method() === "PUT" && path.endsWith("/document-generation-auto-approve");
-  });
-  await toggle.click();
-  const response = await responsePromise;
-  expect(response.ok(), "文档自动批准开关的 PUT 必须成功").toBe(true);
-  expect(await response.json(), "PUT 回执必须确认服务端已保存目标状态").toEqual({ enabled });
-  await expect(toggle, "文档自动批准开关必须按服务端回执显示目标状态")
-    .toHaveAttribute("aria-checked", expected);
-}
 
 /**
  * Cleanup must survive an approval modal or error overlay. It deliberately uses the
@@ -242,23 +226,15 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
 
   /* ── ① 登录 + 打开真实 /chat ─────────────────────────────────────────── */
   await login(page, REAL_MODEL_SMOKE.email, REAL_MODEL_SMOKE.password);
-  // A failed historical run may have left this reversible test grant enabled. Read the
-  // persisted value before touching it; when it is true, clean that known test residue and
-  // verify the clean baseline before the UI reenacts the user's explicit enable action.
   const persistedDocumentAutoApproveAtEntry = await readDocumentAutoApproveFromApi(page);
-  if (persistedDocumentAutoApproveAtEntry) await setDocumentAutoApproveFromApi(page, false);
-  documentAutoApproveInitial = false;
-  evidence.setContext("documentAutoApproveAtEntry", persistedDocumentAutoApproveAtEntry);
-  evidence.setContext("documentAutoApproveResidueReset", persistedDocumentAutoApproveAtEntry);
+  documentAutoApproveInitial = persistedDocumentAutoApproveAtEntry;
+  if (!persistedDocumentAutoApproveAtEntry) await setDocumentAutoApproveFromApi(page, true);
   await page.goto("/chat");
   const composer = page.getByTestId("copilotkit-v2-input");
   await expect(composer).toBeVisible({ timeout: 120_000 });
-  const documentAutoApprove = page.getByTestId("chat-document-generation-auto-approve-toggle");
-  await expect(documentAutoApprove).toBeEnabled({ timeout: 120_000 });
-  await expect(documentAutoApprove).toHaveAttribute("aria-checked", /^(true|false)$/);
-  await expect(documentAutoApprove).toHaveAttribute("aria-checked", "false");
-  await setDocumentAutoApproveFromUi(page, true);
-  evidence.setContext("documentAutoApproveCleanBaseline", documentAutoApproveInitial);
+  await expect(page.getByTestId("chat-document-generation-auto-approve-toggle")).toHaveCount(0);
+  expect(await readDocumentAutoApproveFromApi(page)).toBe(true);
+  evidence.setContext("documentAutoApproveAtEntry", persistedDocumentAutoApproveAtEntry);
   evidence.setContext("documentAutoApproveEnabledForRun", true);
   const send = page.getByTestId("copilotkit-v2-send");
   // `data-send-state` 是 composer 自己声明给 e2e 的判据（见 copilotkit-v2-panel-body.tsx），
