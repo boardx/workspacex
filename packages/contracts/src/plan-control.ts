@@ -879,9 +879,13 @@ export function shouldSurfacePlanPhaseIndicator(phase: PlanPhase): boolean {
  *   不编造步骤序号与进度分数（那是计划级的东西，此刻没有真实数据支撑）。
  * - `panel`：完整计划面板（折叠头 + 按需的步骤列表 / 确认门 / 失败恢复 …）。
  */
-export type PlanSurfaceKind = "hidden" | "indicator-only" | "run-controls" | "panel";
+export type PlanSurfaceKind = "hidden" | "indicator-only" | "run-controls" | "edit-entry" | "panel";
 
 export interface PlanSurfaceInput {
+  /** The chat host presents read-only plans in its message flow. */
+  readonly preferInlinePlan?: boolean;
+  readonly canEditPlan?: boolean;
+  readonly editing?: boolean;
   readonly phase: PlanPhase;
   readonly runStatus: RunStatusForPhase;
   /** `ledger.steps.length`。 */
@@ -932,6 +936,14 @@ export function derivePlanSurface(input: PlanSurfaceInput): PlanSurface {
   /** I1 的落点：只有这一个 helper 能产出"不画完整面板"的返回值，它永不吞掉常驻阶段条。 */
   const quiet = (): PlanSurface =>
     pinIndicator ? { kind: "indicator-only", pinIndicator } : { kind: "hidden", pinIndicator };
+
+  // A read-only summary adds no information beside the same run’s inline plan.
+  if (input.preferInlinePlan && !needsUserAction && input.phase !== "planning") {
+    if (input.phase === "executing" && input.stepCount > 0 && input.canEditPlan) {
+      return { kind: input.editing ? "panel" : "edit-entry", pinIndicator };
+    }
+    return quiet();
+  }
 
   // ① 什么都还没发生：没有步骤、没有在途 run、没有待办动作。
   if (input.stepCount === 0 && !runLive && !needsUserAction) return quiet();

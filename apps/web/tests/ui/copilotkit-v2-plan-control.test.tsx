@@ -869,3 +869,51 @@ describe("planSummaryText（UIUX r3 屏 6）", () => {
     expect(planSummaryText("执行遇到问题", "failed", false, 1, 3)).toContain("1/3 步已标记完成");
   });
 });
+
+
+it("suppresses the passive bottom summary when this run already has an inline plan", async () => {
+  api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ phase: "executing", runStatus: "running", activeRunId: "run-inline", gate: { required: false, reason: "no-plan" } }));
+  const onLivePlanChange = vi.fn();
+  render(<CopilotKitV2PlanControl threadId="thread-inline" preferInlinePlan onLivePlanChange={onLivePlanChange} />);
+  await waitFor(() => expect(onLivePlanChange).toHaveBeenCalledWith(expect.objectContaining({ todos: expect.any(Array) })));
+  expect(screen.queryByTestId("chat-task-workbench-plan-summary")).toBeNull();
+});
+
+
+it("keeps executing inline plans editable without a duplicate passive summary", async () => {
+  api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ phase: "executing", runStatus: "running", activeRunId: "run-edit-entry", gate: { required: false, reason: "no-plan" } }));
+  render(<CopilotKitV2PlanControl threadId="thread-edit-entry" preferInlinePlan />);
+  fireEvent.click(await screen.findByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID));
+  expect(screen.getByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID)).toHaveTextContent("完成编辑");
+  expect(screen.getAllByTestId("chat-task-workbench-plan-step-delete").length).toBeGreaterThan(0);
+});
+
+it("does not bring the duplicate summary back after completion with unfinished ledger steps", async () => {
+  api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ phase: "done", runStatus: "succeeded", activeRunId: null }));
+  const onLivePlanChange = vi.fn();
+  render(<CopilotKitV2PlanControl threadId="thread-done" preferInlinePlan onLivePlanChange={onLivePlanChange} />);
+  await waitFor(() => expect(onLivePlanChange).toHaveBeenCalled());
+  expect(screen.queryByTestId("chat-task-workbench-plan-summary")).toBeNull();
+});
+
+it("keeps proposal confirmation reachable with the inline-plan presentation", async () => {
+  api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ phase: "planning", gate: { required: true, reason: "multi-step" } }));
+  render(<CopilotKitV2PlanControl threadId="thread-proposal" preferInlinePlan />);
+  await waitFor(() => expect(screen.getByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeVisible());
+});
+
+
+it("keeps the inline plan visible after editing a proposal and starting execution", async () => {
+  api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ phase: "planning", gate: { required: true, reason: "multi-step" } }));
+  const onLivePlanChange = vi.fn();
+  const { rerender } = render(<CopilotKitV2PlanControl threadId="thread-edit-transition" preferInlinePlan refetchSignal={0} onLivePlanChange={onLivePlanChange} />);
+  await waitFor(() => expect(screen.getByTestId("chat-task-workbench-plan-collapse-toggle")).toBeVisible());
+  const toggle = screen.getByTestId("chat-task-workbench-plan-collapse-toggle");
+  if (toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
+  fireEvent.click(screen.getByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID));
+  await waitFor(() => expect(onLivePlanChange).toHaveBeenLastCalledWith(expect.objectContaining({ expanded: true })));
+  api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ phase: "executing", runStatus: "running", activeRunId: "run-edit", gate: { required: false, reason: "no-plan" } }));
+  rerender(<CopilotKitV2PlanControl threadId="thread-edit-transition" preferInlinePlan refetchSignal={1} onLivePlanChange={onLivePlanChange} />);
+  await waitFor(() => expect(onLivePlanChange).toHaveBeenLastCalledWith(expect.objectContaining({ todos: expect.any(Array), expanded: false })));
+  expect(screen.queryByTestId("chat-task-workbench-plan-summary")).toBeNull();
+});

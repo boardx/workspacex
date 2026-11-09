@@ -405,7 +405,7 @@ export function CopilotKitV2PanelView({
             对 AG-UI 事件流完全不可见（见该组件 `onRunDispatched` 的头注）。把契约回的
             真实 runId 接到 `pendingRunId` 上，交给既有的权威读去判断它现在是什么状态
             ——这条 run 撞上工具权限门时，审批卡才有机会挂出来。 */}
-        <CopilotKitV2PlanControl projectId={projectId} canWrite={canWrite} threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} onRunDispatched={setPendingRunId} onStepRecoveryOfferedChange={setPlanStepRecoveryOffered} onLivePlanChange={setLivePlan} />
+        <CopilotKitV2PlanControl preferInlinePlan projectId={projectId} canWrite={canWrite} threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} onRunDispatched={setPendingRunId} onStepRecoveryOfferedChange={setPlanStepRecoveryOffered} onLivePlanChange={setLivePlan} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}

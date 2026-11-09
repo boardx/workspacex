@@ -95,6 +95,8 @@ export const PLAN_CONTROL_SCROLLER_CLASS =
 export const PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID = "chat-task-workbench-plan-collapse-toggle";
 
 export interface CopilotKitV2PlanControlProps {
+  /** Chat owns passive plan display; retain this component for required controls. */
+  readonly preferInlinePlan?: boolean;
   /** 真实 `chat_threads.id`——`copilotkit-v2-panel.tsx` 里的 `resolvedChatThreadId`
    *  state（不是 `chatThreadIdRef`：这里需要在渲染期知道值，同 issue #2052 的既有理由，
    *  见该文件对 `resolvedChatThreadId` 的头注）。`null` 时（新对话尚未发出第一条消息）
@@ -179,11 +181,12 @@ export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): Re
 }
 
 function PlanControlSession(
-  { threadId, projectId, canWrite = true, refetchSignal, onRunDispatched, onStepRecoveryOfferedChange, onLivePlanChange }: CopilotKitV2PlanControlProps,
+  { threadId, projectId, canWrite = true, refetchSignal, onRunDispatched, onStepRecoveryOfferedChange, onLivePlanChange, preferInlinePlan = false }: CopilotKitV2PlanControlProps,
 ): React.JSX.Element | null {
   const { locale, t } = useI18n();
   const { ledger, refetch } = usePlanLedgerPolling(threadId, projectId);
   const [editing, setEditing] = React.useState(false);
+
   const [busy, setBusy] = React.useState(false);
   const [actionErrorCode, setActionErrorCode] = React.useState<string | null>(null);
   // Pause state comes only from the durable ledger, including after refresh.
@@ -295,16 +298,6 @@ function PlanControlSession(
   // 底部在执行中只是一行状态 + 控制；只有三种时候才列步骤：编辑中、确认提案前（提案步骤此刻只在
   // 账本里，消息流还没有）、以及 run 已停下之后用户展开核对（失败/取消/账本没跑满，#2451 的提示指向
   // 这份列表）。前两种时候消息流让位（`expanded`），同屏仍只一份列表。
-  const listsStepsHere = !collapsed && ledger !== null && ledger.steps.length > 0
-    && ((editing && canWrite) || ledger.phase === "planning" || !runLive);
-  const livePlanKey = JSON.stringify([liveTodos, listsStepsHere]);
-  React.useEffect(() => {
-    const [todos, expanded] = JSON.parse(livePlanKey) as [PlanTodo[] | null, boolean];
-    onLivePlanChange?.({ todos, expanded });
-  }, [livePlanKey, onLivePlanChange]);
-  React.useEffect(() => () => onLivePlanChange?.(NO_LIVE_PLAN), [onLivePlanChange]);
-  if (threadId === null || ledger === null) return null;
-
   /*
    * issue #3321 —— **本组件对「计划区要不要出现在屏幕上」不再有任何自己的判断。**
    *
@@ -317,7 +310,11 @@ function PlanControlSession(
    * 重新声明到第二处。宿主只许 `switch (surface.kind)`。
    * 由 `.harness/scripts/lint-plan-surface-single-source.test.ts` 机械门控。
    */
-  const surface = derivePlanSurface({
+  React.useEffect(() => { setEditing(false); }, [ledger?.phase]);
+  const surface = ledger === null ? { kind: "hidden" as const, pinIndicator: false } : derivePlanSurface({
+    preferInlinePlan,
+    canEditPlan: canWrite,
+    editing,
     phase: ledger.phase,
     runStatus: ledger.runStatus,
     stepCount: ledger.steps.length,
@@ -330,6 +327,15 @@ function PlanControlSession(
     progressTotal: ledger.progress.total,
     hasActionError: actionErrorCode !== null,
   });
+  const listsStepsHere = surface.kind === "panel" && !collapsed && ledger !== null && ledger.steps.length > 0
+    && ((editing && canWrite) || ledger.phase === "planning" || !runLive);
+  const livePlanKey = JSON.stringify([liveTodos, listsStepsHere]);
+  React.useEffect(() => {
+    const [todos, expanded] = JSON.parse(livePlanKey) as [PlanTodo[] | null, boolean];
+    onLivePlanChange?.({ todos, expanded });
+  }, [livePlanKey, onLivePlanChange]);
+  React.useEffect(() => () => onLivePlanChange?.(NO_LIVE_PLAN), [onLivePlanChange]);
+  if (threadId === null || ledger === null) return null;
 
   /*
    * issue #3365 —— **「这条 run 现在处于什么状态」的唯一派生处**（`deriveRunStatusView`）。
@@ -455,6 +461,7 @@ function PlanControlSession(
    */
   if (surface.kind === "hidden") return null;
   if (surface.kind === "indicator-only") return indicator;
+  if (surface.kind === "edit-entry") return <Button size="xs" variant="outline" data-testid={PLAN_CONTROL_EDIT_TOGGLE_TESTID} onClick={() => { setEditing(true); setCollapsed(false); }}><Pencil aria-hidden className="h-3 w-3" />{t("chatPlanControl.editPlan")}</Button>;
 
   // issue #2999 —— run 结束（done/cancelled）后**保留只读账本**，不再整块 return null。
   //
