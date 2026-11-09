@@ -17,6 +17,7 @@ import { IMAGE_GEN_AGENT_PROVIDER } from "../../application/agent/ensure-image-g
 import { DEEP_RESEARCH_AGENT_PROVIDER } from "../../application/agent/ensure-deep-research-agent";
 import { OrgCoreModelError,type OrgCoreModelAvailability,type OrgCoreModelState } from "../../application/model/org-core-model-ports";
 import { readOrgCoreModelIn,coreModelScopedDb,sameCoreModelBinding } from "../model/pg-org-core-model-repository";
+import { resolveDeepAgentModel } from "../agent/pg-default-agent-repository";
 import { DEEP_AGENT_PROVIDER_NAME } from "../agent-run/deep-agent-model-provider";
 import { AttachmentNotPendingError } from "../../application/chat/message-command-ports";
 
@@ -96,12 +97,16 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
           FOR UPDATE OF q`, [orgId,input.threadId,input.queuedMessageId,input.actorId,input.clientMessageId,input.text,input.selectedAgentId]);
         if (!ready.rows.length) throw new QueuedMessageNotReadyError();
       }
-      // All ordinary conversation agents inherit the organization's database selection.
+      // Ordinary conversations use system configuration unless the organization selected a custom model.
       // Specialized image/research runtimes retain their own model protocols. Replay returns above.
       let core:OrgCoreModelState|undefined;
-      if(input.snapshot.modelProvider!==IMAGE_GEN_AGENT_PROVIDER&&input.snapshot.modelProvider!==DEEP_RESEARCH_AGENT_PROVIDER){
+      const ordinary=input.snapshot.modelProvider!==IMAGE_GEN_AGENT_PROVIDER&&input.snapshot.modelProvider!==DEEP_RESEARCH_AGENT_PROVIDER;
+      // New ordinary runs inherit current system configuration unless explicitly customized.
+      // Replay returned above; persisted agent versions and historical runs remain immutable.
+      const systemDefault=ordinary?resolveDeepAgentModel():null;
+      if(ordinary){
         await s.query("SELECT pg_advisory_xact_lock(hashtext($1))",[String(orgId)]);
-        // Personal/local containers retain their existing runtime and cannot configure this feature.
+        // Personal/local containers use the system default and cannot configure an organization override.
         const kind=(await s.query<{kind:string}>("SELECT kind FROM organizations WHERE id=$1",[orgId])).rows[0]?.kind;
         if(kind==='organization'){
           const selected=await readOrgCoreModelIn(s,orgId);
@@ -127,8 +132,8 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
          VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,'queued',$10)`,
         [input.runId, orgId, input.threadId, input.messageId, input.snapshot.agentId,
           input.snapshot.agentVersionId, JSON.stringify(input.snapshot.skillVersionIds),
-          core?.selection&&input.snapshot.modelProvider!==DEEP_AGENT_PROVIDER_NAME?core.selection.modelProvider:input.snapshot.modelProvider,
-          core?.selection?.runtimeModelId??input.snapshot.modelId, input.snapshot.skillScope ?? null],
+          core?.selection?(input.snapshot.modelProvider===DEEP_AGENT_PROVIDER_NAME?DEEP_AGENT_PROVIDER_NAME:core.selection.modelProvider):(systemDefault?.provider??input.snapshot.modelProvider),
+          core?.selection?.runtimeModelId??systemDefault?.modelId??input.snapshot.modelId, input.snapshot.skillScope ?? null],
       );
       if(core?.selection){
         const binding=core.selection;

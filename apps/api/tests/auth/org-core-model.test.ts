@@ -1,4 +1,4 @@
-import {beforeEach,describe,expect,it,vi} from "vitest";
+import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 import type {DatabasePort} from "../../src/application/ports/database.port";
 import type {IdentityRepository} from "../../src/application/identity/ports";
 import type {OrgId} from "../../src/domain/org-id";
@@ -30,9 +30,9 @@ describe("organization core-model settings",()=>{
  it("does not overwrite a changed version",async()=>{const f=fixture(row);await expect(f.repository.set(orgId,{expectedVersion:0,modelId:binding.modelId,actorId:"admin",reason:"Reviewed"})).rejects.toThrow("VERSION_CHANGED");expect(f.resolve).not.toHaveBeenCalled();});
  it("unverified catalog entry cannot become a core model",async()=>{const f=fixture();f.resolve.mockResolvedValue(null as never);await expect(f.repository.set(orgId,{expectedVersion:0,modelId:binding.modelId,actorId:"admin",reason:"Reviewed"})).rejects.toThrow("CORE_MODEL_UNAVAILABLE");expect(f.query.mock.calls.some(([sql])=>sql.startsWith("INSERT INTO"))).toBe(false);});
 });
-function chatFixture(stableName:string|null=DEFAULT_AGENT_STABLE_NAME,replay=false){
+function chatFixture(stableName:string|null=DEFAULT_AGENT_STABLE_NAME,replay=false,configured=true){
  const input={projectId:null,threadId:"thread",actorId:"member",clientMessageId:"client",text:"hello",selectedAgentId:"agent",messageId:"message",runId:"new-run",snapshot:{agentId:"agent",agentVersionId:"version",skillVersionIds:[],modelProvider:"deep-agent",modelId:"deployment-default",instructions:"trusted",skillScope:"general" as const}};
- const query=vi.fn(async(sql:string)=>({rows:sql.startsWith("SELECT stable_name")?[{stable_name:stableName}]:sql.startsWith("SELECT kind")?[{kind:"organization"}]:sql.startsWith("SELECT version,")?[row]:sql.includes("RETURNING created_at")?[{created_at:new Date()}]:replay&&sql.includes("FROM chat_messages m JOIN agent_runs")?[{id:"message",thread_id:"thread",author_id:"member",body:"hello",client_message_id:"client",skill_scope:"general",requested_agent_id:"agent",created_at:new Date(),agent_run_id:"old-run",status:"succeeded"}]:[]}));
+ const query=vi.fn(async(sql:string)=>({rows:sql.startsWith("SELECT stable_name")?[{stable_name:stableName}]:sql.startsWith("SELECT kind")?[{kind:"organization"}]:sql.startsWith("SELECT version,")?(configured?[row]:[]):sql.includes("RETURNING created_at")?[{created_at:new Date()}]:replay&&sql.includes("FROM chat_messages m JOIN agent_runs")?[{id:"message",thread_id:"thread",author_id:"member",body:"hello",client_message_id:"client",skill_scope:"general",requested_agent_id:"agent",created_at:new Date(),agent_run_id:"old-run",status:"succeeded"}]:[]}));
  const db={withTenant:async(_org:OrgId,work:(s:unknown)=>Promise<unknown>)=>work({query})} as DatabasePort;
  const resolve=vi.fn(async()=>binding);
  return {input,query,resolve,repository:new PgChatMessageCommandRepository(db,{resolve})};
@@ -68,4 +68,17 @@ describe("organization conversation run core snapshot",()=>{
  });
  it("message replay never rereads or changes a historical core selection",async()=>{const f=chatFixture(DEFAULT_AGENT_STABLE_NAME,true);await f.repository.accept(orgId,f.input);expect(f.resolve).not.toHaveBeenCalled();expect(f.query.mock.calls.some(([sql])=>sql.includes("INSERT INTO agent_runs"))).toBe(false);});
  it("revoked deployment/changed immutable price blocks a new default run",async()=>{const f=chatFixture();f.resolve.mockResolvedValue({...binding,configRevision:"new-price"});await expect(f.repository.accept(orgId,f.input)).rejects.toThrow("CORE_MODEL_UNAVAILABLE");expect(f.query.mock.calls.some(([sql])=>sql.includes("INSERT INTO agent_runs"))).toBe(false);});
+});
+
+
+afterEach(()=>vi.unstubAllEnvs());
+it("unconfigured ordinary agents use the current system model without a model-pool binding",async()=>{
+ vi.stubEnv("KERNEL_DEFAULT_AGENT_MODEL_ID","qwen3.8-max");
+ const f=chatFixture("existing-ordinary",false,false);f.input.snapshot.modelProvider="old-provider";f.input.snapshot.modelId="old-version-model";
+ await f.repository.accept(orgId,f.input);
+ const params=(f.query.mock.calls as unknown as [string,readonly unknown[]][]).find(([sql])=>sql.includes("INSERT INTO agent_runs"))![1];
+ expect(params[7]).toBe("deep-agent");expect(params[8]).toBe("qwen3.8-max");
+ expect(f.resolve).not.toHaveBeenCalled();
+ expect(f.query.mock.calls.some(([sql])=>sql.includes("INSERT INTO agent_run_core_model_snapshots"))).toBe(false);
+ expect(f.query.mock.calls.some(([sql])=>sql.includes("UPDATE agent_versions"))).toBe(false);
 });

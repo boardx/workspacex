@@ -146,7 +146,7 @@ describe("platform model catalog complete localization", () => {
     expect(signal.aborted).toBe(false); expect(sdk.list).toHaveBeenCalledTimes(1); expect(sdk.core).toHaveBeenCalledTimes(1); expect(sdk.candidates).toHaveBeenCalledTimes(1);
     await act(async () => { list.resolve([hosted]); core.resolve(emptyCore); candidates.resolve([candidate]); });
     expect(await screen.findByTestId(`admin-model-card-${hosted.modelId}`)).toBeInTheDocument();
-    expect(screen.getByTestId("org-core-model-panel")).toHaveTextContent(initial === "en" ? /not configured/i : "核心模型未配置");
+    expect(screen.getByTestId("org-core-model-panel")).toHaveTextContent(initial === "en" ? /system default model/i : "使用系统默认模型（未自定义）");
   });
 
   it("retains canonical enabled/untested/disabled tag keys, query and selected detail through both locales", async () => {

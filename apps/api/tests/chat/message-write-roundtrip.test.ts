@@ -29,6 +29,7 @@ process.env.KERNEL_AGENT_CATALOG_SCHEMA = "chat_wave2_fixture";
  * with status queued" from "something else wrote a status". Execution has its own file.
  */
 process.env.KERNEL_AGENT_RUN_AUTOSTART = "0";
+process.env.KERNEL_DEFAULT_AGENT_MODEL_ID = "qwen3.8-max";
 
 const ORG = "org-wave2-chat-write";
 const PROJECT = "proj-wave2-chat-write";
@@ -184,7 +185,7 @@ describe("POST /chat/threads/:threadId/messages", () => {
       id: body.agentRunId,
       agent_version_id: VERSION,
       skill_version_ids: SKILLS,
-      model_provider: "dashscope",
+      model_provider: "deep-agent",
       model_id: "qwen3.8-max",
       status: "queued",
       input_message_id: body.message.id,
