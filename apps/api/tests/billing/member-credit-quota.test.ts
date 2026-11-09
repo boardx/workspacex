@@ -9,24 +9,24 @@ function session(plan='enterprise',quota:string|null=null,used='0',held='0',kind
  return {query} as unknown as TenantSession;
 }
 describe('enterprise member monthly Credit admission',()=>{
- it('defaults existing and new unconfigured members to 1000 without creating funds',async()=>{
-  const s=session();await expect(assertMemberCreditQuota(s,org,'user',100000n,true)).resolves.toBe(100000n);
+ it('defaults existing and new unconfigured members to 5000 without creating funds',async()=>{
+  const s=session();await expect(assertMemberCreditQuota(s,org,'user',500000n,true)).resolves.toBe(500000n);
   expect(vi.mocked(s.query).mock.calls.every(([sql])=>!/(INSERT|UPDATE)/.test(sql))).toBe(true);
-  await expect(assertMemberCreditQuota(s,org,'user',100001n,true)).rejects.toMatchObject({code:'credit_required'});
+  await expect(assertMemberCreditQuota(s,org,'user',500001n,true)).rejects.toMatchObject({code:'credit_required'});
  });
  it('preserves explicit zero and custom override',async()=>{
   await expect(assertMemberCreditQuota(session('enterprise','0'),org,'user',1n,true)).rejects.toMatchObject({code:'credit_required'});
   await expect(assertMemberCreditQuota(session('enterprise','2500'),org,'user',200000n,true)).resolves.toBe(200000n);
  });
  it('counts actual credit debits and outstanding reservations before another admission',async()=>{
-  await expect(assertMemberCreditQuota(session('enterprise',null,'90000','9000'),org,'user',1001n,true)).rejects.toMatchObject({code:'credit_required'});
-  await expect(assertMemberCreditQuota(session('enterprise',null,'90000','9000'),org,'user',1000n,true)).resolves.toBe(1000n);
+  await expect(assertMemberCreditQuota(session('enterprise',null,'490000','9000'),org,'user',1001n,true)).rejects.toMatchObject({code:'credit_required'});
+  await expect(assertMemberCreditQuota(session('enterprise',null,'490000','9000'),org,'user',1000n,true)).resolves.toBe(1000n);
  });
  it('holds remaining allowance for unbounded calls and preserves ordinary-plan policy',async()=>{
-  await expect(assertMemberCreditQuota(session(),org,'user',0n,false)).resolves.toBe(100000n);
-  await expect(assertMemberCreditQuota(session('enterprise',null,'50000','25000'),org,'user',0n,false)).resolves.toBe(25000n);
+  await expect(assertMemberCreditQuota(session(),org,'user',0n,false)).resolves.toBe(500000n);
+  await expect(assertMemberCreditQuota(session('enterprise',null,'50000','25000'),org,'user',0n,false)).resolves.toBe(425000n);
   await expect(assertMemberCreditQuota(session('enterprise','0'),org,'user',0n,false)).rejects.toMatchObject({code:'credit_required',reason:'member_monthly_limit'});
-  await expect(assertMemberCreditQuota(session('enterprise',null,'0','100000'),org,'user',0n,false)).rejects.toMatchObject({code:'credit_required'});
+  await expect(assertMemberCreditQuota(session('enterprise',null,'0','500000'),org,'user',0n,false)).rejects.toMatchObject({code:'credit_required'});
   await expect(assertMemberCreditQuota(session('ordinary'),org,'user',999999n,false)).resolves.toBe(999999n);
  });
  it('reads ledger settlement month in explicit UTC and retains holds across month boundaries',async()=>{
