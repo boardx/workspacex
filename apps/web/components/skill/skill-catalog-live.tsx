@@ -687,12 +687,13 @@ function GatePanel({
    *   两者是两个不同的事实，服务端注释里写了为什么它们各占一处
    *   （`skill.controller.ts` 的 `getSkillDetail` 分支）。
    */
+  const { t } = useI18n();
   const versionId = detail.currentVersionId;
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [scan, setScan] = React.useState<RunSecurityScanOut | null>(null);
-  const [reason, setReason] = React.useState("契约正文与数据范围声明已复核，符合方法论要求");
+  const [reason, setReason] = React.useState<string | null>(null);
   const [acked, setAcked] = React.useState<readonly string[]>([]);
 
   async function act(what: string, run: () => Promise<string | null>) {
@@ -703,7 +704,7 @@ function GatePanel({
       const message = await run();
       if (message !== null) setNotice(message);
     } catch (caught) {
-      setError(`${what}被拒绝：${describeError(caught)}`);
+      setError(t("skill.review.error", { action: what, error: describeError(caught) }));
     } finally {
       setBusy(false);
     }
@@ -713,7 +714,7 @@ function GatePanel({
     // 契约允许它为 null；真出现时说明这个 skill 连一版声明都没有，那不是门禁能处理的事。
     return (
       <p data-testid="skill-gate-no-version" className="text-11 text-muted-foreground">
-        这个 skill 还没有任何版本，门禁无从开始。
+        {t("skill.review.noVersion")}
       </p>
     );
   }
@@ -721,12 +722,10 @@ function GatePanel({
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border-subtle p-3" data-testid="skill-gate-panel">
       <span className="text-10 uppercase tracking-wide text-muted-foreground">
-        双重门禁 · 版本 {versionId}
+        {t("skill.review.version", { version: versionId })}
       </span>
       <p className="text-11 text-muted-foreground">
-        安全扫描（自动）与方法论审核（人工）是<strong className="text-background-foreground">并列</strong>的两道门，
-        不是「先提交再补扫描」。「已启用」只由另一位方法论审核人的批准产生 —— 这里没有、也不会有
-        「启用」按钮。
+        {t("skill.review.help")}
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -736,14 +735,14 @@ function GatePanel({
           disabled={busy}
           data-testid="skill-gate-scan"
           onClick={() =>
-            void act("安全扫描", async () => {
+            void act(t("skill.review.scan"), async () => {
               const result = await runSecurityScan(versionId);
               setScan(result);
-              return `安全扫描结论：${result.verdict}（风险项 ${result.findings.length} 条）`;
+              return t("skill.review.scanResult", { verdict: result.verdict, count: result.findings.length });
             })
           }
         >
-          安全扫描
+          {t("skill.review.scan")}
         </Button>
         <Button
           size="xs"
@@ -751,16 +750,16 @@ function GatePanel({
           disabled={busy}
           data-testid="skill-gate-submit"
           onClick={() =>
-            void act("提交评审", async () => {
+            void act(t("skill.review.submit"), async () => {
               // `expectedVersion` ＝ 调用方以为这一版此刻处于什么状态（乐观并发）。
               // 草稿屏上它只可能是「草稿」；不匹配时服务端返回 SKILL_VERSION_CHANGED。
               const out = await submitSkillForReview(versionId, "草稿");
               onStatusChanged(detail.skill.skillId, out.status);
-              return `已提交人工门禁：${out.status}`;
+              return t("skill.review.submitResult", { status: out.status });
             })
           }
         >
-          提交评审
+          {t("skill.review.submit")}
         </Button>
         <Button
           size="xs"
@@ -768,19 +767,19 @@ function GatePanel({
           disabled={busy}
           data-testid="skill-gate-approve"
           onClick={() =>
-            void act("批准", async () => {
+            void act(t("skill.review.approve"), async () => {
               const out = await reviewSkillVersion({
                 versionId,
                 decision: "approve",
-                reason,
+                reason: reason ?? t("skill.review.defaultReason"),
                 riskAcks: acked,
               });
               onStatusChanged(detail.skill.skillId, out.skillStatus);
-              return `方法论审核通过：${out.skillStatus}（评审记录 ${out.reviewRecordId}）`;
+              return t("skill.review.approveResult", { status: out.skillStatus, record: out.reviewRecordId });
             })
           }
         >
-          批准
+          {t("skill.review.approve")}
         </Button>
         <Button
           size="xs"
@@ -788,27 +787,27 @@ function GatePanel({
           disabled={busy}
           data-testid="skill-gate-reject"
           onClick={() =>
-            void act("退回", async () => {
+            void act(t("skill.review.return"), async () => {
               const out = await reviewSkillVersion({
                 versionId,
                 decision: "reject",
-                reason,
+                reason: reason ?? t("skill.review.defaultReason"),
                 riskAcks: acked,
               });
               onStatusChanged(detail.skill.skillId, out.skillStatus);
-              return `已退回：${out.skillStatus}`;
+              return t("skill.review.returnResult", { status: out.skillStatus });
             })
           }
         >
-          退回
+          {t("skill.review.return")}
         </Button>
       </div>
 
-      <Field id="skill-gate-reason" label="审核理由（留痕，必填）">
+      <Field id="skill-gate-reason" label={t("skill.review.reason")}>
         <Input
           id="skill-gate-reason"
           data-testid="skill-gate-reason"
-          value={reason}
+          value={reason ?? t("skill.review.defaultReason")}
           onChange={(e) => setReason(e.target.value)}
         />
       </Field>
