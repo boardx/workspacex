@@ -85,10 +85,10 @@ describe("CopilotKitV2Shell 项目对话 vs 个人对话", () => {
     expect(screen.queryByText("会话录音")).toBeNull();
   });
 
-  it("个人对话没有上下文条，文案不变", () => {
+  it("个人对话没有上下文条和多余说明", () => {
     render(<CopilotKitV2Shell initialThreadId={null} />);
     expect(screen.queryByTestId("project-chat-context-bar")).toBeNull();
     expect(getProjectOverview).not.toHaveBeenCalled();
-    expect(screen.getByTestId("copilotkit-v2-thread-sidebar")).toHaveTextContent("不挂靠任何项目，仅自己可见");
+    expect(screen.getByTestId("copilotkit-v2-thread-sidebar")).not.toHaveTextContent("不挂靠任何项目，仅自己可见");
   });
 });

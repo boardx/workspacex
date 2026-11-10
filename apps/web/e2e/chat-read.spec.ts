@@ -486,12 +486,10 @@ test("formal Chat with no projectId goes personal, never invents a project conte
   // 锚点从旧屏左栏容器 `chat-read-thread-list` 换成 v2 左栏
   // `copilotkit-v2-thread-sidebar`（`copilotkit-v2-shell.tsx:993`）。
   //
-  // 断言的行为语义**逐字未变**：仍然锚在「不挂靠任何项目，仅自己可见」这句个人对话
-  // 独有的说明文字上——v2 在 `copilotkit-v2-shell.tsx:1017` 渲染的正是同一句
-  // （`projectId ? "本项目的对话，按对话权限可见" : "不挂靠任何项目，仅自己可见"`），
-  // 证明的仍是「这是个人模式，不是项目模式」这件事本身，不是「左栏画出来了」。
   await page.goto("/chat");
-  await expect(page.getByTestId("copilotkit-v2-thread-sidebar")).toContainText("不挂靠任何项目，仅自己可见");
+  await expect(page.getByTestId("copilotkit-v2-thread-sidebar")).toBeVisible();
+  await expect(page.getByTestId("project-chat-context-bar")).toHaveCount(0);
+  await expect(page.getByTestId("copilotkit-v2-thread-sidebar")).not.toContainText("不挂靠任何项目，仅自己可见");
   await expect((await personalThreadsRequest).status()).toBe(200);
   // 防的洞的新形状：全程没有向任何伪造的项目路径发过请求。
   expect(inventedProjectRequests, `不该有请求打到伪造的项目路径：${inventedProjectRequests.join(", ")}`).toHaveLength(0);
