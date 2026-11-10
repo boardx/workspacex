@@ -128,3 +128,18 @@ it("can reopen with a fresh catalog and a new key after a server-declared uncrea
  fireEvent.click(await screen.findByTestId("pricing-continue-checkout"));await screen.findByTestId("pricing-checkout-qr");
  expect(bodies).toHaveLength(2);expect(bodies[1]?.catalogVersion).toBe("refreshed-catalog");expect(bodies[1]?.idempotencyKey).not.toBe(bodies[0]?.idempotencyKey);
 });
+
+it("shows credit packs before resuming an outstanding subscription", async () => {
+ const subscription = { sku: "pro", kind: "subscription", cycle: "month", currency: "CNY", amountMinor: 19900, monthlyCredits: 20000 } as const;
+ beginPersonalCheckout(localStorage, userId, {
+  sku: subscription.sku, provider: "wechat", catalogVersion: catalog.version, idempotencyKey: crypto.randomUUID(),
+ });
+ render(<PersonalPricingCheckout kind="credits" userId={userId} sessionToken="session"
+  catalog={{ ...catalog, products: [...catalog.products, subscription] }} entitlement={entitlement}
+  onClose={() => {}} onPaid={vi.fn()} />);
+ expect(await screen.findByTestId("pricing-pack-10000")).toBeTruthy();
+ expect(screen.queryByTestId("pricing-resume-payment")).toBeNull();
+ expect((screen.getByTestId("pricing-continue-checkout") as HTMLButtonElement).disabled).toBe(true);
+ fireEvent.click(screen.getByRole("button", { name: "查看原订单" }));
+ expect(await screen.findByTestId("pricing-resume-payment")).toBeTruthy();
+});

@@ -21,6 +21,7 @@ export function PersonalPricingCheckout(props:Props){return <ScopedCheckout key=
 function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,onPaid,navigate=(url:string)=>window.location.assign(url)}:Props){
  const [loading,setLoading]=React.useState(true),[context,setContext]=React.useState<PendingPersonalCheckout|null>(null),[order,setOrder]=React.useState<Order|null>(null);
  const [creating,setCreating]=React.useState(false),[fatal,setFatal]=React.useState<string|null>(null),[message,setMessage]=React.useState<string|null>(null),[readError,setReadError]=React.useState(false),[qrError,setQrError]=React.useState(false),[qrVersion,setQrVersion]=React.useState(0),[now,setNow]=React.useState(Date.now);
+ const [showPreviousOrder, setShowPreviousOrder] = React.useState(false);
  const mounted=React.useRef(false),busy=React.useRef(false),reading=React.useRef(false),completed=React.useRef(false),autoStripe=React.useRef(false),requests=React.useRef(new Set<AbortController>()),canvas=React.useRef<HTMLCanvasElement>(null),snapshot=React.useRef<Order|null>(null);
  React.useEffect(()=>{
   mounted.current=true;const controllers=requests.current;
@@ -60,11 +61,11 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
   return()=>clearInterval(timer);
  },[context]);
  React.useEffect(()=>{
-  const expiresAt=context?.result?.expiresAt;if(!expiresAt)return;
+  const expiresAt=context?.result?.expiresAt;if(!context || !expiresAt)return;
   const delay=Date.parse(expiresAt)-Date.now();
   if(delay<=0){setNow(Date.now());return;}
   if(delay>2147483647)return;
-  const timer=setTimeout(()=>setNow(Date.now()),delay+1);return()=>clearTimeout(timer);
+  const timer=setTimeout(()=>{setNow(Date.now());void refreshRef.current(context);},delay+1);return()=>clearTimeout(timer);
  },[context]);
  const canPay=order?.status==="PENDING"&&!readError&&order.expiredAt!==null&&order.qrCodeUrl!==null&&Date.parse(order.expiredAt)>now;
  React.useEffect(()=>{
@@ -99,6 +100,12 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
    else setFatal("无法保存付款状态，请刷新或联系支持。尚未发起新付款。");
   }
  };
+ const previousProduct = catalog.products.find(product => product.sku === context?.request.sku);
+ const previousKind = previousProduct?.kind === "subscription" ? "plans" : previousProduct ? "credits" : null;
+ if (!loading && !fatal && context && previousKind !== kind && !showPreviousOrder && order?.status !== "SUCCESS") {
+  return <PersonalPricingProducts kind={kind} catalog={catalog} entitlement={entitlement}
+   onSelect={select} onClose={onClose} onResume={() => setShowPreviousOrder(true)} />;
+ }
  if(!loading&&!fatal&&!context)return <PersonalPricingProducts kind={kind} catalog={catalog} entitlement={entitlement} message={message??undefined} onSelect={select} onClose={onClose}/>;
  return <Dialog open onOpenChange={open=>{if(!open)onClose();}}><DialogContent data-testid="pricing-checkout-dialog" className="max-h-[90vh] max-w-lg overflow-y-auto">
   <DialogHeader><DialogTitle>确认付款</DialogTitle><DialogDescription>关闭窗口会保留原订单。付款结果以服务端确认记录为准。</DialogDescription></DialogHeader>
