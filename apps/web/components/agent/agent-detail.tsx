@@ -123,7 +123,7 @@ export function AgentDetail({
   fetchCard = getAgentDirectoryCard,
   fetchExtras = loadAgentDetailExtras,
 }: AgentDetailProps) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
   const [state, setState] = React.useState<CardState>({ kind: "loading" });
   const [extras, setExtras] = React.useState<ExtrasState>({ kind: "loading" });
@@ -139,7 +139,7 @@ export function AgentDetail({
         if (!alive) return;
         if (error instanceof ApiError && error.status === 401) setState({ kind: "denied" });
         else if (error instanceof ApiError && error.status === 404) setState({ kind: "not-found" });
-        else setState({ kind: "error", message: error instanceof ApiError ? httpFailureText(error.status) : "网络连接出了问题，稍后再试一次" });
+        else setState({ kind: "error", message: error instanceof ApiError ? httpFailureText(error.status, locale) : t("agent.detail.network") });
       },
     );
     fetchExtras(agentId, orgId, locale).then(
@@ -147,33 +147,33 @@ export function AgentDetail({
       () => { if (alive) setExtras({ kind: "error" }); },
     );
     return () => { alive = false; };
-  }, [agentId, orgId, locale, fetchCard, fetchExtras, attempt]);
+  }, [agentId, orgId, locale, t, fetchCard, fetchExtras, attempt]);
 
   return (
     <div data-testid="agent-detail" className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 md:px-6 md:py-6">
-          <nav aria-label="面包屑">
+          <nav aria-label={t("agent.detail.breadcrumbs")}>
             <Link
               href="/agent"
               data-testid="agent-detail-back"
               className="inline-flex items-center gap-1 rounded-control px-1.5 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
-              数字人目录
+              {t("agent.detail.directory")}
             </Link>
           </nav>
           {state.kind === "loading" && <DetailSkeleton />}
           {state.kind === "denied" && <DeniedState testid="agent-detail-denied" />}
           {state.kind === "not-found" && (
             <div data-testid="agent-detail-not-found" className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
-              <p className="text-14 font-medium text-background-foreground">找不到这个数字人</p>
-              <p className="text-12 text-muted-foreground">它可能已下线，或者不在你能看到的范围内。回到目录看看其他角色。</p>
-              <Button asChild size="sm" variant="outline"><Link href="/agent">返回数字人目录</Link></Button>
+              <p className="text-14 font-medium text-background-foreground">{t("agent.detail.missing")}</p>
+              <p className="text-12 text-muted-foreground">{t("agent.detail.missingHint")}</p>
+              <Button asChild size="sm" variant="outline"><Link href="/agent">{t("agent.detail.back")}</Link></Button>
             </div>
           )}
           {state.kind === "error" && (
-            <ErrorState testid="agent-detail-error" message={`数字人详情加载失败：${state.message}`} onRetry={() => setAttempt((n) => n + 1)} />
+            <ErrorState testid="agent-detail-error" message={t("agent.detail.loadError", { error: state.message })} onRetry={() => setAttempt((n) => n + 1)} />
           )}
           {state.kind === "ready" && (
             <AgentDetailBody card={state.card} extras={extras} onStartChat={onStartChat} />
@@ -259,6 +259,7 @@ function AgentDetailBody({ card, extras, onStartChat }: {
   extras: ExtrasState;
   onStartChat: (agentId: string, prefill?: string) => void;
 }) {
+  const { t } = useI18n();
   const name = agentDisplayName(card);
   const avatarAlt = translatedText(card.display, "avatarAlt");
   const serverDuty = extras.kind === "ready" ? extras.extras.duty : null;
@@ -281,7 +282,7 @@ function AgentDetailBody({ card, extras, onStartChat }: {
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <h1 data-testid="agent-detail-name" className="text-20 font-bold text-background-foreground">{name}</h1>
-            {card.catalogSource === "official" && <Badge tone="ai">官方</Badge>}
+            {card.catalogSource === "official" && <Badge tone="ai">{t("agent.detail.official")}</Badge>}
           </div>
           {subtitle && subtitle !== duty ? (
             <p data-testid="agent-detail-role" className="text-13 text-muted-foreground">{subtitle}</p>
@@ -293,10 +294,10 @@ function AgentDetailBody({ card, extras, onStartChat }: {
           )}
           <p data-testid="agent-detail-readiness" className="mt-0.5 flex items-center gap-1.5 text-12 text-muted-foreground">
             {extras.kind === "ready" && (extras.extras.pendingSkills?.length ?? 0) > 0
-              ? <><CircleDashed aria-hidden className="h-3.5 w-3.5 shrink-0 text-warning-tint-foreground" />日常对话可以直接开始；待验证 {extras.extras.pendingSkills!.length} 项技能暂不可用。</>
+              ? <><CircleDashed aria-hidden className="h-3.5 w-3.5 shrink-0 text-warning-tint-foreground" />{t("agent.detail.readinessPending", { count: extras.extras.pendingSkills!.length })}</>
               : ready
-              ? <><CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />随时可以开始对话；具体技能是否可用，请查看下方技能清单。</>
-              : <><CircleDashed aria-hidden className="h-3.5 w-3.5 shrink-0 text-warning-tint-foreground" />日常对话可以直接开始；少数要连外部系统的动作，还在等组织管理员开通。</>}
+              ? <><CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />{t("agent.detail.readinessReady")}</>
+              : <><CircleDashed aria-hidden className="h-3.5 w-3.5 shrink-0 text-warning-tint-foreground" />{t("agent.detail.readinessRestricted")}</>}
           </p>
         </div>
         <Button
@@ -306,33 +307,33 @@ function AgentDetailBody({ card, extras, onStartChat }: {
           onClick={() => onStartChat(card.agentId)}
         >
           <MessageSquare aria-hidden className="h-4 w-4" />
-          开始对话
+          {t("agent.detail.chat")}
         </Button>
       </header>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-4">
-          <Section id="agent-detail-duty-h" testid="agent-detail-duty-section" icon={Target} title="擅长 / 负责什么">
+          <Section id="agent-detail-duty-h" testid="agent-detail-duty-section" icon={Target} title={t("agent.detail.responsibilities")}>
             <p data-testid="agent-detail-duty" className="mt-2 text-13 leading-relaxed text-card-foreground">
-              {duty ?? `${card.roleCategory ? `「${ROLE_CATEGORY_LABEL[card.roleCategory]}」方向的事都可以交给它。` : ""}在对话里描述你的目标，它会按自己的职责拆解并推进。`}
+              {duty ?? `${card.roleCategory ? t("agent.detail.dutyCategory", { category: ROLE_CATEGORY_LABEL[card.roleCategory] }) : ""}${t("agent.detail.dutyFallback")}`}
             </p>
-            <p className="mt-2 text-11 text-muted-foreground">超出它权限的事，它会升级给相应的人拍板，不会自作主张。</p>
+            <p className="mt-2 text-11 text-muted-foreground">{t("agent.detail.escalation")}</p>
           </Section>
 
           <Section
             id="agent-detail-workflows-h"
             testid="agent-detail-workflows"
             icon={Workflow}
-            title="可发起的工作流"
-            aside={card.workflows.length > 0 ? <span className="text-11 text-muted-foreground">{card.workflows.length} 个</span> : undefined}
+            title={t("agent.detail.workflows")}
+            aside={card.workflows.length > 0 ? <span className="text-11 text-muted-foreground">{t("agent.detail.workflowCount", { count: card.workflows.length })}</span> : undefined}
           >
             {card.workflows.length === 0 ? (
               <SectionEmpty
                 testid="agent-detail-workflows-empty"
                 icon={Workflow}
-                title="还没有为它开放成套工作流"
-                hint="不影响使用：直接说出你想做的事，它会一步步陪你推进。组织管理员发布相关工作流后会出现在这里。"
-                action={<Button size="sm" variant="outline" onClick={() => onStartChat(card.agentId)}>直接开始对话</Button>}
+                title={t("agent.detail.noWorkflows")}
+                hint={t("agent.detail.workflowHint")}
+                action={<Button size="sm" variant="outline" onClick={() => onStartChat(card.agentId)}>{t("agent.detail.startChat")}</Button>}
               />
             ) : (
               <ul className="mt-3 flex flex-col divide-y divide-border rounded-control border border-border">
@@ -346,10 +347,10 @@ function AgentDetailBody({ card, extras, onStartChat }: {
                       size="sm"
                       variant="outline"
                       data-testid="agent-detail-workflow-launch"
-                      aria-label={`在对话中发起「${w.name}」`}
+                      aria-label={t("agent.detail.launchNamed", { name: w.name })}
                       onClick={() => onStartChat(card.agentId, workflowPrefill(w.name))}
                     >
-                      在对话中发起
+                      {t("agent.detail.workflowLaunch")}
                     </Button>
                   </li>
                 ))}
@@ -358,21 +359,21 @@ function AgentDetailBody({ card, extras, onStartChat }: {
             {ready ? <WorkflowRunEntry key={card.agentId} agentId={card.agentId} /> : null}
           </Section>
 
-          <Section id="agent-detail-skills-h" testid="agent-detail-skills" icon={Sparkles} title="能用的技能">
+          <Section id="agent-detail-skills-h" testid="agent-detail-skills" icon={Sparkles} title={t("agent.detail.skills")}>
             {extras.kind === "loading" && (
               <div data-testid="agent-detail-skills-loading" aria-busy className="mt-3 grid animate-pulse gap-2 sm:grid-cols-2">
                 <div className="h-12 rounded-control bg-muted" /><div className="h-12 rounded-control bg-muted" />
               </div>
             )}
             {extras.kind === "error" && (
-              <SectionEmpty testid="agent-detail-skills-error" icon={Sparkles} title="技能清单暂时读不到" hint="不影响开始对话，稍后刷新再看。" />
+              <SectionEmpty testid="agent-detail-skills-error" icon={Sparkles} title={t("agent.detail.skillsError")} hint={t("agent.detail.skillsRetry")} />
             )}
             {extras.kind === "ready" && extras.extras.skills.length === 0 && (extras.extras.pendingSkills?.length ?? 0) === 0 && (
               <SectionEmpty
                 testid="agent-detail-skills-empty"
                 icon={Sparkles}
-                title="还没有已发布的可用技能"
-                hint="这里只展示这个数字人已发布版本的技能；待验证技能通过验证后才能使用。"
+                title={t("agent.detail.noSkills")}
+                hint={t("agent.detail.skillsHint")}
               />
             )}
             {extras.kind === "ready" && extras.extras.skills.length > 0 && (
@@ -390,14 +391,14 @@ function AgentDetailBody({ card, extras, onStartChat }: {
             {extras.kind === "ready" ? (
               <>
                 <p className="mt-2 text-11 text-muted-foreground" data-testid="agent-detail-skill-counts" data-available-count={extras.extras.skills.length} data-pending-count={extras.extras.pendingSkills?.length ?? 0}>
-                  可用 {extras.extras.skills.length} · 待验证 {extras.extras.pendingSkills?.length ?? 0}
+                  {t("agent.detail.skillCounts", { available: extras.extras.skills.length, pending: extras.extras.pendingSkills?.length ?? 0 })}
                 </p>
                 {(extras.extras.pendingSkills?.length ?? 0) > 0 ? (
                   <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                     {extras.extras.pendingSkills!.map((skill) => (
                       <li key={`${skill.stableId}/${skill.contentDigest}`}><button type="button" disabled className="w-full rounded-control border border-border px-3 py-2 text-left text-muted-foreground" data-testid="agent-detail-pending-skill" data-state={skill.reason} data-skill-stable-id={skill.stableId} data-skill-stable-name={skill.stableName} aria-disabled="true">
                         <p className="truncate text-12 font-medium">{skill.displayName ?? skill.stableName}</p>
-                        <p className="mt-0.5 text-11">{skill.reason === "missing_version" ? "版本缺失" : "待验证"} · 暂不可使用</p>
+                        <p className="mt-0.5 text-11">{skill.reason === "missing_version" ? t("agent.detail.missingVersion") : t("agent.detail.pendingValidation")} · {t("agent.detail.unavailable")}</p>
                       </button></li>
                     ))}
                   </ul>
@@ -408,18 +409,18 @@ function AgentDetailBody({ card, extras, onStartChat }: {
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4">
-          <Section id="agent-detail-handoff-h" testid="agent-detail-handoff" icon={ArrowRightLeft} title="可转交给">
+          <Section id="agent-detail-handoff-h" testid="agent-detail-handoff" icon={ArrowRightLeft} title={t("agent.detail.handoff")}>
             {extras.kind === "loading" && <div aria-busy className="mt-3 h-10 animate-pulse rounded-control bg-muted" />}
             {extras.kind === "error" && (
-              <SectionEmpty testid="agent-detail-handoff-error" icon={ArrowRightLeft} title="转交对象暂时读不到" hint="稍后刷新再看。" />
+              <SectionEmpty testid="agent-detail-handoff-error" icon={ArrowRightLeft} title={t("agent.detail.handoffError")} hint={t("agent.detail.retryLater")} />
             )}
             {extras.kind === "ready" && extras.extras.delegationTargets.length === 0 && (
               <SectionEmpty
                 testid="agent-detail-handoff-empty"
                 icon={ArrowRightLeft}
-                title="它会亲自跟到底"
-                hint="目前没有给它配置可转交的同事；需要别的角色时，可以在目录里另选数字人。"
-                action={<Button asChild size="sm" variant="ghost"><Link href="/agent">浏览数字人目录</Link></Button>}
+                title={t("agent.detail.noHandoff")}
+                hint={t("agent.detail.handoffHint")}
+                action={<Button asChild size="sm" variant="ghost"><Link href="/agent">{t("agent.detail.browse")}</Link></Button>}
               />
             )}
             {extras.kind === "ready" && extras.extras.delegationTargets.length > 0 && (
@@ -443,7 +444,7 @@ function AgentDetailBody({ card, extras, onStartChat }: {
                   })}
                 </ul>
                 <p className="mt-2 text-11 text-muted-foreground">
-                  {extras.extras.requireApprovalForHandoff ? "转交前会先征得你的确认。" : "遇到对方更擅长的事，它会直接转交。"}
+                  {extras.extras.requireApprovalForHandoff ? t("agent.detail.handoffApproval") : t("agent.detail.handoffAutomatic")}
                 </p>
               </>
             )}
