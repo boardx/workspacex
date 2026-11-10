@@ -1,5 +1,5 @@
 "use client";
-import { fitStickyText } from "@repo/fabric-markdown/fabric-objects";
+import { fitStickyText, STICKY_TEXT_OPTIONS } from "@repo/fabric-markdown/fabric-objects";
 
 import { createBoardEdgePan } from "./board-edge-pan";
 import { applyBoardParentClip } from "./board-projection-parent";
@@ -147,7 +147,7 @@ export function snapFabricRotation(
 
 function stickyTextOptions(object: BoardFabricObject, options: ReturnType<typeof textOptionsFor>, label: Textbox) {
   if (object.sticky?.artifactTextFit) {
-    label.set({ ...options, text: object.content.text, fontSize: 13, lineHeight: 1.16, textAlign: "left", clipPath: undefined });
+    label.set({ ...options, text: object.content.text, ...STICKY_TEXT_OPTIONS, clipPath: undefined });
     fitStickyText(label, object.geometry.width, object.geometry.height);
     return { width: label.width, fontSize: label.fontSize, top: 0, scaleX: label.scaleX, scaleY: label.scaleY,
       clipPath: undefined, data: { stickyTextOverflow: false } };

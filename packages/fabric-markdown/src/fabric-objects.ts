@@ -317,6 +317,8 @@ export function fitStickyText(tb: Textbox, cardW: number, cardH: number): void {
   tb.setCoords();
 }
 
+export const STICKY_TEXT_OPTIONS = { fontSize: 13, lineHeight: 1.16, textAlign: "left" as const };
+
 /**
  * Textbox for a fixed-size sticky note: starts at 13px and shrinks (down to
  * 7px) until the wrapped text fits the card height. CJK wraps per grapheme.
@@ -324,10 +326,9 @@ export function fitStickyText(tb: Textbox, cardW: number, cardH: number): void {
 function makeStickyText(label: string, cardW: number, cardH: number): Textbox {
   const tb = new Textbox(label, {
     width: Math.max(1, cardW - 14),
-    fontSize: 13,
+    ...STICKY_TEXT_OPTIONS,
     fontFamily: FONT_FAMILY,
     fill: LABEL_COLOR,
-    textAlign: 'left',
     editable: false,
     left: 0,
     top: 0,
