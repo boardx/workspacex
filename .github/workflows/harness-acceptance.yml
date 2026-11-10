@@ -53,7 +53,7 @@ env:
 jobs:
   doc-smoke-scope:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-doc-smoke-scope' || 'doc-smoke-scope' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled())
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled()))
     runs-on: ubuntu-latest
     permissions: { contents: read }
     timeout-minutes: 10
@@ -113,7 +113,7 @@ jobs:
   #   两段拆成并行 job"这一件事。
   base-compile:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-compile' || 'base-compile' }}
-    if: github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh'
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -152,8 +152,9 @@ jobs:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-board-smoke' || 'board-smoke' }}
     timeout-minutes: 30
     needs:
+      - freeze-source
       - doc-smoke-scope
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -222,8 +223,9 @@ jobs:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-directory-smoke' || 'directory-smoke' }}
     timeout-minutes: 30
     needs:
+      - freeze-source
       - doc-smoke-scope
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -291,8 +293,9 @@ jobs:
   fullstack-smoke:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-fullstack-smoke' || 'fullstack-smoke' }}
     needs:
+      - freeze-source
       - doc-smoke-scope
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -397,8 +400,9 @@ jobs:
   # Public journey commands each create and clean their own database isolation scope.
   base-api-plan:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-plan' || 'base-api-plan' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
+      - freeze-source
       - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -431,9 +435,10 @@ jobs:
   base-api-shards:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-shards' || 'base-api-shards' }} (${{ matrix.shard }})
     needs:
+      - freeze-source
       - base-api-plan
       - doc-smoke-scope
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -483,10 +488,11 @@ jobs:
   base-api-exclusive:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-exclusive' || 'base-api-exclusive' }}
     needs:
+      - freeze-source
       - base-api-plan
       - base-api-shards
       - doc-smoke-scope
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -530,11 +536,12 @@ jobs:
 
   web-test-plan:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-web-test-plan' || 'web-test-plan' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     outputs:
       count: ${{ steps.plan.outputs.count }}
       shards: ${{ steps.plan.outputs.shards }}
     needs:
+      - freeze-source
       - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -560,8 +567,9 @@ jobs:
 
   web-test-shards:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-web-test-shards' || 'web-test-shards' }} (${{ matrix.shard }})
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
+      - freeze-source
       - web-test-plan
       - doc-smoke-scope
     strategy:
@@ -597,11 +605,12 @@ jobs:
 
   chat-test-plan:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-test-plan' || 'chat-test-plan' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     outputs:
       count: ${{ steps.plan.outputs.count }}
       shards: ${{ steps.plan.outputs.shards }}
     needs:
+      - freeze-source
       - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -627,8 +636,9 @@ jobs:
 
   chat-test-shards:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-test-shards' || 'chat-test-shards' }} (${{ matrix.shard }})
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base') && needs.chat-test-plan.result == 'success') && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base') && needs.chat-test-plan.result == 'success') && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
+      - freeze-source
       - chat-test-plan
       - doc-smoke-scope
     strategy:
@@ -680,8 +690,9 @@ jobs:
 
   base-package-tests:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-package-tests' || 'base-package-tests' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
+      - freeze-source
       - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -753,7 +764,7 @@ jobs:
 
   base-control-plane:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-control-plane' || 'base-control-plane' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')))
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -778,8 +789,9 @@ jobs:
 
   full-regression-core:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-full-regression-core' || 'full-regression-core' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')))
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))))
     needs:
+      - freeze-source
       - base-compile
       - base-api-plan
       - base-api-shards
@@ -848,8 +860,9 @@ jobs:
 
   chat-read:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-read' || 'chat-read' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
+      - freeze-source
       - chat-test-plan
       - chat-test-shards
       - doc-smoke-scope
@@ -873,8 +886,9 @@ jobs:
 
   self-service-profile:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-self-service-profile' || 'self-service-profile' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
+      - freeze-source
       - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -928,8 +942,9 @@ jobs:
   # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
   e2e-full:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-e2e-full' || 'e2e-full' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')))
     needs:
+      - freeze-source
       - fullstack-smoke
       - directory-smoke
       - board-smoke
@@ -968,7 +983,7 @@ jobs:
   # chat-path-coverage is the path-coverage matrix lane; chat-task-workbench is an opt-in scorecard.
   chat-path-coverage:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-path-coverage' || 'chat-path-coverage' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')))
     runs-on: ubuntu-latest
     timeout-minutes: 40
     # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
@@ -1018,7 +1033,7 @@ jobs:
 
   chat-task-workbench:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-task-workbench' || 'chat-task-workbench' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
@@ -1066,8 +1081,9 @@ jobs:
 
   targeted-ui-unit:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-targeted-ui-unit' || 'targeted-ui-unit' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode == 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode == 'targeted-ui'))
     needs:
+      - freeze-source
       - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -1095,8 +1111,9 @@ jobs:
 
   targeted-ui-browser:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-targeted-ui-browser' || 'targeted-ui-browser' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode == 'targeted-ui')
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode == 'targeted-ui'))
     needs:
+      - freeze-source
       - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -1131,7 +1148,7 @@ jobs:
 
   chat-refresh-diagnostic:
     # Explicit manual experiment only. Not a required lane or a full-regression verdict.
-    if: github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh'
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -1171,6 +1188,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
+      run_full: ${{ steps.dedup.outputs.run_full }}
       sha: ${{ steps.freeze.outputs.sha }}
       frozen_at: ${{ steps.freeze.outputs.frozen_at }}
     steps:
@@ -1180,13 +1198,32 @@ jobs:
           persist-credentials: false
       - id: freeze
         run: node .harness/scripts/ci-lightweight.mjs frozen-develop
+      - id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == schedule ]]; then
+            # Only a prior run that actually attempted the regression counts.
+            # No-op runs do not advance this checkpoint.
+            runs=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows/harness-acceptance.yml/runs?event=schedule&status=completed&head_sha=$GITHUB_SHA&per_page=100" --jq '.workflow_runs[] | select(.id != (env.GITHUB_RUN_ID | tonumber)) | .id')
+            for run in $runs; do
+              jobs=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs?per_page=100" --jq '.jobs[] | select(.name == "doc-smoke-scope" and (.conclusion == "success" or .conclusion == "failure")) | .id')
+              if [[ -n "$jobs" ]]; then
+                echo "run_full=false" >> "$GITHUB_OUTPUT"
+                echo "Develop snapshot $GITHUB_SHA was already attempted in run $run." >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+            done
+          fi
+          echo "run_full=true" >> "$GITHUB_OUTPUT"
   backend-full:
     needs:
       - freeze-source
       - full-regression-core
     uses: ./.github/workflows/backend-gates.yml
     secrets: inherit
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     with:
       api_source: acceptance-base
       api_source_sha: ${{ needs.freeze-source.outputs.sha }}
@@ -1197,25 +1234,25 @@ jobs:
       - backend-full
     uses: ./.github/workflows/board-acceptance.yml
     secrets: inherit
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
   skill-full:
     needs:
       - freeze-source
       - board-full
     uses: ./.github/workflows/skill-files-e2e.yml
     secrets: inherit
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
   billing-full:
     needs:
       - freeze-source
       - skill-full
     uses: ./.github/workflows/billing-cashier-glue.yml
     secrets: inherit
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
   hourly-full-result:
     runs-on: ubuntu-latest
     timeout-minutes: 3
-    if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)))
     needs:
       - freeze-source
       - e2e-full
@@ -1286,78 +1323,78 @@ jobs:
           path: evidence/org-create-5494/*.png
     needs:
       - freeze-source
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
   hourly-cn-content-sync-tests:
     needs:
       - freeze-source
       - billing-full
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/cn-content-sync-tests.yml
   hourly-cn-release-simulation:
     needs:
       - freeze-source
       - hourly-cn-content-sync-tests
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/cn-release-simulation.yml
   hourly-local-windows:
     needs:
       - freeze-source
       - hourly-cn-release-simulation
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/local-windows.yml
   hourly-whiteboard-outbox-browser:
     needs:
       - freeze-source
       - hourly-local-windows
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/whiteboard-outbox-browser.yml
   hourly-self-host-upgrade-drill:
     needs:
       - freeze-source
       - hourly-whiteboard-outbox-browser
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/self-host-upgrade-drill.yml
   hourly-minimal-docker-release-test:
     needs:
       - freeze-source
       - hourly-self-host-upgrade-drill
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/minimal-docker-release-test.yml
   hourly-unified-release-tests:
     needs:
       - freeze-source
       - hourly-minimal-docker-release-test
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/unified-release-tests.yml
   hourly-web-only-release-tests:
     needs:
       - freeze-source
       - hourly-unified-release-tests
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/web-only-release-tests.yml
   hourly-native-cwd-probe:
     needs:
       - freeze-source
       - hourly-web-only-release-tests
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/native-cwd-probe.yml
   hourly-home-gates:
     needs:
       - freeze-source
       - hourly-native-cwd-probe
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/home-gates.yml
   hourly-archive-bridge-tests:
     needs:
       - freeze-source
       - hourly-home-gates
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     uses: ./.github/workflows/archive-bridge-tests.yml
   devportal-browser:
     needs:
       - freeze-source
       - hourly-archive-bridge-tests
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
