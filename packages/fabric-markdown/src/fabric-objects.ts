@@ -297,7 +297,7 @@ function textFitHeight(opts: Record<string, unknown>): number | undefined {
 }
 
 /** Keep the entire label inside a fixed card, including labels too dense for 7px. */
-function fitStickyText(tb: Textbox, cardW: number, cardH: number): void {
+export function fitStickyText(tb: Textbox, cardW: number, cardH: number): void {
   tb.set({ width: Math.max(1, cardW - 14), scaleX: 1, scaleY: 1 });
   tb.initDimensions();
   const maxH = Math.max(1, cardH - 12);

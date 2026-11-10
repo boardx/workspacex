@@ -15,6 +15,13 @@ const canonical = (id: string, kind: WhiteboardObject["kind"]): WhiteboardObject
 });
 
 describe("Board canonical-to-Fabric projection adapter", () => {
+  it("restores source text fit for artifact stickies after canonical reload only", () => {
+    const imported = {...canonical("imported", "sticky"), extensionData:{content:{type:"artifact",originalStyle:{shape:"sticky"}}}};
+    const before = structuredClone(imported);
+    expect(toBoardFabricObjects([JSON.parse(JSON.stringify(imported))])[0]?.sticky).toEqual({variant:"square",sizingMode:"fixed",artifactTextFit:true});
+    expect(toBoardFabricObjects([canonical("normal", "sticky")])[0]?.sticky).toEqual({variant:"square",sizingMode:"auto-height"});
+    expect(imported).toEqual(before);
+  });
   it("projects square, rectangle, and circle stickies as distinct renderer data", () => {
     const variants = ["square", "rectangle", "circle"] as const;
     const source = variants.map((variant, index) => ({

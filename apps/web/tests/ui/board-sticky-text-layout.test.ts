@@ -20,6 +20,23 @@ describe("fixed-frame sticky text fit using real Fabric metrics", () => {
       else expect(result.fontSize).toBe(14);
     });
   }
+  it("contains every Chinese glyph in imported template notes through create and reload projection", () => {
+    setEnv(getEnv());
+    const text = "一个能理解语音输入碎片、自动还原用户真实意图的通用AI助手，让团队把零散想法整理成可执行方案，并持续跟进工作进展。";
+    const record: BoardFabricObject = {id:"imported",kind:"sticky",revision:1,orderKey:"a",geometry:{x:0,y:0,width:110,height:80,rotation:0},sticky:{variant:"square",sizingMode:"fixed",artifactTextFit:true},style:{fill:"#FFE89A",textColor:"#000000",fontSize:20},content:{text}};
+    const original = structuredClone(record);
+    for (const value of [record, JSON.parse(JSON.stringify(record))]) {
+      const group = createFabricObject(value) as Group;
+      applyCanonicalObject(group,value,false);
+      const label = group.getObjects()[1] as BrowserTextbox;
+      expect(label.text).toBe(text);
+      expect(label.clipPath).toBeUndefined();
+      expect(label.getScaledHeight()).toBeLessThanOrEqual(record.geometry.height - 12 + .01);
+      expect(label.getScaledWidth()).toBeLessThanOrEqual(record.geometry.width - 12 + .01);
+      expect(geometryFromFabric(group,value)).toEqual(record.geometry);
+    }
+    expect(record).toEqual(original);
+  });
   it("contains the measured circle text rectangle, not just its width", () => {
     const result=layoutStickyText(input("A fairly long circle note wraps over several lines", "circle"),measure);
     const r=66;
