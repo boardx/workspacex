@@ -113,6 +113,8 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...workshopOverviewEn,
   ...projectWorkbenchEn,
   "common.language": "Language",
+  "home.defaultBannerHeadline": "Make creativity more human and teamwork more effective",
+  "home.defaultBannerTagline": "Get things done with AI in one shared workspace.",
   "skill.review.version": "Review gates · Version {version}",
   "skill.review.help": "Security scanning and methodology review are separate gates. A different methodology reviewer must approve the skill before it becomes enabled.",
   "skill.review.defaultReason": "I reviewed the contract and data scope statement and found that they meet the methodology requirements.",

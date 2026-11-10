@@ -114,6 +114,8 @@ export const zhCN = {
   ...workshopOverviewZhCN,
   ...projectWorkbenchZhCN,
   "common.language": "语言",
+  "home.defaultBannerHeadline": "让创造更有人性，让协作更有效率",
+  "home.defaultBannerTagline": "在同一个工作面上，和 AI 一起完成一件事。",
   "skill.review.version": "双重门禁 · 版本 {version}",
   "skill.review.help": "安全扫描与方法论审核是并列的两道门。只有另一位方法论审核人批准后，Skill 才会启用。",
   "skill.review.defaultReason": "契约正文与数据范围声明已复核，符合方法论要求",

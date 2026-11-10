@@ -1,6 +1,7 @@
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import { I18nProvider } from "@/lib/i18n/provider";
 import { HomeView } from "@/components/home/home-screen";
 import { homeThemeStyle } from "@/lib/home-theme";
 import { orgHomeFixture } from "@/tests/fixtures/org-home-redesign";
@@ -48,5 +49,23 @@ describe("前台人物展示读取既有配置", () => {
     const expected = homeThemeStyle(colors) as Record<string,string>;
     expect(style.getPropertyValue("--primary")).toBe(expected["--primary"]);
     expect(style.getPropertyValue("--ring")).toBe(expected["--ring"]);
+  });
+});
+
+describe("home banner localization", () => {
+  it.each([
+    ["en", "Make creativity more human and teamwork more effective", "Get things done with AI in one shared workspace."],
+    ["zh-CN", "让创造更有人性，让协作更有效率", "在同一个工作面上，和 AI 一起完成一件事。"],
+  ] as const)("renders the default banner in %s", (locale, headline, tagline) => {
+    render(<I18nProvider initialLocale={locale}><HomeView config={orgHomeFixture} orgId={null} displayName={null} useDefaultBannerCopy /></I18nProvider>);
+    expect(screen.getByText(headline)).toBeTruthy();
+    expect(screen.getByText(tagline)).toBeTruthy();
+  });
+
+  it("preserves custom banner copy in English", () => {
+    const config = { ...orgHomeFixture, bannerHeadline: "组织自定义标题", bannerTagline: "组织自定义简介" };
+    render(<I18nProvider initialLocale="en"><HomeView config={config} orgId={null} displayName={null} /></I18nProvider>);
+    expect(screen.getByText(config.bannerHeadline)).toBeTruthy();
+    expect(screen.getByText(config.bannerTagline)).toBeTruthy();
   });
 });
