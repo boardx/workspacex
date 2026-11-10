@@ -113,6 +113,8 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...workshopOverviewEn,
   ...projectWorkbenchEn,
   "common.language": "Language",
+  "home.defaultBannerHeadline": "Make creativity more human and teamwork more effective",
+  "home.defaultBannerTagline": "Get things done with AI in one shared workspace.",
   "home.greeting": "Hello, {name}",
   "ui.viewAll": "View all",
   "ui.quickActions": "Quick actions",

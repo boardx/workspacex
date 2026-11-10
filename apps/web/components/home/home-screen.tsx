@@ -30,8 +30,8 @@ type ConfigState =
  * `orgId` 为空时不拉个人数据（只画配置部分）。
  */
 export function HomeView({
-  config: c, orgId, displayName,
-}: { config: HomeConfig; orgId: string | null; displayName: string | null }): JSX.Element {
+  config: c, orgId, displayName, useDefaultBannerCopy = false,
+}: { config: HomeConfig; orgId: string | null; displayName: string | null; useDefaultBannerCopy?: boolean }): JSX.Element {
   const { t } = useI18n();
   const showRecent = c.sections.recentWork;
   const showTasks = c.sections.currentTasks;
@@ -44,8 +44,8 @@ export function HomeView({
         orgId={orgId}
         title={c.title}
         greeting={displayName ? t("home.greeting", { name: displayName }) : t("ui.welcomeBack")}
-        headline={c.bannerHeadline}
-        tagline={c.bannerTagline}
+        headline={useDefaultBannerCopy ? t("home.defaultBannerHeadline") : c.bannerHeadline}
+        tagline={useDefaultBannerCopy ? t("home.defaultBannerTagline") : c.bannerTagline}
         preset={c.bannerPreset}
         color={c.bannerColor}
         imageUrl={c.bannerImageUrl}
@@ -87,5 +87,7 @@ export function HomeScreen(): JSX.Element {
       </div>
     );
   }
-  return <HomeView config={state.config} orgId={orgId} displayName={displayName} />;
+  // The API uses this timestamp for the synthesized default. Saved and preview copy stays verbatim.
+  const useDefaultBannerCopy = state.config.updatedAt === new Date(0).toISOString() && state.config.updatedBy === null;
+  return <HomeView config={state.config} orgId={orgId} displayName={displayName} useDefaultBannerCopy={useDefaultBannerCopy} />;
 }

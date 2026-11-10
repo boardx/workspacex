@@ -114,6 +114,8 @@ export const zhCN = {
   ...workshopOverviewZhCN,
   ...projectWorkbenchZhCN,
   "common.language": "语言",
+  "home.defaultBannerHeadline": "让创造更有人性，让协作更有效率",
+  "home.defaultBannerTagline": "在同一个工作面上，和 AI 一起完成一件事。",
   "home.greeting": "你好，{name}",
   "ui.viewAll": "查看全部",
   "ui.quickActions": "快捷入口",
