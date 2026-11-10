@@ -1165,7 +1165,7 @@ export function CopilotKitV2Shell({
           ) : null}
           {/* issue #2039（第 3 轮 gap #2，fidelity P2）——个人对话上下文如实说明，
               与旧轨道 `personal-chat-screen.tsx` 同一句文案，不画假项目名填空。 */}
-          <p className="text-10 text-muted-foreground">{projectId ? t("chatEntry.projectHint") : t("chatEntry.personalHint")}</p>
+          {projectId ? <p className="text-10 text-muted-foreground">{t("chatEntry.projectHint")}</p> : null}
           {/* issue #2075（TW-P2-6）—— 搜索。纯前端过滤已经在手的这份列表，
               理由见上面 `query` 声明处（契约里没有服务端查询参数）。 */}
           <Input
