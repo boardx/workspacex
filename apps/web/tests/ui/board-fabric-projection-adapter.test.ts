@@ -20,6 +20,8 @@ describe("Board canonical-to-Fabric projection adapter", () => {
     const before = structuredClone(imported);
     expect(toBoardFabricObjects([JSON.parse(JSON.stringify(imported))])[0]?.sticky).toEqual({variant:"square",sizingMode:"fixed",artifactTextFit:true});
     expect(toBoardFabricObjects([canonical("normal", "sticky")])[0]?.sticky).toEqual({variant:"square",sizingMode:"auto-height"});
+    const customized = {...imported, extensionData:{...imported.extensionData,thinkingInput:{sticky:{variant:"circle",sizing:"auto-size",color:"#FFE89A"}}}};
+    expect(toBoardFabricObjects([customized])[0]?.sticky).toEqual({variant:"circle",sizingMode:"auto-size"});
     expect(imported).toEqual(before);
   });
   it("projects square, rectangle, and circle stickies as distinct renderer data", () => {

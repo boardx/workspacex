@@ -37,6 +37,16 @@ describe("fixed-frame sticky text fit using real Fabric metrics", () => {
     }
     expect(record).toEqual(original);
   });
+  it("honors explicitly selected imported note typography while fitting", () => {
+    setEnv(getEnv());
+    const record: BoardFabricObject = {id:"styled-import",kind:"sticky",revision:1,orderKey:"a",geometry:{x:0,y:0,width:400,height:300,rotation:0},sticky:{variant:"square",sizingMode:"fixed",artifactTextFit:true},style:{fill:"#FFE89A",textColor:"#000000",textPreset:"body",fontSize:32,alignment:"right",lineHeight:1.5},content:{text:"短文本"}};
+    const group = createFabricObject(record) as Group;
+    applyCanonicalObject(group,record,false);
+    const label = group.getObjects()[1] as BrowserTextbox;
+    expect(label.fontSize).toBe(32);
+    expect(label.textAlign).toBe("right");
+    expect(label.lineHeight).toBe(1.5);
+  });
   it("contains the measured circle text rectangle, not just its width", () => {
     const result=layoutStickyText(input("A fairly long circle note wraps over several lines", "circle"),measure);
     const r=66;

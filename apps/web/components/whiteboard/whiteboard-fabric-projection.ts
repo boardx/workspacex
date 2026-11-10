@@ -30,11 +30,10 @@ function record(value: unknown): Record<string, unknown> | undefined {
 
 function projectedSticky(object: WhiteboardObject): { appearance: BoardFabricStickyAppearance; fill?: string } | undefined {
   if (object.kind !== "sticky") return undefined;
-  const fallback = { appearance: { variant: "square", sizingMode: "auto-height" } as const };
   const artifact = record(object.extensionData?.content);
-  if (artifact?.type === "artifact" && record(artifact.originalStyle)?.shape === "sticky") {
-    return { appearance: { variant: "square", sizingMode: "fixed", artifactTextFit: true } };
-  }
+  const fallback = { appearance: artifact?.type === "artifact" && record(artifact.originalStyle)?.shape === "sticky"
+    ? { variant: "square", sizingMode: "fixed", artifactTextFit: true } as const
+    : { variant: "square", sizingMode: "auto-height" } as const };
   const thinking = record(object.extensionData?.thinkingInput);
   const sticky = record(thinking?.sticky);
   if (!sticky) return fallback;

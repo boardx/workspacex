@@ -147,7 +147,7 @@ export function snapFabricRotation(
 
 function stickyTextOptions(object: BoardFabricObject, options: ReturnType<typeof textOptionsFor>, label: Textbox) {
   if (object.sticky?.artifactTextFit) {
-    label.set({ ...options, text: object.content.text, ...STICKY_TEXT_OPTIONS, clipPath: undefined });
+    label.set({ ...options, ...(object.style.textPreset ? {} : STICKY_TEXT_OPTIONS), text: object.content.text, clipPath: undefined });
     fitStickyText(label, object.geometry.width, object.geometry.height);
     return { width: label.width, fontSize: label.fontSize, top: 0, scaleX: label.scaleX, scaleY: label.scaleY,
       clipPath: undefined, data: { stickyTextOverflow: false } };
