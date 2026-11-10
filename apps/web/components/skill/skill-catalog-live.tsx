@@ -687,6 +687,7 @@ function GatePanel({
    *   两者是两个不同的事实，服务端注释里写了为什么它们各占一处
    *   （`skill.controller.ts` 的 `getSkillDetail` 分支）。
    */
+  const { t } = useI18n();
   const versionId = detail.currentVersionId;
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -713,7 +714,7 @@ function GatePanel({
     // 契约允许它为 null；真出现时说明这个 skill 连一版声明都没有，那不是门禁能处理的事。
     return (
       <p data-testid="skill-gate-no-version" className="text-11 text-muted-foreground">
-        这个 skill 还没有任何版本，门禁无从开始。
+        {t("skill.review.noVersion")}
       </p>
     );
   }
@@ -743,7 +744,7 @@ function GatePanel({
             })
           }
         >
-          安全扫描
+          {t("skill.review.scan")}
         </Button>
         <Button
           size="xs"
@@ -760,7 +761,7 @@ function GatePanel({
             })
           }
         >
-          提交评审
+          {t("skill.review.submit")}
         </Button>
         <Button
           size="xs"
@@ -780,7 +781,7 @@ function GatePanel({
             })
           }
         >
-          批准
+          {t("skill.review.approve")}
         </Button>
         <Button
           size="xs"
@@ -800,11 +801,11 @@ function GatePanel({
             })
           }
         >
-          退回
+          {t("skill.review.return")}
         </Button>
       </div>
 
-      <Field id="skill-gate-reason" label="审核理由（留痕，必填）">
+      <Field id="skill-gate-reason" label={t("skill.review.reason")}>
         <Input
           id="skill-gate-reason"
           data-testid="skill-gate-reason"
