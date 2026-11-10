@@ -44,6 +44,8 @@ export interface BoardFabricStyle {
 export interface BoardFabricStickyAppearance {
   variant: "square" | "rectangle" | "circle";
   sizingMode: "auto-height" | "fixed" | "auto-size";
+  /** Imported diagram notes retain the source renderer text fit. */
+  artifactTextFit?: boolean;
 }
 
 export interface BoardFabricPanelAppearance {

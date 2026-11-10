@@ -74,7 +74,7 @@ test('project and organization Board targets · real placement handoff, cancel a
   try{
     token=await login(page);
     const customKey=`placement-six-${randomUUID()}`;
-    const customSections=Array.from({length:6},(_,i)=>({sectionId:`s${i}`,name:`分区${i}`,type:'便利贴列表',order:i,required:false,capacity:3,layout:{col:(i%3)*2+1,row:Math.floor(i/3)*4+1,w:2,h:4,cols:1,max:3,tone:1,overflow:'缩小字号'}}));
+    const customSections=Array.from({length:6},(_,i)=>({sectionId:`s${i}`,name:`分区${i}`,type:'便利贴列表',order:i,required:false,capacity:6,layout:{col:(i%3)*2+1,row:Math.floor(i/3)*4+1,w:2,h:4,cols:2,max:6,tone:1,overflow:'缩小字号'}}));
     await ownedDatabase(async connection=>{
       await connection.query(`INSERT INTO canvas_templates (org_id,key,version,display_name,status,builtin,visibility,underlying_type,sections,tags,layout_source,size,grid_cols,grid_rows) VALUES ($1,$2,1,$3,'published',false,'org-wide','canvas',$4::jsonb,'{}','user-edited','A1',6,8)`,[FULLSTACK_E2E.orgId,customKey,'六格组织模板',JSON.stringify(customSections)]);
     });
@@ -107,7 +107,7 @@ test('project and organization Board targets · real placement handoff, cancel a
       const projectQuery=projectId?`?projectId=${encodeURIComponent(projectId)}`:'';
       const nonce=randomUUID(),label=`Fresh placement ${nonce.slice(0,8)}`;
       const lang=projectId?'canvas':'mermaid',prefix=lang==='canvas'?'chat-canvas':'chat-diagram';
-      const diagram=lang==='canvas'?[`模板: ${customKey}`,'',...customSections.flatMap(section=>[`## ${section.name}`,`- ${label} ${section.name}`,''])]:['flowchart TD',` FreshA["${label}"] --> FreshB["Fresh target"]`];
+      const diagram=lang==='canvas'?[`模板: ${customKey}`,'',...customSections.flatMap(section=>[`## ${section.name}`,...Array.from({length:6},(_,note)=>`- ${label} ${section.name} 第${note+1}条：团队需要完整记录用户访谈中的真实需求与操作困难，保留每一段中文说明，并通过跨部门讨论确认下一步行动及负责人，确保所有信息都能在便利贴中清晰阅读。`),''])]:['flowchart TD',` FreshA["${label}"] --> FreshB["Fresh target"]`];
       const body=[`Board placement source ${nonce}`,'','```'+lang,...diagram,'```'].join('\n');
       const messageId=`placement-source-${randomUUID()}`;
       await ownedDatabase(async connection=>{
@@ -215,9 +215,9 @@ test('project and organization Board targets · real placement handoff, cancel a
       await expect(page).toHaveURL(new RegExp(`/studio/board/${board.id}(?:\\?|$)`));await expect(page.getByTestId('board-fabric-surface')).toBeVisible({timeout:30_000});
       const insertedIds=committed.objects.filter(object=>!original.get(board.id)!.objects.some(old=>old.id===object.id)).map(object=>object.id);
       await expectInsertedContentVisible(page,insertedIds);
-      await expect(page.getByRole('button',{name:new RegExp(label)})).toHaveCount(lang==='canvas'?6:1);
+      await expect(page.getByRole('button',{name:new RegExp(label)})).toHaveCount(lang==='canvas'?36:1);
       for(const object of await page.getByRole('button',{name:new RegExp(label)}).all())await expect(object).toBeVisible();
-      await page.reload();await expect(page.getByRole('button',{name:new RegExp(label)})).toHaveCount(lang==='canvas'?6:1,{timeout:30_000});
+      await page.reload();await expect(page.getByRole('button',{name:new RegExp(label)})).toHaveCount(lang==='canvas'?36:1,{timeout:30_000});
       for(const object of await page.getByRole('button',{name:new RegExp(label)}).all())await expect(object).toBeVisible();
       await expectInsertedContentVisible(page,insertedIds);
       expect((await read(board.id)).objects).toEqual(committed.objects);
