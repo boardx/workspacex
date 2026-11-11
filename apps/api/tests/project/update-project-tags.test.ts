@@ -3,7 +3,7 @@
  * 上限，以及它如何喂回 `listProjects`（同一个事实，读写两侧必须一致）。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { updateProjectTags } from "../../src/application/project/update-project-tags";
+import { renameProject, updateProjectTags } from "../../src/application/project/update-project-tags";
 import { listProjects } from "../../src/application/project/list-projects";
 import { ProjectError } from "../../src/application/project/errors";
 import { PgProjectTagsRepository } from "../../src/infrastructure/project/pg-project-tags-repository";
@@ -12,7 +12,7 @@ import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-ident
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 const ORG = "f185-tags-org";
 const LEAD = "u-f185-lead";
@@ -140,4 +140,38 @@ describe("F185 updateProjectTags", () => {
       ),
     ).rejects.toMatchObject({ reasonCode: "PROJECT_NOT_FOUND" });
   });
+});
+
+describe("#6546 renameProject", () => {
+  it("persists the name and rejects non-managers and archived projects", async () => {
+    const projectId = "f185-rename";
+    await createProjectRow(projectId);
+    const deps = { repo: tagsRepo, identity };
+    const input = { orgId: toOrgId(ORG), projectId, actorId: LEAD, name: "更新项目" };
+
+    await expect(renameProject(deps, { ...input, actorId: CONSULTANT })).rejects.toMatchObject({
+      reasonCode: "ORG_ROLE_INSUFFICIENT",
+    });
+    await expect(renameProject(deps, input)).resolves.toEqual({ id: projectId, name: input.name });
+    const listed = await listProjects({ repo: listRepo, identity }, input);
+    expect(listed.find((row) => row.id === projectId)?.name).toBe(input.name);
+
+    await asApp(ORG, (client) => client.query("UPDATE projects SET status='archived' WHERE id=$1", [projectId]));
+    await expect(renameProject(deps, { ...input, name: "拒绝写入" })).rejects.toMatchObject({
+      reasonCode: "PROJECT_NOT_FOUND",
+    });
+  });
+  it("rejects renaming an active project in a disabled organization", async () => {
+    const projectId = "f185-disabled-rename";
+    await createProjectRow(projectId);
+    await asOwner((client) => client.query(
+      "UPDATE organizations SET status='disabled', disabled_at=now(), retention_until=now()+interval '30 days' WHERE id=$1",
+      [ORG],
+    ));
+    await expect(renameProject(
+      { repo: tagsRepo, identity },
+      { orgId: toOrgId(ORG), projectId, actorId: LEAD, name: "拒绝写入" },
+    )).rejects.toMatchObject({ reasonCode: "PROJECT_NOT_FOUND" });
+  });
+
 });

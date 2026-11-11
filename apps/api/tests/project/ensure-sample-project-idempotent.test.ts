@@ -43,6 +43,7 @@ class FakeProjects implements ProjectRepository {
 class FakeTags implements ProjectTagsRepository, SampleProjectLookup {
   readonly tags = new Map<string, readonly string[]>();
   constructor(private readonly projects: FakeProjects) {}
+  async renameActiveProject(): Promise<null> { return null; }
   async updateTags(_orgId: OrgId, projectId: string, tags: readonly string[]): Promise<UpdateProjectTagsOutcome> {
     if (!this.projects.rows.has(projectId)) return { kind: "not-found" };
     this.tags.set(projectId, tags);

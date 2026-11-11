@@ -1,4 +1,6 @@
 export const projectListZhCN = {
+  "projects.edit": "编辑项目",
+  "projects.editDescription": "保存后将在项目列表和工作台显示新名称。",
   "projects.description": "将对话、白板、研究与产出收在同一处团队工作空间。",
   "projects.viewSwitch": "视图切换",
   "projects.cardView": "卡片视图",
@@ -52,6 +54,8 @@ export const projectListZhCN = {
   "projects.unexpectedError": "出了点问题，稍后再试一次。",
 } as const;
 export const projectListEn: Record<keyof typeof projectListZhCN, string> = {
+  "projects.edit": "Edit project",
+  "projects.editDescription": "The new name appears in the project list and workspace.",
   "projects.description": "Keep conversations, whiteboards, research and outputs in one team workspace.",
   "projects.viewSwitch": "Switch view",
   "projects.cardView": "Card view",

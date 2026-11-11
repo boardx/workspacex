@@ -33,6 +33,20 @@ export class PgProjectTagsRepository implements ProjectTagsRepository, SamplePro
     });
   }
 
+  async renameActiveProject(orgId: OrgId, projectId: string, name: string): Promise<{ id: string; name: string } | null> {
+    return this.db.withTenant(orgId, async (session) => {
+      const result = await session.query<{ id: string; name: string }>(
+        `UPDATE projects AS p SET name = $3
+          FROM organizations AS o
+          WHERE p.id = $1 AND p.org_id = $2 AND p.status = 'active'
+            AND o.id = p.org_id AND o.status = 'active'
+          RETURNING p.id, p.name`,
+        [projectId, orgId, name],
+      );
+      return result.rows[0] ?? null;
+    });
+  }
+
   async updateTags(orgId: OrgId, projectId: string, tags: readonly string[]): Promise<UpdateProjectTagsOutcome> {
     return this.db.withTenant(orgId, async (s) => {
       // 锁住容器行：与并发的 archive/unarchive 序列化，且顺带确认它属于这个组织

@@ -35,9 +35,31 @@ export async function updateProjectTags(
   deps: UpdateProjectTagsDeps,
   input: UpdateProjectTagsInput,
 ): Promise<UpdateProjectTagsOutput> {
+  await requireProjectManager(deps.identity, input.actorId, input.orgId);
+  const outcome = await deps.repo.updateTags(input.orgId, input.projectId, input.tags);
+  switch (outcome.kind) {
+    case "updated":
+      return { id: outcome.projectId, tags: outcome.tags };
+    case "not-found":
+      throw new ProjectError("PROJECT_NOT_FOUND");
+  }
+}
+
+
+export async function renameProject(
+  deps: UpdateProjectTagsDeps,
+  input: Omit<UpdateProjectTagsInput, "tags"> & { readonly name: string },
+): Promise<{ id: string; name: string }> {
+  await requireProjectManager(deps.identity, input.actorId, input.orgId);
+  const result = await deps.repo.renameActiveProject(input.orgId, input.projectId, input.name);
+  if (!result) throw new ProjectError("PROJECT_NOT_FOUND");
+  return result;
+}
+
+async function requireProjectManager(identity: IdentityRepository, actorId: string, orgId: OrgId) {
   let orgRole: Awaited<ReturnType<IdentityRepository["findOrgMembership"]>>;
   try {
-    orgRole = await deps.identity.findOrgMembership(input.actorId, input.orgId);
+    orgRole = await identity.findOrgMembership(actorId, orgId);
   } catch {
     // ⚠ 判定服务不可用**一律拒绝，不得降级放行**（同 `archive-project.ts` / `create-project.ts`）。
     throw new ProjectError("AUTH_SERVICE_UNAVAILABLE");
@@ -47,11 +69,4 @@ export async function updateProjectTags(
     throw new ProjectError("ORG_ROLE_INSUFFICIENT");
   }
 
-  const outcome = await deps.repo.updateTags(input.orgId, input.projectId, input.tags);
-  switch (outcome.kind) {
-    case "updated":
-      return { id: outcome.projectId, tags: outcome.tags };
-    case "not-found":
-      throw new ProjectError("PROJECT_NOT_FOUND");
-  }
 }
