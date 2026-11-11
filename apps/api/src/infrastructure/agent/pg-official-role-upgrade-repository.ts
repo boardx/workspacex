@@ -47,10 +47,10 @@ async function eligible(session: TenantSession, orgId: string, pack: OfficialAge
     const historicalDigest = historicalOfficialRoleInstructionDigests(sourceVersion)[row.stable_name];
     const historicalModel = row.model_provider === "dashscope" && row.model_id === "qwen-plus"
       && historicalDigest === row.instruction_digest;
-    const preservedV17Pins = sourceVersion === "1.7.0" && row.instruction_digest === target.instructionDigest
+    const preservedHistoricalPins = ["1.7.0", "1.8.0"].includes(sourceVersion) && historicalDigest === row.instruction_digest
       && row.skill_version_ids.every(id => resolvedPins.includes(id));
     if (row.model_provider !== target.modelProvider || (row.model_id !== target.modelId && !historicalModel)
-      || (!refreshBindings && row.skill_version_ids.length !== 0 && !preservedV17Pins)
+      || (!refreshBindings && row.skill_version_ids.length !== 0 && !preservedHistoricalPins)
       || normalized(row.published.tool_policy) !== normalized(target.toolPolicy)) return false;
     return imports.rows.some((ledger) => {
       const index = ledger.result_json.agentIds.indexOf(row.id);
