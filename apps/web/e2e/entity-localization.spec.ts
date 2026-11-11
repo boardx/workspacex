@@ -274,21 +274,16 @@ test("organization profile preserves authored data and enforces real grant and m
   try {
     const member = await memberContext.newPage(); await login(member, false);
     const memberHeaders = await authorization(member);
-    const deniedProfile = member.waitForResponse(response => response.request().method() === "PATCH" && new URL(response.url()).pathname === profilePath);
-    const deniedGrants = member.waitForResponse(response => response.request().method() === "GET" && new URL(response.url()).pathname === grantsPath);
+    expect((await member.request.patch(profilePath, {
+      headers: memberHeaders, data: { orgId: ENTITY_LOCALIZATION_E2E.orgId, name, description },
+    })).status()).toBe(403);
+    expect((await member.request.get(grantsPath, { headers: memberHeaders })).status()).toBe(403);
     await member.goto("/org-admin/profile");
-    expect((await deniedProfile).status()).toBe(403); expect((await deniedGrants).status()).toBe(403);
-    await setShellLocale(member, "en");
+    await expect(member).toHaveURL(/\/home$/);
     await expect(member.getByTestId("org-admin-profile-form")).toHaveCount(0);
-    await expect(member.getByTestId("denied").filter({ hasText: "Only organization administrators can edit the organization profile." }).getByTestId("denied-layer")).toHaveText("Organization restriction: Only organization administrators can edit the organization profile. You are not an administrator in this organization.");
-    await expect(member.getByTestId("standing-tool-grants").getByTestId("denied-layer")).toHaveText("Organization restriction: Only organization administrators can view and revoke standing tool grants.");
-    await expect(member.getByRole("switch")).toBeDisabled();
     expect((await member.request.get(settingPath, { headers: memberHeaders })).status()).toBe(200);
     expect((await member.request.put(settingPath, { headers: memberHeaders, data: { enabled: !setting.orgEnabled } })).status()).toBe(403);
     expect((await member.request.delete(`${grantsPath}/${grant!.grantId}`, { headers: memberHeaders })).status()).toBe(403);
-    await member.screenshot({ path: testInfo.outputPath("org-profile-member-denied-en.png"), fullPage: true });
-    await setShellLocale(member, "zh-CN");
-    await expect(member.getByTestId("standing-tool-grants").getByTestId("denied-layer")).toHaveText("组织层限制：只有组织管理员可以查看和撤销长期工具授权。");
   } finally { await memberContext.close(); }
 
   const toggle = page.getByRole("switch", { name: "Enable memory extraction for this organization", exact: true });
@@ -879,11 +874,9 @@ test("organization home configuration preserves drafts, real previews and recomm
     const forbidden = await member.request.put(homePath, { headers: memberHeaders, data: { ...payload, title: "Unauthorized edit" } });
     expect(forbidden.status()).toBe(403);
     expect(homeConfig.HomeConfig.parse(await (await page.request.get(homePath, { headers })).json())).toEqual(persisted);
-    await member.goto("/org-admin/home-config"); await setShellLocale(member, "en");
-    await expect(member.getByTestId("home-config-screen").getByRole("alert")).toContainText("Only organization administrators can configure the home page.");
+    await member.goto("/org-admin/home-config");
+    await expect(member).toHaveURL(/\/home$/);
     await expect(member.getByTestId("home-config-form")).toHaveCount(0);
-    await member.screenshot({ path: testInfo.outputPath("home-config-member-denied.png"), fullPage: true });
-    await member.goto("/home");
     await expect(member.getByTestId("home-screen")).toContainText(title);
     await expect(member.getByTestId("home-screen")).toContainText(agent!.name);
     await expect(member.getByTestId("home-screen")).toContainText(skill!.name);
@@ -1036,11 +1029,7 @@ test("workflow grant management persists canonical permissions and audit across 
     let memberReads = 0;
     member.on("request", request => { if (request.method() === "GET" && new URL(request.url()).pathname === listPath) memberReads++; });
     await member.goto("/org-admin/workflow-grants");
-    await setShellLocale(member, "en");
-    await expect(member.getByTestId("denied-layer")).toContainText("Only organization administrators");
-    await member.screenshot({ path: testInfo.outputPath("workflow-grants-member-denied-375.png") });
-    await setShellLocale(member, "zh-CN");
-    await expect(member.getByTestId("denied-layer")).toContainText("仅组织管理员");
+    await expect(member).toHaveURL(/\/home$/);
     expect(memberReads).toBe(0);
     const afterDenied = await read();
     expect(afterDenied.grants).toEqual(restored.grants);
