@@ -66,6 +66,15 @@ describe("organization quota guidance through the production HTTP boundary", () 
   });
   afterAll(async () => { await app?.close(); });
 
+  it("preserves the member Credit usage conflict through HTTP without exposing private detail", async () => {
+    thrown = new HttpException({ reasonCode: "MEMBER_CREDIT_LIMIT_BELOW_USAGE", detail: "private usage data" }, 409);
+    const response = await fetch(`${base}/quota-conflict`);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "conflict", traceId: "quota-conflict-trace", reasonCode: "MEMBER_CREDIT_LIMIT_BELOW_USAGE",
+    });
+  });
+
   it.each([
     { reasonCode: "QUOTA_OVERALLOCATED", remainingTokens: 500000 },
     { reasonCode: "QUOTA_OVERALLOCATED", remainingTokens: 0 },
