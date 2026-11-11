@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { MousePointer2, StickyNote, Trash2, Maximize, Save, X, Check, ImageDown, FileDown } from "lucide-react";
+import { MousePointer2, StickyNote, Trash2, Maximize, Save, X, Check, ImageDown, FileDown, PanelRight } from "lucide-react";
 import { wrapAsMermaidBlock, extractMermaidBlocks, getTemplate } from "@repo/fabric-markdown";
 import { CanvasStage, type CanvasStageHandle } from "@/components/canvas/canvas-stage";
 import { checkCanvasFence, isCanvasFenceLang, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
@@ -97,6 +97,8 @@ export function ChatCanvasModal({
   );
   const [markdown, setMarkdown] = React.useState(savedMarkdown ?? initialMarkdown);
   const [tool, setTool] = React.useState<CanvasTool>("select");
+  const [savePanelOpen, setSavePanelOpen] = React.useState(false);
+  const savePanelId = React.useId();
   const [zoom, setZoom] = React.useState(1);
   const [saved, setSaved] = React.useState<
     { source: string; at: string; artifactId: string | null } | null
@@ -325,6 +327,23 @@ export function ChatCanvasModal({
               有未保存的改动
             </span>
           )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="hidden md:inline-flex"
+                aria-label={savePanelOpen ? "收起保存目标" : "展开保存目标"}
+                aria-expanded={savePanelOpen}
+                aria-controls={savePanelId}
+                onClick={() => setSavePanelOpen(open => !open)}
+              >
+                <PanelRight aria-hidden className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{savePanelOpen ? "收起保存目标" : "展开保存目标"}</TooltipContent>
+          </Tooltip>
           <Button
             variant="primary"
             size="sm"
@@ -397,7 +416,11 @@ export function ChatCanvasModal({
           />
         </div>
 
-        <aside className="hidden w-80 shrink-0 flex-col border-l border-border bg-card md:flex">
+        <aside
+          id={savePanelId}
+          hidden={!savePanelOpen}
+          className={`hidden w-80 shrink-0 flex-col border-l border-border bg-card ${savePanelOpen ? "md:flex" : ""}`}
+        >
           <div className="border-b border-border px-3 py-2 text-12 font-medium">
             保存目标 · 画布 Artifact
             {!canPersist && (
