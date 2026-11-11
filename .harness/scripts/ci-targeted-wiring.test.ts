@@ -16,7 +16,7 @@ it('hourly full plan activates full real producers and omits UI-only subset prod
  const w=load('harness-acceptance'),probe={eventName:'schedule',ref:'refs/heads/develop',baseBranch:'develop',regressionMode:'full'};
  for(const name of ['fullstack-smoke','base-package-tests','web-test-plan','chat-test-plan',...UI_PRODUCERS]){
   const job=w.jobs[name],names=[].concat(job.needs??[]),needsResults=new Map(names.map(n=>[n,'success']));expect(names).toContain('doc-smoke-scope');
-  expect(evaluateIf(job.if,probe,{needsResults})).toBe(!UI_PRODUCERS.includes(name));
+  expect(evaluateIf(job.if,probe,{needsResults,needsOutputs:new Map([['needs.freeze-source.outputs.run_full','true']])})).toBe(!UI_PRODUCERS.includes(name));
  }
  expect(load('harness-verify').jobs['targeted-ui-browser']).toBeUndefined();
 });
@@ -55,11 +55,14 @@ it.each([['full-regression-core','base'],['e2e-full','e2e']])('accepts actual %s
   });
   if(kind==='base')selected.push(...apiActive);
   const actual=Object.fromEntries(job.needs.map((key:string)=>{
+   if(key==='freeze-source')return [key,{result:'success',outputs:{run_full:'true'}}];
    if(key==='doc-smoke-scope')return [key,{result:'success',outputs:{mode,plan_digest:'a'.repeat(64)}}];
    const active=mode==='full'?!UI_PRODUCERS.includes(key):selected.includes(key);
    return [key,{result:active?'success':'skipped',outputs:active?{verdict:'success'}:{}}];
   }));
   expect(requireRoute(kind,actual,event).mode).toBe(mode);
+  expect(()=>requireRoute(kind,{...actual,'freeze-source':{result:'success',outputs:{run_full:'false'}}},event))
+   .toThrow('INVALID_FROZEN_SOURCE_ADMISSION');
   if(kind==='base'&&mode==='targeted-ui')for(const producer of apiActive)for(const result of ['failure','cancelled','skipped']){
    expect(()=>requireRoute(kind,{...actual,[producer]:{...actual[producer],result}},event)).toThrow('ROUTED_PRODUCER_REJECTED');
   }
