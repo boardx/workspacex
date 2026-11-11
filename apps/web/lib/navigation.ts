@@ -116,6 +116,9 @@ export interface NavViewer {
 const SCOPED_NAV_KEYS: Record<string, (viewer: NavViewer) => boolean> = {
   admin: (v) => v.orgRole === "admin",
   "platform-admin": (v) => v.platformOperator === true,
+  // Temporarily hidden from the sidebar.
+  tasks: () => false,
+  workflows: () => false,
 };
 
 /** 按当前登录者过滤一级导航（空组则整段不渲染）。渲染方一律走这里，不要各自写判断。 */
