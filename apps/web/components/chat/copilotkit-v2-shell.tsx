@@ -5,7 +5,7 @@ import { ChatShareButton } from "./chat-share-button";
 import { ChatHandoffStream } from "@/components/chat/chat-handoff-panel";
 import { handoffDraftText, type HandoffView } from "@/lib/agent-handoff";
 import { seedComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
-import { displayThreadTitle } from "@/lib/thread-title-display";
+import { displayConversationTitle } from "@/lib/thread-title-display";
 import { useOptionalCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import { ThreadCitationsProvider } from "@/components/chat/message-citations";
 import { useRouter } from "next/navigation";
@@ -34,6 +34,7 @@ import { THREAD_PAGE_SIZE, appendThreadPage, hasMorePages, refreshLimit } from "
 import { useIntervalFocusRefresh } from "@/lib/chat-workbench/use-interval-focus-refresh";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { ApiError } from "@/lib/api-client";
 import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import { useReportShellBusy } from "@/lib/shell-busy";
@@ -766,39 +767,6 @@ export function CopilotKitV2Shell({
     }
   }, [bearer, loadRoster, roster, selectedThreadId, projectId]);
 
-  const [createPending, setCreatePending] = React.useState(false);
-  /**
-   * 🔴 2026-08-31 补：`handleCreate` 此前没有 catch——`createPersonalThread`/
-   *   `reloadThreads` 失败时异常直接从 `void handleCreate()` 里逃逸成一个未处理的
-   *   promise rejection，用户点"新建"后界面上什么反馈都没有（`finally` 确实会把
-   *   `createPending` 复位，按钮不会卡死，但失败本身无声无息）。兄弟处理器
-   *   `handleRename`/`handleDelete`/`runRosterMutation` 都是"捕获失败 → 显式落一个
-   *   失败态给用户看"的同一套纪律（`describeMutateFailure`），这里补齐，不是新造一套。
-   */
-  const [createFailureNotice, setCreateFailure] = React.useState<{ cause: unknown } | null>(null);
-  const createFailure = createFailureNotice ? describeMutateFailure(createFailureNotice.cause, locale) : null;
-
-  // #3522: explicit new means a new thread. A list's empty badge can be stale
-  // while another tab is already sending; never reuse that shared draft here.
-  const createPendingRef = React.useRef(false);
-  const handleCreate = React.useCallback(async () => {
-    if (!bearer || createPendingRef.current) return;
-    createPendingRef.current = true;
-    setCreatePending(true);
-    setCreateFailure(null);
-    try {
-      const result = await createWorkbenchThread(projectId);
-      await reloadThreads();
-      applyThreadSelection(result.threadId); // 同上
-      router.push(workbenchThreadPath(result.threadId, projectId));
-    } catch (failure) {
-      setCreateFailure({ cause: failure });
-    } finally {
-      createPendingRef.current = false;
-      setCreatePending(false);
-    }
-  }, [applyThreadSelection, bearer, reloadThreads, router, projectId]);
-
   /**
    * issue #2259 —— rev-e2e 真栈实测过一次：点击侧栏已有对话，网络面板证实
    * `/chat/thr-<id>?_rsc=...` 的软导航预取请求确实发出了，但 `location.href`
@@ -880,6 +848,79 @@ export function CopilotKitV2Shell({
     applyThreadSelection(threadId);
     pushThreadRoute(threadId);
   }, [applyThreadSelection, pushThreadRoute]);
+
+  const [createPending, setCreatePending] = React.useState(false);
+  /**
+   * 🔴 2026-08-31 补：`handleCreate` 此前没有 catch——`createPersonalThread`/
+   *   `reloadThreads` 失败时异常直接从 `void handleCreate()` 里逃逸成一个未处理的
+   *   promise rejection，用户点"新建"后界面上什么反馈都没有（`finally` 确实会把
+   *   `createPending` 复位，按钮不会卡死，但失败本身无声无息）。兄弟处理器
+   *   `handleRename`/`handleDelete`/`runRosterMutation` 都是"捕获失败 → 显式落一个
+   *   失败态给用户看"的同一套纪律（`describeMutateFailure`），这里补齐，不是新造一套。
+   */
+  const [createFailureNotice, setCreateFailure] = React.useState<{ cause: unknown } | null>(null);
+  const createFailure = createFailureNotice ? describeMutateFailure(createFailureNotice.cause, locale) : null;
+
+  const createRequest = React.useRef<AbortController | null>(null);
+  const userId = session?.userId;
+  React.useLayoutEffect(() => {
+    setCreatePending(false);
+    setCreateFailure(null);
+    return () => {
+      createRequest.current?.abort();
+      createRequest.current = null;
+    };
+  }, [bearer, currentOrgId, projectId, userId]);
+
+  const handleCreate = React.useCallback(async () => {
+    if (!bearer || !userId || createRequest.current) return;
+    cancelPendingFallback();
+    const generation = navigationGeneration.current;
+    const request = new AbortController();
+    const isCurrent = () => !request.signal.aborted && navigationGeneration.current === generation;
+    createRequest.current = request;
+    setCreatePending(true);
+    setCreateFailure(null);
+    try {
+      // Refresh the unfiltered list for run status, then check messages at the point of reuse.
+      const list = await listWorkbenchThreads(projectId, bearer, request.signal, {
+        limit: refreshLimit(threadsRef.current),
+      });
+      if (!isCurrent()) return;
+      const candidates = list.groups.flatMap((group) => group.cards)
+        .filter((card) => card.status === "not-started" && card.visibilityScope === "private");
+      const selectedCandidate = candidates.find((card) => card.id === selectedThreadIdRef.current);
+      const orderedCandidates = selectedCandidate
+        ? [selectedCandidate, ...candidates.filter((card) => card !== selectedCandidate)]
+        : candidates;
+      for (const card of orderedCandidates) {
+        const detail = await getThread(card.id, projectId, bearer).catch((error: unknown) => {
+          if (error instanceof ApiError && error.status === 404) return null;
+          throw error;
+        });
+        if (!isCurrent()) return;
+        if (detail && detail.thread.id === card.id && detail.thread.projectId === projectId
+          && !detail.thread.archived && detail.thread.visibilityScope === "private"
+          && detail.thread.createdBy === userId && detail.messages.length === 0
+          && detail.capabilities.includes("composer.send")) {
+          selectThread(card.id);
+          return;
+        }
+      }
+      const result = await createWorkbenchThread(projectId, bearer);
+      if (!isCurrent()) return;
+      await reloadThreads();
+      if (!isCurrent()) return;
+      selectThread(result.threadId);
+    } catch (failure) {
+      if (isCurrent()) setCreateFailure({ cause: failure });
+    } finally {
+      if (createRequest.current === request) {
+        createRequest.current = null;
+        setCreatePending(false);
+      }
+    }
+  }, [bearer, cancelPendingFallback, projectId, reloadThreads, selectThread, userId]);
 
   /* AG07：handoff 卡片——一轮对话有动静后重读；确认转交后切到接收方新线程并选中目标 Agent。 */
   const [handoffRefreshKey, setHandoffRefreshKey] = React.useState(0);
@@ -1304,7 +1345,7 @@ export function CopilotKitV2Shell({
           >
             {selectedThreadId === null
               ? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"))
-              : displayThreadTitle(cards.find((card) => card.id === selectedThreadId)?.title) ?? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"))}
+              : displayConversationTitle(cards.find((card) => card.id === selectedThreadId)?.title, t("chatEntry.untitled")) ?? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"))}
           </span>
           <span
             className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-10 text-muted-foreground"

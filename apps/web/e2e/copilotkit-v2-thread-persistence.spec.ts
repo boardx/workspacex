@@ -94,6 +94,32 @@ test("发消息→整页刷新→消息仍在（URL 绑定的持久化 chatThrea
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(marker, { timeout: 30_000 });
 });
 
+test("#6531 English new conversation reuses the existing empty draft", async ({ page }) => {
+  await login(page);
+  await page.context().addCookies([{ name: "workspacex-locale", value: "en", url: page.url() }]);
+  await page.goto("/chat");
+  const create = page.getByRole("button", { name: "New conversation", exact: true });
+  await create.click();
+  await expect(page).toHaveURL(/\/chat\/[^/]+$/);
+  await waitForEmptyThreadReady(page);
+  const emptyThreadUrl = page.url();
+  const emptyThreadId = new URL(emptyThreadUrl).pathname.split("/").pop()!;
+  await expect(page.getByTestId(`chat-thread-${emptyThreadId}`)).toContainText("New conversation");
+
+  let duplicateCreates = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/chat/threads/mutate")
+      && request.postDataJSON()?.op === "create") duplicateCreates++;
+  });
+  const checkedDraft = page.waitForResponse((response) =>
+    response.request().method() === "GET" && new URL(response.url()).pathname.endsWith(`/chat/threads/${emptyThreadId}`));
+  await create.click();
+  expect((await checkedDraft).ok()).toBe(true);
+  await expect(create).toBeEnabled();
+  await expect(page).toHaveURL(emptyThreadUrl);
+  expect(duplicateCreates).toBe(0);
+});
+
 test("新建对话→线程列表出现两条→切换回第一条→历史正确恢复", async ({ page }) => {
   await login(page);
   await warmUpCopilotRuntimeRoute(page);
@@ -110,7 +136,6 @@ test("新建对话→线程列表出现两条→切换回第一条→历史正�
   await page.waitForURL(/\/chat\/[^/]+$/);
   await expect(page).not.toHaveURL(firstThreadUrl);
   await waitForEmptyThreadReady(page);
-
   const secondMarker = `DA-2021-线程二-${Date.now()}`;
   await sendAndWaitEcho(page, secondMarker);
   const secondThreadUrl = page.url();

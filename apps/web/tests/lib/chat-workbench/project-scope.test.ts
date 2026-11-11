@@ -9,10 +9,10 @@ describe("workbench project scope", () => {
     expect(workbenchThreadPath("a", null)).toBe("/chat/a");
   });
   it("creates private project threads and uses the project list with cancellation", () => {
-    createWorkbenchThread("p");
-    expect(createThread).toHaveBeenCalledWith({ projectId: "p", groupId: null, title: "新对话", visibilityScope: "private" });
-    createWorkbenchThread(null);
-    expect(createPersonalThread).toHaveBeenCalledWith(null);
+    createWorkbenchThread("p", "token");
+    expect(createThread).toHaveBeenCalledWith({ projectId: "p", groupId: null, title: "新对话", visibilityScope: "private" }, "token");
+    createWorkbenchThread(null, "token");
+    expect(createPersonalThread).toHaveBeenCalledWith(null, "token");
     const signal = new AbortController().signal;
     vi.mocked(listThreads).mockResolvedValue({ groups: [], capabilities: [] } as never);
     listWorkbenchThreads("p", "token", signal);
