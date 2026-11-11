@@ -65,7 +65,9 @@ test("administration quotas retain drafts and canonical writes while usage prese
     await expect(page.getByTestId("org-admin-invite-link-block")).toHaveCount(0);
     expect([reads, writes]).toEqual(beforeInviteLocale);
 
-    await page.reload(); await expect(page.getByTestId(`admin-member-card-${userId}`)).toContainText("12,500");
+    await page.reload();
+    await expect(page.getByTestId("admin-member-credit-unavailable")).toContainText("Members use personal Credits");
+    await expect(page.getByTestId("admin-quota-budget-open")).toHaveCount(0);
     await page.getByTestId("admin-members-tab-policy").click(); await expect(page.getByTestId("admin-limit-rules-live")).toBeVisible();
     await expect(page.getByTestId("admin-no-backend-notice")).toContainText("static demonstration");
     await page.getByTestId("admin-limit-rule-new").click();
