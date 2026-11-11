@@ -1,6 +1,6 @@
 import * as React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 const ports = vi.hoisted(() => ({ request: vi.fn(), upload: vi.fn() }));
 vi.mock("@/lib/api-client", async load => ({ ...(await load<typeof import("@/lib/api-client")>()), apiRequest: ports.request }));
 vi.mock("@/lib/live-feedback", async load => ({ ...(await load<typeof import("@/lib/live-feedback")>()), uploadFeedbackAttachment: ports.upload }));
@@ -47,4 +47,28 @@ it("keeps raw user text after a structure failure and changes only its persisted
   fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: raw } }); fireEvent.click(screen.getByTestId("feedback-proceed-review"));
   const failure = await screen.findByTestId("feedback-structure-error"); expect(failure).toHaveTextContent("Could not organize"); expect(screen.getByTestId("feedback-detail-input")).toHaveValue(raw);
   act(() => changeLocale()); expect(screen.getByTestId("feedback-structure-error")).toBe(failure); expect(screen.getByTestId("feedback-detail-input")).toHaveValue(raw); expect(ports.request).toHaveBeenCalledTimes(1); expect(ports.request).toHaveBeenCalledWith("/feedback/structure-draft", expect.objectContaining({ method: "POST", body: { transcript: raw } }));
+});
+
+it("submits the original text from the fixed action area when AI organization fails", async () => {
+  ports.request.mockImplementation(async (path, options) => {
+    if (path === "/feedback/structure-draft") throw new ApiError(503, "DEPENDENCY_UNAVAILABLE", "offline");
+    if (path === "/feedback" && options?.method === "POST") return { feedbackId: "feedback-6529", status: "待处理" };
+    return { items: [] };
+  });
+  render(app());
+  fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: raw } });
+  const next = screen.getByTestId("feedback-proceed-review");
+  expect(screen.getByTestId("feedback-form-scroll")).not.toContainElement(next);
+  fireEvent.click(next);
+  await screen.findByTestId("feedback-structure-error");
+
+  const submit = screen.getByTestId("feedback-submit");
+  expect(screen.getByTestId("feedback-form-scroll")).not.toContainElement(submit);
+  expect(submit).toBeEnabled();
+  fireEvent.click(submit);
+  await waitFor(() => expect(ports.request).toHaveBeenCalledWith("/feedback", expect.objectContaining({
+    method: "POST",
+    body: expect.objectContaining({ detail: raw }),
+  })));
+  await waitFor(() => expect(screen.getByTestId("feedback-tab-mine")).toHaveAttribute("aria-selected", "true"));
 });

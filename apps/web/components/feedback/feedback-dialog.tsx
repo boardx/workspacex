@@ -687,7 +687,8 @@ export function FeedbackDialog({
         </div>
 
         {tab === "submit" ? (
-          <div className="flex flex-col gap-3 overflow-y-auto p-4" data-testid="feedback-form" data-stage={stage}>
+          <div className="flex min-h-0 flex-1 flex-col" data-testid="feedback-form" data-stage={stage}>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4" data-testid="feedback-form-scroll">
             {/* issue #2679 ②——review 阶段才展示「这是什么」与「标题」；compose 阶段只有正文框
                 + 语音 + 附件，见文件顶部 `stage` 头注。
                 2026-09-10 人类反馈：review 阶段不再另开一排结构化输入框（使用场景 /
@@ -993,6 +994,15 @@ export function FeedbackDialog({
             </div>
 
             <FeedbackTagsInput tags={tags} onChange={setTags} draft={tagDraft} onDraftChange={setTagDraft} disabled={busy || draftBusy} />
+            {stage === "review" && (
+            <p className="text-10 text-muted-foreground" data-testid="feedback-context-notice">
+              {t("feedbackOverlay.context.prefix")}<code className="font-mono">{pathname ?? t("feedbackOverlay.context.unknownRoute")}</code>
+              {appVersion === null ? t("feedbackOverlay.context.unknownVersion") : t("feedbackOverlay.context.version", { version: appVersion })}{t("feedbackOverlay.context.account")}
+              {" "}{t("feedbackOverlay.context.privacy")}
+            </p>
+            )}
+          </div>
+          <footer className="flex shrink-0 flex-col gap-2 border-t border-border bg-card px-4 py-3">
             {stage === "compose" ? (
               <div className="flex items-center justify-end">
                 <Button
@@ -1009,13 +1019,6 @@ export function FeedbackDialog({
               </div>
             ) : (
             <>
-            {/* I-F1：收集了什么，明写出来。见文件头。 */}
-            <p className="text-10 text-muted-foreground" data-testid="feedback-context-notice">
-              {t("feedbackOverlay.context.prefix")}<code className="font-mono">{pathname ?? t("feedbackOverlay.context.unknownRoute")}</code>
-              {appVersion === null ? t("feedbackOverlay.context.unknownVersion") : t("feedbackOverlay.context.version", { version: appVersion })}{t("feedbackOverlay.context.account")}
-              {" "}{t("feedbackOverlay.context.privacy")}
-            </p>
-
             {error !== null && (
               <p role="alert" className="text-11 text-destructive" data-testid="feedback-submit-error">
                 {t("feedbackOverlay.submitFailure", { reason: describeFailure(error.cause, locale) })}
@@ -1044,7 +1047,7 @@ export function FeedbackDialog({
                 <PencilRuler aria-hidden className="h-3 w-3" />
                 {t("feedbackOverlay.workbench")}
               </Link>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={onClose}>{t("feedbackOverlay.cancel")}</Button>
                 {/* UC-17.8 B1：存草稿是真栈（不依赖 mock Provider）。草稿允许空正文（契约
                     `createFeedbackDraft.in.detail` 无 `.min(1)`），但一个什么都没写的草稿没有意义，
@@ -1073,6 +1076,7 @@ export function FeedbackDialog({
             </div>
             </>
             )}
+          </footer>
           </div>
         ) : (
           <>
