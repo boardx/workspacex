@@ -1,6 +1,6 @@
 import {ORG_INVITATION_DELIVERY,type OrgInvitationDelivery} from "../../application/auth/org-invitation-delivery";
-import {EnterpriseCreditPlanRequired} from "../../application/auth/member-credit-quota-port";
-import {SetMemberCreditQuota} from "@repo/contracts/member-credit-quota";
+import {EnterpriseCreditPlanRequired,MemberCreditQuotaBelowUsage} from "../../application/auth/member-credit-quota-port";
+import {BatchMemberCreditQuota,SetMemberCreditQuota,memberCreditQuotaOperations} from "@repo/contracts/member-credit-quota";
 /**
  * F11 的三条路由（UC-1.6 R10 / O-28 ⑥ / O-29 ②④⑤）+ #363 补接的两条孤儿契约操作。
  * 协议适配，判断全在 `application`。
@@ -478,6 +478,18 @@ export class OrgAdminManagementController {
     return this.quotas.creditQuotas.readCreditQuotas(orgId);
   }
 
+  @Post(memberCreditQuotaOperations.batch.path)
+  async setCreditQuotas(
+    @Param("orgId") orgIdParam: string,
+    @Body(new ZodBodyPipe(BatchMemberCreditQuota)) body: BatchMemberCreditQuota,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const {orgId} = await this.requireOrgAdmin(principal, orgIdParam);
+    if (!this.quotas.creditQuotas) throw new HttpException({reasonCode:"DEPENDENCY_UNAVAILABLE"}, 503);
+    try { return await this.quotas.creditQuotas.setCreditQuotas(orgId,body.updates,principal.userId); }
+    catch(error) { this.throwCreditQuotaWriteError(error); }
+  }
+
   @Patch("/organizations/:orgId/credit-quotas/:userId")
   async setCreditQuota(
     @Param("orgId") orgIdParam: string, @Param("userId") userId: string,
@@ -487,11 +499,14 @@ export class OrgAdminManagementController {
     const {orgId} = await this.requireOrgAdmin(principal, orgIdParam);
     if (!this.quotas.creditQuotas) throw new HttpException({reasonCode:"DEPENDENCY_UNAVAILABLE"}, 503);
     try { return await this.quotas.creditQuotas.setCreditQuota(orgId,userId,body.monthlyLimit,principal.userId); }
-    catch(error) {
-      if(error instanceof MemberNotFoundError)throw new NotFoundException({reasonCode:"MEMBER_NOT_FOUND"});
-      if(error instanceof EnterpriseCreditPlanRequired)throw new ConflictException({reasonCode:"ENTERPRISE_REQUIRED"});
-      throw error;
-    }
+    catch(error) { this.throwCreditQuotaWriteError(error); }
+  }
+
+  private throwCreditQuotaWriteError(error: unknown): never {
+    if(error instanceof MemberNotFoundError)throw new NotFoundException({reasonCode:"MEMBER_NOT_FOUND"});
+    if(error instanceof EnterpriseCreditPlanRequired)throw new ConflictException({reasonCode:"ENTERPRISE_REQUIRED"});
+    if(error instanceof MemberCreditQuotaBelowUsage)throw new ConflictException({reasonCode:"MEMBER_CREDIT_LIMIT_BELOW_USAGE"});
+    throw error;
   }
 
   @Get("/organizations/:orgId/token-quotas")

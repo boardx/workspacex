@@ -1,3 +1,4 @@
+import { MemberCreditQuotaError } from "@repo/contracts/member-credit-quota";
 import { ErrorCode as AiCatalogErrorCode } from "@repo/contracts/ai-catalog-admin";
 import {TeamBillingHttpException} from "../controllers/team-billing-http-exception";
 import {EnterpriseHttpException,ENTERPRISE_CACHE_CONTROL} from "../controllers/enterprise-http-exception";
@@ -247,6 +248,9 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
   if (reportFileError.success) return { reasonCode: reportFileError.data };
   const sourceReportReviewError = InterviewMarkdownReportReviewErrorCode.safeParse(raw);
   if (sourceReportReviewError.success) return { reasonCode: sourceReportReviewError.data };
+
+  const creditQuotaReason = MemberCreditQuotaError.safeParse(raw);
+  if (creditQuotaReason.success) return { reasonCode: creditQuotaReason.data };
 
   /**
    * F10: `orgAdmin.OrgAdminError`, the SIXTH closed enum.

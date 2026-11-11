@@ -24,7 +24,7 @@
   "src/infrastructure/billing/team-wechat-checkout-client.ts": "5fd478cd562acbb818f11845bb5a181300c228696affefcc178a76bd79da91de",
   "src/infrastructure/billing/team-payment-recovery-worker.ts": "08f3aff9dfd6d94916cc11cbcd07d5e36bd5541e6a44937c03098e8bd3982e3a",
   "src/infrastructure/billing/member-credit-quota.ts": "06b9d4387c45c2807b331a0592a4279712c95d59c0dc139fc2b85c33156ba648",
-  "src/infrastructure/billing/pg-member-credit-quota-repository.ts": "7d42a30e597ecaed38886569162dabf1c516d50966d6cd5b61abf384e8dcf834",
+  "src/infrastructure/billing/pg-member-credit-quota-repository.ts": "d0227c70ded93fbfee952bed19afe5db8969df31fe8b5a6fa94eba3aa75575d6",
   "src/interface/controllers/team-billing.controller.ts": "2cf23ba6ceb1239eb94dea161297b8f573128e7fa3dd50eec47a3f24ba389095",
   "src/interface/controllers/team-billing-http-exception.ts": "3fddc7ee8653cdfe3da6f204921ff7a94ce4d405969b14620f9f2bfa7db31e56"
 }

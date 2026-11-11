@@ -9,9 +9,15 @@ export const MemberCreditQuotaSnapshot=z.object({
   overridden:z.boolean(),usedCredits:z.number().nonnegative(),heldCredits:z.number().nonnegative()})),
 });
 export type MemberCreditQuotaSnapshot=z.infer<typeof MemberCreditQuotaSnapshot>;
+export const BatchMemberCreditQuota = z.object({
+ updates: z.array(z.object({userId:z.string().min(1),monthlyLimit:MemberMonthlyCreditLimit}).strict()).min(1),
+}).strict().refine(({updates})=>new Set(updates.map(({userId})=>userId)).size===updates.length);
+export type BatchMemberCreditQuota = z.infer<typeof BatchMemberCreditQuota>;
+export const MemberCreditQuotaError = z.enum(["MEMBER_CREDIT_LIMIT_BELOW_USAGE"]);
 export const operations={
  get:{method:'GET',path:'/organizations/:orgId/credit-quotas',in:z.object({orgId:z.string().min(1)}).strict(),out:MemberCreditQuotaSnapshot},
- set:{method:'PATCH',path:'/organizations/:orgId/credit-quotas/:userId',in:SetMemberCreditQuota,out:z.object({monthlyLimit:MemberMonthlyCreditLimit})},
+ batch:{method:'POST',path:'/organizations/:orgId/credit-quotas/batch',in:BatchMemberCreditQuota,out:z.object({updated:z.number().int().nonnegative()}),err:MemberCreditQuotaError.options},
+ set:{method:'PATCH',path:'/organizations/:orgId/credit-quotas/:userId',in:SetMemberCreditQuota,out:z.object({monthlyLimit:MemberMonthlyCreditLimit}),err:MemberCreditQuotaError.options},
 } as const;
 
 export const memberCreditQuotaOperations=operations;
