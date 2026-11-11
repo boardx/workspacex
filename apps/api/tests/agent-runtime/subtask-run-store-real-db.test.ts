@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: the HTTP test funds a unique personal wallet and removes it by exact owner.
 import {EXECUTION_MODE_CONFIG_KEY} from "@repo/contracts/standard-capabilities";
 import { createServer } from "node:http";
 import { SUBTASK_RUN_STORE } from "../../src/application/agent-run/subtask-run-queue";
@@ -30,20 +31,20 @@ const org = toOrgId(`org-t042-${suffix}`), other = toOrgId(`org-t042-other-${suf
 const parent = `parent-${suffix}`, otherParent = `other-parent-${suffix}`;
 let db: PgDatabase;
 const logger = { info: () => {}, warn: () => {}, error: () => {} };
-async function seed(scope: typeof org, id: string) {
+async function seed(scope: typeof org, id: string, actor = "actor") {
   const project = `project-${scope}`, thread = `thread-${scope}`, agent = `agent-${scope}`, version = `version-${scope}`;
   await seedOrg({ orgId: scope, projectId: project });
-  await addOrgMember(scope,"actor","consultant",null);
+  await addOrgMember(scope,actor,"consultant",null);
   await addOrgMember(scope,"intruder","consultant",null);
-  await addChatThread({ orgId: scope, id: thread, projectId: null, visibilityScope: "private", createdBy: "actor" });
-  await addChatMessage({ orgId: scope, id: `message-${scope}`, threadId: thread, body: "parent", authorId: "actor" });
+  await addChatThread({ orgId: scope, id: thread, projectId: null, visibilityScope: "private", createdBy: actor });
+  await addChatMessage({ orgId: scope, id: `message-${scope}`, threadId: thread, body: "parent", authorId: actor });
   await asApp(scope, async (c) => {
     await c.query(`INSERT INTO agents(id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
-      VALUES($1,$2,'t042','T042','enabled','actor',now(),now())`, [agent,scope]);
+      VALUES($1,$2,'t042','T042','enabled',$3,now(),now())`, [agent,scope,actor]);
     await c.query(`INSERT INTO agent_versions(id,org_id,agent_id,semantic_label,instruction_digest,instructions,
       skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
-      VALUES($1,$2,$3,'v1',$4,'pinned instructions','{}','test-provider','pinned-model','[]','actor',now(),now())`,
-    [version,scope,agent,createHash("sha256").update("pinned instructions").digest("hex")]);
+      VALUES($1,$2,$3,'v1',$4,'pinned instructions','{}','test-provider','pinned-model','[]',$5,now(),now())`,
+    [version,scope,agent,createHash("sha256").update("pinned instructions").digest("hex"),actor]);
     await c.query(`INSERT INTO agent_runs(id,org_id,thread_id,input_message_id,agent_id,agent_version_id,
       skill_version_ids,model_provider,model_id,status) VALUES($1,$2,$3,$4,$5,$6,'[]','test-provider','pinned-model','queued')`,
     [id,scope,thread,`message-${scope}`,agent,version]);
@@ -184,6 +185,10 @@ describe("WX-T042 durable queue", () => {
     expect(await store.get(org,run.id)).toMatchObject({ status: "failed",error: "subtask_provider_timeout_or_execution_mode_unsupported" });
   });
   it("production DI and HTTP enqueue reach a real loopback model and durable terminal state", async () => {
+    const org = toOrgId(`org-t042-http-${suffix}`);
+    const parent = `parent-http-${suffix}`;
+    const actor = `actor-t042-http-${suffix}`;
+    await seed(org, parent, actor);
     const requests: Record<string, unknown>[] = [];
     const server = createServer((req,res) => {
       const chunks: Buffer[] = [];
@@ -203,6 +208,9 @@ describe("WX-T042 durable queue", () => {
     Object.assign(process.env,env);
     let app: Awaited<ReturnType<typeof import("../../src/main")["createApp"]>> | undefined;
     try {
+      await asOwner(c => c.query(
+        "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000)", [actor],
+      ));
       app = await (await import("../../src/main")).createApp();
       await app.listen(0,"127.0.0.1");
       const port = (app.getHttpServer().address() as { port: number }).port;
@@ -224,14 +232,14 @@ describe("WX-T042 durable queue", () => {
       expect(requests[0]).not.toHaveProperty("tools");
       const url = `http://127.0.0.1:${port}/agent-runs/${parent}/subtask-runs`;
       const headers = (user: string) => ({ "x-kernel-test-principal": `${user}:${org}` });
-      expect((await fetch(url,{ headers: headers("actor") })).status).toBe(200);
+      expect((await fetch(url,{ headers: headers(actor) })).status).toBe(200);
       expect((await fetch(url,{ headers: headers("intruder") })).status).toBe(404);
-      expect((await fetch(`${url}/${body.subtaskRunId}/retry`,{ method: "POST",headers: headers("actor") })).status).toBe(409);
+      expect((await fetch(`${url}/${body.subtaskRunId}/retry`,{ method: "POST",headers: headers(actor) })).status).toBe(409);
       const failed = await durable.enqueue(org,{ parentRunId: parent,description: "retry private" });
       await durable.claimQueued(org,1); await durable.fail(org,failed.id,"fixture failed");
       expect((await fetch(`${url}/${failed.id}/retry`,{ method: "POST",headers: headers("intruder") })).status).toBe(404);
       expect(requests).toHaveLength(1);
-      const retries = await Promise.all([0,1].map(() => fetch(`${url}/${failed.id}/retry`,{ method: "POST",headers: headers("actor") })));
+      const retries = await Promise.all([0,1].map(() => fetch(`${url}/${failed.id}/retry`,{ method: "POST",headers: headers(actor) })));
       expect(retries.map(r => r.status)).toEqual([201,201]);
       const retryBodies = await Promise.all(retries.map(r => r.json())) as { subtaskRunId: string }[];
       expect(retryBodies[0]!.subtaskRunId).toBe(retryBodies[1]!.subtaskRunId);
@@ -247,12 +255,17 @@ describe("WX-T042 durable queue", () => {
       expect(late.status).toBe(409);
       expect(await late.json()).toMatchObject({reasonCode:"SUBTASK_PARENT_CANCELLED"});
       expect(requests).toHaveLength(2);
-      // Restore only this fixture before the independent adapter scenarios below.
-      await asApp(org,c=>c.query("UPDATE agent_runs SET cancel_requested_at=NULL WHERE org_id=$1 AND id=$2",[org,parent]));
     } finally {
       await app?.close();
       await new Promise<void>(resolve => server.close(() => resolve()));
       for (const [key,value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+      await asOwner(async c => {
+        await c.query("DELETE FROM credit_consumption_requests WHERE org_id = $1", [org]);
+        await c.query(
+          "DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1)", [actor],
+        );
+        await c.query("DELETE FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1", [actor]);
+      });
     }
   });
 
