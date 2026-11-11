@@ -196,3 +196,25 @@ it("requires an explicit cancel click and waits for a confirmed closure", async 
  expect(cancelled).toBe(true);
  expect(loadPersonalCheckout(localStorage,userId)).toBeNull();
 });
+
+it("refreshes pending subscription entitlement after cancellation before enabling reselection", async () => {
+ const subscription = {sku:"pro",kind:"subscription",cycle:"month",currency:"CNY",amountMinor:19900,monthlyCredits:20000} as const;
+ const key = crypto.randomUUID();
+ beginPersonalCheckout(localStorage,userId,{sku:subscription.sku,provider:"wechat",catalogVersion:catalog.version,idempotencyKey:key});
+ bindPersonalCheckout(localStorage,userId,key,result);
+ let cancelled = false;
+ const readEntitlement = vi.fn(() => reply({...entitlement,checkoutPending:false}));
+ vi.stubGlobal("fetch",vi.fn(async (input:string) => {
+  const path = new URL(input).pathname;
+  if (path.endsWith("/cancel")) cancelled = true;
+  if (!path.startsWith("/billing/orders/")) {
+   expect(cancelled).toBe(true);
+   return readEntitlement();
+  }
+  return reply({order:{...order,packageId:subscription.sku,amountFen:subscription.amountMinor,baseCredits:subscription.monthlyCredits,status:cancelled?"CLOSED":"PENDING",closedAt:cancelled?"2026-11-02T00:01:00Z":null}});
+ }));
+ render(<PersonalPricingCheckout kind="plans" userId={userId} sessionToken="session" catalog={{...catalog,products:[subscription]}} entitlement={{...entitlement,checkoutPending:true}} onClose={()=>{}} onPaid={vi.fn()}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"取消订单"}));
+ await waitFor(()=>expect(screen.getByTestId("pricing-continue-checkout")).toBeEnabled());
+ expect(readEntitlement).toHaveBeenCalledTimes(1);
+});

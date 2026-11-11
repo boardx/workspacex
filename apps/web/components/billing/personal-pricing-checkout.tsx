@@ -22,6 +22,7 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
  const [loading,setLoading]=React.useState(true),[context,setContext]=React.useState<PendingPersonalCheckout|null>(null),[order,setOrder]=React.useState<Order|null>(null);
  const [creating,setCreating]=React.useState(false),[fatal,setFatal]=React.useState<string|null>(null),[message,setMessage]=React.useState<string|null>(null),[readError,setReadError]=React.useState(false),[qrError,setQrError]=React.useState(false),[qrVersion,setQrVersion]=React.useState(0),[now,setNow]=React.useState(Date.now);
  const [canvas, setCanvas] = React.useState<HTMLCanvasElement | null>(null);
+ const [refreshedEntitlement, setRefreshedEntitlement] = React.useState<PricingSubscriptionInfo | null>(null);
  const [showPreviousOrder, setShowPreviousOrder] = React.useState(false);
  const recovered = React.useRef(false);
  const cancellationRequested = React.useRef(false);
@@ -51,6 +52,13 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
    const previousProduct=catalog.products.find(product=>product.sku===pending.request.sku);
    const belongsToOtherEntry=previousProduct && (previousProduct.kind==="subscription"?"plans":"credits")!==kind;
    if((current.status==="CLOSED" && (recovered.current || cancellationRequested.current)) || (current.status==="SUCCESS" && recovered.current && belongsToOtherEntry)){
+    if (kind === "plans") {
+     const latest = pricing.getPricingEntitlement.out.parse(await apiRequest<unknown>(
+      pricing.getPricingEntitlement.path, { sessionToken, signal: controller.signal },
+     ));
+     if (!mounted.current || controller.signal.aborted) return;
+     setRefreshedEntitlement(latest);
+    }
     clearPersonalCheckout(localStorage,userId,pending.request.idempotencyKey);
     cancellationRequested.current=false;snapshot.current=null;setContext(null);setOrder(null);setShowPreviousOrder(false);setMessage(current.status==="CLOSED"?"订单已取消，可以重新选择。":null);
     if(current.status==="SUCCESS")onPaid();
@@ -129,12 +137,12 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
   }
  };
  if (!loading && !fatal && context && recovered.current && !showPreviousOrder && order?.status !== "SUCCESS") {
-  return <PersonalPricingProducts kind={kind} catalog={catalog} entitlement={entitlement}
+  return <PersonalPricingProducts kind={kind} catalog={catalog} entitlement={refreshedEntitlement ?? entitlement}
    onSelect={select} onClose={onClose} onResume={() => setShowPreviousOrder(true)}
    onCancel={order?.status==="PENDING"&&!readError?()=>void cancel():undefined} busy={cancelling}
    message={message??undefined} />;
  }
- if(!loading&&!fatal&&!context)return <PersonalPricingProducts kind={kind} catalog={catalog} entitlement={entitlement} message={message??undefined} onSelect={select} onClose={onClose}/>;
+ if(!loading&&!fatal&&!context)return <PersonalPricingProducts kind={kind} catalog={catalog} entitlement={refreshedEntitlement ?? entitlement} message={message??undefined} onSelect={select} onClose={onClose}/>;
  return <Dialog open onOpenChange={open=>{if(!open)onClose();}}><DialogContent data-testid="pricing-checkout-dialog" className="max-h-[90vh] max-w-lg overflow-y-auto">
   <DialogHeader><DialogTitle>确认付款</DialogTitle><DialogDescription>关闭窗口会保留原订单。付款结果以服务端确认记录为准。</DialogDescription></DialogHeader>
   {loading?<p role="status">正在读取原付款…</p>:fatal?<p role="alert" className="text-13 text-destructive">{fatal}</p>:context&&<div className="space-y-4">
