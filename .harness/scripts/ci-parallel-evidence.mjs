@@ -45,9 +45,10 @@ export function combineBase(directory,output){
 }
 export function requireChatProducers(needs,{routed=false}={}){
  const producers=['chat-test-plan','chat-test-shards'];
- const keys=routed?[...producers,'doc-smoke-scope']:producers;
+ const keys=routed?[...producers,'doc-smoke-scope','freeze-source']:producers;
  if(!needs||Object.keys(needs).sort().join()!==[...keys].sort().join()||keys.some(name=>needs[name]?.result!=='success'))throw Error('INCOMPLETE_CHAT_PRODUCERS');
  if(routed){
+  if(needs['freeze-source'].outputs?.run_full!=='true')throw Error('INVALID_FROZEN_SOURCE_ADMISSION');
   const {mode,plan_digest:planDigest}=needs['doc-smoke-scope'].outputs??{};
   if(mode!=='full'||!/^[a-f0-9]{64}$/.test(planDigest??''))throw Error('INVALID_CHAT_FULL_ROUTE');
  }

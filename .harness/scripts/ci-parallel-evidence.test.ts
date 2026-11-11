@@ -40,9 +40,10 @@ it('accepts the actual routed chat workflow dependency payload and rejects incom
  const job=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8')).jobs['chat-read'];
  const command=job.steps.find((x:any)=>typeof x.run==='string'&&x.run.includes(' chat-prerequisites')).run.trim().split(/\s+/);
  expect(command[0]).toBe('node');
- const needs=Object.fromEntries(job.needs.map((name:string)=>[name,{result:'success',outputs:name==='doc-smoke-scope'?{mode:'full',plan_digest:'c'.repeat(64)}:{}}]));
+ const needs=Object.fromEntries(job.needs.map((name:string)=>[name,{result:'success',outputs:name==='doc-smoke-scope'?{mode:'full',plan_digest:'c'.repeat(64)}:name==='freeze-source'?{run_full:'true'}:{}}]));
  const run=(payload:any)=>spawnSync(process.execPath,command.slice(1),{env:{...process.env,CI_CHAT_NEEDS:JSON.stringify(payload)},encoding:'utf8'});
  expect(run(needs).status).toBe(0);
+ expect(run({...needs,'freeze-source':{result:'success',outputs:{run_full:'false'}}}).status).not.toBe(0);
  for(const name of job.needs){const missing={...needs};delete missing[name];expect(run(missing).status).not.toBe(0);expect(run({...needs,[name]:{result:'skipped'}}).status).not.toBe(0);}
  for(const outputs of [{mode:'targeted-ui',plan_digest:'c'.repeat(64)},{mode:'full',plan_digest:'bad'}])expect(run({...needs,'doc-smoke-scope':{result:'success',outputs}}).status).not.toBe(0);
  expect(run({...needs,unknown:{result:'success'}}).status).not.toBe(0);
