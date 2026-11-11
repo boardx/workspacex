@@ -20,28 +20,8 @@
  *      落在 `/org-admin/members`（它现在是独立路由，不再有默认标签这回事），后续的
  *      Tab 走查 / PopoverSelect 弹层操作与 F06 原始范围一字不改。
  *
- * ## 「权限设置弹层」是什么
- * org-admin 这一轮范围里对既有成员唯一可调整的权限类控件是"成员"屏每行的
- * 「Skill 审核人职能」下拉（`ReviewerFunctionPicker`，`org-admin-screen.tsx`）——
- * 仅组织 admin 渲染可见，改动会真的调用 `assignSkillReviewerFunction`/
- * `revokeSkillReviewerFunction` 写库（issue #852）。这是当前产品范围内真实存在、
- * 唯一"调整一个成员的权限"的控件。
- *
- * ⚠ 本 feature 开工时它原本是原生 `<select>`——实测（issue #1930 讨论）发现原生
- * `<select>` 的下拉弹层是浏览器渲染的 OS 级控件，Playwright 的合成键盘事件
- * （CDP `Input.dispatchKeyEvent`）能让它聚焦，但四种按键序列
- * （`ArrowDown`／`Enter+ArrowDown+Enter`／`Space+ArrowDown+Enter`／
- * `Alt+ArrowDown+ArrowDown+Enter`，含 headless-shell 与完整 chromium 两种二进制）
- * 均无法驱动它真正改值——这正是 F06 要证的核心任务本身撞到的真实卡点，不是测试
- * 写法问题。已改为复用既有的 `PopoverSelect`（同 `top-bar.tsx` 的 `OrgSwitcher`/
- * 本页邀请表单"组织角色"下拉同一套弹层单选实现，真实 DOM 按钮 + `role=listbox`，
- * 不依赖浏览器原生弹层），对真实用户和自动化测试都是可键盘操作的。
- *
- * ## 为什么用独立账号对
- * 见 `self-service-profile-fixture.ts` 里 `orgAdminKeyboardAdminEmail`/
- * `orgAdminKeyboardMemberEmail` 字段头注：admin 角色是 `ReviewerFunctionPicker`
- * 渲染的前提条件，`keyboardEmail`（consultant）验不出这条控件；且不与
- * `self-service-profile.spec.ts` 的 admin 账号共享登录态，避免执行顺序耦合。
+ * 成员权限通过组织角色下拉（OrgRolePicker）调整。测试用独立账号对，
+ * 验证键盘操作触发角色更新，并在页面刷新后读回真实结果。
  *
  * 全程不调用 `page.mouse`，也不对任何按钮/标签/下拉用 `.click()`——用
  * `locator.focus()`（JS 层 `element.focus()`，不是鼠标事件）把光标带到走查起点，
@@ -126,9 +106,9 @@ test.describe("keyboard org-admin：org-admin 核心任务全键盘可达", () =
     await expect(page.getByTestId("org-admin-member-list")).toBeVisible();
 
     const targetUserId = SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardMemberUserId;
-    const pickerTestId = `org-admin-member-${targetUserId}-reviewer-function`;
+    const pickerTestId = `org-admin-member-${targetUserId}-org-role`;
     const pickerTrigger = page.getByTestId(pickerTestId);
-    await expect(pickerTrigger).toHaveText("无审核职能");
+    await expect(pickerTrigger).toHaveText("成员");
     await expect(pickerTrigger).toHaveAttribute("aria-expanded", "false");
 
     // 从左栏「成员」入口开始，Tab 走查应能在有限步数内到达目标成员的权限下拉按钮——这正是
@@ -152,35 +132,34 @@ test.describe("keyboard org-admin：org-admin 核心任务全键盘可达", () =
     const listbox = page.getByTestId(`${pickerTestId}-listbox`);
     await expect(listbox).toBeVisible();
 
-    // 「调整」——弹层内是真实 DOM 按钮，Tab 走查到目标选项（方法论审核人），Enter
-    // 确认，触发真实 `assignSkillReviewerFunction` 写库。
-    const targetOption = page.getByTestId(`${pickerTestId}-option-methodology-reviewer`);
+    // 「调整」——弹层内是真实 DOM 按钮，Tab 走查到目标选项（管理员），Enter
+    // 确认，触发真实 `setOrgMemberRole` 写库。
+    const targetOption = page.getByTestId(`${pickerTestId}-option-admin`);
     let reachedOption = false;
     for (let step = 0; step < 10; step += 1) {
       await page.keyboard.press("Tab");
       const activeTestId = await page.evaluate(() => document.activeElement?.getAttribute("data-testid") ?? null);
-      if (activeTestId === `${pickerTestId}-option-methodology-reviewer`) {
+      if (activeTestId === `${pickerTestId}-option-admin`) {
         reachedOption = true;
         break;
       }
     }
-    expect(reachedOption, "弹层打开后 Tab 走查应能在有限步数内到达目标选项（方法论审核人）").toBe(true);
+    expect(reachedOption, "弹层打开后 Tab 走查应能在有限步数内到达目标选项（管理员）").toBe(true);
     await expect(targetOption).toBeFocused();
 
     const assignResponsePromise = page.waitForResponse((response) => (
-      response.request().method() === "POST"
-      && response.url().includes(`/organizations/${SELF_SERVICE_PROFILE_E2E.orgId}/members/${targetUserId}/skill-reviewer-function`)
-      && !response.url().endsWith("/revoke")
+      response.request().method() === "PATCH"
+      && response.url().includes(`/organizations/${SELF_SERVICE_PROFILE_E2E.orgId}/members/${targetUserId}/role`)
     ));
     await page.keyboard.press("Enter");
     const assignResponse = await assignResponsePromise;
-    expect(assignResponse.status()).toBe(201);
+    expect(assignResponse.status()).toBe(200);
     const assignBody = await assignResponse.json();
-    expect(assignBody).toMatchObject({ userId: targetUserId, reviewerFunction: "methodology-reviewer" });
+    expect(assignBody).toMatchObject({ userId: targetUserId, orgRole: "admin", previousOrgRole: "consultant" });
 
     // 选中后弹层应自动关闭（`PopoverSelect` 的 `onSelect` 里 `setOpen(false)`）。
     await expect(listbox).toBeHidden();
-    await expect(pickerTrigger).toHaveText("方法论审核人");
+    await expect(pickerTrigger).toHaveText("管理员");
     // 调整后焦点不应该丢到 body/不可见元素——按钮本身仍是可继续操作的焦点载体。
     const activeAfterAssign = await page.evaluate(() => document.activeElement?.tagName ?? null);
     expect(activeAfterAssign, "调整权限后焦点不应丢失到 body/不可见元素").not.toBe("BODY");
@@ -191,13 +170,13 @@ test.describe("keyboard org-admin：org-admin 核心任务全键盘可达", () =
     await expect(listbox).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(listbox).toBeHidden();
-    await expect(pickerTrigger).toHaveText("方法论审核人");
+    await expect(pickerTrigger).toHaveText("管理员");
 
     // 刷新后仍在——证明真的写库，不是只改了 React state（同
     // `profile-keyboard-navigation.spec.ts` 的纪律）。`/org-admin/members` 是独立路由，
     // 刷新后直接就在这个屏上，不需要像旧版那样重新走"标签切换"才能回到"成员"。
     await page.reload();
     await expect(page.getByTestId("org-admin-screen")).toBeVisible();
-    await expect(page.getByTestId(pickerTestId)).toHaveText("方法论审核人");
+    await expect(page.getByTestId(pickerTestId)).toHaveText("管理员");
   });
 });
