@@ -6,7 +6,7 @@ import { PLATFORM_CATALOG_ORG_ID } from "@repo/contracts/ai-catalog-admin";
 // is separately exercised by API HTTP+PG suites; these captures do not claim backend proof.
 const output = resolve(
   process.cwd(),
-  "../../evidence/agent-skill-admin-6418/browser",
+  process.env.WSX_AI_CATALOG_SCREENSHOT_DIR ?? "../../evidence/agent-skill-admin-6418/browser",
 );
 const localAgent = {
   agentId: "agent-visual",
@@ -29,11 +29,12 @@ const entry = (kind: string) => ({
   orgId: PLATFORM_CATALOG_ORG_ID,
   id: `public-${kind}`,
   kind,
-  name: kind === "agent" ? "研究与知识分析师" : "研究资料整理",
+  name: kind === "agent" ? "研究与知识分析师" : "S020",
+  ...(kind === "skill" ? { workSkillId: "S020" } : {}),
   description:
     kind === "agent"
       ? "整理证据，提炼洞察，帮助团队形成清晰结论。"
-      : "整理资料与引用，为团队提供简明的研究摘要。",
+      : "Skill",
   avatarUrl: null,
   avatarKey: kind === "agent" ? "dh-02-research-knowledge-analyst" : null,
   versionId: `${kind}-v1`,
@@ -41,6 +42,8 @@ const entry = (kind: string) => ({
   published: true,
   enabled: false,
 });
+const titleOf = (kind: "agent" | "skill") => kind === "skill" ? "高管简报成文" : entry(kind).name;
+
 test("organization and platform catalogs use concise cards and reachable details across viewports", async ({
   page,
 }) => {
@@ -173,15 +176,18 @@ test("organization and platform catalogs use concise cards and reachable details
         })
         .first(),
     ).toBeVisible();
+    if (kind === "skill") {
+      await expect(page.getByText("整理团队资料并生成简明摘要", { exact: true })).toBeVisible();
+    }
     await page.screenshot({
       path: resolve(output, `organization-${kind}.png`),
       fullPage: true,
     });
     await page.getByRole("button", { name: "平台公共", exact: true }).click();
     await expect(
-      page.getByText(entry(kind).name, { exact: true }).first(),
+      page.getByText(titleOf(kind), { exact: true }).first(),
     ).toBeVisible();
-    await page.getByText(entry(kind).name, { exact: true }).first().click();
+    await page.getByText(titleOf(kind), { exact: true }).first().click();
     await expect(
       page.getByRole("button", { name: "为本组织启用" }),
     ).toBeVisible();
@@ -192,8 +198,12 @@ test("organization and platform catalogs use concise cards and reachable details
     await page.keyboard.press("Escape");
     await page.goto(`/platform-admin/${kind}`);
     await expect(
-      page.getByText(entry(kind).name, { exact: true }).first(),
+      page.getByText(titleOf(kind), { exact: true }).first(),
     ).toBeVisible();
+    if (kind === "skill") {
+      await expect(page.getByText(/压成一份面向具体读者的简报正文/).first()).toBeVisible();
+      await expect(page.getByText("Skill", { exact: true })).toHaveCount(0);
+    }
     if (kind === "agent") {
       const more = page.getByRole("button", { name: "加载更多", exact: true });
       await expect(more).toBeVisible();
@@ -203,7 +213,7 @@ test("organization and platform catalogs use concise cards and reachable details
       await expect(more).toBeDisabled();
       releasePage?.();
       await expect(more).toHaveCount(0);
-      await expect(page.getByText(entry(kind).name, { exact: true })).toHaveCount(1);
+      await expect(page.getByText(titleOf(kind), { exact: true })).toHaveCount(1);
       // Start a fresh unfiltered generation, then change scope while its page is pending.
       await page.getByLabel("管理范围").selectOption(PLATFORM_CATALOG_ORG_ID);
       await page.getByLabel("管理范围").selectOption("");
@@ -215,7 +225,7 @@ test("organization and platform catalogs use concise cards and reachable details
       releasePage?.();
       await staleResponse;
       await expect(page.getByText("团队协作助手", { exact: true })).toBeVisible();
-      await expect(page.getByText(entry(kind).name, { exact: true })).toHaveCount(1);
+      await expect(page.getByText(titleOf(kind), { exact: true })).toHaveCount(1);
     }
     await page.getByLabel("管理范围").selectOption(PLATFORM_CATALOG_ORG_ID);
     await page.screenshot({
@@ -224,7 +234,7 @@ test("organization and platform catalogs use concise cards and reachable details
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(
-      page.getByText(entry(kind).name, { exact: true }).first(),
+      page.getByText(titleOf(kind), { exact: true }).first(),
     ).toBeVisible();
     expect(
       await page.evaluate(

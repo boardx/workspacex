@@ -1,5 +1,6 @@
 "use client";
 
+import { skillCatalogDescription, skillCatalogTitle } from "@/lib/skill-catalog-copy";
 import { ResourceCardTags } from "@/components/ui/resource-card";
 import { dedupeTags } from "@/lib/tag-utils";
 import * as React from "react";
@@ -74,6 +75,13 @@ const WAVE2_BACKED_DUTY_MARKER = "查看/编辑源码请点卡片上的「编辑
 function isSourceFileBacked(row: SkillListItem): boolean {
   return row.duty.includes(WAVE2_BACKED_DUTY_MARKER);
 }
+function descriptionOf(row: SkillListItem): string | undefined {
+  return skillCatalogDescription(
+    row.workSkillId,
+    isSourceFileBacked(row) ? row.taskDescription : localizedText(row.display, "duty", row.duty),
+  );
+}
+
 
 /**
  * #520 —— `/skill` 的 Skill 库屏，**接真实后端**（#459 / PR #518 的 `SkillController`）。
@@ -270,7 +278,7 @@ function Catalog({ orgId, orgName, canManage }: { orgId: string; orgName: string
     ...(row.tags ?? []).map((t) => ({ key: `tag-${tagSlug(t)}`, label: t })),
   ], []);
   const searchTextOf = React.useCallback(
-    (row: SkillListItem): string => [row.name, localizedText(row.display, "name", row.name), row.skillId, row.duty, localizedText(row.display, "duty", row.duty), ...(row.tags ?? [])].join(" "),
+    (row: SkillListItem): string => [row.name, localizedText(row.display, "name", skillCatalogTitle(row.name, row.workSkillId)), row.skillId, descriptionOf(row), ...(row.tags ?? [])].join(" "),
     [],
   );
 
@@ -397,10 +405,10 @@ function Catalog({ orgId, orgName, canManage }: { orgId: string; orgName: string
       searchTextOf={searchTextOf}
       tagsOf={tagsOf}
       renderCard={(row) => ({
-        title: localizedText(row.display, "name", row.name),
+        title: localizedText(row.display, "name", skillCatalogTitle(row.name, row.workSkillId)),
         subtitle: `${row.source} · ${VISIBILITY_LABEL[row.visibility]}`,
         badges: <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>,
-        description: isSourceFileBacked(row) ? row.taskDescription || "Skill" : localizedText(row.display, "duty", row.duty),
+        description: descriptionOf(row),
         // G5：`tags` 为空数组时什么都不渲染——「没打标签」不是需要向使用者解释的异常状态。
         tags: (row.tags ?? []).length > 0 ? <ResourceCardTags tags={dedupeTags(row.tags ?? [])} testId="skill-catalog-tags" /> : undefined,
         meta: (
@@ -445,12 +453,12 @@ function Catalog({ orgId, orgName, canManage }: { orgId: string; orgName: string
       onSelect={setSelectedKey}
       detailTestId="skill-detail-panel"
       detailWidth="lg"
-      detailTitle={(row) => localizedText(row.display, "name", row.name)}
+      detailTitle={(row) => localizedText(row.display, "name", skillCatalogTitle(row.name, row.workSkillId))}
       detailSubtitle={(row) => `${row.source} · ${row.status} · ${row.skillId}`}
       renderDetail={(row) => (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col divide-y divide-border-subtle">
-            <KV k="职责" v={localizedText(row.display, "duty", row.duty)} />
+            {descriptionOf(row) ? <KV k="职责" v={descriptionOf(row)} /> : null}
             <KV k="可见范围" v={VISIBILITY_LABEL[row.visibility]} />
             <KV k="当前版本" v={row.currentVersionId ?? "还没有生效版本"} />
             <KV k="满意度" v={row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`} />

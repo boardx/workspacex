@@ -165,6 +165,47 @@ it("public Skill requires publication then administrator enablement; raw source 
 
 });
 
+it("preserves Work Skill identity in a public offer and its enabled organization copy", async () => {
+  const path = `/platform/organizations/${PLATFORM}/ai-catalog`;
+  const created = await request(OPS, path, {
+    kind: "skill",
+    input: { name: "S020", stableName: "public-work-s020", description: "Skill", content: "# Work Skill" },
+  });
+  expect(created.status).toBe(201);
+  const source = await created.json();
+  await asApp(PLATFORM, async (s) => {
+    const workVersionId = `${source.versionId}-work`;
+    await s.query(
+      `INSERT INTO skill_versions (id,org_id,skill_id,semantic_label,content_digest,manifest,creator_id,created_at,published)
+       SELECT $3,org_id,skill_id,semantic_label || '-work',content_digest,manifest || $4::jsonb,creator_id,
+              GREATEST(now(), created_at + interval '1 millisecond'),false
+         FROM skill_versions WHERE org_id=$1 AND id=$2`,
+      [PLATFORM, source.versionId, workVersionId, JSON.stringify({ work: { stableId: "S020" } })],
+    );
+    await s.query(
+      `INSERT INTO skill_version_files (org_id,version_id,path,content,media_type,digest)
+       SELECT org_id,$3,path,content,media_type,digest FROM skill_version_files WHERE org_id=$1 AND version_id=$2`,
+      [PLATFORM, source.versionId, workVersionId],
+    );
+  });
+  const published = await request(OPS, `${path}/skill/${source.id}/publish`, {});
+  expect(published.status).toBe(201);
+  const { versionId } = await published.json();
+  const offer = await request(MEMBER, `/organizations/${ORG}/public-ai-catalog?kind=skill`);
+  expect(offer.status).toBe(200);
+  expect((await offer.json()).entries.find((row: { id: string }) => row.id === source.id))
+    .toMatchObject({ workSkillId: "S020", versionId });
+  const enabled = await request(ADMIN, `/organizations/${ORG}/public-ai-catalog/enable`, {
+    kind: "skill", id: source.id, versionId, idempotencyKey: "work-skill-enable",
+  });
+  expect(enabled.status).toBe(201);
+  const { id: localId } = await enabled.json();
+  const library = await request(MEMBER, `/skills?orgId=${ORG}`);
+  expect(library.status).toBe(200);
+  expect((await library.json()).items.find((row: { skillId: string }) => row.skillId === localId))
+    .toMatchObject({ workSkillId: "S020" });
+});
+
 it('platform operator reads a private legacy contract without acquiring organization membership',async()=>{
  await asApp(ORG,s=>s.query(`INSERT INTO skill_contracts(id,org_id,name,duty,source,status,visibility,created_by) VALUES('legacy-http-private',$1,'Private legacy','Private definition','自建','草稿','org-wide',$2)`,[ORG,ADMIN]));
  const path=`/platform/organizations/${ORG}/ai-catalog/skill/legacy-http-private?entityType=skill-contract`;

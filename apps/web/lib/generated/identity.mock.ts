@@ -157,6 +157,7 @@ export const switchOrganizationMock: z.infer<typeof identity.operations.switchOr
       "endpoint": null,
       "abbr": null,
       "duty": null,
+      "taskDescription": "taskDescription-1",
       "disabledReason": null,
       "skillOrchestration": null,
       "agentAvailable": null
@@ -179,6 +180,7 @@ export const listCapabilitiesMock: z.infer<typeof identity.operations.listCapabi
     "endpoint": null,
     "abbr": null,
     "duty": null,
+    "taskDescription": "taskDescription-1",
     "disabledReason": null,
     "skillOrchestration": null,
     "agentAvailable": null
@@ -200,6 +202,7 @@ export const mutateCapabilityMock: z.infer<typeof identity.operations.mutateCapa
     "endpoint": null,
     "abbr": null,
     "duty": null,
+    "taskDescription": "taskDescription-1",
     "disabledReason": null,
     "skillOrchestration": null,
     "agentAvailable": null

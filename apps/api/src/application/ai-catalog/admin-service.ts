@@ -4,6 +4,7 @@ import {
   ConflictException,
 } from "@nestjs/common";
 import * as C from "@repo/contracts/ai-catalog-admin";
+import { WorkSkillStableId } from "@repo/contracts/work-skill-meta";
 import type { z } from "zod";
 import type { DatabasePort } from "../ports/database.port";
 import type { IdentityRepository } from "../identity/ports";
@@ -240,9 +241,18 @@ export class AiCatalogAdminService {
         );
         const rows = [];
         for (const p of pub.slice(0, q.limit)) {
-          if(q.kind==='skill'){
-            const snapshot=await this.storage.readPublishedCatalogSkill(s,p.entity_id,p.version_id);
-            if(snapshot)rows.push(C.Entry.parse({orgId:PLATFORM_ORG_ID,id:snapshot.id,kind:'skill',entityType:'skill',name:snapshot.name,description:typeof (snapshot.manifest as {description?:unknown})?.description==='string'?(snapshot.manifest as {description:string}).description:'',avatarUrl:null,versionId:snapshot.versionId,scope:'public',published:true,enabled:true}));
+          if (q.kind === "skill") {
+            const snapshot = await this.storage.readPublishedCatalogSkill(s, p.entity_id, p.version_id);
+            if (snapshot) {
+              const manifest = snapshot.manifest as { description?: unknown; work?: { stableId?: unknown } } | null;
+              const workSkillId = WorkSkillStableId.safeParse(manifest?.work?.stableId);
+              rows.push(C.Entry.parse({
+                orgId: PLATFORM_ORG_ID, id: snapshot.id, kind: "skill", entityType: "skill",
+                name: snapshot.name, description: typeof manifest?.description === "string" ? manifest.description : "",
+                ...(workSkillId.success ? { workSkillId: workSkillId.data } : {}),
+                avatarUrl: null, versionId: snapshot.versionId, scope: "public", published: true, enabled: true,
+              }));
+            }
             continue;
           }
           const row = (

@@ -12,6 +12,7 @@
  *   本文件没有 `withoutTenant` —— 业务仓储用它等于关掉 RLS 后读到「没有数据」而不是报错。
  * ⚠ 每个 WHERE 仍然带 `org_id = $1`，即使 RLS 已经在挡。第二道防线，同既有仓储。
  */
+import { WorkSkillStableId } from "@repo/contracts/work-skill-meta";
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { PLATFORM_ORG_ID, toOrgId } from "../../domain/org-id";
@@ -322,15 +323,20 @@ export class ScopedPgSkillContractRepository
       // PLATFORM_ORG_ID` 的行里，任何组织都要能在自己的目录里看到它们，不需要
       // 逐个导入（RLS 侧的对应放行是 `skill_versions_platform_read` 等四条
       // `_platform_read` 策略）。
-      const wave2Rows = await s.query<{ id: string; name: string; org_id: string; stable_name: string | null; task_description: string | null; current_version_id: string | null }>(
+      const wave2Rows = await s.query<{ id: string; name: string; org_id: string; stable_name: string | null; task_description: string | null; work_skill_id?: string | null; current_version_id: string | null }>(
         `SELECT sk.id, sk.name, sk.org_id, sk.stable_name,
-                (SELECT sv.manifest->>'description' FROM skill_versions sv
-                  WHERE sv.skill_id=sk.id AND sv.org_id=sk.org_id AND sv.published
-                  ORDER BY sv.created_at DESC, sv.id DESC LIMIT 1) AS task_description,
-                (SELECT sv.id FROM skill_versions sv
-                  WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
-                  ORDER BY sv.created_at DESC, sv.id DESC LIMIT 1) AS current_version_id
+                COALESCE(sce.stable_id, CASE WHEN sk.org_id=$2 OR EXISTS (
+                  SELECT 1 FROM ai_catalog_enablements ae
+                   WHERE ae.org_id=sk.org_id AND ae.kind='skill' AND ae.local_id=sk.id AND ae.local_version_id=sv.id
+                ) THEN sv.manifest#>>'{work,stableId}' END) AS work_skill_id,
+                sv.manifest->>'description' AS task_description, sv.id AS current_version_id
            FROM skills sk
+           LEFT JOIN skill_catalog_entries sce ON sce.org_id=sk.org_id AND sce.skill_id=sk.id
+           LEFT JOIN LATERAL (
+             SELECT id, manifest FROM skill_versions
+              WHERE org_id=sk.org_id AND skill_id=sk.id AND published
+              ORDER BY created_at DESC, id DESC LIMIT 1
+           ) sv ON true
           WHERE (sk.org_id = $1 OR sk.org_id = $2) AND sk.status = 'enabled'
           ORDER BY sk.created_at DESC, sk.id`,
         [orgId, PLATFORM_ORG_ID],
@@ -360,6 +366,7 @@ export class ScopedPgSkillContractRepository
       }),
       // backlog E6：只有平台行带 stable_name，前端据此按 `skill-entry-points.ts` 分入口。
       taskDescription: raw.task_description ?? undefined,
+      workSkillId: WorkSkillStableId.safeParse(raw.work_skill_id).data,
       platformStableName: raw.org_id === PLATFORM_ORG_ID ? raw.stable_name : null,
       }));
       return [...fromContracts, ...fromWave2];

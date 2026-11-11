@@ -30,6 +30,7 @@
  * ⚠ **一个不会被任何路径抛出的错误码读起来像覆盖，而它什么都没覆盖。**
  *   `SkillError` 的每一个成员都在下方某个操作的 `err` 里出现。
  */
+import { WorkSkillStableId } from "./work-skill-meta";
 import { z } from "zod";
 import { Locale } from "./locale";
 import { LocalizedEntityDisplay } from "./entity-localization";
@@ -372,6 +373,7 @@ export const SkillListItem = z
     name: z.string(),
     duty: z.string(),
     taskDescription: z.string().optional(),
+    workSkillId: WorkSkillStableId.optional(),
     source: SkillSource,
     status: SkillStatus,
     visibility: z.enum(["org-wide", "team-only"]),

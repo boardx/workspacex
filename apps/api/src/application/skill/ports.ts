@@ -163,6 +163,7 @@ export interface SkillContractRow {
   readonly name: string;
   readonly duty: string;
   readonly taskDescription?: string;
+  readonly workSkillId?: string;
   readonly source: SkillOriginTag;
   readonly status: SkillLifecycleStatus;
   readonly visibility: "org-wide" | "team-only";

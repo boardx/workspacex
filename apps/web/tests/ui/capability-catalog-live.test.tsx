@@ -113,7 +113,7 @@ describe("#406 Agent / Skill 真实组织能力目录", () => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       expect(url.searchParams.get("kind")).toBe("skill");
       expect(init?.method).toBe("GET");
-      return jsonResponse([capability("skill", 2)]);
+      return jsonResponse([{ ...capability("skill", 2), taskDescription: "整理访谈中的需求和证据" }]);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -121,13 +121,14 @@ describe("#406 Agent / Skill 真实组织能力目录", () => {
 
     const row = await screen.findByTestId("admin-skill-row-skill-2");
     expect(row).toHaveTextContent("Skill 真实条目 2");
+    expect(row).toHaveTextContent("整理访谈中的需求和证据");
     expect(row).not.toHaveTextContent("仅团队可见");
     fireEvent.click(row);
     const detail = screen.getByTestId("admin-skill-detail");
     expect(detail).toHaveTextContent("仅团队可见");
     expect(detail).toHaveTextContent("已停用");
     expect(detail).toHaveTextContent("由组织管理员停用");
-    expect(screen.getByText(/这里只展示可选择的目录记录/)).toBeInTheDocument();
+    expect(screen.getByText(/浏览本组织的内容，点击卡片查看详情/)).toBeInTheDocument();
     expect(row.textContent).not.toMatch(/试跑|运行中|调用量|版本/);
   });
 

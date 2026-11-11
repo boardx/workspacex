@@ -1,3 +1,4 @@
+import { WorkSkillStableId } from "./work-skill-meta";
 import { z } from "zod";
 import { operations as skillOperations } from "./skills";
 import { DeclarativeContract } from "./skills";
@@ -13,6 +14,7 @@ export const Entry = z
     entityType: z.enum(["agent", "skill", "skill-contract"]).optional(),
     name: z.string(),
     description: z.string(),
+    workSkillId: WorkSkillStableId.optional(),
     avatarUrl: z.string().nullable(),
     avatarKey: z.string().nullable().optional(),
     versionId: Id.nullable(),

@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-12（#6553）：平台及组织目录显示 Work Skill 用途时，先读取作者的版本说明或同范围声明契约的职责；旧版内置包缺说明时从 SKILL.md 用途生成显示文案。按可信 Work Skill 稳定编号映射，避免把同名的自定义 Skill 当成内置 Skill。
 - 2026-11-06：图片工具归档了结果，不代表显式图片 Agent 也归档；后者曾直接返回百炼临时 URL。模型适配器应校验真实像素、持久化并回读，再经既有 RunOutputFile/消息附件写回，执行器不能在脚本处理后丢掉 provider 文件。下载/归档失败不重试收费生成；历史 URL 与 CN 发布后刷新验收另计（issue #6319）。
 - 2026-11-06：官方角色要约能返回不代表依赖包已随生产镜像发货；CN 容器实际缺 starter-packs 且未配置 root，导入如约 404。镜像应显式 COPY/ENV，并在最终运行层用真实导入源校验要约全量坐标、摘要与角色固定内容；源码/数据库通过不能替代 CN 发布后对话验收（issue #6318）。
 - 2026-11-05：Qwen3生图不能只替换旧Wanx模型名；异步endpoint/input.messages/output.choices与output_image_count均不同，Z则同步且prompt_extend改变价格。profile须在收费意图持久化前解析固定model/size，默认general快照读取latest published，用户旧pin保留；真实PNG解码与真实模型/收费/发布证据分开（issue #6245）。

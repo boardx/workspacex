@@ -1,5 +1,6 @@
 "use client";
 
+import { skillCatalogDescription, skillCatalogTitle } from "@/lib/skill-catalog-copy";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
@@ -234,7 +235,8 @@ export function CapabilityCatalogScreen({
   const searchTextOf = React.useCallback((item: CatalogItem): string => {
     if (item.kind === "listing") {
       const r = item.listing;
-      return [r.name, r.id, r.endpoint ?? "", r.disabledReason ?? ""].join(" ");
+      return [r.name, r.id, r.endpoint, r.disabledReason, r.kind === "skill" ? skillCatalogTitle(r.name, r.workSkillId) : null,
+        r.kind === "skill" ? skillCatalogDescription(r.workSkillId, r.taskDescription) : null].join(" ");
     }
     const d = item.def;
     return [d.name, d.agentId, d.initials, d.role, d.roleLabel].join(" ");
@@ -362,7 +364,9 @@ export function CapabilityCatalogScreen({
         setSelectedKey(key);
         if (key === null) setDisablingId(null);
       }}
-      detailTitle={(item) => (item.kind === "listing" ? item.listing.name : item.def.name)}
+      detailTitle={(item) => item.kind === "listing"
+        ? item.listing.kind === "skill" ? skillCatalogTitle(item.listing.name, item.listing.workSkillId) : item.listing.name
+        : item.def.name}
       detailSubtitle={(item) => (item.kind === "listing" ? `目录条目 · ${item.listing.id}` : `可执行 Agent 定义 · ${item.def.agentId}`)}
       renderDetail={(item) =>
         item.kind === "listing" ? (
@@ -410,8 +414,9 @@ function listingCardSpec({
   onDisable(): void;
 }): EntityCardSpec {
   return {
-    title: row.name,
-    subtitle: prefix.includes("agent") ? "Agent" : "Skill",
+    title: row.kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : row.name,
+    subtitle: row.kind === "agent" ? "Agent" : undefined,
+    description: row.kind === "skill" ? skillCatalogDescription(row.workSkillId, row.taskDescription) : undefined,
     badges: (
       <>
         <Badge tone="outline">{SCOPE_LABEL[row.scope]}</Badge>
@@ -484,10 +489,12 @@ function ListingDetail({
   onDisableFailed(message: string): void;
   onClose(): void;
 }) {
+  const description = row.kind === "skill" ? skillCatalogDescription(row.workSkillId, row.taskDescription) : undefined;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col divide-y divide-border-subtle">
-        <KV k="名称" v={row.name} />
+        <KV k="名称" v={row.kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : row.name} />
+        {description && <KV k="介绍" v={description} />}
         <KV k="ID" v={<span className="font-mono text-11">{row.id}</span>} />
         <KV k="可见范围" v={SCOPE_LABEL[row.scope]} />
         <KV k="状态" v={row.enabled ? "已启用" : `已停用${row.disabledReason ? ` · ${row.disabledReason}` : ""}`} />

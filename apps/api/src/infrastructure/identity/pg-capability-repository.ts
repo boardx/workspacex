@@ -1,3 +1,4 @@
+import { WorkSkillStableId } from "@repo/contracts/work-skill-meta";
 import { PUBLISHED_AGENT_ENABLED, PUBLISHED_AGENT_VERSION_MATCH } from "../agent/published-agent-sql";
 /**
  * PostgreSQL implementation of `CapabilityRepository`.
@@ -47,6 +48,8 @@ interface Row {
   /** #619 */
   abbr: string | null;
   duty: string | null;
+  task_description?: string | null;
+  work_skill_id?: string | null;
   /** #2514：只有 `LISTING_WITH_ORCHESTRATION` 的读路径会带上；写路径的 RETURNING 没有。 */
   agent_available?: boolean | null;
   skill_orchestration?: "all-enabled" | "curated" | null;
@@ -62,6 +65,14 @@ const COLUMNS = "id, org_id, kind, name, scope, owner_team_id, enabled, endpoint
 const LISTING_WITH_ORCHESTRATION = `
   SELECT cl.id, cl.org_id, cl.kind, cl.name, cl.scope, cl.owner_team_id, cl.enabled,
          cl.endpoint, cl.abbr, cl.duty,
+         CASE WHEN cl.kind = 'skill' THEN COALESCE(
+           NULLIF(btrim(sv.manifest->>'description'), ''),
+           (SELECT sc.duty FROM skill_contracts sc
+             WHERE sc.org_id = cl.org_id AND sc.id = cl.id
+               AND sc.visibility = cl.scope
+               AND sc.owner_team_id IS NOT DISTINCT FROM cl.owner_team_id)
+         ) END AS task_description,
+         COALESCE(sce.stable_id, CASE WHEN cl.org_id = '${PLATFORM_ORG_ID}' THEN sv.manifest#>>'{work,stableId}' END) AS work_skill_id,
          CASE WHEN cl.kind = 'agent' THEN a.id IS NOT NULL AND v.id IS NOT NULL END AS agent_available,
          CASE
            WHEN cl.kind <> 'agent' OR v.id IS NULL THEN NULL
@@ -69,10 +80,17 @@ const LISTING_WITH_ORCHESTRATION = `
            ELSE 'all-enabled'
          END AS skill_orchestration
     FROM capability_listings cl
+    LEFT JOIN LATERAL (
+      SELECT manifest FROM skill_versions
+       WHERE org_id = cl.org_id AND skill_id = cl.id AND published
+       ORDER BY created_at DESC, id DESC LIMIT 1
+    ) sv ON cl.kind = 'skill'
+    LEFT JOIN skill_catalog_entries sce ON cl.kind = 'skill' AND sce.org_id = cl.org_id AND sce.skill_id = cl.id
     LEFT JOIN agents a ON a.id = cl.id AND a.org_id = cl.org_id AND ${PUBLISHED_AGENT_ENABLED}
     LEFT JOIN agent_versions v ON ${PUBLISHED_AGENT_VERSION_MATCH}`;
 
 function toGuarded(row: Row): GuardedCapability {
+  const workSkillId = WorkSkillStableId.safeParse(row.work_skill_id);
   const listing: CapabilityListing = {
     id: row.id,
     orgId: row.org_id,
@@ -86,6 +104,8 @@ function toGuarded(row: Row): GuardedCapability {
     // for a `kind='agent'` row, so this is a straight passthrough, not a default.
     abbr: row.abbr,
     duty: row.duty,
+    ...(row.task_description != null ? { taskDescription: row.task_description } : {}),
+    ...(workSkillId.success ? { workSkillId: workSkillId.data } : {}),
     // Read-side availability never rewrites the administrator's saved enabled flag.
     disabledReason: row.enabled && row.agent_available === false
       ? "该 Agent 尚无可用的已发布版本，请联系管理员。" : null,
