@@ -317,6 +317,7 @@ export function ThreadCardButton({
            两者都从同一个 `selected` prop 渲染出来）。 */
         data-selected={selected ? "true" : "false"}
         onClick={onSelect}
+        onDoubleClick={canMutate ? startEdit : undefined}
         className={[
           "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           // issue #2476：原来是 `border-primary bg-muted`——跟下面"改标题"表单的
@@ -341,7 +342,7 @@ export function ThreadCardButton({
             （自动命名：线程列表不得一屏全是「新对话」）。锚在标题这一个 span 上，
             不是整张卡：断言读的是标题文本,不会被副行的状态/时间冲淡——副行现在
             整段是 `sr-only`,连视觉上都不会再出现,这条注释的前提更稳固了。 */}
-        <span onDoubleClick={canMutate ? startEdit : undefined} data-testid="chat-task-workbench-thread-title" className="min-w-0 flex-1 truncate text-12 font-medium">
+        <span data-testid="chat-task-workbench-thread-title" className="min-w-0 flex-1 truncate text-12 font-medium">
           {displayConversationTitle(card.title, t("chatEntry.untitled")) ?? t("chatEntry.untitled")}
         </span>
         <ThreadMeta card={card} />
