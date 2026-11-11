@@ -105,3 +105,17 @@ it("valid invitation account mismatch offers account switching instead of expiry
   expect(Object.fromEntries(invitation.searchParams)).toEqual({ t: "original-invite", ...claims });
   expect(state.start).not.toHaveBeenCalled();
 });
+
+it("confirms an inbox invitation using the signed-in account and no email token", async () => {
+  state.token = "existing-account-session";
+  const inboxInviteId = "oi-" + "a".repeat(24);
+  state.request.mockRejectedValueOnce(new ApiError(400, "INVITE_ACCOUNT_MISMATCH", {}));
+  render(<I18nProvider initialLocale="en"><InviteActivation token={null} inboxInviteId={inboxInviteId} /></I18nProvider>);
+  expect(screen.queryByTestId("activate-mode-new")).toBeNull();
+  expect(state.request).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByTestId("activate-submit"));
+  expect(await screen.findByTestId("activate-switch-account")).toBeTruthy();
+  expect(state.request).toHaveBeenCalledWith(orgAdmin.operations.acceptOrgInvite.path, expect.objectContaining({
+    method: "POST", sessionToken: state.token, body: { inboxInviteId },
+  }));
+});

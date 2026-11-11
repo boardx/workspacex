@@ -22,7 +22,7 @@ export class OrgInvitationMailDelivery implements OrgInvitationDelivery {
   let delivered=false;
   try{
    const url=new URL(orgAdmin.INVITATION_ACTIVATION_PATH,this.publicUrl.get());url.searchParams.set(orgAdmin.INVITATION_TOKEN_PARAM,token);
-   await this.transport.send({to:recipient.email,subject:'邀请你加入 WorkspaceX 组织',text:`你收到了一份组织成员邀请。请打开以下链接，注册或登录后确认加入：\n${url.toString()}\n若你不希望加入，请忽略本邮件。`});
+   await this.transport.send({to:recipient.email,orgInviteId:input.inviteId,subject:'邀请你加入 WorkspaceX 组织',text:`你收到了一份组织成员邀请。请打开以下链接，注册或登录后确认加入：\n${url.toString()}\n若你不希望加入，请忽略本邮件。`});
    delivered=true;
   }catch{
    // Persist a coarse outcome only; provider errors may contain request data and bearer URLs.

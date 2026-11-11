@@ -1,3 +1,4 @@
+// @global-scope-fixture table:email_verification_challenges: FK cascade when beforeEach/afterAll delete this suite’s @f10main.test credentials.
 // @global-scope-fixture table:credentials: 认证凭据表没有 org_id 列，删 org 不会级联带走它。
 //   本文件自己用带前缀的 `DELETE FROM credentials WHERE ...` 收敛写进去的行。
 /**
@@ -475,4 +476,31 @@ describe("invitation session delivery (#3600)", () => {
     await expect(activateOrgMember(deps, input)).rejects.toMatchObject({ reasonCode: "INVITE_NOT_FOUND" });
     expect(calls).toBe(1);
   });
+});
+
+it("accepts an inbox invitation only with the matching email ownership proof, consuming the email link too", async () => {
+  const userId = "u-f10-inbox-proof";
+  const email = "inbox-proof@f10main.test";
+  await asOwner(c => c.query(
+    "INSERT INTO credentials (user_id,email,display_name,password_hash,email_verified_at) VALUES ($1,$2,'Inbox',$3,now())",
+    [userId,email,fakeHasher.canned],
+  ));
+  const invited = await invite({email});
+  const accept = () => activateOrgMember(
+    {repo,hasher:fakeHasher,sessions:fakeSessions(),tokens:fakeTokens()},
+    {token:"",inboxInviteId:invited.inviteId,mode:"existing-account",profile:null,existingUserId:userId,untrustedClaims:NO_CLAIMS},
+  );
+  await expect(accept()).rejects.toMatchObject({reasonCode:"INVITE_NOT_FOUND"});
+  await asOwner(c => c.query(
+    "INSERT INTO email_verification_challenges (id,user_id,token_digest,expires_at,consumed_at) VALUES ($1,$2,$3,now()+interval '1 day',now())",
+    ["f10-inbox-proof",userId,"a".repeat(64)],
+  ));
+  const differentRecipient = await invite({email:"other-inbox@f10main.test"});
+  await expect(activateOrgMember(
+    {repo,hasher:fakeHasher,sessions:fakeSessions(),tokens:fakeTokens()},
+    {token:"",inboxInviteId:differentRecipient.inviteId,mode:"existing-account",profile:null,existingUserId:userId,untrustedClaims:NO_CLAIMS},
+  )).rejects.toMatchObject({reasonCode:"INVITE_ACCOUNT_MISMATCH"});
+  await expect(accept()).resolves.toMatchObject({userId,orgId:ORG,orgRole:"consultant"});
+  await expect(accept()).rejects.toMatchObject({reasonCode:"INVITE_NOT_FOUND"});
+  await expect(activate(invited.token!)).rejects.toMatchObject({reasonCode:"INVITE_NOT_FOUND"});
 });

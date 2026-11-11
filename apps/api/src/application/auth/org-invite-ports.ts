@@ -85,6 +85,7 @@ export type ReviewOrgInviteResult =
 
 export interface ActivateOrgInviteInput {
   readonly token: string;
+  readonly inboxInviteId?: string;
   readonly now: Date;
   /**
    * 新账号分支。⚠ 这里**没有 email**：邮箱取自邀请行（I-2 的同一条理由——

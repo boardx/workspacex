@@ -2,6 +2,8 @@
 import * as React from "react";
 import {useI18n} from "@/lib/i18n/provider";
 import {Tooltip,TooltipContent,TooltipProvider,TooltipTrigger} from "@/components/ui/tooltip";
+import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from "@/components/ui/dialog";
+import {orgAdmin} from "@repo/contracts";
 import {Bell} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
@@ -56,7 +58,7 @@ export interface MergedNotice {readonly head:Notification; readonly ids:readonly
 export function mergeNotifications(items:readonly Notification[]):MergedNotice[]{
   const order:(MergedNotice&{ids:string[]})[]=[];const index=new Map<string,MergedNotice&{ids:string[]}>();
   for(const item of items){
-    const key=`${item.kind} ${item.threadId??""} ${item.title}`;
+    const key=JSON.stringify([item.kind,item.threadId,item.title,item.inboxInviteId ?? (item.threadId ? null : item.body)]);
     const seen=index.get(key);
     if(seen){seen.ids.push(item.id);continue;}
     const fresh={head:item,ids:[item.id]};index.set(key,fresh);order.push(fresh);
@@ -78,6 +80,8 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
   const center=useNotificationCenter(sessionToken);
   const scheduled=useScheduleNotifications("global",sessionToken);
   const [open,setOpen]=React.useState(false);
+  const [detail,setDetail]=React.useState<Pick<Notification,"title"|"body"|"inboxInviteId">|null>(null);
+  React.useEffect(()=>setDetail(null),[sessionToken]);
   const triggerRef=React.useRef<HTMLButtonElement|null>(null);
   const popoverRef=React.useRef<HTMLDivElement|null>(null);
   useIntervalFocusRefresh(onRefresh);
@@ -114,6 +118,12 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
       {/* 未读为 0 时图标仍在，只是不显角标——入口不许时有时无（#3246）。 */}
     </Button>
   );
+  const openNotice = (head: Notification, ids: readonly string[]) => {
+    if (head.readAt === null && !head.actionable) void center.markRead([...ids]);
+    close();
+    if (head.threadId) onOpenThread(head.threadId);
+    else setDetail(head);
+  };
   return <div className={rail?"relative flex w-full flex-col items-center":"relative px-3"}
     data-testid="task-notifications" data-variant={variant}>
     {rail?<TooltipProvider><Tooltip><TooltipTrigger asChild>{trigger}</TooltipTrigger><TooltipContent side="right">{t("notifications.triggerUnread",{count:total})}</TooltipContent></Tooltip></TooltipProvider>:trigger}
@@ -126,7 +136,11 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
       {center.failed&&<p role="status" className="text-11 text-muted-foreground">{t("notifications.refreshFailed")}</p>}
       {scheduled.failed&&<p role="status" className="text-11 text-muted-foreground">{t("notifications.scheduleSyncFailed")}</p>}
       {scheduled.notices.map(notice=><div key={notice.factId} className="flex items-center gap-2" data-testid="schedule-notification">
-        <span className="text-13">{t(notice.code==="authorization_revoked"?"notifications.scheduleRevoked":"notifications.scheduleFailed")}</span>
+        <Button variant="ghost" size="sm" className="h-auto min-w-0 whitespace-normal text-left" onClick={()=>{
+          const title=t(notice.code==="authorization_revoked"?"notifications.scheduleRevoked":"notifications.scheduleFailed");
+          close();
+          setDetail({title,body:""});
+        }}>{t(notice.code==="authorization_revoked"?"notifications.scheduleRevoked":"notifications.scheduleFailed")}</Button>
         <Button variant="ghost" size="sm" disabled={scheduled.busy} onClick={()=>void scheduled.markRead(notice.factId)}>{t("notifications.markRead")}</Button>
       </div>)}
       {scheduled.cursor&&<Button variant="ghost" size="sm" onClick={()=>void scheduled.refresh(scheduled.cursor)}>{t("notifications.nextScheduled")}</Button>}
@@ -136,12 +150,11 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
       {unread.map(({head,ids})=>{
         const label=<><span className="mr-1 text-11 text-muted-foreground">[{t(`notifications.kind.${head.kind}`)}]</span>{head.title}
           {ids.length>1&&<span className="ml-1 text-11 text-muted-foreground">×{ids.length}</span>}</>;
-        // 没有对话可去的通知（邮件/系统）不许伪装成可点条目：点了只会"这一行凭空消失"，
-        // 用户没有收到任何去处（#3311）。它走与定时任务提醒同一个体例：正文 + 显式「标为已读」。
         if(!head.threadId)return <div key={head.id} data-testid="notification-item" data-kind={head.kind}
-          data-occurrences={ids.length} data-actionable={head.actionable?"true":"false"} data-destination="none"
+          data-occurrences={ids.length} data-actionable={head.actionable?"true":"false"} data-destination="detail"
           className="flex w-full items-center justify-between gap-2 py-1 text-left text-13">
-          <span className="min-w-0 whitespace-normal">{label}</span>
+          <Button variant="ghost" size="sm" className="h-auto min-w-0 justify-start whitespace-normal text-left"
+            onClick={()=>openNotice(head,ids)}>{label}</Button>
           <Button variant="ghost" size="sm" className="shrink-0" disabled={center.busy}
             onClick={()=>void center.markRead([...ids])}>{t("notifications.markRead")}</Button>
         </div>;
@@ -149,19 +162,23 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
           data-kind={head.kind} data-occurrences={ids.length}
           data-actionable={head.actionable?"true":"false"} data-destination="thread"
           className="h-auto w-full justify-start whitespace-normal py-1 text-left"
-          onClick={()=>{
-            // 待办（等你授权工具/确认计划）点开只是**去办**：事情还没办完，不许当场读掉，
-            // 否则用户回头找不到该去哪授权。它由服务端往前走一步时收掉（见 NotifyingRunEventBus）。
-            if(!head.actionable)void center.markRead([...ids]);
-            // 关掉弹层：不关的话，用户眼前只有"少了一行"的面板，看不到自己已经被带到对话里。
-            close();
-            onOpenThread(head.threadId!);
-          }}>{label}</Button>;
+          onClick={()=>openNotice(head,ids)}>{label}</Button>;
       })}
       {unread.length>0&&<Button variant="ghost" size="sm" disabled={center.busy} onClick={()=>void center.markRead()}>{t("notifications.markAllRead")}</Button>}
       {read.length>0&&<details className="text-11 text-muted-foreground"><summary className="cursor-pointer">{t("notifications.recentRead")}</summary>
-        {read.map(({head,ids})=><p key={head.id} className="truncate py-0.5">[{t(`notifications.kind.${head.kind}`)}] {head.title}{ids.length>1?` ×${ids.length}`:""}</p>)}
+        {read.map(({head,ids})=><Button key={head.id} variant="ghost" size="sm" className="h-auto w-full justify-start whitespace-normal text-left" onClick={()=>openNotice(head,ids)}>[{t(`notifications.kind.${head.kind}`)}] {head.title}{ids.length>1?` ×${ids.length}`:""}</Button>)}
       </details>}
     </div>}
+    <Dialog open={detail!==null} onOpenChange={next=>{if(!next)setDetail(null);}}>
+      {detail&&<DialogContent onCloseAutoFocus={event=>{event.preventDefault();triggerRef.current?.focus();}}>
+        <DialogHeader>
+          <DialogTitle className="break-words">{detail.title}</DialogTitle>
+          <DialogDescription className="whitespace-pre-wrap break-words">{detail.body || t("notifications.title")}</DialogDescription>
+        </DialogHeader>
+        {detail.inboxInviteId&&<Button asChild variant="primary">
+          <a href={`${orgAdmin.INVITATION_ACTIVATION_PATH}?${orgAdmin.INBOX_INVITE_PARAM}=${encodeURIComponent(detail.inboxInviteId)}`}>{t("notifications.openInvitation")}</a>
+        </Button>}
+      </DialogContent>}
+    </Dialog>
   </div>;
 }

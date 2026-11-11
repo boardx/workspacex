@@ -52,6 +52,7 @@ export interface ActivateOrgMemberDeps {
 
 export interface ActivateOrgMemberInput {
   readonly token: string;
+  readonly inboxInviteId?: string;
   readonly mode: "new-account" | "existing-account";
   /** 仅 `new-account`。⚠ 没有 email：邮箱取自邀请行。 */
   readonly profile: { readonly name: string; readonly password: string } | null;
@@ -105,6 +106,7 @@ export async function activateOrgMember(
 
   const result = await deps.repo.activate({
     token: input.token,
+    ...(input.inboxInviteId && { inboxInviteId: input.inboxInviteId }),
     now,
     newAccount,
     existingUserId: input.mode === "existing-account" ? input.existingUserId : null,

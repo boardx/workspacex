@@ -36,13 +36,15 @@ type ActivateOut = typeof orgAdmin.operations.activateOrgMember.out._output;
  */
 export function InviteActivation({
   token,
+  inboxInviteId,
   claims,
 }: {
   token: string | null;
+  inboxInviteId?: string;
   claims?: ActivationLinkClaims;
 }) {
   const { t } = useI18n();
-  const [mode, setMode] = React.useState<"new" | "existing">(() => getStoredSessionToken() ? "existing" : "new");
+  const [mode, setMode] = React.useState<"new" | "existing">(() => inboxInviteId || getStoredSessionToken() ? "existing" : "new");
   const [name, setName] = React.useState("");
   const [pwd, setPwd] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -52,11 +54,11 @@ export function InviteActivation({
   const currentSession = useSession();
 
   const hasSession = getStoredSessionToken() !== null;
-  const returnQuery = new URLSearchParams({ t: token ?? "" });
+  const returnQuery = new URLSearchParams(inboxInviteId ? { [orgAdmin.INBOX_INVITE_PARAM]: inboxInviteId } : { t: token ?? "" });
   for (const [key, value] of Object.entries(claims ?? {})) if (value !== undefined) returnQuery.set(key, value);
   const loginUrl = `/login?next=${encodeURIComponent(`/auth/activate?${returnQuery.toString().replaceAll("+", "%20")}`)}`;
 
-  if (!token) {
+  if (!token && !inboxInviteId) {
     return (
       <Card>
         <p role="alert" className="flex items-start gap-2 text-13 text-destructive" data-testid="activate-missing-token">
@@ -110,7 +112,7 @@ export function InviteActivation({
         body:
           mode === "new"
             ? { token, mode: "new-account", profile: { name: name.trim(), password: pwd }, sessionId: null }
-            : { token },
+            : inboxInviteId ? { inboxInviteId } : { token },
       });
       setDone(await completeSession(result.session, initialToken, mode === "existing"));
     } catch (err) {
@@ -127,14 +129,14 @@ export function InviteActivation({
   return (
     <Card>
       <form className="flex flex-col gap-4" onSubmit={submit} data-testid="activate-form">
-        <div className="flex gap-1.5" data-testid="activate-mode">
+        {!inboxInviteId && <div className="flex gap-1.5" data-testid="activate-mode">
           <Button type="button" size="sm" variant={mode === "new" ? "primary" : "outline"} onClick={() => setMode("new")} data-testid="activate-mode-new">
             {t("invitation.newUser")}
           </Button>
           <Button type="button" size="sm" variant={mode === "existing" ? "primary" : "outline"} onClick={() => setMode("existing")} data-testid="activate-mode-existing">
             {t("invitation.existingUser")}
           </Button>
-        </div>
+        </div>}
 
         {mode === "new" ? (
           <>
@@ -157,7 +159,7 @@ export function InviteActivation({
           </>
         ) : hasSession ? (
           <p className="text-12 text-muted-foreground" data-testid="activate-existing-hint">
-            {t("invitation.existingHint")}
+            {t(inboxInviteId ? "notifications.inviteAccountHint" : "invitation.existingHint")}
           </p>
         ) : (
           <p className="text-12 text-muted-foreground" data-testid="activate-existing-need-login">

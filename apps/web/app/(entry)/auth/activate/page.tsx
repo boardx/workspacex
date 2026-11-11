@@ -1,3 +1,4 @@
+import { orgAdmin } from "@repo/contracts";
 import { InviteActivation } from "@/components/entry/invite-activation";
 import { LinkActivation } from "@/components/entry/link-activation";
 import { ACTIVATION_TOKEN_PARAM, SHARED_LINK_TOKEN_PARAM, readActivationClaims } from "@/lib/activation-link";
@@ -24,5 +25,6 @@ export default function ActivatePage({
   const rawLink = searchParams[SHARED_LINK_TOKEN_PARAM];
   const linkToken = typeof rawLink === "string" && rawLink.length > 0 ? rawLink : null;
   if (token === null && linkToken !== null) return <LinkActivation token={linkToken} />;
-  return <InviteActivation token={token} claims={readActivationClaims(searchParams)} />;
+  const inbox = orgAdmin.OrgInboxInviteId.safeParse(searchParams[orgAdmin.INBOX_INVITE_PARAM]);
+  return <InviteActivation token={token} inboxInviteId={token === null && inbox.success ? inbox.data : undefined} claims={readActivationClaims(searchParams)} />;
 }
