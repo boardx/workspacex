@@ -1,5 +1,6 @@
 export const adminMemberQuotasZhCN = {
   "adminMemberQuotas.creditTitle": "成员月度 Credit 额度",
+  "adminMemberQuotas.creditUnavailable": "当前组织未启用企业成员 Credit 额度。成员使用个人 Credit。",
   "adminMemberQuotas.batchTitle": "批量调整额度",
   "adminMemberQuotas.batchPreview": "预览",
   "adminMemberQuotas.batchBack": "返回修改",
@@ -92,6 +93,7 @@ export const adminMemberQuotasZhCN = {
 
 export const adminMemberQuotasEn: Record<keyof typeof adminMemberQuotasZhCN, string> = {
   "adminMemberQuotas.creditTitle": "Member monthly Credit limits",
+  "adminMemberQuotas.creditUnavailable": "Enterprise member limits are inactive for this organization. Members use personal Credits.",
   "adminMemberQuotas.batchTitle": "Adjust limits in bulk",
   "adminMemberQuotas.batchPreview": "Preview",
   "adminMemberQuotas.batchBack": "Edit amount",

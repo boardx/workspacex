@@ -26,7 +26,8 @@ it('saves explicit zero and rejects blank, negative and fractional limits',async
 it('does not present enterprise spending policy for ordinary organizations',async()=>{
  api.getMemberCreditQuotas.mockResolvedValue({...snapshot,enterprise:false,members:[]});show();
  await waitFor(()=>expect(api.getMemberCreditQuotas).toHaveBeenCalled());
- expect(screen.queryByTestId('admin-member-credit-quotas')).toBeNull();
+ expect(await screen.findByTestId('admin-member-credit-unavailable')).toHaveTextContent('Members use personal Credits.');
+ expect(screen.queryByRole('button',{name:'Adjust limits in bulk'})).toBeNull();
 });
 
 import {CreditConsumptionNotice} from '@/components/billing/credit-consumption-notice';
