@@ -3,8 +3,8 @@ export function workbenchThreadPath(threadId: string | null, projectId: string |
   const path = threadId ? `/chat/${encodeURIComponent(threadId)}` : "/chat";
   return projectId ? `${path}?projectId=${encodeURIComponent(projectId)}` : path;
 }
-export function createWorkbenchThread(projectId: string | null) {
-  return projectId ? createThread({ projectId, groupId: null, title: "新对话", visibilityScope: "private" }) : createPersonalThread(null);
+export function createWorkbenchThread(projectId: string | null, sessionToken?: string) {
+  return projectId ? createThread({ projectId, groupId: null, title: "新对话", visibilityScope: "private" }, sessionToken) : createPersonalThread(null, sessionToken);
 }
 /**
  * issue #3356 —— 分页只加在**个人**对话列表上（`listPersonalThreads`）。

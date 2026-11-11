@@ -152,9 +152,10 @@ export async function listPersonalThreads(
  * `mutate-thread.ts` 的 `createPersonalThread` 头注。默认可见范围复用 `private`
  * （仅创建者可读，与个人线程的定义逐字相同）。
  */
-export async function createPersonalThread(title: string | null): Promise<MutateThreadOut> {
+export async function createPersonalThread(title: string | null, sessionToken?: string): Promise<MutateThreadOut> {
   return apiRequest<MutateThreadOut>(chat.operations.mutateThread.path, {
     method: "POST",
+    sessionToken,
     body: {
       op: "create",
       projectId: null,
@@ -530,9 +531,10 @@ export interface CreateThreadInput {
   readonly visibilityScope: z.infer<typeof chat.ChatVisibility>;
 }
 
-export async function createThread(input: CreateThreadInput): Promise<MutateThreadOut> {
+export async function createThread(input: CreateThreadInput, sessionToken?: string): Promise<MutateThreadOut> {
   return apiRequest<MutateThreadOut>(chat.operations.mutateThread.path, {
     method: "POST",
+    sessionToken,
     body: {
       op: "create",
       projectId: input.projectId,

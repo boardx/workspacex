@@ -568,7 +568,7 @@ describe("CopilotKitV2Shell — explicit new conversation isolation", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     expect(await screen.findByTestId(`chat-thread-${EMPTY_TOP.id}`)).toHaveTextContent("New conversation");
-    expect(createPersonalThread).toHaveBeenCalledWith(null);
+    expect(createPersonalThread).toHaveBeenCalledWith(null, "provider-bearer");
   });
 
   it("discards an in-flight empty-thread check after the session changes", async () => {
@@ -589,6 +589,26 @@ describe("CopilotKitV2Shell — explicit new conversation isolation", () => {
     }));
     expect(createPersonalThread).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
+    expect(screen.getByTestId("chat-thread-create")).toBeEnabled();
+  });
+
+  it("discards an in-flight empty-thread check after a newer sidebar selection", async () => {
+    const list = { groups: [{ label: "今天", cards: [EMPTY_TOP, THREAD_A] }], capabilities: ["thread.mutate"] };
+    listPersonalThreads.mockResolvedValue(list);
+    let finishCheck: (detail: unknown) => void = () => {};
+    getThread.mockImplementationOnce(() => new Promise((resolve) => { finishCheck = resolve; }));
+    render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${EMPTY_TOP.id}`);
+    fireEvent.click(screen.getByTestId("chat-thread-create"));
+    await waitFor(() => expect(getThread).toHaveBeenCalledWith(EMPTY_TOP.id, null, "provider-bearer"));
+
+    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
+    await act(async () => finishCheck({
+      thread: { id: EMPTY_TOP.id, projectId: null, visibilityScope: "private", archived: false, createdBy: "user-current" },
+      messages: [], rightTabs: [], capabilities: ["composer.send"],
+    }));
+    expect(createPersonalThread).not.toHaveBeenCalled();
+    expect(push.mock.calls).toEqual([[`/chat/${THREAD_A.id}`]]);
     expect(screen.getByTestId("chat-thread-create")).toBeEnabled();
   });
 

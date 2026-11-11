@@ -94,23 +94,13 @@ test("发消息→整页刷新→消息仍在（URL 绑定的持久化 chatThrea
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(marker, { timeout: 30_000 });
 });
 
-test("新建对话→线程列表出现两条→切换回第一条→历史正确恢复", async ({ page }) => {
+test("#6531 English new conversation reuses the existing empty draft", async ({ page }) => {
   await login(page);
-  await warmUpCopilotRuntimeRoute(page);
   await page.context().addCookies([{ name: "workspacex-locale", value: "en", url: page.url() }]);
   await page.goto("/chat");
-
-  const firstMarker = `DA-2021-线程一-${Date.now()}`;
-  await sendAndWaitEcho(page, firstMarker);
-  await expect(page).toHaveURL(/\/chat\/[^/]+$/);
-  const firstThreadUrl = page.url();
-  const firstThreadId = firstThreadUrl.split("/").pop()!;
-
-  // 新建对话：侧栏「+ 新建对话」按钮，走真实 `POST /chat/threads/mutate` + 导航。
   const create = page.getByRole("button", { name: "New conversation", exact: true });
   await create.click();
-  await page.waitForURL(/\/chat\/[^/]+$/);
-  await expect(page).not.toHaveURL(firstThreadUrl);
+  await expect(page).toHaveURL(/\/chat\/[^/]+$/);
   await waitForEmptyThreadReady(page);
   const emptyThreadUrl = page.url();
   const emptyThreadId = new URL(emptyThreadUrl).pathname.split("/").pop()!;
@@ -128,7 +118,24 @@ test("新建对话→线程列表出现两条→切换回第一条→历史正�
   await expect(create).toBeEnabled();
   await expect(page).toHaveURL(emptyThreadUrl);
   expect(duplicateCreates).toBe(0);
+});
 
+test("新建对话→线程列表出现两条→切换回第一条→历史正确恢复", async ({ page }) => {
+  await login(page);
+  await warmUpCopilotRuntimeRoute(page);
+  await page.goto("/chat");
+
+  const firstMarker = `DA-2021-线程一-${Date.now()}`;
+  await sendAndWaitEcho(page, firstMarker);
+  await expect(page).toHaveURL(/\/chat\/[^/]+$/);
+  const firstThreadUrl = page.url();
+  const firstThreadId = firstThreadUrl.split("/").pop()!;
+
+  // 新建对话：侧栏「+ 新建对话」按钮，走真实 `POST /chat/threads/mutate` + 导航。
+  await page.getByTestId("chat-thread-create").click();
+  await page.waitForURL(/\/chat\/[^/]+$/);
+  await expect(page).not.toHaveURL(firstThreadUrl);
+  await waitForEmptyThreadReady(page);
   const secondMarker = `DA-2021-线程二-${Date.now()}`;
   await sendAndWaitEcho(page, secondMarker);
   const secondThreadUrl = page.url();
