@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { SectionTitle } from "./parts";
 import { ResourceGrid } from "@/components/ui/resource-card";
+import { ProjectBoardNameEditor } from "./project-board-name-editor";
 import { ProjectContentCard } from "./project-content-card";
 import { ProjectConversations, DEFAULT_PROJECT_THREAD_TITLE } from "./project-conversations";
 import {
@@ -299,6 +300,9 @@ function AllContentList({ index, canWrite }: {
                 resourceKind={e.resourceKind ?? undefined}
                 status={e.status}
                 meta={<UpdatedAt iso={e.updatedAt} />}
+                menu={canWrite && e.resourceKind === "whiteboard" ? (
+                  <ProjectBoardNameEditor boardId={e.id} onSaved={() => void index.reload()} />
+                ) : undefined}
               />
             </li>
           ))}

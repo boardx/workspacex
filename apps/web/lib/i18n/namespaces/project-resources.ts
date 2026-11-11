@@ -18,6 +18,12 @@ export const projectContentFilterEn: Record<ContentFilter, string> = {
 };
 
 export const projectResourcesZhCN = {
+  "projectResources.editBoard": "编辑白板",
+  "projectResources.editBoardHelp": "修改白板名称。",
+  "projectResources.boardName": "白板名称",
+  "projectResources.boardOwnerOnly": "只有白板所有者可以修改白板名称。",
+  "projectResources.boardLoadFailed": "无法读取白板，请关闭后重试。",
+  "projectResources.boardSaveFailed": "无法保存白板名称，请重试。",
   "projectResources.meta.survey": "挂到本项目的问卷：设计、投放与回收都在问卷 Studio",
   "projectResources.meta.itv": "属于本项目的用户访谈：从项目里新建的自动归到这里，也可以把你已有的访谈关联进来",
   "projectResources.meta.research": "挂到本项目的深度研究会话",
@@ -65,6 +71,12 @@ export const projectResourcesZhCN = {
 } as const;
 
 export const projectResourcesEn: Record<keyof typeof projectResourcesZhCN, string> = {
+  "projectResources.editBoard": "Edit whiteboard",
+  "projectResources.editBoardHelp": "Change the whiteboard name.",
+  "projectResources.boardName": "Whiteboard name",
+  "projectResources.boardOwnerOnly": "Only the whiteboard owner can change its name.",
+  "projectResources.boardLoadFailed": "Could not load the whiteboard. Close and try again.",
+  "projectResources.boardSaveFailed": "Could not save the whiteboard name. Try again.",
   "projectResources.meta.survey": "Project surveys: design, distribution and collection take place in Survey Studio",
   "projectResources.meta.itv": "Interviews created from this project appear here automatically. You can also link your existing interviews.",
   "projectResources.meta.research": "Deep research sessions linked to this project",

@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { ResourceGrid } from "@/components/ui/resource-card";
+import { ProjectBoardNameEditor } from "./project-board-name-editor";
 import { ProjectContentCard } from "./project-content-card";
 import { SectionTitle } from "./parts";
 import { UpdatedAt, formatDate } from "./project-resource-meta";
@@ -373,6 +374,9 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
                 status={it.status}
                 resourceKind={it.kind}
                 meta={<UpdatedAt iso={it.updatedAt} />}
+                footer={canWrite && it.kind === "whiteboard" ? (
+                  <ProjectBoardNameEditor boardId={it.id} onSaved={() => { void load(); onChanged?.(); }} />
+                ) : undefined}
                 menu={canWrite && linkable ? (
                   <Menu>
                     <MenuTrigger asChild>
