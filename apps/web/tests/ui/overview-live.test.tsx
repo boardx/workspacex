@@ -43,11 +43,11 @@ vi.mock("@/lib/live-provenance", () => ({
 import { OverviewLive } from "@/components/admin/overview-live";
 import { I18nProvider } from "@/lib/i18n/provider";
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 // `useOptionalSession.mockReturnValue(...)`（组织切换那条测试用它模拟换组织）不会被
 // `clearAllMocks` 撤销——`clearAllMocks` 只清调用记录，不清已设置的返回值。所以每条
 // 测试开始前显式重置回默认的 org-1，避免测试之间因为执行顺序互相污染。
-beforeEach(() => { useOptionalSession.mockReturnValue({ session: { currentOrgId: "org-1" } }); });
+beforeEach(() => { vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} }); useOptionalSession.mockReturnValue({ session: { currentOrgId: "org-1" } }); });
 
 const MEMBERS = ["u1", "u2", "u3", "u4", "u5"].map((userId, i) => ({
   userId, displayName: `成员${i + 1}`, email: `${userId}@x.com`,
