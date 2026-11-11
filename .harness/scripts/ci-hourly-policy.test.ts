@@ -29,10 +29,16 @@ it('declares every moved producer in the strict final full result and keeps cron
  const full=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8'));
  const final=full.jobs['hourly-full-result'];expect(JSON.stringify(final)).toContain('ci-hourly-result.mjs');
  const probe={eventName:'schedule',ref:'refs/heads/develop',baseBranch:'develop'};
+ const scheduled = (condition: string, runFull: 'true' | 'false') => evaluateIf(condition, probe, {
+  needsOutputs: new Map([['needs.freeze-source.outputs.run_full', runFull]]),
+ });
+ expect(scheduled(final.if, 'true'), 'hourly-full-result admitted').toBe(true);
+ expect(scheduled(final.if, 'false'), 'hourly-full-result no-op').toBe(false);
  for(const [name,job]of Object.entries(full.jobs) as [string,any][]){
   if(!job.uses)continue;
   expect(final.needs).toContain(name);
-  expect(evaluateIf(job.if,probe)).toBe(true);
+  expect(scheduled(job.if, 'true'), `${name} admitted`).toBe(true);
+  expect(scheduled(job.if, 'false'), `${name} no-op`).toBe(false);
   const called=parse(readFileSync(job.uses.slice(2),'utf8'));expect(called.on.workflow_call).toBeDefined();
   for(const [id,producer]of Object.entries(called.jobs) as [string,any][]){
    expect(producer.environment,`${name}/${id}`).toBeUndefined();expect(JSON.stringify(producer['runs-on'])).not.toContain('self-hosted');

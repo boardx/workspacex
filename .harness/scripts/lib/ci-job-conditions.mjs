@@ -292,7 +292,7 @@ function evaluateNode(node, context) {
 }
 
 /** 探针事件下的上下文。取不到的路径一律 UNKNOWN —— 别替 GitHub 编值。 */
-function probeContext(probe, { needsResults }) {
+function probeContext(probe, { needsResults, needsOutputs }) {
   const REPO = "boardx/workspacex";
   const table = new Map([
     ["github.event_name", probe.eventName],
@@ -311,6 +311,7 @@ function probeContext(probe, { needsResults }) {
   return {
     lookup(pathExpr) {
       if (table.has(pathExpr)) return table.get(pathExpr);
+      if (needsOutputs.has(pathExpr)) return needsOutputs.get(pathExpr);
       // Static full-route probe inventories the unchanged broad fallback. UI
       // routing has separate outcome/evidence contract tests; unknown fields stay unknown.
       if(pathExpr==='needs.doc-smoke-scope.outputs.mode'&&needsResults.get('doc-smoke-scope')==='success')return probe.regressionMode??'full';
@@ -329,7 +330,7 @@ function probeContext(probe, { needsResults }) {
  * 在某个探针事件下求 `if:` 的值。
  * 返回 true / false / UNKNOWN —— **UNKNOWN 由调用方当作「不可达」**。
  */
-export function evaluateIf(expression, probe, { needsResults = new Map() } = {}) {
+export function evaluateIf(expression, probe, { needsResults = new Map(), needsOutputs = new Map() } = {}) {
   if (expression === undefined || expression === null) return true;
   const source = String(expression).trim();
   if (source === "") return true;
@@ -337,7 +338,7 @@ export function evaluateIf(expression, probe, { needsResults = new Map() } = {})
   const unwrapped = /^\$\{\{([\s\S]*)\}\}$/.exec(source);
   const body = unwrapped ? unwrapped[1] : source;
   try {
-    return evaluateNode(parseExpression(tokenize(body)), probeContext(probe, { needsResults }));
+    return evaluateNode(parseExpression(tokenize(body)), probeContext(probe, { needsResults, needsOutputs }));
   } catch {
     return UNKNOWN;
   }

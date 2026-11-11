@@ -41,7 +41,7 @@ it('omits broad PR duplicates while queue/manual retain complete smoke coverage'
  const acceptance=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8')).jobs;
  for(const name of ['fullstack-smoke','board-smoke','directory-smoke']){
   expect(jobs[name]).toBeUndefined();
-  expect(acceptance[name].needs).toEqual(['doc-smoke-scope']);
+  expect(acceptance[name].needs).toEqual(['freeze-source','doc-smoke-scope']);
   for(const eventName of ['workflow_dispatch','merge_group'])for(const output of ['false','true','']){
    const selected=acceptance[name];
    const expression=selected.if.replaceAll('needs.doc-smoke-scope.outputs.mode',"'full'").replaceAll('needs.doc-smoke-scope.outputs.full',`'${output}'`).replaceAll('inputs.verification_lane',"'all'");

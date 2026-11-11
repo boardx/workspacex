@@ -9,7 +9,10 @@ import {bundleCurrent} from './ci-targeted-runner.mjs';
 export const UI_PRODUCERS=['targeted-ui-unit','targeted-ui-browser'];
 export function requireRoute(kind,needs){
  const full=kind==='base'?PARALLEL_BASE_PRODUCERS:kind==='e2e'?FULL_REGRESSION_LANES:null;
- if(!full||!needs||Object.keys(needs).sort().join()!==[...full,'doc-smoke-scope',...UI_PRODUCERS].sort().join())throw Error('INCOMPLETE_ROUTED_DEPENDENCIES');
+ const freeze=needs?.['freeze-source'];
+ const expected=[...(full??[]),'doc-smoke-scope',...UI_PRODUCERS,...(freeze?['freeze-source']:[])];
+ if(!full||!needs||Object.keys(needs).sort().join()!==expected.sort().join())throw Error('INCOMPLETE_ROUTED_DEPENDENCIES');
+ if(freeze&&(freeze.result!=='success'||freeze.outputs?.run_full!=='true'))throw Error('INVALID_FROZEN_SOURCE_ADMISSION');
  const scope=needs['doc-smoke-scope'];
  const {mode,plan_digest:planDigest}=scope?.outputs??{};
  if(scope?.result!=='success'||!['full','targeted-ui'].includes(mode)||!/^[a-f0-9]{64}$/.test(planDigest??''))throw Error('INVALID_ROUTING_PLAN');
