@@ -29,6 +29,8 @@ const listThreads = vi.fn();
 const listProjectResources = vi.fn();
 const linkProjectResource = vi.fn();
 const createBoard = vi.fn();
+const getBoard = vi.fn();
+const updateBoard = vi.fn();
 const createDesignProject = vi.fn();
 const listDesignProjects = vi.fn();
 const fetchProjectKnowledge = vi.fn();
@@ -93,6 +95,8 @@ vi.mock("@/lib/live-project-resources", async (orig) => ({
 vi.mock("@/lib/live-whiteboard", async (orig) => ({
   ...(await orig<typeof import("@/lib/live-whiteboard")>()),
   createBoard: (...a: unknown[]) => createBoard(...a),
+  getBoard: (...a: unknown[]) => getBoard(...a),
+  updateBoard: (...a: unknown[]) => updateBoard(...a),
 }));
 vi.mock("@/lib/live-design-workbench", async (orig) => ({
   ...(await orig<typeof import("@/lib/live-design-workbench")>()),
@@ -294,6 +298,25 @@ describe("#4615 通用项目的工作台", () => {
     await waitFor(() => expect(screen.getByTestId("project-resources")).toHaveAttribute("data-kind", "whiteboard"));
     expect(await screen.findByTestId("project-resource-wb1")).toBeInTheDocument();
     expect(screen.queryByTestId("project-resource-sv1")).toBeNull();
+  });
+
+  it("从项目内容卡保存白板名称并重读资源", async () => {
+    getProjectOverview.mockResolvedValue(overviewOf("general"));
+    getBoard.mockResolvedValue({ id: "wb1", name: "用户旅程白板", role: "owner" });
+    updateBoard.mockImplementation(async () => {
+      listProjectResources.mockResolvedValue({
+        ...RESOURCES,
+        items: RESOURCES.items.map((item) => item.id === "wb1" ? { ...item, title: "已改名白板" } : item),
+      });
+    });
+    renderWorkbench("content");
+    fireEvent.click(await screen.findByTestId("project-board-edit-wb1"));
+    const name = await screen.findByRole("textbox", { name: "白板名称" });
+    expect(name).toHaveValue("用户旅程白板");
+    fireEvent.change(name, { target: { value: "已改名白板" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(updateBoard).toHaveBeenCalledWith("wb1", { name: "已改名白板" }));
+    expect(await screen.findByRole("link", { name: "已改名白板" })).toBeInTheDocument();
   });
 
   it("R7 通用项目「成果」没有假子导航；概览与看板统一叫「工作流」，协作者面板叫「角色」不叫「档位」", async () => {
