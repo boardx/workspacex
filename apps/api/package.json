@@ -62,6 +62,7 @@
     "dev:deps": "docker compose -f docker-compose.dev.yml -p workspacex-kernel up -d",
     "gen:native-profile-tools": "tsx scripts/generate-native-profile-tools.ts",
     "files:purge": "node --import tsx scripts/run-physical-deletion.ts",
+    "test:skill-display-unit": "vitest run --config vitest.skill-display-unit.config.ts",
     "test:file-cloud": "vitest run --config vitest.file-cloud.config.ts",
     "test:storage": "vitest run --config vitest.storage.config.ts",
     "test:local-desktop-unit": "vitest run --config vitest.local-desktop-unit.config.ts",
