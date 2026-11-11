@@ -68,7 +68,8 @@ for (const [mode, orgId] of [["cloud", MODE_EVAL.cloudOrgId], ["local", MODE_EVA
 
     if (kind === "general") {
       await page.goto(`/projects/${projectId}?tab=content`);
-      await page.getByTestId("project-content-empty-new-conv").click();
+      await page.getByTestId("project-content-new-menu").click();
+      await page.getByTestId("project-content-new-conv").click();
     } else {
       await page.goto(`/projects/${projectId}?tab=research&sub=conv`);
       await page.getByTestId("project-conversations-new").click();
@@ -214,7 +215,8 @@ for (const mode of ["cloud", "local"] as const) {
     await expect(page.getByTestId("project-brain")).toContainText("分享自个人记忆");
     await page.screenshot({ path: info.outputPath(`${mode}-undo-02-restored-project.png`), fullPage: true });
     await page.goto(`/projects/${projectId}?tab=content`);
-    await page.getByTestId("project-content-empty-new-conv").click();
+    await page.getByTestId("project-content-new-menu").click();
+    await page.getByTestId("project-content-new-conv").click();
     await page.waitForURL(/\/chat\/[^/?]+\?projectId=/);
     const answer = await say(page, "北极星项目首发只做安卓版，是谁决定的？");
     await expect(answer.answer).toContainText("王芳");
