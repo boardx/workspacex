@@ -5,8 +5,9 @@ import { useI18n } from "@/lib/i18n/provider";
 import { translate } from "@/lib/i18n/messages";
 import type { Locale } from "@/lib/i18n/locale";
 import Link from "next/link";
-import { Search, Plus, MoreHorizontal, AlertTriangle, Check, Link2, LayoutGrid, List as ListIcon, X, Tag as TagIcon } from "lucide-react";
+import { Search, Plus, MoreHorizontal, Pencil, AlertTriangle, Check, Link2, LayoutGrid, List as ListIcon, X, Tag as TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ResourceCard } from "@/components/ui/resource-card";
@@ -26,6 +27,7 @@ import {
   PROJECT_TAG_MAX_LENGTH,
   archiveProject,
   listProjects,
+  renameProject,
   unarchiveProject,
   updateProjectTags,
   type ProjectListItem,
@@ -54,7 +56,8 @@ type ViewMode = "card" | "list";
  */
 export function ProjectsScreen() {
   const { t, locale } = useI18n();
-  const { session } = useSession();
+  const { session, identity } = useSession();
+  const canRename = identity?.orgRole === "lead" || identity?.orgRole === "admin";
   if (!session) throw new Error("ProjectsScreen requires an authenticated session");
   const orgId = session.currentOrgId;
 
@@ -254,13 +257,13 @@ export function ProjectsScreen() {
       ) : viewMode === "card" ? (
         <ul className={RESOURCE_GRID_CLASS} data-testid="projects-list">
           {visible.map((p) => (
-            <ProjectRealCard key={p.id} project={p} orgId={orgId} layout="card" onChanged={() => void refresh(orgId)} />
+            <ProjectRealCard key={p.id} project={p} orgId={orgId} canRename={canRename} layout="card" onChanged={() => void refresh(orgId)} />
           ))}
         </ul>
       ) : (
         <ul className="flex flex-col gap-2" data-testid="projects-list">
           {visible.map((p) => (
-            <ProjectRealCard key={p.id} project={p} orgId={orgId} layout="list" onChanged={() => void refresh(orgId)} />
+            <ProjectRealCard key={p.id} project={p} orgId={orgId} canRename={canRename} layout="list" onChanged={() => void refresh(orgId)} />
           ))}
         </ul>
       )}
@@ -279,7 +282,7 @@ export function ProjectsScreen() {
  * 真实项目卡——只画契约有出处的字段（id/name/kind/status/readOnlyReason/tags）。
  * 没有「准备度」「环节进度」这些原型字段，因为契约根本不提供它们。
  *
- * F164：⋯ 菜单接真 archive/unarchive（编辑/看大屏/复制邀请后端未实现，禁用 + 如实说明）。
+ * ⋯ 菜单提供项目改名、复制链接、归档与恢复。
  * F185：加标签编辑（增/删，整体替换语义）；`layout` 控制卡片/列表两种密度，
  * 同一份逻辑与 testid，不另外维护第二份组件。
  * F09：⋯ 菜单改走 `components/ui/menu.tsx`（Radix DropdownMenu 别名）——此前是手写
@@ -289,8 +292,8 @@ export function ProjectsScreen() {
  * 文件判定为高风险暂缓，F09 验证过 Radix 受控 `open` + preventDefault 能干净承接）。
  */
 function ProjectRealCard({
-  project, orgId, layout, onChanged,
-}: { project: ProjectListItem; orgId: string; layout: "card" | "list"; onChanged: () => void }) {
+  project, orgId, canRename, layout, onChanged,
+}: { project: ProjectListItem; orgId: string; canRename: boolean; layout: "card" | "list"; onChanged: () => void }) {
   const { t, locale } = useI18n();
   const enterHref = `/projects/${project.id}?org=${encodeURIComponent(orgId)}`;
   const archived = project.status === "archived";
@@ -299,6 +302,29 @@ function ProjectRealCard({
   const [confirming, setConfirming] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<{ cause: unknown } | null>(null);
+
+  const [editing, setEditing] = React.useState(false);
+  const [name, setName] = React.useState(project.name);
+  const [savingName, setSavingName] = React.useState(false);
+  const [nameError, setNameError] = React.useState<{ cause: unknown } | null>(null);
+  const editable = canRename && !archived && project.readOnlyReason === null;
+
+  async function saveName(event: React.FormEvent) {
+    event.preventDefault();
+    const nextName = name.trim();
+    if (!editable || savingName || !nextName || nextName === project.name) return;
+    setSavingName(true);
+    setNameError(null);
+    try {
+      await renameProject(project.id, nextName);
+      setEditing(false);
+      onChanged();
+    } catch (cause) {
+      setNameError({ cause });
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   const close = () => { setOpen(false); setConfirming(false); };
 
@@ -426,6 +452,16 @@ function ProjectRealCard({
                   {copied ? <Check aria-hidden className="h-3.5 w-3.5" /> : <Link2 aria-hidden className="h-3.5 w-3.5" />}
                   {copied ? t("projects.linkCopied") : t("projects.copyLink")}
                 </MenuItem>
+                {editable && (
+                  <MenuItem onSelect={() => {
+                    setName(project.name);
+                    setNameError(null);
+                    setEditing(true);
+                  }} data-testid={`projects-more-${project.id}-edit`}>
+                    <Pencil aria-hidden className="h-3.5 w-3.5" />
+                    {t("projects.edit")}
+                  </MenuItem>
+                )}
                 <MenuSeparator />
                 {/* onSelect preventDefault：点「归档/恢复」要切到本组件的 confirming
                     子态，不能让 Radix「选中即关闭」抢先把菜单关掉。 */}
@@ -449,6 +485,23 @@ function ProjectRealCard({
           </Button>
         }
       />
+      <Dialog open={editing && editable} onOpenChange={(next) => { if (!savingName) setEditing(next); }}>
+        <DialogContent>
+          <DialogTitle>{t("projects.edit")}</DialogTitle>
+          <DialogDescription>{t("projects.editDescription")}</DialogDescription>
+          <form className="space-y-3" onSubmit={(event) => void saveName(event)}>
+            <label className="block space-y-1">
+              <span>{t("projects.name")}</span>
+              <Input autoFocus value={name} disabled={savingName} onChange={(event) => setName(event.target.value)} />
+            </label>
+            {nameError && <p role="alert">{describeProjectMutationError(nameError.cause, locale)}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={savingName} onClick={() => setEditing(false)}>{t("common.cancel")}</Button>
+              <Button type="submit" variant="primary" disabled={savingName || !name.trim() || name.trim() === project.name}>{t("common.save")}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </li>
   );
 }

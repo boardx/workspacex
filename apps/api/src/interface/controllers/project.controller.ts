@@ -68,7 +68,7 @@ import {
 import { getProjectOverview } from "../../application/project/get-project-overview";
 import { archiveProject } from "../../application/project/archive-project";
 import { unarchiveProject } from "../../application/project/unarchive-project";
-import { updateProjectTags } from "../../application/project/update-project-tags";
+import { renameProject, updateProjectTags } from "../../application/project/update-project-tags";
 import { addProjectMember } from "../../application/project/add-project-member";
 import { changeProjectRole } from "../../application/project/change-project-role";
 import { removeProjectMember } from "../../application/project/remove-project-member";
@@ -698,6 +698,28 @@ export class ProjectController {
         throw new ForbiddenException({ reasonCode: e.reasonCode });
       }
       throw e;
+    }
+  }
+
+  @Patch("/projects/:projectId/name")
+  async rename(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body() rawBody: unknown,
+  ) {
+    assertPrincipal(principal);
+    const input = new ZodBodyPipe(C.operations.renameProject.in).transform({ ...Object(rawBody), projectId }) as z.infer<typeof C.operations.renameProject.in>;
+    try {
+      return await renameProject(
+        { repo: this.tagsRepo, identity: this.identity },
+        { orgId: principal.orgId, actorId: principal.userId, projectId: input.projectId, name: input.name },
+      );
+    } catch (error) {
+      if (!(error instanceof ProjectError)) throw error;
+      const body = { reasonCode: error.reasonCode };
+      if (error.reasonCode === "AUTH_SERVICE_UNAVAILABLE") throw new ServiceUnavailableException(body);
+      if (error.reasonCode === "PROJECT_NOT_FOUND") throw new NotFoundException(body);
+      throw new ForbiddenException(body);
     }
   }
 

@@ -250,3 +250,11 @@ export async function advanceAgendaSegment(input: {
     },
   );
 }
+
+export async function renameProject(projectId: string, name: string) {
+  const operation = project.operations.renameProject;
+  return apiRequest<z.infer<typeof operation.out>>(
+    operation.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: operation.method, body: { name } },
+  );
+}

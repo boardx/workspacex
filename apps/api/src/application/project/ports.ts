@@ -380,6 +380,7 @@ export type UpdateProjectTagsOutcome =
   | { readonly kind: "not-found" };
 
 export interface ProjectTagsRepository {
+  renameActiveProject(orgId: OrgId, projectId: string, name: string): Promise<{ id: string; name: string } | null>;
   /** 整体替换（不是增量 patch），同一次 `UPDATE ... RETURNING` 完成写入与回显。 */
   updateTags(orgId: OrgId, projectId: string, tags: readonly string[]): Promise<UpdateProjectTagsOutcome>;
 }

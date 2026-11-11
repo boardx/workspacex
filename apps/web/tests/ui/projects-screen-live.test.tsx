@@ -13,7 +13,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 vi.mock("@/components/session/session-provider", () => ({
-  useSession: () => ({ session: { currentOrgId: "org-e2e-demo" } }),
+  useSession: () => ({ session: { currentOrgId: "org-e2e-demo" }, identity: { orgRole: "admin" } }),
 }));
 
 import { ProjectsScreen } from "@/components/projects/projects-screen";
@@ -70,6 +70,31 @@ describe("F353/F185 /projects：登录 → 真实扁平列表（无编造字段�
     // 「进入项目」链接必须带上 org id，overview 才查得到真实数据
     const enterLink = within(list).getByTestId("projects-card-p-real-1-enter");
     expect(enterLink).toHaveAttribute("href", `/projects/p-real-1?org=${ORG}`);
+  });
+
+  it("在项目菜单保存新名称并从服务端刷新卡片", async () => {
+    let name = "真实项目一号";
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input.toString());
+      if (url.pathname === "/projects/p-real-1/name" && init?.method === "PATCH") {
+        const body = JSON.parse(String(init.body));
+        expect(body).toEqual({ name: "更新项目" });
+        name = body.name;
+        return jsonResponse({ id: "p-real-1", name });
+      }
+      if (url.pathname === "/projects") {
+        return jsonResponse([{ id: "p-real-1", name, kind: "workshop", status: "active", readOnlyReason: null, tags: [] }]);
+      }
+      throw new Error(`unexpected fetch: ${url.pathname}`);
+    });
+    render(<ProjectsScreen />);
+    fireEvent.pointerDown(await screen.findByTestId("projects-card-p-real-1-more"), { button: 0 });
+    fireEvent.click(await screen.findByTestId("projects-more-p-real-1-edit"));
+    const nameInput = await screen.findByRole("textbox", { name: "项目名称" });
+    expect(nameInput).toHaveValue("真实项目一号");
+    fireEvent.change(nameInput, { target: { value: "  更新项目  " } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(screen.getByTestId("projects-card-p-real-1-name")).toHaveTextContent("更新项目"));
   });
 
   it("R4 列表读取失败：友好说明 + 重试，且不同时说「当前组织还没有项目」；重试成功后恢复列表", async () => {
@@ -314,13 +339,13 @@ describe("F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject", 
     return screen.getByTestId("projects-more-menu-p-real-1");
   }
 
-  it("菜单只有真实可用的两项（复制项目链接 / 归档），没有删除项，也没有禁用占位和内部备注", async () => {
+  it("菜单提供复制项目链接、编辑和归档，没有删除项，也没有禁用占位和内部备注", async () => {
     const menu = await openMenu();
 
     expect(within(menu).getByTestId("projects-more-p-real-1-copy-link")).not.toHaveAttribute("data-disabled");
     expect(within(menu).getByTestId("projects-more-p-real-1-archive")).not.toHaveAttribute("data-disabled");
     const items = within(menu).getAllByRole("menuitem");
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(3);
     expect(items.some((el) => el.hasAttribute("data-disabled"))).toBe(false);
     expect(items.some((el) => /删除/.test(el.textContent ?? ""))).toBe(false);
     expect(menu.textContent ?? "").not.toMatch(/Q-9|尚未实现/);

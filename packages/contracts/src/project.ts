@@ -547,6 +547,14 @@ export const operations = {
     err: ["AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 
+  renameProject: {
+    method: "PATCH",
+    path: "/projects/:projectId/name",
+    in: z.object({ projectId: z.string().min(1), name: z.string().trim().min(1) }).strict(),
+    out: z.object({ id: z.string(), name: z.string() }).strict(),
+    err: ["PROJECT_NOT_FOUND", "ORG_ROLE_INSUFFICIENT", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
   /**
    * `updateProjectTags` —— 2026-08-16（F185，delta）新增。
    *
