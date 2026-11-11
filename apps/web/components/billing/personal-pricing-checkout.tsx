@@ -21,8 +21,9 @@ export function PersonalPricingCheckout(props:Props){return <ScopedCheckout key=
 function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,onPaid,navigate=(url:string)=>window.location.assign(url)}:Props){
  const [loading,setLoading]=React.useState(true),[context,setContext]=React.useState<PendingPersonalCheckout|null>(null),[order,setOrder]=React.useState<Order|null>(null);
  const [creating,setCreating]=React.useState(false),[fatal,setFatal]=React.useState<string|null>(null),[message,setMessage]=React.useState<string|null>(null),[readError,setReadError]=React.useState(false),[qrError,setQrError]=React.useState(false),[qrVersion,setQrVersion]=React.useState(0),[now,setNow]=React.useState(Date.now);
+ const [canvas, setCanvas] = React.useState<HTMLCanvasElement | null>(null);
  const [showPreviousOrder, setShowPreviousOrder] = React.useState(false);
- const mounted=React.useRef(false),busy=React.useRef(false),reading=React.useRef(false),completed=React.useRef(false),autoStripe=React.useRef(false),requests=React.useRef(new Set<AbortController>()),canvas=React.useRef<HTMLCanvasElement>(null),snapshot=React.useRef<Order|null>(null);
+ const mounted=React.useRef(false),busy=React.useRef(false),reading=React.useRef(false),completed=React.useRef(false),autoStripe=React.useRef(false),requests=React.useRef(new Set<AbortController>()),snapshot=React.useRef<Order|null>(null);
  React.useEffect(()=>{
   mounted.current=true;const controllers=requests.current;
   try{setContext(loadPersonalCheckout(localStorage,userId));}catch{setFatal("无法读取之前的付款，请刷新或联系支持，勿重复付款。");}setLoading(false);
@@ -69,9 +70,9 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
  },[context]);
  const canPay=order?.status==="PENDING"&&!readError&&order.expiredAt!==null&&order.qrCodeUrl!==null&&Date.parse(order.expiredAt)>now;
  React.useEffect(()=>{
-  setQrError(false);if(!canPay||order?.provider!=="wechat"||order.qrCodeUrl===null||!canvas.current)return;
-  let alive=true;void QRCode.toCanvas(canvas.current,order.qrCodeUrl,{width:240,margin:2,errorCorrectionLevel:"M"}).catch(()=>{if(alive)setQrError(true);});return()=>{alive=false;};
- },[canPay,order?.provider,order?.qrCodeUrl,qrVersion]);
+  setQrError(false);if(!canPay||order?.provider!=="wechat"||order.qrCodeUrl===null||!canvas)return;
+  let alive=true;void QRCode.toCanvas(canvas,order.qrCodeUrl,{width:240,margin:2,errorCorrectionLevel:"M"}).catch(()=>{if(alive)setQrError(true);});return()=>{alive=false;};
+ },[canPay,order?.provider,order?.qrCodeUrl,qrVersion,canvas]);
  const submit=async(pending:PendingPersonalCheckout)=>{
   if(busy.current)return;busy.current=true;setCreating(true);setMessage(null);
   const controller=new AbortController();requests.current.add(controller);const timer=setTimeout(()=>controller.abort(),15000);
@@ -119,7 +120,7 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
     {!order&&!readError&&<p role="status">正在核实付款状态…</p>}
     {readError&&<p data-testid="pricing-payment-read-error" role="status" className="text-13 text-muted-foreground">暂时无法确认付款状态，请稍后刷新，勿重复付款。</p>}
     {order?.status==="SUCCESS"?<div className="space-y-3"><p data-testid="pricing-checkout-success" role="status" className="rounded-control bg-success p-3 text-success-foreground">支付已确认，请查看账户额度。</p><Button data-testid="pricing-payment-done" variant="primary" onClick={onClose}>完成</Button></div>:order?.status==="FAILED"?<p role="alert" className="text-13 text-destructive">付款需要人工核实，请保留订单号并联系支持，勿重复付款。</p>:order?.status==="CLOSED"?<div className="space-y-3"><p role="status">订单已确认关闭。</p><Button onClick={()=>{try{clearPersonalCheckout(localStorage,userId,context.request.idempotencyKey);setContext(null);setOrder(null);snapshot.current=null;completed.current=false;setMessage(null);}catch{setFatal("无法清理原订单记录，请联系支持。");}}}>重新选择套餐</Button></div>:<>
-     {canPay&&order?.provider==="wechat"&&<canvas hidden={qrError} data-testid="pricing-checkout-qr" ref={canvas} className="mx-auto" role="img" aria-label="微信支付二维码"/>}
+     {canPay&&order?.provider==="wechat"&&<canvas hidden={qrError} data-testid="pricing-checkout-qr" ref={setCanvas} className="mx-auto" role="img" aria-label="微信支付二维码"/>}
      {qrError&&<p role="status" className="text-13 text-destructive">二维码暂时无法显示，请刷新付款状态后重试。</p>}
      {canPay&&order?.provider==="stripe"&&order.qrCodeUrl!==null&&<Button variant="primary" onClick={()=>navigate(requirePaymentUrl(order.qrCodeUrl!,"stripe"))}>前往 Stripe 付款</Button>}
      {order&&order.status==="PENDING"&&!canPay&&!readError&&<p role="status" className="text-13 text-muted-foreground">付款时间已过，正在核实最终结果，勿重复付款。</p>}
