@@ -6,8 +6,8 @@
  *   ② 弹窗只有一个字段（项目名称）；空名不可提交；提交发出 kind=general、blueprintVersionId=null 的真实 POST，
  *      成功后 `router.push('/projects/<id>?org=<org>')`；
  *   ③ 失败用人话显示，原因码只在 `data-reason` 上，按钮恢复可点；
- *   ④ 次要入口「用工作坊模板创建」指向 `/project/new?mode=workshop`；取消关闭弹窗；
- *   ⑤ testid 沿用 /project/new 那套（project-new / -name / -create / -error / -workshop-link / -cancel）。
+ *   ④ 弹窗隐藏尚不可用的工作坊模板入口；取消关闭弹窗；
+ *   ⑤ testid 沿用 /project/new 那套（project-new / -name / -create / -error / -cancel）。
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -61,7 +61,7 @@ afterEach(() => {
 });
 
 describe("#4743 列表页 → 新建项目弹窗", () => {
-  it("点「新建项目」打开弹窗（不跳页）；标题、单字段、创建 / 取消、工作坊次要入口都在", async () => {
+  it("点「新建项目」打开弹窗（不跳页）；标题、单字段、创建 / 取消、工作坊入口隐藏", async () => {
     stubFetch(() => jsonResponse({ id: "p-1" }));
     render(<ProjectsScreen />);
     expect(screen.queryByTestId("project-new")).toBeNull();
@@ -73,8 +73,7 @@ describe("#4743 列表页 → 新建项目弹窗", () => {
     expect(screen.getByTestId("project-new-title")).toHaveTextContent("新建项目");
     expect(screen.getByTestId("project-new-name")).toBeInTheDocument();
     expect(screen.getByTestId("project-new-create")).toBeDisabled();
-    expect(screen.getByTestId("project-new-workshop-link")).toHaveAttribute("href", "/project/new?mode=workshop");
-    expect(screen.getByTestId("project-new-workshop-link")).toHaveTextContent("要办一场工作坊？用工作坊模板创建");
+    expect(screen.queryByRole("link", { name: /用工作坊模板创建/ })).not.toBeInTheDocument();
     expect(pushMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId("project-new-cancel"));
     await waitFor(() => expect(screen.queryByTestId("project-new")).toBeNull());
