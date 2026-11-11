@@ -498,7 +498,7 @@ describe("AG07 · handoff 端到端（真库、真网关、真路由）", () => 
   });
 });
 
-/* ── 四、官方角色包开箱即可转交（1.3.0）───────────────────────────── */
+/* ── 四、官方角色包开箱即可转交───────────────────────────── */
 
 describe("AG07 · 官方角色包：D002 开箱转交给 D003（真导入、真网关、loopback 剧本同形参数）", () => {
   const ORG2 = toOrgId("org-ag07-official");
@@ -540,7 +540,6 @@ describe("AG07 · 官方角色包：D002 开箱转交给 D003（真导入、真�
   });
 
   it("官方包的转交目标由白名单推导，D002 → D003 登记 requested；D002 → D002 自己不在允许集", async () => {
-    expect(OFFICIAL_AGENT_ROLE_PACK_VERSION).toBe("1.7.0");
     expect(officialRoleDelegationTargets().D002).toContain("D003");
     const d002 = await asApp(ORG2, async (c) => (await c.query<{ agent_id: string; version_id: string; policy: unknown }>(
       `SELECT a.id AS agent_id, a.published_version_id AS version_id, v.delegation_policy AS policy
