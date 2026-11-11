@@ -10,6 +10,7 @@
  * 产物带 `@generated` 头，`lint-contract-source` 据此判定它没被手改。
  * 每个契约束一个 `<file>.mock.ts`；新增契约束时在 MODULES 加一行即可。
  */
+import { WorkSkillStableId } from "../src/work-skill-meta";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -64,8 +65,11 @@ function sample(schema: z.ZodTypeAny, key = "", depth = 0): unknown {
       // ⚠ 取 null 而不是内层样例：让前端**必须**处理空值分支。
       //   projectRole 为 null 正是「不在项目上下文」这个正常状态（domain I-11）。
       return null;
-    case "ZodOptional":
-      return sample(def.innerType as z.ZodTypeAny, key, depth + 1);
+    case "ZodOptional": {
+      const inner = def.innerType as z.ZodTypeAny;
+      // A Work Skill ID is only present when the catalog has an authored identity.
+      return inner === WorkSkillStableId ? undefined : sample(inner, key, depth + 1);
+    }
     case "ZodDiscriminatedUnion":
       // Pick the first declared branch deterministically; null is not a union value.
       return sample((def.options as z.ZodTypeAny[])[0]!, key, depth + 1);
