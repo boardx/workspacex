@@ -579,12 +579,10 @@ function DefinitionDetail({
     }
   }
 
-  const description = row.kind === "skill" ? skillCatalogDescription(row.workSkillId, row.taskDescription) : undefined;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col divide-y divide-border-subtle">
-        <KV k="名称" v={row.kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : row.name} />
-        {description && <KV k="介绍" v={description} />}
+        <KV k="名称" v={row.name} />
         <KV k="Agent ID" v={<span className="font-mono text-11">{row.agentId}</span>} />
         <KV k="缩写" v={row.initials} />
         <KV k="角色" v={row.role} />

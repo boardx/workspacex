@@ -89,6 +89,10 @@ it("public Skill requires publication then administrator enablement; raw source 
       )
     ).rows,
   ).toHaveLength(0);
+  await asApp(PLATFORM, (s) => s.query(
+    "UPDATE skill_versions SET manifest = manifest || $3::jsonb WHERE org_id=$1 AND skill_id=$2 AND NOT published",
+    [PLATFORM, source.id, JSON.stringify({ work: { stableId: "S020" } })],
+  ));
   const published = await request(
     OPS,
     `${path}/skill/${source.id}/publish`,
@@ -97,10 +101,9 @@ it("public Skill requires publication then administrator enablement; raw source 
   expect(published.status).toBe(201);
   const out = await published.json();
   expect(out.published).toBe(true);
-  expect(
-    (await offer()).entries.find((x: { id: string }) => x.id === source.id)
-      ?.enabled,
-  ).toBe(false);
+  expect((await offer()).entries.find((x: { id: string }) => x.id === source.id)).toMatchObject({
+    enabled: false, workSkillId: "S020",
+  });
   const body = {
     kind: "skill",
     id: source.id,
@@ -132,6 +135,10 @@ it("public Skill requires publication then administrator enablement; raw source 
   expect((await repeated.json()).id).toBe(local.id);
   expect(local.originVersionId).toBe(out.versionId);
   expect(local.id).not.toBe(source.id);
+  const library = await request(MEMBER, `/skills?orgId=${ORG}`);
+  expect(library.status).toBe(200);
+  expect((await library.json()).items.find((row: { skillId: string }) => row.skillId === local.id))
+    .toMatchObject({ workSkillId: "S020" });
   expect(
     (
       await asApp(ORG, (s) =>

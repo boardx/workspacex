@@ -39,7 +39,10 @@ export async function catalogEntries(
           `SELECT * FROM (
              SELECT sk.id, sk.name, COALESCE(v.manifest->>'description','') AS description,
                     v.id AS version_id, COALESCE(v.published,false) AS published, sk.status='enabled' AS enabled,
-                    COALESCE(sce.stable_id, CASE WHEN sk.org_id=$6 THEN v.manifest#>>'{work,stableId}' END) AS work_skill_id,
+                    COALESCE(sce.stable_id, CASE WHEN v.published AND (sk.org_id=$6 OR EXISTS (
+                      SELECT 1 FROM ai_catalog_enablements ae
+                       WHERE ae.org_id=sk.org_id AND ae.kind='skill' AND ae.local_id=sk.id AND ae.local_version_id=v.id
+                    )) THEN v.manifest#>>'{work,stableId}' END) AS work_skill_id,
                     'skill'::text AS entity_type
                FROM skills sk
                LEFT JOIN skill_catalog_entries sce ON sce.org_id=sk.org_id AND sce.skill_id=sk.id
