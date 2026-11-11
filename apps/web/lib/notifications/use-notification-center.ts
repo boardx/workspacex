@@ -50,5 +50,5 @@ export function useNotificationCenter(sessionToken: string | null | undefined, o
     } finally { setBusy(false); }
   }, [sessionToken]);
   const visible = state?.token === sessionToken && sessionToken ? state : null;
-  return { items: visible?.items ?? EMPTY, unreadCount: visible?.unreadCount ?? 0, failed: visible?.failed ?? false, busy, refresh, markRead };
+  return { loading: Boolean(sessionToken && !visible), items: visible?.items ?? EMPTY, unreadCount: visible?.unreadCount ?? 0, failed: visible?.failed ?? false, busy, refresh, markRead };
 }
