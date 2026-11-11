@@ -59,9 +59,9 @@ afterEach(() => {
 });
 
 describe("§1 判据：navSegmentsForViewer", () => {
-  it("成员可进入组织目录，仍不可进入平台后台", () => {
+  it("成员没有后台入口", () => {
     const k = keys(navSegmentsForViewer({ orgName: "远洋新能源", orgRole: "consultant", platformOperator: false }));
-    expect(k).toContain("admin");
+    expect(k).not.toContain("admin");
     expect(k).not.toContain("platform-admin");
     // 阳性对照：其余入口没被连坐过滤掉
     expect(k).toContain("chat");
@@ -73,10 +73,10 @@ describe("§1 判据：navSegmentsForViewer", () => {
     expect(k).not.toContain("platform-admin");
   });
 
-  it("平台运维成员具有两种独立入口", () => {
+  it("平台运维资格不会授予组织后台入口", () => {
     const k = keys(navSegmentsForViewer({ orgName: "远洋新能源", orgRole: "consultant", platformOperator: true }));
     expect(k).toContain("platform-admin");
-    expect(k).toContain("admin");
+    expect(k).not.toContain("admin");
   });
 
   it("平台准入还没查出来（undefined）：先不画平台入口——闪现再消失比晚半秒更糟", () => {
@@ -87,9 +87,9 @@ describe("§1 判据：navSegmentsForViewer", () => {
 });
 
 describe("§2 IconRail：不够格的查看者，锚点压根不渲染", () => {
-  it("普通成员进入组织目录，平台入口仍不存在", () => {
+  it("普通成员看不到两个后台入口", () => {
     renderRail("consultant", false);
-    expect(screen.getByTestId("rail-admin").getAttribute("href")).toBe("/org-admin/agent");
+    expect(screen.queryByTestId("rail-admin")).toBeNull();
     expect(screen.queryByTestId("rail-platform-admin")).toBeNull();
     // 阳性对照：栏本身渲染了
     expect(screen.getByTestId("rail-chat")).toBeTruthy();

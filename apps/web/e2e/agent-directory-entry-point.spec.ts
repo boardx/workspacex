@@ -1,11 +1,6 @@
-/** Agent directory remains discoverable through organization administration. */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
-// 2026-09-29：本 spec 排在 fullstack-smoke 的 `seeded` project，那条链的种子
-// （fullstack-smoke-fixture / seed）只提供 FULLSTACK_E2E 账号，不建 dev-mode 预设账号——
-// 原先 `loginAsDevRole` 在 CI 上停在 /login（#4622）。改用与同 project 其他 spec
-// （如 agenda-segment-create-smoke）相同的真实表单登录；「Agent 目录」入口不按角色门控。
 async function loginAsSeededUser(page: Page) {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
@@ -14,19 +9,10 @@ async function loginAsSeededUser(page: Page) {
   await expect(page).toHaveURL(/\/home$/);
 }
 
-test("Agent 目录从组织后台入口可达", async ({ page }) => {
+test("Agent 目录可以独立于组织后台访问", async ({ page }) => {
   await loginAsSeededUser(page);
 
-  await expect(page.getByTestId("rail-agent-directory")).toHaveCount(0);
-  const navEntry = page.getByTestId("rail-admin");
-  await navEntry.scrollIntoViewIfNeeded();
-  await expect(navEntry).toBeInViewport();
-  await navEntry.click();
-
-  await expect(page).toHaveURL(/\/(?:admin|org-admin)(?:\/|$)/);
-  if (new URL(page.url()).pathname !== "/org-admin/agent") {
-    await page.getByTestId("admin-nav-org-agent").click();
-  }
-  await expect(page).toHaveURL(/\/org-admin\/agent/);
+  await page.goto("/agent");
+  await expect(page).toHaveURL(/\/agent$/);
   await expect(page.getByTestId("agent-directory")).toBeVisible();
 });

@@ -19,9 +19,11 @@ type View = "organization" | "public" | "manage" | "catalog" | "work-catalog";
 export function OrganizationAiCatalog({
   kind,
   initialScreen,
+  standalone = false,
 }: {
   kind: AiCatalogKind;
   initialScreen?: string;
+  standalone?: boolean;
 }) {
   const { session, identity } = useSession();
   const { t } = useI18n();
@@ -36,7 +38,7 @@ export function OrganizationAiCatalog({
           : initialScreen === "manage" && kind === "agent" ? "manage" : "organization";
   const [view, setView] = React.useState<View>(initial);
   React.useEffect(()=>setView(initial),[initial]);
-  const canManage = identity?.orgRole === "admin";
+  const canManage = !standalone && identity?.orgRole === "admin";
   const active = view === "manage" && !canManage ? "organization" : view;
   const tabs: { id: View; label: string }[] = [
     { id: "organization", label: t("aiCatalog.organization") },
@@ -53,12 +55,12 @@ export function OrganizationAiCatalog({
   return (
     <AppShell
       previewRole={null}
-      left={
+      left={standalone ? undefined : (
         <AdminNav
           active={kind === "agent" ? "org-agent" : "org-skill"}
           scope="org"
         />
-      }
+      )}
     >
       <div
         className="mx-auto w-full max-w-screen-2xl space-y-5 p-4 md:p-6"
@@ -74,7 +76,7 @@ export function OrganizationAiCatalog({
             <Button
               key={tab.id}
               variant={active === tab.id ? "primary" : "outline"}
-              onClick={()=>{setView(tab.id);const query=new URLSearchParams(window.location.search);query.set("screen",tab.id === "organization" ? "library" : tab.id);router.replace(`/org-admin/${kind}?${query}`,{scroll:false});}}
+              onClick={()=>{setView(tab.id);const query=new URLSearchParams(window.location.search);query.set("screen",tab.id === "organization" ? "library" : tab.id);router.replace(`${standalone ? "" : "/org-admin"}/${kind}?${query}`,{scroll:false});}}
               aria-pressed={active === tab.id}
             >
               {tab.label}

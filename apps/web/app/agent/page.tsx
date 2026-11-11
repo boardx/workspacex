@@ -1,3 +1,5 @@
-import { redirect } from 'next/navigation';
-/** Preserve bookmarks while the directory is owned by the organization administration entry. */
-export default function AgentDirectoryPage(){redirect('/org-admin/agent');}
+import { OrganizationAiCatalog } from "@/components/admin/organization-ai-catalog";
+
+export default function AgentDirectoryPage({ searchParams }: { searchParams?: { screen?: string } }) {
+  return <OrganizationAiCatalog kind="agent" initialScreen={searchParams?.screen} standalone />;
+}

@@ -12,25 +12,9 @@ describe("AI catalog administration entry points", () => {
       ),
     ).toBe(false);
   });
-  it("lets an ordinary organization member discover both catalogs through the organization entry", () => {
-    const entry = navSegmentsForViewer({
-      orgRole: "consultant",
-      platformOperator: false,
-      orgName: "Example",
-    })
-      .flatMap((s) => s.items)
-      .find((i) => i.key === "admin");
-    expect(entry?.href).toBe("/org-admin/agent");
-    const items = adminNavForViewer("org", "consultant").flatMap(
-      (g) => g.items,
-    );
-    expect(items.map((i) => i.href)).toEqual([
-      "/org-admin/agent",
-      "/org-admin/skill",
-    ]);
-    expect(
-      items.some((i) => i.key === "org-invites" || i.key === "members"),
-    ).toBe(false);
+  it("does not show the organization administration entry to members", () => {
+    const entries = navSegmentsForViewer({ orgRole: "consultant", orgName: "Example" });
+    expect(entries.flatMap((group) => group.items).some((item) => item.key === "admin")).toBe(false);
   });
   it("retains organization administration for admins and independent platform access", () => {
     const items = adminNavForViewer("org", "admin").flatMap((g) => g.items);
