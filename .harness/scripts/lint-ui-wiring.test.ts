@@ -75,6 +75,31 @@ describe("lint-ui-wiring（#397 跨层接线门控）", () => {
     expect(r.out).toContain("已接线 1");
   });
 
+  it("识别已挂载子模块的 controller 及其辅助文件调用的用例", () => {
+    const root = fixtureCopy();
+    const api = "apps/api/src";
+    const controller = `${api}/interface/controllers/widgets.controller.ts`;
+    const original = readFileSync(join(root, controller), "utf8");
+    const useCaseImport = original.split("\n").find((line) => line.includes("/application/"))!;
+    write(root, controller, original.replace(useCaseImport, 'import { listWidgets } from "./widget-actions";'));
+    write(root, `${api}/interface/controllers/widget-actions.ts`, useCaseImport.replace("import ", "export "));
+    write(root, `${api}/widgets.module.ts`, `
+      import { Module } from "@nestjs/common";
+      import { WidgetsController } from "./interface/controllers/widgets.controller";
+      @Module({ controllers: [WidgetsController] })
+      export class WidgetsModule {}
+    `);
+    write(root, `${api}/kernel.module.ts`, `
+      import { Module } from "@nestjs/common";
+      import { WidgetsModule } from "./widgets.module";
+      @Module({ imports: [WidgetsModule] })
+      export class KernelModule {}
+    `);
+
+    const result = run(root);
+    expect(result.code, result.out).toBe(0);
+  });
+
   it("② 反证：屏和 controller 都在，但 controller 没挂进 kernel controllers[] ⇒ 红", () => {
     const root = fixtureCopy();
     addUnregisteredRoute(root);

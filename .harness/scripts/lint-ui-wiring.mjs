@@ -17,6 +17,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, relative, resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { analyzeUiWiring, isPreviewRoute } from "./lib/ui-wiring.ts";
 
 const argv = process.argv.slice(2);
@@ -213,20 +214,56 @@ function adapterFacts(byExport) {
 }
 
 /* ── ④ controller 事实（含"有没有真的挂进 kernel"） ───────────────────── */
-function registeredControllers() {
-  if (!existsSync(KERNEL)) return new Set();
-  const src = read(KERNEL);
-  const at = src.indexOf("controllers: [");
-  if (at < 0) return new Set();
-  // 从 `controllers: [` 起按方括号配平取整个数组字面量，不用行号猜边界。
-  let depth = 0, end = -1;
-  for (let i = src.indexOf("[", at); i < src.length; i++) {
-    if (src[i] === "[") depth++;
-    else if (src[i] === "]") { depth--; if (depth === 0) { end = i; break; } }
+function registeredControllers(file = KERNEL, seen = new Set(), registered = new Set()) {
+  if (seen.has(file) || !existsSync(file)) return registered;
+  seen.add(file);
+  const source = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true);
+  const importedModules = new Map();
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const spec = statement.moduleSpecifier.text;
+    if (!spec.startsWith(".") || !/\.module(?:\.ts)?$/.test(spec)) continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (!bindings || !ts.isNamedImports(bindings)) continue;
+    for (const binding of bindings.elements) importedModules.set(binding.name.text, spec);
   }
-  if (end < 0) return new Set();
-  const body = src.slice(src.indexOf("[", at) + 1, end).replace(/\/\/[^\n]*/g, "");
-  return new Set(body.split(/[,\s]+/).map((s) => s.trim()).filter((s) => /^[A-Z]\w+$/.test(s)));
+  for (const statement of source.statements) {
+    if (!ts.isClassDeclaration(statement)) continue;
+    for (const decorator of ts.getDecorators(statement) ?? []) {
+      const call = decorator.expression;
+      if (!ts.isCallExpression(call) || call.expression.getText(source) !== "Module") continue;
+      const metadata = call.arguments[0];
+      if (!metadata || !ts.isObjectLiteralExpression(metadata)) continue;
+      for (const property of metadata.properties) {
+        if (!ts.isPropertyAssignment(property) || !ts.isArrayLiteralExpression(property.initializer)) continue;
+        const key = property.name.getText(source);
+        for (const entry of property.initializer.elements) {
+          if (!ts.isIdentifier(entry)) continue;
+          if (key === "controllers") registered.add(entry.text);
+          if (key === "imports" && importedModules.has(entry.text)) {
+            const imported = resolveModule(importedModules.get(entry.text), file);
+            if (imported) registeredControllers(imported, seen, registered);
+          }
+        }
+      }
+    }
+  }
+  return registered;
+}
+
+function controllerApplicationModules(file, seen = new Set(), modules = new Set()) {
+  if (seen.has(file)) return modules;
+  seen.add(file);
+  for (const spec of importSpecs(sourceOf(file))) {
+    const useCase = spec.match(/^(?:\.\.\/)+application\/([\w./-]+)$/);
+    if (useCase) modules.add(useCase[1].replace(/\.(ts|js)$/, ""));
+    if (!spec.startsWith("./")) continue;
+    const helper = resolveModule(spec, file);
+    if (helper && dirname(helper) === CONTROLLER_DIR && !helper.endsWith(".controller.ts")) {
+      controllerApplicationModules(helper, seen, modules);
+    }
+  }
+  return modules;
 }
 
 const ROUTE_DECORATOR_RE = /@(?:Get|Post|Put|Patch|Delete|Head|Options|All|Sse)\s*\(/g;
@@ -240,13 +277,7 @@ function controllerFacts(byExport) {
     const p = join(CONTROLLER_DIR, f);
     const src = read(p);
     const contracts = contractsUsedBy(src, byExport);
-    const applicationModules = [
-      ...new Set(
-        [...src.matchAll(/from\s*["'](?:\.\.\/)+application\/([\w./-]+)["']/g)].map((m) =>
-          m[1].replace(/\.(ts|js)$/, ""),
-        ),
-      ),
-    ].sort();
+    const applicationModules = [...controllerApplicationModules(p)].sort();
     // 类边界：按 `class X` 出现位置切片，每个 @Controller 类只数自己名下的路由装饰器。
     const classes = [...src.matchAll(/(?:export\s+)?class\s+(\w+)/g)];
     for (let i = 0; i < classes.length; i++) {
