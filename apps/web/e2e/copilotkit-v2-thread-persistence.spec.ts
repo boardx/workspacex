@@ -99,7 +99,7 @@ test("#6545 double-click renames a conversation and confirmation deletes it", as
   await expect(confirm.getByRole("textbox")).toHaveCount(0);
   const deletion = page.waitForResponse((response) => {
     const request = response.request();
-    return request.method() === "POST" && new URL(response.url()).pathname === "/chat/threads/mutate"
+    return request.method() === "POST" && new URL(response.url()).pathname.endsWith("/chat/threads/mutate")
       && request.postDataJSON()?.op === "delete";
   });
   await confirm.getByTestId("chat-thread-delete-submit").click();
