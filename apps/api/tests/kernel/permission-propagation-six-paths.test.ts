@@ -626,7 +626,7 @@ describe("lint-permission-paths: counter-proof", () => {
     // is `infrastructure/project/pg-project-archive-repository.ts`: a WRITE path
     // (`projects.status`) plus the reads needed to decide whether that write is allowed, gated
     // upstream by `application/project/archive-project.ts` calling
-    // `canCreateProject`/`findOrgMembership` before this repository ever runs -- same ordering as
+    // `canManageProjectLifecycle`/`findOrgMembership` before this repository ever runs -- same ordering as
     // the F119/F123 entries above. Its enforced premise (no tenant table beyond
     // `projects`/`agenda_segments`, no returned field beyond {kind, projectId, status}) is asserted
     // by tests/project/archive-readonly-and-readable.test.ts. If that test is ever deleted, this
@@ -923,11 +923,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // 从不披露别人的内容——`UpdateProjectTagsOutcome` 只带调用者自己这次写入的
     // projectId/tags 回显，同 F117/F124 那批「actor 写自己刚提交的东西」不必判权的形状。
     // 判权发生在仓储被调用之前：`application/project/update-project-tags.ts` 先跑
-    // `canCreateProject`（与 `archiveProject` 同一条组织角色线），不通过就抛，
+    // `canManageProjectLifecycle`（与 `archiveProject` 同一条组织角色线），不通过就抛，
     // 之后才碰 `deps.repo.updateTags`。
     //
     // 它的**被强制的前提**：`tests/project/tags-repo-guard.test.ts` 断言两件——
-    // ① 名到的表恰好是 `projects`/`project_tags`；② `canCreateProject` 判定在第一次
+    // ① 名到的表恰好是 `projects`/`project_tags`；② `canManageProjectLifecycle` 判定在第一次
     // `deps.repo.updateTags` 之前，且未通过必须抛出（按字符下标断言，不是「文件里有这两
     // 个词」）。删测试则本条须一并删。
     //

@@ -37,37 +37,13 @@ export const PROJECT_KINDS = project.ProjectKind.options;
  */
 export type ProjectKind = z.infer<typeof project.ProjectKind>;
 
-/**
- * **`lead` 或 `admin`**（人类裁决 2026-08-06，**覆盖 U-4 裁 A** 的「只有 `lead`」那一半；
- * issue **#608**）。
- *
- * ## 为什么覆盖
- *
- * U-4 裁 A 原本把 `admin` 排除在外，理由是「管理员的权是治理不是参与」（D-18 同向）。
- * 那条推理没错，错的是它与**自助注册的唯一出口**互相锁死：
- *   · `bootstrapFirstUser` 落库时 `org_role` 写死 `'admin'`
- *     （`infrastructure/auth/pg-registration-repository.ts` 三处自助注册 INSERT 全部如此）；
- *   · 全仓**没有任何** `UPDATE org_memberships` —— 改组织角色的写路径不存在。
- * ⇒ 一个组织里的第一个人永远是 `admin`，永远变不成 `lead`，于是**永远建不了第一个项目**。
- *   八步核心流程第 1 步产生的用户，在第 2 步就走不下去。
- * 人类据此裁定：**admin 也能建项目**。
- *
- * ## ⚠ 这条裁决**只**覆盖「谁能建」，Q-4② 是**另一条独立裁决**（已于 2026-08-16 推翻）
- *
- * 建项目现在**会**授予创建者项目角色（facilitator）——admin 建完之后与 lead 建完之后
- * 行为仍然一致：`project_memberships` 里都多一行 facilitator，立刻判权放行。
- * 「让它能用起来」曾经的顾虑（顺手发角色会废掉 D-18）被人类裁决直接否决：
- * D-18 本身没有被推翻，只是创建者不再落在它判定的那个格子里。
- * ⇒ 正向断言在 `tests/project/bootstrap-admin-can-create-project.test.ts` 的第三个 describe。
- *
- * ⚠ 仍然**不写成排除式**（`role !== "consultant"` 之类）：那样将来枚举加第五种角色时，
- *   新角色会静默地被放进来，而所有正向断言依旧全绿。两个取值就逐个列两个。
- *
- * ⚠ **本函数还被归档/解归档复用**（`archive-project.ts` / `unarchive-project.ts`
- *   「权限同归档者，不新造角色」）⇒ 本次放宽**连带**让 `admin` 能归档/解归档项目。
- *   这是复用关系的直接后果，不是偷偷夹带；`unarchive-project.ts` 头注对此有一句说明。
- */
+/** An ordinary member may create a project in their own organization. */
 export function canCreateProject(orgRole: OrgRole | null): boolean {
+  return orgRole === "consultant" || canManageProjectLifecycle(orgRole);
+}
+
+/** Organization-level permission for archiving, restoring, and tagging projects. */
+export function canManageProjectLifecycle(orgRole: OrgRole | null): boolean {
   return orgRole === "lead" || orgRole === "admin";
 }
 

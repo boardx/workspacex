@@ -1,23 +1,7 @@
 /**
  * UC-P4 `archiveProject` —— 两态之一（Q-5 裁 B），F124。
  *
- * ## 权限：复用 `canCreateProject`，不新造角色
- *
- * 契约 `archiveProject.err` 只有 `ORG_ROLE_INSUFFICIENT` 一个权限码，`usecases.md`
- * 没有再定义一套「谁能归档」——issue #104 的 user_visible_behavior 写的是
- * 「项目负责人把项目归档」，而本域里「负责人」对应的组织角色闭集判据
- * （`domain/project/create-project-rules.ts` 的 `canCreateProject`）已经存在。
- * ⚠ **该判据已于 2026-08-06 由人类裁决放宽为「`lead` 或 `admin`」（#608，覆盖 U-4 裁 A）**，
- * 而本文件是**复用**它 ⇒ 归档/解归档的可执行角色**随之扩大到 `admin`**。
- * 这是「复用而不是新造判据」这个选择的直接后果，在 #608 的 PR 正文里作为影响面显式列出；
- * 若签核人认为归档应当保持 `lead` 专属，正确的动作是在这里新增一个独立的
- * `canArchiveProject`，而不是把 `canCreateProject` 改回去。
- * ⚠ **复用本身是本 feature 的判断，不是裁决原文逐字规定**：
- * `usecases.md` UC-P4 没有单列一条「谁能归档」的权限表。选择复用而不是新增一个
- * `canArchiveProject`（内容会与 `canCreateProject` 完全相同）是因为「解归档权限
- * 同归档者，不新造角色」（U-2⑴ 裁决行逐字）已经确立了「归档链路不产生新角色」
- * 这条方向，复用与之一致；如果签核人认为归档应当有独立于创建的权限模型，
- * 这是需要回到契约层新增判据的事,已在 issue 里报告为判断而非既定事实。
+ * 归档和恢复沿用组织负责人、管理员的管理权限。
  *
  * ## U-2⑵：有 `active` 议程环节时拒绝归档，失败码故意没有名字
  *
@@ -36,7 +20,7 @@
  * 钉住这个已知缺口。
  */
 import type { OrgId } from "../../domain/org-id";
-import { canCreateProject } from "../../domain/project/create-project-rules";
+import { canManageProjectLifecycle } from "../../domain/project/create-project-rules";
 import type { IdentityRepository } from "../identity/ports";
 import { ProjectArchiveBlockedByActiveSegmentError, ProjectError } from "./errors";
 import type { ProjectArchiveRepository } from "./ports";
@@ -70,7 +54,7 @@ export async function archiveProject(
     throw new ProjectError("AUTH_SERVICE_UNAVAILABLE");
   }
 
-  if (!canCreateProject(orgRole?.orgRole ?? null)) {
+  if (!canManageProjectLifecycle(orgRole?.orgRole ?? null)) {
     throw new ProjectError("ORG_ROLE_INSUFFICIENT");
   }
 
