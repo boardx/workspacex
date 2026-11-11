@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: only the dedicated digital interview payer is funded and cleaned up.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { interview } from "@repo/contracts";
 import type { NestExpressApplication } from "@nestjs/platform-express";
@@ -140,8 +141,20 @@ beforeAll(async () => {
   await startApp();
 }, 120_000);
 
+async function clearFixtureCredit(): Promise<void> {
+  await asOwner(async session => {
+    await session.query("DELETE FROM credit_consumption_requests WHERE org_id = ANY($1::text[])", [[ORG, OTHER_ORG]]);
+    await session.query(
+      "DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1)",
+      [USER],
+    );
+    await session.query("DELETE FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1", [USER]);
+  });
+}
+
 afterAll(async () => {
   await app?.close();
+  await clearFixtureCredit();
   await resetOrgs(ORG, OTHER_ORG);
   await db.close();
   await new Promise<void>((resolve) => provider.close(() => resolve()));
@@ -150,11 +163,16 @@ afterAll(async () => {
 beforeEach(async () => {
   providerHook = null;
   providerFailureStatus = null;
+  await clearFixtureCredit();
   await resetOrgs(ORG, OTHER_ORG);
   const fixture = await seedOrg({ orgId: ORG, projectId: "proj-f04" });
   await addOrgMember(ORG, USER, "consultant", fixture.teams.energy!);
   const otherFixture = await seedOrg({ orgId: OTHER_ORG, projectId: "proj-f04-other" });
   await addOrgMember(OTHER_ORG, USER, "consultant", otherFixture.teams.energy!);
+  await asOwner(session => session.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000)",
+    [USER],
+  ));
   await asApp(ORG, async (session) => {
     await session.query(
       `INSERT INTO agents
