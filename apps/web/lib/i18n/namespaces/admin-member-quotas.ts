@@ -1,5 +1,13 @@
 export const adminMemberQuotasZhCN = {
   "adminMemberQuotas.creditTitle": "成员月度 Credit 额度",
+  "adminMemberQuotas.batchTitle": "批量调整额度",
+  "adminMemberQuotas.batchPreview": "预览",
+  "adminMemberQuotas.batchBack": "返回修改",
+  "adminMemberQuotas.batchSummary": "共 {total} 位成员，{updated} 位将更新。批量额度为 {amount} Credit。",
+  "adminMemberQuotas.batchConflict": "以下成员的已用和预占额度超过批量额度。可单独填写新额度，留空则跳过。",
+  "adminMemberQuotas.batchException": "{name} 的新额度（选填）",
+  "adminMemberQuotas.minimum": "计入已用和预占，本月最低可设为 {amount} Credit。",
+  "adminMemberQuotas.usageChanged": "成员用量已变化，请刷新额度并重新预览。",
   "adminMemberQuotas.creditDefault": "每人每月默认 {amount} Credit，管理员可逐人调整。额度不会发放钱包余额。",
   "adminMemberQuotas.creditMonth": "账期：{month}（UTC 自然月，每月重新计算用量）",
   "adminMemberQuotas.creditUsage": "本月已用 {used} / {limit} Credit",
@@ -84,6 +92,14 @@ export const adminMemberQuotasZhCN = {
 
 export const adminMemberQuotasEn: Record<keyof typeof adminMemberQuotasZhCN, string> = {
   "adminMemberQuotas.creditTitle": "Member monthly Credit limits",
+  "adminMemberQuotas.batchTitle": "Adjust limits in bulk",
+  "adminMemberQuotas.batchPreview": "Preview",
+  "adminMemberQuotas.batchBack": "Edit amount",
+  "adminMemberQuotas.batchSummary": "{updated} of {total} members will be updated. Bulk limit: {amount} Credits.",
+  "adminMemberQuotas.batchConflict": "These members have used or reserved more than the bulk limit. Set an individual limit or leave it blank to skip.",
+  "adminMemberQuotas.batchException": "New limit for {name} (optional)",
+  "adminMemberQuotas.minimum": "The minimum this month is {amount} Credits, including usage and reservations.",
+  "adminMemberQuotas.usageChanged": "Member usage has changed. Refresh the limits and preview again.",
   "adminMemberQuotas.creditDefault": "Each member defaults to {amount} Credits per month. Administrators can adjust individual limits. Limits do not add wallet funds.",
   "adminMemberQuotas.creditMonth": "Period: {month} (UTC calendar month; usage resets monthly)",
   "adminMemberQuotas.creditUsage": "Used this month: {used} / {limit} Credits",

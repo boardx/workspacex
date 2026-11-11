@@ -2,7 +2,7 @@ import * as React from 'react';
 import {afterEach,beforeEach,it,expect,vi} from 'vitest';
 import {render,screen,fireEvent,cleanup,waitFor} from '@testing-library/react';
 import {I18nProvider,useI18n} from '@/lib/i18n/provider';
-const api=vi.hoisted(()=>({getMemberCreditQuotas:vi.fn(),setMemberCreditQuota:vi.fn()}));
+const api=vi.hoisted(()=>({getMemberCreditQuotas:vi.fn(),setMemberCreditQuota:vi.fn(),setMemberCreditQuotas:vi.fn()}));
 vi.mock('@/lib/live-member-credit-quota',()=>api);
 import {MemberCreditQuotaPanel} from '@/components/admin/member-credit-quota-panel';
 function Switch(){const {setLocale}=useI18n();return <button onClick={()=>setLocale('zh-CN')}>Chinese</button>;}
@@ -68,4 +68,26 @@ it('paginates members and resets to matching results after filtering',async()=>{
  fireEvent.change(screen.getByLabelText('Search members by name or email'),{target:{value:'member0@'}});
  expect(screen.getByTestId('member-credit-usage-u0')).toBeTruthy();
  expect(screen.queryByRole('button',{name:'Next'})).toBeNull();
+});
+
+it('previews every member despite filtering and supports skipping or overriding conflicts',async()=>{
+ const alice={...snapshot.members[0],usedCredits:2000,heldCredits:0};
+ const bob={...alice,userId:'b',displayName:'Bob',usedCredits:500,heldCredits:0};
+ api.getMemberCreditQuotas.mockResolvedValue({...snapshot,members:[alice,bob]});
+ api.setMemberCreditQuotas.mockResolvedValue({updated:2});
+ show();await screen.findByTestId('member-credit-usage-u');
+ fireEvent.change(screen.getByLabelText('Search members by name or email'),{target:{value:'Alice'}});
+ fireEvent.click(screen.getByRole('button',{name:'Adjust limits in bulk'}));
+ fireEvent.change(document.getElementById('batch-credit-limit')!,{target:{value:'1000'}});
+ fireEvent.click(screen.getByRole('button',{name:'Preview'}));
+ expect(screen.getByText(/1 of 2 members will be updated/)).toBeTruthy();
+ expect(api.setMemberCreditQuotas).not.toHaveBeenCalled();
+ const exception=screen.getByLabelText('New limit for Alice (optional)');
+ fireEvent.change(exception,{target:{value:'1999'}});
+ expect(screen.getByRole('button',{name:'Save'})).toBeDisabled();
+ fireEvent.change(exception,{target:{value:'2000'}});
+ fireEvent.click(screen.getByRole('button',{name:'Save'}));
+ await waitFor(()=>expect(api.setMemberCreditQuotas).toHaveBeenCalledWith('org',[
+  {userId:'u',monthlyLimit:2000},{userId:'b',monthlyLimit:1000},
+ ]));
 });

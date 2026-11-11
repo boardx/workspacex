@@ -1,4 +1,4 @@
-import {EnterpriseCreditPlanRequired} from "../../src/application/auth/member-credit-quota-port";
+import {EnterpriseCreditPlanRequired,MemberCreditQuotaBelowUsage} from "../../src/application/auth/member-credit-quota-port";
 import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {PgTeamCheckoutRepository} from "../../src/infrastructure/billing/pg-team-checkout-repository";
 import {PgTeamPaymentRepository} from "../../src/infrastructure/billing/pg-team-payment-repository";
@@ -73,6 +73,20 @@ it('blocks cross-tenant quota writes and outsiders without altering existing ove
  expect(await asApp(other,async c=>(await c.query('SELECT * FROM member_credit_quota WHERE org_id=$1',[org])).rows)).toEqual([]);
  await expect(asApp(other,c=>c.query('UPDATE member_credit_quota SET monthly_limit=9 WHERE org_id=$1',[org]))).resolves.toBeDefined();
  expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===user)?.monthlyLimit).toBe(1);
+});
+
+it('rejects a batch below current usage or reservations without changing other members',async()=>{
+ const guest=`${prefix}-guest`;
+ await repo.setCreditQuota(org,user,2,user);
+ await reserve('batch-hold',500);
+ const updates=[{userId:guest,monthlyLimit:10},{userId:user,monthlyLimit:1}];
+ await expect(repo.setCreditQuotas(org,updates,user)).rejects.toBeInstanceOf(MemberCreditQuotaBelowUsage);
+ expect((await repo.readCreditQuotas(org)).members.find(member=>member.userId===guest)?.monthlyLimit).toBe(42);
+ await expect(repo.setCreditQuotas(org,[updates[0]!,{userId:user,monthlyLimit:2}],user)).resolves.toEqual({updated:2});
+ const members=(await repo.readCreditQuotas(org)).members;
+ expect(members.find(member=>member.userId===guest)?.monthlyLimit).toBe(10);
+ expect(members.find(member=>member.userId===user)?.monthlyLimit).toBe(2);
+ await settle('batch-hold',0);
 });
 
 it('admits one unbounded voice/multimodal call, holds remaining allowance, and releases it on settlement',async()=>{
