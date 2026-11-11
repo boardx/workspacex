@@ -74,6 +74,44 @@ async function sendAndWaitEcho(page: Page, text: string): Promise<void> {
   await page.waitForTimeout(15_000);
 }
 
+test("#6545 double-click renames a conversation and confirmation deletes it", async ({ page }) => {
+  await login(page);
+  await page.goto("/chat");
+  await page.getByTestId("chat-thread-create").click();
+  await expect(page).toHaveURL(/\/chat\/[^/]+$/);
+  const threadId = new URL(page.url()).pathname.split("/").pop();
+  const list = page.getByTestId("copilotkit-v2-thread-list");
+  const thread = page.getByTestId(`chat-thread-${threadId}`);
+  const title = `Conversation ${Date.now()}`;
+
+  await thread.getByTestId("chat-task-workbench-thread-title").dblclick();
+  await list.getByTestId("chat-thread-title-input").fill(title);
+  await list.getByTestId("chat-thread-title-submit").click();
+  await expect(thread).toContainText(title);
+  await page.reload();
+  await expect(thread).toContainText(title);
+
+  const actions = list.getByTestId("chat-thread-selection-actions").filter({ has: thread });
+  await actions.getByTestId("chat-thread-card-menu-trigger").click();
+  await page.getByTestId("chat-thread-delete").click();
+  const confirm = list.getByTestId("chat-thread-delete-confirm");
+  await expect(confirm).toBeVisible();
+  await expect(confirm.getByRole("textbox")).toHaveCount(0);
+  const deletion = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && new URL(response.url()).pathname.endsWith("/chat/threads/mutate")
+      && request.postDataJSON()?.op === "delete";
+  });
+  await confirm.getByTestId("chat-thread-delete-submit").click();
+  const deleted = await deletion;
+  expect(deleted.ok()).toBe(true);
+  expect(deleted.request().postDataJSON()).toMatchObject({ threadId, reason: null });
+  await expect(thread).toHaveCount(0);
+  await page.reload();
+  await expect(list.getByTestId(`chat-thread-${CHAT_READ_E2E.artifactConsumerThreadId}`)).toBeVisible();
+  await expect(thread).toHaveCount(0);
+});
+
 test("发消息→整页刷新→消息仍在（URL 绑定的持久化 chatThreadId）", async ({ page }) => {
   await login(page);
   await warmUpCopilotRuntimeRoute(page);

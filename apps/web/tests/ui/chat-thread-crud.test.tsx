@@ -191,16 +191,12 @@ describe("#460 会话增删改接入正式 /chat", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat?projectId=project-real&thread=thread-new"));
   });
 
-  it("改名带上 getThread 给的 expectedVersion（并发靠它，不静默覆盖）", async () => {
+  it("双击会话名改名带上 getThread 给的 expectedVersion（并发靠它，不静默覆盖）", async () => {
     getThread.mockResolvedValue(detail("thread-a", 7, WRITER));
     renameThread.mockResolvedValue({ threadId: "thread-a", version: 8, auditEventId: "ae-2", impactScope: null });
 
     renderScreen();
-    // 2026-08-14 重做：改名/删除现在挂在卡片自己的 hover「…」菜单里；
-    // 2026-08-30 起任意卡片都渲染菜单，按 threadId 定位到 thread-a 自己的入口。
-    await screen.findByTestId("chat-thread-thread-a");
-    fireEvent.pointerDown(cardMenuTrigger("thread-a"), { button: 0 });
-    fireEvent.click(screen.getByTestId("chat-thread-rename"));
+    fireEvent.doubleClick(await screen.findByText("线程 A"));
     fireEvent.change(screen.getByTestId("chat-thread-title-input"), { target: { value: "改过的名字" } });
     fireEvent.click(screen.getByTestId("chat-thread-title-submit"));
 
@@ -213,7 +209,7 @@ describe("#460 会话增删改接入正式 /chat", () => {
       expect(renameThread).toHaveBeenCalledWith("thread-a", "project-real", "改过的名字", 7));
   });
 
-  it("删除要二次确认与原因，删完选中态回退到服务端剩下的第一条", async () => {
+  it("删除只需二次确认，删完选中态回退到服务端剩下的第一条", async () => {
     deleteThread.mockResolvedValue({ threadId: "thread-a", version: 4, auditEventId: "ae-3", impactScope: "thread" });
     listThreads
       .mockResolvedValueOnce(list(card("thread-a", "线程 A"), card("thread-b", "线程 B")))
@@ -226,11 +222,10 @@ describe("#460 会话增删改接入正式 /chat", () => {
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
     expect(deleteThread).not.toHaveBeenCalled();      // 只点[删除]不算确认
 
-    fireEvent.change(screen.getByTestId("chat-thread-delete-reason"), { target: { value: "重复会话" } });
     fireEvent.click(screen.getByTestId("chat-thread-delete-submit"));
 
     await waitFor(() =>
-      expect(deleteThread).toHaveBeenCalledWith("thread-a", "project-real", 3, "重复会话"));
+      expect(deleteThread).toHaveBeenCalledWith("thread-a", "project-real", 3, null));
     await waitFor(() => expect(screen.queryByTestId("chat-thread-thread-a")).toBeNull());
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat?projectId=project-real&thread=thread-b"));
   });

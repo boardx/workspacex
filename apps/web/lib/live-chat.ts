@@ -589,7 +589,7 @@ export async function deleteThread(
   threadId: string,
   projectId: string | null,
   expectedVersion: number,
-  reason: string,
+  reason: string | null,
 ): Promise<MutateThreadOut> {
   return apiRequest<MutateThreadOut>(chat.operations.mutateThread.path, {
     method: "POST",

@@ -147,7 +147,6 @@ describe("CopilotKitV2Shell — issue #2402 重新挂载时线程列表的模块
     if (!cardBWrapper) throw new Error("thread B card wrapper not found");
     fireEvent.pointerDown(within(cardBWrapper as HTMLElement).getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
-    fireEvent.change(screen.getByTestId("chat-thread-delete-reason"), { target: { value: "测试删除" } });
     fireEvent.click(screen.getByTestId("chat-thread-delete-submit"));
 
     await waitFor(() => expect(deleteThread).toHaveBeenCalledTimes(1));
@@ -239,7 +238,6 @@ describe("CopilotKitV2Shell — issue #2402 重新挂载时线程列表的模块
     if (!cardBWrapper) throw new Error("thread B card wrapper not found");
     fireEvent.pointerDown(within(cardBWrapper as HTMLElement).getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
-    fireEvent.change(screen.getByTestId("chat-thread-delete-reason"), { target: { value: "测试删除" } });
     fireEvent.click(screen.getByTestId("chat-thread-delete-submit"));
 
     await waitFor(() => expect(deleteThread).toHaveBeenCalledTimes(1));

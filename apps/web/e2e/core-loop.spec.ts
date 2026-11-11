@@ -399,11 +399,8 @@ test.describe("核心闭环八步", () => {
     await cardList.getByText(renamed).click();
     await cardContainer(renamed).getByTestId("chat-thread-card-menu-trigger").click();
     await page.getByTestId("chat-thread-delete").click();
-    // 删除是可追溯动作，服务端要写审计 ⇒ 原因必填。
-    // 这条守的是「删除不能无理由发生」：摘掉它，一个把 reason 改成可选的回退
-    // 不会有任何测试变红。
-    await expect(page.getByTestId("chat-thread-delete-submit")).toBeDisabled();
-    await page.getByTestId("chat-thread-delete-reason").fill("闭环验收：走一遍删除路径");
+    await expect(page.getByTestId("chat-thread-delete-confirm")).toBeVisible();
+    await expect(page.getByTestId("chat-thread-delete-reason")).toHaveCount(0);
     await page.getByTestId("chat-thread-delete-submit").click();
 
     // 刷新后仍然没有，才能区分「从库里删了」与「只从 React state 里删了」。
