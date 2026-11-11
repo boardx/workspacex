@@ -1,9 +1,12 @@
 /** Controlled HTTP fixtures exercise real organization admin screens; no production-data claim. */
 import {expect,test} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
-test('workflow details and member Credit controls remain responsive and preserve write boundaries',async({page,baseURL})=>{
+test('workflow details and member Credit controls remain responsive and preserve write boundaries',async({page,baseURL,request})=>{
  test.setTimeout(120_000);
  expect(new URL(baseURL!).hostname).toBe('localhost');
+ // Compile the dynamic route before the workflow page is open. Next dev can
+ // otherwise reload that page during the first navigation to the members screen.
+ expect((await request.get('/admin/members')).ok()).toBe(true);
  let writes=0,limit=1000;
  await page.addInitScript(()=>{
   localStorage.setItem('wsx.sessionToken','org-controls-browser-session');
