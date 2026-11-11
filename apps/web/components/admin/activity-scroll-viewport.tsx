@@ -14,7 +14,9 @@ export function ActivityScrollViewport({ children, label }: { children: React.Re
         viewport.style.maxHeight = "";
         return;
       }
-      const bottom = rows[4].getBoundingClientRect().bottom;
+      const fifth = rows.item(4);
+      if (!fifth) return;
+      const bottom = fifth.getBoundingClientRect().bottom;
       viewport.style.maxHeight = `${Math.ceil(bottom - table.getBoundingClientRect().top)}px`;
     };
     measure();
