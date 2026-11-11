@@ -128,3 +128,37 @@ it("can reopen with a fresh catalog and a new key after a server-declared uncrea
  fireEvent.click(await screen.findByTestId("pricing-continue-checkout"));await screen.findByTestId("pricing-checkout-qr");
  expect(bodies).toHaveLength(2);expect(bodies[1]?.catalogVersion).toBe("refreshed-catalog");expect(bodies[1]?.idempotencyKey).not.toBe(bodies[0]?.idempotencyKey);
 });
+
+it("draws the existing WeChat QR when the previous order is revealed", async () => {
+ const subscription = { sku: "pro", kind: "subscription", cycle: "month", currency: "CNY", amountMinor: 19900, monthlyCredits: 20000 } as const;
+ const key = crypto.randomUUID();
+ beginPersonalCheckout(localStorage, userId, { sku: subscription.sku, provider: "wechat", catalogVersion: catalog.version, idempotencyKey: key });
+ bindPersonalCheckout(localStorage, userId, key, result);
+ const fetchOrder = vi.fn(async () => reply({ order: { ...order, packageId: subscription.sku, amountFen: subscription.amountMinor, baseCredits: subscription.monthlyCredits } }));
+ vi.stubGlobal("fetch", fetchOrder);
+ render(<PersonalPricingCheckout kind="credits" userId={userId} sessionToken="session"
+  catalog={{ ...catalog, products: [...catalog.products, subscription] }} entitlement={entitlement}
+  onClose={() => {}} onPaid={vi.fn()} />);
+ const reveal = await screen.findByRole("button", { name: "查看原订单" });
+ expect(QRCode.toCanvas).not.toHaveBeenCalled();
+ const reads = fetchOrder.mock.calls.length;
+ fireEvent.click(reveal);
+ const canvas = await screen.findByTestId("pricing-checkout-qr");
+ await waitFor(() => expect(QRCode.toCanvas).toHaveBeenCalledWith(canvas, order.qrCodeUrl, expect.anything()), { timeout: 500 });
+ expect(fetchOrder).toHaveBeenCalledTimes(reads);
+});
+
+it("shows credit packs before resuming an outstanding subscription", async () => {
+ const subscription = { sku: "pro", kind: "subscription", cycle: "month", currency: "CNY", amountMinor: 19900, monthlyCredits: 20000 } as const;
+ beginPersonalCheckout(localStorage, userId, {
+  sku: subscription.sku, provider: "wechat", catalogVersion: catalog.version, idempotencyKey: crypto.randomUUID(),
+ });
+ render(<PersonalPricingCheckout kind="credits" userId={userId} sessionToken="session"
+  catalog={{ ...catalog, products: [...catalog.products, subscription] }} entitlement={entitlement}
+  onClose={() => {}} onPaid={vi.fn()} />);
+ expect(await screen.findByTestId("pricing-pack-10000")).toBeTruthy();
+ expect(screen.queryByTestId("pricing-resume-payment")).toBeNull();
+ expect((screen.getByTestId("pricing-continue-checkout") as HTMLButtonElement).disabled).toBe(true);
+ fireEvent.click(screen.getByRole("button", { name: "查看原订单" }));
+ expect(await screen.findByTestId("pricing-resume-payment")).toBeTruthy();
+});
