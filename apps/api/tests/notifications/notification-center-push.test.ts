@@ -100,12 +100,17 @@ describe("NotifyingMailTransport", () => {
   it("publishes the invitation ID without copying the email link", async () => {
     const sink = publisher();
     const id = "oi-" + "a".repeat(24);
-    const inner = {send: vi.fn(async () => ({providerMessageId:"msg-invite"}))};
+    const inner = {send: vi.fn()
+      .mockResolvedValueOnce({providerMessageId:"msg-invite"})
+      .mockResolvedValueOnce({providerMessageId:"msg-resend"})};
     const credentials = {findByEmail: vi.fn(async () => ({userId:"alice"}) as never)};
     const transport = new NotifyingMailTransport(inner, credentials, sink, () => {});
     await expect(transport.send({to:"alice@example.com",subject:"邀请",text:"private-email-link",orgInviteId:id})).resolves.toEqual({providerMessageId:"msg-invite"});
-    expect(sink.published).toHaveLength(1);
-    expect(sink.published[0]).toMatchObject({userId:"alice",sourceKey:`org-invite:${id}`});
+    await transport.send({to:"alice@example.com",subject:"邀请",text:"private-email-link",orgInviteId:id});
+    expect(sink.published.map(notice => notice.sourceKey)).toEqual([
+      `org-invite:${id}:msg-invite`,
+      `org-invite:${id}:msg-resend`,
+    ]);
     expect(JSON.stringify(sink.published)).not.toContain("private-email-link");
   });
 

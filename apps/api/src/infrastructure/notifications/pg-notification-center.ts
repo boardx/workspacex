@@ -6,7 +6,7 @@ interface Row { source_key: string | null; id: string; kind: Notification["kind"
 const project = (row: Row): Notification => Notification.parse({
   id: row.id, kind: row.kind, title: row.title, body: row.body, threadId: row.thread_id, actionable: row.actionable,
   inboxInviteId: row.kind === "email" && row.source_key?.startsWith(INBOX_INVITE_SOURCE_PREFIX)
-    ? row.source_key.slice(INBOX_INVITE_SOURCE_PREFIX.length) : undefined,
+    ? row.source_key.slice(INBOX_INVITE_SOURCE_PREFIX.length).split(":", 1)[0] : undefined,
   createdAt: row.created_at.toISOString(), readAt: row.read_at?.toISOString() ?? null,
 });
 /** 通知是收据，不是状态机：只有 insert（publish）和 read_at 一次性置位。 */
