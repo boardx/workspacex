@@ -211,11 +211,8 @@ export class PgCapabilityRepository implements CapabilityRepository {
    * `skills` 行）或其它 kind（agent/model/…），下面这条 `UPDATE skills` 天然匹配
    * 不到任何行（各自的 id 命名空间不重叠），是安全的空操作，不需要按 kind 分支。
    *
-   * `enabled` 目前只会被传 `false`（`mutate-capability.ts` 的 `op: "disable"` 是
-   * 唯一调用点，契约上没有 `enable` 这条路——`CapabilityUpdatePayload` 的头注写
-   * 明这是刻意的，「停用」是带确认弹窗/中断模式/留痕的一次性动作，不是开关）；
-   * 这里仍按 `enabled` 的真实值写 `skills.status`，不是硬编码 `'disabled'`，如果
-   * 未来契约真的加了 `enable`，这里不需要跟着改。
+   * 通用能力停用流程调用此方法时传入 `false`。这里按传入值同步
+   * `capability_listings.enabled` 和对应的 `skills.status`。
    */
   async setEnabled(orgId: OrgId, id: string, enabled: boolean): Promise<GuardedCapability | null> {
     return this.db.withTenant(orgId, async (s) => {
