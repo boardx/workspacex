@@ -77,7 +77,12 @@ export function MemberCreditQuotaPanel({orgId}:{orgId:string}){
  }
  if(loadError)return <Card><CardContent className="flex items-center gap-2 p-3 text-12"><span>{t('adminMemberQuotas.creditLoadError')}: {memberFailure(loadError,locale)}</span><Button size="xs" variant="outline" onClick={()=>void load()}>{t('adminCommon.retry')}</Button></CardContent></Card>;
  if(!data)return <p className="text-12 text-muted-foreground">{t('adminMemberQuotas.loadingQuota')}</p>;
- if(!data.enterprise)return null;
+ if(!data.enterprise)return <Card>
+  <CardContent className="space-y-2 p-4" data-testid="admin-member-credit-unavailable">
+   <h2 className="text-14 font-semibold">{t('adminMemberQuotas.creditTitle')}</h2>
+   <p className="text-12 text-muted-foreground">{t('adminMemberQuotas.creditUnavailable')}</p>
+  </CardContent>
+ </Card>;
  const filteredMembers=data.members.filter(m=>`${m.displayName} ${m.email}`.toLowerCase().includes(query.toLowerCase())).filter(m=>status==='all'||(status==='exhausted' ? m.usedCredits+m.heldCredits>=m.monthlyLimit : m.usedCredits+m.heldCredits<m.monthlyLimit));
  const pages=Math.max(1,Math.ceil(filteredMembers.length/10));
  const currentPage=Math.min(page,pages);

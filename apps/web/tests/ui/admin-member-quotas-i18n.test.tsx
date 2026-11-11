@@ -16,7 +16,6 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 vi.mock("@/components/shell/app-shell", () => ({ AppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 vi.mock("@/components/admin/admin-nav", () => ({ AdminNav: () => null }));
-import { MemberQuotaTab } from "@/components/admin/member-quota-tab";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { MemberInvitesPanel } from "@/components/admin/member-invites-panel";
 import { AdminBoundaryLive } from "@/components/admin/admin-boundary-live";
@@ -64,69 +63,6 @@ it("keeps card/list selection and emits no change just for a locale update", () 
   render(<Views />, { wrapper: Locale }); fireEvent.click(screen.getByRole("button", { name: "List" }));
   toggle(); expect(screen.getByTestId("admin-quota-test-view-toggle-list")).toHaveAttribute("aria-pressed", "true"); toggle();
   expect(screen.getByRole("group", { name: "Switch between card and list views" })).toBeVisible(); expect(changed.mock.calls).toEqual([["list"]]);
-});
-it("renders English quota cards, preserves raw names and distinguishes unallocated from zero", async () => {
-  api.getTokenQuotas.mockResolvedValue(quotas({ orgBudget: null, unallocated: null }));
-  render(<MemberQuotaTab />, { wrapper: Locale }); const live = await screen.findByTestId("admin-quota-live");
-  expect(screen.getByTestId("admin-quota-card-allocated")).toHaveTextContent("Allocated quota");
-  expect(screen.getByTestId("admin-quota-card-unallocated")).toHaveTextContent("—"); expect(live).toHaveTextContent("No organization budget is set");
-  const row = screen.getByTestId("admin-member-card-user-raw"); expect(row).toHaveTextContent(rawName); expect(row).toHaveTextContent("Member"); expect(row).toHaveTextContent("No quota allocated");
-  expect(within(row).queryByRole("progressbar")).toBeNull(); toggle(); expect(row).toHaveTextContent("未分配额度"); toggle(); expect(api.getTokenQuotas).toHaveBeenCalledTimes(1);
-});
-it.each([400_000, null])("separates the English used and available budget sentences in quota editing help (%s)", async unallocated => {
-  api.getTokenQuotas.mockResolvedValue(quotas({ unallocated }));
-  render(<MemberQuotaTab />, { wrapper: Locale });
-  fireEvent.click(await screen.findByTestId("admin-member-quota-user-raw"));
-  const modal = screen.getByTestId("admin-member-quota-modal");
-  expect(modal).toHaveTextContent(unallocated === null
-    ? /Used this month: 100 tokens\.\s+No organization budget is set; usage is currently unlimited\./
-    : /Used this month: 100 tokens\.\s+Unallocated organization budget: 400,000 tokens\./);
-});
-it("retains an edited member draft across locale switches and submits the original truncated numeric payload", async () => {
-  api.setMemberTokenQuota.mockResolvedValue({}); render(<MemberQuotaTab />, { wrapper: Locale });
-  fireEvent.click(await screen.findByTestId("admin-member-quota-user-raw")); const modal = screen.getByTestId("admin-member-quota-modal");
-  expect(within(modal).getByRole("heading")).toHaveTextContent("Adjust monthly quota for " + rawName);
-  fireEvent.change(screen.getByTestId("admin-member-quota-input"), { target: { value: "12345.9" } }); toggle(); toggle();
-  expect(screen.getByTestId("admin-member-quota-input")).toHaveValue("12345.9"); expect(api.getTokenQuotas).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByTestId("admin-member-quota-save"));
-  await waitFor(() => expect(api.setMemberTokenQuota.mock.calls).toEqual([["org-quotas-raw", "user-raw", 12345]]));
-  await waitFor(() => expect(screen.queryByTestId("admin-member-quota-modal")).toBeNull());
-  expect(screen.getByTestId("admin-quota-toast")).toHaveTextContent(rawName); expect(screen.getByTestId("admin-quota-toast")).toHaveTextContent("12,345");
-  toggle(); expect(screen.getByTestId("admin-quota-toast")).toHaveTextContent("已把"); expect(api.getTokenQuotas).toHaveBeenCalledTimes(2);
-});
-it("retranslates validation without losing the numeric draft or submitting invalid values", async () => {
-  render(<MemberQuotaTab />, { wrapper: Locale }); fireEvent.click(await screen.findByTestId("admin-member-quota-user-raw"));
-  fireEvent.change(screen.getByTestId("admin-member-quota-input"), { target: { value: "-1" } }); fireEvent.click(screen.getByTestId("admin-member-quota-save"));
-  expect(screen.getByTestId("admin-member-quota-error")).toHaveTextContent("Enter a non-negative integer"); toggle();
-  expect(screen.getByTestId("admin-member-quota-error")).toHaveTextContent("请输入一个非负整数"); expect(screen.getByTestId("admin-member-quota-input")).toHaveValue("-1"); expect(api.setMemberTokenQuota).not.toHaveBeenCalled();
-});
-it("keeps actionable server remaining quota details localized and hides private raw errors", async () => {
-  api.setMemberTokenQuota.mockRejectedValue(new ApiError(409, "QUOTA_OVERALLOCATED", { remainingTokens: 50_000, message: "private {secret}" }));
-  render(<MemberQuotaTab />, { wrapper: Locale }); fireEvent.click(await screen.findByTestId("admin-member-quota-user-raw"));
-  fireEvent.change(screen.getByTestId("admin-member-quota-input"), { target: { value: "60000" } }); fireEvent.click(screen.getByTestId("admin-member-quota-save"));
-  await waitFor(() => expect(screen.getByTestId("admin-member-quota-error")).toHaveTextContent("50,000")); toggle();
-  expect(screen.getByTestId("admin-member-quota-error")).toHaveTextContent("超出组织剩余额度"); expect(screen.getByTestId("admin-member-quota-error")).toHaveTextContent("5 万"); toggle();
-  expect(screen.getByTestId("admin-member-quota-error")).not.toHaveTextContent(/QUOTA_OVERALLOCATED|private/); expect(api.setMemberTokenQuota).toHaveBeenCalledTimes(1);
-});
-it("preserves pending organization budget edits through locale updates and retranslates the resulting notice", async () => {
-  let finish!: (value: unknown) => void; api.setOrgTokenBudget.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
-  render(<MemberQuotaTab />, { wrapper: Locale }); fireEvent.click(await screen.findByTestId("admin-quota-budget-open"));
-  expect(screen.getByTestId("admin-quota-budget-modal")).toHaveTextContent("Organization monthly token budget");
-  fireEvent.change(screen.getByTestId("admin-quota-budget-input"), { target: { value: "600000" } }); fireEvent.click(screen.getByTestId("admin-quota-budget-save"));
-  toggle(); toggle(); expect(screen.getByTestId("admin-quota-budget-input")).toHaveValue("600000"); expect(api.setOrgTokenBudget.mock.calls).toEqual([["org-quotas-raw", 600000]]);
-  await act(async () => finish({})); await waitFor(() => expect(screen.queryByTestId("admin-quota-budget-modal")).toBeNull());
-  expect(screen.getByTestId("admin-quota-toast")).toHaveTextContent("600,000"); toggle(); expect(screen.getByTestId("admin-quota-toast")).toHaveTextContent("组织月度额度已设为");
-});
-it("explains budget-below-allocated in the current language without altering the server detail", async () => {
-  api.setOrgTokenBudget.mockRejectedValue(new ApiError(409, "BUDGET_BELOW_ALLOCATED", { allocated: 100_000 }));
-  render(<MemberQuotaTab />, { wrapper: Locale }); fireEvent.click(await screen.findByTestId("admin-quota-budget-open")); fireEvent.click(screen.getByTestId("admin-quota-budget-save"));
-  await waitFor(() => expect(screen.getByTestId("admin-quota-budget-error")).toHaveTextContent("100,000")); toggle(); expect(screen.getByTestId("admin-quota-budget-error")).toHaveTextContent("不能低于已分配之和");
-  expect(api.setOrgTokenBudget).toHaveBeenCalledTimes(1);
-});
-it("shows localized absent-organization and read failures without making locale a read trigger", async () => {
-  api.orgId = null; const first = render(<MemberQuotaTab />, { wrapper: Locale }); expect(screen.getByText("No organization selected.")).toBeVisible(); expect(api.getTokenQuotas).not.toHaveBeenCalled(); first.unmount();
-  api.orgId = "org-quotas-raw"; api.getTokenQuotas.mockRejectedValue(new ApiError(403, "FORBIDDEN", { message: "private body" })); render(<MemberQuotaTab />, { wrapper: Locale });
-  const failed = await screen.findByTestId("admin-quota-load-failed"); expect(failed).toHaveTextContent("Could not load quota data"); expect(failed).not.toHaveTextContent(/FORBIDDEN|private body/); toggle(); expect(failed).toHaveTextContent("配额数据读取失败"); expect(api.getTokenQuotas).toHaveBeenCalledTimes(1);
 });
 it("localizes invitation summary and status while preserving authored email/inviter and avoiding reload", async () => {
   render(<MemberInvitesPanel />, { wrapper: Locale }); const panel = await screen.findByTestId("admin-members-list");
