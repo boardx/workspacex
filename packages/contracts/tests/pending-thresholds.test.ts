@@ -126,6 +126,11 @@ describe("业务代码不得硬编码待定阈值", () => {
         // 顺手写个通用的 `[threshold-ok]` 放行不了别的项。
         const ex = EXEMPT.exec(line);
         if (ex && ex[1] === name) return;
+        // S033 is generated from the renewal skill's purpose. Its enterprise
+        // planning window is unrelated to the project's material retention policy.
+        if (name === "retentionMaterial"
+          && relative(ROOT, f) === "apps/web/lib/work-skill-descriptions.generated.ts"
+          && /^\s*"S033": "[^"]*默认窗口 120 天、企业客户 180 天；续约卫生检查/.test(line)) return;
         if (re.test(line)) hits.push(`${relative(ROOT, f)}:${i + 1}  ${line.trim().slice(0, 80)}`);
       });
     }
