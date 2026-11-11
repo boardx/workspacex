@@ -309,9 +309,14 @@ export class PgOrgInviteRepository implements OrgInviteRepository, OrgInvitation
     await lockCapacityEpoch(s);
     // (1) Index lookup only: never hold a token row while waiting for the organization
     // or invite. Resend locks invite -> token; activation must use the same order.
-    const located = await s.query<{ invite_id: string; org_id_hint: string }>(
-      `SELECT invite_id, org_id_hint FROM org_invite_tokens WHERE token = $1`,
-      [input.token],
+    if (input.inboxInviteId && (input.existingUserId === null || input.newAccount !== null)) {
+      throw new Rollback("not-found");
+    }
+    const located = await s.query<{ invite_id: string; org_id_hint: string; token: string }>(
+      input.inboxInviteId
+        ? `SELECT invite_id, org_id_hint, token FROM org_invite_tokens WHERE invite_id = $1 AND consumed_at IS NULL`
+        : `SELECT invite_id, org_id_hint, token FROM org_invite_tokens WHERE token = $1`,
+      [input.inboxInviteId ?? input.token],
     );
     const tokenRow = located.rows[0];
     if (tokenRow === undefined) throw new Rollback("not-found");
@@ -346,7 +351,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository, OrgInvitation
           AND consumed_at IS NULL
           AND expires_at > $2
         RETURNING invite_id, org_id_hint`,
-      [input.token, input.now],
+      [tokenRow.token, input.now],
     );
     if (consumed.rows[0] === undefined || consumed.rows[0].invite_id !== invite.id || consumed.rows[0].org_id_hint !== orgId) {
       throw new Rollback("not-found");
@@ -357,7 +362,16 @@ export class PgOrgInviteRepository implements OrgInviteRepository, OrgInvitation
     const actual = { orgId: invite.org_id, orgRole: invite.org_role, teamId: invite.team_id };
 
     if (input.existingUserId !== null) {
-      const credential = await s.query<{email: string}>("SELECT email FROM credentials WHERE user_id=$1", [input.existingUserId]);
+      // A shared-link signup can set email_verified_at without proving inbox ownership.
+      // Require a consumed email challenge for this tokenless entry point.
+      const credential = await s.query<{email: string}>(
+        `SELECT email FROM credentials WHERE user_id=$1 AND (
+           NOT $2::boolean OR (email_verified_at IS NOT NULL AND EXISTS (
+             SELECT 1 FROM email_verification_challenges WHERE user_id=$1 AND consumed_at IS NOT NULL
+           ))
+         ) FOR SHARE`,
+        [input.existingUserId, Boolean(input.inboxInviteId)],
+      );
       if (!credential.rows[0]) throw new Rollback("not-found");
       if (credential.rows[0].email !== invite.email) throw new Rollback("account-mismatch");
       const existing = await s.query("SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2", [orgId,input.existingUserId]);

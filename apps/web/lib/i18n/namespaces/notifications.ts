@@ -15,6 +15,9 @@ export const notificationsZhCN = {
   "notifications.empty": "暂无未读提醒",
   "notifications.markAllRead": "全部标为已读",
   "notifications.recentRead": "最近已读",
+  "notifications.openInvitation": "查看邀请",
+  "notifications.inviteAccountHint": "请用受邀邮箱对应的账号确认。若系统无法核验该邮箱，请使用邀请邮件中的链接。",
+
 } as const;
 export const notificationsEn: Record<keyof typeof notificationsZhCN, string> = {
   "notifications.title": "Notifications",
@@ -33,4 +36,7 @@ export const notificationsEn: Record<keyof typeof notificationsZhCN, string> = {
   "notifications.empty": "No unread notifications",
   "notifications.markAllRead": "Mark all as read",
   "notifications.recentRead": "Recently read",
+  "notifications.openInvitation": "View invitation",
+  "notifications.inviteAccountHint": "Confirm with the invited account. If the email address cannot be verified here, use the link in the invitation email.",
+
 };

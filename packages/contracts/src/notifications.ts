@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { OrgInboxInviteId } from "./org-admin";
+
+export const INBOX_INVITE_SOURCE_PREFIX = "org-invite:";
 /**
  * 全局通知中心（2026-09-08 人类直接指令：「任务提醒不工作，做成一个 notification 简单服务，
  * 放在全局，有消息就可以往里面推，邮件的消息也往里面推送」）。
@@ -13,6 +16,7 @@ export const Notification = z.object({
   kind: NotificationKind,
   title: z.string(),
   body: z.string(),
+  inboxInviteId: OrgInboxInviteId.optional(),
   /** 点开通知要跳去的对话；邮件/系统消息没有。 */
   threadId: z.string().nullable(),
   /**

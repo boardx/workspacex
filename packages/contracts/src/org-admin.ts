@@ -32,6 +32,8 @@ import { AssignableOrgRole, OrgRole, PermissionReason, PermissionDecision, Proje
 import { AUTH_POLICY, AuthenticatedSession, EmailAddress } from "./auth";
 
 /** Canonical landing page and token parameters shared by email and browser invitation links. */
+export const INBOX_INVITE_PARAM = "invite";
+export const OrgInboxInviteId = z.string().regex(/^oi-[a-f0-9]{24}$/);
 export const INVITATION_ACTIVATION_PATH = "/auth/activate";
 export const INVITATION_TOKEN_PARAM = "t";
 export const INVITATION_SHARED_TOKEN_PARAM = "lt";
@@ -714,7 +716,10 @@ export const operations = {
   /** Authenticated existing accounts explicitly accept; identity comes only from the guard. */
   acceptOrgInvite: {
     method: "POST", path: "/org-invites/accept",
-    in: z.object({ token: z.string().min(1) }).strict(),
+    in: z.union([
+      z.object({ token: z.string().min(1) }).strict(),
+      z.object({ inboxInviteId: OrgInboxInviteId }).strict(),
+    ]),
     out: z.object({ userId: z.string(), orgId: z.string(), orgRole: OrgRole, teamId: z.string(),
       sessionId: z.string(), session: AuthenticatedSession }).strict(),
     err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "INVITE_ACCOUNT_MISMATCH", "QUOTA_EXHAUSTED", "AUTH_SERVICE_UNAVAILABLE"] as const,

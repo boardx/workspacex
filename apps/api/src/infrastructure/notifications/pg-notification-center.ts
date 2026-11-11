@@ -1,10 +1,12 @@
-import { NOTIFICATION_PAGE_SIZE, Notification, NotificationListOutput, NotificationReadInput } from "@repo/contracts/notifications";
+import { INBOX_INVITE_SOURCE_PREFIX, NOTIFICATION_PAGE_SIZE, Notification, NotificationListOutput, NotificationReadInput } from "@repo/contracts/notifications";
 import type { z } from "zod";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { NotificationCenter, NotificationViewer, PublishNotificationInput, SupersedeNotificationsInput } from "../../application/notifications/notification-center";
-interface Row { id: string; kind: Notification["kind"]; title: string; body: string; thread_id: string | null; actionable: boolean; created_at: Date; read_at: Date | null }
+interface Row { source_key: string | null; id: string; kind: Notification["kind"]; title: string; body: string; thread_id: string | null; actionable: boolean; created_at: Date; read_at: Date | null }
 const project = (row: Row): Notification => Notification.parse({
   id: row.id, kind: row.kind, title: row.title, body: row.body, threadId: row.thread_id, actionable: row.actionable,
+  inboxInviteId: row.kind === "email" && row.source_key?.startsWith(INBOX_INVITE_SOURCE_PREFIX)
+    ? row.source_key.slice(INBOX_INVITE_SOURCE_PREFIX.length) : undefined,
   createdAt: row.created_at.toISOString(), readAt: row.read_at?.toISOString() ?? null,
 });
 /** 通知是收据，不是状态机：只有 insert（publish）和 read_at 一次性置位。 */
@@ -31,7 +33,7 @@ export class PgNotificationCenter implements NotificationCenter {
   async list(viewer: NotificationViewer): Promise<z.infer<typeof NotificationListOutput>> {
     return this.db.withTenant(viewer.orgId, async (s) => {
       const rows = (await s.query<Row>(
-        `SELECT id,kind,title,body,thread_id,actionable,created_at,read_at FROM user_notifications WHERE user_id=$1 AND (org_id IS NULL OR org_id=$2) ORDER BY (read_at IS NULL) DESC, created_at DESC LIMIT $3`,
+        `SELECT id,kind,title,body,thread_id,actionable,created_at,read_at,source_key FROM user_notifications WHERE user_id=$1 AND (org_id IS NULL OR org_id=$2) ORDER BY (read_at IS NULL) DESC, created_at DESC LIMIT $3`,
         [viewer.userId, viewer.orgId, NOTIFICATION_PAGE_SIZE],
       )).rows;
       const unread = (await s.query<{ n: string }>(

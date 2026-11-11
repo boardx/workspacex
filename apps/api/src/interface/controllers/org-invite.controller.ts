@@ -143,14 +143,14 @@ export class OrgInviteController {
 
   @Post("/org-invites/accept")
   async accept(
-    @Body(new ZodBodyPipe(C.operations.acceptOrgInvite.in)) body: {token:string},
+    @Body(new ZodBodyPipe(C.operations.acceptOrgInvite.in)) body: { token: string } | { inboxInviteId: string },
     @CurrentPrincipal() principal: Principal,
   ) {
     assertPrincipal(principal);
     try {
       const out = await activateOrgMember(
         {repo:this.repo,hasher:this.hasher,sessions:this.sessions,tokens:this.tokens},
-        {token:body.token,mode:"existing-account",profile:null,existingUserId:principal.userId,
+        {token:"token" in body ? body.token : "", ...("inboxInviteId" in body && {inboxInviteId:body.inboxInviteId}), mode:"existing-account",profile:null,existingUserId:principal.userId,
          untrustedClaims:{orgId:null,orgRole:null,teamId:null}},
       );
       return {userId:out.userId,orgId:out.orgId,orgRole:out.orgRole,teamId:out.teamId??"",sessionId:out.sessionId,session:out.session};

@@ -1,13 +1,10 @@
+import { INBOX_INVITE_SOURCE_PREFIX } from "@repo/contracts/notifications";
 import type { TransactionalMailMessage, TransactionalMailResult, TransactionalMailTransport } from "../../application/notifications/transactional-mail-ports";
 import type { NotificationPublisher } from "../../application/notifications/notification-center";
 import type { CredentialRepository } from "../../application/auth/ports";
 import { normalizeEmail } from "../../domain/auth/email";
-/**
- * 装饰 `TRANSACTIONAL_MAIL_TRANSPORT`：每封真实发出的邮件，如果收件人是本系统的注册用户，
- * 就同步推一条 `email` 通知到该用户的通知中心（跨组织：`orgId=null`）。
- * 邮件正文**不**进通知——密码重置链接等一次性凭证不该出现在第二个地方；通知只带主题。
- * 推送失败不影响邮件已发出的事实。
- */
+/** Copies successful delivery summaries to the recipient's inbox.
+ * Invitation notices carry an invitation ID rather than the email's bearer link. */
 export class NotifyingMailTransport implements TransactionalMailTransport {
   constructor(
     private readonly inner: TransactionalMailTransport,
@@ -20,8 +17,11 @@ export class NotifyingMailTransport implements TransactionalMailTransport {
     try {
       const account = await this.credentials.findByEmail(normalizeEmail(message.to));
       if (account) await this.notifications.publish({
-        orgId: null, userId: account.userId, kind: "email", title: `邮件：${message.subject}`,
-        body: `已向 ${message.to} 发送一封邮件。`, sourceKey: result.providerMessageId ? `mail:${result.providerMessageId}` : null,
+        orgId: null, userId: account.userId, kind: "email", title: message.orgInviteId ? message.subject : `邮件：${message.subject}`,
+        body: message.orgInviteId ? "你收到了一份组织邀请。可在这里查看并确认加入。" : `已向 ${message.to} 发送一封邮件。`,
+        sourceKey: message.orgInviteId
+          ? `${INBOX_INVITE_SOURCE_PREFIX}${message.orgInviteId}`
+          : result.providerMessageId ? `mail:${result.providerMessageId}` : null,
       });
     } catch (err) {
       this.log("mail notification failed", { to: message.to, err });

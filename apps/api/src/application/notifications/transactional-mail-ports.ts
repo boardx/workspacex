@@ -28,6 +28,7 @@ export interface TransactionalMailMessage {
   readonly to: string;
   readonly subject: string;
   readonly text: string;
+  readonly orgInviteId?: string;
 }
 
 export interface TransactionalMailResult {

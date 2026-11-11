@@ -11,10 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  *    `workbenchThreadPath(threadId)`，**并且弹层关闭**。弹层不关，用户看到的
  *    就只有"那一行凭空消失"（老断言只判 `onOpenThread` 被调用过，
  *    在这个缺陷下无法被证伪：它今天也是被调用的）。
- * ② 没有对话可去的通知（邮件/系统，`threadId === null`）：今天点它是**纯空转**——
- *    只发一次标已读，然后行消失，没有任何去处。这种条目不许伪装成可点的链接：
- *    点正文不许把它读掉，标已读必须是**用户显式点的那个按钮**（与同一面板里
- *    定时任务提醒的体例一致）。
+ * ② 邮件和系统通知打开正文详情，已读记录也可以重新打开。
  * ③ 「等待你授权工具 / 等待你确认计划」这类**待办**通知与「已完成」这类**收据**，
  *    点击语义必须不同：待办不许因为"看了一眼"就被消费掉——事情还没办。
  *    今天两者走同一行 `onClick`，本断言因此变红。
@@ -29,6 +26,7 @@ vi.mock("next/navigation", () => ({
 const sessionValue = vi.hoisted(() => ({ current: null as unknown }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => sessionValue.current }));
 
+import type { Notification } from "@repo/contracts/notifications";
 import { RailNotifications } from "@/components/shell/rail-notifications";
 import { workbenchThreadPath } from "@/lib/chat-workbench/project-scope";
 
@@ -37,7 +35,7 @@ const notice = (id: string, kind: "task" | "email", title: string, threadId: str
   threadId, actionable: title.includes("等待"), createdAt: "2026-09-10T00:00:00.000Z", readAt: null,
 });
 const readCalls = () => request.mock.calls.filter((call) => call[0] === "/notifications/read");
-function serve(notifications: ReturnType<typeof notice>[]) {
+function serve(notifications: Notification[]) {
   request.mockImplementation(async (path: string, opts?: { method?: string }) => {
     if (path === "/notifications") return { notifications, unreadCount: notifications.length };
     if (path === "/notifications/read" && opts?.method === "POST") return { read: 1 };
@@ -47,7 +45,7 @@ function serve(notifications: ReturnType<typeof notice>[]) {
 }
 const trigger = () => screen.getByTestId("task-notifications-trigger");
 const popover = () => screen.queryByTestId("task-notifications-popover");
-async function openPanel(notifications: ReturnType<typeof notice>[]) {
+async function openPanel(notifications: Notification[]) {
   serve(notifications);
   render(<RailNotifications />);
   await waitFor(() => expect(trigger()).toBeInTheDocument());
@@ -73,16 +71,26 @@ describe("#3311 点一条通知，用户必须知道自己被带到哪儿了", (
     expect(trigger()).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("② 没有对话可去：不许伪装成可点条目——点正文不读掉它，标已读得是用户显式点的按钮", async () => {
-    const panel = await openPanel([notice("2", "email", "邮件：重置密码", null)]);
-    const row = panel.getByTestId("notification-item");
-    fireEvent.click(within(row).getByText("邮件：重置密码"));
+  it("opens an unread mail receipt and exposes its stored body", async () => {
+    const panel = await openPanel([{ ...notice("2", "email", "邮件：重置密码", null), body: "邮件已发送，请检查邮箱。" }]);
+    fireEvent.click(within(panel.getByTestId("notification-item")).getByRole("button", { name: /重置密码/ }));
+    const dialog = await screen.findByRole("dialog", { name: "邮件：重置密码" });
+    expect(dialog).toHaveTextContent("邮件已发送，请检查邮箱。");
     expect(push).not.toHaveBeenCalled();
-    expect(readCalls()).toHaveLength(0);
-    // 显式出口仍在：这条通知能被读掉，但要用户点那个写着「标为已读」的按钮。
-    fireEvent.click(within(row).getByRole("button", { name: "标为已读" }));
     await waitFor(() => expect(readCalls()).toHaveLength(1));
-    expect(readCalls()[0]![1]).toMatchObject({ body: { ids: ["00000000-0000-4000-8000-000000000002"] } });
+  });
+
+  it("opens a read invitation with a recipient confirmation link", async () => {
+    const inviteId = "oi-" + "a".repeat(24);
+    const panel = await openPanel([{
+      ...notice("5", "email", "组织邀请", null),
+      readAt: "2026-09-10T00:00:00.000Z",
+      inboxInviteId: inviteId,
+    }]);
+    fireEvent.click(panel.getByText("最近已读"));
+    fireEvent.click(panel.getByRole("button", { name: /组织邀请/ }));
+    expect(await screen.findByRole("link", { name: "查看邀请" })).toHaveAttribute("href", `/auth/activate?invite=${inviteId}`);
+    expect(readCalls()).toHaveLength(0);
   });
 
   it("③ 待办通知（等待你授权工具）点开只是去办，不许当场被消费掉", async () => {
