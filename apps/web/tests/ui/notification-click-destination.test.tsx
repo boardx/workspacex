@@ -131,3 +131,14 @@ it("changes the reading pane when a different message is selected", async () => 
   expect(within(pane).getByText("第二封正文")).toBeVisible();
   expect(within(pane).getByRole("link", { name: "打开对话" })).toHaveAttribute("href", workbenchThreadPath("thread-8", null));
 });
+
+it("reopens a message by ID when it has left the current notification list", async () => {
+  const message = { ...notice("7", "email", "较早的邀请", null), readAt: "2026-09-10T00:00:00.000Z", body: "较早的消息正文" };
+  serve([]);
+  const listResponse = request.getMockImplementation()!;
+  request.mockImplementation((path, ...args) =>
+    path === `/notifications/${message.id}` ? Promise.resolve(message) : listResponse(path, ...args));
+  render(<InboxScreen initialMessage={message.id} />);
+  expect(await screen.findByText("较早的消息正文")).toBeVisible();
+  expect(readCalls()).toHaveLength(0);
+});

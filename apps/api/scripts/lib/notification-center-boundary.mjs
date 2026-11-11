@@ -13,10 +13,10 @@ function parse(path,source){
 /** 通知中心：一行只有收件人本人能读/标已读（`user_id=$1`），组织维度再收一层（`org_id IS NULL OR org_id=$2`）。 */
 export function checkNotificationCenter(source){
  const {methods,compact,queries}=parse(NOTIFICATION_CENTER_PATH,source),errors=[];
- if([...methods.keys()].sort().join(',')!=='list,markRead,publish,supersede')errors.push('unexpected notification entry point');
+ if([...methods.keys()].sort().join(',')!=='get,list,markRead,publish,supersede')errors.push('unexpected notification entry point');
  if(!compact(methods.get('markRead'))?.includes('NotificationReadInput.parse(raw)'))errors.push('strict request schema required');
  let total=0;
- for(const name of ['list','markRead','supersede']){
+ for(const name of ['get','list','markRead','supersede']){
   for(const q of queries(name)){
    total++;const literal=q.arguments[0];
    if(!ts.isStringLiteralLike(literal)){errors.push('dynamic SQL forbidden');continue;}
@@ -24,10 +24,12 @@ export function checkNotificationCenter(source){
    if(!sql.includes('FROM user_notifications')&&!sql.includes('UPDATE user_notifications'))errors.push('unexpected table');
    if(!sql.includes('WHERE user_id=$1 AND (org_id IS NULL OR org_id=$2)'))errors.push('exact recipient/tenant binding required');
    if(!compact(q.arguments[1])?.startsWith('[viewer.userId,viewer.orgId'))errors.push('recipient must be the authenticated viewer');
+   if(name==='get'&&(sql.trim()!=='SELECT id,kind,title,body,thread_id,actionable,created_at,read_at,source_key FROM user_notifications WHERE user_id=$1 AND (org_id IS NULL OR org_id=$2) AND id=$3'||compact(q.arguments[1])!=='[viewer.userId,viewer.orgId,id]'))errors.push('detail lookup must bind the exact notification and recipient');
    if(name==='list'&&sql.startsWith('SELECT')&&sql.includes('SELECT id,kind')&&!sql.includes('LIMIT $3'))errors.push('bounded projection required');
   }
  }
- if(total!==4)errors.push('unexpected SQL surface');
+ if(queries('get').length!==1)errors.push('detail lookup must use one query');
+ if(total!==5)errors.push('unexpected SQL surface');
  // #3311：supersede 是唯一一条"替用户读掉他没点过的通知"的路径，所以它的收窄条件本身要钉死：
  // 只收 actionable（待办）行、只收还没读的、且必须放过 exceptSourceKey 指的那一条。
  // 少任何一条，它就退化成"后台悄悄清空未读"，而上面那些收件人/租户断言照样全绿。

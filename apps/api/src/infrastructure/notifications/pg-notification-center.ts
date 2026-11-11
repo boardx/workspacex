@@ -30,6 +30,17 @@ export class PgNotificationCenter implements NotificationCenter {
       );
     });
   }
+  async get(viewer: NotificationViewer, id: string): Promise<Notification | null> {
+    return this.db.withTenant(viewer.orgId, async (s) => {
+      const result = await s.query<Row>(
+        `SELECT id,kind,title,body,thread_id,actionable,created_at,read_at,source_key
+           FROM user_notifications
+          WHERE user_id=$1 AND (org_id IS NULL OR org_id=$2) AND id=$3`,
+        [viewer.userId, viewer.orgId, id],
+      );
+      return result.rows[0] ? project(result.rows[0]) : null;
+    });
+  }
   async list(viewer: NotificationViewer): Promise<z.infer<typeof NotificationListOutput>> {
     return this.db.withTenant(viewer.orgId, async (s) => {
       const rows = (await s.query<Row>(

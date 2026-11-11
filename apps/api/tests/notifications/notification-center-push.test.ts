@@ -142,6 +142,9 @@ describe("PgNotificationCenter", () => {
     await center.list({ orgId: ORG, userId: "alice" });
     await center.markRead({ orgId: ORG, userId: "alice" }, { ids: ["00000000-0000-4000-8000-000000000001"] });
     await center.markRead({ orgId: ORG, userId: "alice" }, {});
+    expect(await center.get({ orgId: ORG, userId: "alice" }, "00000000-0000-4000-8000-000000000001")).toBeNull();
+    expect(queries[7]?.params).toEqual(["alice", ORG, "00000000-0000-4000-8000-000000000001"]);
+    expect(queries[7]?.sql).toContain("AND id=$3");
     expect(queries[0]?.tenant).toBe(ORG); expect(queries[0]?.sql).toContain("ON CONFLICT DO NOTHING");
     expect(queries[1]?.tenant).toBeNull(); expect(queries[1]?.params[0]).toBeNull();
     // supersede 也走同一条收件人/租户绑定，且只碰待办行。

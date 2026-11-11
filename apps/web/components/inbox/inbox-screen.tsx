@@ -3,6 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { ArrowLeft, Inbox } from "lucide-react";
+import { NotificationId, operations, type Notification } from "@repo/contracts/notifications";
+import { apiRequest } from "@/lib/api-client";
 import { orgAdmin } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -22,7 +24,32 @@ function InboxContent({ token, initialMessage }: { token?: string; initialMessag
   const { items, unreadCount, failed, busy, loading, refresh, markRead } = useNotificationCenter(token);
   const [selectedId, setSelectedId] = React.useState(initialMessage);
   const [reading, setReading] = React.useState(Boolean(initialMessage));
-  const selected = items.find(item => item.id === selectedId);
+  const [savedMessage, setSavedMessage] = React.useState<Notification | null>(null);
+  const [finishedLookupId, setFinishedLookupId] = React.useState<string | null>(null);
+  const listed = items.find(item => item.id === selectedId);
+  const selected = listed ?? (savedMessage?.id === selectedId ? savedMessage : null);
+  React.useEffect(() => {
+    if (listed) setSavedMessage(listed);
+  }, [listed]);
+  React.useEffect(() => {
+    if (loading || listed || !token || !selectedId || !NotificationId.safeParse(selectedId).success) return;
+    const controller = new AbortController();
+    void apiRequest<unknown>(operations.get.path.replace(":id", encodeURIComponent(selectedId)), {
+      sessionToken: token,
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]),
+    }).then(raw => {
+      const item = operations.get.out.parse(raw);
+      if (item.id !== selectedId) throw new Error("notification_id_mismatch");
+      if (!controller.signal.aborted) {
+        setSavedMessage(item);
+        setFinishedLookupId(selectedId);
+      }
+    }).catch(() => {
+      if (!controller.signal.aborted) setFinishedLookupId(selectedId);
+    });
+    return () => controller.abort();
+  }, [loading, listed, token, selectedId]);
+  const lookingUp = selectedId && NotificationId.safeParse(selectedId).success && finishedLookupId !== selectedId;
   const needsRead = selected?.readAt === null && !selected.actionable;
   React.useEffect(() => {
     if (reading && needsRead && selectedId) void markRead([selectedId]);
@@ -82,7 +109,7 @@ function InboxContent({ token, initialMessage }: { token?: string; initialMessag
             </Button>}
           </div>
         </article> : <p className="text-14 text-muted-foreground">
-          {t(loading ? "notifications.loading" : selectedId && !failed ? "notifications.messageUnavailable" : "notifications.selectMessage")}
+          {t(loading || lookingUp ? "notifications.loading" : selectedId && !failed ? "notifications.messageUnavailable" : "notifications.selectMessage")}
         </p>}
       </section>
     </div>

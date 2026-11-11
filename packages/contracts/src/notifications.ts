@@ -10,9 +10,10 @@ export const INBOX_INVITE_SOURCE_PREFIX = "org-invite:";
  * 服务端任何模块都可以 `publish`，前端只读 + 标已读。`kind` 是闭集，新来源加枚举值，
  * 不另起第二张表。
  */
+export const NotificationId = z.string().uuid();
 export const NotificationKind = z.enum(["task", "email", "system"]);
 export const Notification = z.object({
-  id: z.string().uuid(),
+  id: NotificationId,
   kind: NotificationKind,
   title: z.string(),
   body: z.string(),
@@ -41,6 +42,7 @@ export const NotificationListOutput = z.object({
 export const NotificationReadInput = z.object({ ids: z.array(z.string().uuid()).max(NOTIFICATION_PAGE_SIZE).optional() }).strict();
 export const NotificationReadOutput = z.object({ read: z.number().int().min(0) }).strict();
 export const operations = {
+  get: { method: "GET", path: "/notifications/:id", out: Notification },
   list: { method: "GET", path: "/notifications", out: NotificationListOutput },
   markRead: { method: "POST", path: "/notifications/read", in: NotificationReadInput, out: NotificationReadOutput },
 } as const;

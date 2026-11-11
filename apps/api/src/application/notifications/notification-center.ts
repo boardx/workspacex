@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { NotificationKind, NotificationListOutput, NotificationReadInput, NotificationReadOutput } from "@repo/contracts/notifications";
+import type { Notification, NotificationKind, NotificationListOutput, NotificationReadInput, NotificationReadOutput } from "@repo/contracts/notifications";
 import type { OrgId } from "../../domain/org-id";
 /**
  * 全局通知中心端口。任何模块（run 状态、邮件、定时任务……）都通过 `publish` 往里推，
@@ -38,6 +38,7 @@ export interface SupersedeNotificationsInput {
   readonly exceptSourceKey: string;
 }
 export interface NotificationCenter extends NotificationPublisher {
+  get(viewer: NotificationViewer, id: string): Promise<Notification | null>;
   list(viewer: NotificationViewer): Promise<z.infer<typeof NotificationListOutput>>;
   markRead(viewer: NotificationViewer, input: z.infer<typeof NotificationReadInput>): Promise<z.infer<typeof NotificationReadOutput>>;
 }
