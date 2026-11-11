@@ -47,6 +47,7 @@ interface Row {
   /** #619 */
   abbr: string | null;
   duty: string | null;
+  task_description?: string | null;
   /** #2514：只有 `LISTING_WITH_ORCHESTRATION` 的读路径会带上；写路径的 RETURNING 没有。 */
   agent_available?: boolean | null;
   skill_orchestration?: "all-enabled" | "curated" | null;
@@ -62,6 +63,11 @@ const COLUMNS = "id, org_id, kind, name, scope, owner_team_id, enabled, endpoint
 const LISTING_WITH_ORCHESTRATION = `
   SELECT cl.id, cl.org_id, cl.kind, cl.name, cl.scope, cl.owner_team_id, cl.enabled,
          cl.endpoint, cl.abbr, cl.duty,
+         CASE WHEN cl.kind = 'skill' THEN (
+           SELECT sv.manifest->>'description' FROM skill_versions sv
+            WHERE sv.org_id = cl.org_id AND sv.skill_id = cl.id AND sv.published
+            ORDER BY sv.created_at DESC, sv.id DESC LIMIT 1
+         ) END AS task_description,
          CASE WHEN cl.kind = 'agent' THEN a.id IS NOT NULL AND v.id IS NOT NULL END AS agent_available,
          CASE
            WHEN cl.kind <> 'agent' OR v.id IS NULL THEN NULL
@@ -86,6 +92,7 @@ function toGuarded(row: Row): GuardedCapability {
     // for a `kind='agent'` row, so this is a straight passthrough, not a default.
     abbr: row.abbr,
     duty: row.duty,
+    ...(row.task_description != null ? { taskDescription: row.task_description } : {}),
     // Read-side availability never rewrites the administrator's saved enabled flag.
     disabledReason: row.enabled && row.agent_available === false
       ? "该 Agent 尚无可用的已发布版本，请联系管理员。" : null,

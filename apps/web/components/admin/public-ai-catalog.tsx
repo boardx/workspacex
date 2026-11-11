@@ -1,4 +1,5 @@
 "use client";
+import { skillCatalogDescription, skillCatalogTitle } from "@/lib/skill-catalog-copy";
 import { aiCatalogFailureText } from "@/lib/ai-catalog-failure";
 import * as React from "react";
 import { useSession } from "@/components/session/session-provider";
@@ -151,7 +152,7 @@ function PublicCatalogScope({
         }
         rows={page.entries}
         keyOf={keyOf}
-        searchTextOf={(row) => `${row.name} ${row.description}`}
+        searchTextOf={(row) => `${row.name} ${kind === "skill" ? skillCatalogTitle(row.name) : ""} ${kind === "skill" ? skillCatalogDescription(row.name, row.description) ?? "" : row.description}`}
         tagsOf={() => []}
         selectedKey={selected}
         onSelect={setSelected}
@@ -164,8 +165,8 @@ function PublicCatalogScope({
           </>
         }
         renderCard={(row) => ({
-          title: row.name,
-          description: row.description || kind,
+          title: kind === "skill" ? skillCatalogTitle(row.name) : row.name,
+          description: kind === "skill" ? skillCatalogDescription(row.name, row.description) : row.description || kind,
           leading:
             row.avatarUrl || isAvatarKey(row.avatarKey ?? null) ? (
               <Avatar
@@ -176,10 +177,10 @@ function PublicCatalogScope({
               />
             ) : undefined,
         })}
-        detailTitle={(row) => row.name}
+        detailTitle={(row) => kind === "skill" ? skillCatalogTitle(row.name) : row.name}
         renderDetail={(row) => (
           <div className="space-y-4">
-            <p>{row.description}</p>
+            <p>{kind === "skill" ? skillCatalogDescription(row.name, row.description) : row.description}</p>
             <dl className="text-12 text-muted-foreground">
               <dt>{t("aiCatalog.version")}</dt>
               <dd>{row.versionId}</dd>

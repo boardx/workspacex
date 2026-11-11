@@ -417,6 +417,8 @@ export const CapabilityListing = z.object({
    */
   abbr: z.string().nullable(),
   duty: z.string().nullable(),
+  /** Authored description from the latest published Skill version. */
+  taskDescription: z.string().optional(),
   /**
    * 为什么这一行是灰的 —— F15 记录的缺陷②，同样在 F16 变成阻塞。
    *

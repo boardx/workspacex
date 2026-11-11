@@ -61,6 +61,20 @@ function setup() {
   });
   mocks.list.mockResolvedValue({ entries: [row], nextCursor: null });
 }
+it("shows the authored title and purpose for a platform Work Skill with generic metadata", async () => {
+  setup();
+  mocks.list.mockResolvedValue({
+    entries: [{ ...row, kind: "skill", id: "skill-s020", orgId: PLATFORM_CATALOG_ORG_ID, name: "S020", description: "Skill" }],
+    nextCursor: null,
+  });
+  render(<PlatformAiCatalog kind="skill" />);
+  expect(await screen.findByText("高管简报成文")).toBeInTheDocument();
+  expect(screen.getByText(/压成一份面向具体读者的简报正文/)).toBeInTheDocument();
+  expect(screen.queryByText(/^Skill$/)).not.toBeInTheDocument();
+  fireEvent.change(screen.getByRole("searchbox"), { target: { value: "高管简报成文" } });
+  expect(screen.getByText("高管简报成文")).toBeInTheDocument();
+});
+
 describe("explicit platform capability target", () => {
   it("does not fetch platform data for nonoperators", () => {
     mocks.allowed = false;

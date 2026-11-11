@@ -23,6 +23,7 @@
  * ④ 模型 B（只有 `capability_listings` 行、没有对应 `skills` 行）disable 后
  *    `skills` 表里天然没有任何行会被影响——用一次不会报错的调用反证空操作是安全的。
  */
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
@@ -92,6 +93,34 @@ describe("停用一个 wave2 skill：capability_listings.enabled 与 skills.stat
 
   beforeEach(async () => {
     await seedWave2Skill(SKILL_ID, "会真的被停用的 skill");
+  });
+
+  it("目录只展示该 Skill 已发布版本的说明", async () => {
+    await asApp(ORG, async (client) => {
+      for (const [version, description, published] of [
+        ["v1", "已发布的实际用途", true],
+        ["v2", "仍在编辑的草稿说明", false],
+      ] as const) {
+        const versionId = `${SKILL_ID}-${version}`;
+        const bytes = Buffer.from(`# ${description}`);
+        const digest = createHash("sha256").update(bytes).digest("hex");
+        await client.query(
+          `INSERT INTO skill_versions (id,org_id,skill_id,semantic_label,content_digest,manifest,creator_id,created_at,published)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,now(),false)`,
+          [versionId, ORG, SKILL_ID, version, digest, JSON.stringify({ description }), ADMIN],
+        );
+        await client.query(
+          `INSERT INTO skill_version_files (version_id,org_id,path,content,media_type,digest)
+           VALUES ($1,$2,'SKILL.md',$3,'text/markdown',$4)`,
+          [versionId, ORG, bytes, digest],
+        );
+        if (published) await client.query("SELECT wave2_publish_skill_version($1,$2)", [ORG, versionId]);
+      }
+    });
+    const response = await fetch(`${BASE}/capabilities?orgId=${ORG}&kind=skill`, { headers: auth(ADMIN) });
+    expect(response.status).toBe(200);
+    const rows = await response.json() as Array<{ id: string; taskDescription?: string }>;
+    expect(rows.find((row) => row.id === SKILL_ID)?.taskDescription).toBe("已发布的实际用途");
   });
 
   it("① 装置自检：disable 之前 skills.status 确实是 'enabled'", async () => {
