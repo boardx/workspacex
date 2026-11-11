@@ -1,34 +1,4 @@
-/**
- * F117 ②⑤ —— **谁能建**（U-4 裁 A → **2026-08-06 人类裁决 / #608 覆盖**）与
- * **创建者自动获角色**（Q-4②，**2026-08-16 人类裁决推翻**）。
- *
- * ## 🔴 #608：这两条**不再**是同一条裁决的两端
- *
- * 旧稿写的是：「`lead` 能建、`admin` 不能建，是因为管理员的权是治理不是参与（D-18 同向）」。
- * 那半句今天**已经不成立**——`admin` 也能建了（#608：组织里的第一个人永远是 `admin`，
- * 且没有任何 `UPDATE org_memberships` 能把他变成 `lead`，否则第一个项目永远建不出来）。
- *
- * ⚠ **D-18 本身没有被放弃**（`decide()` 一字未改），但它守的那条边挪了：
- *   `admin`（和 `lead`）建完之后**现在会**获得项目角色（facilitator），
- *   不再落在 D-18 判定的"组织层越过项目层、无项目角色"那个格子里。
- * ⇒ 本文件最后一个 describe（Q-4②）因此从"护栏"变成"正向验证"，同样重要。
- *
- * ⚠ 2026-08-16 之前：创建者建完之后不会自动获得项目角色，理由是 Q-4② 裁的
- * 「`lead` 对自建未加入的项目**持管理权、不持内容读取权**」——若创建即授角色，
- * 那条边的两端就不存在了。**人类直接裁决推翻了这条**：创建者自动获得最高权限
- * （facilitator + is_host），这正是"建了项目却进不去自己项目"这个真实产品缺口的根治。
- *
- * ⇒ 所以本文件里「建完之后创建者读得到内容」现在是**正向断言**，
- *   不是"建完之后创建者读不到内容"（那是推翻前的旧行为）。
- *
- * ## 每条都要有反向的那一半
- *
- *   · 只测「consultant/compliance 被拒」⇒ 一个「谁都拒」的实现全绿 ⇒ 必须同时测 lead/admin 能建
- *   · 只测「lead/admin 能建」⇒ 一个「谁都放行」的实现全绿 ⇒ 必须同时测另两种被拒
- *   · 只测「创建者判权被拒」⇒ 一个「谁都拒」的判权全绿 ⇒ 必须同时测有项目角色的人被放行
- *   · 只测「四种组织角色里只有 lead 通过」⇒ 枚举一旦加第五种，本条不会知道
- *     ⇒ 遍历的是契约的 `OrgRole.options`，并断言它恰好四个
- */
+/** PostgreSQL coverage for project creation, organization membership, and creator roles. */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { identity as IdentityContract, project as ProjectContract } from "@repo/contracts";
 import { createProject } from "../../src/application/project/create-project";
@@ -102,29 +72,18 @@ beforeEach(async () => {
   }
 }, HOOK_TIMEOUT_MS);
 
-describe("#608（覆盖 U-4 裁 A）：`lead` 与 `admin` 能创建，另两种不能", () => {
-  it("四种组织角色逐个试，恰好 `lead` / `admin` 通过，其余一律 ORG_ROLE_INSUFFICIENT", async () => {
-    // 非空转：遍历的是契约的闭集本身。加第五种角色，本条自动覆盖它。
-    expect(IdentityContract.AssignableOrgRole.options.length).toBe(2);
-
-    const verdicts: Record<string, string> = {};
-    for (const role of IdentityContract.AssignableOrgRole.options) {
-      verdicts[role] = await reasonOf(submit(userFor(role)));
-    }
-    expect(verdicts).toEqual({
-      // 🔴 2026-08-06 人类裁决（#608）把这一格从 `ORG_ROLE_INSUFFICIENT` 翻成 `NO_ERROR`。
-      //    U-4 裁 A 原本的理由（管理员的权是治理不是参与，D-18 同向）没有被否定，
-      //    被否定的是它的**代价**：`bootstrapFirstUser` 只产 `admin`，且全仓没有任何
-      //    `UPDATE org_memberships`，于是第一个用户永远建不了第一个项目。
-      //    ⚠ D-18 本身没有被否定：建完**现在会**授予项目角色（Q-4② 已推翻，见本文件
-      //      最后一个 describe，以及 `bootstrap-admin-can-create-project.test.ts` 的正向验证）。
-      admin: "NO_ERROR",
-      // 反向的一半：不许退化成「谁都能建」。这两格红了，说明放宽放过头了。
-      consultant: "ORG_ROLE_INSUFFICIENT",
-    });
+describe("Project creation is available to organization members", () => {
+  it.each(IdentityContract.AssignableOrgRole.options)("allows %s to create a general project", async (role) => {
+    const actorId = userFor(role);
+    const project = await submit(actorId, { kind: "general" });
+    const membership = await asApp(ORG, (c) => c.query(
+      "SELECT role FROM general_project_members WHERE org_id = $1 AND project_id = $2 AND user_id = $3",
+      [ORG, project.id, actorId],
+    ));
+    expect(membership.rows).toEqual([{ role: "owner" }]);
   });
 
-  it("非成员与「成员但不是 lead」落在同一个码上（契约的 err 里没有 NO_ORG_MEMBERSHIP）", async () => {
+  it("非成员被拒（契约的 err 里没有 NO_ORG_MEMBERSHIP）", async () => {
     const r = await reasonOf(submit("u-f117-stranger"));
     expect(r).toBe("ORG_ROLE_INSUFFICIENT");
     // 反向：这个码确实在契约的失败面里，不是本地编的。
@@ -133,10 +92,7 @@ describe("#608（覆盖 U-4 裁 A）：`lead` 与 `admin` 能创建，另两种�
   });
 
   it("被拒之后**一行都没写**（拒绝不是「先建了再说」）", async () => {
-    // ⚠ #608 之后这里必须用一个**仍被拒**的角色：原来写的是 `admin`，
-    //   而 admin 现在建得成，这条会静默地变成「建成功了，然后断言库里有 0 行」——
-    //   一条断言方向反了的红。改用 `consultant`（本次放宽未涉及）。
-    await reasonOf(submit(userFor("consultant")));
+    expect(await reasonOf(submit("u-f117-stranger"))).toBe("ORG_ROLE_INSUFFICIENT");
     const n = await asApp(ORG, async (c) =>
       Number((await c.query("SELECT count(*)::int AS n FROM projects WHERE org_id = $1", [ORG])).rows[0]!.n),
     );
@@ -144,7 +100,7 @@ describe("#608（覆盖 U-4 裁 A）：`lead` 与 `admin` 能创建，另两种�
   });
 
   it("纯判断那一层单独也说同一句话（domain 不依赖库）", () => {
-    const ALLOWED = ["admin"] as const;
+    const ALLOWED = ["admin", "consultant"] as const;
     for (const role of ALLOWED) expect(canCreateProject(role), role).toBe(true);
     // 遍历契约闭集取补集：加第五种角色时，它默认落在「必须为假」这一侧，
     // 而不是悄悄被放行——这正是不写排除式判据的那条理由的测试面。
@@ -167,13 +123,7 @@ describe("INVALID_KIND：三值闭集之外直接拒", () => {
   });
 
   it("kind 判在角色之前：一个**会被角色判据拒掉**的人传非法 kind，拿到的仍是 INVALID_KIND", async () => {
-    // 取舍写在 `create-project.ts`：非法 kind 与调用者是谁无关，
-    // 放在角色之后会让这个码只有能建项目的人才看得见——而任何调用方都可能传错。
-    //
-    // ⚠ #608 之前这里用的是 `admin`，因为当时 admin 会被角色判据拒掉。admin 现在能建了，
-    //   继续用它，这条就退化成「一个有权建的人传了非法 kind」——**顺序**这件事再也证不到，
-    //   而断言依旧全绿。换成 `consultant`（本次放宽未涉及，仍被拒）才保住原意。
-    expect(await reasonOf(submit(userFor("consultant"), { kind: "delivery" }))).toBe("INVALID_KIND");
+    expect(await reasonOf(submit("u-f117-stranger", { kind: "delivery" }))).toBe("INVALID_KIND");
   });
 });
 
@@ -244,7 +194,7 @@ describe("🔴 Q-4②（2026-08-16 人类裁决推翻）：创建者**自动**�
     const other = "u-f117-added-facilitator";
     // `decide()` 的组织层要求 `org.role !== null`（I-11 之前那一关）——这个人必须先
     // 在组织里有一行，才轮到项目层的 facilitator 角色说话。用 `consultant`（本文件
-    // 放宽未涉及的角色）保持「是项目角色而不是组织角色在放行」这条测试意图不失真。
+    // 没有该项目角色时仍不能读取的组织角色）保持「是项目角色而不是组织角色在放行」这条测试意图不失真。
     await addOrgMember(ORG, other, "consultant", null);
     await addProjectMember(ORG, out.id, other, "facilitator", null, false);
     const d = await authorize(

@@ -165,11 +165,11 @@ describe("🔴 #608 裁决：admin 也能建项目", () => {
     expect(rows[0]!.id).toBe(created.id);
   });
 
-  it("纯判断那一层：`admin` 与 `lead` 都为真，另两种角色与 null 仍为假", () => {
+  it("纯判断那一层：管理员、负责人和普通成员可以创建，合规角色和非成员仍被拒", () => {
     expect(canCreateProject("admin")).toBe(true);
     expect(canCreateProject("lead")).toBe(true);
     // 反向的一半：不许退化成「谁都能建」——那会让上一条断言变成空转。
-    expect(canCreateProject("consultant")).toBe(false);
+    expect(canCreateProject("consultant")).toBe(true);
     expect(canCreateProject("compliance")).toBe(false);
     expect(canCreateProject(null)).toBe(false);
   });

@@ -1,7 +1,7 @@
 /**
  * `updateProjectTags` —— 2026-08-16（F185，delta）新增。
  *
- * 与 `archive-project.ts` 同一条权限线：复用 `canCreateProject`（2026-08-06 由人类
+ * 与 `archive-project.ts` 同一条权限线：复用 `canManageProjectLifecycle`（2026-08-06 由人类
  * 裁决放宽为「`lead` 或 `admin`」，#608），不新造一个 `canEditProjectTags` 判据——
  * 打标签是「管理」这个大权限里的一小块，不是独立能力。
  *
@@ -9,7 +9,7 @@
  *   （同 F180 `updatePersonalTranscriptionMetadata` 的 `tags` 形状）。
  */
 import type { OrgId } from "../../domain/org-id";
-import { canCreateProject } from "../../domain/project/create-project-rules";
+import { canManageProjectLifecycle } from "../../domain/project/create-project-rules";
 import type { IdentityRepository } from "../identity/ports";
 import { ProjectError } from "./errors";
 import type { ProjectTagsRepository } from "./ports";
@@ -43,7 +43,7 @@ export async function updateProjectTags(
     throw new ProjectError("AUTH_SERVICE_UNAVAILABLE");
   }
 
-  if (!canCreateProject(orgRole?.orgRole ?? null)) {
+  if (!canManageProjectLifecycle(orgRole?.orgRole ?? null)) {
     throw new ProjectError("ORG_ROLE_INSUFFICIENT");
   }
 

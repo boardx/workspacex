@@ -45,7 +45,7 @@
  * `blueprintVersionId` 非 null 时真正校验并抛出。
  *
  * **范围收得比"六类初始化"字面意思窄**（人类两轮裁决明确的最小闭环）：
- *   · 权限口径**不变**——仍是 `canCreateProject`（lead-or-admin，#608），不整体调用
+ *   · 权限口径**不变**——仍是 `canCreateProject`，不整体调用
  *     `templates` 束的 `applyBlueprintUseCase()`（那条用例带着自己的 `canApplyBlueprint`
  *     lead-only 判断，与这里不是同一条边——只复用它的纯函数/仓储层，不复用它的编排）。
  *   · 档位读**活表**当前 `duration_tier`，不是版本快照（快照从未冻结过档位，
@@ -121,16 +121,7 @@ export async function createProject(
     throw new ProjectError("AUTH_SERVICE_UNAVAILABLE");
   }
 
-  // ⚠ 2026-08-06 人类裁决 / #608：判据已从「只有 `lead`」放宽为「`lead` 或 `admin`」
-  //   （覆盖 U-4 裁 A 的那一半）。2026-08-16 人类裁决进一步推翻了 Q-4②——下面的
-  //   `repo.create` 现在**会**写一行 `project_memberships`（`facilitator`），
-  //   admin 建完之后与 lead 建完之后行为仍然一致（都拿到同一种角色），只是
-  //   那一致的结果从「都没有角色」变成「都是 facilitator」。
-  //   理由与护栏见 `domain/project/create-project-rules.ts` 的 `canCreateProject` 头注。
-  //
-  // 非成员与「成员但角色不够」落在同一个码上，是因为契约的 `err` 里**没有**
-  // `NO_ORG_MEMBERSHIP`（`createProject.err` 恰好三个成员）。多报一个码 =
-  // 让调用者能探测「这个组织里有没有我这个人」，而他本来连组织都进不去。
+  // The creator receives the project role assigned by the repository.
   if (!canCreateProject(orgRole?.orgRole ?? null)) {
     throw new ProjectError("ORG_ROLE_INSUFFICIENT");
   }

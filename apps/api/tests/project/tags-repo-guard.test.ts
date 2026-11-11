@@ -5,7 +5,7 @@
  *
  *   ① 名到的表恰好是 `projects` / `project_tags`——多 JOIN 一张就是未经判定的读出口。
  *   ② 权限判定发生在仓储被调用之前：`update-project-tags.ts` 先跑
- *      `canCreateProject(orgRole)`，之后才碰 `deps.repo.updateTags`。
+ *      `canManageProjectLifecycle(orgRole)`，之后才碰 `deps.repo.updateTags`。
  *
  * 这个文件被删掉时，`lint-permission-paths.mjs` 里那一行 allowlist 必须跟着回退。
  */
@@ -40,14 +40,14 @@ describe("F185 项目标签仓储的权限豁免前提", () => {
 
   it("③ 权限判定在第一次 deps.repo.updateTags 之前", () => {
     const usecase = code(readFileSync(USECASE, "utf8"));
-    const check = usecase.indexOf("canCreateProject(");
+    const check = usecase.indexOf("canManageProjectLifecycle(");
     const firstRepoTouch = usecase.indexOf("deps.repo.updateTags(");
 
-    expect(check, "canCreateProject 不见了").toBeGreaterThan(-1);
+    expect(check, "canManageProjectLifecycle 不见了").toBeGreaterThan(-1);
     expect(firstRepoTouch, "用例根本没碰仓储 —— 断言在空转").toBeGreaterThan(-1);
     expect(check, "权限判定跑在仓储之后").toBeLessThan(firstRepoTouch);
 
     // 不是「拿到判定就往下走」：判定为 false 时必须抛，不是继续。
-    expect(usecase).toMatch(/if\s*\(!canCreateProject\([\s\S]{0,80}throw/);
+    expect(usecase).toMatch(/if\s*\(!canManageProjectLifecycle\([\s\S]{0,80}throw/);
   });
 });

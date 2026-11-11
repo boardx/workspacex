@@ -32,7 +32,7 @@ description: >
   当前为 `workshop` / `general`；旧研究项目、用户洞察已合入通用项目。不要按旧三类笔记扩张类型。
 - **`deleteProject` 不存在**。它的交付物是一条断言它不存在的测试。归档不删除任何东西，
   生命周期恰好两态（`active` / `archived`）。
-- **组织 `lead` 与 `admin` 都能创建项目**：权限单源是 `create-project-rules.ts#canCreateProject`，
+- **组织普通成员、负责人和管理员可创建项目**：创建权限见 `create-project-rules.ts#canCreateProject`。归档、恢复和标签管理单独使用 `canManageProjectLifecycle`。
   2026-08-06 人类裁决 / #608 已覆盖旧 U-4「只有 lead」。这不授予管理员对其它项目的内容超级权限。
 - **创建者自动获得对应容器的最高项目角色**：当前落点在 `pg-project-repository.ts#create`，
   工作坊写 facilitator + host，通用项目写 owner；这是后续裁决推翻旧 Q-4② 后的实现，不能按旧 403 笔记回退。

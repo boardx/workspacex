@@ -3,7 +3,7 @@
  *
  * 写门复用 `authorizeManageMembers`（本项目引导师，或组织 lead / admin）——契约把这条操作的
  * 失败面列成与 `addProjectMember` 完全相同的四个码，就是这个判定的直接证据；不新造一个
- * 「能不能改 AI 权限」的判据（同 `update-project-tags.ts` 复用 `canCreateProject` 的理由）。
+ * 「能不能改 AI 权限」的判据（同 `update-project-tags.ts` 复用 `canManageProjectLifecycle` 的理由）。
  * #4584：同一个门，项目层动作换成 `settings.manage`（facilitator 同一行）——研究项目 / 用户洞察的
  * 负责人借用 facilitator 行，能过这一条，却过不了工作坊名单的 `member.manage`（容器白名单）。
  *
