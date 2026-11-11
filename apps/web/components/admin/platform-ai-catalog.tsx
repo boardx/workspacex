@@ -347,7 +347,7 @@ function PlatformCatalogScope({
         }
         renderCard={(row) => ({
           title: row.name,
-          description: row.description || undefined,
+          description: row.description.trim().toLowerCase() === kind ? undefined : row.description || undefined,
           leading:
             row.avatarUrl || isAvatarKey(row.avatarKey ?? null) ? (
               <Avatar

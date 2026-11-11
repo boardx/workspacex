@@ -217,7 +217,7 @@ it("preserves the explicit organization target when organization search results 
 it("disables pending pagination, deduplicates rows and stops repeated cursors", async () => {
   setup();
   let finish!: (value: unknown) => void;
-  mocks.list.mockResolvedValueOnce({ entries: [{ ...row, description: "" }], nextCursor: "page-2" })
+  mocks.list.mockResolvedValueOnce({ entries: [{ ...row, description: "agent" }], nextCursor: "page-2" })
     .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
   render(<PlatformAiCatalog kind="agent" />);
   const more = await screen.findByRole("button", { name: "加载更多" });
