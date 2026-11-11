@@ -150,8 +150,11 @@ function PlatformCatalogScope({
       if (request === orgGeneration.current) setOrgBusy(false);
     }
   }
+  const moreRequest = React.useRef<number | null>(null);
   async function more() {
-    if (!page.nextCursor || busy) return;
+    if (!page.nextCursor || busy || moreRequest.current === generation.current) return;
+    const cursor = page.nextCursor;
+    moreRequest.current = generation.current;
     const request = generation.current;
     setBusy(true);
     try {
@@ -169,12 +172,13 @@ function PlatformCatalogScope({
                 !current.entries.some((old) => keyOf(old) === keyOf(row)),
             ),
           ],
-          nextCursor: result.nextCursor,
+          nextCursor: result.nextCursor === cursor ? null : result.nextCursor,
         }));
     } catch (failure) {
       if (request === generation.current)
         setError(aiCatalogFailureText(failure, t));
     } finally {
+      if (moreRequest.current === request) moreRequest.current = null;
       if (request === generation.current) setBusy(false);
     }
   }
@@ -343,7 +347,7 @@ function PlatformCatalogScope({
         }
         renderCard={(row) => ({
           title: row.name,
-          description: row.description || kind,
+          description: row.description.trim().toLowerCase() === kind ? undefined : row.description || undefined,
           leading:
             row.avatarUrl || isAvatarKey(row.avatarKey ?? null) ? (
               <Avatar

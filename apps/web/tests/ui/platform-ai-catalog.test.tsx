@@ -213,3 +213,20 @@ it("preserves the explicit organization target when organization search results 
     screen.getByRole("option", { name: "Other organization" }),
   ).toBeTruthy();
 });
+
+it("disables pending pagination, deduplicates rows and stops repeated cursors", async () => {
+  setup();
+  let finish!: (value: unknown) => void;
+  mocks.list.mockResolvedValueOnce({ entries: [{ ...row, description: "agent" }], nextCursor: "page-2" })
+    .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  render(<PlatformAiCatalog kind="agent" />);
+  const more = await screen.findByRole("button", { name: "加载更多" });
+  expect(screen.queryByText("agent", { exact: true })).toBeNull();
+  fireEvent.click(more);
+  fireEvent.click(more);
+  expect(more).toBeDisabled();
+  expect(mocks.list).toHaveBeenCalledTimes(2);
+  finish({ entries: [row], nextCursor: "page-2" });
+  await waitFor(() => expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull());
+  expect(screen.getAllByText(row.name)).toHaveLength(1);
+});

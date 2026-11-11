@@ -59,6 +59,8 @@ test("organization and platform catalogs use concise cards and reachable details
     localStorage.setItem("wsx.sessionToken", "visual-fixture");
     document.cookie = "workspacex-locale=zh-CN; Path=/";
   });
+  let paginationRequests = 0;
+  let releasePage: (() => void) | undefined;
   const errors: string[] = [];
   page.on("pageerror", (error) => { errors.push(error.message); console.error("catalog browser runtime", error.stack); });
   await page.route("http://localhost:3200/**", async (route) => {
@@ -137,6 +139,15 @@ test("organization and platform catalogs use concise cards and reachable details
       };
     else if (url.pathname.endsWith("/count")) body = { count: 0 };
     else if (url.pathname.endsWith("/unread-count")) body = { unreadCount: 0 };
+    if (url.pathname === "/platform/ai-catalog" && url.searchParams.get("kind") === "agent" && !url.searchParams.get("orgId")) {
+      if (url.searchParams.get("cursor")) {
+        paginationRequests++;
+        await new Promise<void>((resolve) => { releasePage = resolve; });
+        body = { entries: [entry("agent")], nextCursor: "same-page" };
+      } else {
+        body = { entries: [{ ...entry("agent"), description: "agent" }], nextCursor: "same-page" };
+      }
+    }
     await route.fulfill({
       status: 200,
       headers: {
@@ -183,6 +194,29 @@ test("organization and platform catalogs use concise cards and reachable details
     await expect(
       page.getByText(entry(kind).name, { exact: true }).first(),
     ).toBeVisible();
+    if (kind === "agent") {
+      const more = page.getByRole("button", { name: "加载更多", exact: true });
+      await expect(more).toBeVisible();
+      await expect(page.getByText("agent", { exact: true })).toHaveCount(0);
+      await more.evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+      await expect.poll(() => paginationRequests).toBe(1);
+      await expect(more).toBeDisabled();
+      releasePage?.();
+      await expect(more).toHaveCount(0);
+      await expect(page.getByText(entry(kind).name, { exact: true })).toHaveCount(1);
+      // Start a fresh unfiltered generation, then change scope while its page is pending.
+      await page.getByLabel("管理范围").selectOption(PLATFORM_CATALOG_ORG_ID);
+      await page.getByLabel("管理范围").selectOption("");
+      await more.click();
+      await expect.poll(() => paginationRequests).toBe(2);
+      await page.getByLabel("管理范围").selectOption(PLATFORM_CATALOG_ORG_ID);
+      await expect(page.getByText("团队协作助手", { exact: true })).toBeVisible();
+      const staleResponse = page.waitForResponse((response) => new URL(response.url()).searchParams.has("cursor"));
+      releasePage?.();
+      await staleResponse;
+      await expect(page.getByText("团队协作助手", { exact: true })).toBeVisible();
+      await expect(page.getByText(entry(kind).name, { exact: true })).toHaveCount(1);
+    }
     await page.getByLabel("管理范围").selectOption(PLATFORM_CATALOG_ORG_ID);
     await page.screenshot({
       path: resolve(output, `platform-${kind}.png`),
