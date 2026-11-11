@@ -114,8 +114,7 @@ export interface NavViewer {
 
 /** 受可见性约束的一级入口；未列出的入口对所有人一视同仁。 */
 const SCOPED_NAV_KEYS: Record<string, (viewer: NavViewer) => boolean> = {
-  // Organization catalogs are discoverable by every resolved organization member.
-  admin: (v) => v.orgRole != null,
+  admin: (v) => v.orgRole === "admin",
   "platform-admin": (v) => v.platformOperator === true,
 };
 
@@ -123,11 +122,7 @@ const SCOPED_NAV_KEYS: Record<string, (viewer: NavViewer) => boolean> = {
 export function navSegmentsForViewer(viewer: NavViewer): NavSegment[] {
   return NAV_SEGMENTS.map((seg) => ({
     ...seg,
-    items: seg.items
-      .filter((item) => SCOPED_NAV_KEYS[item.key]?.(viewer) ?? true)
-      .map((item) => item.key === "admin" && viewer.orgRole !== "admin"
-        ? { ...item, href: "/org-admin/agent", children: undefined }
-        : item),
+    items: seg.items.filter((item) => SCOPED_NAV_KEYS[item.key]?.(viewer) ?? true),
   })).filter((seg) => seg.items.length > 0);
 }
 

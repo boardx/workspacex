@@ -1,21 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
-vi.mock("next/navigation", () => ({
-  redirect: (path: string) => {
-    throw new Error(`redirect:${path}`);
-  },
-}));
+vi.mock("@/components/admin/organization-ai-catalog", () => ({ OrganizationAiCatalog: () => null }));
 vi.mock("@/components/skill/skill-app", () => ({ SkillApp: () => null }));
 import AgentPage from "@/app/agent/page";
 import SkillPage from "@/app/skill/page";
 describe("legacy production catalog links", () => {
-  it("moves the member Agent directory into the organization entry", () =>
-    expect(() => AgentPage()).toThrow("redirect:/org-admin/agent"));
+  it("keeps the Agent directory outside the administration shell", () =>
+    expect(AgentPage({}).props).toMatchObject({ kind: "agent", standalone: true }));
   it.each(["library", "catalog", "work-catalog"])(
     "preserves the %s Skill directory link",
     (screen) =>
-      expect(() =>
-        SkillPage({ searchParams: { screen, org: "org-a" } }),
-      ).toThrow(`redirect:/org-admin/skill?screen=${screen}&org=org-a`),
+      expect(SkillPage({ searchParams: { screen, org: "org-a" } }).props)
+        .toMatchObject({ kind: "skill", standalone: true, initialScreen: screen }),
   );
   it("keeps the legacy prototype only when explicitly requested", () =>
     expect(() =>
