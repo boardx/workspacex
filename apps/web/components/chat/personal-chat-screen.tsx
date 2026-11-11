@@ -290,14 +290,14 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
     }
   }, [bearer, loadSelectedThread, selectedThreadId, sourceKey]);
 
-  const handleDelete = React.useCallback(async (threadId: string, reason: string) => {
+  const handleDelete = React.useCallback(async (threadId: string) => {
     if (!sourceKey || !bearer) return;
     setMutatingThreadId(threadId);
     setMutatePending("delete");
     setMutateFailure(null);
     try {
       const target = await getThread(threadId, null, bearer);
-      await deleteThread(threadId, null, target.thread.version, reason);
+      await deleteThread(threadId, null, target.thread.version, null);
       const refreshed = await listPersonalThreads({}, bearer);
       const remaining = refreshed.groups.flatMap((group) => group.cards);
       setThreadResult({ key: sourceKey, value: refreshed });
@@ -366,7 +366,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
                     router.replace(personalChatHref(card.id));
                   }}
                   onRename={canCreate ? (title) => void handleRename(card.id, title) : undefined}
-                  onDelete={canCreate ? (reason) => void handleDelete(card.id, reason) : undefined}
+                  onDelete={canCreate ? () => void handleDelete(card.id) : undefined}
                   pending={card.id === mutatingThreadId ? mutatePending : null}
                   failure={card.id === mutatingThreadId ? mutateFailure : null}
                 />

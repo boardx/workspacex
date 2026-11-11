@@ -333,7 +333,7 @@ export function ChatReadScreen({
     }
   }, [bearer, loadSelectedThread, projectId, selectedThreadId, sourceKey]);
 
-  const handleDelete = React.useCallback(async (threadId: string, reason: string) => {
+  const handleDelete = React.useCallback(async (threadId: string) => {
     if (!sourceKey || !projectId || !bearer) return;
     setMutatingThreadId(threadId);
     setMutatePending("delete");
@@ -341,7 +341,7 @@ export function ChatReadScreen({
     setMutateFailureOp(null);
     try {
       const target = await getThread(threadId, projectId, bearer);
-      await deleteThread(threadId, projectId, target.thread.version, reason);
+      await deleteThread(threadId, projectId, target.thread.version, null);
       const refreshed = await listThreads(projectId, {}, bearer);
       setThreadResult({ key: sourceKey, value: refreshed });
       // 删的不是当前选中的那条 ⇒ 选中态、路由都不该动。删的是当前选中的那条才需要
@@ -676,7 +676,7 @@ function ThreadList({
   mutateFailureOp: "create" | "rename" | "delete" | null;
   onCreate: (title: string) => void;
   onRename: (threadId: string, title: string) => void;
-  onDelete: (threadId: string, reason: string) => void;
+  onDelete: (threadId: string) => void;
   onRetry: () => void;
   onSelect: (threadId: string) => void;
   roster: React.ReactNode;
@@ -765,7 +765,7 @@ function ThreadList({
                   selected={card.id === selectedThreadId}
                   onSelect={() => onSelect(card.id)}
                   onRename={canMutate ? (title) => onRename(card.id, title) : undefined}
-                  onDelete={canMutate ? (reason) => onDelete(card.id, reason) : undefined}
+                  onDelete={canMutate ? () => onDelete(card.id) : undefined}
                   pending={card.id === mutatingThreadId ? cardPending : null}
                   failure={card.id === mutatingThreadId ? cardFailure : null}
                 />
@@ -821,7 +821,7 @@ function ThreadWriteForm({
   setDraft: (next: string) => void;
   onCreate: (title: string) => void;
   onRename: (title: string) => void;
-  onDelete: (reason: string) => void;
+  onDelete: () => void;
 }) {
   if (form === "create" || form === "rename") {
     return (
@@ -859,23 +859,15 @@ function ThreadWriteForm({
         data-testid="chat-thread-delete-confirm"
         onSubmit={(event) => {
           event.preventDefault();
-          const reason = draft.trim();
-          if (!reason) return;
-          onDelete(reason);
+          if (busy) return;
+          onDelete();
           setForm(null);
         }}
         className="flex flex-col gap-1"
       >
-        <p className="text-11 text-muted-foreground">删除后不可撤销，请填写原因（会写入审计）。</p>
-        <input
-          aria-label="删除原因"
-          data-testid="chat-thread-delete-reason"
-          className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-        />
+        <p className="text-11 text-muted-foreground">删除后不可撤销。</p>
         <div className="flex gap-1">
-          <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy || draft.trim() === ""}>
+          <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy}>
             确认删除
           </Button>
           <Button size="xs" variant="outline" type="button" onClick={() => setForm(null)}>取消</Button>

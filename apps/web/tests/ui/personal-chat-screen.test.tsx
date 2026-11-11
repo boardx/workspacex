@@ -413,7 +413,7 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
     expect(screen.queryByTestId("chat-thread-title-input")).not.toBeInTheDocument();
   });
 
-  it("点删除 → 二次确认（必填原因）→ 提交 → 删完自动选中列表里剩下的那条", async () => {
+  it("点删除 → 二次确认→ 提交 → 删完自动选中列表里剩下的那条", async () => {
     listPersonalThreads.mockResolvedValueOnce(THREAD_LIST_TWO).mockResolvedValueOnce({
       groups: [{ label: "今天", cards: [
         { id: "thr-b", title: "对话 B", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
@@ -429,15 +429,14 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
     const { fireEvent } = await import("@testing-library/react");
     fireEvent.pointerDown(cardMenuTrigger("thr-a"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
-    // 删除前必须先看到不可撤销 + 必填原因的二次确认，不是点一下就直接删。
-    const reasonInput = await screen.findByTestId("chat-thread-delete-reason");
+    await screen.findByTestId("chat-thread-delete-confirm");
+    expect(deleteThread).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("chat-thread-delete-reason")).not.toBeInTheDocument();
     const submit = screen.getByTestId("chat-thread-delete-submit");
-    expect(submit).toBeDisabled(); // 原因未填时不可提交
-    fireEvent.change(reasonInput, { target: { value: "测试用，清理" } });
     expect(submit).not.toBeDisabled();
     fireEvent.click(submit);
 
-    await waitFor(() => expect(deleteThread).toHaveBeenCalledWith("thr-a", null, 3, "测试用，清理"));
+    await waitFor(() => expect(deleteThread).toHaveBeenCalledWith("thr-a", null, 3, null));
     // 删完选中态回退到服务端返回列表里剩下的第一条，不是本地猜。
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat?thread=thr-b"));
   });
@@ -458,7 +457,6 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
     const { fireEvent } = await import("@testing-library/react");
     fireEvent.pointerDown(screen.getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
-    fireEvent.change(await screen.findByTestId("chat-thread-delete-reason"), { target: { value: "清空测试" } });
     fireEvent.click(screen.getByTestId("chat-thread-delete-submit"));
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat/legacy"));

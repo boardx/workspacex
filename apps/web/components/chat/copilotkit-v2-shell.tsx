@@ -1012,14 +1012,14 @@ export function CopilotKitV2Shell({
     }
   }, [bearer, fetchThreadList, loadRightPanel, reloadThreads, selectedThreadId, projectId, sourceKey]);
 
-  const handleDelete = React.useCallback(async (threadId: string, reason: string) => {
+  const handleDelete = React.useCallback(async (threadId: string) => {
     if (!bearer) return;
     setMutatingThreadId(threadId);
     setMutatePending("delete");
     setMutateFailure(null);
     try {
       const target = await getThread(threadId, projectId, bearer);
-      await deleteThread(threadId, projectId, target.thread.version, reason);
+      await deleteThread(threadId, projectId, target.thread.version, null);
 
       // 删除已经在服务端生效——本地立刻乐观修补缓存把这条卡片摘掉，不等一次
       // 可能失败的后台刷新（见 `patchThreadListCache` 头注：刷新失败不该让
@@ -1285,7 +1285,7 @@ export function CopilotKitV2Shell({
                     pinned={card.pinned}
                     onTogglePin={() => void togglePin(card)}
                     onRename={canCreate ? (title) => void handleRename(card.id, title) : undefined}
-                    onDelete={canCreate ? (reason) => void handleDelete(card.id, reason) : undefined}
+                    onDelete={canCreate ? () => void handleDelete(card.id) : undefined}
                     pending={card.id === mutatingThreadId ? mutatePending : null}
                     failure={card.id === mutatingThreadId ? mutateFailure : null}
                   />

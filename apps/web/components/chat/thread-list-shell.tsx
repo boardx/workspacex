@@ -195,7 +195,7 @@ export function ThreadCardButton({
   selected: boolean;
   onSelect: () => void;
   onRename?: (title: string) => void;
-  onDelete?: (reason: string) => void;
+  onDelete?: () => void;
   pending?: "rename" | "delete" | null;
   failure?: string | null;
   /**
@@ -212,7 +212,6 @@ export function ThreadCardButton({
   const canMutate = onRename !== undefined && onDelete !== undefined;
   const [mode, setMode] = React.useState<"view" | "menu" | "editing" | "deleting">("view");
   const [titleDraft, setTitleDraft] = React.useState(card.title);
-  const [deleteReason, setDeleteReason] = React.useState("");
   const busy = pending !== undefined && pending !== null;
 
   // 卡片不再被选中（切到别的会话）时退回浏览态——不留一个挂在已经不对的会话上的编辑框。
@@ -242,7 +241,6 @@ export function ThreadCardButton({
     setMode("editing");
   }
   function startDelete(): void {
-    setDeleteReason("");
     setMode("deleting");
   }
   function submitRename(event: React.FormEvent): void {
@@ -253,9 +251,7 @@ export function ThreadCardButton({
   }
   function submitDelete(event: React.FormEvent): void {
     event.preventDefault();
-    const reason = deleteReason.trim();
-    if (!reason || onDelete === undefined) return;
-    onDelete(reason);
+    if (!busy) onDelete?.();
   }
 
   if (mode === "editing") {
@@ -280,7 +276,7 @@ export function ThreadCardButton({
           <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={busy || titleDraft.trim() === ""}>
             {t("chatEntry.confirm")}
           </Button>
-          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>{t("common.cancel")}</Button>
+          <Button size="xs" variant="outline" type="button" disabled={busy} onClick={() => setMode("view")}>{t("common.cancel")}</Button>
         </div>
         {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">{t("chatEntry.submitting")}</p> : null}
         {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
@@ -293,25 +289,15 @@ export function ThreadCardButton({
       <form
         data-testid="chat-thread-delete-confirm"
         onSubmit={submitDelete}
+        onKeyDown={(event) => { if (event.key === "Escape" && !busy) setMode("view"); }}
         className="flex flex-col gap-1 rounded-md border-l-2 border-destructive/60 bg-muted px-2 py-2"
       >
         <p className="text-11 text-muted-foreground">{t("chatEntry.deleteHint")}</p>
-        <input
-          autoFocus
-          aria-label={t("chatEntry.deleteReason")}
-          data-testid="chat-thread-delete-reason"
-          className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          value={deleteReason}
-          onChange={(event) => setDeleteReason(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") setMode("view");
-          }}
-        />
         <div className="flex gap-1">
-          <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy || deleteReason.trim() === ""}>
+          <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy}>
             {t("chatEntry.confirmDelete")}
           </Button>
-          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>{t("common.cancel")}</Button>
+          <Button size="xs" variant="outline" type="button" autoFocus disabled={busy} onClick={() => setMode("view")}>{t("common.cancel")}</Button>
         </div>
         {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">{t("chatEntry.submitting")}</p> : null}
         {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
@@ -331,7 +317,6 @@ export function ThreadCardButton({
            两者都从同一个 `selected` prop 渲染出来）。 */
         data-selected={selected ? "true" : "false"}
         onClick={onSelect}
-        onDoubleClick={canMutate ? startEdit : undefined}
         className={[
           "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           // issue #2476：原来是 `border-primary bg-muted`——跟下面"改标题"表单的
@@ -356,7 +341,7 @@ export function ThreadCardButton({
             （自动命名：线程列表不得一屏全是「新对话」）。锚在标题这一个 span 上，
             不是整张卡：断言读的是标题文本,不会被副行的状态/时间冲淡——副行现在
             整段是 `sr-only`,连视觉上都不会再出现,这条注释的前提更稳固了。 */}
-        <span data-testid="chat-task-workbench-thread-title" className="min-w-0 flex-1 truncate text-12 font-medium">
+        <span onDoubleClick={canMutate ? startEdit : undefined} data-testid="chat-task-workbench-thread-title" className="min-w-0 flex-1 truncate text-12 font-medium">
           {displayConversationTitle(card.title, t("chatEntry.untitled")) ?? t("chatEntry.untitled")}
         </span>
         <ThreadMeta card={card} />
