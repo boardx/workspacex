@@ -7,7 +7,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 it("sizes the viewport to five complete rows and recalculates wrapping", () => {
  let resize = () => {}; let height = 40;
  vi.stubGlobal("ResizeObserver", class { constructor(cb: () => void) { resize = cb; } observe() {} disconnect() {} });
- vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function () {
+ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
   const row = this as HTMLElement;
   return { top: 10, bottom: 10 + 30 + Number(row.dataset.index ?? 0) * height } as DOMRect;
  });
