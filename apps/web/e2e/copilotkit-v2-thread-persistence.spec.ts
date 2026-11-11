@@ -97,9 +97,18 @@ test("#6545 double-click renames a conversation and confirmation deletes it", as
   const confirm = list.getByTestId("chat-thread-delete-confirm");
   await expect(confirm).toBeVisible();
   await expect(confirm.getByRole("textbox")).toHaveCount(0);
+  const deletion = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && new URL(response.url()).pathname === "/chat/threads/mutate"
+      && request.postDataJSON()?.op === "delete";
+  });
   await confirm.getByTestId("chat-thread-delete-submit").click();
+  const deleted = await deletion;
+  expect(deleted.ok()).toBe(true);
+  expect(deleted.request().postDataJSON()).toMatchObject({ threadId, reason: null });
   await expect(thread).toHaveCount(0);
   await page.reload();
+  await expect(list.getByTestId(`chat-thread-${CHAT_READ_E2E.artifactConsumerThreadId}`)).toBeVisible();
   await expect(thread).toHaveCount(0);
 });
 
