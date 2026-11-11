@@ -95,7 +95,7 @@ const LEGACY = new Map([
   ["apps/web/components/itv/digital-interview-setup.tsx", 1],
   ["apps/web/components/itv/interview-studio-home.tsx", 1],
   ["apps/web/components/itv/quick-digital-interview.tsx", 1],
-  ["apps/web/components/org-admin/org-admin-screen.tsx", 4],
+  ["apps/web/components/org-admin/org-admin-screen.tsx", 3],
   ["apps/web/components/org-admin/shared-invite-links.tsx", 1],
   ["apps/web/components/profile/profile-screen.tsx", 5],
   ["apps/web/components/project/project-workbench.tsx", 7],

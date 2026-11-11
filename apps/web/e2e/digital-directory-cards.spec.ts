@@ -40,7 +40,7 @@ test("role cards visual acceptance: activation, responsive layout, filters and d
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("button", { name: "启用官方数字人", exact: true }).click();
   await expect(page.getByTestId("agent-directory-official")).toHaveCount(0, { timeout: 120_000 });
-  const cards = page.locator('[data-testid^="agent-card-"]').filter({ has: page.getByTestId("agent-card-start-chat") });
+  const cards = page.locator('[role="button"][data-testid^="agent-card-"]');
   await expect(cards.first()).toBeVisible();
   for (const [label, width, height, columns] of [["desktop",1440,1000,3],["tablet",768,1024,2],["mobile",390,844,1]] as const) {
     await page.setViewportSize({ width, height });
@@ -77,8 +77,11 @@ test("role cards visual acceptance: activation, responsive layout, filters and d
   await search.focus();
   await search.press("Tab");
   await expect(filters.getByRole("button", { name: "全部", exact: true })).toBeFocused();
-  const chosenRoleName = await cards.first().getByTestId("agent-card-detail-link").innerText();
-  await cards.first().getByTestId("agent-card-task-examples").getByRole("button").first().click();
+  await cards.first().click();
+  const details = page.getByTestId("agent-card-details");
+  await expect(details.getByTestId("agent-card-start-chat")).toBeVisible();
+  const chosenRoleName = await details.getByTestId("agent-card-detail-link").innerText();
+  await details.getByTestId("agent-card-task-examples").getByRole("button").first().click();
   await expect(page).toHaveURL(/\/chat\?.*prefill=/);
   const prompt = new URL(page.url()).searchParams.get("prefill")!;
   await expect(page.locator("textarea").first()).toHaveValue(prompt);
