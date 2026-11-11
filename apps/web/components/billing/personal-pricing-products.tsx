@@ -11,9 +11,9 @@ import { cn } from "@/lib/utils";
 import { pricingMoney, pricingNumber as number } from "./personal-pricing-format";
 
 /** Pure server-catalog selection. Only SKU and channel leave this component; no client-owned quote is submitted. */
-export function PersonalPricingProducts({kind,catalog,entitlement:e,busy=false,message,onSelect,onClose,onResume}:{
+export function PersonalPricingProducts({kind,catalog,entitlement:e,busy=false,message,onSelect,onClose,onResume,onCancel}:{
  kind:"plans"|"credits";catalog:PricingCatalog;entitlement:PricingSubscriptionInfo;busy?:boolean;message?:string;
- onSelect:(sku:string,provider:z.infer<typeof BillingProvider>)=>void;onClose:()=>void;onResume?:()=>void;
+ onSelect:(sku:string,provider:z.infer<typeof BillingProvider>)=>void;onClose:()=>void;onResume?:()=>void;onCancel?:()=>void;
 }) {
  const subscriptions=React.useMemo(()=>catalog.products.filter(p=>p.kind==="subscription"),[catalog.products]);
  const packs=React.useMemo(()=>catalog.products.filter(p=>p.kind==="credit_topup"),[catalog.products]);
@@ -39,8 +39,9 @@ export function PersonalPricingProducts({kind,catalog,entitlement:e,busy=false,m
     <p data-testid="pricing-renewal-note" className="text-12 text-muted-foreground">{kind==="credits"?"一次性购买，不自动续费。":provider==="stripe"?"自动续费，可在订阅管理中取消下一期续费。":"一次性购买，到期后手动续费。"}{kind==="plans"&&" 每月按原购买日发放，当期未用额度到期清零。"}</p>
    </div>
    {onResume && <div className="space-y-2">
-    <p role="status">还有一笔待处理订单。请先查看原订单，确认付款结果后再继续。</p>
-    <Button variant="outline" onClick={onResume}>查看原订单</Button>
+    <p role="status">还有一笔待处理订单。你可以查看原订单并继续支付，或取消订单后重新选择。</p>
+    <Button variant="outline" disabled={busy} onClick={onResume}>查看原订单</Button>
+    {onCancel&&<Button variant="outline" disabled={busy} onClick={onCancel}>取消订单</Button>}
    </div>}
    {blocked&&<p role="status" className="text-13 text-muted-foreground">请先处理原订阅付款或管理已有订阅，避免重复购买。</p>}
    <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-13 text-muted-foreground">本次支付<strong data-testid="pricing-total" className="ml-3 text-24 font-semibold text-background-foreground tabular-nums">{selected?pricingMoney(selected.currency,selected.amountMinor):"—"}</strong></span><Button data-testid="pricing-continue-checkout" variant="primary" disabled={Boolean(disabled || onResume)} onClick={()=>{if(!disabled&&selected&&provider)onSelect(selected.sku,provider);}}>{busy?"正在创建付款…":"继续付款"}</Button></div>

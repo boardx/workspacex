@@ -130,12 +130,14 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
     { provide: BillingStripeWebhookService, useFactory: (config: DeploymentBillingConfig, store: PersonalStripeWebhookStore, logger: LoggerPort) => {
       const client = new StripeWebhookClient(config); return new BillingStripeWebhookService(client, client, store, logger);
     }, inject: [DeploymentBillingConfig, PersonalStripeWebhookStore, LOGGER_PORT] },
-    { provide: PersonalPaymentRecoveryWorker, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, stripe: PersonalStripeWebhookStore, logger: LoggerPort) => {
+    { provide: PersonalPaymentReconciler, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, stripe: PersonalStripeWebhookStore, logger: LoggerPort) => {
       const provider = new StripeWebhookClient(config);
-      const pending = new PersonalPaymentReconciler(new PersonalStripeCheckoutClient(config), new PersonalWechatPaymentClient(config, logger),
+      return new PersonalPaymentReconciler(new PersonalStripeCheckoutClient(config), new PersonalWechatPaymentClient(config, logger),
         new PgPersonalPaymentRepository(db), new PgPersonalCheckoutRepository(db), { reconcileCheckout: id => stripe.reconcileCheckout(id, provider) });
-      return new PersonalPaymentRecoveryWorker(new PgPersonalPaymentRecoveryStore(db, pending, stripe, provider, logger), logger);
     }, inject: [DATABASE_PORT, DeploymentBillingConfig, PersonalStripeWebhookStore, LOGGER_PORT] },
+    { provide: PersonalPaymentRecoveryWorker, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, stripe: PersonalStripeWebhookStore, logger: LoggerPort, pending: PersonalPaymentReconciler) =>
+      new PersonalPaymentRecoveryWorker(new PgPersonalPaymentRecoveryStore(db, pending, stripe, new StripeWebhookClient(config), logger), logger),
+      inject: [DATABASE_PORT, DeploymentBillingConfig, PersonalStripeWebhookStore, LOGGER_PORT, PersonalPaymentReconciler] },
     { provide: BillingSubscriptionService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => new BillingSubscriptionService(new PgBillingSubscriptionRepository(db, logger), new StripePortalClient(config, logger), new MonthlyPassService(new PgMonthlyPassRepository(db), new MonthlyCheckoutRouter(new StripeMonthlyPassClient(config),new WechatMonthlyPassClient(config,db,logger))),new PgPersonalSubscriptionAccess(db)), inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
     { provide: PersonalCreditPeriodWorker, useFactory: (db: DatabasePort, logger: LoggerPort) => new PersonalCreditPeriodWorker(new PgPersonalCreditScheduleStore(db,logger),logger), inject: [DATABASE_PORT,LOGGER_PORT] },
     { provide: BILLING_ORDER_EXPIRY_WORKER, useFactory: (db: DatabasePort, logger: LoggerPort) =>
@@ -154,9 +156,9 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
     { provide: DeploymentBillingConfig, useFactory: () => new DeploymentBillingConfig() },
     { provide: BILLING_CONFIG_PORT, useExisting: DeploymentBillingConfig },
     { provide: BillingOrderService,
-      useFactory: (db: DatabasePort, identity: IdentityRepository, config: DeploymentBillingConfig, logger: LoggerPort) =>
-        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config, logger),new StripeCreditCheckout(db,config),new PgPersonalOrderReader(db)),
-      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DeploymentBillingConfig, LOGGER_PORT],
+      useFactory: (db: DatabasePort, identity: IdentityRepository, config: DeploymentBillingConfig, logger: LoggerPort, personal: PersonalPaymentReconciler) =>
+        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config, logger),new StripeCreditCheckout(db,config),new PgPersonalOrderReader(db, personal)),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DeploymentBillingConfig, LOGGER_PORT, PersonalPaymentReconciler],
     },
     { provide: BillingWalletService,
       useFactory: (db:DatabasePort, identity:IdentityRepository, credentials:CredentialRepository, platformAdmins:PlatformAdminRepository) =>

@@ -8,18 +8,18 @@ import type { PgPersonalCheckoutRepository } from "./pg-personal-checkout-reposi
 
 /** An internal poller can recover verified payments; neither elapsed time nor a browser return proves closure. */
 export class PersonalPaymentReconciler {
-  constructor(private readonly stripe: Pick<PersonalStripeCheckoutClient, "retrieve" | "liveMode">,
+  constructor(private readonly stripe: Pick<PersonalStripeCheckoutClient, "retrieve" | "liveMode"> & Partial<Pick<PersonalStripeCheckoutClient, "expire">>,
     private readonly wechat: Pick<PersonalWechatPaymentClient, "reconcile">,
     private readonly payments: Pick<PgPersonalPaymentRepository, "settle">,
     private readonly purchases: Pick<PgPersonalCheckoutRepository, "confirmClosed">,
     private readonly synchronize: { reconcileCheckout(id: string): Promise<boolean> }) {}
-  async reconcile(purchase: StoredPersonalPurchase): Promise<"pending" | "closed" | "paid" | "unbound" | "ignored"> {
+  async reconcile(purchase: StoredPersonalPurchase, cancel = false): Promise<"pending" | "closed" | "paid" | "unbound" | "ignored"> {
     if (purchase.generation !== BILLING_ACCOUNTING_GENERATION) throw Error("personal_recovery_generation_mismatch");
     if (purchase.fulfilledAt || purchase.closedAt || purchase.paymentReviewRequired) return "ignored";
     if (!purchase.sessionRef) return "unbound"; // Never manufacture a new merchant identity for an unresolved request.
     if (purchase.provider === "wechat") {
       if (purchase.sessionRef !== purchase.purchaseRef) throw Error("personal_recovery_binding_mismatch");
-      const state = await this.wechat.reconcile(purchase);
+      const state = await this.wechat.reconcile(purchase, cancel);
       if (state.state === "closed") return await this.purchases.confirmClosed(purchase) ? "closed" : "pending";
       if (state.state === "paid") {
         await this.payments.settle({ provider: "wechat", purchaseRef: purchase.purchaseRef, paymentRef: state.paymentRef,
@@ -34,6 +34,11 @@ export class PersonalPaymentReconciler {
       session.client_reference_id !== purchase.purchaseRef || session.amount_total !== purchase.product.amountMinor ||
       session.currency !== purchase.product.currency.toLowerCase() || metadata?.product !== PERSONAL_PAYMENT_PRODUCT ||
       metadata.purchase_ref !== purchase.purchaseRef || metadata.generation !== purchase.generation || metadata.sku !== purchase.product.sku) throw Error("personal_recovery_snapshot_mismatch");
+    if (cancel && session.status === "open" && session.payment_status === "unpaid") {
+      if (!this.stripe.expire) throw Error("personal_cancel_unavailable");
+      try { await this.stripe.expire(purchase.sessionRef); } catch { /* Re-read to resolve a concurrent payment or expiry. */ }
+      return this.reconcile(purchase);
+    }
     if (session.status === "expired" && session.payment_status === "unpaid") return await this.purchases.confirmClosed(purchase) ? "closed" : "pending";
     if (session.status === "complete" && session.payment_status === "paid") {
       if (!await this.synchronize.reconcileCheckout(purchase.sessionRef)) throw Error("personal_recovery_retry_required");

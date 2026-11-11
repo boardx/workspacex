@@ -68,9 +68,9 @@ export class PersonalWechatPaymentClient {
     if (["NOTPAY", "USERPAYING", "NOT_CREATED"].includes(String(result.trade_state))) return { state: "pending" };
     throw Error("personal_wechat_state_unavailable");
   }
-  async reconcile(purchase: PersonalPurchase): Promise<PersonalWechatPaymentState> {
+  async reconcile(purchase: PersonalPurchase, cancel = false): Promise<PersonalWechatPaymentState> {
     const state = await this.read(purchase);
-    if (state.state !== "pending" || Date.now() < purchase.createdAt.getTime() + PERSONAL_WECHAT_PAYMENT_TTL_MS) return state;
+    if (state.state !== "pending" || (!cancel && Date.now() < purchase.createdAt.getTime() + PERSONAL_WECHAT_PAYMENT_TTL_MS)) return state;
     try { await this.native.closeNativeOrder(purchase.purchaseRef); } catch { /* Payment may have won; only the following authoritative read decides. */ }
     return this.read(purchase);
   }

@@ -8,7 +8,23 @@ import { personalPurchaseView, type PersonalPurchaseRow } from "./pg-personal-ch
 
 /** Reuses the existing private order operation; local expiry never invents a provider closure. */
 export class PgPersonalOrderReader implements PersonalOrderReader {
-  constructor(private readonly db: DatabasePort) {}
+  constructor(private readonly db: DatabasePort, private readonly reconciler?: Pick<import("./personal-payment-reconciler").PersonalPaymentReconciler, "reconcile">) {}
+  async cancel(principal: Principal, orderNo: string) {
+    assertPrincipal(principal);
+    const purchase = await this.db.withTenant(principal.orgId, async session => {
+      if (await pricingEpochMode(session) !== "active") return null;
+      const row = (await session.query<PersonalPurchaseRow>(`SELECT * FROM billing_personal_purchases
+        WHERE purchase_ref=$1 AND user_id=$2 AND generation=$3`, [orderNo, principal.userId, BILLING_ACCOUNTING_GENERATION])).rows[0];
+      return row ? personalPurchaseView(row) : null;
+    });
+    if (!purchase) throw new BillingOrderError("order_not_found");
+    if (!this.reconciler || !purchase.sessionRef || purchase.paymentReviewRequired) throw new BillingOrderError("order_not_cancelable");
+    try { await this.reconciler.reconcile(purchase, true); }
+    catch { throw new BillingOrderError("order_not_cancelable"); }
+    const result = await this.read(principal, orderNo);
+    if (result.mode !== "active" || !result.order || !["CLOSED", "SUCCESS"].includes(result.order.status)) throw new BillingOrderError("order_not_cancelable");
+    return result.order;
+  }
   async read(principal: Principal, orderNo: string) {
     assertPrincipal(principal);
     try {
