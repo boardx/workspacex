@@ -5,7 +5,7 @@ import { ChatShareButton } from "./chat-share-button";
 import { ChatHandoffStream } from "@/components/chat/chat-handoff-panel";
 import { handoffDraftText, type HandoffView } from "@/lib/agent-handoff";
 import { seedComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
-import { displayThreadTitle } from "@/lib/thread-title-display";
+import { displayConversationTitle } from "@/lib/thread-title-display";
 import { useOptionalCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import { ThreadCitationsProvider } from "@/components/chat/message-citations";
 import { useRouter } from "next/navigation";
@@ -34,6 +34,7 @@ import { THREAD_PAGE_SIZE, appendThreadPage, hasMorePages, refreshLimit } from "
 import { useIntervalFocusRefresh } from "@/lib/chat-workbench/use-interval-focus-refresh";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { ApiError } from "@/lib/api-client";
 import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import { useReportShellBusy } from "@/lib/shell-busy";
@@ -778,26 +779,65 @@ export function CopilotKitV2Shell({
   const [createFailureNotice, setCreateFailure] = React.useState<{ cause: unknown } | null>(null);
   const createFailure = createFailureNotice ? describeMutateFailure(createFailureNotice.cause, locale) : null;
 
-  // #3522: explicit new means a new thread. A list's empty badge can be stale
-  // while another tab is already sending; never reuse that shared draft here.
-  const createPendingRef = React.useRef(false);
+  const createRequest = React.useRef<AbortController | null>(null);
+  const userId = session?.userId;
+  React.useLayoutEffect(() => {
+    setCreatePending(false);
+    setCreateFailure(null);
+    return () => {
+      createRequest.current?.abort();
+      createRequest.current = null;
+    };
+  }, [bearer, currentOrgId, projectId, userId]);
+
   const handleCreate = React.useCallback(async () => {
-    if (!bearer || createPendingRef.current) return;
-    createPendingRef.current = true;
+    if (!bearer || !userId || createRequest.current) return;
+    const request = new AbortController();
+    createRequest.current = request;
     setCreatePending(true);
     setCreateFailure(null);
     try {
+      // Refresh the unfiltered list for run status, then check messages at the point of reuse.
+      const list = await listWorkbenchThreads(projectId, bearer, request.signal);
+      if (request.signal.aborted) return;
+      const candidates = list.groups.flatMap((group) => group.cards)
+        .filter((card) => card.status === "not-started" && card.visibilityScope === "private");
+      const selectedCandidate = candidates.find((card) => card.id === selectedThreadIdRef.current);
+      const orderedCandidates = selectedCandidate
+        ? [selectedCandidate, ...candidates.filter((card) => card !== selectedCandidate)]
+        : candidates;
+      for (const card of orderedCandidates) {
+        const detail = await getThread(card.id, projectId, bearer).catch((error: unknown) => {
+          if (error instanceof ApiError && error.status === 404) return null;
+          throw error;
+        });
+        if (request.signal.aborted) return;
+        if (detail && detail.thread.id === card.id && detail.thread.projectId === projectId
+          && !detail.thread.archived && detail.thread.visibilityScope === "private"
+          && detail.thread.createdBy === userId && detail.messages.length === 0
+          && detail.capabilities.includes("composer.send")) {
+          if (selectedThreadIdRef.current !== card.id) {
+            applyThreadSelection(card.id);
+            router.push(workbenchThreadPath(card.id, projectId));
+          }
+          return;
+        }
+      }
       const result = await createWorkbenchThread(projectId);
+      if (request.signal.aborted) return;
       await reloadThreads();
-      applyThreadSelection(result.threadId); // 同上
+      if (request.signal.aborted) return;
+      applyThreadSelection(result.threadId);
       router.push(workbenchThreadPath(result.threadId, projectId));
     } catch (failure) {
-      setCreateFailure({ cause: failure });
+      if (!request.signal.aborted) setCreateFailure({ cause: failure });
     } finally {
-      createPendingRef.current = false;
-      setCreatePending(false);
+      if (createRequest.current === request) {
+        createRequest.current = null;
+        setCreatePending(false);
+      }
     }
-  }, [applyThreadSelection, bearer, reloadThreads, router, projectId]);
+  }, [applyThreadSelection, bearer, reloadThreads, router, projectId, userId]);
 
   /**
    * issue #2259 —— rev-e2e 真栈实测过一次：点击侧栏已有对话，网络面板证实
@@ -1304,7 +1344,7 @@ export function CopilotKitV2Shell({
           >
             {selectedThreadId === null
               ? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"))
-              : displayThreadTitle(cards.find((card) => card.id === selectedThreadId)?.title) ?? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"))}
+              : displayConversationTitle(cards.find((card) => card.id === selectedThreadId)?.title, t("chatEntry.untitled")) ?? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"))}
           </span>
           <span
             className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-10 text-muted-foreground"

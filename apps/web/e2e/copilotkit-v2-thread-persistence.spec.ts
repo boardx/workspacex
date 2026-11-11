@@ -97,6 +97,7 @@ test("发消息→整页刷新→消息仍在（URL 绑定的持久化 chatThrea
 test("新建对话→线程列表出现两条→切换回第一条→历史正确恢复", async ({ page }) => {
   await login(page);
   await warmUpCopilotRuntimeRoute(page);
+  await page.context().addCookies([{ name: "workspacex-locale", value: "en", url: page.url() }]);
   await page.goto("/chat");
 
   const firstMarker = `DA-2021-线程一-${Date.now()}`;
@@ -106,10 +107,27 @@ test("新建对话→线程列表出现两条→切换回第一条→历史正�
   const firstThreadId = firstThreadUrl.split("/").pop()!;
 
   // 新建对话：侧栏「+ 新建对话」按钮，走真实 `POST /chat/threads/mutate` + 导航。
-  await page.getByTestId("chat-thread-create").click();
+  const create = page.getByRole("button", { name: "New conversation", exact: true });
+  await create.click();
   await page.waitForURL(/\/chat\/[^/]+$/);
   await expect(page).not.toHaveURL(firstThreadUrl);
   await waitForEmptyThreadReady(page);
+  const emptyThreadUrl = page.url();
+  const emptyThreadId = new URL(emptyThreadUrl).pathname.split("/").pop()!;
+  await expect(page.getByTestId(`chat-thread-${emptyThreadId}`)).toContainText("New conversation");
+
+  let duplicateCreates = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/chat/threads/mutate")
+      && request.postDataJSON()?.op === "create") duplicateCreates++;
+  });
+  const checkedDraft = page.waitForResponse((response) =>
+    response.request().method() === "GET" && new URL(response.url()).pathname.endsWith(`/chat/threads/${emptyThreadId}`));
+  await create.click();
+  expect((await checkedDraft).ok()).toBe(true);
+  await expect(create).toBeEnabled();
+  await expect(page).toHaveURL(emptyThreadUrl);
+  expect(duplicateCreates).toBe(0);
 
   const secondMarker = `DA-2021-线程二-${Date.now()}`;
   await sendAndWaitEcho(page, secondMarker);

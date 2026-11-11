@@ -1,7 +1,7 @@
 "use client";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { displayThreadTitle } from "@/lib/thread-title-display";
+import { displayConversationTitle } from "@/lib/thread-title-display";
 import * as React from "react";
 import { MoreHorizontal, Pencil, Pin, Plus, Trash2 } from "lucide-react";
 import { WorkspaceXWordmark } from "@/components/shell/workspacex-logo";
@@ -357,7 +357,7 @@ export function ThreadCardButton({
             不是整张卡：断言读的是标题文本,不会被副行的状态/时间冲淡——副行现在
             整段是 `sr-only`,连视觉上都不会再出现,这条注释的前提更稳固了。 */}
         <span data-testid="chat-task-workbench-thread-title" className="min-w-0 flex-1 truncate text-12 font-medium">
-          {displayThreadTitle(card.title) ?? t("chatEntry.untitled")}
+          {displayConversationTitle(card.title, t("chatEntry.untitled")) ?? t("chatEntry.untitled")}
         </span>
         <ThreadMeta card={card} />
       </button>
@@ -380,7 +380,7 @@ export function ThreadCardButton({
            每张卡常驻一个图钉来重复同一件事）。 */
         <button
           type="button"
-          aria-label={t(pinned ? "chatEntry.unpinTitle" : "chatEntry.pinTitle", { title: displayThreadTitle(card.title) ?? t("chatEntry.untitled") })}
+          aria-label={t(pinned ? "chatEntry.unpinTitle" : "chatEntry.pinTitle", { title: displayConversationTitle(card.title, t("chatEntry.untitled")) ?? t("chatEntry.untitled") })}
           title={t(pinned ? "chatEntry.unpinBrowser" : "chatEntry.pinBrowser")}
           aria-pressed={pinned === true}
           data-testid="chat-task-workbench-thread-pin"

@@ -60,15 +60,14 @@ vi.mock("@/components/chat/chat-roster-panel", () => ({ RosterPanel: () => null 
 vi.mock("@/components/chat/chat-task-inspector", () => ({ ChatTaskInspector: () => null }));
 vi.mock("@/components/chat/chat-artifact-preview-dialog", () => ({ ChatArtifactPreviewDialog: () => null }));
 
+import { I18nProvider } from "@/lib/i18n/provider";
 import { CopilotKitV2Shell } from "@/components/chat/copilotkit-v2-shell";
 
 const THREAD_A = { id: "thr-a", title: "对话 A", subtitle: "", badges: [], status: "done" as const, artifactCount: 0, lastActivityAt: "2026-08-27T00:00:00.000Z", visibilityScope: "private" as const };
 const THREAD_B = { id: "thr-b", title: "对话 B", subtitle: "", badges: [], status: "done" as const, artifactCount: 0, lastActivityAt: "2026-08-27T00:00:00.000Z", visibilityScope: "private" as const };
 const TWO_THREADS = { groups: [{ label: "今天", cards: [THREAD_A, THREAD_B] }], capabilities: ["thread.mutate"] };
 
-// Stale empty cards at either list position must never replace an explicit creation.
 const EMPTY_TOP = { id: "thr-empty-top", title: "新对话", subtitle: "", badges: [], status: "not-started" as const, artifactCount: 0, lastActivityAt: "2026-08-30T12:00:00.000Z", visibilityScope: "private" as const };
-const EMPTY_OLD = { id: "thr-empty-old", title: "新对话", subtitle: "", badges: [], status: "not-started" as const, artifactCount: 0, lastActivityAt: "2026-08-20T00:00:00.000Z", visibilityScope: "private" as const };
 
 beforeEach(() => {
   push.mockReset();
@@ -536,58 +535,61 @@ describe("CopilotKitV2Shell — 第五轮（issue #2511）：兜底计时器与�
 });
 
 describe("CopilotKitV2Shell — explicit new conversation isolation", () => {
-  it("two tabs with the same stale empty top card each create an independent thread", async () => {
-    listPersonalThreads.mockResolvedValue({ groups: [{ label: "今天", cards: [EMPTY_TOP, THREAD_A] }], capabilities: ["thread.mutate"] });
-    createPersonalThread.mockResolvedValueOnce({ threadId: "thr-tab-one", version: 0, auditEventId: "ae-1", impactScope: null })
-      .mockResolvedValueOnce({ threadId: "thr-tab-two", version: 0, auditEventId: "ae-2", impactScope: null });
-    const first = render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
-    await within(first.container).findByTestId(`chat-thread-${EMPTY_TOP.id}`);
-    const second = render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
-    await within(second.container).findByTestId(`chat-thread-${EMPTY_TOP.id}`);
-    // Both lists intentionally stay stale even after the first tab starts using its draft.
-    fireEvent.click(within(first.container).getByTestId("chat-thread-create"));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thr-tab-one"));
-    fireEvent.click(within(second.container).getByTestId("chat-thread-create"));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thr-tab-two"));
-    expect(createPersonalThread).toHaveBeenCalledTimes(2);
-    expect(push).not.toHaveBeenCalledWith(`/chat/${EMPTY_TOP.id}`);
-  });
-
-  it("(b) 最上面的卡片是活跃线程、下面才有 not-started 空线程 ⇒ 不跨过去复用，建一条新的、刷新列表、导航到新 id", async () => {
-    listPersonalThreads.mockResolvedValueOnce({
-      groups: [{ label: "今天", cards: [THREAD_A, EMPTY_OLD] }],
-      capabilities: ["thread.mutate"],
-    });
-    createPersonalThread.mockResolvedValue({ threadId: "thr-new-b", version: 0, auditEventId: "ae-b", impactScope: null });
+  it("reuses an owned empty conversation, then creates when a stale card hides a sent message", async () => {
+    const list = { groups: [{ label: "今天", cards: [THREAD_A, EMPTY_TOP] }], capabilities: ["thread.mutate"] };
+    listPersonalThreads.mockResolvedValue(list);
+    const emptyDetail = {
+      thread: { id: EMPTY_TOP.id, projectId: null, groupId: null, visibilityScope: "private", archived: false, createdBy: "user-current" },
+      messages: [], rightTabs: [], capabilities: ["composer.send"],
+    };
+    getThread.mockResolvedValue(emptyDetail);
+    createPersonalThread.mockResolvedValue({ threadId: "thr-after-send", version: 0, auditEventId: "ae", impactScope: null });
 
     render(<CopilotKitV2Shell initialThreadId={null} />);
-    await screen.findByTestId(`chat-thread-${EMPTY_OLD.id}`);
+    await screen.findByTestId(`chat-thread-${EMPTY_TOP.id}`);
+    const button = screen.getByTestId("chat-thread-create");
+    fireEvent.click(button);
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/chat/${EMPTY_TOP.id}`));
+    expect(createPersonalThread).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByTestId("chat-thread-create"));
-
-    await waitFor(() => expect(createPersonalThread).toHaveBeenCalledTimes(1));
-    // 建完之后从服务端重读列表（不是本地乐观拼一条）——第 2 次调用是 `reloadThreads`。
-    await waitFor(() => expect(listPersonalThreads).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thr-new-b"));
-    // 绝不会导航去那条沉在下面的陈旧空线程。
-    expect(push).not.toHaveBeenCalledWith(`/chat/${EMPTY_OLD.id}`);
+    // Another tab has sent a message while the list still advertises an empty card.
+    getThread.mockResolvedValue({ ...emptyDetail, messages: [{ id: "msg-sent", citations: [] }] });
+    fireEvent.click(button);
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thr-after-send"));
+    expect(createPersonalThread).toHaveBeenCalledTimes(1);
   });
 
-  it("(c) “今天”分组为空、“本周”里有旧空线程 ⇒ 不跨组复用，老实建一条新的", async () => {
-    listPersonalThreads.mockResolvedValueOnce({
-      groups: [{ label: "今天", cards: [] }, { label: "本周", cards: [EMPTY_OLD] }],
-      capabilities: ["thread.mutate"],
+  it("shows the English default title without overriding automatic naming", async () => {
+    createPersonalThread.mockResolvedValue({ threadId: EMPTY_TOP.id, version: 0, auditEventId: "ae", impactScope: null });
+    render(<I18nProvider initialLocale="en"><CopilotKitV2Shell initialThreadId={null} /></I18nProvider>);
+    await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
+    listPersonalThreads.mockResolvedValueOnce(TWO_THREADS).mockResolvedValueOnce({
+      groups: [{ label: "Today", cards: [EMPTY_TOP] }], capabilities: ["thread.mutate"],
     });
-    createPersonalThread.mockResolvedValue({ threadId: "thr-new-c", version: 0, auditEventId: "ae-c", impactScope: null });
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+    expect(await screen.findByTestId(`chat-thread-${EMPTY_TOP.id}`)).toHaveTextContent("New conversation");
+    expect(createPersonalThread).toHaveBeenCalledWith(null);
+  });
 
-    render(<CopilotKitV2Shell initialThreadId={null} />);
-    await screen.findByTestId(`chat-thread-${EMPTY_OLD.id}`);
-
+  it("discards an in-flight empty-thread check after the session changes", async () => {
+    const list = { groups: [{ label: "今天", cards: [EMPTY_TOP] }], capabilities: ["thread.mutate"] };
+    listPersonalThreads.mockResolvedValue(list);
+    let finishCheck: (detail: unknown) => void = () => {};
+    getThread.mockImplementationOnce(() => new Promise((resolve) => { finishCheck = resolve; }));
+    const view = render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${EMPTY_TOP.id}`);
     fireEvent.click(screen.getByTestId("chat-thread-create"));
+    await waitFor(() => expect(getThread).toHaveBeenCalledWith(EMPTY_TOP.id, null, "provider-bearer"));
 
-    await waitFor(() => expect(createPersonalThread).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thr-new-c"));
-    expect(push).not.toHaveBeenCalledWith(`/chat/${EMPTY_OLD.id}`);
+    sessionState.sessionToken = "replacement-bearer";
+    view.rerender(<CopilotKitV2Shell initialThreadId={null} />);
+    await act(async () => finishCheck({
+      thread: { id: EMPTY_TOP.id, projectId: null, visibilityScope: "private", archived: false, createdBy: "user-current" },
+      messages: [], rightTabs: [], capabilities: ["composer.send"],
+    }));
+    expect(createPersonalThread).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByTestId("chat-thread-create")).toBeEnabled();
   });
 
   it("(d) 列表仍在读（threads 为 null）时连续点两次「新建」⇒ 只建一条，第二次点击被 pending 挡住", async () => {
@@ -609,7 +611,7 @@ describe("CopilotKitV2Shell — explicit new conversation isolation", () => {
     fireEvent.click(button);
     fireEvent.click(button); // 紧接着再点一次——按钮此刻应已因 `createPending` 变 disabled
 
-    expect(createPersonalThread).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(createPersonalThread).toHaveBeenCalledTimes(1));
 
     // 让首次列表读取回来，再让 create 回来，全程只应该有一次 create + 一次导航。
     resolveList(TWO_THREADS);
