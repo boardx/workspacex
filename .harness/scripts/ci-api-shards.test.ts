@@ -84,7 +84,15 @@ it('actually collects exclusive files once and rejects both missing exclusion an
  const apiRoot=fileURLToPath(new URL('../../apps/api/',import.meta.url));
  const directory=mkdtempSync(join(apiRoot,'.vitest-exclusive-discovery-'));
  const deadline=Date.now()+25000;
- const expected=['tests/recording/personal-transcription-persistence.test.ts','tests/billing/native-credit-tariff-pg.test.ts','tests/billing/global-native-force-replay-pg.test.ts','tests/billing/member-credit-quota-replay-pg.test.ts'];
+ const expected=[
+  'tests/recording/personal-transcription-persistence.test.ts',
+  'tests/billing/native-credit-tariff-pg.test.ts',
+  'tests/billing/global-native-force-replay-pg.test.ts',
+  'tests/billing/member-credit-quota-replay-pg.test.ts',
+  'tests/billing/credit-consumption-pg.test.ts',
+  'tests/billing/credit-unified-payer-concurrency-pg.test.ts',
+  'tests/org-admin/active-org-role-migration.test.ts',
+ ];
  const list=(config:string,label:string)=>{
   const output=join(directory,label+'.json');
   const remaining=deadline-Date.now();if(remaining<=0)throw new Error('EXCLUSIVE_DISCOVERY_DEADLINE');
