@@ -1,7 +1,9 @@
+import { WorkSkillStableId } from "@repo/contracts/work-skill-meta";
 import type { z } from "zod";
 import {
   AgentWrite,
   Entry,
+  PLATFORM_CATALOG_ORG_ID,
   type Kind,
   type Write,
 } from "@repo/contracts/ai-catalog-admin";
@@ -34,31 +36,51 @@ export async function catalogEntries(
           [orgId, limit, offset, id ?? null],
         )
       : await s.query<Record<string, unknown>>(
-          `SELECT * FROM (SELECT sk.id,sk.name,COALESCE(v.manifest->>'description','') AS description,v.id AS version_id,COALESCE(v.published,false) AS published,sk.status='enabled' AS enabled,'skill'::text AS entity_type FROM skills sk LEFT JOIN LATERAL (SELECT id,manifest,published FROM skill_versions WHERE org_id=sk.org_id AND skill_id=sk.id ORDER BY created_at DESC,id DESC LIMIT 1) v ON true WHERE sk.org_id=$1 AND ($4::text IS NULL OR sk.id=$4) UNION ALL SELECT id,name,duty AS description,current_version_id AS version_id,status='已启用' AS published,status='已启用' AS enabled,'skill-contract'::text AS entity_type FROM skill_contracts WHERE org_id=$1 AND ($4::text IS NULL OR id=$4)) entries WHERE ($5::text IS NULL OR entity_type=$5) ORDER BY id,entity_type LIMIT $2 OFFSET $3`,
-          [orgId, limit, offset, id ?? null, entityType ?? null],
+          `SELECT * FROM (
+             SELECT sk.id, sk.name, COALESCE(v.manifest->>'description','') AS description,
+                    v.id AS version_id, COALESCE(v.published,false) AS published, sk.status='enabled' AS enabled,
+                    COALESCE(sce.stable_id, CASE WHEN sk.org_id=$6 THEN v.manifest#>>'{work,stableId}' END) AS work_skill_id,
+                    'skill'::text AS entity_type
+               FROM skills sk
+               LEFT JOIN skill_catalog_entries sce ON sce.org_id=sk.org_id AND sce.skill_id=sk.id
+               LEFT JOIN LATERAL (
+                 SELECT id, manifest, published FROM skill_versions
+                  WHERE org_id=sk.org_id AND skill_id=sk.id ORDER BY created_at DESC, id DESC LIMIT 1
+               ) v ON true
+              WHERE sk.org_id=$1 AND ($4::text IS NULL OR sk.id=$4)
+             UNION ALL
+             SELECT id, name, duty AS description, current_version_id AS version_id,
+                    status='已启用' AS published, status='已启用' AS enabled,
+                    NULL AS work_skill_id, 'skill-contract'::text AS entity_type
+               FROM skill_contracts WHERE org_id=$1 AND ($4::text IS NULL OR id=$4)
+           ) entries WHERE ($5::text IS NULL OR entity_type=$5)
+           ORDER BY id, entity_type LIMIT $2 OFFSET $3`,
+          [orgId, limit, offset, id ?? null, entityType ?? null, PLATFORM_CATALOG_ORG_ID],
         );
-  return result.rows.map((r) =>
-    Entry.parse({
+  return result.rows.map((r) => {
+    const workSkillId = WorkSkillStableId.safeParse(r.work_skill_id);
+    return Entry.parse({
       orgId,
       id: r.id,
       kind,
       entityType: r.entity_type ?? kind,
       name: r.name,
       description: r.description ?? "",
+      ...(workSkillId.success ? { workSkillId: workSkillId.data } : {}),
       avatarUrl: null,
       avatarKey:
         typeof r.avatar === "object" && r.avatar !== null && "key" in r.avatar
           ? String(r.avatar.key)
           : null,
       versionId: r.version_id ?? null,
-      scope: orgId === "org-platform" ? "public" : "organization",
+      scope: orgId === PLATFORM_CATALOG_ORG_ID ? "public" : "organization",
       published: r.published === true,
       hasDraft:
         r.has_draft === true ||
         (r.entity_type === "skill" && r.published !== true),
       enabled: r.enabled === true,
-    }),
-  );
+    });
+  });
 }
 export async function catalogWrite(
   s: TenantSession,
@@ -308,7 +330,7 @@ export async function catalogDefinition(
   }
   const r = (
     await s.query<{ stable_name: string; content: Buffer }>(
-      `SELECT sk.stable_name,f.content FROM skills sk LEFT JOIN LATERAL (SELECT id FROM skill_versions WHERE org_id=sk.org_id AND skill_id=sk.id ORDER BY created_at DESC,id DESC LIMIT 1) v ON true LEFT JOIN skill_version_files f ON f.org_id=sk.org_id AND f.version_id=v.id AND f.path='SKILL.md' WHERE sk.org_id=$1 AND sk.id=$2`,
+      `SELECT sk.stable_name,f.content FROM skills sk LEFT JOIN skill_catalog_entries sce ON sce.org_id=sk.org_id AND sce.skill_id=sk.id LEFT JOIN LATERAL (SELECT id FROM skill_versions WHERE org_id=sk.org_id AND skill_id=sk.id ORDER BY created_at DESC,id DESC LIMIT 1) v ON true LEFT JOIN skill_version_files f ON f.org_id=sk.org_id AND f.version_id=v.id AND f.path='SKILL.md' WHERE sk.org_id=$1 AND sk.id=$2`,
       [orgId, row.id],
     )
   ).rows[0];

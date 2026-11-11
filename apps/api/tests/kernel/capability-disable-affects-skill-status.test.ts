@@ -116,11 +116,43 @@ describe("停用一个 wave2 skill：capability_listings.enabled 与 skills.stat
         );
         if (published) await client.query("SELECT wave2_publish_skill_version($1,$2)", [ORG, versionId]);
       }
+      await client.query(
+        `INSERT INTO skill_catalog_entries (org_id,skill_id,stable_id,domain,updated_by,updated_at)
+         VALUES ($1,$2,'S020','Research',$3,now())`,
+        [ORG, SKILL_ID, ADMIN],
+      );
     });
     const response = await fetch(`${BASE}/capabilities?orgId=${ORG}&kind=skill`, { headers: auth(ADMIN) });
     expect(response.status).toBe(200);
-    const rows = await response.json() as Array<{ id: string; taskDescription?: string }>;
-    expect(rows.find((row) => row.id === SKILL_ID)?.taskDescription).toBe("已发布的实际用途");
+    const rows = await response.json() as Array<{ id: string; taskDescription?: string; workSkillId?: string }>;
+    expect(rows.find((row) => row.id === SKILL_ID)).toMatchObject({
+      taskDescription: "已发布的实际用途", workSkillId: "S020",
+    });
+  });
+
+  it("只对目录范围与声明契约相同的 Skill 返回契约职责", async () => {
+    await asApp(ORG, async (client) => {
+      await client.query(
+        `INSERT INTO skill_contracts (id,org_id,name,duty,source,status,visibility,owner_team_id,created_by)
+         VALUES ('sc-public',$1,'S020','整理组织知识','自建','草稿','org-wide',NULL,$2),
+                ('sc-team',$1,'团队专用','团队私有职责','自建','草稿','team-only',
+                  (SELECT team_id FROM org_memberships WHERE org_id=$1 AND user_id=$2),$2)`,
+        [ORG, ADMIN],
+      );
+      await client.query(
+        `INSERT INTO capability_listings (id,org_id,kind,name,scope,enabled)
+         VALUES ('sc-public',$1,'skill','S020','org-wide',false),
+                ('sc-team',$1,'skill','团队专用','org-wide',false)`,
+        [ORG],
+      );
+    });
+    const response = await fetch(`${BASE}/capabilities?orgId=${ORG}&kind=skill`, { headers: auth(ADMIN) });
+    expect(response.status).toBe(200);
+    const rows = await response.json() as Array<{ id: string; taskDescription?: string; workSkillId?: string }>;
+    expect(rows.find((row) => row.id === "sc-public")?.taskDescription).toBe("整理组织知识");
+    expect(rows.find((row) => row.id === "sc-public")?.workSkillId).toBeUndefined();
+    expect(rows.find((row) => row.id === "sc-team")).toBeDefined();
+    expect(rows.find((row) => row.id === "sc-team")?.taskDescription).toBeUndefined();
   });
 
   it("① 装置自检：disable 之前 skills.status 确实是 'enabled'", async () => {

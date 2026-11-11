@@ -15,6 +15,7 @@
  * 领域模型见 `phases/phase-00-shared-kernel/contracts/identity/domain.md`
  * 用例接口见 同目录 `usecases.md`
  */
+import { WorkSkillStableId } from "./work-skill-meta";
 import { z } from "zod";
 import { EgressLedger } from "./deployment";
 
@@ -419,6 +420,7 @@ export const CapabilityListing = z.object({
   duty: z.string().nullable(),
   /** Authored description from the latest published Skill version. */
   taskDescription: z.string().optional(),
+  workSkillId: WorkSkillStableId.optional(),
   /**
    * 为什么这一行是灰的 —— F15 记录的缺陷②，同样在 F16 变成阻塞。
    *

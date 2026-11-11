@@ -77,7 +77,7 @@ function isSourceFileBacked(row: SkillListItem): boolean {
 }
 function descriptionOf(row: SkillListItem): string | undefined {
   return skillCatalogDescription(
-    row.name,
+    row.workSkillId,
     isSourceFileBacked(row) ? row.taskDescription : localizedText(row.display, "duty", row.duty),
   );
 }
@@ -278,7 +278,7 @@ function Catalog({ orgId, orgName, canManage }: { orgId: string; orgName: string
     ...(row.tags ?? []).map((t) => ({ key: `tag-${tagSlug(t)}`, label: t })),
   ], []);
   const searchTextOf = React.useCallback(
-    (row: SkillListItem): string => [row.name, localizedText(row.display, "name", skillCatalogTitle(row.name)), row.skillId, descriptionOf(row), ...(row.tags ?? [])].join(" "),
+    (row: SkillListItem): string => [row.name, localizedText(row.display, "name", skillCatalogTitle(row.name, row.workSkillId)), row.skillId, descriptionOf(row), ...(row.tags ?? [])].join(" "),
     [],
   );
 
@@ -405,7 +405,7 @@ function Catalog({ orgId, orgName, canManage }: { orgId: string; orgName: string
       searchTextOf={searchTextOf}
       tagsOf={tagsOf}
       renderCard={(row) => ({
-        title: localizedText(row.display, "name", skillCatalogTitle(row.name)),
+        title: localizedText(row.display, "name", skillCatalogTitle(row.name, row.workSkillId)),
         subtitle: `${row.source} · ${VISIBILITY_LABEL[row.visibility]}`,
         badges: <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>,
         description: descriptionOf(row),
@@ -453,7 +453,7 @@ function Catalog({ orgId, orgName, canManage }: { orgId: string; orgName: string
       onSelect={setSelectedKey}
       detailTestId="skill-detail-panel"
       detailWidth="lg"
-      detailTitle={(row) => localizedText(row.display, "name", skillCatalogTitle(row.name))}
+      detailTitle={(row) => localizedText(row.display, "name", skillCatalogTitle(row.name, row.workSkillId))}
       detailSubtitle={(row) => `${row.source} · ${row.status} · ${row.skillId}`}
       renderDetail={(row) => (
         <div className="flex flex-col gap-3">

@@ -15,7 +15,13 @@ for (const pack of readdirSync(root, { withFileTypes: true })) {
     const id = /^    stableId: (S\d{3})\s*$/m.exec(content)?.[1];
     const purpose = /^## (?:这个 Skill )?解决什么问题\s*\n\s*(.+)/m.exec(content)?.[1];
     if (!id || !purpose) throw new Error(`Missing stable ID or purpose in ${file}`);
-    const description = purpose.replace(/\*\*|`/g, "").trim();
+    let description = purpose.replace(/\*\*|`/g, "").trim();
+    if (description.endsWith("：")) {
+      const stop = description.lastIndexOf("。");
+      const comma = description.lastIndexOf("，");
+      if (stop >= 0) description = description.slice(0, stop + 1);
+      else if (comma >= 0) description = `${description.slice(0, comma)}。`;
+    }
     const previous = descriptions.get(id);
     if (previous && previous !== description) throw new Error(`Conflicting descriptions for ${id}`);
     descriptions.set(id, description);

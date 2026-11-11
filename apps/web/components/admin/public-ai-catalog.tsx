@@ -152,7 +152,7 @@ function PublicCatalogScope({
         }
         rows={page.entries}
         keyOf={keyOf}
-        searchTextOf={(row) => `${row.name} ${kind === "skill" ? skillCatalogTitle(row.name) : ""} ${kind === "skill" ? skillCatalogDescription(row.name, row.description) ?? "" : row.description}`}
+        searchTextOf={(row) => `${row.name} ${kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : ""} ${kind === "skill" ? skillCatalogDescription(row.workSkillId, row.description) ?? "" : row.description}`}
         tagsOf={() => []}
         selectedKey={selected}
         onSelect={setSelected}
@@ -165,8 +165,8 @@ function PublicCatalogScope({
           </>
         }
         renderCard={(row) => ({
-          title: kind === "skill" ? skillCatalogTitle(row.name) : row.name,
-          description: kind === "skill" ? skillCatalogDescription(row.name, row.description) : row.description || kind,
+          title: kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : row.name,
+          description: kind === "skill" ? skillCatalogDescription(row.workSkillId, row.description) : row.description || kind,
           leading:
             row.avatarUrl || isAvatarKey(row.avatarKey ?? null) ? (
               <Avatar
@@ -177,10 +177,10 @@ function PublicCatalogScope({
               />
             ) : undefined,
         })}
-        detailTitle={(row) => kind === "skill" ? skillCatalogTitle(row.name) : row.name}
+        detailTitle={(row) => kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : row.name}
         renderDetail={(row) => (
           <div className="space-y-4">
-            <p>{kind === "skill" ? skillCatalogDescription(row.name, row.description) : row.description}</p>
+            <p>{kind === "skill" ? skillCatalogDescription(row.workSkillId, row.description) : row.description}</p>
             <dl className="text-12 text-muted-foreground">
               <dt>{t("aiCatalog.version")}</dt>
               <dd>{row.versionId}</dd>

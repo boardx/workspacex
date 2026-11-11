@@ -319,7 +319,7 @@ function PlatformCatalogScope({
         }
         rows={page.entries}
         keyOf={keyOf}
-        searchTextOf={(row) => `${row.name} ${kind === "skill" ? skillCatalogTitle(row.name) : ""} ${kind === "skill" ? skillCatalogDescription(row.name, row.description) ?? "" : row.description} ${row.orgId}`}
+        searchTextOf={(row) => `${row.name} ${kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : ""} ${kind === "skill" ? skillCatalogDescription(row.workSkillId, row.description) ?? "" : row.description} ${row.orgId}`}
         tagsOf={() => []}
         selectedKey={selected}
         onSelect={setSelected}
@@ -347,8 +347,8 @@ function PlatformCatalogScope({
           </>
         }
         renderCard={(row) => ({
-          title: kind === "skill" ? skillCatalogTitle(row.name) : row.name,
-          description: kind === "skill" ? skillCatalogDescription(row.name, row.description) : row.description.trim().toLowerCase() === kind ? undefined : row.description || undefined,
+          title: kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : row.name,
+          description: kind === "skill" ? skillCatalogDescription(row.workSkillId, row.description) : row.description.trim().toLowerCase() === kind ? undefined : row.description || undefined,
           leading:
             row.avatarUrl || isAvatarKey(row.avatarKey ?? null) ? (
               <Avatar
@@ -359,7 +359,7 @@ function PlatformCatalogScope({
               />
             ) : undefined,
         })}
-        detailTitle={(row) => kind === "skill" ? skillCatalogTitle(row.name) : row.name}
+        detailTitle={(row) => kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : row.name}
         detailSubtitle={(row) =>
           row.orgId === PLATFORM_CATALOG_ORG_ID
             ? t("aiCatalog.publicTarget")
@@ -369,7 +369,7 @@ function PlatformCatalogScope({
         }
         renderDetail={(row) => (
           <div className="space-y-4">
-            <p>{kind === "skill" ? skillCatalogDescription(row.name, row.description) : row.description}</p>
+            <p>{kind === "skill" ? skillCatalogDescription(row.workSkillId, row.description) : row.description}</p>
             <p>
               {t(
                 row.hasDraft && row.published

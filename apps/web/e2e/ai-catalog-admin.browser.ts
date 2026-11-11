@@ -30,6 +30,7 @@ const entry = (kind: string) => ({
   id: `public-${kind}`,
   kind,
   name: kind === "agent" ? "研究与知识分析师" : "S020",
+  ...(kind === "skill" ? { workSkillId: "S020" } : {}),
   description:
     kind === "agent"
       ? "整理证据，提炼洞察，帮助团队形成清晰结论。"

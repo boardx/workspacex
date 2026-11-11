@@ -64,7 +64,7 @@ function setup() {
 it("shows the authored title and purpose for a platform Work Skill with generic metadata", async () => {
   setup();
   mocks.list.mockResolvedValue({
-    entries: [{ ...row, kind: "skill", id: "skill-s020", orgId: PLATFORM_CATALOG_ORG_ID, name: "S020", description: "Skill" }],
+    entries: [{ ...row, kind: "skill", id: "skill-s020", orgId: PLATFORM_CATALOG_ORG_ID, name: "S020", workSkillId: "S020", description: "Skill" }],
     nextCursor: null,
   });
   render(<PlatformAiCatalog kind="skill" />);
@@ -73,6 +73,18 @@ it("shows the authored title and purpose for a platform Work Skill with generic 
   expect(screen.queryByText(/^Skill$/)).not.toBeInTheDocument();
   fireEvent.change(screen.getByRole("searchbox"), { target: { value: "高管简报成文" } });
   expect(screen.getByText("高管简报成文")).toBeInTheDocument();
+});
+
+it("preserves an organization Skill name that coincides with a built-in identifier", async () => {
+  setup();
+  mocks.list.mockResolvedValue({
+    entries: [{ ...row, kind: "skill", name: "S020", description: "租户自定义用途" }],
+    nextCursor: null,
+  });
+  render(<PlatformAiCatalog kind="skill" />);
+  expect(await screen.findByText("S020")).toBeInTheDocument();
+  expect(screen.getByText("租户自定义用途")).toBeInTheDocument();
+  expect(screen.queryByText("高管简报成文")).not.toBeInTheDocument();
 });
 
 describe("explicit platform capability target", () => {
