@@ -9,6 +9,8 @@ test('run status push resolves only the run author',()=>assert.deepEqual(checkNo
 for(const [before,after] of [
  ['WHERE user_id=$1 AND (org_id IS NULL OR org_id=$2) ORDER BY','WHERE (org_id IS NULL OR org_id=$2) ORDER BY'],
  ['[viewer.userId, viewer.orgId, NOTIFICATION_PAGE_SIZE]','["someone", viewer.orgId, NOTIFICATION_PAGE_SIZE]'],
+ ['AND (org_id IS NULL OR org_id=$2) AND id=$3','AND (org_id IS NULL OR org_id=$2)'],
+ ['[viewer.userId, viewer.orgId, id]','[viewer.userId, viewer.orgId, anotherId]'],
  ['LIMIT $3','LIMIT 100000'],['ON CONFLICT DO NOTHING',''],
  ['if (input.orgId) await this.db.withTenant(input.orgId, run); else await this.db.withoutTenant(run);','await this.db.withoutTenant(run);'],
  ['NotificationReadInput.parse(raw)','raw'],

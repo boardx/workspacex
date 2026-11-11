@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import {useI18n} from "@/lib/i18n/provider";
 import {Tooltip,TooltipContent,TooltipProvider,TooltipTrigger} from "@/components/ui/tooltip";
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from "@/components/ui/dialog";
@@ -15,6 +16,7 @@ export interface TaskNotificationsProps {
   sessionToken?:string;
   /** 通知带 threadId 时点开跳去那个对话。 */
   onOpenThread:(threadId:string)=>void;
+  onOpenMessage?:(messageId:string)=>void;
   /** 顺带保鲜对话列表（状态点/排序），与通知同一节奏轮询；失败静默，下一轮再试。 */
   onRefresh?:()=>void|Promise<void>;
   /**
@@ -75,7 +77,7 @@ export function mergeNotifications(items:readonly Notification[]):MergedNotice[]
  * 把通知正文平铺在侧边栏顶部，挤掉了对话列表近一半高度。未读计数、全部标为已读、最近已读
  * 三件功能都还在，只是收进弹层。
  */
-export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="sidebar"}:TaskNotificationsProps){
+export function TaskNotifications({sessionToken,onOpenThread,onOpenMessage,onRefresh,variant="sidebar"}:TaskNotificationsProps){
   const {t}=useI18n();
   const center=useNotificationCenter(sessionToken);
   const scheduled=useScheduleNotifications("global",sessionToken);
@@ -119,9 +121,10 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
     </Button>
   );
   const openNotice = (head: Notification, ids: readonly string[]) => {
-    if (head.readAt === null && !head.actionable) void center.markRead([...ids]);
+    if ((!onOpenMessage || head.threadId) && head.readAt === null && !head.actionable) void center.markRead([...ids]);
     close();
     if (head.threadId) onOpenThread(head.threadId);
+    else if (onOpenMessage) onOpenMessage(head.id);
     else setDetail(head);
   };
   return <div className={rail?"relative flex w-full flex-col items-center":"relative px-3"}
@@ -133,6 +136,7 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
       role="dialog" aria-label={t("notifications.title")} tabIndex={-1}
       onKeyDown={event=>{if(event.key==="Escape"){event.stopPropagation();close();}}}
       className={cn(NOTIFICATIONS_POPOVER_BASE_CLASS,NOTIFICATIONS_POPOVER_CLASS[variant])}>
+      {rail&&<Link href="/inbox" className="block rounded-control px-2 py-1 text-13 font-medium transition-colors hover:bg-muted" onClick={close}>{t("notifications.openInbox")}</Link>}
       {center.failed&&<p role="status" className="text-11 text-muted-foreground">{t("notifications.refreshFailed")}</p>}
       {scheduled.failed&&<p role="status" className="text-11 text-muted-foreground">{t("notifications.scheduleSyncFailed")}</p>}
       {scheduled.notices.map(notice=><div key={notice.factId} className="flex items-center gap-2" data-testid="schedule-notification">
@@ -151,7 +155,7 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
         const label=<><span className="mr-1 text-11 text-muted-foreground">[{t(`notifications.kind.${head.kind}`)}]</span>{head.title}
           {ids.length>1&&<span className="ml-1 text-11 text-muted-foreground">×{ids.length}</span>}</>;
         if(!head.threadId)return <div key={head.id} data-testid="notification-item" data-kind={head.kind}
-          data-occurrences={ids.length} data-actionable={head.actionable?"true":"false"} data-destination="detail"
+          data-occurrences={ids.length} data-actionable={head.actionable?"true":"false"} data-destination={onOpenMessage?"inbox":"detail"}
           className="flex w-full items-center justify-between gap-2 py-1 text-left text-13">
           <Button variant="ghost" size="sm" className="h-auto min-w-0 justify-start whitespace-normal text-left"
             onClick={()=>openNotice(head,ids)}>{label}</Button>

@@ -30,5 +30,6 @@ export function RailNotifications(): React.JSX.Element | null {
     [router],
   );
   if (bearer === null) return null;
-  return <TaskNotifications variant="rail" sessionToken={bearer} onOpenThread={openThread} />;
+  return <TaskNotifications variant="rail" sessionToken={bearer} onOpenThread={openThread}
+    onOpenMessage={id => router.push(`/inbox?message=${encodeURIComponent(id)}`)} />;
 }

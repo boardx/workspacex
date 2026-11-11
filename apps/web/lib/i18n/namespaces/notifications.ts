@@ -1,4 +1,13 @@
 export const notificationsZhCN = {
+  "notifications.inbox": "站内信",
+  "notifications.openInbox": "打开站内信",
+  "notifications.loading": "正在加载消息…",
+  "notifications.noMessages": "暂无站内信",
+  "notifications.messageDetails": "消息详情",
+  "notifications.backToMessages": "返回消息列表",
+  "notifications.openConversation": "打开对话",
+  "notifications.selectMessage": "从左侧选择一条消息",
+  "notifications.messageUnavailable": "暂时无法打开这条消息，请返回列表重试。",
   "notifications.title": "任务提醒",
   "notifications.triggerUnread": "任务提醒，{count} 条未读",
   "notifications.unread": "{count} 条未读",
@@ -20,6 +29,15 @@ export const notificationsZhCN = {
 
 } as const;
 export const notificationsEn: Record<keyof typeof notificationsZhCN, string> = {
+  "notifications.inbox": "Inbox",
+  "notifications.openInbox": "Open inbox",
+  "notifications.loading": "Loading messages…",
+  "notifications.noMessages": "No messages",
+  "notifications.messageDetails": "Message details",
+  "notifications.backToMessages": "Back to messages",
+  "notifications.openConversation": "Open conversation",
+  "notifications.selectMessage": "Choose a message from the list",
+  "notifications.messageUnavailable": "This message could not be opened. Return to the list and try again.",
   "notifications.title": "Notifications",
   "notifications.triggerUnread": "Notifications, {count} unread",
   "notifications.unread": "{count} unread",

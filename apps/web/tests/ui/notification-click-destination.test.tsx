@@ -27,6 +27,7 @@ const sessionValue = vi.hoisted(() => ({ current: null as unknown }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => sessionValue.current }));
 
 import type { Notification } from "@repo/contracts/notifications";
+import { InboxScreen } from "@/components/inbox/inbox-screen";
 import { RailNotifications } from "@/components/shell/rail-notifications";
 import { workbenchThreadPath } from "@/lib/chat-workbench/project-scope";
 
@@ -74,9 +75,10 @@ describe("#3311 点一条通知，用户必须知道自己被带到哪儿了", (
   it("opens an unread mail receipt and exposes its stored body", async () => {
     const panel = await openPanel([{ ...notice("2", "email", "邮件：重置密码", null), body: "邮件已发送，请检查邮箱。" }]);
     fireEvent.click(within(panel.getByTestId("notification-item")).getByRole("button", { name: /重置密码/ }));
-    const dialog = await screen.findByRole("dialog", { name: "邮件：重置密码" });
-    expect(dialog).toHaveTextContent("邮件已发送，请检查邮箱。");
-    expect(push).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/inbox?message=00000000-0000-4000-8000-000000000002");
+    render(<InboxScreen initialMessage="00000000-0000-4000-8000-000000000002" />);
+    const detail = await screen.findByRole("region", { name: "消息详情" });
+    expect(await within(detail).findByText("邮件已发送，请检查邮箱。")).toBeVisible();
     await waitFor(() => expect(readCalls()).toHaveLength(1));
   });
 
@@ -89,6 +91,7 @@ describe("#3311 点一条通知，用户必须知道自己被带到哪儿了", (
     }]);
     fireEvent.click(panel.getByText("最近已读"));
     fireEvent.click(panel.getByRole("button", { name: /组织邀请/ }));
+    render(<InboxScreen initialMessage="00000000-0000-4000-8000-000000000005" />);
     expect(await screen.findByRole("link", { name: "查看邀请" })).toHaveAttribute("href", `/auth/activate?invite=${inviteId}`);
     expect(readCalls()).toHaveLength(0);
   });
@@ -111,4 +114,31 @@ describe("#3311 点一条通知，用户必须知道自己被带到哪儿了", (
     await waitFor(() => expect(readCalls()).toHaveLength(1));
     expect(readCalls()[0]![1]).toMatchObject({ body: { ids: ["00000000-0000-4000-8000-000000000004"] } });
   });
+});
+
+it("changes the reading pane when a different message is selected", async () => {
+  serve([
+    { ...notice("1", "email", "第一封", null), body: "第一封正文" },
+    { ...notice("2", "task", "第二封", "thread-8"), body: "第二封正文" },
+  ]);
+  render(<InboxScreen />);
+  const list = await screen.findByRole("navigation", { name: "站内信" });
+  const pane = screen.getByRole("region", { name: "消息详情", hidden: true });
+  fireEvent.click(await within(list).findByRole("button", { name: /第一封/ }));
+  expect(within(pane).getByText("第一封正文")).toBeVisible();
+  fireEvent.click(within(list).getByRole("button", { name: /第二封/ }));
+  expect(within(pane).queryByText("第一封正文")).toBeNull();
+  expect(within(pane).getByText("第二封正文")).toBeVisible();
+  expect(within(pane).getByRole("link", { name: "打开对话" })).toHaveAttribute("href", workbenchThreadPath("thread-8", null));
+});
+
+it("reopens a message by ID when it has left the current notification list", async () => {
+  const message = { ...notice("7", "email", "较早的邀请", null), readAt: "2026-09-10T00:00:00.000Z", body: "较早的消息正文" };
+  serve([]);
+  const listResponse = request.getMockImplementation()!;
+  request.mockImplementation((path, ...args) =>
+    path === `/notifications/${message.id}` ? Promise.resolve(message) : listResponse(path, ...args));
+  render(<InboxScreen initialMessage={message.id} />);
+  expect(await screen.findByText("较早的消息正文")).toBeVisible();
+  expect(readCalls()).toHaveLength(0);
 });
