@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: uniquely named test payer, removed by exact owner after the suite.
 // @global-scope-fixture table:credit_global_native_tariffs: fixed fake provider/model keys use idempotent seeding; the isolated test database owns cleanup, never organization deletion of shared prices.
 import {createServer,type Server} from 'node:http';
 import {createHash,randomUUID} from 'node:crypto';
@@ -24,6 +25,7 @@ import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asApp,resetOrgs,asOwner}
 /** Real HTTP/PG coordinator boundary, not executeQueuedRuns/lease acceptance.
  * Classification/bounds are test-only fixtures, not deployment/tokenizer proof. */
 let db:PgDatabase,server:Server,model:ConfiguredModelProvider,vendorBaseUrl:string;
+const callers: string[] = [];
 const orgs:string[]=[],requests:Array<{model:string;max_tokens:number}>=[];
 beforeAll(async()=>{
  await ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());
@@ -41,10 +43,18 @@ beforeAll(async()=>{
 afterAll(async()=>{
  await model?.close();
  if(server)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
- await db?.close();await resetOrgs(orgs);
+ await db?.close();
+ await asOwner(async c=>{
+  await c.query("DELETE FROM credit_consumption_requests WHERE org_id=ANY($1::text[])",[orgs]);
+  await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1::text[]))",[callers]);
+  await c.query("DELETE FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1::text[])",[callers]);
+ });
+ await resetOrgs(orgs);
 });
 async function fixture(plan:'ordinary'|'enterprise',cost='100',degrade=false,tokens='100',rules=false,runStatus:'succeeded'|'running'='succeeded'){
- const org=toOrgId('priced-http-'+randomUUID());orgs.push(org);const project='project-'+org,user='caller';
+ const org=toOrgId('priced-http-'+randomUUID());orgs.push(org);const project='project-'+org,user=`caller-${org}`;
+ callers.push(user);
+ await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,20000)",[user]));
  await seedOrg({orgId:org,projectId:project});await addOrgMember(org,user,'consultant',null);
  const thread='thread-'+org,run='root-'+org;
  await addChatThread({orgId:org,id:thread,projectId:project,visibilityScope:'plenary',createdBy:user});
@@ -68,7 +78,7 @@ it('ordinary HTTP receipt settles and intersects user/project/run/model reads',a
  expect((await executePricedModelCall(f.subject,{system:'s',user:'u'},f.deps)).text).toBe('HTTP answer');
  expect(requests.slice(before)).toEqual([expect.objectContaining({model:'runtime-primary',max_tokens:2})]);
  const detail=await f.read.calls(f.org,{...f.query,modelProvider:'test-http',modelId:'runtime-primary'});
- expect(detail.calls).toHaveLength(1);expect(detail.calls[0]).toMatchObject({userId:'caller',projectId:f.subject.projectId,runId:f.subject.runId,executionAttemptId:f.subject.executionAttemptId,inputTokens:'2',outputTokens:'1',totalTokens:'3',costMicros:'6',priceVersion:f.priceVersion});
+ expect(detail.calls).toHaveLength(1);expect(detail.calls[0]).toMatchObject({userId:f.subject.userId,projectId:f.subject.projectId,runId:f.subject.runId,executionAttemptId:f.subject.executionAttemptId,inputTokens:'2',outputTokens:'1',totalTokens:'3',costMicros:'6',priceVersion:f.priceVersion});
  expect((await f.read.summary(f.org,f.query)).current).toMatchObject({callCount:1,totalTokens:'3',unknownCalls:0});
  expect((await f.read.calls(f.org,{...f.query,userId:'different'})).calls).toEqual([]);
  expect((await asApp(f.org,c=>c.query('SELECT state,settled_tokens,settled_cost_micros FROM ai_request_reservations WHERE org_id=$1',[f.org]))).rows).toEqual([{state:'settled',settled_tokens:'3',settled_cost_micros:'6'}]);
@@ -106,7 +116,7 @@ async function addBlockRule(f:Awaited<ReturnType<typeof fixture>>,scope:'model'|
   VALUES($1,$2,$3,$4,NULL,'hour',$5,'block',true)`,[id,f.org,scope,ref,threshold]));
  return id;
 }
-function reserveInput(f:Awaited<ReturnType<typeof fixture>>,userId='caller'){
+function reserveInput(f:Awaited<ReturnType<typeof fixture>>,userId=f.subject.userId){
  return {requestId:randomUUID(),userId,windowStart:f.configuration.window.start,windowEnd:f.configuration.window.end,
   maximumTokens:4n,maximumCostMicros:8n,modelProvider:'test-http',modelId:'runtime-primary',currency:'CNY',priceVersion:f.priceVersion,
   formalModelId:'primary',agentId:null,tokenPolicy:{primaryModelId:'primary',selectedModelId:'primary',allowDegradation:true}};
@@ -115,10 +125,10 @@ it('model and team rules count actual used plus cross-user held plus projected m
  for(const scope of ['model','team'] as const){
   const f=await fixture('ordinary','100',false,'100',true),before=requests.length;
   await addOrgMember(f.org,'second','consultant',`${f.org}-team-energy`);
-  await asApp(f.org,c=>c.query('UPDATE org_memberships SET team_id=$2 WHERE org_id=$1 AND user_id=$3',[f.org,`${f.org}-team-energy`,'caller']));
+  await asApp(f.org,c=>c.query('UPDATE org_memberships SET team_id=$2 WHERE org_id=$1 AND user_id=$3',[f.org,`${f.org}-team-energy`,f.subject.userId]));
   await executePricedModelCall(f.subject,{system:'s',user:'u'},f.deps); // actual settled usage = 3
   await addBlockRule(f,scope,'10');
-  for(const user of ['caller','second'])await f.deps.policy.resolveBudgetPolicy(f.org,user);
+  for(const user of [f.subject.userId,'second'])await f.deps.policy.resolveBudgetPolicy(f.org,user);
   const inputs=[reserveInput(f),reserveInput(f,'second')];
   const decisions=await Promise.all(inputs.map(input=>f.deps.admission.reserve(f.org,input)));
   expect(decisions.map(row=>row.decision).sort()).toEqual(['AI_LIMIT_RULE_BLOCKED','allowed']);
@@ -131,7 +141,7 @@ it('model and team rules count actual used plus cross-user held plus projected m
 });
 it('blocked decisions and events survive refusal, replay once, and reject changed formal model or agent',async()=>{
  const f=await fixture('ordinary','100',false,'100',true),before=requests.length;
- const ruleId=await addBlockRule(f,'model','1');await f.deps.policy.resolveBudgetPolicy(f.org,'caller');
+ const ruleId=await addBlockRule(f,'model','1');await f.deps.policy.resolveBudgetPolicy(f.org,f.subject.userId);
  const input=reserveInput(f);
  expect((await f.deps.admission.reserve(f.org,input)).decision).toBe('AI_LIMIT_RULE_BLOCKED');
  expect((await f.deps.admission.reserve(f.org,input)).decision).toBe('AI_LIMIT_RULE_BLOCKED');
@@ -189,19 +199,19 @@ it('policy org UPDATE and concurrent physical start/ledger inserts finish under 
   const requestId=randomUUID(),startedAt=new Date().toISOString();
   // A terminal ledger write now requires an actual admitted request. Seed that
   // admission before the policy lock, so this barrier still measures settlement.
-  if(write==='ledger')await f.deps.usage.startRequest(f.org,{requestId,userId:'caller',runId:f.subject.runId,executionAttemptId:f.subject.executionAttemptId,projectId:f.subject.projectId,threadId:f.subject.threadId,modelProvider:'test-http',modelId:'runtime-primary',startedAt,maximumTokens:4});
-  const resolving=new PgAiAdmissionRepository(held.database).resolveBudgetPolicy(f.org,'caller');
+  if(write==='ledger')await f.deps.usage.startRequest(f.org,{requestId,userId:f.subject.userId,runId:f.subject.runId,executionAttemptId:f.subject.executionAttemptId,projectId:f.subject.projectId,threadId:f.subject.threadId,modelProvider:'test-http',modelId:'runtime-primary',startedAt,maximumTokens:4});
+  const resolving=new PgAiAdmissionRepository(held.database).resolveBudgetPolicy(f.org,f.subject.userId);
   let recording:Promise<void>|undefined;
   try{
    await bounded(held.entered.promise);
    const usage=new PgTokenUsageRepository(writer.database);
-   recording=write==='start'?usage.startRequest(f.org,{requestId,userId:'caller',runId:f.subject.runId,executionAttemptId:f.subject.executionAttemptId,projectId:f.subject.projectId,threadId:f.subject.threadId,modelProvider:'test-http',modelId:'runtime-primary',startedAt})
-    :usage.record(f.org,{eventId:requestId,userId:'caller',runId:f.subject.runId,modelProvider:'test-http',modelId:'runtime-primary',tokensTotal:3,promptTokens:2,completionTokens:1,outcome:'succeeded',totalSource:'reported'});
+   recording=write==='start'?usage.startRequest(f.org,{requestId,userId:f.subject.userId,runId:f.subject.runId,executionAttemptId:f.subject.executionAttemptId,projectId:f.subject.projectId,threadId:f.subject.threadId,modelProvider:'test-http',modelId:'runtime-primary',startedAt})
+    :usage.record(f.org,{eventId:requestId,userId:f.subject.userId,runId:f.subject.runId,modelProvider:'test-http',modelId:'runtime-primary',tokensTotal:3,promptTokens:2,completionTokens:1,outcome:'succeeded',totalSource:'reported'});
    // Attach rejection immediately so a fixture failure cannot produce unhandled work.
    const completed=Promise.allSettled([resolving,recording]);
    await bounded(writer.attempted.promise);await assertWaiting(f.org,()=>writer.pid);
    held.release.resolve();expect((await bounded(completed)).map(row=>row.status)).toEqual(['fulfilled','fulfilled']);
-   expect((await f.deps.policy.resolveBudgetPolicy(f.org,'caller')).decision).toBe('configured');
+   expect((await f.deps.policy.resolveBudgetPolicy(f.org,f.subject.userId)).decision).toBe('configured');
    const state=await asApp(f.org,c=>c.query('SELECT p.plan,a.configuration->>\'ordinaryTokensPerUser\' AS tokens FROM organization_plans p JOIN organization_ai_policies a ON a.org_id=p.org_id WHERE p.org_id=$1',[f.org]));
    expect(state.rows).toEqual([{plan:'ordinary',tokens:'100'}]);
   }finally{held.release.resolve();await Promise.allSettled([resolving,...(recording?[recording]:[])]);}
@@ -210,7 +220,7 @@ it('policy org UPDATE and concurrent physical start/ledger inserts finish under 
 it('target z role writer and ordered F162 membership shares serialize and preserve last admin',async()=>{
  const f=await fixture('ordinary','100',false,'100',true);
  await addOrgMember(f.org,'a','admin',null);await addOrgMember(f.org,'z','admin',null);
- await addBlockRule(f,'model','100');await f.deps.policy.resolveBudgetPolicy(f.org,'caller');
+ await addBlockRule(f,'model','100');await f.deps.policy.resolveBudgetPolicy(f.org,f.subject.userId);
  const held=scheduledDb(sql=>sql.includes('SELECT org_role FROM org_memberships')&&sql.includes('FOR UPDATE'));
  const reader=scheduledDb(()=>false);
  const {PgOrgMemberRepository}=await import('../../src/infrastructure/auth/pg-org-member-repository');
@@ -225,7 +235,7 @@ it('target z role writer and ordered F162 membership shares serialize and preser
   expect(await changing).toMatchObject({ok:true,changed:true});expect((await admitting).decision).toBe('allowed');
   expect(await new PgOrgMemberRepository(db).changeRole(f.org,'a','consultant')).toEqual({ok:false,reason:'last-admin'});
   expect((await asApp(f.org,c=>c.query('SELECT user_id,org_role FROM org_memberships WHERE org_id=$1 AND user_id IN ($2,$3) ORDER BY user_id',[f.org,'a','z']))).rows).toEqual([{user_id:'a',org_role:'admin'},{user_id:'z',org_role:'consultant'}]);
-  expect((await f.deps.policy.resolveBudgetPolicy(f.org,'caller')).decision).toBe('configured');
+  expect((await f.deps.policy.resolveBudgetPolicy(f.org,f.subject.userId)).decision).toBe('configured');
   expect((await asApp(f.org,c=>c.query("SELECT p.plan,a.configuration->>'ordinaryTokensPerUser' AS tokens FROM organization_plans p JOIN organization_ai_policies a ON a.org_id=p.org_id WHERE p.org_id=$1",[f.org]))).rows).toEqual([{plan:'ordinary',tokens:'100'}]);
  }finally{held.release.resolve();await Promise.allSettled([changing,...(admitting?[admitting]:[])]);}
 });
@@ -241,7 +251,7 @@ it('outer scoped transaction commits only typed policy refusal audit and rolls b
    withoutTenant:async()=>{throw new Error('fixture tenant required');},close:async()=>{},
   };
   const repository=new PgAiAdmissionRepository(scoped);
-  expect((await repository.resolveBudgetPolicy(f.org,'caller')).decision).toBe('configured');
+  expect((await repository.resolveBudgetPolicy(f.org,f.subject.userId)).decision).toBe('configured');
   const result=await repository.reserve(f.org,input);expect(result.decision).toBe('AI_LIMIT_RULE_BLOCKED');
   if(typedError)throw new AiQuotaPolicyError('AI_LIMIT_RULE_BLOCKED');
   throw new Error('AI_LIMIT_RULE_BLOCKED');
@@ -260,7 +270,7 @@ it('outer scoped transaction commits only typed policy refusal audit and rolls b
 
 async function enqueueActualRoot(f:Awaited<ReturnType<typeof fixture>>,agent:string,version:string){
  const run=randomUUID(),message=randomUUID();
- await addChatMessage({orgId:f.org,id:message,threadId:f.subject.threadId!,body:'ROOT_HTTP_INPUT',authorId:'caller'});
+ await addChatMessage({orgId:f.org,id:message,threadId:f.subject.threadId!,body:'ROOT_HTTP_INPUT',authorId:f.subject.userId});
  await asApp(f.org,c=>c.query(`INSERT INTO agent_runs(id,org_id,thread_id,input_message_id,agent_id,agent_version_id,
   skill_version_ids,model_provider,model_id,status) VALUES($1,$2,$3,$4,$5,$6,'[]'::jsonb,'test-http','runtime-primary','queued')`,
   [run,f.org,f.subject.threadId,message,agent,version]));
@@ -270,11 +280,11 @@ async function rootFixture(f:Awaited<ReturnType<typeof fixture>>){
  const agent=randomUUID(),version=randomUUID(),instructions='ROOT_PINNED_INSTRUCTIONS';
  await asApp(f.org,async c=>{
   await c.query(`INSERT INTO agents(id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
-   VALUES($1,$2,$1,'HTTP root test','enabled','caller',now(),now())`,[agent,f.org]);
+   VALUES($1,$2,$1,'HTTP root test','enabled',$3,now(),now())`,[agent,f.org,f.subject.userId]);
   await c.query(`INSERT INTO agent_versions(id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
    model_provider,model_id,tool_policy,creator_id,created_at,published_at)
-   VALUES($1,$2,$3,'v1',$4,$5,'{}'::text[],'test-http','runtime-primary','[]'::jsonb,'caller',now(),now())`,
-   [version,f.org,agent,createHash('sha256').update(instructions).digest('hex'),instructions]);
+   VALUES($1,$2,$3,'v1',$4,$5,'{}'::text[],'test-http','runtime-primary','[]'::jsonb,$6,now(),now())`,
+   [version,f.org,agent,createHash('sha256').update(instructions).digest('hex'),instructions,f.subject.userId]);
  });
  const repo=new PgAgentRunRepository(db),clock={now:()=>new Date().toISOString(),newStepId:()=>randomUUID()};
  const logs:Array<{message:string;detail:Record<string,unknown>}>=[];
@@ -307,7 +317,7 @@ it('actual enterprise root HTTP receipt carries lease/attempt attribution, write
  const answer=await asApp(f.org,c=>c.query('SELECT r.status,m.body FROM agent_runs r JOIN chat_messages m ON m.org_id=r.org_id AND m.agent_run_id=r.id WHERE r.org_id=$1 AND r.id=$2',[f.org,run]));
  expect(answer.rows).toEqual([{status:'succeeded',body:'HTTP answer'}]);
  const calls=await f.read.calls(f.org,{...f.query,runId:run});
- expect(calls.calls).toHaveLength(1);expect(calls.calls[0]).toMatchObject({userId:'caller',agentId:root.agent,projectId:f.subject.projectId,threadId:f.subject.threadId,runId:run,executionAttemptId:`${run}:1`,totalTokens:'3',costMicros:'6',priceVersion:f.priceVersion});
+ expect(calls.calls).toHaveLength(1);expect(calls.calls[0]).toMatchObject({userId:f.subject.userId,agentId:root.agent,projectId:f.subject.projectId,threadId:f.subject.threadId,runId:run,executionAttemptId:`${run}:1`,totalTokens:'3',costMicros:'6',priceVersion:f.priceVersion});
  // PostgreSQL bigint is read as a decimal string; preserve the exact lease value.
  expect((await asApp(f.org,c=>c.query('SELECT execution_lease_epoch::text AS execution_lease_epoch FROM model_request_starts WHERE org_id=$1 AND run_id=$2',[f.org,run]))).rows).toEqual([{execution_lease_epoch:'1'}]);
  const refused=await root.enqueue();await executeQueuedRuns(root.deps,{orgId:f.org});
@@ -321,8 +331,8 @@ it('actual native not-applicable Token receipt preserves image dimension and con
  // Explicit native tariff and physical admission precede the trusted image receipt.
  // The fixture does not invent image Tokens or a production provider bound.
  await asOwner(c=>c.query("INSERT INTO credit_global_native_tariffs(model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES('test-http','runtime-image','image',1,1,'fixture-native-v1') ON CONFLICT DO NOTHING"));
- await f.deps.usage.startRequest(f.org,{requestId:nativeId,userId:'caller',runId:null,executionAttemptId:null,callPurpose:'auxiliary',projectId:f.subject.projectId,modelProvider:'test-http',modelId:'runtime-image',startedAt:new Date().toISOString(),nativeMaximum:{unit:'image',quantity:1n}});
- await f.deps.usage.record(f.org,{eventId:nativeId,userId:'caller',runId:null,modelProvider:'test-http',modelId:'runtime-image',
+ await f.deps.usage.startRequest(f.org,{requestId:nativeId,userId:f.subject.userId,runId:null,executionAttemptId:null,callPurpose:'auxiliary',projectId:f.subject.projectId,modelProvider:'test-http',modelId:'runtime-image',startedAt:new Date().toISOString(),nativeMaximum:{unit:'image',quantity:1n}});
+ await f.deps.usage.record(f.org,{eventId:nativeId,userId:f.subject.userId,runId:null,modelProvider:'test-http',modelId:'runtime-image',
   tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:'not-applicable',outcome:'succeeded',
   projectId:f.subject.projectId,requestStartedAt:new Date().toISOString(),nativeUsage:{unit:'image',quantity:1n,source:'reported'},
   costMicros:2n,currency:'CNY',priceVersion:f.priceVersion});
@@ -336,7 +346,7 @@ it('actual native not-applicable Token receipt preserves image dimension and con
  // Token non-applicability can free the native cost for a second paid request.
  await expect(executePricedModelCall({...f.subject,logicalCallId:randomUUID()},{system:'s',user:'u'},f.deps)).rejects.toThrow('COST_LIMIT_REACHED');
  expect(requests.slice(before)).toHaveLength(1);
- expect((await asApp(f.org,c=>c.query('SELECT sum(cost_micros)::text AS cost,count(*)::int AS calls FROM effective_token_usage() WHERE org_id=$1 AND user_id=$2',[f.org,'caller']))).rows).toEqual([{cost:'8',calls:2}]);
+ expect((await asApp(f.org,c=>c.query('SELECT sum(cost_micros)::text AS cost,count(*)::int AS calls FROM effective_token_usage() WHERE org_id=$1 AND user_id=$2',[f.org,f.subject.userId]))).rows).toEqual([{cost:'8',calls:2}]);
 });
 
 for(const rules of [false,true])it(`private SDK ${rules?'F162':'soft threshold'} downgrade has two candidate decisions, one actual HTTP and selected settlement`,async()=>{
