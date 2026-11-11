@@ -11,6 +11,7 @@ import type { PermissionDecision } from "../../domain/identity/permission-decisi
 
 export type OrderView = z.infer<typeof operations.getPaymentOrder.out>["order"];
 export interface PersonalOrderReader {
+  cancel?(principal: Principal, orderNo: string): Promise<OrderView>;
   read(principal: Principal, orderNo: string): Promise<{mode:"legacy"} | {mode:"active";order:OrderView|null}>;
 }
 export type PackageView = z.infer<typeof operations.listPackages.out>["items"][number];
@@ -106,7 +107,12 @@ export class BillingOrderService {
     assertPrincipal(principal);
     const { orderNo } = operations.cancelPaymentOrder.in.parse(input);
     const modern = await this.personal?.read(principal, orderNo);
-    if (modern?.mode === "active") throw new BillingOrderError(modern.order ? "order_not_cancelable" : "order_not_found");
+    if (modern?.mode === "active") {
+      if (!modern.order) throw new BillingOrderError("order_not_found");
+      if (modern.order.status === "CLOSED") return { order: modern.order };
+      if (modern.order.status !== "PENDING" || !this.personal?.cancel) throw new BillingOrderError("order_not_cancelable");
+      return operations.cancelPaymentOrder.out.parse({ order: await this.personal.cancel(principal, orderNo) });
+    }
     const { order } = await this.get(principal, { orderNo });
     if (order.status === "CLOSED" && order.lastErrorCode === null) return operations.cancelPaymentOrder.out.parse({ order });
     if (order.status !== "PENDING") throw new BillingOrderError("order_not_cancelable");

@@ -58,3 +58,20 @@ it("does not close WeChat after a failed or pending authoritative read", async (
   f.wechat.reconcile.mockRejectedValue(Error("merchant_unavailable")); await expect(f.reconciler.reconcile(f.purchase)).rejects.toThrow();
   expect(f.purchases.confirmClosed).not.toHaveBeenCalled();
 });
+
+it.each(["closed", "paid", "pending"])("rechecks Stripe after explicit cancellation and records only authoritative %s", async outcome => {
+  const f = fixture();
+  const expire = vi.fn(async () => {
+    if (outcome === "closed") f.snapshot.status = "expired";
+    if (outcome === "paid") {
+      Object.assign(f.snapshot, { status: "complete", payment_status: "paid" });
+      throw Error("payment_won");
+    }
+  });
+  const reconciler = new PersonalPaymentReconciler({ ...f.stripe, expire }, f.wechat, f.payments, f.purchases, f.synchronize);
+  expect(await reconciler.reconcile(f.purchase, true)).toBe(outcome);
+  expect(expire).toHaveBeenCalledWith(f.purchase.sessionRef);
+  expect(f.stripe.retrieve).toHaveBeenCalledTimes(2);
+  expect(f.purchases.confirmClosed).toHaveBeenCalledTimes(outcome === "closed" ? 1 : 0);
+  expect(f.synchronize.reconcileCheckout).toHaveBeenCalledTimes(outcome === "paid" ? 1 : 0);
+});

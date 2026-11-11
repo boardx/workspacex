@@ -74,6 +74,10 @@ export class PersonalStripeCheckoutClient {
       value.expires_at * 1000 <= purchase.createdAt.getTime()) throw Error("personal_checkout_snapshot_mismatch");
     return value;
   }
+  async expire(id: string) {
+    if (!/^cs_[A-Za-z0-9_]{1,252}$/.test(id)) throw Error("personal_checkout_id_invalid");
+    await this.request(`checkout/sessions/${id}/expire`, new URLSearchParams());
+  }
   async retrieve(id: string) {
     if (!/^cs_[A-Za-z0-9_]{1,252}$/.test(id)) throw Error("personal_checkout_id_invalid");
     const value = this.validate(await this.request(`checkout/sessions/${id}`));
