@@ -89,10 +89,21 @@ it("public Skill requires publication then administrator enablement; raw source 
       )
     ).rows,
   ).toHaveLength(0);
-  await asApp(PLATFORM, (s) => s.query(
-    "UPDATE skill_versions SET manifest = manifest || $3::jsonb WHERE org_id=$1 AND skill_id=$2 AND NOT published",
-    [PLATFORM, source.id, JSON.stringify({ work: { stableId: "S020" } })],
-  ));
+  await asApp(PLATFORM, async (s) => {
+    const workVersionId = `${source.versionId}-work`;
+    await s.query(
+      `INSERT INTO skill_versions (id,org_id,skill_id,semantic_label,content_digest,manifest,creator_id,created_at,published)
+       SELECT $3,org_id,skill_id,semantic_label || '-work',content_digest,manifest || $4::jsonb,creator_id,
+              GREATEST(now(), created_at + interval '1 millisecond'),false
+         FROM skill_versions WHERE org_id=$1 AND id=$2`,
+      [PLATFORM, source.versionId, workVersionId, JSON.stringify({ work: { stableId: "S020" } })],
+    );
+    await s.query(
+      `INSERT INTO skill_version_files (org_id,version_id,path,content,media_type,digest)
+       SELECT org_id,$3,path,content,media_type,digest FROM skill_version_files WHERE org_id=$1 AND version_id=$2`,
+      [PLATFORM, source.versionId, workVersionId],
+    );
+  });
   const published = await request(
     OPS,
     `${path}/skill/${source.id}/publish`,
