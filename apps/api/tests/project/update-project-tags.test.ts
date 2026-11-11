@@ -12,7 +12,7 @@ import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-ident
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 const ORG = "f185-tags-org";
 const LEAD = "u-f185-lead";
@@ -161,4 +161,17 @@ describe("#6546 renameProject", () => {
       reasonCode: "PROJECT_NOT_FOUND",
     });
   });
+  it("rejects renaming an active project in a disabled organization", async () => {
+    const projectId = "f185-disabled-rename";
+    await createProjectRow(projectId);
+    await asOwner((client) => client.query(
+      "UPDATE organizations SET status='disabled', disabled_at=now(), retention_until=now()+interval '30 days' WHERE id=$1",
+      [ORG],
+    ));
+    await expect(renameProject(
+      { repo: tagsRepo, identity },
+      { orgId: toOrgId(ORG), projectId, actorId: LEAD, name: "拒绝写入" },
+    )).rejects.toMatchObject({ reasonCode: "PROJECT_NOT_FOUND" });
+  });
+
 });

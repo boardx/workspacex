@@ -36,9 +36,11 @@ export class PgProjectTagsRepository implements ProjectTagsRepository, SamplePro
   async renameActiveProject(orgId: OrgId, projectId: string, name: string): Promise<{ id: string; name: string } | null> {
     return this.db.withTenant(orgId, async (session) => {
       const result = await session.query<{ id: string; name: string }>(
-        `UPDATE projects SET name = $3
-          WHERE id = $1 AND org_id = $2 AND status = 'active'
-          RETURNING id, name`,
+        `UPDATE projects AS p SET name = $3
+          FROM organizations AS o
+          WHERE p.id = $1 AND p.org_id = $2 AND p.status = 'active'
+            AND o.id = p.org_id AND o.status = 'active'
+          RETURNING p.id, p.name`,
         [projectId, orgId, name],
       );
       return result.rows[0] ?? null;
