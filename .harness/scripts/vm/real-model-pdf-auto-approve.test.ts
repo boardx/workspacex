@@ -6,17 +6,18 @@ const root = resolve(import.meta.dirname, "../../..");
 const spec = readFileSync(resolve(root, "apps/web/e2e/real-model-pdf-smoke.spec.ts"), "utf8");
 
 describe("real-model PDF lane documents its consent before execution", () => {
-  it("enables the persisted document grant through the real UI before sending", () => {
-    const enable = spec.indexOf("setDocumentAutoApproveFromUi(page, true)");
+  it("verifies the authenticated document grant before sending", () => {
+    const setup = spec.indexOf("const persistedDocumentAutoApproveAtEntry =");
+    const enable = spec.indexOf("if (!persistedDocumentAutoApproveAtEntry) await setDocumentAutoApproveFromApi(page, true)", setup);
+    const verify = spec.indexOf("expect(await readDocumentAutoApproveFromApi(page)).toBe(true)", enable);
     const send = spec.indexOf("await send.click()");
-    expect(enable).toBeGreaterThan(-1);
-    expect(send).toBeGreaterThan(enable);
-    expect(spec).toContain('getByTestId("chat-document-generation-auto-approve-toggle")');
-    expect(spec).toContain('response.request().method() === "PUT"');
-    expect(spec).toContain('path.endsWith("/document-generation-auto-approve")');
-    expect(spec).toContain('expect(response.ok(), "文档自动批准开关的 PUT 必须成功").toBe(true)');
-    expect(spec).toContain('toEqual({ enabled })');
-    expect(spec).toContain('toHaveAttribute("aria-checked", expected)');
+    expect(setup).toBeGreaterThan(-1);
+    expect(enable).toBeGreaterThan(setup);
+    expect(verify).toBeGreaterThan(enable);
+    expect(send).toBeGreaterThan(verify);
+    expect(spec).toContain('getByTestId("chat-document-generation-auto-approve-toggle")).toHaveCount(0)');
+    expect(spec).toContain('authenticatedSessionRequest(page, path, "PUT", { enabled })');
+    expect(spec).toContain('authenticatedSessionRequest(page, path, "GET")');
   });
 
   it("restores the exact initial grant through authenticated API even when UI is blocked", () => {
@@ -33,14 +34,13 @@ describe("real-model PDF lane documents its consent before execution", () => {
     expect(spec).toContain('toEqual({ enabled })');
   });
 
-  it("cleans a historical grant residue before reenacting UI consent", () => {
-    const read = spec.indexOf("readDocumentAutoApproveFromApi(page)");
-    const reset = spec.indexOf("setDocumentAutoApproveFromApi(page, false)");
-    const enable = spec.indexOf("setDocumentAutoApproveFromUi(page, true)");
+  it("captures the initial grant before temporarily enabling it", () => {
+    const read = spec.indexOf("const persistedDocumentAutoApproveAtEntry = await readDocumentAutoApproveFromApi(page)");
+    const capture = spec.indexOf("documentAutoApproveInitial = persistedDocumentAutoApproveAtEntry");
+    const enable = spec.indexOf("setDocumentAutoApproveFromApi(page, true)");
     expect(read).toBeGreaterThan(-1);
-    expect(reset).toBeGreaterThan(read);
-    expect(enable).toBeGreaterThan(reset);
-    expect(spec).toContain('toHaveAttribute("aria-checked", "false")');
+    expect(capture).toBeGreaterThan(read);
+    expect(enable).toBeGreaterThan(capture);
   });
 
   it("continues one confirm_task_intent card through real UI and records one decision POST", () => {
