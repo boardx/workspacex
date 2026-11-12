@@ -119,6 +119,12 @@ await addOrgMember(orgId, memberUserId, "consultant", fixture.teams.fullstack ??
 // instead of on `REVIEWER_FUNCTION_MISMATCH` -- red, but not for the right reason.
 await addOrgMember(orgId, securityReviewerUserId, "consultant", fixture.teams.fullstack ?? null);
 
+// The canvas simulation uses the real Credit admission path for this seeded admin.
+await asOwner(client => client.query(
+  "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO NOTHING",
+  [adminUserId],
+));
+
 // The deterministic voice supplier still needs an explicit financial tariff:
 // mandatory accounting cannot be bypassed by the smoke fixture's quota flags.
 // Global price fixture setup uses only the isolated migration owner; app_rw remains read-only.
