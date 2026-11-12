@@ -102,7 +102,7 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
   const intakeImmutable = Boolean(intake && source?.states.some((state) => state.documentId === intake.documentId && ["confirmed", "completed"].includes(state.status)));
   const failure = analysis && source?.states.find((state) => state.documentId === analysis.documentId)?.status === "failed"
     ? t("itv.planning.incomplete") : null;
-  return <div>
+  return <div className="flex flex-1 flex-col">
     {draftConflict && <div role="alert" className="mb-4 rounded-lg border border-border p-4 text-sm">{t("itv.planning.conflict")}<Button variant="outline" className="ml-3" onClick={() => { setMarkdown(source?.documents.find(doc => doc.step === "intake")?.markdown ?? ""); dirty.current = false; draftBase.current = null; callbacks.current.onDirtyChange(false); }}>{t("itv.adoptLatest")}</Button></div>}
     {error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{t(error)}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={() => void action(async () => { receive(await loadInterviewMarkdown(interviewId)); })}>{t("itv.planning.reload")}</Button></div>}
     {step === "intake" ? <InterviewIntakeStep voiceSessionToken={getStoredSessionToken() ?? undefined} markdown={markdown} pending={pending} readOnly={intakeImmutable} onImportFile={importInterviewTextFile} onUploadFile={async (file) => {
