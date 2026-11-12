@@ -249,3 +249,71 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     await expect(page.getByTestId("inbox-drawer")).toContainText(feedbackTitle);
   });
 });
+
+test("design board owns zoom over generated HTML and inherits the app theme", async ({ page }) => {
+  const projectId = "design-zoom-fixture";
+  const project = {
+    id: projectId, name: "Zoom fixture", template: "wireframe", problem: "Zoom", criteria: [],
+    frames: ["Page"], frameNotes: [], tags: [], refImages: [], theme: "light", accent: "neutral",
+    tokens: { brand: null, font: "sans", radius: "default", density: "default" },
+    prototype: [{ id: "html-1", type: "html", props: { html: '<main style="height:2000px"><button data-ref="r1">Generated content</button></main>' } }],
+    pushed: false, pushedAt: null, linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,
+    chat: [], share: null, ownerId: "fixture", ownerName: "Fixture",
+    createdAt: "2026-11-13T00:00:00.000Z", updatedAt: "2026-11-13T00:00:00.000Z",
+  };
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.theme", "light");
+    localStorage.setItem("wsx.sessionToken", "fixture");
+  });
+  await page.route("**/pm-designs**", route => {
+    const pathname = new URL(route.request().url()).pathname;
+    return route.fulfill({ json: { items: pathname.endsWith("/pm-designs") ? [project] : [] } });
+  });
+  await page.goto(`/studio/design-workbench/${projectId}`);
+  const workbench = page.getByTestId("design-detail");
+  const zoom = page.getByTestId("design-detail-zoom-level");
+  const iframe = page.getByTestId("design-html-page");
+  const target = page.frameLocator('[data-testid="design-html-page"]').getByRole("button", { name: "Generated content" });
+  await expect(target).toBeVisible();
+  const lightBackground = await workbench.evaluate(el => getComputedStyle(el).backgroundColor);
+  await page.locator("html").evaluate(el => el.classList.add("dark"));
+  await expect.poll(() => workbench.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(lightBackground);
+  await page.locator("html").evaluate(el => el.classList.remove("dark"));
+  await expect.poll(() => workbench.evaluate(el => getComputedStyle(el).backgroundColor)).toBe(lightBackground);
+  await expect(page.getByTestId("design-detail-phone")).toHaveAttribute("data-theme", "light");
+
+  await target.evaluate(el => {
+    el.ownerDocument.defaultView!.addEventListener("wheel", event => {
+      el.setAttribute("data-wheel-canceled", String(event.defaultPrevented));
+    });
+  });
+  const originalZoom = Number.parseInt(await zoom.innerText(), 10);
+  const originalWidth = await page.evaluate(() => innerWidth);
+  await target.hover();
+  await page.keyboard.down("Control");
+  try {
+    await page.mouse.wheel(0, -100);
+    await expect.poll(async () => Number.parseInt(await zoom.innerText(), 10)).toBeGreaterThan(originalZoom);
+    await expect(target).toHaveAttribute("data-wheel-canceled", "true");
+    const zoomedIn = Number.parseInt(await zoom.innerText(), 10);
+    await target.hover();
+    await page.mouse.wheel(0, 100);
+    await expect.poll(async () => Number.parseInt(await zoom.innerText(), 10)).toBeLessThan(zoomedIn);
+  } finally {
+    await page.keyboard.up("Control");
+  }
+  expect(await page.evaluate(() => innerWidth)).toBe(originalWidth);
+  await expect(iframe).toHaveAttribute("sandbox", "allow-scripts");
+  await target.hover();
+  await page.mouse.wheel(0, 100);
+  await expect(target).toHaveAttribute("data-wheel-canceled", "false");
+  await expect.poll(() => target.evaluate(el => el.ownerDocument.defaultView!.scrollY)).toBeGreaterThan(0);
+
+  await clickMore(page, "design-detail-present");
+  const presentation = page.getByTestId("design-present");
+  await expect(presentation).toBeVisible();
+  const presentationLight = await presentation.evaluate(el => getComputedStyle(el).backgroundColor);
+  await page.locator("html").evaluate(el => el.classList.add("dark"));
+  await expect.poll(() => presentation.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(presentationLight);
+});

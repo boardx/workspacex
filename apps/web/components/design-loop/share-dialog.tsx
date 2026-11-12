@@ -89,7 +89,7 @@ export function ShareDialog({
   };
 
   return (
-    <div className="dark fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="design-share-dialog">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="design-share-dialog">
       <div className="absolute inset-0 bg-inverse/50" onClick={onClose} aria-hidden />
       <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="发布与分享" className="relative flex w-full max-w-lg flex-col gap-3 rounded-card border border-border bg-card p-5 text-card-foreground shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <h3 className="text-16 font-semibold">分享「{project.name}」</h3>

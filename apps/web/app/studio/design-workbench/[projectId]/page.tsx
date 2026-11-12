@@ -5,7 +5,7 @@ import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 
 /**
  * Studio 独立入口的设计详情页——同底层 `DesignDetailScreen`（真栈，见
- * `/platform-admin/design-workbench/[projectId]/page.tsx` 头注），全屏深色页，
+ * `/platform-admin/design-workbench/[projectId]/page.tsx` 头注），跟随 App 主题的全屏页，
  * 不套 `AppShell`。返回/下一个都留在本路由 `/studio/design-workbench` 下，
  * 不跳回平台后台；跳转收件箱仍是唯一那个后台屏 `/platform-admin/inbox`——
  * 收件箱没有 Studio 独立入口，不重复建一个。

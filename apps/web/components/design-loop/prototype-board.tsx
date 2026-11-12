@@ -17,7 +17,7 @@ function clampTo(v: number, lo: number, hi: number): number {
  */
 import * as React from "react";
 import type { CommentPin } from "./comment-pins";
-import { Minus, Plus, Maximize2, Scan } from "lucide-react";
+import { Minus, Plus, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PrototypeCanvas, rotated, linkKey, type PrototypeCanvasMode, type PrototypeDevicePreset } from "./prototype-canvas";
 import type { designWorkbench } from "@repo/contracts";
@@ -191,7 +191,7 @@ export function PrototypeBoard({
     return () => ro.disconnect();
   }, [measure, frames, device, landscape, view.k]);
 
-  const zoomAt = (factor: number, cx?: number, cy?: number) => {
+  const zoomAt = React.useCallback((factor: number, cx?: number, cy?: number) => {
     touched.current = true; // 见上方 ResizeObserver：手动调过就不再自动适应
     setView((v) => {
       const k = clamp(v.k * factor);
@@ -200,18 +200,30 @@ export function PrototypeBoard({
       const r = k / v.k;
       return { x: cx - (cx - v.x) * r, y: cy - (cy - v.y) * r, k };
     });
-  };
+  }, []);
 
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
+  const zoomFromWheel = React.useCallback((deltaY: number, clientX: number, clientY: number) => {
     const rect = viewportRef.current?.getBoundingClientRect();
-    if (e.ctrlKey || e.metaKey) {
-      zoomAt(e.deltaY < 0 ? STEP : 1 / STEP, e.clientX - (rect?.left ?? 0), e.clientY - (rect?.top ?? 0));
-    } else {
-      touched.current = true;
-      setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
-    }
-  };
+    if (!rect || deltaY === 0) return;
+    zoomAt(deltaY < 0 ? STEP : 1 / STEP, clientX - rect.left, clientY - rect.top);
+  }, [zoomAt]);
+
+  React.useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    // React delegates wheel events through a passive listener in Chromium.
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      if (event.ctrlKey || event.metaKey) {
+        zoomFromWheel(event.deltaY, event.clientX, event.clientY);
+      } else {
+        touched.current = true;
+        setView((v) => ({ ...v, x: v.x - event.deltaX, y: v.y - event.deltaY }));
+      }
+    };
+    viewport.addEventListener("wheel", onWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", onWheel);
+  }, [zoomFromWheel]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -251,7 +263,6 @@ export function PrototypeBoard({
       data-testid="design-detail-board"
       data-allow-x-scroll="画板需平移缩放；transform 由 pointer/wheel 驱动"
       tabIndex={0}
-      onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -286,6 +297,7 @@ export function PrototypeBoard({
             <div className={cn("rounded-container transition-shadow duration-fast", i === activeFrame && "ring-2 ring-primary/50 ring-offset-2 ring-offset-background")}>
               <PrototypeCanvas
               theme={theme}
+                onBoardZoom={zoomFromWheel}
                 label={label}
                 root={prototype[i] ?? null}
                 selectedId={selectedId}

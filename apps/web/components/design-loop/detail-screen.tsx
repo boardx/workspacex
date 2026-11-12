@@ -83,13 +83,7 @@ const ACCENT_LABEL: Record<PrototypeAccent, string> = {
   neutral: "不用强调色（中性灰）", blue: "靛蓝", violet: "紫", teal: "青",
   green: "绿", amber: "琥珀", rose: "玫红", slate: "石板灰",
 };
-/**
- * 选择器上那个小圆点用哪一套值。
- *
- * ⚠ 固定取 `dark` 那一套，**不跟着项目主题变**：这一排按钮长在深色的工具条上，
- * 跟着项目主题切会让做浅色稿时一排色点全部压暗，在深色工具条上糊成一片——
- * 那时它标的就不再是"这个档位长什么样"，而是"这个档位在别处长什么样"。
- */
+// Accent swatches represent the available palettes in the appearance picker.
 const ACCENT_SWATCH: Record<Exclude<PrototypeAccent, "neutral">, string> = Object.fromEntries(
   Object.entries(designWorkbench.PROTOTYPE_ACCENTS).map(([k, v]) => [k, v.dark.primary]),
 ) as Record<Exclude<PrototypeAccent, "neutral">, string>;
@@ -108,8 +102,7 @@ type Load =
   | { kind: "failed"; reason: string };
 
 /**
- * PM 设计详情全屏页（Claude Code 风格深色 IDE）。
- * 用 `.dark` 强制深色 token 体系（app/globals.css 的 `.dark` 那份），不另立颜色。
+ * PM 设计详情全屏页，使用 App 的主题 token。
  * 脱离后台三栏骨架：整屏铺满。
  *
  * UC-17.8 B4.5 —— **真栈**（契约 `designWorkbench`）。切自原型 mock store（已于 B6.1 删除）
@@ -687,7 +680,7 @@ export function DesignDetailScreen({
 
   if (load.kind === "loading") {
     return (
-      <div className="dark grid h-dvh place-items-center bg-background text-background-foreground" data-testid="loading">
+      <div className="grid h-dvh place-items-center bg-background text-background-foreground" data-testid="loading">
         <Loader2 aria-hidden className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -695,7 +688,7 @@ export function DesignDetailScreen({
 
   if (load.kind === "failed") {
     return (
-      <div className="dark grid h-dvh place-items-center bg-background text-background-foreground" data-testid="dep-failed">
+      <div className="grid h-dvh place-items-center bg-background text-background-foreground" data-testid="dep-failed">
         <div className="flex flex-col items-center gap-2 text-center">
           <PlugZap aria-hidden className="h-8 w-8 text-muted-foreground" />
           <p className="text-14 font-medium">这个设计项目暂时读不到（{load.reason}）</p>
@@ -707,7 +700,7 @@ export function DesignDetailScreen({
 
   if (load.kind === "missing" || project === null) {
     return (
-      <div className="dark grid h-dvh place-items-center bg-background text-background-foreground" data-testid="design-detail-missing">
+      <div className="grid h-dvh place-items-center bg-background text-background-foreground" data-testid="design-detail-missing">
         <div className="flex flex-col items-center gap-2 text-center">
           <p className="text-14 font-medium">找不到这个设计项目</p>
           <Button variant="outline" size="sm" onClick={onBack}>返回工作台</Button>
@@ -869,7 +862,7 @@ export function DesignDetailScreen({
   // 状态都在这个组件里，退出演示回来一切照旧，停在演示最后翻到的那一页。
   if (presenting) {
     return (
-      <div className="dark">
+      <div>
         <PresentMode
           project={project} startFrame={frame} device={lens} landscape={landscape} links={project.frameLinks ?? []}
           onExit={(f) => { setPresenting(false); setFrame(f); }}
@@ -879,7 +872,7 @@ export function DesignDetailScreen({
   }
 
   return (
-    <div className="dark flex h-dvh flex-col bg-background text-background-foreground" data-testid="design-detail">
+    <div className="flex h-dvh flex-col bg-background text-background-foreground" data-testid="design-detail">
       {/* 顶部条 */}
       <header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
         <Button variant="ghost" size="sm" onClick={onBack} data-testid="design-detail-back">
