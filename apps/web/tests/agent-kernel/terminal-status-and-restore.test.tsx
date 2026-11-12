@@ -292,7 +292,7 @@ describe("useCopilotKitV2RunRestore：真实 WS 事件驱动，终态到达后�
       kind: "settled",
       view: { runId: "run-1", threadId: "thr-1", status: "succeeded", error: null, resultMessageId: "cm-2" },
     }));
-    expect(getAgentRun).toHaveBeenCalledWith("run-1", "tok");
+    expect(getAgentRun).toHaveBeenCalledWith("run-1", "tok", undefined, { notifyCredit: false });
     await waitFor(() => expect(result.current.isRestoring).toBe(false));
   });
 
