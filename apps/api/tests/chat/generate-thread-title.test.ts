@@ -28,6 +28,7 @@ import { createChatWave2FixtureSchema } from "../support/chat-wave2-fixture-sche
 import { DEFAULT_PERSONAL_THREAD_TITLE } from "../../src/application/chat/mutate-thread";
 import { deriveThreadTitle } from "../../src/domain/chat/thread-title";
 import { THREAD_TITLE_TIMEOUT_MS } from "../../src/application/chat/generate-thread-title";
+import { readThreadTitleModelConfig } from "../../src/infrastructure/chat/thread-title-model-config";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -191,6 +192,14 @@ beforeEach(async () => {
   await publishAgent();
 });
 
+it("defaults to model titles in production and preserves explicit overrides", () => {
+  const env = { NODE_ENV: "production", KERNEL_MODEL_PROVIDER: PROVIDER };
+  expect(readThreadTitleModelConfig(env).provider).toBe(PROVIDER);
+  expect(readThreadTitleModelConfig({ ...env, KERNEL_THREAD_TITLE_MODEL_ENABLED: "0" }).provider).toBe("");
+  expect(readThreadTitleModelConfig({ ...env, NODE_ENV: "test" }).provider).toBe("");
+  expect(readThreadTitleModelConfig({ ...env, NODE_ENV: "test", KERNEL_THREAD_TITLE_MODEL_ENABLED: "1" }).provider).toBe(PROVIDER);
+});
+
 describe("自动命名叠加模型摘要 —— POST /chat/threads/:id/messages", () => {
   it("① 模型可用 ⇒ 标题是模型回复（折叠后），不是首条消息的字面截断", async () => {
     const threadId = await newPersonalThread();
@@ -206,6 +215,19 @@ describe("自动命名叠加模型摘要 —— POST /chat/threads/:id/messages"
     // 真的把首条消息正文送进了模型调用——不是套壳固定 prompt。
     const userTurns = calls[0]!.body.messages!.filter((m) => m.role === "user").map((m) => m.content);
     expect(userTurns.some((c) => c.includes("能耗预算周报"))).toBe(true);
+  });
+
+  it("uses the topic later in a long transcript to save a short title", async () => {
+    const threadId = await newPersonalThread();
+    const text = "来，大家坐下来，先看看这个，然后我们再继续聊。".repeat(150) + "今天的任务是策划宁波电网新能源工作坊。";
+    nextReplyText = "宁波电网新能源工作坊";
+
+    expect((await postMessage(threadId, text)).status).toBe(202);
+    expect(await titleOf(threadId)).toBe("宁波电网新能源工作坊");
+    expect(calls).toHaveLength(1);
+    const evidence = calls[0]!.body.messages!.find((message) => message.role === "user")!.content;
+    expect(evidence).toContain("策划宁波电网新能源工作坊");
+    expect(Array.from(evidence).length).toBeLessThan(Array.from(text).length);
   });
 
   it("② 模型调用失败（HTTP 500）⇒ 落回 deriveThreadTitle，发消息仍然 202", async () => {

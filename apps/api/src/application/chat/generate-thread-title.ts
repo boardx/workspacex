@@ -35,15 +35,12 @@
  *
  * ## 硬超时：应用层自己包一层 `Promise.race`
  *
- * `ModelCallPort.complete` 不接受 `AbortSignal`，`ConfiguredModelProvider` 自己的
- * 超时（`KERNEL_MODEL_TIMEOUT_MS`，默认 180s）对"侧栏第一眼就要出现的标题"太长——
- * 本函数用 `Promise.race` 包一层短得多的超时（`THREAD_TITLE_TIMEOUT_MS`），超时或
- * 任何异常一律 catch 成 `null`，不抛。这是本 feature 唯一原创的技术点：
- * `application`/`domain` 层此前没有任何 `Promise.race`/`withTimeout` 助手。
+ * 命名使用独立短时限，到期取消本地传输并保留已有的标题降级路径。
  */
 import type { ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
 import { clampModelGeneratedTitle } from "../../domain/chat/thread-title";
+import { EVIDENCE_TOTAL_MAX } from "../../domain/chat/thread-title-algorithm";
 
 /**
  * 自动命名固定使用的 provider/modelId——不是被选中 Agent 的快照。唯一实现是
@@ -79,7 +76,8 @@ export const THREAD_TITLE_TIMEOUT_MS = 3_000;
  */
 export const THREAD_TITLE_SYSTEM_PROMPT =
   "你是一个对话系统的标题生成器。根据用户的第一条消息，生成一个简短的对话标题，" +
-  "6 到 12 个汉字以内（或等效长度的其它语言字符），概括这条消息的主题或意图。" +
+  "中文标题控制在 6 到 12 个字，其它语言控制在 3 到 6 个词，并使用用户的语言。" +
+  "如果输入是口语转录或长文，提炼其中的核心议题和任务，忽略寒暄、口头禅和无关开场。" +
   "只输出标题本身这一行文字，不要加引号、句号、markdown 标记或任何解释性文字。";
 
 /**
@@ -109,13 +107,9 @@ export async function generateThreadTitle(
     readonly stage: number;
   },
 ): Promise<string | null> {
-  // ⚠ `readThreadTitleModelConfig` 在开关关闭时把 `provider` 读成 `""`——这里就地
-  // 短路，不去碰 `deps.model.complete`。这条路径挂在 `acceptHumanMessage` 上，是
-  // **每一条线程首条消息**都会走的通路：没有这个短路，任何用同一个 mock provider
-  // 断言"模型被调用几次/带了什么内容"的既有测试，只要发的是线程首条消息，调用计数
-  // 就会被这次额外的起名调用污染——这不是假设，是 `KERNEL_THREAD_TITLE_MODEL_ENABLED`
-  // 上线前实测踩出来的（gates-test shard 1/4）。
   if (deps.titleModel.provider === "") return null;
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
   let completion: { readonly text: string };
   try {
     completion = await Promise.race([
@@ -127,10 +121,16 @@ export async function generateThreadTitle(
         system: input.stage <= 1
           ? THREAD_TITLE_SYSTEM_PROMPT
           : THREAD_TITLE_SESSION_SYSTEM_PROMPT,
-        user: input.evidence,
+        user: input.stage <= 1 ? firstMessageEvidence(input.evidence) : input.evidence,
+        thinkingMode: "off",
+        outputTokenLimit: 64,
+        signal: controller.signal,
       }),
       new Promise<never>((_resolve, reject) => {
-        setTimeout(() => reject(new Error("thread title model call timed out")), THREAD_TITLE_TIMEOUT_MS);
+        timer = setTimeout(() => {
+          reject(new Error("thread title model call timed out"));
+          controller.abort();
+        }, THREAD_TITLE_TIMEOUT_MS);
       }),
     ]);
   } catch (e) {
@@ -144,7 +144,24 @@ export async function generateThreadTitle(
       detail,
     });
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 
   return clampModelGeneratedTitle(completion.text);
+}
+
+
+/** Retain topics that appear after a long transcript's opening remarks. */
+function firstMessageEvidence(text: string): string {
+  const points = Array.from(text.replace(/\s+/gu, " ").trim());
+  if (points.length <= EVIDENCE_TOTAL_MAX) return points.join("");
+  const separator = "\n…\n";
+  const segmentLength = Math.floor((EVIDENCE_TOTAL_MAX - 2 * separator.length) / 3);
+  const middle = Math.floor((points.length - segmentLength) / 2);
+  return [
+    points.slice(0, segmentLength),
+    points.slice(middle, middle + segmentLength),
+    points.slice(-segmentLength),
+  ].map((segment) => segment.join("")).join(separator);
 }
