@@ -804,6 +804,7 @@ export function CopilotKitV2PanelView({
                 <ComposerVoiceControl
                   status={speech.status}
                   phase={voice.phase}
+                  reconnecting={speech.reconnecting}
                   elapsedSeconds={voice.totalSeconds}
                   level={speech.level}
                   disabled={!canWrite || archived || agent.isRunning}

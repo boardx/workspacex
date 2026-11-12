@@ -44,9 +44,10 @@ vi.mock("@/components/session/session-provider", async (importOriginal) => ({
     session: { sessionToken: "b", userId: "u", orgIds: ["org-1"], currentOrgId: "org-1", expiresAt: "2099-01-01T00:00:00.000Z" },
   }),
 }));
+const recovery = vi.hoisted(() => ({ active: false }));
 vi.mock("@/lib/use-asr-draft", () => ({
   useAsrDraft: () => ({
-    status: "idle", errorReason: null, listening: false, connecting: false, stopping: false, error: null,
+    status: recovery.active ? "connecting" : "idle", reconnecting: recovery.active, errorReason: null, listening: false, connecting: false, stopping: false, error: null,
     start: vi.fn(), stop: vi.fn(), cancel: vi.fn(), elapsedSeconds: 0, level: 0,
     baseText: "", committedText: "", partialText: "",
   }),
@@ -93,6 +94,7 @@ function mount() {
 beforeEach(() => {
   vi.clearAllMocks();
   voice.phase = "idle";
+  recovery.active = false;
   diagramMountCount.current = 0;
   window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "b");
 });
@@ -146,4 +148,19 @@ it.each([
   mount();
   await screen.findByTestId("chat-diagram-fabric-probe");
   expect(screen.getByText(title)).toBeTruthy();
+});
+
+it("offers a non-destructive stop from both controls and Escape during recovery", async () => {
+  voice.phase = "connecting";
+  recovery.active = true;
+  mount();
+  await screen.findByTestId("chat-diagram-fabric-probe");
+  expect(screen.getByText(/Connection interrupted/)).toBeTruthy();
+  const mic = screen.getByTestId("chat-task-workbench-composer-mic");
+  expect(mic.hasAttribute("disabled")).toBe(false);
+  fireEvent.click(mic);
+  fireEvent.click(screen.getByTestId("chat-task-workbench-composer-recording-confirm"));
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(voice.finish).toHaveBeenCalledTimes(3);
+  expect(voice.discard).not.toHaveBeenCalled();
 });

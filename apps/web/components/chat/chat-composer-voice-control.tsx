@@ -80,6 +80,7 @@ function LevelBars({ level }: { level: number }): JSX.Element {
 export function ComposerVoiceControl({
   status,
   phase,
+  reconnecting,
   elapsedSeconds,
   level,
   disabled,
@@ -96,6 +97,7 @@ export function ComposerVoiceControl({
 }: {
   readonly status: AsrDraftStatus;
   readonly phase: ComposerVoicePhase;
+  readonly reconnecting?: boolean;
   readonly elapsedSeconds: number;
   readonly level: number;
   readonly disabled: boolean;
@@ -138,9 +140,10 @@ export function ComposerVoiceControl({
 
   const listening = phase === "listening";
   const paused = phase === "paused";
-  const busy = phase === "connecting" || phase === "stopping";
+  const canStop = listening || reconnecting;
+  const busy = (phase === "connecting" && !reconnecting) || phase === "stopping";
   const deviceText = describeVoiceDevice(devices, selectedDeviceId, locale);
-  const ariaLabel = paused ? t("chatComposer.voiceResume") : t(LABEL_BY_STATUS[status]);
+  const ariaLabel = canStop ? t("chatComposer.voiceStop") : paused ? t("chatComposer.voiceResume") : t(LABEL_BY_STATUS[status]);
 
   const shell = listening
     ? "border-destructive bg-destructive text-destructive-foreground"
@@ -165,24 +168,25 @@ export function ComposerVoiceControl({
             aria-label={ariaLabel}
             disabled={disabled || busy}
             onClick={() => {
-              if (!onRequireSession()) return;
-              if (listening) onStop();
-              else if (paused) onResume();
-              else onStart();
+              if (canStop) onStop();
+              else if (onRequireSession()) {
+                if (paused) onResume();
+                else onStart();
+              }
             }}
             className={`flex items-center gap-2 rounded-l-pill pl-3.5 pr-3 text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover}`}
           >
             {busy ? (
               <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-            ) : listening ? (
+            ) : canStop ? (
               <Square aria-hidden className="h-3 w-3 fill-current" />
             ) : (
               <Mic aria-hidden className="h-4 w-4" />
             )}
             <span>
-              {phase === "connecting" ? t("chatComposer.voiceConnectingShort")
+              {canStop ? t("chatComposer.stop")
+                : phase === "connecting" ? t("chatComposer.voiceConnectingShort")
                 : phase === "stopping" ? t("chatComposer.stopping")
-                : listening ? t("chatComposer.stop")
                 : paused ? t("chatComposer.continue")
                 /*
                  * 2026-09-23：出错态这里原来写「重试」——状态栏里已经有一个「重试」，屏上于是并排两个；
@@ -229,7 +233,7 @@ export function ComposerVoiceControl({
             type="button"
             role="menuitemradio"
             aria-checked={selectedDeviceId === null}
-            disabled={listening || busy}
+            disabled={canStop || busy}
             onClick={() => { onSelectDevice(null); setMenuOpen(false); }}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground"
           >
@@ -242,7 +246,7 @@ export function ComposerVoiceControl({
               type="button"
               role="menuitemradio"
               aria-checked={device.deviceId === selectedDeviceId}
-              disabled={listening || busy}
+              disabled={canStop || busy}
               onClick={() => { onSelectDevice(device.deviceId); setMenuOpen(false); }}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground"
             >

@@ -488,6 +488,8 @@ export function ChatLiveMessagePanel({
     autoReconnect: true,
     deviceId: micDevices.selectedDeviceId ?? undefined,
   });
+  const canStopSpeech = speech.listening || speech.reconnecting;
+  const speechBusy = (speech.connecting && !speech.reconnecting) || speech.stopping;
   const speechStopRef = React.useRef(speech.stop);
   speechStopRef.current = speech.stop;
   // run 到终态时通知调用方重读线程列表；用 ref 是因为轮询 effect 的依赖数组里
@@ -1800,7 +1802,7 @@ export function ChatLiveMessagePanel({
               <Button
                 type="button"
                 size="icon"
-                variant={speech.listening ? "destructive" : "outline"}
+                variant={canStopSpeech ? "destructive" : "outline"}
                 // 人类反馈（devapp 实测）：麦克风按钮录音中整体闪烁（`animate-pulse` 让
                 // 按钮本体+图标反复淡入淡出）体验差。录音态已经靠实心红底
                 // （`variant="destructive"`）+ 下方 `chat-mic-listening` 那颗小红点
@@ -1809,26 +1811,28 @@ export function ChatLiveMessagePanel({
                 data-testid="chat-mic-button"
                 data-mic-status={speech.status}
                 aria-pressed={speech.listening}
-                aria-busy={speech.connecting || speech.stopping}
+                aria-busy={speechBusy}
                 aria-label={
-                  speech.connecting ? "正在连接语音识别…"
+                  canStopSpeech ? "停止语音输入"
+                    : speech.connecting ? "正在连接语音识别…"
                     : speech.stopping ? "正在停止…"
-                    : speech.listening ? "停止语音输入" : "开始语音输入"
+                    : "开始语音输入"
                 }
                 title={
                   noAgentToRunWith ? "没有可选 Agent，暂时无法发送消息"
+                    : canStopSpeech ? "停止语音输入"
                     : speech.connecting ? "正在连接语音识别…"
                     : speech.stopping ? "正在停止…"
-                    : speech.listening ? "停止语音输入" : "开始语音输入"
+                    : "开始语音输入"
                 }
                 // #726 real-upstream 补丁（devapp 实测「反应半天」「停不下来」）：connecting/
                 // stopping 期间禁用——那段真实网络延迟里再点一下不该起第二条采音管线，也
                 // 不该在还没停干净时又开始一条新的（`use-asr-draft.ts` 的 stoppingRef 是
                 // 第二道防线，这里是第一道：UI 本身就不让点）。
-                disabled={archived || submitting || noAgentToRunWith || speech.connecting || speech.stopping}
-                onClick={() => (speech.listening ? speech.stop() : speech.start())}
+                disabled={archived || submitting || noAgentToRunWith || speechBusy}
+                onClick={() => (canStopSpeech ? speech.stop() : speech.start())}
               >
-                {speech.connecting || speech.stopping ? (
+                {speechBusy ? (
                   <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Mic aria-hidden className="h-3.5 w-3.5" />
@@ -1865,7 +1869,7 @@ export function ChatLiveMessagePanel({
           // 这段等待期界面必须说话，不能沉默（devapp 实测反馈「点了反应半天」正是这段空窗）。
           <p className="mt-2 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="chat-mic-connecting">
             <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-            正在连接语音识别……
+            {speech.reconnecting ? "连接暂时中断，正在尝试重连。已识别文字保留。" : "正在连接语音识别……"}
           </p>
         ) : null}
         {speech.listening ? (

@@ -15,8 +15,11 @@ export function ChatComposerCurrentStatus({ voice, speech, hasUploading, archive
     if (voice.phase === "connecting") {
       return (
         <ComposerStatusBar tone="neutral" testId="chat-mic-connecting" icon={<Loader2 className="h-4 w-4 animate-spin" />}
-          title={t("chatComposer.voiceConnecting")} description={t("chatComposer.voiceConnectingHint")}
-          actions={[{ label: t("common.cancel"), onClick: voice.discard, testId: "chat-task-workbench-composer-recording-cancel" }]} />
+          title={speech.reconnecting ? t("voice.reconnecting") : t("chatComposer.voiceConnecting")}
+          description={speech.reconnecting ? undefined : t("chatComposer.voiceConnectingHint")}
+          actions={speech.reconnecting
+            ? [{ label: t("chatComposer.stop"), onClick: voice.finish, testId: "chat-task-workbench-composer-recording-confirm" }]
+            : [{ label: t("common.cancel"), onClick: voice.discard, testId: "chat-task-workbench-composer-recording-cancel" }]} />
       );
     }
     if (voice.phase === "listening" && voice.silenceHint) {
