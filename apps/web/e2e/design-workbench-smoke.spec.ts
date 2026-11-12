@@ -309,4 +309,11 @@ test("design board owns zoom over generated HTML and inherits the app theme", as
   await page.mouse.wheel(0, 100);
   await expect(target).toHaveAttribute("data-wheel-canceled", "false");
   await expect.poll(() => target.evaluate(el => el.ownerDocument.defaultView!.scrollY)).toBeGreaterThan(0);
+
+  await clickMore(page, "design-detail-present");
+  const presentation = page.getByTestId("design-present");
+  await expect(presentation).toBeVisible();
+  const presentationLight = await presentation.evaluate(el => getComputedStyle(el).backgroundColor);
+  await page.locator("html").evaluate(el => el.classList.add("dark"));
+  await expect.poll(() => presentation.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(presentationLight);
 });

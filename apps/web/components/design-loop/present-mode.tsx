@@ -91,7 +91,7 @@ export function PresentMode({
     <div
       ref={stageRef}
       role="dialog" aria-modal="true" aria-label={`演示：${project.name}`}
-      className="fixed inset-0 z-50 flex flex-col bg-black text-card-foreground"
+      className="fixed inset-0 z-50 flex flex-col bg-card text-card-foreground"
       data-testid="design-present"
     >
       <div className="relative flex min-h-0 flex-1 items-center justify-center">
