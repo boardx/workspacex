@@ -86,8 +86,8 @@ describe("#458 /admin/agent 的取数与写入路径不依赖 lib/mock", () => {
     const page = readFileSync(resolve(ROOT, "app/platform-admin/[module]/page.tsx"), "utf8");
     expect(directMockReferences(page)).toEqual([]);
     expect(page).toContain('import type { AdminModuleKey } from "@/lib/admin-nav-metadata"');
-    // The Agent segment must still resolve to the already verified real screen.
-    expect(page).toMatch(/agent:\s*AgentScreen/);
+    expect(page).toContain('import { PlatformAiCatalog } from "@/components/admin/platform-ai-catalog"');
+    expect(page).toMatch(/agent:\s*\(\)\s*=>\s*<PlatformAiCatalog kind="agent"\s*\/>/);
     expect(walk("lib/admin-nav-metadata.ts").mockEdges).toEqual([]);
   });
 
