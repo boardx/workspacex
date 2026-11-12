@@ -156,23 +156,27 @@ describe("Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板", (
     expect(await screen.findByTestId("admin-agent-mutate-notice")).toHaveTextContent("prov-1");
   });
 
-  it("③′ 卡片上的「停用」把停用确认开在面板里；已停用的行没有这个按钮", async () => {
+  it("③′ 详情面板只为已启用的 Agent 提供停用操作", async () => {
     render(<AgentScreen state="default" />);
     const list = await screen.findByTestId("admin-agent-list");
-    expect(within(list).queryByTestId("admin-agent-row-agent-2-disable")).toBeNull();
+    fireEvent.click(within(list).getByTestId("admin-agent-row-agent-2"));
+    let drawer = screen.getByTestId("admin-agent-detail");
+    expect(within(drawer).queryByTestId("admin-agent-detail-disable")).toBeNull();
+    fireEvent.click(screen.getByTestId("admin-agent-detail-close"));
 
-    fireEvent.click(within(list).getByTestId("admin-agent-row-agent-1-disable"));
-    const drawer = screen.getByTestId("admin-agent-detail");
+    fireEvent.click(within(list).getByTestId("admin-agent-row-agent-1"));
+    drawer = screen.getByTestId("admin-agent-detail");
+    fireEvent.click(within(drawer).getByTestId("admin-agent-detail-disable"));
     expect(within(drawer).getByTestId("admin-agent-disable-mode")).toBeInTheDocument();
     expect(within(drawer).getByTestId("admin-agent-disable-confirm")).toBeInTheDocument();
-    // 点卡片上的按钮不会顺带把面板开成另一张卡片（stopPropagation）。
     expect(drawer).toHaveTextContent("客服 Agent");
   });
 
-  it("④ 卡片上的「编辑」仍是指向独立编辑页的链接，带 ?from=", async () => {
+  it("④ 详情面板的完整编辑链接带返回地址", async () => {
     render(<AgentScreen state="default" />);
     const list = await screen.findByTestId("admin-agent-list");
-    const link = within(list).getByTestId("admin-agent-row-agent-1-edit");
+    fireEvent.click(within(list).getByTestId("admin-agent-row-agent-1"));
+    const link = within(screen.getByTestId("admin-agent-detail")).getByTestId("admin-agent-detail-open-editor");
     expect(link.getAttribute("href")).toBe("/platform-admin/agent/agent-1?from=%2Fadmin%2Fagent");
   });
 
