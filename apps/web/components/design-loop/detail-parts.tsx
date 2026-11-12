@@ -87,7 +87,7 @@ export function PushConfirm({
 }) {
   const [note, setNote] = React.useState("");
   return (
-    <div className="dark fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="design-push-confirm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="design-push-confirm">
       <div className="absolute inset-0 bg-inverse/50" onClick={onClose} aria-hidden />
       <div role="dialog" aria-modal="true" aria-label="推送到收件箱" className="relative flex w-full max-w-md flex-col gap-3 rounded-card border border-border bg-card p-5 text-card-foreground shadow-lg">
         <h3 className="text-16 font-semibold">推送「{project.name}」到收件箱</h3>
@@ -116,7 +116,7 @@ export function PushConfirm({
 
 export function PushSuccess({ project, code, onOpenInbox, onNextDesign }: { project: DesignProject; code: string; onOpenInbox?: () => void; onNextDesign?: () => void }) {
   return (
-    <div className="dark flex h-dvh flex-col items-center justify-center gap-4 bg-background p-16 text-center text-background-foreground" data-testid="design-push-success">
+    <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-background p-16 text-center text-background-foreground" data-testid="design-push-success">
       <CheckCircle2 aria-hidden className="h-14 w-14 text-success" />
       <div>
         <p className="text-20 font-semibold">已推送到收件箱</p>

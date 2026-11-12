@@ -16,7 +16,8 @@ export const HTML_PAGE_MESSAGE_SOURCE = "wsx-html-page";
 export type HtmlPageMessage =
   | { readonly source: typeof HTML_PAGE_MESSAGE_SOURCE; readonly type: "goto"; readonly id: string }
   /** 编辑态：点了哪个元素（`ref` = 清洗时补的 `data-ref`；点在空白处 ⇒ `null`，表示选中整页）。 */
-  | { readonly source: typeof HTML_PAGE_MESSAGE_SOURCE; readonly type: "select"; readonly ref: string | null };
+  | { readonly source: typeof HTML_PAGE_MESSAGE_SOURCE; readonly type: "select"; readonly ref: string | null }
+  | { readonly source: typeof HTML_PAGE_MESSAGE_SOURCE; readonly type: "board-zoom"; readonly deltaY: number; readonly x: number; readonly y: number };
 
 /** 父页面 → iframe：当前选中的元素，桥据此画出选中框。 */
 export const HTML_PAGE_PARENT_SOURCE = "wsx-parent";
@@ -38,6 +39,8 @@ const BASE_CSS =
  *   · 编辑态：悬停画框、点击 ⇒ 告诉父页面选中了哪个 `data-ref` 元素（精确到元素，不是整块区域），
  *     父页面回传当前选中的编号，桥把选中框画在它上面。点击一律 preventDefault：编辑时不让链接/按钮真的生效。
  */
+const BOARD_ZOOM_BRIDGE = `window.addEventListener("wheel",function(e){if(!(e.ctrlKey||e.metaKey)||!e.deltaY)return;e.preventDefault();parent.postMessage({source:"${HTML_PAGE_MESSAGE_SOURCE}",type:"board-zoom",deltaY:e.deltaY,x:e.clientX,y:e.clientY},"*")},{passive:false});`;
+
 const BRIDGE = `(function(){var S="${HTML_PAGE_MESSAGE_SOURCE}",P="${HTML_PAGE_PARENT_SOURCE}",edit=document.documentElement.getAttribute("data-mode")==="edit";` +
   `if(!edit){${PROTOTYPE_TABLE_INTERACTIONS}document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest("a");if(a)e.preventDefault();var g=t.closest("[data-goto]");if(g&&g.getAttribute("data-link"))parent.postMessage({source:S,type:"goto",id:g.getAttribute("data-link")},"*")},true);return}` +
   `var hl=document.createElement("div");hl.setAttribute("style","position:absolute;pointer-events:none;z-index:2147483647;outline:2px solid #3b82f6;outline-offset:1px;background:rgba(59,130,246,.08);display:none");document.body.appendChild(hl);` +
@@ -49,7 +52,7 @@ const BRIDGE = `(function(){var S="${HTML_PAGE_MESSAGE_SOURCE}",P="${HTML_PAGE_P
   `window.addEventListener("message",function(e){var d=e.data;if(e.source!==parent||!d||d.source!==P)return;sel=d.ref&&/^r\\d{1,5}$/.test(d.ref)?document.querySelector('[data-ref="'+d.ref+'"]'):null;rest()});` +
   `window.addEventListener("resize",rest);})();`;
 
-export function buildHtmlPageSrcdoc(fragment: string, opts: { readonly wireframe?: boolean; readonly mode?: "edit" | "preview" } = {}): string {
+export function buildHtmlPageSrcdoc(fragment: string, opts: { readonly wireframe?: boolean; readonly boardZoom?: boolean; readonly mode?: "edit" | "preview" } = {}): string {
   const nonce = contentNonce(fragment);
   // 页面自己拥有颜色：不跟画布的深浅主题走（像设计稿的画板，深色界面里放一张白底稿是对的）。
   // 跟着走的话，模型没给表单控件写前景色时会得到「浅色字落在浅色底上」——深色主题下的下拉框就是这么消失的。
@@ -59,6 +62,6 @@ export function buildHtmlPageSrcdoc(fragment: string, opts: { readonly wireframe
     `<!doctype html><html data-mode="${opts.mode === "edit" ? "edit" : "preview"}"><head><meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; script-src 'nonce-${nonce}'">` +
     `<meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<style>${BASE_CSS}body{${scheme}}${wire}</style></head><body>${fragment}<script nonce="${nonce}">${BRIDGE}</script></body></html>`
+    `<style>${BASE_CSS}body{${scheme}}${wire}</style></head><body>${fragment}<script nonce="${nonce}">${opts.boardZoom ? BOARD_ZOOM_BRIDGE : ""}${BRIDGE}</script></body></html>`
   );
 }

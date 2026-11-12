@@ -459,7 +459,8 @@ export const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"
 
 /** 项目级圆角 / 密度，由画布根下发给每个节点（与选中态同一种传法：context，不逐层透传 props）。 */
 /** HTML 页的 iframe 要知道画布的保真度（线框 ⇒ 灰阶）；不走 props 层层传，与 ScaleCtx 同一处理。页面不跟画布的深浅主题走，见 `html-page-srcdoc.ts`。 */
-const HtmlPageCtx = React.createContext<{ readonly wireframe: boolean }>({ wireframe: false });
+type BoardZoomHandler = (deltaY: number, clientX: number, clientY: number) => void;
+const HtmlPageCtx = React.createContext<{ readonly wireframe: boolean; readonly onBoardZoom?: BoardZoomHandler }>({ wireframe: false });
 const ScaleCtx = React.createContext<{ readonly radius: designWorkbench.PrototypeRadiusScale; readonly density: designWorkbench.PrototypeDensity }>({ radius: "default", density: "default" });
 function useScale() {
   const { radius, density } = React.useContext(ScaleCtx);
@@ -749,13 +750,19 @@ function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }
   const t = useChromeT();
   const { mode, links, onNavigate, onSelect, selectedId, selectedRef, onSelectRef } = React.useContext(SelectionCtx);
   const ref = React.useRef<HTMLIFrameElement>(null);
-  const view = React.useContext(HtmlPageCtx);
+  const { wireframe, onBoardZoom } = React.useContext(HtmlPageCtx);
   React.useEffect(() => {
     const onMessage = (e: MessageEvent): void => {
-      if (e.source === null || e.source !== ref.current?.contentWindow) return;
+      const iframe = ref.current;
+      if (!iframe || e.source === null || e.source !== iframe.contentWindow) return;
       const d = e.data as Partial<HtmlPageMessage> | null;
       if (d === null || typeof d !== "object" || d.source !== HTML_PAGE_MESSAGE_SOURCE) return;
-      if (mode === "preview" && d.type === "goto" && typeof d.id === "string") {
+      if (d.type === "board-zoom" && onBoardZoom && typeof d.deltaY === "number" && d.deltaY !== 0
+        && Number.isFinite(d.deltaY) && typeof d.x === "number" && Number.isFinite(d.x) && typeof d.y === "number" && Number.isFinite(d.y)
+        && iframe.offsetWidth > 0 && iframe.offsetHeight > 0) {
+        const rect = iframe.getBoundingClientRect();
+        onBoardZoom(d.deltaY, rect.left + d.x * rect.width / iframe.offsetWidth, rect.top + d.y * rect.height / iframe.offsetHeight);
+      } else if (mode === "preview" && d.type === "goto" && typeof d.id === "string") {
         const to = links.get(linkKey(d.id, undefined));
         if (to !== undefined && onNavigate !== null) onNavigate(to);
       } else if (mode === "edit" && d.type === "select" && node.id !== undefined) {
@@ -767,7 +774,7 @@ function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }
     window.addEventListener("message", onMessage);
     // 选中了具体元素时，页面级的选中框让位给 iframe 里的元素框（两圈叠在一起分不清选中的是什么）。
   return () => window.removeEventListener("message", onMessage);
-  }, [mode, links, onNavigate, onSelect, onSelectRef, node.id]);
+  }, [mode, links, onNavigate, onSelect, onSelectRef, node.id, onBoardZoom]);
   // 把当前选中的元素告诉 iframe（桥据此画选中框）；iframe 重新加载后要再发一次。
   const active = selectedId !== null && selectedId === node.id ? selectedRef : null;
   const sendSelection = React.useCallback(() => {
@@ -780,7 +787,7 @@ function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }
         ref={ref}
         title={t("designShare.pagePreview")}
         sandbox="allow-scripts"
-        srcDoc={buildHtmlPageSrcdoc(node.props.html, { ...view, mode })}
+        srcDoc={buildHtmlPageSrcdoc(node.props.html, { wireframe, mode, boardZoom: Boolean(onBoardZoom) })}
         onLoad={sendSelection}
         className="absolute inset-0 h-full w-full border-0"
         data-testid="design-html-page"
@@ -1233,7 +1240,7 @@ function Chart({ node, tap }: { node: Extract<PrototypeNode, { type: "chart" }>;
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, selectedRef = null, onSelectRef = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false, chromeLocale = "zh-CN",
+  label, root, selectedId = null, onSelect = null, selectedRef = null, onSelectRef = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false, chromeLocale = "zh-CN", onBoardZoom,
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -1241,6 +1248,7 @@ export function PrototypeCanvas({
    * `design-detail-phone`——那个 testid 是导出 PNG 找当前页、e2e 找画布的入口，挂重了两边都会认错。
    */
   thumbnail?: boolean;
+  onBoardZoom?: BoardZoomHandler;
   /** Optional public-share chrome only; authored prototype content stays verbatim. */
   chromeLocale?: Locale;
   /** 对标 R7：画布上双击改字的提交口（见 `InlineText`）。 */
@@ -1321,7 +1329,7 @@ export function PrototypeCanvas({
     <ChromeLocaleCtx.Provider value={chromeLocale}>
     <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed, onInlineEdit, selectedRef, onSelectRef }}>
     <ScaleCtx.Provider value={scale}>
-    <HtmlPageCtx.Provider value={{ wireframe }}>
+    <HtmlPageCtx.Provider value={{ wireframe, onBoardZoom }}>
     <div
       className={cn(
         // `relative` 给灵动岛定位用；`overflow-hidden` 让内容被机身圆角裁掉——
