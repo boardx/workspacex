@@ -64,8 +64,8 @@ describe("§1 一级导航：治理段有两个入口", () => {
     const platform = screen.getByTestId("rail-platform-admin");
     expect(org.getAttribute("href")).toBe("/admin");
     expect(platform.getAttribute("href")).toBe("/platform-admin");
-    expect(org.textContent).toContain("组织后台");
-    expect(platform.textContent).toContain("平台后台");
+    expect(org).toHaveAccessibleName("组织后台");
+    expect(platform).toHaveAccessibleName("平台后台");
   });
 
   it("平台后台一级项没有 children —— 它的二级全部在 ADMIN_NAV 的 platform 面里，不抄第二份", () => {

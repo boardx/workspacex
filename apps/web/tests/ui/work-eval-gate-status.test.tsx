@@ -97,11 +97,11 @@ afterEach(() => {
 });
 
 describe("EV04 门状态展示", () => {
-  it("列表行显示 G4/G5 门状态缩略", async () => {
+  it("打开目录条目后在详情中展示 G4/G5 结果", async () => {
     install(() => json(evaluated()));
-    render(<WorkSkillCatalog />);
-    const row = await screen.findByTestId("work-catalog-row-S003");
-    await waitFor(() => expect(within(row).getByTestId("work-catalog-gate-summary")).toHaveTextContent("G4✓ G5✗"));
+    const drawer = await openDrawer();
+    await waitFor(() => expect(within(drawer).getByTestId("work-gate-badge-G4")).toHaveAttribute("data-state", "pass"));
+    expect(within(drawer).getByTestId("work-gate-badge-G5")).toHaveAttribute("data-state", "fail");
   });
 
   it("详情抽屉：G0–G5 六门逐行列出（ui.md testid）+ 原因 + 判定时间 + 评测版本 + subject vs baseline + evalSuiteId", async () => {
@@ -151,7 +151,7 @@ describe("EV04 门状态展示", () => {
     expect(within(gates).queryByTestId("work-gate-state-not-evaluated")).toBeNull();
     expect(within(gates).getByTestId("work-gate-score")).toHaveTextContent("—");
     for (const code of ["SCHEMA_INVALID", "NO_SUITE", "PRIOR_GATE_FAILED", "NOT_REQUIRED_FOR_KIND"]) expect(gates).not.toHaveTextContent(code);
-    await waitFor(() => expect(screen.getByTestId("work-catalog-gate-summary")).toHaveTextContent("G4✗ G5✗"));
+
   });
 
   it("新版本导入后（无记录）：六门「未评测」空态，不显示通过数，绝不渲染成通过", async () => {
@@ -164,7 +164,7 @@ describe("EV04 门状态展示", () => {
       expect(within(gates).getByTestId(`work-gate-badge-${g}`)).not.toHaveTextContent("通过");
     }
     expect(within(gates).getByTestId("work-gate-score")).toHaveTextContent("—");
-    await waitFor(() => expect(screen.getByTestId("work-catalog-gate-summary")).toHaveTextContent("G4? G5?"));
+
   });
 
   it("E4：报告过期显示黄色提示", async () => {

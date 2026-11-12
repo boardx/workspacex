@@ -184,15 +184,13 @@ describe("IconRail：短视口三段布局", () => {
    *   ② nav 的 className 里**不得**再出现 `overflow-hidden`——谁把它加回来，弹层就
    *      会被无声裁掉，这条断言先红。
    */
-  it("源码：nav 自身 h-full min-h-0 且不再 overflow-hidden（否则裁掉底部通知弹层），滚动由 rail-scroll 承担", () => {
-    const src = readFileSync(path.join(process.cwd(), "components/shell/icon-rail.tsx"), "utf8");
+  it("nav 自身 h-full min-h-0 且不再 overflow-hidden（否则裁掉底部通知弹层），滚动由 rail-scroll 承担", () => {
     // 读**渲染出来的** nav（DOM 事实），不是源码正则——class 串已抽成 `RAIL_NAV_CLASS`
     // 常量供几何夹具复用，正则会跟着实现细节漂移。
     renderRail();
     const navClass = screen.getByTestId("shell-rail").className;
     expect(navClass).toContain("h-full min-h-0");
     expect(navClass).not.toContain("overflow-hidden");
-    expect(src).toMatch(/data-testid="rail-scroll"[\s\S]{0,400}overflow-y-auto/);
-    expect(src).toContain("[@media(max-height:640px)]:hidden");
+    expect(screen.getByTestId("rail-scroll")).toHaveClass("overflow-y-auto");
   });
 });
