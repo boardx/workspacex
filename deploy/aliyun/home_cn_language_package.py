@@ -16,7 +16,8 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 CONFIG = json.loads(Path(__file__).with_name('home-cn-domains.json').read_text())
 ORIGIN = CONFIG['marketingOrigin']
 SOURCE_ORIGIN = 'https://workspacex.us'
-SOURCE_APP_ORIGIN = 'https://devapp.boardx.us'
+SOURCE_APP_ORIGIN = 'https://app.workspacex.us'
+LEGACY_APP_ORIGIN = 'https://devapp.boardx.us'
 APP_ORIGIN = 'https://app.boardx.com.cn'
 ICP_NUMBER = CONFIG['domains'][urlsplit(ORIGIN).netloc]['websiteFilingNumber']
 LOGIN_URL = CONFIG['appLoginUrl']
@@ -45,7 +46,7 @@ def mapped_url(value, original_path):
     if not value or value.startswith(('#', 'mailto:', 'tel:', 'data:')):
         return value
     parsed = urlsplit(urljoin(SOURCE_ORIGIN + original_path, value))
-    if parsed.scheme in ('http', 'https') and parsed.netloc == urlsplit(SOURCE_APP_ORIGIN).netloc:
+    if parsed.scheme in ('http', 'https') and parsed.netloc in (urlsplit(SOURCE_APP_ORIGIN).netloc, urlsplit(LEGACY_APP_ORIGIN).netloc):
         return APP_ORIGIN + urlunsplit(('', '', parsed.path, parsed.query, parsed.fragment))
     if parsed.scheme not in ('https', 'http') or parsed.netloc not in (
             'workspacex.us', 'www.boardx.com.cn', 'boardx.com.cn', urlsplit(ORIGIN).netloc):
@@ -154,7 +155,7 @@ def build_cn_package(source, destination):
         text = path.read_text()
         text = text.replace("action: 'Switch to English', href: '/'",
                             "action: 'Switch to English', href: '/en/'")
-        path.write_text(text)
+        path.write_text(text.replace(SOURCE_APP_ORIGIN, APP_ORIGIN))
     for name, start in [('site.webmanifest', '/en/'), ('site.zh.webmanifest', '/')]:
         path = destination / 'assets' / name
         data = json.loads(path.read_text())

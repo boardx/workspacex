@@ -286,9 +286,8 @@ main push, successful deploy job, matching Pages commit and public release marke
 
 ## Other launch configuration
 
-**2. The product link.** "Launch App" and "Launch Workspace" point at
-`https://devapp.boardx.us`, the only app host referenced anywhere in this
-repository. If the public site should send people somewhere else, change it.
+**2. The product link.** "Start free" points to the US production app at
+`https://app.workspacex.us/home`.
 
 **3. The ICP filing notice.** A site served from mainland China must display
 its ICP record number in the footer. There is no number in this repository and
@@ -361,7 +360,7 @@ never maintain a separate PDF manuscript.
 ## Landing-page domain cutover (prepared locally, not deployed)
 
 Only the public website moves from `www.boardx.us` / `boardx.us` to
-`https://workspacex.us`. Start free continues to open `devapp.boardx.us`;
+`https://workspacex.us`. Start free opens `https://app.workspacex.us/home`;
 `develop.boardx.us`, application APIs, OAuth and all email/MX records are unchanged.
 The Organization remains BoardX; its website URL and structured-data identifier
 now use the website origin.

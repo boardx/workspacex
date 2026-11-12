@@ -790,7 +790,7 @@ export const UI = {
   },
 };
 
-const APP = 'https://devapp.boardx.us';
+const APP = 'https://app.workspacex.us/home';
 const STEP_MS = 1100;
 
 /* A tiny element builder: the markup is small enough that a template engine
