@@ -372,3 +372,19 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(screen.getByTestId("rec-live-input-level")).toHaveAttribute("aria-valuenow", "65");
   });
 });
+
+it("follows interim and confirmed text inside the live transcript only while capturing", () => {
+  const props = { onBack: vi.fn(), onStart: vi.fn(), onStop: vi.fn() };
+  const view = render(<RealtimeTranscriptionWorkspace {...props} session={SESSION} streamState="recording" />);
+  const scroll = screen.getByTestId("rec-live-scroll");
+  Object.defineProperty(scroll, "scrollHeight", { configurable: true, value: 600 });
+  view.rerender(<RealtimeTranscriptionWorkspace {...props} session={SESSION} streamState="recording" interimSegment="新增临时文字" />);
+  expect(scroll.scrollTop).toBe(600);
+  Object.defineProperty(scroll, "scrollHeight", { configurable: true, value: 800 });
+  const updated = { ...SESSION, content: SESSION.content + " 新增确认文字" };
+  view.rerender(<RealtimeTranscriptionWorkspace {...props} session={updated} streamState="stopping" />);
+  expect(scroll.scrollTop).toBe(800);
+  scroll.scrollTop = 20;
+  view.rerender(<RealtimeTranscriptionWorkspace {...props} session={updated} streamState="idle" />);
+  expect(scroll.scrollTop).toBe(20);
+});

@@ -136,6 +136,12 @@ export function RealtimeTranscriptionWorkspace({
   React.useEffect(() => { if (errorDialogIdentity) setErrorDialogDismissed(false); }, [errorDialogIdentity]);
   const canStop = recording || streamState === "connecting";
   const visibleContent = [session.content, interimSegment].filter(Boolean).join(session.content && interimSegment ? " " : "");
+  const transcriptScrollRef = React.useRef<HTMLDivElement>(null);
+  const followTranscript = streamState === "recording" || streamState === "stopping";
+  React.useEffect(() => {
+    const body = transcriptScrollRef.current;
+    if (followTranscript && body) body.scrollTop = body.scrollHeight;
+  }, [followTranscript, visibleContent, session.sessionId]);
 
   async function copyContent() {
     if (copying) return;
@@ -272,8 +278,10 @@ export function RealtimeTranscriptionWorkspace({
               </WorkflowActionBar>
             </div>
           ) : visibleContent ? (
-            <div className="mt-4 rounded-lg bg-card p-1">
-              <p data-testid="rec-live-content" className="mx-auto max-w-prose whitespace-pre-wrap break-words text-14 leading-8 [overflow-wrap:anywhere]">{session.content}
+            <div ref={transcriptScrollRef} data-testid="rec-live-scroll" role="region"
+              aria-label={t("rec.workspace.transcript")} tabIndex={0}
+              className="mt-4 max-h-[55dvh] min-w-0 overflow-y-auto rounded-lg bg-card p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <p data-testid="rec-live-content" className="w-full whitespace-pre-wrap text-left break-words text-14 leading-8 [overflow-wrap:anywhere]">{session.content}
                 {session.content && interimSegment ? " " : ""}
                 {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}</span>}
               </p>
