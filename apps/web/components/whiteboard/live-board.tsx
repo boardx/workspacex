@@ -1,4 +1,5 @@
 'use client';
+import { useBrowserTitle } from "@/components/system/browser-title";
 import {createWhiteboardReceiptObserver} from '../../lib/whiteboard-provider-observer';
 import {readBoardArtifactFocus} from './use-board-artifact-focus';
 import type {BoardOrganizeFitRequest} from './use-board-organize-fit';
@@ -39,6 +40,7 @@ export function LiveBoard({ boardId, onSelectionChange }: { boardId: string; onS
   const [selectedIds,setSelectedIds]=useState<string[]>([]),[aiUndo,setAIUndo]=useState<BoardAIUndoTarget|null>(null);
   const [board, setBoard] = useState<Board | null>(null), [doc, setDoc] = useState<Y.Doc | null>(null);
   const [state, setState] = useState(initial), [failed, setFailed] = useState(false);
+  useBrowserTitle(failed || state.phase === "blocked" ? null : board?.name);
   const [proposal,setProposal]=useState<WhiteboardAIProposal|null>(null),[proposalBusy,setProposalBusy]=useState(false),[presentation,setPresentation]=useState<WhiteboardPresentationState|null>(null),[roomActorId,setRoomActorId]=useState<string|null>(null),[roomReconnectToken,setRoomReconnectToken]=useState<string|null>(null);
   const presentationRef=useRef<WhiteboardPresentationState|null>(null),dispatchTail=useRef(Promise.resolve()),viewportTimer=useRef<ReturnType<typeof setTimeout>|null>(null),pendingViewport=useRef<{x:number;y:number;zoom:number}|null>(null);
   const roomId=search.get('room')??'default',proposalId=search.get('proposal'),deviceId=search.get('device');

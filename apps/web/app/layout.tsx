@@ -11,7 +11,7 @@ import { readCloudUrl, readDeploymentEdition } from "@/lib/edition-server";
 
 // Keep the existing font families and real variable weights while packaging assets locally.
 export const metadata: Metadata = {
-  title: "WorkspaceX",
+  title: "工作台",
   description: "把一场项目从进场跑到产出——人与 AI 在同一个工作面上",
   /**
    * 品牌 favicon 修复（2026-09-04）：此前 favicon.ico / ms-icon-144x144.png 等资产

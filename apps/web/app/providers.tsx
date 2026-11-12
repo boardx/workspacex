@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/components/session/session-provider";
 import { CreditConsumptionNotice } from "@/components/billing/credit-consumption-notice";
 import { GlobalErrorReporter } from "@/components/system/global-error-reporter";
+import { BrowserTitleProvider } from "@/components/system/browser-title";
 import { DisablePageZoom } from "@/components/system/disable-page-zoom";
 import { EditionProvider } from "@/lib/edition";
 import type { DeploymentEditionValue } from "@repo/contracts/deployment";
@@ -48,7 +49,7 @@ export function Providers(
           <GlobalErrorReporter />
           <CreditConsumptionNotice />
           <DisablePageZoom />
-          {children}
+          <BrowserTitleProvider>{children}</BrowserTitleProvider>
         </SessionProvider>
       </EditionProvider>
     </QueryClientProvider>

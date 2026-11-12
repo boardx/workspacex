@@ -1,4 +1,5 @@
 "use client";
+import { useBrowserTitle } from "@/components/system/browser-title";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import { localizedProjectTabs, localizedProjectSubNav } from "@/lib/i18n/project-workbench-copy";
@@ -223,6 +224,7 @@ export function ProjectWorkbench({
    * （通用项目的 `?tab=research&sub=…` ⇒ 内容 / 大脑），映射不到落回概览。
    * 种类未知（还没读到）时按工作坊渲染，同设置页的处置。
    */
+  useBrowserTitle(headerProject?.name);
   const projectKind = headerProject?.kind ?? null;
   const tabDefs = localizedProjectTabs(projectKind, locale);
   const shownTab = resolveTabForKind(tab, projectKind, sub);

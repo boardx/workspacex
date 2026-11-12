@@ -3,7 +3,12 @@ import { mockIdentity } from "@/lib/identity";
 import { resolvePreviewState } from "@/lib/ui-state";
 import { resolveRecScreen, resolveCarrier, resolveRecView } from "@/lib/mock/rec";
 
-export const metadata = { title: "语音转录" };
+import { readLocale } from "@/lib/i18n/server";
+import { translate } from "@/lib/i18n/messages";
+
+export function generateMetadata() {
+  return { title: translate(readLocale(), "rec.tabTitle") };
+}
 
 /**
  * 录音与转写（05-rec · UC-5.1 ~ 5.4）—— 三载体共享一套转写能力的先行原型。

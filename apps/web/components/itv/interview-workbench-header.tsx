@@ -1,4 +1,5 @@
 "use client";
+import { useBrowserTitle } from "@/components/system/browser-title";
 import { interviewZhCN } from "@/lib/i18n/namespaces/interview";
 import { useI18n } from "@/lib/i18n/provider";
 
@@ -56,6 +57,7 @@ export function InterviewWorkbenchHeader({
   readonly runningStep?: string | null;
 }) {
   const { t } = useI18n();
+  useBrowserTitle(name);
   const headerRef = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
     const header = headerRef.current;
