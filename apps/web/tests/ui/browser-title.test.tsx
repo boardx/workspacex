@@ -4,8 +4,8 @@ import { cleanup, render } from "@testing-library/react";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { BrowserTitleProvider, useBrowserTitle } from "@/components/system/browser-title";
 
-const route = vi.hoisted(() => ({ pathname: "/projects" }));
-vi.mock("next/navigation", () => ({ usePathname: () => route.pathname }));
+const route = vi.hoisted(() => ({ pathname: "/projects", search: "" }));
+vi.mock("next/navigation", () => ({ usePathname: () => route.pathname, useSearchParams: () => new URLSearchParams(route.search) }));
 afterEach(cleanup);
 
 function ContentTitle({ name }: { name?: string }) {
@@ -31,4 +31,15 @@ it("uses module names and replaces them with saved content names when available"
   route.pathname = "/org-admin/invites";
   view.rerender(app());
   expect(document.title).toBe("邀请");
+});
+
+it("restores the content name after query-only navigation replaces server metadata", () => {
+  route.pathname = "/projects/project-1";
+  route.search = "tab=overview";
+  const view = render(app("课程项目"));
+  expect(document.title).toBe("课程项目");
+  document.title = "工作台";
+  route.search = "tab=content";
+  view.rerender(app("课程项目"));
+  expect(document.title).toBe("课程项目");
 });

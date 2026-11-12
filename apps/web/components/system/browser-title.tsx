@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ADMIN_NAV } from "@/lib/admin-nav-metadata";
 import { ALL_NAV_ITEMS } from "@/lib/navigation";
 import { useI18n } from "@/lib/i18n/provider";
@@ -64,9 +64,16 @@ export function BrowserTitleProvider({ children }: { children: React.ReactNode }
     : locale === "en" ? "Workspace" : "工作台";
   const title = overrides.slice().reverse().find(item => item.path === pathname)?.title ?? fallback;
 
-  React.useEffect(() => { document.title = title; }, [pathname, title]);
+  return <TitleContext.Provider value={register}>
+    <React.Suspense fallback={null}><BrowserTitleWriter title={title} pathname={pathname} /></React.Suspense>
+    {children}
+  </TitleContext.Provider>;
+}
 
-  return <TitleContext.Provider value={register}>{children}</TitleContext.Provider>;
+function BrowserTitleWriter({ title, pathname }: { title: string; pathname: string }) {
+  const search = useSearchParams()?.toString();
+  React.useEffect(() => { document.title = title; }, [pathname, search, title]);
+  return null;
 }
 
 /** Provide the saved name of the content currently open in the tab. */
