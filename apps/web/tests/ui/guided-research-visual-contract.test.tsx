@@ -106,7 +106,7 @@ describe("F180 signed guided-research visual contract", () => {
     expect(within(progress).getAllByRole("listitem")).toHaveLength(3);
   });
 
-  it("keeps one work canvas and a collapsible assistant on guided steps", async () => {
+  it("keeps one work canvas and offers a collapsible assistant after intake", async () => {
     for (const step of ["brief", "directions", "outline", "search"] as const) {
       if (step !== "brief") api.getResearchRuntime.mockResolvedValueOnce(sessionAt(step));
       const view = render(
@@ -120,8 +120,12 @@ describe("F180 signed guided-research visual contract", () => {
           qs={{}}
         />,
       );
-      fireEvent.click(await screen.findByRole("button", { name: /AI 助手/ }));
-      expect(screen.getByTestId("guided-research-six-step-assistant")).toBeVisible();
+      if (step === "brief") {
+        expect(screen.queryByRole("button", { name: /AI 助手/ })).not.toBeInTheDocument();
+      } else {
+        fireEvent.click(await screen.findByRole("button", { name: /AI 助手/ }));
+        expect(screen.getByTestId("guided-research-six-step-assistant")).toBeVisible();
+      }
       expect(screen.getByTestId("guided-research-six-step-main")).toBeInTheDocument();
       expect(screen.queryByTestId("shell-left-panel")).not.toBeInTheDocument();
       for (const label of ["研究 Studio 列表", "研究计划详情", "新建深度研究", "研究主题详情", "现场深度研究"]) {
