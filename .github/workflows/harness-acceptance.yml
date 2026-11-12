@@ -442,7 +442,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
-      fail-fast: true # Stop remaining shards after the first failure.
+      fail-fast: false # Finish each isolated shard to collect full regression evidence.
       matrix:
         shard: ${{ fromJSON(needs.base-api-plan.outputs.shards) }}
       max-parallel: 4
@@ -573,7 +573,7 @@ jobs:
       - web-test-plan
       - doc-smoke-scope
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         shard: ${{ fromJSON(needs.web-test-plan.outputs.shards) }}
       max-parallel: 2
@@ -642,7 +642,7 @@ jobs:
       - chat-test-plan
       - doc-smoke-scope
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         shard: ${{ fromJSON(needs.chat-test-plan.outputs.shards) }}
       max-parallel: 1
