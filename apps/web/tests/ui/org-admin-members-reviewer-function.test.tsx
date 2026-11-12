@@ -1,7 +1,7 @@
 /** #6405 replaces the retired member-list reviewer-function controls (#852). */
 import * as React from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MembersTab } from "@/components/org-admin/org-admin-screen";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -18,9 +18,10 @@ for (const isAdmin of [true, false]) {
     expect(row.querySelector('[data-testid*="reviewer-function"]')).toBeNull();
     expect(fetchMock.mock.calls.every(call => !String(call[0]).includes("skill-reviewer"))).toBe(true);
     if (isAdmin) {
-      fireEvent.click(screen.getByTestId("org-admin-member-u-member-org-role"));
-      expect(screen.getAllByRole("option").filter(option => option.getAttribute("aria-selected") !== null).map(option => option.textContent)).toEqual(expect.arrayContaining(["成员", "管理员"]));
-      expect(screen.getAllByRole("option").filter(option => option.getAttribute("aria-selected") !== null)).toHaveLength(2);
+      fireEvent.keyDown(screen.getByTestId("org-admin-member-u-member-org-role"), { key: "Enter" });
+      const menu = await screen.findByRole("menu");
+      expect(within(menu).getAllByRole("menuitemradio").map(option => option.textContent))
+        .toEqual(["成员", "管理员"]);
     } else {
       expect(screen.queryByTestId("org-admin-member-u-member-org-role")).toBeNull();
     }
