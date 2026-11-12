@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InterviewReportStep } from '@/components/itv/interview-report-step';
 import { REPORT_FILE_FORMATS } from '@repo/contracts/report-files';
@@ -8,9 +8,11 @@ vi.mock('@/lib/report-files-api',()=>api);
 const document = {documentId:'canonical-doc',step:'report' as const,version:7,contentHash:'b'.repeat(64),evidenceMode:'simulated' as const,references:[],markdown:'# 当前中文报告\n\n已保存的正文与引用边界。'};
 const props={interviewId:'actual-interview',revisionId:'revision-one',document,reportStatus:'draft' as const};
 beforeEach(()=>{
+ api.getReportFileJob.mockRejectedValue(new Error("Remembered job unavailable"));
+
  api.generateReportFile.mockImplementation(async(source,format)=>({id:'job-'+format,source,format,status:'succeeded',createdAt:'2026-10-13T00:00:00Z',skill:{stableName:REPORT_FILE_FORMATS[format as keyof typeof REPORT_FILE_FORMATS].skillStableName,versionId:'published-pin',digest:'a'.repeat(64)},file:{filename:'report'+REPORT_FILE_FORMATS[format as keyof typeof REPORT_FILE_FORMATS].extension,mediaType:REPORT_FILE_FORMATS[format as keyof typeof REPORT_FILE_FORMATS].mediaType,sizeBytes:200,sha256:'c'.repeat(64)}}));
 });
-afterEach(()=>{cleanup();vi.clearAllMocks();});
+afterEach(()=>{cleanup();window.sessionStorage.clear();vi.clearAllMocks();});
 describe('interview report product Skill actions integration',()=>{
  it.each([['PDF','pdf'],['Word','docx']])('requests %s with persisted canonical identity, never browser export',async(label,format)=>{
   render(<InterviewReportStep {...props}/>);fireEvent.click(screen.getByRole('button',{name:`生成 ${label}`}));
@@ -29,7 +31,7 @@ describe('interview report product Skill actions integration',()=>{
  });
  it('clears a completed file on revision ABA even when document version and hash match',async()=>{
   const r=render(<InterviewReportStep {...props}/>);fireEvent.click(screen.getByRole('button',{name:'生成 Word'}));await screen.findByRole('button',{name:'下载 Word'});
-  r.rerender(<InterviewReportStep {...props} revisionId="revision-two"/>);
+  await act(async () => { r.rerender(<InterviewReportStep {...props} revisionId="revision-two"/>); });
   expect(screen.queryByRole('button',{name:'下载 Word'})).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'生成 Word'}));await screen.findByRole('button',{name:'下载 Word'});expect(api.generateReportFile).toHaveBeenCalledTimes(2);
  });
  it('shows generation failure without discarding canonical body',async()=>{
