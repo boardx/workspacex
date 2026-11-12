@@ -67,7 +67,7 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await page.getByTestId('survey-create-primary').click();
  await page.getByLabel('问卷名称').fill('AI 校对验收');
  await page.getByLabel('添加标签',{exact:true}).fill('客户调研');await page.getByLabel('添加标签',{exact:true}).press('Enter');
- await page.getByRole('radio',{name:/AI 导入创建/}).check();
+ await page.getByRole('radio',{name:/AI智能创建/}).check();
  await page.screenshot({path:testInfo.outputPath('survey-create-dialog.png'),fullPage:true});
  await page.getByRole('button',{name:'下一步',exact:true}).click();
  await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
@@ -278,7 +278,7 @@ test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({pa
  await create.press('Enter');await dialog.getByLabel('问卷名称',{exact:true}).press('Escape');
  await expect(dialog).toHaveCount(0);await expect(create).toBeFocused();
  await create.press('Enter');await dialog.getByLabel('问卷名称',{exact:true}).fill('R1 成功导航');
- await dialog.getByRole('radio',{name:/AI 导入创建/}).check();
+ await dialog.getByRole('radio',{name:/AI智能创建/}).check();
  await dialog.getByRole('button',{name:'下一步',exact:true}).click();
  await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
  await expect(page.getByLabel('问卷需求')).toBeVisible();
