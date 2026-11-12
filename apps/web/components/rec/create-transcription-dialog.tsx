@@ -10,6 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TagField, commitDraft } from "@/components/ui/tag-input";
 import { tagInputLimits, personalRealtimeTranscription } from "@repo/contracts";
+const NAME_TIMESTAMP = new Intl.DateTimeFormat("sv-SE", {
+  year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+
 const TAG_LIMITS = tagInputLimits(personalRealtimeTranscription.operations.createPersonalTranscription.in.shape.tags);
 
 
@@ -29,11 +33,17 @@ export function CreateTranscriptionDialog({
   knownTags?: ReadonlyMap<string, number>;
 }) {
   const { t } = useI18n();
-  const [name, setName] = React.useState(() => t("rec.create.default"));
+  const [name, setName] = React.useState("");
   const nameTouched = React.useRef(false);
+  const openedAt = React.useRef<Date | null>(null);
   React.useEffect(() => {
-    if (!open) nameTouched.current = false;
-    if (!nameTouched.current) setName(t("rec.create.default"));
+    if (!open) {
+      nameTouched.current = false;
+      openedAt.current = null;
+      return;
+    }
+    openedAt.current ??= new Date();
+    if (!nameTouched.current) setName(t("rec.create.default", { timestamp: NAME_TIMESTAMP.format(openedAt.current) }));
   }, [open, t]);
   const [tags, setTags] = React.useState<readonly string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
@@ -45,7 +55,8 @@ export function CreateTranscriptionDialog({
 
   function reset() {
     nameTouched.current = false;
-    setName(t("rec.create.default"));
+    openedAt.current = null;
+    setName("");
     setTags([]);
     setTagDraft("");
     setSubmitError(false);

@@ -282,8 +282,9 @@ describe("实时转录历史工作台", () => {
     fireEvent.click(screen.getByTestId("rec-create-open"));
 
     expect(screen.getByTestId("rec-create-dialog")).toBeVisible();
-    expect(screen.getByTestId("rec-create-name")).toHaveValue("未命名转录");
-    expect(screen.getByTestId("rec-create-name-count")).toHaveTextContent("5/100");
+    const name = screen.getByTestId<HTMLInputElement>("rec-create-name").value;
+    expect(name).toMatch(/^语音转录 \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    expect(screen.getByTestId("rec-create-name-count")).toHaveTextContent(`${name.length}/100`);
     expect(screen.getByTestId("rec-create-tag-count")).toHaveTextContent("0/5");
     expect(screen.getByTestId("rec-create-submit")).not.toBeDisabled();
   });

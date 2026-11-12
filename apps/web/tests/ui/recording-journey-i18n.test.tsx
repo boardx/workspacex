@@ -71,6 +71,9 @@ it("translates the irreversible deletion explanation while retaining the literal
 });
 it("updates only an untouched creation default when switching locale", () => {
  show(<CreateTranscriptionDialog open onOpenChange={vi.fn()} onCreate={vi.fn()} />);
- expect(screen.getByTestId("rec-create-name")).toHaveValue("Untitled transcription"); fireEvent.click(screen.getByText("ZH test")); expect(screen.getByTestId("rec-create-name")).toHaveValue("未命名转录");
+ const defaultName = screen.getByTestId<HTMLInputElement>("rec-create-name").value;
+ expect(defaultName).toMatch(/^Voice transcription \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+ fireEvent.click(screen.getByText("ZH test"));
+ expect(screen.getByTestId("rec-create-name")).toHaveValue(defaultName.replace("Voice transcription", "语音转录"));
  fireEvent.change(screen.getByTestId("rec-create-name"), { target: { value: "Untitled transcription" } }); fireEvent.click(screen.getByText("EN test")); fireEvent.click(screen.getByText("ZH test")); expect(screen.getByTestId("rec-create-name")).toHaveValue("Untitled transcription");
 });
