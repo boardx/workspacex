@@ -48,7 +48,7 @@ test("admin creates and disables an Agent through the browser, and PostgreSQL ke
 
   await loginAs(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
 
-  await page.goto("/platform-admin/agent");
+  await page.goto("/org-admin/agent?screen=manage");
   await expect(page.getByTestId("admin-agent-catalog")).toBeVisible();
   /**
    * ⚠ #619 起这里**不能**再断言「整个目录是空的」。
@@ -95,10 +95,12 @@ test("admin creates and disables an Agent through the browser, and PostgreSQL ke
     hasText: FULLSTACK_E2E.agentName,
   });
   await expect(card).toHaveCount(1);
-  await expect(card).toContainText("已启用");
-  await card.getByRole("button", { name: "停用" }).click();
+  await card.click();
+  const detail = page.getByTestId("admin-agent-detail");
+  await expect(detail).toContainText("已启用");
+  await detail.getByTestId("admin-agent-detail-disable").click();
   await page.getByTestId("admin-agent-disable-confirm").click();
-  await expect(card).toContainText("已停用");
+  await expect(detail).toContainText("已停用");
   expect(mutations).toEqual([200, 200]);
 
   // 停用同样要熬过一次真实刷新，否则「状态变更」只是本地的。
@@ -106,9 +108,10 @@ test("admin creates and disables an Agent through the browser, and PostgreSQL ke
   const afterReload = page.locator('[data-testid^="admin-agent-row-"]').filter({
     hasText: FULLSTACK_E2E.agentName,
   });
-  await expect(afterReload).toContainText("已停用");
+  await afterReload.click();
+  await expect(detail).toContainText("已停用");
   // 已停用的行不再提供停用入口——重复停用只会写出一条什么都没改变的 provenance。
-  await expect(afterReload.getByRole("button", { name: "停用" })).toHaveCount(0);
+  await expect(detail.getByTestId("admin-agent-detail-disable")).toHaveCount(0);
 
   expect(failures).toEqual([]);
   console.log(`[capability-mutate-smoke] agent=${FULLSTACK_E2E.agentName} mutations=${mutations.join(",")}`);
@@ -118,8 +121,8 @@ test("a non-admin session is refused by the SERVER, not by a hidden button", asy
   // #458 自己的 consultant，不借用 #387 那位——理由见 fixture。
   await loginAs(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
 
-  await page.goto("/platform-admin/agent");
-  await expect(page.getByTestId("admin-agent-catalog")).toBeVisible();
+  await page.goto("/org-admin/agent?screen=manage");
+  await expect(page.getByTestId("agent-directory")).toBeVisible();
   // 界面这一侧：非管理员看不到写入口。这只是降噪，**下面那半才是权限**。
   await expect(page.getByTestId("admin-agent-create")).toHaveCount(0);
 
@@ -133,7 +136,7 @@ test("a non-admin session is refused by the SERVER, not by a hidden button", asy
       },
       body: JSON.stringify({
         orgId, kind: "agent", op: "add",
-        payload: { name, scope: "org-wide" },
+        payload: { name, scope: "org-wide", abbr: "EA", duty: "Authorization regression fixture" },
       }),
     });
     return { status: res.status, body: await res.text() };
@@ -144,6 +147,6 @@ test("a non-admin session is refused by the SERVER, not by a hidden button", asy
 
   // 而且它真的没写进去：刷新目录，越权那一条不存在。
   await page.reload();
-  await expect(page.getByTestId("admin-agent-catalog")).toBeVisible();
+  await expect(page.getByTestId("agent-directory")).toBeVisible();
   await expect(page.getByText(`${FULLSTACK_E2E.agentName}_ESCALATION`)).toHaveCount(0);
 });
