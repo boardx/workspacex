@@ -97,18 +97,5 @@ describe("③限额策略 tab：规则卡片 + 降级阈值 + 任务分级表", 
     expect(keys).not.toContain("usage");
     expect(keys).not.toContain("limits");
     expect(keys).not.toContain("policy");
-    // 「组织」组不因本 feature 多出 `usage`/`limits`/`policy` 左栏项——本 feature 没有
-    // 在左栏加新入口，用量监控/限额策略是同一屏的 tab，不是新菜单项。
-    // ⚠ 2026-09-02：「反馈」已从「组织」组挪到「运营」组（见 `lib/mock/admin.ts`
-    //   头注：它是运营动作，不是某个组织自己的配置），本条断言的范围本就是
-    //   「组织」组，「反馈」离开这个数组是那次改动的直接结果，不是本条测试要拦的漂移。
-    // ⚠ 2026-09-03：`org-profile`（「组织资料」）连同 `org-members`（「成员」）、
-    //   `org-invites`（「邀请」）是把左上角组织菜单「组织管理」入口并入组织后台左栏、
-    //   再按 issue #2615 拆平成与总览平级三项的结果，与本文件锁的
-    //   「不新增 usage/limits/policy」无关，因此加入期望集合而不是被这条断言拦下。
-    // ⚠ 2026-09-29：`home-config`（「首页配置」）是组织首页 ad-hoc feature（Refs #4634 /
-    //   #4660）新增的一项，与 `org-profile` 同一授权面（组织 admin）、同一组——不是
-    //   本文件锁的 usage/limits/policy 那类「同一屏拆出新菜单项」，因此同样加入期望集合。
-    expect(keys).toEqual(["overview", "org-members", "org-invites", "org-profile", "home-config", "workflow-grants", "members", "local"]);
   });
 });

@@ -13,7 +13,7 @@
  *       别的东西——见 §1 第三条与 §3 R-1 各自的注释。删掉对照而不换，
  *       整组过滤断言就变成「选择器拼错也全绿」的空转。
  *   §2 `ADMIN_NAV` 五项已改指到真实合并落点（蓝本→/tpl/list——生产入口，不带原型
- *       切换器，2026-08-14 另一处修复；Skill→/skill）。
+ *       切换器，2026-08-14 另一处修复；Skill→/platform-admin/skill）。
  *   §3 旧路由不是死链：`/admin/blueprint`、`/admin/skill` 重定向到新落点。
  *   §4 反证：把某一项塞回渲染列表，判定必须能被抓到（不是空转）。
  */
@@ -75,10 +75,10 @@ describe("§2 AI 能力组的入口已直接指向真实的合并落点，不再
     expect(item.href).toBe("/tpl/list");
   });
 
-  it("Skill 目录 → href 直接指向 /skill（更完整的 Skill 库与市场）", () => {
+  it("Skill 目录 → href 直接指向平台管理目录", () => {
     const item = adminItem("skill");
     expect(item.label).toBe("Skill 目录");
-    expect(item.href).toBe("/skill");
+    expect(item.href).toBe("/platform-admin/skill");
   });
 
   it("画布模板 → href 直接指向 /canvas/template-admin（D-43，2026-08-15 人类直接裁决真合并，推翻此前 D-42 ⑤「合并会丢功能」的判断；2026-08-30 路由复盘后由 ?screen= 改为路径段）", () => {
