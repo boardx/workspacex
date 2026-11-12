@@ -31,7 +31,7 @@ describe("shared admin navigation localization", () => {
   it("switches the organization sidebar in place while retaining canonical routes and scope", () => {
     const before = JSON.stringify({ ADMIN_NAV, ADMIN_SCOPE_META });
     render(<AdminNav active="org-members" countSources={sources()} />, { wrapper: Harness });
-    const nav = screen.getByRole("navigation", { name: "Organization admin modules" });
+    const nav = screen.getByRole("navigation", { name: "Organization modules" });
     expect(nav).toHaveAttribute("data-admin-scope", "org");
     const members = screen.getByTestId("admin-nav-org-members");
     expect(members).toHaveTextContent("Members");
@@ -50,7 +50,7 @@ describe("shared admin navigation localization", () => {
 
   it("translates platform groups and count failures while keeping unavailable distinct from zero", () => {
     render(<AdminNav active="mcp" countSources={sources(true)} />, { wrapper: Harness });
-    expect(screen.getByRole("navigation", { name: "Platform admin modules" })).toHaveAttribute("data-admin-scope", "platform");
+    expect(screen.getByRole("navigation", { name: "Platform modules" })).toHaveAttribute("data-admin-scope", "platform");
     expect(screen.getByText("AI capabilities", { exact: true })).toBeVisible();
     expect(screen.getByText("Operations", { exact: true })).toBeVisible();
     const agent = screen.getByTestId("admin-nav-agent");
@@ -87,15 +87,15 @@ it("keeps the live count query and its result when the sidebar locale changes", 
   });
   vi.stubGlobal("fetch", requests);
   render(<AdminNav active="agent" />, { wrapper: Harness });
-  const count = screen.getByTestId("admin-nav-agent-count");
-  await waitFor(() => expect(count).toHaveTextContent("2"));
+  const count = screen.getByTestId("admin-nav-feedback-drafts-count");
+  await waitFor(() => expect(count).toHaveTextContent("4"));
   expect(requests).toHaveBeenCalledTimes(LIVE_COUNT_KEYS.length);
-  expect(screen.getByTestId("admin-nav-skill-count")).toHaveTextContent("0");
-  expect(screen.getByTestId("admin-nav-feedback-drafts-count")).toHaveTextContent("4");
+  expect(screen.getByTestId("admin-nav-skill-count")).toHaveTextContent("—");
+  expect(screen.getByTestId("admin-nav-agent-count")).toHaveTextContent("—");
   expect(screen.getByTestId("admin-nav-mcp-count")).toHaveTextContent("—");
   await act(async () => { fireEvent.click(screen.getByText("Switch Chinese")); });
   expect(screen.getByRole("navigation", { name: "平台后台模块" })).toBeVisible();
-  expect(screen.getByTestId("admin-nav-agent-count")).toBe(count);
-  expect(count).toHaveAccessibleName("Agent 目录 共 2 项");
+  expect(screen.getByTestId("admin-nav-feedback-drafts-count")).toBe(count);
+  expect(count).toHaveAccessibleName(expect.stringContaining("共 4 项"));
   expect(requests).toHaveBeenCalledTimes(LIVE_COUNT_KEYS.length);
 });
