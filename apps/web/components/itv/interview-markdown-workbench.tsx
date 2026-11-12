@@ -77,14 +77,14 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
     finally { setBranching(false); }
   }
   const editing = { interviewId: identity.interviewId, onVersionChange: setVersion, onRunningStepChange: setRunningStep, onDirtyChange: (value: boolean) => { dirty.current = value; } };
-  return <div data-testid="itv-markdown-workbench" className="min-h-dvh min-w-0 bg-muted/20">
+  return <div data-testid="itv-markdown-workbench" className="flex min-h-dvh min-w-0 flex-col bg-muted/20">
       <InterviewWorkbenchHeader name={identity.name} tags={identity.tags} steps={INTERVIEW_WORKBENCH_STEPS} activeStep={step} runningStep={runningStep} completedSteps={completed} completionPending={!currentCompletion || currentCompletion.interviewId !== identity.interviewId} status={t("itv.workbench.status")} version={sharedSource?.version ?? version} topic={null} onStepChange={onContinue} onReturnToList={() => navigate("/itv?tab=history")} />
-      <main className={cn(researchWorkspaceStyle.main, "pb-8")}>
+      <main className={cn(researchWorkspaceStyle.main, "flex w-full flex-1 flex-col pb-4")}>
       {completionError && <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><p>{t("itv.workbench.completionFailed")}</p><Button variant="outline" size="sm" onClick={() => { setCompletionError(false); setRetryEpoch(value => value + 1); }}>{t("itv.workbench.retrySteps")}</Button></div>}
       {syncError && <div role="status" className="mt-4 flex items-center gap-3 text-sm text-muted-foreground"><p>{syncError}</p><Button variant="outline" size="sm" onClick={() => void refresh().catch(() => {})}>{t("itv.workbench.retrySync")}</Button></div>}
       {error && <p role="alert" className="mt-4 text-sm text-destructive">{t("itv.revision.failed")}</p>}
       <InterviewRevisionAction.Provider value={completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) ? <ActionButton variant="outline" loading={branching} disabled={branching || runningStep !== null} onClick={() => void revise()}>{branching ? t("itv.revision.pending") : t("itv.revision.create")}</ActionButton> : null}>
-      <section key={`${step}:${branchEpoch}`} className="mt-4">
+      <section key={`${step}:${branchEpoch}`} className="mt-4 flex flex-1 flex-col">
         {(step === "intake" || step === "analysis") && <InterviewMarkdownPlanningStep {...editing} step={step} onContinue={onContinue} />}
         {(step === "experts" || step === "outline") && <InterviewMarkdownEditingStep {...editing} step={step} onContinue={onContinue} />}
         {(step === "runs" || step === "report") && <InterviewMarkdownResultsStep interviewId={identity.interviewId} step={step} runs={[]} reportPin={reportPin} onVersionChange={setVersion} onRunningStepChange={setRunningStep} onReport={() => onContinue("report")} />}

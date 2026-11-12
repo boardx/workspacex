@@ -74,10 +74,9 @@ export function InterviewWorkbenchHeader({
     <div className={workspace.brandBar}>
     <div className={workspace.width}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <ActionButton data-testid="itv-return-history" type="button" variant="outline" onClick={onReturnToList}><ArrowLeft className="size-4" aria-hidden />{t("itv.back")}</ActionButton>
-          <MessageSquareText aria-hidden className="size-9 shrink-0 rounded-lg bg-primary p-2 text-primary-foreground" />
-          <span className="text-xl font-bold">{t("itv.title")}</span>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <ActionButton data-testid="itv-return-history" type="button" variant="outline" className="shrink-0" onClick={onReturnToList}><ArrowLeft className="size-4" aria-hidden />{t("itv.back")}</ActionButton>
+          <h1 className="min-w-0 text-xl font-bold tracking-tight [overflow-wrap:anywhere]">{name}</h1>
         </div>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <span data-testid="itv-workflow-status" className="sr-only">{t("itv.status", { status })}</span>
@@ -90,8 +89,7 @@ export function InterviewWorkbenchHeader({
     </div>
     </div>
     <div className={workspace.heading}>
-    <h1 className="break-words text-2xl font-bold tracking-tight [overflow-wrap:anywhere]">{name}</h1>
-    <nav aria-label={t("itv.steps")} data-testid="itv-workbench-navigation" data-reference-variant="monochrome-stepper" className="mt-3 pb-3">
+    <nav aria-label={t("itv.steps")} data-testid="itv-workbench-navigation" data-reference-variant="monochrome-stepper" className="pb-3">
       <ol data-testid="itv-workbench-timeline" className={workspace.timeline}>{steps.map((step, index) => { const state = activeStep === step.id ? "current" : completedSteps.includes(step.id) ? "completed" : "upcoming"; const executing = runningStep === step.id; return <li key={step.id} className={workspace.step}>
         <Button variant="ghost" size="sm" data-testid={`itv-workbench-step-${step.id}`} data-state={completionPending && state !== "current" ? "unknown" : executing ? "running" : state} aria-busy={executing} type="button" aria-current={state === "current" ? "step" : undefined} onClick={() => onStepChange(step.id)} className={cn(workspace.command, "text-background-foreground", (state === "current" || executing) && "font-bold")}>
           {completionPending && state !== "current" ? <span aria-label={t("itv.steps.loading")} className="size-8 shrink-0 rounded-full bg-muted motion-safe:animate-pulse" /> : <ResearchWorkspaceStepIndicator animateRunning={step.id !== "outline"} number={index + 1} active={state === "current"} completed={state === "completed"} running={executing} />}

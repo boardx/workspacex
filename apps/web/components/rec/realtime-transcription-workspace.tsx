@@ -174,8 +174,8 @@ export function RealtimeTranscriptionWorkspace({
   }
 
   return (
-    <section data-testid="rec-live-workspace" className="min-h-full bg-background px-4 py-4 md:px-6">
-      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6">
+    <section data-testid="rec-live-workspace" className="flex h-full flex-col bg-background px-4 py-4 md:px-6">
+      <div className="mx-auto flex min-h-0 w-full max-w-screen-xl flex-1 flex-col gap-4 md:gap-6">
         <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-3 md:flex-1">
             <Button data-testid="rec-live-back" type="button" variant="ghost" size="icon" aria-label={t("rec.workspace.back")} disabled={returnBlocked} aria-describedby={returnBlocked ? "rec-return-hint" : undefined} onClick={onBack}>
@@ -247,8 +247,8 @@ export function RealtimeTranscriptionWorkspace({
         {(errorMessage || saveError) && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage || (saveError ? t(saveError) : null)}</p>}
         {connectionNotice && <p role="status" className="text-12 text-muted-foreground">{connectionNotice}</p>}
 
-        <Card className="min-h-64 p-4" data-testid="rec-live-transcript">
-          <div className="border-b border-border pb-3">
+        <Card className={`flex min-w-0 flex-1 flex-col p-4 ${editing ? "min-h-80" : "min-h-64"}`} data-testid="rec-live-transcript">
+          <div className="shrink-0 border-b border-border pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0"><h2 className="text-16 font-semibold">{t("rec.workspace.transcript")}</h2><p data-testid="rec-live-reading-hint" className="mt-1 text-12 text-muted-foreground">{editing ? t("rec.workspace.editHint") : recording || busy ? t("rec.workspace.recordingHint") : visibleContent ? t("rec.workspace.savedHint") : t("rec.workspace.emptyHint")}</p></div>
               <div className={`grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center ${editing ? "grid-cols-1" : "grid-cols-2"}`}>
@@ -266,9 +266,9 @@ export function RealtimeTranscriptionWorkspace({
           </div>
 
           {editing ? (
-            <div className="mt-4">
+            <div className="mt-4 flex min-h-0 flex-1 flex-col">
               <Textarea autoFocus aria-label={t("rec.workspace.content")} data-testid="rec-live-editor" value={draft} onChange={(event) => setDraft(event.target.value)}
-                className="min-h-72 w-full resize-y text-14 leading-8" />
+                className="min-h-24 flex-1 text-14 leading-8" />
               <WorkflowActionBar placement="footer">
                 <WorkflowActionButton type="button" variant="outline" disabled={saving} onClick={() => { setSaveError(null); setEditing(false); }}>
                   <X aria-hidden className="h-4 w-4" />{t("common.cancel")}
@@ -280,14 +280,14 @@ export function RealtimeTranscriptionWorkspace({
           ) : visibleContent ? (
             <div ref={transcriptScrollRef} data-testid="rec-live-scroll" role="region"
               aria-label={t("rec.workspace.transcript")} tabIndex={0}
-              className="mt-4 max-h-[55dvh] min-w-0 overflow-y-auto rounded-lg bg-card p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              className="mt-4 min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg bg-card p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <p data-testid="rec-live-content" className="w-full whitespace-pre-wrap text-left break-words text-14 leading-8 [overflow-wrap:anywhere]">{session.content}
                 {session.content && interimSegment ? " " : ""}
                 {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}</span>}
               </p>
             </div>
           ) : (
-            <div className="flex min-h-40 flex-col items-center justify-center gap-4 text-center">
+            <div className="flex min-h-32 flex-1 flex-col items-center justify-center gap-4 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
                 <Mic aria-hidden className="h-5 w-5" />
               </span>

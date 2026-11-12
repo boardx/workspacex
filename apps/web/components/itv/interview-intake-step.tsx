@@ -51,15 +51,15 @@ export function InterviewIntakeStep({ markdown, onChange, onConfirm, pending, on
     if (!text.trim()) throw new Error("EMPTY_IMPORTED_TEXT");
     onChange(markdown ? `${markdown}\n\n${text}` : text);
   }
-  return <div data-testid="itv-markdown-intake">
+  return <div data-testid="itv-markdown-intake" className="flex flex-1 flex-col">
     <InterviewStepHeader title={t("itv.intake.title")} />
-    <section className="space-y-3">
+    <section className="flex flex-1 flex-col gap-3">
       <label htmlFor="interview-demand-markdown" className="text-sm font-medium">{t("itv.intake.label")}</label>
       <p id="interview-demand-hint" className="text-sm text-muted-foreground">{t("itv.intake.hint")}</p>
-      <div className="overflow-hidden rounded-xl border border-input bg-card shadow-sm transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20">
+      <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-input bg-card shadow-sm transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20">
         <Textarea aria-label={t("itv.intake.aria")} id="interview-demand-markdown" aria-describedby="interview-demand-hint" value={voicePreview ? (markdown ? `${markdown}\n\n${voicePreview}` : voicePreview) : markdown} onChange={(event) => onChange(event.target.value)} disabled={busy} readOnly={readOnly}
           placeholder={t("itv.intake.placeholder")}
-          className="min-h-64 w-full resize-y rounded-none border-0 bg-transparent px-5 py-4 text-sm leading-7 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
+          className="min-h-48 flex-1 rounded-none border-0 bg-transparent px-5 py-4 text-sm leading-7 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/20 px-4 py-3">
           <div className="flex flex-wrap gap-3">
       {voiceSessionToken ? <InterviewVoiceInput sessionToken={voiceSessionToken} disabled={pending || working} readOnly={readOnly} onAppend={append} onPreview={setVoicePreview} onBusyChange={(active) => { setVoiceBusy(active); onVoiceBusyChange?.(active); }} /> : <Button variant="outline" disabled={busy || readOnly || !onVoice} onClick={() => void perform(async () => append(await onVoice!()))}><Mic className="size-4" aria-hidden />{t("itv.intake.voice")}</Button>}
