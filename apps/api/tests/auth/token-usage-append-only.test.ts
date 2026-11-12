@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: funds and clears only the dedicated token-usage test payer.
 /**
  * F159 —— `token_usage_events` 落在真实 Postgres 上的行为，即迁移
  * (`20260812030000_f159_token_usage_events.sql`) 声称的四条：
@@ -78,12 +79,29 @@ beforeAll(async () => {
   repo = new PgTokenUsageRepository(db);
 });
 
+async function clearFixtureCredit(): Promise<void> {
+  await asOwner(async (session) => {
+    await session.query("DELETE FROM credit_consumption_requests WHERE org_id = ANY($1::text[])", [[ORG, OTHER_ORG]]);
+    await session.query(
+      "DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1)",
+      [ACTOR],
+    );
+    await session.query("DELETE FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1", [ACTOR]);
+  });
+}
+
 beforeEach(async () => {
+  await clearFixtureCredit();
   await resetOrgs(ORG, OTHER_ORG);
   await seedMinimalRun();
+  await asOwner((session) => session.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000000)",
+    [ACTOR],
+  ));
 });
 
 afterAll(async () => {
+  await clearFixtureCredit();
   await db.close();
 });
 
