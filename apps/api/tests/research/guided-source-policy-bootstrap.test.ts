@@ -3,7 +3,7 @@ import { research as C } from '@repo/contracts';
 import { GuidedResearchController } from '../../src/interface/controllers/guided-research.controller';
 import { GuidedRuntimeService, initialRuntime } from '../../src/application/research/guided-runtime-service';
 import { PersistedResearchRuntimeSchema } from '../../src/application/research/guided-runtime-persistence';
-const raw = {node:'brief',action:'refine_source_policy',requestId:'source-policy-s-0-materials',expectedVersion:0,expectedRevision:0,idempotencyKey:'source-policy-s-0-materials',sourcePolicy:{mode:'materials',domains:[],internalSourceIds:[],revision:1}};
+const raw = {node:'brief',action:'refine_source_policy',requestId:'source-policy-s-0-open',expectedVersion:0,expectedRevision:0,idempotencyKey:'source-policy-s-0-open',sourcePolicy:{mode:'open',domains:[],internalSourceIds:[],revision:1}};
 function fixture() {
  const session = C.GuidedResearchSession.parse({sessionId:'s',title:'Research',brief:{topic:'Grid',goal:'Entry',region:'EU',focus:'Policy',timeRange:'2026'},stage:'brief',resumeStage:'brief',status:'active',progress:0,sourceCount:0,reportId:null,createdAt:'now',updatedAt:'now'});
  let saved = initialRuntime(session);
@@ -24,7 +24,7 @@ it('controller accepts JSON source policy bootstrap and real runtime persists it
  expect(f.latest().currentNode).toBe('brief');expect(f.latest().brief.topic).toBe('Grid');
  expect(f.model.complete).not.toHaveBeenCalled();expect(f.search).not.toHaveBeenCalled();
 });
-it.each([{node:'report'},{expectedVersion:1},{expectedRevision:1},{message:'override'}])('controller rejects invalid bootstrap before claim: %j',async patch=>{
+it.each([{node:'report'},{expectedVersion:1},{expectedRevision:1},{message:'override'},{sourcePolicy:{...raw.sourcePolicy,mode:'materials'}}])('controller rejects invalid bootstrap before claim: %j',async patch=>{
  const f=fixture();
  await expect(f.controller.executeRuntime(f.principal,'s',{...raw,...patch},{} as never)).rejects.toThrow('Bad Request');
  expect(f.claim).not.toHaveBeenCalled();

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { GuidedResearchRuntimeCommand } from '../src/research';
-const command = { sessionId:'s', node:'brief', action:'refine_source_policy', requestId:'source-policy-s-0-materials', expectedVersion:0, expectedRevision:0, idempotencyKey:'source-policy-s-0-materials', sourcePolicy:{mode:'materials',domains:[],internalSourceIds:[],revision:1} };
-it.each(['materials','open','prioritize','restrict'])( 'accepts the first %s source policy through the real wire schema', mode => {
+const command = { sessionId:'s', node:'brief', action:'refine_source_policy', requestId:'source-policy-s-0-open', expectedVersion:0, expectedRevision:0, idempotencyKey:'source-policy-s-0-open', sourcePolicy:{mode:'open',domains:[],internalSourceIds:[],revision:1} };
+it.each(['open','prioritize','restrict'])( 'accepts the first %s source policy through the real wire schema', mode => {
  const raw = JSON.parse(JSON.stringify({...command,sourcePolicy:{...command.sourcePolicy,mode,domains:mode==='restrict'?['example.com']:[]},knownFields:{},compactSources:true}));
  expect(GuidedResearchRuntimeCommand.safeParse(raw).success).toBe(true);
 });
@@ -17,4 +17,8 @@ it.each([
 });
 it('preserves existing research-stage steering', () => {
  expect(GuidedResearchRuntimeCommand.safeParse({...command,node:'research',expectedVersion:5,expectedRevision:3,sourcePolicy:{...command.sourcePolicy,revision:4}}).success).toBe(true);
+});
+
+it.each(['brief', 'research'])('rejects a materials-only policy at %s', node => {
+ expect(GuidedResearchRuntimeCommand.safeParse({...command,node,sourcePolicy:{...command.sourcePolicy,mode:'materials'}}).success).toBe(false);
 });

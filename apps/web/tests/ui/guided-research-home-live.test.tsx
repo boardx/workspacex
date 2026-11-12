@@ -588,46 +588,6 @@ it("reuses an already persisted matching policy after leaving without replaying 
   expect(executeResearchRuntime.mock.calls[0]![0].action).toBe("refine_source_policy");
 });
 
-it("binds policy command identity to the restored version and selection without replaying model work", async () => {
-  const initial = unstartedRuntime("grs-policy-mode");
-  const savedOpen = { ...initial, version: 1, planRevision: initial.planRevision! + 1,
-    sourcePolicy: { ...initial.sourcePolicy, mode: "open" as const, revision: 2 } };
-  const savedMaterials = { ...savedOpen, version: 2, planRevision: savedOpen.planRevision + 1,
-    sourcePolicy: { ...savedOpen.sourcePolicy, mode: "materials" as const, revision: 3 } };
-  // A restored identity can be returned by the idempotent create API for each mount.
-  createGuidedResearchSession.mockResolvedValue(createdSession("grs-policy-mode"));
-  getResearchRuntime.mockResolvedValue(initial);
-  executeResearchRuntime.mockResolvedValueOnce(savedOpen)
-    .mockRejectedValueOnce(new Error("transport response lost"))
-    .mockResolvedValueOnce(savedMaterials);
-  const next = vi.fn();
-  const first = render(<GuidedResearchFlow step="brief" onStepChange={next} />);
-  fireEvent.click(screen.getByTestId("research-confirm-brief"));
-  await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
-  first.unmount();
-  getResearchRuntime.mockResolvedValue(savedOpen);
-  const second = render(<GuidedResearchFlow step="brief" onStepChange={next} />);
-  fireEvent.click(screen.getByRole("radio", { name: "仅使用本次材料" }));
-  fireEvent.click(screen.getByTestId("research-confirm-brief"));
-  await screen.findByRole("alert");
-  expect(next).toHaveBeenCalledTimes(1);
-  second.unmount();
-  const third = render(<GuidedResearchFlow step="brief" onStepChange={next} />);
-  fireEvent.click(screen.getByRole("radio", { name: "仅使用本次材料" }));
-  fireEvent.click(screen.getByTestId("research-confirm-brief"));
-  await waitFor(() => expect(next).toHaveBeenCalledTimes(2));
-  const commands = executeResearchRuntime.mock.calls.map(([input]) => input);
-  expect(commands.map(command => command.action)).toEqual(["refine_source_policy", "refine_source_policy", "refine_source_policy"]);
-  expect(commands[0]).toMatchObject({ expectedVersion: 0, expectedRevision: initial.planRevision, sourcePolicy: { mode: "open" } });
-  expect(commands[1]).toMatchObject({ expectedVersion: 1, expectedRevision: savedOpen.planRevision, sourcePolicy: { mode: "materials" } });
-  expect(commands[1].requestId).not.toBe(commands[0].requestId);
-  expect(commands[1].idempotencyKey).not.toBe(commands[0].idempotencyKey);
-  expect(commands[2].requestId).toBe(commands[1].requestId);
-  expect(commands[2].idempotencyKey).toBe(commands[1].idempotencyKey);
-  expect(createGuidedResearchSession.mock.calls[2]![0].idempotencyKey).toBe(createGuidedResearchSession.mock.calls[1]![0].idempotencyKey);
-  third.unmount();
-});
-
 it("keeps a restored model failure reachable when its source policy already matches", async () => {
   createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-failed-model"));
   getResearchRuntime.mockResolvedValueOnce({ ...runtimeFixture("research", "grs-failed-model"),

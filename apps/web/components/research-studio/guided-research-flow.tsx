@@ -381,7 +381,7 @@ function BriefScreen({ projectId = null, ...props }: React.ComponentProps<typeof
     // 项目中枢 B2-S2：会话已存在就先挂回项目；挂失败不影响研究流程（项目页可用「关联已有」补挂）。
     if (!projectId) return;
     try { await linkProjectResource({ projectId, kind: "guided_research", resourceId: sessionId }); } catch { /* 项目页可补挂 */ }
-  }} renderAssistant={(brief, onChange) => <GuidedResearchSkillAssistant step="brief" progressLabel={progressLabel("brief")} sessionKey={props.sessionId ? props.sessionId + ":brief" : "pending-brief"} snapshot={{ step: "brief", value: brief }} onSnapshotChange={(next) => { if (next.step === "brief") onChange(next.value); }} />} />;
+  }} />;
 }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {

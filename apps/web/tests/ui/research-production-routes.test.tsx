@@ -40,7 +40,7 @@ it("reports unsupported files without losing the requirement", async () => {
 
 it("lets a visual embedding own confirmation without creating persisted research", () => {
   const confirm = vi.fn();
-  render(<ResearchIntake session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} onConfirmBrief={confirm} />);
+  render(<ResearchIntake session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} onConfirmBrief={confirm} />);
   fireEvent.change(screen.getByRole("textbox", { name: "研究目标" }), { target: { value: "视觉样本需求" } });
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
   expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ topic: "新建研究", goal: "视觉样本需求" }));
@@ -107,21 +107,10 @@ it("accepts the prototype's single description without requiring a hidden topic 
   });
 });
 
-it("only applies a real assistant proposal after explicit user adoption", async () => {
-  const brief = { topic: "Suggested topic", goal: "Suggested objective", timeRange: "2026", region: "Europe", focus: "Policy" };
-  vi.mocked(runGuidedResearchSkillTurn).mockResolvedValue({ assistantMessage: "Please review", proposal: { node: "brief", value: brief } } as never);
+it("opens the new research intake without an assistant launcher", () => {
   render(<ResearchNewRoute />);
-  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
-  fireEvent.change(screen.getByRole("textbox", { name: "和研究助手讨论" }), { target: { value: "Help refine this question" } });
-  fireEvent.click(screen.getByRole("button", { name: "发送" }));
-  await screen.findByRole("button", { name: "应用建议" });
-  expect(() => research.operations.runGuidedResearchSkillTurn.in.parse(vi.mocked(runGuidedResearchSkillTurn).mock.calls[0]?.[0])).not.toThrow();
-  expect(screen.getByRole("textbox", { name: "研究目标" })).toHaveValue("");
-  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
-  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
-  expect(screen.getByRole("textbox", { name: "和研究助手讨论" })).toHaveValue("Help refine this question");
-  fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
-  expect(screen.getByRole("textbox", { name: "研究目标" })).toHaveValue("Suggested objective");
+  expect(screen.getByRole("textbox", { name: "研究目标" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "AI 助手" })).not.toBeInTheDocument();
 });
 
 it.each([101, 123, 200, 2000, 11540, 40000])("creates research from a %i-character requirement using a contract-valid default title", async (length) => {
@@ -148,7 +137,7 @@ it("bounds a default title derived from a prefilled topic while preserving the t
   vi.mocked(getResearchRuntime).mockResolvedValue({ version: 3, currentNode: "directions" } as never);
   const navigate = vi.fn();
   const topic = "研".repeat(120);
-  render(<ResearchIntake initialBrief={{ topic, goal: "研究无障碍标准", timeRange: "", region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={navigate} renderAssistant={() => null} />);
+  render(<ResearchIntake initialBrief={{ topic, goal: "研究无障碍标准", timeRange: "", region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={navigate} />);
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
   await waitFor(() => expect(navigate).toHaveBeenCalledWith("directions", "prefilled-topic"));
   expect(vi.mocked(createGuidedResearchSession).mock.calls[0]![0].brief?.topic).toBe(topic);
@@ -162,7 +151,7 @@ it("uses the persisted creation name rather than the research description on sta
 
 it("preserves an over-limit requirement and prevents submission", () => {
   const goal = "研".repeat(40001);
-  render(<ResearchIntake initialBrief={{ topic: "研究", goal, timeRange: "", region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} />);
+  render(<ResearchIntake initialBrief={{ topic: "研究", goal, timeRange: "", region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} />);
   expect(screen.getByRole("textbox", { name: "研究目标" })).toHaveValue(goal);
   expect(screen.getByRole("alert")).toHaveTextContent("需求超过 40000 字");
   expect(screen.getByTestId("research-confirm-brief")).toBeDisabled();
@@ -189,7 +178,7 @@ it("does not supply a placeholder title when stage metadata fails", async () => 
 
 it("retains invalid restored optional input and blocks submission until corrected", () => {
   const confirm = vi.fn();
-  render(<ResearchIntake initialBrief={{ topic: "研究", goal: "核对输入边界", timeRange: "甲".repeat(201), region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} onConfirmBrief={confirm} />);
+  render(<ResearchIntake initialBrief={{ topic: "研究", goal: "核对输入边界", timeRange: "甲".repeat(201), region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} onConfirmBrief={confirm} />);
   expect(screen.getByLabelText("时间范围")).toHaveValue("甲".repeat(201));
   expect(screen.getByRole("alert")).toHaveTextContent("时间范围最多 200 字");
   expect(screen.getByTestId("research-confirm-brief")).toBeDisabled();
@@ -213,18 +202,12 @@ it("keeps one primary intake action while retaining all optional research fields
 });
 
 it("reveals invalid optional research fields and associates overlong requirements with their error", () => {
-  render(<ResearchIntake initialBrief={{ topic: "研究", goal: "甲".repeat(40001), timeRange: "甲".repeat(201), region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} />);
+  render(<ResearchIntake initialBrief={{ topic: "研究", goal: "甲".repeat(40001), timeRange: "甲".repeat(201), region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} />);
   const time = screen.getByRole("textbox", { name: "时间范围" });
   expect(time.closest("details")).toHaveAttribute("open");
   const goal = screen.getByRole("textbox", { name: "研究目标" });
   expect(goal).toHaveAttribute("aria-invalid", "true");
   expect(document.getElementById(goal.getAttribute("aria-describedby")!)).toHaveTextContent("需求超过");
-});
-
-it("shows a single named assistant heading when the intake panel is open", () => {
-  render(<ResearchIntake session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} />);
-  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
-  expect(screen.getAllByRole("heading", { name: "研究助手" })).toHaveLength(1);
 });
 
 it("shows a cached name immediately and validates it against the backend", async () => {
