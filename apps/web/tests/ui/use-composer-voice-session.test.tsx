@@ -100,6 +100,9 @@ describe("useComposerVoiceSession", () => {
     expect(result.current.silenceHint).toBe(true);
     expect(speech.stop).not.toHaveBeenCalled();
     act(() => { vi.advanceTimersByTime(SILENCE_AUTO_PAUSE_AFTER_SECONDS * 1_000 + 50); });
+    expect(speech.stop).not.toHaveBeenCalled();
+    expect(result.current.phase).toBe("listening");
+    act(() => result.current.setAutoPause(true));
     expect(speech.stop).toHaveBeenCalledTimes(1);
   });
 

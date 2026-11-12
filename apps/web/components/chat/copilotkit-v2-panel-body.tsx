@@ -1186,6 +1186,7 @@ function useCopilotKitV2PanelController({
     getBaseText: () => inputDraftRef.current,
     onTranscript: (fullText) => setInputDraft(fullText),
     sessionToken: sessionToken ?? "",
+    autoReconnect: true,
     deviceId: micDevices.selectedDeviceId ?? undefined,
   });
   /*

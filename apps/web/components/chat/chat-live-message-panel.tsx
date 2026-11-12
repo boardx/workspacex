@@ -485,6 +485,7 @@ export function ChatLiveMessagePanel({
     getBaseText: () => textRef.current,
     onTranscript: (fullText) => updateDraft({ text: fullText }),
     sessionToken: bearer,
+    autoReconnect: true,
     deviceId: micDevices.selectedDeviceId ?? undefined,
   });
   const speechStopRef = React.useRef(speech.stop);
