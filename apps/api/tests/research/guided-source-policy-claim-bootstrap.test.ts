@@ -33,11 +33,11 @@ it('strict initial-brief bootstrap must reject a real legacy directions runtime 
  expect(f.writes).toEqual([]);
 });
 
-it('fresh session stage=directions without any generated versions still allows the initial materials policy',async()=>{
+it('fresh session stage=directions without any generated versions still allows the initial online policy',async()=>{
  const f=legacy(true);
  expect(f.session.stage).toBe('directions');
  expect(f.initial).toMatchObject({version:0,currentNode:'brief',availableNodes:['brief'],legacyCheckpoint:null});
- const policy={...raw.sourcePolicy,mode:'materials'};
+ const policy=raw.sourcePolicy;
  const response=await f.controller.executeRuntime({userId:'owner',orgId:'org' as never},'legacy',JSON.parse(JSON.stringify({...raw,sourcePolicy:policy})),{} as never);
  expect(response).toMatchObject({currentNode:'brief',sourcePolicy:policy,errorCode:null});
  expect(f.latest().sourcePolicy).toEqual(policy);

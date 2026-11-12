@@ -1163,6 +1163,7 @@ export const GuidedResearchRuntimeCommand = z.object({
           command.conflictId, command.conflictResolution, command.conflictResolutionAction, command.allowPartialResearch].every(value => value === undefined)))
       && command.expectedRevision !== undefined && Boolean(command.idempotencyKey)), "steering commands require an editable plan node, expected revision and idempotency key")
   .refine((command) => command.action !== "refine_source_policy" || Boolean(command.sourcePolicy), "source policy refinement requires a source policy")
+  .refine((command) => command.sourcePolicy?.mode !== "materials", "research commands require an online source policy")
   .refine((command) => command.action !== "resolve_conflict" || (command.node === "research" && Boolean(command.conflictId) && Boolean(command.conflictResolutionAction) && Boolean(command.conflictResolution)
     && (command.conflictResolutionAction === "prefer_source" ? Boolean(command.sourceId) : !command.sourceId)), "conflict resolution requires an explicit valid decision")
   .refine((command) => {

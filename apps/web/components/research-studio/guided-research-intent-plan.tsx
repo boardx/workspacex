@@ -18,7 +18,7 @@ export function GuidedResearchIntentPlan({ initialIntent, initialPolicy, revisio
   const [deliverable, setDeliverable] = React.useState(initialIntent?.deliverable ?? "研究报告");
   const [timeFrom, setTimeFrom] = React.useState(initialIntent?.timeframe.from ?? "");
   const [timeTo, setTimeTo] = React.useState(initialIntent?.timeframe.to ?? "");
-  const [mode, setMode] = React.useState<Policy["mode"]>(initialPolicy?.mode ?? "prioritize");
+  const [mode, setMode] = React.useState<Exclude<Policy["mode"], "materials">>(initialPolicy?.mode === "materials" ? "open" : initialPolicy?.mode ?? "prioritize");
   const [domains, setDomains] = React.useState(initialPolicy?.domains.join(", ") ?? "");
   const successCriteria = criteria.split("\n").map((item) => item.trim()).filter(Boolean);
   const domainList = domains.split(",").map((item) => item.trim()).filter(Boolean);
@@ -35,7 +35,7 @@ export function GuidedResearchIntentPlan({ initialIntent, initialPolicy, revisio
       <label className="grid gap-1 text-sm md:col-span-2">成功标准<Textarea value={criteria} onChange={(event) => setCriteria(event.target.value)} placeholder="每行一条" /></label>
       <fieldset className="grid gap-2 md:col-span-2" data-testid="research-source-policy">
         <legend className="text-sm font-medium">来源范围</legend>
-        <div className="flex flex-wrap gap-4">{(["materials", "restrict", "prioritize", "open"] as const).map((value) => <label key={value} className="flex items-center gap-2 text-sm"><input type="radio" name="source-policy" checked={mode === value} onChange={() => setMode(value)} />{value === "materials" ? "仅使用本次材料" : value === "restrict" ? "仅限指定站点" : value === "prioritize" ? "优先指定站点" : "公开网页"}</label>)}</div>
+        <div className="flex flex-wrap gap-4">{(["restrict", "prioritize", "open"] as const).map((value) => <label key={value} className="flex items-center gap-2 text-sm"><input type="radio" name="source-policy" checked={mode === value} onChange={() => setMode(value)} />{value === "restrict" ? "仅限指定站点" : value === "prioritize" ? "优先指定站点" : "公开网页"}</label>)}</div>
         <Input aria-label="指定站点" value={domains} onChange={(event) => setDomains(event.target.value)} placeholder="example.com, gov.cn" />
         {invalidPolicy && <p role="alert" className="text-sm text-destructive">仅限指定站点时至少填写一个域名。</p>}
       </fieldset>

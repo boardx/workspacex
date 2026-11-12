@@ -7,7 +7,6 @@ import { research as researchContract } from "@repo/contracts";
 import { ArrowRight, Upload } from "lucide-react";
 import { InterviewVoiceInput } from "@/components/itv/interview-voice-input";
 import { useOptionalSession } from "@/components/session/session-provider";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,7 +14,7 @@ import { WorkflowActionButton, WorkflowActionBar } from "./research-workflow-act
 import { ResearchLoading } from "./guided-research-presentation";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import type { GuidedResearchCreateDraft } from "./create-guided-research-dialog";
-import { createGuidedResearchSession, getResearchRuntime, executeResearchRuntime, confirmResearchBrief, executeGuidedResearchNodeCommand, getGuidedResearchSession, runGuidedResearchSkillTurn, type GuidedResearchSession, type GuidedResearchWorkflowProjection } from "@/lib/guided-research-api";
+import { createGuidedResearchSession, getResearchRuntime, executeResearchRuntime, confirmResearchBrief, executeGuidedResearchNodeCommand, getGuidedResearchSession, type GuidedResearchSession, type GuidedResearchWorkflowProjection } from "@/lib/guided-research-api";
 type Brief = GuidedResearchSession["brief"];
 type Step = "home" | "brief" | "directions" | "outline" | "search" | "report";
 const briefShape = researchContract.GuidedResearchBrief.shape;
@@ -63,14 +62,13 @@ function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief
   return { key: generated, storageKey };
 }
 
-export function ResearchIntake({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending, initialBrief = EMPTY_BRIEF, renderAssistant, onClear, onCreated, onDirtyChange, onConfirmBrief }: {
+export function ResearchIntake({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending, initialBrief = EMPTY_BRIEF, onClear, onCreated, onDirtyChange, onConfirmBrief }: {
   /** An embedding may own submission; the default remains the persisted workflow. */
   onConfirmBrief?: (brief: Brief) => void;
   onDirtyChange?: (dirty: boolean) => void;
   initialBrief?: Brief;
   /** 新会话创建成功、拿到 id 之后立刻调用（项目中枢用它把会话挂回项目）；抛错由调用方自行吞掉。 */
   onCreated?: (sessionId: string) => Promise<void> | void;
-  renderAssistant?: (brief: Brief, onChange: (brief: Brief) => void) => React.ReactNode;
   onClear?: (sessionId?: string) => void;
   onPending: (pending: boolean) => void;
   sessionId?: string;
@@ -82,7 +80,6 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
 }) {
   const { t } = useI18n();
   const [brief, setBrief] = React.useState(initialBrief);
-  const [sourceMode, setSourceMode] = React.useState<"materials" | "open">("open");
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const optionalErrors = (Object.keys(optionalBriefLabels) as (keyof typeof optionalBriefLabels)[])
     .filter((key) => brief[key].trim().length > briefShape[key].maxLength!);
@@ -116,7 +113,6 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
   }
   const baseline = session?.brief ?? initialBrief;
   React.useEffect(() => { onDirtyChange?.(voiceBusy || importBusy || Boolean(voicePreview) || JSON.stringify(brief) !== JSON.stringify(baseline)); }, [brief, baseline, voiceBusy, importBusy, voicePreview, onDirtyChange]);
-  const assistant = useIntakeAssistant(brief, setBrief);
   const active = React.useRef(true);
   React.useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const [createDraft] = React.useState<GuidedResearchCreateDraft>(() => {
@@ -167,7 +163,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
         onNavigate("outline", sessionId);
         return;
       }
-      const pending = pendingCreateIdempotencyKey({ ...createDraft, brief: confirmedBrief, sourceMode });
+      const pending = pendingCreateIdempotencyKey({ ...createDraft, brief: confirmedBrief, sourceMode: "open" });
       const createdSession = await createGuidedResearchSession({ ...createDraft, title: createDraft.title || DEFAULT_RESEARCH_NAME, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief: confirmedBrief });
       if (!active.current) return;
       if (onCreated) {
@@ -186,14 +182,14 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
       }
       if (!active.current) return;
       if (!runtime) throw new Error("RESEARCH_WORKFLOW_UNAVAILABLE");
-      if (!(runtime.version > 0 && runtime.sourcePolicy?.mode === sourceMode)) {
-        const policyRequest = `source-policy-${createdSession.sessionId}-${runtime.version}-${sourceMode}`;
+      if (!(runtime.version > 0 && runtime.sourcePolicy?.mode === "open")) {
+        const policyRequest = `source-policy-${createdSession.sessionId}-${runtime.version}-open`;
         runtime = await executeResearchRuntime({ sessionId: createdSession.sessionId, node: runtime.currentNode,
           action: "refine_source_policy", requestId: policyRequest, expectedVersion: runtime.version,
           expectedRevision: runtime.planRevision ?? 0, idempotencyKey: policyRequest,
-          sourcePolicy: { mode: sourceMode, domains: runtime.sourcePolicy?.domains ?? [], internalSourceIds: runtime.sourcePolicy?.internalSourceIds ?? [], revision: (runtime.sourcePolicy?.revision ?? 0) + 1 } });
+          sourcePolicy: { mode: "open", domains: runtime.sourcePolicy?.domains ?? [], internalSourceIds: runtime.sourcePolicy?.internalSourceIds ?? [], revision: (runtime.sourcePolicy?.revision ?? 0) + 1 } });
         if (!active.current) return;
-        if (runtime.errorCode || runtime.sourcePolicy?.mode !== sourceMode) throw new Error("RESEARCH_SOURCE_POLICY_INVALID");
+        if (runtime.errorCode || runtime.sourcePolicy?.mode !== "open") throw new Error("RESEARCH_SOURCE_POLICY_INVALID");
       }
       window.localStorage.removeItem(pending.storageKey);
       window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
@@ -211,21 +207,14 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
     }
   };
   return (
-    <GuidedResearchStepLayout
-      floatingAssistant
-      assistant={renderAssistant ? renderAssistant(brief, setBrief) : assistant}
-    >
+    <GuidedResearchStepLayout>
       {submitting ? <ResearchLoading node="directions" /> : <div className="flex min-w-0 flex-col gap-4" data-density="compact-step">
       {sessionId && <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">{t("research.intake.regenerate")}</p>}
       <div className="min-w-0">
         <Card className="flex rounded-xl"><CardContent className="flex w-full flex-col gap-3 p-4 sm:p-5">
           <h2 className="text-xl font-bold">{t("research.intake.heading")}</h2>
+          {!sessionId && <p className="text-sm text-muted-foreground">{t("research.intake.onlineRequired")}</p>}
           <div className="flex min-h-56 flex-1 flex-col rounded-lg border border-border p-4">
-            {!sessionId && <fieldset className="mb-4 flex flex-wrap gap-4 text-sm"><legend className="mb-2 font-medium">研究来源</legend>
-              <label><input type="radio" name="research-source-mode" checked={sourceMode === "materials"} onChange={() => setSourceMode("materials")} /> 仅使用本次材料</label>
-              <label><input type="radio" name="research-source-mode" checked={sourceMode === "open"} onChange={() => setSourceMode("open")} /> 允许联网检索</label>
-              <p className="w-full text-xs text-muted-foreground">仅材料模式需要已关联的可核验资料，不会访问外部网页。输入描述和导入文字仅作为研究需求，不会自动成为可核验来源；资料不足时仅提示证据缺口。</p>
-            </fieldset>}
             <Textarea value={voicePreview ? (brief.goal ? `${brief.goal}\n\n${voicePreview}` : voicePreview) : brief.goal} readOnly={voiceBusy || importBusy} maxLength={Math.max(goalLimit, brief.goal.length)} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label={t("research.intake.goal")} aria-invalid={brief.goal.length > goalLimit || undefined} aria-describedby={brief.goal.length > goalLimit ? "research-goal-error" : undefined} className="min-h-48 flex-1 resize-y border-0 p-0 text-sm leading-relaxed shadow-none focus-visible:ring-2" placeholder={t("research.intake.placeholder")} />
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <InterviewVoiceInput sessionToken={authSession?.sessionToken ?? ""} disabled={submitting || importBusy} onAppend={appendInput} onPreview={setVoicePreview} onBusyChange={setVoiceBusy} />
@@ -253,25 +242,4 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return <label className="flex flex-col gap-1.5 text-12 font-medium text-background-foreground">{label}{hint && <span className="font-normal text-muted-foreground">{hint}</span>}{children}</label>;
-}
-
-function useIntakeAssistant(brief: Brief, onApply: (brief: Brief) => void) {
-  const { t } = useI18n();
-  const [message, setMessage] = React.useState("");
-  const [pending, setPending] = React.useState(false);
-  const [proposal, setProposal] = React.useState<Brief | null>(null);
-  const [reply, setReply] = React.useState("");
-  const [error, setError] = React.useState(false);
-  async function send() {
-    if (!message.trim() || pending) return;
-    setPending(true); setError(false); setProposal(null);
-    try {
-      // Keep the message as the initial goal; the generated proposal still needs adoption.
-      const value = { ...brief, topic: brief.topic.trim() || DEFAULT_RESEARCH_NAME, goal: brief.goal.trim() || message.trim() };
-      const result = await runGuidedResearchSkillTurn({ requestId: requestId("intake-skill"), message: message.trim(), draft: { node: "brief", value } });
-      setReply(result.assistantMessage);
-      if (result.proposal.node === "brief") setProposal(result.proposal.value);
-    } catch { setError(true); } finally { setPending(false); }
-  }
-  return <div className="space-y-4"><p className="text-sm text-muted-foreground">{t("research.assistant.applyHint")}</p><Textarea aria-label={t("research.assistant.discuss")} maxLength={2000} value={message} onChange={(event) => setMessage(event.target.value)} /><Button disabled={pending || !message.trim()} onClick={() => void send()}>{t(pending ? "research.assistant.generating" : "research.assistant.send")}</Button>{error && <p role="alert">{t("research.assistant.failed")}</p>}{reply && <p className="whitespace-pre-wrap">{reply}</p>}{proposal && <Button onClick={() => { onApply(proposal); setProposal(null); }}>{t("research.assistant.apply")}</Button>}</div>;
 }
