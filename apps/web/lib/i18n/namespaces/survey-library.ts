@@ -42,7 +42,7 @@ export const surveyLibraryZhCN = {
   "survey.create.chooseMode": "选择创建方式",
   "survey.create.blank": "空白创建",
   "survey.create.blankHint": "直接设计",
-  "survey.create.ai": "AI 导入创建",
+  "survey.create.ai": "AI智能创建",
   "survey.create.aiHint": "从内容生成并校对",
   "survey.create.template": "从模板创建",
   "survey.create.templateHint": "复用已有模板",

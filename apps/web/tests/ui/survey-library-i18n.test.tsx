@@ -93,7 +93,7 @@ it("retains AI creation fields and mode, then navigates with raw metadata withou
   const name = screen.getByRole("textbox", { name: "问卷名称" });
   fireEvent.change(name, { target: { value: rawName } });
   fireEvent.change(screen.getByTestId("survey-create-tag-input"), { target: { value: rawTag } });
-  fireEvent.click(screen.getByRole("radio", { name: /AI 导入创建/ }));
+  fireEvent.click(screen.getByRole("radio", { name: /AI智能创建/ }));
   language("en");
   expect(screen.getByRole("heading", { name: "New survey" })).toBeVisible();
   expect(screen.getByRole("textbox", { name: "Survey name" })).toBe(name);
