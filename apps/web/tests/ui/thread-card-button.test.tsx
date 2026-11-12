@@ -95,14 +95,17 @@ describe("ThreadCardButton", () => {
     expect(onRename).not.toHaveBeenCalled();
   });
 
-  it("删除需要二次确认——点「删除」进二次确认态，未填原因禁止提交", () => {
+  it("删除只在二次确认提交后执行", () => {
+    const onDelete = vi.fn();
     render(
-      <ThreadCardButton card={CARD} selected onSelect={vi.fn()} onRename={vi.fn()} onDelete={vi.fn()} pending={null} failure={null} />,
+      <ThreadCardButton card={CARD} selected onSelect={vi.fn()} onRename={vi.fn()} onDelete={onDelete} pending={null} failure={null} />,
     );
     fireEvent.pointerDown(screen.getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
-    expect(screen.getByTestId("chat-thread-delete-submit")).toBeDisabled();
-    expect(screen.queryByTestId("chat-thread-card-menu-trigger")).not.toBeInTheDocument(); // 二次确认期间不重复显示菜单入口
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("chat-thread-card-menu-trigger")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("chat-thread-delete-submit"));
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
   it("点击卡片本身仍然触发 onSelect（选择行为在菜单/双击之外照常工作）", () => {
