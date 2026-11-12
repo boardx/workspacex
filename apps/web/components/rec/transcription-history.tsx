@@ -1,4 +1,5 @@
 "use client";
+import { useBrowserTitle } from "@/components/system/browser-title";
 import { RESOURCE_GRID_CLASS, RESOURCE_PAGE_CLASS } from "@/components/ui/resource-card";
 
 import * as React from "react";
@@ -389,6 +390,8 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只按 URL 进入时的 id 读一次
   }, [initialSessionId]);
+
+  useBrowserTitle(activeSession?.name || t("rec.tabTitle"));
 
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useBrowserTitle } from "@/components/system/browser-title";
 import * as React from "react";
 import Link from "next/link";
 import { ArrowLeft, Inbox } from "lucide-react";
@@ -28,6 +29,7 @@ function InboxContent({ token, initialMessage }: { token?: string; initialMessag
   const [finishedLookupId, setFinishedLookupId] = React.useState<string | null>(null);
   const listed = items.find(item => item.id === selectedId);
   const selected = listed ?? (savedMessage?.id === selectedId ? savedMessage : null);
+  useBrowserTitle(selected?.title);
   React.useEffect(() => {
     if (listed) setSavedMessage(listed);
   }, [listed]);

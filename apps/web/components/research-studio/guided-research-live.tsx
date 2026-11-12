@@ -1,4 +1,5 @@
 "use client";
+import { useBrowserTitle } from "@/components/system/browser-title";
 import { CreditFailureDetails } from "@/components/billing/credit-consumption-notice";
 import { agentRunCreditFailure, creditGuidance } from "@/lib/credit-guidance";
 import { isUnstartedResearch } from "@/lib/guided-research-bootstrap";
@@ -140,6 +141,7 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
   const cachedRuntime = readResearchMemory(sessionId, cacheScope)?.runtime;
   const initialTarget = cachedRuntime ? initialNode && cachedRuntime.availableNodes.includes(initialNode) ? initialNode : cachedRuntime.currentNode : "brief";
   const [state, setState] = React.useState<Runtime | null>(() => cachedRuntime ?? null);
+  useBrowserTitle(state ? guidedResearchHeading(state, researchName) : researchName);
   const [node, setNode] = React.useState<Command["node"]>(initialTarget);
   const [draft, setDraft] = React.useState<Draft | null>(() => cachedRuntime ? readResearchMemory(sessionId, cacheScope)?.drafts?.[initialTarget] ?? draftOf(cachedRuntime, initialTarget) : null);
   const draftRef = React.useRef(draft); draftRef.current = draft;

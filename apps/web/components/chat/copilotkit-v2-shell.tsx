@@ -1,5 +1,6 @@
 "use client";
 
+import { useBrowserTitle } from "@/components/system/browser-title";
 import * as React from "react";
 import { ChatShareButton } from "./chat-share-button";
 import { ChatHandoffStream } from "@/components/chat/chat-handoff-panel";
@@ -958,6 +959,9 @@ export function CopilotKitV2Shell({
   }, [reloadThreads, projectId]);
 
   const cards = threads?.groups.flatMap((group) => group.cards) ?? [];
+  const conversationTitle = displayConversationTitle(cards.find(card => card.id === selectedThreadId)?.title, t("chatEntry.untitled"))
+    ?? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"));
+  useBrowserTitle(conversationTitle);
   const canCreate = threads?.capabilities.includes("thread.mutate") ?? false;
 
   /**
@@ -1343,9 +1347,7 @@ export function CopilotKitV2Shell({
             className="min-w-0 truncate text-16 font-semibold text-card-foreground"
             data-testid="copilotkit-v2-thread-topbar-title"
           >
-            {selectedThreadId === null
-              ? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"))
-              : displayConversationTitle(cards.find((card) => card.id === selectedThreadId)?.title, t("chatEntry.untitled")) ?? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"))}
+            {conversationTitle}
           </span>
           <span
             className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-10 text-muted-foreground"
