@@ -390,6 +390,15 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只按 URL 进入时的 id 读一次
   }, [initialSessionId]);
 
+  const tabTitle = activeSession?.name.trim() || t("rec.tabTitle");
+  React.useEffect(() => {
+    const previousTitle = document.title;
+    document.title = tabTitle;
+    return () => {
+      if (document.title === tabTitle) document.title = previousTitle;
+    };
+  }, [tabTitle]);
+
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
       interimSegment={interimSegment} flowState={flowState} errorMessage={streamError ? t(streamError) : null} errorIdentity={streamError} reconnectableError={reconnectableError}

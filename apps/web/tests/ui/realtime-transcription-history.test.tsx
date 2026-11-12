@@ -195,7 +195,9 @@ describe("实时转录历史工作台", () => {
 
   it("persists a title rename without replacing live transcript content or tags", async () => {
     renderHistory();
+    expect(document.title).toBe("语音转录");
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    await waitFor(() => expect(document.title).toBe(EUROPE.name));
     fireEvent.doubleClick(await screen.findByTestId("rec-live-title"));
     fireEvent.change(screen.getByRole("textbox", { name: "录音名称" }), { target: { value: "改名后的录音" } });
     fireEvent.keyDown(screen.getByRole("textbox", { name: "录音名称" }), { key: "Enter" });
@@ -203,6 +205,9 @@ describe("实时转录历史工作台", () => {
       { name: "改名后的录音", tags: [...EUROPE.tags] }, "session-token"));
     await waitFor(() => expect(screen.getByTestId("rec-live-title")).toHaveTextContent("改名后的录音"));
     expect(screen.getByTestId("rec-live-content")).toHaveTextContent("这是数据库中保存的真实逐字稿。");
+    expect(document.title).toBe("改名后的录音");
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(document.title).toBe("语音转录");
   });
 
   it("offers manual reconnect after five failed retries and stops retrying", async () => {
