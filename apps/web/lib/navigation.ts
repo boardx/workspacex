@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  MessagesSquare, FolderKanban, Search, Mic, ClipboardList, LayoutTemplate,
+  MessagesSquare, FolderKanban, Search, UsersRound, ClipboardList, LayoutTemplate,
   Brain, ListTodo, Settings2, FileText, AudioLines, Shapes, Puzzle, Bot, Users, Boxes,
   MessageSquareWarning, ListChecks, Globe, Cpu, PencilRuler, Home, Workflow, CreditCard,
 } from "lucide-react";
@@ -175,7 +175,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
       //   Context Pack 不是）；Context Pack 页面仍在 /studio/research 直达。Q-2 的最终归并留给人类。
       { key: "research", label: "研究", href: "/research", icon: Search, ucRefs: ["24-research/uc-24-1", "24-research/uc-24-2", "24-research/uc-24-3", "24-research/uc-24-4", "24-research/uc-24-5", "24-research/uc-24-6"] },
       // 束: interview —— 重指到 v2 现行屏 /itv（label/icon 不变，像素不变；旧 /studio/interview 已重定向）
-      { key: "interview", label: "访谈", href: "/itv", icon: Mic, ucRefs: ["06-itv/uc-6-1", "06-itv/uc-6-3"] },
+      { key: "interview", label: "访谈", href: "/itv", icon: UsersRound, ucRefs: ["06-itv/uc-6-1", "06-itv/uc-6-3"] },
       // 束: recording —— 现场录音转写，此前只能敲 /rec
       { key: "recording", label: "录音", href: "/rec", icon: AudioLines, ucRefs: ["05-rec/uc-5-1", "05-rec/uc-5-2"] },
       { key: "survey", label: "问卷", href: "/studio/survey", icon: ClipboardList, ucRefs: ["12-survey/uc-12-1"] },
