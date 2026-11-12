@@ -21,11 +21,11 @@ it('CI runner commands bail internally instead of waiting for the remaining case
  const api=JSON.parse(readFileSync('apps/api/package.json','utf8')).scripts.test;expect(api).toMatch(/^vitest run --bail=1 &&/);
  for(const [key,value]of Object.entries(scripts))if(key.startsWith('verify:')&&String(value).includes('playwright test'))expect(value,key).toContain('--max-failures=1');
 });
-it('test matrices cancel remaining shards and cancelable jobs do not ignore workflow cancellation',()=>{
+it('acceptance shards finish independently and other matrices retain fail-fast',()=>{
  for(const file of ['harness-verify','harness-acceptance','backend-gates']){
   const workflow=parse(readFileSync(`.github/workflows/${file}.yml`,'utf8'));
   for(const [name,job] of Object.entries(workflow.jobs) as [string,any][]){
-   if(job.strategy?.matrix)expect(job.strategy['fail-fast']).toBe(true);
+   if(job.strategy?.matrix)expect(job.strategy['fail-fast']).toBe(file!=='harness-acceptance');
    if(job.if?.includes('always()')){
     const terminal=new Map([['harness-verify/queue-ready','ci-lightweight.mjs queue'],['harness-acceptance/hourly-full-result','ci-hourly-result.mjs'],['backend-gates/backend-full-result','BACKEND_FULL_PRODUCER_SET']]);
     const strict=terminal.get(`${file}/${name}`);
