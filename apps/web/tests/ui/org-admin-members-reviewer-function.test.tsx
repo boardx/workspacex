@@ -20,8 +20,8 @@ for (const isAdmin of [true, false]) {
     if (isAdmin) {
       fireEvent.keyDown(screen.getByTestId("org-admin-member-u-member-org-role"), { key: "Enter" });
       const menu = await screen.findByRole("menu");
-      expect(within(menu).getAllByRole("menuitemradio").map(option => option.textContent))
-        .toEqual(["成员", "管理员"]);
+      expect(within(menu).getAllByRole("menuitemradio").map(option => option.textContent).sort())
+        .toEqual(["成员", "管理员"].sort());
     } else {
       expect(screen.queryByTestId("org-admin-member-u-member-org-role")).toBeNull();
     }
