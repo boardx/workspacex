@@ -22,13 +22,11 @@ function follow(anchor:HTMLElement){
  return new URL(window.location.href);
 }
 function existing(){const r=runtimeFixture('report');return {sessionId:'grs-existing',title:'Saved study',tags:[],brief:r.brief,briefVersion:1,briefConfirmedAt:null,directions:{candidateVersion:null,confirmedVersion:null,versions:[]},outline:{candidateVersion:null,confirmedVersion:null,versions:[]},stage:'report',resumeStage:'report',status:'completed',progress:100,sourceCount:1,reportId:null,createdAt:'2026-10-01',updatedAt:'2026-10-01'};}
-it.each([{populated:false,index:0},{populated:false,index:1},{populated:true,index:0},{populated:true,index:1}])('keeps the project through actual home create link $populated/$index, association, study and return',async({populated,index})=>{
+it.each([false, true])('keeps the project through research creation and return (populated: %s)',async(populated)=>{
  m.list.mockResolvedValue({items:populated?[existing()]:[]});
  const home=render(<GuidedResearchFlow step="home" projectId="project-entry"/>);
- await screen.findByTestId(populated?'research-create-card':'research-history-empty');
- const links=screen.getAllByRole('link',{name:'新建研究'});
- expect(links).toHaveLength(2);
- const url=follow(links[index]!);
+ await screen.findByTestId(populated?'research-view-grs-existing':'research-history-empty');
+ const url=follow(screen.getByRole('link',{name:'新建研究'}));
  expect(url.pathname).toBe('/research/new');expect(url.searchParams.get('projectId')).toBe('project-entry');
  home.unmount();
  const entry=render(<ResearchNewRoute/>);
