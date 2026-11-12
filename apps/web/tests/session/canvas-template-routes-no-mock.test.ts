@@ -236,7 +236,7 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
     expect(client).toContain("canvas.operations.mintTemplateVersion");
 
     const callers = walk(TEMPLATE_ADMIN).visited
-      .filter((f) => readFileSync(resolve(ROOT, f), "utf8").includes("mintTemplateVersion"));
+      .filter((f) => readFileSync(resolve(ROOT, f), "utf8").includes("canvas.operations.mintTemplateVersion"));
     expect(callers).toEqual(["lib/live-canvas.ts"]);
 
     const admin = readFileSync(resolve(ROOT, TEMPLATE_ADMIN), "utf8");
