@@ -1186,6 +1186,7 @@ function useCopilotKitV2PanelController({
     getBaseText: () => inputDraftRef.current,
     onTranscript: (fullText) => setInputDraft(fullText),
     sessionToken: sessionToken ?? "",
+    autoReconnect: true,
     deviceId: micDevices.selectedDeviceId ?? undefined,
   });
   /*
@@ -1254,12 +1255,12 @@ function useCopilotKitV2PanelController({
     if (voice.phase !== "listening" && voice.phase !== "connecting") return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
-      if (voice.phase === "listening") voice.finish();
+      if (voice.phase === "listening" || speech.reconnecting) voice.finish();
       else voice.discard();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [voice]);
+  }, [voice, speech.reconnecting]);
   // 输入框被清空（发送成功 / 手动清空）⇒ 退出"转录后编辑"。
   React.useEffect(() => {
     if (voice.phase === "done" && inputDraft.trim() === "") voice.dismiss();

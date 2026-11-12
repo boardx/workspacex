@@ -66,9 +66,9 @@ export interface ComposerVoiceSession {
 function readAutoPause(): boolean {
   try {
     const raw = window.localStorage.getItem(AUTO_PAUSE_STORAGE_KEY);
-    return raw === null ? true : raw === "1";
+    return raw === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -76,7 +76,7 @@ export function useComposerVoiceSession(
   speech: UseAsrDraftResult,
   opts: { readonly setDraft: (text: string) => void; readonly getDraft: () => string },
 ): ComposerVoiceSession {
-  const [autoPause, setAutoPauseState] = React.useState(true);
+  const [autoPause, setAutoPauseState] = React.useState(false);
   React.useEffect(() => { setAutoPauseState(readAutoPause()); }, []);
   const setAutoPause = React.useCallback((on: boolean) => {
     setAutoPauseState(on);

@@ -75,6 +75,29 @@ it("waits offline without consuming retries, then resumes when online", async ()
   expect(streams).toHaveLength(2);
 });
 
+it("stops while offline and keeps the confirmed draft when the network returns", async () => {
+  const onTranscript = vi.fn();
+  const hook = renderHook(() => useAsrDraft({
+    sessionToken: "test", getBaseText: () => "原文", onTranscript, autoReconnect: true,
+  }));
+  await act(async () => hook.result.current.start());
+  Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+  act(() => {
+    streams[0]!.onFinal("已确认");
+    streams[0]!.onPartial("未确认");
+    streams[0]!.onError("ASR_PROVIDER_UNAVAILABLE");
+  });
+  expect(hook.result.current.reconnecting).toBe(true);
+  act(() => hook.result.current.stop());
+  Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+  act(() => window.dispatchEvent(new Event("online")));
+  await act(async () => vi.advanceTimersByTimeAsync(30000));
+  expect(hook.result.current.status).toBe("idle");
+  expect(hook.result.current.reconnecting).toBe(false);
+  expect(onTranscript).toHaveBeenLastCalledWith("原文 已确认");
+  expect(streams).toHaveLength(1);
+});
+
 it("manual retry preserves the original baseline and confirmed transcript", async () => {
   const hook = mount(); await act(async () => hook.result.current.start());
   act(() => { streams[0]!.onFinal("已有？"); streams[0]!.onError("ASR_PROVIDER_UNAVAILABLE"); });
