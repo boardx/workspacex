@@ -41,7 +41,7 @@ const ALLOWED_TABLES = new Set(["agents", "agent_versions", "capability_listings
 
 function tablesNamedIn(source: string): Set<string> {
   const found = new Set<string>();
-  const re = /\b(?:FROM|JOIN|INTO|UPDATE)\s+([a-z_][a-z0-9_]*)/gi;
+  const re = /\b(?:FROM|JOIN|INTO|UPDATE(?!\s+SET\b))\s+([a-z_][a-z0-9_]*)/gi;
   for (const match of source.matchAll(re)) {
     const name = match[1];
     if (name !== undefined) found.add(name.toLowerCase());
@@ -59,6 +59,8 @@ describe("#660 白名单条目的前提：仓储侧", () => {
   it("装置自检：解析器真的能认出表名", () => {
     // AG01：agent_versions 的 INSERT 已收敛到 agent-version-insert.ts（有自己的守卫测试）；本文件仍 UPDATE agents。
     expect(tablesNamedIn(repoSource).has("agents")).toBe(true);
+    expect(tablesNamedIn("INSERT INTO agents VALUES (1) ON CONFLICT DO UPDATE SET id = 1")).toEqual(new Set(["agents"]));
+    expect(tablesNamedIn("UPDATE some_other_table SET id = 1")).toEqual(new Set(["some_other_table"]));
     expect(tablesNamedIn("SELECT 1 FROM some_other_table")).toEqual(new Set(["some_other_table"]));
   });
 
