@@ -6,7 +6,7 @@ it("refuses expired Team and indebted personal fallback before writing a request
  const term={purchaseAnchor:"2026-01-31T10:00:00Z",paidPeriodStart:"2026-01-31T10:00:00Z",paidPeriodEnd:"2027-01-31T10:00:00Z",billingCycle:"year",purchasedSeats:5,monthlyCredits:100000};
  const session={async query(sql:string){writes.push(sql);
   if(sql.includes("SELECT o.kind"))return {rows:[{kind:"organization"}]};
-  if(sql.includes("FROM organizations WHERE"))return {rows:[{id:"org-a"}]};
+  if(sql.includes("FROM organizations WHERE"))return {rows:[{id:"org-a",writable:true}]};
   if(sql.includes("billing_pricing_epoch"))return {rows:[{generation,active:true}]};
   if(sql.includes("FROM organization_plans"))return {rows:[{plan:"ordinary",billing_generation:generation}]};
   if(sql.includes("FROM billing_team_terms"))return {rows:[{purchase_ref:"paid-original",paid_term:term,quote:{sku:"team-year"}}]};
