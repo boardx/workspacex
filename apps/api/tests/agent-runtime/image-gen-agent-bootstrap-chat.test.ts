@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: funds the test payer in a database dropped after the suite.
 /**
  * #662 直接后续 —— 图片生成 agent（2026-08-07，人类直接指令："这里要可以直接看到图片，
  * 不是只是文字"——gpt-image-2 技能在没有任何图像生成工具时只能退化成"写一段 prompt 交给
@@ -173,6 +174,15 @@ describe("#662 直接后续：新组织 bootstrap 出来就有一个能用的图
     });
     expect(bootstrap.status, await bootstrap.clone().text()).toBe(201);
     const { userId, orgId } = (await bootstrap.json()) as { userId: string; orgId: string };
+    const payer = await adminClient(DATABASE);
+    try {
+      await payer.query(
+        "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+        [userId],
+      );
+    } finally {
+      await payer.end();
+    }
     const principal = { "x-kernel-test-principal": `${userId}:${orgId}`, "content-type": "application/json" };
     // Platform setup uses the real operator HTTP boundary and separately provisioned writer.
     // No organization-specific image tariff is inserted; a fresh organization inherits the schedule.
