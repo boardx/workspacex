@@ -30,7 +30,7 @@ it('uses only the sticky paper as the native drag image, with labels available t
  expect(button).toContainElement(cue);
  expect(cue.parentElement).toBe(button);
  expect(preview).not.toContainElement(cue);
- expect(cue).toHaveClass('absolute','bottom-[6px]','right-[6px]');
+ expect(cue).toHaveClass('absolute','right-[6px]','top-1/2','-translate-y-1/2');
  expect(cue).toHaveAttribute('data-direction','above');
  expect(cue).toHaveStyle({width:'8px',height:'8px'});
 });

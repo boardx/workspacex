@@ -45,5 +45,5 @@ it('keeps dock gutters and chrome spacing in physical pixels during text-only re
  expect(dock).toHaveStyle({left:'16px',right:'16px',bottom:'20px'});
  expect(dock.style.maxWidth).toBe('calc(100vw - 32px)');
  expect(screen.getByTestId('board-tool-select').parentElement).toHaveStyle({padding:'4px',gap:'2px'});
- for(const tool of ['sticky','text','shape','draw'])expect(screen.getByTestId(`board-add-${tool}-submenu`)).toHaveClass('bottom-[6px]','right-[6px]');
+ for(const tool of ['sticky','text','shape','draw'])expect(screen.getByTestId(`board-add-${tool}-submenu`)).toHaveClass('right-[6px]','top-1/2','-translate-y-1/2');
 });
