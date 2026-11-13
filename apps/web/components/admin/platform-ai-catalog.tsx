@@ -19,6 +19,7 @@ import {
   type AiCatalogWrite,
 } from "@/lib/ai-catalog-admin";
 import {
+  getPlatformOrganization,
   listPlatformOrganizations,
   type OrganizationList,
 } from "@/lib/live-platform-organizations";
@@ -33,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 export function PlatformAiCatalog({ kind }: { kind: AiCatalogKind }) {
-  const { session } = useSession();
+  const { session, identity } = useSession();
   const access = usePlatformAccess(session?.userId ?? null);
   const { t } = useI18n();
   if (!session || !access?.platformOperator)
@@ -44,21 +45,27 @@ export function PlatformAiCatalog({ kind }: { kind: AiCatalogKind }) {
     );
   return (
     <PlatformCatalogScope
-      key={`${session.userId}:${kind}`}
+      key={`${session.userId}:${session.currentOrgId}:${kind}`}
       kind={kind}
+      currentOrgId={session.currentOrgId}
+      currentOrgName={identity?.org.name}
       token={session.sessionToken}
     />
   );
 }
 function PlatformCatalogScope({
   kind,
+  currentOrgId,
+  currentOrgName,
   token,
 }: {
   kind: AiCatalogKind;
+  currentOrgId: string;
+  currentOrgName?: string;
   token: string;
 }) {
   const { t } = useI18n();
-  const [target, setTarget] = React.useState("");
+  const [target, setTarget] = React.useState(currentOrgId);
   const [targetLabel, setTargetLabel] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [organizations, setOrganizations] = React.useState<OrganizationList>({
@@ -89,6 +96,34 @@ function PlatformCatalogScope({
   const invalidateOrganizations = React.useCallback(() => { orgGeneration.current++; }, []);
   const keyOf = (row: AiCatalogEntry) =>
     `${row.orgId}:${row.entityType ?? row.kind}:${row.id}`;
+  const [orgNames, setOrgNames] = React.useState<Record<string, string | null>>({});
+  const pendingNames = React.useRef(new Set<string>());
+  function organizationName(orgId: string) {
+    if (orgId === PLATFORM_CATALOG_ORG_ID) return t("aiCatalog.publicTarget");
+    return organizations.organizations.find((org) => org.orgId === orgId)?.name
+      ?? (orgId === currentOrgId ? currentOrgName : undefined)
+      ?? orgNames[orgId]
+      ?? orgId;
+  }
+  React.useEffect(() => {
+    if (target || status !== "ready" || orgBusy) return;
+    for (const orgId of new Set(page.entries.map((row) => row.orgId))) {
+      if (
+        orgId === PLATFORM_CATALOG_ORG_ID ||
+        (orgId === currentOrgId && currentOrgName) ||
+        organizations.organizations.some((org) => org.orgId === orgId) ||
+        Object.hasOwn(orgNames, orgId) ||
+        pendingNames.current.has(orgId)
+      ) continue;
+      pendingNames.current.add(orgId);
+      void getPlatformOrganization(orgId)
+        .then((result) => result.organization.name, () => null)
+        .then((name) => {
+          pendingNames.current.delete(orgId);
+          setOrgNames((current) => ({ ...current, [orgId]: name }));
+        });
+    }
+  }, [target, status, orgBusy, page.entries, organizations, orgNames, currentOrgId, currentOrgName]);
   React.useEffect(() => {
     const request = ++generation.current;
     setStatus("loading");
@@ -165,16 +200,14 @@ function PlatformCatalogScope({
         page.nextCursor,
       );
       if (request === generation.current)
-        setPage((current) => ({
-          entries: [
-            ...current.entries,
-            ...result.entries.filter(
-              (row) =>
-                !current.entries.some((old) => keyOf(old) === keyOf(row)),
-            ),
-          ],
-          nextCursor: result.nextCursor === cursor ? null : result.nextCursor,
-        }));
+        setPage((current) => {
+          const entries = new Map(current.entries.map((row) => [keyOf(row), row]));
+          for (const row of result.entries) entries.set(keyOf(row), row);
+          return {
+            entries: [...entries.values()],
+            nextCursor: result.nextCursor === cursor ? null : result.nextCursor,
+          };
+        });
     } catch (failure) {
       if (request === generation.current)
         setError(aiCatalogFailureText(failure, t));
@@ -253,6 +286,12 @@ function PlatformCatalogScope({
             className="h-10 max-w-full rounded-md border bg-background px-3 text-13"
             value={target}
             onChange={(e) => {
+              invalidateRequests();
+              setStatus("loading");
+              setPage({ entries: [], nextCursor: null });
+              setSelected(null);
+              setEditing(null);
+              setCreating(false);
               setTarget(e.target.value);
               setTargetLabel(
                 e.target.selectedOptions[0]?.text ?? e.target.value,
@@ -263,10 +302,15 @@ function PlatformCatalogScope({
             <option value={PLATFORM_CATALOG_ORG_ID}>
               {t("aiCatalog.publicTarget")}
             </option>
+            {currentOrgId !== PLATFORM_CATALOG_ORG_ID &&
+            !organizations.organizations.some((org) => org.orgId === currentOrgId) ? (
+              <option value={currentOrgId}>{organizationName(currentOrgId)}</option>
+            ) : null}
             {target &&
             target !== PLATFORM_CATALOG_ORG_ID &&
+            target !== currentOrgId &&
             !organizations.organizations.some((org) => org.orgId === target) ? (
-              <option value={target}>{targetLabel || target}</option>
+              <option value={target}>{targetLabel || organizationName(target)}</option>
             ) : null}
             {organizations.organizations
               .filter((org) => org.orgId !== PLATFORM_CATALOG_ORG_ID)
@@ -301,7 +345,7 @@ function PlatformCatalogScope({
               disabled={orgBusy}
               onClick={() => void searchOrganizations(true)}
             >
-              {t("aiCatalog.more")}
+              {t("aiCatalog.moreOrganizations")}
             </Button>
           ) : null}
         </form>
@@ -319,7 +363,8 @@ function PlatformCatalogScope({
         }
         rows={page.entries}
         keyOf={keyOf}
-        searchTextOf={(row) => `${row.name} ${kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : ""} ${kind === "skill" ? skillCatalogDescription(row.workSkillId, row.description) ?? "" : row.description} ${row.orgId}`}
+        groupBy={target ? undefined : (row) => ({ key: row.orgId, label: organizationName(row.orgId) })}
+        searchTextOf={(row) => `${row.name} ${kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : ""} ${kind === "skill" ? skillCatalogDescription(row.workSkillId, row.description) ?? "" : row.description} ${row.orgId} ${organizationName(row.orgId)}`}
         tagsOf={() => []}
         selectedKey={selected}
         onSelect={setSelected}
@@ -360,13 +405,7 @@ function PlatformCatalogScope({
             ) : undefined,
         })}
         detailTitle={(row) => kind === "skill" ? skillCatalogTitle(row.name, row.workSkillId) : row.name}
-        detailSubtitle={(row) =>
-          row.orgId === PLATFORM_CATALOG_ORG_ID
-            ? t("aiCatalog.publicTarget")
-            : (organizations.organizations.find(
-                (org) => org.orgId === row.orgId,
-              )?.name ?? row.orgId)
-        }
+        detailSubtitle={(row) => organizationName(row.orgId)}
         renderDetail={(row) => (
           <div className="space-y-4">
             <p>{kind === "skill" ? skillCatalogDescription(row.workSkillId, row.description) : row.description}</p>
@@ -422,7 +461,7 @@ function PlatformCatalogScope({
           </div>
         )}
       />
-      {page.nextCursor ? (
+      {status === "ready" && page.nextCursor ? (
         <Button variant="outline" disabled={busy} onClick={() => void more()}>
           {t("aiCatalog.more")}
         </Button>

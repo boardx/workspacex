@@ -17,10 +17,12 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   state: vi.fn(),
   organizations: vi.fn(),
+  organization: vi.fn(),
+  currentOrgId: "org-a",
 }));
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({
-    session: { currentOrgId: "org-a", userId: "operator", sessionToken: "t" },
+    session: { currentOrgId: mocks.currentOrgId, userId: "operator", sessionToken: "t" },
   }),
 }));
 vi.mock("@/lib/live-platform-access", () => ({
@@ -28,6 +30,7 @@ vi.mock("@/lib/live-platform-access", () => ({
 }));
 vi.mock("@/lib/live-platform-organizations", () => ({
   listPlatformOrganizations: mocks.organizations,
+  getPlatformOrganization: mocks.organization,
 }));
 vi.mock("@/lib/ai-catalog-admin", () => ({
   listPlatformAiCatalog: mocks.list,
@@ -53,6 +56,7 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   mocks.allowed = true;
+  mocks.currentOrgId = "org-a";
 });
 function setup() {
   mocks.organizations.mockResolvedValue({
@@ -60,6 +64,7 @@ function setup() {
     nextCursor: null,
   });
   mocks.list.mockResolvedValue({ entries: [row], nextCursor: null });
+  mocks.organization.mockResolvedValue({ organization: { name: "Third organization" } });
 }
 it("shows the authored title and purpose for a platform Work Skill with generic metadata", async () => {
   setup();
@@ -94,13 +99,15 @@ describe("explicit platform capability target", () => {
     expect(mocks.list).not.toHaveBeenCalled();
     expect(screen.getByRole("status")).toBeTruthy();
   });
-  it("requires a creation target and creates public content only under the public target", async () => {
+  it("disables creation for all organizations and creates public content under the public target", async () => {
     setup();
     mocks.create.mockResolvedValue({ ...row, orgId: PLATFORM_CATALOG_ORG_ID });
     render(<PlatformAiCatalog kind="agent" />);
     const create = screen.getByRole("button", {
       name: "新建",
     }) as HTMLButtonElement;
+    expect(create.disabled).toBe(false);
+    fireEvent.change(screen.getByLabelText("管理范围"), { target: { value: "" } });
     expect(create.disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("管理范围"), {
       target: { value: PLATFORM_CATALOG_ORG_ID },
@@ -256,3 +263,41 @@ it("disables pending pagination, deduplicates rows and stops repeated cursors", 
   await waitFor(() => expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull());
   expect(screen.getAllByText(row.name)).toHaveLength(1);
 });
+
+it.each(["agent", "skill"] as const)(
+  "defaults to the current organization and groups paginated %s entries by ownership",
+  async (kind) => {
+    setup();
+    const publicRow = { ...row, kind, orgId: PLATFORM_CATALOG_ORG_ID, name: "Shared name" };
+    const other = { ...publicRow, orgId: "org-b" };
+    const third = { ...publicRow, orgId: "org-c" };
+    mocks.list.mockImplementation(async (_kind, orgId, cursor) => ({
+      entries: orgId ? [{ ...row, kind, orgId, name: "Current content" }]
+        : cursor ? [publicRow, other, other, third] : [publicRow],
+      nextCursor: !orgId && !cursor ? "page-2" : null,
+    }));
+    const view = render(<PlatformAiCatalog kind={kind} />);
+    const scope = screen.getByRole("combobox", { name: "管理范围" });
+    expect(scope).toHaveValue("org-a");
+    await screen.findByText("Current content");
+    expect(mocks.list).toHaveBeenCalledWith(kind, "org-a");
+
+    fireEvent.change(scope, { target: { value: "" } });
+    expect(screen.queryByText("Current content")).not.toBeInTheDocument();
+    const publicGroup = await screen.findByRole("region", { name: /平台公共/ });
+    fireEvent.click(await screen.findByRole("button", { name: "加载更多" }));
+    const otherGroup = await screen.findByRole("region", { name: "Other organization" });
+    const thirdGroup = await screen.findByRole("region", { name: "Third organization" });
+    expect(within(publicGroup).getAllByText("Shared name")).toHaveLength(1);
+    expect(within(otherGroup).getAllByText("Shared name")).toHaveLength(1);
+    expect(within(thirdGroup).getAllByText("Shared name")).toHaveLength(1);
+    expect(mocks.organization).toHaveBeenCalledWith("org-c");
+    expect(screen.queryByRole("button", { name: "加载更多" })).not.toBeInTheDocument();
+
+    mocks.currentOrgId = "org-b";
+    view.rerender(<PlatformAiCatalog kind={kind} />);
+    expect(screen.getByRole("combobox", { name: "管理范围" })).toHaveValue("org-b");
+    await screen.findByText("Current content");
+    expect(mocks.list).toHaveBeenLastCalledWith(kind, "org-b");
+  },
+);

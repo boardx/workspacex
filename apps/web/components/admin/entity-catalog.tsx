@@ -76,6 +76,8 @@ export interface EntityCatalogProps<T> {
   notices?: React.ReactNode;
   status: CatalogStatus;
   rows: readonly T[];
+  /** Optional display groups, applied after search and tag filtering. */
+  groupBy?: (row: T) => { key: string; label: string };
   keyOf: (row: T) => string;
   /** 被搜索的文本（名字、id、描述…拼成一串即可），大小写不敏感。 */
   searchTextOf: (row: T) => string;
@@ -113,6 +115,7 @@ export function EntityCatalog<T>({
   notices,
   status,
   rows,
+  groupBy,
   keyOf,
   searchTextOf,
   tagsOf,
@@ -177,6 +180,36 @@ export function EntityCatalog<T>({
   const filterActive = trimmedQuery !== "" || effectiveTags.size > 0;
   const loading = status.kind === "loading";
 
+
+  const groups = new Map<string, { label: string; rows: T[] }>();
+  if (groupBy) {
+    for (const row of filtered) {
+      const { key, label } = groupBy(row);
+      const group = groups.get(key);
+      if (group) group.rows.push(row);
+      else groups.set(key, { label, rows: [row] });
+    }
+  }
+
+  function renderGrid(entries: readonly T[], testId?: string) {
+    return (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 items-start" data-testid={testId}>
+        {entries.map((row) => {
+          const key = keyOf(row);
+          const card = renderCard(row);
+          return (
+            <ResourceCard
+              key={key}
+              testId={cardTestId ? cardTestId(row) : `${prefix}-row-${key}`}
+              onClick={() => onSelect(key)}
+              selected={key === selectedKey}
+              {...(capabilityKind ? capabilityCardSpec(capabilityKind, card) : card)}
+            />
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("flex flex-col gap-4", className)} data-testid={rootTestId ?? `${prefix}-catalog`}>
@@ -282,24 +315,16 @@ export function EntityCatalog<T>({
       )}
 
       {status.kind === "ready" && filtered.length > 0 && (
-        <div
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 items-start"
-          data-testid={`${prefix}-list`}
-        >
-          {filtered.map((row) => {
-            const key = keyOf(row);
-            const selected = key === selectedKey;
-            return (
-              <ResourceCard
-                key={key}
-                testId={cardTestId ? cardTestId(row) : `${prefix}-row-${key}`}
-                onClick={() => onSelect(key)}
-                selected={selected}
-                {...(capabilityKind ? capabilityCardSpec(capabilityKind, renderCard(row)) : renderCard(row))}
-              />
-            );
-          })}
-        </div>
+        groupBy ? (
+          <div className="space-y-6" data-testid={`${prefix}-list`}>
+            {[...groups].map(([key, group]) => (
+              <section key={key} aria-label={group.label} className="space-y-3">
+                <h2 className="text-16 font-semibold">{group.label}</h2>
+                {renderGrid(group.rows)}
+              </section>
+            ))}
+          </div>
+        ) : renderGrid(filtered, `${prefix}-list`)
       )}
 
       {selectedRow !== null && (
