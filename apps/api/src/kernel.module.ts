@@ -56,6 +56,7 @@ import { OfficialRoleUpgradeController } from "./interface/controllers/official-
 import {PgWhiteboardOperationUndoStore} from './infrastructure/whiteboard/pg-operation-undo-store';
 import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './application/whiteboard/organize-service';
 import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
+import { WhiteboardShareController } from './interface/controllers/whiteboard-share.controller';
 import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
 import { WHITEBOARD_IMAGE_ASSETS, WhiteboardImageAssets } from './application/whiteboard/image-assets';
 import { WhiteboardFilesController } from './interface/controllers/whiteboard-files.controller';
@@ -1375,6 +1376,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     WhiteboardImportController,
     WhiteboardPortableController,
     WhiteboardAssetsController,
+    WhiteboardShareController,
     WhiteboardTagController,
     PublicDesignShareController,
     SystemMailController,

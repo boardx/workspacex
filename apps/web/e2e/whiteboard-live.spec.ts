@@ -130,7 +130,18 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await expect(editor.getByRole('button',{name:'跟随Fullstack E2E admin（成员）',exact:true})).toBeVisible();
       await owner.getByTestId('board-share-open').click();
       await expect(owner.getByTestId('board-share-dialog')).toBeVisible();
-      await expect(owner.getByText('已授权 2 位协作者（不含白板所有者）。')).toBeVisible();
+      await owner.getByTestId('board-share-copy').click();
+      const sharedUrl = await owner.getByRole('textbox', { name: /只读链接/ }).inputValue();
+      const guestContext = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+      try {
+        const guest = await guestContext.newPage();
+        await guest.goto(sharedUrl);
+        await expect(guest.getByText('仅供查看')).toBeVisible();
+        await expect(guest.getByTestId('board-fabric-surface')).toBeVisible();
+        await expect(guest.getByTestId('board-add-sticky')).toHaveCount(0);
+      } finally {
+        await guestContext.close();
+      }
       await owner.keyboard.press('Escape');
       await expect(owner.getByTestId('board-share-dialog')).toBeHidden();
       await editor.getByRole('button',{name:'评论',exact:true}).click();

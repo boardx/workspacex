@@ -1,5 +1,6 @@
 /** Whiteboard resource contract. Content updates use a separate collaboration protocol. */
 import { z } from 'zod';
+import { WhiteboardObject, WHITEBOARD_LIMITS } from './whiteboard-document';
 export const BoardId = z.string().uuid();
 export const BoardRole = z.enum(['owner', 'editor', 'commenter', 'viewer']);
 export const LifecycleRevision = z.number().int().nonnegative();
@@ -81,3 +82,15 @@ export const operations = {
   putMember: { method: 'PUT', path: '/whiteboards/:boardId/members', in: Member, out: z.object({ ok: z.literal(true) }).strict() },
   removeMember: { method: 'DELETE', path: '/whiteboards/:boardId/members/:userId', in: z.object({ userId: z.string().min(1) }).strict(), out: z.object({ ok: z.literal(true) }).strict() },
 } as const;
+
+export const BOARD_SHARE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const sharePaths = {
+  create: '/whiteboards/:boardId/share-links',
+  read: '/public/whiteboard-shares/:token',
+  image: '/public/whiteboard-shares/:token/images/:assetId',
+} as const;
+export const CreatedBoardShare = z.object({ token: z.string().min(1).max(1024), expiresAt: z.string().datetime() }).strict();
+export const PublicBoardShare = z.object({
+  title: z.string(), expiresAt: z.string().datetime(),
+  objects: z.array(WhiteboardObject).max(WHITEBOARD_LIMITS.objects),
+}).strict();

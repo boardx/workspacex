@@ -221,6 +221,7 @@ const nextConfig = {
       // WebSocket uses NEXT_PUBLIC_API_WS_URL directly. Both the collection and nested
       // resource routes are needed; :path* does not cover the bare collection.
       { source: `${prefix}/whiteboards`, destination: `${apiOrigin}/whiteboards` },
+      { source: `${prefix}/public/whiteboard-shares/:path*`, destination: `${apiOrigin}/public/whiteboard-shares/:path*` },
       { source: `${prefix}/whiteboards/:path*`, destination: `${apiOrigin}/whiteboards/:path*` },
       // Public operations, AI proposals and room APIs share the authenticated proxy.
       { source: `${prefix}/v1/whiteboards/:path*`, destination: `${apiOrigin}/v1/whiteboards/:path*` },
