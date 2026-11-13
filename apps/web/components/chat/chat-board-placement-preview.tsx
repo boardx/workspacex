@@ -26,10 +26,18 @@ export function ChatBoardPlacementPreview({ existing, incoming, incomingObjects 
   const map=minimapGeometry(objects,{zoom:1,panX:-extent.x,panY:-extent.y,fitRequest:0},{width:extent.width,height:extent.height});
   const drag=React.useRef<{id:number;start:{x:number;y:number};grab:{x:number;y:number}}|null>(null);
   const scenePoint=(event:React.PointerEvent<SVGSVGElement>)=>{
-    const rect=event.currentTarget.getBoundingClientRect();
-    if(!rect.width||!rect.height)return null;
-    return {x:((event.clientX-rect.left)/rect.width*MINIMAP_WIDTH-map.offsetX)/map.scale,
-      y:((event.clientY-rect.top)/rect.height*MINIMAP_HEIGHT-map.offsetY)/map.scale};
+    const svg = event.currentTarget;
+    const transform = svg.getScreenCTM?.();
+    if (transform) {
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(transform.inverse());
+      return { x: (point.x - map.offsetX) / map.scale, y: (point.y - map.offsetY) / map.scale };
+    }
+    const rect = svg.getBoundingClientRect();
+    const scale = Math.min(rect.width / MINIMAP_WIDTH, rect.height / MINIMAP_HEIGHT);
+    if (!scale) return null;
+    const x = (event.clientX - rect.left - (rect.width - MINIMAP_WIDTH * scale) / 2) / scale;
+    const y = (event.clientY - rect.top - (rect.height - MINIMAP_HEIGHT * scale) / 2) / scale;
+    return { x: (x - map.offsetX) / map.scale, y: (y - map.offsetY) / map.scale };
   };
   const choose=(event:React.PointerEvent<SVGSVGElement>)=>{
     if(disabled)return;const point=scenePoint(event);if(!point)return;
@@ -38,6 +46,7 @@ export function ChatBoardPlacementPreview({ existing, incoming, incomingObjects 
   const placed: MinimapObject[]=incomingObjects.map((object,index)=>({
     id:`incoming-${index}`,kind:renderedDiagramObjectKind(object),
     geometry:{...object.geometry,x:object.geometry.x+offset.x,y:object.geometry.y+offset.y},
+    text: object.text,
     style:{...(typeof object.style.fill==='string'?{fill:object.style.fill}:{}),...(typeof object.style.stroke==='string'?{stroke:object.style.stroke}:{})},
   }));
   return <div className="space-y-3">
@@ -45,7 +54,7 @@ export function ChatBoardPlacementPreview({ existing, incoming, incomingObjects 
       <span className="text-muted-foreground">红框内为待插入内容</span>
       <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={()=>onChange(recommended)}>推荐空白位置</Button>
     </div>
-    <BoardMinimapScene objects={[...objects,...placed]} map={map} data-testid="chat-board-placement-preview" role="application"
+    <BoardMinimapScene objects={[...objects,...placed]} map={map} wireframe preserveAspectRatio="xMidYMid meet" data-testid="chat-board-placement-preview" role="application"
       aria-label="插入位置预览，点击或拖动红框选择位置，也可用方向键微调" aria-disabled={disabled} tabIndex={disabled?-1:0}
       className="h-64 w-full touch-none cursor-crosshair rounded-lg border border-border bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onPointerDown={event=>{

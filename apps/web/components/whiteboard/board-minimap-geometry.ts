@@ -1,6 +1,6 @@
 import type { BoardFabricObject } from "./fabric/board-fabric-object";
 import type { WhiteboardObject } from "@repo/contracts/whiteboard-document";
-export type MinimapObject = Pick<BoardFabricObject, "id" | "geometry" | "hidden"> & { kind: BoardFabricObject["kind"] | WhiteboardObject["kind"]; style: Partial<Pick<BoardFabricObject["style"], "fill" | "stroke">> };
+export type MinimapObject = Pick<BoardFabricObject, "id" | "geometry" | "hidden"> & { kind: BoardFabricObject["kind"] | WhiteboardObject["kind"]; text?: string; style: Partial<Pick<BoardFabricObject["style"], "fill" | "stroke">> };
 import type { BoardViewport } from "./fabric/board-fabric-object";
 import type { BoardFrameSize } from "./use-board-frame";
 
