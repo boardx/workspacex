@@ -69,13 +69,38 @@ let providerCalls = 0;
 
 async function startProvider(): Promise<void> {
   providerServer = createServer((req: IncomingMessage, res: ServerResponse) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (c: Buffer) => chunks.push(c));
-    req.on("end", () => {
-      providerCalls += 1;
+    const path = req.url ?? "";
+    const json = (value: unknown) => {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: nextReplyText } }] }));
-    });
+      res.end(JSON.stringify(value));
+    };
+    if (req.method === "GET" && path === "/healthz") return json({ status: "ok" });
+    if (req.method === "POST" && path === "/threads") {
+      const chunks: Buffer[] = [];
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      req.on("end", () => {
+        const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        json({ thread_id: body.thread_id ?? randomUUID() });
+      });
+      return;
+    }
+    if (req.method === "POST" && /^\/threads\/[^/]+\/runs$/.test(path)) {
+      req.resume();
+      providerCalls += 1;
+      return json({ run_id: randomUUID() });
+    }
+    if (req.method === "GET" && path.endsWith("/stream")) {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.end('event: metadata\ndata: {}\n\n');
+      return;
+    }
+    if (req.method === "GET" && /^\/threads\/[^/]+\/runs\/[^/]+$/.test(path)) {
+      return json({ status: "success" });
+    }
+    if (req.method === "GET" && path.endsWith("/state")) {
+      return json({ values: { messages: [{ type: "ai", content: nextReplyText }] } });
+    }
+    res.writeHead(404).end();
   });
   await new Promise<void>((resolve) => providerServer.listen(0, "127.0.0.1", resolve));
   const addr = providerServer.address() as AddressInfo;
@@ -180,9 +205,10 @@ beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
   await startProvider();
-  process.env.KERNEL_MODEL_PROVIDER = PROVIDER;
-  process.env.KERNEL_MODEL_BASE_URL = providerBase;
-  process.env.KERNEL_MODEL_API_KEY = "sk-agui-bridge-do-not-echo";
+  process.env.KERNEL_DEEP_AGENT_BASE_URL = providerBase;
+  process.env.KERNEL_SUBTASK_CALLBACK_BASE_URL = providerBase;
+  process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY = "agui-sse-test-fixture";
+
   // Unset (autostart default ON): `kick()` after accept must actually drive execution in
   // the background for the bridge's own poll loop to observe a terminal status -- this
   // file is proving the REAL request/response round trip, not driving `tick()` by hand.
