@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: funds the dedicated trial-run test payer and clears it by exact owner.
 /**
  * `POST /agents/:agentId/trial-run` -- #595 Line A.
  *
@@ -18,9 +19,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { agentRuntime as C } from "@repo/contracts";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -168,17 +169,34 @@ beforeAll(async () => {
   BASE = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
 }, 180_000);
 
+async function clearTrialCredit(): Promise<void> {
+  await asOwner(async (session) => {
+    await session.query("DELETE FROM credit_consumption_requests WHERE org_id = $1", [ORG]);
+    await session.query(
+      "DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1)",
+      [ADMIN],
+    );
+    await session.query("DELETE FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1", [ADMIN]);
+  });
+}
+
 afterAll(async () => {
   await app?.close();
+  await clearTrialCredit();
   await new Promise<void>((resolve) => providerServer.close(() => resolve()));
 });
 
 beforeEach(async () => {
   calls = [];
   nextReplyText = "trial run reply from the loopback provider";
+  await clearTrialCredit();
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ADMIN, "admin", fx.teams.energy ?? null);
+  await asOwner((session) => session.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000000)",
+    [ADMIN],
+  ));
   await addOrgMember(ORG, NON_ADMIN, "consultant", fx.teams.energy ?? null);
   await addSkillVersion(SV_A, SKILL_A, "# Skill A\ntrial run content");
   await addAgentVersion({
