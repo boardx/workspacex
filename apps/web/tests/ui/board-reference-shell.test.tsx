@@ -6,8 +6,10 @@ import {BoardPresentationControls} from '@/components/whiteboard/board-presentat
 import {BoardBottomDock} from '@/components/whiteboard/board-bottom-dock';
 import {BoardViewportControls} from '@/components/whiteboard/board-viewport-controls';
 import {STICKY_COLOR_PRESETS} from '@repo/whiteboard-core';
-const api=vi.hoisted(()=>({members:vi.fn()}));
-vi.mock('@/lib/live-whiteboard',()=>({listBoardMembers:api.members}));
+const api=vi.hoisted(()=>({members:vi.fn(),directory:vi.fn(),grant:vi.fn()}));
+vi.mock('@/lib/live-whiteboard',()=>({listBoardMembers:api.members,putBoardMember:api.grant}));
+vi.mock('@/lib/live-org-admin',()=>({listOrgMembers:api.directory}));
+vi.mock('@/components/session/session-provider',()=>({useOptionalSession:()=>({session:{currentOrgId:'org-a',userId:'owner'}})}));
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 it('copies the real board URL without granting permissions and only reports successful clipboard writes',async()=>{
  api.members.mockResolvedValue([{userId:'member',role:'viewer'}]);const copy=vi.fn().mockResolvedValue(undefined);Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:copy}});
@@ -61,4 +63,23 @@ it('keeps zoom, fit, and a keyboard-accessible overview action together at the l
 });
 it('compact presentation controls still invoke real claim and leave callbacks',()=>{
  const claim=vi.fn(),leave=vi.fn();const state={presenterId:null,followers:[]} as never;const props={inline:true,state,actorId:'member',canPresent:true,onClaim:claim,onRelease:vi.fn(),onFollow:vi.fn(),onLeave:leave,onHandoff:vi.fn()};const view=render(<BoardPresentationControls {...props}/>);fireEvent.click(screen.getByRole('button',{name:'开始演示'}));expect(claim).toHaveBeenCalledOnce();view.rerender(<BoardPresentationControls {...props} state={{presenterId:'other',followers:['member']} as never}/>);fireEvent.click(screen.getByRole('button',{name:'自由浏览'}));expect(leave).toHaveBeenCalledOnce();
+});
+
+it('lets the owner grant view access to an active organization member before sharing the link',async()=>{
+ api.members.mockResolvedValue([]);
+ api.directory.mockResolvedValue({members:[
+  {userId:'owner',displayName:'Owner',email:'owner@example.test',status:'active'},
+  {userId:'member',displayName:'Recipient',email:'member@example.test',status:'active'},
+  {userId:'suspended',displayName:'Suspended',email:'suspended@example.test',status:'suspended'},
+ ]});
+ api.grant.mockResolvedValue({ok:true});
+ render(<BoardShareDialog boardId="board-real" canManage/>);
+ fireEvent.click(screen.getByTestId('board-share-open'));
+ const picker=await screen.findByRole('combobox',{name:'组织成员'});
+ expect(screen.queryByRole('option',{name:/Owner|Suspended/})).toBeNull();
+ fireEvent.change(picker,{target:{value:'member'}});
+ fireEvent.click(screen.getByRole('button',{name:'保存权限'}));
+ expect(await screen.findByText('权限已保存，现在可以把白板链接发给对方。')).toBeVisible();
+ expect(api.grant).toHaveBeenCalledWith('board-real',{userId:'member',role:'viewer'});
+ expect(screen.getByText('已授权 1 位协作者（不含白板所有者）。')).toBeVisible();
 });
