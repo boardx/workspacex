@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: funds and clears the dedicated suggestion test payer.
 /**
  * 2026-08-23 —— `POST /canvas/templates/suggestions`：真实浏览器/HTTP → controller →
  * application → 一个**真的**（本地起的）OpenAI 兼容模型服务器，验证「AI 提议分区名」
@@ -18,7 +19,7 @@ import { createServer, type Server } from "node:http";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { canvas as C } from "@repo/contracts";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -88,8 +89,20 @@ beforeAll(async () => {
   base = `http://127.0.0.1:${typeof appAddress === "object" && appAddress ? appAddress.port : 0}`;
 }, 120_000);
 
+async function clearSuggestionCredit(): Promise<void> {
+  await asOwner(async (session) => {
+    await session.query("DELETE FROM credit_consumption_requests WHERE org_id = $1", [ORG]);
+    await session.query(
+      "DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1)",
+      [ADMIN],
+    );
+    await session.query("DELETE FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1", [ADMIN]);
+  });
+}
+
 afterAll(async () => {
   await app?.close();
+  await clearSuggestionCredit();
   await resetOrgs(ORG);
   await new Promise<void>((resolve, reject) => modelServer.close((error) => (error ? reject(error) : resolve())));
 });
@@ -97,9 +110,14 @@ afterAll(async () => {
 beforeEach(async () => {
   modelMode = "valid";
   modelCalls = 0;
+  await clearSuggestionCredit();
   await resetOrgs(ORG);
   const fixture = await seedOrg({ orgId: ORG, projectId: "proj-1798" });
   await addOrgMember(ORG, ADMIN, "admin", fixture.teams.energy ?? null);
+  await asOwner((session) => session.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000000)",
+    [ADMIN],
+  ));
   await addOrgMember(ORG, MEMBER, "consultant", fixture.teams.energy ?? null);
 });
 
