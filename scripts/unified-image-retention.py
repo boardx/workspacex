@@ -38,9 +38,12 @@ def plan(config, versions, containers, images, now):
         matches = [row for row in containers if (row['Config'].get('Labels') or {}).get('com.docker.compose.project') == config['project'] and (row['Config'].get('Labels') or {}).get('com.docker.compose.service') == service and row['State']['Running']]
         need(len(matches) == 1 and matches[0]['Image'] == current['images'][service], 'RUNTIME_DRIFT')
     prefix = config['registryPrefix'].rstrip('/') + '/'
+    backup_ref = config.get("backupImage")
     candidates = []
     for image in images:
         refs = (image.get('RepoTags') or []) + (image.get('RepoDigests') or [])
+        if backup_ref == image['Id'] or backup_ref in refs:
+            keep.add(image['Id'])
         if image['Id'] in keep or not refs or not all(ref.startswith(prefix) for ref in refs):
             continue
         created = datetime.datetime.fromisoformat(image['Created'].replace('Z', '+00:00'))
