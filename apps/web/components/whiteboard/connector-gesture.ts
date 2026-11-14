@@ -46,8 +46,23 @@ export function connectorEndpointChange(relationship: ConnectorRelationship, sid
   return next;
 }
 
-export function connectorGestureChange(relationship: ConnectorRelationship, path: ResolvedConnectorPath, kind: ConnectorGestureKind, handleId: string | null, point: ConnectorScenePoint, initialPoint: ConnectorScenePoint): Partial<ConnectorRelationship> {
-  if (kind === "route") return { route: editConnectorPathHandle({ start: path.start, end: path.end, type: relationship.type, route: relationship.route, fromAnchor: relationship.fromAnchor, toAnchor: relationship.toAnchor }, handleId ?? "", point) };
+export function connectorGestureChange(relationship: ConnectorRelationship, path: ResolvedConnectorPath, kind: ConnectorGestureKind, handleId: string | null, point: ConnectorScenePoint, initialPoint: ConnectorScenePoint, objects: readonly WhiteboardObject[] = []): Partial<ConnectorRelationship> {
+  if (kind === "route") {
+    const type = path.route?.kind ?? relationship.type;
+    const route = editConnectorPathHandle({ start: path.start, end: path.end, type, route: path.route, fromAnchor: relationship.fromAnchor, toAnchor: relationship.toAnchor }, handleId ?? "", point);
+    const offsets: Partial<ConnectorRelationship> = {};
+    if (path.route && !relationship.route) {
+      for (const side of ["from", "to"] as const) {
+        const object = objects.find(item => item.id === relationship[side]);
+        if (!object) continue;
+        const anchor = side === "from" ? relationship.fromAnchor : relationship.toAnchor;
+        const base = localPointFromScene(object.geometry, rotatedAnchorPoint(object, anchor));
+        const endpoint = localPointFromScene(object.geometry, side === "from" ? path.start : path.end);
+        offsets[side === "from" ? "fromOffset" : "toOffset"] = { x: endpoint.x - base.x, y: endpoint.y - base.y };
+      }
+    }
+    return { ...offsets, type, route };
+  }
   if (kind === "label") { const nearest = nearestConnectorPoint(path, point); return { labelPosition: { t: nearest.arcLengthT, normalOffset: nearest.normalOffset } }; }
   if (kind === "translate" && !relationship.from && !relationship.to) return translateConnector(relationship, point.x - initialPoint.x, point.y - initialPoint.y);
   return {};

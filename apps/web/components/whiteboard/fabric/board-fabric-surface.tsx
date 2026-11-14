@@ -783,9 +783,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           return rotatedAnchorPoint({ geometry }, anchor, { x: attached.x - base.x, y: attached.y - base.y });
         };
         const start = endpoint(edge.from, edge.fromAnchor, edge.start), end = endpoint(edge.to, edge.toAnchor, edge.end);
-        const preview = { ...object, geometry: { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x-start.x)), height: Math.max(1, Math.abs(end.y-start.y)), rotation: 0 }, connector: { ...edge, start, end, automaticPath: automaticConnectorRoute({ ...edge, start, end }, previewObstacles, edge.from, edge.to, Boolean(edge.fromOffset), Boolean(edge.toOffset)) } };
+        const preview = { ...object, geometry: { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x-start.x)), height: Math.max(1, Math.abs(end.y-start.y)), rotation: 0 }, connector: { ...edge, start, end, automaticPath: automaticConnectorRoute({ start, end, type: edge.type, route: edge.route, fromAnchor: edge.fromAnchor, toAnchor: edge.toAnchor }, previewObstacles, edge.from, edge.to, Boolean(edge.fromOffset), Boolean(edge.toOffset)) } };
         const existing = registryRef.current.get(object.id);
-        if (!existing || (!previewedConnectors.has(object.id) && JSON.stringify(preview.connector) === JSON.stringify(edge))) continue;
+        if (!existing || JSON.stringify(preview.connector) === JSON.stringify(edge) && !previewedConnectors.has(object.id)) continue;
         const replacement = createFabricObject(preview);
         applyCanonicalObject(replacement, preview, stateRef.current.readOnly);
         replacement.data = { ...replacement.data, connectorRenderIdentity: connectorRenderIdentityFor(object) };
