@@ -55,7 +55,8 @@ flowchart TD
   %% evidence S7: docs/evidence/aidt-native/module-isolation/README.md；latest-*.txt 与 state-aba-*.txt
   class S8 tested
   %% evidence S8: docs/evidence/aidt-native/module-isolation/README.md；latest-*.txt 与 state-aba-*.txt
-  class S9 doing
+  class S9 tested
+  %% evidence S9: docs/evidence/aidt-native/module-isolation/delivery.json；Page已插入且文件访问确认
 
 ```
 

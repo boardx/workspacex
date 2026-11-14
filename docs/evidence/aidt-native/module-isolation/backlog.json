@@ -79,8 +79,8 @@
       "owner": "主Agent",
       "agent": "root",
       "title": "交付可审阅结果与剩余项",
-      "status": "doing",
-      "evidence": "任务图已交付；正在整理源码与验证记录下载包",
+      "status": "tested",
+      "evidence": "任务图、源码与本地测试证据已交付；无部署",
       "acceptance": "源码、测试证据、启用/关闭说明与待接能力清楚；不部署"
     }
   ],

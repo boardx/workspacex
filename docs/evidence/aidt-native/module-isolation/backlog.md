@@ -15,7 +15,7 @@ flowchart TB
   A6["Agent 6<br/>兼容与架构门禁<br/>42项局部通过"]
   I["主Agent<br/>模块收拢与最新develop对齐"]
   V["主Agent<br/>统一回归267项Web + 20项API<br/>类型检查与lint通过"]
-  D["主Agent<br/>任务图已交付 · 源码打包中"]
+  D["主Agent<br/>任务图已交付 · 源码与证据已交付"]
   G --> A1 & A2 & A3 & A4 & A5 & A6
   A1 & A2 & A3 & A4 & A5 & A6 --> I --> V --> D
   classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
@@ -23,8 +23,7 @@ flowchart TB
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
-  class G,A1,A2,A3,A4,A5,A6,I,V tested
-  class D doing
+  class G,A1,A2,A3,A4,A5,A6,I,V,D tested
 ```
 
 # 当前冲刺 Backlog
@@ -39,7 +38,7 @@ flowchart TB
 | B06 普通功能兼容与模块边界门禁 | Agent 6 | 开关两态保持普通Chat/Project行为，禁止共享模块反向依赖 | 🟪 本地测试通过；42项局部兼容/架构测试通过；模块依赖门禁通过 |
 | B07 收拢独立模块与公共入口 | 主Agent | features/aidt自包含，通过明确公共入口消费，整体文字沟通保持独立 | 🟪 本地测试通过；27个实现文件迁入features/aidt；公共入口与架构门禁通过 |
 | B08 统一整合与回归验证 | 主Agent + Agent 6 | 单次最终typecheck、相关前后端回归、边界门禁及反证通过 | 🟪 本地测试通过；最新develop上267项Web、20项无DB API通过；双端typecheck/lint及模块ESLint通过 |
-| B09 交付可审阅结果与剩余项 | 主Agent | 源码、测试证据、启用/关闭说明与待接能力清楚；不部署 | 🟨 进行中；任务图已交付；正在整理源码与验证记录下载包 |
+| B09 交付可审阅结果与剩余项 | 主Agent | 源码、测试证据、启用/关闭说明与待接能力清楚；不部署 | 🟪 已交付；源码与测试证据下载包已提供，未部署 |
 
 # 后续真实功能 Backlog
 
