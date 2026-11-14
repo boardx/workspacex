@@ -1,3 +1,4 @@
+import { automaticConnectorRoute } from "./automatic-connector-route";
 import { editConnectorPathHandle, localPointFromScene, nearestConnectorPoint, resolveConnectorPath, rotatedAnchorPoint, snapConnectorEndpoint, translateConnector, type ConnectorRelationship, type ConnectorSnapCandidate, type ResolvedConnectorPath, type WhiteboardObject } from "@repo/whiteboard-core";
 
 export type ConnectorGestureKind = "from" | "to" | "route" | "label" | "translate";
@@ -13,7 +14,7 @@ export function connectorResolvedPath(relationship: ConnectorRelationship, objec
   const start = from ? rotatedAnchorPoint(from, relationship.fromAnchor ?? "right", relationship.fromOffset) : relationship.fromPoint;
   const end = to ? rotatedAnchorPoint(to, relationship.toAnchor ?? "left", relationship.toOffset) : relationship.toPoint;
   if (!start || !end) return null;
-  return resolveConnectorPath({ start, end, type: relationship.type, route: relationship.route, fromAnchor: relationship.fromAnchor, toAnchor: relationship.toAnchor });
+  return resolveConnectorPath(automaticConnectorRoute({ start, end, type: relationship.type, route: relationship.route, fromAnchor: relationship.fromAnchor, toAnchor: relationship.toAnchor }, objects, relationship.from, relationship.to, Boolean(relationship.fromOffset), Boolean(relationship.toOffset)));
 }
 
 export function connectorGestureSnap(objects: readonly WhiteboardObject[], point: ConnectorScenePoint, zoom: number, excludeIds: readonly string[], bypass: boolean): ConnectorSnapCandidate | null {
@@ -45,8 +46,23 @@ export function connectorEndpointChange(relationship: ConnectorRelationship, sid
   return next;
 }
 
-export function connectorGestureChange(relationship: ConnectorRelationship, path: ResolvedConnectorPath, kind: ConnectorGestureKind, handleId: string | null, point: ConnectorScenePoint, initialPoint: ConnectorScenePoint): Partial<ConnectorRelationship> {
-  if (kind === "route") return { route: editConnectorPathHandle({ start: path.start, end: path.end, type: relationship.type, route: relationship.route, fromAnchor: relationship.fromAnchor, toAnchor: relationship.toAnchor }, handleId ?? "", point) };
+export function connectorGestureChange(relationship: ConnectorRelationship, path: ResolvedConnectorPath, kind: ConnectorGestureKind, handleId: string | null, point: ConnectorScenePoint, initialPoint: ConnectorScenePoint, objects: readonly WhiteboardObject[] = []): Partial<ConnectorRelationship> {
+  if (kind === "route") {
+    const type = path.route?.kind ?? relationship.type;
+    const route = editConnectorPathHandle({ start: path.start, end: path.end, type, route: path.route, fromAnchor: relationship.fromAnchor, toAnchor: relationship.toAnchor }, handleId ?? "", point);
+    const offsets: Partial<ConnectorRelationship> = {};
+    if (path.route && !relationship.route) {
+      for (const side of ["from", "to"] as const) {
+        const object = objects.find(item => item.id === relationship[side]);
+        if (!object) continue;
+        const anchor = side === "from" ? relationship.fromAnchor : relationship.toAnchor;
+        const base = localPointFromScene(object.geometry, rotatedAnchorPoint(object, anchor));
+        const endpoint = localPointFromScene(object.geometry, side === "from" ? path.start : path.end);
+        offsets[side === "from" ? "fromOffset" : "toOffset"] = { x: endpoint.x - base.x, y: endpoint.y - base.y };
+      }
+    }
+    return { ...offsets, type, route };
+  }
   if (kind === "label") { const nearest = nearestConnectorPoint(path, point); return { labelPosition: { t: nearest.arcLengthT, normalOffset: nearest.normalOffset } }; }
   if (kind === "translate" && !relationship.from && !relationship.to) return translateConnector(relationship, point.x - initialPoint.x, point.y - initialPoint.y);
   return {};

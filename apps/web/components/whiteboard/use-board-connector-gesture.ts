@@ -91,7 +91,7 @@ export function useBoardConnectorGesture(props: Props) {
     }
     const path = connectorResolvedPath(gesture.before, objects);
     const current = gesture.handleOrigin ? { x: gesture.handleOrigin.x + gesture.current.x - gesture.initial.x, y: gesture.handleOrigin.y + gesture.current.y - gesture.initial.y } : gesture.current;
-    return { relationship: path ? { ...relationship, ...connectorGestureChange(gesture.before, path, gesture.kind, gesture.handleId, current, gesture.initial) } : relationship, snap: null };
+    return { relationship: path ? { ...relationship, ...connectorGestureChange(gesture.before, path, gesture.kind, gesture.handleId, current, gesture.initial, objects) } : relationship, snap: null };
   };
   const begin = (gesture: Gesture, event: ConnectorOverlayPointerEvent) => {
     if (activeRef.current || event.button !== 0 || spaceHeld.current || latest.current.blocked || !legal(gesture)) return;
