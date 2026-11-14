@@ -833,6 +833,11 @@
         "whiteboard/import-service"
       ]
     },
+    "WhiteboardShareController": {
+      "useCases": [
+        "whiteboard/image-assets"
+      ]
+    },
     "WhiteboardTagController": {
       "useCases": [
         "whiteboard/recovery-service"
@@ -1433,6 +1438,7 @@
         "SkillTrialRunController",
         "ToolPermissionGrantController",
         "WhiteboardController",
+        "WhiteboardShareController",
         "WhiteboardTagController"
       ]
     },
@@ -1530,6 +1536,7 @@
         "SkillTrialRunController",
         "ToolPermissionGrantController",
         "WhiteboardController",
+        "WhiteboardShareController",
         "WhiteboardTagController"
       ]
     },
@@ -1610,6 +1617,7 @@
         "SkillReviewController",
         "SkillTrialRunController",
         "WhiteboardController",
+        "WhiteboardShareController",
         "WhiteboardTagController"
       ]
     },
@@ -1686,6 +1694,7 @@
         "SkillReviewController",
         "SkillTrialRunController",
         "WhiteboardController",
+        "WhiteboardShareController",
         "WhiteboardTagController"
       ]
     },
@@ -1784,6 +1793,7 @@
         "SkillTrialRunController",
         "ToolPermissionGrantController",
         "WhiteboardController",
+        "WhiteboardShareController",
         "WhiteboardTagController"
       ]
     },
@@ -3476,6 +3486,7 @@
         "RecordingController",
         "ToolPermissionGrantController",
         "WhiteboardController",
+        "WhiteboardShareController",
         "WhiteboardTagController",
         "WorkflowRuntimeController"
       ]
@@ -3578,6 +3589,21 @@
         "apps/web/lib/mock/entry.ts"
       ]
     },
+    "/share/board/[token]": {
+      "kind": "wired",
+      "screen": "apps/web/app/share/board/[token]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-public-board-share.ts"
+      ],
+      "contracts": [
+        "whiteboard"
+      ],
+      "controllers": [
+        "WhiteboardController",
+        "WhiteboardShareController",
+        "WhiteboardTagController"
+      ]
+    },
     "/share/chat/[token]": {
       "kind": "wired",
       "screen": "apps/web/app/share/chat/[token]/page.tsx",
@@ -3661,6 +3687,7 @@
         "PublicDesignShareController",
         "ToolPermissionGrantController",
         "WhiteboardController",
+        "WhiteboardShareController",
         "WhiteboardTagController"
       ]
     },
@@ -3722,6 +3749,7 @@
         "ToolPermissionGrantController",
         "WhiteboardController",
         "WhiteboardImportController",
+        "WhiteboardShareController",
         "WhiteboardTagController"
       ]
     },
@@ -3737,6 +3765,7 @@
         "apps/web/lib/live-files.ts",
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-omni-conversation.ts",
+        "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-project-resources.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
@@ -3749,17 +3778,21 @@
         "canvas",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "files",
         "identity",
         "locale",
+        "org-admin",
+        "plan-permissions",
         "project",
         "skills",
         "whiteboard",
         "whiteboard-import"
       ],
       "controllers": [
+        "AgentRunController",
         "ArtifactFileVersionsController",
         "CanvasInstanceController",
         "CanvasSegmentSkillController",
@@ -3768,8 +3801,11 @@
         "ChatAttachmentController",
         "ChatController",
         "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
         "EntityLocalizationController",
         "FeedbackController",
         "FilesBrowserController",
@@ -3781,18 +3817,28 @@
         "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeConsolidationController",
+        "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
         "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "SkillController",
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
+        "ToolPermissionGrantController",
         "WhiteboardController",
         "WhiteboardImportController",
+        "WhiteboardShareController",
         "WhiteboardTagController"
       ]
     },
@@ -5047,6 +5093,7 @@
         "PublicDesignShareController",
         "ToolPermissionGrantController",
         "WhiteboardController",
+        "WhiteboardShareController",
         "WhiteboardTagController"
       ]
     }
