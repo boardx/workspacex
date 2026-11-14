@@ -2,7 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Controller, Get, Header, Inject, NotFoundException, Param, ParseUUIDPipe, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { whiteboard as C } from '@repo/contracts';
-import { createWhiteboardDocument, readContentObject, readObjects } from '@repo/whiteboard-core';
+import { createWhiteboardDocument, mindmapHiddenIds, readContentObject, readObjects } from '@repo/whiteboard-core';
 import * as Y from 'yjs';
 import { WHITEBOARD_REPOSITORY, type WhiteboardRepository } from '../../application/whiteboard/ports';
 import { WHITEBOARD_COLLABORATION_STORE, type WhiteboardCollaborationStore } from '../../application/whiteboard/collaboration-ports';
@@ -110,7 +110,8 @@ export class WhiteboardShareController {
     try {
       Y.applyUpdate(doc, snapshot.update);
       const objects = readObjects(doc);
-      const hidden = new Set(objects.filter(object => object.hidden).map(object => object.id));
+      const hidden = mindmapHiddenIds(objects);
+      for (const object of objects) if (object.hidden) hidden.add(object.id);
       const byId = new Map(objects.map(object => [object.id, object]));
       function visible(id: string, visited = new Set<string>()): boolean {
         if (hidden.has(id) || visited.has(id)) return false;
