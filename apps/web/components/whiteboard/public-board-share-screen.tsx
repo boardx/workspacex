@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { whiteboard as C } from '@repo/contracts';
 import type { z } from 'zod';
-import { apiUrl } from '@/lib/api-client';
+import { publicBoardShareImageUrl, fetchPublicBoardShare } from '@/lib/live-public-board-share';
 import { Button } from '@/components/ui/button';
 import { BoardFabricSurface } from './fabric/board-fabric-surface';
 import { toBoardFabricObjects } from './whiteboard-fabric-projection';
@@ -11,7 +11,6 @@ import { toBoardFabricObjects } from './whiteboard-fabric-projection';
 type Snapshot = z.infer<typeof C.PublicBoardShare>;
 const noSelection = () => {};
 const rejectTransform = () => false;
-const pathFor = (template: string, token: string) => template.replace(':token', encodeURIComponent(token));
 
 export function PublicBoardShareScreen({ token }: { token: string }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -19,7 +18,7 @@ export function PublicBoardShareScreen({ token }: { token: string }) {
   const [attempt, setAttempt] = useState(0);
   const [viewport, setViewport] = useState({ zoom: 1, panX: 0, panY: 0, fitRequest: 1 });
   const objects = useMemo(() => toBoardFabricObjects(snapshot?.objects ?? [], assetId => assetId
-    ? apiUrl(pathFor(C.sharePaths.image, token).replace(':assetId', encodeURIComponent(assetId)))
+    ? publicBoardShareImageUrl(token, assetId)
     : undefined), [snapshot, token]);
 
   useEffect(() => {
@@ -28,9 +27,7 @@ export function PublicBoardShareScreen({ token }: { token: string }) {
     setSnapshot(null);
     setError('');
     async function load() {
-      const response = await fetch(apiUrl(pathFor(C.sharePaths.read, token)), {
-        credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer', signal: controller.signal,
-      });
+      const response = await fetchPublicBoardShare(token, controller.signal);
       if (controller.signal.aborted) return;
       if (response.status === 404) {
         setError('分享链接已失效，请联系白板所有者获取新链接。');
