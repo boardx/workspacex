@@ -37,6 +37,15 @@ class Retention(unittest.TestCase):
     def test_digest_only_reference_stays_scoped(self):
         image = self.image(refs=[]); image['RepoDigests'] = ['registry/team/api@sha256:old']
         self.assertEqual(self.plan([image])[1][0]['id'], 'old')
+    def test_configured_backup_reference_protects_image_and_all_its_tags(self):
+        for reference in ('registry/team/postgres:backup', 'registry/team/postgres@sha256:backup', 'sha256:backup'):
+            with self.subTest(reference=reference):
+                self.cfg['backupImage'] = reference
+                image = self.image('sha256:backup', ['registry/team/postgres:backup'])
+                image['RepoDigests'] = ['registry/team/postgres@sha256:backup']
+                keep, candidates = self.plan([image, self.image()])
+                self.assertIn(image['Id'], keep)
+                self.assertEqual([item['id'] for item in candidates], ['old'])
     def test_runtime_drift_fails_closed(self):
         self.containers[0]['Image'] = 'drift'
         with self.assertRaisesRegex(ValueError, 'RUNTIME_DRIFT'): self.plan([self.image()])

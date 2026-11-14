@@ -194,3 +194,12 @@ matching successful attempt, live container identity and all container reference
 before deleting old scoped images without force. Never use blanket system/volume
 prune to recover a full disk. Devapp incident evidence and boundaries:
 `docs/testing/devapp-image-retention-6472/README.md`.
+
+### Protect the configured backup image (#6633)
+
+CN runs 43576131690 and 43588412186 rolled back at backup. The configured
+backup image was missing locally. Historical deletion was not confirmed, but
+the retention planner selected a matching old image for deletion in a fixture.
+Keep the configured backup image by matching its ID, tag or repository digest
+before selecting candidates. The retention regression covers all three forms.
+Confirm the actual backup succeeds before retrying a rolled-back deployment.
