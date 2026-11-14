@@ -402,7 +402,7 @@ describe("BoardFabricSurface", () => {
     probe.handlers.get("object:moving")?.({ target: sticky, e: new MouseEvent("mousemove", { altKey: true }) });
     const movedArrow = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
     expect(movedArrow).not.toBe(originalArrow);
-    expect(movedArrow.children?.[0]?.text).toBe("M 300 150 L 360 150");
+    expect(movedArrow.children?.[0]?.text).toBe("M 300 150 L 353.899098007664 149.733628866422");
     expect(onObjectTransform).not.toHaveBeenCalled();
   });
 
@@ -415,19 +415,19 @@ describe("BoardFabricSurface", () => {
     // 80 + 240*sin(5deg) + 140*cos(5deg) = 240.384636, not the stale edge y=150.
     probe.handlers.get("object:moving")?.({ target: sticky });
     const snappedArrow = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
-    expect(snappedArrow.children?.[0]?.text).toBe("M 300 150.384636 L 360 150");
+    expect(snappedArrow.children?.[0]?.text).toBe("M 300 150.384636 L 353.899098007664 149.733628866422");
     expect(onObjectTransform).not.toHaveBeenCalled();
   });
 
-  it("rotates an attached arrow offset with its object during the live preview", () => {
+  it("reroutes an automatically attached arrow when its object rotates", () => {
     const arrow: BoardFabricObject = { id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 270, y: 155, width: 90, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222" }, content: { text: "" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 270, y: 155 }, end: { x: 360, y: 155 } } };
     renderSurface({ objects: [...OBJECTS, arrow] });
     const sticky = probe.objects.find(item => item.data?.boardObjectId === "s-1")!;
     sticky.angle = 90;
     probe.handlers.get("object:rotating")?.({ target: sticky });
-    // Right anchor (220,90) plus local offset (10,5) rotates about (40,60).
+    // Automatic routing selects clear anchors on both rotated shapes.
     const edge = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
-    expect(edge.children?.[0]?.text).toBe("M -55 290 L 360 155");
+    expect(edge.children?.[0]?.text).toBe("M 40 170 L 353.899098007664 149.733628866422");
   });
 
   it("retains an active multi-selection instance across equivalent controlled updates", () => {
