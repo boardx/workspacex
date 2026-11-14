@@ -9,6 +9,8 @@ import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
+import { retryFixtureCleanup } from "../support/fixture-ownership";
+
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
 
@@ -142,14 +144,14 @@ beforeAll(async () => {
 }, 120_000);
 
 async function clearFixtureCredit(): Promise<void> {
-  await asOwner(async session => {
+  await retryFixtureCleanup(() => asOwner(async session => {
     await session.query("DELETE FROM credit_consumption_requests WHERE org_id = ANY($1::text[])", [[ORG, OTHER_ORG]]);
     await session.query(
       "DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1)",
       [USER],
     );
     await session.query("DELETE FROM credit_wallets WHERE owner_type = 'user' AND owner_id = $1", [USER]);
-  });
+  }));
 }
 
 afterAll(async () => {
