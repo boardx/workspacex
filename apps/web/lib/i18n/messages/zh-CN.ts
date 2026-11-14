@@ -318,6 +318,7 @@ export const zhCN = {
   "auth.invited": "被邀请加入已有组织？请打开管理员发给你的激活链接设置密码，本页无法自行注册加入组织；链接失效请联系管理员重发。",
   "navigation.home": "首页",
   "navigation.chat": "对话",
+  "navigation.aidt": "AIDT",
   "navigation.projects": "项目",
   "navigation.whiteboard": "Board",
   "navigation.research": "研究",

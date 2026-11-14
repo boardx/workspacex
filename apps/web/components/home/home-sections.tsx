@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n/provider";
+import { projectWorkspaceHref } from "@/lib/project-aidt";
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -198,7 +199,7 @@ export function CurrentTasksSection({ tasks, projects }: { tasks: Load<HomeTasks
           <ul>
             {projectItems.map((p) => (
               <li key={p.id}>
-                <Link href={`/projects/${encodeURIComponent(p.id)}`} className="block truncate rounded-control px-2 py-1.5 text-12 text-card-foreground transition-colors duration-fast hover:bg-muted">
+                <Link href={projectWorkspaceHref(p)} className="block truncate rounded-control px-2 py-1.5 text-12 text-card-foreground transition-colors duration-fast hover:bg-muted">
                   {p.name}
                 </Link>
               </li>

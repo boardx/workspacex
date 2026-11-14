@@ -166,7 +166,7 @@ export function describeProjectResourceFailure(e: unknown, locale: Locale = "zh-
   return describeFailure(e, locale);
 }
 
-export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkOpen = false, embedded = false, onChanged }: {
+export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkOpen = false, embedded = false, onChanged, resourceHref, transformCreateHref }: {
   projectId: string; kind: ProjectResearchSub; canWrite: boolean;
   /** 挂载即展开「关联已有」面板（通用项目「内容」tab 顶部的「关联已有 ▾」选了这一类）。 */
   initialLinkOpen?: boolean;
@@ -174,6 +174,8 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   embedded?: boolean;
   /** 挂上 / 移出成功后回调（「内容」tab 据此刷新各类计数）。 */
   onChanged?: () => void;
+  resourceHref?: (kind: ProjectResourceKind, id: string) => string;
+  transformCreateHref?: (href: string) => string;
 }) {
   const { locale, t } = useI18n();
   const router = useRouter();
@@ -230,7 +232,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
     try {
       const href = await startNewProjectResource(kind, projectId);
       onChanged?.();
-      router.push(href);
+      router.push(transformCreateHref ? transformCreateHref(href) : href);
     } catch (e) {
       setActionError({ cause: e });
       setCreating(false);
@@ -366,7 +368,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
           {items.map((it) => (
             <li key={it.id}>
               <ProjectContentCard
-                href={withProjectId(meta.detailHref(it.id), projectId)}
+                href={resourceHref ? resourceHref(it.kind, it.id) : withProjectId(meta.detailHref(it.id), projectId)}
                 linkTestId={`project-resource-${it.id}`}
                 icon={Icon}
                 title={it.title}

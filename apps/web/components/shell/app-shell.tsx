@@ -21,6 +21,7 @@ import { useOptionalSession, type SessionContextValue } from "@/components/sessi
 import { Button } from "@/components/ui/button";
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { SHELL_RIGHT_PANEL_TOGGLE_EVENT } from "@/lib/shell-panel-events";
+import { isAidtModuleEnabled } from "@/lib/aidt-module-config";
 import { DEFAULT_LANDING, sanitizeReturnTo } from "@/lib/return-to";
 import { buildOrgSwitchUrl, forgetOrgSwitch, rememberOrgSwitch, takeOrgSwitchLanding, type OrgSwitchLanding } from "@/lib/org-switch";
 import { ShellBusyProvider, useShellBusyCount } from "@/lib/shell-busy";
@@ -148,8 +149,9 @@ function SessionAppShell({
       fullscreen={fullscreen}
       organizations={organizations}
       onSwitchOrganization={async (orgId) => {
+        const destination = isAidtModuleEnabled() && /^\/aidt(?:\/|$)/.test(window.location.pathname) ? "/aidt" : "/projects";
         await session.switchOrganization(orgId);
-        router.replace("/projects");
+        router.replace(destination);
       }}
       onLogout={async () => {
         await session.logout();

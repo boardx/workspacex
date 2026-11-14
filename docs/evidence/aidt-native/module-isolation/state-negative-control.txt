@@ -1,0 +1,825 @@
+
+> web@0.1.0 test /workspace/aidt-module-isolation/apps/web
+> vitest run "tests/ui/aidt-state-isolation-before.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-isolation/apps/web
+
+ ❯ tests/ui/aidt-state-isolation-before.test.tsx (7 tests | 5 failed) 2729ms
+   × clears another actor's drafts and remounts native Chat even when the project ID is unchanged 364ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  student-b
+Received:
+  student-a
+   × rechecks resource access for a new actor before mounting the native editor 56ms
+     → expected <div data-testid="native-design"></div> to be null
+   × does not let an old actor's delayed successful association replace the current actor's denial 1054ms
+     → Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"flex min-h-0 flex-1 flex-col"[39m
+      [33mdata-testid[39m=[32m"aidt-workspace"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex shrink-0 flex-col gap-2 border-b border-border p-3 md:p-4"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"text-12 text-muted-foreground transition-colors hover:text-primary"[39m
+          [33mhref[39m=[32m"/aidt/group"[39m
+        [36m>[39m
+          [0m← 六步 Dashboard[0m
+        [36m</a>[39m
+        [36m<div[39m
+          [33mdata-testid[39m=[32m"aidt-stage-navigation"[39m
+        [36m>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"设计思维步骤"[39m
+            [33mclass[39m=[32m"hidden gap-1 md:flex"[39m
+            [33mdata-testid[39m=[32m"aidt-desktop-steps"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"1"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-1"[39m
+              [33mhref[39m=[32m"/aidt/group?step=1"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m理解与提出问题[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"2"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-2"[39m
+              [33mhref[39m=[32m"/aidt/group?step=2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m2[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m共情用户[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"3"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-3"[39m
+              [33mhref[39m=[32m"/aidt/group?step=3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m3[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m综合与定义[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"4"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-4"[39m
+              [33mhref[39m=[32m"/aidt/group?step=4"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m4[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m创意发散[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33maria-current[39m=[32m"step"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"5"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-5"[39m
+              [33mhref[39m=[32m"/aidt/group?step=5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m5[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m制作原型[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offs...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"flex min-h-0 flex-1 flex-col"[39m
+      [33mdata-testid[39m=[32m"aidt-workspace"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex shrink-0 flex-col gap-2 border-b border-border p-3 md:p-4"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"text-12 text-muted-foreground transition-colors hover:text-primary"[39m
+          [33mhref[39m=[32m"/aidt/group"[39m
+        [36m>[39m
+          [0m← 六步 Dashboard[0m
+        [36m</a>[39m
+        [36m<div[39m
+          [33mdata-testid[39m=[32m"aidt-stage-navigation"[39m
+        [36m>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"设计思维步骤"[39m
+            [33mclass[39m=[32m"hidden gap-1 md:flex"[39m
+            [33mdata-testid[39m=[32m"aidt-desktop-steps"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"1"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-1"[39m
+              [33mhref[39m=[32m"/aidt/group?step=1"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m理解与提出问题[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"2"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-2"[39m
+              [33mhref[39m=[32m"/aidt/group?step=2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m2[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m共情用户[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"3"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-3"[39m
+              [33mhref[39m=[32m"/aidt/group?step=3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m3[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m综合与定义[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"4"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-4"[39m
+              [33mhref[39m=[32m"/aidt/group?step=4"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m4[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m创意发散[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33maria-current[39m=[32m"step"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"5"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-5"[39m
+              [33mhref[39m=[32m"/aidt/group?step=5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m5[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m制作原型[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offs...
+   × invalidates an old association on token rotation and does not read resources when signed out 31ms
+     → expected <div data-testid="native-design"></div> to be null
+   × ignores a local image read completed after permission scope changed 1060ms
+     → expected <img alt="候选1参考图（未上传）" …(7)></img> to be null
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"flex min-h-0 flex-1 flex-col"[39m
+        [33mdata-testid[39m=[32m"aidt-workspace"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex shrink-0 flex-col gap-2 border-b border-border p-3 md:p-4"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground transition-colors hover:text-primary"[39m
+            [33mhref[39m=[32m"/aidt/group"[39m
+          [36m>[39m
+            [0m← 六步 Dashboard[0m
+          [36m</a>[39m
+          [36m<div[39m
+            [33mdata-testid[39m=[32m"aidt-stage-navigation"[39m
+          [36m>[39m
+            [36m<nav[39m
+              [33maria-label[39m=[32m"设计思维步骤"[39m
+              [33mclass[39m=[32m"hidden gap-1 md:flex"[39m
+              [33mdata-testid[39m=[32m"aidt-desktop-steps"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+                [33mdata-aidt-step[39m=[32m"1"[39m
+                [33mdata-testid[39m=[32m"aidt-stage-desktop-1"[39m
+                [33mhref[39m=[32m"/aidt/group?step=1"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m1[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate"[39m
+                [36m>[39m
+                  [0m理解与提出问题[0m
+                [36m</span>[39m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+                [33mdata-aidt-step[39m=[32m"2"[39m
+                [33mdata-testid[39m=[32m"aidt-stage-desktop-2"[39m
+                [33mhref[39m=[32m"/aidt/group?step=2"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate"[39m
+                [36m>[39m
+                  [0m共情用户[0m
+                [36m</span>[39m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+                [33mdata-aidt-step[39m=[32m"3"[39m
+                [33mdata-testid[39m=[32m"aidt-stage-desktop-3"[39m
+                [33mhref[39m=[32m"/aidt/group?step=3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m3[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate"[39m
+                [36m>[39m
+                  [0m综合与定义[0m
+                [36m</span>[39m
+              [36m</a>[39m
+              [36m<a[39m
+                [33maria-current[39m=[32m"step"[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-7 text-12 min-w-0 flex-1 px-2"[39m
+                [33mdata-aidt-step[39m=[32m"4"[39m
+                [33mdata-testid[39m=[32m"aidt-stage-desktop-4"[39m
+                [33mhref[39m=[32m"/aidt/group?step=4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m4[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate"[39m
+                [36m>[39m
+                  [0m创意发散[0m
+                [36m</span>[39m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+                [33mdata-aidt-step[39m=[32m"5"[39m
+                [33mdata-testid[39m=[32m"aidt-stage-desktop-5"[39m
+                [33mhref[39m=[32m"/aidt/group?step=5"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m5[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate"[39m
+                [36m>[39m
+                  [0m制作原型[0m
+                [36m</span>[39m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"inline-fl...
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-state-isolation-before.test.tsx > clears another actor's drafts and remounts native Chat even when the project ID is unchanged
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  student-b
+Received:
+  student-a
+ ❯ tests/ui/aidt-state-isolation-before.test.tsx:44:45
+     42|   rerender(<ProjectAidt projectId="group" sub="aidt-1" canWrite />);
+     43|   expect(screen.getByLabelText("初始问题")).toHaveValue("");
+     44|   expect(screen.getByTestId("native-chat")).toHaveTextContent("student…
+       |                                             ^
+     45|   expect(screen.getByTestId("aidt-assistant-panel")).not.toBeVisible();
+     46| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/ui/aidt-state-isolation-before.test.tsx > rechecks resource access for a new actor before mounting the native editor
+AssertionError: expected <div data-testid="native-design"></div> to be null
+
+- Expected:
+null
+
++ Received:
+<div
+  data-testid="native-design"
+>
+  student-a
+</div>
+
+ ❯ tests/ui/aidt-state-isolation-before.test.tsx:65:49
+     63|   mocks.session = { ...mocks.session!, userId: "student-b" };
+     64|   rerender(<ProjectAidt projectId="group" sub="aidt-5" canWrite />);
+     65|   expect(screen.queryByTestId("native-design")).toBeNull();
+       |                                                 ^
+     66|   await act(async () => finish({ items: [] }));
+     67|   expect(await screen.findByRole("alert")).toHaveTextContent("未关联当…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/ui/aidt-state-isolation-before.test.tsx > does not let an old actor's delayed successful association replace the current actor's denial
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"flex min-h-0 flex-1 flex-col"[39m
+      [33mdata-testid[39m=[32m"aidt-workspace"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex shrink-0 flex-col gap-2 border-b border-border p-3 md:p-4"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"text-12 text-muted-foreground transition-colors hover:text-primary"[39m
+          [33mhref[39m=[32m"/aidt/group"[39m
+        [36m>[39m
+          [0m← 六步 Dashboard[0m
+        [36m</a>[39m
+        [36m<div[39m
+          [33mdata-testid[39m=[32m"aidt-stage-navigation"[39m
+        [36m>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"设计思维步骤"[39m
+            [33mclass[39m=[32m"hidden gap-1 md:flex"[39m
+            [33mdata-testid[39m=[32m"aidt-desktop-steps"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"1"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-1"[39m
+              [33mhref[39m=[32m"/aidt/group?step=1"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m理解与提出问题[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"2"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-2"[39m
+              [33mhref[39m=[32m"/aidt/group?step=2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m2[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m共情用户[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"3"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-3"[39m
+              [33mhref[39m=[32m"/aidt/group?step=3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m3[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m综合与定义[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"4"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-4"[39m
+              [33mhref[39m=[32m"/aidt/group?step=4"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m4[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m创意发散[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33maria-current[39m=[32m"step"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"5"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-5"[39m
+              [33mhref[39m=[32m"/aidt/group?step=5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m5[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m制作原型[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offs...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"flex min-h-0 flex-1 flex-col"[39m
+      [33mdata-testid[39m=[32m"aidt-workspace"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex shrink-0 flex-col gap-2 border-b border-border p-3 md:p-4"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"text-12 text-muted-foreground transition-colors hover:text-primary"[39m
+          [33mhref[39m=[32m"/aidt/group"[39m
+        [36m>[39m
+          [0m← 六步 Dashboard[0m
+        [36m</a>[39m
+        [36m<div[39m
+          [33mdata-testid[39m=[32m"aidt-stage-navigation"[39m
+        [36m>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"设计思维步骤"[39m
+            [33mclass[39m=[32m"hidden gap-1 md:flex"[39m
+            [33mdata-testid[39m=[32m"aidt-desktop-steps"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"1"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-1"[39m
+              [33mhref[39m=[32m"/aidt/group?step=1"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m理解与提出问题[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"2"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-2"[39m
+              [33mhref[39m=[32m"/aidt/group?step=2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m2[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m共情用户[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"3"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-3"[39m
+              [33mhref[39m=[32m"/aidt/group?step=3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m3[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m综合与定义[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"4"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-4"[39m
+              [33mhref[39m=[32m"/aidt/group?step=4"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m4[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m创意发散[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33maria-current[39m=[32m"step"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-7 text-12 min-w-0 flex-1 px-2"[39m
+              [33mdata-aidt-step[39m=[32m"5"[39m
+              [33mdata-testid[39m=[32m"aidt-stage-desktop-5"[39m
+              [33mhref[39m=[32m"/aidt/group?step=5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m5[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"truncate"[39m
+              [36m>[39m
+                [0m制作原型[0m
+              [36m</span>[39m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offs...
+ ❯ waitForWrapper ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/aidt-state-isolation-before.test.tsx:78:16
+     76|   mocks.session = { ...mocks.session!, currentOrgId: "org-b", sessionT…
+     77|   rerender(<ProjectAidt projectId="group" sub="aidt-5" canWrite />);
+     78|   await screen.findByRole("alert");
+       |                ^
+     79|   await act(async () => oldFinish({ items: [{ id: "design-a", kind: "d…
+     80|   expect(screen.queryByTestId("native-design")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/ui/aidt-state-isolation-before.test.tsx > invalidates an old association on token rotation and does not read resources when signed out
+AssertionError: expected <div data-testid="native-design"></div> to be null
+
+- Expected:
+null
+
++ Received:
+<div
+  data-testid="native-design"
+>
+  student-a
+</div>
+
+ ❯ tests/ui/aidt-state-isolation-before.test.tsx:90:49
+     88|   mocks.session = { ...mocks.session!, sessionToken: "token-b" };
+     89|   rerender(<ProjectAidt projectId="group" sub="aidt-5" canWrite />);
+     90|   expect(screen.queryByTestId("native-design")).toBeNull();
+       |                                                 ^
+     91|   expect(await screen.findByRole("alert")).toHaveTextContent("资源读取…
+     92|   mocks.session = null;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/ui/aidt-state-isolation-before.test.tsx > ignores a local image read completed after permission scope changed
+AssertionError: expected <img alt="候选1参考图（未上传）" …(7)></img> to be null
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"flex min-h-0 flex-1 flex-col"[39m
+        [33mdata-testid[39m=[32m"aidt-workspace"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex shrink-0 flex-col gap-2 border-b border-border p-3 md:p-4"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground transition-colors hover:text-primary"[39m
+            [33mhref[39m=[32m"/aidt/group"[39m
+          [36m>[39m
+            [0m← 六步 Dashboard[0m
+          [36m</a>[39m
+          [36m<div[39m
+            [33mdata-testid[39m=[32m"aidt-stage-navigation"[39m
+          [36m>[39m
+            [36m<nav[39m
+              [33maria-label[39m=[32m"设计思维步骤"[39m
+              [33mclass[39m=[32m"hidden gap-1 md:flex"[39m
+              [33mdata-testid[39m=[32m"aidt-desktop-steps"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+                [33mdata-aidt-step[39m=[32m"1"[39m
+                [33mdata-testid[39m=[32m"aidt-stage-desktop-1"[39m
+                [33mhref[39m=[32m"/aidt/group?step=1"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m1[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate"[39m
+                [36m>[39m
+                  [0m理解与提出问题[0m
+                [36m</span>[39m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+                [33mdata-aidt-step[39m=[32m"2"[39m
+                [33mdata-testid[39m=[32m"aidt-stage-desktop-2"[39m
+                [33mhref[39m=[32m"/aidt/group?step=2"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate"[39m
+                [36m>[39m
+                  [0m共情用户[0m
+                [36m</span>[39m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+                [33mdata-aidt-step[39m=[32m"3"[39m
+                [33mdata-testid[39m=[32m"aidt-stage-desktop-3"[39m
+                [33mhref[39m=[32m"/aidt/group?step=3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m3[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate"[39m
+                [36m>[39m
+                  [0m综合与定义[0m
+                [36m</span>[39m
+              [36m</a>[39m
+              [36m<a[39m
+                [33maria-current[39m=[32m"step"[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-7 text-12 min-w-0 flex-1 px-2"[39m
+                [33mdata-aidt-step[39m=[32m"4"[39m
+                [33mdata-testid[39m=[32m"aidt-stage-desktop-4"[39m
+                [33mhref[39m=[32m"/aidt/group?step=4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m4[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate"[39m
+                [36m>[39m
+                  [0m创意发散[0m
+                [36m</span>[39m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 text-12 min-w-0 flex-1 px-2"[39m
+                [33mdata-aidt-step[39m=[32m"5"[39m
+                [33mdata-testid[39m=[32m"aidt-stage-desktop-5"[39m
+                [33mhref[39m=[32m"/aidt/group?step=5"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m5[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate"[39m
+                [36m>[39m
+                  [0m制作原型[0m
+                [36m</span>[39m
+              [36m</a>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"inline-fl...
+
+- Expected:
+null
+
++ Received:
+<img
+  alt="候选1参考图（未上传）"
+  class="w-full rounded-md object-contain"
+  data-nimg="1"
+  decoding="async"
+  height="270"
+  src="data:image/png;base64,dGVzdA=="
+  style="color: transparent;"
+  width="480"
+/>
+
+ ❯ tests/ui/aidt-state-isolation-before.test.tsx:104:68
+    102|   rerender(<ProjectAidt projectId="group" sub="aidt-4" canWrite={chang…
+    103|   await act(async () => { const reader = mocks.readers[0]!; reader.res…
+    104|   await waitFor(() => expect(screen.queryByAltText("候选1参考图（未上…
+       |                                                                    ^
+    105| });
+    106|
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 2 passed (7)
+   Start at  22:48:37
+   Duration  4.82s (transform 376ms, setup 204ms, collect 564ms, tests 2.73s, environment 703ms, prepare 58ms)
+
+/workspace/aidt-module-isolation/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 test: `vitest run "tests/ui/aidt-state-isolation-before.test.tsx"`
+Exit status 1

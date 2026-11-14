@@ -1,0 +1,50 @@
+
+> web@0.1.0 test /workspace/aidt-module-isolation/apps/web
+> vitest run "tests/ui/aidt-state-isolation.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-isolation/apps/web
+
+ ❯ tests/ui/aidt-state-isolation.test.tsx (8 tests | 1 failed) 572ms
+   × rejects an old actor lifecycle's image callback after A to B to A 74ms
+     → expected <img alt="候选1参考图（未上传）" …(7)></img> to be null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-state-isolation.test.tsx > rejects an old actor lifecycle's image callback after A to B to A
+AssertionError: expected <img alt="候选1参考图（未上传）" …(7)></img> to be null
+
+- Expected:
+null
+
++ Received:
+<img
+  alt="候选1参考图（未上传）"
+  class="w-full rounded-md object-contain"
+  data-nimg="1"
+  decoding="async"
+  height="270"
+  src="data:image/png;base64,b2xk"
+  style="color: transparent;"
+  width="480"
+/>
+
+ ❯ tests/ui/aidt-state-isolation.test.tsx:123:48
+    121|   });
+    122|   expect(screen.getByLabelText("候选1名称")).toHaveValue("A回来后重新…
+    123|   expect(screen.queryByAltText("候选1参考图（未上传）")).toBeNull();
+       |                                                ^
+    124| });
+    125|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 passed (8)
+   Start at  22:58:39
+   Duration  2.24s (transform 245ms, setup 121ms, collect 353ms, tests 572ms, environment 740ms, prepare 179ms)
+
+/workspace/aidt-module-isolation/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 test: `vitest run "tests/ui/aidt-state-isolation.test.tsx"`
+Exit status 1

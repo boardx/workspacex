@@ -1,0 +1,153 @@
+{
+  "updatedAt": "2026-11-15 07:20 北京时间",
+  "scope": "当前冲刺：独立模块隔离与兼容性验证已通过本地检查；完整课堂P0与真实服务验收另列。",
+  "tasks": [
+    {
+      "id": "B01",
+      "owner": "Agent 1",
+      "agent": "aidt_entry_isolation",
+      "title": "入口、开关与创建适配器",
+      "status": "tested",
+      "evidence": "82项局部回归通过；已纳入最新develop整合回归",
+      "acceptance": "默认关闭时无AIDT入口和请求，普通项目列表/创建不受干扰"
+    },
+    {
+      "id": "B02",
+      "owner": "Agent 2",
+      "agent": "aidt_chat_isolation",
+      "title": "原生Chat与教学适配隔离",
+      "status": "tested",
+      "evidence": "23项局部测试与lint通过；原生Chat空态保持",
+      "acceptance": "普通Chat空态保持，教学上下文和取消请求按身份隔离"
+    },
+    {
+      "id": "B03",
+      "owner": "Agent 3",
+      "agent": "aidt_state_isolation",
+      "title": "小组、身份与本页状态隔离",
+      "status": "tested",
+      "evidence": "24项局部测试通过；A→B→A旧图片回调反例先失败、修复后通过",
+      "acceptance": "换组、换用户、续期、只读降级不串草稿或旧资源"
+    },
+    {
+      "id": "B04",
+      "owner": "Agent 4",
+      "agent": "aidt_resource_isolation",
+      "title": "资源权限与原生工具适配",
+      "status": "tested",
+      "evidence": "22项局部测试与lint通过；已纳入统一回归",
+      "acceptance": "旧资料迟到不显示，权限未决不露旧工作区，普通白板不被劫持"
+    },
+    {
+      "id": "B05",
+      "owner": "Agent 5",
+      "agent": "aidt_backend_isolation",
+      "title": "后端Skill注册与启动隔离",
+      "status": "tested",
+      "evidence": "20项无DB测试通过；最新develop的API类型检查与完整lint通过",
+      "acceptance": "默认不导入AIDT技能；启用时普通包不变，不覆盖用户内容"
+    },
+    {
+      "id": "B06",
+      "owner": "Agent 6",
+      "agent": "aidt_compatibility_tests",
+      "title": "普通功能兼容与模块边界门禁",
+      "status": "tested",
+      "evidence": "42项局部兼容/架构测试通过；模块依赖门禁通过",
+      "acceptance": "开关两态保持普通Chat/Project行为，禁止共享模块反向依赖"
+    },
+    {
+      "id": "B07",
+      "owner": "主Agent",
+      "agent": "root",
+      "title": "收拢独立模块与公共入口",
+      "status": "tested",
+      "evidence": "27个实现文件迁入features/aidt；公共入口与架构门禁通过",
+      "acceptance": "features/aidt自包含，通过明确公共入口消费，整体文字沟通保持独立"
+    },
+    {
+      "id": "B08",
+      "owner": "主Agent + Agent 6",
+      "agent": "root",
+      "title": "统一整合与回归验证",
+      "status": "tested",
+      "evidence": "最新develop上267项Web、20项无DB API通过；双端typecheck/lint及模块ESLint通过",
+      "acceptance": "单次最终typecheck、相关前后端回归、边界门禁及反证通过"
+    },
+    {
+      "id": "B09",
+      "owner": "主Agent",
+      "agent": "root",
+      "title": "交付可审阅结果与剩余项",
+      "status": "doing",
+      "evidence": "任务图已交付；正在整理源码与验证记录下载包",
+      "acceptance": "源码、测试证据、启用/关闭说明与待接能力清楚；不部署"
+    }
+  ],
+  "future": [
+    [
+      "N01",
+      "P0",
+      "评审新增共享成果、阶段状态与成员消息契约",
+      "主Agent + 课程/研发负责人",
+      "待确认",
+      "仅新增契约需设计确认；现有接口继续复用，明确权限与冲突语义"
+    ],
+    [
+      "N02",
+      "P0",
+      "课程/小组与阶段成果真实保存恢复",
+      "Agent 3",
+      "待开发",
+      "依赖N01；刷新、重新登录后同组成果可恢复"
+    ],
+    [
+      "N03",
+      "P0",
+      "六阶段AI与已授权历史上下文",
+      "Agent 2 + Agent 5",
+      "待集成验收",
+      "真实模型与Skill验收；学生先输入，不伪造研究证据"
+    ],
+    [
+      "N04",
+      "P0",
+      "真实材料上传、转写及来源关联",
+      "Agent 4",
+      "待集成验收",
+      "采集授权、原音频与转写校对、失败恢复"
+    ],
+    [
+      "N05",
+      "P0",
+      "小组成员文字消息真实传输",
+      "Agent 5 + Agent 6",
+      "待开发",
+      "依赖N01；隔离、重连、重试与实际成员收发验证"
+    ],
+    [
+      "N06",
+      "P0",
+      "创意PDF、原型版本、测试迭代与报告",
+      "Agent 1 + Agent 3 + Agent 4",
+      "待集成验收",
+      "真实文件和版本回执，不把预览当保存或测试通过"
+    ],
+    [
+      "N07",
+      "P0",
+      "约30人课堂试点验收",
+      "主Agent + Agent 6 + 课程负责人",
+      "待试点",
+      "依赖N02–N06；教师试用、组间隔离、完整真实流程"
+    ],
+    [
+      "N08",
+      "后置",
+      "语音房、教师评分与可选展示增强",
+      "后续派单",
+      "暂缓",
+      "本轮先做成员文字沟通；不挤占隔离与P0闭环"
+    ]
+  ]
+}

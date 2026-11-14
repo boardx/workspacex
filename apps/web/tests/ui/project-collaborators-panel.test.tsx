@@ -163,3 +163,15 @@ describe("B3-T5 协作者面板", () => {
     await waitFor(() => expect(screen.getByTestId("project-collaborators-action-error")).toHaveTextContent("不支持协作者名单"));
   });
 });
+
+it("AIDT archived space keeps the real roster readable but hides owner management actions", async () => {
+  const { ProjectCollaboratorsPanel } = await import("@/components/project/project-collaborators-panel");
+  sessionUserId = "u-owner";
+  listNonWorkshopMembers.mockResolvedValue({ members: MEMBERS });
+  listOrgMembers.mockClear(); addNonWorkshopMember.mockClear(); removeNonWorkshopMember.mockClear();
+  render(<ProjectCollaboratorsPanel projectId="archived" readOnly />);
+  await screen.findByTestId("project-collaborator-u-owner");
+  expect(screen.queryByTestId("project-collaborators-add")).toBeNull();
+  expect(screen.queryByTestId("project-collaborator-remove-u-collab")).toBeNull();
+  expect(listOrgMembers).not.toHaveBeenCalled();
+});

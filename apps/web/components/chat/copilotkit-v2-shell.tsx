@@ -216,12 +216,25 @@ const THREAD_GROUP_MESSAGES: Record<string, MessageKey | undefined> = {
 export function CopilotKitV2Shell({
   initialThreadId,
   projectId = null,
+  threadPath,
+  threadFromLocation,
+  projectReturnHref,
+  singleConversation = false,
+  emptyState,
 }: {
   initialThreadId: string | null;
   projectId?: string | null;
+  /** Native hosts keep thread navigation inside their workspace. */
+  threadPath?: (threadId: string | null) => string;
+  threadFromLocation?: () => string | null;
+  projectReturnHref?: string;
+  /** Hosts with their own conversation navigation (e.g. AIDT steps). */
+  singleConversation?: boolean;
+  emptyState?: (setDraft: (text: string) => void) => React.ReactNode;
 }): JSX.Element {
   const { locale, t } = useI18n();
   const router = useRouter();
+  const threadHref = React.useCallback((id: string | null) => threadPath ? threadPath(id) : workbenchThreadPath(id, projectId), [threadPath, projectId]);
   const { session } = useSession();
   const bearer = session?.sessionToken ?? null;
   /**
@@ -350,11 +363,11 @@ export function CopilotKitV2Shell({
       cancelPendingFallback(); // 浏览器自己的导航是最新意图，点击留下的兜底作废
       const match = /^\/chat\/([^/?#]+)/.exec(window.location.pathname);
       const segment = match?.[1];
-      applyThreadSelection(segment !== undefined ? decodeURIComponent(segment) : null);
+      applyThreadSelection(threadFromLocation ? threadFromLocation() : segment !== undefined ? decodeURIComponent(segment) : null);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [applyThreadSelection, cancelPendingFallback]);
+  }, [applyThreadSelection, cancelPendingFallback, threadFromLocation]);
   /**
    * 2026-08-30 人类实测反馈——「每点一次会话就整栏刷新一次」，且是**每次都发生**、
    * 不是偶发。见下面 `pushThreadRoute` 的更正：旧判据用 `window.location.pathname`
@@ -821,7 +834,7 @@ export function CopilotKitV2Shell({
    * 换成了"再摧一把已经在飞的软导航"，而不是"炸掉整个页面重来"。
    */
   const pushThreadRoute = React.useCallback((threadId: string) => {
-    const path = workbenchThreadPath(threadId, projectId);
+    const path = threadHref(threadId);
     cancelPendingFallback(); // 先作废上一次点击的兜底，再取本次代号（顺序反了本次代号会被自己作废）
     const generation = navigationGeneration.current;
     router.push(path);
@@ -832,7 +845,7 @@ export function CopilotKitV2Shell({
       if (window.location.pathname === path) return;
       router.push(path);
     }, 4_000);
-  }, [cancelPendingFallback, router, projectId]);
+  }, [cancelPendingFallback, router, threadHref]);
 
   /**
    * 点击列表项——见组件顶部头注：切换到哪条线程只由这次点击本身、同步决定，
@@ -952,11 +965,11 @@ export function CopilotKitV2Shell({
     setSelectedThreadId((prev) => {
       if (prev === resolvedThreadId) return prev;
       selectedThreadIdRef.current = resolvedThreadId;
-      window.history.replaceState(null, "", workbenchThreadPath(resolvedThreadId, projectId));
+      window.history.replaceState(null, "", threadHref(resolvedThreadId));
       return resolvedThreadId;
     });
     void reloadThreads();
-  }, [reloadThreads, projectId]);
+  }, [reloadThreads, threadHref]);
 
   const cards = threads?.groups.flatMap((group) => group.cards) ?? [];
   const conversationTitle = displayConversationTitle(cards.find(card => card.id === selectedThreadId)?.title, t("chatEntry.untitled"))
@@ -1039,7 +1052,7 @@ export function CopilotKitV2Shell({
         // 删掉的是当前这条 ⇒ 必须离开它的路由；一条都不剩就回 `/chat` 空状态。
         // 同步切一次显示状态（见组件顶部头注），不等 `router.replace` 结算。
         applyThreadSelection(next);
-        router.replace(workbenchThreadPath(next ?? null, projectId));
+        router.replace(threadHref(next ?? null));
       }
     } catch (failure) {
       // 卸载触发的中止不是一次真实的删除失败——见 `reloadThreads` catch 同一条注释。
@@ -1048,7 +1061,7 @@ export function CopilotKitV2Shell({
     } finally {
       if (mountedRef.current) setMutatePending(null);
     }
-  }, [applyThreadSelection, bearer, fetchThreadList, router, selectedThreadId, projectId, sourceKey]);
+  }, [applyThreadSelection, bearer, fetchThreadList, router, selectedThreadId, projectId, sourceKey, threadHref]);
 
   /**
    * issue #2075（TW-P2-6）—— 搜索与置顶。
@@ -1158,7 +1171,7 @@ export function CopilotKitV2Shell({
   const searchRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "k") {
+      if (!singleConversation && (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setMobileListOpen(true);
         const input = searchRef.current;
@@ -1168,11 +1181,11 @@ export function CopilotKitV2Shell({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [singleConversation]);
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col md:flex-row">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2 md:hidden">
+      {!singleConversation && <><div className="flex items-center gap-2 border-b border-border px-3 py-2 md:hidden">
         <Button
           size="xs"
           variant="outline"
@@ -1326,9 +1339,9 @@ export function CopilotKitV2Shell({
             </div>
           ) : null}
         </div>
-      </aside>
-      <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", mobileListOpen ? "hidden md:flex" : "flex")}>
-        {projectId ? <ProjectChatContextBar projectId={projectId} orgId={currentOrgId} bearer={bearer} /> : null}
+      </aside></>}
+      <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !singleConversation && mobileListOpen ? "hidden md:flex" : "flex")}>
+        {projectId && !singleConversation ? <ProjectChatContextBar projectId={projectId} orgId={currentOrgId} bearer={bearer} returnHref={projectReturnHref} /> : null}
         {/*
           2026-09-03（对照设计参照图补的缺口）—— 轻量顶部信息条：当前会话标题 +
           「仅自己可见」隐私提示。此前 `/chat` v2 整条路由 `hideTopBar`，用户切换
@@ -1375,6 +1388,7 @@ export function CopilotKitV2Shell({
         <div className="min-h-0 flex-1">
         {/* AG07 handoff 卡片经 context 进消息流（Agent 的一条消息），不再钉在线程头下（UIUX r1 屏 4 P0-1）。 */}
         <ChatHandoffStream
+          fallbackEmptyState={emptyState}
           threadId={selectedThreadId}
           sessionToken={bearer ?? undefined}
           refreshKey={handoffRefreshKey}

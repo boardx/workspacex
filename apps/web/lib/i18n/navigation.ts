@@ -3,6 +3,7 @@ const keys: Record<string, MessageKey | undefined> = {
   me: "ui.me",
   "home": "navigation.home",
   "chat": "navigation.chat",
+  "aidt": "navigation.aidt",
   "projects": "navigation.projects",
   "whiteboard": "navigation.whiteboard",
   "research": "navigation.research",

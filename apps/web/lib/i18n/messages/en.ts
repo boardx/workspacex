@@ -318,6 +318,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   "auth.invited": "Invited to an organization? Open the activation link from your administrator to set your password. Contact them for a new link if it has expired.",
   "navigation.home": "Home",
   "navigation.chat": "Chats",
+  "navigation.aidt": "AIDT",
   "navigation.projects": "Projects",
   "navigation.whiteboard": "Board",
   "navigation.research": "Research",

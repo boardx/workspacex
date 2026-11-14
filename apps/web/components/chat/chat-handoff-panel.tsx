@@ -35,6 +35,7 @@ export function ChatHandoffStream({
   cancel = cancelHandoff,
   loadAgent = getAgentDirectoryCard,
   children,
+  fallbackEmptyState,
 }: {
   threadId: string | null;
   sessionToken?: string;
@@ -47,6 +48,7 @@ export function ChatHandoffStream({
   cancel?: typeof cancelHandoff;
   loadAgent?: (agentId: string) => Promise<AgentDirectoryCard>;
   children: React.ReactNode;
+  fallbackEmptyState?: (setDraft: (text: string) => void) => React.ReactNode;
 }) {
   const [data, setData] = React.useState<ThreadHandoffs | null>(null);
   const [reloadTick, setReloadTick] = React.useState(0);
@@ -73,7 +75,7 @@ export function ChatHandoffStream({
   }, [threadId, sessionToken, refreshKey, reloadTick, load]);
 
   const slots = React.useMemo(() => {
-    if (!data || (data.requested.length === 0 && data.origin === null)) return { lead: null, tail: null, draftSeed: null, emptyState: null };
+    if (!data || (data.requested.length === 0 && data.origin === null)) return { lead: null, tail: null, draftSeed: null, emptyState: fallbackEmptyState ?? null };
     const origin = data.origin;
     const draftSeed = origin ? { key: origin.handoff.handoffId, text: handoffDraftText(origin.handoff) } : null;
     const emptyState = origin
@@ -113,7 +115,7 @@ export function ChatHandoffStream({
       </div>
     ) : null;
     return { lead, tail, draftSeed, emptyState };
-  }, [data, agents, confirm, cancel, sessionToken, onOpenThread, onOpenSourceThread, dismissed, dismissOrigin]);
+  }, [data, agents, confirm, cancel, sessionToken, onOpenThread, onOpenSourceThread, dismissed, dismissOrigin, fallbackEmptyState]);
 
   return <ChatStreamSlotsContext.Provider value={slots}>{children}</ChatStreamSlotsContext.Provider>;
 }
@@ -177,6 +179,7 @@ function AgentMessageFrame({
   createdAt: string;
   testId: string;
   children: React.ReactNode;
+  fallbackEmptyState?: (setDraft: (text: string) => void) => React.ReactNode;
 }) {
   const name = agent?.name ?? fallbackName;
   const time = timeOf(createdAt);

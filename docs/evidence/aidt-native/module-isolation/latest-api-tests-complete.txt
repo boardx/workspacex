@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest
+
+ ✓ apps/api/tests/skill/aidt-backend-isolation.test.ts (16 tests) 9ms
+ ✓ apps/api/tests/skill/aidt-backend-import-replay-isolation.test.ts (3 tests) 20ms
+ ✓ apps/api/tests/skill/aidt-skill-pack.test.ts (1 test) 6ms
+
+ Test Files  3 passed (3)
+      Tests  20 passed (20)
+   Start at  23:09:47
+   Duration  4.25s (transform 1.53s, setup 0ms, collect 3.66s, tests 35ms, environment 1ms, prepare 169ms)

@@ -1,3 +1,4 @@
+import { isAidtModuleEnabled } from "@/lib/aidt-module-config";
 import type { LucideIcon } from "lucide-react";
 import {
   MessagesSquare, FolderKanban, Search, UsersRound, ClipboardList, LayoutTemplate,
@@ -157,6 +158,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
     label: "编排",
     items: [
       // 束: project（列表 /projects → 工作台 /projects/[projectId]）
+      ...(isAidtModuleEnabled() ? [{ key: "aidt", label: "AIDT", href: "/aidt", icon: Workflow, ucRefs: [] }] : []),
       { key: "projects", label: "项目", href: "/projects", icon: FolderKanban, ucRefs: ["00-project/uc-0-2", "02-tpl/uc-2-2"] },
       // ⚠ 蓝本已于 #593 移出本组 —— 原型的一级「编排」只有「项目」一项，
       //   「项目蓝本」是**后台模块**（原型后台左栏 AI 能力组）。见文件底部 #593 长注。

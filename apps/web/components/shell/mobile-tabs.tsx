@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
  */
 const TABS = [
   { key: "chat", label: "对话", href: "/chat", icon: MessagesSquare },
+  ...TOP_LEVEL_NAV_ITEMS.filter((item) => item.key === "aidt"),
   { key: "projects", label: "项目", href: "/projects", icon: FolderKanban },
   ...TOP_LEVEL_NAV_ITEMS.filter((item) => item.key === "agents"),
   { key: "tasks", label: "任务", href: "/tasks", icon: ListTodo },

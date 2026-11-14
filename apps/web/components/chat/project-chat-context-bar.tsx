@@ -22,8 +22,8 @@ export function projectBackHref(projectId: string, kind: string | null, orgId: s
   return `/projects/${encodeURIComponent(projectId)}${qs}`;
 }
 
-export function ProjectChatContextBar({ projectId, orgId, bearer }: {
-  projectId: string; orgId: string | null; bearer: string | null;
+export function ProjectChatContextBar({ projectId, orgId, bearer, returnHref }: {
+  projectId: string; orgId: string | null; bearer: string | null; returnHref?: string;
 }): JSX.Element {
   const { t } = useI18n();
   const [info, setInfo] = React.useState<{ id: string; name: string; kind: string } | null>(null);
@@ -44,11 +44,11 @@ export function ProjectChatContextBar({ projectId, orgId, bearer }: {
       data-testid="project-chat-context-bar"
     >
       <Link
-        href={projectBackHref(projectId, known?.kind ?? null, orgId)}
+        href={returnHref ?? projectBackHref(projectId, known?.kind ?? null, orgId)}
         data-testid="project-chat-back"
         className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground"
       >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" />{t("chatEntry.backToProject")}
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" />{returnHref ? "AIDT Dashboard" : t("chatEntry.backToProject")}
       </Link>
       <Badge tone="neutral" className="min-w-0 max-w-[60%] truncate" data-testid="project-chat-name">
         {known ? known.name : t("chatEntry.projectConversation")}

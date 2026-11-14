@@ -7,6 +7,8 @@ import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 import { formatRelativeTime, initialsOf } from "@/lib/home-format";
 import { guidedResearchRoute } from "@/lib/guided-research-routes";
 import { surveyPath } from "@/lib/survey/paths";
+import { isAidtModuleEnabled } from "@/lib/aidt-module-config";
+import { isAidtProject, projectWorkspaceHref } from "@/lib/project-aidt";
 import type { HomeInterview, HomeProject, HomeResearch, HomeSurvey, HomeThread } from "./use-home-work";
 
 /**
@@ -57,10 +59,10 @@ export function ProjectCard({ project }: { project: HomeProject }) {
   const people = project.collaborators;
   return (
     <ResourceCard
-      href={`/projects/${encodeURIComponent(project.id)}`}
+      href={projectWorkspaceHref(project)}
       testId={`home-recent-project-${project.id}`}
       title={project.name}
-      subtitle={project.kind === "workshop" ? t("ui.workshop") : t("ui.projects")}
+      subtitle={isAidtModuleEnabled() && isAidtProject(project) ? "AIDT" : project.kind === "workshop" ? t("ui.workshop") : t("ui.projects")}
       tags={<ResourceCardTags tags={project.tags} max={3} />}
     >
       {people !== null && people.length > 0 ? (
