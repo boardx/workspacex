@@ -31,3 +31,12 @@ it("keeps quoting visible but prevents checkout when new sales are disabled",()=
  render(<PersonalPricingProducts kind="credits" catalog={{...catalog,enabledProviders:[]}} entitlement={free} onSelect={()=>{}} onClose={()=>{}}/>);
  expect(screen.getByTestId("pricing-total").textContent).toContain("129.00");expect(screen.getByTestId("pricing-continue-checkout").hasAttribute("disabled")).toBe(true);
 });
+it("quotes the ¥1 personal pack and passes its SKU to WeChat checkout",()=>{
+ const smallPack={sku:"credit-cn-10-v1",kind:"credit_topup",currency:"CNY",amountMinor:100,credits:10} as const;
+ const select=vi.fn();
+ render(<PersonalPricingProducts kind="credits" catalog={{...catalog,products:[...catalog.products,smallPack]}} entitlement={free} onSelect={select} onClose={()=>{}}/>);
+ fireEvent.click(screen.getByTestId("pricing-pack-10"));
+ expect(screen.getByTestId("pricing-total")).toHaveTextContent("¥1.00");
+ fireEvent.click(screen.getByTestId("pricing-continue-checkout"));
+ expect(select).toHaveBeenCalledWith(smallPack.sku,"wechat");
+});
