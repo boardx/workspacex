@@ -32,4 +32,8 @@ This isolation work adds no endpoint, migration, database, tenant permission or 
 
 ## Validation
 
+Integration is an acceptance requirement, not just matching visual styling. Reuse Project membership/resource authorization, canonical Chat and Skill mounting, existing research/transcription entry points, Artifact provenance/versioning, Board handoff and Design Workbench. Carry the current project, authorized actor, resource, stage and return location across each handoff. Resource ownership and Board roles remain independently enforced by their existing services.
+
+Member text communication is a product-wide capability available alongside stage work; keep its messages separate from the AI facilitator and from confirmed stage outputs. Actual member transport is still outstanding. Personal transcription and Chat voice drafts must not bypass interview recording consent or be misrepresented as interview evidence. Check existing APIs before proposing new shared-state or messaging contracts. Validate the complete handoff journey and ordinary module regressions; a tool link alone does not establish successful integration.
+
 Run `apps/web/tests/aidt-module-boundary.test.ts` and `tests/ui/aidt-module-compatibility.test.tsx` together with the AIDT and ordinary Chat/Project regressions. The backend no-database lane is `pnpm --filter @repo/api exec vitest run --config vitest.aidt-isolation.config.ts`. Unit/in-memory results are not PostgreSQL, microphone, model or 30-person classroom acceptance.
