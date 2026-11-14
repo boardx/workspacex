@@ -13,21 +13,15 @@ import { selectWorkbenchAgent, submitWorkbenchRun } from "./support/workbench-ru
  *
  * ## 本机没有 KERNEL_MODEL_API_KEY，测不了"模型真的识图"——这条测的是诚实降级路径
  *
- * `playwright.fullstack-smoke.config.ts` 下发的确定性上游是 `fullstack-loopback` /
- * `loopback-echo`（`FULLSTACK_E2E.agentModelProvider/agentModelId`）。
- * `KERNEL_MODEL_VISION_IDS` 在这套 webServer 环境里**没有被设置**，`readVisionModelIds()`
- * 因此读到 #3355 的权威清单（`domain/model/vision-capable-models.ts`，全是 2026-09-10
- * 实测通过的百炼模型 id）——`loopback-echo` 不在其中，所以
- * `ConfiguredModelProvider.supportsVision()` 对这次 run 恒回 `false`。这不是本测试
- * 硬编码出来的假设，是这套 e2e 环境本来就没有任何"看得见图"的 provider，天然落在
- * `execute-run.ts` 的 fail-closed 分支（`supportsVision?.(...) ?? false`）。
+ * 普通聊天使用系统默认 Deep Agent。全栈环境的回环服务回显实际收到的模型输入，
+ * 默认模型未配置视觉能力，因此本用例进入视觉降级分支。
  *
  * ## 能验到的最深一层，以及验不到的部分——如实写在这里
  *
  *   · **能验到**：图片字节真的从浏览器上传、落进 `chat_message_attachments`、被
  *     `gatherVisionImages` 取出、判定为"这次运行绑定的模型不具备视觉输入能力"、把
  *     `renderVisionNotice()` 产出的**诚实告知文案**拼进 `userText`、`userText` 真的被
- *     发给了模型（确定性上游 `loopback-model-provider.ts` 回显它收到的 `user` 字段）、
+ *     发给了模型（确定性上游 Deep Agent 回环服务回显收到的用户消息）、
  *     写回库、刷新后仍在——这是一条完整的"图像通道被组装进 ModelCallInput"的端到端证据链。
  *   · **验不到**：真实模型识图（"看到图里有什么"）。那需要一个真的支持视觉的 provider
  *     与真实上游 key，本机没有，`AGENTS.md` 也不许伪造响应/静默 mock fallback 去冒充它。
@@ -116,7 +110,7 @@ test("P2/#1561：上传图片发消息，视觉能力缺席时模型收到诚实
 
   // 文案逐字对齐 `run-image-input.ts` 的 `renderVisionNotice()`（见本文件头注），
   // 不是拍脑袋写的近似句子——改了那边的措辞，这里必须跟着红,不能悄悄继续绿。
-  const expectedDegradationReason = `本次运行绑定的模型（${FULLSTACK_E2E.agentModelProvider} / ${FULLSTACK_E2E.agentModelId}）不具备视觉输入能力`;
+  const expectedDegradationReason = `本次运行绑定的模型（deep-agent / default）不具备视觉输入能力`;
   const expectedNotice = `［本轮消息附带 1 张图片，但${expectedDegradationReason}——`
     + "你看不到这些图的内容。不要凭文件名猜测或假装看过；用户问起图里有什么时，"
     + "如实说明你这一轮没有收到图像内容。］";
