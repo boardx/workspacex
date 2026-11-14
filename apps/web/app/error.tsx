@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { reportClientError } from "@/lib/report-client-error";
@@ -19,15 +20,17 @@ export default function ErrorBoundary({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { locale } = useI18n();
+  const copy = (zh: string, en: string) => locale === "en" ? en : zh;
   React.useEffect(() => {
     reportClientError(error);
   }, [error]);
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 p-6 text-center">
-      <p className="text-14 font-medium">页面出了点问题</p>
+      <p className="text-14 font-medium">{copy("页面出了点问题", "Something went wrong")}</p>
       <p className="max-w-md text-12 text-muted-foreground">
-        这个错误已经被自动记录，我们会去看。你可以重试，或者刷新页面。
+        {copy("这个错误已经被自动记录，我们会去看。你可以重试，或者刷新页面。", "This error was recorded automatically. Try again or refresh the page.")}
       </p>
       <Button
         size="sm"
@@ -36,7 +39,7 @@ export default function ErrorBoundary({
         className="mt-1"
         data-testid="app-error-boundary-retry"
       >
-        重试
+        {copy("重试", "Try again")}
       </Button>
     </div>
   );
