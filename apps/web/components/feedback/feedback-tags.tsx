@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import { feedbackLoop } from "@repo/contracts";
 import { TagInput, commitDraft } from "@/components/ui/tag-input";
 export function commitFeedbackTags(tags: readonly string[], draft: string): string[] {
@@ -8,9 +9,10 @@ export function FeedbackTagsInput({ tags, onChange, draft, onDraftChange, disabl
   tags: readonly string[]; onChange: (tags: readonly string[]) => void;
   draft: string; onDraftChange: (draft: string) => void; disabled?: boolean;
 }) {
+  const { t } = useI18n();
   const validation = feedbackLoop.FeedbackTags.safeParse(commitDraft(tags, draft));
   return <div className="flex flex-col gap-1.5">
-    <span className="text-11 font-medium text-muted-foreground">标签</span>
+    <span className="text-11 font-medium text-muted-foreground">{t("englishCleanup.tags")}</span>
     <TagInput value={tags} onChange={(next) => onChange(next.filter((t, i) => next.findIndex((v) => v.toLowerCase() === t.toLowerCase()) === i))}
       knownTags={new Map()} draft={draft} onDraftChange={onDraftChange} disabled={disabled}
       maxTags={feedbackLoop.INBOX_TAGS_MAX_COUNT} maxTagLength={feedbackLoop.INBOX_TAG_MAX_LENGTH} testIdPrefix="feedback-tags" />

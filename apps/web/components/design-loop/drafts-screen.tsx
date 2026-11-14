@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import { FeedbackTagsInput, commitFeedbackTags } from "@/components/feedback/feedback-tags";
 import * as React from "react";
 import { Plus, X, Trash2, MessageSquare, Paperclip, Send, ShieldAlert, PlugZap, Loader2 } from "lucide-react";
@@ -74,6 +75,7 @@ export function DesignLoopDraftsScreen({
   /** 草稿提交成收件箱条目之后——参数是**反馈** id（不再是草稿 id）。 */
   onSubmitted?: (feedbackId: string) => void;
 }) {
+  const { t } = useI18n();
   const [list, setList] = React.useState<ListState>({ kind: "loading" });
   const [editId, setEditId] = React.useState<string | null>(null);
   const [refineId, setRefineId] = React.useState<string | null>(null);
@@ -180,11 +182,11 @@ export function DesignLoopDraftsScreen({
     <div className="flex h-full flex-col" data-testid="design-loop-drafts">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div>
-          <h1 className="text-16 font-semibold">反馈草稿</h1>
-          <p className="text-11 text-muted-foreground">先存下来，想清楚边界后再提交到收件箱。草稿只有你自己看得到。</p>
+          <h1 className="text-16 font-semibold">{t("englishCleanup.drafts")}</h1>
+          <p className="text-11 text-muted-foreground">{t("englishCleanup.draftsIntro")}</p>
         </div>
         <Button variant="primary" size="sm" onClick={onNewDraft} data-testid="drafts-new">
-          <Plus aria-hidden className="h-3.5 w-3.5" /> 新建反馈草稿
+          <Plus aria-hidden className="h-3.5 w-3.5" /> {t("englishCleanup.newDraft")}
         </Button>
       </div>
 
@@ -229,16 +231,16 @@ export function DesignLoopDraftsScreen({
 
       {drafts.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-16 text-center" data-testid="empty">
-          <p className="text-14 font-medium">暂无草稿。</p>
+          <p className="text-14 font-medium">{t("englishCleanup.noDrafts")}</p>
           {/*
             * 迭代 34：原文是「或在快速反馈里选『存为草稿』」——而"快速反馈"在哪，这一屏上
             * 一个字都没说。指向一个用户找不到的入口，等于没指。说这一屏自己能做的那件事。
             */}
           <p className="max-w-sm text-12 text-muted-foreground">
-            草稿是你写一半的想法，只有你自己看得到。写好了再决定要不要提交给团队。
+            {t("englishCleanup.noDraftsHint")}
           </p>
           <Button variant="outline" size="sm" onClick={onNewDraft} className="mt-1">
-            <Plus aria-hidden className="h-3.5 w-3.5" /> 新建反馈草稿
+            <Plus aria-hidden className="h-3.5 w-3.5" /> {t("englishCleanup.newDraft")}
           </Button>
         </div>
       ) : (

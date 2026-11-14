@@ -1,4 +1,5 @@
 "use client";
+import { taskNoticeCopy } from "@/lib/i18n/task-notice";
 
 import { useBrowserTitle } from "@/components/system/browser-title";
 import * as React from "react";
@@ -88,7 +89,7 @@ function InboxContent({ token, initialMessage }: { token?: string; initialMessag
           </span>
           <span className={cn("mt-1 block break-words text-14", item.readAt === null && "font-semibold")}>
             {item.readAt === null && <span className="sr-only">{t("notifications.unread", { count: 1 })} </span>}
-            {item.title}
+            {taskNoticeCopy(item, locale).title}
           </span>
         </button>)}
       </nav>
@@ -97,9 +98,9 @@ function InboxContent({ token, initialMessage }: { token?: string; initialMessag
           <ArrowLeft aria-hidden className="h-4 w-4" />{t("notifications.backToMessages")}
         </Button>
         {selected ? <article className="mx-auto max-w-3xl">
-          <h2 className="break-words text-24 font-semibold">{selected.title}</h2>
+          <h2 className="break-words text-24 font-semibold">{taskNoticeCopy(selected, locale).title}</h2>
           <time className="mt-2 block text-12 text-muted-foreground" dateTime={selected.createdAt}>{date.format(new Date(selected.createdAt))}</time>
-          <p className="mt-6 whitespace-pre-wrap break-words text-14 leading-relaxed">{selected.body}</p>
+          <p className="mt-6 whitespace-pre-wrap break-words text-14 leading-relaxed">{taskNoticeCopy(selected, locale).body}</p>
           <div className="mt-6 flex flex-wrap gap-2">
             {selected.inboxInviteId && <Button asChild variant="primary">
               <Link href={`${orgAdmin.INVITATION_ACTIVATION_PATH}?${orgAdmin.INBOX_INVITE_PARAM}=${encodeURIComponent(selected.inboxInviteId)}`}>

@@ -8,6 +8,11 @@ function Example() { const { t } = useI18n(); return <><LanguageSwitcher /><p>{t
 afterEach(() => { cleanup(); vi.restoreAllMocks(); document.cookie = `${LOCALE_COOKIE}=; Max-Age=0; Path=/`; vi.restoreAllMocks(); });
 describe("application language", () => {
  it("uses only supported cookie values", () => { expect(resolveLocale("en")).toBe("en"); expect(resolveLocale("en-US")).toBe("zh-CN"); expect(resolveLocale('<script>')).toBe("zh-CN"); });
+ it("defaults the US app to English and honors a saved preference", () => {
+  expect(resolveLocale(undefined, "app.workspacex.us")).toBe("en");
+  expect(resolveLocale("zh-CN", "app.workspacex.us")).toBe("zh-CN");
+  expect(resolveLocale(undefined, "app.workspacex.cn")).toBe("zh-CN");
+ });
  it("switches immediately, preserves content as text and persists for refresh", () => {
   const view = render(<I18nProvider initialLocale="zh-CN"><Example /></I18nProvider>);
   expect(screen.getByText("你好，<Alice>")).toBeInTheDocument();

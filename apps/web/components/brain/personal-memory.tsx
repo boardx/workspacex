@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import type { Locale } from "@/lib/i18n/locale";
 import { translate } from "@/lib/i18n/messages";
@@ -47,6 +48,7 @@ export function PersonalMemory({
   /** 改过之后静默重读两份数据（use-brain-data 的 refresh），返回重读到的长期记忆 */
   onChanged: () => Promise<PersonalKnowledge>;
 }) {
+  const { t } = useI18n();
   const [query, setQuery] = React.useState("");
   const [kind, setKind] = React.useState<KgClaimKind | null>(null);
   const [pending, setPending] = React.useState<Pending | null>(null);
@@ -111,8 +113,7 @@ export function PersonalMemory({
       <div className="flex items-start gap-2 rounded-lg border border-border bg-muted p-3" data-testid="brain-personal-notice">
         <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <p className="text-12 text-muted-foreground">
-          只有你自己看得到。在对话的「记忆」页签里点「记到我的长期记忆」，那一条就会出现在这里，换个对话我也记得。
-          在这里「忘掉这条」之后，换个对话我就不再用它；你确认过的，出自的对话里那条也会一起忘掉。
+          {t("englishCleanup.memoryPrivacy")}
         </p>
       </div>
 
@@ -123,10 +124,10 @@ export function PersonalMemory({
 
       {claims.length === 0 ? (
         <div className="flex flex-col gap-2" data-testid="brain-personal-empty">
-          <StateShell state="empty" emptyHint="长期记忆里还没有东西。去对话里把值得记住的内容记下来吧。">{null}</StateShell>
+          <StateShell state="empty" emptyHint={t("englishCleanup.memoryEmpty")}>{null}</StateShell>
           <div className="flex justify-center">
             <Button size="sm" variant="outline" onClick={onShowSessions} data-testid="brain-personal-go-sessions">
-              看看对话里记下了什么
+              {t("englishCleanup.sessionMemories")}
             </Button>
           </div>
         </div>
@@ -138,13 +139,13 @@ export function PersonalMemory({
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索长期记忆"
-                aria-label="搜索长期记忆"
+                placeholder={t("englishCleanup.memorySearch")}
+                aria-label={t("englishCleanup.memorySearch")}
                 className="pl-7"
                 data-testid="brain-personal-search"
               />
             </div>
-            <div className="flex flex-wrap gap-1" role="group" aria-label="按类型筛选">
+            <div className="flex flex-wrap gap-1" role="group" aria-label={t("englishCleanup.filterKind")}>
               <KindChip active={kind === null} onClick={() => setKind(null)} testId="brain-kind-all">
                 全部 {claims.length}
               </KindChip>
@@ -158,7 +159,7 @@ export function PersonalMemory({
 
           {visible.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border py-6 text-center text-12 text-muted-foreground" data-testid="brain-personal-no-match">
-              没有符合条件的记忆，换个关键字或类型试试。
+              {t("englishCleanup.noMemoryMatch")}
             </p>
           ) : (
             <div className="flex flex-col gap-4">
