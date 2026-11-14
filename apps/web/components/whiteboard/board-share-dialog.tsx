@@ -1,45 +1,93 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Link2, Users } from 'lucide-react';
 import { useOptionalSession } from '@/components/session/session-provider';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { listOrgMembers, type ListOrgMembersOut } from '@/lib/live-org-admin';
 import { listBoardMembers, putBoardMember, type BoardMember } from '@/lib/live-whiteboard';
 
 const roleLabels = { viewer: '可查看', commenter: '可评论', editor: '可编辑' };
+import { Link2, Users } from 'lucide-react';
+import { whiteboard as C } from '@repo/contracts';
+import { apiRequest } from '@/lib/api-client';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
+const days = C.BOARD_SHARE_TTL_MS / 86_400_000;
 
 export function BoardShareDialog({ boardId, canManage }: { boardId: string; canManage?: boolean }) {
-  const session = useOptionalSession()?.session;
   const [open, setOpen] = useState(false);
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <Button data-testid="board-share-open" aria-label="分享白板" title="分享白板" className="min-h-11 min-w-11 shrink-0 gap-2 rounded-xl" variant="primary" onClick={() => setOpen(true)}>
-        <Users className="h-4 w-4" /><span className="hidden md:inline">分享</span>
-      </Button>
-      {open && <BoardShareContent key={JSON.stringify([boardId, session?.currentOrgId, session?.userId])} boardId={boardId}
-        orgId={canManage ? session?.currentOrgId : undefined} ownerId={session?.userId} showCount={canManage !== false} />}
-    </Dialog>
-  );
+  if (!canManage) return null;
+  return <Dialog open={open} onOpenChange={setOpen}>
+    <Button data-testid="board-share-open" aria-label="分享白板" title="分享白板" className="min-h-11 min-w-11 shrink-0 gap-2 rounded-xl" variant="primary" onClick={() => setOpen(true)}>
+      <Users className="h-4 w-4" /><span className="hidden md:inline">分享</span>
+    </Button>
+    {open && <BoardShareContent key={boardId} boardId={boardId} />}
+  </Dialog>;
 }
 
-function BoardShareContent({ boardId, orgId, ownerId, showCount }: {
-  boardId: string; orgId?: string; ownerId?: string; showCount: boolean;
+function BoardShareContent({ boardId }: { boardId: string }) {
+  const session = useOptionalSession()?.session;
+  const [link, setLink] = useState<{ url: string; expiresAt: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+
+  async function generate() {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    setCopied(false);
+    try {
+      const result = C.CreatedBoardShare.parse(await apiRequest(C.sharePaths.create.replace(':boardId', encodeURIComponent(boardId)), { method: 'POST' }));
+      const url = `${window.location.origin}/share/board/${encodeURIComponent(result.token)}`;
+      setLink({ url, expiresAt: result.expiresAt });
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+      } catch {
+        setError('无法自动复制，请手动复制下方链接。');
+      }
+    } catch {
+      setError('无法生成分享链接，请重试。');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <DialogContent data-testid="board-share-dialog">
+    <DialogTitle>分享白板</DialogTitle>
+    <DialogDescription>任何拿到链接的人都可以查看白板，无需登录。链接自生成起 {days} 天内有效。</DialogDescription>
+    {link && <label className="grid gap-1 text-13">只读链接
+      <input className="w-full rounded-md border border-border bg-background p-2" readOnly value={link.url} onFocus={event => event.currentTarget.select()} />
+      <span className="text-muted-foreground">到期时间：{new Date(link.expiresAt).toLocaleString()}</span>
+    </label>}
+    {error && <p role="alert">{error}</p>}
+    {copied && <p role="status">链接已复制</p>}
+    <Button data-testid="board-share-copy" disabled={busy} onClick={() => void generate()}>
+      <Link2 className="mr-2 h-4 w-4" />{busy ? '正在生成…' : link ? '生成并复制新链接' : '生成并复制链接'}
+    </Button>
+    {session && <details className="border-t border-border pt-3">
+      <summary className="cursor-pointer text-13">管理组织成员权限</summary>
+      <MemberAccess key={JSON.stringify([session.currentOrgId, session.userId])} boardId={boardId}
+        orgId={session.currentOrgId} ownerId={session.userId} />
+    </details>}
+  </DialogContent>;
+}
+
+function MemberAccess({ boardId, orgId, ownerId }: {
+  boardId: string; orgId?: string; ownerId?: string;
 }) {
   const [members, setMembers] = useState<BoardMember[]>();
   const [directory, setDirectory] = useState<ListOrgMembersOut['members']>();
-  const [loading, setLoading] = useState(showCount);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [copied, setCopied] = useState(false);
   const [userId, setUserId] = useState('');
   const [role, setRole] = useState<BoardMember['role']>('viewer');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!showCount) return;
     let active = true;
     void listBoardMembers(boardId).then(items => {
       if (active) setMembers(items);
@@ -49,7 +97,7 @@ function BoardShareContent({ boardId, orgId, ownerId, showCount }: {
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [boardId, showCount]);
+  }, [boardId]);
 
   useEffect(() => {
     if (!orgId) return;
@@ -80,9 +128,7 @@ function BoardShareContent({ boardId, orgId, ownerId, showCount }: {
   }
 
   return (
-    <DialogContent data-testid="board-share-dialog">
-      <DialogTitle>分享白板</DialogTitle>
-      <DialogDescription>只有已获授权的成员能够打开这个链接。{orgId ? '请先选择组织成员并保存权限。' : '如需访问，请联系白板所有者授权。'}</DialogDescription>
+    <div className="space-y-3">
       {loading && <p role="status">正在读取成员权限…</p>}
       {loadError && <p role="alert">{loadError}</p>}
       {members && <p className="text-13 text-muted-foreground">已授权 {members.length} 位协作者（不含白板所有者）。</p>}
@@ -113,18 +159,6 @@ function BoardShareContent({ boardId, orgId, ownerId, showCount }: {
       ) : <p className="text-13 text-muted-foreground">暂无可分享的组织成员。请先邀请对方加入组织。</p>)}
       {notice && <p role="status">{notice}</p>}
       {error && <p role="alert">{error}</p>}
-      <Button data-testid="board-share-copy" onClick={async () => {
-        setCopied(false);
-        setError('');
-        try {
-          await navigator.clipboard.writeText(`${window.location.origin}/studio/board/${encodeURIComponent(boardId)}`);
-          setCopied(true);
-        } catch {
-          setError('无法复制链接，请从浏览器地址栏复制。');
-        }
-      }}>
-        <Link2 className="mr-2 h-4 w-4" />{copied ? '链接已复制' : '复制白板链接'}
-      </Button>
-    </DialogContent>
+    </div>
   );
 }
