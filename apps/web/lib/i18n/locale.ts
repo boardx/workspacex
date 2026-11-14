@@ -5,6 +5,7 @@ export const LOCALE_COOKIE = "workspacex-locale";
 export function isLocale(value: unknown): value is Locale {
   return SUPPORTED_LOCALES.some((locale) => locale === value);
 }
-export function resolveLocale(value: unknown): Locale {
-  return isLocale(value) ? value : DEFAULT_LOCALE;
+export function resolveLocale(value: unknown, host?: string | null): Locale {
+  if (isLocale(value)) return value;
+  return /^app\.workspacex\.us(?::\d+)?$/i.test(host ?? "") ? "en" : DEFAULT_LOCALE;
 }

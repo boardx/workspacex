@@ -1,4 +1,5 @@
 "use client";
+import { taskNoticeCopy } from "@/lib/i18n/task-notice";
 import * as React from "react";
 import Link from "next/link";
 import {useI18n} from "@/lib/i18n/provider";
@@ -78,7 +79,7 @@ export function mergeNotifications(items:readonly Notification[]):MergedNotice[]
  * 三件功能都还在，只是收进弹层。
  */
 export function TaskNotifications({sessionToken,onOpenThread,onOpenMessage,onRefresh,variant="sidebar"}:TaskNotificationsProps){
-  const {t}=useI18n();
+  const {t,locale}=useI18n();
   const center=useNotificationCenter(sessionToken);
   const scheduled=useScheduleNotifications("global",sessionToken);
   const [open,setOpen]=React.useState(false);
@@ -125,7 +126,7 @@ export function TaskNotifications({sessionToken,onOpenThread,onOpenMessage,onRef
     close();
     if (head.threadId) onOpenThread(head.threadId);
     else if (onOpenMessage) onOpenMessage(head.id);
-    else setDetail(head);
+    else setDetail({ ...head, ...taskNoticeCopy(head, locale) });
   };
   return <div className={rail?"relative flex w-full flex-col items-center":"relative px-3"}
     data-testid="task-notifications" data-variant={variant}>
@@ -152,7 +153,7 @@ export function TaskNotifications({sessionToken,onOpenThread,onOpenMessage,onRef
       {/* `h-auto` 是为了让长标题折行（不是为了压扁按钮）。24px 最小命中区由 Button base 的
           `min-h-6` 兜底——`h-auto` 只解开上界；这里不重复声明同一个事实（TW-A11Y-2）。 */}
       {unread.map(({head,ids})=>{
-        const label=<><span className="mr-1 text-11 text-muted-foreground">[{t(`notifications.kind.${head.kind}`)}]</span>{head.title}
+        const label=<><span className="mr-1 text-11 text-muted-foreground">[{t(`notifications.kind.${head.kind}`)}]</span>{taskNoticeCopy(head, locale).title}
           {ids.length>1&&<span className="ml-1 text-11 text-muted-foreground">×{ids.length}</span>}</>;
         if(!head.threadId)return <div key={head.id} data-testid="notification-item" data-kind={head.kind}
           data-occurrences={ids.length} data-actionable={head.actionable?"true":"false"} data-destination={onOpenMessage?"inbox":"detail"}
@@ -170,7 +171,7 @@ export function TaskNotifications({sessionToken,onOpenThread,onOpenMessage,onRef
       })}
       {unread.length>0&&<Button variant="ghost" size="sm" disabled={center.busy} onClick={()=>void center.markRead()}>{t("notifications.markAllRead")}</Button>}
       {read.length>0&&<details className="text-11 text-muted-foreground"><summary className="cursor-pointer">{t("notifications.recentRead")}</summary>
-        {read.map(({head,ids})=><Button key={head.id} variant="ghost" size="sm" className="h-auto w-full justify-start whitespace-normal text-left" onClick={()=>openNotice(head,ids)}>[{t(`notifications.kind.${head.kind}`)}] {head.title}{ids.length>1?` ×${ids.length}`:""}</Button>)}
+        {read.map(({head,ids})=><Button key={head.id} variant="ghost" size="sm" className="h-auto w-full justify-start whitespace-normal text-left" onClick={()=>openNotice(head,ids)}>[{t(`notifications.kind.${head.kind}`)}] {taskNoticeCopy(head, locale).title}{ids.length>1?` ×${ids.length}`:""}</Button>)}
       </details>}
     </div>}
     <Dialog open={detail!==null} onOpenChange={next=>{if(!next)setDetail(null);}}>

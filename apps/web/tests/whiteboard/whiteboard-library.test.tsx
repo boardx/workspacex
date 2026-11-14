@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { WhiteboardLibrary } from '@/components/whiteboard/whiteboard-library';
 import * as api from '@/lib/live-whiteboard';
+import { I18nProvider } from '@/lib/i18n/provider';
 import { ApiError } from '@/lib/api-client';
 
 const push = vi.fn();
@@ -25,6 +26,15 @@ afterEach(cleanup);
 async function openMenu(item: api.Board = board) { fireEvent.pointerDown(await screen.findByTestId(`board-menu-${item.id}`), { button: 0 }); }
 
 describe('Board library', () => {
+  it('renders the English empty state and create dialog while preserving Chinese tag names', async () => {
+    render(<I18nProvider initialLocale="en"><WhiteboardLibrary /></I18nProvider>);
+    expect(await screen.findByText('Create your first board')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'New board' }));
+    const dialog = screen.getByTestId('board-create-dialog');
+    expect(dialog).toHaveTextContent('Create and open');
+    expect(dialog).toHaveTextContent(tag.name);
+    expect(screen.getByTestId('board-create-name')).toHaveValue('Untitled board');
+  });
   it('requests untagged boards from the server and clears that filter when selecting a tag', async () => {
     render(<WhiteboardLibrary />); await screen.findByTestId('empty');
     fireEvent.click(screen.getByRole('button', {name:'无标签'}));

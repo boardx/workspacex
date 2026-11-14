@@ -2,9 +2,16 @@ import { OwnActivityDisplay } from "@repo/contracts/identity";
 import type { MessageKey, MessageParams } from "./messages";
 type Translate = (key: MessageKey, params?: MessageParams) => string;
 /** Validate metadata separately so older/newer servers always retain a readable source summary. */
-export function activitySummary(event: { summary: string; display?: unknown }, t: Translate): string {
+export function activitySummary(event: { summary: string; kind?: string; display?: unknown }, t: Translate): string {
   const result = OwnActivityDisplay.safeParse(event.display);
-  if (!result.success) return event.summary;
+  if (!result.success) {
+    switch (event.kind) {
+      case "human-edited": return t("adminOverview.event.human-edited");
+      case "thread-created": return t("adminOverview.event.thread-created");
+      case "ingested": return t("adminOverview.event.ingested");
+      default: return event.summary;
+    }
+  }
   const display = result.data;
   switch (display.code) {
     case "profile-renamed":
