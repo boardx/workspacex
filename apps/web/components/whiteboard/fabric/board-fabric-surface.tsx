@@ -1,4 +1,5 @@
 "use client";
+import { automaticConnectorRoute } from "../automatic-connector-route";
 import { fitStickyText, STICKY_TEXT_OPTIONS } from "@repo/fabric-markdown/fabric-objects";
 
 import { createBoardEdgePan } from "./board-edge-pan";
@@ -251,8 +252,9 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
   };
   let projected: FabricObject;
   if (object.kind === "connector" && object.connector) {
-    const { start, end, lineStyle, label, startStyle, endStyle } = object.connector;
-    const path = resolveConnectorPath(object.connector);
+    const { lineStyle, label, startStyle, endStyle } = object.connector;
+    const path = resolveConnectorPath(object.connector.automaticPath ?? object.connector);
+    const { start, end } = path;
     const dash = lineStyle === "dashed" ? [10, 7] : lineStyle === "dotted" ? [2, 6] : undefined;
     const stroke = object.style.stroke ?? "#29261E";
     const line = new Path(connectorPathToSvg(path), { fill: "", stroke, strokeWidth: object.connector.strokeWidth ?? WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth, strokeDashArray: dash, selectable: false, evented: false });
@@ -762,9 +764,14 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         return [{ id, geometry: members.length > 1 ? geometryFromFabricSceneTransform(member) : geometryFromFabric(member, canonical) }];
       });
       const geometries = new Map(items.map(item => [item.id, item.geometry]));
+      const previewObstacles = [...canonicalRef.current.values()].map(item => ({
+        ...item,
+        kind: item.kind === "panel" ? "frame" as const : item.kind,
+        geometry: geometries.get(item.id) ?? item.geometry,
+      }));
       for (const object of canonicalRef.current.values()) {
         const edge = object.connector;
-        if (object.kind !== "connector" || !edge || !(edge.from && geometries.has(edge.from) || edge.to && geometries.has(edge.to))) continue;
+        if (object.kind !== "connector" || !edge || !(edge.automaticPath || edge.from && geometries.has(edge.from) || edge.to && geometries.has(edge.to))) continue;
         const endpoint = (id: string | undefined, anchor: typeof edge.fromAnchor, point: { x: number; y: number }) => {
           const original = id ? canonicalRef.current.get(id) : undefined, geometry = id ? geometries.get(id) : undefined;
           if (!original || !geometry) return point;
@@ -776,9 +783,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           return rotatedAnchorPoint({ geometry }, anchor, { x: attached.x - base.x, y: attached.y - base.y });
         };
         const start = endpoint(edge.from, edge.fromAnchor, edge.start), end = endpoint(edge.to, edge.toAnchor, edge.end);
-        const preview = { ...object, geometry: { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x-start.x)), height: Math.max(1, Math.abs(end.y-start.y)), rotation: 0 }, connector: { ...edge, start, end } };
+        const preview = { ...object, geometry: { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x-start.x)), height: Math.max(1, Math.abs(end.y-start.y)), rotation: 0 }, connector: { ...edge, start, end, automaticPath: automaticConnectorRoute({ ...edge, start, end }, previewObstacles, edge.from, edge.to, Boolean(edge.fromOffset), Boolean(edge.toOffset)) } };
         const existing = registryRef.current.get(object.id);
-        if (!existing) continue;
+        if (!existing || (!previewedConnectors.has(object.id) && JSON.stringify(preview.connector) === JSON.stringify(edge))) continue;
         const replacement = createFabricObject(preview);
         applyCanonicalObject(replacement, preview, stateRef.current.readOnly);
         replacement.data = { ...replacement.data, connectorRenderIdentity: connectorRenderIdentityFor(object) };

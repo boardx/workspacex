@@ -1,3 +1,4 @@
+import { automaticConnectorRoute } from "./automatic-connector-route";
 import { editConnectorPathHandle, localPointFromScene, nearestConnectorPoint, resolveConnectorPath, rotatedAnchorPoint, snapConnectorEndpoint, translateConnector, type ConnectorRelationship, type ConnectorSnapCandidate, type ResolvedConnectorPath, type WhiteboardObject } from "@repo/whiteboard-core";
 
 export type ConnectorGestureKind = "from" | "to" | "route" | "label" | "translate";
@@ -13,7 +14,7 @@ export function connectorResolvedPath(relationship: ConnectorRelationship, objec
   const start = from ? rotatedAnchorPoint(from, relationship.fromAnchor ?? "right", relationship.fromOffset) : relationship.fromPoint;
   const end = to ? rotatedAnchorPoint(to, relationship.toAnchor ?? "left", relationship.toOffset) : relationship.toPoint;
   if (!start || !end) return null;
-  return resolveConnectorPath({ start, end, type: relationship.type, route: relationship.route, fromAnchor: relationship.fromAnchor, toAnchor: relationship.toAnchor });
+  return resolveConnectorPath(automaticConnectorRoute({ start, end, type: relationship.type, route: relationship.route, fromAnchor: relationship.fromAnchor, toAnchor: relationship.toAnchor }, objects, relationship.from, relationship.to, Boolean(relationship.fromOffset), Boolean(relationship.toOffset)));
 }
 
 export function connectorGestureSnap(objects: readonly WhiteboardObject[], point: ConnectorScenePoint, zoom: number, excludeIds: readonly string[], bypass: boolean): ConnectorSnapCandidate | null {

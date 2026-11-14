@@ -1,3 +1,4 @@
+import { automaticConnectorRoute } from "./automatic-connector-route";
 import { STICKY_COLOR_PRESETS, readPanelMetadata, rotatedAnchorPoint, validateTextAttributes, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { BoardFabricObject, BoardFabricKind, BoardFabricStickyAppearance, BoardFabricStyle } from "./fabric/board-fabric-object";
 import { readBoardContent } from "./board-content-adapter";
@@ -141,7 +142,9 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[], image
           type: object.connector!.type ?? "straight", startStyle: object.connector!.startStyle ?? "none",
           endStyle: object.connector!.endStyle ?? "arrow", lineStyle: object.connector!.lineStyle ?? "solid",
           label: object.connector!.label ?? object.text, semanticRelation: object.connector!.semanticRelation ?? "",
-          start, end, fromOffset: object.connector!.fromOffset, toOffset: object.connector!.toOffset,
+          start, end,
+          automaticPath: automaticConnectorRoute({ start, end, type: object.connector!.type ?? "straight", route: object.connector!.route, fromAnchor, toAnchor }, objects, from?.id, to?.id, Boolean(object.connector!.fromOffset), Boolean(object.connector!.toOffset)),
+          fromOffset: object.connector!.fromOffset, toOffset: object.connector!.toOffset,
         };
       })() : undefined,
       parentId: object.parentId ?? undefined,

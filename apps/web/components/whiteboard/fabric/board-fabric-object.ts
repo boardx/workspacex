@@ -58,6 +58,7 @@ export interface BoardFabricPanelAppearance {
 }
 
 export interface BoardFabricConnectorAppearance {
+  automaticPath?: import("@repo/whiteboard-core").ConnectorPathInput;
   strokeWidth?: number;
   route?: WhiteboardConnectorRoute;
   labelPosition?: WhiteboardConnectorLabelPosition;
