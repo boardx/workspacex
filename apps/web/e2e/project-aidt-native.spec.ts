@@ -46,7 +46,7 @@ async function openGuidance(page: Page) {
 async function openPersonalCheckpoints(page: Page) {
   const tools = page.getByTestId("aidt-tools");
   if (await tools.count() && (await tools.getAttribute("open")) === null) await tools.locator(":scope > summary").click();
-  const advanced = page.locator("details").filter({ has: page.locator("summary", { hasText: /^高级：个人检查点$/ }) }).first();
+  const advanced = page.getByTestId("aidt-personal-checkpoints").locator("xpath=ancestor::details[1]");
   if ((await advanced.getAttribute("open")) === null) await advanced.locator(":scope > summary").click();
   const details = page.getByTestId("aidt-checkpoint-details");
   if ((await details.getAttribute("open")) === null) await details.locator("summary").click();
