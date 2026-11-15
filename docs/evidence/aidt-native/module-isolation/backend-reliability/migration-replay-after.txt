@@ -1,0 +1,7 @@
+
+
+
+
+{"snapshots": {"first": {"rowCount": 1, "dataDigest": "1c2f8bd76a187bd2372a5f2a509a94c4", "schemaDigest": "ad3957f396eec6fce3f072b4634ab117"}, "before": {"rowCount": 1, "dataDigest": "1c2f8bd76a187bd2372a5f2a509a94c4", "schemaDigest": "ad3957f396eec6fce3f072b4634ab117"}, "second": {"rowCount": 1, "dataDigest": "1c2f8bd76a187bd2372a5f2a509a94c4", "schemaDigest": "ad3957f396eec6fce3f072b4634ab117"}}, "replayPassed": true, "syntheticFixtureRolledBack": true}
+{"rowCount": 0, "dataDigest": "d41d8cd98f00b204e9800998ecf8427e", "schemaDigest": "ad3957f396eec6fce3f072b4634ab117"}
+{"originalSnapshot": {"rowCount": 0, "dataDigest": "d41d8cd98f00b204e9800998ecf8427e", "schemaDigest": "ad3957f396eec6fce3f072b4634ab117"}, "rollbackRestoredOriginal": true}

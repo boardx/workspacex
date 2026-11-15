@@ -1,0 +1,11 @@
+{
+  "recordedAt": "2026-11-15T02:55:12.060325+00:00",
+  "head": "db828d5e2fbb6d8c233b4278c2ee50a9b892739b",
+  "base": "9458932e466198416b81780da6284ea5f2b39c57",
+  "status": "?? docs/evidence/aidt-native/module-isolation/backend-reliability/\n?? docs/evidence/aidt-native/module-isolation/chat-feedback-loop/\n?? docs/evidence/aidt-native/module-isolation/entry-feedback-loop/\n?? docs/evidence/aidt-native/module-isolation/feedback-loop/\n?? docs/evidence/aidt-native/module-isolation/member-chat/feedbackloop-2026-11-15.md",
+  "diffStat": "",
+  "strictLayout": true,
+  "observeOnly": null,
+  "holdSeconds": 0,
+  "ai": "local deterministic fixture, no supplier/ASR validation"
+}

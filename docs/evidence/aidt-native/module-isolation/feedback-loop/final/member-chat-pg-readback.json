@@ -1,0 +1,189 @@
+{
+  "projectId": "prj-7125d54f-93a5-4862-af2d-489b01143cb0",
+  "persisted": [
+    {
+      "id": "25f4aebb-b7d2-4103-bb8a-8609ff564e60",
+      "sequence": 1,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "本地测试讨论：谁负责整理访谈问题？不是研究证据。",
+      "thread_root_id": null,
+      "stage_reference": {
+        "stageId": 2
+      }
+    },
+    {
+      "id": "3be329b9-2d0f-4067-abd5-f6e6ad007a74",
+      "sequence": 2,
+      "author_id": "user-collab-member-xk-113ebfb5-efcbde1cfa80",
+      "text": "我来整理初稿，明天一起校对。仅测试沟通。",
+      "thread_root_id": "25f4aebb-b7d2-4103-bb8a-8609ff564e60",
+      "stage_reference": null
+    },
+    {
+      "id": "3d1665c5-b465-48ef-9469-f7484b69b67f",
+      "sequence": 3,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "界面测试：请组员校对访谈提纲，不是AI任务。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "ff38ba75-b07d-44e6-abe8-99a32120b63b",
+      "sequence": 4,
+      "author_id": "user-collab-member-xk-113ebfb5-efcbde1cfa80",
+      "text": "组员界面回复：我会先标出诱导式问题。\n\n长回复滚动测试 1：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 2：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 3：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 4：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 5：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 6：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 7：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 8：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 9：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 10：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 11：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 12：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 13：讨论还需回到原话题的提问，不能丢失正在回复的上下文。\n\n长回复滚动测试 14：讨论还需回到原话题的提问，不能丢失正在回复的上下文。",
+      "thread_root_id": "3d1665c5-b465-48ef-9469-f7484b69b67f",
+      "stage_reference": null
+    },
+    {
+      "id": "d8ebb916-9ee3-4d36-86c9-a48ff70a00f0",
+      "sequence": 5,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "并发测试消息 1，不是访谈证据。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "cc535fcf-45ba-48ec-8119-e0b07366684d",
+      "sequence": 6,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "并发测试消息 2，不是访谈证据。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "38a22261-a470-438b-bbb5-6479c28eb34a",
+      "sequence": 7,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "并发测试消息 3，不是访谈证据。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "3a5a7937-f0fa-409a-872b-4bb56f3d8c06",
+      "sequence": 8,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "并发测试消息 5，不是访谈证据。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "0bbabcee-9f2f-428e-a98c-2d6a605051e8",
+      "sequence": 9,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "并发测试消息 4，不是访谈证据。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "e127076f-c83e-470f-98d7-748179d0622d",
+      "sequence": 10,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "并发测试消息 6，不是访谈证据。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "343a10ad-5832-4563-ab8d-ea83df779166",
+      "sequence": 11,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "并发测试消息 8，不是访谈证据。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "9c69439c-430b-4d26-820c-3b31f0626316",
+      "sequence": 12,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "并发测试消息 7，不是访谈证据。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "5c5bfb69-f4ea-408e-adf9-8e82ead63eb8",
+      "sequence": 13,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "并发测试消息 9，不是访谈证据。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "71d4fbd8-0367-4cf6-ad76-8a560f1d1571",
+      "sequence": 14,
+      "author_id": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "text": "并发测试消息 10，不是访谈证据。",
+      "thread_root_id": null,
+      "stage_reference": null
+    },
+    {
+      "id": "b8a371eb-8c7b-4d1c-9077-c4adaba8ccdd",
+      "sequence": 15,
+      "author_id": "user-collab-member-xk-113ebfb5-efcbde1cfa80",
+      "text": "回到最早的话题补充：先把问题写具体。",
+      "thread_root_id": "25f4aebb-b7d2-4103-bb8a-8609ff564e60",
+      "stage_reference": null
+    }
+  ],
+  "modelActivity": {
+    "before": {
+      "runs": 0,
+      "requests": 0
+    },
+    "after": {
+      "runs": 0,
+      "requests": 0
+    }
+  },
+  "topicGeometry": [
+    {
+      "width": 1280,
+      "root": {
+        "x": 833,
+        "y": 348,
+        "width": 414,
+        "height": 76,
+        "hits": [
+          true,
+          true,
+          true
+        ]
+      },
+      "input": {
+        "x": 846,
+        "y": 770,
+        "width": 388,
+        "height": 44,
+        "hits": [
+          true,
+          true,
+          true
+        ]
+      }
+    },
+    {
+      "width": 375,
+      "root": {
+        "x": 17,
+        "y": 300,
+        "width": 341,
+        "height": 76,
+        "hits": [
+          true,
+          true,
+          true
+        ]
+      },
+      "input": {
+        "x": 30,
+        "y": 706,
+        "width": 315,
+        "height": 44,
+        "hits": [
+          true,
+          true,
+          true
+        ]
+      }
+    }
+  ]
+}

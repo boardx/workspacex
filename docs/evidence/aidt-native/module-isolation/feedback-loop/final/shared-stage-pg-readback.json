@@ -1,0 +1,234 @@
+{
+  "projectId": "prj-e7981461-589c-43da-8f76-4f23f186e238",
+  "persisted": [
+    {
+      "stage_id": 1,
+      "revision": 1,
+      "updated_by": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "content": {
+        "draft": {
+          "ideas": [],
+          "fields": {
+            "initial": "学生测试输入：先观察午间取餐。尚未验证。"
+          },
+          "selectedIdeaId": ""
+        },
+        "schemaVersion": 1
+      },
+      "source_stage_revisions": []
+    },
+    {
+      "stage_id": 1,
+      "revision": 2,
+      "updated_by": "user-collab-member-xk-113ebfb5-efcbde1cfa80",
+      "content": {
+        "draft": {
+          "ideas": [],
+          "fields": {
+            "initial": "组员修订：聚焦午休较短的学生。仍需访谈。"
+          },
+          "selectedIdeaId": ""
+        },
+        "schemaVersion": 1
+      },
+      "source_stage_revisions": []
+    },
+    {
+      "stage_id": 1,
+      "revision": 3,
+      "updated_by": "user-collab-member-xk-113ebfb5-efcbde1cfa80",
+      "content": {
+        "draft": {
+          "ideas": [],
+          "fields": {
+            "initial": "成员新修订：先访谈最近一次取餐经历。"
+          },
+          "selectedIdeaId": ""
+        },
+        "schemaVersion": 1
+      },
+      "source_stage_revisions": []
+    },
+    {
+      "stage_id": 1,
+      "revision": 4,
+      "updated_by": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "content": {
+        "draft": {
+          "ideas": [],
+          "fields": {
+            "initial": "本页保留：先验证午休短的情境，不把推测写成结论。"
+          },
+          "selectedIdeaId": ""
+        },
+        "schemaVersion": 1
+      },
+      "source_stage_revisions": []
+    },
+    {
+      "stage_id": 2,
+      "revision": 1,
+      "updated_by": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "content": {
+        "draft": {
+          "ideas": [],
+          "fields": {
+            "initial": "学生拟定访谈初稿"
+          },
+          "selectedIdeaId": ""
+        },
+        "schemaVersion": 1
+      },
+      "source_stage_revisions": [
+        {
+          "stageId": 1,
+          "revision": 1
+        }
+      ]
+    },
+    {
+      "stage_id": 6,
+      "revision": 1,
+      "updated_by": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "content": {
+        "draft": {
+          "ideas": [],
+          "fields": {
+            "initial": "学生测试反思：尚未开展真实测试。"
+          },
+          "selectedIdeaId": ""
+        },
+        "schemaVersion": 1
+      },
+      "source_stage_revisions": []
+    },
+    {
+      "stage_id": 6,
+      "revision": 2,
+      "updated_by": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "content": {
+        "draft": {
+          "ideas": [],
+          "fields": {
+            "initial": "学生测试反思：尚未开展真实测试。"
+          },
+          "selectedIdeaId": ""
+        },
+        "schemaVersion": 1,
+        "summaryReport": {
+          "markdown": "# 小组研究档案草稿\n尚未开展真实测试；不能宣称原型已获认可。",
+          "sourceStageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 2
+            },
+            {
+              "stageId": 6,
+              "revision": 1
+            }
+          ]
+        }
+      },
+      "source_stage_revisions": []
+    },
+    {
+      "stage_id": 6,
+      "revision": 3,
+      "updated_by": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "content": {
+        "draft": {
+          "ideas": [],
+          "fields": {
+            "initial": "学生测试反思：尚未开展真实测试。"
+          },
+          "selectedIdeaId": ""
+        },
+        "schemaVersion": 1,
+        "summaryReport": {
+          "markdown": "# 小组研究档案草稿\n尚未开展真实测试；不能宣称原型已获认可。\n小组审阅：下一步补测不同午休情境。",
+          "sourceStageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 4
+            },
+            {
+              "stageId": 2,
+              "revision": 1
+            }
+          ]
+        }
+      },
+      "source_stage_revisions": []
+    },
+    {
+      "stage_id": 6,
+      "revision": 4,
+      "updated_by": "user-collab-lead-xk-113ebfb5-efcbde1cfa80",
+      "content": {
+        "draft": {
+          "ideas": [],
+          "fields": {
+            "initial": "学生测试反思：尚未开展真实测试。",
+            "reflection": "阶段六未保存反思：新版仍需真实测试。"
+          },
+          "selectedIdeaId": ""
+        },
+        "schemaVersion": 1,
+        "summaryReport": {
+          "markdown": "# 小组研究档案草稿\n尚未开展真实测试；不能宣称原型已获认可。\n小组审阅：下一步补测不同午休情境。",
+          "sourceStageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 4
+            },
+            {
+              "stageId": 2,
+              "revision": 1
+            }
+          ]
+        }
+      },
+      "source_stage_revisions": []
+    }
+  ],
+  "modelActivity": {
+    "before": {
+      "runs": 0,
+      "requests": 0
+    },
+    "after": {
+      "runs": 0,
+      "requests": 0
+    }
+  },
+  "reportGeometry": [
+    {
+      "width": 1280,
+      "editor": {
+        "x": 108,
+        "y": 517,
+        "width": 1140,
+        "height": 384,
+        "hits": [
+          true,
+          true,
+          true
+        ]
+      }
+    },
+    {
+      "width": 375,
+      "editor": {
+        "x": 16,
+        "y": 461,
+        "width": 343,
+        "height": 384,
+        "hits": [
+          true,
+          true,
+          true
+        ]
+      }
+    }
+  ]
+}

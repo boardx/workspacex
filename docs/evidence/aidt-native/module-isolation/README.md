@@ -1,3 +1,5 @@
+> Current follow-up: native usability fixes and the strict four-case acceptance are recorded in [feedback-loop/README.md](feedback-loop/README.md). Code is verified; user runtime access and real-provider acceptance remain blocked.
+
 > Historical record: this file describes the earlier module-isolation candidate `dda3d66`. The subsequently approved A+B implementation and exact-source validation are recorded in [ab-delivery/README.md](ab-delivery/README.md) and [native-fullstack-validation.md](native-fullstack-validation.md). Earlier limitations below are preserved as history, not the current A+B status.
 
 # AIDT module isolation evidence

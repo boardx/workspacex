@@ -1,0 +1,44 @@
+
+> web@0.1.0 test /workspace/aidt-module-latest/apps/web
+> vitest run "tests/ui/aidt-feedback-loop.test.tsx"
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-feedback-loop.test.tsx (2 tests | 1 failed) 211ms
+   × preserves an edited idea until students explicitly confirm its removal 166ms
+     → expect(element).toHaveValue(学生自己的想法)
+
+Expected the element to have value:
+  学生自己的想法
+Received:
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-feedback-loop.test.tsx > preserves an edited idea until students explicitly confirm its removal
+Error: expect(element).toHaveValue(学生自己的想法)
+
+Expected the element to have value:
+  学生自己的想法
+Received:
+
+ ❯ tests/ui/aidt-feedback-loop.test.tsx:21:42
+     19|   render(<Ideas />);
+     20|   fireEvent.click(screen.getByRole("button", { name: "移除候选 1" }));
+     21|   expect(screen.getByLabelText("候选1名称")).toHaveValue("学生自己的想…
+       |                                          ^
+     22|   expect(screen.getByRole("alert")).toHaveTextContent("移除后，本页未…
+     23|   fireEvent.click(screen.getByRole("button", { name: "保留候选" }));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  01:46:11
+   Duration  4.02s (transform 1.71s, setup 138ms, collect 2.61s, tests 211ms, environment 763ms, prepare 43ms)
+
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 test: `vitest run "tests/ui/aidt-feedback-loop.test.tsx"`
+Exit status 1

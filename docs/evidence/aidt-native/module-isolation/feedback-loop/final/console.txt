@@ -1,0 +1,361 @@
+ Network wsx-efcbde1cfa80db67ea36_default  Creating
+ Network wsx-efcbde1cfa80db67ea36_default  Created
+ Container wsx-efcbde1cfa80db67ea36-minio-1  Creating
+ Container wsx-efcbde1cfa80db67ea36-postgres-1  Creating
+ Container wsx-efcbde1cfa80db67ea36-redis-1  Creating
+ Container wsx-efcbde1cfa80db67ea36-redis-1  Created
+ Container wsx-efcbde1cfa80db67ea36-minio-1  Created
+ Container wsx-efcbde1cfa80db67ea36-postgres-1  Created
+ Container wsx-efcbde1cfa80db67ea36-redis-1  Starting
+ Container wsx-efcbde1cfa80db67ea36-postgres-1  Starting
+ Container wsx-efcbde1cfa80db67ea36-minio-1  Starting
+ Container wsx-efcbde1cfa80db67ea36-postgres-1  Started
+ Container wsx-efcbde1cfa80db67ea36-redis-1  Started
+ Container wsx-efcbde1cfa80db67ea36-minio-1  Started
+ Container wsx-efcbde1cfa80db67ea36-postgres-1  Waiting
+ Container wsx-efcbde1cfa80db67ea36-minio-1  Waiting
+ Container wsx-efcbde1cfa80db67ea36-redis-1  Waiting
+ Container wsx-efcbde1cfa80db67ea36-minio-1  Healthy
+ Container wsx-efcbde1cfa80db67ea36-redis-1  Healthy
+ Container wsx-efcbde1cfa80db67ea36-postgres-1  Healthy
+[fullstack-fixture] recording thread=thread-466-xk-113ebfb5-efcbde1cfa80 title=FULLSTACK_RECORDING_THREAD_xk-113ebfb5-efcbde1cfa80
+[fullstack-fixture] db=wsx_efcbde1cfa80db67ea36 project=project-fullstack-xk-113ebfb5-efcbde1cfa80 sentinel=FULLSTACK_SENTINEL_xk-113ebfb5-efcbde1cfa80.md
+[workflow-runs-i18n-fixture] org=org-workflow-runs-xk-113ebfb5-efcbde1cfa80 persisted=3 actorOwned=2 execution=not-tested
+[about-me-i18n-fixture] org=about-org-fullstack-xk-113ebfb5-efcbde1cfa80 actor=consultant personal=2 accepted-by-promotion sources=2 canonical-executor extraction=disabled
+[WebServer] (node:729811) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:729823) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:729839) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:729852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:729884) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:729900) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:729913) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:729925) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:729941) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:729975) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:729987) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:730003) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:730016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:730028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:730044) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 127.0.0.1:5432 - accepting connections
+[WebServer] (node:730123) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:730135) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:730151) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [fullstack-fixture] recording thread=thread-466-xk-113ebfb5-efcbde1cfa80 title=FULLSTACK_RECORDING_THREAD_xk-113ebfb5-efcbde1cfa80
+[WebServer] [fullstack-fixture] db=wsx_efcbde1cfa80db67ea36 project=project-fullstack-xk-113ebfb5-efcbde1cfa80 sentinel=FULLSTACK_SENTINEL_xk-113ebfb5-efcbde1cfa80.md
+[WebServer] [workflow-runs-i18n-fixture] org=org-workflow-runs-xk-113ebfb5-efcbde1cfa80 persisted=3 actorOwned=2 execution=not-tested
+[WebServer] [about-me-i18n-fixture] org=about-org-fullstack-xk-113ebfb5-efcbde1cfa80 actor=consultant personal=2 accepted-by-promotion sources=2 canonical-executor extraction=disabled
+[WebServer] (node:730417) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:730429) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:730445) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"info","msg":"instance telemetry disabled (kill_switch)","traceId":"instance-telemetry"}
+[WebServer] {"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+[WebServer] {"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+[WebServer] api listening on 24292
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] platform skill catalog: org created, skills created=[pptx-create,docx-create,xlsx-create,pdf-create] alreadyExisted=[]
+[WebServer] fullstack test API listening on 24292; voice supplier LOCAL_PROTOCOL
+[WebServer] (node:730529) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]   ▲ Next.js 14.2.15
+[WebServer]   - Experiments (use with caution):
+[WebServer]     · proxyTimeout
+[WebServer]
+[WebServer]    Creating an optimized production build ...
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer]  ✓ Compiled successfully
+[WebServer]    Linting and checking validity of types ...
+[WebServer] (node:732137) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer]    Collecting page data ...
+[WebServer] (node:733250) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:733243) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:733292) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:733271) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:733277) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:733284) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [CopilotKit Runtime] anonymous telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[WebServer]    Generating static pages (0/135) ...
+[WebServer] (node:733263) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:733257) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]    Generating static pages (33/135)
+[WebServer]    Generating static pages (67/135)
+[WebServer]    Generating static pages (101/135)
+[WebServer]  ✓ Generating static pages (135/135)
+[WebServer]    Finalizing page optimization ...
+[WebServer]    Collecting build traces ...
+[WebServer]
+[WebServer] Route (app)                                         Size     First Load JS
+[WebServer] ┌ ƒ /                                               202 B          94.9 kB
+[WebServer] ├ ƒ /_not-found                                     883 B          95.6 kB
+[WebServer] ├ ƒ /.well-known/workspacex-deployment              0 B                0 B
+[WebServer] ├ ƒ /admin                                          12.4 kB         781 kB
+[WebServer] ├ ● /admin/[module]                                 20 kB           815 kB
+[WebServer] ├   ├ /admin/members
+[WebServer] ├   ├ /admin/local
+[WebServer] ├   ├ /admin/blueprint
+[WebServer] ├   └ [+7 more paths]
+[WebServer] ├ ƒ /admin/agent/[id]                               202 B          94.9 kB
+[WebServer] ├ ƒ /admin/skill/[id]                               202 B          94.9 kB
+[WebServer] ├ ƒ /agent                                          285 B           841 kB
+[WebServer] ├ ƒ /agent/[id]                                     16.6 kB         782 kB
+[WebServer] ├ ƒ /aidt                                           3.31 kB         763 kB
+[WebServer] ├ ƒ /aidt/[projectId]                               46.6 kB         844 kB
+[WebServer] ├ ƒ /api/copilotkit/[[...slug]]                     0 B                0 B
+[WebServer] ├ ƒ /asset-governance                               30.7 kB         787 kB
+[WebServer] ├ ƒ /auth/activate                                  7.42 kB         662 kB
+[WebServer] ├ ƒ /auth/register                                  5.99 kB         661 kB
+[WebServer] ├ ƒ /auth/reset-password                            3.51 kB         658 kB
+[WebServer] ├ ƒ /auth/verify-email                              3.72 kB         659 kB
+[WebServer] ├ ƒ /billing                                        23.3 kB         788 kB
+[WebServer] ├ ƒ /brain                                          14.3 kB         777 kB
+[WebServer] ├ ƒ /canvas                                         202 B          94.9 kB
+[WebServer] ├ ● /canvas/[screen]                                53.2 kB        1.14 MB
+[WebServer] ├   ├ /canvas/template-admin
+[WebServer] ├   ├ /canvas/template-editor
+[WebServer] ├   ├ /canvas/segment-binding
+[WebServer] ├   └ [+3 more paths]
+[WebServer] ├ ƒ /chat                                           202 B          94.9 kB
+[WebServer] ├ ƒ /chat/[threadId]                                202 B          94.9 kB
+[WebServer] ├ ƒ /chat/copilotkit-preview                        9.14 kB         685 kB
+[WebServer] ├ ƒ /chat/copilotkit-v2                             314 B          1.69 MB
+[WebServer] ├ ƒ /chat/copilotkit-v2/[threadId]                  313 B          1.69 MB
+[WebServer] ├ ƒ /chat/landing                                   3.89 kB         770 kB
+[WebServer] ├ ƒ /chat/legacy                                    34.1 kB        1.22 MB
+[WebServer] ├ ƒ /chat/live                                      7.13 kB         692 kB
+[WebServer] ├ ƒ /chat/preset                                    5.42 kB         772 kB
+[WebServer] ├ ƒ /consent                                        14 kB           663 kB
+[WebServer] ├ ƒ /d/[token]                                      11.9 kB         676 kB
+[WebServer] ├ ƒ /dev/org-home-fixture                           12.1 kB         762 kB
+[WebServer] ├ ƒ /group                                          13.3 kB         662 kB
+[WebServer] ├ ƒ /home                                           2.19 kB         781 kB
+[WebServer] ├ ƒ /inbox                                          5.81 kB         762 kB
+[WebServer] ├ ƒ /itv                                            14 kB           815 kB
+[WebServer] ├ ƒ /itv/[interviewId]/[stage]                      238 B           875 kB
+[WebServer] ├ ƒ /itv/[interviewId]/setup                        238 B           875 kB
+[WebServer] ├ ƒ /itv/experts/[expertId]                         5.62 kB         798 kB
+[WebServer] ├ ƒ /itv/live                                       8.3 kB          688 kB
+[WebServer] ├ ƒ /itv/new                                        202 B          94.9 kB
+[WebServer] ├ ƒ /itv/quick/[interviewId]                        3.52 kB         796 kB
+[WebServer] ├ ƒ /join                                           9.12 kB         665 kB
+[WebServer] ├ ƒ /kitchen-sink                                   10.6 kB         767 kB
+[WebServer] ├ ƒ /login                                          7.85 kB         666 kB
+[WebServer] ├ ƒ /org-admin                                      202 B          94.9 kB
+[WebServer] ├ ƒ /org-admin/agent                                284 B           841 kB
+[WebServer] ├ ƒ /org-admin/agent/[id]                           5.83 kB         802 kB
+[WebServer] ├ ƒ /org-admin/home-config                          15.5 kB         806 kB
+[WebServer] ├ ƒ /org-admin/invites                              630 B           787 kB
+[WebServer] ├ ƒ /org-admin/members                              629 B           787 kB
+[WebServer] ├ ƒ /org-admin/preview                              20.9 kB         777 kB
+[WebServer] ├ ƒ /org-admin/profile                              630 B           787 kB
+[WebServer] ├ ƒ /org-admin/skill                                285 B           841 kB
+[WebServer] ├ ƒ /org-admin/skill/[id]                           264 B           767 kB
+[WebServer] ├ ƒ /org-admin/workflow-grants                      13.8 kB         782 kB
+[WebServer] ├ ƒ /platform-admin                                 202 B          94.9 kB
+[WebServer] ├ ● /platform-admin/[module]                        62.6 kB         937 kB
+[WebServer] ├   ├ /platform-admin/agent
+[WebServer] ├   ├ /platform-admin/skill
+[WebServer] ├   ├ /platform-admin/model
+[WebServer] ├   └ [+9 more paths]
+[WebServer] ├ ƒ /platform-admin/agent/[id]                      5.83 kB         802 kB
+[WebServer] ├ ƒ /platform-admin/design-workbench/[projectId]    10.5 kB         776 kB
+[WebServer] ├ ƒ /platform-admin/model-tests                     13 kB           781 kB
+[WebServer] ├ ƒ /platform-admin/skill/[id]                      264 B           767 kB
+[WebServer] ├ ƒ /platform-admin/skill/[id]/bindings             11.4 kB         365 kB
+[WebServer] ├ ƒ /preview/agent-interrupts                       5.43 kB         690 kB
+[WebServer] ├ ƒ /preview/agent-kernel                           17.8 kB         670 kB
+[WebServer] ├ ƒ /preview/agent-runtime                          27.3 kB         712 kB
+[WebServer] ├ ƒ /preview/agent-tool-chain                       4.83 kB         113 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/adapt             3.38 kB         152 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/connections       7.84 kB         130 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/governance        13.2 kB         707 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/import            7.41 kB         186 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/source            5.24 kB         153 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/uploads           6.83 kB         151 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/workbench         12.9 kB         687 kB
+[WebServer] ├ ƒ /preview/billing                                17.9 kB         710 kB
+[WebServer] ├ ƒ /preview/board-authoring                        7.1 kB          102 kB
+[WebServer] ├ ƒ /preview/board-fabric-v01                       8.6 kB          205 kB
+[WebServer] ├ ƒ /preview/board-object-authoring                 10.5 kB         241 kB
+[WebServer] ├ ƒ /preview/board-workspace                        10.6 kB         693 kB
+[WebServer] ├ ƒ /preview/canvas-streaming                       8.1 kB         1.11 MB
+[WebServer] ├ ƒ /preview/canvas-template-gallery                13.1 kB         439 kB
+[WebServer] ├ ƒ /preview/chat-attach-modal                      7.09 kB         682 kB
+[WebServer] ├ ƒ /preview/chat-create-project                    2.76 kB         111 kB
+[WebServer] ├ ƒ /preview/chat-diagram-fabric                    263 B          1.13 MB
+[WebServer] ├ ƒ /preview/chat-file-upload                       9.62 kB         667 kB
+[WebServer] ├ ƒ /preview/chat-knowledge-graph                   13.2 kB         729 kB
+[WebServer] ├ ƒ /preview/chat-viz                               264 B          1.13 MB
+[WebServer] ├ ƒ /preview/context-pack                           8.85 kB         765 kB
+[WebServer] ├ ƒ /preview/feedback-design-loop                   9.46 kB         847 kB
+[WebServer] ├ ƒ /preview/feedback-loop                          3.28 kB         721 kB
+[WebServer] ├ ƒ /preview/live-collab-orchestration              22.6 kB         160 kB
+[WebServer] ├ ƒ /preview/plan-control                           11 kB           147 kB
+[WebServer] ├ ƒ /preview/plan-control-live                      7.89 kB         654 kB
+[WebServer] ├ ƒ /preview/pricing                                16.5 kB         699 kB
+[WebServer] ├ ƒ /preview/tasks                                  13 kB           769 kB
+[WebServer] ├ ƒ /preview/whiteboard                             8.63 kB         765 kB
+[WebServer] ├ ƒ /preview/work-stack                             20.4 kB         694 kB
+[WebServer] ├ ƒ /profile                                        263 B           766 kB
+[WebServer] ├ ƒ /profile/preview                                272 B           766 kB
+[WebServer] ├ ƒ /project                                        202 B          94.9 kB
+[WebServer] ├ ƒ /project/live                                   8.6 kB          688 kB
+[WebServer] ├ ƒ /project/new                                    5.8 kB          780 kB
+[WebServer] ├ ƒ /projects                                       9.05 kB         769 kB
+[WebServer] ├ ƒ /projects/[projectId]                           43.9 kB         853 kB
+[WebServer] ├ ƒ /projects/[projectId]/canvas                    318 B          1.07 MB
+[WebServer] ├ ƒ /projects/[projectId]/files                     30 kB           786 kB
+[WebServer] ├ ƒ /projects/join                                  15 kB           661 kB
+[WebServer] ├ ƒ /rec                                            55.5 kB         812 kB
+[WebServer] ├ ƒ /research                                       53 kB           877 kB
+[WebServer] ├ ƒ /research/[sessionId]/[stage]                   13.8 kB         764 kB
+[WebServer] ├ ƒ /research/new                                   12.7 kB         691 kB
+[WebServer] ├ ƒ /session                                        9.91 kB         659 kB
+[WebServer] ├ ƒ /share/board/[token]                            6.1 kB          530 kB
+[WebServer] ├ ƒ /share/chat/[token]                             9.66 kB         676 kB
+[WebServer] ├ ƒ /skill                                          24.8 kB         866 kB
+[WebServer] ├ ƒ /studio/board                                   14.6 kB         966 kB
+[WebServer] ├ ƒ /studio/board/[boardId]                         9.62 kB        1.06 MB
+[WebServer] ├ ƒ /studio/board/[boardId]/digital-human           23.9 kB        1.79 MB
+[WebServer] ├ ƒ /studio/design-workbench                        7.33 kB         773 kB
+[WebServer] ├ ƒ /studio/design-workbench/[projectId]            10.6 kB         776 kB
+[WebServer] ├ ƒ /studio/feedback-drafts                         8.46 kB         765 kB
+[WebServer] ├ ƒ /studio/interview                               202 B          94.9 kB
+[WebServer] ├ ƒ /studio/interview/[id]                          202 B          94.9 kB
+[WebServer] ├ ƒ /studio/prototype                               202 B          94.9 kB
+[WebServer] ├ ƒ /studio/research                                202 B          94.9 kB
+[WebServer] ├ ƒ /studio/survey                                  19 kB           721 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]                       226 B           963 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]/design                225 B           963 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]/publish               226 B           963 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]/report                226 B           963 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]/responses             226 B           963 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]/template              226 B           963 kB
+[WebServer] ├ ƒ /studio/survey/new/import                       2.69 kB         689 kB
+[WebServer] ├ ƒ /studio/survey/question-templates/[templateId]  213 B           896 kB
+[WebServer] ├ ƒ /studio/survey/templates/[templateId]           213 B           896 kB
+[WebServer] ├ ƒ /surveys/[token]                                8.55 kB         687 kB
+[WebServer] ├ ƒ /tasks                                          8.5 kB          765 kB
+[WebServer] ├ ƒ /tpl                                            33.4 kB         804 kB
+[WebServer] ├ ƒ /tpl/designer                                   31.6 kB         810 kB
+[WebServer] ├ ƒ /tpl/list                                       7.64 kB         776 kB
+[WebServer] ├ ƒ /usage                                          4.28 kB         768 kB
+[WebServer] ├ ƒ /workflows                                      202 B          94.9 kB
+[WebServer] ├ ƒ /workflows/approvals                            5.93 kB         772 kB
+[WebServer] ├ ƒ /workflows/board                                5.19 kB         767 kB
+[WebServer] ├ ƒ /workflows/runs                                 5.98 kB         772 kB
+[WebServer] ├ ƒ /workflows/runs/[instanceId]                    10.8 kB         773 kB
+[WebServer] └ ƒ /workflows/runs/[instanceId]/result             14.4 kB        1.17 MB
+[WebServer] + First Load JS shared by all                       94.7 kB
+[WebServer]   ├ chunks/13668-1ec7fa5f49aad6e3.js                31.8 kB
+[WebServer]   ├ chunks/88cfa320-7369a2140a5a6b47.js             53.6 kB
+[WebServer]   └ other shared chunks (total)                     9.32 kB
+[WebServer]
+[WebServer]
+[WebServer] ƒ Middleware                                        24.9 kB
+[WebServer]
+[WebServer] ●  (SSG)      prerendered as static HTML (uses getStaticProps)
+[WebServer] ƒ  (Dynamic)  server-rendered on demand
+[WebServer]
+[WebServer] (node:733516) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]   ▲ Next.js 14.2.15
+[WebServer]   - Local:        http://127.0.0.1:25292
+[WebServer]   - Network:      http://127.0.0.1:25292
+[WebServer]
+[WebServer]  ✓ Starting...
+[WebServer]  ✓ Ready in 295ms
+
+Running 4 tests using 1 worker
+
+(node:733555) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:733516) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+[WebServer] {"level":"error","msg":"http exception","traceId":"671a673f-21d6-4514-a53a-b9043c037f8e","detail":{"name":"ForbiddenException","message":"NO_PROJECT_ROLE","stack":"ForbiddenException: NO_PROJECT_ROLE\n    at BoardController.resolveProjectRole (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:60:36)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async BoardController.myToday (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:103:31)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"ac721094-088c-45c2-97c1-34306f8f923c","detail":{"name":"ForbiddenException","message":"NO_PROJECT_ROLE","stack":"ForbiddenException: NO_PROJECT_ROLE\n    at BoardController.resolveProjectRole (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:60:36)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async BoardController.myToday (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:103:31)"}}
+(node:733689) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"error","msg":"http exception","traceId":"fcdd2fa5-31ae-42ea-b448-e6b32ade52fa","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/aidt-stages.controller.ts:8:127)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"d29975b8-354c-468b-8fcc-405ad69f06fb","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/aidt-stages.controller.ts:8:127)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] (node:730445) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+[WebServer] {"level":"error","msg":"http exception","traceId":"fabb2194-eae9-44b2-ab40-ed13764a0327","detail":{"name":"ForbiddenException","message":"NO_PROJECT_ROLE","stack":"ForbiddenException: NO_PROJECT_ROLE\n    at BoardController.resolveProjectRole (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:60:36)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async BoardController.myToday (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:103:31)"}}
+[WebServer] [CopilotKit Runtime] anonymous telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[WebServer] {"level":"error","msg":"http exception","traceId":"e419255e-6a01-46fb-82c0-015dd63dbe09","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/aidt-stages.controller.ts:8:127)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"cf705326-39f3-4723-a588-05d5d8782703","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at parse (/workspace/aidt-module-latest/apps/api/src/interface/controllers/aidt-stages.controller.ts:9:243)\n    at AidtStagesController.save (/workspace/aidt-module-latest/apps/api/src/interface/controllers/aidt-stages.controller.ts:16:178)\n    at /workspace/aidt-native/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"bcdd663e-989f-4ea1-b69a-4190b0a62392","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/aidt-stages.controller.ts:8:127)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"f0836307-8b54-4ddb-bf7a-1bee5dec3082","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/aidt-stages.controller.ts:8:127)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"fa32ce0f-7e48-4316-ad3c-ba4b108e7ade","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/aidt-stages.controller.ts:8:127)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"0f0cf3df-6a9e-4997-888c-5c6166c11bef","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/aidt-stages.controller.ts:8:127)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+(node:733791) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:733804) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"error","msg":"http exception","traceId":"55e771c7-3fc5-43df-985a-004205e09494","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/aidt-stages.controller.ts:8:127)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+  ✓  1 [seeded] › e2e/aidt-member-collaboration.spec.ts:81:5 › shared AIDT stages: two members persist revisions, stale CAS and isolation remain explicit (13.7s)
+[WebServer] {"level":"error","msg":"http exception","traceId":"9abcfe88-ecdd-411f-8bd9-08a274528132","detail":{"name":"ForbiddenException","message":"NO_PROJECT_ROLE","stack":"ForbiddenException: NO_PROJECT_ROLE\n    at BoardController.resolveProjectRole (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:60:36)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async BoardController.myToday (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:103:31)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"21661baf-3978-4e32-8354-b7f13eecbad1","detail":{"name":"ForbiddenException","message":"NO_PROJECT_ROLE","stack":"ForbiddenException: NO_PROJECT_ROLE\n    at BoardController.resolveProjectRole (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:60:36)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async BoardController.myToday (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:103:31)"}}
+(node:733891) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"error","msg":"http exception","traceId":"5949c8fe-9db3-436c-87f7-b3196a5af5e7","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"915c7c84-a5c2-431c-a503-b1990166403f","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"77ec2c69-1b0f-46ed-a6f5-8b63025bb16a","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"0528d6d7-bbae-484b-a98e-27f3fc26f243","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"bd420d45-fd96-4d62-ae46-71107536aea4","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"53763e10-2b53-4b99-9785-8a2a36f625b4","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"07ec5d0e-c588-4bd0-b411-8884f741af5e","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"215b07d0-6fc3-4957-bb8d-50f2fc5994b9","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"7b419d16-ec41-4a42-807c-d65c0b86b99a","detail":{"name":"ForbiddenException","message":"NO_PROJECT_ROLE","stack":"ForbiddenException: NO_PROJECT_ROLE\n    at BoardController.resolveProjectRole (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:60:36)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async BoardController.myToday (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:103:31)"}}
+(node:733962) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"error","msg":"http exception","traceId":"f57fe442-9cb3-4c00-9879-303ae6d958d8","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"77cb26b3-680f-4836-a198-abb9412f0e9d","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+(node:733998) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"error","msg":"http exception","traceId":"03a7a335-6dfb-4a33-8985-eb3382cd1303","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at ProjectMemberChatController.respond (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project-member-chat.controller.ts:44:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+  ✓  2 [seeded] › e2e/aidt-member-collaboration.spec.ts:221:5 › pure human project chat: two authors, durable topic replies, idempotency and no AgentRun (9.4s)
+[WebServer] {"level":"error","msg":"http exception","traceId":"24f826a0-6f5f-4b9e-b9a5-e155920ccad1","detail":{"name":"ForbiddenException","message":"NO_PROJECT_ROLE","stack":"ForbiddenException: NO_PROJECT_ROLE\n    at BoardController.resolveProjectRole (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:60:36)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async BoardController.myToday (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:103:31)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"b7e18489-ff4b-4010-a800-6642a5eb04f5","detail":{"name":"ForbiddenException","message":"NO_PROJECT_ROLE","stack":"ForbiddenException: NO_PROJECT_ROLE\n    at BoardController.resolveProjectRole (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:60:36)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async BoardController.myToday (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:103:31)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"468e9784-13a5-4d87-b682-42d44c961506","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatController.threadArtifactSource (/workspace/aidt-module-latest/apps/api/src/interface/controllers/chat.controller.ts:1297:53)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"624cbe80-37ac-4337-bfef-53e0eb1998f6","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at ProjectController.overview (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project.controller.ts:594:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"9242fd3e-7a09-4e2e-8909-861192e377e6","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatController.thread (/workspace/aidt-module-latest/apps/api/src/interface/controllers/chat.controller.ts:393:53)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"607765fd-9638-411f-a1e6-72c90d964157","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at ProjectController.overview (/workspace/aidt-module-latest/apps/api/src/interface/controllers/project.controller.ts:594:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+  ✓  3 [seeded] › e2e/project-aidt-native.spec.ts:68:5 › AIDT native project: dashboard, durable Chat, real resource association, recorder and readonly/access boundaries (36.9s)
+(node:734434) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"error","msg":"http exception","traceId":"c4fa3a5f-94b9-4817-bee5-75a62ef4a2a5","detail":{"name":"ForbiddenException","message":"NO_PROJECT_ROLE","stack":"ForbiddenException: NO_PROJECT_ROLE\n    at BoardController.resolveProjectRole (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:60:36)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async BoardController.myToday (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:103:31)"}}
+AIDT_AUDIT_READY {"verification":{"strictLayout":true,"observeOnly":null},"isolationId":"run-mwh8rzxk-113ebfb5-efcbde1cfa80","composeProject":"wsx-efcbde1cfa80db67ea36","projectId":"prj-98f0b02e-fd40-46f4-a61a-bd58de27e3ee","baseURL":"http://127.0.0.1:25292","apiOrigin":"http://127.0.0.1:24292","expiresAt":"2026-11-15T03:02:59.296Z","scope":"temporary fixture acceptance; not a persistent group workspace or external user link","dataRetention":"stop or TTL cleans disposable test data","ai":"deterministic local fixture; no real supplier or ASR validation"}
+  ✓  4 [audit] › e2e/aidt-feedback-loop-audit.spec.ts:7:5 › fresh native teaching audit and bounded loopback session (32.9s)
+
+  4 passed (6.7m)
