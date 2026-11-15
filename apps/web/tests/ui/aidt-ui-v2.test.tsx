@@ -40,7 +40,8 @@ it("rejects unsupported local reference previews without claiming an upload", as
 });
 it("exposes native prototype handoff and real-source research handoff", () => {
   const { unmount } = render(<Stage id={5} />);
-  expect(screen.getByRole("link", { name: "打开原生 Design Workbench" })).toHaveAttribute("href", "/aidt/g1?step=5&tool=design");
+  expect(screen.getByRole("button", { name: "打开原生 Design Workbench" })).toBeDisabled();
+  expect(screen.queryByRole("link", { name: "打开原生 Design Workbench" })).toBeNull();
   unmount(); render(<Stage id={2} />);
   expect(screen.getByRole("link", { name: "查看与关联真实研究资料" })).toHaveAttribute("href", "/aidt/g1?step=2&tool=sources");
 });

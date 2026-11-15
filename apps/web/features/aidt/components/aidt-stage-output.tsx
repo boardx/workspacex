@@ -3,7 +3,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { AIDT_OUTPUTS, aidtUiStageMarkdown, type AidtUiStageDraft, type AidtIdeaDraft } from "@/features/aidt/lib/aidt-ui-drafts";
+import { AIDT_OUTPUTS, aidtUiStageMarkdown, type AidtUiStageDraft, type AidtIdeaDraft, type AidtDiscoveryCardDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { aidtHref, type AidtStep } from "@/features/aidt/lib/project-aidt";
 import { printResearchPdf } from "@/lib/research-report-export";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
@@ -13,6 +13,9 @@ import { AidtActivityNav } from "@/features/aidt/components/aidt-activity-nav";
 import { AidtDiscoveryCards } from "@/features/aidt/components/aidt-discovery-cards";
 import { AidtImageAttachmentPicker, AidtImageAttachmentPreview, type AidtImageAttachmentState } from "./aidt-image-attachment-picker";
 import { useOptionalSession } from "@/components/session/session-provider";
+import { AidtIdeaClassification } from "@/features/aidt/components/aidt-idea-classification";
+import { AIDT_IDEA_CLASSIFICATION_FIELDS, aidtIdeaClassificationFor, invalidateAidtIdeaClassification } from "@/features/aidt/lib/aidt-idea-classification";
+import { getAidtPrototypeGenerationReadiness } from "@/features/aidt/lib/aidt-verification-loop";
 
 export function printAidtUiText(text: string) {
   const root = document.createElement("article");
@@ -23,12 +26,14 @@ export function printAidtUiText(text: string) {
   printResearchPdf(root, "AIDT 小组草稿");
 }
 
-export function AidtStageOutput({ projectId, thread = null, step, draft, update, readOnly, toolHref, toChat }: {
+export function AidtStageOutput({ projectId, thread = null, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision }: {
   projectId: string; step: AidtStep; draft: AidtUiStageDraft;
   thread?: string | null;
   update: (mutate: (previous: AidtUiStageDraft) => AidtUiStageDraft) => void;
   readOnly: boolean; toolHref: (tool: string) => string;
   toChat?: (text: string) => ComposerOfferResult;
+  availableCards?: readonly AidtDiscoveryCardDraft[]; availableCardsRevision?: number;
+  previousPrototype?: AidtUiStageDraft; previousPrototypeRevision?: number;
 }) {
   const output = AIDT_OUTPUTS[step.id]!;
   const [status, setStatus] = React.useState("");
@@ -40,30 +45,39 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
   const printScope = JSON.stringify([imageScope, step.id, readOnly]);
   const printLifecycle = React.useRef({ scope: printScope, active: true }); printLifecycle.current.scope = printScope;
   React.useEffect(() => { const lifecycle = printLifecycle.current; lifecycle.active = true; return () => { lifecycle.active = false; }; }, []);
+  // A local FileReader needs actor/permission isolation, but no server token.
+  // Increment on every scope transition so A -> B -> A cannot revive an old read.
+  const localReadScope = JSON.stringify([identity?.currentOrgId, identity?.userId, projectId, step.id, readOnly]);
+  const localReadLifecycle = React.useRef({ scope: localReadScope, generation: 0 });
+  if (localReadLifecycle.current.scope !== localReadScope) localReadLifecycle.current = { scope: localReadScope, generation: localReadLifecycle.current.generation + 1 };
   const [printImages, setPrintImages] = React.useState<Record<string, AidtImageAttachmentState & { key: string }>>({});
   const imageKey = (item: AidtIdeaDraft) => JSON.stringify([imageScope, item.imageAttachment]);
   const imageReady = (item: AidtIdeaDraft) => !item.imageAttachment || (printImages[item.id]?.key === imageKey(item) && Boolean(printImages[item.id]?.src) && !printImages[item.id]?.failed);
   const readiness = aidtIdeaReadiness(draft.ideas);
+  const prototypeReadiness = getAidtPrototypeGenerationReadiness(draft);
   const imageRequests = React.useRef(new Map<string, number>());
-  const field = (id: string, value: string) => update((old) => ({ ...old, fields: { ...old.fields, [id]: value }, ...(id === "reason" && old.selectedIdeaId ? { selectionReasons: { ...old.selectionReasons, [old.selectedIdeaId]: value } } : {}) }));
-  const idea = (id: string, value: Partial<AidtIdeaDraft>) => { setDistinctReviewed(false); update((old) => ({ ...old, ideas: old.ideas.map((item) => item.id === id ? { ...item, ...value } : item) })); };
+  const field = (id: string, value: string) => { if (!readOnly) update((old) => ({ ...old, fields: { ...old.fields, [id]: value, ...(["initial", "rewrittenTheme"].includes(id) ? { problemReflectionConfirmed: "" } : {}), ...(step.id === 6 ? { reflectionConfirmed: "" } : {}), ...(step.id === 5 && id === "idea" ? { verificationQuestionConfirmed: "", verificationQuestionConfirmation: "" } : {}) }, ...(id === "reason" && old.selectedIdeaId ? { selectionReasons: { ...old.selectionReasons, [old.selectedIdeaId]: value } } : {}) })); };
+  const idea = (id: string, value: Partial<AidtIdeaDraft>) => { if (readOnly) return; setDistinctReviewed(false); update((old) => invalidateAidtIdeaClassification({ ...old, ideas: old.ideas.map((item) => item.id === id ? { ...item, ...value } : item) })); };
   const removeIdea = (id: string) => {
+    if (readOnly) return;
     setDistinctReviewed(false);
-    update((old) => ({ ...old, ideas: old.ideas.filter((item) => item.id !== id), selectedIdeaId: old.selectedIdeaId === id ? "" : old.selectedIdeaId }));
+    update((old) => invalidateAidtIdeaClassification({ ...old, ideas: old.ideas.filter((item) => item.id !== id), selectedIdeaId: old.selectedIdeaId === id ? "" : old.selectedIdeaId }));
     setPendingRemoval(null);
   };
   async function copy() {
-    try { await navigator.clipboard.writeText(aidtUiStageMarkdown(step.id, draft)); setStatus("已复制。粘贴并发送成功后才会保存到本组对话；表单共享请使用上方保存按钮。"); }
+    try { await navigator.clipboard.writeText(aidtUiStageMarkdown(step.id, draft, availableCards, availableCardsRevision)); setStatus("已复制。粘贴并发送成功后才会保存到本组对话；表单共享请使用上方保存按钮。"); }
     catch { setStatus("未能复制，请手动选择填写内容。表单保存状态以上方共享回执为准。"); }
   }
   function image(id: string, file?: File) {
-    if (!file) return;
+    if (readOnly || !file) return;
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) { setStatus("本页参考图预览支持 PNG、JPEG、WebP，单张不超过2MB。正式上传请使用聊天附件。"); return; }
     const request = (imageRequests.current.get(id) ?? 0) + 1;
     imageRequests.current.set(id, request);
+    const generation = localReadLifecycle.current.generation;
+    const currentRead = () => printLifecycle.current.active && localReadLifecycle.current.scope === localReadScope && localReadLifecycle.current.generation === generation && imageRequests.current.get(id) === request;
     const reader = new FileReader();
-    reader.onload = () => { if (imageRequests.current.get(id) === request && typeof reader.result === "string") idea(id, { image: reader.result, imageName: file.name, imageAttachment: undefined }); };
-    reader.onerror = () => setStatus("参考图读取失败，原有文字草稿仍保留。");
+    reader.onload = () => { if (currentRead() && typeof reader.result === "string") idea(id, { image: reader.result, imageName: file.name, imageAttachment: undefined }); };
+    reader.onerror = () => { if (currentRead()) setStatus("参考图读取失败，原有文字草稿仍保留。"); };
     reader.readAsDataURL(file);
   }
   async function printIdeas() {
@@ -80,6 +94,9 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
       const source = item.imageAttachment ? printImages[item.id]?.src : item.image;
       if (source) { const img = document.createElement("img"); img.src = source; img.width = 300; img.alt = item.title || "候选参考图"; section.append(img); images.push(img); }
       const p = document.createElement("p"); p.textContent = item.description || "核心说明待补充。"; section.append(p);
+      const classification = aidtIdeaClassificationFor(draft, item.id);
+      const classificationLabel = document.createElement("p"); classificationLabel.textContent = `学生分类（${classification.confirmed ? "本组已确认" : "尚未确认"}）：${classification.labels.join("、") || "暂未分类"}`; section.append(classificationLabel);
+      const classificationReason = document.createElement("p"); classificationReason.textContent = `学生分类理由：${classification.reason.trim() || "尚未填写"}`; section.append(classificationReason);
       if (item.imageAttachment) { const ref = document.createElement("p"); ref.textContent = `图片来源：对话 ${item.imageAttachment.threadId} · 附件 ${item.imageAttachment.attachmentId}`; section.append(ref); }
       article.append(section);
     }
@@ -103,18 +120,19 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
         {thread && <AidtImageAttachmentPicker projectId={projectId} thread={thread} value={item.imageAttachment} readOnly={readOnly} label={`候选${index + 1}图像`} onChange={(reference) => idea(item.id, { image: undefined, imageName: reference?.name, imageAttachment: reference ?? undefined })} />}
         <label className="block text-12">参考图预览<input aria-label={`候选${index + 1}参考图`} type="file" accept="image/png,image/jpeg,image/webp" disabled={readOnly} className="mt-1 block w-full text-11" onChange={(e) => image(item.id, e.currentTarget.files?.[0])} /></label>
         <label className="block text-12">两三句核心说明<textarea aria-label={`候选${index + 1}核心说明`} className="mt-1 min-h-24 w-full rounded-md border border-border bg-background p-2 text-13" value={item.description} maxLength={2000} disabled={readOnly} onChange={(e) => idea(item.id, { description: e.currentTarget.value })} placeholder="为谁解决什么问题？主要做法是什么？为什么值得尝试？" /></label>
-        <label className="flex items-center gap-2 text-12"><input type="radio" name={`aidt-idea-${projectId}`} checked={draft.selectedIdeaId === item.id} disabled={readOnly} onChange={() => update((old) => ({ ...old, selectionReasons: old.selectedIdeaId ? { ...old.selectionReasons, [old.selectedIdeaId]: old.fields.reason ?? "" } : old.selectionReasons, unboundReason: !old.selectedIdeaId ? old.fields.reason || old.unboundReason : old.unboundReason, fields: { ...old.fields, reason: old.selectionReasons?.[item.id] ?? "" }, selectedIdeaId: item.id }))} />拟选择候选 {index + 1}（不是投票）</label>
+        <label className="flex items-center gap-2 text-12"><input type="radio" name={`aidt-idea-${projectId}`} checked={draft.selectedIdeaId === item.id} disabled={readOnly} onChange={() => { if (!readOnly) update((old) => ({ ...old, selectionReasons: old.selectedIdeaId ? { ...old.selectionReasons, [old.selectedIdeaId]: old.fields.reason ?? "" } : old.selectionReasons, unboundReason: !old.selectedIdeaId ? old.fields.reason || old.unboundReason : old.unboundReason, fields: { ...old.fields, reason: old.selectionReasons?.[item.id] ?? "" }, selectedIdeaId: item.id })); }} />拟选择候选 {index + 1}（不是投票）</label>
       </article>)}
-      <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={readOnly || draft.ideas.length >= 8} onClick={() => update((old) => ({ ...old, ideas: [...old.ideas, { id: `draft-${crypto.randomUUID()}`, title: "", description: "" }] }))}>添加候选</Button><Button variant="outline" size="sm" disabled={printing || !readiness.ready || !distinctReviewed || !draft.ideas.every(imageReady)} onClick={() => void printIdeas()}>{printing ? "准备描述单…" : "描述单 PDF 预览"}</Button></div><p className="text-11 text-muted-foreground">至少三个不同点子；当前图文齐备 {readiness.complete} / {draft.ideas.length}。本地参考图仅在本页；共享保存请选取原生聊天中已发送的图片附件。</p>
+      <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={readOnly || draft.ideas.length >= 8} onClick={() => { if (!readOnly) { setDistinctReviewed(false); update((old) => invalidateAidtIdeaClassification({ ...old, ideas: [...old.ideas, { id: `draft-${crypto.randomUUID()}`, title: "", description: "" }] })); } }}>添加候选</Button><Button variant="outline" size="sm" disabled={printing || !readiness.ready || !distinctReviewed || !draft.ideas.every(imageReady)} onClick={() => void printIdeas()}>{printing ? "准备描述单…" : "描述单 PDF 预览"}</Button></div><p className="text-11 text-muted-foreground">至少三个不同点子；当前图文齐备 {readiness.complete} / {draft.ideas.length}。本地参考图仅在本页；共享保存请选取原生聊天中已发送的图片附件。</p>
       <label className="flex items-start gap-2 text-12"><input type="checkbox" checked={distinctReviewed} disabled={readOnly} onChange={(event) => setDistinctReviewed(event.currentTarget.checked)} />本组已比较：这些是不同点子，说明讲清做什么及如何帮助用户。</label>
     </div>}
-    <AidtStageFields stageNumber={step.id} draft={draft} onChange={field} readOnly={readOnly} />
+    {step.id === 4 && <AidtIdeaClassification draft={draft} readOnly={readOnly} onChange={(next) => { if (!readOnly) update((old) => ({ ...old, fields: { ...old.fields, ...Object.fromEntries(Object.values(AIDT_IDEA_CLASSIFICATION_FIELDS).map((key) => [key, next.fields[key] ?? ""])) } })); }} />}
+    <AidtStageFields stageNumber={step.id} draft={draft} onChange={field} onDraftChange={(next) => { if (!readOnly) update(() => next); }} availableCards={availableCards} availableCardsRevision={availableCardsRevision} previousPrototype={previousPrototype} previousPrototypeRevision={previousPrototypeRevision} readOnly={readOnly} />
     {step.id === 2 && <AidtDiscoveryCards projectId={projectId} thread={thread} cards={draft.discoveryCards ?? []} readOnly={readOnly} onChange={(mutate) => update((old) => ({ ...old, discoveryCards: mutate(old.discoveryCards ?? []) }))} />}
     {step.id === 4 && (draft.unboundReason || Object.entries(draft.selectionReasons ?? {}).some(([id, text]) => id !== draft.selectedIdeaId && text.trim())) && <details className="text-12"><summary className="cursor-pointer">其他候选的理由与未归属笔记</summary>{Object.entries(draft.selectionReasons ?? {}).filter(([id, text]) => id !== draft.selectedIdeaId && text.trim()).map(([id, text]) => <p className="mt-2 whitespace-pre-wrap" key={id}>{draft.ideas.find((item) => item.id === id)?.title || "已移除候选"}：{text}</p>)}{draft.unboundReason && <p className="mt-2 whitespace-pre-wrap">未归属笔记：{draft.unboundReason}</p>}</details>}
-    {step.id === 5 && <Button asChild variant="outline" className="w-full"><Link href={toolHref("design")}>打开原生 Design Workbench</Link></Button>}
+    {step.id === 5 && <div className="space-y-2">{prototypeReadiness.ready ? <Button asChild variant="outline" className="w-full"><Link href={toolHref("design")}>打开原生 Design Workbench</Link></Button> : <><Button variant="outline" className="w-full" disabled>打开原生 Design Workbench</Button><p role="status" className="text-12 text-muted-foreground">{prototypeReadiness.reason}</p></>}</div>}
     {step.id === 2 && <Button asChild variant="outline" className="w-full"><Link href={toolHref("sources")}>查看与关联真实研究资料</Link></Button>}
     <div className="space-y-2 border-t border-border bg-background py-3" data-testid="aidt-stage-output-actions">{toChat && <Button className="w-full sm:w-auto" disabled={readOnly} onClick={() => {
-      const result = toChat(aidtUiStageMarkdown(step.id, draft));
+      const result = toChat(aidtUiStageMarkdown(step.id, draft, availableCards, availableCardsRevision));
       setStatus(result === "accepted" ? "已带入聊天输入框。审阅并发送后保存本组对话；表单共享请使用上方保存按钮。" : result === "occupied" ? "聊天输入框已有未发送内容，未覆盖。请先处理原草稿，或使用复制。" : "本步聊天尚未就绪，请稍后重试；本栏草稿仍保留。");
     }}>审阅并发送到本步聊天</Button>}<div className="flex flex-wrap gap-2"><Button variant="ghost" size="sm" onClick={() => void copy()}>复制本步成果到聊天</Button>{step.id === 6 && <Button asChild variant="outline" size="sm"><Link href={aidtHref(projectId, 6, { tool: "report" })}>预览小组报告</Link></Button>}</div><p role="status" aria-live="polite" className="text-12 text-muted-foreground">{status}</p></div>
   </section>;

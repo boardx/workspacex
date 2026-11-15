@@ -25,7 +25,8 @@ flowchart TD
   %% evidence S3: 28 artifact/source/ownership checks passed in 74 total, no Next process or real model used
   class S4 tested
   %% evidence S4: 10 mocked CLI lifecycle checks plus 15 actual IPC checks, typecheck and zero-egress passed; actual build still S5
-  class S5 todo
+  class S5 tested
+  %% evidence S5: actual build exit0 248.570s, PG bytes unchanged; independent verified artifact reuse two-cycle E2E 1/1 pass, workspace1.144s, stage/message precise readback, not a model test
   class S6 doing
   %% evidence S1: ../local-runtime/README.md records native source-mode workspace display at 85-90 seconds.
   %% evidence S2: /tmp/aidt-local-web-build-tests.log records 21 checks; typecheck passed.

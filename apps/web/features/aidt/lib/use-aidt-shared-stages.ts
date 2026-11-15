@@ -5,6 +5,9 @@ import { ApiError } from "@/lib/api-client";
 import { aidtUiReportMarkdown, aidtUiStageSummary, emptyAidtUiDrafts, type AidtUiDrafts, type AidtUiStageDraft } from "./aidt-ui-drafts";
 import { readAidtStage, saveAidtStage, type AidtSharedStage } from "./live-aidt-stages";
 
+import { parseAidtSurpriseReflection, readAidtSurpriseSourceRevision } from "./aidt-surprise-reflection";
+import { readAidtQuestionSnapshot } from "./aidt-verification-loop";
+
 type Scope = { projectId: string; orgId: string; userId: string; sessionToken: string };
 type Source = AidtSharedStage["sourceStageRevisions"][number];
 type ReadState = { key: string; phase: "loading" | "ready" | "error"; stages: Record<number, AidtSharedStage>; error?: string };
@@ -61,7 +64,17 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const server = stageId ? stages[stageId] : undefined;
   const draft = stageId ? drafts[stageId] : undefined;
   const signature = draft ? aidtSharedDraftSignature(draft) : "";
-  const sourceStageRevisions = stageId && sources?.key === editKey && sources.stages[stageId] !== undefined ? sources.stages[stageId]! : server?.sourceStageRevisions ?? [];
+  const chosenSourceStageRevisions = stageId && sources?.key === editKey && sources.stages[stageId] !== undefined ? sources.stages[stageId]! : server?.sourceStageRevisions ?? [];
+  // A captured test question stays attached to the historical saved prototype
+  // revision, even if the fifth-stage head advances. The API checks it exists.
+  const questionRevision = stageId === 6 && draft ? readAidtQuestionSnapshot(draft)?.sourceStageRevision : null;
+  const surpriseRevisionValue = draft ? readAidtSurpriseSourceRevision(draft) : null;
+  const surprise = stageId === 3 && draft ? parseAidtSurpriseReflection(draft) : null;
+  const surpriseRevision = surprise?.status === "found" && surprise.cardIds.length > 0 && !surprise.invalidCardIds && draft?.fields.surpriseConfirmed === "true" && surpriseRevisionValue !== null && Number.isSafeInteger(surpriseRevisionValue) && surpriseRevisionValue > 0 ? surpriseRevisionValue : null;
+  const lockedSourceStage = questionRevision ? { stageId: 5, revision: questionRevision } : surpriseRevision ? { stageId: 2, revision: surpriseRevision } : null;
+  const sourceStageRevisions = lockedSourceStage
+    ? [...chosenSourceStageRevisions.filter(source => source.stageId !== lockedSourceStage.stageId), lockedSourceStage].sort((a, b) => a.stageId - b.stageId)
+    : chosenSourceStageRevisions;
   const conflicted = currentWrite.phase === "conflict";
   const needsBaseReview = conflicted && baseChoice?.key !== writeKey;
   const expectedRevision = baseChoice?.key === writeKey ? baseChoice.revision : server?.revision ?? 0;
@@ -119,6 +132,7 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
     setSources(previous => ({ key: editKey, stages: { ...(previous?.key === editKey ? previous.stages : {}), [stageId]: values } }));
   }
   function chooseSource(id: number, selected: boolean) {
+    if (lockedSourceStage?.stageId === id) return;
     if (latest.current.writeKey !== writeKey || !latest.current.canWrite || !stages[id] || !stageId || id >= stageId) return;
     const next = sourceStageRevisions.filter(value => value.stageId !== id);
     if (selected) next.push({ stageId: id, revision: stages[id]!.revision });
@@ -161,7 +175,8 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
     } finally { if (inFlight.current?.controller === controller) inFlight.current = null; }
   }
   const reportServer = stages[6], serverReport = reportServer?.content.summaryReport;
-  const reportMarkdown = reportText ?? aidtUiReportMarkdown(drafts);
+  const discoveryCardsRevision = stages[2] && aidtSharedDraftSignature(stages[2].content.draft) === aidtSharedDraftSignature(drafts[2]!) ? stages[2].revision : undefined;
+  const reportMarkdown = reportText ?? aidtUiReportMarkdown(drafts, { discoveryCardsRevision });
   const reportMatchesServer = Boolean(serverReport && serverReport.markdown === reportMarkdown);
   const reportNeedsBaseReview = currentReportWrite.phase === "conflict" && reportBase?.key !== reportKey;
   const reportCanSave = available && canWrite && stageId === 6 && currentRead?.phase === "ready" && currentReportWrite.phase !== "saving" && currentWrite.phase !== "saving" && !reportNeedsBaseReview && reportMarkdown.trim().length > 0 && !reportMatchesServer;
@@ -208,5 +223,5 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
     } finally { if (inFlight.current?.controller === controller) inFlight.current = null; }
   }
   const report: AidtSharedReportController = { available, loading: available && (!currentRead || currentRead.phase === "loading"), saving: currentReportWrite.phase === "saving", canSave: reportCanSave, serverRevision: serverReport ? reportServer!.revision : null, serverMarkdown: serverReport?.markdown ?? null, savedAt: serverReport ? reportServer!.updatedAt : null, savedBy: serverReport ? reportServer!.updatedBy : null, matchesServer: reportMatchesServer, sourceStageRevisions: clone(serverReport?.sourceStageRevisions ?? []), conflict: currentReportWrite.phase === "conflict", needsBaseReview: reportNeedsBaseReview, error: currentReportWrite.error ?? null, loadError: currentRead?.phase === "error" ? currentRead.error ?? "读取失败" : null, save: saveReport, reload, restore: restoreReport, reviewBase: reviewReportBase };
-  return { key, writeKey, available, read: currentRead, write: currentWrite, stages, server, sourceStageRevisions, expectedRevision, needsBaseReview, canSave, matchesServer, reload, chooseSource, reviewServerBase, restoreServer, saveCurrent, report };
+  return { key, writeKey, available, read: currentRead, write: currentWrite, stages, server, sourceStageRevisions, questionRevision, lockedSourceStage, expectedRevision, needsBaseReview, canSave, matchesServer, reload, chooseSource, reviewServerBase, restoreServer, saveCurrent, report };
 }

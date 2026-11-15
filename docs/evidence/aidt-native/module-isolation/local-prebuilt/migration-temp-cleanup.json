@@ -1,0 +1,11 @@
+{
+  "observedDuringTest": [
+    "/tmp/wsx-mig-CRBCzB"
+  ],
+  "afterTest": [
+    {
+      "path": "/tmp/wsx-mig-CRBCzB",
+      "exists": false
+    }
+  ]
+}

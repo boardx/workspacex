@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { AidtPersonalCheckpointPanel } from "./aidt-personal-checkpoint-panel";
 import { AidtSharedStagePanel } from "./aidt-shared-stage-panel";
-import { useAidtSharedStages } from "../lib/use-aidt-shared-stages";
+import { useAidtSharedStages, aidtSharedDraftSignature } from "../lib/use-aidt-shared-stages";
 import { useAidtPersonalCheckpoints, aidtCheckpointKey } from "../lib/use-aidt-personal-checkpoints";
 import type { AidtPersonalStageCheckpoint, AidtPersonalStageScope } from "../lib/aidt-stage-persistence";
 import type { AidtSavedContextReference } from "../lib/aidt-chat-saved-context";
@@ -30,6 +30,11 @@ import { ProjectConversations } from "@/components/project/project-conversations
 import { ProjectResourceSection, projectResourceHref, describeProjectResourceFailure } from "@/components/project/project-resource-section";
 import { ProjectEvidenceSection } from "@/components/project/project-evidence-section";
 import type { ProjectResearchSub } from "@/components/project/project-links";
+
+import { AidtStageHistory } from "./aidt-stage-history";
+import { AidtNextRound } from "./aidt-next-round";
+import { AidtRoundNavigation } from "./aidt-round-navigation";
+import { getAidtPrototypeGenerationReadiness } from "../lib/aidt-verification-loop";
 
 const loading = () => <p role="status" className="p-4 text-12 text-muted-foreground">正在加载工作区…</p>;
 const Chat = dynamic(() => import("@/features/aidt/components/project-aidt-chat").then((m) => m.ProjectAidtChat), { loading });
@@ -80,7 +85,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
     setUi((old) => {
       if (latestUiScope.current !== expectedScope || uiLifecycle.current.generation !== uiGeneration || !latestCanWrite.current) return old;
       const base = old.scope === expectedScope ? old : freshUi();
-      return { ...base, report: { text: text ?? aidtUiReportMarkdown(base.drafts), sourceRevision: text === undefined ? base.revision : base.report?.sourceRevision ?? base.revision } };
+      return { ...base, report: { text: text ?? aidtUiReportMarkdown(base.drafts, { discoveryCardsRevision: shared.stages[2] && aidtSharedDraftSignature(base.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined }), sourceRevision: text === undefined ? base.revision : base.report?.sourceRevision ?? base.revision } };
     });
   }
   function keepCheckpoint(id: number) {
@@ -95,6 +100,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
       return { ...old, checkpoints: { ...old.checkpoints, [id]: [...previous, { number: previous.length + 1, text }] } };
     });
   }
+  const [historyScope, setHistoryScope] = React.useState<string | null>(null);
   const [assistantScope, setAssistantScope] = React.useState<string | null>(null);
   const assistantOpen = assistantScope === uiLifecycleKey;
   const assistantTrigger = React.useRef<HTMLButtonElement>(null);
@@ -108,6 +114,8 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
   const requested = search.get("tool") as Tool | null;
   const explicitResourceView = Boolean(resource && (requested === "design" || requested === "transcript"));
   const tool: Tool = !canWrite && requested === "record" && allowed.includes("transcript") ? "transcript" : requested && (allowed.includes(requested) || requested === "sources" || explicitResourceView) ? requested : "chat";
+  const prototypeGate = getAidtPrototypeGenerationReadiness(currentUi.drafts[5]!);
+  const designAllowed = step?.id !== 5 || prototypeGate.ready;
   const href = (nextTool: Tool, id?: string) => aidtHref(projectId, step?.id, { tool: nextTool, resource: id, thread });
   const threadResolutionScope = JSON.stringify([uiLifecycleKey, step?.id, thread]);
   const [resolvedThread, setResolvedThread] = React.useState<{ scope: string; id: string } | null>(null);
@@ -191,7 +199,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
       <Link href={aidtHref(projectId)} className="text-12 text-muted-foreground transition-colors hover:text-primary">← 六步 Dashboard</Link>
       <AidtStageNavigation stageNumber={step.id} href={(id) => aidtHref(projectId, id)} />
       <div className="flex flex-wrap items-start justify-between gap-2"><h1 className="sr-only font-semibold md:not-sr-only md:text-20">{step.id}. {step.title}</h1>
-      <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">本步目标与学习提示</summary><p className="mt-2">{step.task}</p><p className="mt-1">本步产出：{step.outcome}</p><p className="mt-1">步骤完成与小组确认暂未记录。</p><AidtLearningStart step={step} /><AidtDecisionGuide key={step.id} step={step} />{step.id === 6 && <nav className="mt-3 flex flex-wrap gap-2" aria-label="迭代返回步骤"><p className="w-full">由本组决定下一假设，再回到相应步骤：</p>{AIDT_STEPS.filter((it) => it.id >= 2 && it.id <= 5).map((it) => <Link className="rounded border border-border px-3 py-2 focus-visible:ring-2 focus-visible:ring-ring" key={it.id} href={aidtHref(projectId, it.id)}>回到 {it.id}. {it.title}</Link>)}</nav>}</details></div>
+      <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">本步目标与学习提示</summary><p className="mt-2">{step.task}</p><p className="mt-1">本步产出：{step.outcome}</p><p className="mt-1">步骤完成与小组确认暂未记录。</p><AidtLearningStart step={step} /><AidtDecisionGuide key={step.id} step={step} />{step.id === 6 && <nav className="mt-3 flex flex-wrap gap-2" aria-label="迭代返回步骤"><p className="w-full">由本组决定下一假设，再回到相应步骤：</p>{AIDT_STEPS.filter((it) => it.id >= 1 && it.id <= 5).map((it) => <Link className="rounded border border-border px-3 py-2 focus-visible:ring-2 focus-visible:ring-ring" key={it.id} href={aidtHref(projectId, it.id)}>回到 {it.id}. {it.title}</Link>)}</nav>}</details></div>
       {!canWrite && <p role="status" className="text-12 text-muted-foreground" data-testid="aidt-readonly">当前项目只读。可查看已关联资料，不能在此发起对话、录音或设计编辑。</p>}
       <div className="flex flex-wrap items-center gap-2">{tool !== "chat" && <Button ref={assistantTrigger} size="sm" variant="outline" aria-expanded={assistantOpen} onClick={() => setAssistantScope((value) => value === uiLifecycleKey ? null : uiLifecycleKey)}>AI 引导师</Button>}<Button asChild size="sm" variant={tool === "outcome" ? "primary" : "outline"}><Link href={href("outcome")} data-testid="aidt-open-output" title="聊天发送与本步成果保存分别处理">本步成果{outcomeStatus && <span className="text-11"> · {outcomeStatus}</span>}</Link></Button>{step.id === 6 && <Button asChild size="sm" variant={tool === "report" ? "primary" : "outline"}><Link href={href("report")} data-testid="aidt-open-report">小组报告</Link></Button>}<Button asChild size="sm" variant={tool === "context" ? "primary" : "outline"}><Link href={href("context")}>阶段交接</Link></Button>{tool !== "chat" && <Button asChild size="sm" variant="outline"><Link href={href("chat")}>返回本步对话</Link></Button>}<details data-testid="aidt-tools"><summary className="cursor-pointer rounded-md border border-border px-3 py-2 text-12">资料与工具{tool !== "chat" ? ` · ${TOOLS[tool]}` : ""}</summary><div className="mt-2 max-h-80 space-y-3 overflow-y-auto"><nav className="flex flex-wrap gap-2" aria-label="本步工作区">{allowed.filter((key) => key !== "chat" && key !== "outcome" && key !== "context" && key !== "report" && (canWrite || key !== "record")).map((key) => <Button asChild key={key} size="sm" variant={tool === key ? "primary" : "outline"}><Link href={href(key)} aria-current={tool === key ? "page" : undefined}>{TOOLS[key]}</Link></Button>)}</nav><details className="border-t border-border py-1 text-12"><summary className="cursor-pointer text-muted-foreground">高级：个人检查点</summary><AidtPersonalCheckpointPanel key={personal.key} stageNumber={step.id} controller={personal} readOnly={!canWrite} onShare={sharePersonalCheckpoint} sharedCheckpointKey={savedContextRefs[0] ? JSON.stringify([savedContextRefs[0].artifactId, savedContextRefs[0].expectedImmutableRevision]) : undefined} /></details></div></details></div>
     </header>
@@ -204,20 +212,24 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
       {tool !== "chat" && <aside className={`flex w-full shrink-0 flex-col gap-3 overflow-y-auto bg-background p-4 md:px-8 ${tool === "outcome" ? "mx-auto max-w-4xl" : ""}`} aria-label={TOOLS[tool]} data-testid="aidt-tool-panel">
         <div className="flex items-center justify-between gap-3"><h2 className="text-14 font-semibold">{TOOLS[tool]}</h2><Link className="rounded-md border border-border px-3 py-2 text-12 focus-visible:ring-2 focus-visible:ring-ring" href={href("chat")}>关闭工具，回到对话</Link></div>
         {(tool === "sources" || tool === "transcript" || tool === "record") && <AidtEvidenceGuide />}
-        {tool === "outcome" ? <><AidtStageOutput key={`${uiScope}:${step.id}`} projectId={projectId} thread={checkpointThread} step={step} draft={currentUi.drafts[step.id]!} update={(mutate) => updateStage(step.id, mutate)} readOnly={!canWrite} toolHref={(key) => href(key as Tool)} toChat={toChat} />
+        {tool === "outcome" ? <><AidtStageOutput key={`${uiScope}:${step.id}`} projectId={projectId} thread={checkpointThread} step={step} draft={currentUi.drafts[step.id]!} availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision} previousPrototype={shared.stages[5]?.content.draft} previousPrototypeRevision={shared.stages[5]?.revision} update={(mutate) => updateStage(step.id, mutate)} readOnly={!canWrite} toolHref={(key) => href(key as Tool)} toChat={toChat} />
+          <AidtRoundNavigation projectId={projectId} stageNumber={step.id} draft={currentUi.drafts[step.id]!} savedRound={shared.stages[6]} matchesServer={shared.matchesServer} returnRevision={search.get("returnRevision")} sessionToken={checkpointScope?.sessionToken ?? null} />
+          {step.id === 6 && <AidtNextRound draft={currentUi.drafts[6]!} savedRevision={shared.stages[6]?.revision} matchesServer={shared.matchesServer} readOnly={!canWrite} onStart={() => updateStage(6, old => ({ ...old, fields: {} }))} />}
+          <details className="mt-4 border-t border-border pt-3 text-12" onToggle={event => setHistoryScope(event.currentTarget.open ? `${uiLifecycleKey}:${step.id}` : null)} data-testid="aidt-history-disclosure"><summary className="cursor-pointer font-medium">查看本步历史版本</summary>{historyScope === `${uiLifecycleKey}:${step.id}` && <AidtStageHistory projectId={projectId} stageId={step.id} sessionToken={checkpointScope?.sessionToken ?? null} currentRevision={shared.stages[step.id]?.revision} />}</details>
           <AidtStageJourney key={`journey:${uiScope}:${step.id}`} stageNumber={step.id}
           inputText={step.id > 1 ? `前序当前草稿（供参考，未自动继承或验证）：\n${aidtUiStageSummary(step.id - 1, currentUi.drafts[step.id - 1]!) || "尚缺前序填写"}` : "先记录本组自己的观察、问题、人群与场景。聊天内容由学生主动整理进成果。"}
           currentOutput={aidtUiStageSummary(step.id, currentUi.drafts[step.id]!)} checkpoints={currentUi.checkpoints[step.id] ?? []}
           onKeepCheckpoint={() => keepCheckpoint(step.id)} readOnly={!canWrite}
           reportNote="原生报告当前整理本页最新草稿；这里的对照记录未自动写入共享报告。" />
 </>
-        : tool === "context" ? <><AidtStageBridge key={`${uiScope}:${step.id}`} projectId={projectId} stageNumber={step.id} drafts={currentUi.drafts} toChat={toChat} readOnly={!canWrite} /><AidtMaterials key={uiScope} projectId={projectId} stageNumber={step.id} thread={thread} /></>
-        : tool === "report" ? <AidtReportPreview key={uiScope} drafts={currentUi.drafts} text={currentUi.report?.text ?? null} sourceRevision={currentUi.report?.sourceRevision ?? currentUi.revision} revision={currentUi.revision} onChange={(text) => changeReport(text)} regenerate={() => changeReport()} readOnly={!canWrite} toChat={toChat} shared={shared.report} />
+        : tool === "context" ? <><AidtStageBridge key={`${uiScope}:${step.id}`} projectId={projectId} stageNumber={step.id} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} toChat={toChat} readOnly={!canWrite} /><AidtMaterials key={uiScope} projectId={projectId} stageNumber={step.id} thread={thread} /></>
+        : tool === "report" ? <AidtReportPreview key={uiScope} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} text={currentUi.report?.text ?? null} sourceRevision={currentUi.report?.sourceRevision ?? currentUi.revision} revision={currentUi.revision} onChange={(text) => changeReport(text)} regenerate={() => changeReport()} readOnly={!canWrite} toChat={toChat} shared={shared.report} />
         : tool === "sources" ? <ProjectEvidenceSection key={uiScope} projectId={projectId} />
         : tool === "record" ? canWrite ? <div data-testid="aidt-native-recording"><p className="px-4 text-12 text-muted-foreground">个人录音笔记只用于自己的思考。不得借此绕过项目访谈的参与者同意校验；项目访谈同意采集入口尚未集成。</p><Transcription key={uiScope} uiState="default" projectId={projectId} /></div> : null
         : selected ? !authenticated ? <p role="status" className="p-4 text-12 text-muted-foreground">登录后可查看关联资源。</p> : access?.key !== accessKey ? loading() : access.error ? <div role="alert" data-testid="aidt-resource-error" className="p-4"><p>{access.error}</p><Button variant="outline" onClick={() => setRetry((n) => n + 1)}>重试</Button></div>
-          : access.allowed && canWrite ? tool === "design" ? <Design key={selected} projectId={selected} onBack={() => router.push(href("design"))} onNextDesign={() => router.push(href("design"))} /> : <Transcription key={selected} uiState="default" projectId={projectId} initialSessionId={selected} />
+          : access.allowed && canWrite ? tool === "design" ? !designAllowed ? <div className="space-y-3 p-4 text-13" data-testid="aidt-design-question-required"><p>{prototypeGate.reason}</p><Button asChild variant="outline"><Link href={href("outcome")}>回到验证问题卡</Link></Button><p className="text-12 text-muted-foreground">原有设计资料仍保留，可在项目资料中查看。本教学入口在学生确认问题后继续原型制作。</p></div> : <Design key={selected} projectId={selected} onBack={() => router.push(href("design"))} onNextDesign={() => router.push(href("design"))} /> : <Transcription key={selected} uiState="default" projectId={projectId} initialSessionId={selected} />
           : <p className="p-4 text-12 text-muted-foreground">项目只读，请返回资料列表查看资源摘要。</p>
+        : tool === "design" && !designAllowed ? <div className="space-y-3 p-4 text-13" data-testid="aidt-design-question-required"><p>{prototypeGate.reason}</p><Button asChild variant="outline"><Link href={href("outcome")}>回到验证问题卡</Link></Button><p className="text-12 text-muted-foreground">原有设计资料仍保留，可在项目资料中查看。本教学入口在学生确认问题后继续原型制作。</p></div>
         : <ProjectResourceSection key={`${uiScope}:${tool}`} projectId={projectId} kind={tool as ProjectResearchSub} canWrite={canWrite} resourceHref={resourceHref} transformCreateHref={createdHref} />}
       </aside>}
     </div>

@@ -39,6 +39,19 @@ it("records changes of hypothesis and asks for teacher help without inventing an
   fireEvent.click(screen.getByText("记录本组决定与不同意见"));
   const text = (screen.getByLabelText("本组决定模板") as HTMLTextAreaElement).value;
   expect(text).toContain("原假设 → 新假设");
+  expect(text).toContain("测试前认识 → 测试后认识（可未改变／证据不足）");
+  expect(text).toContain("1理解问题／2共情用户／3综合定义／4创意发散／5原型制作／尚未决定");
+  expect(text).toContain("不强制生成新版");
   expect(text).toContain("需要老师帮助的问题");
   expect(screen.getByText(/未启用匿名提交或小组投票/)).toBeVisible();
+});
+
+it("puts source reflection and the possibility of no surprising findings before later synthesis", () => {
+  const problem = render(<AidtLearningStart step={AIDT_STEPS[0]} />);
+  expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("为什么这是一个值得研究的问题");
+  expect(screen.getAllByRole("listitem")[1]).toHaveTextContent("亲自观察、听到抱怨，还是某种猜测");
+  problem.unmount();
+  render(<AidtLearningStart step={AIDT_STEPS[2]} />);
+  expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("暂无也可以");
+  expect(screen.getAllByRole("listitem")[1]).toHaveTextContent("保留矛盾和例外");
 });

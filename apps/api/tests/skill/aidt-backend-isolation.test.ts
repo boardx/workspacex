@@ -15,7 +15,7 @@ const noDatabase: DatabasePort = {
 };
 const imported = {
   created: true,
-  result: { importId: 'unit-import', packId: 'aidt-methods', packVersion: '1.2.0', packDigest: 'a'.repeat(64), status: 'succeeded' as const, skillIds: ['unit-skill'], versionIds: ['unit-version'], importedAt: '2026-11-15T00:00:00Z' },
+  result: { importId: 'unit-import', packId: 'aidt-methods', packVersion: AIDT_PLATFORM_SKILL_PACK.packVersion, packDigest: 'a'.repeat(64), status: 'succeeded' as const, skillIds: ['unit-skill'], versionIds: ['unit-version'], importedAt: '2026-11-15T00:00:00Z' },
   retiredSkillIds: [],
 };
 
@@ -63,7 +63,7 @@ describe('optional AIDT bootstrap boundary (mock importer, no DB)', () => {
     importer.mockResolvedValueOnce({ ...imported, created: false });
     const replay = await ensureStandardSkillPacksSeeded(noDatabase, 'actor', [AIDT_PLATFORM_SKILL_PACK]);
     const inputs = importer.mock.calls.map(([, input]) => input);
-    expect(inputs).toEqual(Array.from({ length: 2 }, () => ({ actorId: 'actor', orgId: PLATFORM_ORG_ID, ...AIDT_PLATFORM_SKILL_PACK, idempotencyKey: 'platform-builtin:aidt-methods:1.2.0' })));
+    expect(inputs).toEqual(Array.from({ length: 2 }, () => ({ actorId: 'actor', orgId: PLATFORM_ORG_ID, ...AIDT_PLATFORM_SKILL_PACK, idempotencyKey: `platform-builtin:${AIDT_PLATFORM_SKILL_PACK.packId}:${AIDT_PLATFORM_SKILL_PACK.packVersion}` })));
     expect(replay[0]?.created).toBe(false);
     expect(noDatabase.withTenant).not.toHaveBeenCalled();
     expect(noDatabase.withoutTenant).not.toHaveBeenCalled();

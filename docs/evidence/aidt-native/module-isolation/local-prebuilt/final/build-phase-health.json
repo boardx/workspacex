@@ -1,0 +1,10 @@
+{
+  "state": "responding",
+  "details": {
+    "phase": "building",
+    "webMode": "build",
+    "healthy": false,
+    "dataDir": "/workspace/scratch/aidt-local-persistent-acceptance/data",
+    "reason": "Native services are building, starting or stopping"
+  }
+}

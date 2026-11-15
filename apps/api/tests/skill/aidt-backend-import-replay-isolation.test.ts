@@ -8,9 +8,9 @@ import { verifySkillStarterPack } from '../../src/domain/skill/starter-pack';
 import { AIDT_PLATFORM_SKILL_PACK } from '../../src/infrastructure/aidt/aidt-module';
 import { PgIdentityRepository } from '../../src/infrastructure/identity/pg-identity-repository';
 
-const raw = JSON.parse(readFileSync(new URL('../../../../skills/starter-packs/aidt-methods/1.2.0.json', import.meta.url), 'utf8')) as unknown;
+const raw = JSON.parse(readFileSync(new URL(`../../../../skills/starter-packs/${AIDT_PLATFORM_SKILL_PACK.packId}/${AIDT_PLATFORM_SKILL_PACK.packVersion}.json`, import.meta.url), 'utf8')) as unknown;
 const pack = verifySkillStarterPack(raw, AIDT_PLATFORM_SKILL_PACK);
-const input = { ...AIDT_PLATFORM_SKILL_PACK, actorId: 'unit-platform-actor', orgId: toOrgId(PLATFORM_ORG_ID), idempotencyKey: 'platform-builtin:aidt-methods:1.2.0' };
+const input = { ...AIDT_PLATFORM_SKILL_PACK, actorId: 'unit-platform-actor', orgId: toOrgId(PLATFORM_ORG_ID), idempotencyKey: `platform-builtin:${AIDT_PLATFORM_SKILL_PACK.packId}:${AIDT_PLATFORM_SKILL_PACK.packVersion}` };
 const result: SkillStarterImportResult = { importId: 'unit-import', ...AIDT_PLATFORM_SKILL_PACK, packDigest: pack.packDigest, status: 'succeeded', skillIds: pack.skills.map((skill) => 'unit-' + skill.stableName), versionIds: pack.skills.map((skill) => 'unit-version-' + skill.stableName), importedAt: '2026-11-15T00:00:00Z' };
 function setup() {
   const db: DatabasePort = {

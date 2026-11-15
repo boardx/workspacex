@@ -1,0 +1,266 @@
+{
+  "reason": "Completed teardown of our failed capacity/port-guard attempts; no application services started in either attempt. No harness or permissions changed.",
+  "records": [
+    {
+      "port": 19756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "53c8b7eaeab6fdb35b6ea614bc5fd2abc67e1c4fa804596c4c05d126bf6268dd",
+      "createdAt": "2026-11-15T06:42:12.818052+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 20756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "fe536d94a4ac668e54699b686606f5d31b1474bb3aa120cbafde51823b49161b",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 21756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "04683d1f5202705467aa7bcbc2b714d0080fdf543274ebfc75f9cc2aea9aa9bd",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 22756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "8a5699640065d6e6ca8e0b56963451046d654d5a64d7d768871249267063c8db",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 23756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "60c2edad2f0c286a15d6431d649bbc3d735d2cf66784f938a01f373ef3d9a165",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 24756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "f1b784122020574ab99981e0f8724d8223701df47646d578e443187aa781ceba",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 25756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "15a7348523aff669e67c4a3268d9fc623f318b0e6acb523fb26a218d2bedfd7d",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 26756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "14d961c114cc084cdc5724720c243033ccd2d5622aecfa311061635f6f728e8b",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 27756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "31f7426724dff3f9d875f5bb04ec00cb69e75451e991edc60e7fcc79d51d7c75",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 28756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "61b32f70f98e34bf3e33ae4f2de44798f6e2d5a441b02926d4e5d6054de19820",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 29756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "f367175b4c71ce1fde02387c7a3b21622d5841369fb57aa0e32ce0f4fa4bf8b9",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 30756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "31dc0cd157af98a6fad9d82585dcc8c0c19e317e94570dc1ee0e75af65074370",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 31756,
+      "oldOwnerPid": 752465,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "b21670e1c33a28502a9cbe88f1375842f3edae39440b74c95694a6279f80c0ed",
+      "createdAt": "2026-11-15T06:42:12.814905+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 19375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "40fb5ab7d0014e34b5aed2d784be9a3a628f52d59a341501549d849f6c175138",
+      "createdAt": "2026-11-15T06:50:11.384837+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 20375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "b5452cbd96ed97bf79790c60a0728fa50e2a20843c8eb4df824e9c0aec5195e0",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 21375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "01aaccf91fb4bfa59089bae3ea5e6c07ae6fb00092a2735179ca0cd3967f41cb",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 22375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "f953313e9d7d14bae8bb544bb2d41a375c151108e7755296d0a0bb709ba37bed",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 23375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "739bb431bfacbc0d5b74361c6d3e503a82694dc635d5251973c83d931e53a803",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 24375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "315517865caf05d74b01cb772da866b4b6a9cd8de313b19cd25393f8ed2a4218",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 25375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "f78ff43a9816398f4e874f5feb791ed0305018bfd4233479a87ec882963cd7ba",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 26375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "100cfdb975b0a05f804edb804531b3e8c82a105a4f8dae9c8d05881a09a8088c",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 27375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "ec68f2893fa86745fedab2e4425148a76f4406edc3cd08c6f6be0acad4d6b94b",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 28375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "ca4b9ee37331343495d06f83aa32781628a1d98aa88631833d88ea55a72a9799",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 29375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "6f6cd706fab50c94f71f04f1b13278c23528324b9cf63d27feebaf951d097980",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 30375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "fd1923ee96299f5c0246b907ed8a7ec8e4ff2426397d87af772ba55e8ffaf9bb",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    },
+    {
+      "port": 31375,
+      "oldOwnerPid": 753563,
+      "oldOwnerConfirmedDead": true,
+      "oldStarting": true,
+      "bindFree": true,
+      "recordSha256": "d283edad59a28fdfe818d66639041fed2892583c832f13b2861f36a1f8cfa3b7",
+      "createdAt": "2026-11-15T06:50:11.382378+00:00",
+      "removedOwnedRecord": true
+    }
+  ],
+  "scope": "Only exact token files of our two dead owners; nonrecursive directory removal; all original ports rebound exclusively while cleaning."
+}

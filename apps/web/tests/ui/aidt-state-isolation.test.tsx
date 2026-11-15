@@ -56,12 +56,12 @@ it("does not carry local drafts across organizations but preserves them on same-
 });
 it("rechecks resource access for a new actor before mounting the native editor", async () => {
   mocks.search = "tool=design&resource=design-a";
-  const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-5" canWrite />);
+  const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   await screen.findByTestId("native-design");
   let finish!: (value: { items: never[] }) => void;
   mocks.list.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   mocks.session = { ...mocks.session!, userId: "student-b" };
-  rerender(<ProjectAidt projectId="group" sub="aidt-5" canWrite />);
+  rerender(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   expect(screen.queryByTestId("native-design")).toBeNull();
   await act(async () => finish({ items: [] }));
   expect(await screen.findByRole("alert")).toHaveTextContent("未关联当前项目");
@@ -71,10 +71,10 @@ it("does not let an old actor's delayed successful association replace the curre
   mocks.search = "tool=design&resource=design-a";
   let oldFinish!: (value: { items: { id: string; kind: string }[] }) => void;
   mocks.list.mockImplementationOnce(() => new Promise(resolve => { oldFinish = resolve; }));
-  const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-5" canWrite />);
+  const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   mocks.list.mockResolvedValueOnce({ items: [] });
   mocks.session = { ...mocks.session!, currentOrgId: "org-b", sessionToken: "token-b" };
-  rerender(<ProjectAidt projectId="group" sub="aidt-5" canWrite />);
+  rerender(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   await screen.findByRole("alert");
   await act(async () => oldFinish({ items: [{ id: "design-a", kind: "design" }] }));
   expect(screen.queryByTestId("native-design")).toBeNull();
@@ -82,15 +82,15 @@ it("does not let an old actor's delayed successful association replace the curre
 });
 it("invalidates an old association on token rotation and does not read resources when signed out", async () => {
   mocks.search = "tool=design&resource=design-a";
-  const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-5" canWrite />);
+  const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   await screen.findByTestId("native-design");
   mocks.list.mockRejectedValueOnce(new Error("revoked"));
   mocks.session = { ...mocks.session!, sessionToken: "token-b" };
-  rerender(<ProjectAidt projectId="group" sub="aidt-5" canWrite />);
+  rerender(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   expect(screen.queryByTestId("native-design")).toBeNull();
   expect(await screen.findByRole("alert")).toHaveTextContent("资源读取失败");
   mocks.session = null;
-  rerender(<ProjectAidt projectId="group" sub="aidt-5" canWrite={false} />);
+  rerender(<ProjectAidt projectId="group" sub="aidt-6" canWrite={false} />);
   expect(screen.getByText("登录后可查看关联资源。")).toBeVisible();
   expect(mocks.list).toHaveBeenCalledTimes(2);
 });

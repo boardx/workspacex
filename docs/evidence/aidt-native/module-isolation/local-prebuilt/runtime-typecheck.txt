@@ -1,0 +1,4 @@
+
+> @repo/local-runtime@0.1.0 typecheck /workspace/aidt-module-latest/packages/local-runtime
+> tsc --noEmit
+

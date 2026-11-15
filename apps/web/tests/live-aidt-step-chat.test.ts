@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveAidtStepChat } from "@/features/aidt/lib/live-aidt-step-chat";
+import { resolveAidtStepChat, createAidtStepChatWithLatest } from "@/features/aidt/lib/live-aidt-step-chat";
 import { AIDT_STEPS } from "@/lib/project-aidt";
 const mocks = vi.hoisted(() => ({ catalog: vi.fn(), list: vi.fn(), get: vi.fn(), create: vi.fn(), mounts: vi.fn(), mount: vi.fn() }));
 vi.mock("@/lib/live-chat", () => ({ listThreads: mocks.list, getThread: mocks.get, createThread: mocks.create }));
@@ -82,4 +82,69 @@ it("does not repurpose private chats or silently choose between duplicate stage 
   await expect(resolveAidtStepChat(input())).rejects.toMatchObject({ choices: [{ id: "a", title: "First", versionId: "v1" }, { id: "b", title: "Second", versionId: "v1" }] });
   expect(mocks.create).not.toHaveBeenCalled();
   expect(mocks.mount).not.toHaveBeenCalled();
+});
+
+
+describe("explicit latest-version conversation without changing old pins", () => {
+  const upgrade = () => ({ ...input(), thread: "old", expectedPinnedVersionId: "v1", expectedLatestVersionId: "v2" });
+  const offer = () => {
+    mocks.catalog.mockResolvedValue([{ skillId: "s1", name: "理解", platformStableName: "aidt-understand", status: "已启用", currentVersionId: "v2" }]);
+    mocks.mounts.mockImplementation(async (id: string) => ({ temporary: id === "old" ? [active()] : [], version: id === "old" ? "old-mount-state" : "new-mount-state" }));
+  };
+  it("shows a visible catalog update while preserving the current mounted version on normal entry", async () => {
+    offer();
+    expect(await resolveAidtStepChat({ ...input(), thread: "old" })).toMatchObject({ threadId: "old", versionId: "v1", latestVersionId: "v2" });
+    expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.mount).not.toHaveBeenCalled();
+  });
+  it("creates a separate latest-version conversation only after the explicit action and readback", async () => {
+    offer();
+    mocks.mount.mockImplementation(async () => { mocks.mounts.mockImplementation(async (id: string) => ({ temporary: [id === "old" ? active() : { ...active(), versionId: "v2" }], version: "saved" })); });
+    expect(await createAidtStepChatWithLatest(upgrade())).toMatchObject({ threadId: "new", versionId: "v2", latestVersionId: "v2" });
+    expect(mocks.create).toHaveBeenCalledWith({ projectId: "p", title: "[AIDT 1] 理解与提出问题 · 新版教学", groupId: null, visibilityScope: "plenary" }, "token");
+    expect(mocks.mount).toHaveBeenCalledTimes(1);
+    expect(mocks.mount).toHaveBeenCalledWith("new", "p", { skillIds: ["s1"], expectedVersion: "new-mount-state" }, "token");
+    expect(mocks.mount).not.toHaveBeenCalledWith("old", expect.anything(), expect.anything(), expect.anything());
+  });
+  it("does not silently accept a changed offer or changed source mount", async () => {
+    offer();
+    await expect(createAidtStepChatWithLatest({ ...upgrade(), expectedLatestVersionId: "no-longer-current" })).rejects.toThrow("目录中的教学版本已变化");
+    await expect(createAidtStepChatWithLatest({ ...upgrade(), expectedPinnedVersionId: "another-pin" })).rejects.toThrow("原对话的教学挂载已变化");
+    expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.mount).not.toHaveBeenCalled();
+  });
+  it("recovers its own empty new draft after a failed mount without touching the old conversation", async () => {
+    offer(); mocks.mount.mockRejectedValueOnce(new Error("SKILL_VERSION_CHANGED"));
+    await expect(createAidtStepChatWithLatest(upgrade())).rejects.toThrow("SKILL_VERSION_CHANGED");
+    mocks.list.mockResolvedValue({ groups: [{ cards: [{ id: "new", title: "[AIDT 1] 理解与提出问题 · 新版教学" }] }] });
+    mocks.mount.mockImplementation(async () => { mocks.mounts.mockImplementation(async (id: string) => ({ temporary: [id === "old" ? active() : { ...active(), versionId: "v2" }], version: "saved" })); });
+    expect(await createAidtStepChatWithLatest(upgrade())).toMatchObject({ threadId: "new", versionId: "v2" });
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+  });
+  it("does not report success when actual readback resolves another version", async () => {
+    offer(); mocks.mount.mockImplementation(async () => {
+      mocks.mounts.mockImplementation(async (id: string) => ({ temporary: [id === "old" ? active() : { ...active(), versionId: "v3" }], version: "saved" }));
+    });
+    await expect(createAidtStepChatWithLatest(upgrade())).rejects.toThrow("挂载未能确认");
+    expect(mocks.mount).toHaveBeenCalledTimes(1);
+  });
+  it("rechecks source thread write access before creating any new conversation", async () => {
+    offer(); mocks.get.mockResolvedValue(detail("p", []));
+    await expect(createAidtStepChatWithLatest(upgrade())).rejects.toThrow("只读");
+    expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.mount).not.toHaveBeenCalled();
+  });
+  it("stops before a new write when the initiating host scope is cancelled", async () => {
+    offer(); const cancellation = new AbortController();
+    let finish!: (value: { groups: readonly unknown[] }) => void;
+    mocks.list.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const task = createAidtStepChatWithLatest({ ...upgrade(), signal: cancellation.signal });
+    await vi.waitFor(() => expect(mocks.list).toHaveBeenCalled());
+    cancellation.abort(); finish({ groups: [] });
+    await expect(task).rejects.toThrow("AIDT_CONTEXT_CHANGED");
+    expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.mount).not.toHaveBeenCalled();
+  });
+  it("does not create another draft after recovering a previously completed empty latest mount", async () => {
+    offer(); mocks.list.mockResolvedValue({ groups: [{ cards: [{ id: "prepared", title: "[AIDT 1] 理解与提出问题 · 新版教学" }] }] });
+    mocks.mounts.mockImplementation(async (id: string) => ({ temporary: [id === "old" ? active() : { ...active(), versionId: "v2" }], version: "saved" }));
+    expect(await createAidtStepChatWithLatest(upgrade())).toMatchObject({ threadId: "prepared", versionId: "v2" });
+    expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.mount).not.toHaveBeenCalled();
+  });
 });

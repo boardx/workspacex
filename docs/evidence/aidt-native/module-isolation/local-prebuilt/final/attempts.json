@@ -1,0 +1,44 @@
+[
+  {
+    "attempt": "attempt-1",
+    "exitCode": 1,
+    "stats": {
+      "startTime": "2026-11-15T06:42:13.910Z",
+      "duration": 253946.557,
+      "expected": 0,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "reason": "The only real build succeeded in 248570ms and left pgdata byte-identical. First start was refused by unchanged 12GB doctor at 11.6GB free; full test failed. Cache only was trimmed afterwards; receipt and artifact remained valid.",
+    "originalEvidence": "/workspace/scratch/aidt-local-prebuilt-acceptance/attempt-1"
+  },
+  {
+    "attempt": "attempt-2-reuse",
+    "exitCode": 1,
+    "stats": {
+      "startTime": "2026-11-15T06:50:12.610Z",
+      "duration": 2385.619,
+      "expected": 0,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "reason": "Standard same-seed reservation skipped quarantined failed-run ports and selected API24375. Receipt was bound to24756; explicit guard rejected before service startup. No rebuild or receipt edit.",
+    "originalEvidence": "/workspace/scratch/aidt-local-prebuilt-acceptance/attempt-2-reuse"
+  },
+  {
+    "attempt": "attempt-3-reuse",
+    "exitCode": 0,
+    "stats": {
+      "startTime": "2026-11-15T06:53:29.831Z",
+      "duration": 64150.277,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "reason": "After bounded dead-owner/token cleanup, standard same-seed reservation genuinely reacquired API24756. No old lease env was injected. Full independent two-start/new-login/save/stop/restart/readback/stop test passed with zero rebuilds.",
+    "originalEvidence": "/workspace/scratch/aidt-local-prebuilt-acceptance/attempt-3-reuse"
+  }
+]

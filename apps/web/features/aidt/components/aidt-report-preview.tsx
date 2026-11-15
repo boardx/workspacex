@@ -8,8 +8,8 @@ import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draf
 import type { AidtSharedReportController } from "@/features/aidt/lib/use-aidt-shared-stages";
 import { useOptionalSession } from "@/components/session/session-provider";
 
-export function AidtReportPreview({ drafts, text, sourceRevision, revision, onChange, regenerate, readOnly, toChat, shared }: {
-  drafts: AidtUiDrafts; text: string | null; sourceRevision: number; revision: number;
+export function AidtReportPreview({ drafts, text, sourceRevision, revision, onChange, regenerate, readOnly, toChat, shared, discoveryCardsRevision }: {
+  drafts: AidtUiDrafts; discoveryCardsRevision?: number; text: string | null; sourceRevision: number; revision: number;
   onChange: (text: string) => void; regenerate: () => void; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
   shared?: AidtSharedReportController;
@@ -20,7 +20,7 @@ export function AidtReportPreview({ drafts, text, sourceRevision, revision, onCh
   const [confirmRestore, setConfirmRestore] = React.useState(false);
   const me = useOptionalSession()?.session?.userId;
   const savedTime = shared?.savedAt ? new Date(shared.savedAt).toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
-  const value = text ?? aidtUiReportMarkdown(drafts);
+  const value = text ?? aidtUiReportMarkdown(drafts, { discoveryCardsRevision });
   const exportValue = shared?.matchesServer ? [value, "", "## 保存与来源版本", `报告保存版本：${shared.serverRevision}；保存者：${shared.savedBy}；保存时间：${shared.savedAt}`, ...(shared.sourceStageRevisions?.length ? shared.sourceStageRevisions.map((source) => `- 第 ${source.stageId} 步：版本 ${source.revision}`) : ["尚未关联已保存的阶段版本；正文不因此成为已验证研究事实。"]), ""].join("\n") : value;
   async function copy() {
     try { await navigator.clipboard.writeText(exportValue); setStatus("已复制报告。粘贴并发送成功后才会保存到对话；报告共享状态以上方回执为准。"); }

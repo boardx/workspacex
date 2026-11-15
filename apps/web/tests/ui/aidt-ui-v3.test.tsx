@@ -54,7 +54,7 @@ it("reports an occupied native composer and keeps the outcome available", () => 
   render(<AidtStageOutput projectId="g" step={AIDT_STEPS[0]!} draft={drafts[1]!} update={vi.fn()} readOnly={false} toolHref={() => ""} toChat={handoff} />);
   fireEvent.click(screen.getByRole("button", { name: "审阅并发送到本步聊天" }));
   expect(handoff).toHaveBeenCalledWith(expect.stringContaining("我们自己的观察"));
-  expect(screen.getByRole("status")).toHaveTextContent("未覆盖");
+  expect(screen.getByText(/聊天输入框已有未发送内容，未覆盖/)).toBeVisible();
   expect(screen.getByLabelText("初始问题")).toHaveValue("我们自己的观察");
 });
 

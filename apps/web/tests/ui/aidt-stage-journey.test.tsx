@@ -8,12 +8,12 @@ function renderJourney(element: React.ReactElement) { const result = render(elem
 const base = { inputText: "本组提供的材料", currentOutput: "当前学生草稿", reportNote: "报告仍需学生审阅" };
 
 it.each([
-  [1, "自己的观察", "研究哪个具体问题", "供第2步显式引用"],
+  [1, "为什么值得研究", "研究哪个具体问题", "供第2步显式引用"],
   [2, "真实观察、访谈材料", "哪些是原始记录、解释", "供第3步形成画像"],
   [3, "模式与矛盾", "保留哪些不同意见", "供第4步显式引用"],
   [4, "自己先想到的点子", "理由属于具体候选", "形成时的问题依据"],
-  [5, "待检验假设", "核对真实保存的原型版本", "文字计划不等于已制作"],
-  [6, "用户实际说了什么", "还不能判断什么", "保留各次测试及前后版本引用"],
+  [5, "本轮最想知道的问题", "核对真实保存的原型版本", "文字计划不等于已制作"],
+  [6, "用户实际说了什么", "还不能判断什么", "回前四步或暂未决定无需新版"],
 ] as const)("keeps step %i student input, judgment and handoff explicit", (stageNumber, input, decision, handoff) => {
   renderJourney(<AidtStageJourney {...base} stageNumber={stageNumber} />);
   expect(within(screen.getByText("学生先提供").parentElement!).getByText(input, { exact: false })).toBeVisible();
@@ -32,7 +32,7 @@ it("shows the formal deliverables while keeping student drafts editable", () => 
   expect(screen.getByText(/正式交付静态粗原型/)).toBeVisible();
   expect(screen.getByText(/方案数量由实际需要决定，不固定3个/)).toBeVisible();
   rerender(<AidtStageJourney {...base} stageNumber={6} />);
-  expect(screen.getByText(/正式产出迭代后原型/)).toBeVisible();
+  expect(screen.getByText(/保存原问题、前后认识/)).toBeVisible();
   expect(screen.getByText(/不把推断当成用户原话/)).toBeVisible();
 });
 

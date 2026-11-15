@@ -60,10 +60,10 @@ describe("native AIDT project workspace", () => {
   });
   it("checks project association before opening the real design, and rejects foreign resources", async () => {
     mocks.search = "tool=design&resource=d1";
-    const { rerender } = render(<ProjectAidt projectId="p1" sub="aidt-5" canWrite />);
+    const { rerender } = render(<ProjectAidt projectId="p1" sub="aidt-6" canWrite />);
     expect(await screen.findByRole("alert")).toHaveTextContent("未关联当前项目");
     mocks.list.mockResolvedValue({ items: [{ id: "d1", kind: "design" }] });
-    rerender(<ProjectAidt projectId="p2" sub="aidt-5" canWrite />);
+    rerender(<ProjectAidt projectId="p2" sub="aidt-6" canWrite />);
     await screen.findByTestId("native-design");
     expect(mocks.list).toHaveBeenLastCalledWith("p2");
     expect(mocks.design).toHaveBeenCalledWith(expect.objectContaining({ projectId: "d1" }));

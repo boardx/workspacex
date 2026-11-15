@@ -1,3 +1,7 @@
+import { formatAidtProblemReflectionMarkdown } from "./aidt-problem-reflection";
+import { formatAidtSurpriseMarkdown } from "./aidt-surprise-reflection";
+import { aidtIdeaClassificationLines } from "./aidt-idea-classification";
+import { formatAidtVerificationMarkdown, formatAidtTestReflectionMarkdown } from "./aidt-verification-loop";
 import { AIDT_STEPS } from "@/features/aidt/lib/project-aidt";
 import type { z } from "zod";
 import type { ImageAttachment } from "@repo/contracts/aidt-stages";
@@ -48,7 +52,7 @@ export const AIDT_OUTPUTS: Record<number, { title: string; hint: string; fields:
   ] },
   5: { title: "静态粗原型", hint: "正式交付静态粗原型。先说清类型、情境、接触点和操作，再制作与比较方案；参考素材可选，方案数不固定3个。", fields: [
     { id: "idea", label: "选定的点子", placeholder: "填写本组选择的点子名称与来源。" },
-    { id: "hypothesis", label: "这次要验证的假设", placeholder: "一个原型先回答一个关键问题。" },
+    { id: "hypothesis", label: "先前假设补记（可选）", placeholder: "旧版记录保留；本轮问题请在上方验证问题卡中明确。" },
     { id: "type", label: "原型对象与形式", placeholder: "说明原型类型，例如App、小程序、服务流程或传播物；先做静态粗原型。" },
     { id: "situation", label: "使用情境", placeholder: "用户何时、何地、为了解决什么问题接触这个原型？" },
     { id: "touchpoints", label: "用户接触点", placeholder: "用户会接触哪些界面、物件、人员或服务节点？" },
@@ -57,7 +61,7 @@ export const AIDT_OUTPUTS: Record<number, { title: string; hint: string; fields:
     { id: "requirements", label: "文字、界面与参考图要求", placeholder: "写下必要界面与文案；参考文字、图片可选，不要求必须上传。" },
     { id: "version", label: "已保存原型的引用", placeholder: "在原生工作台保存后，记录实际原型与版本引用。" },
   ] },
-  6: { title: "迭代后原型", hint: "正式产出迭代后原型。保留既有原型与被测／新版引用，区分用户实际说、实际做和学生推断；没有真实测试就保留未验证。", fields: [
+  6: { title: "本轮学习与下一步", hint: "保留原验证问题、测试前后认识和返回步骤。回前四步无需先生成新版；旧原型、证据和本轮学习都保留。没有真实测试就标待测试。", fields: [
     { id: "version", label: "被测试的原型版本", placeholder: "填写实际保存的版本或链接。" },
     { id: "questions", label: "测试问题与任务", placeholder: "希望观察到什么？怎样避免诱导？" },
     { id: "feedback", label: "本组记录的测试反馈与材料引用（待核对）", placeholder: "记录本组反馈与材料来源；学生记录不等于真实性核验，没有测试就写尚未验证。" },
@@ -73,7 +77,7 @@ export const AIDT_OUTPUTS: Record<number, { title: string; hint: string; fields:
 export function emptyAidtUiDrafts(): AidtUiDrafts {
   return Object.fromEntries(AIDT_STEPS.map((s) => [s.id, { fields: {}, selectedIdeaId: "", ideas: s.id === 4 ? [1, 2, 3].map((n) => ({ id: `draft-${n}`, title: "", description: "" })) : [] }]));
 }
-export function aidtUiStageMarkdown(stageNumber: number, draft: AidtUiStageDraft): string {
+export function aidtUiStageMarkdown(stageNumber: number, draft: AidtUiStageDraft, cards?: readonly AidtDiscoveryCardDraft[], cardsRevision?: number): string {
   const step = AIDT_STEPS.find((s) => s.id === stageNumber)!;
   const lines = [`## ${stageNumber}. ${step.title}`, "", "状态：学生编辑稿；共享保存、来源与小组确认状态请核对对应回执。", ""];
   for (const field of AIDT_OUTPUTS[stageNumber]!.fields) lines.push(`### ${field.label}`, draft.fields[field.id]?.trim() || "待补充", "");
@@ -81,6 +85,7 @@ export function aidtUiStageMarkdown(stageNumber: number, draft: AidtUiStageDraft
     lines.push("### 人物发现卡", ...(draft.discoveryCards?.length ? discoveryCardLines(draft.discoveryCards) : ["尚未记录受访者发现卡；不得以模拟人物补齐。"]), "");
   }
   if (stageNumber === 4) for (const [index, idea] of draft.ideas.entries()) lines.push(`### 候选 ${index + 1}：${idea.title.trim() || "待命名"}${draft.selectedIdeaId === idea.id ? "（拟选择）" : ""}`, idea.description.trim() || "核心说明待补充。", idea.imageAttachment ? `已关联图片：${idea.imageAttachment.name}；对话 ${idea.imageAttachment.threadId}；附件 ${idea.imageAttachment.attachmentId}（可访问性须由原服务核对，不是研究证据）` : idea.imageName ? `参考图：${idea.imageName}（仅本页预览，原图请通过聊天附件上传）` : "图像待补充。", "");
+  lines.push(...aidtV2StageLines(stageNumber, draft, cards, cardsRevision));
   return lines.join("\n");
 }
 /** Current student-authored work, without manufacturing values for empty fields. */
@@ -91,6 +96,7 @@ export function aidtUiStageSummary(stageNumber: number, draft: AidtUiStageDraft)
     if (!idea.title.trim() && !idea.description.trim() && !idea.imageName && !idea.imageAttachment) continue;
     lines.push(`候选 ${index + 1}${draft.selectedIdeaId === idea.id ? "（拟选，非投票）" : ""}：${idea.title || "待命名"}`, idea.description, idea.imageAttachment ? `图片引用：${idea.imageAttachment.name} · 对话 ${idea.imageAttachment.threadId} · 附件 ${idea.imageAttachment.attachmentId}` : idea.imageName ? `参考图：${idea.imageName}（仅本页）` : "参考图尚缺");
   }
+  if (hasAidtV2Data(stageNumber, draft)) lines.push(...aidtV2StageLines(stageNumber, draft));
   return lines.filter(Boolean).join("\n");
 }
 function discoveryCardLines(cards: readonly AidtDiscoveryCardDraft[]): string[] {
@@ -103,6 +109,26 @@ function discoveryCardLines(cards: readonly AidtDiscoveryCardDraft[]): string[] 
     `照片引用：${card.photoAttachment ? `${card.photoAttachment.name} · 对话 ${card.photoAttachment.threadId} · 附件 ${card.photoAttachment.attachmentId}（用途与授权由学生核对）` : card.photoRef.trim() || "照片缺失；不生成真人照片补齐"}`,
   ]);
 }
-export function aidtUiReportMarkdown(drafts: AidtUiDrafts): string {
-  return ["# 小组研究报告 · 学生审阅稿", "", "根据本页已读取的阶段内容与学生编辑整理，可能包含未保存草稿，不代表系统全部历史资料。共享保存固定这份报告正文与所列来源版本，不代表阶段完成或证据已核实。提交前请核对原始证据、来源与版本；缺少的内容保留缺口，不虚构采访、测试、教师点评或投票。", "", ...AIDT_STEPS.map((s) => aidtUiStageMarkdown(s.id, drafts[s.id]!)), "## 教师点评", "待教师提供并经授权保存。", "", "## 后续建议", "由本组审阅后填写下一假设与行动。", ""].join("\n");
+export function aidtUiReportMarkdown(drafts: AidtUiDrafts, context?: { discoveryCardsRevision?: number }): string {
+  return ["# 小组研究报告 · 学生审阅稿", "", "根据本页已读取的阶段内容与学生编辑整理，可能包含未保存草稿，不代表系统全部历史资料。共享保存固定这份报告正文与所列来源版本，不代表阶段完成或证据已核实。提交前请核对原始证据、来源与版本；缺少的内容保留缺口，不虚构采访、测试、教师点评或投票。", "", ...AIDT_STEPS.map((s) => aidtUiStageMarkdown(s.id, drafts[s.id]!, drafts[2]?.discoveryCards, context?.discoveryCardsRevision)), "## 教师点评", "待教师提供并经授权保存。", "", "## 后续建议", "由本组审阅后填写下一假设与行动。", ""].join("\n");
+}
+
+/** Readable V2 learning records. Internal JSON and inactive branches stay out of handoffs. */
+export function aidtV2StageLines(stage: number, draft: AidtUiStageDraft, cards?: readonly AidtDiscoveryCardDraft[], cardsRevision?: number): string[] {
+  if (stage === 1) return formatAidtProblemReflectionMarkdown(draft);
+  if (stage === 3) return formatAidtSurpriseMarkdown(draft, cards, cardsRevision);
+  if (stage === 4) return aidtIdeaClassificationLines(draft);
+  if (stage === 5) return formatAidtVerificationMarkdown(draft);
+  if (stage === 6) return formatAidtTestReflectionMarkdown(draft);
+  return [];
+}
+const V2_CONTENT: Record<number, readonly string[]> = {
+  1: ["whyWorthStudying", "problemSources", "sourceDetails", "sourceUncertainty"],
+  3: ["surpriseStatus", "priorBelief", "surprisingFinding", "surpriseCardIds", "surpriseSourceDetails", "surpriseInterpretation"],
+  4: ["ideaClassificationTags", "ideaClassificationReasons", "ideaClassificationConfirmed"],
+  5: ["verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits"],
+  6: ["questionSnapshot", "afterTestBelief", "understandingChangeStatus", "understandingEvidence", "unresolvedQuestions", "returnStep", "returnReason", "nextAction"],
+};
+export function hasAidtV2Data(stage: number, draft: AidtUiStageDraft): boolean {
+  return (V2_CONTENT[stage] ?? []).some(key => Boolean(draft.fields[key]?.trim()));
 }

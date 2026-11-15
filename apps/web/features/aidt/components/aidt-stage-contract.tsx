@@ -6,11 +6,11 @@ export function AidtStageContract({ stageNumber }: { stageNumber: number }): JSX
   const contract = getAidtStageContract(stageNumber);
   if (!contract) return null;
   return <details className="rounded-control border border-border-subtle bg-card p-3 text-13" data-testid="aidt-stage-contract" data-stage={stageNumber}>
-    <summary className="cursor-pointer font-medium">本步约定 · 输入3项 → 过程反馈 → 正式交付</summary>
+    <summary className="cursor-pointer font-medium">本步约定 · 输入{contract.inputs.length}项 → 过程反馈 → 正式交付</summary>
     <div className="mt-3 space-y-3">
       <p className="font-medium" data-testid="aidt-contract-title">{contract.title}</p>
-      <section aria-label="本步三项输入" data-testid="aidt-contract-inputs">
-        <h4 className="text-12 font-medium">输入3项 · 逐步补齐，学生先提供</h4>
+      <section aria-label="本步输入" data-testid="aidt-contract-inputs">
+        <h4 className="text-12 font-medium">输入{contract.inputs.length}项 · 逐步补齐，学生先提供</h4>
         <ol className="mt-2 list-decimal space-y-2 pl-5">
           {contract.inputs.map((input, index) => <li key={input.title} data-testid={`aidt-contract-input-${index + 1}`}><span className="font-medium">{input.title}</span><p className="text-12 text-muted-foreground">{input.detail}</p></li>)}
         </ol>

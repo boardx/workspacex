@@ -63,7 +63,7 @@ function EnabledPreview({ projectId, reference, alt, onState }: { projectId: str
 
 function ImageChoice({ item, selected, readOnly, onSelect }: { item: AidtImageAttachmentOption; selected: boolean; readOnly: boolean; onSelect: () => void }) {
   const [ready, setReady] = React.useState(false);
-  return <button type="button" disabled={readOnly || !ready} aria-pressed={selected} className="space-y-2 rounded-md border border-border bg-card p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" onClick={onSelect}><AuthorizedImage reference={item} alt={item.name} onState={(state) => setReady(!!state.src && !state.failed)} /><span className="block break-all text-12">{item.name}</span></button>;
+  return <button type="button" disabled={readOnly || !ready} aria-pressed={selected} className="space-y-2 rounded-md border border-border bg-card p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground" onClick={onSelect}><AuthorizedImage reference={item} alt={item.name} onState={(state) => setReady(!!state.src && !state.failed)} /><span className="block break-all text-12">{item.name}</span></button>;
 }
 
 type PickerProps = {

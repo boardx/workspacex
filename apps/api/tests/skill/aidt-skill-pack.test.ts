@@ -6,9 +6,9 @@ import { AIDT_PLATFORM_SKILL_PACK } from "../../src/infrastructure/aidt/aidt-mod
 
 describe("shipped AIDT teaching skills", () => {
   it("verifies the release digest and ships all six distinct, source-identical skills", () => {
-    const raw = JSON.parse(readFileSync(new URL("../../../../skills/starter-packs/aidt-methods/1.2.0.json", import.meta.url), "utf8"));
-    const pack = verifySkillStarterPack(raw, { packId: "aidt-methods", packVersion: "1.2.0" });
-    expect(AIDT_PLATFORM_SKILL_PACK).toEqual({ packId: "aidt-methods", packVersion: "1.2.0" });
+    const raw = JSON.parse(readFileSync(new URL(`../../../../skills/starter-packs/${AIDT_PLATFORM_SKILL_PACK.packId}/${AIDT_PLATFORM_SKILL_PACK.packVersion}.json`, import.meta.url), "utf8"));
+    const pack = verifySkillStarterPack(raw, { packId: "aidt-methods", packVersion: "1.3.0" });
+    expect(AIDT_PLATFORM_SKILL_PACK).toEqual({ packId: "aidt-methods", packVersion: "1.3.0" });
     expect(STANDARD_PLATFORM_PACKS).not.toContainEqual(AIDT_PLATFORM_SKILL_PACK);
     expect(pack.skills.map((s) => s.stableName).sort()).toEqual(["aidt-understand", "aidt-empathize", "aidt-define", "aidt-ideate", "aidt-prototype", "aidt-iterate"].sort());
     for (const skill of pack.skills) {
