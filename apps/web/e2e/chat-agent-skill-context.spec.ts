@@ -187,7 +187,7 @@ async function pollRunToTerminal(
   }, { timeout: 60_000 }).toBe(true);
   expect(last, "轮询结束时应该已经拿到过至少一次响应").not.toBeNull();
   expect(last!.agentId).toBe(CHAT_READ_E2E.agentId);
-  expect(last!.modelProvider).toBe(CHAT_READ_E2E.agentModelProvider);
+  expect(last!.modelProvider).toBe("deep-agent");
   return last!;
 }
 
