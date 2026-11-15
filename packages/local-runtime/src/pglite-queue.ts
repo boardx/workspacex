@@ -50,6 +50,10 @@ const READY_FOR_QUERY = 0x5a; // 'Z'
 export class SessionAwareQueryQueue {
   private queue: QueueItem[] = [];
   private processing = false;
+  private stopping = false;
+  private stopPromise: Promise<void> | undefined;
+  private finishProcessing: (() => void) | undefined;
+  private cleanups = new Set<Promise<void>>();
   private owner: number | null = null;
   private ownerSince = 0;
   /** handler id → an unnamed Parse was sent and no Bind has followed yet */
@@ -72,6 +76,7 @@ export class SessionAwareQueryQueue {
   constructor(private readonly db: PGlite, private readonly ownerIdleMs = 5_000) {}
 
   enqueue(handlerId: number, message: Uint8Array, onData: (chunk: Uint8Array) => void): Promise<number> {
+    if (this.stopping) return Promise.reject(new Error("Database query queue is stopping"));
     return new Promise<number>((resolve, reject) => {
       this.queue.push({ handlerId, enqueuedAt: Date.now(), message: rewriteNames(handlerId, message), onData, resolve, reject });
       if (!this.processing) void this.processQueue();
@@ -98,12 +103,30 @@ export class SessionAwareQueryQueue {
     this.ownerAwaitingReady = false;
   }
 
-  async clearTransactionIfNeeded(handlerId: number): Promise<void> {
-    if (this.db.isInTransaction() && this.owner === handlerId) {
-      await this.db.exec("ROLLBACK");
-    }
-    if (this.owner === handlerId) this.releaseOwner();
-    if (!this.processing) void this.processQueue();
+  clearTransactionIfNeeded(handlerId: number): Promise<void> {
+    // pglite-socket detaches asynchronously, including after its server closes.
+    // A late socket callback must never inspect a database already closed by stop().
+    if (this.stopping) return Promise.resolve();
+    const cleanup = (async () => {
+      if (this.db.isInTransaction() && this.owner === handlerId) {
+        await this.db.exec("ROLLBACK");
+      }
+      if (this.owner === handlerId) this.releaseOwner();
+      if (!this.processing) void this.processQueue();
+    })();
+    this.cleanups.add(cleanup);
+    void cleanup.then(() => this.cleanups.delete(cleanup), () => this.cleanups.delete(cleanup));
+    return cleanup;
+  }
+
+  /** Stop accepting work and finish active SQL before the database is closed. */
+  stop(): Promise<void> {
+    if (this.stopPromise) return this.stopPromise;
+    this.stopping = true;
+    for (const item of this.queue.splice(0)) item.reject(new Error("Database query queue is stopping"));
+    const idle = this.processing ? new Promise<void>(resolve => { this.finishProcessing = resolve; }) : Promise.resolve();
+    this.stopPromise = Promise.all([idle, ...this.cleanups]).then(() => undefined);
+    return this.stopPromise;
   }
 
   private pickNext(): QueueItem | null {
@@ -129,7 +152,7 @@ export class SessionAwareQueryQueue {
   }
 
   private async processQueue(): Promise<void> {
-    if (this.processing) return;
+    if (this.processing || this.stopping) return;
     this.processing = true;
     try {
       for (;;) {
@@ -185,7 +208,8 @@ export class SessionAwareQueryQueue {
       }
     } finally {
       this.processing = false;
-      if (this.queue.length > 0) setTimeout(() => void this.processQueue(), 0);
+      if (this.stopping) this.finishProcessing?.();
+      else if (this.queue.length > 0) setTimeout(() => void this.processQueue(), 0);
     }
   }
 }

@@ -36,8 +36,9 @@ flowchart TD
   %% evidence S1: 已核对当前分支、无重复活动Agent及历史课程边界；source-intake.md
   class S2 tested
   %% evidence S2: reproduced-failure.txt 证明旧代码丢失反思版本
-  class S3 todo
-  class S4 todo
+  class S3 tested
+  %% evidence S3: targeted-tests.txt：83项；web-tests.txt：501项；类型、设计及ESLint通过
+  class S4 doing
   class S5 todo
 ```
 
@@ -45,3 +46,4 @@ flowchart TD
 | 时间 | 节点 | 状态变化 | 依据（命令 / 证据 / 堵塞原因） |
 |---|---|---|---|
 | 2026-11-15 | G, S1 | todo → doing | 接到目标，开始理解 |
+| 2026-11-15 | S4 | doing → doing | 首次真实新构建与返回轮次通过，stop owner退出1使全流程失败；已加队列关闭屏障，38项runtime测试通过，继续新构建复验 |

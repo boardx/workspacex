@@ -1,0 +1,46 @@
+{
+  "at": "2026-11-15T15:28:20.093109+00:00",
+  "packages": [
+    {
+      "package": "next",
+      "version": "14.2.15",
+      "lockedIntegrityVerified": true,
+      "checkedFiles": 6363,
+      "missingFilesRestored": 6363,
+      "existingDifferentFilesPreserved": [],
+      "restoredExamples": [
+        "dist/compiled/@babel/runtime/LICENSE",
+        "dist/compiled/@mswjs/interceptors/ClientRequest/LICENSE",
+        "dist/compiled/@napi-rs/triples/LICENSE",
+        "dist/compiled/@opentelemetry/api/LICENSE",
+        "dist/compiled/@vercel/nft/LICENSE",
+        "dist/compiled/@vercel/og/LICENSE",
+        "dist/compiled/@vercel/og/satori/LICENSE",
+        "dist/compiled/acorn/LICENSE",
+        "dist/compiled/anser/LICENSE",
+        "dist/compiled/assert/LICENSE"
+      ]
+    },
+    {
+      "package": "react",
+      "version": "18.3.1",
+      "lockedIntegrityVerified": true,
+      "checkedFiles": 20,
+      "missingFilesRestored": 20,
+      "existingDifferentFilesPreserved": [],
+      "restoredExamples": [
+        "LICENSE",
+        "index.js",
+        "jsx-dev-runtime.js",
+        "jsx-runtime.js",
+        "cjs/react-jsx-dev-runtime.development.js",
+        "cjs/react-jsx-dev-runtime.production.min.js",
+        "cjs/react-jsx-dev-runtime.profiling.min.js",
+        "cjs/react-jsx-runtime.development.js",
+        "cjs/react-jsx-runtime.production.min.js",
+        "cjs/react-jsx-runtime.profiling.min.js"
+      ]
+    }
+  ],
+  "source": "previously downloaded official registry tarballs; exact pnpm-lock SHA-512 checked; only missing files restored"
+}
