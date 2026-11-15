@@ -14,6 +14,8 @@ const dataDir = process.env.AIDT_LOCAL_DATA_DIR!;
 const webMode = process.env.AIDT_LOCAL_WEB_MODE ?? "dev";
 const reuseBuild = process.env.AIDT_LOCAL_REUSE_BUILD === "1";
 const trimBuildCache = process.env.AIDT_LOCAL_TRIM_BUILD_CACHE === "1";
+// This test-only override does not change production build inputs or its receipt.
+test.use({ actionTimeout: 30_000, navigationTimeout: 60_000 });
 const ports = {
   postgres: Number(process.env.PGPORT), api: Number(process.env.WORKSPACEX_API_PORT),
   web: Number(process.env.WORKSPACEX_WEB_PORT), sandbox: Number(process.env.SKILL_SANDBOX_PORT),

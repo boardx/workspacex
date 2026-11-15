@@ -12,6 +12,6 @@ export default defineConfig({
   timeout: webMode === "start" ? 1_800_000 : 900_000, outputDir,
   reporter: [["list"], ["json", { outputFile: `${outputDir}/results.json` }]],
   // This lane uses the native persistent controller, never the fullstack fixtures.
-  // Login is never traced. The spec may keep a private post-login diagnostic trace.
-  use: { baseURL: `http://127.0.0.1:${port}`, headless: true, actionTimeout: 30_000, navigationTimeout: 60_000, trace: "off", screenshot: "only-on-failure" },
+  // No trace may retain the private, persistent local account's password.
+  use: { baseURL: `http://127.0.0.1:${port}`, headless: true, trace: "off", screenshot: "only-on-failure" },
 });
