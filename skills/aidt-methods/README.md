@@ -46,3 +46,7 @@ The build verifies content hashes, not a new cryptographic signing authority. No
 | Safety | An editor confirms a draft and a real save receipt exists | Distinguish recorded choice, persistence, group consensus and evidence truth | Claim all members voted or the evidence/test was verified because save succeeded |
 
 The current tests verify prompt policy, deterministic pack generation, source/pack identity, immutable old releases, module isolation and the importer orchestration with in-memory ports. String assertions do not prove model compliance. Real supplier requests, native tool execution, classroom facilitation quality and user evidence must be evaluated separately. No fixture response is reported as real AI acceptance.
+
+## Additional facilitation acceptance
+
+The [group facilitation acceptance probes](../../docs/evidence/aidt-native/facilitation-acceptance/README.md) add explicit scenarios for dominant participants, stalled discussion, deadlock, disagreement, privacy and human review. They reuse the native Chat and real-model lane through a test-selection adapter. All semantic judgments remain pending a real configured run plus human review; these probes neither update this published pack nor establish classroom effectiveness.

@@ -1,0 +1,14 @@
+{
+  "baseCommit": "1f5734644",
+  "checkedPaths": [
+    "apps/web/features",
+    "apps/web/components",
+    "apps/api",
+    "packages",
+    "skills/starter-packs",
+    "apps/web/playwright.real-model-smoke.config.ts"
+  ],
+  "gitDiffExitCode": 0,
+  "runtimeSourceChanged": false,
+  "buildReceiptUsable": true
+}

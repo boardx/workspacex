@@ -1,0 +1,8 @@
+
+[real-model-smoke] SKIP —— 真实模型 e2e 未运行：缺少环境变量 REAL_MODEL_E2E_EMAIL / REAL_MODEL_E2E_PASSWORD。本地请填 <仓库根>/.env.local（模板见 .env.local.example）或跑 pnpm run e2e:real-model-smoke（它会用 fullstack 种子账号）；devapp 请看 .github/workflows/real-model-chat-evidence.yml 头注。⚠ 不会退回回环模型冒充真实模型跑通（issue #2802）。
+
+Listing tests:
+  [real-model-pdf] › real-model-pdf-smoke.spec.ts:211:5 › 真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、无审批弹窗、无重复气泡、无兜底报错、连接不断
+  [real-model-office-matrix] › real-model-office-matrix.spec.ts:219:5 › 真实模型：十种计划任务全部产出可打开的 Office 文件
+  [real-model-web-artifact-reliability] › real-model-web-artifact-reliability.spec.ts:120:5 › 真实模型：web-artifact 技能十连跑，验证超时修复后的成功率
+Total: 3 tests in 3 files
