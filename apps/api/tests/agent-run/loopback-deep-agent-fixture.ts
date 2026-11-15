@@ -1,3 +1,5 @@
+import { FILE_CONTEXT_MESSAGE_HEADER_PREFIX, FILE_RETRIEVAL_SOURCE_KINDS } from "../../src/application/agent-run/file-retrieval";
+import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../../src/application/agent-run/tool-trace-context";
 import { multistepPlanMessages } from "../../scripts/loopback-multistep-plan";
 import { LoopbackRunStreamHold } from "../../scripts/loopback-run-stream-hold";
 import { LoopbackRunCancellation } from "../../scripts/loopback-run-cancellation";
@@ -47,6 +49,8 @@ export function fixture(extraEnv: Record<string, string> = {}, fetchImpl?: typeo
       // issue #3132（B7）：替身要演计划确认门，工具名同样从契约取，不在替身里抄第二份
       // 字面量——与上面两条同一条理由。这一行就是白名单要求的那个显式动作。
       if (name === "@repo/contracts/plan-control") return {PLAN_CONFIRMATION_TOOL_NAME};
+      if (name === "../src/application/agent-run/file-retrieval") return { FILE_CONTEXT_MESSAGE_HEADER_PREFIX, FILE_RETRIEVAL_SOURCE_KINDS };
+      if (name === "../src/application/agent-run/tool-trace-context") return { TOOL_TRACE_MESSAGE_HEADER_PREFIX };
       throw new Error(`unexpected fixture dependency: ${name}`);
     },
   });

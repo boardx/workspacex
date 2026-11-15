@@ -40,6 +40,8 @@
  * 让真实的轮询循环真的转一圈，不是首次调用就终态——这本身也是一种取证：证明轮询
  * 逻辑真的在工作，不是恰好一次到位。
  */
+import { FILE_CONTEXT_MESSAGE_HEADER_PREFIX, FILE_RETRIEVAL_SOURCE_KINDS } from "../src/application/agent-run/file-retrieval";
+import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../src/application/agent-run/tool-trace-context";
 import { multistepPlanMessages } from "./loopback-multistep-plan";
 import { LoopbackRunStreamHold } from "./loopback-run-stream-hold";
 import { LoopbackRunCancellation } from "./loopback-run-cancellation";
@@ -551,6 +553,23 @@ function mountedSkillReachedUpstream(body: CreateRunBody): boolean {
 
 /** 见 `mountedSkillReachedUpstream`——`/stream` 与 `/state` 两个端点共用同一份拼接，
  *  不各自维护第二份（DA-19g「两个端点漂移」的真根因教训）。 */
+function contextEcho(body: CreateRunBody): string {
+  const messages = (body.input?.messages ?? []).flatMap(({ role, content }) =>
+    role === "assistant" && typeof content === "string" ? [content] : []);
+  const summary = process.env.LOOPBACK_MODEL_L2_SUMMARY_ECHO_PREFIX;
+  const trace = process.env.LOOPBACK_MODEL_TOOL_TRACE_ECHO_PREFIX;
+  const traceSentinel = process.env.LOOPBACK_MODEL_TOOL_TRACE_SENTINEL;
+  const retrieval = process.env.LOOPBACK_MODEL_RETRIEVAL_ECHO_PREFIX;
+  const kinds = FILE_RETRIEVAL_SOURCE_KINDS.filter(kind => messages.some(content =>
+    content.startsWith(FILE_CONTEXT_MESSAGE_HEADER_PREFIX) && content.includes(kind)));
+  return [
+    summary && messages.some(content => content.startsWith("[早前对话摘要]")) ? summary : "",
+    trace && traceSentinel && messages.some(content =>
+      content.startsWith(TOOL_TRACE_MESSAGE_HEADER_PREFIX) && content.includes(traceSentinel)) ? trace : "",
+    retrieval && kinds.length ? retrieval + kinds.join(",") : "",
+  ].filter(Boolean).map(marker => marker + " ").join("");
+}
+
 function skillEcho(record: RunRecord): string {
   const catalog = record.skillCatalogSeen ? `${SKILL_CATALOG_ECHO_PREFIX}${SKILL_CATALOG_STABLE_NAME} ` : "";
   const body = record.skillSentinelSeen ? `${SKILL_ECHO_PREFIX}${SKILL_SENTINEL} ` : "";
@@ -628,6 +647,7 @@ interface RunRecord {
   /** 路径矩阵 D4：这一轮的 system prompt **目录**里真的出现了那个 stable_name——
    *  见 `skillCatalogReachedUpstream`。与上一行是两个独立信号，不许互相替代。 */
   skillCatalogSeen?: boolean;
+  contextEcho?: string;
   /**
    * issue #3100 D6 —— `spawn_async_task` 这一轮真的派发出去之后，TS 侧回给的那条
    * 子任务 run id（`POST /internal/subtask-runs` 响应体的 `subtaskRunId`）。
@@ -920,7 +940,7 @@ function sendJson(res: import("node:http").ServerResponse, status: number, body:
  * （工具结果）本来就在 `tool` 消息里，不需要在正文里再说一遍。
  */
 function defaultTurnReply(record: RunRecord): string {
-  return `${skillEcho(record)}根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
+  return `${skillEcho(record)}${record.contextEcho ?? ""}根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
 }
 
 function computeSpecialTurnReply(threadId: string, record: RunRecord): string | null {
@@ -1373,6 +1393,7 @@ const server = createServer((req, res) => {
         skillSentinelSeen: mountedSkillReachedUpstream(parsed),
         // 路径矩阵 D4：同一条纪律——只看这一轮请求真实收到的字节，不缓存跨轮。
         skillCatalogSeen: skillCatalogReachedUpstream(parsed),
+        contextEcho: contextEcho(parsed),
         // issue #3303：运行控制回调同样只从**这一轮请求的字节**里读——见 `RunControlCallback` 头注。
         runControl: readRunControlCallback(parsed),
       });

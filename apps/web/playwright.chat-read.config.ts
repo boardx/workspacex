@@ -613,6 +613,10 @@ export default defineConfig({
         // 消息里真的看到这个哨兵（挂载 skill 的 SKILL.md 正文，`buildSystemPrompt`
         // 拼进 `input.system`）时才回显。哨兵/前缀与 loopback-model-provider 用同
         // 一对（`chat-agent-skill-context.spec.ts` 既有），两条轨道断言同一个事实。
+        LOOPBACK_MODEL_RETRIEVAL_ECHO_PREFIX: CHAT_READ_E2E.retrievalEchoPrefix,
+        LOOPBACK_MODEL_L2_SUMMARY_ECHO_PREFIX: CHAT_READ_E2E.l2SummaryEchoPrefix,
+        LOOPBACK_MODEL_TOOL_TRACE_ECHO_PREFIX: CHAT_READ_E2E.toolTraceEchoPrefix,
+        LOOPBACK_MODEL_TOOL_TRACE_SENTINEL: CHAT_READ_E2E.toolTraceHistoricalResultCode,
         LOOPBACK_DEEP_AGENT_SKILL_SENTINEL: CHAT_READ_E2E.mountedSkillSentinel,
         LOOPBACK_DEEP_AGENT_SKILL_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillEchoPrefix,
         /**

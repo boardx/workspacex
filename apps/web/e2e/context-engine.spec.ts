@@ -141,7 +141,7 @@ test("L2：滚动摘要伪消息真的到达了浏览器发起的这次 run 的�
    */
   const reply = await sendAndAwaitReply(page, CHAT_READ_E2E.l2CheckThreadId, "帮我回顾一下这条对话早期聊过什么");
   await expect(reply).toBeVisible();
-  await expect(reply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
+  await expect(reply).toContainText("根据查询结果回答你");
   await expect(
     reply,
     "L2：30 条填充轮次早已撑爆 L1 的字符预算，这次 run 必然触发增量摘要，"
@@ -217,7 +217,7 @@ test("F190：跨 run 的历史工具调用轨迹真的回喂进了浏览器发�
    */
   const reply = await sendAndAwaitReply(page, CHAT_READ_E2E.toolTraceCheckThreadId, "你刚才用工具查到的那个代号是什么？");
   await expect(reply).toBeVisible();
-  await expect(reply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
+  await expect(reply).toContainText("根据查询结果回答你");
   await expect(
     reply,
     "F190：历史轮次的工具调用记录（已被挤出 L1）必须经工具轨迹回喂路径到达模型输入，"
