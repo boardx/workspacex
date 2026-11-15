@@ -114,7 +114,11 @@ export interface LocalSecrets {
   readonly adminPassword: string;
 }
 
+export type LocalProfile = "default" | "aidt";
+
 export interface LocalConfig {
+  /** Teaching features are opt-in; ordinary Local stays on the default profile. */
+  readonly profile: LocalProfile;
   /** Monorepo root (dev) or unpacked bundle root (desktop). Must contain apps/api etc. */
   readonly repoRoot: string;
   /** Per-user writable data dir: database, objects, sessions, models, logs. */
@@ -127,6 +131,7 @@ export interface LocalConfig {
 }
 
 export interface ResolveOptions {
+  readonly profile?: LocalProfile;
   readonly repoRoot: string;
   readonly dataDir: string;
   readonly ports?: Partial<LocalPorts>;
@@ -166,10 +171,13 @@ export function loadOrCreateSecrets(dataDir: string): LocalSecrets {
 }
 
 export function resolveLocalConfig(opts: ResolveOptions): LocalConfig {
+  const profile = opts.profile ?? "default";
+  if (profile !== "default" && profile !== "aidt") throw new Error("unknown Local profile");
   for (const rel of ["apps/api/package.json", "apps/web/package.json", "apps/skill-sandbox/package.json"]) {
     if (!existsSync(join(opts.repoRoot, rel))) throw new Error(`repoRoot ${opts.repoRoot} lacks ${rel}`);
   }
   return {
+    profile,
     repoRoot: opts.repoRoot,
     dataDir: opts.dataDir,
     ports: { ...DEFAULT_PORTS, ...(opts.ports ?? {}) },
@@ -181,6 +189,16 @@ export function resolveLocalConfig(opts: ResolveOptions): LocalConfig {
 }
 
 type Env = Record<string, string>;
+
+/** Both sides come from the same explicit profile. Zeroes also override inherited
+ * ENABLE_* host values, so an ordinary Local launch cannot silently install AIDT. */
+function aidtModuleEnv(c: Pick<LocalConfig, "profile">): { api: Env; web: Env } {
+  const enabled = c.profile === "aidt" ? "1" : "0";
+  return {
+    api: { ENABLE_AIDT_MODULE: enabled, ENABLE_PROJECT_MEMBER_CHAT: enabled },
+    web: { NEXT_PUBLIC_ENABLE_AIDT: enabled, NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: enabled },
+  };
+}
 
 type PathsOf = Pick<LocalConfig, "repoRoot" | "dataDir">;
 
@@ -300,6 +318,7 @@ export function modelEnv(c: LocalConfig): Env {
 
 export function apiEnv(c: LocalConfig): Env {
   return {
+    ...aidtModuleEnv(c).api,
     ...databaseEnv(c),
     ...modelEnv(c),
     PORT: String(c.ports.api),
@@ -489,6 +508,7 @@ export function webEnv(c: LocalConfig, env: NodeJS.ProcessEnv = process.env): En
    */
   const cloudUrl = (env.WORKSPACEX_CLOUD_URL ?? "").trim();
   return {
+    ...aidtModuleEnv(c).web,
     PORT: String(c.ports.web),
     NEXT_PUBLIC_API_URL: api,
     NEXT_PUBLIC_API_WS_URL: api,

@@ -117,7 +117,8 @@
     "lint:ee-boundary": "node .harness/scripts/lint-ee-boundary.mjs",
     "lint:local-zero-egress": "node .harness/scripts/lint-local-zero-egress.mjs",
     "verify:ci-base-other": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:ci-base-other:raw",
-    "verify:ci-base-other:raw": "pnpm run verify:harness:raw && turbo run test --concurrency=1 --log-order=stream --filter='!@repo/api' -- --bail=1"
+    "verify:ci-base-other:raw": "pnpm run verify:harness:raw && turbo run test --concurrency=1 --log-order=stream --filter='!@repo/api' -- --bail=1",
+    "aidt:local": "pnpm --filter @repo/local-runtime exec tsx src/aidt-cli.ts"
   },
   "devDependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

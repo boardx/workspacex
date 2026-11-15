@@ -1,0 +1,15 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/packages/local-runtime
+
+ ✓ test/config.test.ts (7 tests) 11ms
+ ✓ test/parity.test.ts (5 tests) 192ms
+ ✓ test/deployment-edition-env.test.ts (4 tests) 4ms
+ ✓ test/aidt-config.test.ts (4 tests) 7ms
+ ✓ test/inherited-parity-env.test.ts (4 tests) 85ms
+ ✓ test/billing-child-env.test.ts (3 tests) 122ms
+
+ Test Files  6 passed (6)
+      Tests  27 passed (27)
+   Start at  03:47:31
+   Duration  1.88s (transform 178ms, setup 0ms, collect 239ms, tests 421ms, environment 1ms, prepare 406ms)
+

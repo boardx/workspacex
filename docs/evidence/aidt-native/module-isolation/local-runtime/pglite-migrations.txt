@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/packages/local-runtime
+
+ ✓ test/migrations-apply-on-pglite.test.ts (3 tests) 30766ms
+   ✓ 全新安装的数据库 > **全部迁移在 PGlite 上从零跑通**，一条都不少 30746ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  03:44:07
+   Duration  31.17s (transform 122ms, setup 0ms, collect 222ms, tests 30.77s, environment 0ms, prepare 55ms)
+

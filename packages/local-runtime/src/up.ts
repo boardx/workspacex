@@ -58,6 +58,8 @@ export interface UpOptions {
   readonly pullModel?: boolean;
   /** Skip the real model round-trip (tests, offline). Default is to probe. */
   readonly probeModels?: boolean;
+  /** Opt out when a caller cannot prove ownership of an alternate Ollama listener. */
+  readonly allowAlternateOllamaRestart?: boolean;
   /**
    * 栈起来之后某个服务的健康状态变了（挂了 / 正在拉起 / 拉不起来）。
    * 带的是**说给用户听的那两句**，不是 exit code——外壳直接显示即可，不用自己拼。
@@ -207,6 +209,9 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       let already = choice.reuse;
       if (choice.port !== c.ports.ollama) {
         if (choice.reuse) {
+          if (opts.allowAlternateOllamaRestart === false) {
+            throw new Error(`Ollama alternate port ${choice.port} is occupied. AIDT will not stop another listener; choose a free --ports ollama=<port>.`);
+          }
           // The alternate port is ours alone: what runs there is an earlier instance of this
           // runtime, possibly started before OLLAMA_CONTEXT_LENGTH / KEEP_ALIVE existed. Restart
           // it so the server settings are the ones this build declares (#3749 B1.1).
