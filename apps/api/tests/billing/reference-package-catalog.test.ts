@@ -5,7 +5,7 @@ import {asOwner,asApp,ensureDatabase,migrateOnce} from "../support/db";
 beforeAll(async()=>{ensureDatabase();await migrateOnce();});
 it("serves the confirmed CN credit packages with exact server prices",async()=>{
  const rows=await asApp(null,async c=>(await c.query("SELECT amount_fen,base_credits,bonus_credits,total_credits,owner_type FROM credit_packages WHERE enabled AND product_kind='credit_topup' AND region='cn' ORDER BY sort_order")).rows);
- expect(rows).toEqual([[12900,10000,"both"],[59900,50000,"both"],[219900,200000,"both"],[100,10,"user"]].map(([amount,credits,owner])=>({amount_fen:amount,base_credits:credits,bonus_credits:0,total_credits:credits,owner_type:owner})));
+ expect(rows).toEqual([[12900,10000,"both"],[59900,50000,"both"],[219900,200000,"both"]].map(([amount,credits,owner])=>({amount_fen:amount,base_credits:credits,bonus_credits:0,total_credits:credits,owner_type:owner})));
 });
 
 it("replays the generated new catalog without changing a new order snapshot",async()=>{
@@ -20,4 +20,11 @@ it("replays the generated new catalog without changing a new order snapshot",asy
    expect((await c.query("SELECT count(*)::int AS n FROM credit_packages WHERE enabled AND package_id LIKE 'pkg-cn-%'")).rows[0].n).toBe(0);
   }finally{await c.query("ROLLBACK");}
  });
+});
+
+it("keeps the retired ¥1 package available for historical references", async () => {
+ const rows = await asApp(null, async c => (await c.query(
+  "SELECT enabled,amount_fen,total_credits FROM credit_packages WHERE package_id='credit-cn-10-v1'",
+ )).rows);
+ expect(rows).toEqual([{enabled:false,amount_fen:100,total_credits:10}]);
 });
