@@ -25,7 +25,7 @@ flowchart LR
  class P,S,I,V,K tested
  class J,T tested
  class E tested
- class D active
+ class D tested
 ```
 
 分工：问题反思 Agent 负责 FR15 与教学输入输出说明；资源 Agent 负责 FR16；创意 Agent 负责 FR17 及描述单；验证 Agent 负责 FR18/19 与历史浏览；后端/Skill Agent 负责不可变 1.3 包与显式新版会话；QA Agent 负责真实本地验收；主 Agent 负责整体集成、保存引用、报告、回溯导航及交付。
