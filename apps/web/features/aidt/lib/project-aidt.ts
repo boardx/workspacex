@@ -25,7 +25,7 @@ export type AidtStep = (typeof AIDT_STEPS)[number];
 export function aidtStep(sub: string | null): AidtStep | null {
   return AIDT_STEPS.find((step) => sub === `aidt-${step.id}`) ?? null;
 }
-export function aidtHref(projectId: string, step?: number, params?: { tool?: string; resource?: string; thread?: string | null }): string {
+export function aidtHref(projectId: string, step?: number, params?: { tool?: string; resource?: string; thread?: string | null; returnRevision?: string | null }): string {
   const q = new URLSearchParams();
   if (step) q.set("step", String(step));
   for (const [key, value] of Object.entries(params ?? {})) if (value) q.set(key, value);

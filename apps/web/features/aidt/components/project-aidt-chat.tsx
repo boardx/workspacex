@@ -46,6 +46,11 @@ function AidtSkillUpdate({ projectId, step, current, identity, threadHref }: { p
     {state.error && <p role="alert" className="mt-1">{state.error}</p>}
   </div>;
 }
+/** Keep navigation hints only inside the same project and teaching stage. */
+function currentStageQuery(projectId: string, stageId: number): URLSearchParams {
+  const query = new URLSearchParams(window.location.search);
+  return window.location.pathname === `/aidt/${encodeURIComponent(projectId)}` && query.get("step") === String(stageId) ? query : new URLSearchParams();
+}
 type AidtChatProps = { projectId: string; step: AidtStep; thread: string | null; savedContextRefs?: readonly AidtSavedContextReference[]; sharedContextRefs?: readonly AidtSharedContextReference[]; onResolvedThread?: (threadId: string) => void };
 export function ProjectAidtChat(props: AidtChatProps) {
   if (!isAidtModuleEnabled()) return <p role="status" data-testid="aidt-chat-disabled" className="p-4 text-13 text-muted-foreground">教学模块未启用。</p>;
@@ -97,23 +102,22 @@ function EnabledAidtChat({ projectId, step, thread, savedContextRefs = [], share
     setState(null);
     void resolveAidtStepChat({ orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken, projectId, step, thread, signal: cancellation.signal }).then((value) => {
       if (!active || lifecycle.current.generation !== generation || lifecycle.current.scope !== scope) return;
-      const query = new URLSearchParams(window.location.search);
-      window.history.replaceState(null, "", aidtHref(projectId, step.id, { thread: value.threadId, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined }));
+      const query = currentStageQuery(projectId, step.id);
+      window.history.replaceState(null, "", aidtHref(projectId, step.id, { thread: value.threadId, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision") }));
       setState({ scope: requestScope, value });
       if (resolvedCallback.current.scope === scope && resolvedCallback.current.generation === generation) resolvedCallback.current.callback?.(value.threadId);
     }).catch((error: unknown) => { if (active && lifecycle.current.generation === generation && lifecycle.current.scope === scope) setState({ scope: requestScope, error: error instanceof Error ? error.message : "步骤对话读取失败，请重试。", choices: error instanceof AidtStepChatChoiceError ? error.choices : undefined }); });
     return () => { active = false; cancellation.abort(); };
   }, [scope, generation, requestScope, session, projectId, step, thread, retry]);
   const path = React.useCallback((id: string | null) => {
-    const query = new URLSearchParams(window.location.search);
-    const sameStage = window.location.pathname === `/aidt/${encodeURIComponent(projectId)}` && query.get("step") === String(step.id);
-    return aidtHref(projectId, step.id, { thread: id, tool: sameStage ? query.get("tool") ?? undefined : undefined, resource: sameStage ? query.get("resource") ?? undefined : undefined });
+    const query = currentStageQuery(projectId, step.id);
+    return aidtHref(projectId, step.id, { thread: id, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision") });
   }, [projectId, step.id]);
   const fromLocation = React.useCallback(() => new URLSearchParams(window.location.search).get("thread"), []);
   const current = state?.scope === requestScope ? state : null;
   if (!current) return <p role="status" className="p-4">正在准备本步对话与 Skill…</p>;
-  if (current.error || !current.value) return <div role="alert" className="p-4" data-testid="aidt-chat-error"><p>{current.error}</p>{current.choices && <ul className="my-3 space-y-2">{current.choices.map((choice) => <li key={choice.id}><a className="text-primary underline" href={aidtHref(projectId, step.id, { thread: choice.id })}>{choice.title} · 继续这条对话</a></li>)}</ul>}<Button variant="outline" onClick={() => setRetry((n) => n + 1)}>重试</Button><a className="ml-3 text-primary" href={aidtHref(projectId, step.id)}>返回本步对话</a></div>;
-  return <ChatHostNavigationProvider value={{ projectId, returnHref: aidtHref(projectId, step.id, { tool: "whiteboard", thread: current.value.threadId }) }}><CopilotKitV2AgentSelectionProvider><CopilotKitV2Providers>
+  if (current.error || !current.value) return <div role="alert" className="p-4" data-testid="aidt-chat-error"><p>{current.error}</p>{current.choices && <ul className="my-3 space-y-2">{current.choices.map((choice) => <li key={choice.id}><a className="text-primary underline" href={path(choice.id)}>{choice.title} · 继续这条对话</a></li>)}</ul>}<Button variant="outline" onClick={() => setRetry((n) => n + 1)}>重试</Button><a className="ml-3 text-primary" href={path(null)}>返回本步对话</a></div>;
+  return <ChatHostNavigationProvider value={{ projectId, returnHref: aidtHref(projectId, step.id, { tool: "whiteboard", thread: current.value.threadId, returnRevision: currentStageQuery(projectId, step.id).get("returnRevision") }) }}><CopilotKitV2AgentSelectionProvider><CopilotKitV2Providers>
     <div className="flex h-full min-h-0 flex-col"><p className="border-b border-border px-4 py-2 text-12 text-muted-foreground" data-testid="aidt-step-skill">本组共享对话 · 教学 Skill：{current.value.skillName}</p>
     {current.value.latestVersionId && current.value.latestVersionId !== current.value.versionId && session?.currentOrgId && session.userId && session.sessionToken && <AidtSkillUpdate key={JSON.stringify([requestScope, current.value.versionId, current.value.latestVersionId])} projectId={projectId} step={step} current={current.value} identity={{ orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken }} threadHref={path} />}
     {savedContextRefs.length > 0 && <details className="border-b border-border px-4 py-2 text-12 text-muted-foreground" data-testid="aidt-chat-saved-context"><summary className="cursor-pointer">参考已保存成果 · {savedContext.status === "loading" ? "读取中" : `${savedContext.items.length} 份`}</summary><p className="mt-2">只使用成功回读的已选来源；保存与定版不代表全组确认或真实证据。个人保存稿须主动选择用于小组 AI 对话。</p>{savedContext.items.map((item) => <p key={`${item.threadId}:${item.artifactId}`} className="mt-1">第 {item.stageNumber} 步 · {item.title} · {item.mode === "draft" ? "个人保存稿，已主动用于本组讨论" : "已保存，尚未确认"}{item.truncated ? " · 内容已截断" : ""}</p>)}{savedContext.issues.length > 0 && <div role="status" className="mt-2"><p>{savedContext.issues.length} 份来源未用于 AI：可能未授权、版本已变更，或个人草稿尚未主动分享。未把读取失败当作没有成果。</p><Button size="sm" variant="outline" onClick={() => setContextRetry((value) => value + 1)}>重新读取材料</Button></div>}</details>}

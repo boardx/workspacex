@@ -158,6 +158,26 @@ async function nativeV2Journey(page: Page, projectId: string) {
   await page.getByTestId("aidt-round-navigation").getByRole("link").click();
   await expect(page).toHaveURL(new RegExp(`/aidt/${projectId}\\?step=1&tool=outcome&returnRevision=`));
   await expect(page.getByTestId("aidt-return-context")).toContainText("重新界定研究范围");
+  // Resolve the real native thread before checking the link. Previously its
+  // history.replaceState erased the saved reflection reference after loading.
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread"), { timeout: 60_000 }).toBeTruthy();
+  const roundRevision = String(branches[0]!.revision);
+  expect(new URL(page.url()).searchParams.get("returnRevision")).toBe(roundRevision);
+  const returnedThread = new URL(page.url()).searchParams.get("thread");
+  await page.getByRole("link", { name: "阶段交接", exact: true }).click();
+  await expect(page.getByTestId("aidt-materials")).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("returnRevision")).toBe(roundRevision);
+  await page.getByRole("link", { name: "关闭工具，回到对话", exact: true }).click();
+  await expect(page).toHaveURL(/[?&]tool=chat(?:&|$)/);
+  expect(new URL(page.url()).searchParams.get("returnRevision")).toBe(roundRevision);
+  expect(new URL(page.url()).searchParams.get("thread")).toBe(returnedThread);
+  await page.getByTestId("aidt-open-output").click();
+  await expect(page.getByTestId("aidt-return-context")).toContainText("重新界定研究范围");
+  await page.reload();
+  await expect(page.getByTestId("aidt-return-context")).toContainText("重新界定研究范围");
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread"), { timeout: 60_000 }).toBe(returnedThread);
+  expect(new URL(page.url()).searchParams.get("returnRevision")).toBe(roundRevision);
+  phase("learning-round-survives-native-chat-tools-and-refresh");
 
   await openOutcome(page, projectId, 5);
   await page.getByRole("textbox", { name: "通过这次制作原型，你最想知道什么？", exact: true }).fill("修改后的下一轮问题：学生从哪里开始寻找取餐区？");

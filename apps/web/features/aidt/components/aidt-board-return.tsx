@@ -10,8 +10,8 @@ export function AidtBoardReturn() {
   if (!isAidtModuleEnabled()) return null;
   const projectId = search.get("projectId");
   const boardId = typeof params?.boardId === "string" ? params.boardId : null;
-  if (search.getAll("returnTo").length > 1 || search.getAll("aidtStep").length > 1) return null;
-  const href = aidtBoardReturnHref({ projectId, boardId, returnTo: search.get("returnTo"), aidtStep: search.get("aidtStep"), aidtThread: search.get("aidtThread") ?? search.get("thread") });
+  if (search.getAll("returnTo").length > 1 || search.getAll("aidtStep").length > 1 || search.getAll("aidtReturnRevision").length > 1) return null;
+  const href = aidtBoardReturnHref({ projectId, boardId, returnTo: search.get("returnTo"), aidtStep: search.get("aidtStep"), aidtThread: search.get("aidtThread") ?? search.get("thread"), aidtReturnRevision: search.get("aidtReturnRevision") });
   if (!href) return null;
   return <ProjectBreadcrumb projectId={projectId} sub="whiteboard" hrefOverride={href} labelOverride="返回 AIDT 步骤" />;
 }

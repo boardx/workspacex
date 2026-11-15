@@ -30,3 +30,12 @@ it("requires the actual Board route resource and a project context", () => {
   expect(aidtBoardReturnHref({ projectId: "group", boardId: null, returnTo: "/aidt/group?step=4&resource=spoof" })).toBeNull();
   expect(aidtBoardReturnHref({ projectId: null, boardId: "board", returnTo: "/aidt/group?step=4" })).toBeNull();
 });
+
+it("keeps the learning round in canonical Board handoffs and explicit native-resource returns", () => {
+  expect(aidtBoardReturnHref({ ...current, returnTo: "/aidt/group?step=2&thread=t&returnRevision=3", aidtReturnRevision: "99" })).toBe("/aidt/group?step=2&tool=whiteboard&resource=actual-board%2F1&thread=t&returnRevision=3");
+  expect(aidtBoardReturnHref({ ...current, aidtStep: "2", aidtThread: "t", aidtReturnRevision: "3" })).toBe("/aidt/group?step=2&tool=whiteboard&resource=actual-board%2F1&thread=t&returnRevision=3");
+  expect(aidtBoardReturnHref({ ...current, returnTo: "/aidt/group?step=2", aidtReturnRevision: "99" })).toBe("/aidt/group?step=2&tool=whiteboard&resource=actual-board%2F1");
+});
+it("rejects an ambiguous learning-round hint rather than falling back to legacy context", () => {
+  expect(aidtBoardReturnHref({ ...current, returnTo: "/aidt/group?step=2&returnRevision=3&returnRevision=4", aidtStep: "2", aidtReturnRevision: "3" })).toBeNull();
+});

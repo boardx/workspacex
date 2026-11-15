@@ -33,7 +33,7 @@ it("adds explicit teaching return context to the actual native Board and survey 
 
 it.each([undefined, 0, 7, 1.5])("keeps the dashboard defaults without binding a thread to guessed stage %s", async (stageNumber) => {
   mocks.list.mockResolvedValue({ items: [resource("design", "design/1", "静态方案"), resource("personal_transcription", "session/1", "个人转录")] });
-  render(<AidtMaterials projectId="group" stageNumber={stageNumber} thread="not-a-stage-binding" />);
+  render(<AidtMaterials projectId="group" stageNumber={stageNumber} thread="not-a-stage-binding" returnRevision="3" />);
   expect(await screen.findByRole("link", { name: "静态方案" })).toHaveAttribute("href", "/aidt/group?step=5&tool=design&resource=design%2F1");
   expect(screen.getByRole("link", { name: "个人转录" })).toHaveAttribute("href", "/aidt/group?step=2&tool=transcript&resource=session%2F1");
 });
@@ -75,4 +75,23 @@ it("does not trust a query resource in place of the real Board route parameter",
   mocks.search = new URLSearchParams({ projectId: "group", returnTo: "/aidt/group?step=4&resource=spoof", resource: "spoof" }).toString();
   mocks.boardId = undefined; const { rerender } = render(<AidtBoardReturn />); expect(screen.queryByTestId("project-breadcrumb-back")).toBeNull();
   mocks.boardId = ["ambiguous", "board"]; rerender(<AidtBoardReturn />); expect(screen.queryByTestId("project-breadcrumb-back")).toBeNull();
+});
+
+it("retains the saved learning round across materials, native Board return and evidence tools", async () => {
+  mocks.list.mockResolvedValue({ items: [resource("design", "d", "静态方案"), resource("personal_transcription", "s", "笔记"), resource("whiteboard", "b", "白板")] });
+  render(<AidtMaterials projectId="group" stageNumber={2} thread="t" returnRevision="3" />);
+  for (const title of ["静态方案", "笔记", /查看原始证据与出处/]) {
+    const href = (await screen.findByRole("link", { name: title })).getAttribute("href")!;
+    expect(new URL(href, "https://workspace.invalid").searchParams.get("returnRevision")).toBe("3");
+  }
+  const board = new URL(screen.getByRole("link", { name: "白板" }).getAttribute("href")!, "https://workspace.invalid");
+  expect(board.searchParams.get("aidtReturnRevision")).toBe("3");
+  mocks.search = board.search;
+  render(<AidtBoardReturn />);
+  expect(screen.getByTestId("project-breadcrumb-back")).toHaveAttribute("href", "/aidt/group?step=2&tool=whiteboard&resource=board%2F1&thread=t&returnRevision=3");
+});
+it("hides the breadcrumb for duplicate native-resource learning-round hints", () => {
+  mocks.search = "projectId=group&aidtStep=2&aidtReturnRevision=3&aidtReturnRevision=4";
+  render(<AidtBoardReturn />);
+  expect(screen.queryByTestId("project-breadcrumb-back")).toBeNull();
 });

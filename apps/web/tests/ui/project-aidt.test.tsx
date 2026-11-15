@@ -148,3 +148,18 @@ it("retains the complete save and restore controls where the student edits stage
     mocks.search = "tool=outcome"; render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); await waitFor(() => expect(screen.getByTestId("aidt-shared-status")).toHaveTextContent("尚未保存")); expect(screen.getByTestId("aidt-shared-stage")).toBeVisible(); expect(screen.getByTestId("aidt-shared-save")).toBeVisible(); expect(screen.getByRole("button", { name: "AI 引导师" })).toBeVisible(); expect(screen.getByLabelText("初始问题")).toBeVisible();
   } finally { read.mockRestore(); vi.unstubAllEnvs(); }
 });
+
+it("keeps the saved learning round across tools and native resources but clears it on manual stage changes", async () => {
+  mocks.search = "tool=whiteboard&thread=t1&returnRevision=3";
+  render(<ProjectAidt projectId="p1" sub="aidt-3" canWrite />);
+  await screen.findByTestId("native-resources");
+  const props = mocks.resources.mock.calls.at(-1)![0];
+  for (const value of [props.resourceHref("whiteboard", "b1"), props.transformCreateHref("/studio/board/new?projectId=p1")]) {
+    const target = new URL(value, "https://workspace.invalid");
+    expect(target.searchParams.get("aidtReturnRevision")).toBe("3");
+    expect(target.searchParams.get("aidtStep")).toBe("3");
+  }
+  expect(new URL(props.resourceHref("personal_transcription", "s1"), "https://workspace.invalid").searchParams.get("returnRevision")).toBe("3");
+  expect(screen.getByRole("link", { name: "关闭工具，回到对话" }).getAttribute("href")).toContain("returnRevision=3");
+  expect(screen.getByTestId("aidt-stage-desktop-4").getAttribute("href")).not.toContain("returnRevision");
+});

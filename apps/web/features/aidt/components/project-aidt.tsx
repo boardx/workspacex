@@ -110,13 +110,14 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
   const step = aidtStep(sub);
   const thread = search.get("thread");
   const resource = search.get("resource");
+  const returnRevision = search.get("returnRevision");
   const allowed = step ? STEP_TOOLS[step.id] ?? ["chat"] : [];
   const requested = search.get("tool") as Tool | null;
   const explicitResourceView = Boolean(resource && (requested === "design" || requested === "transcript"));
   const tool: Tool = !canWrite && requested === "record" && allowed.includes("transcript") ? "transcript" : requested && (allowed.includes(requested) || requested === "sources" || explicitResourceView) ? requested : "chat";
   const prototypeGate = getAidtPrototypeGenerationReadiness(currentUi.drafts[5]!);
   const designAllowed = step?.id !== 5 || prototypeGate.ready;
-  const href = (nextTool: Tool, id?: string) => aidtHref(projectId, step?.id, { tool: nextTool, resource: id, thread });
+  const href = (nextTool: Tool, id?: string) => aidtHref(projectId, step?.id, { tool: nextTool, resource: id, thread, returnRevision });
   const threadResolutionScope = JSON.stringify([uiLifecycleKey, step?.id, thread]);
   const [resolvedThread, setResolvedThread] = React.useState<{ scope: string; id: string } | null>(null);
   const onResolvedThread = React.useCallback((id: string) => {
@@ -173,7 +174,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
     if (!canWrite || !latestCanWrite.current || latestUiScope.current !== uiScope || uiLifecycle.current.generation !== uiGeneration || !identity || !step) return "unavailable";
     const currentThread = new URLSearchParams(window.location.search).get("thread");
     const result = offerComposerDraft({ orgId: identity.currentOrgId, userId: identity.userId, projectId, threadId: currentThread }, text);
-    if (result === "accepted") router.push(aidtHref(projectId, step.id, { tool: "chat", thread: currentThread }));
+    if (result === "accepted") router.push(aidtHref(projectId, step.id, { tool: "chat", thread: currentThread, returnRevision }));
     return result;
   }
   if (!step) return <div className="space-y-6 overflow-y-auto p-4"><AidtDashboard href={(id) => aidtHref(projectId, id)} drafts={currentUi.drafts} shared={{ phase: shared.read?.phase ?? (shared.available ? "loading" : "error"), stages: shared.stages, error: shared.read?.error ?? (shared.available ? undefined : "登录后可读取本组已保存成果。"), reload: shared.reload }} /><AidtMaterials key={uiScope} projectId={projectId} /></div>;
@@ -183,6 +184,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
     const url = new URL(projectResourceHref(kind, id, projectId), "https://workspace.invalid");
     url.searchParams.set("aidtStep", String(step!.id));
     if (thread) url.searchParams.set("aidtThread", thread);
+    if (returnRevision) url.searchParams.set("aidtReturnRevision", returnRevision);
     return `${url.pathname}${url.search}`;
   }
   function createdHref(raw: string) {
@@ -190,6 +192,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
     if (tool === "design") return href("design", decodeURIComponent(url.pathname.split("/").pop() ?? ""));
     url.searchParams.set("aidtStep", String(step!.id));
     if (thread) url.searchParams.set("aidtThread", thread);
+    if (returnRevision) url.searchParams.set("aidtReturnRevision", returnRevision);
     return `${url.pathname}${url.search}`;
   }
   const outcomeStatus = !shared.available ? null : !shared.read || shared.read.phase === "loading" ? "读取中" : shared.read.phase === "error" ? "读取失败" : shared.write.phase === "conflict" ? "需核对版本" : shared.write.phase === "error" ? "保存未确认" : shared.matchesServer ? `V${shared.server?.revision} 已保存` : shared.server || aidtUiStageSummary(step.id, currentUi.drafts[step.id]!) ? "有未保存修改" : null;
@@ -222,7 +225,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
           onKeepCheckpoint={() => keepCheckpoint(step.id)} readOnly={!canWrite}
           reportNote="原生报告当前整理本页最新草稿；这里的对照记录未自动写入共享报告。" />
 </>
-        : tool === "context" ? <><AidtStageBridge key={`${uiScope}:${step.id}`} projectId={projectId} stageNumber={step.id} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} toChat={toChat} readOnly={!canWrite} /><AidtMaterials key={uiScope} projectId={projectId} stageNumber={step.id} thread={thread} /></>
+        : tool === "context" ? <><AidtStageBridge key={`${uiScope}:${step.id}`} projectId={projectId} stageNumber={step.id} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} toChat={toChat} readOnly={!canWrite} /><AidtMaterials key={uiScope} projectId={projectId} stageNumber={step.id} thread={thread} returnRevision={returnRevision} /></>
         : tool === "report" ? <AidtReportPreview key={uiScope} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} text={currentUi.report?.text ?? null} sourceRevision={currentUi.report?.sourceRevision ?? currentUi.revision} revision={currentUi.revision} onChange={(text) => changeReport(text)} regenerate={() => changeReport()} readOnly={!canWrite} toChat={toChat} shared={shared.report} />
         : tool === "sources" ? <ProjectEvidenceSection key={uiScope} projectId={projectId} />
         : tool === "record" ? canWrite ? <div data-testid="aidt-native-recording"><p className="px-4 text-12 text-muted-foreground">个人录音笔记只用于自己的思考。不得借此绕过项目访谈的参与者同意校验；项目访谈同意采集入口尚未集成。</p><Transcription key={uiScope} uiState="default" projectId={projectId} /></div> : null

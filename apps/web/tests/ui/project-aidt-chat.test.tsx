@@ -3,15 +3,16 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ProjectAidtChat } from "@/features/aidt/components/project-aidt-chat";
 import type { AidtStepChat } from "@/features/aidt/lib/live-aidt-step-chat";
+import { useChatHostReturnHref } from "@/lib/chat/chat-host-navigation";
 import { AIDT_STEPS } from "@/lib/project-aidt";
-const mocks = vi.hoisted(() => ({ enabled: true, resolve: vi.fn(), createLatest: vi.fn(), loadContext: vi.fn(), loadSharedContext: vi.fn(), shell: vi.fn(), context: vi.fn(), session: { currentOrgId: "o", userId: "u", sessionToken: "token" } }));
+const mocks = vi.hoisted(() => ({ enabled: true, resolve: vi.fn(), createLatest: vi.fn(), loadContext: vi.fn(), loadSharedContext: vi.fn(), shell: vi.fn(), returnHref: vi.fn(), context: vi.fn(), session: { currentOrgId: "o", userId: "u", sessionToken: "token" } }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mocks.enabled }));
 vi.mock("@/features/aidt/lib/live-aidt-step-chat", () => ({ resolveAidtStepChat: mocks.resolve, createAidtStepChatWithLatest: mocks.createLatest, AidtStepChatChoiceError: class extends Error {} }));
 vi.mock("@/features/aidt/lib/aidt-chat-saved-context", async (original) => ({ ...await original<typeof import("@/features/aidt/lib/aidt-chat-saved-context")>(), loadAidtSavedChatContext: mocks.loadContext }));
 vi.mock("@/features/aidt/lib/aidt-chat-shared-context", async (original) => ({ ...await original<typeof import("@/features/aidt/lib/aidt-chat-shared-context")>(), loadAidtSharedChatContext: mocks.loadSharedContext }));
 vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ session: mocks.session }) }));
 vi.mock("@copilotkit/react-core/v2", () => ({ useAgentContext: mocks.context }));
-vi.mock("@/components/chat/copilotkit-v2-shell", () => ({ CopilotKitV2Shell: (props: Record<string, unknown>) => { mocks.shell(props); return <div data-testid="chat-shell"><textarea aria-label="native-unsent-input" defaultValue="" /></div>; } }));
+vi.mock("@/components/chat/copilotkit-v2-shell", () => ({ CopilotKitV2Shell: function NativeShellStub(props: Record<string, unknown>) { mocks.shell(props); mocks.returnHref(useChatHostReturnHref(props.projectId as string)); return <div data-testid="chat-shell"><textarea aria-label="native-unsent-input" defaultValue="" /></div>; } }));
 vi.mock("@/app/chat/copilotkit-v2/copilotkit-v2-providers", () => ({ CopilotKitV2Providers: ({ children }: React.PropsWithChildren) => children }));
 vi.mock("@/lib/copilotkit-v2-agent-selection", () => ({ CopilotKitV2AgentSelectionProvider: ({ children }: React.PropsWithChildren) => children }));
 beforeEach(() => { vi.clearAllMocks(); mocks.enabled = true; mocks.loadSharedContext.mockResolvedValue({ status: "ready", items: [], issues: [] }); mocks.loadContext.mockResolvedValue({ status: "ready", items: [], issues: [] }); window.history.replaceState(null, "", "/aidt/p?step=1"); });
@@ -169,6 +170,7 @@ it("labels the readable summary and keeps the exact loaded report and selection 
 
 
 it("preserves an old-version native chat until students explicitly prepare a new conversation", async () => {
+  window.history.replaceState(null, "", "/aidt/p?step=1&returnRevision=3");
   mocks.resolve.mockResolvedValue({ threadId: "old", skillName: "理解", versionId: "old-pin", latestVersionId: "current-pin" });
   mocks.createLatest.mockResolvedValue({ threadId: "new", skillName: "理解", versionId: "current-pin", latestVersionId: "current-pin" });
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread="old" />);
@@ -179,7 +181,7 @@ it("preserves an old-version native chat until students explicitly prepare a new
   fireEvent.click(screen.getByRole("button", { name: "使用新版另开本步对话" }));
   const link = await screen.findByRole("link", { name: "打开新版对话（新标签页）" });
   expect(mocks.createLatest).toHaveBeenCalledWith(expect.objectContaining({ projectId: "p", thread: "old", expectedPinnedVersionId: "old-pin", expectedLatestVersionId: "current-pin", sessionToken: "token" }));
-  expect(link).toHaveAttribute("target", "_blank"); expect(link).toHaveAttribute("href", "/aidt/p?step=1&thread=new");
+  expect(link).toHaveAttribute("target", "_blank"); expect(link).toHaveAttribute("href", "/aidt/p?step=1&thread=new&returnRevision=3");
   expect(mocks.shell).toHaveBeenLastCalledWith(expect.objectContaining({ initialThreadId: "old" }));
   expect(new URLSearchParams(window.location.search).get("thread")).toBe("old");
   expect(screen.getByLabelText("native-unsent-input")).toBe(composer); expect(composer).toHaveValue("学生尚未发送的想法");
@@ -211,4 +213,39 @@ it("ignores a late upgrade response after moving to another group", async () => 
   await act(async () => finish({ threadId: "foreign-upgrade", skillName: "理解", versionId: "current-pin" }));
   expect(screen.queryByRole("link", { name: "打开新版对话（新标签页）" })).toBeNull();
   expect(new URLSearchParams(window.location.search).get("thread")).toBe("second");
+});
+
+it("preserves the saved learning round after the native thread resolves and switches thread", async () => {
+  window.history.replaceState(null, "", "/aidt/p?step=2&tool=context&resource=saved-material&returnRevision=3");
+  mocks.resolve.mockResolvedValue({ threadId: "resolved-step-two", skillName: "共情", versionId: "v1" });
+  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} />);
+  await screen.findByTestId("chat-shell");
+  const current = new URL(window.location.href);
+  expect(current.searchParams.get("returnRevision")).toBe("3");
+  const boardReturn = new URL(mocks.returnHref.mock.calls.at(-1)![0], "https://workspace.invalid");
+  expect(boardReturn.searchParams.get("returnRevision")).toBe("3");
+  expect(boardReturn.searchParams.get("thread")).toBe("resolved-step-two");
+  const path = mocks.shell.mock.calls.at(-1)![0].threadPath as (id: string | null) => string;
+  const next = new URL(path("new-native-thread"), "https://workspace.invalid");
+  expect(next.searchParams.get("returnRevision")).toBe("3");
+  expect(next.searchParams.get("thread")).toBe("new-native-thread");
+  expect(next.searchParams.get("resource")).toBe("saved-material");
+});
+
+it.each(["/aidt/other?step=2&returnRevision=3", "/aidt/p?step=3&returnRevision=3"])("does not carry a learning round from a foreign project or stage: %s", async (location) => {
+  window.history.replaceState(null, "", location);
+  mocks.resolve.mockResolvedValue({ threadId: "stage-two", skillName: "共情", versionId: "v1" });
+  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} />);
+  await screen.findByTestId("chat-shell");
+  expect(new URL(window.location.href).searchParams.has("returnRevision")).toBe(false);
+  window.history.replaceState(null, "", location);
+  const path = mocks.shell.mock.calls.at(-1)![0].threadPath as (id: string | null) => string;
+  expect(new URL(path("new-thread"), "https://workspace.invalid").searchParams.has("returnRevision")).toBe(false);
+});
+it("retains the learning round on recoverable native Chat errors", async () => {
+  window.history.replaceState(null, "", "/aidt/p?step=2&returnRevision=3");
+  mocks.resolve.mockRejectedValue(new Error("暂不可用"));
+  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} />);
+  await screen.findByRole("alert");
+  expect(screen.getByRole("link", { name: "返回本步对话" })).toHaveAttribute("href", "/aidt/p?step=2&returnRevision=3");
 });
