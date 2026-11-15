@@ -7,7 +7,7 @@ import { reportClientError } from "@/lib/report-client-error";
  * Next.js 的**根**错误边界——只在根 `layout.tsx` 自己抛出时才会渲染（例如
  * `Providers` 挂载失败）。这种情况下 `app/error.tsx` 不会被触发（它假设
  * layout 本身是好的），且**这个组件必须自带 `<html>`/`<body>
-        {locale && (`**——它替换的
+`**——它替换的
  * 是整个根布局，不是布局内的某个子树。
  *
  * 正因为是根布局都没起来，`Providers` 里的 `GlobalErrorReporter` 从未挂载过，
@@ -24,7 +24,7 @@ export default function GlobalError({
   const [locale, setLocale] = React.useState<ReturnType<typeof resolveLocale> | null>(null);
   React.useEffect(() => {
     const saved = document.cookie.split("; ").find(entry => entry.startsWith(`${LOCALE_COOKIE}=`));
-    setLocale(resolveLocale(saved?.slice(LOCALE_COOKIE.length + 1) ?? document.documentElement.lang));
+    setLocale(resolveLocale(saved?.slice(LOCALE_COOKIE.length + 1), window.location.host));
   }, []);
   const english = locale === "en";
   React.useEffect(() => {
