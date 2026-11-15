@@ -31,10 +31,23 @@ async function selectStage(page: Page, stage: number) {
     await page.getByTestId(`aidt-stage-mobile-${stage}`).click();
   }
 }
-async function openAssistant(page: Page) {
+async function openAssistant(page: Page, expectedChatError = false) {
   const panel = page.getByTestId("aidt-assistant-panel");
-  if (!(await panel.isVisible())) await page.getByRole("button", { name: "AI 引导师", exact: true }).click();
+  const trigger = page.getByRole("button", { name: "AI 引导师", exact: true });
+  // A route change can finish before its authenticated workspace is mounted.
+  // Default Chat already occupies the panel; only tool views have a trigger.
+  await expect.poll(async () => await panel.isVisible() || await trigger.isVisible()).toBe(true);
+  if (!(await panel.isVisible())) await trigger.click();
   await expect(panel).toBeVisible();
+  if (expectedChatError) return;
+  const composer = page.getByTestId("copilotkit-v2-input");
+  await expect(composer).toBeVisible();
+  await expect(composer).toBeInViewport({ ratio: 0.8 });
+  await expect.poll(() => composer.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return hit === node || node.contains(hit);
+  })).toBe(true);
 }
 async function openGuidance(page: Page) {
   const close = page.getByRole("button", { name: "关闭 AI 引导师", exact: true });
@@ -364,7 +377,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
     const mounted = await api(page, skillContracts.operations.mountSkillToThread.path.replace(":threadId", privateId), "POST", { threadId: privateId, skillIds: [understandSkill.skillId], expectedVersion: before.data.version });
     expect(mounted.status, JSON.stringify(mounted.data)).toBeLessThan(300);
     await page.goto(`${base}step=1&thread=${privateId}`);
-    await openAssistant(page);
+    await openAssistant(page, true);
     await expect(page.getByTestId("aidt-chat-error")).toContainText("个人范围");
     const privateRead = await api(second, `/chat/threads/${privateId}?projectId=${projectId}`);
     expect([403, 404]).toContain(privateRead.status);
@@ -376,7 +389,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
     const duplicateMount = await api(page, skillContracts.operations.mountSkillToThread.path.replace(":threadId", duplicateId), "POST", { threadId: duplicateId, skillIds: [understandSkill.skillId], expectedVersion: duplicateBefore.data.version });
     expect(duplicateMount.status).toBeLessThan(300);
     await page.goto(`${base}step=1`);
-    await openAssistant(page);
+    await openAssistant(page, true);
     await expect(page.getByTestId("aidt-chat-error")).toContainText("多个本步对话");
     await expect(page.getByRole("link", { name: /继续这条对话/ })).toHaveCount(2);
     await page.screenshot({ path: test.info().outputPath("aidt-group-conflict.png"), fullPage: true });

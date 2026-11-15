@@ -144,6 +144,10 @@ test("fresh native teaching audit and bounded loopback session", async ({ page }
   await sendViaWorkbench(page,prompt);
   let answer="";
   await expect.poll(async()=>{const result=await page.evaluate(async()=>{const thread=new URL(location.href).searchParams.get("thread");const response=await fetch(`/__fullstack_api/chat/threads/${thread}/messages?limit=100`,{headers:{authorization:`Bearer ${localStorage.getItem("wsx.sessionToken")}`}});return await response.json();});const agent=result.messages?.find((item:{authorKind:string;text:string;agentRunId:string|null})=>item.authorKind==="agent"&&item.agentRunId&&item.text.trim());answer=agent?.text??"";return Boolean(agent);},{timeout:60000}).toBe(true);
+  const send = page.getByTestId("copilotkit-v2-send");
+  await expect(send).toBeVisible();
+  await expect(send).toHaveAttribute("data-send-state", /^(ready|disabled)$/, {timeout:60000});
+  observations.push({label:"chat-run-terminal",sendState:await send.getAttribute("data-send-state"),persistedAgentText:true});
   for(const width of [1280,375]){await page.setViewportSize({width,height:width===375?812:900});const message=page.getByTestId("aidt-native-chat").getByText(answer,{exact:true}).filter({visible:true}).first();await expect(message).toBeVisible();await message.scrollIntoViewIfNeeded();await expect(message).toBeInViewport({ratio:0.8});await metric(`chat-populated-answer-${width}`,message);await shot(`12-chat-populated-${width}`);}
   await writeFile(join(output,"observations.json"),JSON.stringify(observations,null,2));
   const runtime = { verification:{strictLayout:verify,observeOnly:process.env.AIDT_AUDIT_OBSERVE_ONLY??null},isolationId:process.env.WORKSPACEX_ISOLATION_ID,composeProject:process.env.COMPOSE_PROJECT_NAME,projectId,baseURL:new URL(page.url()).origin,apiOrigin:`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`,expiresAt:new Date(Date.now()+hold*1000).toISOString(),scope:"temporary fixture acceptance; not a persistent group workspace or external user link",dataRetention:"stop or TTL cleans disposable test data",ai:"deterministic local fixture; no real supplier or ASR validation" };
