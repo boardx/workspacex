@@ -13,13 +13,13 @@ const dirs: string[] = [];
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
 
 /** 造一个最小的 `.next` 产物：BUILD_ID + 一个客户端 chunk（+ 可选的 source map）。 */
-function fakeBuild(chunk: string, sourceMap?: string): string {
+function fakeBuild(chunk: string, sourceMap?: string, buildDir = ".next"): string {
   const web = mkdtempSync(join(tmpdir(), "wsx-web-"));
   dirs.push(web);
-  mkdirSync(join(web, ".next", "static", "chunks"), { recursive: true });
-  writeFileSync(join(web, ".next", "BUILD_ID"), "test-build");
-  writeFileSync(join(web, ".next", "static", "chunks", "main.js"), chunk);
-  if (sourceMap !== undefined) writeFileSync(join(web, ".next", "static", "chunks", "main.js.map"), sourceMap);
+  mkdirSync(join(web, buildDir, "static", "chunks"), { recursive: true });
+  writeFileSync(join(web, buildDir, "BUILD_ID"), "test-build");
+  writeFileSync(join(web, buildDir, "static", "chunks", "main.js"), chunk);
+  if (sourceMap !== undefined) writeFileSync(join(web, buildDir, "static", "chunks", "main.js.map"), sourceMap);
   return web;
 }
 
@@ -53,5 +53,46 @@ describe("web build provenance", () => {
     dirs.push(web);
     expect(webBuildExists(web)).toBe(false);
     expect(checkWebBuild(web, "http://127.0.0.1:3200").reason).toContain("没有构建产物");
+  });
+});
+
+
+describe("separate Local build directories", () => {
+  const custom = ".next-profile-test";
+  it("does not accept an ordinary build when the selected profile build is absent", () => {
+    const web = fakeBuild('fetch("http://127.0.0.1:3200/auth/login")');
+    expect(webBuildExists(web, custom)).toBe(false);
+    expect(bakedIntoWebBuild(web, "http://127.0.0.1:3200", custom)).toBe(false);
+    const result = checkWebBuild(web, "http://127.0.0.1:3200", custom);
+    expect(result.usable).toBe(false);
+    expect(result.reason).toContain(join(web, custom));
+    expect(checkWebBuild(web, "http://127.0.0.1:3200").usable).toBe(true);
+  });
+
+  it("accepts the selected build without making it the ordinary build", () => {
+    const web = fakeBuild('fetch("http://127.0.0.1:3300/auth/login")', undefined, custom);
+    expect(webBuildExists(web, custom)).toBe(true);
+    expect(checkWebBuild(web, "http://127.0.0.1:3300", custom)).toEqual({ usable: true, reason: null });
+    expect(webBuildExists(web)).toBe(false);
+    expect(checkWebBuild(web, "http://127.0.0.1:3300").usable).toBe(false);
+  });
+
+  it("keeps origins isolated when both build directories exist", () => {
+    const web = fakeBuild('fetch("http://127.0.0.1:3200/auth/login")');
+    mkdirSync(join(web, custom, "static", "chunks"), { recursive: true });
+    writeFileSync(join(web, custom, "BUILD_ID"), "custom-build");
+    writeFileSync(join(web, custom, "static", "chunks", "main.js"), 'fetch("http://127.0.0.1:3300/auth/login")');
+    expect(checkWebBuild(web, "http://127.0.0.1:3300", custom).usable).toBe(true);
+    expect(checkWebBuild(web, "http://127.0.0.1:3200").usable).toBe(true);
+    const mismatch = checkWebBuild(web, "http://127.0.0.1:3200", custom);
+    expect(mismatch.usable).toBe(false);
+    expect(mismatch.reason).toContain(`NEXT_DIST_DIR=${custom}`);
+    expect(checkWebBuild(web, "http://127.0.0.1:3300").usable).toBe(false);
+  });
+
+  it("still ignores source maps within the selected build", () => {
+    const web = fakeBuild('fetch(API_BASE+"/auth/login")', '{"source":"http://127.0.0.1:3300"}', custom);
+    expect(bakedIntoWebBuild(web, "http://127.0.0.1:3300", custom)).toBe(false);
+    expect(checkWebBuild(web, "http://127.0.0.1:3300", custom).usable).toBe(false);
   });
 });

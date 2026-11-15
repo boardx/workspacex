@@ -14,6 +14,19 @@ pnpm aidt:local doctor
 pnpm aidt:local start
 ```
 
+### 可选：预构建后启动
+
+为避免每次进入步骤工作区时现场编译，可先停止本机实例，构建一次，再启动：
+
+```sh
+pnpm aidt:local build
+pnpm aidt:local start --web start
+```
+
+构建本身需要时间；成功后会明确提示 `AIDT build verified`。构建不启动数据库或生成小组，实际账号在首次 start 时初始化。已有成果、附件和密钥不因构建而重置。程序会校验构建使用的 API 地址、功能开关、源码和产物是否匹配；不匹配会拒绝启动并提示重建，不会悄悄退回开发模式。
+
+更改 API 端口时，build 与 start 需使用同一个 `--ports api=...`。更新应用源码或安装不同依赖后需重新 build。默认 `start` 仍为开发模式，便于修改代码；运行 dev 会覆盖同一个 AIDT 专用构建目录，之后使用预构建模式前需要重新 build。不同数据目录也不能同时使用同一份 AIDT 构建目录；请先正常停止原实例，不要手工删除运行中的锁文件。
+
 启动窗口需要保持打开。首次迁移与页面编译会比再次启动慢；看到 `AIDT ready` 后，在**这台电脑**的浏览器打开 <http://127.0.0.1:3100/aidt>。该地址仅适用于运行了上述启动工具的电脑。它不是在线演示地址。首次进入复杂工作区需要现场编译，可能等待数分钟；这是源码开发模式的限制，后续使用缓存会快。AIDT 使用独立 `.next-aidt-local` 编译目录，不覆盖普通 WorkspaceX 的 `.next`。
 
 另开一个终端，进入同一源码目录，获取本机账号：
@@ -33,7 +46,7 @@ pnpm aidt:local stop
 pnpm aidt:local start
 ```
 
-`status` 查询真实 owner 及本次 HTTP 探测；`health` 只有 API `/healthz` 与 Web `/login` 均返回 200 且 owner 处于 running 时退出 0。它不代表模型或所有业务能力都通过验收，须同时查看 `capabilities` 和 `warnings`。启动中、断线、停止中或凭据校验失败不会冒充健康。
+`status` 查询真实 owner 及本次 HTTP 探测，并显示实际 `webMode`。`health` 只有 API `/healthz` 与 Web `/login` 均返回 200 且 owner 处于 running 时退出 0。它不代表模型或所有业务能力都通过验收，须同时查看 `capabilities` 和 `warnings`。构建中、启动中、断线、停止中或凭据校验失败不会冒充健康。
 
 停止也可以在启动窗口按 Ctrl-C。工具仅通过私有本机 IPC 请原启动进程停止自己创建的服务，不根据 PID 或端口去杀别人的服务。停止不会删除小组、成果、消息、附件或账号。
 
@@ -62,7 +75,7 @@ sh scripts/aidt-local/health.sh
 sh scripts/aidt-local/stop.sh
 ```
 
-Windows 的对应文件是 `scripts\aidt-local\start.cmd`、`health.cmd`、`stop.cmd`，可从命令提示符执行。脚本会回到源码根目录并调用同一工具。当前运行验证环境为 Linux；macOS 与 Windows 的实机安装和进程生命周期仍待验证。
+另有 `sh scripts/aidt-local/build.sh` 用于预构建；使用 `sh scripts/aidt-local/start.sh --web start` 启动已验证产物。Windows 的对应文件是 `scripts\aidt-local\build.cmd`、`start.cmd`、`health.cmd`、`stop.cmd`，可从命令提示符执行。脚本会回到源码根目录并调用同一工具。当前运行验证环境为 Linux；macOS 与 Windows 的实机安装和进程生命周期仍待验证。
 
 ## 试用顺序
 

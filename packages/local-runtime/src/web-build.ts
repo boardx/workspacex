@@ -32,19 +32,19 @@ import { join } from "node:path";
 /** `next build` 的产物目录（相对 `apps/web`）。 */
 export const WEB_BUILD_DIR = ".next";
 
-export function webBuildExists(webAppDir: string): boolean {
-  return existsSync(join(webAppDir, WEB_BUILD_DIR, "BUILD_ID"));
+export function webBuildExists(webAppDir: string, buildDir: string = WEB_BUILD_DIR): boolean {
+  return existsSync(join(webAppDir, buildDir, "BUILD_ID"));
 }
 
 /**
  * 产物的客户端 chunk 里有没有出现这个字面量。
  *
- * 只扫 `.next/static`（客户端 bundle 就在这里），并且**跳过 source map**：`.map` 里会
+ * 只扫所选构建目录的 `static`（默认 `.next/static`），**跳过 source map**：`.map` 里会
  * 原样带上源码文本，`process.env.NEXT_PUBLIC_API_URL` 这种没被替换的写法也在里面，
  * 扫到了会把「烘焙过」误判成真。
  */
-export function bakedIntoWebBuild(webAppDir: string, literal: string): boolean {
-  const staticDir = join(webAppDir, WEB_BUILD_DIR, "static");
+export function bakedIntoWebBuild(webAppDir: string, literal: string, buildDir: string = WEB_BUILD_DIR): boolean {
+  const staticDir = join(webAppDir, buildDir, "static");
   if (!existsSync(staticDir)) return false;
   for (const file of walk(staticDir)) {
     if (file.endsWith(".map")) continue;
@@ -75,17 +75,17 @@ export interface WebBuildCheck {
  *   会被当成「这软件真慢」，而真正的原因（产物是按另一个端口烘焙的）一个字都没说。
  *   宁可失败并给出那条重新构建的命令。
  */
-export function checkWebBuild(webAppDir: string, expectedApiUrl: string): WebBuildCheck {
-  if (!webBuildExists(webAppDir)) {
-    return { usable: false, reason: `${join(webAppDir, WEB_BUILD_DIR)} 里没有构建产物；先构建，或用 --web dev 启动。` };
+export function checkWebBuild(webAppDir: string, expectedApiUrl: string, buildDir: string = WEB_BUILD_DIR): WebBuildCheck {
+  if (!webBuildExists(webAppDir, buildDir)) {
+    return { usable: false, reason: `${join(webAppDir, buildDir)} 里没有构建产物；先构建，或用 --web dev 启动。` };
   }
-  if (bakedIntoWebBuild(webAppDir, expectedApiUrl)) return { usable: true, reason: null };
+  if (bakedIntoWebBuild(webAppDir, expectedApiUrl, buildDir)) return { usable: true, reason: null };
   return {
     usable: false,
     reason:
       `Web 产物不是按 ${expectedApiUrl} 构建的——NEXT_PUBLIC_* 在构建期就被编译进了客户端代码，\n` +
       "  端口对不上时页面能打开、样式正常、一个报错也没有，但每个 API 请求都打向旧地址。\n" +
-      `  重新构建：NEXT_PUBLIC_API_URL=${expectedApiUrl} pnpm --filter web build\n` +
+      `  重新构建：${buildDir === WEB_BUILD_DIR ? "" : `NEXT_DIST_DIR=${buildDir} `}NEXT_PUBLIC_API_URL=${expectedApiUrl} pnpm --filter web build\n` +
       "  或者用 --web dev 启动（首屏慢，但地址在运行期读）。",
   };
 }

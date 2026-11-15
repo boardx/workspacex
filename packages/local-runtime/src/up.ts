@@ -470,10 +470,14 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     const webMode = opts.webMode ?? "dev";
     const webUrl = `http://127.0.0.1:${c.ports.web}`;
     if (webMode !== "none") {
+      const webProcessEnv: Record<string, string> = {
+        ...webEnv(c),
+        ...(c.profile === "aidt" ? { NODE_ENV: webMode === "start" ? "production" : "development" } : {}),
+      };
       if (webMode === "start") {
         // `next start` 跑的是构建期就把 API 地址内联进去的产物；端口一换，页面照样打开、
         // 一个报错也没有，而每个请求都打向旧地址。见 web-build.ts 的文件头。
-        const check = checkWebBuild(join(c.repoRoot, "apps", "web"), webEnv(c).NEXT_PUBLIC_API_URL!);
+        const check = checkWebBuild(join(c.repoRoot, "apps", "web"), webProcessEnv.NEXT_PUBLIC_API_URL!, webProcessEnv.NEXT_DIST_DIR);
         if (!check.usable) throw new Error(`无法用已构建的 Web 产物启动：\n  ${check.reason ?? ""}`);
       }
       // pnpm does not hoist: `next` lives in apps/web's own node_modules/.bin, not the root's.
@@ -482,7 +486,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         command: process.execPath,
         args: nextLaunch(c.repoRoot, [webMode, "-p", String(c.ports.web), "-H", "127.0.0.1"]).args,
         cwd: join(c.repoRoot, "apps", "web"),
-        env: { ...webEnv(c), ...nodeEnv() },
+        env: { ...webProcessEnv, ...nodeEnv() },
         logDir: paths.logs(c),
       });
       await waitForHttpOrExit(webUrl, { timeoutMs: 300_000 }, managed[managed.length - 1]!);
