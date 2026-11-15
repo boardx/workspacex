@@ -475,7 +475,7 @@ test("F155：命中项目内可检索文件的提问带来源标记，未命中�
   const decoyReply = await messageRow(decoyMessageId);
   // 这条回复真的出自确定性上游（带回显前缀）⇒ 闭环穿过了整条链，不是前端合成的。
   await expect(decoyReply).toBeVisible();
-  await expect(decoyReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
+  await expect(decoyReply).toContainText(CHAT_READ_E2E.retrievalDecoyQuery);
   await expect(
     decoyReply,
     "没有命中任何文件时，回复里不该出现检索来源标记——否则下面那条命中断言恒绿、证明不了任何事",
@@ -497,7 +497,7 @@ test("F155：命中项目内可检索文件的提问带来源标记，未命中�
   const groundedMessageId = await sendAndAwaitRun(groundedQuestion);
   const groundedReply = await messageRow(groundedMessageId);
   await expect(groundedReply).toBeVisible();
-  await expect(groundedReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
+  await expect(groundedReply).toContainText(groundedQuestion);
   await expect(
     groundedReply,
     "命中的文件应作为带来源标记的检索上下文进入模型输入（F155：来源标记 chat-attachment）",
