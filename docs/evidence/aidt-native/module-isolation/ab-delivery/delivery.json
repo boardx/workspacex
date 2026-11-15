@@ -1,0 +1,27 @@
+{
+  "sourceCommit": "8f31b6fa4d94d74f0228df2367546b2782a06e27",
+  "evidenceCommit": "2a5320d553478244c978c6561b1dee1ac1f4a160",
+  "backlog": "https://chatgpt.com/space/page_78bc9016074481918252b6ea34bdbbea",
+  "gallery": "https://chatgpt.com/space/page_240db14988308191b9f4df925809cb3a",
+  "bundle": {
+    "page_id": "page_78bc9016074481918252b6ea34bdbbea",
+    "reference": "library-file:fde1_bGliZmlsZV9fczlVcmg5TG1wbktVODhaYlN0ZDdB_FileDrive_f2550309ede48191b6efb8c3155855a5",
+    "file_name": "AIDT-AB-source-and-evidence-7d9b682104854bfa927d387b21b8a94d.zip",
+    "mime_type": "application/zip",
+    "byte_size": 4810568,
+    "sha256": "ffc7b9faa964c94b2e23c26b675796e3e10eaed86e5e018909d84c66ebd6e794",
+    "file_access_confirmed": true,
+    "is_image": false,
+    "markdown": "[AIDT A+B 最新源码、35张原生截图与测试证据](library-file:fde1_bGliZmlsZV9fczlVcmg5TG1wbktVODhaYlN0ZDdB_FileDrive_f2550309ede48191b6efb8c3155855a5)",
+    "inserted": false,
+    "next_step": "Read the Page and use edit_page with its fresh guards to insert markdown."
+  },
+  "runtimePreviewAvailable": false,
+  "scope": "User-approved A+B; interview recording deferred",
+  "validation": {
+    "webTests": 492,
+    "apiUnitTests": 83,
+    "realFullstackTests": 3,
+    "screenshots": 35
+  }
+}
