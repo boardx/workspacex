@@ -9,6 +9,7 @@ import { apiRequest } from "@/lib/api-client";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { isProjectMemberChatEnabled } from "@/lib/project-member-chat-config";
+import { isMemberChatComposing } from "@/lib/project-member-chat-input";
 import { memberChatProjectFromLocation } from "@/lib/project-member-chat-navigation";
 
 const MemberChat = dynamic(() => import("./project-member-chat").then((module) => module.ProjectMemberChat), {
@@ -54,7 +55,12 @@ function Launcher({ orgId, sessionToken }: { orgId: string; sessionToken: string
   React.useEffect(() => {
     if (!open) return;
     panel.current?.querySelector<HTMLSelectElement>("select")?.focus();
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && !event.defaultPrevented && !event.isComposing) { event.preventDefault(); close(); } };
+    const escape = (event: KeyboardEvent) => {
+      const target = event.target;
+      const ownsEvent = target instanceof Node && (panel.current?.contains(target) || trigger.current?.contains(target))
+        || target === document && Boolean(panel.current?.contains(document.activeElement));
+      if (ownsEvent && event.key === "Escape" && !event.defaultPrevented && !isMemberChatComposing(event)) { event.preventDefault(); close(); }
+    };
     document.addEventListener("keydown", escape);
     return () => document.removeEventListener("keydown", escape);
   }, [open, close]);

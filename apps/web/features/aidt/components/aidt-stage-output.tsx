@@ -32,6 +32,7 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
 }) {
   const output = AIDT_OUTPUTS[step.id]!;
   const [status, setStatus] = React.useState("");
+  const [pendingRemoval, setPendingRemoval] = React.useState<string | null>(null);
   const [distinctReviewed, setDistinctReviewed] = React.useState(false);
   const [printing, setPrinting] = React.useState(false);
   const identity = useOptionalSession()?.session;
@@ -46,6 +47,11 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
   const imageRequests = React.useRef(new Map<string, number>());
   const field = (id: string, value: string) => update((old) => ({ ...old, fields: { ...old.fields, [id]: value }, ...(id === "reason" && old.selectedIdeaId ? { selectionReasons: { ...old.selectionReasons, [old.selectedIdeaId]: value } } : {}) }));
   const idea = (id: string, value: Partial<AidtIdeaDraft>) => { setDistinctReviewed(false); update((old) => ({ ...old, ideas: old.ideas.map((item) => item.id === id ? { ...item, ...value } : item) })); };
+  const removeIdea = (id: string) => {
+    setDistinctReviewed(false);
+    update((old) => ({ ...old, ideas: old.ideas.filter((item) => item.id !== id), selectedIdeaId: old.selectedIdeaId === id ? "" : old.selectedIdeaId }));
+    setPendingRemoval(null);
+  };
   async function copy() {
     try { await navigator.clipboard.writeText(aidtUiStageMarkdown(step.id, draft)); setStatus("已复制。粘贴并发送成功后才会保存到本组对话；表单共享请使用上方保存按钮。"); }
     catch { setStatus("未能复制，请手动选择填写内容。表单保存状态以上方共享回执为准。"); }
@@ -90,7 +96,8 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
     {step.id === 2 && <AidtActivityNav currentId="draft" items={[{ id: "draft", label: "访谈计划", href: toolHref("outcome") }, { id: "sources", label: "研究材料", href: toolHref("sources") }]} />}
     {step.id === 4 && <div className="space-y-3" data-testid="aidt-idea-cards">
       {draft.ideas.map((item, index) => <article key={item.id} className={`space-y-3 rounded-xl border p-3 ${draft.selectedIdeaId === item.id ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
-        <div className="flex items-center justify-between gap-2"><span className="text-12 font-medium">候选 {index + 1}</span><Button variant="ghost" size="xs" disabled={readOnly} onClick={() => update((old) => ({ ...old, ideas: old.ideas.filter((it) => it.id !== item.id), selectedIdeaId: old.selectedIdeaId === item.id ? "" : old.selectedIdeaId }))}>移除候选 {index + 1}</Button></div>
+        <div className="flex items-center justify-between gap-2"><span className="text-12 font-medium">候选 {index + 1}</span><Button variant="ghost" size="xs" disabled={readOnly} onClick={() => item.title.trim() || item.description.trim() || item.image || item.imageAttachment || draft.selectedIdeaId === item.id ? setPendingRemoval(item.id) : removeIdea(item.id)}>移除候选 {index + 1}</Button></div>
+        {pendingRemoval === item.id && <div role="alert" className="space-y-2 rounded-lg border border-border p-3 text-12"><p>移除后，本页未保存的内容将丢失；已保存的历史版本不会删除。</p><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setPendingRemoval(null)}>保留候选</Button><Button size="sm" variant="outline" disabled={readOnly} onClick={() => removeIdea(item.id)}>确认移除候选</Button></div></div>}
         <label className="block text-12">点子名称<input className="mt-1 w-full rounded-md border border-border bg-background p-2 text-13" aria-label={`候选${index + 1}名称`} value={item.title} maxLength={120} disabled={readOnly} onChange={(e) => idea(item.id, { title: e.currentTarget.value })} placeholder="给这个方向起一个容易讨论的名字" /></label>
         {item.imageAttachment ? <AidtImageAttachmentPreview projectId={projectId} reference={item.imageAttachment} alt={`候选${index + 1}已关联图像`} onState={(state) => setPrintImages((old) => old[item.id]?.key === imageKey(item) && old[item.id]?.src === state.src && old[item.id]?.failed === state.failed ? old : { ...old, [item.id]: { ...state, key: imageKey(item) } })} /> : item.image ? <Image src={item.image} width={480} height={270} unoptimized alt={`候选${index + 1}参考图（未上传）`} className="w-full rounded-md object-contain" /> : <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-border text-12 text-muted-foreground">参考图待补充 · 不代表已生成</div>}
         {thread && <AidtImageAttachmentPicker projectId={projectId} thread={thread} value={item.imageAttachment} readOnly={readOnly} label={`候选${index + 1}图像`} onChange={(reference) => idea(item.id, { image: undefined, imageName: reference?.name, imageAttachment: reference ?? undefined })} />}
@@ -106,9 +113,9 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
     {step.id === 4 && (draft.unboundReason || Object.entries(draft.selectionReasons ?? {}).some(([id, text]) => id !== draft.selectedIdeaId && text.trim())) && <details className="text-12"><summary className="cursor-pointer">其他候选的理由与未归属笔记</summary>{Object.entries(draft.selectionReasons ?? {}).filter(([id, text]) => id !== draft.selectedIdeaId && text.trim()).map(([id, text]) => <p className="mt-2 whitespace-pre-wrap" key={id}>{draft.ideas.find((item) => item.id === id)?.title || "已移除候选"}：{text}</p>)}{draft.unboundReason && <p className="mt-2 whitespace-pre-wrap">未归属笔记：{draft.unboundReason}</p>}</details>}
     {step.id === 5 && <Button asChild variant="outline" className="w-full"><Link href={toolHref("design")}>打开原生 Design Workbench</Link></Button>}
     {step.id === 2 && <Button asChild variant="outline" className="w-full"><Link href={toolHref("sources")}>查看与关联真实研究资料</Link></Button>}
-    <div className="sticky bottom-0 space-y-2 border-t border-border bg-background py-3">{toChat && <Button className="w-full" disabled={readOnly} onClick={() => {
+    <div className="space-y-2 border-t border-border bg-background py-3" data-testid="aidt-stage-output-actions">{toChat && <Button className="w-full sm:w-auto" disabled={readOnly} onClick={() => {
       const result = toChat(aidtUiStageMarkdown(step.id, draft));
       setStatus(result === "accepted" ? "已带入聊天输入框。审阅并发送后保存本组对话；表单共享请使用上方保存按钮。" : result === "occupied" ? "聊天输入框已有未发送内容，未覆盖。请先处理原草稿，或使用复制。" : "本步聊天尚未就绪，请稍后重试；本栏草稿仍保留。");
-    }}>审阅并发送到本步聊天</Button>}<Button variant="outline" className="w-full" onClick={() => void copy()}>复制本步成果到聊天</Button>{step.id === 6 && <Button asChild variant="outline" className="w-full"><Link href={aidtHref(projectId, 6, { tool: "report" })}>预览小组报告</Link></Button>}<p role="status" aria-live="polite" className="text-12 text-muted-foreground">{status}</p></div>
+    }}>审阅并发送到本步聊天</Button>}<div className="flex flex-wrap gap-2"><Button variant="ghost" size="sm" onClick={() => void copy()}>复制本步成果到聊天</Button>{step.id === 6 && <Button asChild variant="outline" size="sm"><Link href={aidtHref(projectId, 6, { tool: "report" })}>预览小组报告</Link></Button>}</div><p role="status" aria-live="polite" className="text-12 text-muted-foreground">{status}</p></div>
   </section>;
 }

@@ -11,10 +11,11 @@ import { AIDT_PROJECT_TAG } from "@/lib/project-aidt";
 const mocks = vi.hoisted(() => ({
   session: { currentOrgId: "org", userId: "student-a", sessionToken: "token" },
   identity: { orgRole: "admin" },
-  search: "", list: vi.fn(), find: vi.fn(), overview: vi.fn(), materials: vi.fn(), workspace: vi.fn(), breadcrumb: vi.fn(),
+  search: "", list: vi.fn(), find: vi.fn(), overview: vi.fn(), materials: vi.fn(), workspace: vi.fn(), membership: vi.fn(), breadcrumb: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(mocks.search), useParams: () => ({ boardId: "board/1" }) }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: mocks.session, identity: mocks.identity }), useSession: () => ({ session: mocks.session, identity: mocks.identity }) }));
+vi.mock("@/features/aidt/lib/aidt-project-membership", () => ({ readAidtProjectMembership: mocks.membership }));
 vi.mock("@/lib/live-projects", () => ({ listProjects: mocks.list, findProject: mocks.find, getProjectOverview: mocks.overview }));
 vi.mock("@/lib/live-project-resources", () => ({ listProjectResources: mocks.materials, PROJECT_RESOURCE_KIND_LABEL_ZH: { design: "设计", personal_transcription: "个人转录" } }));
 vi.mock("@/components/project/project-resource-section", () => ({ projectResourceHref: (_kind: string, id: string) => `/source/${encodeURIComponent(id)}`, describeProjectResourceFailure: () => "资料读取失败，访问资格需重新核对" }));
@@ -30,6 +31,7 @@ beforeEach(() => {
   mocks.session = { currentOrgId: "org", userId: "student-a", sessionToken: "token" }; mocks.identity.orgRole = "admin"; mocks.search = "";
   mocks.list.mockResolvedValue([project]); mocks.find.mockResolvedValue(project);
   mocks.overview.mockResolvedValue({ projectId: "group", name: "本组", status: "active", kind: "general" });
+  mocks.membership.mockResolvedValue("owner");
   mocks.materials.mockResolvedValue({ items: [] });
 });
 afterEach(() => { vi.unstubAllEnvs(); });
@@ -109,4 +111,16 @@ it("leaves ordinary Board navigation untouched unless AIDT is enabled with an ex
   mocks.search = "projectId=group%2F1&aidtStep=2"; rerender(<AidtBoardReturn />);
   expect(screen.getByTestId("native-board-return")).toBeVisible();
   await waitFor(() => expect(mocks.breadcrumb).toHaveBeenLastCalledWith({ projectId: "group/1", sub: "whiteboard", hrefOverride: "/aidt/group%2F1?step=2&tool=whiteboard&resource=board%2F1", labelOverride: "返回 AIDT 步骤" }));
+});
+
+
+it("does not revive a previous actor roster result after the actor leaves and returns", async () => {
+  const late = deferred<"owner">(); mocks.membership.mockImplementationOnce(() => late.promise);
+  const original = {...mocks.session};const {rerender}=render(<AidtProjectWorkspace projectId="group" />);
+  await waitFor(()=>expect(mocks.membership).toHaveBeenCalledTimes(1));
+  mocks.session={...original,userId:"student-b"};rerender(<AidtProjectWorkspace projectId="group" />);
+  await screen.findByTestId("native-aidt-workspace");
+  mocks.membership.mockResolvedValue(null);mocks.session=original;rerender(<AidtProjectWorkspace projectId="group" />);
+  await screen.findByTestId("aidt-access-denied");
+  await act(async()=>{late.resolve("owner");});expect(screen.queryByTestId("native-aidt-workspace")).toBeNull();
 });

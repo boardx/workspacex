@@ -8,7 +8,7 @@ import { useAidtSharedStages } from "@/features/aidt/lib/use-aidt-shared-stages"
 import { emptyAidtUiDrafts, type AidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtSharedStage, AidtSaveStageInput } from "@/features/aidt/lib/live-aidt-stages";
 
-const mocks = vi.hoisted(() => ({ read: vi.fn(), save: vi.fn() }));
+const mocks = vi.hoisted(() => ({ read: vi.fn(), save: vi.fn(), hydrate: vi.fn() }));
 vi.mock("@/features/aidt/lib/live-aidt-stages", () => ({ readAidtStage: mocks.read, saveAidtStage: mocks.save }));
 function fieldFor(stageId: number) { return stageId === 2 ? "guide" : stageId === 6 ? "feedback" : "initial"; }
 function draft(text = "", stageId = 1) { return StageDraft.parse({ ...emptyAidtUiDrafts()[stageId]!, fields: { [fieldFor(stageId)]: text } }); }
@@ -22,13 +22,13 @@ function Harness({ actor = "student-a", token = "token-a", life = "a", canWrite 
   const [reportState, setReport] = React.useState<{ life: string; text: string | null }>({ life, text: reportInitial });
   const reportText = reportState.life === life ? reportState.text : null;
   React.useEffect(() => { setReport(old => old.life === life ? old : { life, text: null }); }, [life]);
-  const c = useAidtSharedStages({ enabled, scope: { orgId: "org", projectId: "project", userId: actor, sessionToken: token }, lifecycleKey: life, stageId, drafts, canWrite, reportText, onHydrateReport: text => setReport({ life, text }), onHydrate: (id, restored) => setState(old => ({ life, drafts: { ...(old.life === life ? old.drafts : emptyAidtUiDrafts()), [id]: restored } })) });
+  const c = useAidtSharedStages({ enabled, scope: { orgId: "org", projectId: "project", userId: actor, sessionToken: token }, lifecycleKey: life, stageId, drafts, canWrite, reportText, onHydrateReport: text => setReport({ life, text }), onHydrate: (id, restored) => { mocks.hydrate(id, restored); setState(old => ({ life, drafts: { ...(old.life === life ? old.drafts : emptyAidtUiDrafts()), [id]: restored } })); } });
   exposed = c;
   return <><label>学生本页内容<input aria-label="学生本页内容" disabled={!canWrite} value={drafts[stageId]!.fields[fieldFor(stageId)] ?? ""} onChange={event => { const value = event.currentTarget.value; setState(old => ({ life, drafts: { ...old.drafts, [stageId]: { ...old.drafts[stageId]!, fields: { ...old.drafts[stageId]!.fields, [fieldFor(stageId)]: value } } } })); }} /></label><output data-testid="full-drafts">{JSON.stringify(drafts)}</output><label>本页报告<textarea aria-label="本页报告" disabled={!canWrite} value={reportText ?? ""} onChange={event => setReport({ life, text: event.currentTarget.value })} /></label><button disabled={!c.report.canSave} onClick={() => void c.report.save()} data-testid="save-report">保存报告</button><output data-testid="report-server">{c.report.serverMarkdown}</output><output data-testid="report-error">{c.report.error}{c.report.loadError}</output><AidtSharedStagePanel key={c.writeKey} controller={c} stageNumber={stageId} readOnly={!canWrite} /></>;
 }
 async function ready() { await waitFor(() => expect(exposed.read?.phase).toBe("ready")); }
 function openDetails() { fireEvent.click(screen.getByTestId("aidt-shared-details").querySelector("summary")!); }
-beforeEach(() => { mocks.read.mockReset(); mocks.save.mockReset(); mocks.read.mockResolvedValue({ stage: null }); mocks.save.mockImplementation(async (input: AidtSaveStageInput) => ({ stage: { ...saved("", input.expectedRevision + 1, input.stageId), content: input.content, sourceStageRevisions: input.sourceStageRevisions }, replayed: false })); });
+beforeEach(() => { mocks.read.mockReset(); mocks.save.mockReset(); mocks.hydrate.mockReset(); mocks.read.mockResolvedValue({ stage: null }); mocks.save.mockImplementation(async (input: AidtSaveStageInput) => ({ stage: { ...saved("", input.expectedRevision + 1, input.stageId), content: input.content, sourceStageRevisions: input.sourceStageRevisions }, replayed: false })); });
 
 it("keeps unsaved content distinct and waits for a real server receipt", async () => {
   const pending = deferred<{ stage: AidtSharedStage; replayed: boolean }>(); mocks.save.mockReturnValue(pending.promise);
@@ -154,4 +154,23 @@ it("rejects local embedded image previews before sending without dropping or rel
 });
 it("can explicitly save a deliberately cleared existing stage without treating it as a new untouched empty stage", async () => {
   mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 1 ? saved() : null })); render(<Harness initial="" />); await ready(); await waitFor(() => expect(screen.getByLabelText("学生本页内容")).toHaveValue("服务器问题")); fireEvent.change(screen.getByLabelText("学生本页内容"), { target: { value: "" } }); expect(screen.getByTestId("aidt-shared-save")).toBeEnabled(); fireEvent.click(screen.getByTestId("aidt-shared-save")); await screen.findByTestId("aidt-shared-receipt"); expect((mocks.save.mock.calls[0]![0] as AidtSaveStageInput).content.draft.fields.initial).toBe(""); expect((mocks.save.mock.calls[0]![0] as AidtSaveStageInput).expectedRevision).toBe(1);
+});
+it("does not re-hydrate unchanged saved forms on refresh or manufacture a local stage revision", async () => {
+  mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 1 ? saved() : null })); render(<Harness initial="" reportInitial="学生正在写自己的报告" />); await ready(); await waitFor(() => expect(screen.getByLabelText("学生本页内容")).toHaveValue("服务器问题")); mocks.hydrate.mockClear();
+  fireEvent.click(screen.getByTestId("aidt-shared-reload")); await ready(); expect(mocks.hydrate).not.toHaveBeenCalled(); expect(screen.getByLabelText("本页报告")).toHaveValue("学生正在写自己的报告");
+});
+it("retains each step's unsaved source choices when editing sources in another step then returning", async () => {
+  mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 1 ? saved("前序主题", 2) : null })); const view = render(<Harness stageId={2} />); await ready(); openDetails(); fireEvent.click(screen.getByTestId("aidt-shared-source-1")); expect(screen.getByTestId("aidt-shared-source-1")).toBeChecked();
+  view.rerender(<Harness stageId={3} />); openDetails(); fireEvent.click(screen.getByTestId("aidt-shared-source-1")); view.rerender(<Harness stageId={2} />); openDetails(); expect(screen.getByTestId("aidt-shared-source-1")).toBeChecked(); expect(exposed.sourceStageRevisions).toEqual([{ stageId: 1, revision: 2 }]); expect(mocks.save).not.toHaveBeenCalled();
+});
+it("keeps the same student's pending source choices across token refresh", async () => {
+  mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 1 ? saved("前序主题", 2) : null })); const view = render(<Harness stageId={2} />); await ready(); openDetails(); fireEvent.click(screen.getByTestId("aidt-shared-source-1")); view.rerender(<Harness stageId={2} token="refreshed-token" />); await ready(); openDetails(); expect(screen.getByTestId("aidt-shared-source-1")).toBeChecked(); expect(exposed.sourceStageRevisions).toEqual([{ stageId: 1, revision: 2 }]);
+});
+it("does not revive the previous actor lifecycle's source choices on A to B to A", async () => {
+  mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 1 ? saved("前序主题", 2) : null })); const view = render(<Harness stageId={2} />); await ready(); openDetails(); fireEvent.click(screen.getByTestId("aidt-shared-source-1")); view.rerender(<Harness stageId={2} actor="student-b" life="b" />); await ready(); expect(exposed.sourceStageRevisions).toEqual([]); view.rerender(<Harness stageId={2} />); await ready(); openDetails(); expect(screen.getByTestId("aidt-shared-source-1")).not.toBeChecked(); expect(exposed.sourceStageRevisions).toEqual([]);
+});
+it("does not leave a stage permanently saving after navigating away during save then returning", async () => {
+  const pending = deferred<{ stage: AidtSharedStage; replayed: boolean }>(); mocks.save.mockReturnValueOnce(pending.promise); const view = render(<Harness />); await ready(); fireEvent.click(screen.getByTestId("aidt-shared-save")); const request = mocks.save.mock.calls[0]![0] as AidtSaveStageInput;
+  view.rerender(<Harness stageId={2} />); view.rerender(<Harness stageId={1} />); expect(screen.getByLabelText("学生本页内容")).toHaveValue("本页学生问题"); expect(screen.getByTestId("aidt-shared-save")).toBeEnabled(); expect(screen.getByTestId("aidt-shared-save-error")).toHaveTextContent("未确认");
+  fireEvent.click(screen.getByTestId("aidt-shared-save")); await screen.findByTestId("aidt-shared-receipt"); expect((mocks.save.mock.calls[1]![0] as AidtSaveStageInput).operationId).toBe(request.operationId); await act(async () => pending.resolve({ stage: saved("旧请求", 9), replayed: false })); expect(screen.getByTestId("aidt-shared-receipt")).not.toHaveTextContent("V9");
 });

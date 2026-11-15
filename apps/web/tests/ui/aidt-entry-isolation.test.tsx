@@ -120,3 +120,16 @@ it("ignores an old tag-save completion after the acting user changes", async () 
   api.session = { ...api.session, userId: "another-student" }; rerender(<AidtCreateProjectForm cancel={<span />} />);
   await act(async () => { finish({ tags: ["workspacex:aidt"] }); }); expect(api.push).not.toHaveBeenCalled(); expect(screen.getByTestId("project-new-name")).toHaveValue("");
 });
+
+
+it("does not revive an old creation after the actor leaves and returns to the same scope", async () => {
+  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); let finish!: (value: { id: string }) => void;
+  api.create.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const original = { ...api.session }; const { rerender } = render(<AidtCreateProjectForm cancel={<span />} />);
+  fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "旧A组请求" } }); fireEvent.click(screen.getByTestId("project-new-create"));
+  api.session = { ...original, userId: "student-b" }; rerender(<AidtCreateProjectForm cancel={<span />} />);
+  api.session = original; rerender(<AidtCreateProjectForm cancel={<span />} />);
+  await act(async () => { finish({ id: "old-created" }); });
+  expect(api.find).not.toHaveBeenCalled(); expect(api.tag).not.toHaveBeenCalled(); expect(api.push).not.toHaveBeenCalled();
+  expect(screen.getByTestId("project-new-name")).toHaveValue("");
+});

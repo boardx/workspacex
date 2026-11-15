@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { AIDT_EMPTY_SHARED_CONTEXT, loadAidtSharedChatContext } from "@/features/aidt/lib/aidt-chat-shared-context";
+import { AIDT_EMPTY_SHARED_CONTEXT, loadAidtSharedChatContext, aidtSharedContextPreview } from "@/features/aidt/lib/aidt-chat-shared-context";
 const mocks = vi.hoisted(() => ({ enabled: true, read: vi.fn() }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mocks.enabled }));
 vi.mock("@/features/aidt/lib/live-aidt-stages", () => ({ readAidtStage: mocks.read }));
@@ -51,4 +51,16 @@ it("discards a read that completed after the actor scope was cancelled", async (
   const cancellation = new AbortController(); const task = loadAidtSharedChatContext({ ...input(), signal: cancellation.signal });
   cancellation.abort(); finish({ stage: stage() });
   await expect(task).rejects.toThrow("AIDT_CONTEXT_CHANGED");
+});
+
+it("shows saved student text with existing stage field labels without generating missing facts", async () => {
+  const source = (await loadAidtSharedChatContext(input())).items[0]!;
+  const draftText = JSON.stringify({ schemaVersion: 1, draft: { fields: { rewrittenTheme: "学生自己保存的工作坊主题" }, ideas: [], selectedIdeaId: "" } });
+  const preview = aidtSharedContextPreview({ ...source, draftText });
+  expect(preview).toContain("学生重写的工作坊主题：学生自己保存的工作坊主题"); expect(preview).not.toContain("真实访谈已完成");
+});
+it("keeps truncated source text literal instead of inventing a completed summary", async () => {
+  const source = (await loadAidtSharedChatContext(input())).items[0]!;
+  const draftText = '{"schemaVersion":1,"draft":{"fields":{"initial":"<script>untrusted';
+  expect(aidtSharedContextPreview({ ...source, draftText, truncated: true })).toBe(draftText);
 });

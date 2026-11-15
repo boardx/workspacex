@@ -100,3 +100,17 @@ it("does not reuse the previous thread's successful image decode for a new image
   await screen.findByRole("img", { name: "current.png" }); fireEvent.load(previous);
   expect(screen.getByRole("button", { name: /current.png/ })).toBeDisabled();
 });
+it("retries restored image source failures without changing the selected reference", async () => {
+  mocks.load.mockRejectedValueOnce(new Error("503")); const state = vi.fn();
+  render(<AidtImageAttachmentPreview projectId="p" reference={{ attachmentId: "a1", threadId: "t", name: "a1.png" }} onState={state} />);
+  expect(await screen.findByText("图片不可用或无权访问，未替换成其他图片。")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "重试图片" }));
+  const image = await screen.findByRole("img", { name: "a1.png" }); Object.defineProperties(image, { naturalWidth: { value: 40 }, naturalHeight: { value: 30 } }); fireEvent.load(image);
+  expect(mocks.load).toHaveBeenCalledTimes(2); expect(state).toHaveBeenLastCalledWith({ src: "blob:authorized-native-image", failed: false });
+});
+it("retries a transient image decode failure by revalidating its saved source", async () => {
+  render(<AidtImageAttachmentPreview projectId="p" reference={{ attachmentId: "a1", threadId: "t", name: "a1.png" }} />);
+  fireEvent.error(await screen.findByRole("img", { name: "a1.png" }));
+  fireEvent.click(screen.getByRole("button", { name: "重试图片" }));
+  await screen.findByRole("img", { name: "a1.png" }); expect(mocks.load).toHaveBeenCalledTimes(2);
+});

@@ -131,3 +131,20 @@ it("the student UI does not surface simulated interviews or deep research as fir
   expect(screen.queryByRole("link", { name: "AI 模拟访谈" })).toBeNull();
   expect(mocks.resources).not.toHaveBeenCalled();
 });
+it("keeps the default native Chat clear of duplicate assistant and structured-save rows while preserving advanced access", async () => {
+  render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); await screen.findByTestId("native-chat");
+  expect(screen.getByTestId("aidt-assistant-panel")).toBeVisible(); expect(screen.queryByRole("button", { name: "AI 引导师" })).toBeNull(); expect(screen.queryByTestId("aidt-shared-stage")).toBeNull(); expect(screen.queryByTestId("aidt-shared-unavailable")).toBeNull();
+  const tools = screen.getByTestId("aidt-tools"); expect(tools).toContainElement(screen.getByTestId("aidt-personal-checkpoints")); expect(tools).not.toHaveAttribute("open"); expect(screen.getByTestId("aidt-open-output")).toHaveAttribute("href", "/aidt/p1?step=1&tool=outcome");
+});
+it("keeps failed shared reads visible and actionable on Chat without restoring the full save toolbar", async () => {
+  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); const client = await import("@/features/aidt/lib/live-aidt-stages"); const read = vi.spyOn(client, "readAidtStage").mockRejectedValue(new Error("offline"));
+  try {
+    mocks.search = "thread=real-thread"; render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); const alert = await screen.findByTestId("aidt-shared-chat-alert"); expect(alert).toHaveAttribute("role", "alert"); expect(alert).toHaveTextContent("读取失败"); expect(screen.getByRole("link", { name: "进入成果核对" })).toHaveAttribute("href", "/aidt/p1?step=1&tool=outcome&thread=real-thread"); expect(screen.getByTestId("aidt-open-output")).toHaveTextContent("读取失败"); expect(screen.queryByTestId("aidt-shared-stage")).toBeNull(); expect(screen.getByRole("button", { name: "重试读取" })).toBeVisible();
+  } finally { read.mockRestore(); vi.unstubAllEnvs(); }
+});
+it("retains the complete save and restore controls where the student edits stage outcomes", async () => {
+  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); const client = await import("@/features/aidt/lib/live-aidt-stages"); const read = vi.spyOn(client, "readAidtStage").mockResolvedValue({ stage: null });
+  try {
+    mocks.search = "tool=outcome"; render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); await waitFor(() => expect(screen.getByTestId("aidt-shared-status")).toHaveTextContent("尚未保存")); expect(screen.getByTestId("aidt-shared-stage")).toBeVisible(); expect(screen.getByTestId("aidt-shared-save")).toBeVisible(); expect(screen.getByRole("button", { name: "AI 引导师" })).toBeVisible(); expect(screen.getByLabelText("初始问题")).toBeVisible();
+  } finally { read.mockRestore(); vi.unstubAllEnvs(); }
+});

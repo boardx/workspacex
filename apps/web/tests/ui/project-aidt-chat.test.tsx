@@ -139,3 +139,30 @@ it("does not reactivate old shared context after selection A to B to A while new
   expect(screen.getByTestId("aidt-chat-shared-context")).toHaveTextContent("读取中");
   expect(mocks.context).toHaveBeenLastCalledWith(expect.objectContaining({ value: expect.objectContaining({ sharedStageContext: { status: "loading", items: [], issues: [] } }) }));
 });
+it("keeps the active native resource in the canonical Shell's subsequent thread navigation", async () => {
+  window.history.replaceState(null, "", "/aidt/p?step=2&tool=transcript&resource=session-1");
+  mocks.resolve.mockResolvedValue({ threadId: "t2", skillName: "共情", versionId: "v1" });
+  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} />); await screen.findByTestId("chat-shell");
+  const path = mocks.shell.mock.calls.at(-1)![0].threadPath as (threadId: string | null) => string;
+  const next = new URL(path("t2"), "https://workspace.invalid");
+  expect(next.searchParams.get("step")).toBe("2"); expect(next.searchParams.get("thread")).toBe("t2");
+  expect(next.searchParams.get("tool")).toBe("transcript"); expect(next.searchParams.get("resource")).toBe("session-1");
+});
+it("lets students inspect the actual saved shared text referenced by the agent", async () => {
+  mocks.resolve.mockResolvedValue({ threadId: "t2", skillName: "共情", versionId: "v1" });
+  mocks.loadSharedContext.mockResolvedValue({ status: "ready", items: [{ kind: "aidt-stage", projectId: "p", stageNumber: 1, revision: 2, sourceStageRevisions: [], draftText: JSON.stringify({ schemaVersion: 1, draft: { fields: { rewrittenTheme: "学生重写并保存的主题" }, ideas: [], selectedIdeaId: "" } }), truncated: false }], issues: [] });
+  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} sharedContextRefs={[{ stageNumber: 1, revision: 2 }]} />);
+  const source = await screen.findByLabelText("第1步已保存内容摘要"); expect(source).toHaveTextContent("学生重写并保存的主题");
+});
+
+it("labels the readable summary and keeps the exact loaded report and selection fields inspectable", async () => {
+  mocks.resolve.mockResolvedValue({ threadId: "t6", skillName: "测试迭代", versionId: "v1" });
+  const draftText = JSON.stringify({ schemaVersion: 1, draft: { fields: { reflection: "本组反思" }, ideas: [], selectedIdeaId: "", selectionReasons: { idea1: "学生保留的选择理由" } }, summaryReport: { markdown: "实际已保存的报告原文 <script>仅文本</script>", sourceStageRevisions: [] } });
+  mocks.loadSharedContext.mockResolvedValue({ status: "ready", items: [{ kind: "aidt-stage", projectId: "p", stageNumber: 6, revision: 2, sourceStageRevisions: [], draftText, truncated: false }], issues: [] });
+  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[5]} thread={null} sharedContextRefs={[{ stageNumber: 6, revision: 2 }]} />);
+  const exact = await screen.findByLabelText("第6步AI引用的已保存文本");
+  expect(exact.textContent).toBe(draftText); expect(screen.getByLabelText("第6步已保存内容摘要")).toHaveTextContent("本组反思");
+  expect(screen.getByLabelText("第6步已保存内容摘要")).not.toHaveTextContent("实际已保存的报告原文");
+  expect(screen.getByText("以上是已保存内容摘要，可能省略选择理由、报告等字段。AI实际参考的已保存字段见下方文本；引用材料与学生解释仍需核对。")).toBeInTheDocument();
+  expect(exact.querySelector("script")).toBeNull();
+});

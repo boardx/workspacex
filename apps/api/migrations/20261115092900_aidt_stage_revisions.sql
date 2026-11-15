@@ -1,5 +1,5 @@
 -- User-approved A: shared working drafts, append-only; no completion or consensus state.
-CREATE TABLE aidt_stage_revisions (
+CREATE TABLE IF NOT EXISTS aidt_stage_revisions (
   org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   project_id text NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   stage_id integer NOT NULL CHECK(stage_id BETWEEN 1 AND 6),
@@ -16,6 +16,7 @@ CREATE TABLE aidt_stage_revisions (
 );
 ALTER TABLE aidt_stage_revisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aidt_stage_revisions FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS aidt_stage_revisions_tenant ON aidt_stage_revisions;
 CREATE POLICY aidt_stage_revisions_tenant ON aidt_stage_revisions
   USING(org_id=current_setting('app.current_org',true))
   WITH CHECK(org_id=current_setting('app.current_org',true));

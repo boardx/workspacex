@@ -25,7 +25,7 @@ function useAvailableImages(projectId: string, thread: string | null, enabled: b
   return { scope, state: state?.scope === scope ? state : null };
 }
 
-function AuthorizedImage({ reference, alt, onState }: { reference: AidtImageAttachmentReference; alt: string; onState?: (state: AidtImageAttachmentState) => void }) {
+function AuthorizedImage({ reference, alt, onState, onRetry }: { reference: AidtImageAttachmentReference; alt: string; onState?: (state: AidtImageAttachmentState) => void; onRetry?: () => void }) {
   const state = useAuthedImageSrc(aidtImageAttachmentContentUrl(reference));
   const imageKey = JSON.stringify([reference.threadId, reference.attachmentId, state.src]);
   const current = React.useRef({ key: imageKey, active: true }); current.current.key = imageKey;
@@ -39,7 +39,7 @@ function AuthorizedImage({ reference, alt, onState }: { reference: AidtImageAtta
     return () => { lifecycle.active = false; notify.current?.({ src: null, failed: false }); };
   }, []);
   const report = (valid: boolean) => { if (current.current.active && current.current.key === imageKey) setDecoded({ key: imageKey, failed: !valid }); };
-  if (failed) return <span className="text-12 text-muted-foreground">图片读取或解码失败，请重新选择或重试。</span>;
+  if (failed) return <span className="space-y-2 text-12 text-muted-foreground"><span className="block">图片读取或解码失败，请重新选择或重试。</span>{onRetry && <Button type="button" size="sm" variant="outline" onClick={onRetry}>重试图片</Button>}</span>;
   if (!state.src) return <span className="text-12 text-muted-foreground">正在读取图片…</span>;
   // eslint-disable-next-line @next/next/no-img-element -- native authenticated image hook provides a revocable blob URL
   return <img key={imageKey} src={state.src} alt={alt} className="max-h-52 w-full rounded-md object-contain" onLoad={(event) => report(event.currentTarget.naturalWidth > 0 && event.currentTarget.naturalHeight > 0)} onError={() => report(false)} />;
@@ -51,13 +51,14 @@ export function AidtImageAttachmentPreview(props: { projectId: string; reference
   return <EnabledPreview {...props} />;
 }
 function EnabledPreview({ projectId, reference, alt, onState }: { projectId: string; reference: AidtImageAttachmentReference; alt?: string; onState?: (state: AidtImageAttachmentState) => void }) {
-  const { state, scope } = useAvailableImages(projectId, reference.threadId, true);
+  const [retry, setRetry] = React.useState(0);
+  const { state, scope } = useAvailableImages(projectId, reference.threadId, true, retry);
   const selected = state?.items?.find((item) => item.attachmentId === reference.attachmentId && item.name === reference.name);
   const notify = React.useRef(onState); notify.current = onState;
   React.useEffect(() => { if (!selected) notify.current?.({ src: null, failed: !!state }); }, [scope, selected, state]);
   if (!state) return <p role="status" className="text-12 text-muted-foreground">正在核对图片来源…</p>;
-  if (!selected) return <p role="status" className="text-12 text-muted-foreground">图片不可用或无权访问，未替换成其他图片。</p>;
-  return <AuthorizedImage key={`${scope}:${selected.attachmentId}`} reference={selected} alt={alt ?? selected.name} onState={onState} />;
+  if (!selected) return <div className="space-y-2"><p role="status" className="text-12 text-muted-foreground">图片不可用或无权访问，未替换成其他图片。</p><Button type="button" size="sm" variant="outline" onClick={() => setRetry((value) => value + 1)}>重试图片</Button></div>;
+  return <AuthorizedImage key={`${scope}:${selected.attachmentId}`} reference={selected} alt={alt ?? selected.name} onState={onState} onRetry={() => setRetry((value) => value + 1)} />;
 }
 
 function ImageChoice({ item, selected, readOnly, onSelect }: { item: AidtImageAttachmentOption; selected: boolean; readOnly: boolean; onSelect: () => void }) {
@@ -86,7 +87,7 @@ function EnabledPicker({ projectId, thread, value, onChange, readOnly = false, l
     {!thread && <p className="text-12 text-muted-foreground">本步对话就绪后，可选择已发送的图片附件。</p>}
     {open && thread && <div className="space-y-3 rounded-lg border border-border p-3">
       <p className="text-12 text-muted-foreground">从本步共享对话中选择已发送的图片。新图片请先通过原生聊天附件发送；此处不会上传或发送消息。</p>
-      {!state ? <p role="status" className="text-12">正在读取本步图片…</p> : state.failed ? <div role="alert" className="space-y-2"><p className="text-12">图片列表读取失败，不能据此判断没有图片。</p><Button type="button" size="sm" variant="outline" onClick={() => setRetry((current) => current + 1)}>重试图片列表</Button></div> : !state.items?.length ? <p role="status" className="text-12 text-muted-foreground">本步还没有可选择的已发送图片。</p> : <><div className="grid grid-cols-2 gap-2">{state.items.slice(0, visible).map((item) => <ImageChoice key={`${scope}:${item.attachmentId}`} item={item} readOnly={readOnly} selected={value?.threadId === item.threadId && value.attachmentId === item.attachmentId} onSelect={() => { onChange({ attachmentId: item.attachmentId, threadId: item.threadId, name: item.name }); setOpen(false); }} />)}</div>{state.items.length > visible && <Button type="button" size="sm" variant="ghost" onClick={() => setVisible((current) => current + 12)}>显示更多图片</Button>}</>}
+      {!state ? <p role="status" className="text-12">正在读取本步图片…</p> : state.failed ? <div role="alert" className="space-y-2"><p className="text-12">图片列表读取失败，不能据此判断没有图片。</p><Button type="button" size="sm" variant="outline" onClick={() => setRetry((current) => current + 1)}>重试图片列表</Button></div> : !state.items?.length ? <p role="status" className="text-12 text-muted-foreground">本步还没有可选择的已发送图片。</p> : <><Button type="button" size="sm" variant="ghost" onClick={() => setRetry((value) => value + 1)}>刷新图片</Button><div className="grid grid-cols-2 gap-2">{state.items.slice(0, visible).map((item) => <ImageChoice key={`${scope}:${item.attachmentId}`} item={item} readOnly={readOnly} selected={value?.threadId === item.threadId && value.attachmentId === item.attachmentId} onSelect={() => { onChange({ attachmentId: item.attachmentId, threadId: item.threadId, name: item.name }); setOpen(false); }} />)}</div>{state.items.length > visible && <Button type="button" size="sm" variant="ghost" onClick={() => setVisible((current) => current + 12)}>显示更多图片</Button>}</>}
     </div>}
   </div>;
 }

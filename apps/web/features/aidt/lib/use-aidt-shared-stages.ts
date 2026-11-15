@@ -33,8 +33,11 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const writeKey = JSON.stringify([key, stageId]);
   const reportKey = JSON.stringify([key, "summary-report"]);
   const editScope = JSON.stringify([lifecycleKey, scope?.projectId, scope?.orgId, scope?.userId]);
-  const draftChanges = React.useRef<{ key: string; entries: Record<number, { signature: string; changes: number }> }>({ key: editScope, entries: {} });
-  if (draftChanges.current.key !== editScope) draftChanges.current = { key: editScope, entries: {} };
+  const editLifecycle = React.useRef({ scope: editScope, generation: 0 });
+  if (editLifecycle.current.scope !== editScope) editLifecycle.current = { scope: editScope, generation: editLifecycle.current.generation + 1 };
+  const editKey = JSON.stringify([editScope, editLifecycle.current.generation]);
+  const draftChanges = React.useRef<{ key: string; entries: Record<number, { signature: string; changes: number }> }>({ key: editKey, entries: {} });
+  if (draftChanges.current.key !== editKey) draftChanges.current = { key: editKey, entries: {} };
   for (const [id, value] of Object.entries(drafts)) {
     const number = Number(id), signature = aidtSharedDraftSignature(value), previous = draftChanges.current.entries[number];
     draftChanges.current.entries[number] = { signature, changes: previous ? previous.changes + Number(previous.signature !== signature) : 0 };
@@ -47,7 +50,7 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const [reloadCount, setReloadCount] = React.useState(0);
   const [baseChoice, setBaseChoice] = React.useState<{ key: string; revision: number } | null>(null);
   const [reportBase, setReportBase] = React.useState<{ key: string; revision: number } | null>(null);
-  const [sources, setSources] = React.useState<{ key: string; values: Source[] } | null>(null);
+  const [sources, setSources] = React.useState<{ key: string; stages: Record<number, Source[]> } | null>(null);
   const attempt = React.useRef<{ key: string; signature: string; operationId: string } | null>(null);
   const reportAttempt = React.useRef<{ key: string; signature: string; operationId: string } | null>(null);
   const inFlight = React.useRef<{ key: string; controller: AbortController } | null>(null);
@@ -58,7 +61,7 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const server = stageId ? stages[stageId] : undefined;
   const draft = stageId ? drafts[stageId] : undefined;
   const signature = draft ? aidtSharedDraftSignature(draft) : "";
-  const sourceStageRevisions = sources?.key === writeKey ? sources.values : server?.sourceStageRevisions ?? [];
+  const sourceStageRevisions = stageId && sources?.key === editKey && sources.stages[stageId] !== undefined ? sources.stages[stageId]! : server?.sourceStageRevisions ?? [];
   const conflicted = currentWrite.phase === "conflict";
   const needsBaseReview = conflicted && baseChoice?.key !== writeKey;
   const expectedRevision = baseChoice?.key === writeKey ? baseChoice.revision : server?.revision ?? 0;
@@ -91,11 +94,11 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
         const untouchedEmpty = current && !aidtUiStageSummary(item.stageId, current) && original[item.stageId] === 0;
         const previous = previousStages[item.stageId];
         const cleanServerProjection = current && previous && aidtSharedDraftSignature(current) === aidtSharedDraftSignature(previous.content.draft);
-        if (current && unchanged && (untouchedEmpty || cleanServerProjection)) latest.current.onHydrate(item.stageId, clone(item.content.draft));
+        if (current && unchanged && (untouchedEmpty || cleanServerProjection) && aidtSharedDraftSignature(current) !== aidtSharedDraftSignature(item.content.draft)) latest.current.onHydrate(item.stageId, clone(item.content.draft));
       }
       const report = loaded[6]?.content.summaryReport;
       const previousReport = previousStages[6]?.content.summaryReport;
-      if (report && latest.current.reportText === originalReport && (originalReport === null || originalReport === previousReport?.markdown)) latest.current.onHydrateReport?.(report.markdown);
+      if (report && latest.current.reportText === originalReport && report.markdown !== latest.current.reportText && (originalReport === null || originalReport === previousReport?.markdown)) latest.current.onHydrateReport?.(report.markdown);
     }).catch(() => { if (active && latest.current.key === key) setRead(old => ({ key, phase: "error", stages: old?.key === key ? old.stages : {}, error: "小组成果读取失败。本页内容仍保留，请重试。" })); });
     return () => { active = false; cancellation.abort(); };
     // All identity values are captured in key; equal DTOs must not restart the read.
@@ -105,22 +108,27 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
     if (inFlight.current?.key === writeKey) {
       inFlight.current.controller.abort();
       inFlight.current = null;
+      setWrite(previous => previous?.key === writeKey && previous.phase === "saving" ? { ...previous, phase: "error", error: "已离开本步，保存回执尚未确认。草稿仍保留，可刷新核对或重试。" } : previous);
     }
   }, [writeKey]);
   React.useEffect(() => () => { if (inFlight.current?.key === reportKey) { inFlight.current.controller.abort(); inFlight.current = null; } }, [reportKey]);
 
   function reload() { if (latest.current.key === key && !inFlight.current) setReloadCount(value => value + 1); }
+  function setStageSources(values: Source[]) {
+    if (!stageId) return;
+    setSources(previous => ({ key: editKey, stages: { ...(previous?.key === editKey ? previous.stages : {}), [stageId]: values } }));
+  }
   function chooseSource(id: number, selected: boolean) {
     if (latest.current.writeKey !== writeKey || !latest.current.canWrite || !stages[id] || !stageId || id >= stageId) return;
     const next = sourceStageRevisions.filter(value => value.stageId !== id);
     if (selected) next.push({ stageId: id, revision: stages[id]!.revision });
-    setSources({ key: writeKey, values: next.sort((a, b) => a.stageId - b.stageId) });
+    setStageSources(next.sort((a, b) => a.stageId - b.stageId));
   }
   function reviewServerBase() { if (latest.current.writeKey === writeKey && latest.current.canWrite && currentRead?.phase === "ready") setBaseChoice({ key: writeKey, revision: server?.revision ?? 0 }); }
   function restoreServer() {
     if (latest.current.writeKey !== writeKey || !latest.current.canWrite || !server) return;
     latest.current.onHydrate(server.stageId, clone(server.content.draft));
-    setSources({ key: writeKey, values: clone(server.sourceStageRevisions) });
+    setStageSources(clone(server.sourceStageRevisions));
     setBaseChoice({ key: writeKey, revision: server.revision });
   }
   async function saveCurrent() {

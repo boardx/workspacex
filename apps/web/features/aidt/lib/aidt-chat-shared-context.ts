@@ -1,3 +1,5 @@
+import { StageContent } from "@repo/contracts/aidt-stages";
+import { aidtUiStageSummary } from "./aidt-ui-drafts";
 import { readAidtStage } from "./live-aidt-stages";
 import { isAidtModuleEnabled } from "./aidt-module-config";
 
@@ -67,4 +69,13 @@ export async function loadAidtSharedChatContext({ projectId, currentStage, sessi
     }
   }
   return { status: issues.length ? items.length ? "partial" : "failed" : "ready", items, issues };
+}
+
+/** Readable student-authored source; render as plain text, never executable markup. */
+export function aidtSharedContextPreview(item: AidtSharedContextItem): string {
+  try {
+    const parsed = StageContent.safeParse(JSON.parse(item.draftText));
+    if (parsed.success && Number.isInteger(item.stageNumber) && item.stageNumber >= 1 && item.stageNumber <= 6) return aidtUiStageSummary(item.stageNumber, parsed.data.draft) || item.draftText;
+  } catch { /* Truncated or older saved text stays visible exactly as supplied to the agent. */ }
+  return item.draftText;
 }

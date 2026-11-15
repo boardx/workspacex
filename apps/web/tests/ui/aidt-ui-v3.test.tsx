@@ -1,4 +1,5 @@
 import * as React from "react";
+import { SharedStage } from "@repo/contracts/aidt-stages";
 import { beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AidtMaterials } from "@/features/aidt/components/aidt-materials";
@@ -55,4 +56,28 @@ it("reports an occupied native composer and keeps the outcome available", () => 
   expect(handoff).toHaveBeenCalledWith(expect.stringContaining("我们自己的观察"));
   expect(screen.getByRole("status")).toHaveTextContent("未覆盖");
   expect(screen.getByLabelText("初始问题")).toHaveValue("我们自己的观察");
+});
+
+it("uses saved group revisions after re-entry without equating saving with completion", () => {
+  const drafts=emptyAidtUiDrafts();drafts[1]!.fields.initial="小组问题";
+  const stage=SharedStage.parse({projectId:"g",stageId:1,revision:3,content:{schemaVersion:1,draft:structuredClone(drafts[1]!)},sourceStageRevisions:[],updatedBy:"student",updatedAt:"2026-11-15T00:00:00.000Z"});
+  drafts[1]!.fields.scene="本页新增场景";
+  render(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={drafts} shared={{phase:"ready",stages:{1:stage}}} />);
+  expect(screen.getByRole("heading",{level:1,name:"本组六步研究"})).toBeVisible();
+  expect(screen.getByTestId("aidt-stage-save-1")).toHaveTextContent("小组已保存 · V3 · 本页有修改");
+  expect(screen.getByTestId("aidt-stage-save-2")).toHaveTextContent("尚未保存成果");
+  expect(screen.getByText(/保存版本不代表阶段完成或全员确认/)).toBeVisible();
+  expect(screen.queryByText(/刷新后重置/)).toBeNull();
+});
+it("a failed group status read stays an error and never labels stages unsaved", () => {
+  const retry=vi.fn();render(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={emptyAidtUiDrafts()} shared={{phase:"error",stages:{},reload:retry}} />);
+  expect(screen.getByTestId("aidt-dashboard-error")).toBeVisible();expect(screen.queryByText("尚未保存成果")).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"重新读取成果"}));expect(retry).toHaveBeenCalledTimes(1);
+});
+
+it("gives a real unsaved empty group a clear first-step action without inferring completion", () => {
+  const {rerender}=render(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={emptyAidtUiDrafts()} shared={{phase:"ready",stages:{}}} />);
+  expect(screen.getByRole("link",{name:"从第1步开始"})).toHaveAttribute("href","/aidt/g?step=1");
+  rerender(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={emptyAidtUiDrafts()} shared={{phase:"loading",stages:{}}} />);
+  expect(screen.queryByTestId("aidt-first-start")).toBeNull();expect(screen.queryByText("尚未保存成果")).toBeNull();
 });

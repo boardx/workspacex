@@ -7,13 +7,16 @@ import { TeamTextLiveConversation, type TeamTextLiveMessage } from "./team-text-
 
 type Status = "loading" | "ready" | "error";
 type Pending = { request: MemberChatPost; state: "sending" | "failed" | "unconfirmed"; failure?: string; retryable: boolean; order: number };
-type Topic = { busy?: boolean; status: Status; error?: string; before: number | null; loadingOlder: boolean; loaded: boolean };
+type Topic = { request?: AbortController; busy?: boolean; status: Status; error?: string; before: number | null; loadingOlder: boolean; loaded: boolean };
 type Channel = { names: Map<string, string>; messages: Map<string, ProjectMemberMessage>; updates: Map<string, ProjectMemberThreadUpdate>; pending: Map<string, Pending>; drafts: Map<string, string>; stageChoices: Map<string, string>; topicId: string | null; topics: Map<string, Topic>; status: Status; error?: string; loaded: boolean; readable: boolean; verified: boolean; denied: boolean; canWrite: boolean; reason: string | null; before: number | null; after: number; syncing: boolean; loadingOlder: boolean };
 function channel(): Channel { return { names: new Map(), messages: new Map(), updates: new Map(), pending: new Map(), drafts: new Map(), stageChoices: new Map(), topicId: null, topics: new Map(), status: "loading", loaded: false, readable: false, verified: false, denied: false, canWrite: false, reason: null, before: null, after: 0, syncing: false, loadingOlder: false }; }
 function reason(error: unknown): string { return error && typeof error === "object" && "reasonCode" in error ? String(error.reasonCode) : ""; }
 function denied(error: unknown): boolean { const code = reason(error); return ["NOT_FOUND", "MODULE_DISABLED"].includes(code) || (!!error && typeof error === "object" && "status" in error && [401, 404].includes(Number(error.status))); }
 function clearAccess(store: Channel) { store.names.clear(); store.messages.clear(); store.updates.clear(); store.topics.clear(); store.topicId = null; store.loaded = false; store.readable = false; store.verified = false; store.canWrite = false; store.denied = true; store.after = 0; store.before = null; }
 function merge(store: Channel, messages: ProjectMemberMessage[], userId: string) { for (const message of messages) { store.messages.set(message.id, message); if (message.authorId === userId) store.pending.delete(message.clientMessageId); } }
+function mergeThreadUpdates(store: Channel, updates: readonly ProjectMemberThreadUpdate[]) {
+  for (const update of updates) { const current = store.updates.get(update.rootMessageId); if (!current || update.lastSequence >= current.lastSequence) store.updates.set(update.rootMessageId, update); }
+}
 function failureText(error: unknown): string { switch (reason(error)) { case "IDEMPOTENCY_CONFLICT": return "请求标识冲突，请核对已有消息；本条不再自动重试。"; case "THREAD_ROOT_INVALID": return "原话题不可回复。"; case "INVALID_INPUT": case "MESSAGE_TOO_LARGE": return "消息或引用不符合要求。"; default: return "连接或服务暂不可用。"; } }
 export type ProjectMemberChatProps = { projectId: string; compact?: boolean; onClose?: () => void; active?: boolean; stageReference?: ProjectMemberStageReference };
 export function ProjectMemberChat(props: ProjectMemberChatProps): JSX.Element {
@@ -48,6 +51,7 @@ function AuthenticatedMemberChat({ projectId, compact = false, onClose, active =
   const isCurrent = React.useCallback(() => mounted.current && identity.current.epoch === epoch && selected.current.scope === scope && selected.current.generation === generation, [epoch, generation, scope]);
   const stageKey = stageReference ? JSON.stringify(stageReference) : "";
   const draftKey = store.topicId ?? "main";
+  const topicId = store.topicId;
   const notify = React.useCallback(() => { if (mounted.current) redraw(); }, []);
   React.useEffect(() => { mounted.current = true; const controllers = writes.current; return () => { mounted.current = false; for (const controller of controllers.values()) controller.abort(); }; }, []);
   React.useEffect(() => {
@@ -68,7 +72,7 @@ function AuthenticatedMemberChat({ projectId, compact = false, onClose, active =
           const initial = !store.loaded, cursor = store.after;
           const page = await listProjectMemberMessages({ projectId, limit: initial ? 30 : 100, ...(initial ? {} : { afterSequence: cursor }) }, { sessionToken, signal: controller.signal });
           if (!valid()) return;
-          merge(store, page.items, userId); for (const item of page.threadUpdates) store.updates.set(item.rootMessageId, item);
+          merge(store, page.items, userId); mergeThreadUpdates(store, page.threadUpdates);
           access(page); if (initial) store.before = page.nextBeforeSequence;
           if (!initial && page.nextAfterSequence < cursor) throw new Error("Member channel cursor regressed");
           store.after = page.nextAfterSequence; store.loaded = true; store.status = "ready"; store.error = undefined;
@@ -95,28 +99,35 @@ function AuthenticatedMemberChat({ projectId, compact = false, onClose, active =
       .catch(() => { /* Directory failure keeps truthful member labels and actual message history. */ });
     return () => { alive = false; controller.abort(); };
   }, [store.verified, active, visible, online, projectId, sessionToken, store, isCurrent, notify]);
+  React.useEffect(() => {
+    // A topic request belongs to this panel visit, not to a later return to the same project.
+    const cachedStores = stores.current;
+    return () => { for (const cachedStore of cachedStores.values()) for (const cachedTopic of cachedStore.topics.values()) {
+      cachedTopic.request?.abort(); cachedTopic.request = undefined; cachedTopic.busy = false; cachedTopic.loadingOlder = false;
+    } };
+  }, [active, visible, online, isCurrent, topicId]);
   async function loadTopic(rootId: string, older = false) {
     if (!active || !visible || !online || !store.verified || store.denied) return;
     const root = store.messages.get(rootId); if (root ? root.threadRootId !== null || root.projectId !== projectId : !store.updates.has(rootId)) return;
     const topic = store.topics.get(rootId) ?? { status: "loading" as Status, before: null, loaded: false, loadingOlder: false };
     if (topic.busy) return;
-    topic.busy = true;
+    const controller = new AbortController(); topic.request = controller; topic.busy = true;
+    const validRead = () => !controller.signal.aborted && topic.request === controller && isCurrent();
     store.topics.set(rootId, topic); if (older) topic.loadingOlder = true; else topic.status = "loading"; notify();
     try {
-      const result = await listProjectMemberReplies({ projectId, threadRootId: rootId, limit: 30, ...(older && topic.before !== null ? { beforeSequence: topic.before } : {}) }, { sessionToken });
-      if (!isCurrent()) return; merge(store, [result.root, ...result.items], userId); access(result); topic.before = result.nextBeforeSequence; topic.loaded = true; topic.status = "ready"; topic.error = undefined; store.status = "ready"; store.error = undefined;
-    } catch (error) { if (!isCurrent()) return; if (denied(error)) { clearAccess(store); store.status = "error"; store.error = "无法访问此项目的成员讨论。"; } else { topic.status = "error"; topic.error = "话题读取失败，草稿保留，可重试。"; } }
-    finally { topic.busy = false; topic.loadingOlder = false; if (isCurrent()) notify(); }
+      const result = await listProjectMemberReplies({ projectId, threadRootId: rootId, limit: 30, ...(older && topic.before !== null ? { beforeSequence: topic.before } : {}) }, { sessionToken, signal: controller.signal });
+      if (!validRead()) return; merge(store, [result.root, ...result.items], userId); access(result); topic.before = result.nextBeforeSequence; topic.loaded = true; topic.status = "ready"; topic.error = undefined; store.status = "ready"; store.error = undefined;
+    } catch (error) { if (!validRead()) return; if (denied(error)) { clearAccess(store); store.status = "error"; store.error = "无法访问此项目的成员讨论。"; } else { topic.status = "error"; topic.error = "话题读取失败，草稿保留，可重试。"; } }
+    finally { if (topic.request === controller) { topic.request = undefined; topic.busy = false; topic.loadingOlder = false; if (isCurrent()) notify(); } }
   }
   // A closed topic can be reopened without losing its draft. Recheck the real root before replies.
-  const topicId = store.topicId;
   React.useEffect(() => { if (topicId && store.verified && active && visible && online) void loadTopic(topicId); /* loaded replies are also refreshed by channel deltas */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicId, active, visible, online, scope, sessionToken, store.verified]);
   async function loadOlder() {
     if (store.loadingOlder || store.before === null || !store.verified || !active || !online) return;
     store.loadingOlder = true; notify();
-    try { const page = await listProjectMemberMessages({ projectId, beforeSequence: store.before, limit: 30 }, { sessionToken }); if (!isCurrent()) return; merge(store, page.items, userId); for (const item of page.threadUpdates) store.updates.set(item.rootMessageId, item); access(page); store.before = page.nextBeforeSequence; }
+    try { const page = await listProjectMemberMessages({ projectId, beforeSequence: store.before, limit: 30 }, { sessionToken }); if (!isCurrent()) return; merge(store, page.items, userId); mergeThreadUpdates(store, page.threadUpdates); access(page); store.before = page.nextBeforeSequence; }
     catch (error) { if (!isCurrent()) return; if (denied(error)) clearAccess(store); store.status = "error"; store.error = "较早消息读取失败，请重试；草稿保留。"; }
     finally { if (isCurrent()) { store.loadingOlder = false; notify(); } }
   }
@@ -151,5 +162,5 @@ function AuthenticatedMemberChat({ projectId, compact = false, onClose, active =
   const root = topicId && store.readable ? store.messages.get(topicId) : undefined, topic = topicId ? store.topics.get(topicId) : undefined;
   const readOnlyNotice = topicId && !root ? "正在读取话题，暂不可发送；可返回频道继续讨论。" : store.reason === "archived" ? "项目已归档，可查看历史，不能发送或重试。" : store.reason === "org-disabled" ? "组织当前只读，不能发送或重试。" : store.reason === "role" ? "当前项目角色只读，不能发送或重试。" : !store.verified ? "正在核对频道访问权限，暂不可发送。" : undefined;
   if (!store.verified && store.loaded && store.status === "loading") return <p role="status" className="p-4 text-13">正在核对频道访问权限…</p>;
-  return <TeamTextLiveConversation key={scope} projectId={projectId} compact={compact} onClose={onClose} messages={rows(null)} draft={store.drafts.get("main") ?? ""} onDraftChange={(text) => { store.drafts.set("main", text); notify(); }} onSend={send} onRetry={retry} historyState={store.status} historyError={store.error} onRefresh={() => { if (topicId && !root) void loadTopic(topicId); else refreshNow(); }} readOnly={!store.verified || !store.canWrite || (!!topicId && !root)} readOnlyNotice={readOnlyNotice} offline={!online} syncing={store.syncing} hasOlder={store.before !== null} loadingOlder={store.loadingOlder} onLoadOlder={() => void loadOlder()} earlierTopics={[...(store.readable ? store.updates.values() : [])].filter((item) => item.replyCount > 0 && !store.messages.has(item.rootMessageId)).map((item) => ({ id: item.rootMessageId, replyCount: item.replyCount }))} topicPending={!!topicId && !root} pendingTopicError={!root ? topic?.error : undefined} onOpenTopic={(id) => { const item = store.messages.get(id); if ((item?.threadRootId === null && item.projectId === projectId) || (!item && store.updates.has(id))) { store.topicId = id; notify(); void loadTopic(id); } }} onCloseTopic={() => { store.topicId = null; notify(); }} stageReference={stageReference} includeStageReference={!!stageKey && store.stageChoices.get(draftKey) === stageKey} onIncludeStageReference={(included) => { if (included) store.stageChoices.set(draftKey, stageKey); else store.stageChoices.delete(draftKey); notify(); }} topic={root && topic ? { root: row(root), replies: rows(root.id), draft: store.drafts.get(root.id) ?? "", historyState: topic.status, historyError: topic.error, hasOlder: topic.before !== null, loadingOlder: topic.loadingOlder, onDraftChange: (text) => { store.drafts.set(root.id, text); notify(); }, onSend: send, onRetry: retry, onRefresh: () => void loadTopic(root.id), onLoadOlder: () => void loadTopic(root.id, true) } : undefined} />;
+  return <TeamTextLiveConversation key={scope} projectId={projectId} compact={compact} onClose={onClose} messages={rows(null)} draft={store.drafts.get("main") ?? ""} onDraftChange={(text) => { store.drafts.set("main", text); notify(); }} onSend={send} onRetry={retry} historyState={store.status} historyError={store.error} onRefresh={() => { if (topicId && !root) void loadTopic(topicId); else refreshNow(); }} readOnly={!store.verified || !store.canWrite || (!!topicId && !root)} readOnlyNotice={readOnlyNotice} offline={!online} syncing={store.syncing} hasOlder={store.before !== null} loadingOlder={store.loadingOlder} onLoadOlder={() => void loadOlder()} earlierTopics={[...(store.readable ? store.updates.values() : [])].filter((item) => item.replyCount > 0 && !store.messages.has(item.rootMessageId)).map((item) => ({ id: item.rootMessageId, replyCount: item.replyCount }))} topicPending={!!topicId && !root} pendingTopicError={!root ? topic?.error : undefined} onOpenTopic={(id) => { const item = store.messages.get(id); if ((item?.threadRootId === null && item.projectId === projectId) || (!item && store.updates.has(id))) { store.topicId = id; notify(); } }} onCloseTopic={() => { store.topicId = null; notify(); }} stageReference={stageReference} includeStageReference={!!stageKey && store.stageChoices.get(draftKey) === stageKey} onIncludeStageReference={(included) => { if (included) store.stageChoices.set(draftKey, stageKey); else store.stageChoices.delete(draftKey); notify(); }} topic={root && topic ? { root: row(root), replies: rows(root.id), draft: store.drafts.get(root.id) ?? "", historyState: topic.status, historyError: topic.error, hasOlder: topic.before !== null, loadingOlder: topic.loadingOlder, onDraftChange: (text) => { store.drafts.set(root.id, text); notify(); }, onSend: send, onRetry: retry, onRefresh: () => void loadTopic(root.id), onLoadOlder: () => void loadTopic(root.id, true) } : undefined} />;
 }
