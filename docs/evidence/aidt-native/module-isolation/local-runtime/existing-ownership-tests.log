@@ -1,0 +1,49 @@
+
+> @repo/local-runtime@0.1.0 test /workspace/aidt-module-latest/packages/local-runtime
+> vitest run "test/child-ledger.test.ts" "test/processes.test.ts" "test/supervisor.test.ts" "test/node-launch.test.ts"
+
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/packages/local-runtime
+
+ ❯ test/processes.test.ts (4 tests | 1 failed) 3681ms
+   ✓ waitForHttpOrExit > returns when the child does come up 545ms
+   × startManaged > stop() 连孙进程一起收，不只是直接子进程 3093ms
+     → expected true to be false // Object.is equality
+ ✓ test/supervisor.test.ts (5 tests) 2362ms
+   ✓ 有人盯着的子进程 > 被杀掉之后真的会被拉起来，而且换了一个新进程 586ms
+   ✓ 有人盯着的子进程 > 一直起不来就停手，并给出说人话的说明 607ms
+   ✓ 有人盯着的子进程 > 崩溃现场写进日志——只说「退出了」是不可行动的 604ms
+   ✓ 有人盯着的子进程 > 我们自己停它的时候不当成崩溃，也不去重启 405ms
+ ✓ test/child-ledger.test.ts (4 tests) 522ms
+   ✓ child ledger > 收掉台账里还活着的孤儿——即使它已经把进程名改成了 next-server 432ms
+ ✓ test/node-launch.test.ts (2 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/processes.test.ts > startManaged > stop() 连孙进程一起收，不只是直接子进程
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/processes.test.ts:103:25
+    101|     await m.stop();
+    102|     for (let i = 0; i < 30 && alive(gpid); i += 1) await new Promise((…
+    103|     expect(alive(gpid)).toBe(false);
+       |                         ^
+    104|   });
+    105| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 14 passed (15)
+   Start at  03:43:54
+   Duration  7.35s (transform 96ms, setup 0ms, collect 147ms, tests 6.57s, environment 1ms, prepare 200ms)
+
+/workspace/aidt-module-latest/packages/local-runtime:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/local-runtime@0.1.0 test: `vitest run "test/child-ledger.test.ts" "test/processes.test.ts" "test/supervisor.test.ts" "test/node-launch.test.ts"`
+Exit status 1

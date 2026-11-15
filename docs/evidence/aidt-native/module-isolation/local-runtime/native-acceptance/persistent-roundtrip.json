@@ -1,0 +1,23 @@
+{
+  "isolationId": "run-mwhbe6ye-1fbb090d-99e92548555c",
+  "dataDir": "/workspace/scratch/aidt-local-persistent-acceptance/data",
+  "ports": {
+    "postgres": 20480,
+    "api": 24480,
+    "web": 25480,
+    "sandbox": 26480,
+    "deepAgent": 28480,
+    "ollama": 27480,
+    "asr": 29480
+  },
+  "supplierFixture": false,
+  "docker": false,
+  "projectCreateApiMs": 249,
+  "projectCreateRouteMs": 89522,
+  "projectId": "prj-612ee8d1-6150-4812-8a9e-b1ff48ed008a",
+  "stageRevision": 1,
+  "memberMessagesReadBack": 1,
+  "secretsPreserved": true,
+  "nativeStartStopCycles": 2,
+  "completed": true
+}

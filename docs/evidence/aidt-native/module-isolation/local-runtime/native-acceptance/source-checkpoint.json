@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-11-15T04:08:26.860863+00:00",
+  "head": "c5db37767d588d1fff90ff861ac2d7a3a762710d",
+  "status": "?? apps/web/e2e/aidt-local-persistence.spec.ts\n?? apps/web/playwright.aidt-local.config.ts\n",
+  "files": {
+    "packages/local-runtime/src/config.ts": "806272e4e477267dda5b2ac76174bc063e073852c8e3d0f7358578b35fd0caf0",
+    "packages/local-runtime/src/aidt-cli.ts": "36115cedc6b4665728e7bb9cd1161ec0d72da7607d3e9e198d2c86183374ebe1",
+    "packages/local-runtime/src/aidt-control.ts": "575aedb9677ac8be14fd4a16fdd24132df1d6446cf870354436c6cddef179433",
+    "packages/local-runtime/src/up.ts": "fdc59e074091a28632110f52af640fe0a0101962c1823f4b185bf2b6678f5f60",
+    "apps/web/e2e/aidt-local-persistence.spec.ts": "bdc1afbb68d3c6a7d22b3e3bed6fa627a1c827cc35a2b48bc4e154bf6a36a456",
+    "apps/web/playwright.aidt-local.config.ts": "789d19cb0eb51721f0a0a00b9d1acfd834aaca5a6bb09d6d1ba9dddb4b25b84d"
+  },
+  "runtime": "native persistent PGlite, next dev isolated .next-aidt-local, no Docker or fixture provider",
+  "trace": false,
+  "coldRouteTimeoutMs": 240000,
+  "prewarming": false,
+  "cacheState": "Warm from failed attempt-2; do not claim cold-start timing from this repeat.",
+  "runtimeSourceChangedAfterRun": []
+}

@@ -1,0 +1,99 @@
+{
+  "runtimeCommit": "c5db37767d588d1fff90ff861ac2d7a3a762710d",
+  "runtimeSourceUnchanged": true,
+  "processExitCode": 0,
+  "stats": {
+    "startTime": "2026-11-15T04:08:28.989Z",
+    "duration": 281261.48199999996,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "reporterErrors": [],
+  "completed": true,
+  "nativeStartStopCycles": 2,
+  "flagsProfile": "aidt",
+  "dataDir": "/workspace/scratch/aidt-local-persistent-acceptance/data",
+  "dataExcludedFromDelivery": true,
+  "trace": "off",
+  "secretValueReplacements": 0,
+  "noCredentialsCommandInvoked": true,
+  "runtimeDocker": false,
+  "fixtureProvider": false,
+  "realModelAvailable": false,
+  "modelDownloadAttempted": false,
+  "firstProjectApiMs": 249,
+  "firstProjectRouteMs": 89522,
+  "sourceCache": "Existing .next-aidt-local cache; this repeat is not a pristine cold benchmark. New Next processes still compiled the workspace.",
+  "cleanupFile": "cleanup.json",
+  "files": [
+    {
+      "file": "playwright-results.json",
+      "originalSha256": "ef234538055c1daeebd5d371b888f7ccd005ed6ed4f742a6972dfbecf4d050d3",
+      "deliveredSha256": "ef234538055c1daeebd5d371b888f7ccd005ed6ed4f742a6972dfbecf4d050d3"
+    },
+    {
+      "file": "doctor.json",
+      "originalSha256": "a6a2fe42a4b4a80887f21be2b2d4110aab2166a97b0b8845471a46e41f3b5dcf",
+      "deliveredSha256": "a6a2fe42a4b4a80887f21be2b2d4110aab2166a97b0b8845471a46e41f3b5dcf"
+    },
+    {
+      "file": "health-cycle-1.json",
+      "originalSha256": "8780bebf802530bdb510b79059458864703b95e2a12b9f95ba0098dd1b145303",
+      "deliveredSha256": "8780bebf802530bdb510b79059458864703b95e2a12b9f95ba0098dd1b145303"
+    },
+    {
+      "file": "health-cycle-2.json",
+      "originalSha256": "39bda822c1587066c953c5ddc91281d702563a00cfdbc2060175bd35677c727b",
+      "deliveredSha256": "39bda822c1587066c953c5ddc91281d702563a00cfdbc2060175bd35677c727b"
+    },
+    {
+      "file": "stopped-cycle-1.json",
+      "originalSha256": "92eeb9ef5776ce786c0b468e384119cdf80d94d36e14507998da9117b1c20f5b",
+      "deliveredSha256": "92eeb9ef5776ce786c0b468e384119cdf80d94d36e14507998da9117b1c20f5b"
+    },
+    {
+      "file": "stopped-cycle-2.json",
+      "originalSha256": "92eeb9ef5776ce786c0b468e384119cdf80d94d36e14507998da9117b1c20f5b",
+      "deliveredSha256": "92eeb9ef5776ce786c0b468e384119cdf80d94d36e14507998da9117b1c20f5b"
+    },
+    {
+      "file": "persistent-roundtrip.json",
+      "originalSha256": "c52ae7a8693c89ddb4c992cf951cb6edcf39c265d55e77c9026cb09a0ef53784",
+      "deliveredSha256": "c52ae7a8693c89ddb4c992cf951cb6edcf39c265d55e77c9026cb09a0ef53784"
+    },
+    {
+      "file": "native-start-cycle-1.txt",
+      "originalSha256": "6b76ced92885838774b9c66259b3f31a0cc81589d92cb3b64045725ecc7e18ac",
+      "deliveredSha256": "894b8d3466a22cca0d40e235dd6fea7da8f5fbe843d9f2c9615a9228754dfe0e"
+    },
+    {
+      "file": "native-start-cycle-2.txt",
+      "originalSha256": "2d01ddf34c411b6da7ff8e6e3e15566ab5503cd886f12a05524a33917024592c",
+      "deliveredSha256": "0021520e927505e77ae1e49cfea686c8f79177b3f82fbdb1bf232639a6463bc3"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "/workspace/scratch/aidt-local-persistent-acceptance/attempt-3/results/native-member-after-restart-375.png",
+      "sha256": "e3eb309b7f8367a34d853bea3cdc0b566af47850c82e1c7343aeaba7db6c86a2",
+      "viewed": true
+    },
+    {
+      "file": "/workspace/scratch/aidt-local-persistent-acceptance/attempt-3/results/native-member-stored.png",
+      "sha256": "218510040e8ad18adc3866d508080f8773f4765c6b12cee06b6e2efaabc129b5",
+      "viewed": true
+    },
+    {
+      "file": "/workspace/scratch/aidt-local-persistent-acceptance/attempt-3/results/native-stage-after-restart-375.png",
+      "sha256": "0ba1261af9fe91f0084ef1045028afb34a6d3603bce7313e2091564f6aed7ce2",
+      "viewed": true
+    }
+  ],
+  "limits": [
+    "Linux headless browser only; macOS/Windows packaging not executed.",
+    "No real AI, tool execution, ASR, microphone or classroom multi-machine validation.",
+    "The native profile is a persistent single-computer workspace; no public URL or classroom hosting was created."
+  ]
+}

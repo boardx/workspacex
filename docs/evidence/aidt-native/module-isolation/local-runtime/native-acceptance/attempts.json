@@ -1,0 +1,44 @@
+[
+  {
+    "attempt": 1,
+    "stats": {
+      "startTime": "2026-11-15T03:57:52.325Z",
+      "duration": 165672.62,
+      "expected": 0,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "exitCode": 1,
+    "reason": "Failed after a 60-second first-workspace navigation wait while Next dev was still compiling. Native core/login worked; no completed persistence claim.",
+    "originalEvidence": "/workspace/scratch/aidt-local-persistent-acceptance/attempt-1"
+  },
+  {
+    "attempt": 2,
+    "stats": {
+      "startTime": "2026-11-15T04:02:58.103Z",
+      "duration": 165281,
+      "expected": 0,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "exitCode": 1,
+    "reason": "Stage V1 and human text were saved, then stop1 released ports. Second start was refused by the unchanged 12 GB doctor threshold (11.8 GB free).",
+    "originalEvidence": "/workspace/scratch/aidt-local-persistent-acceptance/attempt-2"
+  },
+  {
+    "attempt": 3,
+    "stats": {
+      "startTime": "2026-11-15T04:08:28.989Z",
+      "duration": 281261.48199999996,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "exitCode": 0,
+    "reason": "Full two native start/save/stop/restart/new-login/readback/stop cycles completed with no fixture provider or Docker runtime.",
+    "originalEvidence": "/workspace/scratch/aidt-local-persistent-acceptance/attempt-3"
+  }
+]

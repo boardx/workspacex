@@ -1,0 +1,122 @@
+{
+  "config": {
+    "argv": [
+      "/tmp/aidt-node/node_modules/node/bin/node",
+      "/workspace/aidt-module-latest/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.aidt-local.config.ts",
+      "--workers=1"
+    ],
+    "configFile": "/workspace/aidt-module-latest/apps/web/playwright.aidt-local.config.ts",
+    "rootDir": "/workspace/aidt-module-latest/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/scratch/aidt-local-persistent-acceptance/attempt-3/results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/aidt-module-latest/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "aidt-local-persistence.spec.ts"
+        ],
+        "timeout": 900000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/workspace/scratch/aidt-local-persistent-acceptance/attempt-3/results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "aidt-local-persistence.spec.ts",
+      "file": "aidt-local-persistence.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "native local start/save/stop/restart preserves AIDT and human text without Docker or a model fixture",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 280109,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-15T04:08:29.764Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30c98ac5deb1b5ce0431-8178510316c5182ee1f6",
+          "file": "aidt-local-persistence.spec.ts",
+          "line": 49,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-15T04:08:28.989Z",
+    "duration": 281261.48199999996,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

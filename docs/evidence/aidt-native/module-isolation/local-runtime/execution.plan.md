@@ -21,9 +21,11 @@ flowchart TD
   class G doing
   class S1 tested
   class S2 tested
-  class S3 done
+  class S3 tested
+  %% evidence S3: CLI lifecycle3 + real IPC15 and typecheck passed; native full save-stop-restart acceptance remains S5
   class S4 tested
-  class S5 doing
+  class S5 tested
+  %% evidence S5: actual native Playwright attempt-3 expected1 skipped0 unexpected0 flaky0; same data directory and new browser login precise stage/message readback, two successful stops
   class S6 doing
   %% evidence S1: backend-profile.md records actual PGlite migrations and durable reopen.
   %% evidence S2: backend-profile.md records 27 configuration tests and default-off checks.
