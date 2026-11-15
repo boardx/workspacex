@@ -24,3 +24,9 @@
 关闭功能只关闭入口和新操作，不删除历史数据。访谈录音C按用户要求另排，语音房、教师评分及30人课堂负载均不在本轮通过范围。
 
 临时验收工具如果使用标准 fullstack fixture，必须明确其 TTL、停止后清理测试数据及模拟模型性质；它不能冒充持久课堂工作区。
+
+## 后续本机交付（2026-11-15）
+
+用户已选择自己的电脑，改为交付原生 `pnpm aidt:local start/status/health/stop/credentials`，复用 Local Runtime 和持久 PGlite。运行源码 `c5db37767` 已通过真实两次停启、新浏览器登录、同项目阶段稿及成员消息精确回读；无 Docker 或模型 fixture。97项局部回归、Web/Local/Desktop类型检查和本地零出网静态检查通过。详情与保留的失败轮次见 [local-runtime/README.md](../local-runtime/README.md)。
+
+源码分发提交 `bda250a79`；48.4 MiB ZIP 已保存到用户资料库，身份、字节摘要及真实能力边界见 [delivery.json](../local-runtime/delivery.json)。包内 `START-HERE.md` 说明安装 Node 22/pnpm 9.15 后的操作，不包含运行数据库、账号密钥或截图。首次复杂步骤工作区约85–90秒，重启后仍约40秒编译；这是源码 dev 模式，不是预构建安装包。Linux已验收，用户设备安装、macOS/Windows实机、真实AI/ASR和多机器课堂仍未验收。所有本轮自有服务已停止，持久测试数据库保留；没有 GitHub 外发、部署或合并。

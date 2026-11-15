@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "bda250a79c39331405132be483371fc6a4663fa4",
+  "runtimeCommit": "c5db37767d588d1fff90ff861ac2d7a3a762710d",
+  "library_file_id": "libfile_fde3_f-870b35a7c80c81919969821a5c7163d8_f2550309ede48191b6efb8c3155855a5",
+  "file_id": "file_00000000e0b481fdbc6ca5769cb64479",
+  "file_name": "AIDT-local-source.zip",
+  "bytes": 50767277,
+  "version": 0,
+  "sha256": "1ba3f1de33ffd2515d62eece0d59085a10ef471f058fd0aceded33036d60254c",
+  "nativeRoundtrip": "1/1 passed, two real start-stop cycles",
+  "coreRegression": "97/97 passed",
+  "runtimeDataIncluded": false,
+  "screenshotsIncluded": false,
+  "platformVerified": "Linux",
+  "realModelAvailable": false,
+  "preparationHelper": "Failed at tool discovery HTTP401 before any upload reservation; single 48.4MiB native create succeeded."
+}
