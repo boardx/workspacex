@@ -119,6 +119,13 @@ await addOrgMember(orgId, memberUserId, "consultant", fixture.teams.fullstack ??
 // instead of on `REVIEWER_FUNCTION_MISMATCH` -- red, but not for the right reason.
 await addOrgMember(orgId, securityReviewerUserId, "consultant", fixture.teams.fullstack ?? null);
 
+// The voice journey uses the facilitator wallet. Seed it separately from the canvas admin.
+// @global-scope-fixture table:credit_wallets: funds smoke-test accounts in the isolated database.
+await asOwner(client => client.query(
+  "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+  [userId],
+));
+
 // The canvas simulation uses the real Credit admission path for this seeded admin.
 await asOwner(client => client.query(
   "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO NOTHING",
