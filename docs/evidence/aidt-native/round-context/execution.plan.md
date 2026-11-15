@@ -38,8 +38,9 @@ flowchart TD
   %% evidence S2: reproduced-failure.txt 证明旧代码丢失反思版本
   class S3 tested
   %% evidence S3: targeted-tests.txt：83项；web-tests.txt：501项；类型、设计及ESLint通过
-  class S4 doing
-  class S5 todo
+  class S4 tested
+  %% evidence S4: native/test-results.json：1完整通过/双停启，501 Web与38 Runtime；verification.md
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
