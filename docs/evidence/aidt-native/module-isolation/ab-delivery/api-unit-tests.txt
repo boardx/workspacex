@@ -1,0 +1,16 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+ ✓ tests/aidt-stages/shared-stage-unit.test.ts (37 tests) 56ms
+ ✓ tests/project-member-chat/member-chat-service.test.ts (16 tests) 32ms
+ ✓ tests/logging/all-exceptions-filter-error-log.test.ts (6 tests) 32ms
+ ✓ tests/project-member-chat/member-chat-controller.test.ts (10 tests) 24ms
+ ✓ tests/aidt-stages/body-parser.test.ts (2 tests) 111ms
+ ✓ tests/logging/aidt-collaboration-errors.test.ts (2 tests) 10ms
+ ✓ tests/aidt-stages/shared-stage-controller.test.ts (10 tests) 11ms
+
+ Test Files  7 passed (7)
+      Tests  83 passed (83)
+   Start at  00:14:12
+   Duration  12.76s (transform 3.23s, setup 0ms, collect 10.22s, tests 276ms, environment 1ms, prepare 696ms)
+

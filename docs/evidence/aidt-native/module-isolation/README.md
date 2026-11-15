@@ -1,3 +1,5 @@
+> Historical record: this file describes the earlier module-isolation candidate `dda3d66`. The subsequently approved A+B implementation and exact-source validation are recorded in [ab-delivery/README.md](ab-delivery/README.md) and [native-fullstack-validation.md](native-fullstack-validation.md). Earlier limitations below are preserved as history, not the current A+B status.
+
 # AIDT module isolation evidence
 
 Scope: optional AIDT module and compatibility with existing WorkspaceX behavior. Full classroom P0 is still tracked in `backlog.md`. No deployment, permission change, migration or new service contract is included.

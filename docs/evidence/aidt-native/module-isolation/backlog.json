@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-11-15 07:20 北京时间",
-  "scope": "当前冲刺：独立模块隔离与兼容性验证已通过本地检查；完整课堂P0与真实服务验收另列。",
+  "updatedAt": "2026-11-15 08:48 北京时间",
+  "scope": "本轮用户已批准A+B实现完成并通过隔离验收；访谈录音另排。tasks保留上轮模块隔离记录。",
   "tasks": [
     {
       "id": "B01",
@@ -149,5 +149,26 @@
       "暂缓",
       "本轮先做成员文字沟通；不挤占隔离与P0闭环"
     ]
-  ]
+  ],
+  "currentSprint": {
+    "sourceCommit": "8f31b6fa4d94d74f0228df2367546b2782a06e27",
+    "window": "2026-11-15 07:28–13:28 Asia/Shanghai",
+    "scope": [
+      "A共享阶段稿与报告",
+      "B全局成员文字频道和单层话题"
+    ],
+    "status": "tested",
+    "webTests": 492,
+    "apiUnitTests": 83,
+    "fullstackTests": 3,
+    "screenshots": 35,
+    "runtimePreview": "unavailable",
+    "deferred": [
+      "访谈录音C",
+      "语音房",
+      "教师评分",
+      "30人课堂试点"
+    ],
+    "gallery": "https://chatgpt.com/space/page_240db14988308191b9f4df925809cb3a"
+  }
 }

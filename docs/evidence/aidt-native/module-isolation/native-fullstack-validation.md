@@ -52,3 +52,17 @@ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
 没有实际麦克风采音、访谈同意采集流程、真实 ASR、实时语音房、真实图像生成服务或 30 人课堂负载验收。录音用例仅证明原生 UI 复用与真实个人转录资源读/关联，不将个人笔记绕作项目访谈证据。图像附件服务端归属校验另有局部测试，本轮没有以模拟附件宣称真实图像采集成功。
 
 当前没有可调用的共享桌面/受控端口预览工具，因此没有经验证的用户可点击原生应用地址。上述 loopback 端口仅用于隔离测试，不能交付为外部链接；截图或自包含演示只可标为 UI 预览。视觉质量需课程负责人实际试用，不以测试全绿宣称已经达到客观 9 分。
+
+## 最终精确候选复验
+
+对 **`8f31b6fa4d94d74f0228df2367546b2782a06e27`** 的干净业务源码，使用仓库内 `playwright.aidt-native.config.ts` 完成新隔离栈、干净 production build 和全部断言：**3 passed / 0 skipped / 0 unexpected / 0 flaky，退出码 0**，Playwright 总耗时 6.7 分钟。共享阶段/报告 15.4 秒、成员文字 8.9 秒、原生六步 34.6 秒。
+
+- 最终源码记录：`/workspace/scratch/aidt-module-latest/final-source-checkpoint.json`。
+- JSON reporter：`/workspace/scratch/aidt-module-latest/final-candidate-results/results.json`；汇总 `/workspace/scratch/aidt-module-latest/final-candidate-manifest.json`；日志 `/workspace/scratch/aidt-module-latest/final-candidate-console.log`。
+- **35 张最终原生截图**，均在唯一目录 `/workspace/scratch/aidt-module-latest/final-candidate-results/`，没有覆盖前轮证据。
+- 真实文件 `shared-stage-pg-readback.json` 与 `member-chat-pg-readback.json` 分别保留 **9 行阶段历史、15 行人类消息**；各自前后 `runs=0`、`requests=0`。文件位于对应 `aidt-member-collaboration` 用例子目录，并作为 path 附件记入 JSON reporter。
+- 报告编辑区在 375/1280 宽度均达到至少 80% 几何可见，25%/50%/75% 处真实命中 textarea，未被操作栏遮挡。
+- 长话题回复滚到末尾后，375/1280 的固定根摘要与回复输入框同样真实可见且命中；根摘要保留正确消息 ID 和原文。
+- 退出后直接查询 Docker 与监听端口，确认 `wsx-2444b5823d53bf93d9c0` 没有容器，全部 13 个自有服务端口无监听。实际回读 `/workspace/scratch/aidt-module-latest/final-candidate-cleanup.json`。
+
+最终运行后仅交付证据文档发生变化；没有将后续未测业务源码与这次 commit 的通过结果混用。上述未验收范围仍适用，C 访谈录音另排。

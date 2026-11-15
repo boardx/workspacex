@@ -1,0 +1,233 @@
+{
+  "config": {
+    "argv": [
+      "/tmp/aidt-node/node_modules/node/bin/node",
+      "/workspace/aidt-module-latest/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.aidt-native.config.ts",
+      "--project=seeded",
+      "--workers=1",
+      "--max-failures=3"
+    ],
+    "configFile": "/workspace/aidt-module-latest/apps/web/playwright.aidt-native.config.ts",
+    "rootDir": "/workspace/aidt-module-latest/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 3,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/scratch/aidt-module-latest/final-candidate-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "seeded",
+        "name": "seeded",
+        "testDir": "/workspace/aidt-module-latest/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "project-aidt-native.spec.ts",
+          "aidt-member-collaboration.spec.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/workspace/scratch/aidt-module-latest/final-candidate-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "aidt-member-collaboration.spec.ts",
+      "file": "aidt-member-collaboration.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "shared AIDT stages: two members persist revisions, stale CAS and isolation remain explicit",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "seeded",
+              "projectName": "seeded",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 15395,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [
+                    {
+                      "text": "(node:677561) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+                    },
+                    {
+                      "text": "(node:677680) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+                    },
+                    {
+                      "text": "(node:677693) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+                    }
+                  ],
+                  "retry": 0,
+                  "startTime": "2026-11-15T00:43:52.959Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "shared-stage-pg-readback",
+                      "contentType": "application/json",
+                      "path": "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/attachments/shared-stage-pg-readback-9b44440ed20444731ca10c2b0641475f5c619f35.json"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ad248f9e8eed5d8fef00-7edbfee8795d66a2dc5a",
+          "file": "aidt-member-collaboration.spec.ts",
+          "line": 81,
+          "column": 5
+        },
+        {
+          "title": "pure human project chat: two authors, durable topic replies, idempotency and no AgentRun",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "seeded",
+              "projectName": "seeded",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8851,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [
+                    {
+                      "text": "(node:677784) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+                    },
+                    {
+                      "text": "(node:677873) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+                    },
+                    {
+                      "text": "(node:677886) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+                    }
+                  ],
+                  "retry": 0,
+                  "startTime": "2026-11-15T00:44:08.668Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "member-chat-pg-readback",
+                      "contentType": "application/json",
+                      "path": "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--2af06-idempotency-and-no-AgentRun-seeded/attachments/member-chat-pg-readback-15cb4e483d1fbd38e000aaf93134f914774b0a1e.json"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ad248f9e8eed5d8fef00-f86baee285643630832f",
+          "file": "aidt-member-collaboration.spec.ts",
+          "line": 221,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "project-aidt-native.spec.ts",
+      "file": "project-aidt-native.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "AIDT native project: dashboard, durable Chat, real resource association, recorder and readonly/access boundaries",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "seeded",
+              "projectName": "seeded",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 34608,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-15T00:44:17.551Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "0f10b500be2f75dbbd6a-73328160bf39cbd9f4d6",
+          "file": "project-aidt-native.spec.ts",
+          "line": 53,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-15T00:38:07.469Z",
+    "duration": 404909.728,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

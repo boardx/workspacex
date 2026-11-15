@@ -11,11 +11,11 @@
 
 | Agent | 负责范围 | 本轮产出 |
 |---|---|---|
-| Agent 1 / aidt_entry_isolation | 复用现有 Artifact 真实保存 | 持久化适配与契约测试 |
+| Agent 1 / aidt_entry_isolation | 共享阶段服务、权限与持久化 | 真实CAS、历史和幂等契约 |
 | Agent 2 / aidt_chat_isolation | 原生 Chat、Skill 与已保存上下文 | 授权上下文接入及取消隔离 |
 | Agent 3 / aidt_state_isolation | 阶段保存/恢复交互 | 真实回执、冲突恢复与身份隔离 |
-| Agent 4 / aidt_resource_isolation | 材料、转录、Board、Design 衔接 | 项目、资源及返回上下文连续性 |
-| Agent 5 / aidt_backend_isolation | 成员文字消息能力与契约 | 核实原生服务；缺口准备待签核方案 |
+| Agent 4 / aidt_resource_isolation | 成员文字UI及跨模块衔接 | 全局入口、单层话题与上下文连续性 |
+| Agent 5 / aidt_backend_isolation | 成员文字消息能力与契约 | 用户批准B后的真实消息服务与鉴权 |
 | Agent 6 / aidt_compatibility_tests | 可访问体验与整合验收 | 原生 E2E、可运行条件与回归 |
 | 主 Agent | 集成、报告导出、问题修复与交付 | 源码、验证记录、可体验性事实 |
 
@@ -67,3 +67,9 @@ flowchart TD
 | 时间 | 节点 | 状态 | 依据 |
 |---|---|---|---|
 | 2026-11-15 07:28 北京时间 | G, H1 | doing | 用户要求六小时、每小时迭代，六路已重启；当前检视原生能力 |
+
+## 本轮实际完成记录
+
+2026-11-15 08:45 北京时间，最终业务提交 `8f31b6fa4d94d74f0228df2367546b2782a06e27` 完成干净构建和真实双账号全栈 3/3 验收；约 08:46 完成隔离服务清理。A+B 提前在第二小时内完成代码与验收；前端 492、API 无DB 83 项通过。35 张截图和两份PG回读已实际保存。交付证据另行提交，不将六个检查点描述为六个小时已执行。
+
+当前限制：没有可调用的受控应用预览入口，因此交付截图页与可复现源码，不提供容器localhost冒充外部链接。访谈录音另排，语音房、外部模型教学质量及30人试点未验收。
