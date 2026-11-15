@@ -557,13 +557,17 @@ function contextEcho(body: CreateRunBody): string {
   const messages = (body.input?.messages ?? []).flatMap(({ role, content }) =>
     role === "assistant" && typeof content === "string" ? [content] : []);
   const summary = process.env.LOOPBACK_MODEL_L2_SUMMARY_ECHO_PREFIX;
+  const factSentinel = process.env.LOOPBACK_MODEL_L2_FACT_SENTINEL;
+  const factPrefix = process.env.LOOPBACK_MODEL_L2_FACT_ECHO_PREFIX;
+  const summaryMessage = messages.find(content => content.startsWith("[早前对话摘要]"));
   const trace = process.env.LOOPBACK_MODEL_TOOL_TRACE_ECHO_PREFIX;
   const traceSentinel = process.env.LOOPBACK_MODEL_TOOL_TRACE_SENTINEL;
   const retrieval = process.env.LOOPBACK_MODEL_RETRIEVAL_ECHO_PREFIX;
   const kinds = FILE_RETRIEVAL_SOURCE_KINDS.filter(kind => messages.some(content =>
     content.startsWith(FILE_CONTEXT_MESSAGE_HEADER_PREFIX) && content.includes(kind)));
   return [
-    summary && messages.some(content => content.startsWith("[早前对话摘要]")) ? summary : "",
+    summary && summaryMessage ? summary : "",
+    factPrefix && factSentinel && summaryMessage?.includes(factSentinel) ? factPrefix + factSentinel : "",
     trace && traceSentinel && messages.some(content =>
       content.startsWith(TOOL_TRACE_MESSAGE_HEADER_PREFIX) && content.includes(traceSentinel)) ? trace : "",
     retrieval && kinds.length ? retrieval + kinds.join(",") : "",
