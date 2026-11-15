@@ -31,7 +31,8 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G doing
+  class G tested
+  %% evidence G: verification.md与delivery.json；本轮两处修复和本机交付完成，实模/课堂边界保留
   class S1 tested
   %% evidence S1: 已核对当前分支、无重复活动Agent及历史课程边界；source-intake.md
   class S2 tested
@@ -40,7 +41,8 @@ flowchart TD
   %% evidence S3: targeted-tests.txt：83项；web-tests.txt：501项；类型、设计及ESLint通过
   class S4 tested
   %% evidence S4: native/test-results.json：1完整通过/双停启，501 Web与38 Runtime；verification.md
-  class S5 doing
+  class S5 tested
+  %% evidence S5: delivery.json：Library版本3、完整性及xattrs成功；Backlog sequence24保存回读
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
