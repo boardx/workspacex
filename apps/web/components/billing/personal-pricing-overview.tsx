@@ -8,6 +8,7 @@ import { PersonalPricingWalletCard, PersonalPricingSubscriptionCard, type Person
 import { usePersonalPricingRead, type PricingReadState } from "./personal-pricing-read";
 import { requireManagementUrl } from "./payment-url";
 import { SubscriptionHistory } from "./subscription-history";
+import { PersonalTopupHistory } from "./personal-topup-history";
 const walletQuery={ownerType:"user"};
 const parseCatalog=(raw:unknown)=>pricing.getPricingCatalog.out.parse(raw);
 const parseEntitlement=(raw:unknown)=>pricing.getPricingEntitlement.out.parse(raw);
@@ -50,7 +51,7 @@ export function PersonalPricingOverview({userId,sessionToken,onPurchase,onReady,
   {message&&<p role="status" className="text-13 text-muted-foreground">{message}</p>}
   <ReadNotice state={catalog.state} name="catalog" label="套餐" retry={catalog.retry}/>
   <div className="grid items-start gap-5 md:grid-cols-2">
-   <div className="space-y-3"><ReadNotice state={wallet.state} name="wallet" label="充值额度" retry={wallet.retry}/>{wallet.state.status==="ready"&&<PersonalPricingWalletCard wallet={wallet.state.data} catalog={catalog.state.status==="ready"?catalog.state.data:null} onPurchase={purchase}/>}</div>
+   <div className="space-y-3"><ReadNotice state={wallet.state} name="wallet" label="充值额度" retry={wallet.retry}/>{wallet.state.status==="ready"&&<PersonalPricingWalletCard wallet={wallet.state.data} catalog={catalog.state.status==="ready"?catalog.state.data:null} onPurchase={purchase}/>}<PersonalTopupHistory key={scope} userId={userId} sessionToken={sessionToken}/></div>
    <div className="space-y-3"><ReadNotice state={entitlement.state} name="entitlement" label="订阅" retry={entitlement.retry}/>{entitlement.state.status==="ready"&&<PersonalPricingSubscriptionCard entitlement={entitlement.state.data} onPurchase={purchase} onManage={()=>void manage()} managementPending={managementPending} history={<SubscriptionHistory key={scope} sessionToken={sessionToken}/>}/>}</div>
   </div>
  </div>;
