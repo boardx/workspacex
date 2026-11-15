@@ -1,0 +1,372 @@
+{
+  "config": {
+    "argv": [
+      "/tmp/aidt-node/node_modules/node/bin/node",
+      "/workspace/aidt-module-latest/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.aidt-local.config.ts",
+      "--workers=1"
+    ],
+    "configFile": "/workspace/aidt-module-latest/apps/web/playwright.aidt-local.config.ts",
+    "rootDir": "/workspace/aidt-module-latest/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/scratch/aidt-v2-native-acceptance/attempt-3-reuse/results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/aidt-module-latest/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "aidt-local-persistence.spec.ts"
+        ],
+        "timeout": 1800000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/workspace/scratch/aidt-v2-native-acceptance/attempt-3-reuse/results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "aidt-local-persistence.spec.ts",
+      "file": "aidt-local-persistence.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "native local start/save/stop/restart preserves AIDT and human text without Docker or a model fixture",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 1800000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 106374,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:31.776Z native-start-1\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:47.628Z native-start-1-healthy\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:49.060Z logged-in-private-post-login-trace-started\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:49.244Z browser-route /aidt\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:49.751Z http POST /projects 201\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:50.373Z http PATCH /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/tags 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:50.444Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:52.014Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:52.376Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:52.619Z http POST /chat/threads/mutate 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:52.865Z http POST /threads/thr-6139dac3-0523-45bd-95c1-824ef1d98ccd/skill-mounts 201\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:52.978Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&thread=thr-6139dac3-0523-45bd-95c1-824ef1d98ccd&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:52.981Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&thread=thr-6139dac3-0523-45bd-95c1-824ef1d98ccd&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:53.332Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/1 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:53.495Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&thread=thr-6139dac3-0523-45bd-95c1-824ef1d98ccd&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:53.520Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&thread=thr-6139dac3-0523-45bd-95c1-824ef1d98ccd&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:53.565Z opening-stage-3\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:53.720Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=3&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:53.938Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=3&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:56.184Z stage-3-ready\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:56.355Z http POST /chat/threads/mutate 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:56.616Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/3 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:56.899Z stage-3-saved-V1\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:56.899Z opening-stage-4\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:56.923Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=4&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:57.208Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=4&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:58.963Z stage-4-ready\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:03:59.984Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/4 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:00.331Z stage-4-saved-V1\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:00.333Z opening-stage-5\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:00.364Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=5&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:00.673Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=5&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:02.538Z stage-5-ready\n"
+                    },
+                    {
+                      "text": "{\"phase\":\"s5-populated-label-diagnostic\",\"exactLabelCount\":0,\"textboxRoleCount\":1}\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:03.356Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/5 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:03.678Z stage-5-saved-V1\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:03.679Z opening-stage-6\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:03.704Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:04.003Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:05.698Z stage-6-ready\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:06.265Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/6 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:06.566Z stage-6-saved-V1\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:06.641Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&tool=outcome&returnRevision=1\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:06.694Z opening-stage-5\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:06.751Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=5&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:06.970Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=5&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:08.788Z stage-5-ready\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:09.281Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/5 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:09.702Z stage-5-saved-V2\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:09.702Z opening-stage-6\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:09.727Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:09.818Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=outcome\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:11.857Z stage-6-ready\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:12.422Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/6 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:12.814Z stage-6-saved-V2\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:13.417Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/6 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:13.815Z stage-6-saved-V3\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:13.891Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=2&tool=outcome&returnRevision=3\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:13.969Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=report\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:14.159Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=report\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:17.033Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/6 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:17.423Z v2-ui-branches-and-report-complete\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:18.899Z http POST /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/member-chat/messages 201\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:19.512Z native-stop-1\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:20.326Z http POST /chat/threads/mutate 200\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:20.494Z http POST /threads/thr-0c441f5a-7b64-43f9-86ca-c558ee22bbe2/skill-mounts 201\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:20.583Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&thread=thr-0c441f5a-7b64-43f9-86ca-c558ee22bbe2&tool=report\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:20.590Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&thread=thr-0c441f5a-7b64-43f9-86ca-c558ee22bbe2&tool=report\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:21.266Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&thread=thr-0c441f5a-7b64-43f9-86ca-c558ee22bbe2&tool=report\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:21.275Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&thread=thr-0c441f5a-7b64-43f9-86ca-c558ee22bbe2&tool=report\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:33.534Z native-stop-1-released\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:33.534Z native-start-2\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:49.248Z native-start-2-healthy\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:54.458Z opening-stage-3\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:57.281Z stage-3-ready\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:57.292Z opening-stage-4\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:59.572Z stage-4-ready\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:04:59.593Z opening-stage-5\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:05:01.939Z stage-5-ready\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:05:01.947Z opening-stage-6\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:05:05.183Z stage-6-ready\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:05:10.422Z native-stop-2\n"
+                    },
+                    {
+                      "text": "[aidt-native] 2026-11-15T08:05:15.861Z native-stop-2-released\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-15T08:03:30.302Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30c98ac5deb1b5ce0431-8178510316c5182ee1f6",
+          "file": "aidt-local-persistence.spec.ts",
+          "line": 209,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-15T08:03:29.265Z",
+    "duration": 107884.011,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

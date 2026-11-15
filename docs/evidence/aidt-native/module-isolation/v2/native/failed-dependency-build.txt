@@ -1,0 +1,84 @@
+(node:775828) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> agentic-harness-template@ aidt:local /workspace/aidt-module-latest
+> tsx packages/local-runtime/src/aidt-cli.ts "build" "--data-dir" "/workspace/scratch/aidt-local-persistent-acceptance/data" "--repo-root" "/workspace/aidt-module-latest" "--ports" "postgres=20409,api=24409,web=25409,sandbox=26409,deepAgent=28409,ollama=27409,asr=29409"
+
+(node:775841) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:775857) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[aidt-web-build] (node:775865) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[aidt-web-build] (Use `node --trace-warnings ...` to show where the warning was created)
+[aidt-web-build]   ▲ Next.js 14.2.15
+[aidt-web-build]   - Experiments (use with caution):
+[aidt-web-build]     · cpus
+[aidt-web-build]     · proxyTimeout
+[aidt-web-build]     · webpackBuildWorker
+[aidt-web-build]     · outputFileTracingRoot
+[aidt-web-build] 
+[aidt-web-build]    Creating an optimized production build ...
+[aidt-web-build] node:internal/modules/cjs/loader:1433
+[aidt-web-build]   throw err;
+[aidt-web-build]   ^
+[aidt-web-build] 
+[aidt-web-build] Error: Cannot find module '/workspace/aidt-native/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/compiled/jest-worker/processChild.js'
+[aidt-web-build]     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+[aidt-web-build]     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+[aidt-web-build]     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+[aidt-web-build]     at Function._load (node:internal/modules/cjs/loader:1216:25)
+[aidt-web-build]     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+[aidt-web-build]     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+[aidt-web-build]     at node:internal/main/run_main_module:36:49 {
+[aidt-web-build]   code: 'MODULE_NOT_FOUND',
+[aidt-web-build]   requireStack: []
+[aidt-web-build] }
+[aidt-web-build] 
+[aidt-web-build] Node.js v22.23.5
+[aidt-web-build] 
+[aidt-web-build] > Build error occurred
+[aidt-web-build] Error: Jest worker encountered 1 child process exceptions, exceeding retry limit
+[aidt-web-build]     at ChildProcessWorker.initialize (/workspace/aidt-native/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/compiled/jest-worker/index.js:1:11580)
+[aidt-web-build]     at ChildProcessWorker._onExit (/workspace/aidt-native/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/compiled/jest-worker/index.js:1:12545)
+[aidt-web-build]     at ChildProcess.emit (node:events:531:35)
+[aidt-web-build]     at ChildProcess._handle.onexit (node:internal/child_process:293:12) {
+[aidt-web-build]   type: 'WorkerError'
+[aidt-web-build] }
+AIDT Web build failed (1); no successful build receipt was saved.
+(node:775865) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ▲ Next.js 14.2.15
+  - Experiments (use with caution):
+    · cpus
+    · proxyTimeout
+    · webpackBuildWorker
+    · outputFileTracingRoot
+
+   Creating an optimized production build ...
+node:internal/modules/cjs/loader:1433
+  throw err;
+  ^
+
+Error: Cannot find module '/workspace/aidt-native/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/compiled/jest-worker/processChild.js'
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    at Function._load (node:internal/modules/cjs/loader:1216:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v22.23.5
+
+> Build error occurred
+Error: Jest worker encountered 1 child process exceptions, exceeding retry limit
+    at ChildProcessWorker.initialize (/workspace/aidt-native/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/compiled/jest-worker/index.js:1:11580)
+    at ChildProcessWorker._onExit (/workspace/aidt-native/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/compiled/jest-worker/index.js:1:12545)
+    at ChildProcess.emit (node:events:531:35)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12) {
+  type: 'WorkerError'
+}
+ ELIFECYCLE  Command failed with exit code 1.

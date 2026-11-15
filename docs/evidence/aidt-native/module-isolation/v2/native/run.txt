@@ -1,0 +1,102 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=0.06 cores=5 perCore=0.01 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=aidt-v2-native-20261115-fin-1422770ced77 db=wsx_1422770ced77c6381f25 compose=wsx-1422770ced77c6381f25 pg=20020 redis=21020 api=24020 web=25020 sandbox=26020 model=27020 deep-agent=28020 asr=29020 vision=30020 loopback-sandbox=31020 mail=19020
+
+Running 1 test using 1 worker
+
+(node:778334) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[aidt-native] 2026-11-15T08:03:31.776Z native-start-1
+[aidt-native] 2026-11-15T08:03:47.628Z native-start-1-healthy
+[aidt-native] 2026-11-15T08:03:49.060Z logged-in-private-post-login-trace-started
+[aidt-native] 2026-11-15T08:03:49.244Z browser-route /aidt
+[aidt-native] 2026-11-15T08:03:49.751Z http POST /projects 201
+[aidt-native] 2026-11-15T08:03:50.373Z http PATCH /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/tags 200
+[aidt-native] 2026-11-15T08:03:50.444Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a
+[aidt-native] 2026-11-15T08:03:52.014Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1
+[aidt-native] 2026-11-15T08:03:52.376Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&tool=outcome
+[aidt-native] 2026-11-15T08:03:52.619Z http POST /chat/threads/mutate 200
+[aidt-native] 2026-11-15T08:03:52.865Z http POST /threads/thr-6139dac3-0523-45bd-95c1-824ef1d98ccd/skill-mounts 201
+[aidt-native] 2026-11-15T08:03:52.978Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&thread=thr-6139dac3-0523-45bd-95c1-824ef1d98ccd&tool=outcome
+[aidt-native] 2026-11-15T08:03:52.981Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&thread=thr-6139dac3-0523-45bd-95c1-824ef1d98ccd&tool=outcome
+[aidt-native] 2026-11-15T08:03:53.332Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/1 200
+[aidt-native] 2026-11-15T08:03:53.495Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&thread=thr-6139dac3-0523-45bd-95c1-824ef1d98ccd&tool=outcome
+[aidt-native] 2026-11-15T08:03:53.520Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&thread=thr-6139dac3-0523-45bd-95c1-824ef1d98ccd&tool=outcome
+[aidt-native] 2026-11-15T08:03:53.565Z opening-stage-3
+[aidt-native] 2026-11-15T08:03:53.720Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=3&tool=outcome
+[aidt-native] 2026-11-15T08:03:53.938Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=3&tool=outcome
+[aidt-native] 2026-11-15T08:03:56.184Z stage-3-ready
+[aidt-native] 2026-11-15T08:03:56.355Z http POST /chat/threads/mutate 200
+[aidt-native] 2026-11-15T08:03:56.616Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/3 200
+[aidt-native] 2026-11-15T08:03:56.899Z stage-3-saved-V1
+[aidt-native] 2026-11-15T08:03:56.899Z opening-stage-4
+[aidt-native] 2026-11-15T08:03:56.923Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=4&tool=outcome
+[aidt-native] 2026-11-15T08:03:57.208Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=4&tool=outcome
+[aidt-native] 2026-11-15T08:03:58.963Z stage-4-ready
+[aidt-native] 2026-11-15T08:03:59.984Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/4 200
+[aidt-native] 2026-11-15T08:04:00.331Z stage-4-saved-V1
+[aidt-native] 2026-11-15T08:04:00.333Z opening-stage-5
+[aidt-native] 2026-11-15T08:04:00.364Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=5&tool=outcome
+[aidt-native] 2026-11-15T08:04:00.673Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=5&tool=outcome
+[aidt-native] 2026-11-15T08:04:02.538Z stage-5-ready
+{"phase":"s5-populated-label-diagnostic","exactLabelCount":0,"textboxRoleCount":1}
+[aidt-native] 2026-11-15T08:04:03.356Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/5 200
+[aidt-native] 2026-11-15T08:04:03.678Z stage-5-saved-V1
+[aidt-native] 2026-11-15T08:04:03.679Z opening-stage-6
+[aidt-native] 2026-11-15T08:04:03.704Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=outcome
+[aidt-native] 2026-11-15T08:04:04.003Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=outcome
+[aidt-native] 2026-11-15T08:04:05.698Z stage-6-ready
+[aidt-native] 2026-11-15T08:04:06.265Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/6 200
+[aidt-native] 2026-11-15T08:04:06.566Z stage-6-saved-V1
+[aidt-native] 2026-11-15T08:04:06.641Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=1&tool=outcome&returnRevision=1
+[aidt-native] 2026-11-15T08:04:06.694Z opening-stage-5
+[aidt-native] 2026-11-15T08:04:06.751Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=5&tool=outcome
+[aidt-native] 2026-11-15T08:04:06.970Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=5&tool=outcome
+[aidt-native] 2026-11-15T08:04:08.788Z stage-5-ready
+[aidt-native] 2026-11-15T08:04:09.281Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/5 200
+[aidt-native] 2026-11-15T08:04:09.702Z stage-5-saved-V2
+[aidt-native] 2026-11-15T08:04:09.702Z opening-stage-6
+[aidt-native] 2026-11-15T08:04:09.727Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=outcome
+[aidt-native] 2026-11-15T08:04:09.818Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=outcome
+[aidt-native] 2026-11-15T08:04:11.857Z stage-6-ready
+[aidt-native] 2026-11-15T08:04:12.422Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/6 200
+[aidt-native] 2026-11-15T08:04:12.814Z stage-6-saved-V2
+[aidt-native] 2026-11-15T08:04:13.417Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/6 200
+[aidt-native] 2026-11-15T08:04:13.815Z stage-6-saved-V3
+[aidt-native] 2026-11-15T08:04:13.891Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=2&tool=outcome&returnRevision=3
+[aidt-native] 2026-11-15T08:04:13.969Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=report
+[aidt-native] 2026-11-15T08:04:14.159Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&tool=report
+[aidt-native] 2026-11-15T08:04:17.033Z http PUT /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/aidt/stages/6 200
+[aidt-native] 2026-11-15T08:04:17.423Z v2-ui-branches-and-report-complete
+[aidt-native] 2026-11-15T08:04:18.899Z http POST /projects/prj-8eab1b79-ad88-4d44-8636-2834019b267a/member-chat/messages 201
+[aidt-native] 2026-11-15T08:04:19.512Z native-stop-1
+[aidt-native] 2026-11-15T08:04:20.326Z http POST /chat/threads/mutate 200
+[aidt-native] 2026-11-15T08:04:20.494Z http POST /threads/thr-0c441f5a-7b64-43f9-86ca-c558ee22bbe2/skill-mounts 201
+[aidt-native] 2026-11-15T08:04:20.583Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&thread=thr-0c441f5a-7b64-43f9-86ca-c558ee22bbe2&tool=report
+[aidt-native] 2026-11-15T08:04:20.590Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&thread=thr-0c441f5a-7b64-43f9-86ca-c558ee22bbe2&tool=report
+[aidt-native] 2026-11-15T08:04:21.266Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&thread=thr-0c441f5a-7b64-43f9-86ca-c558ee22bbe2&tool=report
+[aidt-native] 2026-11-15T08:04:21.275Z browser-route /aidt/prj-8eab1b79-ad88-4d44-8636-2834019b267a?step=6&thread=thr-0c441f5a-7b64-43f9-86ca-c558ee22bbe2&tool=report
+[aidt-native] 2026-11-15T08:04:33.534Z native-stop-1-released
+[aidt-native] 2026-11-15T08:04:33.534Z native-start-2
+[aidt-native] 2026-11-15T08:04:49.248Z native-start-2-healthy
+[aidt-native] 2026-11-15T08:04:54.458Z opening-stage-3
+[aidt-native] 2026-11-15T08:04:57.281Z stage-3-ready
+[aidt-native] 2026-11-15T08:04:57.292Z opening-stage-4
+[aidt-native] 2026-11-15T08:04:59.572Z stage-4-ready
+[aidt-native] 2026-11-15T08:04:59.593Z opening-stage-5
+[aidt-native] 2026-11-15T08:05:01.939Z stage-5-ready
+[aidt-native] 2026-11-15T08:05:01.947Z opening-stage-6
+[aidt-native] 2026-11-15T08:05:05.183Z stage-6-ready
+[aidt-native] 2026-11-15T08:05:10.422Z native-stop-2
+[aidt-native] 2026-11-15T08:05:15.861Z native-stop-2-released
+  ✓  1 e2e/aidt-local-persistence.spec.ts:209:5 › native local start/save/stop/restart preserves AIDT and human text without Docker or a model fixture (1.8m)
+
+  1 passed (1.8m)
+[timing] pnpm --filter web exec playwright test --config playwright.aidt-local.config.ts --workers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m49s
+  清理：0s
+  总计：1m49s

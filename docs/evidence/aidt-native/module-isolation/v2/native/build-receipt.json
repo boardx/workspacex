@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "distDir": ".next-aidt-local",
+  "apiURL": "http://127.0.0.1:24020",
+  "publicEnv": {
+    "NEXT_PUBLIC_API_URL": "http://127.0.0.1:24020",
+    "NEXT_PUBLIC_API_WS_URL": "http://127.0.0.1:24020",
+    "NEXT_PUBLIC_ENABLE_AIDT": "1",
+    "NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT": "1"
+  },
+  "sourceInputHash": "5f382ca82a69257fd7e2a787b6ef5f1b58bb4cf7afd31ef6c106ec1ba56884cf",
+  "buildId": "gDzjfL7LkpLJdNaBmuN-D",
+  "runtimeArtifactHash": "b772d566702c172631d690f500ffc1728f68e6898d0154f70f8578eabdf24d78"
+}

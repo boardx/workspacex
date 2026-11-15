@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-11-15T07:45:34.300982+00:00",
+  "package": "next",
+  "version": "14.2.15",
+  "target": "/workspace/aidt-native/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next",
+  "beforeFiles": 0,
+  "source": "https://registry.npmjs.org/next/14.2.15",
+  "reason": "Installed Next target was an empty directory; no processChild.js/package.json or other files remained. Cause not established.",
+  "registryIntegrity": "sha512-h9ctmOokpoDphRvMGnwOJAedT6zKhwqyZML9mDtspgf4Rh3Pn7UTYKqePNoDvhsWBAO5GoPNYshnAUGIazVGmw==",
+  "downloadBytes": 20692089,
+  "restoredFiles": 6363,
+  "packageVersion": "14.2.15",
+  "processChildExists": true,
+  "threadChildExists": true,
+  "nextCliExists": true
+}

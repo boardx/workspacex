@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-11-15T08:06:28.383Z",
+  "isolationId": "aidt-v2-native-20261115-fin-1422770ced77",
+  "leasePorts": [
+    20020,
+    24020,
+    25020,
+    26020,
+    28020,
+    27020,
+    29020,
+    21020,
+    22020,
+    23020,
+    30020,
+    31020,
+    19020
+  ],
+  "all13SimultaneousNodeBindsSucceeded": true,
+  "bindSemantics": "Canonical Node net.Server (TCP address reuse permits TIME_WAIT; no SO_REUSEPORT); all thirteen listeners held simultaneously.",
+  "remainingAdvisoryLeaseDirectories": [],
+  "dataOwnerExists": false,
+  "outputOwnerExists": false,
+  "savedPgdataRetained": true,
+  "clean": true
+}

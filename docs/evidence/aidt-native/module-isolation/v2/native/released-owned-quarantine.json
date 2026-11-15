@@ -1,0 +1,267 @@
+{
+  "checkedAt": "2026-11-15T08:01:46.694309+00:00",
+  "scope": "Only two owned failed/interrupted V2 attempts; exact starting token records, dead owner, creation window and all exclusive binds verified. No recursive deletion or process signals.",
+  "removedRecords": [
+    {
+      "attempt": "attempt-1",
+      "port": 19409,
+      "pid": 775681,
+      "tokenSha256": "08618e25c00dd121de14f8892cbe180595452ef91afcefdb5dce633e0d8c206c",
+      "recordSha256": "622db0978cfaea0f33814bedab70dc88dd3486a5a6911df2f6105e8dd7a53183",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 20409,
+      "pid": 775681,
+      "tokenSha256": "a4eee8125f40415d560c8cb19cceb1743ff9b7e7eb3563d48b05f6529842cab2",
+      "recordSha256": "7bbf33ddbd7049904400123b0cc1bab4d1ee8bfc4879b5d09676d28a77de7e81",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 21409,
+      "pid": 775681,
+      "tokenSha256": "cc42f45b24d43e8714002ed7d7258ec8a96daa8d18712e34b144917dd138e80f",
+      "recordSha256": "6c9b1a36bafe53599c51ee06e30f2f6b4765e65072b957a5006083e507a1caed",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 22409,
+      "pid": 775681,
+      "tokenSha256": "26d9a431ada152c12957a3bf2357a460684740028aeedf4190f3ca7ab99fdea1",
+      "recordSha256": "3d07cc146acd504a59e8399461dbe0802b2f523fb93d11d2783d880f4c8ca0e6",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 23409,
+      "pid": 775681,
+      "tokenSha256": "1fd95991294491602a3ed8fc1e43cf9630598967fd012dbaa1beda5c19ccf21c",
+      "recordSha256": "4d155b694ce28cb7014f26883c80b8b64026e702a1e3ec054e0c1902048ab5df",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 24409,
+      "pid": 775681,
+      "tokenSha256": "f01d00b61d3974dc7a0b4bf293020e832fb064924cbe9f231449215105f2ec82",
+      "recordSha256": "5d43858e0279cd3df6c41b34bf0ae3e099ba56ddad18cd60f129d9b64542d5c3",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 25409,
+      "pid": 775681,
+      "tokenSha256": "77780546dc0bc68e96176698a31ba4dc137b9ba59b6d35653c4a40cbd129dc2e",
+      "recordSha256": "e8da64e024c5a6872f4f4faa2147d06ec35d4c14b1be82399610a21a411960f4",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 26409,
+      "pid": 775681,
+      "tokenSha256": "983b1fb299648e99f2c2c2bd2c472378028269299f4f433ee6564e72d672cec0",
+      "recordSha256": "2b36cf8b00c94f65d79ccdb5a2adb425e148d1b1cbcaf7b7e4310071c80a75e2",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 27409,
+      "pid": 775681,
+      "tokenSha256": "d1587f6e2c433d55e56452706581b3f69b180cbc39576c7a605d316f5e181c92",
+      "recordSha256": "5e18a49a3cfec4896ef7c24f1af85c2d2488f3edb45459b8b1c0c9c5f0c7cffa",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 28409,
+      "pid": 775681,
+      "tokenSha256": "4e60b4f3cef1310685cfed22bd4fbef824e01ec0e8d20e50b7ae9ae06df476b6",
+      "recordSha256": "0326afffb589182af62de6a8073699fdb71792e60170462211df88a65cb2c41c",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 29409,
+      "pid": 775681,
+      "tokenSha256": "357d5968436912ee10e03811233c2af86593e2bc4294baae748992182467470b",
+      "recordSha256": "71940ac8c2126a76bbc68bcd4ab3277f38c7924c775f4eba57426cf3a6469bc8",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 30409,
+      "pid": 775681,
+      "tokenSha256": "e1fd7cfeed4efc91039dbe67b7470d794176d0632d6476172578044348a7a62e",
+      "recordSha256": "9409997b19a753e1014371101a8e8726f2ff25c4e1920ed6ae9a057c63c8bbdf",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-1",
+      "port": 31409,
+      "pid": 775681,
+      "tokenSha256": "151df07dbb7e37e59dffb1875e2fd6c94b4d48d7d0523ff06e69cb4c324f0c03",
+      "recordSha256": "0f41e68ff17a592a4538115758074ac5a82e0fa601720d64e4ced06518330c36",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 19020,
+      "pid": 776224,
+      "tokenSha256": "7990ec7ec07802c79c4e04afcb37c13e447ec67c00dd86c81fa9ef392f48a9d7",
+      "recordSha256": "34a641aa8da5654b1a42681f13aa5b53b10adbf8e545fcd1c0c79f570b94bcae",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 20020,
+      "pid": 776224,
+      "tokenSha256": "d62425a6d2d6c6083ae72a02e25481806b2f62e8fa34f9d6108f967f2eb90a9e",
+      "recordSha256": "35216df86c44a5addd894f8be37feb5b84a92837ffec70b7db01c7ccbee139b8",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 21020,
+      "pid": 776224,
+      "tokenSha256": "71e5ca41c67338caeb138b277254a440c2262b3776e76eaf6bbb7669252f403f",
+      "recordSha256": "3e188cd90b92a68bb58296c5295e87e2df3e0536af8fc2e6960a719ad03ae7f3",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 22020,
+      "pid": 776224,
+      "tokenSha256": "1d52ce400746706cd465c590c52f6d18c188ef119f0f4b8d28b790ee4d98f5a6",
+      "recordSha256": "ed4aeddd99a37acbee3825b1bedde8c6ef89e6118ca5ccd2d7dc266bc797a7ff",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 23020,
+      "pid": 776224,
+      "tokenSha256": "4fee3d542fe4635796e033c11a0557a1aafea6c4dc283e6cfbf6eed9f8a5ac8c",
+      "recordSha256": "df1551c8d010e0623606321546b90dcc47949494f3554370e5108395c9ff5225",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 24020,
+      "pid": 776224,
+      "tokenSha256": "b63249bee638ce168ac7a0ef9f23c8382647a6006f6828c6110dd424ec59c5e1",
+      "recordSha256": "da05f04af30ec0ec0c2376a870b6acaefac45d90cf24d893f84e65cbb180ccc0",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 25020,
+      "pid": 776224,
+      "tokenSha256": "fd0a28a4e1ecc2e8d355fcaadd6e1ba8c9e4e0518427b6ecb9608cec0ac5045f",
+      "recordSha256": "a8d4866639ff141a7d40d031c545bd680f4b5b7870360ab9929ff854e16b95e1",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 26020,
+      "pid": 776224,
+      "tokenSha256": "d717dd555d940ad3eb2fca0e013b436c5b4522d1e8f6bf05f921ec28d609cf9f",
+      "recordSha256": "d33a5d207c73813209bcaf9667f78d35dd796874d9facffcba66cea1551758e9",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 27020,
+      "pid": 776224,
+      "tokenSha256": "6bf312ed57ef19a2abba93e71a4cad542c93a1696266169d097d8a2b77e83d20",
+      "recordSha256": "e6dc37c1ec4932319e8de3e850ceae7ba2ce43658c9784d0cfaff9fdf19d91fd",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 28020,
+      "pid": 776224,
+      "tokenSha256": "7b8ce75f449f09093ed977527394411e376cabcaa9c0e6eb9bb3b9fdf6de8ee7",
+      "recordSha256": "bafced41eef46990e8a67c1fff2eb6b53ccca2ebea0278fc475e48e978000e6b",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 29020,
+      "pid": 776224,
+      "tokenSha256": "e1258a4aeed3e71bf5770a506c3f4b2da1126c1fb92e2312f97bf3f3a14b2c05",
+      "recordSha256": "f0e9c38ed19c5f8ea887b2d69996f2d0742772f34ac8562da954ccb75af7eb12",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 30020,
+      "pid": 776224,
+      "tokenSha256": "c3e51c3d4a94b1b7b4ec14a01b5e5e31700ca9557d7d0cb61030b539b97158b0",
+      "recordSha256": "1402a2e949aae795571c935f4173dd3dbf9e47b16c3f02309e495130d8b01976",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    },
+    {
+      "attempt": "attempt-2-repaired",
+      "port": 31020,
+      "pid": 776224,
+      "tokenSha256": "fff6052d48b8ec1dd4381973fbda54bd7d1902e74ba890f109fbbe902cdce5f9",
+      "recordSha256": "5f30b945d778c8cc293fd510d1ff757d7a393b69754fb54815bd41c729e0f44a",
+      "starting": true,
+      "ownerEsrch": true,
+      "portExclusiveBindSucceeded": true
+    }
+  ],
+  "remainingOwnedLeaseDirectories": []
+}

@@ -1,12 +1,12 @@
 # V2 acceptance preparation
 
-Status: read-only code audit and test plan, not execution evidence. No V2 build or native service has been started. The final candidate must include the feature CSS scan fix; the earlier prebuilt runtime receipt is not valid for new source.
+Status: planning record prepared before V2 integration. The subsequent real native execution is documented in [native-acceptance.md](native-acceptance.md); that evidence, rather than this plan, establishes what passed. The final V2 build included the feature CSS scan fix and did not reuse the earlier CSS-incomplete artifact.
 
 ## Requirement source
 
 Exact new requirements were supplied in `docs/requirements/aidt-v2-delta.md` and read by the QA worker. They identify FR15–FR19 and the additional input/output records. The source distinguishes the student's own confirmation from evidence verification, all-member consensus and server save. No new stage locks, voting rules, mandatory category quotas or service contracts are authorized by these changes.
 
-Read baseline: Git HEAD `ab4c529551669bbe835de9239adc003682af3073`. Other owners are actively adding V2 implementation in the working tree; final results must identify the later frozen commit rather than label these observations immutable.
+Read baseline: Git HEAD `ab4c529551669bbe835de9239adc003682af3073`, while other owners were adding V2 implementation. The observations below describe that baseline/in-progress state. The accepted production source was later frozen as `b7256029d1e4eaa34031a085e76ff9c53f109ab7`, with accepted test-only corrections in `f11304c715eac46588871b3b946a8f61f9e44bce`.
 
 ## Existing capabilities to reuse
 

@@ -1,0 +1,24 @@
+[stack-admission] load1=0.05 cores=5 perCore=0.01 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=aidt-v2-native-20261115-fin-1422770ced77 db=wsx_1422770ced77c6381f25 compose=wsx-1422770ced77c6381f25 pg=20020 redis=21020 api=24020 web=25020 sandbox=26020 model=27020 deep-agent=28020 asr=29020 vision=30020 loopback-sandbox=31020 mail=19020
+
+Running 1 test using 1 worker
+
+(node:776264) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/aidt-local-persistence.spec.ts:202:5 › native local start/save/stop/restart preserves AIDT and human text without Docker or a model fixture (9.9m)
+
+  Slow test file: e2e/aidt-local-persistence.spec.ts (9.9m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  1 interrupted
+    e2e/aidt-local-persistence.spec.ts:202:5 › native local start/save/stop/restart preserves AIDT and human text without Docker or a model fixture 
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 130: playwright test --config playwright.aidt-local.config.ts --workers=1
+[timing] pnpm --filter web exec playwright test --config playwright.aidt-local.config.ts --workers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9m55s
+  清理：0s
+  总计：9m56s
