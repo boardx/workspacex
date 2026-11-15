@@ -18,7 +18,8 @@ flowchart TD
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
-  class G doing
+  class G tested
+  %% evidence G: native start-stop-health local tools, durable browser roundtrip and source packaging checks passed; user device installation and real AI remain outside this verification
   class S1 tested
   class S2 tested
   class S3 tested
@@ -26,7 +27,8 @@ flowchart TD
   class S4 tested
   class S5 tested
   %% evidence S5: actual native Playwright attempt-3 expected1 skipped0 unexpected0 flaky0; same data directory and new browser login precise stage/message readback, two successful stops
-  class S6 doing
+  class S6 tested
+  %% evidence S6: native source ZIP built and CRC integrity validated; all workspace manifests, launch scripts and START-HERE guide included; no runtime data or screenshots
   %% evidence S1: backend-profile.md records actual PGlite migrations and durable reopen.
   %% evidence S2: backend-profile.md records 27 configuration tests and default-off checks.
   %% evidence S4: test/aidt-local-lifecycle.test.ts has 13 passing Linux IPC checks.
