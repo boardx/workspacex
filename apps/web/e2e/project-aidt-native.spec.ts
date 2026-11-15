@@ -114,8 +114,37 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   await expect(page.getByLabel("初始问题", { exact: true })).toBeVisible();
   await openAssistant(page);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
+  await page.getByTestId("copilotkit-v2-input").fill("尚未发送的移动端对话草稿");
+  const mobileSend = page.getByTestId("copilotkit-v2-send");
+  await expect(mobileSend).toBeEnabled();
+  await expect(mobileSend).toBeInViewport({ ratio: 0.8 });
+  expect(await mobileSend.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return hit === node || node.contains(hit);
+  })).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath("aidt-teaching-mobile-start.png"), fullPage: true });
+  // The human conversation remains usable above the mobile AI panel.
+  await page.getByTestId("global-member-chat-open").click();
+  await expect(page.getByTestId("project-member-input")).toBeInViewport({ ratio: 0.8 });
+  await page.getByTestId("project-member-input").fill("与AI草稿分开的成员讨论草稿");
+  expect(await page.getByTestId("project-member-input").evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return hit === node || node.contains(hit);
+  })).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("aidt-mobile-ai-with-member-chat.png"), fullPage: true });
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("global-member-chat-panel")).not.toBeVisible();
+  await expect(page.getByTestId("aidt-assistant-panel")).toBeVisible();
+  await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue("尚未发送的移动端对话草稿");
+  await page.getByRole("button", { name: "关闭 AI 引导师", exact: true }).click();
+  await expect(page.getByTestId("aidt-learning-start")).toBeVisible();
+  await expect(page.getByLabel("初始问题", { exact: true })).toBeVisible();
+  await openAssistant(page);
+  await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue("尚未发送的移动端对话草稿");
+  await page.getByTestId("copilotkit-v2-input").fill("");
   await page.getByRole("button", { name: "关闭 AI 引导师", exact: true }).click();
   await page.setViewportSize({ width: 1280, height: 900 });
   // Editing and offering a form do not send messages or save a checkpoint.
