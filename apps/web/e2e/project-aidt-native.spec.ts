@@ -131,7 +131,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   await expect(page.getByTestId("aidt-tool-panel").getByRole("status")).toContainText("未覆盖");
   await page.screenshot({ path: test.info().outputPath("aidt-ui-v3-outcome.png"), fullPage: true });
   await page.getByRole("link", { name: "六步 Dashboard", exact: false }).click();
-  await expect(page.getByTestId("aidt-step-1")).toContainText("本页草稿 · 1 项已填写");
+  await expect(page.getByTestId("aidt-step-1")).toContainText("本页有未保存内容");
   await expect(page.getByTestId("aidt-materials")).toContainText("当前没有已关联资料");
   await page.screenshot({ path: test.info().outputPath("aidt-ui-v3-dashboard.png"), fullPage: true });
   await page.getByTestId("aidt-step-1").click();

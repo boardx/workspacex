@@ -21,7 +21,7 @@ test("fresh native teaching audit and bounded loopback session", async ({ page }
     }) };
     observations.push(record);
     await writeFile(join(output,"observations.json"),JSON.stringify(observations,null,2));
-    if(verify && (label.includes("outcome")||label.includes("welcome"))) expect(record.state.probes.slice(0,3).every(point=>point.exposed),JSON.stringify(record)).toBe(true);
+    if(verify && (label.includes("outcome")||label.includes("welcome")||label.includes("populated-answer"))) expect(record.state.probes.slice(0,3).every(point=>point.exposed),JSON.stringify(record)).toBe(true);
   }
   async function focusByTab(id:string, reverse=false) {
     for(let count=0;count<120;count++) {
@@ -48,6 +48,10 @@ test("fresh native teaching audit and bounded loopback session", async ({ page }
     await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
     await page.goto(`/aidt/${projectId}`);
     await expect(page.getByTestId("aidt-dashboard")).toBeVisible();
+    await expect(page.getByTestId("aidt-dashboard-loading")).toHaveCount(0);
+    await expect(page.getByTestId("aidt-dashboard-error")).toHaveCount(0);
+    await expect(page.getByTestId("aidt-first-start")).toBeVisible();
+    for(const stage of [1,2,3,4,5,6]) await expect(page.getByTestId(`aidt-stage-save-${stage}`)).toHaveText("尚未保存成果");
     await shot(`01-dashboard-${width}`);
     if(verify&&width===375) for(const stage of [1,2,3,4,5,6]) await expect(page.getByTestId(`aidt-step-${stage}`)).toBeInViewport({ratio:0.8});
     for (const stage of [1,2,3,4,5,6]) {
@@ -140,7 +144,7 @@ test("fresh native teaching audit and bounded loopback session", async ({ page }
   await sendViaWorkbench(page,prompt);
   let answer="";
   await expect.poll(async()=>{const result=await page.evaluate(async()=>{const thread=new URL(location.href).searchParams.get("thread");const response=await fetch(`/__fullstack_api/chat/threads/${thread}/messages?limit=100`,{headers:{authorization:`Bearer ${localStorage.getItem("wsx.sessionToken")}`}});return await response.json();});const agent=result.messages?.find((item:{authorKind:string;text:string;agentRunId:string|null})=>item.authorKind==="agent"&&item.agentRunId&&item.text.trim());answer=agent?.text??"";return Boolean(agent);},{timeout:60000}).toBe(true);
-  for(const width of [1280,375]){await page.setViewportSize({width,height:width===375?812:900});const message=page.getByText(answer,{exact:true}).first();await expect(message).toBeVisible();await message.scrollIntoViewIfNeeded();await metric(`chat-populated-answer-${width}`,message);await shot(`12-chat-populated-${width}`);}
+  for(const width of [1280,375]){await page.setViewportSize({width,height:width===375?812:900});const message=page.getByTestId("aidt-native-chat").getByText(answer,{exact:true}).filter({visible:true}).first();await expect(message).toBeVisible();await message.scrollIntoViewIfNeeded();await expect(message).toBeInViewport({ratio:0.8});await metric(`chat-populated-answer-${width}`,message);await shot(`12-chat-populated-${width}`);}
   await writeFile(join(output,"observations.json"),JSON.stringify(observations,null,2));
   const runtime = { verification:{strictLayout:verify,observeOnly:process.env.AIDT_AUDIT_OBSERVE_ONLY??null},isolationId:process.env.WORKSPACEX_ISOLATION_ID,composeProject:process.env.COMPOSE_PROJECT_NAME,projectId,baseURL:new URL(page.url()).origin,apiOrigin:`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`,expiresAt:new Date(Date.now()+hold*1000).toISOString(),scope:"temporary fixture acceptance; not a persistent group workspace or external user link",dataRetention:"stop or TTL cleans disposable test data",ai:"deterministic local fixture; no real supplier or ASR validation" };
   await writeFile(join(output,"runtime-ready.json"),JSON.stringify(runtime,null,2));
