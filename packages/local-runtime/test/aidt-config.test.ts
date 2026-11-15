@@ -17,6 +17,7 @@ describe("explicit AIDT Local profile", () => {
     expect(c.profile).toBe("default");
     expect(apiEnv(c)).toMatchObject({ ENABLE_AIDT_MODULE: "0", ENABLE_PROJECT_MEMBER_CHAT: "0" });
     expect(webEnv(c)).toMatchObject({ NEXT_PUBLIC_ENABLE_AIDT: "0", NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: "0" });
+    expect(webEnv(c).NEXT_DIST_DIR).toBeUndefined();
   });
   it("cannot inherit a host's teaching/module opt-in into default Local", () => {
     for (const name of ["ENABLE_AIDT_MODULE", "ENABLE_PROJECT_MEMBER_CHAT", "NEXT_PUBLIC_ENABLE_AIDT", "NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT"]) vi.stubEnv(name, "1");
@@ -30,6 +31,7 @@ describe("explicit AIDT Local profile", () => {
     const c = config("aidt");
     expect(apiEnv(c)).toMatchObject({ ENABLE_AIDT_MODULE: "1", ENABLE_PROJECT_MEMBER_CHAT: "1" });
     expect(webEnv(c)).toMatchObject({ NEXT_PUBLIC_ENABLE_AIDT: "1", NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: "1" });
+    expect(webEnv(c).NEXT_DIST_DIR).toBe(".next-aidt-local");
     expect(apiEnv(c).WORKSPACEX_EDITION).toBe("local");
     expect(apiEnv(c).KERNEL_NATIVE_RUNTIME).toBe("0");
     expect(apiEnv(c).KERNEL_ASR_BASE_URL).toBeUndefined();

@@ -509,6 +509,8 @@ export function webEnv(c: LocalConfig, env: NodeJS.ProcessEnv = process.env): En
   const cloudUrl = (env.WORKSPACEX_CLOUD_URL ?? "").trim();
   return {
     ...aidtModuleEnv(c).web,
+    // AIDT dev must not overwrite an existing ordinary Local/production .next cache.
+    ...(c.profile === "aidt" ? { NEXT_DIST_DIR: ".next-aidt-local" } : {}),
     PORT: String(c.ports.web),
     NEXT_PUBLIC_API_URL: api,
     NEXT_PUBLIC_API_WS_URL: api,
