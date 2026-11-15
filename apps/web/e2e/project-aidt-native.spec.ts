@@ -44,6 +44,8 @@ async function openGuidance(page: Page) {
   await expect(page.getByTestId("aidt-learning-start")).toBeVisible();
 }
 async function openPersonalCheckpoints(page: Page) {
+  const tools = page.getByTestId("aidt-tools");
+  if (await tools.count() && (await tools.getAttribute("open")) === null) await tools.locator(":scope > summary").click();
   const advanced = page.locator("details").filter({ has: page.locator("summary", { hasText: /^高级：个人检查点$/ }) }).first();
   if ((await advanced.getAttribute("open")) === null) await advanced.locator(":scope > summary").click();
   const details = page.getByTestId("aidt-checkpoint-details");
