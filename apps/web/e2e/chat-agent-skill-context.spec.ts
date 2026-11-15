@@ -364,7 +364,7 @@ test("F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快�
   expect(beforeRun.resultMessageId, "这次 run 应该写回了一条回复").toBeTruthy();
   const beforeReply = await messageRow(beforeRun.resultMessageId!);
   await expect(beforeReply).toBeVisible();
-  await expect(beforeReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
+  await expect(beforeReply).toContainText('根据查询结果回答你："不挂 skill：第一条取证消息"');
   await expect(
     beforeReply,
     "#2514 核心验收：用户没挑任何 skill，已启用 skill 的正文也必须进入模型输入（上游在 system prompt 里看到哨兵才回显）",
