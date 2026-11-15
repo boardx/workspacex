@@ -195,7 +195,15 @@ await asOwner(async (client) => {
 await seedOrg({ orgId: ORG_ID, projectId: PROJECT_ID, groupNames: ["readers"] });
 await addOrgMember(ORG_ID, USER_ID, "admin", null);
 // Only isolated fixture setup may configure this global synthetic price.
-await asOwner(session=>seedChatReadAsrCreditTariff(session,ORG_ID));
+await asOwner(async (session) => {
+  await seedChatReadAsrCreditTariff(session, ORG_ID);
+  // @global-scope-fixture table:credit_wallets: funds the browser fixture payer in the isolated test database.
+  // Vision admission must succeed before the loopback provider can exercise its HTTP 401 path.
+  await session.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [USER_ID],
+  );
+});
 const CANVAS_TEMPLATE_ADMIN_ID = `${USER_ID}-canvas-admin`;
 await addOrgMember(ORG_ID, CANVAS_TEMPLATE_ADMIN_ID, "admin", null);
 await addProjectMember(ORG_ID, PROJECT_ID, USER_ID, "facilitator", null);
