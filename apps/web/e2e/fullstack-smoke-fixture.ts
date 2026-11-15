@@ -3,6 +3,19 @@ const scope = (process.env.WORKSPACEX_ISOLATION_ID ?? "fullstack-e2e")
   .slice(-24);
 
 export const FULLSTACK_E2E = {
+  // Optional collaboration lane owns its identities; parallel seeded specs
+  // must not invalidate one another's device sessions.
+  collaborationOrgId: `org-collaboration-${scope}`,
+  collaborationFixtureProjectId: `project-collaboration-${scope}`,
+  collaborationLeadEmail: `collab-lead-${scope}@example.test`,
+  collaborationLeadPassword: "Fullstack-E2E-collab-lead!",
+  collaborationLeadUserId: `user-collab-lead-${scope}`,
+  collaborationMemberEmail: `collab-member-${scope}@example.test`,
+  collaborationMemberPassword: "Fullstack-E2E-collab-member!",
+  collaborationMemberUserId: `user-collab-member-${scope}`,
+  collaborationAdminEmail: `collab-admin-${scope}@example.test`,
+  collaborationAdminPassword: "Fullstack-E2E-collab-admin!",
+  collaborationAdminUserId: `user-collab-admin-${scope}`,
   // Dedicated read-only brain identity avoids concurrent device-session collisions.
   brainEmail: `brain-${scope}@example.test`,
   brainPassword: "Fullstack-E2E-brain-6171!",

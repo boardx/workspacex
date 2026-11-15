@@ -11,15 +11,17 @@ import { insertRenderedArtifact, readBoardPlacementPreview } from '@/lib/whitebo
 import { renderedDiagramLayout } from '@/lib/chat-board-diagram-layout';
 import { insertionPlacement } from '@/lib/board-insertion-placement';
 import { ChatBoardPlacementPreview } from './chat-board-placement-preview';
+import { chatBoardHandoffHref, useChatHostReturnHref } from '@/lib/chat/chat-host-navigation';
 export { renderedDiagramLayout } from '@/lib/chat-board-diagram-layout';
 
 type Attempt = Parameters<typeof insertRenderedArtifact>[0];
 export function ChatDiagramBoardHandoff({ model, artifactId, sourceRevision, orgId, projectId, prepareSource }: { model: DiagramModel | null; artifactId?: string; sourceRevision?: string; orgId?: string; projectId?: string; prepareSource?:()=>Promise<{artifactId:string;sourceRevision:string}> }) {
-  const scopeKey=JSON.stringify({orgId,projectId,artifactId,sourceRevision});
+  const returnHref=useChatHostReturnHref(projectId);
+  const scopeKey=JSON.stringify({orgId,projectId,artifactId,sourceRevision,returnHref});
   const currentScope=React.useRef(scopeKey);currentScope.current=scopeKey;
   const generation=React.useRef(0);
   const [loadedScope,setLoadedScope]=React.useState('');
-  const [inserted,setInserted]=React.useState<{id:string;scope:string;projectId?:string;artifactId:string;layoutHash:string}|null>(null);
+  const [inserted,setInserted]=React.useState<{id:string;scope:string;projectId?:string;artifactId:string;layoutHash:string;returnHref?:string}|null>(null);
   const [open,setOpen]=React.useState(false), [boards,setBoards]=React.useState<{id:string;name:string}[]>([]);
   const [boardId,setBoardId]=React.useState(''), [offset,setOffset]=React.useState({x:0,y:0});
   const [busy,setBusy]=React.useState(false), [loading,setLoading]=React.useState(false), [notice,setNotice]=React.useState('');
@@ -73,7 +75,7 @@ export function ChatDiagramBoardHandoff({ model, artifactId, sourceRevision, org
       if(attempt.current?.key!==key)attempt.current={key,request:{layout,boardId,...preview.revision,requestId:crypto.randomUUID(),offset}};
       await insertRenderedArtifact(attempt.current.request);
       if(scope!==currentScope.current)return;
-      attempt.current=null;setInserted({id:boardId,scope,projectId,artifactId:layout.artifactId,layoutHash:layout.layoutHash});setNotice('已插入目标白板');setOpen(false);
+      attempt.current=null;setInserted({id:boardId,scope,projectId,artifactId:layout.artifactId,layoutHash:layout.layoutHash,returnHref});setNotice('已插入目标白板');setOpen(false);
     }catch(error){
       if(scope!==currentScope.current)return;
       const message=error instanceof Error?error.message:'';
@@ -98,6 +100,6 @@ export function ChatDiagramBoardHandoff({ model, artifactId, sourceRevision, org
       </div>
     </DialogContent></Dialog>
     {!open&&notice?<span role="status">{notice}</span>:null}
-    {inserted?.scope===scopeKey?<Link data-testid="chat-board-open-inserted" className="text-sm text-primary underline" href={`/studio/board/${encodeURIComponent(inserted.id)}?${new URLSearchParams({...(inserted.projectId?{projectId:inserted.projectId}:{}),focusArtifact:inserted.artifactId,focusLayout:inserted.layoutHash})}`}>打开 Board</Link>:null}
+    {inserted?.scope===scopeKey?<Link data-testid="chat-board-open-inserted" className="text-sm text-primary underline" href={chatBoardHandoffHref({boardId:inserted.id,projectId:inserted.projectId,artifactId:inserted.artifactId,layoutHash:inserted.layoutHash,returnHref:inserted.returnHref})}>打开 Board</Link>:null}
   </>;
 }

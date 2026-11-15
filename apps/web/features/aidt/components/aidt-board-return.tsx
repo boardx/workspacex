@@ -1,11 +1,17 @@
 "use client";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { isAidtModuleEnabled } from "@/features/aidt/lib/aidt-module-config";
-import { AIDT_STEPS } from "@/features/aidt/lib/project-aidt";
+import { aidtBoardReturnHref } from "@/features/aidt/lib/aidt-board-return";
 import { ProjectBreadcrumb } from "@/components/project/project-breadcrumb";
 /** Navigation context never grants Board access; LiveBoard retains its own guard. */
 export function AidtBoardReturn() {
   const search = useSearchParams();
-  if (!isAidtModuleEnabled() || !search.get("projectId")?.trim() || !AIDT_STEPS.some((step) => String(step.id) === search.get("aidtStep"))) return null;
-  return <ProjectBreadcrumb projectId={search.get("projectId")} sub="whiteboard" />;
+  const params = useParams<{ boardId?: string | string[] }>();
+  if (!isAidtModuleEnabled()) return null;
+  const projectId = search.get("projectId");
+  const boardId = typeof params?.boardId === "string" ? params.boardId : null;
+  if (search.getAll("returnTo").length > 1 || search.getAll("aidtStep").length > 1) return null;
+  const href = aidtBoardReturnHref({ projectId, boardId, returnTo: search.get("returnTo"), aidtStep: search.get("aidtStep"), aidtThread: search.get("aidtThread") ?? search.get("thread") });
+  if (!href) return null;
+  return <ProjectBreadcrumb projectId={projectId} sub="whiteboard" hrefOverride={href} labelOverride="返回 AIDT 步骤" />;
 }

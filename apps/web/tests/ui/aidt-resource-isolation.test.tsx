@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   identity: { orgRole: "admin" },
   search: "", list: vi.fn(), find: vi.fn(), overview: vi.fn(), materials: vi.fn(), workspace: vi.fn(), breadcrumb: vi.fn(),
 }));
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(mocks.search) }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(mocks.search), useParams: () => ({ boardId: "board/1" }) }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: mocks.session, identity: mocks.identity }), useSession: () => ({ session: mocks.session, identity: mocks.identity }) }));
 vi.mock("@/lib/live-projects", () => ({ listProjects: mocks.list, findProject: mocks.find, getProjectOverview: mocks.overview }));
 vi.mock("@/lib/live-project-resources", () => ({ listProjectResources: mocks.materials, PROJECT_RESOURCE_KIND_LABEL_ZH: { design: "设计", personal_transcription: "个人转录" } }));
@@ -108,5 +108,5 @@ it("leaves ordinary Board navigation untouched unless AIDT is enabled with an ex
   }
   mocks.search = "projectId=group%2F1&aidtStep=2"; rerender(<AidtBoardReturn />);
   expect(screen.getByTestId("native-board-return")).toBeVisible();
-  await waitFor(() => expect(mocks.breadcrumb).toHaveBeenLastCalledWith({ projectId: "group/1", sub: "whiteboard" }));
+  await waitFor(() => expect(mocks.breadcrumb).toHaveBeenLastCalledWith({ projectId: "group/1", sub: "whiteboard", hrefOverride: "/aidt/group%2F1?step=2&tool=whiteboard&resource=board%2F1", labelOverride: "返回 AIDT 步骤" }));
 });

@@ -1051,6 +1051,13 @@ import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-
 import { TEMPORARY_GRANT_REPOSITORY } from "./application/identity/temporary-grant-ports";
 import { PgTemporaryGrantRepository } from "./infrastructure/identity/pg-temporary-grant-repository";
 import { ProjectController } from "./interface/controllers/project.controller";
+import { AidtStagesController } from "./interface/controllers/aidt-stages.controller";
+import { ProjectMemberChatController } from "./interface/controllers/project-member-chat.controller";
+import { AIDT_STAGES_SERVICE, AidtStagesService } from "./application/aidt-stages/service";
+import { PgAidtStageRepository } from "./infrastructure/aidt-stages/pg-aidt-stage-repository";
+import { isAidtModuleEnabled } from "./infrastructure/aidt/aidt-module";
+import { PROJECT_MEMBER_CHAT_REPOSITORY } from "./application/project-member-chat/ports";
+import { PgProjectMemberChatRepository } from "./infrastructure/project-member-chat/pg-project-member-chat-repository";
 // B2-S5（#4429）：设置页「AI 权限」——侧表 `project_ai_settings`，独立 provider + 独立 controller，
 // 见 `application/project/project-ai-settings-ports.ts` 与 `pg-project-ai-settings-repository.ts` 文件头。
 import { PROJECT_AI_SETTINGS_REPOSITORY } from "./application/project/project-ai-settings-ports";
@@ -1323,6 +1330,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     FilesRetentionController,
     DeviceSessionController,
     ProjectController,
+    AidtStagesController,
+    ProjectMemberChatController,
     ProjectAiSettingsController,
     AssetDirectoryController,
     AssetGovernanceController,
@@ -3127,6 +3136,16 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: PROJECT_OVERVIEW_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectOverviewRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AIDT_STAGES_SERVICE,
+      useFactory: (db: DatabasePort) => new AidtStagesService(new PgAidtStageRepository(db), isAidtModuleEnabled),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: PROJECT_MEMBER_CHAT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectMemberChatRepository(db),
       inject: [DATABASE_PORT],
     },
     // 项目中枢 B2-S1（#4425）：`ProjectResourcePort` 的生产实现（`project.controller.ts` 消费）。

@@ -1,0 +1,14 @@
+
+> web@0.1.0 test /workspace/aidt-module-latest/apps/web
+> vitest run "tests/aidt-stage-persistence.test.ts"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/aidt-stage-persistence.test.ts (26 tests) 89ms
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  23:41:32
+   Duration  2.59s (transform 1.22s, setup 175ms, collect 1.93s, tests 89ms, environment 0ms, prepare 65ms)

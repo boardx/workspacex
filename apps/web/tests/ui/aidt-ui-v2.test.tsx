@@ -62,6 +62,7 @@ it("sends escaped text to native PDF preview and labels copying as unsaved", asy
   const article = mocks.print.mock.calls[0]![0] as HTMLElement;
   expect(article.querySelector("script")).toBeNull();
   expect(article.textContent).toContain("<script>alert(1)</script>");
+  fireEvent.click(screen.getByText("把报告用于本组对话"));
   fireEvent.click(screen.getByRole("button", { name: "复制报告到聊天" }));
   expect(await screen.findByText(/发送成功后才会保存/)).toBeVisible();
 });
@@ -71,4 +72,18 @@ it("report assembly keeps missing evidence and teacher comments as gaps", () => 
   expect(text).toContain("真实问题"); expect(text).toContain("待补充");
   expect(text).toContain("未保存草稿"); expect(text).toContain("待教师提供");
   expect(text).not.toContain("已完成六步");
+});
+it("keeps the student's report and offers retry paths when browser export cannot start", async () => {
+  mocks.print.mockImplementationOnce(() => { throw new Error("Print unavailable"); });
+  render(<AidtReportPreview drafts={emptyAidtUiDrafts()} text="保留人工修改与证据A引用" sourceRevision={0} revision={0} onChange={vi.fn()} regenerate={vi.fn()} readOnly={false} />);
+  fireEvent.click(screen.getByRole("button", { name: "PDF 打印预览" }));
+  expect(screen.getByRole("status")).toHaveTextContent("打印预览未能打开，报告编辑仍保留");
+  expect(screen.getByLabelText("小组报告草稿")).toHaveValue("保留人工修改与证据A引用");
+  const descriptor = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
+  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => { throw new Error("Blob unavailable"); }) });
+  try {
+    fireEvent.click(screen.getByRole("button", { name: "下载 Markdown 草稿" }));
+    expect(screen.getByRole("status")).toHaveTextContent("下载未能启动，报告编辑仍保留");
+    expect(screen.getByLabelText("小组报告草稿")).toHaveValue("保留人工修改与证据A引用");
+  } finally { if (descriptor) Object.defineProperty(URL, "createObjectURL", descriptor); else Reflect.deleteProperty(URL, "createObjectURL"); }
 });

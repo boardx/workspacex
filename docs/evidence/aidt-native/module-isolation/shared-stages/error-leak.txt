@@ -1,0 +1,2 @@
+✅ lint-error-leak: 217 files in the interface layer, no error detail reaches a response
+scanned=217

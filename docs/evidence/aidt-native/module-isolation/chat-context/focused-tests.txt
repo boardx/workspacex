@@ -1,0 +1,17 @@
+
+> web@0.1.0 test /workspace/aidt-module-latest/apps/web
+> vitest run "tests/ui/chat-host-navigation.test.tsx" "tests/whiteboard/chat-board-handoff-retry.test.tsx" "tests/aidt-chat-saved-context.test.ts" "tests/ui/project-aidt-chat.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/whiteboard/chat-board-handoff-retry.test.tsx (20 tests) 767ms
+ ✓ tests/ui/chat-host-navigation.test.tsx (18 tests) 40ms
+ ✓ tests/ui/project-aidt-chat.test.tsx (10 tests) 259ms
+ ✓ tests/aidt-chat-saved-context.test.ts (8 tests) 9ms
+
+ Test Files  4 passed (4)
+      Tests  56 passed (56)
+   Start at  23:43:26
+   Duration  6.44s (transform 3.36s, setup 676ms, collect 5.47s, tests 1.08s, environment 2.80s, prepare 302ms)

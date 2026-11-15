@@ -15,22 +15,25 @@ export type { ProjectResearchSub } from "./project-links";
  * 顶部挂这一条「← 返回项目」，链回 `/projects/<id>?tab=research&sub=<kind>`——
  * 没有 `projectId` 的独立 Studio 访问不渲染任何东西（调用方直接传 `null` 即可）。
  */
-export function ProjectBreadcrumb({ projectId, sub, className }: {
+export function ProjectBreadcrumb({ projectId, sub, className, hrefOverride, labelOverride }: {
   projectId: string | null | undefined; sub: ProjectResearchSub; className?: string;
+  /** Trusted caller-supplied navigation. Does not authorize access to the target. */
+  hrefOverride?: string; labelOverride?: string;
 }) {
   const { t } = useI18n();
   const search = useSearchParams();
   const aidtStep = isAidtModuleEnabled() ? search.get("aidtStep") : null;
   const step = aidtStep ? AIDT_STEPS.find((it) => String(it.id) === aidtStep) : undefined;
   if (!projectId) return null;
+  const label = labelOverride ?? (step ? "返回 AIDT 步骤" : t("workflows.back"));
   return (
-    <nav aria-label={step ? "返回 AIDT 步骤" : t("workflows.back")} className={className ?? "px-5 pt-4 md:px-8 lg:px-10"} data-testid="project-breadcrumb">
+    <nav aria-label={label} className={className ?? "px-5 pt-4 md:px-8 lg:px-10"} data-testid="project-breadcrumb">
       <a
-        href={step ? aidtHref(projectId, step.id, { tool: sub, thread: search.get("aidtThread") ?? search.get("thread") }) : projectResearchHref(projectId, sub)}
+        href={hrefOverride ?? (step ? aidtHref(projectId, step.id, { tool: sub, thread: search.get("aidtThread") ?? search.get("thread") }) : projectResearchHref(projectId, sub))}
         data-testid="project-breadcrumb-back"
         className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground"
       >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" />{step ? "返回 AIDT 步骤" : t("workflows.back")}
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" />{label}
       </a>
     </nav>
   );

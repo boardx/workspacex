@@ -37,6 +37,7 @@ describe("TeamTextConversation actual component", () => {
     const input = screen.getByRole("textbox", { name: "发给频道成员" });
     fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
     fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229, isComposing: false });
     expect(value.onSend).not.toHaveBeenCalled();
     fireEvent.keyDown(input, { key: "Enter" });
     expect(value.onSend).toHaveBeenCalledTimes(1);
@@ -107,6 +108,44 @@ describe("TeamTextConversation actual component", () => {
     expect(within(history).getAllByTestId("chat-user-message-text")[0]).toHaveTextContent("讨论8");
     expect(screen.getByRole("button", { name: "最近5条" })).toBeDisabled();
     expect(messages).toEqual(original);
+  });
+
+  it("opens a focused topic preview without sending or losing the channel draft, then restores keyboard focus", async () => {
+    const transport = vi.fn(); vi.stubGlobal("fetch", transport);
+    const value = props({ messages: [{ id: "topic-1", text: "讨论访谈分工", state: "preview" }], draft: "尚未发送的主频道安排" });
+    render(view(value));
+    const trigger = screen.getByTestId("team-text-topic-topic-1");
+    fireEvent.click(trigger);
+    const topic = screen.getByRole("complementary", { name: "消息话题" });
+    expect(within(topic).getByTestId("chat-user-message-text")).toHaveTextContent("讨论访谈分工");
+    expect(screen.getByTestId("team-text-input")).toHaveValue("尚未发送的主频道安排");
+    expect(screen.getByTestId("team-text-form")).not.toBeVisible();
+    expect(screen.getByTestId("team-text-topic-boundary")).toHaveTextContent("回复、@成员、通知和已读状态尚未接入");
+    fireEvent.submit(screen.getByTestId("team-text-form"));
+    expect(value.onSend).not.toHaveBeenCalled();
+    expect(value.onDraftChange).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("team-text-topic-close"));
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(screen.getByTestId("team-text-form")).toBeVisible();
+    expect(screen.getByTestId("team-text-input")).toHaveValue("尚未发送的主频道安排");
+  });
+
+  it("keeps topic content inside its channel and preserves read-only/error boundaries", () => {
+    const value = props({ readOnly: true, messages: [{ id: "same-id", text: "第一组的讨论", state: "preview" }] });
+    const { rerender } = render(view(value));
+    fireEvent.click(screen.getByTestId("team-text-topic-same-id"));
+    expect(screen.getByTestId("team-text-topic-panel")).toBeVisible();
+    expect(screen.getByTestId("team-text-send")).toBeDisabled();
+    rerender(view({ ...value, channel: { key: "project:g2", title: "另一组", scope: "项目频道" }, messages: [{ id: "same-id", text: "另一组材料", state: "preview" }] }));
+    expect(screen.queryByTestId("team-text-topic-panel")).toBeNull();
+    expect(screen.queryByText("第一组的讨论")).toBeNull();
+    expect(screen.getByTestId("team-text-input")).toBeDisabled();
+    rerender(view({ ...value, historyState: "error" }));
+    expect(screen.getByTestId("team-text-history-error")).toBeVisible();
+    expect(screen.queryByTestId("team-text-topic-panel")).toBeNull();
+    expect(screen.queryByTestId("team-text-empty")).toBeNull();
+    expect(value.onSend).not.toHaveBeenCalled();
   });
 
   it("states the local-only boundary, hides AI actions with the actual component CSS, and only copies locally", async () => {

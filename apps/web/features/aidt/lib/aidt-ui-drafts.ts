@@ -1,7 +1,14 @@
 import { AIDT_STEPS } from "@/features/aidt/lib/project-aidt";
+import type { z } from "zod";
+import type { ImageAttachment } from "@repo/contracts/aidt-stages";
 
-export type AidtIdeaDraft = { id: string; title: string; description: string; image?: string; imageName?: string };
-export type AidtUiStageDraft = { fields: Record<string, string>; ideas: AidtIdeaDraft[]; selectedIdeaId: string; selectionReasons?: Record<string, string>; unboundReason?: string };
+export type AidtImageReference = z.infer<typeof ImageAttachment>;
+export type AidtIdeaDraft = { id: string; title: string; description: string; image?: string; imageName?: string; imageAttachment?: AidtImageReference };
+export type AidtDiscoveryCardDraft = {
+  id: string; participantCode: string; headline: string; headlineKind: "quote" | "student-summary";
+  context: string; quote: string; sourceRef: string; photoRef: string; photoAttachment?: AidtImageReference;
+};
+export type AidtUiStageDraft = { fields: Record<string, string>; ideas: AidtIdeaDraft[]; selectedIdeaId: string; selectionReasons?: Record<string, string>; unboundReason?: string; discoveryCards?: AidtDiscoveryCardDraft[] };
 export type AidtUiDrafts = Record<number, AidtUiStageDraft>;
 export type AidtUiField = { id: string; label: string; placeholder: string };
 export const AIDT_OUTPUTS: Record<number, { title: string; hint: string; fields: readonly AidtUiField[] }> = {
@@ -68,20 +75,34 @@ export function emptyAidtUiDrafts(): AidtUiDrafts {
 }
 export function aidtUiStageMarkdown(stageNumber: number, draft: AidtUiStageDraft): string {
   const step = AIDT_STEPS.find((s) => s.id === stageNumber)!;
-  const lines = [`## ${stageNumber}. ${step.title}`, "", "状态：本页界面草稿，尚未保存到小组。", ""];
+  const lines = [`## ${stageNumber}. ${step.title}`, "", "状态：学生编辑稿；共享保存、来源与小组确认状态请核对对应回执。", ""];
   for (const field of AIDT_OUTPUTS[stageNumber]!.fields) lines.push(`### ${field.label}`, draft.fields[field.id]?.trim() || "待补充", "");
-  if (stageNumber === 4) for (const [index, idea] of draft.ideas.entries()) lines.push(`### 候选 ${index + 1}：${idea.title.trim() || "待命名"}${draft.selectedIdeaId === idea.id ? "（拟选择）" : ""}`, idea.description.trim() || "核心说明待补充。", idea.imageName ? `参考图：${idea.imageName}（仅本页预览，原图请通过聊天附件上传）` : "图像待补充。", "");
+  if (stageNumber === 2) {
+    lines.push("### 人物发现卡", ...(draft.discoveryCards?.length ? discoveryCardLines(draft.discoveryCards) : ["尚未记录受访者发现卡；不得以模拟人物补齐。"]), "");
+  }
+  if (stageNumber === 4) for (const [index, idea] of draft.ideas.entries()) lines.push(`### 候选 ${index + 1}：${idea.title.trim() || "待命名"}${draft.selectedIdeaId === idea.id ? "（拟选择）" : ""}`, idea.description.trim() || "核心说明待补充。", idea.imageAttachment ? `已关联图片：${idea.imageAttachment.name}；对话 ${idea.imageAttachment.threadId}；附件 ${idea.imageAttachment.attachmentId}（可访问性须由原服务核对，不是研究证据）` : idea.imageName ? `参考图：${idea.imageName}（仅本页预览，原图请通过聊天附件上传）` : "图像待补充。", "");
   return lines.join("\n");
 }
 /** Current student-authored work, without manufacturing values for empty fields. */
 export function aidtUiStageSummary(stageNumber: number, draft: AidtUiStageDraft): string {
   const lines = AIDT_OUTPUTS[stageNumber]!.fields.flatMap((field) => draft.fields[field.id]?.trim() ? [`${field.label}：${draft.fields[field.id]}`] : []);
+  if (stageNumber === 2 && draft.discoveryCards?.length) lines.push(...discoveryCardLines(draft.discoveryCards));
   if (stageNumber === 4) for (const [index, idea] of draft.ideas.entries()) {
-    if (!idea.title.trim() && !idea.description.trim() && !idea.imageName) continue;
-    lines.push(`候选 ${index + 1}${draft.selectedIdeaId === idea.id ? "（拟选，非投票）" : ""}：${idea.title || "待命名"}`, idea.description, idea.imageName ? `参考图：${idea.imageName}（仅本页）` : "参考图尚缺");
+    if (!idea.title.trim() && !idea.description.trim() && !idea.imageName && !idea.imageAttachment) continue;
+    lines.push(`候选 ${index + 1}${draft.selectedIdeaId === idea.id ? "（拟选，非投票）" : ""}：${idea.title || "待命名"}`, idea.description, idea.imageAttachment ? `图片引用：${idea.imageAttachment.name} · 对话 ${idea.imageAttachment.threadId} · 附件 ${idea.imageAttachment.attachmentId}` : idea.imageName ? `参考图：${idea.imageName}（仅本页）` : "参考图尚缺");
   }
   return lines.filter(Boolean).join("\n");
 }
+function discoveryCardLines(cards: readonly AidtDiscoveryCardDraft[]): string[] {
+  return cards.flatMap((card, index) => [
+    `人物发现卡 ${index + 1} · ${card.participantCode.trim() || "受访者代号待补充"}`,
+    `${card.headlineKind === "quote" ? "Headline（引文待核对）" : "Headline（学生概括）"}：${card.headline.trim() || "待补充"}`,
+    `具体情况：${card.context.trim() || "待补充"}`,
+    `原话（待核对）：${card.quote.trim() || "缺少原话记录"}`,
+    `原始材料引用：${card.sourceRef.trim() || "缺少材料引用；不可视为已验证发现"}`,
+    `照片引用：${card.photoAttachment ? `${card.photoAttachment.name} · 对话 ${card.photoAttachment.threadId} · 附件 ${card.photoAttachment.attachmentId}（用途与授权由学生核对）` : card.photoRef.trim() || "照片缺失；不生成真人照片补齐"}`,
+  ]);
+}
 export function aidtUiReportMarkdown(drafts: AidtUiDrafts): string {
-  return ["# 小组研究报告 · UI 审阅稿", "", "本稿仅包含本页填写的未保存草稿，不代表系统全部已保存资料。提交前请核对原始证据、来源与版本；缺少的内容保留缺口，不虚构采访、测试、教师点评或投票。", "", ...AIDT_STEPS.map((s) => aidtUiStageMarkdown(s.id, drafts[s.id]!)), "## 教师点评", "待教师提供并经授权保存。", "", "## 后续建议", "由本组审阅后填写下一假设与行动。", ""].join("\n");
+  return ["# 小组研究报告 · 学生审阅稿", "", "根据本页已读取的阶段内容与学生编辑整理，可能包含未保存草稿，不代表系统全部历史资料。共享保存固定这份报告正文与所列来源版本，不代表阶段完成或证据已核实。提交前请核对原始证据、来源与版本；缺少的内容保留缺口，不虚构采访、测试、教师点评或投票。", "", ...AIDT_STEPS.map((s) => aidtUiStageMarkdown(s.id, drafts[s.id]!)), "## 教师点评", "待教师提供并经授权保存。", "", "## 后续建议", "由本组审阅后填写下一假设与行动。", ""].join("\n");
 }

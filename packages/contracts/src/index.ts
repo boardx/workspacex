@@ -179,3 +179,7 @@ export * as packLocalization from "./pack-localization";
 export * as portablePackage from "./portable-package";
 
 export * as memberCreditQuota from "./member-credit-quota";
+
+/** User-approved AIDT shared working drafts and optional pure-human project communication. */
+export * as aidtStages from "./aidt-stages";
+export * as projectMemberChat from "./project-member-chat";

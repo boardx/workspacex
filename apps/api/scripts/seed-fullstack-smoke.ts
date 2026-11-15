@@ -56,6 +56,18 @@ const memberUserId = required("FULLSTACK_E2E_MEMBER_USER_ID");
 const leadEmail = required("FULLSTACK_E2E_LEAD_EMAIL");
 const leadPassword = required("FULLSTACK_E2E_LEAD_PASSWORD");
 const leadUserId = required("FULLSTACK_E2E_LEAD_USER_ID");
+const collaborationLeadEmail = required("FULLSTACK_E2E_COLLABORATION_LEAD_EMAIL");
+const collaborationOrgId = required("FULLSTACK_E2E_COLLABORATION_ORG_ID");
+const collaborationProjectId = required("FULLSTACK_E2E_COLLABORATION_PROJECT_ID");
+const collaborationLeadPassword = required("FULLSTACK_E2E_COLLABORATION_LEAD_PASSWORD");
+const collaborationLeadUserId = required("FULLSTACK_E2E_COLLABORATION_LEAD_USER_ID");
+const collaborationMemberEmail = required("FULLSTACK_E2E_COLLABORATION_MEMBER_EMAIL");
+const collaborationMemberPassword = required("FULLSTACK_E2E_COLLABORATION_MEMBER_PASSWORD");
+const collaborationMemberUserId = required("FULLSTACK_E2E_COLLABORATION_MEMBER_USER_ID");
+const collaborationAdminEmail = required("FULLSTACK_E2E_COLLABORATION_ADMIN_EMAIL");
+const collaborationAdminPassword = required("FULLSTACK_E2E_COLLABORATION_ADMIN_PASSWORD");
+const collaborationAdminUserId = required("FULLSTACK_E2E_COLLABORATION_ADMIN_USER_ID");
+const collaborationEnabled = [process.env.ENABLE_AIDT_MODULE, process.env.ENABLE_PROJECT_MEMBER_CHAT].some(value => value === "1" || value === "true");
 /** #552: a real `security-reviewer`. See the fixture for why none of the other three fits. */
 const securityReviewerEmail = required("FULLSTACK_E2E_SECURITY_REVIEWER_EMAIL");
 const securityReviewerPassword = required("FULLSTACK_E2E_SECURITY_REVIEWER_PASSWORD");
@@ -83,17 +95,18 @@ const agendaSegmentTitle = required("FULLSTACK_E2E_AGENDA_SEGMENT_TITLE");
 
 ensureDatabase();
 await migrateOnce();
-await resetOrgs(orgId);
+await resetOrgs(orgId, collaborationOrgId);
 await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
     [
-      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId, brainUserId, tasksUserId],
-      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail, brainEmail, tasksEmail],
+      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId, brainUserId, tasksUserId, collaborationLeadUserId, collaborationMemberUserId, collaborationAdminUserId],
+      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail, brainEmail, tasksEmail, collaborationLeadEmail, collaborationMemberEmail, collaborationAdminEmail],
     ],
   );
 });
 const fixture = await seedOrg({ orgId, projectId, teamNames: ["fullstack"], groupNames: ["gate"] });
+if (collaborationEnabled) await seedOrg({ orgId: collaborationOrgId, projectId: collaborationProjectId, teamNames: [], groupNames: [], projectKind: "general" });
 await asApp(orgId, (client) => client.query(
   "UPDATE projects SET name = $1 WHERE id = $2 AND org_id = $3",
   [projectName, projectId, orgId],
@@ -114,6 +127,12 @@ await addProjectMember(orgId, projectId, feedbackAdminUserId, "facilitator", nul
 // Keep the existing absence of preassigned project membership for this scenario.
 await addOrgMember(orgId, leadUserId, "admin", null);
 await addOrgMember(orgId, memberUserId, "consultant", fixture.teams.fullstack ?? null);
+// Dedicated disposable accounts only; preserve all established fixture roles.
+if (collaborationEnabled) {
+  await addOrgMember(collaborationOrgId, collaborationLeadUserId, "admin", null);
+  await addOrgMember(collaborationOrgId, collaborationMemberUserId, "consultant", null);
+  await addOrgMember(collaborationOrgId, collaborationAdminUserId, "admin", null);
+}
 // #552: the security reviewer lives in the SAME team as the submitter, otherwise the
 // `team-only` Skill would be invisible to him and the assertion would go red on a 404
 // instead of on `REVIEWER_FUNCTION_MISMATCH` -- red, but not for the right reason.
@@ -159,6 +178,19 @@ await asOwner(async (client) => {
     ],
   );
 });
+
+if (collaborationEnabled) {
+  const collaborationLeadHash = await hasher.hash(collaborationLeadPassword);
+  const collaborationMemberHash = await hasher.hash(collaborationMemberPassword);
+  const collaborationAdminHash = await hasher.hash(collaborationAdminPassword);
+  await asOwner(client => client.query(
+    `INSERT INTO credentials (user_id,email,display_name,password_hash,email_verified_at)
+     VALUES ($1,$2,$3,$4,now()),($5,$6,$7,$8,now()),($9,$10,$11,$12,now())`,
+    [collaborationLeadUserId,collaborationLeadEmail,"Collaboration lead",collaborationLeadHash,
+     collaborationMemberUserId,collaborationMemberEmail,"Collaboration member",collaborationMemberHash,
+     collaborationAdminUserId,collaborationAdminEmail,"Collaboration admin nonmember",collaborationAdminHash],
+  ));
+}
 
 /**
  * 🟢 #552 —— **谁能审**（`skill_reviewer_functions`，I-5）。
