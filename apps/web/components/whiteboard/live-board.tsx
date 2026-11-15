@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@/lib/i18n/provider';
 import { useBrowserTitle } from "@/components/system/browser-title";
 import {createWhiteboardReceiptObserver} from '../../lib/whiteboard-provider-observer';
 import {readBoardArtifactFocus} from './use-board-artifact-focus';
@@ -18,6 +19,8 @@ import {BoardAIProposalPanel} from './board-ai-proposal-panel';import{BoardPrese
 import { BoardImportPanel } from './board-import-panel';
 const initial: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, epoch: null, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: null, lastAckReceipt:null };
 export function LiveBoard({ boardId, onSelectionChange }: { boardId: string; onSelectionChange?: (ids: string[]) => void }) {
+  const { locale } = useI18n();
+  const english = locale === "en";
   const router = useRouter();
   const search=useSearchParams();
   const artifactFocus=readBoardArtifactFocus(search);
@@ -78,8 +81,8 @@ export function LiveBoard({ boardId, onSelectionChange }: { boardId: string; onS
   const observeViewport=useCallback((viewport:{x:number;y:number;zoom:number})=>{if(presentationRef.current?.presenterId!==actorId)return;pendingViewport.current=viewport;if(viewportTimer.current)return;viewportTimer.current=setTimeout(()=>{viewportTimer.current=null;const next=pendingViewport.current;pendingViewport.current=null;if(next)dispatchPresentation({type:'viewport',viewport:next});},100);},[actorId,dispatchPresentation]);
   useEffect(()=>()=>{if(viewportTimer.current)clearTimeout(viewportTimer.current);},[]);
   const applyProposal=async()=>{if(!proposal)return;setProposalBusy(true);try{const receipt=await confirmAIProposal(proposal,crypto.randomUUID()),undo=recordBoardUndoReceipt(proposal,receipt);setOrganizeFitRequest({id:crypto.randomUUID(),proposal});setAIUndo(undo);setProposal(null);setProposalError('');}catch(error){setProposalError(error instanceof Error&&error.message==='BOARD_OPERATION_CONFLICT'?'白板已变化，未应用 AI 修改，请重新生成。':'AI 修改尚未确认，请重试。');}finally{setProposalBusy(false);}};const rejectProposal=async()=>{if(!proposal)return;setProposalBusy(true);try{await cancelAIProposal(proposal);setProposal(null);setProposalError('');}catch{setProposalError('取消尚未确认，请重试。');}finally{setProposalBusy(false);}};
-  if (failed || state.phase === 'blocked') return <section data-testid="denied" className="p-6"><h1 className="text-20 font-semibold">无法继续访问白板</h1><p className="my-3 text-14">权限、会话或同步状态已改变。请返回列表确认后重新打开。未确认的修改不能视为已保存。</p><Button onClick={back}>返回白板列表</Button></section>;
-  if (!doc || !board) return <p data-testid="loading" role="status" className="p-6">正在读取白板…</p>;
+  if (failed || state.phase === 'blocked') return <section data-testid="denied" className="p-6"><h1 className="text-20 font-semibold">{english ? "Board unavailable" : "无法继续访问白板"}</h1><p className="my-3 text-14">{english ? "Your access, session, or sync state changed. Return to the board list and reopen the board. Unconfirmed changes may not have been saved." : "权限、会话或同步状态已改变。请返回列表确认后重新打开。未确认的修改不能视为已保存。"}</p><Button onClick={back}>{english ? "Back to boards" : "返回白板列表"}</Button></section>;
+  if (!doc || !board) return <p data-testid="loading" role="status" className="p-6">{english ? "Loading board…" : "正在读取白板…"}</p>;
   const syncPhase=state.phase!=='online'?state.phase:state.pending?'pending':'synced';
   const syncDetails=`未确认修改会加密保存在此浏览器，并在刷新、关闭或重连后按原操作 ID 重放。在线成员 ${state.peers.length}${state.duplicateAcks?` · 已忽略 ${state.duplicateAcks} 个重复确认`:''}`;
   return <div className="relative flex h-full min-h-0 flex-col">{importOpen&&<div className="fixed inset-0 z-[70] pointer-events-none [&>aside]:pointer-events-auto"><BoardImportPanel boardId={boardId} expectedEpoch={state.epoch??1} onClose={()=>setImportOpen(false)}/></div>}<div data-testid="board-editor-region"

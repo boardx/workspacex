@@ -1,11 +1,13 @@
 "use client";
+import { LOCALE_COOKIE, resolveLocale } from "@/lib/i18n/locale";
 import * as React from "react";
 import { reportClientError } from "@/lib/report-client-error";
 
 /**
  * Next.js 的**根**错误边界——只在根 `layout.tsx` 自己抛出时才会渲染（例如
  * `Providers` 挂载失败）。这种情况下 `app/error.tsx` 不会被触发（它假设
- * layout 本身是好的），且**这个组件必须自带 `<html>`/`<body>`**——它替换的
+ * layout 本身是好的），且**这个组件必须自带 `<html>`/`<body>
+`**——它替换的
  * 是整个根布局，不是布局内的某个子树。
  *
  * 正因为是根布局都没起来，`Providers` 里的 `GlobalErrorReporter` 从未挂载过，
@@ -19,17 +21,24 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [locale, setLocale] = React.useState<ReturnType<typeof resolveLocale> | null>(null);
+  React.useEffect(() => {
+    const saved = document.cookie.split("; ").find(entry => entry.startsWith(`${LOCALE_COOKIE}=`));
+    setLocale(resolveLocale(saved?.slice(LOCALE_COOKIE.length + 1), window.location.host));
+  }, []);
+  const english = locale === "en";
   React.useEffect(() => {
     reportClientError(error);
   }, [error]);
 
   return (
-    <html lang="zh-CN">
+    <html lang={locale ?? "en"}>
       <body>
+        {locale && (
         <div style={{ display: "flex", minHeight: "100vh", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center", fontFamily: "sans-serif" }}>
-          <p style={{ fontSize: 14, fontWeight: 500 }}>应用启动时出了点问题</p>
+          <p style={{ fontSize: 14, fontWeight: 500 }}>{english ? "The app could not start" : "应用启动时出了点问题"}</p>
           <p style={{ maxWidth: 420, fontSize: 12, color: "#6b7280" }}>
-            这个错误已经被自动记录。你可以重试，或者刷新页面。
+            {english ? "This error was recorded automatically. Try again or refresh the page." : "这个错误已经被自动记录。你可以重试，或者刷新页面。"}
           </p>
           <button
             type="button"
@@ -37,9 +46,10 @@ export default function GlobalError({
             style={{ marginTop: 4, borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", padding: "6px 12px", fontSize: 12, cursor: "pointer" }}
             data-testid="app-global-error-boundary-retry"
           >
-            重试
+            {english ? "Try again" : "重试"}
           </button>
         </div>
+        )}
       </body>
     </html>
   );

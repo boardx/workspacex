@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from 'react';
 import type { WhiteboardGeometry } from '@repo/contracts/whiteboard-document';
 import type { RenderedDiagramLayout, WhiteboardPlacementPreview } from '@repo/contracts/whiteboard-operation';
@@ -13,6 +14,8 @@ export function ChatBoardPlacementPreview({ existing, incoming, incomingObjects 
   incomingObjects?: RenderedDiagramLayout['objects']; offset: {x:number;y:number};
   onChange: (offset:{x:number;y:number})=>void; disabled:boolean;
 }) {
+  const { locale } = useI18n();
+  const copy = (zh: string, en: string) => locale === "en" ? en : zh;
   const visible=React.useMemo(()=>existing.filter(object=>!object.appearance?.hidden),[existing]);
   const {source,view,recommended}=React.useMemo(()=>insertionPlacement(visible.map(object=>object.geometry),incoming),[visible,incoming]);
   const objects: MinimapObject[]=visible.map(object=>({id:object.id,geometry:object.geometry,kind:object.appearance?.kind??'rectangle',style:object.appearance?.style??{}}));
@@ -51,11 +54,11 @@ export function ChatBoardPlacementPreview({ existing, incoming, incomingObjects 
   }));
   return <div className="space-y-3">
     <div className="flex items-center justify-between gap-2 text-sm">
-      <span className="text-muted-foreground">红框内为待插入内容</span>
-      <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={()=>onChange(recommended)}>推荐空白位置</Button>
+      <span className="text-muted-foreground">{copy("红框内为待插入内容", "The red outline shows the content to insert")}</span>
+      <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={()=>onChange(recommended)}>{copy("推荐空白位置", "Find empty space")}</Button>
     </div>
     <BoardMinimapScene objects={[...objects,...placed]} map={map} wireframe preserveAspectRatio="xMidYMid meet" data-testid="chat-board-placement-preview" role="application"
-      aria-label="插入位置预览，点击或拖动红框选择位置，也可用方向键微调" aria-disabled={disabled} tabIndex={disabled?-1:0}
+      aria-label={copy("插入位置预览，点击或拖动红框选择位置，也可用方向键微调", "Placement preview. Click or drag the red outline, or use the arrow keys.")} aria-disabled={disabled} tabIndex={disabled?-1:0}
       className="h-64 w-full touch-none cursor-crosshair rounded-lg border border-border bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onPointerDown={event=>{
         if(disabled||event.button!==0)return;
@@ -79,6 +82,6 @@ export function ChatBoardPlacementPreview({ existing, incoming, incomingObjects 
         width={source.width*map.scale} height={source.height*map.scale} className="fill-destructive/10 stroke-destructive"
         strokeWidth="2" vectorEffect="non-scaling-stroke"/>
     </BoardMinimapScene>
-    <p className="text-sm text-muted-foreground">拖动红框调整位置，确认后按原尺寸插入所选白板。取消不会修改白板。</p>
+    <p className="text-sm text-muted-foreground">{copy("拖动红框调整位置，确认后按原尺寸插入所选白板。取消不会修改白板。", "Drag the red outline to position the content. Confirm to insert it at its original size.")}</p>
   </div>;
 }
