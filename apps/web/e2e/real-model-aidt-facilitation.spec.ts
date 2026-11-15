@@ -42,7 +42,7 @@ for (const scenario of selected.length ? selected : [null]) {
   test(`AIDT facilitation capture: ${scenario?.id ?? "missing-configuration"}`, async ({ page }, info) => {
     if (!scenario) throw new Error("AIDT_SCENARIO_SELECTION_REQUIRED");
     test.setTimeout(scenario.turns.length * REAL_MODEL_SMOKE.runTimeoutMs + 180_000);
-    const evidence = new RealModelEvidence(path.join(REAL_MODEL_SMOKE.evidenceDir, "aidt-facilitation", `${Date.now()}-${scenario.id}`), [REAL_MODEL_SMOKE.password]);
+    const evidence = new RealModelEvidence(path.join(REAL_MODEL_SMOKE.evidenceDir, "aidt-facilitation", `${Date.now()}-${scenario.id}`), [REAL_MODEL_SMOKE.password, REAL_MODEL_SMOKE.email]);
     const turns: { studentInput: string; runRequestPath: string; sawRunning: boolean; status: "running" | "captured" | "interrupted"; messages: { id: string; authorKind: string; agentRunId: string | null; text: string }[] }[] = [];
     let before: unknown, projectId: string | undefined, threadId: string | undefined;
     evidence.setContext("scenarioId", scenario.id);
