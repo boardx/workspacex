@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, statfsSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, statfsSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { resolve, join, isAbsolute } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -68,11 +68,14 @@ async function api(page: Page, path: string) {
   }, { origin, path });
 }
 type NativeStage = z.infer<typeof SharedStage>;
+function phase(name: string) { console.info(`[aidt-native] ${new Date().toISOString()} ${name}`); }
 async function openOutcome(page: Page, projectId: string, stage: number) {
+  phase(`opening-stage-${stage}`);
   await page.goto(`/aidt/${projectId}?step=${stage}&tool=outcome`);
   await expect(page.getByTestId("aidt-stage-fields")).toHaveAttribute("data-stage", String(stage));
   await expect(page.getByTestId("aidt-shared-status")).not.toContainText("正在读取");
   await expect(page.getByTestId("aidt-shared-load-error")).toHaveCount(0);
+  phase(`stage-${stage}-ready`);
 }
 async function saveNativeStage(page: Page, projectId: string, stage: number): Promise<NativeStage> {
   const path = `/projects/${projectId}/aidt/stages/${stage}`;
@@ -84,6 +87,7 @@ async function saveNativeStage(page: Page, projectId: string, stage: number): Pr
   const value = SharedStage.parse((await saved.json()).stage);
   await expect(page.getByTestId("aidt-shared-receipt")).toContainText(`V${value.revision}`);
   expect(SharedStage.parse((await api(page, path)).data.stage)).toEqual(value);
+  phase(`stage-${stage}-saved-V${value.revision}`);
   return value;
 }
 async function nativeV2Journey(page: Page, projectId: string) {
@@ -118,14 +122,15 @@ async function nativeV2Journey(page: Page, projectId: string) {
 
   await openOutcome(page, projectId, 5);
   await expect(page.getByRole("button", { name: "打开原生 Design Workbench", exact: true })).toBeDisabled();
-  await page.getByLabel("通过这次制作原型，你最想知道什么？", { exact: true }).fill("验收示例：学生能否看懂纸面取餐分区提示？");
+  await page.getByRole("textbox", { name: "通过这次制作原型，你最想知道什么？", exact: true }).fill("验收示例：学生能否看懂纸面取餐分区提示？");
   await page.getByTestId("aidt-verification-question").locator("summary").click();
-  await page.getByLabel("测试前，你们怎么想？", { exact: true }).fill("仅为学生猜测：可能看懂；尚未开展真实用户测试。");
-  await page.getByLabel("目前看法的依据", { exact: true }).fill("自动化验收合成的表单输入，无实地证据，不是已证实结论。");
-  await page.getByLabel("这个原型能了解什么，还有什么不能验证？", { exact: true }).fill("纸面示意只能讨论理解，不能证明真实排队时间改善。");
+  await page.getByRole("textbox", { name: "测试前，你们怎么想？", exact: true }).fill("仅为学生猜测：可能看懂；尚未开展真实用户测试。");
+  await page.getByRole("textbox", { name: "目前看法的依据", exact: true }).fill("自动化验收合成的表单输入，无实地证据，不是已证实结论。");
+  await page.getByRole("textbox", { name: "这个原型能了解什么，还有什么不能验证？", exact: true }).fill("纸面示意只能讨论理解，不能证明真实排队时间改善。");
   await page.getByRole("button", { name: "确认本轮验证问题", exact: true }).click();
   await expect(page.getByRole("link", { name: "打开原生 Design Workbench", exact: true })).toBeVisible();
-  await page.getByLabel("目前看法的依据", { exact: true }).fill("修改后的学生猜测说明，仍无实地证据。");
+  console.info(JSON.stringify({ phase: "s5-populated-label-diagnostic", exactLabelCount: await page.getByLabel("目前看法的依据", { exact: true }).count(), textboxRoleCount: await page.getByRole("textbox", { name: "目前看法的依据", exact: true }).count() }));
+  await page.getByRole("textbox", { name: "目前看法的依据", exact: true }).fill("修改后的学生猜测说明，仍无实地证据。");
   await expect(page.getByRole("button", { name: "打开原生 Design Workbench", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "确认本轮验证问题", exact: true }).click();
   await page.getByTestId("aidt-more-fields").locator("summary").click();
@@ -136,12 +141,12 @@ async function nativeV2Journey(page: Page, projectId: string) {
   await openOutcome(page, projectId, 6);
   await page.getByRole("button", { name: "带入本轮验证问题", exact: true }).click();
   const reflection = page.getByTestId("aidt-test-reflection");
-  await reflection.getByLabel("测试之后，对这个问题的认识有什么变化？", { exact: true }).selectOption("unchanged");
-  await reflection.getByLabel("测试后的认识", { exact: true }).fill("尚未改变原先猜测；这只是验收表单分支，不代表实际测试完成。");
-  await reflection.getByLabel("支持判断的测试材料", { exact: true }).fill("无真实测试材料：自动化验收仅验证学生输入与服务器回读。");
-  await reflection.getByLabel("如果继续改进，优先从哪一步重新入手？", { exact: true }).selectOption("1");
-  await reflection.getByLabel("为什么从这里重新入手？", { exact: true }).fill("先重新界定研究范围，不需要为保存学习记录生成新版。");
-  await reflection.getByLabel("下一步具体做什么？", { exact: true }).fill("重新讨论具体人群和场景，之后开展真实研究。");
+  await reflection.getByRole("combobox", { name: "测试之后，对这个问题的认识有什么变化？", exact: true }).selectOption("unchanged");
+  await reflection.getByRole("textbox", { name: "测试后的认识", exact: true }).fill("尚未改变原先猜测；这只是验收表单分支，不代表实际测试完成。");
+  await reflection.getByRole("textbox", { name: "支持判断的测试材料", exact: true }).fill("无真实测试材料：自动化验收仅验证学生输入与服务器回读。");
+  await reflection.getByRole("combobox", { name: "如果继续改进，优先从哪一步重新入手？", exact: true }).selectOption("1");
+  await reflection.getByRole("textbox", { name: "为什么从这里重新入手？", exact: true }).fill("先重新界定研究范围，不需要为保存学习记录生成新版。");
+  await reflection.getByRole("textbox", { name: "下一步具体做什么？", exact: true }).fill("重新讨论具体人群和场景，之后开展真实研究。");
   await reflection.getByRole("button", { name: "确认本轮学习记录", exact: true }).click();
   branches.push(await saveNativeStage(page, projectId, 6));
   const originalSnapshot = branches[0]!.content.draft.fields.questionSnapshot!;
@@ -153,24 +158,24 @@ async function nativeV2Journey(page: Page, projectId: string) {
   await expect(page.getByTestId("aidt-return-context")).toContainText("重新界定研究范围");
 
   await openOutcome(page, projectId, 5);
-  await page.getByLabel("通过这次制作原型，你最想知道什么？", { exact: true }).fill("修改后的下一轮问题：学生从哪里开始寻找取餐区？");
+  await page.getByRole("textbox", { name: "通过这次制作原型，你最想知道什么？", exact: true }).fill("修改后的下一轮问题：学生从哪里开始寻找取餐区？");
   await page.getByRole("button", { name: "确认本轮验证问题", exact: true }).click();
   saved[5] = await saveNativeStage(page, projectId, 5);
   await openOutcome(page, projectId, 6);
   await expect(page.getByTestId("aidt-bound-question")).toContainText("学生能否看懂纸面取餐分区提示");
-  await reflection.getByLabel("测试之后，对这个问题的认识有什么变化？", { exact: true }).selectOption("insufficient");
-  await reflection.getByLabel("测试后的认识", { exact: true }).fill("");
-  await reflection.getByLabel("支持判断的测试材料", { exact: true }).fill("");
-  await reflection.getByLabel("仍不确定的地方", { exact: true }).fill("没有真实测试，需补充理解过程及观察材料。");
-  await reflection.getByLabel("如果继续改进，优先从哪一步重新入手？", { exact: true }).selectOption("undecided");
-  await reflection.getByLabel("需要什么支持才能继续？", { exact: true }).fill("希望教师帮助判断先访谈还是先改题；系统没有自动通知教师。");
-  await reflection.getByLabel("下一步具体做什么？（可稍后补充）", { exact: true }).fill("");
+  await reflection.getByRole("combobox", { name: "测试之后，对这个问题的认识有什么变化？", exact: true }).selectOption("insufficient");
+  await reflection.getByRole("textbox", { name: "测试后的认识", exact: true }).fill("");
+  await reflection.getByRole("textbox", { name: "支持判断的测试材料", exact: true }).fill("");
+  await reflection.getByRole("textbox", { name: "仍不确定的地方", exact: true }).fill("没有真实测试，需补充理解过程及观察材料。");
+  await reflection.getByRole("combobox", { name: "如果继续改进，优先从哪一步重新入手？", exact: true }).selectOption("undecided");
+  await reflection.getByRole("textbox", { name: "需要什么支持才能继续？", exact: true }).fill("希望教师帮助判断先访谈还是先改题；系统没有自动通知教师。");
+  await reflection.getByRole("textbox", { name: "下一步具体做什么？（可稍后补充）", exact: true }).fill("");
   await reflection.getByRole("button", { name: "确认本轮学习记录", exact: true }).click();
   branches.push(await saveNativeStage(page, projectId, 6));
   await expect(page.getByTestId("aidt-round-navigation")).toHaveCount(0);
-  await reflection.getByLabel("如果继续改进，优先从哪一步重新入手？", { exact: true }).selectOption("2");
-  await reflection.getByLabel("为什么从这里重新入手？", { exact: true }).fill("缺少真实证据，先回访谈；不是测试通过。");
-  await reflection.getByLabel("下一步具体做什么？", { exact: true }).fill("拟定真实访谈问题并取得适当授权。");
+  await reflection.getByRole("combobox", { name: "如果继续改进，优先从哪一步重新入手？", exact: true }).selectOption("2");
+  await reflection.getByRole("textbox", { name: "为什么从这里重新入手？", exact: true }).fill("缺少真实证据，先回访谈；不是测试通过。");
+  await reflection.getByRole("textbox", { name: "下一步具体做什么？", exact: true }).fill("拟定真实访谈问题并取得适当授权。");
   await reflection.getByRole("button", { name: "确认本轮学习记录", exact: true }).click();
   saved[6] = await saveNativeStage(page, projectId, 6);
   branches.push(saved[6]);
@@ -210,6 +215,7 @@ test("native local start/save/stop/restart preserves AIDT and human text without
   let ownerExit: Promise<number> | undefined;
   let ownerCode: number | null = null;
   let buildOwnerInstance: string | null = null;
+  let privateTraceStarted = false;
   function ownerInstance(): string | null {
     try {
       const value = JSON.parse(readFileSync(join(dataDir, "run", "aidt-owner.json"), "utf8")) as { instanceId?: unknown };
@@ -217,6 +223,7 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     } catch { return null; }
   }
   async function start(cycle: number) {
+    phase(`native-start-${cycle}`);
     expect(existsSync(join(dataDir, "run", "aidt-owner.json"))).toBe(false);
     ownerCode = null;
     const started = Date.now();
@@ -240,9 +247,11 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     const first = report((await cli("health")).stdout), second = report((await cli("health")).stdout);
     expect(second.details?.checkedAt).not.toBe(first.details?.checkedAt);
     expect(second.details?.capabilities?.find(c => c.id === "chat-model")?.available).toBe(false);
+    phase(`native-start-${cycle}-healthy`);
     return second;
   }
   async function stop(cycle: number) {
+    phase(`native-stop-${cycle}`);
     const result = await cli("stop", 150_000);
     expect(result.code).toBe(0);
     expect(await ownerExit).toBe(0);
@@ -254,6 +263,7 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     expect(existsSync(join(dataDir, "pgdata"))).toBe(true);
     writeFileSync(join(output, `stopped-${cycle}.json`), JSON.stringify({ status, ports: released, savedDataRetained: true }, null, 2));
     owner = undefined; ownerExit = undefined;
+    phase(`native-stop-${cycle}-released`);
   }
   try {
     const doctor = await cli("doctor");
@@ -327,6 +337,14 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     await start(1);
     const secretsBefore = createHash("sha256").update(readFileSync(join(dataDir, "secrets.json"))).digest("hex");
     await login(page);
+    await page.context().tracing.start({ screenshots: true, snapshots: true, sources: false });
+    privateTraceStarted = true;
+    page.on("framenavigated", frame => { if (frame === page.mainFrame()) phase(`browser-route ${new URL(frame.url()).pathname}${new URL(frame.url()).search}`); });
+    page.on("response", response => {
+      const path = new URL(response.url()).pathname;
+      if (response.url().startsWith(origin) && (response.request().method() !== "GET" || response.status() >= 400)) phase(`http ${response.request().method()} ${path} ${response.status()}`);
+    });
+    phase("logged-in-private-post-login-trace-started");
     await page.getByTestId("rail-aidt").click();
     await page.getByTestId("aidt-new").click();
     await page.getByTestId("project-new-name").fill(`本地持久验收 ${randomUUID().slice(0, 8)}`);
@@ -380,6 +398,7 @@ test("native local start/save/stop/restart preserves AIDT and human text without
       if (request.method() === "POST" && (/\/agent\/[^/]+\/run$/.test(new URL(request.url()).pathname) || /\/pm-designs\/[^/]+\/chat$/.test(new URL(request.url()).pathname))) generationRequests.push(new URL(request.url()).pathname);
     });
     const v2 = await nativeV2Journey(page, projectId);
+    phase("v2-ui-branches-and-report-complete");
     expect(generationRequests).toEqual([]);
     evidence.v2 = { ...v2, generationRequests };
     const humanText = `纯成员文字持久验收 ${randomUUID()}`;
@@ -414,10 +433,10 @@ test("native local start/save/stop/restart preserves AIDT and human text without
       await expect(fresh.getByRole("checkbox", { name: "验收示例：纸面取餐提示 · 最容易实现的", exact: true })).toBeChecked();
       await expect(fresh.getByRole("checkbox", { name: "验收示例：纸面取餐提示 · 最有趣的", exact: true })).toBeChecked();
       await openOutcome(fresh, projectId, 5);
-      await expect(fresh.getByLabel("通过这次制作原型，你最想知道什么？", { exact: true })).toHaveValue(v2.saved[5]!.content.draft.fields.verificationQuestion!);
+      await expect(fresh.getByRole("textbox", { name: "通过这次制作原型，你最想知道什么？", exact: true })).toHaveValue(v2.saved[5]!.content.draft.fields.verificationQuestion!);
       await openOutcome(fresh, projectId, 6);
       await expect(fresh.getByTestId("aidt-bound-question")).toContainText("学生能否看懂纸面取餐分区提示");
-      await expect(fresh.getByTestId("aidt-test-reflection").getByLabel("测试之后，对这个问题的认识有什么变化？", { exact: true })).toHaveValue("insufficient");
+      await expect(fresh.getByTestId("aidt-test-reflection").getByRole("combobox", { name: "测试之后，对这个问题的认识有什么变化？", exact: true })).toHaveValue("insufficient");
       await expect(fresh.getByTestId("aidt-round-navigation").getByRole("link")).toHaveAttribute("href", new RegExp(`/aidt/${projectId}\\?step=2&tool=outcome&returnRevision=`));
       await fresh.goto(`/aidt/${projectId}?step=1&tool=outcome`);
       await expect(fresh.getByLabel("初始问题", { exact: true })).toHaveValue(statement);
@@ -448,6 +467,14 @@ test("native local start/save/stop/restart preserves AIDT and human text without
         expect(stopped.code).toBe(0);
         await expect.poll(ownerInstance, { timeout: 15_000 }).toBe(null);
       }
-    } finally { writeFileSync(join(output, "persistent-roundtrip.json"), JSON.stringify(evidence, null, 2)); }
+    } finally {
+      if (privateTraceStarted) {
+        // This private diagnostic may contain local test session headers. Never package or upload it.
+        const tracePath = join(output, "private-post-login-trace.zip");
+        try { await page.context().tracing.stop({ path: tracePath }); chmodSync(tracePath, 0o600); evidence.privateTrace = "retained internally only; excluded from deliverables"; }
+        catch { evidence.privateTrace = "trace finalization unavailable"; }
+      }
+      writeFileSync(join(output, "persistent-roundtrip.json"), JSON.stringify(evidence, null, 2));
+    }
   }
 });
