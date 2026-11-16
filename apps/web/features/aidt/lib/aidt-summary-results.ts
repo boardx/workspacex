@@ -3,8 +3,31 @@ import { listMessages, listThreadArtifacts, getThreadArtifactSource } from "@/li
 import { resolveAidtStepChat } from "./live-aidt-step-chat";
 import { AIDT_STEPS } from "./project-aidt";
 import type { AidtReportHistoryScope } from "./aidt-report-history";
+import { readAidtRunContext } from "./live-aidt-run-context";
+import type { AidtContextReceipt } from "@repo/contracts/aidt-run-context";
 
 export type AidtSummaryChoice = { kind: "message" | "artifact"; id: string; messageId: string; runId: string; title: string; markdown?: string; version?: number | null; mode?: string };
+export type AidtSummarySourceReview = { status: "available"; receipt: AidtContextReceipt } | { status: "unavailable" };
+const referenceLabel = (row: { stageId: number; revision: number }) => `第${row.stageId}步 V${row.revision}`;
+/** Software provenance, separate from the selected model's unchanged report body. */
+export function aidtSummarySourceReviewLines(review: AidtSummarySourceReview): string[] {
+  if (review.status === "unavailable") return ["运行材料回执未能读取，无法核对本轮版本与截断范围。请回到原生对话核对来源，不将未知范围写成完整读取。"];
+  const receipt = review.receipt;
+  const omitted = receipt.omissions.map(row => {
+    const source = row.stageId ? `第${row.stageId}步${row.revision ? ` V${row.revision}` : ""}：` : "";
+    const label = { missing: "材料缺失", "not-selected": "未选入本轮", truncated: "仅传入部分摘录，未读剩余内容", "personal-artifacts-not-included": "个人产物未自动纳入", "original-file-bytes-not-read": "未读取原始文件字节", "teacher-comments-no-source": "教师点评无来源", "lineage-unknown": "版本继承关系未经核实" }[row.kind];
+    return `${source}${label}${row.note ? `（${row.note}）` : ""}`;
+  });
+  const dispatched = receipt.application.state === "message-dispatch-observed";
+  return [
+    `本轮固定版本：${receipt.stageRevisions.map(referenceLabel).join("、") || "无"}。`,
+    `历史版本：${receipt.historyRevisions.map(referenceLabel).join("、") || "无"}。`,
+    receipt.truncated ? "来源已截断：选中版本不等于全文已读，未读内容须回原材料核对。" : "回执未标记摘录截断；这不代表已读取原文件或全部历史。",
+    ...omitted,
+    dispatched ? "已观测本轮请求发送；不代表AI正确覆盖了这些材料。" : `运行应用状态：${receipt.application.state}；尚不能据此确认本轮材料已发送给模型。`,
+    "请逐项核对旧轮次、原型文件／版本与测试前后认识；本轮固定版本不代表当前最新版。原型notes／制作说明是声明，须核对实际文件；静态图不证明可点击或真实用户行为。软件不代替学生确认报告事实。",
+  ];
+}
 const check = (signal: AbortSignal) => { if (signal.aborted) throw new Error("AIDT_CONTEXT_CHANGED"); };
 /** Read only the mounted SUM thread. Human text and unlinked artifacts are never AI report results. */
 export async function loadAidtSummaryChoices(scope: AidtReportHistoryScope, threadId: string, signal: AbortSignal) {
@@ -55,8 +78,20 @@ export async function readAidtSummaryChoice(scope: AidtReportHistoryScope, threa
     markdown = choice.markdown!;
   }
   if (!markdown.trim() || markdown.length > 85000) throw new Error("AIDT_SUMMARY_RESULT_SIZE");
-  return { choice, markdown, immutableRevision };
+  let sourceReview: AidtSummarySourceReview;
+  try {
+    const receipt = await readAidtRunContext({ projectId: scope.projectId, runId: choice.runId }, scope.sessionToken, signal); check(signal);
+    if (receipt.purpose !== "summary") throw new Error("AIDT_SUMMARY_RECEIPT_TASK_MISMATCH");
+    sourceReview = { status: "available", receipt };
+  } catch (error) {
+    check(signal);
+    const status = error && typeof error === "object" && "status" in error ? error.status : undefined;
+    if (status === 401 || status === 403 || (error instanceof Error && /MISMATCH/.test(error.message))) throw error;
+    // A missing/failed receipt never becomes a claim that the whole source was read.
+    sourceReview = { status: "unavailable" };
+  }
+  return { choice, markdown, immutableRevision, sourceReview };
 }
 export function aidtSummaryImportMarkdown(threadId: string, result: Awaited<ReturnType<typeof readAidtSummaryChoice>>) {
-  return ["## AI报告草稿 · 学生选择导入", "", "以下内容来自已保存的总结对话，尚待学生核对和修改；模型陈述不是原始证据、教师点评或文件导出回执。阶段来源请核对该对话的生成请求与材料范围。", `对话：${threadId}；消息：${result.choice.messageId}；运行：${result.choice.runId}${result.immutableRevision ? `；产物：${result.choice.id}；修订：${result.immutableRevision}` : ""}`, "", result.markdown, ""].join("\n");
+  return ["## AI报告草稿 · 学生选择导入", "", "以下内容来自已保存的总结对话，尚待学生核对和修改；模型陈述不是原始证据、教师点评或文件导出回执。阶段来源请核对该对话的生成请求与材料范围。", `对话：${threadId}；消息：${result.choice.messageId}；运行：${result.choice.runId}${result.immutableRevision ? `；产物：${result.choice.id}；修订：${result.immutableRevision}` : ""}`, "", "### 软件记录的来源范围（不是AI报告正文）", ...aidtSummarySourceReviewLines(result.sourceReview).map(line => `- ${line}`), "", "### 所选AI原文（未经软件改写）", "", result.markdown, ""].join("\n");
 }

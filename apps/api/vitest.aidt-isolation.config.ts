@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 export default defineConfig({
   root: fileURLToPath(new URL('../../', import.meta.url)),
   test: {
-    include: ['apps/api/tests/skill/aidt-backend-isolation.test.ts', 'apps/api/tests/skill/aidt-backend-import-replay-isolation.test.ts', 'apps/api/tests/skill/aidt-skill-pack.test.ts', 'apps/api/tests/skill/aidt-v2-skill-guidance.test.ts', 'apps/api/tests/skill/aidt-summary-skill-pack.test.ts', 'apps/api/tests/skill/aidt-summary-import.test.ts'],
+    include: ['apps/api/tests/skill/aidt-backend-isolation.test.ts', 'apps/api/tests/skill/aidt-backend-import-replay-isolation.test.ts', 'apps/api/tests/skill/aidt-skill-pack.test.ts', 'apps/api/tests/skill/aidt-v2-skill-guidance.test.ts', 'apps/api/tests/skill/aidt-summary-skill-pack.test.ts', 'apps/api/tests/skill/aidt-summary-import.test.ts', 'apps/api/tests/skill/aidt-teaching-boundary-candidates.test.ts'],
     fileParallelism: false,
     maxWorkers: 1,
     minWorkers: 1,

@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
-import { buildAidtSummaryPack, checkOrWriteAidtSummaryPack } from "../../scripts/build-aidt-summary-pack";
+import { AIDT_SUMMARY_SOURCE, buildAidtSummaryPack, checkOrWriteAidtSummaryPack } from "../../scripts/build-aidt-summary-pack";
 import { verifySkillStarterPack } from "../../src/domain/skill/starter-pack";
 import { AIDT_SUMMARY_SKILL_PACK, AIDT_PLATFORM_SKILL_PACK } from "../../src/infrastructure/aidt/aidt-module";
 import { enabledPlatformSkillPacks, STANDARD_PLATFORM_PACKS } from "../../src/infrastructure/skill/ensure-standard-skill-packs";
@@ -13,7 +13,7 @@ it("ships a real source-identical summary task in a separate immutable verified 
   const pack = buildAidtSummaryPack(), raw = JSON.parse(readFileSync(new URL(`skills/starter-packs/${pack.packId}/${pack.packVersion}.json`, root), "utf8"));
   expect(verifySkillStarterPack(raw, AIDT_SUMMARY_SKILL_PACK)).toEqual(pack);
   expect(pack.skills.map(skill=>skill.stableName)).toEqual(["dt-summarize-project"]);
-  const source = readFileSync(new URL("skills/aidt-reporting/dt-summarize-project/SKILL.md", root), "utf8");
+  const source = readFileSync(AIDT_SUMMARY_SOURCE, "utf8");
   expect(Buffer.from(pack.skills[0]!.files[0]!.contentBase64,"base64").toString("utf8")).toBe(source);
   for(const phrase of ["SUM I1", "SUM I2", "SUM O1", "SUM O2", "不是第七步", "一组一份", "教师点评", "故事线", "缺失", "不可信"] ) expect(source).toContain(phrase);
   const stages = JSON.parse(readFileSync(new URL(`skills/starter-packs/${AIDT_PLATFORM_SKILL_PACK.packId}/${AIDT_PLATFORM_SKILL_PACK.packVersion}.json`,root),"utf8"));

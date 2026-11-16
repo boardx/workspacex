@@ -131,7 +131,7 @@ export async function saveAidtV2Stage(page: Page, projectId: string, step: numbe
 }
 
 /** One UI send, one actual durable run. Never retry a model request automatically. */
-type IntentReview = { reviewSyntheticIntent?: (runId: string) => Promise<unknown> };
+type IntentReview = { reviewSyntheticIntent?: (runId: string) => Promise<unknown>; reviewCurrentPlanOnce?: (runId: string, threadId: string) => Promise<unknown> };
 export async function askAidtV2Agent(page: Page, projectId: string, step: number, prompt: string, review?: IntentReview) {
   await page.goto(`/aidt/${projectId}?step=${step}&tool=chat`, { waitUntil: "domcontentloaded" });
   return sendAidtV2NativeTurn(page, projectId, AIDT_STEPS[step - 1]!.skill, prompt, "thread", review);
@@ -191,6 +191,7 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
   let observedRunId: string | undefined;
   let failureCode = "ASSERTION_OR_NATIVE_RUN_FAILED";
   let reviewedPermissionId: string | null | undefined;
+  let reviewedPlanPermissionId: string | undefined;
   let frozenReceipt: AidtContextReceipt | undefined;
   const intentChoices: unknown[] = [];
   let sawRunning = false;
@@ -227,6 +228,12 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
           throw new Error(failureCode);
         }
         if (actualRun.status === "awaiting_tool_permission") {
+          if (actualRun.pendingApproval?.toolName === "write_todos" && review?.reviewCurrentPlanOnce) {
+            const permissionId = actualRun.pendingApproval.permissionRequestId;
+            if (!permissionId || (reviewedPlanPermissionId && reviewedPlanPermissionId !== permissionId)) throw new Error("NATIVE_ADDITIONAL_PLAN_REQUIRES_SEPARATE_REVIEW");
+            if (!reviewedPlanPermissionId) { intentChoices.push(await review.reviewCurrentPlanOnce(observedRunId, threadId)); reviewedPlanPermissionId = permissionId; }
+            return false;
+          }
           if (actualRun.pendingApproval?.toolName !== "confirm_task_intent" || !review?.reviewSyntheticIntent) {
             failureCode = "NATIVE_RUN_REQUIRES_EXPLICIT_STUDENT_REVIEW_NO_AUTOMATIC_PERMISSION";
             throw new Error(failureCode);

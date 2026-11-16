@@ -1,3 +1,4 @@
+import { isAidtRemediation } from "./aidt-v2-remediation-criteria";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
@@ -58,6 +59,7 @@ export function beginCompletionPhase(phase: CompletionPhase): State {
     }
     const prior = predecessor[phase];
     const manual = state.manualContinuation;
+    if (isAidtRemediation() && manual) throw new Error("AIDT_REMEDIATION_MANUAL_BRIDGE_FORBIDDEN");
     const independentS6 = phase === "s6" && process.env.AIDT_V2_FRESH_JOURNEY === "fresh-native-seven-20261117"
       && manual?.phase === "s5" && manual.projectId === state.projectId && manual.manualStudentFallback === true && manual.modelTaskPassed === false
       && manual.actualRunStatus === "cancelled" && manual.freshLoginExactReadback === true && Number.isSafeInteger(manual.studentSavedRevision)
@@ -102,6 +104,7 @@ export function completeSupplementalS2Attempt(projectId: string, runId: string, 
 
 /** QA-only independent capability continuation; never changes S5's original attempted/failed result. */
 export function recordS5ManualContinuation(evidencePath: string): void {
+  if (isAidtRemediation()) throw new Error("AIDT_REMEDIATION_MANUAL_BRIDGE_FORBIDDEN");
   if (process.env.AIDT_V2_FRESH_JOURNEY !== "fresh-native-seven-20261117" || process.env.AIDT_V2_MANUAL_CONTINUATION_PHASE !== "s5") throw new Error("AIDT_MANUAL_S5_EXPLICIT_FRESH_AUTHORIZATION_REQUIRED");
   if (!isAbsolute(evidencePath) || extname(evidencePath) !== ".json") throw new Error("AIDT_MANUAL_S5_EVIDENCE_REQUIRED");
   const e = JSON.parse(readFileSync(evidencePath, "utf8"));

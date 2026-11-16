@@ -1,3 +1,5 @@
+import { inspectAidtStoredHtml } from "./aidt-v2-static-inspection";
+import { isAidtRemediation } from "./aidt-v2-remediation-criteria";
 import { expect, type Page } from "@playwright/test";
 import * as designWorkbench from "@repo/contracts/design-workbench";
 import * as designPrototype from "@repo/contracts/design-prototype";
@@ -117,7 +119,9 @@ export async function prepareAidtV2StageCase(page: Page, step: number, existingP
     if (!bound) await page.getByRole("button", { name: "带入本轮验证问题", exact: true }).click();
     await page.getByRole("combobox", { name: "测试之后，对这个问题的认识有什么变化？", exact: true }).selectOption("insufficient");
     await page.getByRole("textbox", { name: "测试后的认识", exact: true }).fill("学生先判断：只有合成练习反馈，不能断言真实用户已经理解。");
-    await page.getByRole("textbox", { name: "支持判断的测试材料", exact: true }).fill("SYN-TEST-FEEDBACK.txt合成反馈，明确不是实访或真实操作证据。");
+    await page.getByRole("textbox", { name: "支持判断的测试材料", exact: true }).fill(isAidtRemediation()
+      ? `本轮测试对象为已保存原型 ${nativePrototype!.versionId}。SYN-TEST-FEEDBACK.txt仅通用合成课堂模板，未核对为本版本行为记录，不能把其中号码分区示例当本版本事实。没有真人测试，认识仍证据不足。`
+      : "SYN-TEST-FEEDBACK.txt合成反馈，明确不是实访或真实操作证据。");
     await page.getByRole("textbox", { name: "仍不确定的地方", exact: true }).fill("仍缺真实测试者的理解过程、反例及授权记录。");
   }
   if (existingProjectId && step > 1) {
@@ -158,9 +162,26 @@ export async function studentReviewsAidtV2Stage(page: Page, projectId: string, s
   } else {
     await page.getByRole("combobox", { name: "测试之后，对这个问题的认识有什么变化？", exact: true }).selectOption("unchanged");
     await page.getByRole("textbox", { name: "测试后的认识", exact: true }).fill("学生审阅决定：暂未改变，仍保留原猜测；合成反馈不能证明实际用户行为。");
+    if (isAidtRemediation()) {
+      const source = (await readAidtV2Stage(page, projectId, 6))!;
+      const frozen = readAidtQuestionSnapshot(source.content.draft)!;
+      expect(frozen.prototypeDesignId).toBeTruthy(); expect(frozen.prototypeVersionId).toBeTruthy();
+      const response = await aidtV2Api(page, `/pm-designs/${frozen.prototypeDesignId}/versions/${frozen.prototypeVersionId}`);
+      expect(response.status).toBe(200);
+      const raw = (response.data as { version: { prototype: { type: string; props: { html?: string } }[]; links?: unknown[][] } }).version;
+      const htmlNodes = raw.prototype.filter(node => node.type === "html" && typeof node.props.html === "string");
+      expect(htmlNodes, "本静态验收必须读取实际生成HTML，不编造其结构").toHaveLength(1);
+      const inspection = inspectAidtStoredHtml(htmlNodes[0]!.props.html!, (raw.links ?? []).flat().length);
+      const staticEvidence = `静态检查（非真人测试）：被审V1 ${frozen.prototypeVersionId}；${inspection.findings.join("；")}。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。`;
+      await page.getByRole("textbox", { name: "支持判断的测试材料", exact: true }).fill(staticEvidence);
+      await fillAidtV2Field(page, "feedback", "仅实际保存V1的静态检查，尚未真人测试；通用模板不是本版本反馈。");
+      await fillAidtV2Field(page, "reflection", `学生区分材料适用性：${staticEvidence}`);
+    }
     await page.getByRole("combobox", { name: "如果继续改进，优先从哪一步重新入手？", exact: true }).selectOption("2");
     await page.getByRole("textbox", { name: "为什么从这里重新入手？", exact: true }).fill("学生自己选择先补充真实研究；不因AI建议先做新版原型。");
-    await page.getByRole("textbox", { name: "下一步具体做什么？", exact: true }).fill("取得同意后观察一次取餐经历，保留旧原型与未解问题。");
+    await page.getByRole("textbox", { name: "下一步具体做什么？", exact: true }).fill(isAidtRemediation()
+      ? "先征求同意并收集真实取餐经历；保留旧原型与未解问题。另为后续静态练习拟补或重写‘示例2→B分区’的明确合成设计内容；不是已有实测发现，须小组另选返回5才制作V2。"
+      : "取得同意后观察一次取餐经历，保留旧原型与未解问题。");
     await page.getByRole("button", { name: "确认本轮学习记录", exact: true }).click();
   }
   return saveAidtV2Stage(page, projectId, step);

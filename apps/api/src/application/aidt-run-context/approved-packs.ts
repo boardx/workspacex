@@ -9,7 +9,9 @@ import { AidtContextError } from "./errors";
 export const AIDT_CONTEXT_PACK_RELEASES = [
   {packId:"aidt-methods",packVersion:"1.0.0"}, {packId:"aidt-methods",packVersion:"1.1.0"},
   {packId:"aidt-methods",packVersion:"1.2.0"}, {packId:"aidt-methods",packVersion:"1.3.0"},
+  {packId:"aidt-methods",packVersion:"1.3.1"},
   {packId:"aidt-project-summary",packVersion:"1.0.0"},
+  {packId:"aidt-project-summary",packVersion:"1.0.1"},
 ] as const;
 const fail=():never=>{throw new AidtContextError("AIDT_CONTEXT_NOT_AVAILABLE");};
 function manifestDigest(files: readonly {path:string;mediaType:string;digest:string;contentBase64:string}[]): string {

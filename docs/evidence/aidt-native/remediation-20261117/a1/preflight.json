@@ -1,0 +1,43 @@
+{
+  "observedAt": "2026-11-16T20:14:06.084811+00:00",
+  "scope": "environment preflight only; awaiting root integrated-source GO",
+  "privateModelConfigMode": "0600",
+  "modelConfigValidation": "ready; presence only; connectivity not checked",
+  "python": "3.12.14",
+  "qaTarget": "/workspace/scratch/aidt-remediation-20261117/qa-tools",
+  "qaPackages": {
+    "pytest": "9.1.1",
+    "pytest-timeout": "2.4.0"
+  },
+  "realDependencyOfflineRegression": {
+    "command": "PYTHONPATH=/workspace/scratch/aidt-remediation-20261117/qa-tools:$PWD/src /workspace/scratch/aidt-real-model-20261116/python/bin/python -m pytest tests/test_native_tool_identity.py -q",
+    "cwd": "apps/deep-agent-service",
+    "passed": 9,
+    "durationSeconds": 2.86,
+    "warnings": 2,
+    "modelRequestsSent": 0
+  },
+  "sandboxModulesResolvable": [
+    "pdf-lib",
+    "pptxgenjs",
+    "docx",
+    "exceljs"
+  ],
+  "protectedHistoricalFiles": 7,
+  "protectedHistoricalHashesUnchanged": true,
+  "previousPendingDumpSha256": "2ecfd540d57fcdae4af63c6e79b96c9807f86180ce601d14fb32b34f2b5e466c",
+  "previousDumpRestored": false,
+  "newNamespace": "/workspace/scratch/aidt-remediation-20261117/stack-01",
+  "autoExecutionGuards": {
+    "KERNEL_AGENT_RUN_AUTOSTART": "0",
+    "KERNEL_SKILL_TRIALRUN_AUTOSTART": "0",
+    "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART": "0",
+    "KERNEL_THREAD_TITLE_MODEL_ENABLED": "0",
+    "KERNEL_STANDARD_SCHEDULER": "0"
+  },
+  "newStackStarted": false,
+  "newBuildStarted": false,
+  "modelRequestsSentByEnvironmentOwner": 0,
+  "financialRecordsWritten": false,
+  "blockedOn": "root integrated-source GO"
+}

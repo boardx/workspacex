@@ -10,23 +10,27 @@ import { parseSkillFrontmatter } from "../src/domain/skill/skill-frontmatter";
 import { sha256, verifySkillStarterPack, type SkillStarterPack } from "../src/domain/skill/starter-pack";
 import { AIDT_PLATFORM_SKILL_PACK } from "../src/infrastructure/aidt/aidt-module";
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
-export const AIDT_SKILL_SOURCE_ROOT = join(repo, "skills", "aidt-methods");
+export const AIDT_SKILL_SOURCE_ROOT = join(repo, "skills", "aidt-methods-candidates", AIDT_PLATFORM_SKILL_PACK.packVersion);
 export const AIDT_PACK_OUTPUT_ROOT = join(repo, "skills", "starter-packs", AIDT_PLATFORM_SKILL_PACK.packId);
-export function buildAidtMethodsPack(sourceRoot = AIDT_SKILL_SOURCE_ROOT): SkillStarterPack {
+/** Versioned source candidate; constructing bytes never changes installed Skills or thread mounts. */
+export const AIDT_METHODS_CANDIDATE = AIDT_PLATFORM_SKILL_PACK;
+export const AIDT_METHODS_CANDIDATE_SOURCE_ROOT = join(repo, "skills", "aidt-methods-candidates", AIDT_METHODS_CANDIDATE.packVersion);
+export function buildAidtMethodsPack(sourceRoot = AIDT_SKILL_SOURCE_ROOT, coordinate: { packId: string; packVersion: string } = AIDT_PLATFORM_SKILL_PACK): SkillStarterPack {
+  if (coordinate.packId !== AIDT_PLATFORM_SKILL_PACK.packId) throw new Error("AIDT methods pack lineage must remain unchanged");
   const entries = readdirSync(sourceRoot, { withFileTypes: true }).filter(entry => entry.isDirectory() && existsSync(join(sourceRoot, entry.name, "SKILL.md"))).sort((a, b) => a.name.localeCompare(b.name));
   if (entries.length !== 6) throw new Error("AIDT pack requires six stage Skills");
   const skills = entries.map(entry => {
     const bytes = readFileSync(join(sourceRoot, entry.name, "SKILL.md"));
     const markdown = bytes.toString("utf8");
     const meta = parseSkillFrontmatter(markdown, entry.name);
-    if (meta.semanticVersion !== AIDT_PLATFORM_SKILL_PACK.packVersion) throw new Error("AIDT source version differs from the opt-in release coordinate");
+    if (meta.semanticVersion !== coordinate.packVersion) throw new Error("AIDT source version differs from the requested release coordinate");
     const title = /^# (.+)$/m.exec(markdown)?.[1];
     if (!title?.trim()) throw new Error("AIDT Skill title missing");
     return { stableName: meta.stableName, name: `AIDT · ${title.trim()}`, semanticVersion: meta.semanticVersion,
       manifest: { capabilityId: meta.capabilityId }, files: [{ path: "SKILL.md", mediaType: "text/markdown", digest: sha256(bytes), contentBase64: bytes.toString("base64") }] };
   });
-  const unsigned = { schemaVersion: 1 as const, ...AIDT_PLATFORM_SKILL_PACK, skills };
-  return verifySkillStarterPack({ ...unsigned, packDigest: sha256(JSON.stringify(unsigned)) }, AIDT_PLATFORM_SKILL_PACK);
+  const unsigned = { schemaVersion: 1 as const, ...coordinate, skills };
+  return verifySkillStarterPack({ ...unsigned, packDigest: sha256(JSON.stringify(unsigned)) }, coordinate);
 }
 export function checkOrWriteAidtMethodsPack(pack: SkillStarterPack, outputRoot = AIDT_PACK_OUTPUT_ROOT, check = false): { path: string; created: boolean } {
   const path = join(outputRoot, `${pack.packVersion}.json`);
@@ -41,6 +45,8 @@ export function checkOrWriteAidtMethodsPack(pack: SkillStarterPack, outputRoot =
   return { path, created: true };
 }
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const result = checkOrWriteAidtMethodsPack(buildAidtMethodsPack(), AIDT_PACK_OUTPUT_ROOT, process.argv.includes("--check"));
+  const candidate = process.argv.includes("--candidate");
+  const pack = candidate ? buildAidtMethodsPack(AIDT_METHODS_CANDIDATE_SOURCE_ROOT, AIDT_METHODS_CANDIDATE) : buildAidtMethodsPack();
+  const result = checkOrWriteAidtMethodsPack(pack, AIDT_PACK_OUTPUT_ROOT, process.argv.includes("--check"));
   process.stdout.write(`${result.created ? "Created" : "Verified"} ${result.path}\n`);
 }

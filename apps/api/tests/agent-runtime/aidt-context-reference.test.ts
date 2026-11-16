@@ -5,6 +5,8 @@ import { computeContentHash } from "../../src/domain/artifact/content-hash";
 import { assembleAidtRunReference, frozenAidtRunContext } from "../../src/application/agent-run/aidt-context-reference";
 import type { ThreadHistoryMessage } from "../../src/application/agent-run/ports";
 import { frozenFixture, frozenStoredFixture, AIDT_REFERENCE_ORG as org } from "../support/aidt-context-fixture";
+import { prepareAidtContext } from '../../src/application/aidt-run-context/prepare';
+import { guard } from '../../src/application/security/permission-filter';
 const hash = (value: string) => computeContentHash(Buffer.from(value));
 
 function ports() { return { resolve: vi.fn(async () => frozenStoredFixture()), revalidate: vi.fn(async () => {}), append: vi.fn(async () => {}) }; }
@@ -73,4 +75,19 @@ it("records one bounded failure after transport uncertainty without losing actua
   expect(contexts.append).toHaveBeenCalledTimes(3);
   expect(contexts.append).toHaveBeenNthCalledWith(2, org, "run", expect.objectContaining({ kind: "message-dispatch-observed" }));
   expect(contexts.append).toHaveBeenLastCalledWith(org, "run", expect.objectContaining({ kind: "failed", errorCode: "AIDT_CONTEXT_UNAVAILABLE" }));
+});
+
+it.each(['legacy-prefix','field-projection'])('resumes an already frozen SUM %s block byte for byte after the excerpt repair',async format=>{
+ const prepared=prepareAidtContext({schemaVersion:1,projectId:'project',purpose:'summary',stageRevisions:[{stageId:6,revision:1}],historyRevisions:[]},{skillId:'skill',skillVersionId:'skill-v1',skillStableName:'dt-summarize-project',title:'总结'},[{kind:'stage',stage:{projectId:'project',stageId:6,revision:1,updatedBy:'student',updatedAt:'2026-11-16T00:00:00.000Z',sourceStageRevisions:[],content:{schemaVersion:1,draft:{fields:{returnStep:'2',returnReason:'保留旧选择'},ideas:[],selectedIdeaId:''}}}}],new Map());
+ const legacyBlock='AIDT SAVED STUDENT REFERENCE / formatter v1\nLegacy frozen prefix; never regenerate this stored block.\n{"materials":[{"excerpt":"old immutable saved student bytes"}]}';
+ const snapshot=format==='legacy-prefix'?{...prepared.snapshot,modelReferenceBlock:legacyBlock,modelReferenceBlockHash:hash(legacyBlock)}:prepared.snapshot;
+ const stored=AidtStoredContextSnapshot.parse({...frozenStoredFixture(),...prepared,snapshot,snapshotHash:hash(aidtContextSnapshotJson(snapshot))});
+ const run={...frozenFixture(),aidtSelectorHash:stored.selectorHash,aidtContext:guard({kind:'project',id:'project'},stored),checkpointResume:true};
+ const contexts={resolve:vi.fn(async()=>stored),revalidate:vi.fn(async()=>{}),append:vi.fn(async()=>{})};
+ const result=await assembleAidtRunReference({orgId:org,run,history:[],attemptId:'run:resume',contexts});
+ expect(result.history).toEqual([{role:'user',content:snapshot.modelReferenceBlock}]);
+ expect(contexts.append).not.toHaveBeenCalled();
+ await result.observer!.onDispatched({kind:'checkpoint-resume-observed',contentSha256:snapshot.modelReferenceBlockHash});
+ expect(contexts.append).toHaveBeenCalledWith(org,'run',expect.objectContaining({kind:'checkpoint-resume-observed',snapshotHash:stored.snapshotHash}));
+ expect(result.history[0]!.content).toBe(snapshot.modelReferenceBlock);
 });

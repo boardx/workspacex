@@ -15,6 +15,8 @@ All six retain genuine-evidence, student-decision, native-tool and truthful-save
 
 ## Build and immutable version policy
 
+The current opt-in coordinates are methods **1.3.1** and summary **1.0.1**. Their source candidates live in [`../aidt-methods-candidates/1.3.1`](../aidt-methods-candidates/1.3.1) and [`../aidt-reporting-candidates/1.0.1`](../aidt-reporting-candidates/1.0.1). This directory's six 1.3.0 sources and the original summary 1.0.0 source remain unchanged historical inputs. See [the remediation release notes](../aidt-methods-candidates/README.md) for the evidence, runtime opt-in and acceptance still required. Selecting a new opt-in release is not a claim of real-model or classroom acceptance.
+
 The opt-in release coordinate is `AIDT_PLATFORM_SKILL_PACK` in `apps/api/src/infrastructure/aidt/aidt-module.ts`. Each source Skill's stable name, semantic version and capability ID come from its `SKILL.md` frontmatter, parsed by the existing canonical parser. The dedicated builder derives display names from the source headings and uses the canonical file/pack digest verifier. The optional pack is deliberately not added to the ordinary global standard-pack list.
 
 ```bash
@@ -25,9 +27,9 @@ pnpm run lint:shipped-pack-version
 pnpm run lint:skill-metadata-source
 ```
 
-The builder creates a new release path with exclusive creation. `--check` never writes. An existing file with different bytes is refused; the response is to choose a new version and update the opt-in coordinate/source versions, never rewrite a published release. Versions 1.0.0, 1.1.0 and 1.2.0 remain byte-identical and independently verifiable; the tests pin their byte digests.
+The builder creates a new release path with exclusive creation. `--check` never writes. An existing file with different bytes is refused; the response is to choose a new version and update the opt-in coordinate/source versions, never rewrite a published release. Versions 1.0.0 through 1.3.0 remain byte-identical and independently verifiable; the tests pin their byte digests.
 
-Installation still uses the original authorized platform importer under `ENABLE_AIDT_MODULE`. The importer appends immutable published versions only within that pack's lineage; same-name user/other-pack conflicts stay visible rather than being forced. No user organization, custom clone, default Agent selection or existing thread mount is rewritten by this change. Existing threads keep their old version pins; a new thread or an explicit, authorized mount upgrade is required to use 1.3.0 there. Opting out stops future bootstrap and does not delete old Skills or student data.
+Installation still uses the original authorized platform importer under `ENABLE_AIDT_MODULE`. The importer appends immutable published versions only within that pack's lineage; same-name user/other-pack conflicts stay visible rather than being forced. No user organization, custom clone, default Agent selection or existing thread mount is rewritten by this change. Existing threads keep their old version pins; a new thread or an explicit, authorized mount upgrade is required to use the new release there. Opting out stops future bootstrap and does not delete old Skills or student data.
 
 The build verifies content hashes, not a new cryptographic signing authority. No design-signoff status, provider credential or service permission is changed.
 

@@ -1,3 +1,4 @@
+import { isAidtRemediation } from "./support/aidt-v2-remediation-criteria";
 import { createHash } from "node:crypto";
 import { readAidtQuestionSnapshot } from "../features/aidt/lib/aidt-verification-loop";
 import { readFileSync } from "node:fs";
@@ -94,6 +95,7 @@ test("same-run S2 plan continuation: review current scratch todos once, preserve
 
 test("manual S5 fallback: cancelled native retained, student confirms synthetic question through real UI for independent Design", async ({ page, browser }, info) => {
   test.setTimeout(90_000); assertAidtV2Target(); expect(assertFreshAidtJourney()).toBe(true);
+  expect(isAidtRemediation(), "严格原生主链禁止任何人工桥接").toBe(false);
   expect(process.env.AIDT_V2_ALLOW_MANUAL_S5_FALLBACK).toBe("student-after-cancelled-native");
   const failedRunId = process.env.AIDT_V2_MANUAL_S5_RUN_ID!, entry = existingAidtNativeRun(failedRunId), state = readCompletionState();
   expect(entry.skill).toBe("aidt-prototype"); expect(entry.status).toBe("failed-or-interrupted"); expect(state.phases.s5?.status).toBe("attempting"); expect(state.projectId).toBe(entry.projectId);

@@ -35,7 +35,15 @@ function ContextReader({ scope, threadId, onSelectorChange }: Props) {
       setStatus(result === "accepted" ? "生成请求已带入输入框，请审阅并发送。生成内容须主动选入报告，未自动保存。" : result === "occupied" ? "输入框已有草稿，未覆盖。请处理后重试。" : "原生输入框尚未就绪，请稍后重试。");
     }}>带入报告生成请求</Button></div>
     {busy && <p role="status">正在读取已保存的六步与有界历史…</p>}
-    {packet && <details data-testid="aidt-summary-materials"><summary className="cursor-pointer">核对本次AI材料与缺口</summary><p className="mt-2">已读取：{packet.currentStages.map(row => `第${row.stageId}步 V${row.revision}${row.truncated ? "（摘录截断）" : ""}`).join("、") || "无"}；缺失：{packet.missingStages.join("、") || "未发现"}；失败：{packet.failedStages.join("、") || "无"}。历史{packet.historyTruncated ? "已截断" : "在有界范围内读取"}；教师点评无来源。</p><pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap break-words font-sans">{JSON.stringify(packet, null, 2)}</pre></details>}
+    {packet && <section data-testid="aidt-summary-materials" aria-label="报告材料范围" className="space-y-2 rounded border border-border p-3">
+      <p>本次选择：{packet.currentStages.map(row => `第${row.stageId}步 V${row.revision}${row.truncated ? "（预览摘录截断）" : ""}`).join("、") || "无已保存阶段"}。</p>
+      <p>缺失步骤：{packet.missingStages.join("、") || "无"}；读取失败：{packet.failedStages.join("、") || "无"}；教师点评无来源。</p>
+      {(packet.historyTruncated || packet.currentStages.some(row => row.truncated) || packet.existingSavedReport?.truncated) && <p role="status" data-testid="aidt-summary-materials-truncated">材料预览已截断，未展示全部正文。版本选择不表示模型已读全文；发送后的实际范围请核对运行材料回执。</p>}
+      <details><summary className="cursor-pointer">核对历史版本与材料正文</summary>
+        <p className="mt-2">历史选择：{packet.historyRevisions.map(row => `第${row.stageId}步 V${row.revision}`).join("、") || "无"}。历史预览{packet.historyTruncated ? "已截断" : "在有界范围内读取"}；旧轮次与原型版本需逐项核对。</p>
+        <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap break-words font-sans">{JSON.stringify(packet, null, 2)}</pre>
+      </details>
+    </section>}
     {status && <p role="status">{status}</p>}
   </section>;
 }

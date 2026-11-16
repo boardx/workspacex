@@ -2,10 +2,13 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { operations, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { parseAidtPrototypeReference } from "../features/aidt/lib/aidt-prototype-reference";
 import { readAidtQuestionSnapshot } from "../features/aidt/lib/aidt-verification-loop";
 import { REAL_MODEL_SMOKE } from "./real-model-smoke-fixture";
 import { apiPath } from "./support/real-model-api";
 import { assertFreshAidtJourney } from "./support/aidt-v2-fresh-journey";
+import { evaluateAidtStageReply, evaluateAidtSummary, isAidtRemediation } from "./support/aidt-v2-remediation-criteria";
+import { reviewAidtCurrentPlanOnce } from "./support/aidt-v2-plan-review";
 import { reviewAidtSyntheticIntent } from "./support/aidt-v2-intent-review";
 import { beginCompletionPhase, completeCompletionPhase, readCompletionState, type CompletionPhase } from "./support/aidt-v2-completion-state";
 import { addCompletionIdeaImages, addCompletionResearch, addCompletionTestMaterials, completionGuidePdf, completionIdeaPdfs } from "./support/aidt-v2-completion-materials";
@@ -23,7 +26,14 @@ async function freshReadback(browser: Browser, projectId: string, stage: SharedS
     if (afterReadback) await afterReadback(page, context);
   } finally { await context.close(); }
 }
-const review = (page: Page, projectId: string) => ({ reviewSyntheticIntent: (runId: string) => reviewAidtSyntheticIntent(page, projectId, runId) });
+const review = (page: Page, projectId: string) => ({ reviewSyntheticIntent: (runId: string) => reviewAidtSyntheticIntent(page, projectId, runId),
+  ...(isAidtRemediation() ? { reviewCurrentPlanOnce: (runId: string, threadId: string) => reviewAidtCurrentPlanOnce(page, projectId, threadId, runId) } : {}) });
+async function checkStageContent(step: number, text: string) {
+  if (!isAidtRemediation()) { expect(text).toMatch(/[?？]/); return; }
+  const evaluation = evaluateAidtStageReply(step, text);
+  await test.info().attach(`strict-content-s${step}`, { contentType: "application/json", body: Buffer.from(JSON.stringify(evaluation, null, 2)) });
+  expect(evaluation.failures, "真实模型回复须通过内容边界；教师教学质量仍待人工判断").toEqual([]);
+}
 
 test("completion S1: separately authorized task, student source decision and same-group starting point", async ({ page, browser }, info) => {
   test.setTimeout(REAL_MODEL_SMOKE.runTimeoutMs + 150_000);
@@ -49,7 +59,7 @@ test("completion S1: separately authorized task, student source decision and sam
   const turn = await askAidtV2Agent(page, projectId, 1,
     "本组正在第1步提出问题。学生输入与来源已保存，均为合成课堂猜测。请先核对本步已保存材料，只追问一个帮助学生澄清问题来源的问题；不替学生确认、保存或声称已采访，不生成原型或文件。", review(page, projectId));
   await info.attach("completion-s1-actual-agent-turn", { contentType: "application/json", body: Buffer.from(JSON.stringify(turn, null, 2)) });
-  expect(turn.assistantText).toMatch(/[?？]/);
+  await checkStageContent(1, turn.assistantText);
   expect(await readAidtV2Stage(page, projectId, 1)).toEqual(before);
   await openAidtV2Outcome(page, projectId, 1);
   await fillAidtV2Field(page, "followupAnswers", `引导师实际回复：${turn.assistantText}\n学生合成回答：我们没有观察或访谈资料，不能判断困惑是否普遍；先征求同意，请对方讲述一次具体经历，再核对原先猜测。`);
@@ -119,7 +129,7 @@ for (const step of [2, 3, 4, 5, 6]) {
     const turn = await askAidtV2Agent(page, projectId, step,
       `本组正在第${step}步，前序与本步学生输入已真实保存。全部材料明确为合成课堂练习，没有真人访谈或测试。请阅读本阶段与承接来源，只提出一个有助学生继续讨论的澄清问题；不替学生作选择、确认或保存，不调用原型或文件生成工具。`, review(page, projectId));
     await info.attach(`completion-s${step}-actual-agent-turn`, { contentType: "application/json", body: Buffer.from(JSON.stringify(turn, null, 2)) });
-    expect(turn.assistantText).toMatch(/[?？]/); expect(await readAidtV2Stage(page, projectId, step)).toEqual(before);
+    await checkStageContent(step, turn.assistantText); expect(await readAidtV2Stage(page, projectId, step)).toEqual(before);
     const after = await studentReviewsAidtV2Stage(page, projectId, step);
     expect(after.revision).toBe(before.revision + 1); expect(after.content.draft).not.toEqual(before.content.draft);
     expect(after.sourceStageRevisions).toEqual(before.sourceStageRevisions);
@@ -167,16 +177,24 @@ for (const step of [2, 3, 4, 5, 6]) {
 
 test("completion SUM: full same-group history → real summary → reviewed report → exact export bytes and fresh login", async ({ page, browser }, info) => {
   test.setTimeout(REAL_MODEL_SMOKE.runTimeoutMs + 180_000);
-  const state = beginCompletionPhase("sum"), projectId = state.projectId!;
+  const state = readCompletionState(), projectId = state.projectId!;
+  expect(state.phases.s6?.status, "SUM只能承接实际完成S6的同组").toBe("completed");
   await loginAidtV2(page);
   const stages = await Promise.all([1, 2, 3, 4, 5, 6].map(id => readAidtV2Stage(page, projectId, id)));
   expect(stages.every(Boolean)).toBe(true);
   const history = await aidtV2Api(page, `/projects/${projectId}/aidt/stages/6/revisions?limit=10`); expect(history.status).toBe(200);
   const oldS6 = operations.history.out.parse(history.data).items.find(row => row.revision < stages[5]!.revision && row.content.draft.fields.reflectionConfirmed === "true" && row.content.draft.fields.returnStep === "2");
   expect(oldS6, "总结唯一请求前必须有真实旧S6学生反思，不用只有S1的缺口组补绿").toBeTruthy();
+  if (isAidtRemediation()) {
+    const selected = parseAidtPrototypeReference(stages[5]!.content.draft.fields.iterationPrototypeReference)
+      ?? parseAidtPrototypeReference(stages[4]!.content.draft.fields.prototypeReference);
+    expect(selected?.seq, "严格SUM先具备实际保存的V2，不能缺场景却免检V2").toBeGreaterThanOrEqual(2);
+    expect(stages[5]!.content.draft.fields.returnStep, "历史回2和当前回5需由学生在正常UI独立保存").toBe("5");
+  }
+  beginCompletionPhase("sum");
   await page.goto(`/aidt/${projectId}?step=6&tool=report`, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("aidt-report-reload")).toBeEnabled();
-  const manual = "学生人工报告：保留本段。此组全部访谈、反馈与图像均为合成课堂夹具，尚无真实研究或教师点评。第5步引导师任务已取消，验证问题由合成学生人工确认；后续原型和学习属于独立能力验收，不称完整原生六步全过。";
+  const manual = isAidtRemediation() ? "学生先写的报告段落：保留本段。当前所有访谈、图像和反馈都是合成课堂材料；尚无真实研究、测试或教师点评。以实际保存版本和学习记录为准，不把系统功能验收写成教学研究验证。" : "学生人工报告：保留本段。此组全部访谈、反馈与图像均为合成课堂夹具，尚无真实研究或教师点评。第5步引导师任务已取消，验证问题由合成学生人工确认；后续原型和学习属于独立能力验收，不称完整原生六步全过。";
   await page.getByLabel("小组报告草稿", { exact: true }).fill(manual);
   const manualSavedResponse = page.waitForResponse(value => value.request().method() === "PUT" && new URL(value.url()).pathname === apiPath(`/projects/${projectId}/aidt/stages/6`));
   await page.getByTestId("aidt-report-save").click(); const manualResponse = await manualSavedResponse; expect(manualResponse.status()).toBe(200);
@@ -198,8 +216,17 @@ test("completion SUM: full same-group history → real summary → reviewed repo
   expect(packet.historyRevisions).toContainEqual({ stageId: 6, revision: oldS6!.revision });
   await page.getByTestId("aidt-summary-offer-request").click();
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue(/请生成本组研究过程报告/);
-  const prompt = "请依据本组已选择的六步保存稿与旧反思生成研究过程报告草稿。全部为合成课堂练习，没有真实访谈、测试或教师点评，不得补造；第5步引导师曾取消后由学生人工确认，不能称其模型成功。区分真实V1静态检查、通用反馈模板和未来合成设计，不将示例2→B当已有实测；区分猜测、学生选择、AI建议及材料缺口，不替学生确认或保存。";
+  const prompt = isAidtRemediation() ? "请依据本组已选择的六步当前保存稿与历史反思生成研究过程报告草稿；先核对真实可见的材料范围和缺口。全部为合成课堂练习，没有真实访谈、测试或教师点评，不能补造。呈现问题依据、暂无或有证据的意外发现、画像和HMW、学生分类与选择、实际保存的原型版本及待测试状态、验证问题和认识变化，以及历史与当前回溯决定。若材料截断或节选请披露；不要声称完整读过未见材料。不替学生确认或保存。" : "请依据本组已选择的六步保存稿与旧反思生成研究过程报告草稿。全部为合成课堂练习，没有真实访谈、测试或教师点评，不得补造；第5步引导师曾取消后由学生人工确认，不能称其模型成功。区分真实V1静态检查、通用反馈模板和未来合成设计，不将示例2→B当已有实测；区分猜测、学生选择、AI建议及材料缺口，不替学生确认或保存。";
   const turn = await sendAidtV2NativeTurn(page, projectId, "dt-summarize-project", prompt, "summaryThread", review(page, projectId));
+  if (isAidtRemediation()) {
+    const nativeReference = parseAidtPrototypeReference(stages[5]!.content.draft.fields.iterationPrototypeReference)
+      ?? parseAidtPrototypeReference(stages[4]!.content.draft.fields.prototypeReference);
+    const reference = nativeReference;
+    const contentEvaluation = evaluateAidtSummary(turn.assistantText, { truncated: turn.sourceReceipt.truncated,
+      hasV2: (nativeReference?.seq ?? 0) >= 2, historicalReturnStep: 2, currentReturnStep: Number(stages[5]!.content.draft.fields.returnStep) || undefined });
+    await info.attach("strict-summary-content", { contentType: "application/json", body: Buffer.from(JSON.stringify({ contentEvaluation, scope: turn.sourceReceipt, savedPrototypeReference: reference }, null, 2)) });
+    expect(contentEvaluation.failures, "模型报告内容验收独立于保存导出，不靠人工补写补绿").toEqual([]);
+  }
   expect(turn.selectorCoordinates.purpose).toBe("summary");
   expect(turn.sourceReceipt.historyRevisions).toContainEqual({ stageId: 6, revision: oldS6!.revision });
   await page.getByTestId("aidt-open-report").click();

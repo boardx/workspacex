@@ -74,3 +74,15 @@ it("permits only fresh independent S6 from actual cancelled S5 manual save; neve
   expect(readFileSync(process.env.AIDT_V2_RUN_LEDGER!, "utf8")).toBe(ledger);
   expect(() => recordS5ManualContinuation(file)).toThrow("ALREADY_RECORDED");
 });
+
+it("strict remediation rejects an old manual S5 bridge without rewriting its state bytes", () => {
+  const dir = mkdtempSync(join(tmpdir(), "aidt-strict-no-bridge-")); dirs.push(dir);
+  process.env.AIDT_V2_COMPLETION_STATE = join(dir, "state.json");
+  process.env.AIDT_V2_AUTHORIZED_PHASE = "s6";
+  process.env.AIDT_V2_REMEDIATION = "native-seven-no-bridge-20261117";
+  const originalBytes = JSON.stringify({ schemaVersion: 1, projectId: "g", manualContinuation: { phase: "s5" }, phases: { s5: { status: "attempting" } } });
+  writeFileSync(process.env.AIDT_V2_COMPLETION_STATE, originalBytes);
+  expect(() => beginCompletionPhase("s6")).toThrow("MANUAL_BRIDGE_FORBIDDEN");
+  expect(readFileSync(process.env.AIDT_V2_COMPLETION_STATE, "utf8")).toBe(originalBytes);
+  expect(() => recordS5ManualContinuation("/tmp/never-read.json")).toThrow("MANUAL_BRIDGE_FORBIDDEN");
+});

@@ -5,12 +5,12 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildAidtMethodsPack, checkOrWriteAidtMethodsPack } from "../../scripts/build-aidt-methods-pack";
+import { AIDT_SKILL_SOURCE_ROOT, buildAidtMethodsPack, checkOrWriteAidtMethodsPack } from "../../scripts/build-aidt-methods-pack";
 import { sha256, verifySkillStarterPack } from "../../src/domain/skill/starter-pack";
 import { AIDT_PLATFORM_SKILL_PACK } from "../../src/infrastructure/aidt/aidt-module";
 const dirs: string[] = [];
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
-function source(name: string) { return readFileSync(new URL(`../../../../skills/aidt-methods/${name}/SKILL.md`, import.meta.url), "utf8"); }
+function source(name: string) { return readFileSync(join(AIDT_SKILL_SOURCE_ROOT, name, "SKILL.md"), "utf8"); }
 describe("V2 shipped guidance requirements", () => {
   it("FR15 puts student topic value and observation/complaint/guess reflection before decomposition", () => {
     const text = source("aidt-understand");

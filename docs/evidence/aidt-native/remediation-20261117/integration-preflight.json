@@ -1,0 +1,35 @@
+{
+  "scope": "integration preflight only; real model rerun pending",
+  "checks": [
+    {
+      "name": "API typecheck",
+      "commandLog": "/tmp/aidt-remediation-api-tsc.log",
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "Web typecheck after fixture fixes",
+      "commandLog": "/tmp/aidt-remediation-web-tsc-fixed.log",
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "AIDT Web 85 files / 705 tests",
+      "commandLog": "/tmp/aidt-remediation-web-all-expanded.log",
+      "exitCode": 0,
+      "logSha256": "eff8091650a8cfa0044a173f8db0774207c01b79ab5a577ba83b451caab798e1"
+    },
+    {
+      "name": "AIDT context 10 files / 68 tests",
+      "commandLog": "/tmp/aidt-remediation-context-all.log",
+      "exitCode": 0,
+      "logSha256": "a55da2f39a5eeee9feadf4ccb19929f85852fb2a27c4b19bb793943facc10643"
+    }
+  ],
+  "priorFailuresRetained": [
+    "/tmp/aidt-remediation-web-tsc.log",
+    "/tmp/aidt-remediation-web-all.log"
+  ],
+  "realModelAcceptance": "not yet run",
+  "productionDeployment": false
+}
