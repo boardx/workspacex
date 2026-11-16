@@ -1,0 +1,40 @@
+{
+  "completed": false,
+  "startedAt": "2026-11-16T04:28:31.061Z",
+  "supplierFixture": false,
+  "modelPostAttempts": 1,
+  "modelRequests": [
+    "/pm-designs/23af747d-3596-4fcb-94ee-8da6f1a05a03/chat"
+  ],
+  "screenshots": [
+    "failure.png"
+  ],
+  "checks": [
+    "normal-lead-login-ui",
+    "create-dedicated-aidt-project-ui",
+    "save-synthetic-student-inputs-not-research-facts",
+    "real-v1-bounded-one-static-page"
+  ],
+  "researchEvidenceVerified": false,
+  "realUserTestConducted": false,
+  "knownContractGaps": [
+    {
+      "code": "PROJECT_KNOWN_CONTRACT_GAPS_P3",
+      "fullCreateSchemaPassed": false,
+      "missingField": "provenanceEventId",
+      "evidence": "project.controller.ts:31; application/project/create-project.ts:58",
+      "noReceiptInvented": true
+    }
+  ],
+  "projectId": "prj-36ab1de9-fa83-460e-9d69-b75dd6a50b53",
+  "projectReadAuthorized": true,
+  "stageReadWriteAuthorized": true,
+  "designId": "23af747d-3596-4fcb-94ee-8da6f1a05a03",
+  "error": {
+    "phase": "real-v1-bounded-one-static-page",
+    "code": "API_POST_HTTP_402",
+    "type": "Error",
+    "operationHint": "API_POST_HTTP_402"
+  },
+  "finishedAt": "2026-11-16T04:28:35.491Z"
+}

@@ -1,4 +1,4 @@
-import { AIDT_PLATFORM_SKILL_PACK, isAidtModuleEnabled } from '../aidt/aidt-module';
+import { AIDT_OPT_IN_SKILL_PACKS, isAidtModuleEnabled } from '../aidt/aidt-module';
 import type { DatabasePort } from '../../application/ports/database.port';
 import { importSkillStarterPack } from '../../application/skill-import/import-skill-starter-pack';
 import { PLATFORM_ORG_ID, toOrgId } from '../../domain/org-id';
@@ -22,7 +22,7 @@ export const STANDARD_PLATFORM_PACKS = [
 
 /** Resolve optional modules at invocation time, never at import/module-load time. */
 export function enabledPlatformSkillPacks(): readonly { readonly packId: string; readonly packVersion: string }[] {
-  return isAidtModuleEnabled() ? [AIDT_PLATFORM_SKILL_PACK, ...STANDARD_PLATFORM_PACKS] : STANDARD_PLATFORM_PACKS;
+  return isAidtModuleEnabled() ? [...AIDT_OPT_IN_SKILL_PACKS, ...STANDARD_PLATFORM_PACKS] : STANDARD_PLATFORM_PACKS;
 }
 
 /**
@@ -75,7 +75,7 @@ export async function ensureStandardSkillPacksSeeded(
   // An explicit pack list must not bypass the module's deployment opt-in.
   // Existing rows are deliberately not disabled/deleted when this flag is off.
   const aidtEnabled = isAidtModuleEnabled();
-  const selected = packs.filter((pack) => pack.packId !== AIDT_PLATFORM_SKILL_PACK.packId || aidtEnabled);
+  const selected = packs.filter((pack) => !AIDT_OPT_IN_SKILL_PACKS.some(optional => optional.packId === pack.packId) || aidtEnabled);
   if (selected.length === 0) return [];
   const source = new FileSkillStarterPackSource(standardPackRoot());
   const deps = { identities: new PgIdentityRepository(db), packs: source, imports: new PgSkillStarterImportRepository(db) };

@@ -93,7 +93,16 @@ export async function createApp(): Promise<NestExpressApplication> {
   // `credentials: "include"` (registration/verification cookies), so the allowlist must be
   // exact origins (it is) and the credentials flag must be on.
   const corsOrigins = (process.env.KERNEL_CORS_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean);
-  if (corsOrigins.length > 0) app.enableCors({ origin: corsOrigins, credentials: true, maxAge: 600 });
+  if (corsOrigins.length > 0) app.enableCors({
+    origin: corsOrigins, credentials: true, maxAge: 600,
+    // The local supervisor serves Web/API on different loopback ports. Expose only
+    // the authenticated file receipt headers needed to verify the returned bytes;
+    // this retains the existing origin allowlist and all resource authorization.
+    exposedHeaders: [
+      "X-Content-SHA256", "X-Artifact-Id", "X-Artifact-Version-Id",
+      "X-Upload-Submitted-By", "X-Upload-Submitted-At",
+    ],
+  });
   app.use(traceMiddleware);
   // issue #3082 —— 紧跟 traceMiddleware 之后：每个请求（含被 guard 拒掉的）都进 debug recorder。
   app.use(app.get<DebugRequestRecorder>(DEBUG_REQUEST_RECORDER).middleware);

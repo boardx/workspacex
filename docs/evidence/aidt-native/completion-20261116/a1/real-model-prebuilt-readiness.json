@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-16",
+  "lane": "explicit-independent-native-real-model-developer-stack",
+  "webMode": "build-start",
+  "build": "next-build-success-then-next-start",
+  "services": {
+    "api": {
+      "status": 200,
+      "latencyMs": 28
+    },
+    "web": {
+      "status": 200,
+      "latencyMs": 19
+    }
+  },
+  "nativeDeepAgentHealth": "200-before-web-build",
+  "modelProviderConnectivity": "separate-bounded-request-200",
+  "modelBehaviorAcceptance": "pending-real-v2-run",
+  "summaryCatalog": "enabled-current-version-present",
+  "memory": {
+    "nodeBuildHeapLimitMiB": 4096,
+    "releaseBuildWorkers": 1,
+    "oomKillBefore": 1,
+    "oomKillAfter": 1
+  },
+  "localDefaultProfileModified": false,
+  "privateAccountsAndRawLogsIncluded": false
+}

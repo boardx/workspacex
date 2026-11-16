@@ -1,0 +1,13 @@
+{
+  "projectId": "prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+  "requestedAction": "preserve current tags and add AIDT profile through existing API only",
+  "actor": "existing collaboration admin",
+  "primaryOrgIsCollaborationOrg": false,
+  "patchAttempted": false,
+  "rolesOrMembersChanged": false,
+  "modelRequests": 0,
+  "apiOnly": true,
+  "loginStatus": 200,
+  "actorIsMemberOfPrimaryOrg": false,
+  "outcome": "stopped-before-read-or-patch: current admin is not a member of the primary project organization"
+}

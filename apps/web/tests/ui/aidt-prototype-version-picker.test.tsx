@@ -125,3 +125,35 @@ it("performs no reads when the module or identity is unavailable, and removes on
   fireEvent.click(screen.getByRole("button", { name: "移除版本引用" }));
   expect(changed).toHaveBeenCalledWith(null); expect(mocks.designs).not.toHaveBeenCalled(); expect(mocks.resolve).not.toHaveBeenCalled();
 });
+it("does not restore a native marker after an external manual-text edit cleared it during a delayed replacement", async () => {
+  let finish!: (result: typeof reference) => void;
+  mocks.resolve.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const changed = vi.fn();
+  function Host() {
+    const [value, setValue] = React.useState<AidtPrototypeVersionReference | null>({ ...reference, versionId: "old" });
+    return <><AidtPrototypeVersionPicker projectId="p" value={value} onChange={next => { changed(next); setValue(next); }} /><button onClick={() => { changed(null); setValue(null); }}>模拟外部手工文字改动</button></>;
+  }
+  render(<Host />); fireEvent.click(await openVersions());
+  const signal = mocks.resolve.mock.calls[0]![0].signal as AbortSignal;
+  fireEvent.click(screen.getByRole("button", { name: "模拟外部手工文字改动" }));
+  expect(signal.aborted).toBe(true);
+  await act(async () => { finish(reference); });
+  expect(changed).toHaveBeenCalledTimes(1); expect(changed).toHaveBeenLastCalledWith(null);
+  expect(screen.queryByTestId("aidt-prototype-recorded-reference")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /选择 v2/ })).toBeEnabled();
+});
+it.each(["version", "newVersion", "questionSnapshot"])("cancels a null-to-null selection when the host changes %s intent, including an A-B-A change", async field => {
+  let finish!: (result: typeof reference) => void;
+  mocks.resolve.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const changed = vi.fn();
+  const scope = (text: string) => JSON.stringify({ [field]: text });
+  const { rerender } = render(<AidtPrototypeVersionPicker projectId="p" value={null} selectionScope={scope("A")} onChange={changed} />);
+  fireEvent.click(await openVersions());
+  const signal = mocks.resolve.mock.calls[0]![0].signal as AbortSignal;
+  rerender(<AidtPrototypeVersionPicker projectId="p" value={null} selectionScope={scope("B")} onChange={changed} />);
+  rerender(<AidtPrototypeVersionPicker projectId="p" value={null} selectionScope={scope("A")} onChange={changed} />);
+  await act(async () => { finish(reference); });
+  expect(changed).not.toHaveBeenCalled(); expect(signal.aborted).toBe(true);
+  expect(screen.queryByTestId("aidt-prototype-recorded-reference")).not.toBeInTheDocument();
+  fireEvent.click(await openVersions()); await waitFor(() => expect(changed).toHaveBeenCalledWith(reference));
+});

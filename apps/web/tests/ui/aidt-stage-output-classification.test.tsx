@@ -1,21 +1,21 @@
 import * as React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AidtStageOutput } from "@/features/aidt/components/aidt-stage-output";
 import { AIDT_STEPS } from "@/features/aidt/lib/project-aidt";
-import type { AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
+import { aidtUiStageMarkdown, aidtUiStageSummary, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { confirmAidtIdeaClassification, readAidtIdeaClassification, setAidtIdeaCategory, setAidtIdeaClassificationReason } from "@/features/aidt/lib/aidt-idea-classification";
 import { confirmAidtVerificationQuestion } from "@/features/aidt/lib/aidt-verification-loop";
 
 const mocks = vi.hoisted(() => ({ print: vi.fn() }));
-vi.mock("@/lib/research-report-export", () => ({ printResearchPdf: mocks.print }));
+vi.mock("@/lib/research-report-export", async original => ({ ...await original<typeof import("@/lib/research-report-export")>(), printResearchPdf: mocks.print }));
 vi.mock("@/features/aidt/components/aidt-image-attachment-picker", () => ({
   AidtImageAttachmentPreview: () => null,
   AidtImageAttachmentPicker: ({ label, readOnly, onChange }: { label: string; readOnly: boolean; onChange: (reference: { attachmentId: string; threadId: string; name: string }) => void }) => <button disabled={readOnly} onClick={() => onChange({ attachmentId: "uploaded", threadId: "group-thread", name: "学生参考图.png" })}>{label}选择已上传图片</button>,
 }));
 beforeEach(() => {
   vi.clearAllMocks();
-  Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
+  Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: vi.fn(function (this: HTMLImageElement) { Object.defineProperties(this, { naturalWidth: { configurable: true, value: 20 }, naturalHeight: { configurable: true, value: 10 } }); return Promise.resolve(); }) });
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -113,6 +113,9 @@ it.each([true, false])("exports student classification and reasons with explicit
   render(<Stage initial={draft} />);
   fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ }));
   fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
+  expect(screen.getByTestId("aidt-idea-sheets-preview")).toBeVisible();
+  expect(mocks.print).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "合并打印描述单 PDF" }));
   await waitFor(() => expect(mocks.print).toHaveBeenCalledOnce());
   const article = mocks.print.mock.calls[0]![0] as HTMLElement;
   expect(article.querySelectorAll("section")).toHaveLength(3);
@@ -145,4 +148,104 @@ it("requires reconfirming the validation question when the selected concept text
   fireEvent.change(screen.getByTestId("aidt-field-idea"), { target: { value: "另一方案" } });
   expect(screen.queryByRole("link", { name: "打开原生 Design Workbench" })).toBeNull();
   expect(snapshot().fields.verificationQuestionConfirmed).toBe("");
+});
+
+it("prints the individually reviewed sheet and preserves its candidate identity", async () => {
+  render(<Stage />);
+  fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ }));
+  fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
+  fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-2"));
+  await waitFor(() => expect(mocks.print).toHaveBeenCalledOnce());
+  const article = mocks.print.mock.calls[0]![0] as HTMLElement;
+  expect(article.querySelectorAll("section")).toHaveLength(1);
+  expect(article.querySelector("section")).toHaveAttribute("data-idea-id", "two");
+  expect(article.querySelector("h3")).toHaveTextContent("2. 口味卡");
+  expect(article.textContent).not.toContain("同伴墙");
+});
+
+it("does not print a stale snapshot if students edit while image decoding is pending", async () => {
+  let finish!: () => void;
+  const decoded = new Promise<void>(resolve => { finish = resolve; });
+  Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: vi.fn(function (this: HTMLImageElement) { return decoded.then(() => { Object.defineProperties(this, { naturalWidth: { configurable: true, value: 20 }, naturalHeight: { configurable: true, value: 10 } }); }); }) });
+  render(<Stage />);
+  fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ }));
+  fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
+  fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-2"));
+  fireEvent.change(screen.getByLabelText("候选2名称"), { target: { value: "学生校正后的点子" } });
+  finish();
+  await waitFor(() => expect(screen.getByText(/内容已变化/)).toBeVisible());
+  expect(mocks.print).not.toHaveBeenCalled();
+  expect(snapshot().ideas[1]?.title).toBe("学生校正后的点子");
+});
+
+it("shows image decoding failure without reporting a saved PDF or losing the student's work", async () => {
+  Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: vi.fn().mockRejectedValue(new Error("invalid image")) });
+  render(<Stage />);
+  fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ }));
+  fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
+  fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-1"));
+  await waitFor(() => expect(screen.getByText(/打印未能启动/)).toBeVisible());
+  expect(mocks.print).not.toHaveBeenCalled();
+  expect(snapshot().selectedIdeaId).toBe("one");
+});
+it("requires all three reviewed pictures to decode before printing even one candidate sheet", async () => {
+  const draft = seed(); draft.ideas[2]!.image = "data:image/png;base64,broken-third";
+  Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: vi.fn(function (this: HTMLImageElement) { Object.defineProperties(this, { naturalWidth: { configurable: true, value: 20 }, naturalHeight: { configurable: true, value: 10 } }); return this.src.includes("broken-third") ? Promise.reject(new Error("invalid third picture")) : Promise.resolve(); }) });
+  render(<Stage initial={draft} />);
+  fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ }));
+  fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
+  fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-1"));
+  await waitFor(() => expect(screen.getByTestId("aidt-idea-sheet-print-1")).toBeEnabled());
+  expect(mocks.print).not.toHaveBeenCalled();
+  expect(screen.getByText(/打印未能启动/)).toBeVisible();
+});
+it("bounds all-picture preflight so a hanging third source image leaves the reviewed draft retryable", async () => {
+  vi.useFakeTimers();
+  try {
+    const draft = seed(); draft.ideas[2]!.image = "data:image/png;base64,hanging-third";
+    Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: vi.fn(function (this: HTMLImageElement) { Object.defineProperties(this, { naturalWidth: { configurable: true, value: 20 }, naturalHeight: { configurable: true, value: 10 } }); return this.src.includes("hanging-third") ? new Promise<void>(() => undefined) : Promise.resolve(); }) });
+    render(<Stage initial={draft} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ })); fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" })); fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-1"));
+    expect(screen.getByTestId("aidt-idea-sheet-print-1")).toBeDisabled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(mocks.print).not.toHaveBeenCalled(); expect(screen.getByTestId("aidt-idea-sheet-print-1")).toBeEnabled();
+    expect(screen.getByTestId("aidt-idea-sheets-preview")).toBeVisible(); expect(snapshot().ideas[2]?.title).toBe("同伴墙");
+    expect(screen.getByText(/打印未能启动/)).toBeVisible();
+  } finally { vi.useRealTimers(); }
+});
+it("withdraws the final print gate when the student revokes review while the clone is preparing", async () => {
+  let finish!: () => void;
+  mocks.print.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+  render(<Stage />); fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ })); fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" })); fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-1"));
+  await waitFor(() => expect(mocks.print).toHaveBeenCalledOnce());
+  const options = mocks.print.mock.calls[0]![2] as { isCurrent: () => boolean }; expect(options.isCurrent()).toBe(true);
+  fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ })); expect(options.isCurrent()).toBe(false);
+  await act(async () => finish());
+  expect(screen.queryByText(/已请求打开打印预览/)).not.toBeInTheDocument();
+  expect(snapshot().ideas).toHaveLength(3);
+});
+
+it("keeps recorded AI inference separate from original words, student explanation, and the handoff source", () => {
+  const initial: AidtUiStageDraft = { fields: {}, ideas: [], selectedIdeaId: "", discoveryCards: [{ id: "card-a", participantCode: "模拟A", headline: "学生归纳", headlineKind: "student-summary", context: "教学夹具情境", quote: "夹具原话", sourceRef: "夹具.txt 第2段", photoRef: "" }] };
+  const { rerender } = render(<Stage stage={2} initial={initial} />);
+  fireEvent.change(screen.getByTestId("aidt-discovery-ai-0"), { target: { value: "AI可能的解释，尚需核实" } });
+  expect(snapshot().discoveryCards).toEqual(initial.discoveryCards);
+  for (const text of [aidtUiStageMarkdown(2, snapshot()), aidtUiStageSummary(2, snapshot())]) {
+    expect(text).toContain("原话（待核对）：夹具原话");
+    expect(text).toContain("Headline（学生概括）：学生归纳");
+    expect(text).toContain("AI推测（待验证，不是原话）：AI可能的解释，尚需核实");
+  }
+  rerender(<Stage stage={2} initial={initial} readOnly />);
+  expect(screen.getByTestId("aidt-discovery-ai-0")).toBeDisabled();
+  fireEvent.change(screen.getByTestId("aidt-discovery-ai-0"), { target: { value: "越权覆盖" } });
+  expect(snapshot().fields["discoveryAi:card-a"]).toBe("AI可能的解释，尚需核实");
+});
+it("removes a deleted card's source and AI associations while preserving other students' records", () => {
+  const initial: AidtUiStageDraft = { fields: { "discoveryAi:a": "待验证推测", "discoverySource:a": "材料引用", "discoveryAi:b": "另一卡记录" }, ideas: [], selectedIdeaId: "", discoveryCards: [{ id: "a", participantCode: "模拟A", headline: "学生归纳", headlineKind: "student-summary", context: "教学夹具", quote: "夹具原话", sourceRef: "夹具.txt 第2段", photoRef: "" }] };
+  render(<Stage stage={2} initial={initial} />);
+  fireEvent.click(screen.getByRole("button", { name: "移除发现卡1" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认移除" }));
+  expect(snapshot().fields["discoveryAi:a"]).toBeUndefined();
+  expect(snapshot().fields["discoverySource:a"]).toBeUndefined();
+  expect(snapshot().fields["discoveryAi:b"]).toBe("另一卡记录");
 });

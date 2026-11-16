@@ -104,6 +104,53 @@ sh scripts/aidt-local/stop.sh
 
 共享成果和成员文字无需调用 AI 模型。访谈录音及语音房仍按本轮范围后置；自动图像与静态方案生成受本机现有能力限制，不能用占位结果冒充生成成功。
 
+### 独立工程验收：显式使用云模型
+
+`aidt:local` 使用本机 Ollama 与原有零外部模型配置。把 `cn.local.env` 放在电脑上、执行安全诊断或跑过真实模型 smoke，都不会自动给 `aidt:local` 注入云端 key。`AIDT ready`、API/Web 健康和六步表单可用，也不代表 AI 已连通。
+
+`aidt:real-model:dev` 是**单独的工程验收工具**，用于合成练习材料的真实供应商、原生 Chat 和 Design 验收，不能替代上文交付给学生的持久本机启动方式。它使用隔离 Docker PostgreSQL/Redis/Minio、Python deep-agent 与专用测试账号；退出时清理该次测试栈，不保留为学生的长期小组数据。它需要 Docker、Python 3.11+、uv、Node22/pnpm9.15、项目依赖与沙箱模块，安装和显式模型调用需要联网并可能产生费用。本轮实际运行环境为 Linux，以下 macOS/Linux 工程命令不等于 Mac 实机验收已完成。
+
+先在源码根目录准备工程依赖；已安装的项目依赖不必重复安装：
+
+```sh
+pnpm install --frozen-lockfile
+UV_PROJECT_ENVIRONMENT="$HOME/.cache/workspacex-aidt-python" \
+  uv sync --project apps/deep-agent-service --frozen --no-dev
+sh scripts/local-bundle/prepare-sandbox-modules.sh
+docker compose -f apps/api/docker-compose.dev.yml build postgres
+docker compose -f apps/api/docker-compose.dev.yml pull redis minio
+```
+
+配置文件留在仓库外，替换为你自己的实际完整路径；不要照搬开发云环境的 scratch 路径：
+
+```sh
+pnpm real-model:doctor --model-env-file "/你自己的私密目录/cn.local.env"
+
+# doctor 仅检查结构；ready 后，显式启动独立工程验收栈。
+# 每次使用新的工作目录，不能与正在运行的验收栈共用。
+pnpm aidt:real-model:dev --prebuild \
+  --model-env-file "/你自己的私密目录/cn.local.env" \
+  --work-dir "$HOME/.workspacex-aidt-real-model-$(date +%Y%m%d-%H%M%S)" \
+  --uvicorn "$HOME/.cache/workspacex-aidt-python/bin/uvicorn"
+```
+
+doctor 不发模型请求；显式开发入口只导入模型白名单字段，不执行配置里的 shell 表达式，不导入其中的生产数据库、站点域名、应用端口或权限配置。当前仅支持既有 DashScope 路径，其他 provider 会明确报不支持。参数必须是 `--model-env-file`，不要使用会被 pnpm 提前装载整份文件的 `--env-file`，也不要 `source` 整份 CN 部署配置。
+
+`--prebuild` 先执行受限内存、单 worker 的本地生产构建，成功才 `next start`；它不部署生产。保持启动终端打开，等它输出 `ready: true` 后再使用输出的本机 Web 地址。该工程栈端口由隔离工具产生，**不要固定使用**持久本机入口的3100端口。构建期间不会自动发送收费模型任务；后续界面操作是否成功调用供应商，要检查真实 run、消息和产物，不能由配置 ready 推断。
+
+两种运行工具的控制路径分开：
+
+| 操作 | `aidt:local` 持久本机 | `aidt:real-model:dev` 工程验收 |
+|---|---|---|
+| 启动 | `pnpm aidt:local start`；已 build 后可用 `start --web start` | 上述显式命令，不复用持久小组目录 |
+| 状态与健康 | `pnpm aidt:local status`、`pnpm aidt:local health` | 查看所选 `--work-dir/status.json` 的 ready、API/Web地址；在自己的终端对 API地址加 `/healthz`、Web地址加 `/login` 作 HTTP200 检查。服务健康仍不代表教学行为通过 |
+| 账号 | `pnpm aidt:local credentials` | 所选 `--work-dir/runtime-private.json` 内的专用测试账号，仅在自己的电脑查看，不分享、提交或上传 |
+| 停止 | 相同 `--data-dir` 的 `pnpm aidt:local stop` | 在持有工程栈的启动终端按 Ctrl-C，由它清理本次隔离栈；`aidt:local stop` 不控制它 |
+
+工程工作目录里的账号、原始服务日志和运行文件均属私密验收材料，不入交付包；不要把真实受访者材料放入测试。默认本机功能、真实供应商连通、原生 Agent 运行、Design 文件真实性与教学人工审阅分别验收。独立 `e2e:real-model-smoke:safe` 仍用于既有 PDF/Office smoke，不会自动运行六步或总结报告场景。
+
+需要实际收费模型验证时，工程种子已有测试余额的身份在私密文件的 `fundedAdminEmail`／`fundedAdminPassword`；它用于技术验收，并不代表学生或教师的权限。普通合成账号自己的钱包可能仍为0，本轮也实际读到该状态；不能据技术管理员成功宣称学生已具备模型额度或课堂可免配置使用。工具不会自动充值、升级计划或修改角色。真实学生资金与权限前提应另行核对。
+
 ## 常见问题
 
 - **连接被拒绝**：确认启动窗口仍在运行；执行 health。未看到 ready 或 API/Web 探测失败时，检查 `~/.workspacex-aidt/logs` 和启动日志。
@@ -116,6 +163,8 @@ sh scripts/aidt-local/stop.sh
 初始依赖安装在不同操作系统上的可用性取决于包源和本机环境；本次交付的已执行命令与真实浏览器证据见 `docs/evidence/aidt-native/module-isolation/local-runtime/`。
 
 ## V2 学习闭环试用
+
+本次当前验收结论见 `docs/evidence/aidt-native/completion-20261116/acceptance-boundaries.md`。已发现原生Chat忽略教学上下文的接线缺陷，服务端精确版本桥接仍待设计签核及实现；页面显示材料不等于模型已经使用。可先验证输入、保存、课程入口、文字沟通、材料与打印；六步及总结的完整真实模型验收尚未通过，不用反复付费生成来掩盖此缺口。
 
 此包按用户直接提供的 Markdown（FR15–19）更新，不按旧 PDF。进入 AIDT 专用入口，创建或打开所属小组；成员文字沟通继续使用页面全局聊天入口。六步中的 AI 对话复用原生 Chat。
 

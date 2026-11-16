@@ -78,7 +78,7 @@ it("keeps the student's report and offers retry paths when browser export cannot
   mocks.print.mockImplementationOnce(() => { throw new Error("Print unavailable"); });
   render(<AidtReportPreview drafts={emptyAidtUiDrafts()} text="保留人工修改与证据A引用" sourceRevision={0} revision={0} onChange={vi.fn()} regenerate={vi.fn()} readOnly={false} />);
   fireEvent.click(screen.getByRole("button", { name: "PDF 打印预览" }));
-  expect(screen.getByRole("status")).toHaveTextContent("打印预览未能打开，报告编辑仍保留");
+  expect(await screen.findByText(/打印预览未能打开，报告编辑仍保留/)).toBeVisible();
   expect(screen.getByLabelText("小组报告草稿")).toHaveValue("保留人工修改与证据A引用");
   const descriptor = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
   Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => { throw new Error("Blob unavailable"); }) });

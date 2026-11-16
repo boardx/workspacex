@@ -1,0 +1,85 @@
+{
+  "date": "2026-11-16",
+  "layer": "static-readiness-and-QA-support-checks",
+  "isFullV2E2EPassing": false,
+  "sourceSha256": {
+    "apps/web/e2e/aidt-v2-student-journey.spec.ts": "20de12a3c52a6181605ca0ebb1ad48ea318e81867e8207dff5fccb42461c242e",
+    "apps/web/e2e/support/aidt-v2-acceptance.ts": "3e4e9a4e49abf827066f3ba3ef97c2ecfe4e11024883c6761e1cf1ce1aeba538",
+    "apps/web/e2e/support/aidt-v2-run-ledger.ts": "c370929c89910515ae6cacb5f0b4973d98975b487da8b850c9fc8d07c4e5c677",
+    "apps/web/e2e/support/aidt-v2-stage-cases.ts": "e0fc48175325893275e590df7e7776ba8804dfdd47cf05b321725ae72bf53e56",
+    "apps/web/e2e/support/aidt-v2-intent-review.ts": "fac196fb12a1845e33aa40f945ba68d52ae32cbb642691ddfb0cb43a6d5561b6",
+    "apps/web/e2e/support/aidt-v2-wire-metadata.ts": "8881520b122b6ac08cf5c5fca95b68d24e375c2b05ab9c910dd2be6f034ef40b",
+    "apps/web/e2e/support/aidt-v2-print-observation.ts": "6573d891b7a58635fa157a8098db2f24769f47905c1acf50201a1c412b4cb443",
+    "apps/web/playwright.aidt-v2.config.ts": "cb488a597e0b94518d55e685da61498e4d21090fedea9762e6b647b42d8b0882",
+    "apps/web/playwright.fullstack-smoke.config.ts": "1d6bf60f02ec0aaebf73bb158a3c0ebf8fc68dcba9356d4ac4aa69dc28167e73"
+  },
+  "checks": [
+    {
+      "name": "explicit TypeScript options/syntactic/semantic diagnostics for owned sources",
+      "exitCode": 0,
+      "diagnostics": 0
+    },
+    {
+      "command": "pnpm --filter web exec eslint <owned V2 sources> --max-warnings 0",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm --filter web exec playwright test --config playwright.aidt-v2.config.ts --list",
+      "exitCode": 0,
+      "tests": 16,
+      "files": 2,
+      "browserExecuted": false
+    },
+    {
+      "command": "node .harness/scripts/lint-e2e-testid-gate.mjs",
+      "exitCode": 0,
+      "references": 6425,
+      "exemptionsAdded": 0
+    },
+    {
+      "command": "pnpm exec tsx /tmp/check-aidt-v2-ledger.mts",
+      "exitCode": 0,
+      "checks": 4,
+      "actualProviderRequests": 0
+    },
+    {
+      "command": "pnpm exec tsx /tmp/check-aidt-v2-wire-metadata.mts",
+      "exitCode": 0,
+      "checks": 3,
+      "actualProviderRequests": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "actualBrowserEvidence": [
+    "v2-attempt05-machine.json",
+    "v2-s1-existing-run-machine.json",
+    "global-member-text-surfaces.json"
+  ],
+  "blocks": [
+    "new server teaching-context contract awaits human signoff; production core not implemented",
+    "raw and course UI await final rebuilt runtime",
+    "S2-S6 and SUM provider runs paused; no retry/new charge to mask context drop"
+  ],
+  "humanAcceptanceSigned": false,
+  "productionDeployed": false,
+  "portabilityRecheck": {
+    "specEslintExitCode": 0,
+    "ledgerEslintExitCode": 0,
+    "ledgerStrictTypeScriptExitCode": 0,
+    "playwrightList": {
+      "exitCode": 0,
+      "tests": 16,
+      "files": 2,
+      "browserExecuted": false
+    },
+    "fixtureCheck": "fixture-portability-check.json",
+    "ledgerCheck": "ledger-portability-check.json",
+    "currentSourceSha256": {
+      "apps/web/e2e/aidt-v2-student-journey.spec.ts": "26c01ba621ac21e526be120c9054a2e9a36b28a57517ee3867b743265a387025",
+      "apps/web/e2e/support/aidt-v2-run-ledger.ts": "26abbdf0a3bd48030999d1088ba62b4f84c909f461c198d6101377e7773ce7df"
+    }
+  }
+}

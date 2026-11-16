@@ -1,5 +1,5 @@
 import type { AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
-import { AIDT_PROTOTYPE_REFERENCE_FIELD, AidtPrototypeIdentifierSchema, formatAidtPrototypeReference, readAidtPrototypeReference, updateAidtPrototypeVersionText } from "./aidt-prototype-reference";
+import { AIDT_PROTOTYPE_REFERENCE_FIELD, AIDT_ITERATION_FEEDBACK_FIELD, AIDT_ITERATION_REASON_FIELD, AIDT_ITERATION_PROTOTYPE_RELATION_FIELD, AidtPrototypeIdentifierSchema, AidtIterationPrototypeRelationSchema, formatAidtPrototypeReference, readAidtPrototypeReference, readAidtIterationPrototypeReference, readAidtIterationPrototypeRelation, updateAidtPrototypeVersionText } from "./aidt-prototype-reference";
 import { aidtPrototypeVersionLabel } from "./aidt-prototype-label";
 
 /** These remain student-authored fields in the existing shared stage document. */
@@ -102,6 +102,42 @@ export function aidtTestPrototypeMismatch(draft: AidtUiStageDraft, snapshot = re
   if (reference) return reference.designId !== snapshot.prototypeDesignId || reference.versionId !== snapshot.prototypeVersionId;
   return !!value(draft, "version") && value(draft, "version") !== snapshot.prototypeRef.trim();
 }
+export function aidtIterationPrototypeMissingItems(draft: AidtUiStageDraft): string[] {
+  const missing: string[] = [], old = readAidtQuestionSnapshot(draft), produced = readAidtIterationPrototypeReference(draft);
+  if (!old) missing.push("保留本轮旧问题与被测版本快照");
+  if (!produced) missing.push("选择真实迭代产出版本");
+  if (old?.prototypeDesignId && produced?.designId === old.prototypeDesignId && produced.versionId === old.prototypeVersionId) missing.push("迭代产出须与旧被测版本不同");
+  if (!value(draft, AIDT_ITERATION_FEEDBACK_FIELD)) missing.push("说明本次修改依据的反馈或未解问题引用");
+  if (!value(draft, AIDT_ITERATION_REASON_FIELD)) missing.push("说明新版相对旧版改了什么及原因");
+  return missing;
+}
+export function confirmAidtIterationPrototypeRelation(draft: AidtUiStageDraft): { ok: true; draft: AidtUiStageDraft } | { ok: false; reason: string } {
+  const missing = aidtIterationPrototypeMissingItems(draft);
+  if (missing.length) return { ok: false, reason: missing.join("、") };
+  const produced = readAidtIterationPrototypeReference(draft)!;
+  const relation = AidtIterationPrototypeRelationSchema.safeParse({ schemaVersion: 1, questionSnapshot: draft.fields.questionSnapshot, producedDesignId: produced.designId, producedVersionId: produced.versionId, feedbackReference: value(draft, AIDT_ITERATION_FEEDBACK_FIELD), changeReason: value(draft, AIDT_ITERATION_REASON_FIELD) });
+  if (!relation.success) return { ok: false, reason: "反馈引用或修改说明过长，请精简后再关联；原稿仍可保存。" };
+  const serialized = JSON.stringify(relation.data);
+  if (serialized.length > 6000) return { ok: false, reason: "关联说明超过单字段保存上限；请精简本次说明，旧问题快照未被改写。" };
+  return { ok: true, draft: { ...draft, fields: { ...draft.fields, [AIDT_ITERATION_PROTOTYPE_RELATION_FIELD]: serialized, reflectionConfirmed: "" } } };
+}
+export function isAidtIterationPrototypeRelated(draft: AidtUiStageDraft): boolean {
+  const relation = readAidtIterationPrototypeRelation(draft), produced = readAidtIterationPrototypeReference(draft);
+  return aidtIterationPrototypeMissingItems(draft).length === 0 && !!relation && !!produced
+    && relation.questionSnapshot === draft.fields.questionSnapshot && relation.producedDesignId === produced.designId && relation.producedVersionId === produced.versionId
+    && relation.feedbackReference === value(draft, AIDT_ITERATION_FEEDBACK_FIELD) && relation.changeReason === value(draft, AIDT_ITERATION_REASON_FIELD);
+}
+export function formatAidtIterationPrototypeMarkdown(draft: AidtUiStageDraft): string[] {
+  const produced = readAidtIterationPrototypeReference(draft), related = isAidtIterationPrototypeRelated(draft);
+  if (!produced && !draft.fields.iterationPrototypeReference && !draft.fields.iterationPrototypeRelation) return [];
+  const old = readAidtQuestionSnapshot(draft);
+  return ["### 本轮迭代产出与旧版关系", produced ? `迭代产出原生版本：${formatAidtPrototypeReference(produced)}` : "迭代产出引用无法读取；未替换为其他版本。",
+    `旧被测原型：${old?.prototypeRef ?? "尚缺本轮快照"}${old?.prototypeDesignId ? `；Design ID：${old.prototypeDesignId}；版本 ID：${old.prototypeVersionId}` : "（学生文字记录，实际对应待核对）"}`,
+    `本次修改依据的反馈/未解问题引用（学生记录）：${value(draft, AIDT_ITERATION_FEEDBACK_FIELD) || "待补充"}`,
+    `相对旧版的修改与原因：${value(draft, AIDT_ITERATION_REASON_FIELD) || "待学生说明"}`,
+    related ? "关系状态：学生已将本次产出关联到旧问题快照及所列反馈；新版待测试，不代表效果已证实或全组投票。" : "关系状态：尚未关联，或旧快照/产出/说明已有变化；原记录保留，待重新核对。",
+    "返回前四步不需要先产生或关联新版；历史文字版本说明仍保留，不能代替原生版本核对。"];
+}
 export function readAidtReturnDecision(draft: AidtUiStageDraft): { kind: "selected"; step: AidtReturnStep; label: string } | { kind: "undecided" } | { kind: "unanswered" } {
   const choice = value(draft, "returnStep");
   const selected = AIDT_RETURN_STEPS.find((step) => step.id === choice);
@@ -156,5 +192,6 @@ export function formatAidtTestReflectionMarkdown(draft: AidtUiStageDraft): strin
     `下一步行动：${value(draft, "nextAction") || "尚未明确"}`,
     isAidtReflectionConfirmed(draft) ? "记录状态：编辑者已确认本轮学习记录；不代表测试通过或全组投票。" : "记录状态：草稿，待学生核对。",
     "返回前四步或暂未决定时保留旧原型；没有新版不抹去本轮学习，也不表示问题已解决。",
+    ...formatAidtIterationPrototypeMarkdown(draft),
   ];
 }

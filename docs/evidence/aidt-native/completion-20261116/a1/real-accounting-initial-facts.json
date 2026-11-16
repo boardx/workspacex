@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-16",
+  "organization": {
+    "kind": "organization",
+    "plan": null,
+    "generationPresent": false
+  },
+  "wallets": [
+    {
+      "label": "lead",
+      "role": "admin",
+      "balance": null,
+      "held": null,
+      "unbounded": null
+    },
+    {
+      "label": "existingFundedAdmin",
+      "role": "admin",
+      "balance": "20000.00",
+      "held": "0",
+      "unbounded": "0"
+    },
+    {
+      "label": "primary",
+      "role": "consultant",
+      "balance": null,
+      "held": null,
+      "unbounded": null
+    }
+  ],
+  "nativeSpoolFailure": {
+    "runs": [
+      {
+        "id": "4e4f19e0-0a57-4117-9c86-e12f9da2a08c",
+        "status": "failed",
+        "threadId": "thr-e95301a7-0e11-4b2b-bb17-233a51722e12",
+        "projectId": "prj-cc763f32-e190-447b-9760-23bfd65d85ba",
+        "physicalRequestStarts": 0,
+        "usageEvents": 0
+      }
+    ],
+    "errorCode": "usage_persistent_spool_unconfigured",
+    "providerDispatched": false
+  },
+  "designFailure": {
+    "httpStatus": 402,
+    "code": "credit_required",
+    "payerDerived": "lead personal wallet",
+    "modelPricing": "existing token-v1-1000-per-credit",
+    "creditsChanged": false
+  }
+}

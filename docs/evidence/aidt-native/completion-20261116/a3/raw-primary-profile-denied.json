@@ -1,0 +1,37 @@
+{
+  "layer": "real-isolated-HTTP-and-PostgreSQL",
+  "syntheticOnly": true,
+  "paidModelRequests": 0,
+  "permissionChanges": false,
+  "steps": [
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/projects",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "path": "/projects/prj-72367f6b-3d12-4066-97e9-cc0e576ac418/tags",
+      "status": 403
+    }
+  ],
+  "completed": false,
+  "projectContractBoundary": {
+    "canonicalFullCreateReceiptNotClaimed": true,
+    "observedKeys": [
+      "id",
+      "kind",
+      "status"
+    ]
+  },
+  "failure": {
+    "kind": "AssertionError",
+    "safeMessage": "AIDT tag creation denied"
+  },
+  "checkedAt": "2026-11-16T05:33:09.443176+00:00"
+}

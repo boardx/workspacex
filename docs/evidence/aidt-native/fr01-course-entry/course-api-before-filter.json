@@ -1,0 +1,56 @@
+{
+  "passed": false,
+  "kind": "real-API-only-course-CRUD-and-authorization",
+  "lastCheck": "same-operation-different-input-conflict",
+  "lastResponseSafe": {
+    "status": 409,
+    "reasonCode": null,
+    "bodyKeys": [
+      "error",
+      "traceId"
+    ]
+  },
+  "checks": [
+    {
+      "name": "owner-login",
+      "status": 200
+    },
+    {
+      "name": "owner-actual-identity"
+    },
+    {
+      "name": "owner-select-own-org",
+      "status": 200
+    },
+    {
+      "name": "owner-real-org-role",
+      "status": 200,
+      "orgRole": "admin"
+    },
+    {
+      "name": "real-course-list",
+      "status": 200
+    },
+    {
+      "name": "create-persisted-course",
+      "status": 201
+    },
+    {
+      "name": "server-create-receipt"
+    },
+    {
+      "name": "same-operation-replay",
+      "status": 201
+    }
+  ],
+  "recordedAt": "2026-11-16T05:29:27.808Z",
+  "credentialsIncluded": false,
+  "runtimeScope": {
+    "apiPidAtProbe": 144538,
+    "apiOnly": true,
+    "webUiExercised": false,
+    "modelRequests": 0,
+    "organizationRolesChanged": false,
+    "projectMembershipsChanged": false
+  }
+}

@@ -11,6 +11,11 @@ export type AidtPrototypeVersionPickerProps = {
   value?: AidtPrototypeVersionReference | null;
   onChange: (reference: AidtPrototypeVersionReference | null) => void;
   readOnly?: boolean;
+  label?: string;
+  removeLabel?: string;
+  description?: string;
+  /** Host intent revision: manual text/question edits must invalidate pending reads even when value stays null. */
+  selectionScope?: string;
 };
 type Result<T> = { items: T; failed?: false } | { failed: true; items?: never };
 
@@ -19,11 +24,11 @@ export function AidtPrototypeVersionPicker(props: AidtPrototypeVersionPickerProp
   const session = useOptionalSession()?.session;
   if (!isAidtModuleEnabled()) return null;
   if (!session?.currentOrgId || !session.userId || !session.sessionToken) return <p role="status" className="text-12 text-muted-foreground">登录并选择组织后，才能读取已关联的原型版本。</p>;
-  const scope = JSON.stringify([props.projectId, session.currentOrgId, session.userId, session.sessionToken, !!props.readOnly]);
+  const scope = JSON.stringify([props.projectId, session.currentOrgId, session.userId, session.sessionToken, !!props.readOnly, props.selectionScope ?? ""]);
   return <EnabledPicker key={scope} {...props} context={{ projectId: props.projectId, userId: session.userId, sessionToken: session.sessionToken }} />;
 }
 
-function EnabledPicker({ context, value, onChange, readOnly = false }: AidtPrototypeVersionPickerProps & { context: AidtPrototypeReadContext }) {
+function EnabledPicker({ context, value, onChange, readOnly = false, label, removeLabel = "移除版本引用", description }: AidtPrototypeVersionPickerProps & { context: AidtPrototypeReadContext }) {
   const [open, setOpen] = React.useState(false);
   const [retry, setRetry] = React.useState(0);
   const [designs, setDesigns] = React.useState<Result<AidtPrototypeDesignList> | null>(null);
@@ -32,6 +37,10 @@ function EnabledPicker({ context, value, onChange, readOnly = false }: AidtProto
   const [pending, setPending] = React.useState<string | null>(null);
   const [selectionFailed, setSelectionFailed] = React.useState(false);
   const selection = React.useRef<AbortController | null>(null);
+  const valueIdentity = JSON.stringify([value?.designId ?? null, value?.versionId ?? null]);
+  const valueLifecycle = React.useRef({ identity: valueIdentity, generation: 0 });
+  if (valueLifecycle.current.identity !== valueIdentity) valueLifecycle.current = { identity: valueIdentity, generation: valueLifecycle.current.generation + 1 };
+  const valueGeneration = valueLifecycle.current.generation;
   const notify = React.useRef(onChange); notify.current = onChange;
   const versionKey = JSON.stringify([designId, retry]);
   const versionResult = versions?.key === versionKey ? versions.result : null;
@@ -57,6 +66,9 @@ function EnabledPicker({ context, value, onChange, readOnly = false }: AidtProto
   }, [open, designId, versionKey, readOnly, projectId, userId, sessionToken]);
 
   React.useEffect(() => () => { selection.current?.abort(); }, [open, designId, retry]);
+  React.useEffect(() => {
+    selection.current?.abort(); selection.current = null; setPending(null); setSelectionFailed(false);
+  }, [valueIdentity]);
 
   function cancelSelection() {
     selection.current?.abort(); selection.current = null;
@@ -68,7 +80,7 @@ function EnabledPicker({ context, value, onChange, readOnly = false }: AidtProto
     setPending(versionId); setSelectionFailed(false);
     void resolveAidtPrototypeVersion({ projectId, userId, sessionToken, signal: controller.signal }, designId, versionId)
       .then((reference) => {
-        if (controller.signal.aborted || selection.current !== controller) return;
+        if (controller.signal.aborted || selection.current !== controller || valueLifecycle.current.generation !== valueGeneration) return;
         notify.current(reference); setOpen(false);
       }).catch(() => { if (!controller.signal.aborted) setSelectionFailed(true); })
       .finally(() => { if (!controller.signal.aborted) setPending(null); });
@@ -86,14 +98,14 @@ function EnabledPicker({ context, value, onChange, readOnly = false }: AidtProto
     cancelSelection(); notify.current(null);
   }
 
-  return <section className="space-y-2" aria-label="真实原型版本引用" data-testid="aidt-prototype-version-picker">
+  return <section className="space-y-2" aria-label={label ? `${label}引用` : "真实原型版本引用"} data-testid="aidt-prototype-version-picker">
     <div className="flex flex-wrap items-center gap-2">
-      <Button type="button" size="sm" variant="outline" disabled={readOnly} aria-expanded={open} onClick={toggle}>{open ? "收起原型版本" : "选择真实原型版本"}</Button>
-      {value && <Button type="button" size="sm" variant="ghost" disabled={readOnly} onClick={remove}>移除版本引用</Button>}
+      <Button type="button" size="sm" variant="outline" disabled={readOnly} aria-expanded={open} onClick={toggle}>{open ? label ? `收起${label}` : "收起原型版本" : label ? `选择${label}` : "选择真实原型版本"}</Button>
+      {value && <Button type="button" size="sm" variant="ghost" disabled={readOnly} onClick={remove}>{removeLabel}</Button>}
     </div>
     {value && <p className="break-words text-12" data-testid="aidt-prototype-recorded-reference">已记录：{aidtPrototypeVersionLabel(value)}<span className="block text-muted-foreground">已生成 {value.generatedFrameCount}/{value.frameCount} 页；Design ID：{value.designId}；版本 ID：{value.versionId}。历史记录不代表当前仍有访问权限。</span></p>}
     {readOnly && <p role="status" className="text-12 text-muted-foreground">当前只读，不能更改原型版本引用。</p>}
-    <p className="text-12 text-muted-foreground">只选择本项目已关联、当前由你拥有的 Design 历史版本。选择仅更新本步引用；保存与带入第6步问题卡需分别确认。原有文字版本说明仍保留。</p>
+    <p className="text-12 text-muted-foreground">{description ?? "只选择本项目已关联、当前由你拥有的 Design 历史版本。选择仅更新本步引用；保存与带入第6步问题卡需分别确认。原有文字版本说明仍保留。"}</p>
     {open && !readOnly && <div className="space-y-3 rounded-lg border border-border p-3">
       <p className="text-12 text-muted-foreground">版本读取使用真实 Design API；不会在这里生成、恢复或修改原型。模型来源、页面数量与版本摘要都不代表质量或研究证据已验证。</p>
       {!designs ? <p role="status" data-testid="loading" className="text-12">正在读取已关联的设计…</p>

@@ -85,6 +85,7 @@
     "e2e:real-model-web-artifact-reliability": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash scripts/real-model-smoke.sh web-artifact-reliability",
     "e2e:real-model-web-artifact-reliability:raw": "pnpm --filter web exec playwright test --config playwright.real-model-smoke.config.ts --project=real-model-web-artifact-reliability",
     "real-model:doctor": "node scripts/real-model-config.mjs",
+    "aidt:real-model:dev": "node scripts/real-model-config.mjs --stack",
     "e2e:real-model-smoke:safe": "node scripts/real-model-config.mjs --smoke",
     "test:real-model-config": "node --test scripts/tests/real-model-config.test.mjs",
     "e2e:real-model-smoke": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash scripts/real-model-smoke.sh",

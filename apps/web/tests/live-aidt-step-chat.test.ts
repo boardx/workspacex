@@ -18,6 +18,23 @@ beforeEach(() => {
   mocks.mounts.mockResolvedValue({ temporary: [], version: "server-version" });
 });
 describe("durable AIDT step conversation and actual Skill mounting", () => {
+  it("uses an independent mounted SUM thread without changing ordinary sixth-stage chats", async () => {
+    mocks.catalog.mockResolvedValue([...AIDT_STEPS.map((s, i) => ({ skillId: `s${i + 1}`, name: s.title, platformStableName: s.skill, status: "已启用", currentVersionId: "v1" })), { skillId: "sum", name: "项目总结", platformStableName: "dt-summarize-project", status: "已启用", currentVersionId: "sum-v2" }]);
+    mocks.mount.mockImplementation(async () => { mocks.mounts.mockResolvedValue({ temporary: [{ skillId: "sum", versionId: "sum-v2", removedAt: null }], version: "saved" }); });
+    expect(await resolveAidtStepChat({ ...input(), step: AIDT_STEPS[5], purpose: "report" })).toMatchObject({ threadId: "new", versionId: "sum-v2" });
+    expect(mocks.create).toHaveBeenCalledWith({ projectId: "p", title: "[AIDT SUM] 小组研究报告", groupId: null, visibilityScope: "plenary" }, "token");
+    expect(mocks.mount).toHaveBeenCalledWith("new", "p", { skillIds: ["sum"], expectedVersion: "server-version" }, "token");
+    await expect(resolveAidtStepChat({ ...input(), step: AIDT_STEPS[5], thread: "new" })).rejects.toThrow("未绑定本步骤");
+    await expect(resolveAidtStepChat({ ...input(), purpose: "report" })).rejects.toThrow("只在第6步");
+  });
+  it("keeps an existing SUM skill version pinned and never repurposes an iterate thread", async () => {
+    mocks.catalog.mockResolvedValue([{ skillId: "s6", platformStableName: "aidt-iterate", name: "迭代", status: "已启用", currentVersionId: "v1" }, { skillId: "sum", platformStableName: "dt-summarize-project", name: "项目总结", status: "已启用", currentVersionId: "sum-latest" }]);
+    mocks.mounts.mockResolvedValueOnce({ temporary: [active("s6")], version: "x" });
+    await expect(resolveAidtStepChat({ ...input(), step: AIDT_STEPS[5], purpose: "report", thread: "stage6" })).rejects.toThrow("未绑定本步骤");
+    mocks.mounts.mockResolvedValue({ temporary: [{ skillId: "sum", versionId: "sum-old", removedAt: null }], version: "x" });
+    expect(await resolveAidtStepChat({ ...input(), step: AIDT_STEPS[5], purpose: "report", thread: "summary" })).toMatchObject({ versionId: "sum-old", latestVersionId: "sum-latest" });
+    expect(mocks.mount).not.toHaveBeenCalled(); expect(mocks.create).not.toHaveBeenCalled();
+  });
   it("coalesces concurrent initialization and verifies the mounted version by read-back", async () => {
     mocks.mount.mockImplementation(async () => { mocks.mounts.mockResolvedValue({ temporary: [active()], version: "saved" }); });
     const a = resolveAidtStepChat(input());

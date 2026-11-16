@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+ ✓ tests/aidt-files/raw-unit.test.ts (19 tests) 16ms
+ ✓ tests/aidt-files/raw-controller.test.ts (13 tests) 9ms
+
+ Test Files  2 passed (2)
+      Tests  32 passed (32)
+   Start at  04:26:15
+   Duration  1.92s (transform 863ms, setup 0ms, collect 1.66s, tests 25ms, environment 0ms, prepare 63ms)

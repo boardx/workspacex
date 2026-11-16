@@ -9,22 +9,39 @@ import type { AidtSharedReportController } from "@/features/aidt/lib/use-aidt-sh
 import { useOptionalSession } from "@/components/session/session-provider";
 import { AidtReportHistory } from "./aidt-report-history";
 import type { AidtReportHistoryScope } from "../lib/aidt-report-history";
+import { AidtSummaryImport } from "./aidt-summary-import";
 
-export function AidtReportPreview({ drafts, text, sourceRevision, revision, onChange, regenerate, readOnly, toChat, shared, discoveryCardsRevision, historyScope }: {
+export function AidtReportPreview({ drafts, text, sourceRevision, revision, onChange, regenerate, readOnly, toChat, shared, discoveryCardsRevision, historyScope, onOpenSummary, summaryThread }: {
   drafts: AidtUiDrafts; discoveryCardsRevision?: number; text: string | null; sourceRevision: number; revision: number;
   onChange: (text: string) => void; regenerate: () => void; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
   shared?: AidtSharedReportController;
   historyScope?: AidtReportHistoryScope;
+  onOpenSummary?: () => void; summaryThread?: string | null;
 }) {
   const [status, setStatus] = React.useState("");
   const [confirmReplace, setConfirmReplace] = React.useState(false);
   const [preview, setPreview] = React.useState(false);
   const [confirmRestore, setConfirmRestore] = React.useState(false);
-  const me = useOptionalSession()?.session?.userId;
+  const [printing, setPrinting] = React.useState(false);
+  const session = useOptionalSession()?.session;
+  const me = session?.userId;
   const savedTime = shared?.savedAt ? new Date(shared.savedAt).toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
   const value = text ?? aidtUiReportMarkdown(drafts, { discoveryCardsRevision });
   const exportValue = shared?.matchesServer ? [value, "", "## 保存与来源版本", `报告保存版本：${shared.serverRevision}；保存者：${shared.savedBy}；保存时间：${shared.savedAt}`, ...(shared.sourceStageRevisions?.length ? shared.sourceStageRevisions.map((source) => `- 第 ${source.stageId} 步：版本 ${source.revision}`) : ["尚未关联已保存的阶段版本；正文不因此成为已验证研究事实。"]), ""].join("\n") : value;
+  const printScope = JSON.stringify([session?.currentOrgId, session?.userId, session?.sessionToken, historyScope?.projectId, historyScope?.lifecycleKey, readOnly, revision, sourceRevision]);
+  const printLifecycle = React.useRef({ scope: printScope, value: exportValue, active: true, generation: 0 });
+  if (printLifecycle.current.scope !== printScope || printLifecycle.current.value !== exportValue) { printLifecycle.current.scope = printScope; printLifecycle.current.value = exportValue; printLifecycle.current.generation++; }
+  React.useEffect(() => { const current = printLifecycle.current; current.active = true; return () => { current.active = false; }; }, []);
+  async function print() {
+    if (printing) return;
+    const generation = printLifecycle.current.generation;
+    const isCurrent = () => printLifecycle.current.active && printLifecycle.current.generation === generation;
+    setPrinting(true);
+    try { await printAidtUiText(exportValue, { isCurrent }); if (isCurrent()) setStatus("已请求打开打印预览，可选择另存为PDF；是否保存由浏览器决定。"); }
+    catch { if (printLifecycle.current.active) setStatus(isCurrent() ? "打印预览未能打开，报告编辑仍保留。可重试或下载 Markdown。" : "报告内容或访问状态已变化，未打印旧稿。请重新核对后重试。"); }
+    finally { if (printLifecycle.current.active) setPrinting(false); }
+  }
   async function copy() {
     try { await navigator.clipboard.writeText(exportValue); setStatus("已复制报告。粘贴并发送成功后才会保存到对话；报告共享状态以上方回执为准。"); }
     catch { setStatus("未能复制，请在编辑区手动选择内容。报告编辑与共享保存状态未被改变。"); }
@@ -43,6 +60,8 @@ export function AidtReportPreview({ drafts, text, sourceRevision, revision, onCh
     <div><span className="rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground" data-testid="aidt-report-save-state">{shared ? shared.saving ? "正在保存小组报告…" : shared.matchesServer ? "小组报告已保存" : "报告编辑尚未保存" : "UI 预览 · 未保存"}</span><h3 className="mt-3 text-20 font-semibold">把研究过程讲清楚</h3><p className="mt-1 text-13 text-muted-foreground">从问题、证据和选择，讲到原型、测试与下一步。</p></div>
     <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">取材范围与缺失项</summary><p className="mt-2">{shared ? "从本页已读取的阶段成果与学生当前编辑整理，未保存的阶段修改不自动成为已保存来源。报告按小组保存，原始材料仍由各原生模块授权读取。" : historyScope ? "主体整理本页填写的草稿，历史需主动读取、审阅并加入；读取本身不保存报告。" : "只整理本页填写的草稿，尚未读取全组历史或保存。"}原始证据、教师点评和版本关系缺失时保留缺口。</p></details>
     {historyScope && <AidtReportHistory scope={historyScope} value={value} onChange={onChange} readOnly={readOnly} />}
+    {onOpenSummary && <div className="space-y-2 text-12"><Button type="button" size="sm" disabled={readOnly} onClick={onOpenSummary} data-testid="aidt-open-summary-chat">打开报告引导师</Button><p className="text-muted-foreground">使用现有Chat的总结Skill，读取已保存材料后，由学生审阅发送生成请求。这里的“从成果重新整理”仍是本地模板整理。</p></div>}
+    {historyScope && onOpenSummary && <AidtSummaryImport scope={historyScope} threadId={summaryThread ?? null} value={value} onChange={onChange} readOnly={readOnly} />}
     {shared && <section className="space-y-2 rounded-lg border border-border p-3 text-12" aria-label="小组报告保存" data-testid="aidt-shared-report">
       <div className="flex flex-wrap gap-2"><Button size="sm" disabled={readOnly || !shared.canSave || shared.saving} data-testid="aidt-report-save" onClick={() => void shared.save()}>{shared.saving ? "正在保存…" : "保存小组报告"}</Button><Button size="sm" variant="outline" disabled={shared.saving || shared.loading} data-testid="aidt-report-reload" onClick={shared.reload}>重新读取</Button></div>
       {shared.loading && <p role="status">正在读取小组报告…</p>}
@@ -57,10 +76,7 @@ export function AidtReportPreview({ drafts, text, sourceRevision, revision, onCh
     <div className="flex flex-wrap gap-2"><Button size="sm" variant={preview ? "outline" : "primary"} onClick={() => setPreview(false)}>编辑报告</Button><Button size="sm" variant={preview ? "primary" : "outline"} onClick={() => setPreview(true)}>阅读预览</Button><Button size="sm" variant="ghost" disabled={readOnly} onClick={() => text === null ? regenerate() : setConfirmReplace(true)}>从成果重新整理</Button></div>
     {confirmReplace && <div role="alert" className="rounded-lg border border-border p-4" data-testid="aidt-report-replace-confirm"><p className="text-13">重新整理会替换当前报告，包括你的人工修改。</p><div className="mt-3 flex gap-2"><Button size="sm" disabled={readOnly} onClick={() => { regenerate(); setConfirmReplace(false); }}>确认替换</Button><Button size="sm" variant="outline" onClick={() => setConfirmReplace(false)}>保留当前报告</Button></div></div>}
     {preview ? <article aria-label="小组报告阅读预览" className="rounded-xl border border-border bg-card p-4">{value.split("\n").map((line, index) => line.startsWith("# ") ? <h2 className="my-4 text-20 font-semibold" key={index}>{line.slice(2)}</h2> : line.startsWith("## ") ? <h3 className="mb-2 mt-5 text-16 font-semibold" key={index}>{line.slice(3)}</h3> : line.startsWith("### ") ? <h4 className="mb-1 mt-3 text-13 font-medium" key={index}>{line.slice(4)}</h4> : <p className="min-h-3 break-words whitespace-pre-wrap text-13 leading-relaxed" key={index}>{line}</p>)}</article> : <textarea aria-label="小组报告草稿" className="min-h-96 w-full rounded-xl border border-border bg-background p-3 text-13 leading-relaxed" value={value} maxLength={100000} disabled={readOnly} onChange={(e) => onChange(e.currentTarget.value)} />}
-    <div className="space-y-3 border-t border-border bg-background py-3" data-testid="aidt-report-export-actions"><div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={download}>下载 Markdown 草稿</Button><Button variant="outline" onClick={() => {
-      try { printAidtUiText(exportValue); setStatus("已请求打开打印预览，可选择另存为PDF；是否保存由浏览器决定。"); }
-      catch { setStatus("打印预览未能打开，报告编辑仍保留。可重试或下载 Markdown。"); }
-    }}>PDF 打印预览</Button></div><details data-testid="aidt-report-chat-actions"><summary className="cursor-pointer text-12 text-muted-foreground">把报告用于本组对话</summary><div className="mt-3 flex flex-wrap gap-2">{toChat && <Button size="sm" disabled={readOnly} onClick={() => {
+    <div className="space-y-3 border-t border-border bg-background py-3" data-testid="aidt-report-export-actions"><div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={download}>下载 Markdown 草稿</Button><Button variant="outline" disabled={printing} onClick={() => void print()}>PDF 打印预览</Button></div><details data-testid="aidt-report-chat-actions"><summary className="cursor-pointer text-12 text-muted-foreground">把报告用于本组对话</summary><div className="mt-3 flex flex-wrap gap-2">{toChat && <Button size="sm" disabled={readOnly} onClick={() => {
       const result = toChat(exportValue);
       setStatus(result === "accepted" ? "已带入聊天输入框，审阅并发送后保存对话；报告共享状态以上方回执为准。" : result === "occupied" ? "聊天中已有未发送草稿，未覆盖；请先处理或复制报告。" : "聊天尚未就绪，报告草稿仍保留，请稍后重试。");
     }}>审阅并发送报告到聊天</Button>}<Button variant="outline" size="sm" onClick={() => void copy()}>复制报告到聊天</Button></div></details><p role="status" aria-live="polite" className="text-12 text-muted-foreground">{status}</p></div>

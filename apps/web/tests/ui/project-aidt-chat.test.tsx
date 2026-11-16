@@ -23,7 +23,7 @@ it("mounts native chat only after real skill readiness and preserves stage URL",
   await screen.findByTestId("chat-shell");
   expect(mocks.shell).toHaveBeenLastCalledWith(expect.objectContaining({ initialThreadId: "t1", projectId: "p", singleConversation: true }));
   expect(new URLSearchParams(window.location.search).get("thread")).toBe("t1");
-  expect(mocks.context).toHaveBeenCalledWith(expect.objectContaining({ value: expect.objectContaining({ skillStableName: "aidt-understand", step: 1 }) }));
+  expect(mocks.context).toHaveBeenCalledWith(expect.objectContaining({ value: expect.objectContaining({ skillStableName: "aidt-understand", step: 1, stageTitle: "理解与提出问题", stageCount: 6, stageTask: AIDT_STEPS[0].task, stageOutcome: AIDT_STEPS[0].outcome }) }));
 });
 it("shows a recoverable failure and does not offer an unconfigured composer", async () => {
   mocks.resolve.mockRejectedValueOnce(new Error("Skill unavailable"));
@@ -313,4 +313,16 @@ it("keeps the historical question source distinct from the current fifth-stage v
   expect(screen.getByTestId("aidt-chat-return-context")).toHaveTextContent("原问题来源（学生记录，尚未核实）：第5步 V2");
   expect(screen.getByTestId("aidt-chat-return-context")).not.toHaveTextContent("第5步 V99");
   expect(mocks.context.mock.calls.at(-1)![0].value.returnReflectionRules).toContain("不与当前第5步版本互换");
+});
+it("routes an explicit report task through the native SUM host with a separate thread and no iterate context", async () => {
+  mocks.resolve.mockResolvedValue({ threadId: "summary", skillName: "课程总结", versionId: "sum-v1" });
+  window.history.replaceState(null,"","/aidt/p?step=6&tool=chat&summary=1&thread=iterate&summaryThread=summary");
+  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[5]} thread="summary" purpose="report" />);
+  await screen.findByTestId("chat-shell");
+  expect(mocks.resolve).toHaveBeenCalledWith(expect.objectContaining({ purpose: "report", thread: "summary" }));
+  expect(new URLSearchParams(window.location.search).get("thread")).toBe("iterate");
+  expect(new URLSearchParams(window.location.search).get("summaryThread")).toBe("summary");
+  expect(mocks.context.mock.calls.at(-1)![0].value).toMatchObject({ task:"report-summary", skillStableName:"dt-summarize-project",reportSummaryContext:null });
+  expect(mocks.context.mock.calls.at(-1)![0].value).not.toHaveProperty("returnReflectionContext");
+  expect(screen.getByTestId("aidt-summary-context")).toBeInTheDocument();
 });

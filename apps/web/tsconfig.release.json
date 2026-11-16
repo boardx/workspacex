@@ -11,7 +11,9 @@
     "lib/**/*.tsx",
     ".next/types/**/*.ts",
     ".next-chat-read-e2e/types/**/*.ts",
-    ".next-aidt-local/types/**/*.ts"
+    ".next-aidt-local/types/**/*.ts",
+    ".next-aidt-real-model/types/**/*.ts",
+    ".next-aidt-real-final/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

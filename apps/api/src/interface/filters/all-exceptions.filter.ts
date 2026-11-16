@@ -1,3 +1,4 @@
+import { CourseError as AidtCourseErrorCode } from "@repo/contracts/aidt-courses";
 import { MemberCreditQuotaError } from "@repo/contracts/member-credit-quota";
 import { StageError as AidtStageErrorCode, SharedStage as AidtSharedStage } from "@repo/contracts/aidt-stages";
 import { Reason as ProjectMemberChatReason } from "@repo/contracts/project-member-chat";
@@ -148,6 +149,8 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const raw = (body as { reasonCode?: unknown }).reasonCode;
+  const aidtCourse = AidtCourseErrorCode.safeParse(raw);
+  if (aidtCourse.success) return { reasonCode: aidtCourse.data };
   const aidtStage = AidtStageErrorCode.safeParse(raw);
   if (aidtStage.success) {
     // A conflict's current draft is disclosed by the service only after project authorization.

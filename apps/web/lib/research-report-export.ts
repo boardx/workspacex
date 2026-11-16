@@ -83,15 +83,48 @@ export async function downloadResearchWord(root: HTMLElement, title: string) {
   const link = document.createElement("a"); link.href = url; link.download = `${title.replace(/[\\/:*?"<>|]/g, "-") || "研究报告"}.docx`;
   document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+export async function preparePrintImages(images: readonly HTMLImageElement[]): Promise<void> {
+  if (!images.length) return;
+  const cleanup: (() => void)[] = [];
+  let timer: number | undefined;
+  try {
+    await Promise.race([
+      Promise.all(images.map(async image => {
+        if (typeof image.decode === "function") await image.decode();
+        else await new Promise<void>((resolve, reject) => {
+          const loaded = () => resolve(), failed = () => reject(new Error("Print image unavailable"));
+          image.addEventListener("load", loaded, { once: true }); image.addEventListener("error", failed, { once: true });
+          cleanup.push(() => { image.removeEventListener("load", loaded); image.removeEventListener("error", failed); });
+          if (image.complete) { if (image.naturalWidth > 0 && image.naturalHeight > 0) resolve(); else failed(); }
+        });
+        if (image.naturalWidth <= 0 || image.naturalHeight <= 0) throw new Error("Print image unavailable");
+      })),
+      new Promise<never>((_, reject) => { timer = window.setTimeout(() => reject(new Error("Print images timed out")), 10_000); }),
+    ]);
+  } finally { if (timer !== undefined) window.clearTimeout(timer); cleanup.forEach(dispose => dispose()); }
+}
 /** Native PDF preserves Chinese text, selectable text, links and pagination. */
-export function printResearchPdf(root: HTMLElement, title?: string) {
+export async function printResearchPdf(root: HTMLElement, title?: string, options?: { isCurrent?: () => boolean }): Promise<void> {
   const frame = document.createElement("iframe"); frame.title = "研究报告 PDF"; frame.style.cssText = "position:fixed;width:0;height:0;border:0"; document.body.append(frame);
   const target = frame.contentDocument; const view = frame.contentWindow;
   if (!target || !view) { frame.remove(); throw new Error("Print unavailable"); }
   const style = target.createElement("style"); style.textContent = "@page{size:A4;margin:20mm}body{font:11pt/1.8 sans-serif;color:#111}h2{font-size:22pt}h3{font-size:16pt}h4{font-size:13pt}h2,h3,h4,h5{break-after:avoid}p{orphans:3;widows:3}a{color:inherit;overflow-wrap:anywhere}sup{font-size:8pt}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6pt}nav{break-inside:avoid}li{margin-bottom:6pt}section{margin-top:18pt}";
   const report = target.importNode(exportDocument(root), true);
+  const images = Array.from(report.querySelectorAll("img"));
+  // A hidden print frame must not defer lazy images until it enters the viewport.
+  images.forEach(image => { image.loading = "eager"; });
   target.head.append(style); target.body.append(report); target.title = title ?? root.querySelector("h2")?.textContent ?? "研究报告";
-  view.addEventListener("afterprint", () => frame.remove(), { once: true });
-  // Give the isolated document one frame to lay out before printing.
-  view.requestAnimationFrame(() => { view.focus(); view.print(); });
+  try {
+    await preparePrintImages(images);
+    // Decode the imported nodes, then allow the isolated document to lay out.
+    await new Promise<void>(resolve => {
+      let finished = false;
+      const done = () => { if (!finished) { finished = true; window.clearTimeout(fallback); resolve(); } };
+      const fallback = window.setTimeout(done, 100);
+      view.requestAnimationFrame(done);
+    });
+    if (!frame.isConnected || options?.isCurrent?.() === false) throw new Error("Print cancelled");
+    view.addEventListener("afterprint", () => frame.remove(), { once: true });
+    view.focus(); view.print();
+  } catch (error) { frame.remove(); throw error; }
 }

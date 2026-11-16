@@ -1,0 +1,22 @@
+{
+  "source": "a6/aidt-v2-human-acceptance.md",
+  "sourceSha256": "308b29d4ba095c42b3257c9ef7bda4cdc8a0ba70f5328216ec9750ab60b818a5",
+  "pages": 23,
+  "all15HumanCasesPresent": true,
+  "FR01to19IndexPresent": true,
+  "resultsAndSignaturesRemainBlank": true,
+  "humanAcceptanceCompleted": false,
+  "status": "acceptance-procedure-not-passing-certificate",
+  "fontChecked": "Chinese rendered and text extracted",
+  "visualPagesInspected": [
+    1,
+    4,
+    20,
+    21,
+    22,
+    23
+  ],
+  "notes": "Updated 23-page procedure retains all H01–H15 and FR01–19. Chinese text, current machine index, defect rows and blank human signatures visually reviewed. No browser screenshots or credentials. This is a procedure, not a passing certificate.",
+  "reproduce": "python3 scripts/render-aidt-acceptance-pdf.py --output <output.pdf> --qa-dir <private-qa-folder>",
+  "outOfBoundsTextPages": []
+}

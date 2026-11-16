@@ -298,6 +298,9 @@ const modelProviderEnv = {
 
 export default defineConfig({
   testDir: "./e2e",
+  // Real AIDT Agent acceptance owns an external, explicitly opted-in supplier stack.
+  // Keep this exact file out of the deterministic supplier-fixture lane.
+  testIgnore: ["**/aidt-v2-student-journey.spec.ts", "**/aidt-v2-courses.spec.ts"],
   /**
    * #3002 —— **每条 journey 必须有自己的 outputDir**，否则 CI 上取不到失败产物。
    *

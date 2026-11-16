@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-16",
+  "source": "isolated-native-real-model-stack-authenticated-GET-skills-entry-library",
+  "loginStatus": 200,
+  "catalogStatus": 200,
+  "totalItemsAtObservation": 32,
+  "stageSkills": [
+    { "platformStableName": "aidt-understand", "enabled": true, "currentVersionIdPresent": true },
+    { "platformStableName": "aidt-empathize", "enabled": true, "currentVersionIdPresent": true },
+    { "platformStableName": "aidt-define", "enabled": true, "currentVersionIdPresent": true },
+    { "platformStableName": "aidt-ideate", "enabled": true, "currentVersionIdPresent": true },
+    { "platformStableName": "aidt-prototype", "enabled": true, "currentVersionIdPresent": true },
+    { "platformStableName": "aidt-iterate", "enabled": true, "currentVersionIdPresent": true }
+  ],
+  "requestedSummarySkill": { "platformStableName": "dt-summarize-project", "presentAtObservation": false },
+  "otherReportSkill": { "platformStableName": "project-status-report", "enabled": true, "currentVersionIdPresent": true, "treatedAsTeachingSummaryAlias": false },
+  "acceptance": "catalog-and-current-version-presence-only-not-agent-behavior",
+  "credentialsOrSessionTokensRecorded": false
+}

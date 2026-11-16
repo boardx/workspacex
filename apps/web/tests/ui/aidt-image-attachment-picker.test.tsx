@@ -3,9 +3,9 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, expect, it, vi } from "vitest";
 import { AidtImageAttachmentPicker, AidtImageAttachmentPreview } from "@/features/aidt/components/aidt-image-attachment-picker";
 import type { AidtImageAttachmentOption } from "@/features/aidt/lib/aidt-image-attachments";
-const mocks = vi.hoisted(() => ({ enabled: true, hasSession: true, load: vi.fn(), media: vi.fn(), session: { currentOrgId: "org", userId: "student", sessionToken: "token" } }));
+const mocks = vi.hoisted(() => ({ enabled: true, hasSession: true, load: vi.fn(), threads: vi.fn(), media: vi.fn(), session: { currentOrgId: "org", userId: "student", sessionToken: "token" } }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mocks.enabled }));
-vi.mock("@/features/aidt/lib/aidt-image-attachments", async (original) => ({ ...await original<typeof import("@/features/aidt/lib/aidt-image-attachments")>(), loadAidtImageAttachments: mocks.load }));
+vi.mock("@/features/aidt/lib/aidt-image-attachments", async (original) => ({ ...await original<typeof import("@/features/aidt/lib/aidt-image-attachments")>(), loadAidtImageAttachments: mocks.load, loadAidtProjectImageThreads: mocks.threads }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => mocks.hasSession ? ({ session: mocks.session }) : null }));
 vi.mock("@/lib/use-authed-image-src", () => ({ useAuthedImageSrc: mocks.media }));
 vi.mock("@/lib/api-client", () => ({ apiUrl: (path: string) => `/api${path}` }));
@@ -23,6 +23,21 @@ it("loads lazily and selects only an existing sent attachment reference", async 
   expect(mocks.load).toHaveBeenCalledWith(expect.objectContaining({ projectId: "p", threadId: "t", sessionToken: "token" }));
   expect(mocks.media).toHaveBeenCalledWith("/api/chat/threads/t/attachments/a1/content");
   expect(screen.queryByText("从本步共享对话中选择已发送的图片。", { exact: false })).not.toBeInTheDocument();
+});
+it("can reuse a decoded picture from another step's shared thread while keeping its real source", async () => {
+  mocks.threads.mockResolvedValue([{ id: "t", title: "点子对话" }, { id: "research", title: "研究材料对话" }]);
+  mocks.load.mockImplementation(({ threadId }: { threadId: string }) => Promise.resolve([option(threadId === "research" ? "research-photo" : "a1", threadId)]));
+  const selected = vi.fn(); render(<AidtImageAttachmentPicker projectId="p" thread="t" onChange={selected} />);
+  fireEvent.click(screen.getByRole("button", { name: "选择点子图像" }));
+  fireEvent.click(screen.getByRole("button", { name: "从本组其他对话选图" }));
+  const sources = await screen.findByRole("combobox", { name: "图片来源对话" });
+  fireEvent.change(sources, { target: { value: "research" } });
+  const image = await screen.findByRole("img", { name: "research-photo.png" });
+  expect(mocks.load).toHaveBeenLastCalledWith(expect.objectContaining({ projectId: "p", threadId: "research", sessionToken: "token" }));
+  Object.defineProperties(image, { naturalWidth: { value: 40 }, naturalHeight: { value: 30 } }); fireEvent.load(image);
+  const choice = screen.getByRole("button", { name: /research-photo.png/ });
+  await waitFor(() => expect(choice).toBeEnabled()); fireEvent.click(choice);
+  expect(selected).toHaveBeenCalledWith({ attachmentId: "research-photo", threadId: "research", name: "research-photo.png" });
 });
 it("distinguishes loading failure with retry from a genuine empty list", async () => {
   mocks.load.mockRejectedValueOnce(new Error("503"));

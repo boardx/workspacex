@@ -33,6 +33,7 @@ import {
 import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
 import { pullModelWithProgress } from "./pull-progress";
 import { probeChatModel, probeEmbeddingModel } from "./model-preflight";
+import { ensurePrivateUsageSpool } from "./usage-spool";
 import { checkWebBuild } from "./web-build";
 import { createBackup, type CreateBackupResult } from "./backup";
 import { superviseManaged, type ServiceHealth, type Supervised } from "./supervisor";
@@ -453,6 +454,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     let deepAgentUrl: string | null = null;
     const launch = resolveDeepAgentLaunch(c, opts.bundlePythonDir);
     if (launch) {
+      ensurePrivateUsageSpool(paths.usageSpool(c));
       deepAgentUrl = `http://127.0.0.1:${c.ports.deepAgent}`;
       log(`[deep-agent] python runtime: ${launch.source} (${launch.command})`);
       spawn({

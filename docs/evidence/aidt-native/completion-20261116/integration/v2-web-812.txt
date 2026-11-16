@@ -1,0 +1,634 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/aidt-shared-stages.test.tsx (38 tests) 480ms
+ ✓ tests/ui/project-aidt-chat.test.tsx (36 tests) 326ms
+ ✓ tests/ui/project-member-chat.test.tsx (29 tests) 575ms
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > sending after reading history restores bottom-follow mode (#3032)
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:103:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > sending after reading history restores bottom-follow mode (#3032)
+[CopilotKit] Error (agent_run_failed_event): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:22)
+    at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:526:7) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:28)
+      at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:519:12)
+      at file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:369:36
+} {
+  source: 'onRunFailed',
+  agentId: 'copilotkit-v2-ea0de4c7-9150-4f98-a8a1-a1de05241d79'
+}
+[copilotkit-v2] agent run failed {
+  code: 'Failed to parse URL from /api/copilotkit/info',
+  context: {
+    source: 'onRunFailed',
+    agentId: 'copilotkit-v2-ea0de4c7-9150-4f98-a8a1-a1de05241d79'
+  }
+}
+Agent execution failed: TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:22)
+    at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:526:7) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:28)
+      at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:519:12)
+      at file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:369:36
+}
+[CopilotKit] Error (agent_run_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:22)
+    at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:526:7) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:28)
+      at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:519:12)
+      at file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:369:36
+} { agentId: 'copilotkit-v2-ea0de4c7-9150-4f98-a8a1-a1de05241d79' }
+[copilotkit-v2] agent run failed {
+  code: 'Failed to parse URL from /api/copilotkit/info',
+  context: { agentId: 'copilotkit-v2-ea0de4c7-9150-4f98-a8a1-a1de05241d79' }
+}
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 贴底时不显示悬浮按钮；往上翻离开底部后按钮出现，点击后回到底部且状态复位
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 滚动容器自身是定位上下文（issue #2857：绝对定位后代不得撑大外层 main）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 跳到原消息（高亮某条）放开贴底跟随：之后的滚动不被当成贴底途中吞掉，不再被拽回底部
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at runNextTicks (node:internal/process/task_queues:64:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 按钮不在滚动容器内部（否则会跟着内容一起滚走，停在某条消息中间）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 程序化标记仍置位时，用户滚轮引发的滚动不得被吞掉（#3145：流式期间往上翻会被拽回底部）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 程序化滚动（点按钮/自动跟随）途中的 scroll 事件不把贴底态翻回去；用户滚轮介入后才算离开底部
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 拖滚动条（pointerdown，不是 wheel）中断程序化滚动 ⇒ 之后离开底部的 scroll 被如实采纳
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 程序化滚动没有产生任何 scroll 事件（auto 且位置没变）⇒ 标记在有界超时后自动解除，不吞掉后续用户滚动
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > scrollend 事件解除标记（支持该事件的浏览器不必等超时）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > Ctrl+End 跳到最新：往上翻后按快捷键，等价于点击按钮
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 普通 End（无修饰键）不触发跳转——不能吞掉输入框里「移到行尾」的原生行为
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx (15 tests) 998ms
+   ✓ CopilotKitV2Panel 消息区跳到最新（issue #2071） > sending after reading history restores bottom-follow mode (#3032) 373ms
+ ✓ tests/ui/aidt-personal-checkpoints.test.tsx (16 tests) 327ms
+ ✓ tests/ui/aidt-surprise-reflection.test.tsx (24 tests) 336ms
+ ✓ tests/ui/aidt-stage-output-classification.test.tsx (17 tests) 814ms
+ ✓ tests/ui/aidt-prototype-version-picker.test.tsx (17 tests) 452ms
+ ✓ tests/ui/project-aidt.test.tsx (16 tests) 595ms
+ ✓ tests/ui/aidt-image-attachment-picker.test.tsx (15 tests) 264ms
+ ✓ tests/ui/aidt-resource-isolation.test.tsx (11 tests) 294ms
+ ✓ tests/ui/aidt-entry-isolation.test.tsx (13 tests) 344ms
+ ✓ tests/ui/aidt-research-material.test.tsx (9 tests) 221ms
+ ✓ tests/ui/aidt-state-isolation.test.tsx (9 tests) 532ms
+ ✓ tests/ui/aidt-entry.test.tsx (14 tests) 261ms
+ ✓ tests/ui/aidt-courses-panel.test.tsx (10 tests) 239ms
+ ✓ tests/ui/aidt-problem-reflection.test.tsx (11 tests) 174ms
+stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx > CopilotKitV2Panel 的 markdownRenderer slot —— 走 MarkdownMessage，不是 CopilotKit 自带 Streamdown > assistant 消息经 CopilotChatMessageView 渲染：markdown 结构 + mermaid 围栏路由到 ChatDiagramFabric
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:103:5)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx > CopilotKitV2Panel 的 markdownRenderer slot —— 走 MarkdownMessage，不是 CopilotKit 自带 Streamdown > user 消息不经这个 slot（slot 只挂在 assistantMessage 上）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+ ✓ tests/ui/copilotkit-v2-panel-markdown.test.tsx (2 tests) 188ms
+stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 可归因的 agent 消息：三者非 undefined，且 messageId 是解析出的真实 chat_messages.id
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:103:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 不可归因的历史消息（agentRunId 为 null）：messageId 仍是真实 chat_messages.id——落地不要求归因
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 新对话（chatThreadId=null，还没有真实线程）：threadId 如实是 undefined
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx (3 tests) 278ms
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > CopilotKitV2PanelBody 的 userMessage slot —— 走 V2UserMessage，不是框架默认 MessageRenderer > user 消息经 CopilotChatMessageView 渲染：正文容器带 text-13（lib/font-scale.ts 唯一事实源）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:103:5)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > issue #4179 —— 消息旁「记住这句」：只在用户自己发的消息上出现，点击不直接写入 > 用户消息上有「记住这句」；AI 消息（框架默认 assistantMessage）上没有
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > issue #4179 —— 消息旁「记住这句」：只在用户自己发的消息上出现，点击不直接写入 > 点击「记住这句」⇒ 只发出请求（`requestRememberStatement`），不直接写入任何东西
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at runNextTicks (node:internal/process/task_queues:64:5)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > issue #4179 —— 消息旁「记住这句」：只在用户自己发的消息上出现，点击不直接写入 > 消息正文为空白 ⇒ 不渲染「记住这句」（没有内容可记）
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at runNextTicks (node:internal/process/task_queues:64:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > uiux-r3 #5.4 —— 数字人对话不出「这句没有需要记的」 > 普通对话：empty 时有这一行（对照组）
+Agent default not found
+[CopilotKit Inspector] Failed to load announcement Error: Malformed announcement payload
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11601:15)
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+Failed to load runtime info (/api/copilotkit/info): Cannot convert undefined or null to object
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Cannot convert undefined or null to object
+    at Function.entries (<anonymous>)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:502:16)
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > uiux-r3 #5.4 —— 数字人对话不出「这句没有需要记的」 > 选中数字人：这一行整个不画
+Agent default not found
+[CopilotKit Inspector] Failed to load announcement Error: Malformed announcement payload
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11601:15)
+Failed to load runtime info (/api/copilotkit/info): Cannot convert undefined or null to object
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Cannot convert undefined or null to object
+    at Function.entries (<anonymous>)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:502:16) { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/copilotkit-v2-panel-user-message.test.tsx (6 tests) 320ms
+ ✓ tests/ui/aidt-resource-navigation.test.tsx (18 tests) 248ms
+ ✓ tests/ui/aidt-report-history.test.tsx (11 tests) 248ms
+ ✓ tests/ui/aidt-stage-history.test.tsx (7 tests) 171ms
+ ✓ tests/ui/aidt-round-navigation.test.tsx (9 tests) 168ms
+stderr | tests/ui/copilotkit-v2-panel-agent-switch-keeps-thread.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+ ✓ tests/ui/copilotkit-v2-panel-agent-switch-keeps-thread.test.tsx (1 test) 314ms
+   ✓ copilotkit-v2-panel 在既有对话里换 agent（issue #3028） > 换 agent 不卸载对话主体：历史仍在，消息子树的真挂载次数仍是 1 314ms
+ ✓ tests/ui/design-composer-context-offer.test.tsx (6 tests) 425ms
+ ✓ tests/ui/project-member-chat-launcher.test.tsx (6 tests) 194ms
+ ✓ tests/ui/aidt-ui-v3.test.tsx (8 tests) 247ms
+ ✓ tests/ui/aidt-ui-v2.test.tsx (8 tests) 385ms
+ ✓ tests/ui/project-members-panel.test.tsx (7 tests) 158ms
+ ✓ tests/ui/aidt-stage-contract.test.tsx (10 tests) 177ms
+ ✓ tests/ui/aidt-summary-report.test.tsx (4 tests) 172ms
+ ✓ tests/ui/aidt-idea-classification.test.tsx (6 tests) 250ms
+ ✓ tests/ui/aidt-module-compatibility.test.tsx (10 tests) 172ms
+ ✓ tests/ui/aidt-test-reflection.test.tsx (5 tests) 178ms
+stderr | tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx > copilotkit-v2-panel 打字时消息里的画布不被重新挂载（issue #2132） > 敲 5 个字符后，画布探针的真实挂载次数仍是 1（不是随按键次数增长）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-module-latest/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:103:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx (1 test) 307ms
+   ✓ copilotkit-v2-panel 打字时消息里的画布不被重新挂载（issue #2132） > 敲 5 个字符后，画布探针的真实挂载次数仍是 1（不是随按键次数增长） 306ms
+ ✓ tests/ui/aidt-stage-journey.test.tsx (10 tests) 248ms
+ ✓ tests/ui/project-member-topic-transition.test.tsx (1 test) 154ms
+ ✓ tests/ui/aidt-course-entry.test.tsx (8 tests) 182ms
+ ✓ tests/ui/aidt-discovery-cards.test.tsx (4 tests) 185ms
+ ✓ tests/ui/aidt-prototype-binding-integration.test.tsx (2 tests) 134ms
+ ✓ tests/ui/aidt-stage-original-image.test.tsx (2 tests) 251ms
+ ✓ tests/ui/aidt-assistant-panel.test.tsx (3 tests) 112ms
+ ✓ tests/ui/aidt-discovery-source-picker.test.tsx (3 tests) 123ms
+ ✓ tests/ui/aidt-iteration-prototype.test.tsx (2 tests) 169ms
+ ✓ tests/ui/aidt-course-role-lifecycle.test.tsx (3 tests) 75ms
+ ✓ tests/ui/aidt-ui-v5.test.tsx (4 tests) 161ms
+ ✓ tests/ui/aidt-shared-report-preview.test.tsx (3 tests) 157ms
+ ✓ tests/ui/aidt-learning-guide.test.tsx (11 tests) 156ms
+ ✓ tests/ui/aidt-design-workspace.test.tsx (4 tests) 200ms
+ ✓ tests/ui/aidt-v2-shared-round.test.tsx (2 tests) 123ms
+ ✓ tests/ui/aidt-chat-isolation.test.tsx (7 tests) 142ms
+ ✓ tests/ui/aidt-feedback-loop.test.tsx (2 tests) 183ms
+ ✓ tests/ui/aidt-verification-question.test.tsx (2 tests) 101ms
+ ✓ tests/ui/home-aidt-entry.test.tsx (2 tests) 80ms
+ ✓ tests/aidt-stage-persistence.test.ts (26 tests) 157ms
+ ✓ tests/live-aidt-step-chat.test.ts (18 tests) 61ms
+ ✓ tests/aidt-verification-loop.test.ts (14 tests) 7ms
+ ✓ tests/aidt-research-materials.test.ts (11 tests) 18ms
+ ✓ tests/aidt-chat-return-context.test.ts (8 tests) 9ms
+ ✓ tests/aidt-design-handoff.test.ts (10 tests) 10ms
+ ✓ tests/aidt-module-boundary.test.ts (4 tests) 1735ms
+   ✓ keeps production AIDT consumers on explicit public registration adapters 1721ms
+ ✓ tests/aidt-prototype-reference.test.ts (8 tests) 8ms
+ ✓ tests/aidt-report-history.test.ts (9 tests) 10ms
+ ✓ tests/aidt-iteration-prototype.test.ts (8 tests) 6ms
+ ✓ tests/aidt-prototype-versions.test.ts (7 tests) 10ms
+ ✓ tests/aidt-chat-saved-context.test.ts (8 tests) 6ms
+ ✓ tests/aidt-idea-classification.test.ts (12 tests) 6ms
+ ✓ tests/aidt-chat-shared-context.test.ts (10 tests) 6ms
+ ✓ tests/live-project-member-chat.test.ts (10 tests) 10ms
+ ✓ tests/aidt-ui-stage-summary.test.ts (8 tests) 3ms
+ ✓ tests/live-aidt-chat-isolation.test.ts (6 tests) 56ms
+ ✓ tests/aidt-course-context.test.ts (7 tests) 160ms
+ ✓ tests/aidt-image-attachments.test.ts (7 tests) 7ms
+ ✓ tests/aidt-discovery-evidence.test.ts (5 tests) 9ms
+ ✓ tests/aidt-prototype-formatting-boundary.test.ts (2 tests) 37ms
+ ✓ tests/aidt-summary-context.test.ts (6 tests) 7ms
+ ✓ tests/aidt-board-return-navigation.test.ts (26 tests) 4ms
+ ✓ tests/aidt-summary-results.test.ts (4 tests) 7ms
+ ✓ tests/aidt-course-client.test.ts (5 tests) 7ms
+ ✓ tests/aidt-shared-stage-client.test.ts (5 tests) 6ms
+ ✓ tests/aidt-v2-report.test.ts (2 tests) 3ms
+ ✓ tests/e2e-support/aidt-facilitation-cases.test.ts (11 tests) 6ms
+ ✓ tests/aidt-stage-history-client.test.ts (4 tests) 7ms
+ ✓ tests/aidt-project-membership.test.ts (5 tests) 5ms
+ ✓ tests/aidt-state-isolation.test.ts (3 tests) 2ms
+ ✓ tests/aidt-idea-readiness.test.ts (2 tests) 2ms
+ ✓ tests/project-member-chat-navigation.test.ts (8 tests) 2ms
+ ✓ tests/unit/project-context.test.ts (18 tests) 3ms
+ ✓ tests/aidt-teaching-stage.test.ts (2 tests) 3ms
+ ✓ tests/aidt-entry-isolation-config.test.ts (10 tests) 2ms
+
+ Test Files  91 passed (91)
+      Tests  812 passed (812)
+   Start at  04:57:04
+   Duration  89.15s (transform 6.09s, setup 5.21s, collect 34.29s, tests 17.16s, environment 19.68s, prepare 2.87s)

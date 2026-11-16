@@ -13,7 +13,7 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { arch, platform } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export interface LocalPorts {
   readonly postgres: number;
@@ -208,6 +208,7 @@ export const paths = {
   sessions: (c: PathsOf) => join(c.dataDir, "sessions.json"),
   models: (c: PathsOf) => join(c.dataDir, "models"),
   logs: (c: PathsOf) => join(c.dataDir, "logs"),
+  usageSpool: (c: PathsOf) => resolve(c.dataDir, "usage-spool"),
   sandboxIn: (c: PathsOf) => join(c.dataDir, "sandbox", "in"),
   sandboxOut: (c: PathsOf) => join(c.dataDir, "sandbox", "out"),
   seedState: (c: PathsOf) => join(c.dataDir, "seed-state.json"),
@@ -442,6 +443,7 @@ export function deepAgentEnv(c: LocalConfig): Env {
     KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS: "2500",
     DEEP_AGENT_SERVICE_INTERNAL_KEY: c.secrets.deepAgentInternalKey,
     DEEP_AGENT_OTEL_DISABLED: "1",
+    DEEP_AGENT_USAGE_SPOOL_DIR: paths.usageSpool(c),
     PYTHONPATH: join(c.repoRoot, "apps", "deep-agent-service", "src"),
   };
 }

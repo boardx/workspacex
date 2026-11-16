@@ -1,8 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { aidtImageAttachmentContentUrl, loadAidtImageAttachments } from "@/features/aidt/lib/aidt-image-attachments";
-const mocks = vi.hoisted(() => ({ enabled: true, thread: vi.fn(), list: vi.fn() }));
+import { aidtImageAttachmentContentUrl, loadAidtImageAttachments, loadAidtProjectImageThreads } from "@/features/aidt/lib/aidt-image-attachments";
+const mocks = vi.hoisted(() => ({ enabled: true, thread: vi.fn(), list: vi.fn(), threads: vi.fn() }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mocks.enabled }));
-vi.mock("@/lib/live-chat", () => ({ getThread: mocks.thread, listThreadAttachments: mocks.list }));
+vi.mock("@/lib/live-chat", () => ({ getThread: mocks.thread, listThreadAttachments: mocks.list, listThreads: mocks.threads }));
 vi.mock("@/lib/api-client", () => ({ apiUrl: (path: string) => `/api${path}` }));
 const item = (id = "a1", mime = "image/png", messageId = "m1") => ({ id, mime, messageId, filename: `${id}.png`, bytes: 12, createdAt: "2026-11-15T00:00:00Z" });
 const input = () => ({ projectId: "p", threadId: "t", sessionToken: "captured-token" });
@@ -42,4 +42,12 @@ it("does not start or continue attachment reads after disable/cancellation", asy
 it("builds only the fixed authenticated content route with opaque identifiers encoded", () => {
   expect(() => aidtImageAttachmentContentUrl({ threadId: "..", attachmentId: "a", name: "ignored.png" })).toThrow("AIDT_IMAGE_UNAVAILABLE");
   expect(aidtImageAttachmentContentUrl({ threadId: "t/../remote", attachmentId: "a?x=#", name: "https://untrusted/image.png" })).toBe("/api/chat/threads/t%2F..%2Fremote/attachments/a%3Fx%3D%23/content");
+});
+it("lists only authorized shared source threads and forwards project scope and cancellation", async () => {
+  mocks.threads.mockResolvedValueOnce({ groups: [{ cards: [{ id: "t", title: "本组第一步", visibilityScope: "plenary" }, { id: "t", title: "重复", visibilityScope: "plenary" }, { id: "private", title: "私人", visibilityScope: "personal" }] }] });
+  const cancellation = new AbortController();
+  expect(await loadAidtProjectImageThreads("p", "captured", cancellation.signal)).toEqual([{ id: "t", title: "本组第一步" }]);
+  expect(mocks.threads).toHaveBeenCalledWith("p", { filter: "project" }, "captured", cancellation.signal);
+  cancellation.abort(); await expect(loadAidtProjectImageThreads("p", "captured", cancellation.signal)).rejects.toThrow("AIDT_CONTEXT_CHANGED");
+  expect(mocks.threads).toHaveBeenCalledOnce();
 });

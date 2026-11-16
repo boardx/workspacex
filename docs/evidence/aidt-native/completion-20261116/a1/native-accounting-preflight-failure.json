@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-16",
+  "kind": "native-dispatch-accounting-preflight-failure",
+  "runs": [
+    {
+      "id": "4eb4a9ff-6bca-44c9-a5ab-39b2d7584d82",
+      "status": "failed",
+      "threadId": "thr-f87459c2-592f-4660-886a-28573493fa50",
+      "projectId": "prj-61149111-e7e5-4f07-8683-cd724ecdb496"
+    }
+  ],
+  "errorCode": "CREDIT_DISPATCH_ACCOUNTING_UNSUPPORTED",
+  "providerDispatched": false,
+  "evidenceBasis": "gateway rejects unsupported callback accounting before adapter dispatch",
+  "rawContentsRecorded": false
+}

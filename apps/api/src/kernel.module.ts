@@ -1051,11 +1051,19 @@ import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-
 import { TEMPORARY_GRANT_REPOSITORY } from "./application/identity/temporary-grant-ports";
 import { PgTemporaryGrantRepository } from "./infrastructure/identity/pg-temporary-grant-repository";
 import { ProjectController } from "./interface/controllers/project.controller";
+import { AidtCoursesController } from "./interface/controllers/aidt-courses.controller";
+import { AIDT_COURSES_SERVICE, AidtCoursesService } from "./application/aidt-courses/service";
+import { PgAidtCourseRepository } from "./infrastructure/aidt-courses/pg-aidt-course-repository";
 import { AidtStagesController } from "./interface/controllers/aidt-stages.controller";
 import { ProjectMemberChatController } from "./interface/controllers/project-member-chat.controller";
 import { AIDT_STAGES_SERVICE, AidtStagesService } from "./application/aidt-stages/service";
 import { PgAidtStageRepository } from "./infrastructure/aidt-stages/pg-aidt-stage-repository";
 import { isAidtModuleEnabled } from "./infrastructure/aidt/aidt-module";
+import { AidtRawFilesController, AidtRawUploadGuard } from "./interface/controllers/aidt-raw-files.controller";
+import { AIDT_RAW_FILES_SERVICE } from "./application/aidt-files/ports";
+import { AidtRawFilesService } from "./application/aidt-files/service";
+import { PgAidtRawFilesRepository } from "./infrastructure/aidt-files/pg-aidt-raw-files-repository";
+import { LogSecurityAlert } from "./infrastructure/files/log-security-alert";
 import { PROJECT_MEMBER_CHAT_REPOSITORY } from "./application/project-member-chat/ports";
 import { PgProjectMemberChatRepository } from "./infrastructure/project-member-chat/pg-project-member-chat-repository";
 // B2-S5（#4429）：设置页「AI 权限」——侧表 `project_ai_settings`，独立 provider + 独立 controller，
@@ -1330,7 +1338,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     FilesRetentionController,
     DeviceSessionController,
     ProjectController,
-    AidtStagesController,
+    AidtStagesController, AidtRawFilesController,
+    AidtCoursesController,
     ProjectMemberChatController,
     ProjectAiSettingsController,
     AssetDirectoryController,
@@ -1965,6 +1974,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         new PgLocalExportRepository(db, prov),
       inject: [DATABASE_PORT, PROVENANCE_WRITER],
     },
+    AidtRawUploadGuard,
+    { provide: AIDT_RAW_FILES_SERVICE, useFactory: (db: DatabasePort, store: ObjectStore, ids: IdFactory) => new AidtRawFilesService(new PgAidtRawFilesRepository(db), store, ids, new LogSecurityAlert(), isAidtModuleEnabled), inject: [DATABASE_PORT, OBJECT_STORE, ID_FACTORY] },
     {
       provide: ARTIFACT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgArtifactRepository(db),
@@ -3136,6 +3147,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: PROJECT_OVERVIEW_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectOverviewRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AIDT_COURSES_SERVICE,
+      useFactory: (db: DatabasePort) => new AidtCoursesService(new PgAidtCourseRepository(db), isAidtModuleEnabled),
       inject: [DATABASE_PORT],
     },
     {

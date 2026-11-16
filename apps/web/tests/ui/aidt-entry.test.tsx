@@ -1,4 +1,5 @@
 import * as React from "react";
+vi.mock("@/features/aidt/components/aidt-courses-panel", () => ({ AidtCoursesPanel: () => null }));
 import { beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AidtHome } from "@/features/aidt/entry/home";
@@ -6,12 +7,13 @@ import { AidtProjectWorkspace } from "@/features/aidt/entry/workspace";
 import { AidtCreateProjectForm } from "@/features/aidt/components/aidt-create-project-form";
 import { AIDT_PROJECT_TAG } from "@/lib/project-aidt";
 import { ApiError } from "@/lib/api-client";
-const api = vi.hoisted(() => ({ list: vi.fn(), find: vi.fn(), overview: vi.fn(), create: vi.fn(), tag: vi.fn(), push: vi.fn(), workspace: vi.fn(), membership: vi.fn(), role: "lead" }));
+const api = vi.hoisted(() => ({ list: vi.fn(), find: vi.fn(), overview: vi.fn(), create: vi.fn(), tag: vi.fn(), push: vi.fn(), workspace: vi.fn(), membership: vi.fn(), groups: vi.fn(), role: "lead" }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push: api.push }) }));
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({ session: { currentOrgId: "o1", userId: "u1", sessionToken: "token" } }),
   useOptionalSession: () => ({ session: { currentOrgId: "o1", userId: "u1", sessionToken: "token" }, identity: { orgRole: api.role } }),
 }));
+vi.mock("@/features/aidt/lib/aidt-course-context", () => ({ loadAidtCourseGroups: api.groups }));
 vi.mock("@/features/aidt/lib/aidt-project-membership", () => ({ readAidtProjectMembership: api.membership }));
 vi.mock("@/lib/live-projects", () => ({ listProjects: api.list, findProject: api.find, getProjectOverview: api.overview, createProject: api.create, updateProjectTags: api.tag }));
 vi.mock("@/components/project/project-collaborators-panel", () => ({ ProjectCollaboratorsPanel: ({ readOnly }: { readOnly: boolean }) => <div data-testid="native-group-roster" data-readonly={String(readOnly)} /> }));
@@ -20,7 +22,7 @@ const special = { id: "p1", name: "食堂设计", kind: "general", status: "acti
 beforeEach(() => {
   vi.clearAllMocks(); vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); api.role = "lead"; api.list.mockResolvedValue([special, { ...special, id: "ordinary", tags: [] }]);
   api.find.mockResolvedValue(special); api.overview.mockResolvedValue({ projectId: "p1", name: "食堂设计", status: "active", kind: "general" });
-  api.membership.mockResolvedValue("owner");
+  api.membership.mockResolvedValue("owner"); api.groups.mockResolvedValue([{ project: special, members: [{ userId: "u1", displayName: "学生甲" }] }]);
   api.create.mockResolvedValue({ id: "p1" }); api.tag.mockResolvedValue({ id: "p1", tags: [AIDT_PROJECT_TAG] });
 });
 it("has its own AIDT list and entry, showing only the special profile", async () => {
@@ -30,7 +32,7 @@ it("has its own AIDT list and entry, showing only the special profile", async ()
   expect(screen.getByTestId("aidt-new")).toBeVisible();
 });
 it("shows list failure rather than pretending there are no AIDT projects", async () => {
-  api.list.mockRejectedValue(new Error("offline")); render(<AidtHome />);
+  api.groups.mockRejectedValue(new Error("offline")); render(<AidtHome />);
   expect(await screen.findByTestId("aidt-home-error")).toBeVisible();
   expect(screen.queryByTestId("aidt-home-empty")).toBeNull();
 });
@@ -92,13 +94,12 @@ it("allows the active administrator role to create groups, matching current serv
 });
 
 it("lists actual learning-group memberships rather than managed-only organization projects", async () => {
-  api.list.mockResolvedValue([special,{...special,id:"managed",name:"仅有组织管理权"}]);
-  api.membership.mockImplementation(async (projectId:string) => projectId==="p1"?"collaborator":null);
+  api.groups.mockResolvedValue([{ project: special, members: [{ userId: "u1", displayName: "学生甲" }] }]);
   render(<AidtHome />); await screen.findByTestId("aidt-project-p1");
   expect(screen.queryByTestId("aidt-project-managed")).toBeNull();
 });
-it("a roster failure remains a retryable list error instead of a false no-groups state", async () => {
-  api.membership.mockRejectedValueOnce(new ApiError(403,"NO_PROJECT_ROLE","NO_PROJECT_ROLE"));
+it("a membership projection failure remains a retryable list error instead of a false no-groups state", async () => {
+  api.groups.mockRejectedValueOnce(new ApiError(403,"NO_PROJECT_ROLE","NO_PROJECT_ROLE"));
   render(<AidtHome />); await screen.findByTestId("aidt-home-error"); expect(screen.queryByTestId("aidt-home-empty")).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:"重试"}));expect(await screen.findByTestId("aidt-project-p1")).toBeVisible();
 });
@@ -116,11 +117,9 @@ it("does not read the home or workspace when the optional module is disabled", (
   expect(screen.getByTestId("aidt-home-disabled")).toBeVisible();expect(screen.getByTestId("aidt-workspace-disabled")).toBeVisible();
   expect(api.list).not.toHaveBeenCalled();expect(api.find).not.toHaveBeenCalled();expect(api.membership).not.toHaveBeenCalled();
 });
-it("reads member rosters in bounded batches and does not refetch on unrelated rerenders", async () => {
-  api.list.mockResolvedValue(Array.from({length:5},(_,i)=>({...special,id:`p${i}`})));
-  const finish:Array<(value:string)=>void>=[];
-  api.membership.mockImplementation(()=>new Promise<string>(resolve=>{finish.push(resolve);}));
-  const {rerender}=render(<AidtHome />);await waitFor(()=>expect(api.membership).toHaveBeenCalledTimes(4));
-  for(const complete of finish.slice(0,4))complete("owner");await waitFor(()=>expect(api.membership).toHaveBeenCalledTimes(5));
-  finish[4]!("owner");await screen.findByTestId("aidt-project-p4");rerender(<AidtHome />);expect(api.membership).toHaveBeenCalledTimes(5);
+it("loads one authorized membership projection without per-group roster probes or unrelated refetches", async () => {
+  api.groups.mockResolvedValue(Array.from({length:5},(_,i)=>({project:{...special,id:`p${i}`},members:[{userId:"u1",displayName:"学生甲"}]})));
+  const {rerender}=render(<AidtHome />);await screen.findByTestId("aidt-project-p4");
+  expect(api.groups).toHaveBeenCalledTimes(1);expect(api.membership).not.toHaveBeenCalled();
+  rerender(<AidtHome />);expect(api.groups).toHaveBeenCalledTimes(1);
 });

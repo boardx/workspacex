@@ -1,0 +1,74 @@
+{
+  "completed": true,
+  "startedAt": "2026-11-16T04:34:03.684Z",
+  "supplierFixture": false,
+  "modelPostAttempts": 2,
+  "modelRequests": [
+    "/pm-designs/ad1117fc-2e52-47d8-b6b1-06b13c54d42a/chat",
+    "/pm-designs/ad1117fc-2e52-47d8-b6b1-06b13c54d42a/chat"
+  ],
+  "screenshots": [
+    "native-v1.png",
+    "native-v2.png",
+    "v2-old-snapshot-relation.png"
+  ],
+  "checks": [
+    "normal-funded-admin-login-ui",
+    "create-dedicated-aidt-project-ui",
+    "save-synthetic-student-inputs-not-research-facts",
+    "real-v1-bounded-one-static-page",
+    "save-distinct-new-s5-question-without-overwriting-old-s6",
+    "real-v2-explicit-static-revision-same-old-question",
+    "student-relates-v2-to-old-v1-and-explicit-change-basis"
+  ],
+  "researchEvidenceVerified": false,
+  "realUserTestConducted": false,
+  "knownContractGaps": [
+    {
+      "code": "PROJECT_KNOWN_CONTRACT_GAPS_P3",
+      "fullCreateSchemaPassed": false,
+      "missingField": "provenanceEventId",
+      "evidence": "project.controller.ts:31; application/project/create-project.ts:58",
+      "noReceiptInvented": true
+    }
+  ],
+  "projectId": "prj-444ca08b-8d59-46d3-a8f9-6c387e39fd62",
+  "projectReadAuthorized": true,
+  "stageReadWriteAuthorized": true,
+  "designId": "ad1117fc-2e52-47d8-b6b1-06b13c54d42a",
+  "v1": {
+    "id": "ad1117fc-2e52-47d8-b6b1-06b13c54d42a-v-1794803671979-0lcvlq",
+    "seq": 1,
+    "source": "model",
+    "frames": [
+      "取餐区入口"
+    ],
+    "prototypeSha256": "1f64587895e0e31864ee5d11aa8e32fd9e2d128c3c3205f93669d621e61effcb",
+    "durationMs": 23567,
+    "marker": "AIDT-STATIC-V1"
+  },
+  "currentS5Revision": 3,
+  "v2": {
+    "id": "ad1117fc-2e52-47d8-b6b1-06b13c54d42a-v-1794803688423-mv0024",
+    "seq": 2,
+    "source": "model",
+    "frames": [
+      "取餐区入口"
+    ],
+    "prototypeSha256": "066050cb454d416dfc4f1990a0d27188995dfa651ce9b3e7a422152304bec39c",
+    "durationMs": 13007,
+    "marker": "AIDT-STATIC-V2"
+  },
+  "stage5Revision": 2,
+  "stage6Revision": 2,
+  "frozenSnapshotSha256": "28345f36694a257f04eee1ebbdeff903082cc081d64b3854b42a228cdc3f247b",
+  "v2RelationRestored": true,
+  "boundaries": [
+    "Actual provider responses must be source=model and native immutable version IDs are read from API",
+    "Two client POSTs may use multiple bounded internal outline/HTML completions",
+    "Input scenario and change request are synthetic acceptance materials, not research evidence or user feedback",
+    "Observed one-page structure/markers and screenshots do not prove usability or research success",
+    "No services started/stopped, SQL, mocked responses, fabricated native versions, deploy or merge"
+  ],
+  "finishedAt": "2026-11-16T04:34:50.854Z"
+}

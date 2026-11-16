@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
+import { runInNewContext } from 'node:vm';
 import { inspectModelConfig, modelKeys, parseModelEnv } from '../real-model-config.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -233,4 +234,65 @@ test('pnpm public entry does not consume model file as its own Node env-file opt
     assert.ok(!run.stdout.includes(complete.DASHSCOPE_API_KEY));
     assert.ok(!run.stdout.includes('production.example'));
   });
+});
+
+test('native development stack is an explicit isolated child, with no deployment fields imported', () => {
+  withFile([
+    ...Object.entries(complete).map(([key, value]) => `${key}=${value}`),
+    'DATABASE_URL=postgres://production.example/db',
+    'ENABLE_AIDT_MODULE=0', 'KERNEL_ALLOW_TEST_PRINCIPAL=0',
+  ].join('\n'), ({ path, dir }) => {
+    const preload = join(dir, 'capture-stack.mjs');
+    const capture = join(dir, 'stack.json');
+    writeFileSync(preload, `
+      import cp from 'node:child_process'; import {syncBuiltinESMExports} from 'node:module';
+      import {writeFileSync} from 'node:fs';
+      cp.spawnSync=(command,args,options)=>{
+        writeFileSync(process.env.MODEL_CONFIG_CAPTURE_FILE,JSON.stringify({command,args,
+          marker:options.env.WORKSPACEX_REAL_MODEL_DEV_OPT_IN,
+          webMode:options.env.REAL_MODEL_E2E_WEB_MODE,
+          modelOnly:options.env.WORKSPACEX_MODEL_ENV_ONLY,
+          database:options.env.DATABASE_URL??null, permission:options.env.KERNEL_ALLOW_TEST_PRINCIPAL??null,
+          uvicorn:options.env.REAL_MODEL_E2E_UVICORN, work:options.env.REAL_MODEL_E2E_WORK_DIR}));
+        return {status:23};
+      };syncBuiltinESMExports();
+    `);
+    const env=cleanEnv(); delete env.DATABASE_URL; delete env.KERNEL_ALLOW_TEST_PRINCIPAL;
+    const run=spawnSync(process.execPath,['--import',preload,'scripts/real-model-config.mjs','--stack','--prebuild','--model-env-file',path,'--work-dir',dir,'--uvicorn',join(dir,'uvicorn')],{
+      cwd:root,env:{...env,MODEL_CONFIG_CAPTURE_FILE:capture},encoding:'utf8',timeout:10_000,
+    });
+    assert.equal(run.status,23);
+    assert.deepEqual(JSON.parse(readFileSync(capture,'utf8')),{
+      command:'pnpm',args:['exec','tsx','.harness/scripts/with-test-isolation.ts','--','tsx','scripts/real-model-aidt-stack.mjs'],
+      marker:'1',webMode:'build-start',modelOnly:'1',database:null,permission:null,uvicorn:join(dir,'uvicorn'),work:dir,
+    });
+    assert.ok(!run.stdout.includes(complete.DASHSCOPE_API_KEY));
+  });
+});
+
+test('incomplete native stack options do not launch any stack', () => {
+  withFile(Object.entries(complete).map(([key,value])=>`${key}=${value}`).join('\n'),({path})=>{
+    for(const args of [['--stack'],['--stack','--smoke']]) {
+      const run=spawnSync(process.execPath,['scripts/real-model-config.mjs','--model-env-file',path,...args],{cwd:root,env:cleanEnv(),encoding:'utf8',timeout:10_000});
+      assert.equal(run.status,2);
+      assert.ok(run.stderr.includes('requires --work-dir'));
+    }
+  });
+});
+
+test('developer proxy preload is explicit and confined to the configured model origin', () => {
+  const source=readFileSync(join(root,'scripts/real-model-proxy-preload.cjs'),'utf8');
+  for(const enabled of [false,true]) {
+    const calls=[];const original=(input,options)=>{calls.push({input,options});};
+    const undici={fetch:original,ProxyAgent:class {constructor(){this.kind='configured-proxy';}}};
+    const context={URL,__dirname:join(root,'scripts'),process:{env:{HTTPS_PROXY:'http://proxy.example:8080',KERNEL_MODEL_BASE_URL:'https://model.example/v1',...(enabled?{WORKSPACEX_REAL_MODEL_DEV_OPT_IN:'1'}:{})}},require:(name)=>name==='node:module'?{createRequire:()=>()=>undici}:{resolve}};
+    runInNewContext(source,context);
+    assert.equal(undici.fetch===original,!enabled);
+    undici.fetch('https://model.example/v1/chat/completions',{dispatcher:'direct'});
+    undici.fetch('http://127.0.0.1:3200/healthz',{dispatcher:'direct'});
+    undici.fetch('https://other.example/v1/chat/completions',{dispatcher:'direct'});
+    assert.equal(calls[0].options.dispatcher.kind,enabled?'configured-proxy':undefined);
+    assert.equal(calls[1].options.dispatcher,'direct');
+    assert.equal(calls[2].options.dispatcher,'direct');
+  }
 });

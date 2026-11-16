@@ -1,0 +1,139 @@
+{
+  "recordedAt": "2026-11-16T04:39:37.440652+00:00",
+  "scope": "AIDT FR01 approved course design A",
+  "checks": [
+    {
+      "kind": "backend-unit-and-captured-sql",
+      "command": "cd apps/api && ../../node_modules/.bin/vitest run --config vitest.aidt-course-unit.config.ts",
+      "exitCode": 0,
+      "testFiles": 3,
+      "tests": 33,
+      "log": "backend-unit.log",
+      "notEvidenceOf": "PostgreSQL execution or browser E2E"
+    },
+    {
+      "kind": "frontend-unit-component",
+      "command": "WORKSPACEX_WEB_TEST_MAX_WORKERS=1 apps/web/node_modules/.bin/vitest run --config vitest.config.ts --root apps/web tests/aidt-course-client.test.ts tests/aidt-course-context.test.ts tests/ui/aidt-courses-panel.test.tsx tests/ui/aidt-course-entry.test.tsx tests/ui/aidt-entry.test.tsx tests/aidt-module-boundary.test.ts tests/ui/aidt-entry-isolation.test.tsx",
+      "exitCode": 0,
+      "testFiles": 7,
+      "tests": 61,
+      "log": "course-ui-targeted.log",
+      "notEvidenceOf": "Native API, login, membership isolation or persistence E2E"
+    },
+    {
+      "kind": "access-race-counterexample",
+      "beforeExitCode": 1,
+      "beforeLog": "access-race-red.log",
+      "afterExitCode": 0,
+      "afterLog": "access-race-green.log",
+      "afterTests": 10
+    },
+    {
+      "kind": "scoped-typecheck",
+      "command": "node_modules/.bin/tsc --noEmit -p apps/api/tsconfig.aidt-courses.json",
+      "exitCode": 0,
+      "log": "backend-typecheck.log"
+    },
+    {
+      "kind": "scoped-typecheck",
+      "command": "node_modules/.bin/tsc --noEmit -p apps/web/tsconfig.aidt-courses.json",
+      "exitCode": 0,
+      "log": "web-typecheck.log"
+    },
+    {
+      "kind": "web-targeted-eslint",
+      "exitCode": 0,
+      "log": "eslint.log"
+    },
+    {
+      "kind": "permission-paths",
+      "command": "node apps/api/scripts/lint-permission-paths.mjs",
+      "exitCode": 0,
+      "log": "permission-paths.log"
+    },
+    {
+      "kind": "diff-whitespace",
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    {
+      "kind": "same-token-org-role-demotion-parent-host-counterexamples",
+      "beforeExitCode": 1,
+      "beforeTestsFailed": 3,
+      "beforeLog": "role-lifecycle-red.log",
+      "afterExitCode": 0,
+      "afterRegressionTests": 48,
+      "afterTestFiles": 5,
+      "afterLog": "role-lifecycle-green.log",
+      "notEvidenceOf": "Real account role revocation or browser E2E"
+    },
+    {
+      "kind": "course-e2e-spec-discovery-only",
+      "command": "playwright test --config apps/web/playwright.aidt-v2.config.ts aidt-v2-courses.spec.ts --list",
+      "exitCode": 0,
+      "tests": 3,
+      "log": "course-e2e-list.log",
+      "browserStarted": false
+    },
+    {
+      "kind": "course-e2e-scoped-types",
+      "heapLimitMiB": 2048,
+      "exitCode": 0,
+      "log": "course-e2e-typecheck.log",
+      "earlierCombinedHeapLimitMiB": 1024,
+      "earlierExitCode": 134,
+      "earlierFailure": "Artificial V8 heap limit, not an asserted type success",
+      "earlierLog": "course-e2e-scoped-typecheck-heap-limit.log"
+    },
+    {
+      "kind": "course-e2e-preparation-eslint",
+      "exitCode": 0,
+      "log": "course-e2e-preparation-eslint.log"
+    },
+    {
+      "kind": "course-global-filter-counterexamples",
+      "beforeExitCode": 1,
+      "beforeFailed": 6,
+      "beforePassed": 2,
+      "beforeLog": "filter-red.log",
+      "afterExitCode": 0,
+      "afterTests": 41,
+      "afterFiles": 4,
+      "afterLog": "filter-green.log"
+    },
+    {
+      "kind": "course-global-filter-scoped-types",
+      "exitCode": 0,
+      "log": "filter-typecheck.log"
+    },
+    {
+      "kind": "real-course-API-only",
+      "before": "course-api-before-filter.json",
+      "beforePassedChecks": 8,
+      "beforeFailedAt": "409 response lost contract reasonCode in global Filter",
+      "after": "course-api-after-filter.json",
+      "afterChecks": 17,
+      "exitCode": 0,
+      "apiPid": 148475,
+      "browserUiExercised": false,
+      "modelRequests": 0,
+      "organizationRolesChanged": false,
+      "projectMembershipsChanged": false
+    },
+    {
+      "kind": "ordinary-shared-filter-exact-regression",
+      "testFiles": 2,
+      "tests": 8,
+      "exitCode": 0,
+      "log": "shared-filter-regressions.log",
+      "counting": "Separate from the course 41; not a full-repository result"
+    }
+  ],
+  "pending": [
+    "Final API/Web build and refresh coordinated by root",
+    "A6 real course create/link/relogin/dual-account isolation",
+    "Runtime restart and original saved project revision restored"
+  ],
+  "humanApproval": "User approved plan A, relayed by root; design-signoff.md retains exact quote and original frontmatter",
+  "productionDeployed": false
+}

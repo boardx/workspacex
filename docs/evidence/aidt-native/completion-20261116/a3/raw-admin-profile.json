@@ -1,0 +1,35 @@
+{
+  "projectId": "prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+  "scope": "only-test-project-profile",
+  "permissionOrCreditChanges": false,
+  "paidModelRequests": 0,
+  "steps": [
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/identity/me?orgId=org-fullstack-ec-3614a47a-ef6245aa8d4e",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/projects?orgId=org-fullstack-ec-3614a47a-ef6245aa8d4e",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/projects/prj-72367f6b-3d12-4066-97e9-cc0e576ac418/tags",
+      "status": 200
+    }
+  ],
+  "completed": true,
+  "verifiedOrgRole": "admin",
+  "beforeTags": [],
+  "afterTags": [
+    "workspacex:aidt"
+  ],
+  "checkedAt": "2026-11-16T05:36:57.975418+00:00"
+}

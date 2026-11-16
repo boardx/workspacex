@@ -5,6 +5,7 @@ import { useOptionalSession } from "@/components/session/session-provider";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
 import { isAidtModuleEnabled } from "../lib/aidt-module-config";
 import { aidtImageAttachmentContentUrl, loadAidtImageAttachments, type AidtImageAttachmentOption, type AidtImageAttachmentReference } from "../lib/aidt-image-attachments";
+import { AidtImageSourceThread } from "./aidt-image-source-thread";
 
 export type AidtImageAttachmentState = { src: string | null; failed: boolean };
 function useAvailableImages(projectId: string, thread: string | null, enabled: boolean, retry = 0) {
@@ -81,12 +82,17 @@ export function AidtImageAttachmentPicker(props: PickerProps) {
 }
 function EnabledPicker({ projectId, thread, value, onChange, readOnly = false, label = "点子图像" }: PickerProps) {
   const [open, setOpen] = React.useState(false), [retry, setRetry] = React.useState(0), [visible, setVisible] = React.useState(12);
-  const { state, scope } = useAvailableImages(projectId, thread, open, retry);
+  const actor = useOptionalSession()?.session;
+  const sourceScope = JSON.stringify([actor?.currentOrgId, actor?.userId, actor?.sessionToken, projectId, thread]);
+  const [source, setSource] = React.useState<{ scope: string; thread: string } | null>(null);
+  const selectedThread = source?.scope === sourceScope ? source.thread : thread;
+  const { state, scope } = useAvailableImages(projectId, selectedThread, open, retry);
   return <div className="space-y-2" data-testid="aidt-image-attachment-picker">
     <div className="flex flex-wrap items-center gap-2"><Button type="button" size="sm" variant="outline" disabled={readOnly || !thread} aria-expanded={open} onClick={() => setOpen((current) => !current)}>{open ? "收起图片" : `选择${label}`}</Button>{value && <><span className="min-w-0 break-all text-12">{value.name}</span><Button type="button" size="xs" variant="ghost" disabled={readOnly} onClick={() => onChange(null)}>移除{label}</Button></>}</div>
     {!thread && <p className="text-12 text-muted-foreground">本步对话就绪后，可选择已发送的图片附件。</p>}
     {open && thread && <div className="space-y-3 rounded-lg border border-border p-3">
-      <p className="text-12 text-muted-foreground">从本步共享对话中选择已发送的图片。新图片请先通过原生聊天附件发送；此处不会上传或发送消息。</p>
+      <p className="text-12 text-muted-foreground">从本步共享对话中选择已发送的图片。也可切换本组其他共享对话。独立上传请使用原始材料入口，无需询问AI；此处仅复用现有附件。</p>
+      {selectedThread && <AidtImageSourceThread projectId={projectId} thread={selectedThread} readOnly={readOnly} onChange={(id) => { setSource({ scope: sourceScope, thread: id }); setVisible(12); }} />}
       {!state ? <p role="status" className="text-12">正在读取本步图片…</p> : state.failed ? <div role="alert" className="space-y-2"><p className="text-12">图片列表读取失败，不能据此判断没有图片。</p><Button type="button" size="sm" variant="outline" onClick={() => setRetry((current) => current + 1)}>重试图片列表</Button></div> : !state.items?.length ? <p role="status" className="text-12 text-muted-foreground">本步还没有可选择的已发送图片。</p> : <><Button type="button" size="sm" variant="ghost" onClick={() => setRetry((value) => value + 1)}>刷新图片</Button><div className="grid grid-cols-2 gap-2">{state.items.slice(0, visible).map((item) => <ImageChoice key={`${scope}:${item.attachmentId}`} item={item} readOnly={readOnly} selected={value?.threadId === item.threadId && value.attachmentId === item.attachmentId} onSelect={() => { onChange({ attachmentId: item.attachmentId, threadId: item.threadId, name: item.name }); setOpen(false); }} />)}</div>{state.items.length > visible && <Button type="button" size="sm" variant="ghost" onClick={() => setVisible((current) => current + 12)}>显示更多图片</Button>}</>}
     </div>}
   </div>;

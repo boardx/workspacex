@@ -103,31 +103,53 @@ export function inspectModelConfig({ env = process.env, envFile, root = repoRoot
 function main(args) {
   let envFile;
   let smoke = false;
+  let stack = false;
+  let uvicorn;
+  let workDir;
+  let sandboxModules;
+  let prebuild = false;
   let lane;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--' && i === 0) continue;
     if (args[i] === '--model-env-file' && args[i + 1] && !args[i + 1].startsWith('--')) envFile = args[++i];
     else if (args[i] === '--smoke') smoke = true;
+    else if (args[i] === '--stack') stack = true;
+    else if (args[i] === '--prebuild') prebuild = true;
+    else if (args[i] === '--uvicorn' && args[i + 1] && !args[i + 1].startsWith('--')) uvicorn = resolve(args[++i]);
+    else if (args[i] === '--work-dir' && args[i + 1] && !args[i + 1].startsWith('--')) workDir = resolve(args[++i]);
+    else if (args[i] === '--sandbox-modules' && args[i + 1] && !args[i + 1].startsWith('--')) sandboxModules = resolve(args[++i]);
     else if (args[i] === '--lane' && ['office', 'web-artifact-reliability'].includes(args[i + 1])) lane = args[++i];
     else {
-      console.error('Usage: real-model-config.mjs [--model-env-file path/to/cn.local.env] [--smoke] [--lane office|web-artifact-reliability]');
+      console.error('Usage: real-model-config.mjs [--model-env-file path] [--smoke | --stack --work-dir path --uvicorn path] [--lane office|web-artifact-reliability]');
       return 2;
     }
   }
   const { report, values } = inspectModelConfig({ envFile });
-  if (smoke && report.source.fileStatus !== 'readable') {
+  if (prebuild && !stack) {
+    console.error('--prebuild requires the explicit --stack mode.');
+    return 2;
+  }
+  if ((smoke || stack) && report.source.fileStatus !== 'readable') {
     report.configuration = 'blocked';
     report.errors.push({ code: 'readable_file_required_for_safe_smoke' });
   }
   console.log(JSON.stringify(report, null, 2));
   if (report.configuration !== 'ready') return 2;
-  if (!smoke) return 0;
+  if (stack && (smoke || !workDir || !uvicorn)) {
+    console.error('Explicit stack requires --work-dir and --uvicorn and cannot combine --smoke.');
+    return 2;
+  }
+  if (!smoke && !stack) return 0;
   // Reuse the isolated smoke's existing stack/seed/lifecycle. The CN file is
   // never sourced downstream; only allowlisted model fields enter the child.
   const child = spawnSync('pnpm', [
     'exec', 'tsx', '.harness/scripts/with-test-isolation.ts', '--',
-    'bash', 'scripts/real-model-smoke.sh', ...(lane ? [lane] : []),
-  ], { cwd: repoRoot, env: { ...process.env, ...values, WORKSPACEX_MODEL_ENV_ONLY: '1' }, stdio: 'inherit' });
+    ...(stack ? ['tsx', 'scripts/real-model-aidt-stack.mjs'] : ['bash', 'scripts/real-model-smoke.sh', ...(lane ? [lane] : [])]),
+  ], { cwd: repoRoot, env: { ...process.env, ...values, WORKSPACEX_MODEL_ENV_ONLY: '1', ...(stack ? {
+    WORKSPACEX_REAL_MODEL_DEV_OPT_IN: '1', REAL_MODEL_E2E_WORK_DIR: workDir, REAL_MODEL_E2E_UVICORN: uvicorn,
+    REAL_MODEL_E2E_WEB_MODE: prebuild ? 'build-start' : 'dev',
+    ...(sandboxModules ? { REAL_MODEL_E2E_SANDBOX_MODULES_DIR: sandboxModules } : {}),
+  } : {}) }, stdio: 'inherit' });
   if (child.error) console.error('[real-model-config] smoke process could not start (details withheld).');
   return child.status ?? 1;
 }

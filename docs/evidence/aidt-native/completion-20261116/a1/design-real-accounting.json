@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-16",
+  "kind": "two-real-design-posts-accounting",
+  "designPostCount": 2,
+  "physicalModelRequestStarts": 4,
+  "usageReceipts": [
+    {
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "n": 4,
+      "tokensTotal": "13707"
+    }
+  ],
+  "settlements": [
+    {
+      "state": "settled",
+      "n": 4
+    }
+  ],
+  "allHoldsReleased": true,
+  "walletDebitedFromExistingSeedBalance": true,
+  "newCreditGrantsOrPayments": 0,
+  "rolesOrMembershipChanged": false,
+  "sourceFallbackReportedByNativeTest": false,
+  "source": "original-model-request-and-token-usage-and-credit-consumption-tables",
+  "configurationResponseBodyOrPriceValuesRecorded": false
+}

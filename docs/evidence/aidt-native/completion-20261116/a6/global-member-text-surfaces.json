@@ -1,0 +1,95 @@
+{
+  "projectId": "prj-f19ccd12-ee5a-4bfa-89c7-16db121f1aa6",
+  "reached": [
+    "dashboard",
+    "step-1-chat",
+    "step-1-outcome",
+    "step-1-context",
+    "step-2-chat",
+    "step-2-outcome",
+    "step-2-context",
+    "step-3-chat",
+    "step-3-outcome",
+    "step-3-context",
+    "step-4-chat",
+    "step-4-outcome",
+    "step-4-context",
+    "step-5-chat",
+    "step-5-outcome",
+    "step-5-context",
+    "step-6-chat",
+    "step-6-outcome",
+    "step-6-context",
+    "sources",
+    "report",
+    "native-design"
+  ],
+  "memberText": {
+    "projectId": "prj-f19ccd12-ee5a-4bfa-89c7-16db121f1aa6",
+    "fromStep": 6,
+    "toStep": 1,
+    "root": {
+      "id": "1acdd27e-56e5-490b-a991-c62e567abebd",
+      "projectId": "prj-f19ccd12-ee5a-4bfa-89c7-16db121f1aa6",
+      "sequence": 1,
+      "authorId": "user-fullstack-lead-ec-3614a47a-ef6245aa8d4e",
+      "clientMessageId": "d4692949-15f2-43a8-8a29-16c04a0531d3",
+      "text": "自动化成员文字验收 8239635a-b2d8-4996-a904-1c82ca1b542f：请同组讨论访谈分工；不是实际访谈证据。",
+      "threadRootId": null,
+      "stageReference": null,
+      "createdAt": "2026-11-16T05:11:38.333Z"
+    },
+    "reply": {
+      "id": "1c274203-9765-4d15-9689-45d61b8e44cb",
+      "projectId": "prj-f19ccd12-ee5a-4bfa-89c7-16db121f1aa6",
+      "sequence": 2,
+      "authorId": "user-fullstack-lead-ec-3614a47a-ef6245aa8d4e",
+      "clientMessageId": "9d1dbafc-5ceb-4742-874f-ded640ecc896",
+      "text": "自动化话题回复 8239635a-b2d8-4996-a904-1c82ca1b542f：只回复此条分工消息；不是 AI 任务。",
+      "threadRootId": "1acdd27e-56e5-490b-a991-c62e567abebd",
+      "stageReference": null,
+      "createdAt": "2026-11-16T05:11:38.506Z"
+    },
+    "uniqueClientMessageCounts": {
+      "root": 1,
+      "reply": 1
+    },
+    "exactRequestReplay": true,
+    "channelDraftRestored": true,
+    "topicDraftRestored": true,
+    "draftPersistenceScope": "same authenticated page session; no reload or browser restart",
+    "generationRequestPaths": []
+  },
+  "emptyDesignId": "391c191f-ece4-4158-a5e1-9db43cc9d38c",
+  "explicitStudentQuestionSetup": {
+    "projectId": "prj-f19ccd12-ee5a-4bfa-89c7-16db121f1aa6",
+    "stageId": 5,
+    "revision": 1,
+    "content": {
+      "schemaVersion": 1,
+      "draft": {
+        "fields": {
+          "beforeTestBelief": "只验证界面可用性，没有真实用户测试。",
+          "verificationBasis": "合成测试操作，不是研究结论。",
+          "verificationLimits": "空设计只检查文字插件，不能验证用户行为。",
+          "verificationQuestion": "合成插件验收问题：是否能查看同组讨论？本次不生成原型。",
+          "verificationQuestionConfirmed": "true",
+          "verificationQuestionConfirmation": "[\"合成插件验收问题：是否能查看同组讨论？本次不生成原型。\",\"只验证界面可用性，没有真实用户测试。\",\"合成测试操作，不是研究结论。\",\"空设计只检查文字插件，不能验证用户行为。\"]"
+        },
+        "ideas": [],
+        "selectedIdeaId": ""
+      }
+    },
+    "sourceStageRevisions": [],
+    "updatedBy": "user-fullstack-lead-ec-3614a47a-ef6245aa8d4e",
+    "updatedAt": "2026-11-16T05:11:40.818Z"
+  },
+  "actualDesignGenerated": false,
+  "nativeGenerationRequests": [],
+  "stageDraftsAutomaticallySaved": false,
+  "authorizationRoleCoverage": "setup actor; student/nonmember roles verified separately",
+  "actualPlaywrightStatus": "passed",
+  "durationMs": 16191,
+  "attempt": "attempt-11",
+  "actorRole": "existing-unfunded-setup-admin; not student-role proof"
+}

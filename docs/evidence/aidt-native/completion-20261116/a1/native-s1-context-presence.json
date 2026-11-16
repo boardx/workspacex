@@ -1,0 +1,30 @@
+{
+  "runId": "17281977-6dc2-4797-a4c2-53953d978908",
+  "expectedStepLabelFromCurrentSource": "理解与提出问题",
+  "persistedHumanInputFlags": {
+    "hasAidtUnderstand": false,
+    "hasExactStep1Label": false,
+    "hasAidtWorkspaceDescription": false,
+    "hasTeachingContextKey": false,
+    "hasDefaultEmpathizeName": false
+  },
+  "contextPackRows": 0,
+  "contextPackFlags": {
+    "hasAidtUnderstand": false,
+    "hasExactStep1Label": false,
+    "hasAidtWorkspaceDescription": false,
+    "hasTeachingContextKey": false,
+    "hasDefaultEmpathizeName": false
+  },
+  "debugRows": 100,
+  "debugRowLimit": 100,
+  "debugFlags": {
+    "hasAidtUnderstand": false,
+    "hasExactStep1Label": false,
+    "hasAidtWorkspaceDescription": false,
+    "hasTeachingContextKey": false,
+    "hasDefaultEmpathizeName": false
+  },
+  "limitation": "durable-input-and-bounded-metadata-only; not a complete supplier prompt capture",
+  "bodyOrCredentialsRecorded": false
+}

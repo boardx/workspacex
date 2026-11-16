@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-16",
+  "attempt": "attempt-05",
+  "runtimeStack": "stack-06-production",
+  "overall": "1 failed, 2 passed",
+  "supplierFixture": false,
+  "realResearchCollected": false,
+  "tests": [
+    {
+      "name": "FR15: student guess → real native Agent question → student confirmation → shared save and fresh login",
+      "status": "failed",
+      "durationMs": 8694
+    },
+    {
+      "name": "FR16: material-linked surprise retains S2 source revision, then explicit none remains a valid saved student decision",
+      "status": "passed",
+      "durationMs": 3875
+    },
+    {
+      "name": "shared boundary: real CAS conflict keeps student text, explicit retry succeeds, anonymous read is denied, archive is read-only",
+      "status": "passed",
+      "durationMs": 4890
+    }
+  ],
+  "agentFailure": {
+    "runId": "4e4f19e0-0a57-4117-9c86-e12f9da2a08c",
+    "status": "failed",
+    "error": "MODEL_CALL_FAILED",
+    "providerInvocation": "pending-stack-owner-reconciliation"
+  },
+  "billingLedgerChecks": {
+    "command": "pnpm exec tsx /tmp/check-aidt-v2-ledger.mts",
+    "exitCode": 0,
+    "checks": [
+      "failed request retains slot",
+      "fresh process seven-run cap",
+      "duplicate Skill prevented",
+      "concurrent lock no overwrite"
+    ],
+    "usedActualModel": false
+  }
+}

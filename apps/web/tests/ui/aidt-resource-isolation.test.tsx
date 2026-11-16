@@ -11,7 +11,10 @@ import { AIDT_PROJECT_TAG } from "@/lib/project-aidt";
 const mocks = vi.hoisted(() => ({
   session: { currentOrgId: "org", userId: "student-a", sessionToken: "token" },
   identity: { orgRole: "admin" },
-  search: "", list: vi.fn(), find: vi.fn(), overview: vi.fn(), materials: vi.fn(), workspace: vi.fn(), membership: vi.fn(), breadcrumb: vi.fn(),
+  search: "", request: vi.fn(), roster: vi.fn(), list: vi.fn(), find: vi.fn(), overview: vi.fn(), materials: vi.fn(), workspace: vi.fn(), membership: vi.fn(), breadcrumb: vi.fn(),
+}));
+vi.mock("@/lib/api-client", async (original) => ({
+  ...await original<typeof import("@/lib/api-client")>(), apiRequest: mocks.request,
 }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(mocks.search), useParams: () => ({ boardId: "board/1" }) }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: mocks.session, identity: mocks.identity }), useSession: () => ({ session: mocks.session, identity: mocks.identity }) }));
@@ -30,6 +33,17 @@ beforeEach(() => {
   vi.clearAllMocks(); vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true");
   mocks.session = { currentOrgId: "org", userId: "student-a", sessionToken: "token" }; mocks.identity.orgRole = "admin"; mocks.search = "";
   mocks.list.mockResolvedValue([project]); mocks.find.mockResolvedValue(project);
+  // Exercise the real member-filtering loader. Organization management alone is not membership.
+  mocks.roster.mockResolvedValue({ members: [
+    { userId: "student-a", displayName: "学生A", role: "owner" },
+    { userId: "student-b", displayName: "学生B", role: "collaborator" },
+  ] });
+  mocks.request.mockImplementation((path: string, options: unknown) => {
+    if (path === "/projects") return mocks.list(options);
+    if (/^\/projects\/[^/]+\/collaborators$/.test(path)) return mocks.roster(path, options);
+    if (path === "/aidt/courses") return Promise.resolve({ items: [], nextCursor: null });
+    throw new Error("Unexpected resource-isolation fixture request");
+  });
   mocks.overview.mockResolvedValue({ projectId: "group", name: "本组", status: "active", kind: "general" });
   mocks.membership.mockResolvedValue("owner");
   mocks.materials.mockResolvedValue({ items: [] });
@@ -51,12 +65,15 @@ it("closes and discards a group's creation form on actor or organization change"
 it("does not restore a previous user's late group list in the same organization", async () => {
   const old = deferred<unknown>(); mocks.list.mockImplementationOnce(() => old.promise);
   const { rerender } = render(<AidtHome />);
+  await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(1));
+  const oldSignal = mocks.list.mock.calls[0]![0].signal as AbortSignal;
   mocks.session = { ...mocks.session, userId: "student-b" };
   mocks.list.mockResolvedValue([{ ...project, id: "current", name: "当前学生的小组" }]); rerender(<AidtHome />);
   expect(await screen.findByTestId("aidt-project-current")).toBeVisible();
   await act(async () => { old.resolve([{ ...project, id: "private-old", name: "前一学生的小组" }]); });
   expect(screen.queryByTestId("aidt-project-private-old")).toBeNull();
   expect(mocks.list).toHaveBeenCalledTimes(2);
+  expect(oldSignal.aborted).toBe(true);
 });
 
 it("hides the old workspace synchronously while the new actor's membership is unresolved", async () => {
@@ -123,4 +140,12 @@ it("does not revive a previous actor roster result after the actor leaves and re
   mocks.membership.mockResolvedValue(null);mocks.session=original;rerender(<AidtProjectWorkspace projectId="group" />);
   await screen.findByTestId("aidt-access-denied");
   await act(async()=>{late.resolve("owner");});expect(screen.queryByTestId("native-aidt-workspace")).toBeNull();
+});
+
+it("does not turn organization-admin visibility into actual group membership", async () => {
+  mocks.roster.mockResolvedValue({ members: [{ userId: "other-owner", displayName: "其他成员", role: "owner" }] });
+  render(<AidtHome />);
+  await screen.findByTestId("aidt-home-empty");
+  expect(screen.queryByTestId("aidt-project-group")).toBeNull();
+  expect(mocks.roster).toHaveBeenCalledWith("/projects/group/collaborators", expect.objectContaining({ sessionToken: "token", signal: expect.any(AbortSignal) }));
 });

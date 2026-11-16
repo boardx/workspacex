@@ -32,6 +32,10 @@ describe("guided report actual export routing", () => {
     expect(root.textContent).toContain(input.title);
     expect(title).toMatch(/^[A-Za-z0-9_-]+$/);
   });
+  it("propagates asynchronous print preparation failures instead of reporting completion", async () => {
+    vi.mocked(printResearchPdf).mockRejectedValueOnce(new Error("Print image unavailable"));
+    await expect(exportGuidedResearchReport(input, "pdf")).rejects.toThrow("Print image unavailable");
+  });
 
   it("downloads a genuine DOCX with its extension and delayed URL cleanup", async () => {
     const create = vi.fn((_blob: Blob) => "blob:report");

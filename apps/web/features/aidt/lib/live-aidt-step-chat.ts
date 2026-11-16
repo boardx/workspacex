@@ -5,8 +5,9 @@ import { apiRequest } from "@/lib/api-client";
 import { isAidtModuleEnabled } from "@/features/aidt/lib/aidt-module-config";
 import { listThreadMounts, mountSkills } from "@/lib/live-skill-mount";
 import { AIDT_STEPS, type AidtStep } from "@/features/aidt/lib/project-aidt";
+import { AIDT_REPORT_SKILL } from "./aidt-report-task";
 
-type Input = { orgId: string; userId: string; projectId: string; step: AidtStep; thread: string | null; sessionToken: string; signal?: AbortSignal; createLatest?: { expectedLatestVersionId: string; expectedPinnedVersionId: string } };
+type Input = { orgId: string; userId: string; projectId: string; step: AidtStep; purpose?: "report"; thread: string | null; sessionToken: string; signal?: AbortSignal; createLatest?: { expectedLatestVersionId: string; expectedPinnedVersionId: string } };
 export class AidtStepChatChoiceError extends Error {
   constructor(public readonly choices: readonly { id: string; title: string }[]) { super("本组有多个本步对话，请共同选择要继续的一条。不会自动合并或删除。"); }
 }
@@ -22,7 +23,8 @@ const pending = new Map<string, Pending>();
 export function resolveAidtStepChat(input: Input): Promise<AidtStepChat> {
   if (!isAidtModuleEnabled()) return Promise.reject(new Error("教学模块未启用。"));
   if (input.signal?.aborted) return Promise.reject(new Error("AIDT_CONTEXT_CHANGED"));
-  const key = JSON.stringify([input.orgId, input.userId, input.sessionToken, input.projectId, input.step.id, input.thread, input.createLatest]);
+  if (input.purpose === "report" && input.step.id !== 6) return Promise.reject(new Error("报告总结任务只在第6步报告入口使用。"));
+  const key = JSON.stringify([input.orgId, input.userId, input.sessionToken, input.projectId, input.step.id, input.purpose, input.thread, input.createLatest]);
   const existing = pending.get(key);
   if (existing) {
     if (input.signal) existing.scope.consumers.add(input.signal); else existing.scope.unscoped = true;
@@ -38,16 +40,17 @@ export function resolveAidtStepChat(input: Input): Promise<AidtStepChat> {
   return task;
 }
 
-async function resolve({ orgId, userId, projectId, step, thread, sessionToken, createLatest }: Input, assertCurrent: () => void): Promise<AidtStepChat> {
+async function resolve({ orgId, userId, projectId, step, purpose, thread, sessionToken, createLatest }: Input, assertCurrent: () => void): Promise<AidtStepChat> {
   assertCurrent();
   // Same authorized library operation, with this host's captured bearer rather
   // than the mutable globally stored session used by the generic library UI.
   const { items: catalog } = await apiRequest<z.infer<typeof skills.operations.listSkills.out>>(skills.operations.listSkills.path, { method: "GET", query: { orgId, entry: "library" }, sessionToken });
   assertCurrent();
-  const skill = catalog.find((entry) => entry.platformStableName === step.skill && entry.status === "已启用" && entry.currentVersionId);
+  const stableName = purpose === "report" ? AIDT_REPORT_SKILL : step.skill;
+  const skill = catalog.find((entry) => entry.platformStableName === stableName && entry.status === "已启用" && entry.currentVersionId);
   if (!skill) throw new Error("本步骤的 AIDT Skill 尚未安装或启用，无法开始教学对话。");
   if (createLatest && (!thread || createLatest.expectedLatestVersionId !== skill.currentVersionId)) throw new Error("目录中的教学版本已变化，请重新读取后选择。");
-  const aidtSkillIds = new Set(catalog.filter((entry) => AIDT_STEPS.some((it) => it.skill === entry.platformStableName)).map((entry) => entry.skillId));
+  const aidtSkillIds = new Set(catalog.filter((entry) => entry.platformStableName === AIDT_REPORT_SKILL || AIDT_STEPS.some((it) => it.skill === entry.platformStableName)).map((entry) => entry.skillId));
   const read = async (id: string) => {
     assertCurrent();
     const detail = await getThread(id, projectId, sessionToken);
@@ -70,7 +73,7 @@ async function resolve({ orgId, userId, projectId, step, thread, sessionToken, c
     if (!createLatest) return result(thread, state.match.versionId);
     if (state.match.versionId !== createLatest.expectedPinnedVersionId || state.match.versionId === skill.currentVersionId) throw new Error("原对话的教学挂载已变化，请重新读取后选择。");
   }
-  const title = `[AIDT ${step.id}] ${step.title}${createLatest ? " · 新版教学" : ""}`;
+  const title = `${purpose === "report" ? "[AIDT SUM] 小组研究报告" : `[AIDT ${step.id}] ${step.title}`}${createLatest ? " · 新版教学" : ""}`;
   const listed = await listThreads(projectId, {}, sessionToken);
   assertCurrent();
   const cards = listed.groups.flatMap((group) => group.cards);
