@@ -1,5 +1,7 @@
 # Stack04 checkpoint recovery: tested owner entry
 
+> Latest state after the authorized S2 supplement: Plan03 was applied to restore-02, then the one S2 model task failed with two unknown-usage/pending credit records. Both restore destinations now exist and must not be reused. The latest full state is the separate private post-failure diagnostic backup, not the original two-run checkpoint. See [the supplemental task record](s2-supplement-20261116/README.md). That diagnostic backup is not zero-outstanding and has not been restored. No future original-checkpoint plan should be treated as preserving this newer state.
+
 Updated 2026-11-16 after actual zero-model recovery. The original private checkpoint is retained unchanged outside the repository; it includes the logical database, both immutable Agent versions, same-group saved work, original objects, necessary normal-login credentials and exact copies of both budget ledgers. Its initial structure-only receipt remains historical. Actual recovery is now separately verified.
 
 The new `scripts/aidt-checkpoint-restore.mjs` owner defaults to an offline plan. A separate `--apply` requires the exact reviewed plan SHA plus `--authorization restore-only-no-model`. Apply obtains fresh real port leases and standard stack admission, refuses any existing compose scope or target DB, restores only into its own new empty database and explicit private object root, and verifies actual container/port/lease/slot bindings and restored data. All executors/title/trial/extraction/scheduler remain zero.
@@ -16,16 +18,16 @@ The owner then received a verified normal SIGINT. Its child/compose teardown and
 
 Evidence: `checkpoint-restore-normal-readback.json`, `checkpoint-restore-thread-set.json`, `checkpoint-restore-cleanup.json`, `checkpoint-restore-final-unit.log` (45 passed), plus retained red/green guard logs and readback diagnostics.
 
-## Fresh plan03: prepared, not applied
+## Historical plan03: subsequently applied
 
 Plan02's destination already exists as private historical evidence and must not be reused or overwritten. A new nonce and new destination were generated in plan03, entirely offline, with the same verified immutable checkpoint and unchanged original budgets:
 
 - Private plan: `/workspace/scratch/aidt-checkpoint-restore-plans-20261116/restore-03.private.json`
 - SHA-256: `59500507741bccff83fc30c741c8ce6846fa69d7bb7cd651d04a4fb9a6cb62f4`
 - New destination: `/workspace/scratch/aidt-real-model-20261116/stack-context-restore-02`
-- Applied: **no**. Resources started by plan03: **0**.
+- It was subsequently applied with separate root authorization. The task round is now stopped and all resources released; the destination remains private historical evidence.
 
-After separate root review/authorization, the prepared zero-model command is:
+The following was the reviewed command. It is historical and must not be rerun against its existing destination:
 
 ```bash
 node --import tsx scripts/aidt-checkpoint-restore.mjs --apply \
