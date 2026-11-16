@@ -3,33 +3,9 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "../lib/copilotkit-v2-agent-header";
 
 /**
- * issue #2023（差距清单第 4 项，Agent 选择/切换）—— 证明 `/chat` 的
- * `AgentPicker` 不是一个只改 UI 状态的假选择器：选中一个**非默认**的真实已发布 agent
- * 之后，浏览器打给 `/api/copilotkit/*` 的请求真的带着那个 agent 的标识（wire 上的
- * header，不是 UI 显示"已选中"），并且回复内容真的来自该 agent 对应的下游 provider
- * ——不是 UI 显示换了、后端其实还在打旧的那个。
- *
- * ## 为什么选 `CHAT_READ_E2E.agentId`（"Read Agent"，loopback-echo）
- *
- * `playwright.chat-read.config.ts` 的 webServer 把 `COPILOTKIT_V2_AGENT_ID` 固定设成
- * `CHAT_READ_E2E.deepAgentId`（"Deep Research Agent"，`deep-agent` provider）——这是
- * "没有做任何选择时"的服务端默认值。选 `agentId`（走完全不同的 `chat-read-loopback`
- * provider，回复固定带 `agentReplyPrefix "[loopback]"` 前缀）是本 spec 唯一需要的
- * "非默认切换"：如果适配器真的按浏览器的选择路由，回复必须带着 `[loopback]` 前缀；
- * 如果适配器忽略了选择、悄悄还在打环境变量里那个 deep-agent，回复不会有这个前缀
- * （deep-agent loopback 替身的确定性回复没有这个字符串，见
- * `loopback-deep-agent-provider.ts`）——两者的回复文本结构性不同，不是同一段文案的
- * 不同措辞，断言不会产生假阳性。
- *
- * ## 两层证据，缺一不可
- *
- * ① wire 上浏览器发给 `/api/copilotkit/*` 的请求真的带着
- *    `x-workspacex-copilotkit-v2-agent-id: agent-chat-read-e2e`（不是 `-deep`）——
- *    `route.ts` 的 `AgentsFactory`/`resolveAgentId` 读的正是这个 header。
- * ② 回复文本真的换成了 loopback provider 的确定性签名（`[loopback] <原话>`），
- *    证明这个 header 不只是"发出去了"，而是真的改变了后端最终路由到的 agent——
- *    这是「不是断言 UI 显示选中，而是断言 wire 上请求真的路由到了选中的 agent」
- *    这条判据要求的因果闭环，不只是"header 存在"这一半。
+ * #2023: selecting a published agent changes both the request header and the
+ * Agent ID persisted by the server. Ordinary conversations can share the
+ * configured model, so model output alone cannot distinguish the agents.
  */
 // 预算实测记录（2026-08-25 本地，三轮）：120s 总超时在 dev 首编译 + 高负载下不够
 // （run2 两用例均在 `page.goto` 处被打断）；页面预热 90s 也不够（run3 用例 1 在预热
@@ -69,7 +45,7 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
     .toBe(200);
 }
 
-test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与回复来源都换了", async ({ page }) => {
+test("AgentPicker 真实切到非默认 agent——请求和落库运行均使用所选 Agent", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
@@ -99,8 +75,6 @@ test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与�
   await optionFor(CHAT_READ_E2E.agentId).click();
   await expect(listbox).toBeHidden();
 
-  // 切换 agent = 发起新对话（`key={selectedAgentId}` 强制重挂载），composer 应该是空的、
-  // 可以立刻发消息。
   const userText = "issue #2023 agent 切换取证";
   let capturedAgentHeader: string | null | undefined;
   let capturedRunUrl = "";
@@ -115,6 +89,12 @@ test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与�
     await route.continue();
   });
 
+  const persistedRun = page.waitForResponse(async response => {
+    if (!response.ok() || response.request().method() !== "GET"
+      || !/\/agent-runs\/[^/]+$/.test(new URL(response.url()).pathname)) return false;
+    const run = await response.json();
+    return run.status === "succeeded";
+  }, { timeout: 60_000 });
   await page.getByTestId("copilotkit-v2-input").fill(userText);
   await page.getByTestId("copilotkit-v2-send").click();
 
@@ -124,13 +104,10 @@ test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与�
   expect(capturedAgentHeader).toBe(CHAT_READ_E2E.agentId);
   expect(capturedAgentHeader).not.toBe(CHAT_READ_E2E.deepAgentId);
 
-  // ── 反证② 回复内容真的来自 loopback provider（不是环境变量默认的 deep-agent）───
+  expect((await (await persistedRun).json()).agentId).toBe(CHAT_READ_E2E.agentId);
   const messages = page.getByTestId("copilotkit-v2-messages");
-  await expect(messages).toContainText(CHAT_READ_E2E.agentReplyPrefix, { timeout: 30_000 });
-  await expect(messages).toContainText(userText);
-  // deep-agent loopback 替身的确定性签名不应该出现——如果出现了，说明选择被忽略，
-  // 请求实际上还是打到了环境变量里那个默认 agent。
-  await expect(messages).not.toContainText("已查询当前时间");
+  await expect(messages.getByTestId("copilot-assistant-message").filter({ hasText: userText })).toBeVisible();
+  await expect(page.getByTestId("copilotkit-v2-error")).toHaveCount(0);
 
   await page.unroute(runRouteMatcher);
 });
