@@ -35,3 +35,28 @@ it("builds deterministically and refuses a changed existing release rather than 
     expect(readFileSync(first.path,"utf8")).toBe("changed bytes\n");
   } finally { rmSync(directory,{recursive:true,force:true}); }
 });
+it("keeps both earlier summary releases and authoring bytes immutable and reproducible under their original coordinates", () => {
+  const releases = [
+    {version:"1.0.0",source:"skills/aidt-reporting/dt-summarize-project/SKILL.md",sourceHash:"1e003889c2cc2e9a9f866adbb7163cfe55505620271e379f748f79be660ba286",packHash:"ccf956f35998325fe48586c8d7372b5225435eb2489193baa6d1eeb44f8dffb7"},
+    {version:"1.0.1",source:"skills/aidt-reporting-candidates/1.0.1/dt-summarize-project/SKILL.md",sourceHash:"12c08a161b04d9bd971f578a60ead2e2748774ad1261a9fa430d21610b1358fd",packHash:"3ea83de72863f7c2550984fc988515460e5f35a940237c74d2ef3c28b8ba05ba"},
+  ];
+  for(const release of releases){
+    const source=new URL(release.source,root),packPath=new URL(`skills/starter-packs/aidt-project-summary/${release.version}.json`,root);
+    const before=readFileSync(packPath);
+    expect(createHash("sha256").update(readFileSync(source)).digest("hex")).toBe(release.sourceHash);
+    expect(createHash("sha256").update(before).digest("hex")).toBe(release.packHash);
+    const pack=buildAidtSummaryPack(source.pathname,{packId:"aidt-project-summary",packVersion:release.version});
+    expect(pack).toEqual(verifySkillStarterPack(JSON.parse(before.toString("utf8")),{packId:"aidt-project-summary",packVersion:release.version}));
+    expect(checkOrWriteAidtSummaryPack(pack,new URL("skills/starter-packs/aidt-project-summary/",root).pathname,true).created).toBe(false);
+    expect(readFileSync(packPath)).toEqual(before);
+  }
+});
+it("requests a complete bounded report before expansion without deleting uncertainty or merging frozen questions",()=>{
+  const source=readFileSync(AIDT_SUMMARY_SOURCE,"utf8");
+  expect(AIDT_SUMMARY_SKILL_PACK).toEqual({packId:"aidt-project-summary",packVersion:"1.0.2"});
+  for(const rule of ["先交一份完整紧凑报告","约800–1000中文字","先覆盖全部章节与关键学习链","再按学生请求逐节展开","默认紧凑草稿可按以下八项组织","学生可改名、合并或重排章节","不将八章设为软件/课程必填模板","自检实质内容覆盖，不检查固定章节数量","不在正文复制长UUID或整个来源目录","完整资源引用由实际来源附录保留","不捏造附录","每个句子完整","问题不同按旧冻结问题分别叙述，不混题","当前验证问题不能覆盖旧题","旧回2→新回5","尚未开展测试及下一步计划","报告正文必须披露","不得自行写确认字段","不得以短引用推断版本继承关系"])expect(source).toContain(rule);
+  expect(source).not.toContain("先给目录/草稿");
+  expect(source).not.toContain("先交部分草稿并列待补项");
+  expect(source).not.toContain("正文按八个短章组织");
+  expect(source).not.toContain("八章齐全");
+});

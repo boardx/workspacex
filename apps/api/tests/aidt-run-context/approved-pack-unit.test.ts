@@ -14,6 +14,7 @@ it.each([
   ["aidt-methods", "1.3.1", "aidt-empathize"],
   ["aidt-methods", "1.3.2", "aidt-understand"],
   ["aidt-project-summary", "1.0.1", "dt-summarize-project"],
+  ["aidt-project-summary", "1.0.2", "dt-summarize-project"],
 ])("verifies the exact new %s@%s release without rewriting an older pin", async (packId, packVersion, stableName) => {
   const pack = JSON.parse(readFileSync(new URL(`../../../../skills/starter-packs/${packId}/${packVersion}.json`, import.meta.url), "utf8"));
   const skill = pack.skills.find((candidate: { stableName: string }) => candidate.stableName === stableName);
