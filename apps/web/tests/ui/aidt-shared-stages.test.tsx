@@ -5,7 +5,7 @@ import { ApiError } from "@/lib/api-client";
 import { StageDraft } from "@repo/contracts/aidt-stages";
 import { AidtSharedStagePanel } from "@/features/aidt/components/aidt-shared-stage-panel";
 import { useAidtSharedStages } from "@/features/aidt/lib/use-aidt-shared-stages";
-import { emptyAidtUiDrafts, type AidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
+import { aidtUiReportMarkdown, emptyAidtUiDrafts, type AidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtSharedStage, AidtSaveStageInput } from "@/features/aidt/lib/live-aidt-stages";
 
 const mocks = vi.hoisted(() => ({ read: vi.fn(), save: vi.fn(), hydrate: vi.fn() }));
@@ -122,6 +122,72 @@ it("releases the old in-flight guard on actor changes, allowing the new actor to
   await act(async () => pending.resolve({ stage: saved("旧A稿", 9), replayed: false })); expect(screen.getByTestId("aidt-shared-receipt")).toHaveTextContent("V1"); expect(screen.getByTestId("aidt-shared-receipt")).not.toHaveTextContent("V9"); expect(screen.getByLabelText("学生本页内容")).toHaveValue("B的稿");
 });
 function withReport(markdown = "服务器小组报告", revision = 3) { return { ...saved("服务器已保存测试反馈", revision, 6), content: { schemaVersion: 1 as const, draft: draft("服务器已保存测试反馈", 6), summaryReport: { markdown, sourceStageRevisions: [{ stageId: 1, revision: 1 }] } }, sourceStageRevisions: [{ stageId: 1, revision: 1 }] }; }
+it("does not relabel a retained old report as using a newer fifth-stage revision after refresh and editing", async () => {
+  let prototype = { ...saved("", 1, 5), content: { schemaVersion: 1 as const, draft: { ...emptyAidtUiDrafts()[5]!, fields: { version: "prototype-v1", verificationQuestion: "旧验证问题" } } } };
+  const original = withReport("# 学生原有报告\n这份正文只讨论 prototype-v1 和旧验证问题。", 3);
+  original.content.summaryReport.sourceStageRevisions = [{ stageId: 5, revision: 1 }];
+  mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 5 ? prototype : id === 6 ? original : null }));
+  render(<Harness stageId={6} initial="" />); await ready();
+  await waitFor(() => expect(screen.getByLabelText("本页报告")).toHaveValue(original.content.summaryReport.markdown));
+  await waitFor(() => expect(screen.getByTestId("full-drafts")).toHaveTextContent("prototype-v1"));
+  prototype = { ...prototype, revision: 2, content: { schemaVersion: 1, draft: { ...prototype.content.draft, fields: { version: "prototype-v2", verificationQuestion: "新版完全不同的问题" } } } };
+  act(() => exposed.reload()); await ready();
+  await waitFor(() => expect(screen.getByTestId("full-drafts")).toHaveTextContent("prototype-v2"));
+  expect(screen.getByLabelText("本页报告")).toHaveValue(original.content.summaryReport.markdown);
+  const edited = `${original.content.summaryReport.markdown}\n学生保留旧正文，只补充写作说明。`;
+  fireEvent.change(screen.getByLabelText("本页报告"), { target: { value: edited } });
+  fireEvent.click(screen.getByTestId("save-report")); await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
+  const request = mocks.save.mock.calls[0]![0] as AidtSaveStageInput;
+  expect(request.content.summaryReport?.markdown).toBe(edited);
+  expect(request.content.summaryReport?.sourceStageRevisions).toEqual([{ stageId: 5, revision: 1 }]);
+  expect(request.content.summaryReport?.sourceStageRevisions).not.toContainEqual({ stageId: 5, revision: 2 });
+});
+it("freezes a generated report's sources through stage changes and historical append, then refreshes them only when students replace the report with current assembly", async () => {
+  let prototype: AidtSharedStage = { ...saved("", 1, 5), content: { schemaVersion: 1, draft: { ...emptyAidtUiDrafts()[5]!, fields: { version: "first-prototype", verificationQuestion: "第一版验证问题" } } } };
+  mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 5 ? prototype : id === 6 ? saved("测试反馈", 1, 6) : null }));
+  render(<Harness stageId={6} initial="" />); await ready();
+  await waitFor(() => expect(screen.getByTestId("full-drafts")).toHaveTextContent("first-prototype"));
+  const original = aidtUiReportMarkdown(JSON.parse(screen.getByTestId("full-drafts").textContent!) as AidtUiDrafts);
+  fireEvent.change(screen.getByLabelText("本页报告"), { target: { value: original } });
+  prototype = { ...prototype, revision: 2, content: { schemaVersion: 1, draft: { ...prototype.content.draft, fields: { version: "second-prototype", verificationQuestion: "第二版验证问题" } } } };
+  act(() => exposed.reload()); await ready();
+  await waitFor(() => expect(screen.getByTestId("full-drafts")).toHaveTextContent("second-prototype"));
+  const appended = `${original}\n\n## 历史学习追溯\n第6步 V1；缺失仍待核对。`;
+  fireEvent.change(screen.getByLabelText("本页报告"), { target: { value: appended } });
+  fireEvent.click(screen.getByTestId("save-report")); await waitFor(() => expect(exposed.report.matchesServer).toBe(true));
+  const first = mocks.save.mock.calls[0]![0] as AidtSaveStageInput;
+  expect(first.content.summaryReport?.markdown).toBe(appended);
+  expect(first.content.summaryReport?.sourceStageRevisions).toContainEqual({ stageId: 5, revision: 1 });
+  expect(first.content.summaryReport?.sourceStageRevisions).not.toContainEqual({ stageId: 5, revision: 2 });
+  const regenerated = aidtUiReportMarkdown(JSON.parse(screen.getByTestId("full-drafts").textContent!) as AidtUiDrafts);
+  fireEvent.change(screen.getByLabelText("本页报告"), { target: { value: regenerated } });
+  fireEvent.click(screen.getByTestId("save-report")); await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
+  const second = mocks.save.mock.calls[1]![0] as AidtSaveStageInput;
+  expect(second.content.summaryReport?.markdown).toBe(regenerated);
+  expect(second.content.summaryReport?.sourceStageRevisions).toContainEqual({ stageId: 5, revision: 2 });
+  expect(second.content.summaryReport?.sourceStageRevisions).not.toContainEqual({ stageId: 5, revision: 1 });
+});
+it("does not infer current saved sources for an unknown initial handwritten report", async () => {
+  mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 5 ? saved("不同的新原型", 2, 5) : null }));
+  render(<Harness stageId={6} reportInitial="来源未知的手写旧报告；不得自动认领当前原型" />); await ready();
+  fireEvent.click(screen.getByTestId("save-report")); await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
+  expect((mocks.save.mock.calls[0]![0] as AidtSaveStageInput).content.summaryReport?.sourceStageRevisions).toEqual([]);
+});
+it("retains the manuscript's original sources after conflict review instead of adopting the other writer's new report sources", async () => {
+  let current = withReport("原来的报告", 3); current.content.summaryReport.sourceStageRevisions = [{ stageId: 5, revision: 1 }];
+  mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 6 ? current : null }));
+  render(<Harness stageId={6} initial="" />); await ready();
+  await waitFor(() => expect(screen.getByLabelText("本页报告")).toHaveValue("原来的报告"));
+  fireEvent.change(screen.getByLabelText("本页报告"), { target: { value: "保留原来的报告，加学生说明" } });
+  current = withReport("另一位同学新报告", 4); current.content.summaryReport.sourceStageRevisions = [{ stageId: 5, revision: 2 }];
+  mocks.save.mockRejectedValueOnce(new ApiError(409, "AIDT_STAGE_REVISION_CONFLICT", {}));
+  fireEvent.click(screen.getByTestId("save-report")); await waitFor(() => expect(exposed.report.conflict).toBe(true));
+  act(() => exposed.report.reviewBase()); fireEvent.click(screen.getByTestId("save-report")); await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
+  const request = mocks.save.mock.calls[1]![0] as AidtSaveStageInput;
+  expect(request.expectedRevision).toBe(4);
+  expect(request.content.summaryReport?.markdown).toBe("保留原来的报告，加学生说明");
+  expect(request.content.summaryReport?.sourceStageRevisions).toEqual([{ stageId: 5, revision: 1 }]);
+});
 it("restores the actual group report on re-entry without inventing a report from missing stages", async () => {
   mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 6 ? withReport() : null })); render(<Harness initial="" stageId={6} />); await ready(); await waitFor(() => expect(screen.getByLabelText("本页报告")).toHaveValue("服务器小组报告")); expect(exposed.report.matchesServer).toBe(true); expect(exposed.report.serverRevision).toBe(3); expect(exposed.report.sourceStageRevisions).toEqual([{ stageId: 1, revision: 1 }]); expect(mocks.save).not.toHaveBeenCalled();
 });

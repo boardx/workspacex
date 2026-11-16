@@ -1,0 +1,45 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-report_history/apps/web
+
+ × tests/ui/aidt-shared-stages.test.tsx > does not relabel a retained old report as using a newer fifth-stage revision after refresh and editing
+   → expected [ { stageId: 5, revision: 2 }, …(1) ] to deeply equal [ { stageId: 5, revision: 1 } ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-shared-stages.test.tsx > does not relabel a retained old report as using a newer fifth-stage revision after refresh and editing
+AssertionError: expected [ { stageId: 5, revision: 2 }, …(1) ] to deeply equal [ { stageId: 5, revision: 1 } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+-     "revision": 1,
++     "revision": 2,
+      "stageId": 5,
++   },
++   Object {
++     "revision": 3,
++     "stageId": 6,
+    },
+  ]
+
+ ❯ tests/ui/aidt-shared-stages.test.tsx:142:63
+    140|   const request = mocks.save.mock.calls[0]![0] as AidtSaveStageInput;
+    141|   expect(request.content.summaryReport?.markdown).toBe(edited);
+    142|   expect(request.content.summaryReport?.sourceStageRevisions).toEqual(…
+       |                                                               ^
+    143|   expect(request.content.summaryReport?.sourceStageRevisions).not.toCo…
+    144| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 34 skipped (35)
+   Start at  01:43:52
+   Duration  1.30s (transform 245ms, setup 76ms, collect 302ms, tests 79ms, environment 559ms, prepare 41ms)
+
+undefined
+/workspace/scratch/aidt-complete-report_history/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/aidt-shared-stages.test.tsx -t does not relabel a retained old report --reporter verbose

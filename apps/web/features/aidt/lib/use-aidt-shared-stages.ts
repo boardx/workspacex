@@ -176,7 +176,21 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   }
   const reportServer = stages[6], serverReport = reportServer?.content.summaryReport;
   const discoveryCardsRevision = stages[2] && aidtSharedDraftSignature(stages[2].content.draft) === aidtSharedDraftSignature(drafts[2]!) ? stages[2].revision : undefined;
-  const reportMarkdown = reportText ?? aidtUiReportMarkdown(drafts, { discoveryCardsRevision });
+  const assembledReport = aidtUiReportMarkdown(drafts, { discoveryCardsRevision });
+  const reportMarkdown = reportText ?? assembledReport;
+  const matchedReportRefs = Object.values(stages).filter(item => drafts[item.stageId] && aidtSharedDraftSignature(item.content.draft) === aidtSharedDraftSignature(drafts[item.stageId]!)).map(item => ({ stageId: item.stageId, revision: item.revision })).sort((a, b) => a.stageId - b.stageId);
+  // Provenance follows the report, never whichever stage heads happen to be open
+  // when Save is clicked. A manually edited/extended report keeps its original
+  // references; an unknown initial manuscript has no inferred saved sources.
+  const reportSources = React.useRef<{ key: string; markdown: string; refs: Source[] } | null>(null);
+  const previousReportSources = reportSources.current?.key === editKey ? reportSources.current : null;
+  if (reportText === null) reportSources.current = { key: editKey, markdown: reportMarkdown, refs: clone(matchedReportRefs) };
+  else if (serverReport?.markdown === reportText) reportSources.current = { key: editKey, markdown: reportText, refs: clone(serverReport.sourceStageRevisions) };
+  else if (!previousReportSources || previousReportSources.markdown !== reportText) reportSources.current = {
+    key: editKey, markdown: reportText,
+    refs: clone(previousReportSources ? reportText === assembledReport ? matchedReportRefs : previousReportSources.refs : []),
+  };
+  const reportRefs = clone(reportSources.current?.key === editKey ? reportSources.current.refs : []);
   const reportMatchesServer = Boolean(serverReport && serverReport.markdown === reportMarkdown);
   const reportNeedsBaseReview = currentReportWrite.phase === "conflict" && reportBase?.key !== reportKey;
   const reportCanSave = available && canWrite && stageId === 6 && currentRead?.phase === "ready" && currentReportWrite.phase !== "saving" && currentWrite.phase !== "saving" && !reportNeedsBaseReview && reportMarkdown.trim().length > 0 && !reportMatchesServer;
@@ -189,9 +203,6 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   async function saveReport() {
     if (latest.current.key !== key || !latest.current.canWrite || !reportCanSave || !scope || inFlight.current) return;
     const expectedRevision = reportBase?.key === reportKey ? reportBase.revision : reportServer?.revision ?? 0;
-    // References are only attached for forms matching a real saved revision. A local
-    // unsaved form may appear in the student's report, but is never labelled a saved source.
-    const reportRefs = Object.values(stages).filter(item => drafts[item.stageId] && aidtSharedDraftSignature(item.content.draft) === aidtSharedDraftSignature(drafts[item.stageId]!)).map(item => ({ stageId: item.stageId, revision: item.revision })).sort((a, b) => a.stageId - b.stageId);
     const content = { schemaVersion: 1 as const, draft: clone(reportServer?.content.draft ?? emptyAidtUiDrafts()[6]!), summaryReport: { markdown: reportMarkdown, sourceStageRevisions: reportRefs } };
     const refs = clone(reportServer?.sourceStageRevisions ?? []);
     const signature = JSON.stringify([expectedRevision, content, refs]);
