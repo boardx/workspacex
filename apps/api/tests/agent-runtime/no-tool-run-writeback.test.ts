@@ -36,7 +36,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { wave2Runtime as W } from "@repo/contracts";
 import {
   addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -72,6 +72,12 @@ const SV_B = "skill-version-wave2-run-b1";
 const SV_C = "skill-version-wave2-run-c1";
 const MODEL_V1 = "pinned-model-v1";
 const MODEL_V2 = "head-model-v2";
+
+let systemModel = { provider: PROVIDER, modelId: MODEL_V1 };
+vi.mock("../../src/infrastructure/agent/pg-default-agent-repository", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../src/infrastructure/agent/pg-default-agent-repository")>(),
+  resolveDeepAgentModel: () => systemModel,
+}));
 
 const sha256 = (v: string): string => createHash("sha256").update(v).digest("hex");
 
@@ -347,11 +353,17 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  systemModel = { provider: PROVIDER, modelId: MODEL_V1 };
   calls = [];
   replyWithText("durable reply from the loopback provider");
   await resetOrgs(ORG, OTHER_ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy!);
+  // @global-scope-fixture table:credit_wallets: fund the isolated loopback run actor.
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [ACTOR],
+  ));
   await addProjectMember(ORG, PROJECT, ACTOR, "facilitator", null);
   await addOrgMember(ORG, STRANGER, "consultant", fx.teams.platform!);
   await seedOrg({ orgId: OTHER_ORG, projectId: `${PROJECT}-other` });
@@ -619,6 +631,7 @@ describe("the run executes its acceptance snapshot, not the current head", () =>
       "SELECT published_version_id FROM agents WHERE id=$1", [AGENT],
     ));
     expect(head.rows[0]!.published_version_id, "the head must really have moved").toBe(V2);
+    systemModel = { provider: PROVIDER, modelId: MODEL_V2 };
 
     await tick();
 
@@ -828,6 +841,7 @@ describe("provider failure and single-provider discipline", () => {
       versionId: V2, skillVersionIds: [SV_A], modelProvider: "some-other-vendor",
       modelId: "some-other-model", instructions: "Different provider.",
     });
+    systemModel = { provider: "some-other-vendor", modelId: "some-other-model" };
     const { agentRunId } = await postMessage("Unconfigured provider");
 
     await tick();
