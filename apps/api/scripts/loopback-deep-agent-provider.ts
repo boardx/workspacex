@@ -50,6 +50,7 @@ import { randomUUID } from "node:crypto";
 import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
 import { PLAN_CONFIRMATION_TOOL_NAME } from "@repo/contracts/plan-control";
 import { buildDeepAgentSkillCatalogBlock } from "../src/application/agent-run/skill-catalog";
+import { CANVAS_GUIDANCE_HEADER } from "../src/application/agent-run/canvas-template-guidance";
 
 const port = Number(process.env.LOOPBACK_DEEP_AGENT_PROVIDER_PORT ?? "");
 if (!Number.isInteger(port) || port <= 0) {
@@ -436,6 +437,10 @@ const MULTI_CANVAS_SUMMARY = process.env.LOOPBACK_DEEP_AGENT_MULTI_CANVAS_SUMMAR
  */
 function multiCanvasFence(index: number, userText: string): string {
   const value = `${userText.replace(/[`\n]/g, "").trim().slice(0, 60)} 第${index}张`;
+  return canvasFence(value);
+}
+
+function canvasFence(value: string): string {
   return [
     "```canvas",
     `模板: ${MULTI_CANVAS_TEMPLATE_KEY}`,
@@ -444,6 +449,14 @@ function multiCanvasFence(index: number, userText: string): string {
     `- ${value}`,
     "```",
   ].join("\n");
+}
+
+function receivedCanvasGuidance(body: CreateRunBody, userText: string): boolean {
+  const sentinel = process.env.LOOPBACK_MODEL_CANVAS_GUIDANCE_SENTINEL;
+  const template = MULTI_CANVAS_TEMPLATE_KEY;
+  return Boolean(sentinel && template && userText.includes(sentinel)
+    && body.input?.messages?.some(({ role, content }) => role === "system"
+      && typeof content === "string" && content.includes(CANVAS_GUIDANCE_HEADER) && content.includes(template)));
 }
 
 /** 本轮**每一条**顶层 AI 消息的正文，按顺序。最后一条零围栏——见 `MULTI_CANVAS_SUMMARY`。 */
@@ -652,6 +665,7 @@ interface RunRecord {
    *  见 `skillCatalogReachedUpstream`。与上一行是两个独立信号，不许互相替代。 */
   skillCatalogSeen?: boolean;
   contextEcho?: string;
+  canvasGuidanceSeen?: boolean;
   /**
    * issue #3100 D6 —— `spawn_async_task` 这一轮真的派发出去之后，TS 侧回给的那条
    * 子任务 run id（`POST /internal/subtask-runs` 响应体的 `subtaskRunId`）。
@@ -948,6 +962,7 @@ function defaultTurnReply(record: RunRecord): string {
 }
 
 function computeSpecialTurnReply(threadId: string, record: RunRecord): string | null {
+  if (record.canvasGuidanceSeen) return canvasFence(record.userText.replace(/[`\n]/g, "").trim().slice(0, 80));
   // DA-19g：命中「记得上文」触发词时，逐字引用这条线程上一次收到的用户消息——
   // 见 `conversationLog`/`FOLLOWUP_CONTEXT_TRIGGER` 自己的头注。`log` 至少两条
   // （当前这轮 + 上一轮）才有"上一轮"可引用；只有当前这一轮（首轮就发触发词）时
@@ -1398,6 +1413,7 @@ const server = createServer((req, res) => {
         // 路径矩阵 D4：同一条纪律——只看这一轮请求真实收到的字节，不缓存跨轮。
         skillCatalogSeen: skillCatalogReachedUpstream(parsed),
         contextEcho: contextEcho(parsed),
+        canvasGuidanceSeen: receivedCanvasGuidance(parsed, lastUserText),
         // issue #3303：运行控制回调同样只从**这一轮请求的字节**里读——见 `RunControlCallback` 头注。
         runControl: readRunControlCallback(parsed),
       });
