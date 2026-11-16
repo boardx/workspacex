@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openFreshThread } from "./chat-task-workbench-fixture";
+import { ACCEPTANCE_DOC, CHAT_READ_E2E, expectAnchor, gapMessage, openFreshThread } from "./chat-task-workbench-fixture";
 
 /**
  * issue #2068 —— **TW-P0-5 统一 Composer**（判据见 `${ACCEPTANCE_DOC}`）。
@@ -131,7 +131,7 @@ test("TW-P0-5⑤：麦克风入口全局唯一（审计实测当前有两个）"
 });
 
 test("TW-P0-5⑥：设备选择是语音按钮的二级菜单，录音时显示计时/音量/取消/确认", async ({ page }) => {
-  await openFreshThread(page);
+  await openFreshThread(page, CHAT_READ_E2E.recordingControlsEmail);
 
   const mic = await expectAnchor(
     page,
