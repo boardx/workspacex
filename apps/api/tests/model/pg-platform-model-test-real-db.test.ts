@@ -17,6 +17,11 @@ beforeEach(async()=>{operatorAllowed=true;memberAllowed=true;await resetOrgs(ORG
 afterAll(async()=>{await db?.close();await resetOrgs(ORG,OTHER);});
 describe("real PG isolated platform model test persistence",()=>{
  it("links an actual held receipt with explicit platform provenance atomically before dispatch",async()=>{
+  // @global-scope-fixture table:credit_wallets: fund the isolated receipt payer before checking authority.
+  await asOwner(client => client.query(
+   "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+   [actor.operatorUserId],
+  ));
   await repository.claim(actor,request);
   await asApp(ORG,async c=>{
    await c.query(`INSERT INTO ai_budget_windows(org_id,user_id,window_start,window_end,timezone,token_limit,cost_limit_micros,currency,price_version,configured_by)
