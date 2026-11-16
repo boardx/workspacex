@@ -1,4 +1,6 @@
 import type { AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
+import { AIDT_PROTOTYPE_REFERENCE_FIELD, AidtPrototypeIdentifierSchema, formatAidtPrototypeReference, readAidtPrototypeReference, updateAidtPrototypeVersionText } from "./aidt-prototype-reference";
+import { aidtPrototypeVersionLabel } from "./aidt-prototype-versions";
 
 /** These remain student-authored fields in the existing shared stage document. */
 export const AIDT_VERIFICATION_FIELDS = ["verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits"] as const;
@@ -15,6 +17,8 @@ export type AidtQuestionSnapshot = {
   verificationBasis: string;
   verificationLimits: string;
   prototypeRef: string;
+  prototypeDesignId?: string;
+  prototypeVersionId?: string;
   sourceStageRevision: number | null;
 };
 const value = (draft: AidtUiStageDraft, field: string): string => draft.fields[field]?.trim() ?? "";
@@ -42,11 +46,14 @@ export function confirmAidtVerificationQuestion(draft: AidtUiStageDraft): AidtUi
 export function createAidtQuestionSnapshot(draft: AidtUiStageDraft, sourceStageRevision?: number): { ok: true; snapshot: AidtQuestionSnapshot; serialized: string } | { ok: false; reason: string } {
   const gate = getAidtPrototypeGenerationReadiness(draft);
   if (!gate.ready) return { ok: false, reason: gate.reason! };
-  const prototypeRef = value(draft, "version");
+  const selected = readAidtPrototypeReference(draft);
+  if (value(draft, AIDT_PROTOTYPE_REFERENCE_FIELD) && !selected) return { ok: false, reason: "真实原型引用无法读取，请重新选择或明确移除后保留学生文字记录。" };
+  const prototypeRef = selected ? aidtPrototypeVersionLabel(selected) : value(draft, "version");
   if (!prototypeRef) return { ok: false, reason: "先在第5步填写实际用于测试的原型版本引用，再带入本轮问题。" };
   const snapshot: AidtQuestionSnapshot = {
     schemaVersion: 1, question: value(draft, "verificationQuestion"), beforeTestBelief: value(draft, "beforeTestBelief"),
     verificationBasis: value(draft, "verificationBasis"), verificationLimits: value(draft, "verificationLimits"), prototypeRef,
+    ...(selected ? { prototypeDesignId: selected.designId, prototypeVersionId: selected.versionId } : {}),
     sourceStageRevision: Number.isInteger(sourceStageRevision) && sourceStageRevision! > 0 ? sourceStageRevision! : null,
   };
   const serialized = JSON.stringify(snapshot);
@@ -55,7 +62,7 @@ export function createAidtQuestionSnapshot(draft: AidtUiStageDraft, sourceStageR
 }
 export function readAidtQuestionSnapshot(draft: AidtUiStageDraft): AidtQuestionSnapshot | null {
   const raw = draft.fields.questionSnapshot;
-  if (!raw) return null;
+  if (!raw || raw.length > 6000) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
@@ -64,20 +71,36 @@ export function readAidtQuestionSnapshot(draft: AidtUiStageDraft): AidtQuestionS
       || typeof record.prototypeRef !== "string" || !record.prototypeRef.trim()
       || ["beforeTestBelief", "verificationBasis", "verificationLimits"].some((field) => typeof record[field] !== "string")
       || !(record.sourceStageRevision === null || (Number.isInteger(record.sourceStageRevision) && Number(record.sourceStageRevision) > 0))) return null;
+    const hasNativeIds = record.prototypeDesignId !== undefined || record.prototypeVersionId !== undefined;
+    if (hasNativeIds && (!AidtPrototypeIdentifierSchema.safeParse(record.prototypeDesignId).success || !AidtPrototypeIdentifierSchema.safeParse(record.prototypeVersionId).success)) return null;
     return {
       schemaVersion: 1, question: record.question, prototypeRef: record.prototypeRef,
       beforeTestBelief: record.beforeTestBelief as string, verificationBasis: record.verificationBasis as string,
       verificationLimits: record.verificationLimits as string, sourceStageRevision: record.sourceStageRevision as number | null,
+      ...(hasNativeIds ? { prototypeDesignId: record.prototypeDesignId as string, prototypeVersionId: record.prototypeVersionId as string } : {}),
     };
   } catch { return null; }
 }
 export function aidtQuestionSnapshotMatches(draft: AidtUiStageDraft, prototype: AidtUiStageDraft, sourceStageRevision?: number): boolean {
   const current = readAidtQuestionSnapshot(draft), incoming = createAidtQuestionSnapshot(prototype, sourceStageRevision);
   if (!current || !incoming.ok) return false;
-  return (Object.keys(current) as (keyof AidtQuestionSnapshot)[]).every((key) => current[key] === incoming.snapshot[key]);
+  const next = incoming.snapshot;
+  if (current.prototypeDesignId || next.prototypeDesignId) {
+    if (current.prototypeDesignId !== next.prototypeDesignId || current.prototypeVersionId !== next.prototypeVersionId) return false;
+  } else if (current.prototypeRef !== next.prototypeRef) return false;
+  return (["question", "beforeTestBelief", "verificationBasis", "verificationLimits", "sourceStageRevision"] as const).every((key) => current[key] === next[key]);
 }
 export function updateAidtReflectionField(draft: AidtUiStageDraft, field: (typeof AIDT_REFLECTION_FIELDS)[number] | "questionSnapshot" | "version", text: string): AidtUiStageDraft {
+  if (field === "version") return updateAidtPrototypeVersionText(draft, text);
   return { ...draft, fields: { ...draft.fields, [field]: text, reflectionConfirmed: "" } };
+}
+/** Current test selection is checked against frozen IDs; legacy text remains explicit history. */
+export function aidtTestPrototypeMismatch(draft: AidtUiStageDraft, snapshot = readAidtQuestionSnapshot(draft)): boolean {
+  if (!snapshot) return false;
+  const reference = readAidtPrototypeReference(draft);
+  if (value(draft, AIDT_PROTOTYPE_REFERENCE_FIELD) && !reference) return true;
+  if (reference) return reference.designId !== snapshot.prototypeDesignId || reference.versionId !== snapshot.prototypeVersionId;
+  return !!value(draft, "version") && value(draft, "version") !== snapshot.prototypeRef.trim();
 }
 export function readAidtReturnDecision(draft: AidtUiStageDraft): { kind: "selected"; step: AidtReturnStep; label: string } | { kind: "undecided" } | { kind: "unanswered" } {
   const choice = value(draft, "returnStep");
@@ -88,7 +111,7 @@ export function aidtReflectionMissingItems(draft: AidtUiStageDraft): string[] {
   const missing: string[] = [], status = value(draft, "understandingChangeStatus"), decision = readAidtReturnDecision(draft);
   const snapshot = readAidtQuestionSnapshot(draft);
   if (!snapshot) missing.push("带入本轮原问题与被测版本");
-  if (snapshot && value(draft, "version") && value(draft, "version") !== snapshot.prototypeRef.trim()) missing.push("核对被测版本与本轮问题绑定的原型版本");
+  if (aidtTestPrototypeMismatch(draft, snapshot)) missing.push("核对被测版本与本轮问题绑定的原型版本");
   if (!["changed", "unchanged", "insufficient"].includes(status)) missing.push("说明认识是否改变或证据不足");
   if (!value(draft, "afterTestBelief") && status !== "insufficient") missing.push("填写测试后的认识");
   if (!value(draft, "understandingEvidence") && !(status === "insufficient" && value(draft, "unresolvedQuestions"))) missing.push("说明材料依据或证据不足之处");
@@ -101,23 +124,27 @@ export function isAidtReflectionConfirmed(draft: AidtUiStageDraft): boolean {
   return draft.fields.reflectionConfirmed === "true" && aidtReflectionMissingItems(draft).length === 0;
 }
 export function formatAidtVerificationMarkdown(draft: AidtUiStageDraft): string[] {
+  const selected = readAidtPrototypeReference(draft);
   return [
     "### 本轮验证问题卡", `本轮最想知道：${value(draft, "verificationQuestion") || "待学生填写"}`,
     `测试前看法：${value(draft, "beforeTestBelief") || "尚未记录，不推测"}`,
     `看法依据：${value(draft, "verificationBasis") || "尚未记录"}`,
     `可验证与不可验证的范围：${value(draft, "verificationLimits") || "待明确，静态图不能直接证明真实行为"}`,
     `原型版本引用（学生记录）：${value(draft, "version") || "待补充"}`,
+    ...(selected ? [`第5步当前原生版本引用：${formatAidtPrototypeReference(selected)}`] : value(draft, AIDT_PROTOTYPE_REFERENCE_FIELD) ? ["第5步真实原型引用格式无法读取；已保留原稿，尚待重新选择。"] : []),
     isVerificationQuestionConfirmed(draft) ? "问题状态：学生已确认，仍待真实测试。" : "问题状态：草稿或已修改，待学生确认。",
   ];
 }
 export function formatAidtTestReflectionMarkdown(draft: AidtUiStageDraft): string[] {
-  const snapshot = readAidtQuestionSnapshot(draft), decision = readAidtReturnDecision(draft);
+  const snapshot = readAidtQuestionSnapshot(draft), decision = readAidtReturnDecision(draft), selected = readAidtPrototypeReference(draft);
   const status = value(draft, "understandingChangeStatus");
   return [
     "### 本轮认识变化与下一步行动",
     `本轮原验证问题：${snapshot?.question ?? "尚未绑定，不能事后补称原问题已验证"}`,
     `被测原型引用（学生记录）：${snapshot?.prototypeRef ?? "待补充"}`,
-    ...(snapshot && value(draft, "version") && value(draft, "version") !== snapshot.prototypeRef.trim() ? [`版本待核对：测试表单记录为${value(draft, "version")}，与本轮问题绑定版本不一致，不能确认本轮记录。`] : []),
+    ...(snapshot?.prototypeDesignId ? [`第6步冻结原生版本：Design ID：${snapshot.prototypeDesignId}；版本 ID：${snapshot.prototypeVersionId}。这是本轮原问题的历史引用；不代表当前授权或研究证据已核验。`] : []),
+    ...(selected ? [`第6步当前另选原生版本：${formatAidtPrototypeReference(selected)}`] : []),
+    ...(aidtTestPrototypeMismatch(draft, snapshot) ? ["版本待核对：测试表单当前记录与本轮问题绑定版本不一致，不能确认本轮记录；冻结快照保持不变。"] : []),
     `问题来源共享版本：${snapshot?.sourceStageRevision ? `第5步 V${snapshot.sourceStageRevision}` : "未绑定共享版本回执"}`,
     `测试前看法：${snapshot?.beforeTestBelief || "尚未记录"}`,
     `测试后看法：${value(draft, "afterTestBelief") || "待学生填写"}`,

@@ -126,8 +126,8 @@ const V2_CONTENT: Record<number, readonly string[]> = {
   1: ["whyWorthStudying", "problemSources", "sourceDetails", "sourceUncertainty"],
   3: ["surpriseStatus", "priorBelief", "surprisingFinding", "surpriseCardIds", "surpriseSourceDetails", "surpriseInterpretation"],
   4: ["ideaClassificationTags", "ideaClassificationReasons", "ideaClassificationConfirmed"],
-  5: ["verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits"],
-  6: ["questionSnapshot", "afterTestBelief", "understandingChangeStatus", "understandingEvidence", "unresolvedQuestions", "returnStep", "returnReason", "nextAction"],
+  5: ["verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits", "prototypeReference"],
+  6: ["questionSnapshot", "afterTestBelief", "understandingChangeStatus", "understandingEvidence", "unresolvedQuestions", "returnStep", "returnReason", "nextAction", "prototypeReference"],
 };
 export function hasAidtV2Data(stage: number, draft: AidtUiStageDraft): boolean {
   return (V2_CONTENT[stage] ?? []).some(key => Boolean(draft.fields[key]?.trim()));

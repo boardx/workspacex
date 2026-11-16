@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyAidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { aidtQuestionSnapshotMatches, aidtReflectionMissingItems, confirmAidtVerificationQuestion, createAidtQuestionSnapshot, formatAidtTestReflectionMarkdown, getAidtPrototypeGenerationReadiness, isAidtReflectionConfirmed, isVerificationQuestionConfirmed, readAidtQuestionSnapshot, readAidtReturnDecision, updateAidtReflectionField, updateAidtVerificationField } from "@/features/aidt/lib/aidt-verification-loop";
+import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
 
 const blank = (): AidtUiStageDraft => emptyAidtUiDrafts()[5]!;
 const prototype = () => confirmAidtVerificationQuestion({ ...blank(), fields: { verificationQuestion: "愿不愿意等待？", beforeTestBelief: "也许愿意", version: "原型 V1" } })!;
@@ -29,6 +30,35 @@ describe("student confirmation before generation", () => {
   });
 });
 describe("immutable round context", () => {
+  const native = { designId: "design", versionId: "version1", designName: "原型", seq: 1, summary: "摘要", createdAt: "2026-11-16", frameCount: 1, generatedFrameCount: 1, source: "user" as const };
+  it("prefers native IDs over historical text and compares IDs rather than labels or object identity", () => {
+    const selected = updateAidtPrototypeReference(prototype(), native);
+    const result = createAidtQuestionSnapshot(selected, 3); if (!result.ok) throw new Error(result.reason);
+    expect(result.snapshot).toMatchObject({ prototypeRef: "原型 / v1：摘要", prototypeDesignId: "design", prototypeVersionId: "version1" });
+    expect(selected.fields.version).toBe("原型 V1");
+    const stage6 = { ...reflection(), fields: { questionSnapshot: result.serialized } };
+    const renamed = updateAidtPrototypeReference(selected, { ...native, designName: "后来改名" });
+    expect(aidtQuestionSnapshotMatches(stage6, renamed, 3)).toBe(true);
+    expect(aidtQuestionSnapshotMatches(stage6, updateAidtPrototypeReference(selected, { ...native, versionId: "version2" }), 3)).toBe(false);
+    expect(aidtQuestionSnapshotMatches(stage6, updateAidtPrototypeReference(selected, null), 3)).toBe(false);
+  });
+  it("accepts old schema-one snapshots but rejects incomplete native ID pairs and invalid persisted selections", () => {
+    const legacy = createAidtQuestionSnapshot(prototype(), 3); if (!legacy.ok) throw new Error(legacy.reason);
+    expect(readAidtQuestionSnapshot(reflection())).toEqual(legacy.snapshot);
+    for (const fields of [{ prototypeDesignId: "design" }, { prototypeVersionId: "version" }, { prototypeDesignId: "design", prototypeVersionId: ".." }]) {
+      expect(readAidtQuestionSnapshot({ ...blank(), fields: { questionSnapshot: JSON.stringify({ ...legacy.snapshot, ...fields }) } })).toBeNull();
+    }
+    expect(createAidtQuestionSnapshot({ ...prototype(), fields: { ...prototype().fields, prototypeReference: "broken-json" } }).ok).toBe(false);
+    const selected = updateAidtPrototypeReference(prototype(), native);
+    const result = createAidtQuestionSnapshot(selected, 3); if (!result.ok) throw new Error(result.reason);
+    const stage6 = updateAidtPrototypeReference({ ...reflection(), fields: { ...reflection().fields, questionSnapshot: result.serialized, reflectionConfirmed: "true" } }, { ...native, versionId: "version2" });
+    expect(aidtReflectionMissingItems(stage6)).toContain("核对被测版本与本轮问题绑定的原型版本");
+    expect(isAidtReflectionConfirmed(stage6)).toBe(false);
+    const changedText = updateAidtReflectionField(stage6, "version", "原型 / v1：摘要");
+    expect(changedText.fields.prototypeReference).toBe("");
+    expect(changedText.fields.questionSnapshot).toBe(result.serialized);
+    expect(changedText.fields.reflectionConfirmed).toBe("");
+  });
   it("captures an explicitly identified prototype and actual saved source revision", () => {
     const result = createAidtQuestionSnapshot(prototype(), 3);
     expect(result.ok).toBe(true);

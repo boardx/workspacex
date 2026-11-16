@@ -22,8 +22,11 @@ flowchart TD
   S3[3. 实现独立读取器和选择器]
   S4[4. 验证权限与异步边界]
   S5[5. 提交并交接父级接入]
+  S6[6. 实现引用持久化与冻结版本ID]
+  S7[7. 验证报告兼容与历史边界]
 
   G --> S1 --> S2 --> S3 --> S4 --> S5
+  S5 --> S6 --> S7
 
   classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
@@ -39,6 +42,10 @@ flowchart TD
   class S4 tested
   %% evidence S4: isolation-tests.log: module boundary and compatibility tests passed
   class S5 done
+  class S6 tested
+  %% evidence S6: reference-persistence-tests.log: canonical StageContent roundtrip, frozen v1 while S5 v2, legacy schema and ID comparison passed
+  class S7 tested
+  %% evidence S7: reference-persistence-tests.log: 64 tests passed across 10 files; reference-eslint.log exit 0
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）

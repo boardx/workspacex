@@ -2,6 +2,26 @@
 
 本交付是独立组件、读取适配器和测试。父级负责将组件接入第5/6步，以及把引用持久化到现有 stage fields。这里未改动 `project-aidt.tsx`、stage-output 或 verification-loop；未更改任何设计签核状态、服务契约、权限或共享 Backlog，也未部署、合并或外发 GitHub。
 
+第三增量按 root 扩展授权修改了 `aidt-verification-loop.ts` 与 `aidt-ui-drafts.ts`；新增本地持久化 helper 和冻结 ID 逻辑。`project-aidt.tsx`、stage-output 与实际 UI 挂载仍由 root 独占。
+
+## 第三增量：持久化接线
+
+新增 `lib/aidt-prototype-reference.ts`，公开接口：
+
+- `parseAidtPrototypeReference(raw: string | null | undefined): AidtPrototypeVersionReference | null`：仅核对结构，JSON ≤ 6000；不发 API 请求、不证明引用真实存在或当前权限。
+- `readAidtPrototypeReference(draft): AidtPrototypeVersionReference | null`：读取 `fields.prototypeReference`。
+- `updateAidtPrototypeReference(draft, reference | null): AidtUiStageDraft`：选择/移除本步引用，清除本步 reflectionConfirmed，保留旧 `fields.version` 与 `questionSnapshot`。
+- `updateAidtPrototypeVersionText(draft, text): AidtUiStageDraft`：手工改 version 时清空结构化引用；重新输入原 label 不会恢复 ID。
+- `AidtPrototypeReferenceSchema`、`AidtPrototypeIdentifierSchema`：由现有 canonical 版本摘要/设计名派生本地存储校验，strict 拒绝额外授权标记，页数必须是正安全整数且已生成数不超过总数。
+- `sameAidtPrototypeVersion(a, b)`：只比较 designId/versionId。
+- `aidtTestPrototypeMismatch(draft, snapshot?)`（verification-loop 导出）：S6 当前另选版本与冻结 ID 不一致时阻止确认；兼容旧文字。
+
+父级 picker：`value={readAidtPrototypeReference(draft)}`，`onChange={ref => update(old => updateAidtPrototypeReference(old, ref))}`。手工字段入口 `id === "version"` 时使用 `updateAidtPrototypeVersionText`。S6 UI mismatch 请使用 `aidtTestPrototypeMismatch`，不要继续单比文字。
+
+S5 生成新问题快照时优先使用结构化引用，冻结 primitive `prototypeDesignId` / `prototypeVersionId` 与当时可读 label，保留 schemaVersion 1；旧快照缺两个可选字段仍能读取，只有一个 ID 的损坏快照被拒绝。更换 S5 引用不会修改已有 S6 字符串。匹配函数按 ID 比较，不受设计名称更新或对象实例变化影响。
+
+格式化分别输出 S5 当前引用、S6 冻结引用及 S6 当前另选引用，保留不同版本的核对提示。所有历史元数据只称“学生保存的记录结构可读”，不会因为解析成功就声称过去已通过 API 验证或当前已获授权。新增 prototypeReference 到 V2 内容识别，单独选择引用也能进入阶段交接摘要。
+
 ## 接入
 
 ```tsx
@@ -72,5 +92,7 @@ import { aidtPrototypeVersionLabel, type AidtPrototypeVersionReference } from "@
 | A5.3 | 旧身份响应或只读降级可能改错引用 | keyed 消费者 + AbortController；只读禁止读取/更改；收起取消选中请求 | UI tests：project/org/user/token/readOnly 变更、旧请求和收起重开 |
 | A5.4 | 服务失败易被当作空态；旧快照可能被覆盖 | 分离加载/空/失败，显式 retry；回调无 draft/snapshot 写入能力；历史值保留说明 | UI tests：失败/空态、重试、旧值保留；父级快照集成仍需验收 |
 | A5.5 | 独立审阅发现：已有 A → 延迟核对 B → 移除 → B 回包，会覆盖学生的移除决定 | 移除时同步 abort 并清除 pending/error；完成回调也核对当前 controller；取消逻辑与收起/刷新复用 | `removal-race-red.log` 先复现 1 failed；`removal-race-green.log` 修复后 20/20 passed，含移除后重选可用 |
+| A5.6 | 原型 ID 还不能经过已批准阶段字段保存；冻结快照只比文字 | 新增本地 metadata schema/read/update；新快照带 primitive ID，旧版可读；手工文字清选择，旧 S6 不自动改 | 共享 StageContent JSON 往返、S5 v1→v2 / S6 冻结 v1、同 ID 改名、旧 label 不恢复 ID、报告分版本输出等实际纯逻辑测试 |
+| A5.7 | 解析历史 metadata 不证明过去真实读服务成功 | 格式化只称学生记录结构可读，并明确实际内容、权限、证据待核对 | parse任意合法metadata→report 不得出现“曾成功读取”“当前已授权”“证据核验通过” |
 
 首次定向测试的一个成功场景夹具错误地把 text node 内容放在非契约属性中，strict 解析如期拒绝。夹具已按原生 schema 改为 `props.content`，没有放宽树校验。
