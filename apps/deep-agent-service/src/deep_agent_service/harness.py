@@ -1266,6 +1266,37 @@ class PinnedModelMiddleware(AgentMiddleware):
         return await handler(_prepare_pinned_model_request(request))
 
 
+def _first_feedback_request(request: ModelRequest) -> ModelRequest:
+    """Route one authored feedback action through its mounted skill, once.
+
+    This only constrains the existing model tool choice. Tool admission, budget
+    exclusions and HITL still run normally; an attempted call (including an
+    error, denial or pending approval) never acquires a forced retry here.
+    """
+    try:
+        config = get_config()
+    except RuntimeError:
+        return request
+    raw = (config.get("configurable") or {}).get("org_skills")
+    if not isinstance(raw, list) or len(raw) != 1:
+        return request
+    skills = _read_org_skills(config)
+    if len(skills) != 1 or feedback_turn_skill_digest(skills[0]) is None:
+        return request
+    messages = _current_turn_messages(request.messages)
+    start = _latest_human_turn_index(messages)
+    if start is None or not _human_text(messages[start]).strip():
+        return request
+    if _tool_already_called(messages[start + 1:], "call_skill"):
+        return request
+    tools = [tool for tool in request.tools if _tool_name(tool) == "call_skill"]
+    if not tools:
+        return request
+    # The inner classifier cannot replace this with a planning-only tool set.
+    # Inner budget/admission middleware may still remove this existing tool.
+    return request.override(tools=tools, tool_choice="call_skill")
+
+
 def _completed_feedback_message(request: ModelRequest) -> AIMessage | None:
     """Deliver a successful, explicitly authored feedback turn without re-running it.
 
@@ -1337,11 +1368,11 @@ class FeedbackTurnMiddleware(AgentMiddleware):
 
     def wrap_model_call(self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]) -> ModelResponse:
         reply = _completed_feedback_message(request)
-        return ModelResponse(result=[reply]) if reply is not None else handler(request)
+        return ModelResponse(result=[reply]) if reply is not None else handler(_first_feedback_request(request))
 
     async def awrap_model_call(self, request: ModelRequest, handler: Callable[[ModelRequest], Awaitable[ModelResponse]]) -> ModelResponse:
         reply = _completed_feedback_message(request)
-        return ModelResponse(result=[reply]) if reply is not None else await handler(request)
+        return ModelResponse(result=[reply]) if reply is not None else await handler(_first_feedback_request(request))
 
 
 def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = None) -> list[AgentMiddleware]:

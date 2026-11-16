@@ -1,0 +1,211 @@
+{
+  "observedAt": "2026-11-16T21:10:28.899Z",
+  "audit": {
+    "role": "app_rw",
+    "readOnly": true,
+    "tenantScoped": true,
+    "modelRequestsSent": 0,
+    "methods": [
+      "tenant-scoped SQL SELECT",
+      "owned Python GET run",
+      "owned Python GET persisted state"
+    ],
+    "runtimeFile": "runtime-private.json"
+  },
+  "run": {
+    "id": "6042d6af-971d-48f5-88bb-b3c4fe3bb236",
+    "status": "succeeded",
+    "startedAt": "2026-11-16T21:06:02.140Z",
+    "endedAt": "2026-11-16T21:06:20.620Z",
+    "remoteRunId": "df61b7bf-3d01-4a47-bcd3-561a1991d99b",
+    "remoteThreadId": "60e13ecb-5933-41df-8d14-1f9e63227200"
+  },
+  "journal": {
+    "stepCount": 8,
+    "eventCount": 9,
+    "eventKinds": {
+      "status": 2,
+      "tool_start": 2,
+      "tool_end": 2,
+      "tool_progress": 1,
+      "text_delta": 1,
+      "final_message": 1
+    },
+    "distinctSkillStepCallIds": [
+      "call_085484d8f53f46cab1b0fa96",
+      "call_5de5f3a9316749b7bdd0a513"
+    ],
+    "skillSteps": [
+      {
+        "seq": 3,
+        "status": "in_progress",
+        "toolCallId": "call_085484d8f53f46cab1b0fa96",
+        "failureCode": null,
+        "resultPublicSummary": {
+          "present": false,
+          "chars": null,
+          "sha256": null
+        }
+      },
+      {
+        "seq": 4,
+        "status": "failed",
+        "toolCallId": "call_085484d8f53f46cab1b0fa96",
+        "failureCode": "MODEL_CALL_FAILED",
+        "resultPublicSummary": {
+          "present": true,
+          "chars": 177,
+          "sha256": "343547635353651e4ee1bbb7af57832e8b9bc2320f4ea57ca0f187398b4910b0"
+        }
+      },
+      {
+        "seq": 5,
+        "status": "in_progress",
+        "toolCallId": "call_5de5f3a9316749b7bdd0a513",
+        "failureCode": null,
+        "resultPublicSummary": {
+          "present": false,
+          "chars": null,
+          "sha256": null
+        }
+      },
+      {
+        "seq": 6,
+        "status": "succeeded",
+        "toolCallId": "call_5de5f3a9316749b7bdd0a513",
+        "failureCode": null,
+        "resultPublicSummary": {
+          "present": true,
+          "chars": 198,
+          "sha256": "e285effcac76f611c6f4bbbe0c2770523ffe496e70239e8c1aaea1567fba06f2"
+        }
+      }
+    ],
+    "toolEvents": [
+      {
+        "seq": 1,
+        "kind": "tool_start",
+        "toolName": "call_skill",
+        "toolCallId": "6042d6af-971d-48f5-88bb-b3c4fe3bb236:1:call_085484d8f53f46cab1b0fa96",
+        "sourceToolCallId": "call_085484d8f53f46cab1b0fa96",
+        "ok": null,
+        "resultPublicSummary": {
+          "present": false,
+          "chars": null,
+          "sha256": null
+        }
+      },
+      {
+        "seq": 2,
+        "kind": "tool_end",
+        "toolName": "call_skill",
+        "toolCallId": "6042d6af-971d-48f5-88bb-b3c4fe3bb236:1:call_085484d8f53f46cab1b0fa96",
+        "sourceToolCallId": "call_085484d8f53f46cab1b0fa96",
+        "ok": false,
+        "resultPublicSummary": {
+          "present": true,
+          "chars": 177,
+          "sha256": "343547635353651e4ee1bbb7af57832e8b9bc2320f4ea57ca0f187398b4910b0"
+        }
+      },
+      {
+        "seq": 3,
+        "kind": "tool_start",
+        "toolName": "call_skill",
+        "toolCallId": "6042d6af-971d-48f5-88bb-b3c4fe3bb236:1:call_5de5f3a9316749b7bdd0a513",
+        "sourceToolCallId": "call_5de5f3a9316749b7bdd0a513",
+        "ok": null,
+        "resultPublicSummary": {
+          "present": false,
+          "chars": null,
+          "sha256": null
+        }
+      },
+      {
+        "seq": 5,
+        "kind": "tool_end",
+        "toolName": "call_skill",
+        "toolCallId": "6042d6af-971d-48f5-88bb-b3c4fe3bb236:1:call_5de5f3a9316749b7bdd0a513",
+        "sourceToolCallId": "call_5de5f3a9316749b7bdd0a513",
+        "ok": true,
+        "resultPublicSummary": {
+          "present": true,
+          "chars": 198,
+          "sha256": "e285effcac76f611c6f4bbbe0c2770523ffe496e70239e8c1aaea1567fba06f2"
+        }
+      }
+    ]
+  },
+  "persistedState": {
+    "stateRunMatchesRequestedRun": true,
+    "canonicalCurrentStudentTurnFound": true,
+    "totalMessages": 8,
+    "currentTurnMessages": 6,
+    "toolBatchCount": 2,
+    "toolCallCount": 2,
+    "callSkillCount": 2,
+    "toolMessageCount": 2,
+    "skillCalls": [
+      {
+        "toolCallId": "call_085484d8f53f46cab1b0fa96",
+        "batchIndex": 1,
+        "pairedResults": 1,
+        "status": "error",
+        "content": {
+          "present": true,
+          "chars": 177,
+          "sha256": "343547635353651e4ee1bbb7af57832e8b9bc2320f4ea57ca0f187398b4910b0"
+        },
+        "hasFeedbackArtifact": false,
+        "taskHashMatches": false,
+        "resultHashMatches": false,
+        "mountedBytesEstablished": false,
+        "mountedBytesHashMatches": null,
+        "outputEqualsFullFocusedResult": false
+      },
+      {
+        "toolCallId": "call_5de5f3a9316749b7bdd0a513",
+        "batchIndex": 3,
+        "pairedResults": 1,
+        "status": "success",
+        "content": {
+          "present": true,
+          "chars": 198,
+          "sha256": "e285effcac76f611c6f4bbbe0c2770523ffe496e70239e8c1aaea1567fba06f2"
+        },
+        "hasFeedbackArtifact": true,
+        "taskHashMatches": true,
+        "resultHashMatches": true,
+        "mountedBytesEstablished": false,
+        "mountedBytesHashMatches": null,
+        "outputEqualsFullFocusedResult": true
+      }
+    ],
+    "latestBatch": {
+      "callCount": 1,
+      "toolNames": [
+        "call_skill"
+      ],
+      "pairedTailResultCount": 1,
+      "singleFeedbackSuccess": true
+    },
+    "finalAnswer": {
+      "present": true,
+      "chars": 198,
+      "sha256": "e285effcac76f611c6f4bbbe0c2770523ffe496e70239e8c1aaea1567fba06f2"
+    },
+    "modelOutput": {
+      "present": true,
+      "chars": 198,
+      "sha256": "e285effcac76f611c6f4bbbe0c2770523ffe496e70239e8c1aaea1567fba06f2"
+    },
+    "modelOutputEqualsLastAnswer": true,
+    "pendingNextNodes": 0
+  },
+  "limitations": [
+    "Journal text is a bounded/redacted public summary, not a full ToolMessage.",
+    "Full hashes derive only from the matching persisted Python state, never from public summary equality.",
+    "GET run does not expose mounted org_skills config on this runtime; absent mounted bytes are unestablished, not a mismatch.",
+    "No inference of model pedagogy, financial settlement or permissions from a successful tool status."
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "observedAt": "2026-11-16T21:11:10.544076+00:00",
+  "scope": "Local real LangGraph/deepagents, adversarial fake providers; no provider model requests",
+  "sourceSha256": {
+    "apps/deep-agent-service/src/deep_agent_service/harness.py": "d307e67bf95772149c84218d81af35df15ba1a143fb8ee0d653db804abded5ec",
+    "apps/deep-agent-service/tests/test_aidt_feedback_turn.py": "6f87580d4caa52ff0e291b8decafd4b00893fcea5ad964592c25e9617e40505e"
+  },
+  "red": {
+    "newAdversarialCasesFailed": 4,
+    "log": "first-focus-red-summary.log"
+  },
+  "green": {
+    "newAdversarialCasesPassed": 4,
+    "feedbackFilePassed": 65,
+    "regressionPassed": 241,
+    "regressionSkipped": 2,
+    "regressionWarnings": 2,
+    "regressionSeconds": 13.99,
+    "excludedTest": "tests/golden/test_tc5_checkpoint_kill_recovery.py requires separate PostgreSQL fixture"
+  },
+  "checks": {
+    "diffCheck": true,
+    "modelRequestsSent": 0,
+    "stackStartedOrRestarted": false,
+    "productionDatabaseOrFinancialWrites": false
+  },
+  "limitations": [
+    "Local scripted provider tests do not prove real-provider teaching quality, latency, or model pricing.",
+    "Source readiness is not proof a running process loaded these bytes. Environment owner must attest restart.",
+    "Existing S1-S4 real-run evidence predates this first-focus fix and is not rewritten."
+  ]
+}

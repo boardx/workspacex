@@ -18,7 +18,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from langchain.agents.middleware import AgentMiddleware, ModelRequest
 from deepagents.middleware.rubric import RUBRIC_GRADER_MESSAGE_SOURCE
 
-from deep_agent_service.harness import FeedbackTurnMiddleware, _completed_feedback_message, build_middleware
+from deep_agent_service.harness import FeedbackTurnMiddleware, _completed_feedback_message, _first_feedback_request, build_middleware
 from deep_agent_service.tools import build_tools, feedback_turn_skill_digest
 from golden._scripted import ScriptedChatModel, ai_tool_call, grader_always_satisfied_response
 
@@ -46,6 +46,125 @@ def config(content=BODY):
         "disable_task_auto_classify": True,
         "org_skills": [{"stable_name": "aidt-define", "name": "综合定义", "content": content}],
     }}
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("multi_step", [False, True])
+def test_first_authored_feedback_cannot_be_skipped_by_a_direct_answer(monkeypatch, asynchronous, multi_step):
+    from golden import _scripted
+    # Simulate the provider contract for a named tool choice, with valid arguments.
+    monkeypatch.setitem(_scripted._FORCED_TOOL_CHOICE_DEFAULT_ARGS, "call_skill", {
+        "skill_stable_name": "aidt-define", "task": "核对学生初稿的证据",
+    })
+    focused = FocusedModel()
+    def direct_answer(messages, tools):
+        if tools == ["GraderResponse"]:
+            return grader_always_satisfied_response()
+        return AIMessage(content="outer model skipped the mounted skill")
+    outer = ScriptedChatModel(router=direct_answer)
+    graph = create_deep_agent(model=outer, tools=build_tools(focused), middleware=build_middleware(outer))
+    cfg = config()
+    cfg["configurable"]["disable_task_auto_classify"] = not multi_step
+    text = "请调研学生需求，分析访谈证据并写一份报告" if multi_step else "这是学生初稿，请给反馈"
+    payload = {"messages": [HumanMessage(content=text, id="wsx-turn:first:user")]}
+    result = asyncio.run(graph.ainvoke(payload, cfg)) if asynchronous else graph.invoke(payload, cfg)
+    main = [call for call in outer.calls if call["bound_tools"] != ["GraderResponse"]]
+    assert main[0]["bound_tool_choice"] == "call_skill"
+    assert main[0]["bound_tools"] == ["call_skill"]
+    assert len(main) == len(focused.calls) == 1
+    assert result["messages"][-1].content == FEEDBACK
+
+
+@pytest.mark.parametrize("guard", ["ordinary", "old-pin", "quoted-marker", "multi-pin", "malformed-pin",
+                                  "missing-tool", "missing-student", "injected-human", "empty-student",
+                                  "pending", "denied", "error"])
+def test_first_feedback_does_not_force_outside_its_exact_guard(monkeypatch, guard):
+    cfg = config()
+    messages = [HumanMessage(content="学生初稿", id="wsx-turn:current:user")]
+    tools = [{"name": "call_skill"}, {"name": "write_todos"}]
+    if guard in ("ordinary", "old-pin"):
+        cfg = config("ordinary published body")
+    elif guard == "quoted-marker":
+        cfg = config("Example:\n" + MARKER)
+    elif guard in ("multi-pin", "malformed-pin"):
+        cfg["configurable"]["org_skills"].append(cfg["configurable"]["org_skills"][0] if guard == "multi-pin" else {})
+    elif guard == "missing-tool":
+        tools = [{"name": "write_todos"}]
+    elif guard == "missing-student":
+        messages = [SystemMessage(content="context")]
+    elif guard == "injected-human":
+        messages = [HumanMessage(content="internal review", additional_kwargs={"lc_source": "rubric_grader"})]
+    elif guard == "empty-student":
+        messages = [HumanMessage(content=" ", id="wsx-turn:current:user")]
+    else:
+        messages.append(ai_tool_call("call_skill", {"skill_stable_name": "aidt-define", "task": "feedback"}, "attempted"))
+        if guard != "pending":
+            messages.append(ToolMessage(content=guard, status="error", tool_call_id="attempted", name="call_skill"))
+    monkeypatch.setattr("deep_agent_service.harness.get_config", lambda: cfg)
+    request = ModelRequest(model=ScriptedChatModel(router=lambda *_: AIMessage(content="unused")), messages=messages, tools=tools)
+    assert _first_feedback_request(request) is request
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_first_feedback_excluded_tool_stays_excluded(asynchronous):
+    focused = FocusedModel()
+    outer = ScriptedChatModel(router=lambda messages, tools: grader_always_satisfied_response()
+                              if tools == ["GraderResponse"] else AIMessage(content="tool unavailable"))
+    graph = create_deep_agent(model=outer, tools=build_tools(focused), middleware=build_middleware(outer))
+    cfg = config()
+    cfg["configurable"]["excluded_tools"] = ["call_skill"]
+    payload = {"messages": [HumanMessage(content="学生初稿", id="wsx-turn:excluded:user")]}
+    result = asyncio.run(graph.ainvoke(payload, cfg)) if asynchronous else graph.invoke(payload, cfg)
+    assert focused.calls == []
+    assert all("call_skill" not in call["bound_tools"] and call["bound_tool_choice"] != "call_skill" for call in outer.calls)
+    assert result["messages"][-1].content == "tool unavailable"
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_first_feedback_keeps_hitl_pending_and_denial_without_forced_retry(monkeypatch, asynchronous):
+    from golden import _scripted
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.types import Command
+    monkeypatch.setitem(_scripted._FORCED_TOOL_CHOICE_DEFAULT_ARGS, "call_skill", {
+        "skill_stable_name": "aidt-define", "task": "反馈",
+    })
+    focused = FocusedModel()
+    outer = ScriptedChatModel(router=lambda messages, tools: grader_always_satisfied_response()
+                              if tools == ["GraderResponse"] else AIMessage(content="等待学生选择下一步"))
+    graph = create_deep_agent(model=outer, tools=build_tools(focused), middleware=build_middleware(outer),
+                              interrupt_on={"call_skill": True}, checkpointer=MemorySaver())
+    cfg = config()
+    payload = {"messages": [HumanMessage(content="学生初稿", id="wsx-turn:approval:user")]}
+    paused = asyncio.run(graph.ainvoke(payload, cfg)) if asynchronous else graph.invoke(payload, cfg)
+    assert paused["__interrupt__"] and focused.calls == []
+    decision = Command(resume={"decisions": [{"type": "reject", "message": "学生拒绝本次调用"}]})
+    result = asyncio.run(graph.ainvoke(decision, cfg)) if asynchronous else graph.invoke(decision, cfg)
+    assert "__interrupt__" not in result and focused.calls == []
+    main = [call for call in outer.calls if call["bound_tools"] != ["GraderResponse"]]
+    assert [call["bound_tool_choice"] for call in main] == ["call_skill", None]
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("bubble", [False, True])
+def test_first_feedback_never_reissues_a_failed_handler(monkeypatch, asynchronous, bubble):
+    from langgraph.errors import GraphBubbleUp
+    monkeypatch.setattr("deep_agent_service.harness.get_config", config)
+    request = ModelRequest(model=ScriptedChatModel(router=lambda *_: AIMessage(content="unused")),
+                           messages=[HumanMessage(content="学生初稿")], tools=[{"name": "call_skill"}])
+    error = GraphBubbleUp("approval pending") if bubble else RuntimeError("provider rejected forced choice")
+    seen = []
+    def handler(prepared):
+        seen.append(prepared)
+        raise error
+    async def ahandler(prepared):
+        return handler(prepared)
+    with pytest.raises(type(error)) as raised:
+        if asynchronous:
+            asyncio.run(FeedbackTurnMiddleware().awrap_model_call(request, ahandler))
+        else:
+            FeedbackTurnMiddleware().wrap_model_call(request, handler)
+    assert raised.value is error and len(seen) == 1
+    assert seen[0].tool_choice == "call_skill"
 
 
 def build(focused, *, middleware=True):

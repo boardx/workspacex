@@ -81,3 +81,25 @@ root 允许为此关键缺陷解冻 Python。窄修仅更新 `harness.py`：只�
 修复后单文件 **41 passed**，2.66 秒。真实 graph 两条混合 unknown-tool 场景的第二次 outer 请求实际收到了 error ToolMessage，并返回说明该失败的回复；单 Skill 成功收敛和首失败后合法重试仍通过。
 
 随后重新执行上面完整绿色回归命令（依然显式排除需 PG 的 TC5 文件），结果 **217 passed / 2 skipped**，14.55 秒，两个上游弃用 warning。`git diff --check` 通过。TC5 的独立 PG 5/5 仍按前节回执列出，没有为此次 middleware 窄修重复执行或混算为同一命令。生产文件再次 sourceReady 后由环境 owner 正常重启 Python；本 worker 未自行重启服务或发送真实模型请求。
+
+## 真实运行的独立只读收敛审计：iteration 1 / S1
+
+root 提供实际 S1 run `cc29fef8-3cb3-4cc4-8969-2df5e2e2631a`。审计使用 owned stack 的实际映射端口、`app_rw`、`BEGIN READ ONLY`、`app.current_org` 限定 SQL SELECT；另经 root 明确授权，仅 GET 该运行对应 owned Python 的持久化 run / thread state，不 invoke、resume 或 schedule。完整消息和正文仅存 mode 0600 的私有诊断文件；公开文件只含计数、状态及哈希。
+
+[S1 实际收敛回执](iteration01-s1-actual-convergence.json) 显示：
+
+- SQL 步骤账本只有 1 个不同的 `call_skill` ID；执行事件对应 1 次 start 和 1 次成功 end。
+- Python state 的 `metadata.run_id` 精确匹配该 run 的 `remote_run_id`，找到该应用 run 的 canonical 学生 turn。其内只有 1 个工具 batch、1 个 `call_skill` 和 1 个配对 success ToolMessage；无待执行 next node。
+- 原始完整 ToolMessage 内容非空、285 字符，含反馈成功 artifact；完整 task 和完整结果 SHA-256 与 artifact 一致。
+- `agent_runs.model_output`、原始完整 ToolMessage 内容与最后 AIMessage 完全相等，SHA-256 均为 `a9fdcc66b0d26ebbf1d03be29d140bf0328d06cab68b99397630e2f3196e4cd8`。该比较依据匹配运行的原始持久化消息，不是依据公开 500 字摘要冒充全文。
+- 当前 GET run 响应不暴露 mounted `org_skills` config，故该审计没有独立建立 mounted 完整字节；相应 hash 比较为 null，不能写成不匹配或通过。源码及离线绑定测试与此实际观测分开列出。
+
+可复用只读脚本为 owned 私有诊断目录中的 `audit-feedback-convergence.mjs`，本次命令：
+
+```bash
+/tmp/aidt-node/node_modules/node/bin/node --import ./node_modules/tsx/dist/loader.mjs \
+  /workspace/scratch/aidt-remediation-20261117/stack-01/audit-feedback-convergence.mjs \
+  iteration01-s1 cc29fef8-3cb3-4cc4-8969-2df5e2e2631a iteration01-runtime-private.json
+```
+
+本次审计未发送模型请求，也不重复财务 owner 的结算审计。S1 的教学措辞未通过、正在准备新不可变包的后续迭代，这是独立的教学质量结论；本条只证明这次运行的实际单次 Skill 收敛与完整结果交付，不将其写成教学或全流程验收通过。S3/S5/SUM 仍待各自实际 run 的同样审计。
