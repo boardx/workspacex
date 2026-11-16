@@ -43,9 +43,9 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import https from "node:https";
 import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { agentRuntime as AR } from "@repo/contracts";
-import { addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { addChatThread } from "../support/chat-db";
 import { AGENT_RUN_EXECUTOR, type AgentRunExecutorPort } from "../../src/application/agent-run/ports";
 import { toOrgId } from "../../src/domain/org-id";
@@ -65,6 +65,11 @@ const THREAD = "thread-i595-e2e-loop";
 const ADMIN = "u-i595-e2e-admin";
 
 const MODEL_PROVIDER = "wave2-loopback";
+
+vi.mock("../../src/infrastructure/agent/pg-default-agent-repository", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../src/infrastructure/agent/pg-default-agent-repository")>(),
+  resolveDeepAgentModel: () => ({ provider: MODEL_PROVIDER, modelId: "sentinel-model" }),
+}));
 const API_KEY = "sk-i595-e2e-do-not-echo";
 
 /** URL 导入源里真实写的一句话——之后要在模型收到的字节里逐字找它。 */
@@ -158,6 +163,11 @@ describe("验收第 4 条：URL 导入 → pin → chat 调用，端到端真的
     await resetOrgs(ORG);
     const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
     await addOrgMember(ORG, ADMIN, "admin", fx.teams.energy ?? null);
+    // @global-scope-fixture table:credit_wallets: fund the isolated imported skill actor.
+    await asOwner(client => client.query(
+      "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+      [ADMIN],
+    ));
     await addProjectMember(ORG, PROJECT, ADMIN, "facilitator", null);
     await addChatThread({
       orgId: ORG, id: THREAD, projectId: PROJECT, visibilityScope: "plenary", createdBy: ADMIN,
@@ -261,6 +271,11 @@ describe("验收第 4 条：URL 导入 → pin → chat 调用，端到端真的
     await resetOrgs(ORG);
     const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
     await addOrgMember(ORG, ADMIN, "admin", fx.teams.energy ?? null);
+    // @global-scope-fixture table:credit_wallets: fund the isolated imported skill actor.
+    await asOwner(client => client.query(
+      "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+      [ADMIN],
+    ));
     await addProjectMember(ORG, PROJECT, ADMIN, "facilitator", null);
     await addChatThread({
       orgId: ORG, id: THREAD, projectId: PROJECT, visibilityScope: "plenary", createdBy: ADMIN,

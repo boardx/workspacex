@@ -16,7 +16,7 @@ import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { chat as C } from "@repo/contracts";
-import { addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { addChatMessage, addChatThread } from "../support/chat-db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
@@ -177,6 +177,11 @@ beforeEach(async () => {
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, FACILITATOR, "consultant", fx.teams.energy!);
   await addOrgMember(ORG, OBSERVER, "consultant", fx.teams.energy!);
+  // @global-scope-fixture table:credit_wallets: fund the isolated follow-up actor.
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [FACILITATOR],
+  ));
   await addProjectMember(ORG, PROJECT, FACILITATOR, "facilitator", null);
   await addProjectMember(ORG, PROJECT, OBSERVER, "observer", null);
   await publishAgent();
