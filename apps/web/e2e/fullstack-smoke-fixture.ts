@@ -21,6 +21,8 @@ export const FULLSTACK_E2E = {
   tasksPassword: "Fullstack-E2E-tasks-6167!",
   tasksUserId: `user-fullstack-tasks-${scope}`,
 
+  feedbackDraftEmail: `fullstack-feedback-draft-${scope}@example.test`,
+  feedbackDraftUserId: `user-fullstack-feedback-draft-${scope}`,
   voiceJourneyEmail: `fullstack-voice-journey-${scope}@example.test`,
   voiceJourneyUserId: `user-fullstack-voice-journey-${scope}`,
   interviewIntakeEmail: `fullstack-interview-intake-${scope}@example.test`,
