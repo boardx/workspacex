@@ -114,6 +114,14 @@ describe("I-4: reads", () => {
     const foreign = await asApp(A, async (c) => {
       const out: string[] = [];
       for (const { table, col } of tables) {
+        if (table === "ai_catalog_publications") {
+          const grants = await c.query(
+            `SELECT has_column_privilege('ai_catalog_publications', 'org_id', 'SELECT') AS owner,
+                    has_column_privilege('ai_catalog_publications', 'published_by', 'SELECT') AS publisher`,
+          );
+          expect(grants.rows).toEqual([{ owner: false, publisher: false }]);
+          continue;
+        }
         if(table === "platform_organization_access_events" || table === "credit_native_tariffs_legacy") {
           // Internal audit/archive denial is stronger than row filtering; prove it without removing catalog coverage.
           await c.query("SAVEPOINT audit_read_denial");
@@ -162,6 +170,14 @@ describe("I-4: reads", () => {
     const nonEmpty = await asApp(null, async (c) => {
       const out: string[] = [];
       for (const { table, col } of tables) {
+        if (table === "ai_catalog_publications") {
+          const grants = await c.query(
+            `SELECT has_column_privilege('ai_catalog_publications', 'org_id', 'SELECT') AS owner,
+                    has_column_privilege('ai_catalog_publications', 'published_by', 'SELECT') AS publisher`,
+          );
+          expect(grants.rows).toEqual([{ owner: false, publisher: false }]);
+          continue;
+        }
         if(table === "platform_organization_access_events" || table === "credit_native_tariffs_legacy") {
           // Internal audit/archive denial is stronger than row filtering; prove it without removing catalog coverage.
           await c.query("SAVEPOINT audit_read_denial");
