@@ -1,10 +1,10 @@
 import { AidtContextSelector } from "@repo/contracts/aidt-run-context";
 import type { AidtSharedContextReference } from "./aidt-chat-shared-context";
 
-/** Keep an existing teaching lock separate from newer stage heads; never rewrite the lock. */
-export function aidtStageContextReferences(stageId: number, stages: Readonly<Record<number, {stageId:number;revision:number}>>, lockedSourceStage: {stageId:number;revision:number} | null): AidtSharedContextReference[] {
+/** Chat reads saved provenance; a local next-round draft cannot alter saved source selection. */
+export function aidtStageContextReferences(stageId: number, stages: Readonly<Record<number, {stageId:number;revision:number;sourceStageRevisions?:readonly {stageId:number;revision:number}[]}>>): AidtSharedContextReference[] {
   const selected = new Map(Object.values(stages).filter(stage => stage.stageId <= stageId).map(stage => [stage.stageId, stage.revision]));
-  if (lockedSourceStage) selected.set(lockedSourceStage.stageId, lockedSourceStage.revision);
+  for (const source of stages[stageId]?.sourceStageRevisions ?? []) selected.set(source.stageId, source.revision);
   return [...selected].sort(([a],[b]) => a-b).map(([stageNumber,revision]) => ({stageNumber,revision}));
 }
 

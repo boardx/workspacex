@@ -46,3 +46,10 @@ it("pauses retries while host selection is unreadable without replacing their fr
   view.rerender(<Host data={null} />); expect(() => capture(original.context)).toThrow("HOST_RUN_CONTEXT_UNAVAILABLE");
   view.rerender(<Host revision={8} />); expect(capture(original.context).forwardedProps).toEqual({exampleContext:{revision:1}});
 });
+
+it("an explicit new attempt clears old receipt ownership while late old reads/restores cannot claim the new turn",()=>{
+ const accepted=vi.fn(),started=vi.fn();const view=render(<HostRunContextProvider scope={scope} forwardedProps={{exampleContext:{revision:1}}} onRunAccepted={accepted} onAttemptStarted={started}><Consumer/></HostRunContextProvider>);const first=capture();
+ first.context!.started("client-A");first.context!.accepted({runId:"run-A",threadId:"thread",clientMessageId:"client-A"});expect(accepted).toHaveBeenCalledOnce();expect(started).toHaveBeenLastCalledWith("client-A");
+ const second=capture();second.context!.started("client-B");expect(started).toHaveBeenLastCalledWith("client-B");view.rerender(<HostRunContextProvider scope={scope} forwardedProps={{exampleContext:{revision:2}}} onRunAccepted={accepted} onAttemptStarted={started}><Consumer/></HostRunContextProvider>);first.context!.accepted({runId:"run-A-late",threadId:"thread",clientMessageId:"client-A"});first.context!.accepted({runId:"old-restored",threadId:"thread",clientMessageId:null});expect(accepted).toHaveBeenCalledOnce();
+ second.context!.accepted({runId:"run-B",threadId:"thread",clientMessageId:"client-B"});second.context!.accepted({runId:"run-B",threadId:"thread",clientMessageId:"client-B"});expect(accepted).toHaveBeenCalledTimes(2);second.context!.started("client-B");expect(started).toHaveBeenCalledTimes(2);view.unmount();
+});

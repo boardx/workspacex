@@ -6,7 +6,7 @@ import type { AidtStepChat } from "@/features/aidt/lib/live-aidt-step-chat";
 import { useHostRunContext } from "@/lib/chat/host-run-context";
 import { useChatHostReturnHref } from "@/lib/chat/chat-host-navigation";
 import { AIDT_STEPS } from "@/lib/project-aidt";
-const mocks = vi.hoisted(() => ({ enabled: true, resolve: vi.fn(), createLatest: vi.fn(), loadContext: vi.fn(), loadSharedContext: vi.fn(), loadReturnContext: vi.fn(), shell: vi.fn(), returnHref: vi.fn(), context: vi.fn(), host: vi.fn(), session: { currentOrgId: "o", userId: "u", sessionToken: "token" } }));
+const mocks = vi.hoisted(() => ({ enabled: true, resolve: vi.fn(), createLatest: vi.fn(), loadContext: vi.fn(), loadSharedContext: vi.fn(), loadReturnContext: vi.fn(), shell: vi.fn(), returnHref: vi.fn(), context: vi.fn(), host: vi.fn(), turn:vi.fn(), receipt:vi.fn(), session: { currentOrgId: "o", userId: "u", sessionToken: "token" } }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mocks.enabled }));
 vi.mock("@/features/aidt/lib/live-aidt-step-chat", () => ({ resolveAidtStepChat: mocks.resolve, createAidtStepChatWithLatest: mocks.createLatest, AidtStepChatChoiceError: class extends Error {} }));
 vi.mock("@/features/aidt/lib/aidt-chat-saved-context", async (original) => ({ ...await original<typeof import("@/features/aidt/lib/aidt-chat-saved-context")>(), loadAidtSavedChatContext: mocks.loadContext }));
@@ -14,7 +14,8 @@ vi.mock("@/features/aidt/lib/aidt-chat-shared-context", async (original) => ({ .
 vi.mock("@/features/aidt/lib/aidt-chat-return-context", async (original) => ({ ...await original<typeof import("@/features/aidt/lib/aidt-chat-return-context")>(), loadAidtReturnChatContext: mocks.loadReturnContext }));
 vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ session: mocks.session }) }));
 vi.mock("@copilotkit/react-core/v2", () => ({ useAgentContext: mocks.context }));
-vi.mock("@/components/chat/copilotkit-v2-shell", () => ({ CopilotKitV2Shell: function NativeShellStub(props: Record<string, unknown>) { mocks.shell(props); const host=useHostRunContext({orgId:mocks.session.currentOrgId,userId:mocks.session.userId,sessionToken:mocks.session.sessionToken,projectId:props.projectId as string,threadId:props.initialThreadId as string}); try { mocks.host(host.capture().forwardedProps); } catch { mocks.host(null); } mocks.returnHref(useChatHostReturnHref(props.projectId as string)); return <div data-testid="chat-shell"><textarea aria-label="native-unsent-input" defaultValue="" /></div>; } }));
+vi.mock("@/features/aidt/components/aidt-run-context-receipt",()=>({AidtRunContextReceipt:(props:any)=>{mocks.receipt(props);return props.runId?<div data-testid="observed-run-receipt">{props.runId}</div>:null;}}));
+vi.mock("@/components/chat/copilotkit-v2-shell", () => ({ CopilotKitV2Shell: function NativeShellStub(props: Record<string, unknown>) { mocks.shell(props); const host=useHostRunContext({orgId:mocks.session.currentOrgId,userId:mocks.session.userId,sessionToken:mocks.session.sessionToken,projectId:props.projectId as string,threadId:props.initialThreadId as string}); try { const turn=host.capture();mocks.turn(turn);mocks.host(turn.forwardedProps); } catch { mocks.host(null); } mocks.returnHref(useChatHostReturnHref(props.projectId as string)); return <div data-testid="chat-shell"><textarea aria-label="native-unsent-input" defaultValue="" /></div>; } }));
 vi.mock("@/app/chat/copilotkit-v2/copilotkit-v2-providers", () => ({ CopilotKitV2Providers: ({ children }: React.PropsWithChildren) => children }));
 vi.mock("@/lib/copilotkit-v2-agent-selection", () => ({ CopilotKitV2AgentSelectionProvider: ({ children }: React.PropsWithChildren) => children }));
 beforeEach(() => { vi.clearAllMocks(); mocks.enabled = true; mocks.session = { currentOrgId: "o", userId: "u", sessionToken: "token" }; mocks.loadReturnContext.mockResolvedValue({ status: "ready", items: [], issues: [] }); mocks.loadSharedContext.mockResolvedValue({ status: "ready", items: [], issues: [] }); mocks.loadContext.mockResolvedValue({ status: "ready", items: [], issues: [] }); window.history.replaceState(null, "", "/aidt/p?step=1"); });
@@ -338,4 +339,10 @@ it("does not reinterpret unreadable shared-stage selection as an intentional emp
   expect(screen.getByLabelText("native-unsent-input")).toBe(composer); expect(composer).toHaveValue("先保留学生尚未发送的想法");
   view.rerender(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread={null} sharedContextReady={false} />);
   expect(mocks.host).toHaveBeenLastCalledWith(null); expect(composer).toHaveValue("先保留学生尚未发送的想法");
+});
+
+it("clears the old run receipt only on an actual new attempt and rejects a late previous acceptance or restore",async()=>{
+ mocks.resolve.mockResolvedValue({threadId:"native",skillName:"理解",versionId:"v1"});render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread={null}/>);await screen.findByTestId("chat-shell");const first=mocks.turn.mock.calls.at(-1)![0];await act(async()=>first.context.accepted({runId:"previous-run",threadId:"native",clientMessageId:null}));expect(screen.getByTestId("observed-run-receipt")).toHaveTextContent("previous-run");
+ const second=mocks.turn.mock.calls.at(-1)![0];await act(async()=>second.context.started("next-client"));expect(screen.queryByTestId("observed-run-receipt")).toBeNull();await act(async()=>{first.context.accepted({runId:"late-previous",threadId:"native",clientMessageId:"previous-client"});first.context.accepted({runId:"late-restored",threadId:"native",clientMessageId:null});});expect(screen.queryByTestId("observed-run-receipt")).toBeNull();
+ await act(async()=>second.context.accepted({runId:"next-canonical-run",threadId:"native",clientMessageId:"next-client"}));expect(screen.getByTestId("observed-run-receipt")).toHaveTextContent("next-canonical-run");
 });

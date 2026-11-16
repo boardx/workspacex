@@ -9,6 +9,7 @@ import { useChatStreamSlots } from "@/components/chat/chat-stream-slots";
 import { useChatHistoryPreview } from "@/lib/use-chat-history-preview";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { useSession } from "@/components/session/session-provider";
+import { useHostRunAcceptance } from "@/lib/chat/host-run-acceptance";
 import { useHostRunContext, HOST_RUN_BUSY, HOST_RUN_CONTEXT_UNAVAILABLE, type FrozenHostRunContext, type HostRunAttempt } from "@/lib/chat/host-run-context";
 
 import * as React from "react";
@@ -561,7 +562,7 @@ function useCopilotKitV2PanelController({
    * 不会漂移——不是两个独立维护的来源。
    */
   const [resolvedChatThreadId, setResolvedChatThreadId] = React.useState<string | null>(initialChatThreadId);
-  const { capture: captureHostRunContext, present: hostRunPresent, observeRun: observeHostRun } = useHostRunContext({ orgId: draftSession?.currentOrgId ?? orgId, userId: draftSession?.userId, sessionToken: draftSession?.sessionToken, projectId, threadId: resolvedChatThreadId ?? initialChatThreadId });
+  const { capture: captureHostRunContext, present: hostRunPresent, observeRun: observeHostRun, lifecycleKey: hostLifecycleKey } = useHostRunContext({ orgId: draftSession?.currentOrgId ?? orgId, userId: draftSession?.userId, sessionToken: draftSession?.sessionToken, projectId, threadId: resolvedChatThreadId ?? initialChatThreadId });
   React.useEffect(() => {
     if (initialChatThreadId !== null) setResolvedChatThreadId(initialChatThreadId);
   }, [initialChatThreadId]);
@@ -1447,13 +1448,7 @@ function useCopilotKitV2PanelController({
   const lastSentRef = React.useRef<
     { text: string; attachments: readonly ChatAttachment[]; clientMessageId: string; hostContext: FrozenHostRunContext | null } | null
   >(null);
-  const hostAcceptance = React.useRef<{ attempt: HostRunAttempt; clientMessageId: string; afterGeneration: number; notified?: string } | null>(null);
-  React.useEffect(() => {
-    const pending = hostAcceptance.current, event = runTrace.liveSignal.event;
-    if (pending && event && runTrace.liveSignal.generation > pending.afterGeneration && pending.notified !== event.runId && resolvedChatThreadId && pending.attempt.isCurrent(resolvedChatThreadId)) {
-      pending.notified = event.runId; pending.attempt.context?.accepted({ runId: event.runId, threadId: resolvedChatThreadId, clientMessageId: pending.clientMessageId });
-    }
-  }, [runTrace.liveSignal.event, runTrace.liveSignal.generation, resolvedChatThreadId]);
+  const {prepare:prepareHostAcceptance,cancel:cancelHostAcceptance}=useHostRunAcceptance(agent,hostLifecycleKey);
 
   // Use the same empty-branch decision for layout and automatic following.
   // Loading, running and supplied stream blocks retain timeline behavior.
@@ -1509,7 +1504,6 @@ function useCopilotKitV2PanelController({
       const sentAttachments = opts?.attachments ?? attach.uploadedAttachments;
       const attachmentIds = sentAttachments.map((a) => a.id);
       lastSentRef.current = { text, attachments: sentAttachments, clientMessageId, hostContext: hostAttempt.context };
-      hostAcceptance.current = { attempt: hostAttempt, clientMessageId, afterGeneration: runTrace.liveSignal.generation };
       // issue #4180 —— 这一条是本会话真的发出去的（不是重试复用同一个 id 的第二次登记也无妨，
       // Set 天然去重）。
       setSentMessageIds((cur) => (cur.has(clientMessageId) ? cur : new Set(cur).add(clientMessageId)));
@@ -1555,6 +1549,10 @@ function useCopilotKitV2PanelController({
         if (chatThreadId !== null) forwardedProps.chatThreadId = chatThreadId;
         if (attachmentIds.length > 0) forwardedProps.attachmentIds = attachmentIds;
         if (realtimeContext) forwardedProps.realtimeContext = realtimeContext;
+        if(hostAttempt.context && chatThreadId && draftSession?.userId && draftSession.sessionToken) {
+          hostAttempt.context.started(clientMessageId);
+          prepareHostAcceptance({attempt:hostAttempt,threadId:chatThreadId,clientMessageId,actorId:draftSession.userId,text,sessionToken:draftSession.sessionToken});
+        }
         await copilotkit.runAgent({ agent, forwardedProps });
         if (!hostAttempt.isCurrent(chatThreadId)) return false;
         // issue #2046（CK-P1）—— run settle 后通知外壳刷新右栏「材料」/「产物」
@@ -1570,6 +1568,7 @@ function useCopilotKitV2PanelController({
         // issue #2779 —— 同上面 `onError` 订阅那条注释：只补诊断日志，不改用户可见
         // 文案。这条分支此前把 `e` 完全丢弃，落进通用兜底文案时排障者连原始异常
         // 是什么都看不到。
+        cancelHostAcceptance(clientMessageId);
         if (!hostAttempt.isCurrent(chatThreadId) || !attemptErrors.owns(sendAttempt)) return;
         console.error("[copilotkit-v2] runAgent() threw", e);
         const thrownCode = e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED";
@@ -1598,7 +1597,7 @@ function useCopilotKitV2PanelController({
         return acceptedRunEpoch.current > acceptedBefore;
       }
     },
-    [attemptErrors, runTrace.liveSignal.generation, agent, copilotkit, inputDraft, setInputDraft, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, projectId, resolveAttachmentThreadId, realtimeContext, sendIsBlocked, scrollMessagesToBottom, captureHostRunContext],
+    [attemptErrors, runTrace.liveSignal.generation, agent, copilotkit, inputDraft, setInputDraft, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, projectId, resolveAttachmentThreadId, realtimeContext, sendIsBlocked, scrollMessagesToBottom, captureHostRunContext,prepareHostAcceptance,cancelHostAcceptance,draftSession?.userId,draftSession?.sessionToken],
 
   );
 

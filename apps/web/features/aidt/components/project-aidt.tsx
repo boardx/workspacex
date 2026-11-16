@@ -145,7 +145,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
       return { ...base, revision: base.revision + 1, drafts: { ...base.drafts, [id]: draft } };
     });
   } });
-  const sharedContextRefs = React.useMemo(() => shared.read?.phase === "ready" && step ? aidtStageContextReferences(step.id, shared.stages, shared.lockedSourceStage) : [], [shared.read, shared.stages, shared.lockedSourceStage, step]);
+  const sharedContextRefs = React.useMemo(() => shared.read?.phase === "ready" && step ? aidtStageContextReferences(step.id, shared.stages) : [], [shared.read, shared.stages, step]);
   const personal = useAidtPersonalCheckpoints({ enabled: isAidtModuleEnabled(), scope: checkpointScope, lifecycleKey: uiLifecycleKey, threadId: checkpointThread, stageId: step?.id ?? null, draft: step ? currentUi.drafts[step.id]! : null, canWrite, onRestore: (draft) => { if (step) updateStage(step.id, () => draft); } });
   const latestCheckpointKey = React.useRef(personal.key); latestCheckpointKey.current = personal.key;
   const [disclosure, setDisclosure] = React.useState<{ key: string; reference: AidtSavedContextReference } | null>(null);

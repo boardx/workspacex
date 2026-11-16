@@ -4,7 +4,7 @@ import * as React from "react";
 export type HostRunSenderScope = Readonly<{ orgId?: string | null; userId?: string | null; sessionToken?: string | null; projectId?: string | null; threadId?: string | null }>;
 export type HostRunScope = Readonly<Required<{ [K in keyof HostRunSenderScope]: string }> & { task: string }>;
 export type HostRunObservation = Readonly<{ runId: string; threadId: string; clientMessageId: string | null }>;
-export type FrozenHostRunContext = Readonly<{ forwardedProps: Readonly<Record<string, unknown>>; matches: (sender: HostRunSenderScope) => boolean; threadId: string; accepted: (observation: HostRunObservation) => void }>;
+export type FrozenHostRunContext = Readonly<{ forwardedProps: Readonly<Record<string, unknown>>; matches: (sender: HostRunSenderScope) => boolean; threadId: string; started: (clientMessageId:string) => void; accepted: (observation: HostRunObservation) => void }>;
 type Port = { generation: number; capture: (sender: HostRunSenderScope) => FrozenHostRunContext; observe: (sender: HostRunSenderScope, observation: HostRunObservation, generation: number) => void };
 export const HOST_RUN_CONTEXT_UNAVAILABLE = "本次材料或访问范围尚未就绪，请重新核对后发送；草稿已保留。";
 export const HOST_RUN_BUSY = "当前讨论还在运行，请完成后再发送；草稿已保留。";
@@ -19,22 +19,25 @@ function freezeProps(value: Readonly<Record<string, unknown>>) {
 }
 
 /** Optional transport data only. The host's selector never grants server permissions. */
-export function HostRunContextProvider({ scope, forwardedProps, onRunAccepted, children }: { scope: HostRunScope; forwardedProps: Readonly<Record<string, unknown>> | null; onRunAccepted?: (observation: HostRunObservation) => void; children: React.ReactNode }) {
+export function HostRunContextProvider({ scope, forwardedProps, onRunAccepted, onAttemptStarted, children }: { scope: HostRunScope; forwardedProps: Readonly<Record<string, unknown>> | null; onRunAccepted?: (observation: HostRunObservation) => void; onAttemptStarted?:(clientMessageId:string)=>void; children: React.ReactNode }) {
   const key = JSON.stringify([...scopeKeys.map(field => scope[field]), scope.task]);
-  const lifetime = React.useRef({ key, generation: 0, active: true, scope, forwardedProps, onRunAccepted });
-  if (lifetime.current.key !== key) lifetime.current.generation++;
-  Object.assign(lifetime.current, { key, scope, forwardedProps, onRunAccepted });
+  const lifetime = React.useRef({ key, generation: 0, active: true, scope, forwardedProps, onRunAccepted, onAttemptStarted, clientMessageId:null as string|null, observed:new Set<string>() });
+  if (lifetime.current.key !== key) { lifetime.current.generation++; lifetime.current.clientMessageId=null; lifetime.current.observed.clear(); }
+  Object.assign(lifetime.current, { key, scope, forwardedProps, onRunAccepted, onAttemptStarted });
   React.useEffect(() => { const owner = lifetime.current; owner.active = true; return () => { owner.active = false; }; }, []);
+  const publish = React.useCallback((generation:number,observation:HostRunObservation) => {
+    const owner=lifetime.current;
+    if(!owner.active || owner.generation!==generation || observation.threadId!==owner.scope.threadId || owner.clientMessageId!==null && observation.clientMessageId!==owner.clientMessageId || owner.observed.has(observation.runId)) return;
+    owner.observed.add(observation.runId); owner.onRunAccepted?.(observation);
+  },[]);
   const port = React.useMemo<Port>(() => { const generation = lifetime.current.generation; return { generation, capture(sender) {
     const owner = lifetime.current;
     if (!owner.active || owner.key !== key || owner.generation !== generation || !forwardedProps || !owner.forwardedProps || !scopeKeys.every(field => !!owner.scope[field]) || !sameSender(sender, owner.scope)) throw new Error("HOST_RUN_CONTEXT_UNAVAILABLE");
     const boundScope = { ...owner.scope }, props = freezeProps(owner.forwardedProps);
-    return Object.freeze({ forwardedProps: props, threadId: boundScope.threadId, matches: (current: HostRunSenderScope) => lifetime.current.active && lifetime.current.generation === generation && sameSender(current, boundScope), accepted: observation => {
-      if (lifetime.current.active && lifetime.current.generation === generation && observation.threadId === boundScope.threadId) lifetime.current.onRunAccepted?.(observation);
-    } });
+    return Object.freeze({ forwardedProps: props, threadId: boundScope.threadId, matches: (current: HostRunSenderScope) => lifetime.current.active && lifetime.current.generation === generation && sameSender(current, boundScope), started: clientMessageId => { const owner=lifetime.current; if(owner.active && owner.generation===generation && owner.forwardedProps && clientMessageId!==owner.clientMessageId) {owner.clientMessageId=clientMessageId;owner.observed.clear();owner.onAttemptStarted?.(clientMessageId);} }, accepted: observation => publish(generation,observation) });
   }, observe(sender, observation, generation) {
-    if (lifetime.current.active && lifetime.current.generation === generation && sameSender(sender, lifetime.current.scope) && observation.threadId === sender.threadId) lifetime.current.onRunAccepted?.(observation);
-  } }; }, [key, forwardedProps]);
+    if (sameSender(sender, lifetime.current.scope)) publish(generation,observation);
+  } }; }, [key, forwardedProps, publish]);
   return <Context.Provider value={port}>{children}</Context.Provider>;
 }
 
@@ -57,5 +60,5 @@ export function useHostRunContext(sender: HostRunSenderScope) {
     return { context: snapshot, forwardedProps: snapshot?.forwardedProps ?? {}, isCurrent: resolved => snapshot === null || (lifetime.current.active && lifetime.current.generation === generation && snapshot.matches(lifetime.current.sender) && (resolved === undefined || resolved === snapshot.threadId)) };
   }, [port, stableSender]);
   const observeRun = React.useCallback((observation: HostRunObservation) => { if (lifetime.current.active && sameSender(lifetime.current.sender, stableSender)) port?.observe(stableSender, observation, port.generation); }, [port, stableSender]);
-  return { capture, present: port !== null, observeRun };
+  return { capture, present: port !== null, observeRun, lifecycleKey:JSON.stringify([key,port?.generation ?? null]) };
 }

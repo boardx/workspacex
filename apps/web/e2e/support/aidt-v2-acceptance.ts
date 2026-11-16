@@ -2,14 +2,16 @@ import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { auth, chat, skills, wave2Runtime } from "@repo/contracts";
 import { operations, SharedStage, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { AidtContextSelector, operations as aidtContextOperations, type AidtContextReceipt } from "@repo/contracts/aidt-run-context";
 import { SESSION_TOKEN_STORAGE_KEY } from "../../lib/api-client";
 import { SESSION_STORAGE_KEY } from "../../components/session/session-provider";
 import { AIDT_STEPS } from "../../features/aidt/lib/project-aidt";
+import { readAidtQuestionSnapshot } from "../../features/aidt/lib/aidt-verification-loop";
 import { REAL_MODEL_SMOKE, REAL_MODEL_SKIP_REASON } from "../real-model-smoke-fixture";
 import { sendViaWorkbench } from "../chat-v2-send";
 import { apiPath } from "./real-model-api";
 import { reserveAidtNativeRun, recordAidtNativeRequest, finishAidtNativeRun } from "./aidt-v2-run-ledger";
-import { aidtV2WireMetadata } from "./aidt-v2-wire-metadata";
+import { aidtV2WireMetadata, validateAidtV2Receipt } from "./aidt-v2-wire-metadata";
 
 export function assertAidtV2Target(): void {
   expect(REAL_MODEL_SKIP_REASON, "实际凭据缺失必须失败，不以skip或回环模型补绿").toBeNull();
@@ -101,6 +103,17 @@ export async function readAidtV2Stage(page: Page, projectId: string, step: numbe
   return operations.get.out.parse(response.data).stage;
 }
 
+async function readAidtV2StageRevision(page: Page, projectId: string, stageId: number, revision: number, heads: readonly (SharedStageValue | null)[]) {
+  const current = heads.find(stage => stage?.stageId === stageId && stage.revision === revision);
+  if (current) return current;
+  const query = operations.history.in.parse({ projectId, stageId, beforeRevision: revision + 1, limit: 1 });
+  const response = await aidtV2Api(page, `${operations.history.path.replace(":projectId", encodeURIComponent(projectId)).replace(":stageId", String(stageId))}?beforeRevision=${query.beforeRevision}&limit=${query.limit}`);
+  expect(response.status).toBe(200);
+  const found = operations.history.out.parse(response.data).items[0];
+  expect(found, "选择旧版本必须真实读该历史稿，不以当前head替代").toMatchObject({ projectId, stageId, revision });
+  return found!;
+}
+
 export async function saveAidtV2Stage(page: Page, projectId: string, step: number): Promise<SharedStageValue> {
   const prior = await readAidtV2Stage(page, projectId, step);
   const saved = page.waitForResponse(response => new URL(response.url()).origin === new URL(REAL_MODEL_SMOKE.baseUrl).origin
@@ -148,39 +161,37 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
     expect(response.status).toBe(200);
     return chat.operations.listMessages.out.parse(response.data).messages;
   };
-  const before = new Set((await readMessages()).map(message => message.id));
+  const existingMessages = await readMessages();
+  const before = new Set(existingMessages.map(message => message.id));
+  const authoredStudentTexts = [...existingMessages.filter(message => message.authorKind === "human").map(message => message.text), prompt];
   const stagesBefore = await Promise.all([1, 2, 3, 4, 5, 6].map(id => readAidtV2Stage(page, projectId, id)));
   const stageLimit = Number(new URL(page.url()).searchParams.get("step"));
-  const contextMarkers = stagesBefore.filter((stage): stage is SharedStageValue => stage !== null && stage.stageId <= stageLimit).map(stage => {
-    const source = Object.entries(stage.content.draft.fields).find(([, value]) => value.length >= 12 && !/^[\[{]/.test(value)
-      && (skillName === "dt-summarize-project" || !prompt.includes(value)));
-    return source ? { stageId: stage.stageId, revision: stage.revision, field: source[0], marker: source[1], independentFromPrompt: !prompt.includes(source[1]) } : null;
-  }).filter((value): value is NonNullable<typeof value> => value !== null);
-  expect(contextMarkers.length, "已保存来源须有可核对字段；阶段任务另验独立于prompt，总结任务验学生显式带入材料").toBeGreaterThan(0);
+  let expectedSelector: AidtContextSelector;
   if (skillName === "dt-summarize-project") {
     const materials = page.getByTestId("aidt-summary-materials");
+    if (!await materials.locator("pre").isVisible()) await materials.locator("summary").first().click();
     await expect(materials.locator("pre")).toBeVisible();
-    const packet = JSON.parse(await materials.locator("pre").innerText()) as unknown;
-    const visiblePacket = JSON.stringify(packet);
-    expect(contextMarkers.every(source => visiblePacket.includes(source.marker)), "学生可见总结packet须含实际保存字段").toBe(true);
+    const packet = JSON.parse(await materials.locator("pre").innerText()) as { projectId: string; currentStages: { stageId: number; revision: number }[]; historyRevisions: { stageId: number; revision: number }[] };
+    expect(packet.projectId).toBe(projectId);
+    expectedSelector = AidtContextSelector.parse({ schemaVersion: 1, projectId, purpose: "summary", stageRevisions: packet.currentStages.map(({ stageId, revision }) => ({ stageId, revision })), historyRevisions: packet.historyRevisions });
   } else {
-    const sharedContext = page.getByTestId("aidt-chat-shared-context");
-    await sharedContext.locator("summary").first().click();
-    for (const source of contextMarkers) {
-      const label = `第${source.stageId}步AI引用的已保存文本`;
-      const detail = sharedContext.locator("details").filter({ has: page.getByLabel(label, { exact: true }) }).first();
-      await detail.locator("summary").first().click();
-      await detail.getByText("查看AI引用的已保存文本", { exact: true }).click();
-      await expect(detail.getByLabel(label, { exact: true })).toContainText(source.marker);
-      await detail.locator("summary").first().click();
-    }
-    await sharedContext.locator("summary").first().click();
+    const refs = stagesBefore.filter((stage): stage is SharedStageValue => stage !== null && stage.stageId <= stageLimit).map(stage => ({ stageId: stage.stageId, revision: stage.revision }));
+    const frozenS5 = stageLimit === 6 && stagesBefore[5] ? readAidtQuestionSnapshot(stagesBefore[5].content.draft)?.sourceStageRevision : null;
+    if (frozenS5) { const ref = refs.find(row => row.stageId === 5); if (ref) ref.revision = frozenS5; else refs.push({ stageId: 5, revision: frozenS5 }); }
+    const returnRevision = new URL(page.url()).searchParams.get("returnRevision");
+    expectedSelector = AidtContextSelector.parse({ schemaVersion: 1, projectId, purpose: "stage", stageId: stageLimit, stageRevisions: refs,
+      ...(returnRevision !== null ? { returnRevision: Number(returnRevision) } : {}) });
   }
+  const selectedRefs = [...expectedSelector.stageRevisions, ...(expectedSelector.purpose === "summary" ? expectedSelector.historyRevisions : []), ...(expectedSelector.purpose === "stage" && expectedSelector.returnRevision !== undefined ? [{ stageId: 6, revision: expectedSelector.returnRevision }] : [])];
+  const selectedStages = await Promise.all([...new Map(selectedRefs.map(ref => [`${ref.stageId}:${ref.revision}`, ref])).values()].map(ref => readAidtV2StageRevision(page, projectId, ref.stageId, ref.revision, stagesBefore)));
+  const contextMarkers = [...stagesBefore.filter((stage): stage is SharedStageValue => stage !== null), ...selectedStages].flatMap(stage => Object.entries(stage.content.draft.fields)
+    .filter(([, value]) => value.length >= 12 && !/^[\[{]/.test(value)).map(([field, marker]) => ({ stageId: stage.stageId, revision: stage.revision, field, marker })));
   const previousRunIds = new Set(await page.locator("[data-run-id]").evaluateAll(nodes => nodes.map(node => node.getAttribute("data-run-id"))));
   const reservation = reserveAidtNativeRun(projectId, threadId, skillName, prompt);
   let observedRunId: string | undefined;
   let failureCode = "ASSERTION_OR_NATIVE_RUN_FAILED";
   let reviewedPermissionId: string | null | undefined;
+  let frozenReceipt: AidtContextReceipt | undefined;
   const intentChoices: unknown[] = [];
   let sawRunning = false;
   const watch = () => {
@@ -195,23 +206,19 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
     recordAidtNativeRequest(reservation, new URL(request.url()).pathname);
     console.info(`[aidt-v2] native request observed · ${skillName} · budget entry ${reservation}`);
     expect(new URL(request.url()).origin).toBe(new URL(REAL_MODEL_SMOKE.baseUrl).origin);
-    const wireMetadata = aidtV2WireMetadata(request.postDataJSON(), contextMarkers, skillName);
+    const wireMetadata = aidtV2WireMetadata(request.postDataJSON(), contextMarkers, skillName, expectedSelector, authoredStudentTexts);
     await test.info().attach(`native-wire-shape-${skillName}`, { contentType: "application/json", body: Buffer.from(JSON.stringify(wireMetadata, null, 2)) });
-    const wireTexts: string[] = [];
-    const collectStrings = (value: unknown): void => {
-      if (typeof value === "string") wireTexts.push(value);
-      else if (Array.isArray(value)) value.forEach(collectStrings);
-      else if (value && typeof value === "object") Object.values(value).forEach(collectStrings);
-    };
-    collectStrings(request.postDataJSON());
-    const wireSavedContext = contextMarkers.map(({ marker, ...source }) => ({ ...source, matched: wireTexts.some(text => text.includes(marker)) }));
-    expect(wireSavedContext.every(source => source.matched), "实际原生上行须包含已保存阶段来源；不输出整个请求体").toBe(true);
     let fresh: Awaited<ReturnType<typeof readMessages>> = [];
     await expect.poll(async () => {
       const state = await watch();
       const runIds = await page.locator("[data-run-id]").evaluateAll(nodes => nodes.map(node => node.getAttribute("data-run-id")));
       observedRunId = runIds.find((id): id is string => Boolean(id && !previousRunIds.has(id))) ?? observedRunId;
       if (observedRunId) {
+        if (!frozenReceipt) {
+          const source = await aidtV2Api(page, aidtContextOperations.receipt.path.replace(":runId", encodeURIComponent(observedRunId)));
+          expect(source.status).toBe(200);
+          frozenReceipt = validateAidtV2Receipt(source.data, { selector: expectedSelector, runId: observedRunId, skillVersionId: mountedSkill!.versionId, requireDispatch: false });
+        }
         const response = await aidtV2Api(page, `/agent-runs/${encodeURIComponent(observedRunId)}`);
         expect(response.status).toBe(200);
         const actualRun = wave2Runtime.operations.getAgentRun.out.parse(response.data);
@@ -250,15 +257,33 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
     expect(run.status).toBe("succeeded");
     expect(run.threadId).toBe(threadId);
     expect(run.resultMessageId).toBe(reply.id);
-    expect(run.skillVersionIds).toContain(mountedSkill!.versionId);
+    expect(run.skillVersionIds).toEqual([mountedSkill!.versionId]);
     expect(run.modelProvider.toLowerCase()).not.toMatch(/fixture|loopback|mock/);
     await expect(page.getByTestId("copilotkit-v2-error")).toHaveCount(0);
+    const source = await aidtV2Api(page, aidtContextOperations.receipt.path.replace(":runId", encodeURIComponent(run.runId)));
+    expect(source.status).toBe(200);
+    const sourceReceipt = validateAidtV2Receipt(source.data, { selector: expectedSelector, runId: run.runId, skillVersionId: mountedSkill!.versionId, snapshotHash: frozenReceipt?.snapshotHash,
+      originalDispatchAttemptId: frozenReceipt?.application.state === "message-dispatch-observed" ? frozenReceipt.application.attemptId ?? undefined : frozenReceipt?.application.inheritedMessageDispatchAttemptId ?? undefined });
+    const panel = page.getByTestId("aidt-run-context-receipt");
+    await expect(panel).toBeVisible();
+    expect(await panel.evaluate(node => (node as HTMLDetailsElement).open)).toBe(false);
+    const uiRead = page.waitForResponse(response => response.request().method() === "GET" && new URL(response.url()).pathname === apiPath(aidtContextOperations.receipt.path.replace(":runId", encodeURIComponent(run.runId))));
+    await panel.locator("summary").first().click();
+    const uiResponse = await uiRead; expect(uiResponse.status()).toBe(200);
+    const uiReceipt = validateAidtV2Receipt(await uiResponse.json(), { selector: expectedSelector, runId: run.runId, skillVersionId: mountedSkill!.versionId, snapshotHash: sourceReceipt.snapshotHash });
+    await expect(panel).toContainText(sourceReceipt.application.state === "checkpoint-resume-observed" ? "已沿用原材料续跑" : "材料已随本轮消息派发");
+    for (const ref of sourceReceipt.stageRevisions) await expect(panel.getByLabel("本轮实际使用的保存版本")).toContainText(`第 ${ref.stageId} 步 · V${ref.revision}`);
+    for (const ref of sourceReceipt.historyRevisions) await expect(panel.getByLabel("本轮实际使用的保存版本")).toContainText(`历史第 ${ref.stageId} 步 · V${ref.revision}`);
+    if (sourceReceipt.returnRevision !== undefined) await expect(panel).toContainText(`返工记录 · 第 6 步 V${sourceReceipt.returnRevision}`);
+    await panel.getByText("来源核对信息", { exact: true }).click();
+    await expect(panel.getByText(sourceReceipt.snapshotHash, { exact: true })).toBeVisible();
+    await expect(panel.getByText(sourceReceipt.application.assembledContextHash!, { exact: true })).toBeVisible();
     expect(await Promise.all([1, 2, 3, 4, 5, 6].map(id => readAidtV2Stage(page, projectId, id))), "Agent不得替学生确认/保存阶段成果").toEqual(stagesBefore);
     finishAidtNativeRun(reservation, { succeeded: true, runId: run.runId });
     console.info(`[aidt-v2] durable native run succeeded · ${skillName} · ${run.runId}`);
     return { threadId, skillId: skill!.skillId, runId: run.runId, agentId: run.agentId, modelProvider: run.modelProvider, modelId: run.modelId,
       agentVersionId: run.agentVersionId, skillVersionIds: run.skillVersionIds, sawRunning, studentInput: prompt,
-      assistantMessageId: reply.id, assistantText: reply.text, syntheticInput: true, stageSavedByAgent: false, wireSavedContext,
+      assistantMessageId: reply.id, assistantText: reply.text, syntheticInput: true, stageSavedByAgent: false, selectorCoordinates: expectedSelector, sourceReceipt, uiReceipt,
       mountedSkillVersionId: mountedSkill!.versionId, wireMetadata,
       modelActorRole: process.env.AIDT_V2_ACCOUNT_ROLE ?? "unspecified", studentPermissionProvenByModelRun: false, intentChoices };
   } catch (error) {
