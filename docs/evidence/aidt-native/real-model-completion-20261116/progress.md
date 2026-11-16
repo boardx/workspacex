@@ -28,3 +28,5 @@
 自有恢复scope最终正常exit0，容器/卷/网络均0，13端口及租约/stack slot释放，所有自有进程无live。原旧checkpoint/三个预算hash保持，新diagnosticdump金融完整行、全部对象字节及三账核对通过；新备份非zero-outstanding恢复点、未restore。final-cleanup.json区分owner本身模型0与本轮外部逻辑1/物理2失败及pending2，不作0费用结案。
 
 本轮Library交付已确认：源码v7（snapshot f96906f9a、完整性与manifest全hash核过，无实际模型key/私有runtime），人工PDF v6共27页；资料库首页、M24第24页、签字末页27均回读有内容。原文件身份保持。完整真实模型E2E仍失败待验，不代填人工结果。
+
+零模型费用后续已交付：c9cf6ebb7重试保新草稿/引用/附件（25定向、全Web TS0）；ebbb40272私有有界cause日志（12stdlib含实际内存poll/SSE不扩wire）；084dbac1e真实HTTPX/AsyncOpenAI本机TLS对照（7项，canned非模型）。A2限定备份取证与A3独立审阅一致：历史S2cause未直接留存，不能追认唯一证书根因。未新请求真实模型/供应商或改账，三预算hash保持；最后在线14:38:14 UTC pending2/86.29仍为最后已知，不代表当前供应商账单。源码Libraryv8与人工PDFv7（27页）同身份保存，页1/16/24/27回读非空。

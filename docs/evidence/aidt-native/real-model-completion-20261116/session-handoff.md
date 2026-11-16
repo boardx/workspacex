@@ -13,3 +13,5 @@
 本轮源码ZIP及人工PDF保持原Library身份。人工结果/签字继续留空；原始配置、私有备份、凭据、runtime及浏览器trace不上传。GitHub外发此前被审批拒绝，未重试；无PR/远端CI或整体验收通过声明。
 
 最终新私有诊断目录：/workspace/scratch/aidt-private-diagnostics-20261116/S2-failed-pending-20261116T143336845Z。仅用于保全，不能由现有zero-outstanding恢复入口直接恢复。全部服务、容器、卷、网络、13端口/租约及slot已正常释放，owner exit0。
+
+零费用后续见../zero-cost-followup-20261116/README.md：已补草稿保留、安全私有诊断及真SDK本机TLS测试，无新真实模型/金融写。原S2历史底层cause仍未知；未来最小复验需先安全核验最新含pending状态的恢复路径及实际子进程环境指纹，再另批一次独立任务，不能用旧dump/重置账本。最新交付源码v8 snapshot2f29f3543、PDFv7；完整模型链仍未全过。

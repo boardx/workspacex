@@ -1,0 +1,68 @@
+{
+  "source": {
+    "operation": "replace_library_file",
+    "status": "succeeded",
+    "path": "/AIDT-local-source.zip",
+    "file_id": "file_00000000f71c81fd9c14f601ce371e49",
+    "library_file_id": "libfile_fde3_f-870b35a7c80c81919969821a5c7163d8_f2550309ede48191b6efb8c3155855a5",
+    "file_name": "AIDT-local-source.zip",
+    "current_version_number": 8,
+    "restored_from_version_number": null,
+    "xattrs": [
+      {
+        "name": "user.library-file-version",
+        "value": "8"
+      }
+    ],
+    "directory_id": "personal-root:v1",
+    "mime_type": "application/zip",
+    "library_artifact_type": "other",
+    "file_size_bytes": 50556212,
+    "external_connectors_accessed": false
+  },
+  "pdf": {
+    "operation": "replace_library_file",
+    "status": "succeeded",
+    "path": "/AIDT-V2-人工测试验收手册.pdf",
+    "file_id": "file_00000000ae8881fdac48cb7b9160d5c4",
+    "library_file_id": "libfile_fde3_f-a8b95826bf588191ab5049a8b797c528_f2550309ede48191b6efb8c3155855a5",
+    "file_name": "AIDT-V2-人工测试验收手册.pdf",
+    "current_version_number": 7,
+    "restored_from_version_number": null,
+    "xattrs": [
+      {
+        "name": "user.library-file-version",
+        "value": "7"
+      }
+    ],
+    "directory_id": "personal-root:v1",
+    "mime_type": "application/pdf",
+    "library_artifact_type": "report",
+    "file_size_bytes": 219119,
+    "external_connectors_accessed": false
+  },
+  "sourceSnapshot": "2f29f3543fbfa5957adf69413dcc5feeb93d2618",
+  "remotePdf": {
+    "version": "7",
+    "pages": 27,
+    "pagesRead": [
+      1,
+      16,
+      24,
+      27
+    ],
+    "nonempty": true,
+    "warnings": []
+  },
+  "route": {
+    "helperFailedBeforeWrite": "tools/list HTTP401",
+    "orderedOwnedReplacementSucceeded": true,
+    "guards": {
+      "source": 7,
+      "pdf": 6
+    },
+    "xattrsApplied": true
+  },
+  "realModelCallsThisFollowup": 0,
+  "fullPaidE2EPassed": false
+}

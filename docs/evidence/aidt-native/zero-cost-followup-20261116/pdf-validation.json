@@ -21,5 +21,23 @@
     "M25 zero-cost machine appendix"
   ],
   "previousHumanResultsAndSignaturesUnchanged": true,
-  "libraryWriteStatus": "pending"
+  "libraryWriteStatus": "succeeded",
+  "libraryVersion": 7,
+  "libraryStoredBytes": 219119,
+  "remoteReadback": {
+    "version": "7",
+    "pages": 27,
+    "pagesRead": [
+      1,
+      16,
+      24,
+      27
+    ],
+    "nonempty": true,
+    "warnings": []
+  },
+  "visualReviewPages": [
+    16,
+    24
+  ]
 }

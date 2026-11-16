@@ -24,7 +24,8 @@ flowchart TD
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
-  class G doing
+  class G tested
+  %% evidence G: 仅本轮零模型费用目标完成：限定取证/机制回归/安全日志/草稿修复与交付有证据；不代表原S2根因已证、真实模型E2E通过或费用已结算
   class E tested
   %% evidence E: 标准init quick exit0；原6agent分工与无模型/财务写范围已明确；旧S2 journal不重置
   class C tested
@@ -35,7 +36,8 @@ flowchart TD
   %% evidence D: ebbb40272私有安全诊断12/12stdlib实际通过，含内存Runtime与ASGI poll/SSE原wire逐字不变、未知类/secret/控制信号/日志失败/有界cause图；compile0，无实际模型
   class U tested
   %% evidence U: c9cf6ebb7仅失败重试保B文本/活跃mention/新附件，重发A原文/id/来源冻结，后续正常send B仍清稿；4文件25回归通过，强化host11另过（包含重叠不相加），fullWeb tsc0、lint0
-  class V doing
+  class V tested
+  %% evidence V: 源码Libraryv8/PDFv7 guard成功；ZIP manifest全hash/私密key0/临时keys不含，PDF27页内嵌字体/非空/无越界/人工签字空，Library页1/16/24/27回读通过；loopback和工具容器已清理，原三预算hash未动
 ```
 
 本轮仍由原6个Agent分工，不新建付费任务或绕过已耗尽max1。A1核历史启动/费用时点；A2离线只读异常记录；A3独立因果文字审阅；A4草稿失败回归；A5安全日志；A6本机TLS。
