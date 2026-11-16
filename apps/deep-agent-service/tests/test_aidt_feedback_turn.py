@@ -282,3 +282,49 @@ def test_ordinary_skill_still_receives_only_its_own_prompt_and_task():
         "turn_messages": [HumanMessage(content="snapshot should not alter ordinary behavior")],
     }}, config("ordinary published body"))
     assert focused.calls == [[{"role": "system", "content": "ordinary published body"}, {"role": "user", "content": "ordinary task"}]]
+
+
+@pytest.mark.parametrize("outcome", ["error", "denied", "unknown", "success", "pending"])
+def test_mixed_batch_never_hides_another_tool_outcome_or_pending_call(monkeypatch, outcome):
+    messages = completed_messages()
+    messages[1].tool_calls.append({"name": "other_tool", "id": "other", "args": {}})
+    if outcome != "pending":
+        messages.append(ToolMessage(content={"error": "tool failed", "denied": "permission rejected",
+                                            "unknown": "未知工具", "success": "another real result"}[outcome],
+                                    status="error" if outcome in ("error", "denied") else "success",
+                                    tool_call_id="other", name="other_tool"))
+    assert prepare_reply(monkeypatch, messages) is None
+
+
+@pytest.mark.parametrize("outcome", ["pending", "error", "unpaired-result", "duplicate-result"])
+def test_a_later_tool_batch_or_unpaired_result_cannot_reuse_earlier_feedback(monkeypatch, outcome):
+    messages = completed_messages()
+    if outcome in ("pending", "error"):
+        messages.append(ai_tool_call("other_tool", {}, "later-call"))
+    if outcome in ("error", "unpaired-result"):
+        messages.append(ToolMessage(content="a later failure", status="error", tool_call_id="later-call", name="other_tool"))
+    elif outcome == "duplicate-result":
+        messages.append(messages[2].model_copy(update={"content": "duplicate mismatched outcome"}))
+    assert prepare_reply(monkeypatch, messages) is None
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_actual_graph_keeps_unknown_tool_error_visible_after_mixed_batch(asynchronous):
+    focused = FocusedModel()
+    observed = []
+    def router(messages, tools):
+        if any(isinstance(m, ToolMessage) for m in messages):
+            errors = [m for m in messages if isinstance(m, ToolMessage) and m.status == "error"]
+            observed.extend(errors)
+            return AIMessage(content="另一项工具调用失败，请先处理该失败；已保留反馈。")
+        return AIMessage(content="", tool_calls=[
+            {"name": "call_skill", "id": "mixed-feedback", "args": {"skill_stable_name": "aidt-define", "task": "feedback"}},
+            {"name": "not_registered", "id": "mixed-unknown", "args": {}},
+        ])
+    outer = ScriptedChatModel(router=router)
+    graph = create_deep_agent(model=outer, tools=build_tools(focused), middleware=[FeedbackTurnMiddleware()])
+    payload = {"messages": [HumanMessage(content="学生初稿", id="wsx-turn:current:user")]}
+    result = asyncio.run(graph.ainvoke(payload, config())) if asynchronous else graph.invoke(payload, config())
+    assert len(focused.calls) == 1 and len(outer.calls) == 2
+    assert len(observed) == 1 and observed[0].tool_call_id == "mixed-unknown"
+    assert result["messages"][-1].content == "另一项工具调用失败，请先处理该失败；已保留反馈。"

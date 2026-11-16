@@ -60,3 +60,24 @@ PYTHONPATH=/workspace/scratch/aidt-remediation-20261117/qa-tools:apps/deep-agent
 环境 owner 随后在其 owned PostgreSQL 容器中建立独立空测试库 `aidt_tc5_remediation_20261117`，补跑原 `tests/golden/test_tc5_checkpoint_kill_recovery.py`，实际结果 **5 passed**，3.72 秒、退出码 0。该补验使用真实 PG，覆盖进程被 SIGKILL 后的 checkpoint 恢复及时间回溯；未用业务数据库、未写业务或钱包数据、模型请求为 0。结果及日志见 [TC5 补验回执](../a1/tc5-checkpoint.json) 与 [原始测试日志](../a1/tc5-checkpoint.log)。测试库由环境 owner 随 owned compose 栈清理。这是独立补验，不将它改写为上面 206 项同一命令的结果，也未为本记录重复执行测试。
 
 真实供应商新包挂载后的 S3/S5 质量、请求次数和延迟仍需 root 专项验收；上述本地假模型通过不能替代该结果。原 S3/S5 失败/耗时/计量记录没有被重置或覆写。
+
+## 独立审阅后的第二轮红绿：混合工具 batch
+
+A2 只读独立审阅发现：第一版逆序查找成功 `call_skill`，会忽略同 batch 的其他工具失败、拒绝、未知结果或尚未配对的新调用，直接交付早先的反馈。上面的 **206 通过没有覆盖这个反例**，不能将其写成该边界已经通过。
+
+先加 11 个反例，未修改第一版生产逻辑时执行：
+
+```bash
+PYTHONPATH=/workspace/scratch/aidt-remediation-20261117/qa-tools:apps/deep-agent-service/src \
+  /workspace/scratch/aidt-real-model-20261116/python/bin/python -m pytest \
+  apps/deep-agent-service/tests/test_aidt_feedback_turn.py -q \
+  -k 'mixed_batch or later_tool_batch or actual_graph_keeps'
+```
+
+结果 **11 failed / 30 deselected**，2.10 秒。覆盖同 batch 中的其他 error / denied / unknown / success / pending，新 batch 未完成或失败，游离结果与重复结果；真实 graph 同步和异步反例均证明：另一未知工具已有 error ToolMessage，却未到达第二次外层处理，原 helper 直接返回了旧反馈。
+
+root 允许为此关键缺陷解冻 Python。窄修仅更新 `harness.py`：只检查当前最新 AI 工具 batch，要求它恰好一个 `call_skill`，其后恰好一个匹配 call ID / name、status=success 的真实结果，再检查既有完整 task、mounted 字节及结果摘要。所有 mixed / multi-call batch（包括其他工具表面成功）、错误、拒绝、未知、未配对调用、重复或游离结果都继续原 handler；不猜测其他工具的字符串成功语义，不吞掉额外成功结果，不改变权限或缓存范围。
+
+修复后单文件 **41 passed**，2.66 秒。真实 graph 两条混合 unknown-tool 场景的第二次 outer 请求实际收到了 error ToolMessage，并返回说明该失败的回复；单 Skill 成功收敛和首失败后合法重试仍通过。
+
+随后重新执行上面完整绿色回归命令（依然显式排除需 PG 的 TC5 文件），结果 **217 passed / 2 skipped**，14.55 秒，两个上游弃用 warning。`git diff --check` 通过。TC5 的独立 PG 5/5 仍按前节回执列出，没有为此次 middleware 窄修重复执行或混算为同一命令。生产文件再次 sourceReady 后由环境 owner 正常重启 Python；本 worker 未自行重启服务或发送真实模型请求。

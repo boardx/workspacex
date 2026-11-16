@@ -1285,37 +1285,46 @@ def _completed_feedback_message(request: ModelRequest) -> AIMessage | None:
         if start is None:
             return None
         messages = messages[start:]
+    batch_index = next((i for i in range(len(messages) - 1, -1, -1)
+                        if getattr(messages[i], "tool_calls", None)), None)
+    if batch_index is None:
+        return None
+    calls = messages[batch_index].tool_calls
+    # A feedback result cannot stand in for the outcomes of a mixed batch.
+    # Conservatively keep the original handler for every multi-call batch,
+    # even when another tool's string result appears to indicate success.
+    if len(calls) != 1 or calls[0].get("name") != "call_skill":
+        return None
+    call = calls[0]
+    tail = messages[batch_index + 1:]
+    results = [m for m in tail if isinstance(m, ToolMessage)]
+    if len(results) != 1:
+        return None
+    message = results[0]
+    if message.tool_call_id != call.get("id") or message.name != "call_skill" or message.status != "success":
+        return None
+    if any(getattr(m, "type", None) == "human" and not (
+        getattr(m, "name", None) == RUBRIC_GRADER_MESSAGE_SOURCE
+        and getattr(m, "additional_kwargs", {}).get("lc_source") == RUBRIC_GRADER_MESSAGE_SOURCE
+    ) for m in tail):
+        return None
+    marker = message.artifact.get(FEEDBACK_TURN_ARTIFACT_KEY) if isinstance(message.artifact, dict) else None
+    if not isinstance(marker, dict) or not isinstance(message.content, str) or not message.content.strip():
+        return None
     mounted = {s["stable_name"]: s for s in _read_org_skills(config)}
-    for index in range(len(messages) - 1, -1, -1):
-        message = messages[index]
-        if not isinstance(message, ToolMessage) or message.name != "call_skill" or message.status != "success":
-            continue
-        marker = (message.artifact or {}).get(FEEDBACK_TURN_ARTIFACT_KEY) if isinstance(message.artifact, dict) else None
-        if not isinstance(marker, dict) or not isinstance(message.content, str) or not message.content.strip():
-            continue
-        skill = mounted.get(marker.get("skill_stable_name"))
-        if skill is None or feedback_turn_skill_digest(skill) != marker.get("skill_content_sha256"):
-            continue
-        if sha256(message.content.encode("utf-8")).hexdigest() != marker.get("result_sha256"):
-            continue
-        if any(getattr(m, "type", None) == "human" and not (
-            getattr(m, "name", None) == RUBRIC_GRADER_MESSAGE_SOURCE
-            and getattr(m, "additional_kwargs", {}).get("lc_source") == RUBRIC_GRADER_MESSAGE_SOURCE
-        ) for m in messages[index + 1:]):
-            return None
-        # Pair the actual call id and complete task bytes, never the public
-        # truncated argument summary used in execution-journal projections.
-        for prior in reversed(messages[:index]):
-            for call in getattr(prior, "tool_calls", []) or []:
-                if call.get("id") != message.tool_call_id or call.get("name") != "call_skill":
-                    continue
-                args = call.get("args") or {}
-                if not isinstance(args, dict):
-                    continue
-                stable, task = call_skill_argument_values(args)
-                if stable == skill["stable_name"] and isinstance(task, str) and sha256(task.encode("utf-8")).hexdigest() == marker.get("task_sha256"):
-                    return AIMessage(content=message.content)
-    return None
+    skill = mounted.get(marker.get("skill_stable_name"))
+    if skill is None or feedback_turn_skill_digest(skill) != marker.get("skill_content_sha256"):
+        return None
+    if sha256(message.content.encode("utf-8")).hexdigest() != marker.get("result_sha256"):
+        return None
+    # Pair the complete task bytes, never a public truncated argument summary.
+    args = call.get("args") or {}
+    if not isinstance(args, dict):
+        return None
+    stable, task = call_skill_argument_values(args)
+    if stable != skill["stable_name"] or not isinstance(task, str) or sha256(task.encode("utf-8")).hexdigest() != marker.get("task_sha256"):
+        return None
+    return AIMessage(content=message.content)
 
 
 class FeedbackTurnMiddleware(AgentMiddleware):
