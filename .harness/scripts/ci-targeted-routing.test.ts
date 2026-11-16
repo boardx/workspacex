@@ -30,7 +30,14 @@ it.each(['base','e2e'])('requires complete %s outcomes for either verified route
   const bad=structuredClone(good);bad['doc-smoke-scope'].outputs.mode='candidate-ui';expect(()=>requireRoute(kind,bad,event)).toThrow();
  }
 });
-it('retains full browser actual verdict requirements',()=>{const good=needs('e2e','full');good['fullstack-smoke'].outputs.verdict='failure';expect(()=>requireRoute('e2e',good,'pull_request')).toThrow();});
+it('names the full browser producer whose job or actual verdict failed',()=>{
+ const actual=needs('e2e','full');
+ actual['fullstack-smoke'].result='failure';
+ expect(()=>requireRoute('e2e',actual)).toThrow('ROUTED_PRODUCER_REJECTED: fullstack-smoke=failure (expected success)');
+ actual['fullstack-smoke'].result='success';
+ actual['fullstack-smoke'].outputs.verdict='failure';
+ expect(()=>requireRoute('e2e',actual)).toThrow('FULL_ACTUAL_VERDICT_REJECTED: fullstack-smoke');
+});
 import {spawnSync} from 'node:child_process';
 import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';

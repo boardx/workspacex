@@ -18,8 +18,15 @@ export function requireRoute(kind,needs){
  if(scope?.result!=='success'||!['full','targeted-ui'].includes(mode)||!/^[a-f0-9]{64}$/.test(planDigest??''))throw Error('INVALID_ROUTING_PLAN');
  const active=mode==='full'?full:[...(kind==='base'?['base-compile','base-control-plane']:['full-regression-core']),...UI_PRODUCERS];
  const inactive=[...full,...UI_PRODUCERS].filter(name=>!active.includes(name));
- if(active.some(name=>needs[name]?.result!=='success')||inactive.some(name=>needs[name]?.result!=='skipped'))throw Error('ROUTED_PRODUCER_REJECTED');
- if(mode==='full'&&kind==='e2e'&&failedLanes(needs).length)throw Error('FULL_ACTUAL_VERDICT_REJECTED');
+ const rejected=[
+  ...active.filter(name=>needs[name]?.result!=='success').map(name=>`${name}=${needs[name]?.result??'missing'} (expected success)`),
+  ...inactive.filter(name=>needs[name]?.result!=='skipped').map(name=>`${name}=${needs[name]?.result??'missing'} (expected skipped)`),
+ ];
+ if(rejected.length)throw Error(`ROUTED_PRODUCER_REJECTED: ${rejected.join(', ')}`);
+ if(mode==='full'&&kind==='e2e'){
+  const rejectedVerdicts=failedLanes(needs);
+  if(rejectedVerdicts.length)throw Error(`FULL_ACTUAL_VERDICT_REJECTED: ${rejectedVerdicts.join(', ')}`);
+ }
  return {mode,planDigest,full:Object.fromEntries(full.map(name=>[name,needs[name]]))};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
