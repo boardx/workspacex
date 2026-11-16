@@ -35,6 +35,7 @@ import type { ProjectResearchSub } from "@/components/project/project-links";
 import { AidtStageHistory } from "./aidt-stage-history";
 import { AidtNextRound } from "./aidt-next-round";
 import { AidtRoundNavigation } from "./aidt-round-navigation";
+import { aidtStageContextReferences } from "../lib/aidt-native-context-selector";
 import { getAidtPrototypeGenerationReadiness } from "../lib/aidt-verification-loop";
 
 const loading = () => <p role="status" className="p-4 text-12 text-muted-foreground">正在加载工作区…</p>;
@@ -144,7 +145,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
       return { ...base, revision: base.revision + 1, drafts: { ...base.drafts, [id]: draft } };
     });
   } });
-  const sharedContextRefs = React.useMemo(() => shared.read?.phase === "ready" && step ? Object.values(shared.stages).filter(item => item.stageId <= step.id).map(item => ({ stageNumber: item.stageId, revision: item.revision })) : [], [shared.read, shared.stages, step]);
+  const sharedContextRefs = React.useMemo(() => shared.read?.phase === "ready" && step ? aidtStageContextReferences(step.id, shared.stages, shared.lockedSourceStage) : [], [shared.read, shared.stages, shared.lockedSourceStage, step]);
   const personal = useAidtPersonalCheckpoints({ enabled: isAidtModuleEnabled(), scope: checkpointScope, lifecycleKey: uiLifecycleKey, threadId: checkpointThread, stageId: step?.id ?? null, draft: step ? currentUi.drafts[step.id]! : null, canWrite, onRestore: (draft) => { if (step) updateStage(step.id, () => draft); } });
   const latestCheckpointKey = React.useRef(personal.key); latestCheckpointKey.current = personal.key;
   const [disclosure, setDisclosure] = React.useState<{ key: string; reference: AidtSavedContextReference } | null>(null);

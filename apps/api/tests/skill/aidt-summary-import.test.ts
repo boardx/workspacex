@@ -1,4 +1,4 @@
-// @global-scope-fixture importer:importSkillStarterPack: In-memory identity/persistence ports; DatabasePort rejects every access, no platform row is written.
+// In-memory identity/persistence ports; DatabasePort rejects every access, no platform row is written.
 import { readFileSync } from "node:fs";
 import { afterEach, expect, it, vi } from "vitest";
 import type { DatabasePort } from "../../src/application/ports/database.port";

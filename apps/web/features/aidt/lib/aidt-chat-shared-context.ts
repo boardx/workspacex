@@ -1,6 +1,6 @@
 import { StageContent } from "@repo/contracts/aidt-stages";
 import { aidtUiStageSummary } from "./aidt-ui-drafts";
-import { readAidtStage } from "./live-aidt-stages";
+import { readAidtStage, listAidtStageHistory } from "./live-aidt-stages";
 import { isAidtModuleEnabled } from "./aidt-module-config";
 
 /** A real server revision, never a page draft or a claim of group agreement. */
@@ -52,10 +52,18 @@ export async function loadAidtSharedChatContext({ projectId, currentStage, sessi
     if (!Number.isInteger(stageNumber) || stageNumber < 1 || stageNumber > currentStage || !Number.isInteger(revision) || revision < 1) { issues.push({ stageNumber, reason: "unavailable" }); continue; }
     if (!remaining) { issues.push({ stageNumber, reason: "limit" }); continue; }
     try {
-      const { stage } = await readAidtStage(projectId, stageNumber, sessionToken, signal);
+      let { stage } = await readAidtStage(projectId, stageNumber, sessionToken, signal);
       assertCurrent();
       if (!stage || stage.projectId !== projectId || stage.stageId !== stageNumber) { issues.push({ stageNumber, reason: "unavailable" }); continue; }
-      // A latest-only GET cannot silently satisfy a request for a historical revision.
+      // A selected immutable version can predate its head (for example a frozen test round).
+      // Ask the existing history endpoint for that exact coordinate, never the closest record.
+      if (stage.revision > revision) {
+        const page = await listAidtStageHistory(projectId, stageNumber, sessionToken, { beforeRevision: revision + 1, limit: 1 }, signal);
+        assertCurrent();
+        const historical = page.items.length === 1 ? page.items[0] : undefined;
+        if (!historical || historical.projectId !== projectId || historical.stageId !== stageNumber || historical.revision !== revision) { issues.push({ stageNumber, reason: "version-changed" }); continue; }
+        stage = historical;
+      }
       if (stage.revision !== revision) { issues.push({ stageNumber, reason: "version-changed" }); continue; }
       const fullText = JSON.stringify(stage.content);
       let draftText = fullText.slice(0, Math.min(MAX_ITEM_CHARS, remaining));
@@ -76,6 +84,6 @@ export function aidtSharedContextPreview(item: AidtSharedContextItem): string {
   try {
     const parsed = StageContent.safeParse(JSON.parse(item.draftText));
     if (parsed.success && Number.isInteger(item.stageNumber) && item.stageNumber >= 1 && item.stageNumber <= 6) return aidtUiStageSummary(item.stageNumber, parsed.data.draft) || item.draftText;
-  } catch { /* Truncated or older saved text stays visible exactly as supplied to the agent. */ }
+  } catch { /* Truncated or older saved text stays visible as a literal page preview. */ }
   return item.draftText;
 }

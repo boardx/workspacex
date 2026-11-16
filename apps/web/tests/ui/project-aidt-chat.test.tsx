@@ -163,7 +163,7 @@ it("labels the readable summary and keeps the exact loaded report and selection 
   const draftText = JSON.stringify({ schemaVersion: 1, draft: { fields: { reflection: "本组反思" }, ideas: [], selectedIdeaId: "", selectionReasons: { idea1: "学生保留的选择理由" } }, summaryReport: { markdown: "实际已保存的报告原文 <script>仅文本</script>", sourceStageRevisions: [] } });
   mocks.loadSharedContext.mockResolvedValue({ status: "ready", items: [{ kind: "aidt-stage", projectId: "p", stageNumber: 6, revision: 2, sourceStageRevisions: [], draftText, truncated: false }], issues: [] });
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[5]} thread={null} sharedContextRefs={[{ stageNumber: 6, revision: 2 }]} />);
-  const exact = await screen.findByLabelText("第6步AI引用的已保存文本");
+  const exact = await screen.findByLabelText("第6步页面回读的已保存文本");
   expect(exact.textContent).toBe(draftText); expect(screen.getByLabelText("第6步已保存内容摘要")).toHaveTextContent("本组反思");
   expect(screen.getByLabelText("第6步已保存内容摘要")).not.toHaveTextContent("实际已保存的报告原文");
   expect(screen.getByText("以上是已保存内容摘要，可能省略选择理由、报告等字段。下方为页面读取的已保存文本预览；引用材料与学生解释仍需核对。")).toBeInTheDocument();

@@ -1,11 +1,11 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { AIDT_EMPTY_SHARED_CONTEXT, loadAidtSharedChatContext, aidtSharedContextPreview } from "@/features/aidt/lib/aidt-chat-shared-context";
-const mocks = vi.hoisted(() => ({ enabled: true, read: vi.fn() }));
+const mocks = vi.hoisted(() => ({ enabled: true, read: vi.fn(), history:vi.fn() }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mocks.enabled }));
-vi.mock("@/features/aidt/lib/live-aidt-stages", () => ({ readAidtStage: mocks.read }));
+vi.mock("@/features/aidt/lib/live-aidt-stages", () => ({ readAidtStage: mocks.read, listAidtStageHistory:mocks.history }));
 const input = () => ({ projectId: "group-one", currentStage: 2, sessionToken: "captured-bearer", references: [{ stageNumber: 1, revision: 2 }] });
 const stage = () => ({ projectId: "group-one", stageId: 1, revision: 2, content: { schemaVersion: 1, draft: { fields: { topic: "学生保存的主题，仍需研究" }, ideas: [], selectedIdeaId: "" } }, sourceStageRevisions: [], updatedBy: "student", updatedAt: "2026-11-15T01:00:00Z" });
-beforeEach(() => { vi.resetAllMocks(); mocks.enabled = true; mocks.read.mockResolvedValue({ stage: stage() }); });
+beforeEach(() => { vi.resetAllMocks(); mocks.enabled = true; mocks.history.mockResolvedValue({items:[],nextBeforeRevision:null}); mocks.read.mockResolvedValue({ stage: stage() }); });
 it("does not read unselected material or a disabled module", async () => {
   expect(await loadAidtSharedChatContext({ ...input(), references: [] })).toEqual(AIDT_EMPTY_SHARED_CONTEXT);
   mocks.enabled = false; await expect(loadAidtSharedChatContext(input())).rejects.toThrow("AIDT_CONTEXT_CHANGED");
@@ -63,4 +63,12 @@ it("keeps truncated source text literal instead of inventing a completed summary
   const source = (await loadAidtSharedChatContext(input())).items[0]!;
   const draftText = '{"schemaVersion":1,"draft":{"fields":{"initial":"<script>untrusted';
   expect(aidtSharedContextPreview({ ...source, draftText, truncated: true })).toBe(draftText);
+});
+
+it("previews the exact selected immutable historical source without substituting its newer head",async()=>{
+ const original=stage();mocks.read.mockResolvedValue({stage:{...original,revision:3,content:{...original.content,draft:{...original.content.draft,fields:{topic:"新head不能混入"}}}}});mocks.history.mockResolvedValue({items:[original],nextBeforeRevision:null});const signal=new AbortController().signal;
+ const result=await loadAidtSharedChatContext({...input(),signal});expect(result.status).toBe("ready");expect(result.items[0]?.revision).toBe(2);expect(result.items[0]?.draftText).toContain("学生保存的主题");expect(result.items[0]?.draftText).not.toContain("新head不能混入");expect(mocks.history).toHaveBeenCalledWith("group-one",1,"captured-bearer",{beforeRevision:3,limit:1},signal);
+});
+it("never uses a closest, foreign or denied history response as the selected version",async()=>{
+ mocks.read.mockResolvedValue({stage:{...stage(),revision:4}});for(const row of [{...stage(),revision:1},{...stage(),projectId:"foreign"},{...stage(),stageId:2}]){mocks.history.mockResolvedValueOnce({items:[row],nextBeforeRevision:null});const result=await loadAidtSharedChatContext(input());expect(result.status).toBe("failed");expect(result.items).toEqual([]);}mocks.history.mockRejectedValueOnce(new Error("403"));expect((await loadAidtSharedChatContext(input())).items).toEqual([]);
 });
