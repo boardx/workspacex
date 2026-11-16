@@ -1,0 +1,20 @@
+{
+  "sourceCommit": "65e322232cc232a6c1de40d9a3113bebc520e1da",
+  "files": 12151,
+  "allManifestHashesVerified": true,
+  "archiveCrcPassed": true,
+  "privateEnvValueMatches": 0,
+  "requiredRuntimeAndE2eImportsPresent": true,
+  "runtimeDataIncluded": false,
+  "zipBytes": 50035014,
+  "zipSha256": "30a89a5464dbab84652a26228632289cf51f54a9d9e0556d2e42102af92215cb",
+  "sourceLibraryFileId": "libfile_fde3_f-870b35a7c80c81919969821a5c7163d8_f2550309ede48191b6efb8c3155855a5",
+  "sourceLibraryVersion": 5,
+  "pdfLibraryFileId": "libfile_fde3_f-a8b95826bf588191ab5049a8b797c528_f2550309ede48191b6efb8c3155855a5",
+  "pdfLibraryVersion": 4,
+  "pdfPages": 26,
+  "productBuildCommit": "741bc9f69693667868e88e780ff9a798e95d80ec",
+  "preparedHelperFailedBeforeAnyWrite": "tools/list HTTP401; no prepared upload initiated; owned replacement through authorized connector succeeded",
+  "humanSignaturesFilled": false,
+  "realModelFullE2EPassed": false
+}

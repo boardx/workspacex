@@ -41,7 +41,8 @@ flowchart TD
   %% evidence S3: kernel DI实际接线；API/Web全tsc首轮exit0；receipt11/11与lint0
   class S4 tested
   %% evidence S4: 真实PG22/22；741bc生产构建prepared-only真实浏览器1pass；A1独立核0模型0用量0active，资源全部释放；供应商/课堂另列S6未验
-  class S5 doing
+  class S5 tested
+  %% evidence S5: 源码同身份版本5/50,035,014bytes/12,151源文件manifest全部SHA核对；PDF同身份v4/26页内嵌字体且保存后回读；人签为空，真实模型S6节点未验
   class S6 todo
 ```
 
