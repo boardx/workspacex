@@ -962,7 +962,13 @@ function defaultTurnReply(record: RunRecord): string {
 }
 
 function computeSpecialTurnReply(threadId: string, record: RunRecord): string | null {
-  if (record.canvasGuidanceSeen) return canvasFence(record.userText.replace(/[`\n]/g, "").trim().slice(0, 80));
+  if (record.canvasGuidanceSeen) {
+    const value = record.userText.replace(/[`\n]/g, "").trim().slice(0, 80);
+    const dualSentinel = process.env.LOOPBACK_MODEL_CANVAS_DUAL_SENTINEL;
+    return dualSentinel && record.userText.includes(dualSentinel)
+      ? [canvasFence(`${value} 之一`), canvasFence(`${value} 之二`)].join("\n\n")
+      : canvasFence(value);
+  }
   // DA-19g：命中「记得上文」触发词时，逐字引用这条线程上一次收到的用户消息——
   // 见 `conversationLog`/`FOLLOWUP_CONTEXT_TRIGGER` 自己的头注。`log` 至少两条
   // （当前这轮 + 上一轮）才有"上一轮"可引用；只有当前这一轮（首轮就发触发词）时
