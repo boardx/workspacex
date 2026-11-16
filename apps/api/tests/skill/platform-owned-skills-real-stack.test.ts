@@ -15,7 +15,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { inspectPptx } from "@repo/skill-sandbox/ooxml";
 import {
   addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -41,6 +41,12 @@ process.env.KERNEL_QUIET = "1";
 
 const PROVIDER = "i-platform-skills-loopback";
 const MODEL = "i-platform-skills-model";
+
+// Bind model admission to this suite's HTTP loopback provider.
+vi.mock("../../src/infrastructure/agent/pg-default-agent-repository", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../src/infrastructure/agent/pg-default-agent-repository")>(),
+  resolveDeepAgentModel: () => ({ provider: PROVIDER, modelId: MODEL }),
+}));
 /**
  * ⚠ V2/V3 的执行门控用 pptx-create（不是 docx-create）。`loopback-skill-sandbox-
  * behavior.ts` 是"确定性执行替身"，不真的解释脚本内容：按脚本里出现的产物扩展名分档，
@@ -212,6 +218,11 @@ describe("V2+V3 — 全新 org 能真的挂载平台 skill 到 thread 上，且�
     await resetOrgs(ORG);
     const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
     await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy ?? null);
+    // @global-scope-fixture table:credit_wallets: fund the isolated platform skill test payer.
+    await asOwner(client => client.query(
+      "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+      [ACTOR],
+    ));
     await addProjectMember(ORG, PROJECT, ACTOR, "facilitator", null);
     await addChatThread({ orgId: ORG, id: THREAD, projectId: PROJECT, visibilityScope: "plenary", createdBy: ACTOR });
     await asApp(ORG, async (c) => {
