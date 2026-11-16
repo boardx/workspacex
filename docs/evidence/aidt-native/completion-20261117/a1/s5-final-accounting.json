@@ -1,0 +1,412 @@
+{
+  "observedAt": "2026-11-16T17:51:39.750Z",
+  "readOnly": true,
+  "run": {
+    "id": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+    "org_id": "org-fullstack-20261117-01-7d265647426d",
+    "thread_id": "thr-985b99bd-475a-4ae2-8357-30e6f4a712fc",
+    "author_id": "user-fullstack-admin-20261117-01-7d265647426d",
+    "status": "cancelled",
+    "failure_reason": null,
+    "agent_version_id": "agent-fullstack-20261117-01-7d265647426d-v1",
+    "skill_version_ids": [
+      "skill-version-00823c40-39bd-4cce-9853-c02502296c3c"
+    ],
+    "aidt_selector_hash": "aaa4960ea2062755a74405efcda1bbf09e78f06ca750bd4d82772e07e4676bf3",
+    "remote_run_id": "c3280e25-c511-46c8-9902-8a210af95ce2"
+  },
+  "snapshot": {
+    "selectorHash": "aaa4960ea2062755a74405efcda1bbf09e78f06ca750bd4d82772e07e4676bf3",
+    "snapshotHash": "0b0de5d21a9da18ad08a467df6bdc3d9c1d1990d62aa57f31afc8c3a2e059d45",
+    "focus": {
+      "title": "制作原型",
+      "skillId": "skill-0c540d63-76a5-492a-842a-def6e827106c",
+      "skillVersionId": "skill-version-00823c40-39bd-4cce-9853-c02502296c3c",
+      "skillStableName": "aidt-prototype"
+    },
+    "blockHash": "c670007b72889881859319497eef1952049417b238582164c7b0d7590e1b2b75"
+  },
+  "applications": [
+    {
+      "seq": "1",
+      "kind": "assembled",
+      "snapshotHash": "0b0de5d21a9da18ad08a467df6bdc3d9c1d1990d62aa57f31afc8c3a2e059d45",
+      "occurredAt": "2026-11-16T17:49:43.032Z"
+    },
+    {
+      "seq": "2",
+      "kind": "message-dispatch-observed",
+      "snapshotHash": "0b0de5d21a9da18ad08a467df6bdc3d9c1d1990d62aa57f31afc8c3a2e059d45",
+      "occurredAt": "2026-11-16T17:49:43.137Z",
+      "remoteThreadId": "43d00034-2ff4-417a-8b6a-a4c29aee8a7f",
+      "remoteRunId": "c3280e25-c511-46c8-9902-8a210af95ce2"
+    }
+  ],
+  "physical": [
+    {
+      "id": "6e4ac91d-bda3-4dc2-ad1d-1643c4bd0bef",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:49:43.198Z"
+    },
+    {
+      "id": "38eabfad-7bc2-4d95-b771-ea9d9b60c014",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:49:46.778Z"
+    },
+    {
+      "id": "0119d3c6-97ce-4a01-a6c9-612c1943ff3f",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:49:51.647Z"
+    },
+    {
+      "id": "4ef8ad18-c37b-4a29-8ccd-c2e0199446ee",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:49:56.771Z"
+    },
+    {
+      "id": "6b5358ea-cf73-4588-9375-51b1ae6df6f7",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:01.877Z"
+    },
+    {
+      "id": "dde875e2-2819-42a5-a248-f4358e44dfcc",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:07.980Z"
+    },
+    {
+      "id": "b51cbd8c-1f5f-4ef3-9ecf-607131bc85da",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:11.227Z"
+    },
+    {
+      "id": "0491b562-9eb5-4298-9151-26c715cc50e1",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:19.242Z"
+    },
+    {
+      "id": "e7422a67-539c-455c-8932-ff1f499456db",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:23.578Z"
+    },
+    {
+      "id": "c7bbb39a-8c1e-419d-a425-5bc65f87f19e",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:32.915Z"
+    },
+    {
+      "id": "3682e670-c721-41fc-b01c-29f351bbb344",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:36.378Z"
+    },
+    {
+      "id": "78b2194f-fb80-4837-bb20-c81d6afe61e5",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:42.934Z"
+    },
+    {
+      "id": "b3137816-f8c2-4284-91ca-0aa4151f7a6d",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:46.433Z"
+    },
+    {
+      "id": "52e6da22-bfcb-425b-bbd7-9b711a0e1541",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:53.414Z"
+    },
+    {
+      "id": "73e458a6-6f21-431a-88e0-0c8f1b457840",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:50:57.011Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "6e4ac91d-bda3-4dc2-ad1d-1643c4bd0bef",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "10196",
+      "tokens_prompt": "10169",
+      "tokens_completion": "27",
+      "request_started_at": "2026-11-16T17:49:43.198Z",
+      "request_ended_at": "2026-11-16T17:49:46.676Z"
+    },
+    {
+      "id": "38eabfad-7bc2-4d95-b771-ea9d9b60c014",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "10369",
+      "tokens_prompt": "10261",
+      "tokens_completion": "108",
+      "request_started_at": "2026-11-16T17:49:46.778Z",
+      "request_ended_at": "2026-11-16T17:49:51.581Z"
+    },
+    {
+      "id": "0119d3c6-97ce-4a01-a6c9-612c1943ff3f",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "1453",
+      "tokens_prompt": "1349",
+      "tokens_completion": "104",
+      "request_started_at": "2026-11-16T17:49:51.647Z",
+      "request_ended_at": "2026-11-16T17:49:56.704Z"
+    },
+    {
+      "id": "4ef8ad18-c37b-4a29-8ccd-c2e0199446ee",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "10646",
+      "tokens_prompt": "10494",
+      "tokens_completion": "152",
+      "request_started_at": "2026-11-16T17:49:56.771Z",
+      "request_ended_at": "2026-11-16T17:50:01.813Z"
+    },
+    {
+      "id": "6b5358ea-cf73-4588-9375-51b1ae6df6f7",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "1586",
+      "tokens_prompt": "1393",
+      "tokens_completion": "193",
+      "request_started_at": "2026-11-16T17:50:01.877Z",
+      "request_ended_at": "2026-11-16T17:50:07.910Z"
+    },
+    {
+      "id": "dde875e2-2819-42a5-a248-f4358e44dfcc",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "11008",
+      "tokens_prompt": "10860",
+      "tokens_completion": "148",
+      "request_started_at": "2026-11-16T17:50:07.980Z",
+      "request_ended_at": "2026-11-16T17:50:11.161Z"
+    },
+    {
+      "id": "b51cbd8c-1f5f-4ef3-9ecf-607131bc85da",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "1717",
+      "tokens_prompt": "1389",
+      "tokens_completion": "328",
+      "request_started_at": "2026-11-16T17:50:11.227Z",
+      "request_ended_at": "2026-11-16T17:50:19.154Z"
+    },
+    {
+      "id": "0491b562-9eb5-4298-9151-26c715cc50e1",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "11580",
+      "tokens_prompt": "11357",
+      "tokens_completion": "223",
+      "request_started_at": "2026-11-16T17:50:19.242Z",
+      "request_ended_at": "2026-11-16T17:50:23.473Z"
+    },
+    {
+      "id": "e7422a67-539c-455c-8932-ff1f499456db",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "1795",
+      "tokens_prompt": "1464",
+      "tokens_completion": "331",
+      "request_started_at": "2026-11-16T17:50:23.578Z",
+      "request_ended_at": "2026-11-16T17:50:32.849Z"
+    },
+    {
+      "id": "c7bbb39a-8c1e-419d-a425-5bc65f87f19e",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "12155",
+      "tokens_prompt": "11932",
+      "tokens_completion": "223",
+      "request_started_at": "2026-11-16T17:50:32.915Z",
+      "request_ended_at": "2026-11-16T17:50:36.310Z"
+    },
+    {
+      "id": "3682e670-c721-41fc-b01c-29f351bbb344",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "1721",
+      "tokens_prompt": "1464",
+      "tokens_completion": "257",
+      "request_started_at": "2026-11-16T17:50:36.378Z",
+      "request_ended_at": "2026-11-16T17:50:42.869Z"
+    },
+    {
+      "id": "78b2194f-fb80-4837-bb20-c81d6afe61e5",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "12656",
+      "tokens_prompt": "12433",
+      "tokens_completion": "223",
+      "request_started_at": "2026-11-16T17:50:42.934Z",
+      "request_ended_at": "2026-11-16T17:50:46.366Z"
+    },
+    {
+      "id": "b3137816-f8c2-4284-91ca-0aa4151f7a6d",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "1755",
+      "tokens_prompt": "1464",
+      "tokens_completion": "291",
+      "request_started_at": "2026-11-16T17:50:46.433Z",
+      "request_ended_at": "2026-11-16T17:50:53.335Z"
+    },
+    {
+      "id": "52e6da22-bfcb-425b-bbd7-9b711a0e1541",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "13191",
+      "tokens_prompt": "12968",
+      "tokens_completion": "223",
+      "request_started_at": "2026-11-16T17:50:53.414Z",
+      "request_ended_at": "2026-11-16T17:50:56.913Z"
+    },
+    {
+      "id": "73e458a6-6f21-431a-88e0-0c8f1b457840",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "1679",
+      "tokens_prompt": "1464",
+      "tokens_completion": "215",
+      "request_started_at": "2026-11-16T17:50:57.011Z",
+      "request_ended_at": "2026-11-16T17:51:02.939Z"
+    }
+  ],
+  "credit": [
+    {
+      "request_id": "6e4ac91d-bda3-4dc2-ad1d-1643c4bd0bef",
+      "state": "settled",
+      "reserved_hundredths": "4080",
+      "debited_hundredths": "1020",
+      "settled_at": "2026-11-16T17:49:46.700Z"
+    },
+    {
+      "request_id": "38eabfad-7bc2-4d95-b771-ea9d9b60c014",
+      "state": "settled",
+      "reserved_hundredths": "4125",
+      "debited_hundredths": "1037",
+      "settled_at": "2026-11-16T17:49:51.604Z"
+    },
+    {
+      "request_id": "0119d3c6-97ce-4a01-a6c9-612c1943ff3f",
+      "state": "settled",
+      "reserved_hundredths": "855",
+      "debited_hundredths": "146",
+      "settled_at": "2026-11-16T17:49:56.722Z"
+    },
+    {
+      "request_id": "4ef8ad18-c37b-4a29-8ccd-c2e0199446ee",
+      "state": "settled",
+      "reserved_hundredths": "4237",
+      "debited_hundredths": "1065",
+      "settled_at": "2026-11-16T17:50:01.834Z"
+    },
+    {
+      "request_id": "6b5358ea-cf73-4588-9375-51b1ae6df6f7",
+      "state": "settled",
+      "reserved_hundredths": "871",
+      "debited_hundredths": "159",
+      "settled_at": "2026-11-16T17:50:07.935Z"
+    },
+    {
+      "request_id": "dde875e2-2819-42a5-a248-f4358e44dfcc",
+      "state": "settled",
+      "reserved_hundredths": "4399",
+      "debited_hundredths": "1101",
+      "settled_at": "2026-11-16T17:50:11.180Z"
+    },
+    {
+      "request_id": "b51cbd8c-1f5f-4ef3-9ecf-607131bc85da",
+      "state": "settled",
+      "reserved_hundredths": "868",
+      "debited_hundredths": "172",
+      "settled_at": "2026-11-16T17:50:19.181Z"
+    },
+    {
+      "request_id": "0491b562-9eb5-4298-9151-26c715cc50e1",
+      "state": "settled",
+      "reserved_hundredths": "4627",
+      "debited_hundredths": "1158",
+      "settled_at": "2026-11-16T17:50:23.510Z"
+    },
+    {
+      "request_id": "e7422a67-539c-455c-8932-ff1f499456db",
+      "state": "settled",
+      "reserved_hundredths": "904",
+      "debited_hundredths": "180",
+      "settled_at": "2026-11-16T17:50:32.869Z"
+    },
+    {
+      "request_id": "c7bbb39a-8c1e-419d-a425-5bc65f87f19e",
+      "state": "settled",
+      "reserved_hundredths": "4896",
+      "debited_hundredths": "1216",
+      "settled_at": "2026-11-16T17:50:36.336Z"
+    },
+    {
+      "request_id": "3682e670-c721-41fc-b01c-29f351bbb344",
+      "state": "settled",
+      "reserved_hundredths": "904",
+      "debited_hundredths": "173",
+      "settled_at": "2026-11-16T17:50:42.892Z"
+    },
+    {
+      "request_id": "78b2194f-fb80-4837-bb20-c81d6afe61e5",
+      "state": "settled",
+      "reserved_hundredths": "5124",
+      "debited_hundredths": "1266",
+      "settled_at": "2026-11-16T17:50:46.390Z"
+    },
+    {
+      "request_id": "b3137816-f8c2-4284-91ca-0aa4151f7a6d",
+      "state": "settled",
+      "reserved_hundredths": "904",
+      "debited_hundredths": "176",
+      "settled_at": "2026-11-16T17:50:53.360Z"
+    },
+    {
+      "request_id": "52e6da22-bfcb-425b-bbd7-9b711a0e1541",
+      "state": "settled",
+      "reserved_hundredths": "5368",
+      "debited_hundredths": "1320",
+      "settled_at": "2026-11-16T17:50:56.955Z"
+    },
+    {
+      "request_id": "73e458a6-6f21-431a-88e0-0c8f1b457840",
+      "state": "settled",
+      "reserved_hundredths": "904",
+      "debited_hundredths": "168",
+      "settled_at": "2026-11-16T17:51:02.959Z"
+    }
+  ],
+  "wallet": {
+    "balance": "19500.66",
+    "held_hundredths": "6346",
+    "remaining_held_hundredths": "6346",
+    "unbounded_requests": "0"
+  },
+  "counts": {
+    "active": 0,
+    "physical": 75,
+    "usage": 75,
+    "credits": 75,
+    "unsettled": 1
+  },
+  "tokensTotal": 103507,
+  "oldBudgetsUnchanged": true,
+  "auditModelRequests": 0
+}

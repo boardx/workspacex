@@ -1,0 +1,32 @@
+{
+  "startedAt": "2026-11-16T18:06:01.937Z",
+  "phase": "s6",
+  "scope": "new-org-same-group-fresh-native-seven-20261117",
+  "runtimeStack": "stack-01",
+  "apiSource": "5c2922b83bc3de14ea7ae6fca03391f7a79be10e",
+  "webSource": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+  "qaHead": "5c2922b83bc3de14ea7ae6fca03391f7a79be10e",
+  "apiOwnerPid": 393497,
+  "plannedNativeTasks": 7,
+  "currentExistingRunContinuation": true,
+  "newHumanSendAuthorized": false,
+  "retries": 0,
+  "protectedOldJournalsBefore": {
+    "native-model-run-ledger.json": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "additional-s1-ledger.json": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+    "additional-s2-ledger.json": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f"
+  },
+  "newJournal": "/workspace/scratch/aidt-real-acceptance-20261117/native-run-journal.json",
+  "newState": "/workspace/scratch/aidt-real-acceptance-20261117/journey-state.json",
+  "fixtureModel": false,
+  "ordinaryStudentPaidPermissionsProven": false,
+  "discoveredTests": 1,
+  "finishedAt": "2026-11-16T18:06:35.292Z",
+  "exitCode": 0,
+  "protectedOldJournalsAfter": {
+    "native-model-run-ledger.json": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "additional-s1-ledger.json": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+    "additional-s2-ledger.json": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f"
+  },
+  "protectedOldJournalsUnchanged": true
+}

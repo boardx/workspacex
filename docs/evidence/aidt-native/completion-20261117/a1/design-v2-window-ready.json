@@ -1,0 +1,169 @@
+{
+  "observedAt": "2026-11-16T18:08:32.790Z",
+  "operatorQAScope": "design-v2",
+  "allowedSkillStableName": null,
+  "scopeEnforcedBy": "operator-and-explicit-QA-task-gate-not-new-product-ACL",
+  "apiOwner": {
+    "pid": 393497,
+    "startTicks": "6081688"
+  },
+  "apiSource": "5c2922b83bc3de14ea7ae6fca03391f7a79be10e",
+  "webSource": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+  "agentAutoExecution": true,
+  "paidWindowOpened": true,
+  "autoExecutionAttestation": {
+    "launchValue": "1",
+    "allGuards": {
+      "KERNEL_AGENT_RUN_AUTOSTART": "1",
+      "KERNEL_SKILL_TRIALRUN_AUTOSTART": "0",
+      "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART": "0",
+      "KERNEL_THREAD_TITLE_MODEL_ENABLED": "0",
+      "KERNEL_STANDARD_SCHEDULER": "0"
+    },
+    "observedInActualChildLaunch": true,
+    "apiOwner": {
+      "pid": 393497,
+      "startTicks": "6081688"
+    }
+  },
+  "maximumOutputTokensAtLaunch": 2048,
+  "noAPIRestart": true,
+  "reviewedExistingPending": {
+    "kind": "root-reviewed-existing-pending-operator-gate",
+    "reviewedAt": "2026-11-16T17:43:49.406790+00:00",
+    "allowedPhases": [
+      "s4",
+      "s5",
+      "design-v1",
+      "s6",
+      "design-v2"
+    ],
+    "runId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+    "requestId": "47f715ad-fd4d-4bb5-8f1f-48ea8f368e8c",
+    "state": "pending",
+    "reservedHundredths": "6346",
+    "heldHundredths": "6346",
+    "remainingHeldHundredths": "6346",
+    "financialRowsMayBeModified": false,
+    "newUnexpectedPendingAllowed": false
+  },
+  "baseline": {
+    "observedAt": "2026-11-16T18:08:32.652Z",
+    "readOnly": true,
+    "orgId": "org-fullstack-20261117-01-7d265647426d",
+    "actor": {
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "org_role": "admin"
+    },
+    "wallets": [
+      {
+        "owner_id": "user-fullstack-admin-20261117-01-7d265647426d",
+        "balance": "19425.81",
+        "held_hundredths": "6346",
+        "remaining_held_hundredths": "6346",
+        "unbounded_requests": "0"
+      }
+    ],
+    "totals": {
+      "runs": 6,
+      "physical": 83,
+      "usage": 83,
+      "credits": 83,
+      "active": 0
+    },
+    "threads": [
+      {
+        "id": "thr-985b99bd-475a-4ae2-8357-30e6f4a712fc",
+        "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+        "archived": false,
+        "messages": 1,
+        "runs": 1,
+        "physical": 15
+      }
+    ],
+    "runRows": [
+      {
+        "id": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+        "thread_id": "thr-985b99bd-475a-4ae2-8357-30e6f4a712fc",
+        "status": "cancelled",
+        "failure_reason": null
+      }
+    ],
+    "projectFacts": [],
+    "pendingCredits": [
+      {
+        "request_id": "47f715ad-fd4d-4bb5-8f1f-48ea8f368e8c",
+        "run_id": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+        "state": "pending",
+        "reserved_hundredths": "6346",
+        "debited_hundredths": null,
+        "settled_at": null
+      }
+    ],
+    "oldBudgetHashes": [
+      {
+        "path": "/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json",
+        "sha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json",
+        "sha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+        "unchanged": true
+      },
+      {
+        "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s2-ledger.json",
+        "sha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+        "unchanged": true
+      }
+    ],
+    "modelRequestsSentByAudit": 0
+  },
+  "network": {
+    "HTTP_PROXY": {
+      "present": true,
+      "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+    },
+    "HTTPS_PROXY": {
+      "present": true,
+      "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+    },
+    "ALL_PROXY": {
+      "present": false,
+      "sha256": null
+    },
+    "http_proxy": {
+      "present": true,
+      "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+    },
+    "https_proxy": {
+      "present": true,
+      "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+    },
+    "all_proxy": {
+      "present": false,
+      "sha256": null
+    },
+    "NO_PROXY": {
+      "present": true,
+      "sha256": "3ec16a3ac582efe2c150d78cec7b4fef85d422df5c7a147bf59c55b7f66ba93f"
+    },
+    "no_proxy": {
+      "present": true,
+      "sha256": "3ec16a3ac582efe2c150d78cec7b4fef85d422df5c7a147bf59c55b7f66ba93f"
+    },
+    "SSL_CERT_FILE": {
+      "present": true,
+      "sha256": "b583d63728636e5fa4b2ec89e062e655992406c08430f1b44b12e33fc357b80e"
+    },
+    "REQUESTS_CA_BUNDLE": {
+      "present": true,
+      "sha256": "b583d63728636e5fa4b2ec89e062e655992406c08430f1b44b12e33fc357b80e"
+    },
+    "NODE_EXTRA_CA_CERTS": {
+      "present": true,
+      "sha256": "f662fd20da405312fecbbd4e5a791983d9ae986be5faae019d788f140591f04e"
+    }
+  },
+  "modelRequestsSentByScopeRefresh": 0
+}

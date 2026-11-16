@@ -1,0 +1,608 @@
+{
+  "no-model-report-student-correction": {
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "before": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 6,
+      "revision": 8,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "version": "Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。",
+            "feedback": "本轮只有实际V1静态检查，尚未真人测试。通用合成TXT/PNG仅预览和讨论，不是本V1用户反馈。",
+            "nextAction": "先取得同意再收集真实取餐情境。另为后续静态练习拟补一组明确标为合成的号码分区示意，例如设计内容‘示例2→B分区’，不是既有映射或测试发现；仅在小组另行选择返回5并确认后才制作V2。\n本次小组另行选择返回5：补“示例2→B分区”的合成设计示意，按钮仍是静态占位，不宣称可跳转或有效。",
+            "reflection": "引导师实际回复：你们在第6步已经诚实地把\"合成反馈\"和\"真实测试证据\"区分开了，这很好。为了让下一步讨论更聚焦，我想请小组澄清一个问题：\n\n**如果将来有机会做一次真实测试，你们希望从测试者那里观察到什么具体行为或听到什么原话，才能判断\"纸面分区牌是否真的帮助了新同学理解取餐区域\"——而不是仅仅得到一句\"看懂了\"？**\n\n这个问题不是要你们现在就设计测试方案，而是帮你们把\"理解\"这个抽象目标拆成可观察、可记录的信号，这样无论未来是否有条件做真实测试，你们对\"什么算验证成功\"的标准都会更清晰。\n学生纠正材料适用性：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "returnStep": "5",
+            "returnReason": "新增合成静态练习回合：沿用第6步V4实际V1静态检查，不把通用模板当本版实测，保留原return2历史。",
+            "afterTestBelief": "对真实用户能否理解的认识暂未改变，仍未知。静态检查发现本V1信息不足，没有号码分区映射，按钮无交互；这不是用户行为证据。",
+            "questionSnapshot": "{\"schemaVersion\":1,\"question\":\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\",\"beforeTestBelief\":\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\",\"verificationBasis\":\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\",\"verificationLimits\":\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\",\"prototypeRef\":\"Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\",\"prototypeDesignId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"prototypeVersionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\",\"sourceStageRevision\":3}",
+            "reflectionConfirmed": "true",
+            "unresolvedQuestions": "仍缺真实测试者的理解过程、反例及授权记录。",
+            "iterationChangeReason": "根据旧版静态检查补“示例2→B分区”的合成设计示意并改按钮文案；按钮仍是静态占位，没有真人反馈或效果验证。",
+            "understandingEvidence": "静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "understandingChangeStatus": "unchanged",
+            "iterationFeedbackReference": "第6步V4，被审原型 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47。学生保存的静态检查原文：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "iterationPrototypeRelation": "{\"schemaVersion\":1,\"questionSnapshot\":\"{\\\"schemaVersion\\\":1,\\\"question\\\":\\\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\\\",\\\"beforeTestBelief\\\":\\\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\\\",\\\"verificationBasis\\\":\\\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\\\",\\\"verificationLimits\\\":\\\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\\\",\\\"prototypeRef\\\":\\\"Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\\\",\\\"prototypeDesignId\\\":\\\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\\\",\\\"prototypeVersionId\\\":\\\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\\\",\\\"sourceStageRevision\\\":3}\",\"producedDesignId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"producedVersionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn\",\"feedbackReference\":\"第6步V4，被审原型 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47。学生保存的静态检查原文：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。\",\"changeReason\":\"根据旧版静态检查补“示例2→B分区”的合成设计示意并改按钮文案；按钮仍是静态占位，没有真人反馈或效果验证。\"}",
+            "iterationPrototypeReference": "{\"seq\":2,\"summary\":\"新增合成号码分区示意并标注非实测，按钮改为“先看取餐分区”，页脚更新为V2。\",\"createdAt\":\"2026-11-16T18:10:31.152Z\",\"source\":\"model\",\"designId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"versionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn\",\"designName\":\"Synthetic static V1-V2 89f942e5\",\"frameCount\":1,\"generatedFrameCount\":1}",
+            "researchFile:72668a37-7861-4ad3-9e52-529b14a900a3": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-f6a7858e-1e68-48e3-b2ab-652fa80260f6\",\"artifactId\":\"art-2b87c68d-1274-468c-9f86-7cb9eb92cc32\",\"versionId\":\"ver-fa67ae6d-3834-41d2-98b8-b3745fd48cc2\",\"name\":\"SYN-TEST-FEEDBACK.txt\",\"mime\":\"text/plain\",\"sha256\":\"54fca4c87065afec8b855611280e1ec43d89de231430cac015fb710df6ded757\",\"bytes\":707,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T18:00:49.611Z\"}",
+            "researchFile:b3212782-2b62-4481-9777-27ec129ea5b0": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-0a77128c-df4e-4d9a-a5f1-c0760c72f65e\",\"artifactId\":\"art-4a63d9a7-f4ba-4e73-b47a-f8b2e11c17e9\",\"versionId\":\"ver-8331a8ef-56cc-4d51-bdb7-eeb5e16921b5\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T18:00:49.808Z\"}"
+          },
+          "ideas": [],
+          "selectedIdeaId": ""
+        },
+        "summaryReport": {
+          "markdown": "学生人工报告：保留本段。此组全部访谈、反馈与图像均为合成课堂夹具，尚无真实研究或教师点评。第5步引导师任务已取消，验证问题由合成学生人工确认；后续原型和学习属于独立能力验收，不称完整原生六步全过。\n\n## AI报告草稿 · 学生选择导入\n\n以下内容来自已保存的总结对话，尚待学生核对和修改；模型陈述不是原始证据、教师点评或文件导出回执。阶段来源请核对该对话的生成请求与材料范围。\n对话：thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63；消息：98d9dc41-9998-415e-bf07-0b789aca1c9e；运行：b8c3ca65-301e-4757-aa9b-032714145225\n\n研究过程报告草稿已生成完毕，以下是面向你校的完整内容。\n\n---\n\n# 研究过程报告草稿（待学生校正）\n\n## 一、已成功读取的材料目录与缺口说明\n\n| 步骤 | 已读取/可引用材料 | 版本/状态 | 缺失或需核对项 |\n|------|------------------|-----------|----------------|\n| S1 选题 | 初始命题、重写命题、选题理由；观察/抱怨/猜测来源 | 合成稿 | 无真实外部调研来源 |\n| S2 访谈 | 访谈方案、原始记录（合成）、人物发现卡 | 合成稿 | 无真实受访者同意书或录音 |\n| S3 画像/HMW | 用户画像、HMW问题、意外发现字段 | 合成稿，标注\"明确暂无\"真实意外 | 无实测数据支撑的画像 |\n| S4 点子 | 点子描述单、选择理由、学生分类 | 合成稿 | 分类依据为学生讨论，非数据验证 |\n| S5 原型 | 原型V1（静态检查版）、验证问题、测试前看法/依据/可验证范围 | V1为静态检查；第5步引导师曾取消后由学生人工确认 | 无真实用户测试；不得称模型成功 |\n| S6 反思 | 测试后认识、证据与未解问题、返回步骤理由 | 合成反思 | 无真实测试证据；无教师点评 |\n\n**关键边界声明：**\n- 所有材料均为合成课堂练习，不含真实访谈、测试或教师点评。\n- 第5步引导师曾取消，后由学生人工确认恢复。此操作为学生决策，不能称为\"模型成功\"或\"系统自动修复\"。\n- 示例2→B为未来合成设计构想，并非已有实测结果。\n\n## 二、报告正文草稿\n\n### 1. 最开始怎样想（S1 选题与命题演变）\n\n- **初始命题**：如何让新同学理解食堂取餐指示（合成课堂练习）。选题理由基于课堂合成场景中的猜测，而非真实田野调查。\n- **问题界定**：学生区分了\"观察到的现象\"（合成设定）与\"猜测的原因\"。此时尚未接触真实用户，所有假设均标注为待验证的猜测。\n- **命题重写**：经小组讨论后，命题被重写为\"了解首次到此食堂的新同学在寻找取餐区域时如何理解提示、何处需要澄清\"。演变理由是避免范围过大，但缺乏真实数据支撑。\n\n### 2. 研究与讨论中发生了什么（S2–S4 合成过程）\n\n**S2 访谈与发现**\n- 使用合成访谈方案和模拟原始记录。人物发现卡基于这些合成记录整理。\n- 所有\"受访者意见\"均为课堂练习虚构，不能泛化为真实人群特征。报告中不将其作为实证引用。\n\n**S3 画像与HMW**\n- 基于S2合成发现卡生成用户画像。关于\"意外发现\"一项，小组明确标注为暂无（因无真实数据产生意外）。\n- HMW转化：\"如何让新同学理解取餐分区？\"明确需要真实研究验证。转化逻辑来自学生讨论，非AI自动生成结论。\n\n**S4 点子与选择**\n- 产出三个合成方案：纸面分区牌、同伴口头指路、号码牌分区。\n- 学生选择\"纸面分区牌\"先试，理由为能用简短图文比较提示理解。此处区分了学生选择与AI建议：AI可能提供了分类框架建议，但最终决策权在学生，且未经真实验证。\n\n### 3. 后来为何修正或仍不确定（S5 原型与第5步事件）\n\n**原型V1与验证问题**\n- 原型V1仅为静态检查版本（一页极简静态纸面分区牌示意），用于内部逻辑核对，不是经过真实用户投入时间、付费或交互测试的版本。\n- 验证问题设定了测试前看法、依据及可验证范围。但因无真实测试，这些看法仍停留在假设阶段。\n\n**第5步引导师取消与学生人工确认事件**\n- 在S5执行过程中，教学引导师（Agent）曾因耗时被正常取消；随后由学生通过人工输入确认恢复/继续。\n- 这是一次学生行使决策权的操作，证明人在回路中的控制作用。不得将此描述为\"模型自我修正成功\"或\"AI引导有效\"。学生选择继续，但并未因此获得新的实证支持。\n\n**示例2→B的澄清**\n- 小组提及的\"示例2→B分区\"路径属于未来合成设计构想，是为后续静态练习拟补的合成号码分区示意，并非已经发生的实测结果。报告中将其严格归类为\"待发展的想法\"，不与V1静态检查混同。\n\n### 4. 认识、证据不足与未解问题（S6 反思）\n\n- **测试后认识**：由于尚未开展任何真实测试，S6中的\"测试后认识\"实际为\"基于静态检查和小组讨论的反思\"，而非实证结论。对真实用户能否理解的认识暂未改变，仍未知。\n- **证据状态**：静态检查发现V1信息不足，没有号码分区映射，按钮无交互；这不是用户行为证据。所有支持性理由均来自合成逻辑自洽性，证据不足以证明方案对真实用户有效。\n- **未解问题**：\n  1. 合成画像是否对应真实人群？\n  2. V1静态检查中发现的逻辑问题，在真实交互中是否会以相同方式呈现？\n  3. 示例2→B的设计构想是否具备技术/资源可行性？\n  4. 仍缺真实测试者的理解过程、反例及授权记录。\n\n### 5. 下一步准备做什么（返回步骤与行动）\n\n- **返回决策**：小组另行选择返回第5步，补\"示例2→B分区\"的合成设计示意，按钮仍是静态占位，不宣称可跳转或有效。\n- **若返回的理由**：基于静态检查中发现的信息缺口，而非测试失败（因无测试）。\n- **后续行动计划**：\n  - 先取得同意再收集真实取餐情境。\n  - 对示例2→B进行更详细的合成设计（仍为案头工作，除非安排真实测试）。\n  - 等待有权教师对当前合成档案的教学反馈（目前无教师点评，不虚构）。\n\n## 三、材料缺口、归属与隐私自检\n\n| 检查项 | 状态 | 说明 |\n|--------|------|------|\n| 真实访谈/测试 | ❌ 缺失 | 全为合成，已在正文各处以\"合成/暂无\"标注 |\n| 教师点评 | ❌ 缺失 | 未收到真实点评，未补造\"教师认为…\"段落 |\n| AI建议 vs 学生决策 | ✅ 已区分 | 第5步恢复为学生人工确认；S4分类为学生选择 |\n| V1静态 vs 实测 | ✅ 已区分 | V1仅为静态检查，未声称用户认可 |\n| 示例2→B | ✅ 已区分 | 标注为未来合成设计，非已有实测 |\n| 隐私/敏感信息 | ✅ 合规 | 合成练习，无真实个人数据 |\n| 导出/保存状态 | ⚠️ 未执行 | 此为草稿，未触发任何保存或提交工具 |\n\n## 四、待学生校正与确认事项\n\n请你及小组成员核对以下内容，我可以据此修改草稿：\n\n1. **具体文本填充**：上述命题、HMW原文是否需要替换为你组实际的合成文本？\n2. **第5步事件细节**：引导师取消后学生人工确认的具体操作描述是否准确？是否有其他上下文需补充？\n3. **返回步骤决策**：目前写的是\"返回第5步补示例2→B合成设计\"，你们实际上是否已决定其他行动？\n4. **示例2→B**：这个表述是否准确对应你们的讨论记录？是否需要更精确的描述？\n5. **分歧记录**：小组内对上述任何环节是否存在不同意见？如有，我将并列记载，不代为统一。\n6. **叙事框架**：如需进入可选展示（SUM O2），请提供你们自己的故事线，我不会默认套用六步模板。\n\n> **重要提示**：本草稿仅为整理服务，不代表课程完成、归档确认或成绩评定。只有在你明确审阅、校正并确认后，我才会使用实际可用的导出工具尝试交付；若工具不可用，草稿将保留在此供你复制。我不会自行写入确认字段或触发提交。\n",
+          "sourceStageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 2
+            },
+            {
+              "stageId": 2,
+              "revision": 4
+            },
+            {
+              "stageId": 3,
+              "revision": 2
+            },
+            {
+              "stageId": 4,
+              "revision": 4
+            },
+            {
+              "stageId": 5,
+              "revision": 4
+            },
+            {
+              "stageId": 6,
+              "revision": 6
+            }
+          ]
+        }
+      },
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T18:22:14.756Z"
+    },
+    "after": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 6,
+      "revision": 9,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "version": "Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。",
+            "feedback": "本轮只有实际V1静态检查，尚未真人测试。通用合成TXT/PNG仅预览和讨论，不是本V1用户反馈。",
+            "nextAction": "先取得同意再收集真实取餐情境。另为后续静态练习拟补一组明确标为合成的号码分区示意，例如设计内容‘示例2→B分区’，不是既有映射或测试发现；仅在小组另行选择返回5并确认后才制作V2。\n本次小组另行选择返回5：补“示例2→B分区”的合成设计示意，按钮仍是静态占位，不宣称可跳转或有效。",
+            "reflection": "引导师实际回复：你们在第6步已经诚实地把\"合成反馈\"和\"真实测试证据\"区分开了，这很好。为了让下一步讨论更聚焦，我想请小组澄清一个问题：\n\n**如果将来有机会做一次真实测试，你们希望从测试者那里观察到什么具体行为或听到什么原话，才能判断\"纸面分区牌是否真的帮助了新同学理解取餐区域\"——而不是仅仅得到一句\"看懂了\"？**\n\n这个问题不是要你们现在就设计测试方案，而是帮你们把\"理解\"这个抽象目标拆成可观察、可记录的信号，这样无论未来是否有条件做真实测试，你们对\"什么算验证成功\"的标准都会更清晰。\n学生纠正材料适用性：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "returnStep": "5",
+            "returnReason": "新增合成静态练习回合：沿用第6步V4实际V1静态检查，不把通用模板当本版实测，保留原return2历史。",
+            "afterTestBelief": "对真实用户能否理解的认识暂未改变，仍未知。静态检查发现本V1信息不足，没有号码分区映射，按钮无交互；这不是用户行为证据。",
+            "questionSnapshot": "{\"schemaVersion\":1,\"question\":\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\",\"beforeTestBelief\":\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\",\"verificationBasis\":\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\",\"verificationLimits\":\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\",\"prototypeRef\":\"Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\",\"prototypeDesignId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"prototypeVersionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\",\"sourceStageRevision\":3}",
+            "reflectionConfirmed": "true",
+            "unresolvedQuestions": "仍缺真实测试者的理解过程、反例及授权记录。",
+            "iterationChangeReason": "根据旧版静态检查补“示例2→B分区”的合成设计示意并改按钮文案；按钮仍是静态占位，没有真人反馈或效果验证。",
+            "understandingEvidence": "静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "understandingChangeStatus": "unchanged",
+            "iterationFeedbackReference": "第6步V4，被审原型 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47。学生保存的静态检查原文：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "iterationPrototypeRelation": "{\"schemaVersion\":1,\"questionSnapshot\":\"{\\\"schemaVersion\\\":1,\\\"question\\\":\\\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\\\",\\\"beforeTestBelief\\\":\\\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\\\",\\\"verificationBasis\\\":\\\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\\\",\\\"verificationLimits\\\":\\\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\\\",\\\"prototypeRef\\\":\\\"Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\\\",\\\"prototypeDesignId\\\":\\\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\\\",\\\"prototypeVersionId\\\":\\\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\\\",\\\"sourceStageRevision\\\":3}\",\"producedDesignId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"producedVersionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn\",\"feedbackReference\":\"第6步V4，被审原型 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47。学生保存的静态检查原文：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。\",\"changeReason\":\"根据旧版静态检查补“示例2→B分区”的合成设计示意并改按钮文案；按钮仍是静态占位，没有真人反馈或效果验证。\"}",
+            "iterationPrototypeReference": "{\"seq\":2,\"summary\":\"新增合成号码分区示意并标注非实测，按钮改为“先看取餐分区”，页脚更新为V2。\",\"createdAt\":\"2026-11-16T18:10:31.152Z\",\"source\":\"model\",\"designId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"versionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn\",\"designName\":\"Synthetic static V1-V2 89f942e5\",\"frameCount\":1,\"generatedFrameCount\":1}",
+            "researchFile:72668a37-7861-4ad3-9e52-529b14a900a3": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-f6a7858e-1e68-48e3-b2ab-652fa80260f6\",\"artifactId\":\"art-2b87c68d-1274-468c-9f86-7cb9eb92cc32\",\"versionId\":\"ver-fa67ae6d-3834-41d2-98b8-b3745fd48cc2\",\"name\":\"SYN-TEST-FEEDBACK.txt\",\"mime\":\"text/plain\",\"sha256\":\"54fca4c87065afec8b855611280e1ec43d89de231430cac015fb710df6ded757\",\"bytes\":707,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T18:00:49.611Z\"}",
+            "researchFile:b3212782-2b62-4481-9777-27ec129ea5b0": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-0a77128c-df4e-4d9a-a5f1-c0760c72f65e\",\"artifactId\":\"art-4a63d9a7-f4ba-4e73-b47a-f8b2e11c17e9\",\"versionId\":\"ver-8331a8ef-56cc-4d51-bdb7-eeb5e16921b5\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T18:00:49.808Z\"}"
+          },
+          "ideas": [],
+          "selectedIdeaId": ""
+        },
+        "summaryReport": {
+          "markdown": "学生人工报告：保留本段。此组全部访谈、反馈与图像均为合成课堂夹具，尚无真实研究或教师点评。第5步引导师任务已取消，验证问题由合成学生人工确认；后续原型和学习属于独立能力验收，不称完整原生六步全过。\n\n## AI报告草稿 · 学生选择导入\n\n以下内容来自已保存的总结对话，尚待学生核对和修改；模型陈述不是原始证据、教师点评或文件导出回执。阶段来源请核对该对话的生成请求与材料范围。\n对话：thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63；消息：98d9dc41-9998-415e-bf07-0b789aca1c9e；运行：b8c3ca65-301e-4757-aa9b-032714145225\n\n研究过程报告草稿已生成完毕，以下是面向你校的完整内容。\n\n---\n\n# 研究过程报告草稿（待学生校正）\n\n## 一、已成功读取的材料目录与缺口说明\n\n| 步骤 | 已读取/可引用材料 | 版本/状态 | 缺失或需核对项 |\n|------|------------------|-----------|----------------|\n| S1 选题 | 初始命题、重写命题、选题理由；观察/抱怨/猜测来源 | 合成稿 | 无真实外部调研来源 |\n| S2 访谈 | 访谈方案、原始记录（合成）、人物发现卡 | 合成稿 | 无真实受访者同意书或录音 |\n| S3 画像/HMW | 用户画像、HMW问题、意外发现字段 | 合成稿，标注\"明确暂无\"真实意外 | 无实测数据支撑的画像 |\n| S4 点子 | 点子描述单、选择理由、学生分类 | 合成稿 | 分类依据为学生讨论，非数据验证 |\n| S5 原型 | 原型V1（静态检查版）、验证问题、测试前看法/依据/可验证范围 | V1为静态检查；第5步引导师曾取消后由学生人工确认 | 无真实用户测试；不得称模型成功 |\n| S6 反思 | 测试后认识、证据与未解问题、返回步骤理由 | 合成反思 | 无真实测试证据；无教师点评 |\n\n**关键边界声明：**\n- 所有材料均为合成课堂练习，不含真实访谈、测试或教师点评。\n- 第5步引导师曾取消，后由学生人工确认恢复。此操作为学生决策，不能称为\"模型成功\"或\"系统自动修复\"。\n- 示例2→B为未来合成设计构想，并非已有实测结果。\n\n## 二、报告正文草稿\n\n### 1. 最开始怎样想（S1 选题与命题演变）\n\n- **初始命题**：如何让新同学理解食堂取餐指示（合成课堂练习）。选题理由基于课堂合成场景中的猜测，而非真实田野调查。\n- **问题界定**：学生区分了\"观察到的现象\"（合成设定）与\"猜测的原因\"。此时尚未接触真实用户，所有假设均标注为待验证的猜测。\n- **命题重写**：经小组讨论后，命题被重写为\"了解首次到此食堂的新同学在寻找取餐区域时如何理解提示、何处需要澄清\"。演变理由是避免范围过大，但缺乏真实数据支撑。\n\n### 2. 研究与讨论中发生了什么（S2–S4 合成过程）\n\n**S2 访谈与发现**\n- 使用合成访谈方案和模拟原始记录。人物发现卡基于这些合成记录整理。\n- 所有\"受访者意见\"均为课堂练习虚构，不能泛化为真实人群特征。报告中不将其作为实证引用。\n\n**S3 画像与HMW**\n- 基于S2合成发现卡生成用户画像。关于\"意外发现\"一项，小组明确标注为暂无（因无真实数据产生意外）。\n- HMW转化：\"如何让新同学理解取餐分区？\"明确需要真实研究验证。转化逻辑来自学生讨论，非AI自动生成结论。\n\n**S4 点子与选择**\n- 产出三个合成方案：纸面分区牌、同伴口头指路、号码牌分区。\n- 学生选择\"纸面分区牌\"先试，理由为能用简短图文比较提示理解。此处区分了学生选择与AI建议：AI可能提供了分类框架建议，但最终决策权在学生，且未经真实验证。\n\n### 3. 后来为何修正或仍不确定（S5 原型与第5步事件）\n\n**原型V1与验证问题**\n- 原型V1仅为静态检查版本（一页极简静态纸面分区牌示意），用于内部逻辑核对，不是经过真实用户投入时间、付费或交互测试的版本。\n- 验证问题设定了测试前看法、依据及可验证范围。但因无真实测试，这些看法仍停留在假设阶段。\n\n**第5步引导师取消与学生人工确认事件**\n- 在S5执行过程中，教学引导师（Agent）曾因耗时被正常取消；随后由学生通过人工输入确认恢复/继续。\n- 这是一次学生行使决策权的操作，证明人在回路中的控制作用。不得将此描述为\"模型自我修正成功\"或\"AI引导有效\"。学生选择继续，但并未因此获得新的实证支持。\n\n**示例2→B的澄清**\n- 小组提及的\"示例2→B分区\"路径属于未来合成设计构想，是为后续静态练习拟补的合成号码分区示意，并非已经发生的实测结果。报告中将其严格归类为\"待发展的想法\"，不与V1静态检查混同。\n\n### 4. 认识、证据不足与未解问题（S6 反思）\n\n- **测试后认识**：由于尚未开展任何真实测试，S6中的\"测试后认识\"实际为\"基于静态检查和小组讨论的反思\"，而非实证结论。对真实用户能否理解的认识暂未改变，仍未知。\n- **证据状态**：静态检查发现V1信息不足，没有号码分区映射，按钮无交互；这不是用户行为证据。所有支持性理由均来自合成逻辑自洽性，证据不足以证明方案对真实用户有效。\n- **未解问题**：\n  1. 合成画像是否对应真实人群？\n  2. V1静态检查中发现的逻辑问题，在真实交互中是否会以相同方式呈现？\n  3. 示例2→B的设计构想是否具备技术/资源可行性？\n  4. 仍缺真实测试者的理解过程、反例及授权记录。\n\n### 5. 下一步准备做什么（返回步骤与行动）\n\n- **返回决策**：小组另行选择返回第5步，补\"示例2→B分区\"的合成设计示意，按钮仍是静态占位，不宣称可跳转或有效。\n- **若返回的理由**：基于静态检查中发现的信息缺口，而非测试失败（因无测试）。\n- **后续行动计划**：\n  - 先取得同意再收集真实取餐情境。\n  - 对示例2→B进行更详细的合成设计（仍为案头工作，除非安排真实测试）。\n  - 等待有权教师对当前合成档案的教学反馈（目前无教师点评，不虚构）。\n\n## 三、材料缺口、归属与隐私自检\n\n| 检查项 | 状态 | 说明 |\n|--------|------|------|\n| 真实访谈/测试 | ❌ 缺失 | 全为合成，已在正文各处以\"合成/暂无\"标注 |\n| 教师点评 | ❌ 缺失 | 未收到真实点评，未补造\"教师认为…\"段落 |\n| AI建议 vs 学生决策 | ✅ 已区分 | 第5步恢复为学生人工确认；S4分类为学生选择 |\n| V1静态 vs 实测 | ✅ 已区分 | V1仅为静态检查，未声称用户认可 |\n| 示例2→B | ✅ 已区分 | 标注为未来合成设计，非已有实测 |\n| 隐私/敏感信息 | ✅ 合规 | 合成练习，无真实个人数据 |\n| 导出/保存状态 | ⚠️ 未执行 | 此为草稿，未触发任何保存或提交工具 |\n\n## 四、待学生校正与确认事项\n\n请你及小组成员核对以下内容，我可以据此修改草稿：\n\n1. **具体文本填充**：上述命题、HMW原文是否需要替换为你组实际的合成文本？\n2. **第5步事件细节**：引导师取消后学生人工确认的具体操作描述是否准确？是否有其他上下文需补充？\n3. **返回步骤决策**：目前写的是\"返回第5步补示例2→B合成设计\"，你们实际上是否已决定其他行动？\n4. **示例2→B**：这个表述是否准确对应你们的讨论记录？是否需要更精确的描述？\n5. **分歧记录**：小组内对上述任何环节是否存在不同意见？如有，我将并列记载，不代为统一。\n6. **叙事框架**：如需进入可选展示（SUM O2），请提供你们自己的故事线，我不会默认套用六步模板。\n\n> **重要提示**：本草稿仅为整理服务，不代表课程完成、归档确认或成绩评定。只有在你明确审阅、校正并确认后，我才会使用实际可用的导出工具尝试交付；若工具不可用，草稿将保留在此供你复制。我不会自行写入确认字段或触发提交。\n\n\n## 学生核对补充：读取范围与版本更正（本节以实际保存记录为准）\n\n上方AI草稿关于材料完整性的说法不能视为已核实。本节是学生另行逐版读取实际保存资料后的补充，不声称模型已完整看见或理解这些版本。\n服务器本次来源回执 truncated=true。当前坐标：S1V2、S2V4、S3V2、S4V4、S5V4、S6V7；选中历史坐标：S1V1、S1V2、S2V1、S2V2、S2V3、S2V4、S3V1、S3V2、S4V1、S4V2、S4V3、S4V4、S5V1、S5V2、S5V3、S5V4、S6V1、S6V2、S6V3、S6V4、S6V5、S6V6、S6V7。\n截断和缺口回执：{\"kind\":\"personal-artifacts-not-included\"}；{\"kind\":\"original-file-bytes-not-read\"}；{\"kind\":\"teacher-comments-no-source\"}；{\"kind\":\"lineage-unknown\"}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":7}；{\"kind\":\"truncated\",\"stageId\":1,\"revision\":2}；{\"kind\":\"truncated\",\"stageId\":2,\"revision\":4}；{\"kind\":\"truncated\",\"stageId\":2,\"revision\":3}；{\"kind\":\"truncated\",\"stageId\":2,\"revision\":2}；{\"kind\":\"truncated\",\"stageId\":4,\"revision\":4}；{\"kind\":\"truncated\",\"stageId\":4,\"revision\":3}；{\"kind\":\"truncated\",\"stageId\":4,\"revision\":2}；{\"kind\":\"truncated\",\"stageId\":5,\"revision\":4}；{\"kind\":\"truncated\",\"stageId\":5,\"revision\":3}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":7}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":6}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":5}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":4}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":3}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":2}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":1}。选中坐标不等于全文被读取；原始文件字节未自动读入、个人产物未纳入、教师点评没有来源，历史仅为本次分页读取范围。不能据此称完整研究、完整历史或已验证教学。\n\n实际V1：3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47，冻结问题来自S5V3：“合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。”。S6V4真实保存了return2，S6V5另行选择return5，S6V6关联新的V2且保留旧问题snapshot。保存修订并非自动等于新的独立学习轮次。\n实际V2：3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn，seq=2/source=model；已真实保存并关联。这一版新增明确合成的“示例2→B分区”，属于新设计内容，非既有测试反馈；按钮仍为静态占位，不能称可跳转或已验证有效，仍待真人测试。\n当前S5V4的新问题：“合成下一轮问题 AIDT-SUPPLEMENT-NEW-S5：是否需要进一步解释取餐顺序？”，不覆盖S6旧轮冻结的S5V3问题，也不能被追认成旧V1测试任务。旧S6V4的return2与原snapshot均保留。\n\nSYN-TEST-FEEDBACK.txt的F1/F2是通用合成示例，不能当作本V1的实测。第5步引导师已取消，问题由合成学生人工确认；独立Design生成和后续学习不把该引导师失败洗成成功。没有真人访谈、真人测试或教师点评，本报告仍需真实学生与教师另行审阅。\n",
+          "sourceStageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 2
+            },
+            {
+              "stageId": 2,
+              "revision": 4
+            },
+            {
+              "stageId": 3,
+              "revision": 2
+            },
+            {
+              "stageId": 4,
+              "revision": 4
+            },
+            {
+              "stageId": 5,
+              "revision": 4
+            },
+            {
+              "stageId": 6,
+              "revision": 6
+            }
+          ]
+        }
+      },
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T18:28:01.820Z"
+    },
+    "receipt": {
+      "runId": "b8c3ca65-301e-4757-aa9b-032714145225",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "purpose": "summary",
+      "skillVersionId": "skill-version-9531295b-d7e9-4abd-8475-2226057f11a2",
+      "snapshotHash": "ed113aa970db6febc5b5a2b2b1a3abf2da8e74523cfa645cb06b0d1d402ae000",
+      "preparedAt": "2026-11-16T18:16:26.863Z",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 4
+        },
+        {
+          "stageId": 6,
+          "revision": 7
+        }
+      ],
+      "historyRevisions": [
+        {
+          "stageId": 1,
+          "revision": 1
+        },
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 1
+        },
+        {
+          "stageId": 2,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 3
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 1
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 1
+        },
+        {
+          "stageId": 4,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 3
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 1
+        },
+        {
+          "stageId": 5,
+          "revision": 2
+        },
+        {
+          "stageId": 5,
+          "revision": 3
+        },
+        {
+          "stageId": 5,
+          "revision": 4
+        },
+        {
+          "stageId": 6,
+          "revision": 1
+        },
+        {
+          "stageId": 6,
+          "revision": 2
+        },
+        {
+          "stageId": 6,
+          "revision": 3
+        },
+        {
+          "stageId": 6,
+          "revision": 4
+        },
+        {
+          "stageId": 6,
+          "revision": 5
+        },
+        {
+          "stageId": 6,
+          "revision": 6
+        },
+        {
+          "stageId": 6,
+          "revision": 7
+        }
+      ],
+      "omissions": [
+        {
+          "kind": "personal-artifacts-not-included"
+        },
+        {
+          "kind": "original-file-bytes-not-read"
+        },
+        {
+          "kind": "teacher-comments-no-source"
+        },
+        {
+          "kind": "lineage-unknown"
+        },
+        {
+          "kind": "truncated",
+          "stageId": 6,
+          "revision": 7
+        },
+        {
+          "kind": "truncated",
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "kind": "truncated",
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "kind": "truncated",
+          "stageId": 2,
+          "revision": 3
+        },
+        {
+          "kind": "truncated",
+          "stageId": 2,
+          "revision": 2
+        },
+        {
+          "kind": "truncated",
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "kind": "truncated",
+          "stageId": 4,
+          "revision": 3
+        },
+        {
+          "kind": "truncated",
+          "stageId": 4,
+          "revision": 2
+        },
+        {
+          "kind": "truncated",
+          "stageId": 5,
+          "revision": 4
+        },
+        {
+          "kind": "truncated",
+          "stageId": 5,
+          "revision": 3
+        },
+        {
+          "kind": "truncated",
+          "stageId": 6,
+          "revision": 7
+        },
+        {
+          "kind": "truncated",
+          "stageId": 6,
+          "revision": 6
+        },
+        {
+          "kind": "truncated",
+          "stageId": 6,
+          "revision": 5
+        },
+        {
+          "kind": "truncated",
+          "stageId": 6,
+          "revision": 4
+        },
+        {
+          "kind": "truncated",
+          "stageId": 6,
+          "revision": 3
+        },
+        {
+          "kind": "truncated",
+          "stageId": 6,
+          "revision": 2
+        },
+        {
+          "kind": "truncated",
+          "stageId": 6,
+          "revision": 1
+        }
+      ],
+      "truncated": true,
+      "application": {
+        "state": "checkpoint-resume-observed",
+        "attemptId": "b8c3ca65-301e-4757-aa9b-032714145225:8",
+        "assembledContextHash": "cfd31857d4968735d35e10438e238ab35377698a64d00420c29af305bd066912",
+        "assembledAt": null,
+        "messageDispatchedAt": null,
+        "checkpointResumedAt": "2026-11-16T18:21:25.081Z",
+        "inheritedMessageDispatchAttemptId": "b8c3ca65-301e-4757-aa9b-032714145225:1"
+      }
+    },
+    "sourceOld4": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 6,
+      "revision": 4,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "version": "Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。",
+            "feedback": "本轮只有实际V1静态检查，尚未真人测试。通用合成TXT/PNG仅预览和讨论，不是本V1用户反馈。",
+            "nextAction": "先取得同意再收集真实取餐情境。另为后续静态练习拟补一组明确标为合成的号码分区示意，例如设计内容‘示例2→B分区’，不是既有映射或测试发现；仅在小组另行选择返回5并确认后才制作V2。",
+            "reflection": "引导师实际回复：你们在第6步已经诚实地把\"合成反馈\"和\"真实测试证据\"区分开了，这很好。为了让下一步讨论更聚焦，我想请小组澄清一个问题：\n\n**如果将来有机会做一次真实测试，你们希望从测试者那里观察到什么具体行为或听到什么原话，才能判断\"纸面分区牌是否真的帮助了新同学理解取餐区域\"——而不是仅仅得到一句\"看懂了\"？**\n\n这个问题不是要你们现在就设计测试方案，而是帮你们把\"理解\"这个抽象目标拆成可观察、可记录的信号，这样无论未来是否有条件做真实测试，你们对\"什么算验证成功\"的标准都会更清晰。\n学生纠正材料适用性：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "returnStep": "2",
+            "returnReason": "学生选择先补真实使用情境与资料；当前只有静态检查，不把通用合成模板当实测，不因AI建议强制先做新版。",
+            "afterTestBelief": "对真实用户能否理解的认识暂未改变，仍未知。静态检查发现本V1信息不足，没有号码分区映射，按钮无交互；这不是用户行为证据。",
+            "questionSnapshot": "{\"schemaVersion\":1,\"question\":\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\",\"beforeTestBelief\":\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\",\"verificationBasis\":\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\",\"verificationLimits\":\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\",\"prototypeRef\":\"Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\",\"prototypeDesignId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"prototypeVersionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\",\"sourceStageRevision\":3}",
+            "reflectionConfirmed": "true",
+            "unresolvedQuestions": "仍缺真实测试者的理解过程、反例及授权记录。",
+            "understandingEvidence": "静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "understandingChangeStatus": "unchanged",
+            "researchFile:72668a37-7861-4ad3-9e52-529b14a900a3": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-f6a7858e-1e68-48e3-b2ab-652fa80260f6\",\"artifactId\":\"art-2b87c68d-1274-468c-9f86-7cb9eb92cc32\",\"versionId\":\"ver-fa67ae6d-3834-41d2-98b8-b3745fd48cc2\",\"name\":\"SYN-TEST-FEEDBACK.txt\",\"mime\":\"text/plain\",\"sha256\":\"54fca4c87065afec8b855611280e1ec43d89de231430cac015fb710df6ded757\",\"bytes\":707,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T18:00:49.611Z\"}",
+            "researchFile:b3212782-2b62-4481-9777-27ec129ea5b0": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-0a77128c-df4e-4d9a-a5f1-c0760c72f65e\",\"artifactId\":\"art-4a63d9a7-f4ba-4e73-b47a-f8b2e11c17e9\",\"versionId\":\"ver-8331a8ef-56cc-4d51-bdb7-eeb5e16921b5\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T18:00:49.808Z\"}"
+          },
+          "ideas": [],
+          "selectedIdeaId": ""
+        }
+      },
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T18:06:33.396Z"
+    },
+    "sourceReturn5": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 6,
+      "revision": 5,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "version": "Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。",
+            "feedback": "本轮只有实际V1静态检查，尚未真人测试。通用合成TXT/PNG仅预览和讨论，不是本V1用户反馈。",
+            "nextAction": "先取得同意再收集真实取餐情境。另为后续静态练习拟补一组明确标为合成的号码分区示意，例如设计内容‘示例2→B分区’，不是既有映射或测试发现；仅在小组另行选择返回5并确认后才制作V2。\n本次小组另行选择返回5：补“示例2→B分区”的合成设计示意，按钮仍是静态占位，不宣称可跳转或有效。",
+            "reflection": "引导师实际回复：你们在第6步已经诚实地把\"合成反馈\"和\"真实测试证据\"区分开了，这很好。为了让下一步讨论更聚焦，我想请小组澄清一个问题：\n\n**如果将来有机会做一次真实测试，你们希望从测试者那里观察到什么具体行为或听到什么原话，才能判断\"纸面分区牌是否真的帮助了新同学理解取餐区域\"——而不是仅仅得到一句\"看懂了\"？**\n\n这个问题不是要你们现在就设计测试方案，而是帮你们把\"理解\"这个抽象目标拆成可观察、可记录的信号，这样无论未来是否有条件做真实测试，你们对\"什么算验证成功\"的标准都会更清晰。\n学生纠正材料适用性：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "returnStep": "5",
+            "returnReason": "新增合成静态练习回合：沿用第6步V4实际V1静态检查，不把通用模板当本版实测，保留原return2历史。",
+            "afterTestBelief": "对真实用户能否理解的认识暂未改变，仍未知。静态检查发现本V1信息不足，没有号码分区映射，按钮无交互；这不是用户行为证据。",
+            "questionSnapshot": "{\"schemaVersion\":1,\"question\":\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\",\"beforeTestBelief\":\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\",\"verificationBasis\":\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\",\"verificationLimits\":\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\",\"prototypeRef\":\"Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\",\"prototypeDesignId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"prototypeVersionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\",\"sourceStageRevision\":3}",
+            "reflectionConfirmed": "true",
+            "unresolvedQuestions": "仍缺真实测试者的理解过程、反例及授权记录。",
+            "understandingEvidence": "静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "understandingChangeStatus": "unchanged",
+            "researchFile:72668a37-7861-4ad3-9e52-529b14a900a3": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-f6a7858e-1e68-48e3-b2ab-652fa80260f6\",\"artifactId\":\"art-2b87c68d-1274-468c-9f86-7cb9eb92cc32\",\"versionId\":\"ver-fa67ae6d-3834-41d2-98b8-b3745fd48cc2\",\"name\":\"SYN-TEST-FEEDBACK.txt\",\"mime\":\"text/plain\",\"sha256\":\"54fca4c87065afec8b855611280e1ec43d89de231430cac015fb710df6ded757\",\"bytes\":707,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T18:00:49.611Z\"}",
+            "researchFile:b3212782-2b62-4481-9777-27ec129ea5b0": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-0a77128c-df4e-4d9a-a5f1-c0760c72f65e\",\"artifactId\":\"art-4a63d9a7-f4ba-4e73-b47a-f8b2e11c17e9\",\"versionId\":\"ver-8331a8ef-56cc-4d51-bdb7-eeb5e16921b5\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T18:00:49.808Z\"}"
+          },
+          "ideas": [],
+          "selectedIdeaId": ""
+        }
+      },
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T18:10:07.068Z"
+    },
+    "sourceLinked6": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 6,
+      "revision": 6,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "version": "Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。",
+            "feedback": "本轮只有实际V1静态检查，尚未真人测试。通用合成TXT/PNG仅预览和讨论，不是本V1用户反馈。",
+            "nextAction": "先取得同意再收集真实取餐情境。另为后续静态练习拟补一组明确标为合成的号码分区示意，例如设计内容‘示例2→B分区’，不是既有映射或测试发现；仅在小组另行选择返回5并确认后才制作V2。\n本次小组另行选择返回5：补“示例2→B分区”的合成设计示意，按钮仍是静态占位，不宣称可跳转或有效。",
+            "reflection": "引导师实际回复：你们在第6步已经诚实地把\"合成反馈\"和\"真实测试证据\"区分开了，这很好。为了让下一步讨论更聚焦，我想请小组澄清一个问题：\n\n**如果将来有机会做一次真实测试，你们希望从测试者那里观察到什么具体行为或听到什么原话，才能判断\"纸面分区牌是否真的帮助了新同学理解取餐区域\"——而不是仅仅得到一句\"看懂了\"？**\n\n这个问题不是要你们现在就设计测试方案，而是帮你们把\"理解\"这个抽象目标拆成可观察、可记录的信号，这样无论未来是否有条件做真实测试，你们对\"什么算验证成功\"的标准都会更清晰。\n学生纠正材料适用性：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "returnStep": "5",
+            "returnReason": "新增合成静态练习回合：沿用第6步V4实际V1静态检查，不把通用模板当本版实测，保留原return2历史。",
+            "afterTestBelief": "对真实用户能否理解的认识暂未改变，仍未知。静态检查发现本V1信息不足，没有号码分区映射，按钮无交互；这不是用户行为证据。",
+            "questionSnapshot": "{\"schemaVersion\":1,\"question\":\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\",\"beforeTestBelief\":\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\",\"verificationBasis\":\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\",\"verificationLimits\":\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\",\"prototypeRef\":\"Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\",\"prototypeDesignId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"prototypeVersionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\",\"sourceStageRevision\":3}",
+            "reflectionConfirmed": "true",
+            "unresolvedQuestions": "仍缺真实测试者的理解过程、反例及授权记录。",
+            "iterationChangeReason": "根据旧版静态检查补“示例2→B分区”的合成设计示意并改按钮文案；按钮仍是静态占位，没有真人反馈或效果验证。",
+            "understandingEvidence": "静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "understandingChangeStatus": "unchanged",
+            "iterationFeedbackReference": "第6步V4，被审原型 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47。学生保存的静态检查原文：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+            "iterationPrototypeRelation": "{\"schemaVersion\":1,\"questionSnapshot\":\"{\\\"schemaVersion\\\":1,\\\"question\\\":\\\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\\\",\\\"beforeTestBelief\\\":\\\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\\\",\\\"verificationBasis\\\":\\\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\\\",\\\"verificationLimits\\\":\\\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\\\",\\\"prototypeRef\\\":\\\"Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\\\",\\\"prototypeDesignId\\\":\\\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\\\",\\\"prototypeVersionId\\\":\\\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\\\",\\\"sourceStageRevision\\\":3}\",\"producedDesignId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"producedVersionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn\",\"feedbackReference\":\"第6步V4，被审原型 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47。学生保存的静态检查原文：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。\",\"changeReason\":\"根据旧版静态检查补“示例2→B分区”的合成设计示意并改按钮文案；按钮仍是静态占位，没有真人反馈或效果验证。\"}",
+            "iterationPrototypeReference": "{\"seq\":2,\"summary\":\"新增合成号码分区示意并标注非实测，按钮改为“先看取餐分区”，页脚更新为V2。\",\"createdAt\":\"2026-11-16T18:10:31.152Z\",\"source\":\"model\",\"designId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"versionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn\",\"designName\":\"Synthetic static V1-V2 89f942e5\",\"frameCount\":1,\"generatedFrameCount\":1}",
+            "researchFile:72668a37-7861-4ad3-9e52-529b14a900a3": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-f6a7858e-1e68-48e3-b2ab-652fa80260f6\",\"artifactId\":\"art-2b87c68d-1274-468c-9f86-7cb9eb92cc32\",\"versionId\":\"ver-fa67ae6d-3834-41d2-98b8-b3745fd48cc2\",\"name\":\"SYN-TEST-FEEDBACK.txt\",\"mime\":\"text/plain\",\"sha256\":\"54fca4c87065afec8b855611280e1ec43d89de231430cac015fb710df6ded757\",\"bytes\":707,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T18:00:49.611Z\"}",
+            "researchFile:b3212782-2b62-4481-9777-27ec129ea5b0": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-0a77128c-df4e-4d9a-a5f1-c0760c72f65e\",\"artifactId\":\"art-4a63d9a7-f4ba-4e73-b47a-f8b2e11c17e9\",\"versionId\":\"ver-8331a8ef-56cc-4d51-bdb7-eeb5e16921b5\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T18:00:49.808Z\"}"
+          },
+          "ideas": [],
+          "selectedIdeaId": ""
+        }
+      },
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T18:14:14.461Z"
+    },
+    "sourceOld5": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 5,
+      "revision": 3,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "idea": "合成点子：纸面分区牌",
+            "task": "阅读纸面分区牌，并指出对应的取餐区域。",
+            "type": "学生人工确认：一页静态纸面界面草案，用于合成练习。",
+            "situation": "新同学在食堂取餐区阅读静态指示；这是合成情境。",
+            "hypothesis": "本轮引导师因耗时被正常取消。问题、先前看法和原型说明由合成学生人工确认，不等于Agent任务通过或研究结论。",
+            "operations": "先读标题，再沿箭头找到分区并说出方向；静态画面不冒充实际点击功能。",
+            "touchpoints": "标题、分区颜色、箭头和简短指示文案；全部属于拟议静态触点。",
+            "requirements": "一页静态界面，标题、分区提示与一个按钮；不接外部脚本或图片。",
+            "beforeTestBelief": "学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。",
+            "verificationBasis": "仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。",
+            "prototypeReference": "{\"seq\":1,\"summary\":\"这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\",\"createdAt\":\"2026-11-16T17:57:28.631Z\",\"source\":\"model\",\"designId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"versionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\",\"designName\":\"Synthetic static V1-V2 89f942e5\",\"frameCount\":1,\"generatedFrameCount\":1}",
+            "verificationLimits": "静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。",
+            "reflectionConfirmed": "",
+            "verificationQuestion": "合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。",
+            "verificationQuestionConfirmed": "true",
+            "verificationQuestionConfirmation": "[\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\",\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\",\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\",\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\"]"
+          },
+          "ideas": [],
+          "selectedIdeaId": ""
+        }
+      },
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        }
+      ],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T17:57:31.028Z"
+    },
+    "sourceCurrent5": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 5,
+      "revision": 4,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "idea": "合成点子：纸面分区牌",
+            "task": "阅读纸面分区牌，并指出对应的取餐区域。",
+            "type": "学生人工确认：一页静态纸面界面草案，用于合成练习。",
+            "situation": "新同学在食堂取餐区阅读静态指示；这是合成情境。",
+            "hypothesis": "本轮引导师因耗时被正常取消。问题、先前看法和原型说明由合成学生人工确认，不等于Agent任务通过或研究结论。",
+            "operations": "先读标题，再沿箭头找到分区并说出方向；静态画面不冒充实际点击功能。",
+            "touchpoints": "标题、分区颜色、箭头和简短指示文案；全部属于拟议静态触点。",
+            "requirements": "一页静态界面，标题、分区提示与一个按钮；不接外部脚本或图片。",
+            "beforeTestBelief": "学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。",
+            "verificationBasis": "仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。",
+            "prototypeReference": "{\"seq\":1,\"summary\":\"这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\",\"createdAt\":\"2026-11-16T17:57:28.631Z\",\"source\":\"model\",\"designId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"versionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\",\"designName\":\"Synthetic static V1-V2 89f942e5\",\"frameCount\":1,\"generatedFrameCount\":1}",
+            "verificationLimits": "静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。",
+            "reflectionConfirmed": "",
+            "verificationQuestion": "合成下一轮问题 AIDT-SUPPLEMENT-NEW-S5：是否需要进一步解释取餐顺序？",
+            "verificationQuestionConfirmed": "true",
+            "verificationQuestionConfirmation": "[\"合成下一轮问题 AIDT-SUPPLEMENT-NEW-S5：是否需要进一步解释取餐顺序？\",\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\",\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\",\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\"]"
+          },
+          "ideas": [],
+          "selectedIdeaId": ""
+        }
+      },
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        }
+      ],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T18:10:07.806Z"
+    },
+    "actualV2": {
+      "id": "3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn",
+      "seq": 2,
+      "source": "model",
+      "summary": "新增合成号码分区示意并标注非实测，按钮改为“先看取餐分区”，页脚更新为V2。",
+      "frames": [
+        "取餐分区"
+      ],
+      "notes": [
+        "本页为静态纸面分区牌草案V2，仅展示标题、说明文字、合成示例与一个占位按钮。按钮为无交互静态占位，不触发跳转。页面纯静态展示，无加载态或错误态。"
+      ],
+      "createdAt": "2026-11-16T18:10:31.152Z",
+      "prototype": [
+        {
+          "id": "n1",
+          "type": "html",
+          "props": {
+            "html": "<style>\n.page{min-height:100vh;display:flex;flex-direction:column;background:#FFFFFF;color:#1A1A1A;font-family:system-ui,\"PingFang SC\",sans-serif;padding:96px 24px 48px;align-items:center}\n.draft-wrap{display:flex;flex-direction:column;align-items:center;max-width:480px;width:100%;gap:32px;flex:1;justify-content:center}\n.title{font-size:32px;font-weight:700;line-height:1.5;margin:0;text-align:center}\n.desc{font-size:16px;font-weight:400;line-height:1.6;color:#333333;margin:0;text-align:center}\n.example-row{display:flex;align-items:baseline;gap:12px;padding:16px 24px;border:1px solid #D0D0D0;border-radius:4px;width:100%;box-sizing:border-box;justify-content:center}\n.example-text{font-size:20px;font-weight:600;line-height:1.5;color:#1A1A1A;margin:0}\n.example-note{font-size:12px;font-weight:400;line-height:1.5;color:#666666;margin:0}\n.btn-view{font-size:16px;font-weight:400;line-height:1.5;color:#FFFFFF;background:#2B5797;border:none;border-radius:4px;padding:12px 32px;cursor:default;font-family:inherit}\n.btn-view:focus-visible{outline:2px solid #2B5797;outline-offset:4px}\n.footer-mark{margin-top:auto;padding-top:64px;font-size:10px;font-weight:400;line-height:1.5;color:#999999;font-family:ui-monospace,monospace;letter-spacing:0.08em}\n@media(max-width:480px){.page{padding:64px 20px 32px}.title{font-size:28px}.draft-wrap{gap:24px}.example-row{flex-direction:column;align-items:center;gap:8px}}\n</style>\n<div class=\"page\" data-ref=\"r1\">\n<div class=\"draft-wrap\" data-ref=\"r2\">\n<h1 class=\"title\" data-ref=\"r3\">取餐分区</h1>\n<p class=\"desc\" data-ref=\"r4\">请根据号码找到对应的取餐窗口。</p>\n<div class=\"example-row\" data-ref=\"r5\">\n<p class=\"example-text\" data-ref=\"r6\">示例2→B分区</p>\n<p class=\"example-note\" data-ref=\"r7\">合成设计内容，非实测</p>\n</div>\n<button type=\"button\" class=\"btn-view\" data-ref=\"r8\">先看取餐分区</button>\n</div>\n<span class=\"footer-mark\" data-ref=\"r9\">AIDT-SUPPLEMENT-V2</span>\n</div>"
+          }
+        }
+      ],
+      "links": []
+    },
+    "correction": "## 学生核对补充：读取范围与版本更正（本节以实际保存记录为准）\n\n上方AI草稿关于材料完整性的说法不能视为已核实。本节是学生另行逐版读取实际保存资料后的补充，不声称模型已完整看见或理解这些版本。\n服务器本次来源回执 truncated=true。当前坐标：S1V2、S2V4、S3V2、S4V4、S5V4、S6V7；选中历史坐标：S1V1、S1V2、S2V1、S2V2、S2V3、S2V4、S3V1、S3V2、S4V1、S4V2、S4V3、S4V4、S5V1、S5V2、S5V3、S5V4、S6V1、S6V2、S6V3、S6V4、S6V5、S6V6、S6V7。\n截断和缺口回执：{\"kind\":\"personal-artifacts-not-included\"}；{\"kind\":\"original-file-bytes-not-read\"}；{\"kind\":\"teacher-comments-no-source\"}；{\"kind\":\"lineage-unknown\"}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":7}；{\"kind\":\"truncated\",\"stageId\":1,\"revision\":2}；{\"kind\":\"truncated\",\"stageId\":2,\"revision\":4}；{\"kind\":\"truncated\",\"stageId\":2,\"revision\":3}；{\"kind\":\"truncated\",\"stageId\":2,\"revision\":2}；{\"kind\":\"truncated\",\"stageId\":4,\"revision\":4}；{\"kind\":\"truncated\",\"stageId\":4,\"revision\":3}；{\"kind\":\"truncated\",\"stageId\":4,\"revision\":2}；{\"kind\":\"truncated\",\"stageId\":5,\"revision\":4}；{\"kind\":\"truncated\",\"stageId\":5,\"revision\":3}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":7}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":6}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":5}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":4}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":3}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":2}；{\"kind\":\"truncated\",\"stageId\":6,\"revision\":1}。选中坐标不等于全文被读取；原始文件字节未自动读入、个人产物未纳入、教师点评没有来源，历史仅为本次分页读取范围。不能据此称完整研究、完整历史或已验证教学。\n\n实际V1：3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47，冻结问题来自S5V3：“合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。”。S6V4真实保存了return2，S6V5另行选择return5，S6V6关联新的V2且保留旧问题snapshot。保存修订并非自动等于新的独立学习轮次。\n实际V2：3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn，seq=2/source=model；已真实保存并关联。这一版新增明确合成的“示例2→B分区”，属于新设计内容，非既有测试反馈；按钮仍为静态占位，不能称可跳转或已验证有效，仍待真人测试。\n当前S5V4的新问题：“合成下一轮问题 AIDT-SUPPLEMENT-NEW-S5：是否需要进一步解释取餐顺序？”，不覆盖S6旧轮冻结的S5V3问题，也不能被追认成旧V1测试任务。旧S6V4的return2与原snapshot均保留。\n\nSYN-TEST-FEEDBACK.txt的F1/F2是通用合成示例，不能当作本V1的实测。第5步引导师已取消，问题由合成学生人工确认；独立Design生成和后续学习不把该引导师失败洗成成功。没有真人访谈、真人测试或教师点评，本报告仍需真实学生与教师另行审阅。",
+    "actualMarkdownBytes": 11664,
+    "markdownSha256": "8c5c4144aef519e32ee98bb2ea294b58082146fd22847b5beeb7bf7e7e96210d",
+    "freshLoginExactReadback": true,
+    "originalV8AndExportPreserved": true,
+    "reportRefsUnchanged": true,
+    "generationRequests": [],
+    "studentCorrectionNotAiOutput": true,
+    "synthetic": true
+  }
+}

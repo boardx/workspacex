@@ -1,0 +1,162 @@
+{
+  "kind": "authorized-read-only-real-run-source-audit",
+  "auditedAt": "2026-11-16T17:43:07.795Z",
+  "runId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "threadId": "thr-bd633b91-f9f9-4805-a0eb-57242bee0004",
+  "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+  "agentVersionId": "agent-fullstack-20261117-01-7d265647426d-v1",
+  "runStatus": "succeeded",
+  "restoredResourceBinding": null,
+  "oldProtection": null,
+  "currentProjectStatus": "active",
+  "selector": {
+    "schemaVersion": 1,
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 3,
+        "revision": 1
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 3
+  },
+  "focus": {
+    "skillId": "skill-46c2a717-99b1-420a-bb6e-676f4ea56a64",
+    "skillVersionId": "skill-version-fbf0adea-14c5-4187-8bc9-475a7963e904",
+    "skillStableName": "aidt-define",
+    "title": "综合与定义"
+  },
+  "approvedPackage": {
+    "packId": "aidt-methods",
+    "packVersion": "1.3.0",
+    "packageDigest": "763632f1d246964e3c258a1495845670bf3e4240edfa024198f92cd75baa4194"
+  },
+  "hashes": {
+    "selector": "ecabaebe5cb7788afd442b846d52962e76cd69c1d50b0896fdffba352c0b8b3a",
+    "snapshot": "777d2d23847fbf7aec9f89272e49eb1a893ee938e9bf8f3fde4fe9a30f0337e2",
+    "block": "794f54d3754ff44d64fe7df8b77ee1cede890de1d73a40fc60e2898033383e28"
+  },
+  "canonicalHashesMatch": true,
+  "persistedHumanTextHash": "b8b70b06ebce50575607dbc0a042348006353070863508c733f9ce16ed7c1603",
+  "persistedHumanMatchesExpected": true,
+  "exactSources": [
+    {
+      "kind": "stage",
+      "stageId": 3,
+      "revision": 1,
+      "currentHeadRevision": 2,
+      "selectedIsCurrentHead": false,
+      "sourceStageRevisions": [
+        {
+          "stageId": 2,
+          "revision": 4
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:37:40.683Z",
+      "contentHash": "a64b2854971bfc1a816a839c5300f1f7042d57493d5cdd5fa2568c9e3d5f0676",
+      "excerptHash": "73a7c28202e65549b2b2402fe6a8bb9dde5d17613bc9f30be2ccf074ff2d9c0c",
+      "excerptUtf8Bytes": 615,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "kind": "stage",
+      "stageId": 1,
+      "revision": 2,
+      "currentHeadRevision": 2,
+      "selectedIsCurrentHead": true,
+      "sourceStageRevisions": [],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:22:51.127Z",
+      "contentHash": "a026f18ad1d4143c4a678acb88e556b86eb096e561e8c481115bb9819ad36e05",
+      "excerptHash": "5b2343721a63a2dc17725044faa936dcec5044b9814e5ae714728e66861134d0",
+      "excerptUtf8Bytes": 3255,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "kind": "stage",
+      "stageId": 2,
+      "revision": 4,
+      "currentHeadRevision": 4,
+      "selectedIsCurrentHead": true,
+      "sourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:34:31.051Z",
+      "contentHash": "9ffc4d0afe880e4d4174da8678e5c01969445facee233a7bd7b1013f554bbf67",
+      "excerptHash": "023536eca1d6c8df765d4bd0849debce04ed2cf4041522908b02ea64dad24060",
+      "excerptUtf8Bytes": 4128,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    }
+  ],
+  "omissions": [
+    {
+      "kind": "personal-artifacts-not-included"
+    },
+    {
+      "kind": "original-file-bytes-not-read"
+    },
+    {
+      "kind": "teacher-comments-no-source"
+    },
+    {
+      "kind": "lineage-unknown"
+    }
+  ],
+  "truncated": false,
+  "application": {
+    "state": "message-dispatch-observed",
+    "attemptId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67:1",
+    "assembledContextHash": "794f54d3754ff44d64fe7df8b77ee1cede890de1d73a40fc60e2898033383e28",
+    "assembledAt": "2026-11-16T17:37:42.179Z",
+    "messageDispatchedAt": "2026-11-16T17:37:42.259Z",
+    "checkpointResumedAt": null,
+    "inheritedMessageDispatchAttemptId": null
+  },
+  "journal": [
+    {
+      "seq": 1,
+      "kind": "assembled",
+      "attemptId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67:1",
+      "occurredAt": "2026-11-16T17:37:42.179Z",
+      "snapshotHash": "777d2d23847fbf7aec9f89272e49eb1a893ee938e9bf8f3fde4fe9a30f0337e2",
+      "assembledContextHash": "794f54d3754ff44d64fe7df8b77ee1cede890de1d73a40fc60e2898033383e28"
+    },
+    {
+      "seq": 2,
+      "kind": "message-dispatch-observed",
+      "attemptId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67:1",
+      "occurredAt": "2026-11-16T17:37:42.259Z",
+      "snapshotHash": "777d2d23847fbf7aec9f89272e49eb1a893ee938e9bf8f3fde4fe9a30f0337e2",
+      "assembledContextHash": "794f54d3754ff44d64fe7df8b77ee1cede890de1d73a40fc60e2898033383e28"
+    }
+  ],
+  "dispatchObservationCount": 1,
+  "resumeObservationCount": 0,
+  "serverDispatchObservationMatchesFrozenBlock": true,
+  "independentReceiptProvided": true,
+  "supplierConsumptionProvenByAudit": false,
+  "studentResearchValidityProven": false,
+  "rawStudentTextIncluded": false,
+  "privateConfigurationIncluded": false,
+  "databaseReadOnly": true,
+  "modelRequestsSent": 0,
+  "dataWrites": 0
+}

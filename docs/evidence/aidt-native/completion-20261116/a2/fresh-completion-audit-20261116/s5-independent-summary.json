@@ -1,0 +1,180 @@
+{
+  "kind": "s5-fresh-seed-cancelled-run-and-separate-manual-fallback-audit",
+  "at": "2026-11-16T17:57:36.710Z",
+  "runId": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+  "status": "cancelled",
+  "modelTaskPassed": false,
+  "actualBrowserResult": "failed",
+  "finalAssistantInvented": false,
+  "ordinaryDeriveScope": true,
+  "restoreAdapterUsed": false,
+  "actualOrgRole": "admin",
+  "actualGroupRole": "owner",
+  "ordinaryStudentModelPermissionProven": false,
+  "exactSources": [
+    {
+      "stageId": 5,
+      "revision": 1,
+      "currentHeadRevision": 2,
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        }
+      ],
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "stageId": 1,
+      "revision": 2,
+      "currentHeadRevision": 2,
+      "sourceStageRevisions": [],
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "stageId": 2,
+      "revision": 4,
+      "currentHeadRevision": 4,
+      "sourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        }
+      ],
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "stageId": 3,
+      "revision": 2,
+      "currentHeadRevision": 2,
+      "sourceStageRevisions": [
+        {
+          "stageId": 2,
+          "revision": 4
+        }
+      ],
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "stageId": 4,
+      "revision": 4,
+      "currentHeadRevision": 4,
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        }
+      ],
+      "exactSavedProjectionMatches": true
+    }
+  ],
+  "allSelectedSavedSourcesPredateAcceptance": true,
+  "persistedHumanMatchesPreSendJournalPromptSha": true,
+  "humanExpectedHashSource": "native-run-journal original reservation promptSha256, not invented final turn",
+  "canonicalHashesMatch": true,
+  "dispatchObservations": 1,
+  "resumeObservations": 0,
+  "threadCounts": {
+    "runs": "1",
+    "humanmessages": "1",
+    "snapshots": "1"
+  },
+  "priorSavedRevisionsUnchanged": true,
+  "precedingStage4StudentAddendum": {
+    "agentSaved": false,
+    "synthetic": true,
+    "exactSaved": [
+      {
+        "stage": "before",
+        "stageId": 4,
+        "revision": 3,
+        "exactSavedContentMatches": true,
+        "exactSavedSourceRefsMatch": true,
+        "exactUpdatedByMatches": true,
+        "exactUpdatedAtMatches": true
+      },
+      {
+        "stage": "after",
+        "stageId": 4,
+        "revision": 4,
+        "exactSavedContentMatches": true,
+        "exactSavedSourceRefsMatch": true,
+        "exactUpdatedByMatches": true,
+        "exactUpdatedAtMatches": true
+      }
+    ]
+  },
+  "manualStudentFallback": {
+    "modelTaskPassed": false,
+    "manualStudentFallback": true,
+    "studentSaved": true,
+    "freshLoginExactReadback": true,
+    "newStudentRequestSent": false,
+    "generationRequests": [],
+    "exactSavedBeforeAndAfter": [
+      {
+        "stage": "before",
+        "stageId": 5,
+        "revision": 1,
+        "exactSavedContentMatches": true,
+        "exactSavedSourceRefsMatch": true,
+        "exactUpdatedByMatches": true,
+        "exactUpdatedAtMatches": true
+      },
+      {
+        "stage": "after",
+        "stageId": 5,
+        "revision": 2,
+        "exactSavedContentMatches": true,
+        "exactSavedSourceRefsMatch": true,
+        "exactUpdatedByMatches": true,
+        "exactUpdatedAtMatches": true
+      }
+    ],
+    "sourceRefs": [
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      }
+    ]
+  },
+  "physical": 15,
+  "usage": 15,
+  "reportedPortionTokensTotal": 103507,
+  "reportedSucceededUsageRecords": 15,
+  "settledCreditRecords": 15,
+  "pendingCreditRecords": 0,
+  "subcallSuccessDoesNotMakeTaskSuccess": true,
+  "s3ExistingPendingNotAttributedToThisRun": true,
+  "oldThreeLedgerHashes": [
+    {
+      "ledgerLabel": "native-model-run-ledger.json",
+      "beforeSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "afterSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true
+    },
+    {
+      "ledgerLabel": "additional-s1-ledger.json",
+      "beforeSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "afterSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true
+    },
+    {
+      "ledgerLabel": "additional-s2-ledger.json",
+      "beforeSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "afterSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true
+    }
+  ],
+  "mainChainBreakAt": "S5 native Agent task cancelled; manual student saved output is not an Agent success",
+  "modelRequestsSentByAudit": 0,
+  "dataWrites": 0
+}

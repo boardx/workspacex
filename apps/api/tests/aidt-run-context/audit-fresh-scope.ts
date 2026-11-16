@@ -4,16 +4,20 @@ import {readFileSync,realpathSync,writeFileSync,mkdirSync} from 'node:fs';
 import {dirname,isAbsolute,resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {z} from 'zod';
+import {aidtContextCanonicalJson} from '@repo/contracts/aidt-run-context';
+import {SharedStage} from '@repo/contracts/aidt-stages';
+import {readAidtQuestionSnapshot,readConfirmedAidtReturn} from '@repo/contracts/aidt-return-reflection';
 import {deriveTestIsolation} from '../../../../.harness/scripts/lib/test-isolation';
 import {PgDatabase} from '../../src/infrastructure/db/pg-database';
 import {appConfig} from '../../src/infrastructure/db/pg-config';
 import {PgIdentityRepository} from '../../src/infrastructure/identity/pg-identity-repository';
 import {PgChatRepository} from '../../src/infrastructure/chat/pg-chat-repository';
+import {PgAidtRunContextStore} from '../../src/infrastructure/aidt-run-context/pg-aidt-run-context-store';
 import {resolveVisibility} from '../../src/application/chat/resolve-visibility';
 import {discloseDecided,guard,isDisclosed} from '../../src/application/security/permission-filter';
 import {toOrgId} from '../../src/domain/org-id';
 const id=z.string().min(1).max(256),sha=z.string().regex(/^[a-f0-9]{64}$/);
-const Request=z.object({orgId:id,userId:id,projectId:id.optional(),threadId:id.optional(),runIds:z.array(id).max(32).default([]),expectNoRuns:z.boolean().default(false),expectedAgentVersionId:id.optional(),expectedInstructionDigest:sha.optional()}).strict();
+const Request=z.object({orgId:id,userId:id,projectId:id.optional(),threadId:id.optional(),runIds:z.array(id).max(32).default([]),expectNoRuns:z.boolean().default(false),expectedAgentVersionId:id.optional(),expectedInstructionDigest:sha.optional(),referenceCues:z.object({actualV2VersionId:id,historyS6Revision:z.number().int().positive()}).strict().optional()}).strict();
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 function need(value:unknown,code:string):asserts value{if(!value)throw Error(code);}
 async function audit(runtimePath:string,requestPath:string,outputPath:string){
@@ -44,10 +48,19 @@ async function audit(runtimePath:string,requestPath:string,outputPath:string){
    const standing=await identity.findNonWorkshopStanding(request.userId,request.projectId,orgId);need(standing?.memberRole,'EXPLICIT_GROUP_MEMBERSHIP_REQUIRED');
    const visibility=await resolveVisibility({repo:identity,chat:new PgChatRepository(db),ids:{next:randomUUID}},{orgId,userId:request.userId,projectId:request.projectId,threadId:request.threadId});need(visibility.kind==='allow'&&visibility.thread.projectId===request.projectId,'ACTUAL_THREAD_ACCESS_REQUIRED');
    const p=(await session.query<{status:string;kind:string;aidt:boolean}>(`SELECT p.status,p.kind,EXISTS(SELECT 1 FROM project_tags t WHERE t.org_id=p.org_id AND t.project_id=p.id AND t.tag='workspacex:aidt') AS aidt FROM projects p WHERE p.org_id=$1 AND p.id=$2`,[orgId,request.projectId])).rows[0];need(p?.status==='active'&&p.kind==='general'&&p.aidt,'ACTIVE_AIDT_GROUP_REQUIRED');
-   group={projectId:request.projectId,threadId:request.threadId,projectStatus:p.status,memberRole:standing.memberRole,resolvedProjectRole:visibility.actor.projectRole,threadArchived:visibility.thread.archived};
+   const threadCounts=(await session.query<Record<string,string>>(`SELECT (SELECT count(*)::text FROM agent_runs WHERE org_id=$1 AND thread_id=$2) AS runs,(SELECT count(*)::text FROM chat_messages WHERE org_id=$1 AND thread_id=$2 AND author_kind='human') AS humanMessages,(SELECT count(*)::text FROM aidt_run_context_snapshots WHERE org_id=$1 AND thread_id=$2) AS snapshots`,[orgId,request.threadId])).rows[0]!;
+   group={projectId:request.projectId,threadId:request.threadId,projectStatus:p.status,memberRole:standing.memberRole,resolvedProjectRole:visibility.actor.projectRole,threadArchived:visibility.thread.archived,threadCounts};
    const saved=await session.query<{stage_id:number;revision:number;content:unknown;source_stage_revisions:unknown;updated_by:string;updated_at:Date}>('SELECT stage_id,revision,content,source_stage_revisions,updated_by,updated_at FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 ORDER BY stage_id,revision',[orgId,request.projectId]);
    const disclosed=discloseDecided(guard({kind:'project',id:request.projectId},saved.rows),visibility.base);need(isDisclosed(disclosed),'SOURCES_NOT_DISCLOSED');
-   sources=disclosed.payload.map(row=>({stageId:row.stage_id,revision:row.revision,contentHash:hash(JSON.stringify(row.content)),sourceStageRevisions:row.source_stage_revisions,updatedByHash:hash(row.updated_by),updatedAt:row.updated_at}));
+   sources=disclosed.payload.map(row=>{
+    const saved=SharedStage.parse({projectId:request.projectId,stageId:row.stage_id,revision:row.revision,content:row.content,sourceStageRevisions:row.source_stage_revisions,updatedBy:row.updated_by,updatedAt:new Date(row.updated_at).toISOString()});
+    const report=saved.content.summaryReport,question=saved.stageId===6?readAidtQuestionSnapshot(saved.content.draft):null;
+    const reflection=saved.stageId===6?readConfirmedAidtReturn(saved.content.draft,Number(saved.content.draft.fields.returnStep)):null;
+    return {stageId:row.stage_id,revision:row.revision,contentHash:hash(aidtContextCanonicalJson(row.content)),sourceStageRevisions:row.source_stage_revisions,updatedByHash:hash(row.updated_by),updatedAt:row.updated_at,
+     ...(report?{summaryReport:{markdownHash:hash(report.markdown),sourceStageRevisions:report.sourceStageRevisions}}:{}),
+     ...(question?{questionSnapshot:{sourceStageRevision:question.sourceStageRevision,questionHash:hash(question.question),beforeTestBeliefHash:hash(question.beforeTestBelief),prototypeDesignIdHash:question.prototypeDesignId?hash(question.prototypeDesignId):null,prototypeVersionIdHash:question.prototypeVersionId?hash(question.prototypeVersionId):null}}:{}),
+     ...(reflection?{confirmedReflection:{targetStage:reflection.targetStage,questionSourceStageRevision:reflection.snapshot.sourceStageRevision,fieldHashes:Object.fromEntries(Object.entries(reflection.fields).map(([k,v])=>[k,hash(v)])),trust:'untrusted-student-material',evidenceVerified:false}}:{})};
+   });
    for(const runId of request.runIds){
     const row=(await session.query<{id:string;thread_id:string;status:string;agent_version_id:string;remote_run_id:string|null;instruction_digest:string;instructions:string}>(`SELECT r.id,r.thread_id,r.status,r.agent_version_id,r.remote_run_id,v.instruction_digest,v.instructions FROM agent_runs r JOIN agent_versions v ON v.org_id=r.org_id AND v.id=r.agent_version_id WHERE r.org_id=$1 AND r.id=$2`,[orgId,runId])).rows[0];need(row?.thread_id===request.threadId,'ACTUAL_RUN_THREAD_REQUIRED');
     const instructionHash=hash(row.instructions);need(instructionHash===row.instruction_digest,'ACTUAL_AGENT_INSTRUCTION_DIGEST_MISMATCH');
@@ -59,7 +72,24 @@ async function audit(runtimePath:string,requestPath:string,outputPath:string){
     need([...physical,...usage,...credits].every(r=>r.user_id===request.userId),'ACTUAL_ACCOUNTING_PRINCIPAL_MISMATCH');
     need(physical.every(r=>r.project_id===request.projectId&&r.thread_id===request.threadId),'PHYSICAL_THREAD_SCOPE_MISMATCH');
     const sanitize=(rows:Record<string,unknown>[])=>rows.map(({user_id,...r})=>({...r,principalUserIdHash:hash(String(user_id))}));
-    runs.push({runId,status:row.status,agentVersionId:row.agent_version_id,instructionDigest:instructionHash,remoteRunIdHash:row.remote_run_id?hash(row.remote_run_id):null,physical:sanitize(physical),usage:sanitize(usage),credits:sanitize(credits),storedZeroDoesNotProveZeroConsumption:true,supplierBillIndependentlyVerified:false});
+    let referenceCueAudit:unknown=null;
+    if(request.referenceCues){
+     const guarded=await new PgAidtRunContextStore(db).readIn(session,orgId,runId);need(guarded,'CUE_SNAPSHOT_REQUIRED');
+     const revealed=discloseDecided(guarded,visibility.base);need(isDisclosed(revealed),'CUE_SNAPSHOT_NOT_DISCLOSED');const frozen=revealed.payload;
+     need(frozen.projectId===request.projectId&&frozen.threadId===request.threadId&&frozen.snapshot.selector.purpose==='summary','CUE_SUMMARY_SCOPE_REQUIRED');
+     const frame=z.object({materials:z.array(z.object({kind:z.string(),stageId:z.number(),revision:z.number(),excerpt:z.string().max(131072),truncated:z.boolean()})).max(67)}).passthrough().parse(JSON.parse(frozen.snapshot.modelReferenceBlock.split('\n')[2]!));
+     const keys=['returnStep','returnReason','nextAction','afterTestBelief','understandingChangeStatus','understandingEvidence','feedback','reflection','newVersion','newVersionReference','newPrototypeReference','iterationPrototypeReference','iterationPrototypeRelation','iterationFeedbackReference','iterationChangeReason','prototypeReference','questionSnapshot'];
+     const materialFacts=frame.materials.filter(m=>m.stageId===6).map(material=>{
+      const raw=disclosed.payload.find(r=>r.stage_id===6&&r.revision===material.revision);need(raw,'CUE_EXACT_SAVED_REVISION_REQUIRED');
+      const full=aidtContextCanonicalJson({draft:(raw.content as {draft:unknown}).draft,...((raw.content as {summaryReport?:unknown}).summaryReport?{studentReportDraft:(raw.content as {summaryReport:unknown}).summaryReport}:{}),sourceStageRevisions:raw.source_stage_revisions});need(full.startsWith(material.excerpt),'CUE_EXCERPT_SAVED_PREFIX_MISMATCH');
+      const savedStage=SharedStage.parse({projectId:request.projectId,stageId:6,revision:raw.revision,content:raw.content,sourceStageRevisions:raw.source_stage_revisions,updatedBy:raw.updated_by,updatedAt:new Date(raw.updated_at).toISOString()});
+      const fields=Object.fromEntries(keys.map(key=>{const value=savedStage.content.draft.fields[key];if(value===undefined)return[key,{savedFieldExists:false}];const encoded=JSON.stringify(key)+':'+JSON.stringify(value),start=full.indexOf(encoded);need(start>=0,'CUE_FIELD_SERIALIZATION_MISSING');const visible=Math.max(0,Math.min(encoded.length,material.excerpt.length-start));return[key,{savedFieldExists:true,savedValueHash:hash(value),savedValueUtf8Bytes:Buffer.byteLength(value),fieldStartVisible:visible>0,entireEncodedFieldVisible:visible===encoded.length,encodedFieldCharactersVisible:visible,encodedFieldCharactersTotal:encoded.length,...(key==='returnStep'?{savedReturnStep:['1','2','3','4','5','undecided'].includes(value)?value:'unknown'}:{})}];}));
+      return{kind:material.kind,stageId:6,revision:material.revision,truncated:material.truncated,excerptHash:hash(material.excerpt),excerptUtf8Bytes:Buffer.byteLength(material.excerpt),actualV2VersionIdInThisExcerpt:material.excerpt.includes(request.referenceCues!.actualV2VersionId),fields};
+     });
+     const oldRow=disclosed.payload.find(r=>r.stage_id===6&&r.revision===request.referenceCues!.historyS6Revision);need(oldRow,'CUE_OLD_S6_REQUIRED');const oldReason=(oldRow.content as {draft:{fields:Record<string,string>}}).draft.fields.returnReason??'';
+     referenceCueAudit={structuredReturnStep2AnywhereInVisibleMaterial:frame.materials.some(m=>m.excerpt.includes('\"returnStep\":\"2\"')),oldS6ReturnReasonExactValueAnywhereInVisibleMaterial:oldReason.length>0&&frame.materials.some(m=>m.excerpt.includes(JSON.stringify(oldReason).slice(1,-1))),snapshotHash:frozen.snapshotHash,referenceBlockHash:frozen.snapshot.modelReferenceBlockHash,referenceBlockUtf8Bytes:Buffer.byteLength(frozen.snapshot.modelReferenceBlock),snapshotTruncated:frozen.snapshot.truncated,actualV2VersionIdHash:hash(request.referenceCues.actualV2VersionId),actualV2VersionIdAnywhereInVisibleMaterial:frame.materials.some(m=>m.excerpt.includes(request.referenceCues!.actualV2VersionId)),requestedOldS6Revision:request.referenceCues.historyS6Revision,selectedSourcesNotEquivalentToFullVisibleFields:true,stage6MaterialFacts:materialFacts,rawTextProjected:false};
+    }
+    runs.push({runId,status:row.status,agentVersionId:row.agent_version_id,instructionDigest:instructionHash,remoteRunIdHash:row.remote_run_id?hash(row.remote_run_id):null,physical:sanitize(physical),usage:sanitize(usage),credits:sanitize(credits),referenceCueAudit,storedZeroDoesNotProveZeroConsumption:true,supplierBillIndependentlyVerified:false});
    }
   }
   const report={kind:'fresh-seed-independent-source-scope-ledger-audit',at:new Date().toISOString(),orgId:request.orgId,principalUserIdHash:hash(request.userId),orgRole:orgMember.orgRole,orgStatus:org.status,freshDeriveScopeVerified:true,restoreAdapterUsed:false,initialZeroRunBaselineRequired:request.expectNoRuns,orgTotals:totals,group,savedSources:sources,runs,rawStudentTextIncluded:false,privateConfigurationIncluded:false,databaseReadOnly:true,modelRequestsSent:0,financialWrites:0,budgetEnforcementPerformed:false};

@@ -1,0 +1,88 @@
+{
+  "observedAt": "2026-11-16T18:31:41.910Z",
+  "backupPath": "/workspace/scratch/aidt-private-diagnostics-20261117/fresh-acceptance-final-20261116T183031727Z",
+  "rows": [
+    {
+      "runId": "ingest-060bb688-fd0e-491a-bd9f-8fcc9249b062",
+      "expectedBytes": 28838,
+      "sourceBytes": 28838,
+      "copiedBytes": 28838,
+      "sourceShaMatches": true,
+      "copiedShaMatches": true,
+      "expectedMime": "image/png",
+      "sourceMime": "application/octet-stream",
+      "copiedMime": "application/octet-stream"
+    },
+    {
+      "runId": "ingest-0a77128c-df4e-4d9a-a5f1-c0760c72f65e",
+      "expectedBytes": 27913,
+      "sourceBytes": 27913,
+      "copiedBytes": 27913,
+      "sourceShaMatches": true,
+      "copiedShaMatches": true,
+      "expectedMime": "image/png",
+      "sourceMime": "application/octet-stream",
+      "copiedMime": "application/octet-stream"
+    },
+    {
+      "runId": "ingest-46c279cd-33e5-4708-bdf0-a52b49858d23",
+      "expectedBytes": 29666,
+      "sourceBytes": 29666,
+      "copiedBytes": 29666,
+      "sourceShaMatches": true,
+      "copiedShaMatches": true,
+      "expectedMime": "image/png",
+      "sourceMime": "application/octet-stream",
+      "copiedMime": "application/octet-stream"
+    },
+    {
+      "runId": "ingest-6d9d9f00-9faa-42a1-96ac-beee552fa413",
+      "expectedBytes": 27391,
+      "sourceBytes": 27391,
+      "copiedBytes": 27391,
+      "sourceShaMatches": true,
+      "copiedShaMatches": true,
+      "expectedMime": "image/png",
+      "sourceMime": "application/octet-stream",
+      "copiedMime": "application/octet-stream"
+    },
+    {
+      "runId": "ingest-855766af-42d2-496c-b4b7-ab4546563d23",
+      "expectedBytes": 27913,
+      "sourceBytes": 27913,
+      "copiedBytes": 27913,
+      "sourceShaMatches": true,
+      "copiedShaMatches": true,
+      "expectedMime": "image/png",
+      "sourceMime": "application/octet-stream",
+      "copiedMime": "application/octet-stream"
+    },
+    {
+      "runId": "ingest-c26b5cf5-4009-414d-b635-584381b8e99b",
+      "expectedBytes": 529,
+      "sourceBytes": 529,
+      "copiedBytes": 529,
+      "sourceShaMatches": true,
+      "copiedShaMatches": true,
+      "expectedMime": "text/plain; charset=utf-8",
+      "sourceMime": "application/octet-stream",
+      "copiedMime": "application/octet-stream"
+    },
+    {
+      "runId": "ingest-f6a7858e-1e68-48e3-b2ab-652fa80260f6",
+      "expectedBytes": 707,
+      "sourceBytes": 707,
+      "copiedBytes": 707,
+      "sourceShaMatches": true,
+      "copiedShaMatches": true,
+      "expectedMime": "text/plain; charset=utf-8",
+      "sourceMime": "application/octet-stream",
+      "copiedMime": "application/octet-stream"
+    }
+  ],
+  "canonicalMimeSource": "AIDT service byte-sniffed aidt_raw_upload_runs.mime; HTTP controller returns this value",
+  "storageMimeSource": "materializeArtifact original part default application/octet-stream; preserved unchanged",
+  "firstStrictEqualityAssertionWasInvalidForTwoDifferentMetadataLayers": true,
+  "sourceBytesOrShaMismatch": false,
+  "backupWasContinuedUsingSameDump": true
+}

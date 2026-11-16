@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+(node:426668) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/aidt-v2-completion-continuation.spec.ts:90:5 › manual S5 fallback: cancelled native retained, student confirms synthetic question through real UI for independent Design (3.9s)
+
+  1 passed (5.0s)

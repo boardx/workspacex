@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/aidt-v2-completion-state.test.ts (4 tests) 32ms
+ ✓ tests/aidt-v2-fresh-journey.test.ts (3 tests) 13ms
+ ✓ tests/aidt-v2-supplemental-ledger.test.ts (3 tests) 573ms
+   ✓ separately approved additional S1, never an eighth slot in the original ledger > keeps S2 on the original seven-budget and prevents supplemental reuse across processes 564ms
+
+ Test Files  3 passed (3)
+      Tests  10 passed (10)
+   Start at  18:24:04
+   Duration  1.95s (transform 369ms, setup 779ms, collect 514ms, tests 619ms, environment 0ms, prepare 355ms)
+

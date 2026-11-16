@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-11-16T17:49:02.645841+00:00",
+  "runId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+  "successfulCallResults": 20,
+  "nonEmptySuccessResults": 20,
+  "successResultCharsMin": 176,
+  "successResultCharsMax": 417,
+  "successResultsContainingLargeToolPlaceholder": 0,
+  "finalOutputClosedMarkers": [],
+  "finalOutputChars": 223,
+  "actualRubricRevisions": "not established from preserved bounded SQL steps",
+  "sourceScope": "only saved S3 event summaries and final model output, no new DB/network"
+}

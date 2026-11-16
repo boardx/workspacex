@@ -1,0 +1,23 @@
+{
+  "id": "3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn",
+  "seq": 2,
+  "source": "model",
+  "summary": "新增合成号码分区示意并标注非实测，按钮改为“先看取餐分区”，页脚更新为V2。",
+  "frames": [
+    "取餐分区"
+  ],
+  "notes": [
+    "本页为静态纸面分区牌草案V2，仅展示标题、说明文字、合成示例与一个占位按钮。按钮为无交互静态占位，不触发跳转。页面纯静态展示，无加载态或错误态。"
+  ],
+  "createdAt": "2026-11-16T18:10:31.152Z",
+  "prototype": [
+    {
+      "id": "n1",
+      "type": "html",
+      "props": {
+        "html": "<style>\n.page{min-height:100vh;display:flex;flex-direction:column;background:#FFFFFF;color:#1A1A1A;font-family:system-ui,\"PingFang SC\",sans-serif;padding:96px 24px 48px;align-items:center}\n.draft-wrap{display:flex;flex-direction:column;align-items:center;max-width:480px;width:100%;gap:32px;flex:1;justify-content:center}\n.title{font-size:32px;font-weight:700;line-height:1.5;margin:0;text-align:center}\n.desc{font-size:16px;font-weight:400;line-height:1.6;color:#333333;margin:0;text-align:center}\n.example-row{display:flex;align-items:baseline;gap:12px;padding:16px 24px;border:1px solid #D0D0D0;border-radius:4px;width:100%;box-sizing:border-box;justify-content:center}\n.example-text{font-size:20px;font-weight:600;line-height:1.5;color:#1A1A1A;margin:0}\n.example-note{font-size:12px;font-weight:400;line-height:1.5;color:#666666;margin:0}\n.btn-view{font-size:16px;font-weight:400;line-height:1.5;color:#FFFFFF;background:#2B5797;border:none;border-radius:4px;padding:12px 32px;cursor:default;font-family:inherit}\n.btn-view:focus-visible{outline:2px solid #2B5797;outline-offset:4px}\n.footer-mark{margin-top:auto;padding-top:64px;font-size:10px;font-weight:400;line-height:1.5;color:#999999;font-family:ui-monospace,monospace;letter-spacing:0.08em}\n@media(max-width:480px){.page{padding:64px 20px 32px}.title{font-size:28px}.draft-wrap{gap:24px}.example-row{flex-direction:column;align-items:center;gap:8px}}\n</style>\n<div class=\"page\" data-ref=\"r1\">\n<div class=\"draft-wrap\" data-ref=\"r2\">\n<h1 class=\"title\" data-ref=\"r3\">取餐分区</h1>\n<p class=\"desc\" data-ref=\"r4\">请根据号码找到对应的取餐窗口。</p>\n<div class=\"example-row\" data-ref=\"r5\">\n<p class=\"example-text\" data-ref=\"r6\">示例2→B分区</p>\n<p class=\"example-note\" data-ref=\"r7\">合成设计内容，非实测</p>\n</div>\n<button type=\"button\" class=\"btn-view\" data-ref=\"r8\">先看取餐分区</button>\n</div>\n<span class=\"footer-mark\" data-ref=\"r9\">AIDT-SUPPLEMENT-V2</span>\n</div>"
+      }
+    }
+  ],
+  "links": []
+}

@@ -1,0 +1,71 @@
+{
+  "observedAt": "2026-11-16T17:31:46.992Z",
+  "readOnly": true,
+  "orgId": "org-collaboration-20261117-01-7d265647426d",
+  "actor": {
+    "user_id": "user-collab-lead-20261117-01-7d265647426d",
+    "org_role": "admin"
+  },
+  "wallets": [],
+  "totals": {
+    "runs": 0,
+    "physical": 0,
+    "usage": 0,
+    "credits": 0,
+    "active": 0
+  },
+  "threads": [],
+  "runRows": [],
+  "projectFacts": [
+    {
+      "projectId": "prj-b919b4c8-6cf5-4a60-b4b9-f8e9e6b26624",
+      "members": [
+        {
+          "user_id": "user-collab-lead-20261117-01-7d265647426d",
+          "role": "owner"
+        },
+        {
+          "user_id": "user-collab-member-20261117-01-7d265647426d",
+          "role": "collaborator"
+        }
+      ],
+      "memberChat": {
+        "messages": 0,
+        "authors": 0
+      },
+      "runs": 0
+    },
+    {
+      "projectId": "prj-a711e0d4-e1da-4470-9939-12dde5ed8ad4",
+      "members": [
+        {
+          "user_id": "user-collab-lead-20261117-01-7d265647426d",
+          "role": "owner"
+        }
+      ],
+      "memberChat": {
+        "messages": 0,
+        "authors": 0
+      },
+      "runs": 0
+    }
+  ],
+  "oldBudgetHashes": [
+    {
+      "path": "/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json",
+      "sha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json",
+      "sha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s2-ledger.json",
+      "sha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true
+    }
+  ],
+  "modelRequestsSentByAudit": 0
+}

@@ -1,0 +1,72 @@
+{
+  "observedAt": "2026-11-16T17:58:12.272Z",
+  "readOnly": true,
+  "orgId": "org-fullstack-20261117-01-7d265647426d",
+  "actor": {
+    "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+    "org_role": "admin"
+  },
+  "wallets": [
+    {
+      "owner_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "balance": "19493.58",
+      "held_hundredths": "6346",
+      "remaining_held_hundredths": "6346",
+      "unbounded_requests": "0"
+    }
+  ],
+  "totals": {
+    "runs": 5,
+    "physical": 77,
+    "usage": 77,
+    "credits": 77,
+    "active": 0
+  },
+  "threads": [
+    {
+      "id": "thr-985b99bd-475a-4ae2-8357-30e6f4a712fc",
+      "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "archived": false,
+      "messages": 1,
+      "runs": 1,
+      "physical": 15
+    }
+  ],
+  "runRows": [
+    {
+      "id": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+      "thread_id": "thr-985b99bd-475a-4ae2-8357-30e6f4a712fc",
+      "status": "cancelled",
+      "failure_reason": null
+    }
+  ],
+  "projectFacts": [],
+  "pendingCredits": [
+    {
+      "request_id": "47f715ad-fd4d-4bb5-8f1f-48ea8f368e8c",
+      "run_id": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+      "state": "pending",
+      "reserved_hundredths": "6346",
+      "debited_hundredths": null,
+      "settled_at": null
+    }
+  ],
+  "oldBudgetHashes": [
+    {
+      "path": "/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json",
+      "sha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json",
+      "sha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s2-ledger.json",
+      "sha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true
+    }
+  ],
+  "modelRequestsSentByAudit": 0
+}

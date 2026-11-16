@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+(node:437747) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/aidt-v2-completion-continuation.spec.ts:125:5 › same-run S6 plan continuation: review current scratch todos once, preserve original interruption, student saves and exports (31.1s)
+
+  1 passed (32.6s)

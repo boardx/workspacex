@@ -1,0 +1,56 @@
+{
+  "source": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+  "actualNewWebBuildId": "HpTdw6E9Fzu6NgYyCuctM",
+  "attempt": "browser-01",
+  "status": "failed-setup-before-chat",
+  "testDurationSeconds": 32.4,
+  "failure": "Current runtime.email actor has no aidt-new entry; dedicated group setup not reached",
+  "orgId": "org-fullstack-20261117-01-7d265647426d",
+  "runtimeUserId": "user-fullstack-20261117-01-7d265647426d",
+  "createdProject": false,
+  "createdThread": false,
+  "nativeRetryBrowserPassed": false,
+  "memberTextBrowserReached": false,
+  "actualBrowser": true,
+  "controlledUnitNotRelabelled": true,
+  "automaticRetries": 0,
+  "differentActorUsed": false,
+  "permissionOrBalanceChanges": false,
+  "ownerIndependentModelAudit": {
+    "evidence": "../a1/a4-attempt01-zero-model.json",
+    "actualOrgRole": "consultant",
+    "runs": 0,
+    "physical": 0,
+    "usage": 0,
+    "credits": 0,
+    "active": 0,
+    "oldThreeLedgerHashesUnchanged": true
+  },
+  "evidence": {
+    "zero-cost-exit-state": {
+      "phase": "registered-abort-before-login",
+      "projectId": "",
+      "threadId": "",
+      "zeroWindow": {
+        "source": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+        "proofSha256": "1ce672174c8bfbf692e052029663444b0d55bb6c45bd45ba36f5e7dfbab4833f"
+      },
+      "blockedPaths": [],
+      "requestFailures": [],
+      "canonicalRead": null,
+      "nativeUi": {
+        "error": [],
+        "nativeInput": null,
+        "canonicalReceiptCount": 0
+      },
+      "interceptedSdkRuns": 0,
+      "generationReachedServerClaimed": false,
+      "independentOwnerRunsAndPhysicalAudit": "required separately; browser does not have a thread-run-list API"
+    },
+    "zero-cost-pending-file-cleanup": {
+      "projectId": "",
+      "threadId": "",
+      "cleanup": []
+    }
+  }
+}

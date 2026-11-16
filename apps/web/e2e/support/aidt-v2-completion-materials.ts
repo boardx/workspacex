@@ -156,3 +156,47 @@ export async function completionIdeaPdfs(page: Page, context: BrowserContext, pr
   expect(await readAidtV2Stage(page, projectId, 4)).toEqual(before);
   return results;
 }
+
+/** Actual adopted-guide print event plus PDF bytes; never the OS save dialog or a model-generated file. */
+export async function completionGuidePdf(page: Page, context: BrowserContext, projectId: string, info: TestInfo) {
+  const saved = (await readAidtV2Stage(page, projectId, 2))!;
+  const adopted = saved.content.draft.fields.adoptedGuide!, original = saved.content.draft.fields.guide!;
+  expect(adopted).toContain("学生审阅"); expect(adopted).not.toBe(original);
+  await page.getByTestId("aidt-interview-guide-preview-toggle").click();
+  await expect(page.getByTestId("aidt-interview-guide-preview").locator("pre")).toHaveText(adopted);
+  await observeAidtNativePrint(page, true); await page.getByTestId("aidt-interview-guide-print").click();
+  await expect.poll(async () => (await readAidtNativePrints(page)).length).toBe(1);
+  const printDocument = (await readAidtNativePrints(page))[0]!;
+  expect(printDocument.title).toBe("访谈问题清单 · 学生采纳稿"); expect(printDocument.text).toContain(adopted); expect(printDocument.text).not.toContain(original);
+  expect(printDocument.printableHtml).toBeTruthy(); const pdfPage = await context.newPage();
+  try {
+    await pdfPage.setContent(printDocument.printableHtml!, { waitUntil: "load" }); await pdfPage.evaluate(() => document.fonts.ready.then(() => undefined));
+    const file = info.outputPath("student-reviewed-interview-guide.pdf"), bytes = await pdfPage.pdf({ path: file, format: "A4", printBackground: true });
+    expect(bytes.subarray(0, 5).toString()).toBe("%PDF-"); expect(bytes.length).toBeGreaterThan(1_000);
+    const text = execFileSync("pdftotext", [file, "-"], { encoding: "utf8" });
+    expect(text.replace(/\s/g, "")).toContain(adopted.replace(/\s/g, "")); expect(text).not.toContain(original);
+    await info.attach("actual-student-reviewed-interview-guide-pdf", { path: file, contentType: "application/pdf" });
+    expect(await readAidtV2Stage(page, projectId, 2)).toEqual(saved);
+    return { status: "passed", actualBeforeprint: true, actualPdfBytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex"),
+      savedRevision: saved.revision, pdfMethod: "Chromium PDF from copy of actual product print DOM", nativeSaveDialogAutomated: false, manualFallback: false };
+  } finally { await pdfPage.close(); }
+}
+
+/** Real synthetic test originals saved before the independent S6 native request. */
+export async function addCompletionTestMaterials(page: Page, projectId: string) {
+  const before = (await readAidtV2Stage(page, projectId, 6))!;
+  await upload(page, projectId, "测试原始材料", "SYN-TEST-FEEDBACK.txt");
+  await upload(page, projectId, "测试原始材料", "SYN-A.png");
+  const saved = await saveAidtV2Stage(page, projectId, 6);
+  expect(saved.content.draft.fields.questionSnapshot).toBe(before.content.draft.fields.questionSnapshot);
+  const refs = Object.entries(saved.content.draft.fields).filter(([key]) => key.startsWith("researchFile:")).map(([, value]) => parseAidtResearchMaterial(value)).filter(value => value !== null);
+  for (const name of ["SYN-TEST-FEEDBACK.txt", "SYN-A.png"]) {
+    const original = readFileSync(join(fixtures(), name)), sha = createHash("sha256").update(original).digest("hex");
+    const ref = refs.find(row => row.name === name && row.projectId === projectId && row.sha256 === sha); expect(ref).toBeTruthy();
+    const response = await aidtV2Bytes(page, aidtResearchContentPath(ref!)); expect(response.status).toBe(200); expect(Buffer.from(response.base64, "base64")).toEqual(original);
+    expect(response.headers["x-content-sha256"]).toBe(sha); expect(response.headers["x-artifact-version-id"]).toBe(ref!.versionId);
+  }
+  await test.info().attach("s6-synthetic-test-originals", { contentType: "application/json", body: Buffer.from(JSON.stringify({ projectId, savedRevision: saved.revision, references: refs,
+    synthetic: true, imageIsSyntheticPreviewNotRealTestPhoto: true, originalBytesNotAutomaticallySuppliedToAgent: true }, null, 2)) });
+  return saved;
+}

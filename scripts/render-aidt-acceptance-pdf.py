@@ -16,7 +16,11 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--source',type=Path,default=Path(__file__).resolve().parents[1]/'docs/evidence/aidt-native/completion-20261116/a6/aidt-v2-human-acceptance.md')
 parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--qa-dir',type=Path)
+parser.add_argument('--kind',choices=('manual','report'),default='manual')
+parser.add_argument('--date',default='2026-11-16')
 args=parser.parse_args()
+is_report=args.kind=='report'
+document_title='AIDT V2 完整测试报告' if is_report else 'AIDT V2 人工端到端测试与验收手册'
 src=args.source.resolve();out=args.output.resolve();out.parent.mkdir(parents=True,exist_ok=True)
 # Embed a TrueType Chinese font. A viewer must not need a local CID font pack.
 # PyMuPDF ships this font; this adds no network/font-service dependency.
@@ -64,13 +68,13 @@ while i<len(lines):
   if depth==1:
    story.append(para('WORKSPACEX / AIDT','h2'));story.append(para(title,'h1'))
   else:
-   if depth==2 and title.startswith('1.'):
+   if not is_report and depth==2 and title.startswith('1.'):
     story.append(Spacer(1,20));story.append(para('测试路线','h2'))
     for line in ['六阶段主线：H03 问题与理由 → H04 材料与发现卡 → H05 画像前反思 → H06 创意与描述单 → H07 原型 → H08/H09 测试与回溯 → H10 小组报告。','协作与可靠性：H01 课程和权限，H02 共享保存，H11 全界面成员文字沟通，H12 并发冲突与失败恢复。','范围复核：H13 教师点评、H14 叙事展示、H15 打印及3D，分别按已确认优先级记录；访谈录音与语音房另排。','操作前填写版本、入口和角色；操作时逐项记录实际结果与证据；结束后登记缺陷、复验范围和人类签字。','本册保留书写空间，适合课堂试用、打印及逐项复验。所有结果栏均由实际操作者填写。']:
      story.append(para(line))
-   if depth==2 and title.startswith('3.'):
+   if not is_report and depth==2 and title.startswith('3.'):
     pending_section=title;i+=1;continue
-   if depth==2 or (depth==3 and re.match('H\\d+',title)):story.append(PageBreak())
+   if (depth==2 and (not is_report or caseidx)) or (depth==3 and re.match('H\\d+',title)):story.append(PageBreak())
    if pending_section:
     story.append(para(pending_section,'h2'));pending_section=None
    p=para(title,'h2' if depth==2 else 'h3');p.bookmark='section-'+str(len(caseidx));caseidx.append((title,p.bookmark,depth));story.append(p)
@@ -86,20 +90,25 @@ class Doc(SimpleDocTemplate):
    self.canv.bookmarkPage(f.bookmark);self.canv.addOutlineEntry(f.getPlainText(),f.bookmark,level=0,closed=False)
 def page(c,d):
  c.saveState();c.setStrokeColor(colors.HexColor('#D3DEE7'));c.setLineWidth(.5);c.line(left,H-31,W-right,H-31)
- c.setFont(FONT,8);c.setFillColor(gray);c.drawString(left,H-23,'WorkspaceX / AIDT V2 / 人工验收');c.drawRightString(W-right,H-23,'2026-11-16')
- c.line(left,31,W-right,31);c.drawString(left,20,'实际结果与签字由测试者填写 / 机器测试不代替人工验收');c.drawRightString(W-right,20,str(d.page));c.restoreState()
-doc=Doc(str(out),pagesize=A4,leftMargin=left,rightMargin=right,topMargin=47,bottomMargin=47,title='AIDT V2 人工端到端测试与验收手册',author='WorkspaceX AIDT',pageCompression=1)
+ c.setFont(FONT,8);c.setFillColor(gray);c.drawString(left,H-23,'WorkspaceX / AIDT V2 / '+('测试报告' if is_report else '人工验收'));c.drawRightString(W-right,H-23,args.date)
+ footer='通过、失败、跳过与未验收分别记录 / 自动测试不代替课堂验收' if is_report else '实际结果与签字由测试者填写 / 机器测试不代替人工验收'
+ c.line(left,31,W-right,31);c.drawString(left,20,footer);c.drawRightString(W-right,20,str(d.page));c.restoreState()
+doc=Doc(str(out),pagesize=A4,leftMargin=left,rightMargin=right,topMargin=47,bottomMargin=47,title=document_title,author='WorkspaceX AIDT',pageCompression=1)
 doc.build(story,onFirstPage=page,onLaterPages=page)
 with fitz.open(out) as pdf:
  text=''.join(p.get_text() for p in pdf)
- missing=[f'H{i:02d}' for i in range(1,16) if f'H{i:02d}' not in text]
- assert not missing,missing
- assert all(x in text for x in ['暂无','证据不足','实际结果','签字','M01','M06'])
- assert len(pdf)>=16
+ if is_report:
+  assert all(x in text for x in ['实际结果','失败','跳过','FR19','测试报告'])
+  assert len(pdf)>=3
+ else:
+  missing=[f'H{i:02d}' for i in range(1,16) if f'H{i:02d}' not in text]
+  assert not missing,missing
+  assert all(x in text for x in ['暂无','证据不足','实际结果','签字','M01','M06'])
+  assert len(pdf)>=16
  assert all(len(p.get_text().strip())>=50 for p in pdf),'Unexpected empty PDF page'
  cjk_fonts={f[0] for p in pdf for f in p.get_fonts(full=True) if 'Droid-Sans-Fallback' in f[3]}
  assert cjk_fonts and all(pdf.extract_font(xref)[3] for xref in cjk_fonts),'Chinese fonts must be embedded'
  if args.qa_dir:
   args.qa_dir.mkdir(parents=True,exist_ok=True)
-  for i in sorted(set([0,1,4,9,len(pdf)-1])):pdf[i].get_pixmap(matrix=fitz.Matrix(1.15,1.15)).save(str(args.qa_dir/f'qa-page-{i+1}.png'))
- print(json.dumps({'output':str(out),'pages':len(pdf),'bytes':out.stat().st_size,'source_sha256':hashlib.sha256(src.read_bytes()).hexdigest(),'pdf_sha256':hashlib.sha256(out.read_bytes()).hexdigest(),'all_cases_present':True},ensure_ascii=False))
+  for i in sorted({i for i in [0,1,4,9,len(pdf)-1] if 0<=i<len(pdf)}):pdf[i].get_pixmap(matrix=fitz.Matrix(1.15,1.15)).save(str(args.qa_dir/f'qa-page-{i+1}.png'))
+ print(json.dumps({'output':str(out),'kind':args.kind,'date':args.date,'pages':len(pdf),'bytes':out.stat().st_size,'source_sha256':hashlib.sha256(src.read_bytes()).hexdigest(),'pdf_sha256':hashlib.sha256(out.read_bytes()).hexdigest(),'all_cases_present':True},ensure_ascii=False))

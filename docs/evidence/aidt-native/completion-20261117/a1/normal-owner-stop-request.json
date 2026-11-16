@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-11-16T18:37:52.304Z",
+  "ownApiPid": 454489,
+  "ownApiGracefullyStopped": true,
+  "ownManagerPid": 381657,
+  "managerSignal": "SIGINT",
+  "managerStartTicks": "6008044",
+  "normalFrameworkOwnCleanupRequested": true,
+  "sharedProcessGroupKillUsed": false,
+  "databaseOrFinancialWritesPerformedByStop": false,
+  "pendingAccountingPreservedInVerifiedPrivateDump": true,
+  "modelRequestsSentByStop": 0
+}

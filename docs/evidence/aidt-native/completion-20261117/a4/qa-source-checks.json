@@ -1,0 +1,24 @@
+{
+  "sourceType": "QA only; production components unchanged",
+  "files": {
+    "apps/web/e2e/aidt-native-draft-zero.spec.ts": "cb7c0e7d6eacd8dda4fe41b074d1694cf9048513b3bddef0d25f07f24dcd8dda",
+    "apps/web/playwright.aidt-native-draft-zero.config.ts": "f872376c2ab0967217a621cb1ec9e3b1992808774dd55e51ab793cb88ad43a6f",
+    "apps/web/playwright.fullstack-smoke.config.ts": "bc38b0cca05c8887b3e43eef546c270f58c2f87739410301b81274b808e6ffc8",
+    "apps/web/playwright.config.ts": "fb18bc67a43189e608db8b1b9ca65c242e48e593d13894ff267473b66b7620a7"
+  },
+  "standaloneListCount": 1,
+  "scopedTypesExitCode": 0,
+  "eslintExitCode": 0,
+  "defaultClosed": true,
+  "workers": 1,
+  "retries": 0,
+  "timeoutMs": 150000,
+  "webServerDefined": false,
+  "fullstackExactIgnore": true,
+  "defaultExactIgnore": true,
+  "paidV2FilteredCount": 0,
+  "fullstackListWithoutRuntimeEnvironment": "blocked before discovery: missing required isolation env, preserved in fullstack-list-before-runtime-env-red.txt",
+  "realModelSmokeSelection": "existing exact testMatch filenames do not match this exclusive spec",
+  "privateRuntimeReadMode": "credentials read only into child process environment; never printed",
+  "committedByWorker": false
+}

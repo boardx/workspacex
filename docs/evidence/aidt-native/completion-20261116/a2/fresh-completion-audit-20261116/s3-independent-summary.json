@@ -1,0 +1,122 @@
+{
+  "kind": "s3-fresh-seed-independent-success-with-unresolved-usage-audit",
+  "at": "2026-11-16T17:44:09.437Z",
+  "runId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+  "status": "succeeded",
+  "actualBrowserResult": "passed",
+  "actualBrowserSource": "a6/fresh-journey-20261117/s3-attachments.json",
+  "cancelPosted": false,
+  "cancelObservationSource": "A1 normal authenticated terminal GET succeeded before a cancellation POST; see A1 s3-normal-cancel.json",
+  "ordinaryDeriveScope": true,
+  "restoreAdapterUsed": false,
+  "actualOrgRole": "admin",
+  "actualGroupRole": "owner",
+  "ordinaryStudentModelPermissionProven": false,
+  "exactSources": [
+    {
+      "stageId": 3,
+      "revision": 1,
+      "currentHeadRevision": 2,
+      "sourceStageRevisions": [
+        {
+          "stageId": 2,
+          "revision": 4
+        }
+      ],
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "stageId": 1,
+      "revision": 2,
+      "currentHeadRevision": 2,
+      "sourceStageRevisions": [],
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "stageId": 2,
+      "revision": 4,
+      "currentHeadRevision": 4,
+      "sourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        }
+      ],
+      "exactSavedProjectionMatches": true
+    }
+  ],
+  "exactSavedBeforeAndAfter": [
+    {
+      "stage": "before",
+      "revision": 1,
+      "exactSavedContentMatches": true,
+      "exactSavedSourceRefsMatch": true,
+      "exactUpdatedByMatches": true,
+      "exactUpdatedAtMatches": true
+    },
+    {
+      "stage": "after",
+      "revision": 2,
+      "exactSavedContentMatches": true,
+      "exactSavedSourceRefsMatch": true,
+      "exactUpdatedByMatches": true,
+      "exactUpdatedAtMatches": true
+    }
+  ],
+  "earlierSavedVersionsUnchanged": true,
+  "persistedHumanMatchesA6Original": true,
+  "canonicalHashesMatch": true,
+  "dispatchObservations": 1,
+  "resumeObservations": 0,
+  "threadCounts": {
+    "runs": "1",
+    "humanmessages": "1",
+    "snapshots": "1"
+  },
+  "physical": 44,
+  "usage": 44,
+  "reportedSucceededUsageRecords": 43,
+  "reportedPortionTokensTotal": 281610,
+  "failedUnknownUsageRecords": 1,
+  "unknownUsage": [
+    {
+      "requestId": "47f715ad-fd4d-4bb5-8f1f-48ea8f368e8c",
+      "totalSource": "unknown",
+      "storedTokensTotal": "0",
+      "tokensPrompt": null,
+      "tokensCompletion": null
+    }
+  ],
+  "overallTokenConsumptionKnown": false,
+  "settledCreditRecords": 43,
+  "pendingCreditRecords": 1,
+  "pendingReservedHundredths": [
+    "6346"
+  ],
+  "highPhysicalRequestCountAndLongDurationPreservedAsIssue": true,
+  "oldThreeLedgerHashes": [
+    {
+      "ledgerLabel": "native-model-run-ledger.json",
+      "beforeSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "afterSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true
+    },
+    {
+      "ledgerLabel": "additional-s1-ledger.json",
+      "beforeSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "afterSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true
+    },
+    {
+      "ledgerLabel": "additional-s2-ledger.json",
+      "beforeSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "afterSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true
+    }
+  ],
+  "modelRequestsSentByAudit": 0,
+  "dataWrites": 0,
+  "qualityHumanReviewPending": true,
+  "actualBrowserDurationSecondsReportedByA6": 208.8,
+  "noTimeoutFailureOrCancelPosted": true
+}

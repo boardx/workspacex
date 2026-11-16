@@ -1,5 +1,8 @@
 # AIDT V2 FR01–19 用例与证据矩阵
 
+> 最新实际结果：见[新组织同组验收](./fresh-journey-20261117/README.md)与[最终机器索引](./fresh-journey-20261117/final-machine.json)。7个Native任务6成功/1取消，两Design生成独立通过；S5人工接续和AI报告内容缺口不洗成完整原生链通过。下文旧轮次证据与当时状态保留。
+
+
 需求来源：[用户完整 V2 Markdown](../../../../requirements/aidt-v2-full.md)，root已原样落库并核对72091bytes；FR15–19 的新增摘录另见 [aidt-v2-delta](../../../../requirements/aidt-v2-delta.md)。本矩阵是验收索引，不是新增需求或设计签核。
 
 状态只认实际运行：`已通过`必须有当前源码对应的浏览器/服务证据；`已编写`仅表示可发现的测试文件；`待接口`不作为通过；`后置`保留用户明确优先级或决定。

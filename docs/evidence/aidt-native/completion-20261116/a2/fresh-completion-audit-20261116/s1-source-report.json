@@ -1,0 +1,114 @@
+{
+  "kind": "authorized-read-only-real-run-source-audit",
+  "auditedAt": "2026-11-16T17:24:11.367Z",
+  "runId": "33945939-c856-4b46-ba35-6953c835c588",
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "threadId": "thr-889c9de9-4008-4228-809b-ea1ddc230f50",
+  "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+  "agentVersionId": "agent-fullstack-20261117-01-7d265647426d-v1",
+  "runStatus": "succeeded",
+  "restoredResourceBinding": null,
+  "oldProtection": null,
+  "currentProjectStatus": "active",
+  "selector": {
+    "schemaVersion": 1,
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 1
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 1
+  },
+  "focus": {
+    "skillId": "skill-3f0aa7c0-1f98-42e8-9445-8f983acdb982",
+    "skillVersionId": "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53",
+    "skillStableName": "aidt-understand",
+    "title": "理解与提出问题"
+  },
+  "approvedPackage": {
+    "packId": "aidt-methods",
+    "packVersion": "1.3.0",
+    "packageDigest": "9a3d1e6bdf3ced5860a4f1124edb1be05fb7f952039c9549fbff50eb89ac52ee"
+  },
+  "hashes": {
+    "selector": "21f24aa3d5ba0395e029d81b1b167408349d48d72a993c5a0e53d5323c898374",
+    "snapshot": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+    "block": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d"
+  },
+  "canonicalHashesMatch": true,
+  "persistedHumanTextHash": "a967f3f3a0cc9cc9a0361ead9b9155104e9ba0ef398b4bba705bce56d9b4e410",
+  "persistedHumanMatchesExpected": true,
+  "exactSources": [
+    {
+      "kind": "stage",
+      "stageId": 1,
+      "revision": 1,
+      "currentHeadRevision": 2,
+      "selectedIsCurrentHead": false,
+      "sourceStageRevisions": [],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:22:19.980Z",
+      "contentHash": "1af2e5a371467d1e3c99fa515bbc9e4c85ab1ebd0b144de5419f5d6d03e5a569",
+      "excerptHash": "5c54423d592ea92e3822e9948eff7404b467f472f776d3cf797857fe7cfeba44",
+      "excerptUtf8Bytes": 817,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    }
+  ],
+  "omissions": [
+    {
+      "kind": "personal-artifacts-not-included"
+    },
+    {
+      "kind": "original-file-bytes-not-read"
+    },
+    {
+      "kind": "teacher-comments-no-source"
+    },
+    {
+      "kind": "lineage-unknown"
+    }
+  ],
+  "truncated": false,
+  "application": {
+    "state": "message-dispatch-observed",
+    "attemptId": "33945939-c856-4b46-ba35-6953c835c588:1",
+    "assembledContextHash": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d",
+    "assembledAt": "2026-11-16T17:22:20.910Z",
+    "messageDispatchedAt": "2026-11-16T17:22:22.835Z",
+    "checkpointResumedAt": null,
+    "inheritedMessageDispatchAttemptId": null
+  },
+  "journal": [
+    {
+      "seq": 1,
+      "kind": "assembled",
+      "attemptId": "33945939-c856-4b46-ba35-6953c835c588:1",
+      "occurredAt": "2026-11-16T17:22:20.910Z",
+      "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+      "assembledContextHash": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d"
+    },
+    {
+      "seq": 2,
+      "kind": "message-dispatch-observed",
+      "attemptId": "33945939-c856-4b46-ba35-6953c835c588:1",
+      "occurredAt": "2026-11-16T17:22:22.835Z",
+      "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+      "assembledContextHash": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d"
+    }
+  ],
+  "dispatchObservationCount": 1,
+  "resumeObservationCount": 0,
+  "serverDispatchObservationMatchesFrozenBlock": true,
+  "independentReceiptProvided": true,
+  "supplierConsumptionProvenByAudit": false,
+  "studentResearchValidityProven": false,
+  "rawStudentTextIncluded": false,
+  "privateConfigurationIncluded": false,
+  "databaseReadOnly": true,
+  "modelRequestsSent": 0,
+  "dataWrites": 0
+}

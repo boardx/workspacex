@@ -300,7 +300,7 @@ export default defineConfig({
   testDir: "./e2e",
   // Real AIDT Agent acceptance owns an external, explicitly opted-in supplier stack.
   // Keep this exact file out of the deterministic supplier-fixture lane.
-  testIgnore: ["**/aidt-v2-student-journey.spec.ts", "**/aidt-v2-courses.spec.ts", "**/aidt-v2-context-prepared.spec.ts", "**/aidt-v2-completion.spec.ts", "**/aidt-v2-deliverables.spec.ts", "**/aidt-v2-s2-supplement.spec.ts"],
+  testIgnore: ["**/aidt-v2-student-journey.spec.ts", "**/aidt-v2-courses.spec.ts", "**/aidt-v2-context-prepared.spec.ts", "**/aidt-v2-completion.spec.ts", "**/aidt-v2-completion-continuation.spec.ts", "**/aidt-v2-deliverables.spec.ts", "**/aidt-v2-s2-supplement.spec.ts", "**/aidt-native-draft-zero.spec.ts", "**/aidt-member-existing-zero.spec.ts"],
   /**
    * #3002 —— **每条 journey 必须有自己的 outputDir**，否则 CI 上取不到失败产物。
    *

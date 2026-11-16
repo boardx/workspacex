@@ -1,0 +1,186 @@
+{
+  "kind": "authorized-read-only-real-run-source-audit",
+  "auditedAt": "2026-11-16T17:48:49.433Z",
+  "runId": "f53bc122-fc39-40f5-972a-021467b6190b",
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "threadId": "thr-8bdae538-ab81-4027-9544-8f13c47d6347",
+  "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+  "agentVersionId": "agent-fullstack-20261117-01-7d265647426d-v1",
+  "runStatus": "succeeded",
+  "restoredResourceBinding": null,
+  "oldProtection": null,
+  "currentProjectStatus": "active",
+  "selector": {
+    "schemaVersion": 1,
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 2
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 4
+  },
+  "focus": {
+    "skillId": "skill-b13563c8-e8c1-4bf5-8a55-279bac7b0d99",
+    "skillVersionId": "skill-version-23c32971-5995-4ca2-8a3c-0df38de4e13d",
+    "skillStableName": "aidt-ideate",
+    "title": "创意发散"
+  },
+  "approvedPackage": {
+    "packId": "aidt-methods",
+    "packVersion": "1.3.0",
+    "packageDigest": "1a1b5dd8854e6b51aa8e4daeb7e3318e3d328fad630a52af40034adf2ea7803d"
+  },
+  "hashes": {
+    "selector": "230fc8abb0765e6516efae572236bffd78036a19a48aca75ae75aee2e213a1bb",
+    "snapshot": "d2afd3731f1531849ed7f49b6a042c2b0adb424f424a69a25c9899414388a41f",
+    "block": "58a87e004bfeddd4ae4c766c10132efc6923cb9bb8dfdbfc842e0ba88b9a547d"
+  },
+  "canonicalHashesMatch": true,
+  "persistedHumanTextHash": "480a59bcefe0a5efeb67cd0882661618f229b57824016671edce70b0a2b6d635",
+  "persistedHumanMatchesExpected": true,
+  "exactSources": [
+    {
+      "kind": "stage",
+      "stageId": 4,
+      "revision": 2,
+      "currentHeadRevision": 3,
+      "selectedIsCurrentHead": false,
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:45:50.464Z",
+      "contentHash": "d222ea73b2b5d066e4b640cb200ee176ea5228556ff4e08403b80e6044614131",
+      "excerptHash": "9ebe8ea078bb2e5619d50f1d3d8421267e46c8133a766f186d0f0307a625299d",
+      "excerptUtf8Bytes": 2569,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "kind": "stage",
+      "stageId": 1,
+      "revision": 2,
+      "currentHeadRevision": 2,
+      "selectedIsCurrentHead": true,
+      "sourceStageRevisions": [],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:22:51.127Z",
+      "contentHash": "a026f18ad1d4143c4a678acb88e556b86eb096e561e8c481115bb9819ad36e05",
+      "excerptHash": "5b2343721a63a2dc17725044faa936dcec5044b9814e5ae714728e66861134d0",
+      "excerptUtf8Bytes": 3255,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "kind": "stage",
+      "stageId": 2,
+      "revision": 4,
+      "currentHeadRevision": 4,
+      "selectedIsCurrentHead": true,
+      "sourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:34:31.051Z",
+      "contentHash": "9ffc4d0afe880e4d4174da8678e5c01969445facee233a7bd7b1013f554bbf67",
+      "excerptHash": "023536eca1d6c8df765d4bd0849debce04ed2cf4041522908b02ea64dad24060",
+      "excerptUtf8Bytes": 4128,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "kind": "stage",
+      "stageId": 3,
+      "revision": 2,
+      "currentHeadRevision": 2,
+      "selectedIsCurrentHead": true,
+      "sourceStageRevisions": [
+        {
+          "stageId": 2,
+          "revision": 4
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:41:04.815Z",
+      "contentHash": "9371c2e32d9cc96ee1b92af3ccc7e09efc8f46339a07dff4dc4916ba8ad59786",
+      "excerptHash": "29d77b446580c2e70fbb667a60ce8de138f04b3651544ad6e2901ef576c16921",
+      "excerptUtf8Bytes": 1027,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    }
+  ],
+  "omissions": [
+    {
+      "kind": "personal-artifacts-not-included"
+    },
+    {
+      "kind": "original-file-bytes-not-read"
+    },
+    {
+      "kind": "teacher-comments-no-source"
+    },
+    {
+      "kind": "lineage-unknown"
+    }
+  ],
+  "truncated": false,
+  "application": {
+    "state": "message-dispatch-observed",
+    "attemptId": "f53bc122-fc39-40f5-972a-021467b6190b:1",
+    "assembledContextHash": "58a87e004bfeddd4ae4c766c10132efc6923cb9bb8dfdbfc842e0ba88b9a547d",
+    "assembledAt": "2026-11-16T17:45:51.488Z",
+    "messageDispatchedAt": "2026-11-16T17:45:51.567Z",
+    "checkpointResumedAt": null,
+    "inheritedMessageDispatchAttemptId": null
+  },
+  "journal": [
+    {
+      "seq": 1,
+      "kind": "assembled",
+      "attemptId": "f53bc122-fc39-40f5-972a-021467b6190b:1",
+      "occurredAt": "2026-11-16T17:45:51.488Z",
+      "snapshotHash": "d2afd3731f1531849ed7f49b6a042c2b0adb424f424a69a25c9899414388a41f",
+      "assembledContextHash": "58a87e004bfeddd4ae4c766c10132efc6923cb9bb8dfdbfc842e0ba88b9a547d"
+    },
+    {
+      "seq": 2,
+      "kind": "message-dispatch-observed",
+      "attemptId": "f53bc122-fc39-40f5-972a-021467b6190b:1",
+      "occurredAt": "2026-11-16T17:45:51.567Z",
+      "snapshotHash": "d2afd3731f1531849ed7f49b6a042c2b0adb424f424a69a25c9899414388a41f",
+      "assembledContextHash": "58a87e004bfeddd4ae4c766c10132efc6923cb9bb8dfdbfc842e0ba88b9a547d"
+    }
+  ],
+  "dispatchObservationCount": 1,
+  "resumeObservationCount": 0,
+  "serverDispatchObservationMatchesFrozenBlock": true,
+  "independentReceiptProvided": true,
+  "supplierConsumptionProvenByAudit": false,
+  "studentResearchValidityProven": false,
+  "rawStudentTextIncluded": false,
+  "privateConfigurationIncluded": false,
+  "databaseReadOnly": true,
+  "modelRequestsSent": 0,
+  "dataWrites": 0
+}

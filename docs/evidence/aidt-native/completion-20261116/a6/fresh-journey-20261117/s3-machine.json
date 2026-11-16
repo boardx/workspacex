@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "phase": "s3",
+  "browserExitCode": 0,
+  "browserDurationSeconds": 208.8,
+  "actualRunId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "threadId": "thr-bd633b91-f9f9-4805-a0eb-57242bee0004",
+  "mechanicalIntegrationPassed": true,
+  "teachingQuality": "pending-independent-review",
+  "performanceConcern": "long runtime, high physical request count; independent owner accounting pending",
+  "cancelPosted": false,
+  "manualFallback": false,
+  "beforeRevision": 1,
+  "afterRevision": 2,
+  "freshLoginExactReadback": true,
+  "selector": {
+    "schemaVersion": 1,
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 3,
+        "revision": 1
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 3
+  },
+  "sourceReceipt": {
+    "runId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "purpose": "stage",
+    "stageId": 3,
+    "skillVersionId": "skill-version-fbf0adea-14c5-4187-8bc9-475a7963e904",
+    "snapshotHash": "777d2d23847fbf7aec9f89272e49eb1a893ee938e9bf8f3fde4fe9a30f0337e2",
+    "preparedAt": "2026-11-16T17:37:42.080Z",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 3,
+        "revision": 1
+      }
+    ],
+    "historyRevisions": [],
+    "omissions": [
+      {
+        "kind": "personal-artifacts-not-included"
+      },
+      {
+        "kind": "original-file-bytes-not-read"
+      },
+      {
+        "kind": "teacher-comments-no-source"
+      },
+      {
+        "kind": "lineage-unknown"
+      }
+    ],
+    "truncated": false,
+    "application": {
+      "state": "message-dispatch-observed",
+      "attemptId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67:1",
+      "assembledContextHash": "794f54d3754ff44d64fe7df8b77ee1cede890de1d73a40fc60e2898033383e28",
+      "assembledAt": "2026-11-16T17:37:42.179Z",
+      "messageDispatchedAt": "2026-11-16T17:37:42.259Z",
+      "checkpointResumedAt": null,
+      "inheritedMessageDispatchAttemptId": null
+    }
+  },
+  "humanInputSha256": "b8b70b06ebce50575607dbc0a042348006353070863508c733f9ce16ed7c1603",
+  "ordinaryStudentModelPermissionProven": false,
+  "oldThreeJournalsUnchanged": true
+}

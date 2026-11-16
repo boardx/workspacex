@@ -1,0 +1,378 @@
+{
+  "mode": "actual-production-browser-with-explicit-pre-server-transport-abort",
+  "actualBrowser": true,
+  "source": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+  "buildId": "HpTdw6E9Fzu6NgYyCuctM",
+  "result": "1 passed",
+  "caseDurationSeconds": 5.4,
+  "totalDurationSeconds": 6.7,
+  "testRetries": 0,
+  "ordinaryStudentPermissionProven": false,
+  "actorSelection": "root authorized explicit existing seeded fundedAdmin; no fallback to consultant",
+  "timelineBrowserCovered": false,
+  "providerOrTeachingSuccessProven": false,
+  "ownerIndependentRunPhysicalAudit": {
+    "evidence": "../a1/a4-attempt02-zero-model.json",
+    "readOnly": true,
+    "dedicatedThreadMessages": 0,
+    "dedicatedThreadRuns": 0,
+    "dedicatedThreadPhysical": 0,
+    "orgRuns": 0,
+    "orgPhysical": 0,
+    "orgUsage": 0,
+    "orgCredits": 0,
+    "orgActive": 0,
+    "walletBalance": "20000.00",
+    "holds": 0,
+    "oldThreeLedgerHashesUnchanged": true,
+    "browserSdkAttemptsAborted": 3,
+    "newActualModelRunClaimed": false
+  },
+  "evidence": {
+    "zero-cost-native-draft-and-member-ui": {
+      "zeroWindow": {
+        "source": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+        "proofSha256": "3387f42b79cf0b82d23de6c94dcd13e3d59213df6ad3e592b89815c59179a883"
+      },
+      "actor": {
+        "userId": "user-fullstack-admin-20261117-01-7d265647426d",
+        "orgId": "org-fullstack-20261117-01-7d265647426d",
+        "orgRole": "admin"
+      },
+      "ordinaryStudentPermissionProven": false,
+      "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+      "threadId": "thr-3a1b53cd-2619-4c18-a067-a474b9c65f59",
+      "transportFailureInjection": "page.route abort before server; no fake response or canonical event",
+      "blockedPaths": [
+        "/api/copilotkit/agent/default/run",
+        "/api/copilotkit/agent/default/run",
+        "/api/copilotkit/agent/default/run"
+      ],
+      "first": {
+        "clientMessageId": "da064946-0c72-4e66-bb9a-3e530e90e457",
+        "threadId": "thr-3a1b53cd-2619-4c18-a067-a474b9c65f59",
+        "attachmentIds": [
+          "att-03b24b56-6d0c-453a-a8b9-17abc0236256"
+        ],
+        "selector": {
+          "schemaVersion": 1,
+          "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+          "stageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 1
+            }
+          ],
+          "purpose": "stage",
+          "stageId": 1
+        },
+        "lastUserText": "A：请讨论这份合成材料；这是浏览器网络故障注入，不是模型验收。"
+      },
+      "retried": {
+        "clientMessageId": "da064946-0c72-4e66-bb9a-3e530e90e457",
+        "threadId": "thr-3a1b53cd-2619-4c18-a067-a474b9c65f59",
+        "attachmentIds": [
+          "att-03b24b56-6d0c-453a-a8b9-17abc0236256"
+        ],
+        "selector": {
+          "schemaVersion": 1,
+          "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+          "stageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 1
+            }
+          ],
+          "purpose": "stage",
+          "stageId": 1
+        },
+        "lastUserText": "A：请讨论这份合成材料；这是浏览器网络故障注入，不是模型验收。"
+      },
+      "fresh": {
+        "clientMessageId": "cb8caebf-e52a-4e58-8487-d975273ce96c",
+        "threadId": "thr-3a1b53cd-2619-4c18-a067-a474b9c65f59",
+        "attachmentIds": [
+          "att-76154d9d-71cd-4416-8ea6-6b5247033a06"
+        ],
+        "selector": {
+          "schemaVersion": 1,
+          "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+          "stageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 1
+            }
+          ],
+          "purpose": "stage",
+          "stageId": 1
+        },
+        "lastUserText": "B：学生明确发送新观察，不替换失败A。"
+      },
+      "wire": [
+        {
+          "selectorCoordinates": {
+            "schemaVersion": 1,
+            "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+            "stageRevisions": [
+              {
+                "stageId": 1,
+                "revision": 1
+              }
+            ],
+            "purpose": "stage",
+            "stageId": 1
+          },
+          "coordinatesOnly": true,
+          "topLevelKeys": [
+            "context",
+            "forwardedProps",
+            "messages",
+            "runId",
+            "state",
+            "threadId",
+            "tools"
+          ],
+          "messages": [
+            {
+              "index": 0,
+              "role": "user",
+              "hasSavedMarker": false,
+              "mentionsMountedSkill": false
+            }
+          ],
+          "context": [
+            {
+              "index": 0,
+              "descriptionIsAidt": false,
+              "descriptionLength": 49,
+              "hasSavedMarker": false
+            }
+          ],
+          "savedMarkerLocations": [
+            {
+              "stageId": 1,
+              "field": "initial",
+              "locations": []
+            }
+          ],
+          "mountedSkillLocations": [],
+          "rawValuesRetained": false
+        },
+        {
+          "selectorCoordinates": {
+            "schemaVersion": 1,
+            "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+            "stageRevisions": [
+              {
+                "stageId": 1,
+                "revision": 1
+              }
+            ],
+            "purpose": "stage",
+            "stageId": 1
+          },
+          "coordinatesOnly": true,
+          "topLevelKeys": [
+            "context",
+            "forwardedProps",
+            "messages",
+            "runId",
+            "state",
+            "threadId",
+            "tools"
+          ],
+          "messages": [
+            {
+              "index": 0,
+              "role": "user",
+              "hasSavedMarker": false,
+              "mentionsMountedSkill": false
+            }
+          ],
+          "context": [
+            {
+              "index": 0,
+              "descriptionIsAidt": false,
+              "descriptionLength": 49,
+              "hasSavedMarker": false
+            }
+          ],
+          "savedMarkerLocations": [
+            {
+              "stageId": 1,
+              "field": "initial",
+              "locations": []
+            }
+          ],
+          "mountedSkillLocations": [],
+          "rawValuesRetained": false
+        },
+        {
+          "selectorCoordinates": {
+            "schemaVersion": 1,
+            "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+            "stageRevisions": [
+              {
+                "stageId": 1,
+                "revision": 1
+              }
+            ],
+            "purpose": "stage",
+            "stageId": 1
+          },
+          "coordinatesOnly": true,
+          "topLevelKeys": [
+            "context",
+            "forwardedProps",
+            "messages",
+            "runId",
+            "state",
+            "threadId",
+            "tools"
+          ],
+          "messages": [
+            {
+              "index": 0,
+              "role": "user",
+              "hasSavedMarker": false,
+              "mentionsMountedSkill": false
+            },
+            {
+              "index": 1,
+              "role": "user",
+              "hasSavedMarker": false,
+              "mentionsMountedSkill": false
+            }
+          ],
+          "context": [
+            {
+              "index": 0,
+              "descriptionIsAidt": false,
+              "descriptionLength": 49,
+              "hasSavedMarker": false
+            }
+          ],
+          "savedMarkerLocations": [
+            {
+              "stageId": 1,
+              "field": "initial",
+              "locations": []
+            }
+          ],
+          "mountedSkillLocations": [],
+          "rawValuesRetained": false
+        }
+      ],
+      "before": {
+        "messages": 0,
+        "canonicalRunIdsFromMessages": []
+      },
+      "after": {
+        "messages": 0,
+        "canonicalRunIdsFromMessages": []
+      },
+      "savedStageRevisionUnchanged": 1,
+      "member": {
+        "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+        "fromStep": 1,
+        "toStep": 2,
+        "root": {
+          "id": "b4f2c267-0e9f-4a36-8ccc-2a83900103cf",
+          "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+          "sequence": 1,
+          "authorId": "user-fullstack-admin-20261117-01-7d265647426d",
+          "clientMessageId": "ddb051e9-44d0-4651-9b7c-01d314d1f61a",
+          "text": "自动化成员文字验收 be12b53f-0780-48dc-8c1d-1b9f1f92ece8：请同组讨论访谈分工；不是实际访谈证据。",
+          "threadRootId": null,
+          "stageReference": null,
+          "createdAt": "2026-11-16T17:19:56.061Z"
+        },
+        "reply": {
+          "id": "05595f30-7f4f-4d59-a479-be50faa46b65",
+          "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+          "sequence": 2,
+          "authorId": "user-fullstack-admin-20261117-01-7d265647426d",
+          "clientMessageId": "14fbaa17-4316-4142-a9df-1f2290df3445",
+          "text": "自动化话题回复 be12b53f-0780-48dc-8c1d-1b9f1f92ece8：只回复此条分工消息；不是 AI 任务。",
+          "threadRootId": "b4f2c267-0e9f-4a36-8ccc-2a83900103cf",
+          "stageReference": null,
+          "createdAt": "2026-11-16T17:19:56.225Z"
+        },
+        "uniqueClientMessageCounts": {
+          "root": 1,
+          "reply": 1
+        },
+        "exactRequestReplay": true,
+        "channelDraftRestored": true,
+        "topicDraftRestored": true,
+        "draftPersistenceScope": "same authenticated page session; no reload or browser restart",
+        "generationRequestPaths": []
+      },
+      "nativeBrowserRequestsReachedServer": false,
+      "serverAcceptedRunAudit": "pending independent A1 tenant-scoped read-only SQL; no thread run-list GET exists",
+      "timelineBrowserRetryTested": false,
+      "timelineCoverage": "controlled React regression only",
+      "actualModelOrTeachingSuccessClaimed": false
+    },
+    "zero-cost-exit-state": {
+      "phase": "completed",
+      "actor": {
+        "userId": "user-fullstack-admin-20261117-01-7d265647426d",
+        "orgId": "org-fullstack-20261117-01-7d265647426d",
+        "orgRole": "admin"
+      },
+      "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+      "threadId": "thr-3a1b53cd-2619-4c18-a067-a474b9c65f59",
+      "zeroWindow": {
+        "source": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+        "proofSha256": "3387f42b79cf0b82d23de6c94dcd13e3d59213df6ad3e592b89815c59179a883"
+      },
+      "blockedPaths": [
+        "/api/copilotkit/agent/default/run",
+        "/api/copilotkit/agent/default/run",
+        "/api/copilotkit/agent/default/run"
+      ],
+      "requestFailures": [
+        {
+          "path": "/api/copilotkit/agent/default/run",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "path": "/api/copilotkit/agent/default/run",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "path": "/api/copilotkit/agent/default/run",
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "canonicalRead": {
+        "status": 200,
+        "messages": 0,
+        "canonicalRunIds": []
+      },
+      "nativeUi": {
+        "error": [],
+        "nativeInput": "",
+        "canonicalReceiptCount": 0
+      },
+      "interceptedSdkRuns": 3,
+      "generationReachedServerClaimed": false,
+      "independentOwnerRunsAndPhysicalAudit": "required separately; browser does not have a thread-run-list API"
+    },
+    "zero-cost-pending-file-cleanup": {
+      "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+      "threadId": "thr-3a1b53cd-2619-4c18-a067-a474b9c65f59",
+      "cleanup": [
+        {
+          "id": "att-03b24b56-6d0c-453a-a8b9-17abc0236256",
+          "status": 204
+        },
+        {
+          "id": "att-76154d9d-71cd-4416-8ea6-6b5247033a06",
+          "status": 204
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,345 @@
+{
+  "observedAt": "2026-11-16T18:39:17.598Z",
+  "completed": true,
+  "scope": "aidt-fresh-20261117-01-7d265647426d",
+  "composeProject": "wsx-7d265647426dca4af043",
+  "ownerExecSession": 18308,
+  "ownerExecExitCode": 0,
+  "normalOwnerStop": true,
+  "sharedProcessGroupKillUsed": false,
+  "resources": {
+    "containers": 0,
+    "volumes": 0,
+    "networks": 0
+  },
+  "ports": [
+    {
+      "key": "PGPORT",
+      "port": 20455,
+      "bindable": true
+    },
+    {
+      "key": "REDIS_PORT",
+      "port": 21455,
+      "bindable": true
+    },
+    {
+      "key": "MINIO_PORT",
+      "port": 22455,
+      "bindable": true
+    },
+    {
+      "key": "MINIO_CONSOLE_PORT",
+      "port": 23455,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_API_PORT",
+      "port": 24455,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_WEB_PORT",
+      "port": 25455,
+      "bindable": true
+    },
+    {
+      "key": "SKILL_SANDBOX_PORT",
+      "port": 26455,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_MODEL_PROVIDER_PORT",
+      "port": 27455,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_DEEP_AGENT_PROVIDER_PORT",
+      "port": 28455,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_ASR_PROVIDER_PORT",
+      "port": 29455,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_VISION_PROVIDER_PORT",
+      "port": 30455,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_LOOPBACK_SANDBOX_PORT",
+      "port": 31455,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_MAIL_PROVIDER_PORT",
+      "port": 19455,
+      "bindable": true
+    }
+  ],
+  "portLeaseCount": 13,
+  "all13PortLeasesReleased": true,
+  "stackSlotCount": 1,
+  "allOwnedStackSlotsReleased": true,
+  "observedOwnedProcessCount": 33,
+  "allObservedOwnedProcessesStopped": true,
+  "processStatus": [
+    {
+      "pid": 454489,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 381657,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 381595,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 381602,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 381614,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 381630,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 381637,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382109,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 382125,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 382142,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382190,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382203,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382238,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382252,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382265,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382282,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382699,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382715,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 382732,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382841,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382853,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382913,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 384032,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 384097,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 384870,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 384876,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 385591,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 385592,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 385894,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 385928,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 393497,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 381665,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 382665,
+      "state": "Z",
+      "live": false
+    }
+  ],
+  "memoryEvents": {
+    "low": 0,
+    "high": 0,
+    "max": 41642,
+    "oom": 1,
+    "oom_kill": 1,
+    "oom_group_kill": 0
+  },
+  "noNewOOMSincePreCleanup": true,
+  "privateBackupPath": "/workspace/scratch/aidt-private-diagnostics-20261117/fresh-acceptance-final-20261116T183031727Z",
+  "backupDumpSha256": "2ecfd540d57fcdae4af63c6e79b96c9807f86180ce601d14fb32b34f2b5e466c",
+  "backupNotRestored": true,
+  "safeZeroOutstandingRestoreEligible": false,
+  "financialLastKnown": {
+    "active": 0,
+    "physical": 94,
+    "usage": 94,
+    "credit": 94,
+    "unsettled": 1,
+    "heldhundredths": "6346",
+    "remainingheldhundredths": "6346",
+    "unbounded": "0",
+    "reportedKnownTokens": "780085",
+    "unknownUsageCount": 1,
+    "settledCreditCount": 93,
+    "pendingCreditCount": 1
+  },
+  "closingWallet": {
+    "balance": "19219.49",
+    "heldHundredths": "6346",
+    "remainingHeldHundredths": "6346",
+    "unboundedRequests": 0,
+    "source": "fully verified private credit_wallets COPY matches live"
+  },
+  "unresolvedRequestId": "47f715ad-fd4d-4bb5-8f1f-48ea8f368e8c",
+  "exactTotalTokensKnown": false,
+  "knownReportedTokens": "780085",
+  "unknownUsageCount": 1,
+  "budgetAndStateHashes": [
+    {
+      "key": "legacy",
+      "sha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "supplementS1",
+      "sha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "supplementS2",
+      "sha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "nativeFresh",
+      "sha256": "6075b11d41d6a2c4989ab7ee7173cb367e7fd67ce5b9e879c0b036a5d61b578c",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "designFresh",
+      "sha256": "76d40fcc66da7148ece5521c3f05d1ebcd3b106dfcf47f3e069bc7a62996ee19",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "journeyFresh",
+      "sha256": "ed1900edbe44e6e166169ce2f249af98fef1815ad5f0f85f7b3a3332c1e5f8af",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "designState",
+      "sha256": "0a3f45d6c77260a78764a6ccfb073e9a9b3688492a262934ba894e58d3fde78a",
+      "unchanged": true,
+      "privateCopyExact": true
+    }
+  ],
+  "uploadedConfigExists": true,
+  "uploadedConfigMode": "0600",
+  "uploadedConfigCopiedToBackup": false,
+  "sharedObjectRootDeleted": false,
+  "sourceObjectsRetained": true,
+  "modelRequestsSentByResourceOwner": 0,
+  "modelRequestsByExternalAcceptance": 94,
+  "metadataUpdatedWithoutFinancialMutation": true
+}

@@ -1,0 +1,637 @@
+{
+  "native-wire-shape-aidt-understand": {
+    "selectorCoordinates": {
+      "schemaVersion": 1,
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 1
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 1
+    },
+    "coordinatesOnly": true,
+    "topLevelKeys": [
+      "context",
+      "forwardedProps",
+      "messages",
+      "runId",
+      "state",
+      "threadId",
+      "tools"
+    ],
+    "messages": [
+      {
+        "index": 0,
+        "role": "user",
+        "hasSavedMarker": false,
+        "mentionsMountedSkill": false
+      }
+    ],
+    "context": [
+      {
+        "index": 0,
+        "descriptionIsAidt": false,
+        "descriptionLength": 49,
+        "hasSavedMarker": false
+      }
+    ],
+    "savedMarkerLocations": [
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      }
+    ],
+    "mountedSkillLocations": [],
+    "rawValuesRetained": false
+  },
+  "completion-s1-actual-agent-turn": {
+    "threadId": "thr-889c9de9-4008-4228-809b-ea1ddc230f50",
+    "skillId": "skill-3f0aa7c0-1f98-42e8-9445-8f983acdb982",
+    "runId": "33945939-c856-4b46-ba35-6953c835c588",
+    "agentId": "agent-fullstack-20261117-01-7d265647426d",
+    "modelProvider": "deep-agent",
+    "modelId": "qwen3.8-max",
+    "agentVersionId": "agent-fullstack-20261117-01-7d265647426d-v1",
+    "skillVersionIds": [
+      "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53"
+    ],
+    "sawRunning": true,
+    "studentInput": "本组正在第1步提出问题。学生输入与来源已保存，均为合成课堂猜测。请先核对本步已保存材料，只追问一个帮助学生澄清问题来源的问题；不替学生确认、保存或声称已采访，不生成原型或文件。",
+    "assistantMessageId": "3e6438b1-d9a9-4767-8f1e-9f4956431d44",
+    "assistantText": "我核对了你们已保存的材料：\n\n- **活动**：了解寻找取餐区与理解分区牌的过程\n- **初始想法**：如何让新同学理解食堂取餐指示（合成课堂练习）\n- **关注人群**：首次到此食堂的新同学\n- **场景**：食堂取餐区入口阅读区域提示并寻找取餐位置\n- **问题来源**：guess（合成课堂中的学生猜测）\n- **已知缺口**：困惑是否存在、发生在哪里，都还不知道；没有实际观察或访谈原话\n\n材料里已经诚实地标出了\"这只是猜测\"，这是很好的起点。按照本步流程，在拆解挑战之前，我们需要先回看这个命题是从哪里来的。\n\n所以我想请小组讨论这一个问题：\n\n**你们写下\"新同学看不懂分区牌\"这个猜测时，它具体来自什么？**\n\n比如可以从下面几个方向想一想（可以多选，也可以补充别的）：\n- 是组里某位同学自己第一次来这个食堂时真的迷路过？\n- 还是听其他同学抱怨过\"找不到窗口\"？\n- 或者只是大家坐在教室里觉得\"如果我是新生，大概会搞不清\"？\n\n请先每位成员安静想一下自己的依据，再轮流说一说。我们不需要现在就证明这个问题一定存在，但需要把\"我们到底看到了什么、听到了什么、还是只是在假设\"分清楚，还没弄清楚的部分就如实记为\"待讨论\"。",
+    "syntheticInput": true,
+    "stageSavedByAgent": false,
+    "selectorCoordinates": {
+      "schemaVersion": 1,
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 1
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 1
+    },
+    "sourceReceipt": {
+      "runId": "33945939-c856-4b46-ba35-6953c835c588",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "purpose": "stage",
+      "stageId": 1,
+      "skillVersionId": "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53",
+      "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+      "preparedAt": "2026-11-16T17:22:20.804Z",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 1
+        }
+      ],
+      "historyRevisions": [],
+      "omissions": [
+        {
+          "kind": "personal-artifacts-not-included"
+        },
+        {
+          "kind": "original-file-bytes-not-read"
+        },
+        {
+          "kind": "teacher-comments-no-source"
+        },
+        {
+          "kind": "lineage-unknown"
+        }
+      ],
+      "truncated": false,
+      "application": {
+        "state": "message-dispatch-observed",
+        "attemptId": "33945939-c856-4b46-ba35-6953c835c588:1",
+        "assembledContextHash": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d",
+        "assembledAt": "2026-11-16T17:22:20.910Z",
+        "messageDispatchedAt": "2026-11-16T17:22:22.835Z",
+        "checkpointResumedAt": null,
+        "inheritedMessageDispatchAttemptId": null
+      }
+    },
+    "uiReceipt": {
+      "runId": "33945939-c856-4b46-ba35-6953c835c588",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "purpose": "stage",
+      "stageId": 1,
+      "skillVersionId": "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53",
+      "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+      "preparedAt": "2026-11-16T17:22:20.804Z",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 1
+        }
+      ],
+      "historyRevisions": [],
+      "omissions": [
+        {
+          "kind": "personal-artifacts-not-included"
+        },
+        {
+          "kind": "original-file-bytes-not-read"
+        },
+        {
+          "kind": "teacher-comments-no-source"
+        },
+        {
+          "kind": "lineage-unknown"
+        }
+      ],
+      "truncated": false,
+      "application": {
+        "state": "message-dispatch-observed",
+        "attemptId": "33945939-c856-4b46-ba35-6953c835c588:1",
+        "assembledContextHash": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d",
+        "assembledAt": "2026-11-16T17:22:20.910Z",
+        "messageDispatchedAt": "2026-11-16T17:22:22.835Z",
+        "checkpointResumedAt": null,
+        "inheritedMessageDispatchAttemptId": null
+      }
+    },
+    "mountedSkillVersionId": "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53",
+    "wireMetadata": {
+      "selectorCoordinates": {
+        "schemaVersion": 1,
+        "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+        "stageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 1
+          }
+        ],
+        "purpose": "stage",
+        "stageId": 1
+      },
+      "coordinatesOnly": true,
+      "topLevelKeys": [
+        "context",
+        "forwardedProps",
+        "messages",
+        "runId",
+        "state",
+        "threadId",
+        "tools"
+      ],
+      "messages": [
+        {
+          "index": 0,
+          "role": "user",
+          "hasSavedMarker": false,
+          "mentionsMountedSkill": false
+        }
+      ],
+      "context": [
+        {
+          "index": 0,
+          "descriptionIsAidt": false,
+          "descriptionLength": 49,
+          "hasSavedMarker": false
+        }
+      ],
+      "savedMarkerLocations": [
+        {
+          "stageId": 1,
+          "field": "scene",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "people",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "initial",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "activity",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "sourceDetails",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "whyWorthStudying",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "sourceUncertainty",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "scene",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "people",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "initial",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "activity",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "sourceDetails",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "whyWorthStudying",
+          "locations": []
+        },
+        {
+          "stageId": 1,
+          "field": "sourceUncertainty",
+          "locations": []
+        }
+      ],
+      "mountedSkillLocations": [],
+      "rawValuesRetained": false
+    },
+    "modelActorRole": "funded-admin-technical",
+    "studentPermissionProvenByModelRun": false,
+    "intentChoices": []
+  },
+  "completion-s1": {
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "turn": {
+      "threadId": "thr-889c9de9-4008-4228-809b-ea1ddc230f50",
+      "skillId": "skill-3f0aa7c0-1f98-42e8-9445-8f983acdb982",
+      "runId": "33945939-c856-4b46-ba35-6953c835c588",
+      "agentId": "agent-fullstack-20261117-01-7d265647426d",
+      "modelProvider": "deep-agent",
+      "modelId": "qwen3.8-max",
+      "agentVersionId": "agent-fullstack-20261117-01-7d265647426d-v1",
+      "skillVersionIds": [
+        "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53"
+      ],
+      "sawRunning": true,
+      "studentInput": "本组正在第1步提出问题。学生输入与来源已保存，均为合成课堂猜测。请先核对本步已保存材料，只追问一个帮助学生澄清问题来源的问题；不替学生确认、保存或声称已采访，不生成原型或文件。",
+      "assistantMessageId": "3e6438b1-d9a9-4767-8f1e-9f4956431d44",
+      "assistantText": "我核对了你们已保存的材料：\n\n- **活动**：了解寻找取餐区与理解分区牌的过程\n- **初始想法**：如何让新同学理解食堂取餐指示（合成课堂练习）\n- **关注人群**：首次到此食堂的新同学\n- **场景**：食堂取餐区入口阅读区域提示并寻找取餐位置\n- **问题来源**：guess（合成课堂中的学生猜测）\n- **已知缺口**：困惑是否存在、发生在哪里，都还不知道；没有实际观察或访谈原话\n\n材料里已经诚实地标出了\"这只是猜测\"，这是很好的起点。按照本步流程，在拆解挑战之前，我们需要先回看这个命题是从哪里来的。\n\n所以我想请小组讨论这一个问题：\n\n**你们写下\"新同学看不懂分区牌\"这个猜测时，它具体来自什么？**\n\n比如可以从下面几个方向想一想（可以多选，也可以补充别的）：\n- 是组里某位同学自己第一次来这个食堂时真的迷路过？\n- 还是听其他同学抱怨过\"找不到窗口\"？\n- 或者只是大家坐在教室里觉得\"如果我是新生，大概会搞不清\"？\n\n请先每位成员安静想一下自己的依据，再轮流说一说。我们不需要现在就证明这个问题一定存在，但需要把\"我们到底看到了什么、听到了什么、还是只是在假设\"分清楚，还没弄清楚的部分就如实记为\"待讨论\"。",
+      "syntheticInput": true,
+      "stageSavedByAgent": false,
+      "selectorCoordinates": {
+        "schemaVersion": 1,
+        "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+        "stageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 1
+          }
+        ],
+        "purpose": "stage",
+        "stageId": 1
+      },
+      "sourceReceipt": {
+        "runId": "33945939-c856-4b46-ba35-6953c835c588",
+        "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+        "purpose": "stage",
+        "stageId": 1,
+        "skillVersionId": "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53",
+        "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+        "preparedAt": "2026-11-16T17:22:20.804Z",
+        "stageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 1
+          }
+        ],
+        "historyRevisions": [],
+        "omissions": [
+          {
+            "kind": "personal-artifacts-not-included"
+          },
+          {
+            "kind": "original-file-bytes-not-read"
+          },
+          {
+            "kind": "teacher-comments-no-source"
+          },
+          {
+            "kind": "lineage-unknown"
+          }
+        ],
+        "truncated": false,
+        "application": {
+          "state": "message-dispatch-observed",
+          "attemptId": "33945939-c856-4b46-ba35-6953c835c588:1",
+          "assembledContextHash": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d",
+          "assembledAt": "2026-11-16T17:22:20.910Z",
+          "messageDispatchedAt": "2026-11-16T17:22:22.835Z",
+          "checkpointResumedAt": null,
+          "inheritedMessageDispatchAttemptId": null
+        }
+      },
+      "uiReceipt": {
+        "runId": "33945939-c856-4b46-ba35-6953c835c588",
+        "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+        "purpose": "stage",
+        "stageId": 1,
+        "skillVersionId": "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53",
+        "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+        "preparedAt": "2026-11-16T17:22:20.804Z",
+        "stageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 1
+          }
+        ],
+        "historyRevisions": [],
+        "omissions": [
+          {
+            "kind": "personal-artifacts-not-included"
+          },
+          {
+            "kind": "original-file-bytes-not-read"
+          },
+          {
+            "kind": "teacher-comments-no-source"
+          },
+          {
+            "kind": "lineage-unknown"
+          }
+        ],
+        "truncated": false,
+        "application": {
+          "state": "message-dispatch-observed",
+          "attemptId": "33945939-c856-4b46-ba35-6953c835c588:1",
+          "assembledContextHash": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d",
+          "assembledAt": "2026-11-16T17:22:20.910Z",
+          "messageDispatchedAt": "2026-11-16T17:22:22.835Z",
+          "checkpointResumedAt": null,
+          "inheritedMessageDispatchAttemptId": null
+        }
+      },
+      "mountedSkillVersionId": "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53",
+      "wireMetadata": {
+        "selectorCoordinates": {
+          "schemaVersion": 1,
+          "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+          "stageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 1
+            }
+          ],
+          "purpose": "stage",
+          "stageId": 1
+        },
+        "coordinatesOnly": true,
+        "topLevelKeys": [
+          "context",
+          "forwardedProps",
+          "messages",
+          "runId",
+          "state",
+          "threadId",
+          "tools"
+        ],
+        "messages": [
+          {
+            "index": 0,
+            "role": "user",
+            "hasSavedMarker": false,
+            "mentionsMountedSkill": false
+          }
+        ],
+        "context": [
+          {
+            "index": 0,
+            "descriptionIsAidt": false,
+            "descriptionLength": 49,
+            "hasSavedMarker": false
+          }
+        ],
+        "savedMarkerLocations": [
+          {
+            "stageId": 1,
+            "field": "scene",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "people",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "initial",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "activity",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "sourceDetails",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "whyWorthStudying",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "sourceUncertainty",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "scene",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "people",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "initial",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "activity",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "sourceDetails",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "whyWorthStudying",
+            "locations": []
+          },
+          {
+            "stageId": 1,
+            "field": "sourceUncertainty",
+            "locations": []
+          }
+        ],
+        "mountedSkillLocations": [],
+        "rawValuesRetained": false
+      },
+      "modelActorRole": "funded-admin-technical",
+      "studentPermissionProvenByModelRun": false,
+      "intentChoices": []
+    },
+    "before": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 1,
+      "revision": 1,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "scene": "食堂取餐区入口，阅读区域提示并寻找取餐位置的情境；没有实际观察。",
+            "people": "合成练习拟关注首次到此食堂的新同学；实际年龄与经验未知。",
+            "initial": "合成课堂练习：如何让新同学理解食堂取餐指示？尚无真人访谈。",
+            "activity": "希望了解寻找取餐区与理解分区牌的过程；困惑是否实际存在仍待讨论。",
+            "sourceDetails": "合成课堂中的学生猜测，没有观察或访谈原话。",
+            "problemSources": "[\"guess\"]",
+            "whyWorthStudying": "学生先写的理由：可能影响初来者理解，但范围尚未核实。",
+            "sourceUncertainty": "困惑是否存在、发生在哪里，都还不知道。",
+            "problemReflectionConfirmed": ""
+          },
+          "ideas": [],
+          "selectedIdeaId": ""
+        }
+      },
+      "sourceStageRevisions": [],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T17:22:19.980Z"
+    },
+    "after": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 1,
+      "revision": 2,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "focus": "学生选择先研究新同学怎样理解取餐区域提示，因为可先听取一次具体经历；没有认定指示牌就是问题成因。",
+            "scene": "食堂取餐区入口，阅读区域提示并寻找取餐位置的情境；没有实际观察。",
+            "people": "合成练习拟关注首次到此食堂的新同学；实际年龄与经验未知。",
+            "initial": "合成课堂练习：如何让新同学理解食堂取餐指示？尚无真人访谈。",
+            "activity": "希望了解寻找取餐区与理解分区牌的过程；困惑是否实际存在仍待讨论。",
+            "discussion": "合成学生讨论记录：一条方向关注静态指示的理解，另一条关注排队流程。当前没有证据比较，先研究前者；后者保留待讨论，不代表真实多人共识。",
+            "assumptions": "新同学可能不理解提示只是猜测；是否困惑、具体原因与人群差异都需要真实研究。",
+            "sourceDetails": "学生审阅后决定：先征求同意，再请新同学描述一次经历。当前只有合成计划，不能称已观察。",
+            "problemSources": "[\"guess\"]",
+            "rewrittenTheme": "学生重写：了解首次到此食堂的新同学在寻找取餐区域时如何理解提示、何处需要澄清。由泛泛改善指示聚焦为理解过程，仍是待研究主题，不是HMW或已证实洞察。",
+            "followupAnswers": "引导师实际回复：我核对了你们已保存的材料：\n\n- **活动**：了解寻找取餐区与理解分区牌的过程\n- **初始想法**：如何让新同学理解食堂取餐指示（合成课堂练习）\n- **关注人群**：首次到此食堂的新同学\n- **场景**：食堂取餐区入口阅读区域提示并寻找取餐位置\n- **问题来源**：guess（合成课堂中的学生猜测）\n- **已知缺口**：困惑是否存在、发生在哪里，都还不知道；没有实际观察或访谈原话\n\n材料里已经诚实地标出了\"这只是猜测\"，这是很好的起点。按照本步流程，在拆解挑战之前，我们需要先回看这个命题是从哪里来的。\n\n所以我想请小组讨论这一个问题：\n\n**你们写下\"新同学看不懂分区牌\"这个猜测时，它具体来自什么？**\n\n比如可以从下面几个方向想一想（可以多选，也可以补充别的）：\n- 是组里某位同学自己第一次来这个食堂时真的迷路过？\n- 还是听其他同学抱怨过\"找不到窗口\"？\n- 或者只是大家坐在教室里觉得\"如果我是新生，大概会搞不清\"？\n\n请先每位成员安静想一下自己的依据，再轮流说一说。我们不需要现在就证明这个问题一定存在，但需要把\"我们到底看到了什么、听到了什么、还是只是在假设\"分清楚，还没弄清楚的部分就如实记为\"待讨论\"。\n学生合成回答：我们没有观察或访谈资料，不能判断困惑是否普遍；先征求同意，请对方讲述一次具体经历，再核对原先猜测。",
+            "whyWorthStudying": "学生先写的理由：可能影响初来者理解，但范围尚未核实。",
+            "sourceUncertainty": "困惑是否存在、发生在哪里，都还不知道。",
+            "problemReflectionConfirmed": "true"
+          },
+          "ideas": [],
+          "selectedIdeaId": ""
+        }
+      },
+      "sourceStageRevisions": [],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T17:22:51.127Z"
+    },
+    "freshLoginExactReadback": true,
+    "synthetic": true,
+    "modelActor": "funded-admin-technical",
+    "ordinaryStudentModelPermissionProven": false,
+    "teachingQuality": "pending-human-review"
+  }
+}

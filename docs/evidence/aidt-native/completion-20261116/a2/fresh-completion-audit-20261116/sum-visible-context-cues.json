@@ -1,0 +1,915 @@
+{
+  "structuredReturnStep2AnywhereInVisibleMaterial": false,
+  "oldS6ReturnReasonExactValueAnywhereInVisibleMaterial": false,
+  "snapshotHash": "ed113aa970db6febc5b5a2b2b1a3abf2da8e74523cfa645cb06b0d1d402ae000",
+  "referenceBlockHash": "cfd31857d4968735d35e10438e238ab35377698a64d00420c29af305bd066912",
+  "referenceBlockUtf8Bytes": 61268,
+  "snapshotTruncated": true,
+  "actualV2VersionIdHash": "0e70ab24c9dc0b3ba78968b0301d623f7db94716582b15a050738221e1f25dd1",
+  "actualV2VersionIdAnywhereInVisibleMaterial": true,
+  "requestedOldS6Revision": 4,
+  "selectedSourcesNotEquivalentToFullVisibleFields": true,
+  "stage6MaterialFacts": [
+    {
+      "kind": "stage",
+      "stageId": 6,
+      "revision": 7,
+      "truncated": true,
+      "excerptHash": "5d1fab87e74ca835a18e6a44c8eb6a8ac2309821c9a4b57cdfdae826a6c4cd68",
+      "excerptUtf8Bytes": 7856,
+      "actualV2VersionIdInThisExcerpt": true,
+      "fields": {
+        "returnStep": {
+          "savedFieldExists": true,
+          "savedValueHash": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+          "savedValueUtf8Bytes": 1,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 16,
+          "encodedFieldCharactersTotal": 16,
+          "savedReturnStep": "5"
+        },
+        "returnReason": {
+          "savedFieldExists": true,
+          "savedValueHash": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+          "savedValueUtf8Bytes": 132,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 69,
+          "encodedFieldCharactersTotal": 69
+        },
+        "nextAction": {
+          "savedFieldExists": true,
+          "savedValueHash": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+          "savedValueUtf8Bytes": 402,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 156,
+          "encodedFieldCharactersTotal": 156
+        },
+        "afterTestBelief": {
+          "savedFieldExists": true,
+          "savedValueHash": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "savedValueUtf8Bytes": 176,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 80,
+          "encodedFieldCharactersTotal": 80
+        },
+        "understandingChangeStatus": {
+          "savedFieldExists": true,
+          "savedValueHash": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "savedValueUtf8Bytes": 9,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 39,
+          "encodedFieldCharactersTotal": 39
+        },
+        "understandingEvidence": {
+          "savedFieldExists": true,
+          "savedValueHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "savedValueUtf8Bytes": 274,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 178,
+          "encodedFieldCharactersTotal": 178
+        },
+        "feedback": {
+          "savedFieldExists": true,
+          "savedValueHash": "9911e2f9ae2704d421280a03c68ace8199ac346d1895b0280cc4cf2907f180ce",
+          "savedValueUtf8Bytes": 122,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 61,
+          "encodedFieldCharactersTotal": 61
+        },
+        "reflection": {
+          "savedFieldExists": true,
+          "savedValueHash": "2921022966fbf2d3e6926d66ae9c08271efa386ae1d818c393b4740e9fd564bd",
+          "savedValueUtf8Bytes": 1007,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 443,
+          "encodedFieldCharactersTotal": 443
+        },
+        "newVersion": {
+          "savedFieldExists": false
+        },
+        "newVersionReference": {
+          "savedFieldExists": false
+        },
+        "newPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeReference": {
+          "savedFieldExists": true,
+          "savedValueHash": "16f5b9b224209bdb12a743862c895be17d6f9e30d0b58e4c7aa1e42adf9b4fd2",
+          "savedValueUtf8Bytes": 398,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 388,
+          "encodedFieldCharactersTotal": 388
+        },
+        "iterationPrototypeRelation": {
+          "savedFieldExists": true,
+          "savedValueHash": "c830cf3bbbabdbb3d2ceebe795667b5b952374eee6c14858dc94e1e363051320",
+          "savedValueUtf8Bytes": 1730,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 1185,
+          "encodedFieldCharactersTotal": 1185
+        },
+        "iterationFeedbackReference": {
+          "savedFieldExists": true,
+          "savedValueHash": "d92fba7f2d9461467ebb80e71d69896b48d13e728454aef0f77a892f3492b651",
+          "savedValueUtf8Bytes": 397,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 266,
+          "encodedFieldCharactersTotal": 266
+        },
+        "iterationChangeReason": {
+          "savedFieldExists": true,
+          "savedValueHash": "5e01677e861cfefbe503576e7be15fe0b7739fad3515d030382090b5749da40d",
+          "savedValueUtf8Bytes": 155,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 79,
+          "encodedFieldCharactersTotal": 79
+        },
+        "prototypeReference": {
+          "savedFieldExists": false
+        },
+        "questionSnapshot": {
+          "savedFieldExists": true,
+          "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+          "savedValueUtf8Bytes": 924,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 579,
+          "encodedFieldCharactersTotal": 579
+        }
+      }
+    },
+    {
+      "kind": "history",
+      "stageId": 6,
+      "revision": 7,
+      "truncated": true,
+      "excerptHash": "7ac716d73753bac4cbc6841337d21f280f12d3611d4b03b573cd099c89d79a44",
+      "excerptUtf8Bytes": 1948,
+      "actualV2VersionIdInThisExcerpt": true,
+      "fields": {
+        "returnStep": {
+          "savedFieldExists": true,
+          "savedValueHash": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+          "savedValueUtf8Bytes": 1,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 16,
+          "savedReturnStep": "5"
+        },
+        "returnReason": {
+          "savedFieldExists": true,
+          "savedValueHash": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+          "savedValueUtf8Bytes": 132,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 69
+        },
+        "nextAction": {
+          "savedFieldExists": true,
+          "savedValueHash": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+          "savedValueUtf8Bytes": 402,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 156
+        },
+        "afterTestBelief": {
+          "savedFieldExists": true,
+          "savedValueHash": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "savedValueUtf8Bytes": 176,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 80,
+          "encodedFieldCharactersTotal": 80
+        },
+        "understandingChangeStatus": {
+          "savedFieldExists": true,
+          "savedValueHash": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "savedValueUtf8Bytes": 9,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 39
+        },
+        "understandingEvidence": {
+          "savedFieldExists": true,
+          "savedValueHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "savedValueUtf8Bytes": 274,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 178
+        },
+        "feedback": {
+          "savedFieldExists": true,
+          "savedValueHash": "9911e2f9ae2704d421280a03c68ace8199ac346d1895b0280cc4cf2907f180ce",
+          "savedValueUtf8Bytes": 122,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 61,
+          "encodedFieldCharactersTotal": 61
+        },
+        "reflection": {
+          "savedFieldExists": true,
+          "savedValueHash": "2921022966fbf2d3e6926d66ae9c08271efa386ae1d818c393b4740e9fd564bd",
+          "savedValueUtf8Bytes": 1007,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 443
+        },
+        "newVersion": {
+          "savedFieldExists": false
+        },
+        "newVersionReference": {
+          "savedFieldExists": false
+        },
+        "newPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeReference": {
+          "savedFieldExists": true,
+          "savedValueHash": "16f5b9b224209bdb12a743862c895be17d6f9e30d0b58e4c7aa1e42adf9b4fd2",
+          "savedValueUtf8Bytes": 398,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 388,
+          "encodedFieldCharactersTotal": 388
+        },
+        "iterationPrototypeRelation": {
+          "savedFieldExists": true,
+          "savedValueHash": "c830cf3bbbabdbb3d2ceebe795667b5b952374eee6c14858dc94e1e363051320",
+          "savedValueUtf8Bytes": 1730,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 301,
+          "encodedFieldCharactersTotal": 1185
+        },
+        "iterationFeedbackReference": {
+          "savedFieldExists": true,
+          "savedValueHash": "d92fba7f2d9461467ebb80e71d69896b48d13e728454aef0f77a892f3492b651",
+          "savedValueUtf8Bytes": 397,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 266,
+          "encodedFieldCharactersTotal": 266
+        },
+        "iterationChangeReason": {
+          "savedFieldExists": true,
+          "savedValueHash": "5e01677e861cfefbe503576e7be15fe0b7739fad3515d030382090b5749da40d",
+          "savedValueUtf8Bytes": 155,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 79,
+          "encodedFieldCharactersTotal": 79
+        },
+        "prototypeReference": {
+          "savedFieldExists": false
+        },
+        "questionSnapshot": {
+          "savedFieldExists": true,
+          "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+          "savedValueUtf8Bytes": 924,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 579
+        }
+      }
+    },
+    {
+      "kind": "history",
+      "stageId": 6,
+      "revision": 6,
+      "truncated": true,
+      "excerptHash": "7ac716d73753bac4cbc6841337d21f280f12d3611d4b03b573cd099c89d79a44",
+      "excerptUtf8Bytes": 1948,
+      "actualV2VersionIdInThisExcerpt": true,
+      "fields": {
+        "returnStep": {
+          "savedFieldExists": true,
+          "savedValueHash": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+          "savedValueUtf8Bytes": 1,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 16,
+          "savedReturnStep": "5"
+        },
+        "returnReason": {
+          "savedFieldExists": true,
+          "savedValueHash": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+          "savedValueUtf8Bytes": 132,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 69
+        },
+        "nextAction": {
+          "savedFieldExists": true,
+          "savedValueHash": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+          "savedValueUtf8Bytes": 402,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 156
+        },
+        "afterTestBelief": {
+          "savedFieldExists": true,
+          "savedValueHash": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "savedValueUtf8Bytes": 176,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 80,
+          "encodedFieldCharactersTotal": 80
+        },
+        "understandingChangeStatus": {
+          "savedFieldExists": true,
+          "savedValueHash": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "savedValueUtf8Bytes": 9,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 39
+        },
+        "understandingEvidence": {
+          "savedFieldExists": true,
+          "savedValueHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "savedValueUtf8Bytes": 274,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 178
+        },
+        "feedback": {
+          "savedFieldExists": true,
+          "savedValueHash": "9911e2f9ae2704d421280a03c68ace8199ac346d1895b0280cc4cf2907f180ce",
+          "savedValueUtf8Bytes": 122,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 61,
+          "encodedFieldCharactersTotal": 61
+        },
+        "reflection": {
+          "savedFieldExists": true,
+          "savedValueHash": "2921022966fbf2d3e6926d66ae9c08271efa386ae1d818c393b4740e9fd564bd",
+          "savedValueUtf8Bytes": 1007,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 443
+        },
+        "newVersion": {
+          "savedFieldExists": false
+        },
+        "newVersionReference": {
+          "savedFieldExists": false
+        },
+        "newPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeReference": {
+          "savedFieldExists": true,
+          "savedValueHash": "16f5b9b224209bdb12a743862c895be17d6f9e30d0b58e4c7aa1e42adf9b4fd2",
+          "savedValueUtf8Bytes": 398,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 388,
+          "encodedFieldCharactersTotal": 388
+        },
+        "iterationPrototypeRelation": {
+          "savedFieldExists": true,
+          "savedValueHash": "c830cf3bbbabdbb3d2ceebe795667b5b952374eee6c14858dc94e1e363051320",
+          "savedValueUtf8Bytes": 1730,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 301,
+          "encodedFieldCharactersTotal": 1185
+        },
+        "iterationFeedbackReference": {
+          "savedFieldExists": true,
+          "savedValueHash": "d92fba7f2d9461467ebb80e71d69896b48d13e728454aef0f77a892f3492b651",
+          "savedValueUtf8Bytes": 397,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 266,
+          "encodedFieldCharactersTotal": 266
+        },
+        "iterationChangeReason": {
+          "savedFieldExists": true,
+          "savedValueHash": "5e01677e861cfefbe503576e7be15fe0b7739fad3515d030382090b5749da40d",
+          "savedValueUtf8Bytes": 155,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 79,
+          "encodedFieldCharactersTotal": 79
+        },
+        "prototypeReference": {
+          "savedFieldExists": false
+        },
+        "questionSnapshot": {
+          "savedFieldExists": true,
+          "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+          "savedValueUtf8Bytes": 924,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 579
+        }
+      }
+    },
+    {
+      "kind": "history",
+      "stageId": 6,
+      "revision": 5,
+      "truncated": true,
+      "excerptHash": "45af81cb6c4a01dae2d4edf50ca1e4db99e47185e7c1e0021c17dc14da99d310",
+      "excerptUtf8Bytes": 2544,
+      "actualV2VersionIdInThisExcerpt": false,
+      "fields": {
+        "returnStep": {
+          "savedFieldExists": true,
+          "savedValueHash": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+          "savedValueUtf8Bytes": 1,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 16,
+          "savedReturnStep": "5"
+        },
+        "returnReason": {
+          "savedFieldExists": true,
+          "savedValueHash": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+          "savedValueUtf8Bytes": 132,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 69
+        },
+        "nextAction": {
+          "savedFieldExists": true,
+          "savedValueHash": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+          "savedValueUtf8Bytes": 402,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 156,
+          "encodedFieldCharactersTotal": 156
+        },
+        "afterTestBelief": {
+          "savedFieldExists": true,
+          "savedValueHash": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "savedValueUtf8Bytes": 176,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 80,
+          "encodedFieldCharactersTotal": 80
+        },
+        "understandingChangeStatus": {
+          "savedFieldExists": true,
+          "savedValueHash": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "savedValueUtf8Bytes": 9,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 39
+        },
+        "understandingEvidence": {
+          "savedFieldExists": true,
+          "savedValueHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "savedValueUtf8Bytes": 274,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 178
+        },
+        "feedback": {
+          "savedFieldExists": true,
+          "savedValueHash": "9911e2f9ae2704d421280a03c68ace8199ac346d1895b0280cc4cf2907f180ce",
+          "savedValueUtf8Bytes": 122,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 61,
+          "encodedFieldCharactersTotal": 61
+        },
+        "reflection": {
+          "savedFieldExists": true,
+          "savedValueHash": "2921022966fbf2d3e6926d66ae9c08271efa386ae1d818c393b4740e9fd564bd",
+          "savedValueUtf8Bytes": 1007,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 300,
+          "encodedFieldCharactersTotal": 443
+        },
+        "newVersion": {
+          "savedFieldExists": false
+        },
+        "newVersionReference": {
+          "savedFieldExists": false
+        },
+        "newPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeRelation": {
+          "savedFieldExists": false
+        },
+        "iterationFeedbackReference": {
+          "savedFieldExists": false
+        },
+        "iterationChangeReason": {
+          "savedFieldExists": false
+        },
+        "prototypeReference": {
+          "savedFieldExists": false
+        },
+        "questionSnapshot": {
+          "savedFieldExists": true,
+          "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+          "savedValueUtf8Bytes": 924,
+          "fieldStartVisible": true,
+          "entireEncodedFieldVisible": true,
+          "encodedFieldCharactersVisible": 579,
+          "encodedFieldCharactersTotal": 579
+        }
+      }
+    },
+    {
+      "kind": "history",
+      "stageId": 6,
+      "revision": 4,
+      "truncated": true,
+      "excerptHash": "398d8e71290eb2afced3699181966b9a597f25d4044a68ad9f266e45c9b4576e",
+      "excerptUtf8Bytes": 15,
+      "actualV2VersionIdInThisExcerpt": false,
+      "fields": {
+        "returnStep": {
+          "savedFieldExists": true,
+          "savedValueHash": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+          "savedValueUtf8Bytes": 1,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 16,
+          "savedReturnStep": "2"
+        },
+        "returnReason": {
+          "savedFieldExists": true,
+          "savedValueHash": "d2278ffc8f084d81d97d87b35e8f08d2fe5f31a66810f656b5d4440c1853f50c",
+          "savedValueUtf8Bytes": 146,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 67
+        },
+        "nextAction": {
+          "savedFieldExists": true,
+          "savedValueHash": "c4a9c292f822aecfaac6677b6c8fe01a5bffdf2e2d2103edf24905da85d77e55",
+          "savedValueUtf8Bytes": 260,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 105
+        },
+        "afterTestBelief": {
+          "savedFieldExists": true,
+          "savedValueHash": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "savedValueUtf8Bytes": 176,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 80
+        },
+        "understandingChangeStatus": {
+          "savedFieldExists": true,
+          "savedValueHash": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "savedValueUtf8Bytes": 9,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 39
+        },
+        "understandingEvidence": {
+          "savedFieldExists": true,
+          "savedValueHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "savedValueUtf8Bytes": 274,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 178
+        },
+        "feedback": {
+          "savedFieldExists": true,
+          "savedValueHash": "9911e2f9ae2704d421280a03c68ace8199ac346d1895b0280cc4cf2907f180ce",
+          "savedValueUtf8Bytes": 122,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 61
+        },
+        "reflection": {
+          "savedFieldExists": true,
+          "savedValueHash": "2921022966fbf2d3e6926d66ae9c08271efa386ae1d818c393b4740e9fd564bd",
+          "savedValueUtf8Bytes": 1007,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 443
+        },
+        "newVersion": {
+          "savedFieldExists": false
+        },
+        "newVersionReference": {
+          "savedFieldExists": false
+        },
+        "newPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeRelation": {
+          "savedFieldExists": false
+        },
+        "iterationFeedbackReference": {
+          "savedFieldExists": false
+        },
+        "iterationChangeReason": {
+          "savedFieldExists": false
+        },
+        "prototypeReference": {
+          "savedFieldExists": false
+        },
+        "questionSnapshot": {
+          "savedFieldExists": true,
+          "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+          "savedValueUtf8Bytes": 924,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 579
+        }
+      }
+    },
+    {
+      "kind": "history",
+      "stageId": 6,
+      "revision": 3,
+      "truncated": true,
+      "excerptHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "excerptUtf8Bytes": 0,
+      "actualV2VersionIdInThisExcerpt": false,
+      "fields": {
+        "returnStep": {
+          "savedFieldExists": false
+        },
+        "returnReason": {
+          "savedFieldExists": false
+        },
+        "nextAction": {
+          "savedFieldExists": false
+        },
+        "afterTestBelief": {
+          "savedFieldExists": true,
+          "savedValueHash": "b841d03c80124fc2e9e5c421789c467ab21cd96143f8a51e9fd4de6fa1fc9538",
+          "savedValueUtf8Bytes": 84,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 48
+        },
+        "understandingChangeStatus": {
+          "savedFieldExists": true,
+          "savedValueHash": "8cd0afb35166df2ffa12898b16bccbdd5d5b730f71fd02bd8d23c19acce4b84c",
+          "savedValueUtf8Bytes": 12,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 42
+        },
+        "understandingEvidence": {
+          "savedFieldExists": true,
+          "savedValueHash": "b63db8a9a916a5ca5985ae04e6ae733932eb6371e6756a2a748cd4ab244263dd",
+          "savedValueUtf8Bytes": 78,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 66
+        },
+        "feedback": {
+          "savedFieldExists": false
+        },
+        "reflection": {
+          "savedFieldExists": false
+        },
+        "newVersion": {
+          "savedFieldExists": false
+        },
+        "newVersionReference": {
+          "savedFieldExists": false
+        },
+        "newPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeRelation": {
+          "savedFieldExists": false
+        },
+        "iterationFeedbackReference": {
+          "savedFieldExists": false
+        },
+        "iterationChangeReason": {
+          "savedFieldExists": false
+        },
+        "prototypeReference": {
+          "savedFieldExists": false
+        },
+        "questionSnapshot": {
+          "savedFieldExists": true,
+          "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+          "savedValueUtf8Bytes": 924,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 579
+        }
+      }
+    },
+    {
+      "kind": "history",
+      "stageId": 6,
+      "revision": 2,
+      "truncated": true,
+      "excerptHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "excerptUtf8Bytes": 0,
+      "actualV2VersionIdInThisExcerpt": false,
+      "fields": {
+        "returnStep": {
+          "savedFieldExists": false
+        },
+        "returnReason": {
+          "savedFieldExists": false
+        },
+        "nextAction": {
+          "savedFieldExists": false
+        },
+        "afterTestBelief": {
+          "savedFieldExists": true,
+          "savedValueHash": "b841d03c80124fc2e9e5c421789c467ab21cd96143f8a51e9fd4de6fa1fc9538",
+          "savedValueUtf8Bytes": 84,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 48
+        },
+        "understandingChangeStatus": {
+          "savedFieldExists": true,
+          "savedValueHash": "8cd0afb35166df2ffa12898b16bccbdd5d5b730f71fd02bd8d23c19acce4b84c",
+          "savedValueUtf8Bytes": 12,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 42
+        },
+        "understandingEvidence": {
+          "savedFieldExists": true,
+          "savedValueHash": "b63db8a9a916a5ca5985ae04e6ae733932eb6371e6756a2a748cd4ab244263dd",
+          "savedValueUtf8Bytes": 78,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 66
+        },
+        "feedback": {
+          "savedFieldExists": false
+        },
+        "reflection": {
+          "savedFieldExists": false
+        },
+        "newVersion": {
+          "savedFieldExists": false
+        },
+        "newVersionReference": {
+          "savedFieldExists": false
+        },
+        "newPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeRelation": {
+          "savedFieldExists": false
+        },
+        "iterationFeedbackReference": {
+          "savedFieldExists": false
+        },
+        "iterationChangeReason": {
+          "savedFieldExists": false
+        },
+        "prototypeReference": {
+          "savedFieldExists": false
+        },
+        "questionSnapshot": {
+          "savedFieldExists": true,
+          "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+          "savedValueUtf8Bytes": 924,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 579
+        }
+      }
+    },
+    {
+      "kind": "history",
+      "stageId": 6,
+      "revision": 1,
+      "truncated": true,
+      "excerptHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "excerptUtf8Bytes": 0,
+      "actualV2VersionIdInThisExcerpt": false,
+      "fields": {
+        "returnStep": {
+          "savedFieldExists": false
+        },
+        "returnReason": {
+          "savedFieldExists": false
+        },
+        "nextAction": {
+          "savedFieldExists": false
+        },
+        "afterTestBelief": {
+          "savedFieldExists": false
+        },
+        "understandingChangeStatus": {
+          "savedFieldExists": false
+        },
+        "understandingEvidence": {
+          "savedFieldExists": false
+        },
+        "feedback": {
+          "savedFieldExists": false
+        },
+        "reflection": {
+          "savedFieldExists": false
+        },
+        "newVersion": {
+          "savedFieldExists": false
+        },
+        "newVersionReference": {
+          "savedFieldExists": false
+        },
+        "newPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeReference": {
+          "savedFieldExists": false
+        },
+        "iterationPrototypeRelation": {
+          "savedFieldExists": false
+        },
+        "iterationFeedbackReference": {
+          "savedFieldExists": false
+        },
+        "iterationChangeReason": {
+          "savedFieldExists": false
+        },
+        "prototypeReference": {
+          "savedFieldExists": false
+        },
+        "questionSnapshot": {
+          "savedFieldExists": true,
+          "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+          "savedValueUtf8Bytes": 924,
+          "fieldStartVisible": false,
+          "entireEncodedFieldVisible": false,
+          "encodedFieldCharactersVisible": 0,
+          "encodedFieldCharactersTotal": 579
+        }
+      }
+    }
+  ],
+  "rawTextProjected": false,
+  "selectedSourceCount": 29,
+  "truncatedSourceCount": 17,
+  "scope": "Exact server-frozen excerpt bytes after real project disclosure; selected refs are not proof of complete fields."
+}

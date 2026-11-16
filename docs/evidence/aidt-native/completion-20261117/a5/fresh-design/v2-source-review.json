@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "designId": "3cfcddff-456f-400a-ad26-64c3ca20a3e0",
+  "v1": {
+    "id": "3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47",
+    "seq": 1,
+    "source": "model",
+    "replySource": "model",
+    "prototypeSha256": "8547127735a405a9ff3715ceb1ea3bb4a24300659242a473c74796355e414c09",
+    "durationMs": 22817,
+    "marker": "AIDT-SUPPLEMENT-V1",
+    "files": [
+      "v1-actual-version.json",
+      "v1-actual-page.html"
+    ]
+  },
+  "v2": {
+    "id": "3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn",
+    "seq": 2,
+    "source": "model",
+    "replySource": "model",
+    "prototypeSha256": "88d1a281e0c64650e24e7686eda1187b9895d4be3c939a6f8f58263c291fd6b4",
+    "durationMs": 21509,
+    "marker": "AIDT-SUPPLEMENT-V2",
+    "files": [
+      "v2-actual-version.json",
+      "v2-actual-page.html"
+    ]
+  },
+  "actualStaticReviewSource": {
+    "stageId": 6,
+    "revision": 4,
+    "testedVersionId": "3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47",
+    "understandingEvidence": "静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+    "nextAction": "先取得同意再收集真实取餐情境。另为后续静态练习拟补一组明确标为合成的号码分区示意，例如设计内容‘示例2→B分区’，不是既有映射或测试发现；仅在小组另行选择返回5并确认后才制作V2。"
+  },
+  "preservedHistoricalReturn2Revision": 4,
+  "return5Revision": 5,
+  "latestStage6Revision": 6,
+  "currentStage5NewQuestionRevision": 4,
+  "frozenQuestionSnapshotSha256": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+  "questionSnapshotByteExact": true,
+  "historicalReturn2ExactReadback": true,
+  "savedRelationExactReadback": true,
+  "generationBusinessPosts": 2,
+  "physicalRequests": 4,
+  "reportedTokens": 16271,
+  "settledRequests": 4,
+  "v1AccountingEvidence": "../../a1/design-v1-accounting.json",
+  "v2AccountingEvidence": "../../a1/design-v2-accounting.json",
+  "originalV2Qa": {
+    "completed": false,
+    "reason": "After version click, immediate feedback edit changed selectionScope and cancelled the pending snapshot read. Confirmation remained disabled; timeout preserved."
+  },
+  "zeroModelContinuation": {
+    "completed": true,
+    "modelRequests": 0,
+    "fix": "Wait until recorded reference contains the full selected version ID before editing feedback.",
+    "evidence": "bind-continuation-result.json"
+  },
+  "sourceReview": {
+    "visibleSyntheticMapping": "示例2→B分区",
+    "visibleBoundary": "合成设计内容，非实测",
+    "v2Button": "先看取餐分区",
+    "v2ButtonStatic": true,
+    "v2NotesAccuratelyDenyNavigation": true,
+    "v1NotesIncorrectlyClaimNavigation": true,
+    "externalImagesOrScripts": false
+  },
+  "realResearchOrUserTestConducted": false,
+  "usabilityOrLearningQualityVerified": false,
+  "s5NativeAgentPassed": false,
+  "manualS5ContinuationPreserved": true,
+  "privateRuntimeOrStateCopied": false,
+  "postV2V1Immutability": {
+    "verified": true,
+    "evidence": "../../a1/design-old-v1-immutability.json",
+    "method": "A1 same-tenant read-only PgDesignProjectRepository.getVersion; no extra HTTP login",
+    "prototypeSha256": "8547127735a405a9ff3715ceb1ea3bb4a24300659242a473c74796355e414c09"
+  }
+}

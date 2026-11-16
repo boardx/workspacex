@@ -1,0 +1,186 @@
+{
+  "observedAt": "2026-11-16T17:52:46.398925+00:00",
+  "runId": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+  "status": "cancelled",
+  "startedAt": "2026-11-16T17:49:42.899Z",
+  "endedAt": "2026-11-16T17:51:03.127Z",
+  "cancelRequestedAt": "2026-11-16T17:51:01.637Z",
+  "modelOutputPresent": false,
+  "distinctToolCalls": 8,
+  "toolNameCounts": {
+    "call_skill": 8
+  },
+  "calls": [
+    {
+      "toolCallId": "call_09e257200b69414e9edf739f",
+      "toolName": "call_skill",
+      "lastStatus": "failed",
+      "failureCode": "MODEL_CALL_FAILED",
+      "skillValue": null,
+      "argsSummarySha": "aed249109d511d649a148874a0933bc90c21d0b85d47c112d60f907c4dc7bdc0",
+      "resultNonEmpty": true,
+      "resultChars": 180
+    },
+    {
+      "toolCallId": "call_8f5d1572accc4c139941f015",
+      "toolName": "call_skill",
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": null,
+      "argsSummarySha": "e1675359f3b1d434ce8144b32e21bd70fc5915c75bb82eeeccd7890e3a3ac5bb",
+      "resultNonEmpty": true,
+      "resultChars": 180
+    },
+    {
+      "toolCallId": "call_cf787396911342ec9eaa1173",
+      "toolName": "call_skill",
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": null,
+      "argsSummarySha": "1c045699648c9e3b4a8b53c49350259b4d0347d549c45fc604bbdfd1707c7ad4",
+      "resultNonEmpty": true,
+      "resultChars": 382
+    },
+    {
+      "toolCallId": "call_0fddd7154d6d43d4aec18f92",
+      "toolName": "call_skill",
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": null,
+      "argsSummarySha": "3c773354f490cf9cc2c24e7bcaec2f0c074fbbe77cd7621d16f5bf0a08912d9f",
+      "resultNonEmpty": true,
+      "resultChars": 501
+    },
+    {
+      "toolCallId": "call_4d15abbdd9b24c0793382e84",
+      "toolName": "call_skill",
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": null,
+      "argsSummarySha": "0917c88d62ae7c7cc998180c221c87ce8b0508ffe5565eddd08a356104d4ce77",
+      "resultNonEmpty": true,
+      "resultChars": 501
+    },
+    {
+      "toolCallId": "call_518c3a61a74343018cfe29a4",
+      "toolName": "call_skill",
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": null,
+      "argsSummarySha": "0917c88d62ae7c7cc998180c221c87ce8b0508ffe5565eddd08a356104d4ce77",
+      "resultNonEmpty": true,
+      "resultChars": 430
+    },
+    {
+      "toolCallId": "call_64606a35d6934fe188fe550a",
+      "toolName": "call_skill",
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": null,
+      "argsSummarySha": "0917c88d62ae7c7cc998180c221c87ce8b0508ffe5565eddd08a356104d4ce77",
+      "resultNonEmpty": true,
+      "resultChars": 492
+    },
+    {
+      "toolCallId": "call_0aa05dcb939541c5bba25ef5",
+      "toolName": "call_skill",
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": null,
+      "argsSummarySha": "0917c88d62ae7c7cc998180c221c87ce8b0508ffe5565eddd08a356104d4ce77",
+      "resultNonEmpty": true,
+      "resultChars": 366
+    }
+  ],
+  "rootCauseEstablished": false,
+  "hashesReferToPublicSummariesNotProvenFullArgs": true,
+  "summariesContainingExpectedStable": 8,
+  "summaryJsonParseFailedForSkillFields": false,
+  "safeSkillMetadata": [
+    {
+      "parseOK": true,
+      "type": "dict",
+      "keys": [
+        "skill_id"
+      ],
+      "safeSkillFields": {}
+    },
+    {
+      "parseOK": true,
+      "type": "dict",
+      "keys": [
+        "skill_stable_name",
+        "task"
+      ],
+      "safeSkillFields": {
+        "skill_stable_name": "aidt-prototype"
+      }
+    },
+    {
+      "parseOK": true,
+      "type": "dict",
+      "keys": [
+        "skill_stable_name",
+        "task"
+      ],
+      "safeSkillFields": {
+        "skill_stable_name": "aidt-prototype"
+      }
+    },
+    {
+      "parseOK": true,
+      "type": "dict",
+      "keys": [
+        "skill_stable_name",
+        "task"
+      ],
+      "safeSkillFields": {
+        "skill_stable_name": "aidt-prototype"
+      }
+    },
+    {
+      "parseOK": true,
+      "type": "dict",
+      "keys": [
+        "skill_stable_name",
+        "task"
+      ],
+      "safeSkillFields": {
+        "skill_stable_name": "aidt-prototype"
+      }
+    },
+    {
+      "parseOK": true,
+      "type": "dict",
+      "keys": [
+        "skill_stable_name",
+        "task"
+      ],
+      "safeSkillFields": {
+        "skill_stable_name": "aidt-prototype"
+      }
+    },
+    {
+      "parseOK": true,
+      "type": "dict",
+      "keys": [
+        "skill_stable_name",
+        "task"
+      ],
+      "safeSkillFields": {
+        "skill_stable_name": "aidt-prototype"
+      }
+    },
+    {
+      "parseOK": true,
+      "type": "dict",
+      "keys": [
+        "skill_stable_name",
+        "task"
+      ],
+      "safeSkillFields": {
+        "skill_stable_name": "aidt-prototype"
+      }
+    }
+  ]
+}

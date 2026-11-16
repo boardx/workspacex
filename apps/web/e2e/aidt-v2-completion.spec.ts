@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { operations, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { readAidtQuestionSnapshot } from "../features/aidt/lib/aidt-verification-loop";
 import { REAL_MODEL_SMOKE } from "./real-model-smoke-fixture";
@@ -8,18 +8,19 @@ import { apiPath } from "./support/real-model-api";
 import { assertFreshAidtJourney } from "./support/aidt-v2-fresh-journey";
 import { reviewAidtSyntheticIntent } from "./support/aidt-v2-intent-review";
 import { beginCompletionPhase, completeCompletionPhase, readCompletionState, type CompletionPhase } from "./support/aidt-v2-completion-state";
-import { addCompletionIdeaImages, addCompletionResearch, completionIdeaPdfs } from "./support/aidt-v2-completion-materials";
+import { addCompletionIdeaImages, addCompletionResearch, addCompletionTestMaterials, completionGuidePdf, completionIdeaPdfs } from "./support/aidt-v2-completion-materials";
 import { fillAidtV2Field, prepareAidtV2StageCase, studentReviewsAidtV2Stage } from "./support/aidt-v2-stage-cases";
 import { aidtV2Api, askAidtV2Agent, assertAidtV2Target, createAidtV2Group, loginAidtV2, openAidtV2Outcome,
   readAidtV2Stage, saveAidtV2Stage, sendAidtV2NativeTurn } from "./support/aidt-v2-acceptance";
 
 // Each invocation selects exactly one externally authorized phase. No loop/retry can send a second task.
 test.beforeAll(() => { assertAidtV2Target(); assertFreshAidtJourney(); });
-async function freshReadback(browser: Browser, projectId: string, stage: SharedStageValue) {
+async function freshReadback(browser: Browser, projectId: string, stage: SharedStageValue, afterReadback?: (page: Page, context: BrowserContext) => Promise<void>) {
   const context = await browser.newContext({ baseURL: REAL_MODEL_SMOKE.baseUrl });
   try {
     const page = await context.newPage(); await loginAidtV2(page); await openAidtV2Outcome(page, projectId, stage.stageId);
     expect(await readAidtV2Stage(page, projectId, stage.stageId)).toEqual(stage);
+    if (afterReadback) await afterReadback(page, context);
   } finally { await context.close(); }
 }
 const review = (page: Page, projectId: string) => ({ reviewSyntheticIntent: (runId: string) => reviewAidtSyntheticIntent(page, projectId, runId) });
@@ -76,6 +77,17 @@ for (const step of [2, 3, 4, 5, 6]) {
     const phase = `s${step}` as CompletionPhase;
     const state = beginCompletionPhase(phase), projectId = state.projectId!;
     await loginAidtV2(page);
+    if (step === 5) {
+      const selected = (await readAidtV2Stage(page, projectId, 4))!;
+      if (!selected.content.draft.fields.reason?.trim()) {
+        await openAidtV2Outcome(page, projectId, 4);
+        await fillAidtV2Field(page, "reason", "学生补记入选理由：先试纸面分区牌，因为能用简短图文比较提示理解；同伴指路与号码牌方案仍保留，尚无真实证据证明哪一个更好。");
+        const reasonSaved = await saveAidtV2Stage(page, projectId, 4);
+        expect(reasonSaved.revision).toBe(selected.revision + 1);
+        expect(reasonSaved.content.draft.selectedIdeaId).toBe(selected.content.draft.selectedIdeaId);
+        await info.attach("s4-student-selection-reason-addendum", { contentType: "application/json", body: Buffer.from(JSON.stringify({ before: selected, after: reasonSaved, agentSaved: false, synthetic: true }, null, 2)) });
+      }
+    }
     const previous = await readAidtV2Stage(page, projectId, step - 1); expect(previous).not.toBeNull();
     const beforeEarlier = await Promise.all(Array.from({ length: step - 1 }, (_, index) => readAidtV2Stage(page, projectId, index + 1)));
     const continuingUnsentS2 = step === 2 && (state.phases.s2?.continuations?.length ?? 0) > 0;
@@ -100,6 +112,7 @@ for (const step of [2, 3, 4, 5, 6]) {
     expect(before.updatedBy, "所有模型阶段使用同一实际技术actor，不切换身份补绿").toBe(first.after.updatedBy);
     if (step === 2) before = await addCompletionResearch(page, projectId);
     if (step === 4) before = await addCompletionIdeaImages(page, projectId);
+    if (step === 6) before = await addCompletionTestMaterials(page, projectId);
     expect(await Promise.all(Array.from({ length: step - 1 }, (_, index) => readAidtV2Stage(page, projectId, index + 1))), "准备本步不能重写前步学生决定").toEqual(beforeEarlier);
     expect(before.sourceStageRevisions).toContainEqual({ stageId: step - 1,
       revision: step === 6 ? readAidtQuestionSnapshot(before.content.draft)!.sourceStageRevision : previous!.revision });
@@ -129,10 +142,24 @@ for (const step of [2, 3, 4, 5, 6]) {
       expect(after.content.draft.fields.newVersion ?? "").toBe(before.content.draft.fields.newVersion ?? "");
       expect(readAidtQuestionSnapshot(after.content.draft)?.prototypeVersionId).toBe(prepared.nativePrototype?.versionId);
     }
-    const pdfs = step === 4 ? await completionIdeaPdfs(page, context, projectId, info) : null;
-    await freshReadback(browser, projectId, after);
+    let pdfs: unknown = null;
+    if (step === 4) {
+      try { pdfs = await completionIdeaPdfs(page, context, projectId, info); }
+      catch (error) {
+        pdfs = { status: "failed", error: String(error), blockedLaterPhases: false, modelTaskNotRepeated: true };
+        await info.attach("s4-pdf-independent-failure", { contentType: "application/json", body: Buffer.from(JSON.stringify(pdfs, null, 2)) });
+      }
+    }
+    let guidePdf: unknown = null;
+    await freshReadback(browser, projectId, after, step === 2 ? async (fresh, freshContext) => {
+      try { guidePdf = await completionGuidePdf(fresh, freshContext, projectId, info); }
+      catch (error) {
+        guidePdf = { status: "failed", error: String(error), actualModelAndStudentSaveAlreadySucceeded: true, blockedLaterPhases: false };
+        await info.attach("s2-guide-pdf-independent-failure", { contentType: "application/json", body: Buffer.from(JSON.stringify(guidePdf, null, 2)) });
+      }
+    } : undefined);
     const evidence = { projectId, step, turn, before, after, nativePrototype: prepared.nativePrototype ?? null,
-      pdfs, studentSaved: true, freshLoginExactReadback: true, synthetic: true, ordinaryStudentModelPermissionProven: false, teachingQuality: "pending-human-review" };
+      pdfs, guidePdf, studentSaved: true, freshLoginExactReadback: true, synthetic: true, ordinaryStudentModelPermissionProven: false, teachingQuality: "pending-human-review" };
     completeCompletionPhase(phase, projectId, evidence);
     await info.attach(`completion-s${step}`, { contentType: "application/json", body: Buffer.from(JSON.stringify(evidence, null, 2)) });
   });
@@ -149,7 +176,7 @@ test("completion SUM: full same-group history → real summary → reviewed repo
   expect(oldS6, "总结唯一请求前必须有真实旧S6学生反思，不用只有S1的缺口组补绿").toBeTruthy();
   await page.goto(`/aidt/${projectId}?step=6&tool=report`, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("aidt-report-reload")).toBeEnabled();
-  const manual = "学生人工报告：保留本段。此组全部访谈、反馈与图像均为合成课堂夹具，尚无真实研究或教师点评。";
+  const manual = "学生人工报告：保留本段。此组全部访谈、反馈与图像均为合成课堂夹具，尚无真实研究或教师点评。第5步引导师任务已取消，验证问题由合成学生人工确认；后续原型和学习属于独立能力验收，不称完整原生六步全过。";
   await page.getByLabel("小组报告草稿", { exact: true }).fill(manual);
   const manualSavedResponse = page.waitForResponse(value => value.request().method() === "PUT" && new URL(value.url()).pathname === apiPath(`/projects/${projectId}/aidt/stages/6`));
   await page.getByTestId("aidt-report-save").click(); const manualResponse = await manualSavedResponse; expect(manualResponse.status()).toBe(200);
@@ -171,7 +198,7 @@ test("completion SUM: full same-group history → real summary → reviewed repo
   expect(packet.historyRevisions).toContainEqual({ stageId: 6, revision: oldS6!.revision });
   await page.getByTestId("aidt-summary-offer-request").click();
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue(/请生成本组研究过程报告/);
-  const prompt = "请依据本组已选择的六步保存稿与旧反思生成研究过程报告草稿。全部为合成课堂练习，没有真实访谈、测试或教师点评，不得补造；区分猜测、学生选择、AI建议及材料缺口，不替学生确认或保存。";
+  const prompt = "请依据本组已选择的六步保存稿与旧反思生成研究过程报告草稿。全部为合成课堂练习，没有真实访谈、测试或教师点评，不得补造；第5步引导师曾取消后由学生人工确认，不能称其模型成功。区分真实V1静态检查、通用反馈模板和未来合成设计，不将示例2→B当已有实测；区分猜测、学生选择、AI建议及材料缺口，不替学生确认或保存。";
   const turn = await sendAidtV2NativeTurn(page, projectId, "dt-summarize-project", prompt, "summaryThread", review(page, projectId));
   expect(turn.selectorCoordinates.purpose).toBe("summary");
   expect(turn.sourceReceipt.historyRevisions).toContainEqual({ stageId: 6, revision: oldS6!.revision });

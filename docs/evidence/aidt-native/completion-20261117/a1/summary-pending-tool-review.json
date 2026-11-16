@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-11-16T18:18:07.225Z",
+  "runId": "b8c3ca65-301e-4757-aa9b-032714145225",
+  "toolName": "write_todos",
+  "permissionRequestId": "72cdbf32-10aa-43e5-b9e3-f8a9fcdd14c1",
+  "grantScope": null,
+  "fullArgsRecoveredFromSummary": true,
+  "argsDigest": "cf7529fdd65e64f46357c68eae207d59807b45f54d5e52db432dbab00fd75918",
+  "argKeys": [
+    "todos"
+  ],
+  "todos": [
+    {
+      "keys": [
+        "content",
+        "status"
+      ],
+      "status": "completed",
+      "contentChars": 18,
+      "containsURL": false,
+      "containsEmail": false
+    },
+    {
+      "keys": [
+        "content",
+        "status"
+      ],
+      "status": "in_progress",
+      "contentChars": 13,
+      "containsURL": false,
+      "containsEmail": false
+    }
+  ],
+  "sideEffectScope": "same verified langchain write_todos Command current thread todos/messages only",
+  "approvalPerformed": false
+}

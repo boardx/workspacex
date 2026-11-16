@@ -29,5 +29,20 @@
   "dockerInvocations": 0,
   "externalRequests": 0,
   "modelRequests": 0,
-  "dataWrites": 0
+  "dataWrites": 0,
+  "latestScopedTypecheckAfterSafeReportReflectionProjection": {
+    "exitCode": 0
+  },
+  "optionalRootEslintAttempt": {
+    "command": "pnpm exec eslint apps/api/tests/aidt-run-context/audit-fresh-scope.ts",
+    "exitCode": 1,
+    "reason": "root node_modules/eslint/bin/eslint.js missing (MODULE_NOT_FOUND)",
+    "sourceLintClaimedPassed": false,
+    "dependenciesChanged": false
+  },
+  "finalScopedTypecheckAfterVisibleCueProjection": {
+    "exitCode": 0,
+    "finishedAt": "2026-11-16T18:34:45.855922+00:00",
+    "command": "pnpm --dir apps/api exec tsc -p /tmp/aidt-fresh-audit-tsconfig.json --noEmit"
+  }
 }

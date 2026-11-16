@@ -1,0 +1,39 @@
+{
+  "qaOnly": true,
+  "productionComponentsChanged": false,
+  "files": {
+    "apps/web/e2e/aidt-member-existing-zero.spec.ts": "f086d52de91eedf7a6ef5d41bb411b8705cbadceb1cb5ef823de66b22203a01e",
+    "apps/web/e2e/support/aidt-member-multiuser-acceptance.ts": "a94b2bb326838c0691b37ee8d4eef2031cb5c355db622fa23d80748dbee83ead",
+    "apps/web/playwright.aidt-member-existing-zero.config.ts": "1ac5d03e441c9f753a95c927ee4799f64df5e6369cfec7a1cc5de573aad4e0f2",
+    "apps/web/playwright.config.ts": "4adad7befcad6e86b2bc309a109bea20b8487478966feab26cd46fb3b0b05527",
+    "apps/web/playwright.fullstack-smoke.config.ts": "7bf7968bd151bab1cd4630c9c4b764809fac048146c920a2098d8b4108d3f7f4"
+  },
+  "listCount": 1,
+  "scopedTypecheckExitCode": 0,
+  "eslintFiles": 5,
+  "eslintExitCode": 0,
+  "diffCheckExitCode": 0,
+  "defaultClosed": true,
+  "workers": 1,
+  "retries": 0,
+  "timeoutMs": 120000,
+  "webServerDefined": false,
+  "normalLanesExcludeExclusiveSpec": true,
+  "existingInviteHelperBehaviorChanged": false,
+  "credentialSource": "actual canonical seeded collaboration fixture, in memory only",
+  "fundedAdminSessionUsed": false,
+  "ownerAfterAudit": "../a1/a4-member-attempt02-after.json",
+  "browserAttempts": {
+    "first": {
+      "status": "failed-before-member-send",
+      "durationSeconds": 5.3,
+      "reason": "legacy QA cross-origin fetch transport"
+    },
+    "second": {
+      "status": "passed",
+      "durationSeconds": 14.7,
+      "reusedExistingSetup": true
+    }
+  },
+  "committedByWorker": false
+}

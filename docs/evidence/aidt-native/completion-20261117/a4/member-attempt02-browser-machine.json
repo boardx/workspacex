@@ -1,0 +1,147 @@
+{
+  "actualBrowser": true,
+  "status": "1 passed",
+  "durationSeconds": 14.7,
+  "totalDurationSeconds": 16.3,
+  "source": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+  "buildId": "HpTdw6E9Fzu6NgYyCuctM",
+  "testRetries": 0,
+  "existingSeedAccounts": true,
+  "fundedAdminLoggedIn": false,
+  "sameOriginTransportCorrectionOnly": true,
+  "noCorsOrApiChange": true,
+  "projectSetupReusedWithoutAdditionalWrites": true,
+  "ownerIndependentAudit": {
+    "evidence": "../a1/a4-member-attempt02-after.json",
+    "scope": "independent collaboration tenant only; main paid tenant excluded",
+    "runs": 0,
+    "physical": 0,
+    "usage": 0,
+    "credits": 0,
+    "active": 0,
+    "sharedMessages": 4,
+    "sharedAuthors": 2,
+    "privateMessages": 1,
+    "privateAuthors": 1,
+    "bothProjectRuns": 0,
+    "oldThreeLedgerHashesUnchanged": true
+  },
+  "evidence": {
+    "existing-member-pair-real-browser": {
+      "source": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+      "result": {
+        "orgId": "org-collaboration-20261117-01-7d265647426d",
+        "projectId": "prj-b919b4c8-6cf5-4a60-b4b9-f8e9e6b26624",
+        "privateProjectId": "prj-a711e0d4-e1da-4470-9939-12dde5ed8ad4",
+        "authors": [
+          "user-collab-lead-20261117-01-7d265647426d",
+          "user-collab-member-20261117-01-7d265647426d"
+        ],
+        "messages": [
+          {
+            "id": "302cfbd7-bbd5-4a1f-884e-1993d7243d03",
+            "projectId": "prj-b919b4c8-6cf5-4a60-b4b9-f8e9e6b26624",
+            "sequence": 1,
+            "authorId": "user-collab-lead-20261117-01-7d265647426d",
+            "clientMessageId": "96ec7ae4-8a06-4232-ac49-ec77cc4f72e0",
+            "text": "双账号验收 92f4a040-f88b-4046-9917-d086ab3e3ec0：成员A讨论分工，合成材料非研究结论。",
+            "threadRootId": null,
+            "stageReference": null,
+            "createdAt": "2026-11-16T17:32:34.361Z"
+          },
+          {
+            "id": "f3b87369-9994-4e7d-9652-6e859c220313",
+            "projectId": "prj-b919b4c8-6cf5-4a60-b4b9-f8e9e6b26624",
+            "sequence": 2,
+            "authorId": "user-collab-member-20261117-01-7d265647426d",
+            "clientMessageId": "bbe6c7c1-55ec-40de-bd7a-e2a54091ff02",
+            "text": "双账号验收 92f4a040-f88b-4046-9917-d086ab3e3ec0：成员B提出不同分工。",
+            "threadRootId": null,
+            "stageReference": null,
+            "createdAt": "2026-11-16T17:32:39.376Z"
+          },
+          {
+            "id": "747640c2-77a4-4682-b11b-ebda1efb3d0b",
+            "projectId": "prj-b919b4c8-6cf5-4a60-b4b9-f8e9e6b26624",
+            "sequence": 3,
+            "authorId": "user-collab-member-20261117-01-7d265647426d",
+            "clientMessageId": "359872ae-7c59-42c8-a214-c4cde2ee87e8",
+            "text": "双账号验收 92f4a040-f88b-4046-9917-d086ab3e3ec0：成员B只回复A这条话题。",
+            "threadRootId": "302cfbd7-bbd5-4a1f-884e-1993d7243d03",
+            "stageReference": null,
+            "createdAt": "2026-11-16T17:32:44.381Z"
+          },
+          {
+            "id": "aa709dc0-65e5-4382-8c29-71303249f80a",
+            "projectId": "prj-b919b4c8-6cf5-4a60-b4b9-f8e9e6b26624",
+            "sequence": 4,
+            "authorId": "user-collab-lead-20261117-01-7d265647426d",
+            "clientMessageId": "7d82f960-0e9c-4931-b4a0-fb47afb97c54",
+            "text": "双账号验收 92f4a040-f88b-4046-9917-d086ab3e3ec0：成员A只回复B这条话题。",
+            "threadRootId": "f3b87369-9994-4e7d-9652-6e859c220313",
+            "stageReference": null,
+            "createdAt": "2026-11-16T17:32:44.642Z"
+          }
+        ],
+        "actualMemberships": [
+          {
+            "userId": "user-collab-lead-20261117-01-7d265647426d",
+            "displayName": "Collaboration lead",
+            "role": "owner"
+          },
+          {
+            "userId": "user-collab-member-20261117-01-7d265647426d",
+            "displayName": "Collaboration member",
+            "role": "collaborator"
+          }
+        ],
+        "oneRecordPerClientIdForBothReaders": true,
+        "nonmemberDeniedStatuses": [
+          404,
+          404,
+          404
+        ],
+        "ordinaryExistingAccounts": true,
+        "accountsCreated": false,
+        "invitationsCreated": false,
+        "orgRoleOrBalanceChanged": false
+      },
+      "phases": [
+        "lead-normal-login",
+        "reuse-own-approved-QA-shared-group",
+        "authoritative-existing-QA-memberships-read-no-write",
+        "reuse-own-approved-QA-private-group",
+        "private-QA-owner-and-member-exclusion-authoritatively-read",
+        "existing-member-normal-login",
+        "two-browser-channel-topic-and-isolation-complete"
+      ],
+      "blockedGenerationRequests": [],
+      "setup": "normal existing org admin creates own QA groups and adds the existing org consultant through the product collaborator API",
+      "ordinaryStudentCreatesGroupProven": false,
+      "membershipRowsWrittenThroughNormalProductApi": false,
+      "previousSetupEvidenceRetained": true,
+      "providerOrTeachingSuccessClaimed": false,
+      "isolatedFromFundedAdminDeviceSession": true,
+      "independentOwnerModelAudit": "A1 exact collaboration tenant/project audit required; main paid org activity is unrelated"
+    },
+    "existing-member-pair-exit-state": {
+      "orgId": "org-collaboration-20261117-01-7d265647426d",
+      "projectId": "prj-b919b4c8-6cf5-4a60-b4b9-f8e9e6b26624",
+      "privateProjectId": "prj-a711e0d4-e1da-4470-9939-12dde5ed8ad4",
+      "phases": [
+        "lead-normal-login",
+        "reuse-own-approved-QA-shared-group",
+        "authoritative-existing-QA-memberships-read-no-write",
+        "reuse-own-approved-QA-private-group",
+        "private-QA-owner-and-member-exclusion-authoritatively-read",
+        "existing-member-normal-login",
+        "two-browser-channel-topic-and-isolation-complete"
+      ],
+      "blockedGenerationRequests": [],
+      "source": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+      "oldFundedActorUsed": false
+    }
+  },
+  "classroomOrTeachingSuccessClaimed": false,
+  "voiceOrReadReceiptsClaimed": false
+}

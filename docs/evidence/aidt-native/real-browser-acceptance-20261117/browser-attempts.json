@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-11-16T18:33:39.228177+00:00",
+  "complete": true,
+  "attempts": [
+    {
+      "attempt": "a4-existing-member-pair-01",
+      "actualExpected": 0,
+      "actualUnexpected": 1,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 6.797,
+      "startedAtUTC": "2026-11-16T17:29:39.855Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "a4-existing-member-pair-02",
+      "actualExpected": 1,
+      "actualUnexpected": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 16.255,
+      "startedAtUTC": "2026-11-16T17:32:28.749Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "a4-zero-draft-01",
+      "actualExpected": 0,
+      "actualUnexpected": 1,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 33.881,
+      "startedAtUTC": "2026-11-16T17:15:41.941Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "a4-zero-draft-02",
+      "actualExpected": 1,
+      "actualUnexpected": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 6.68,
+      "startedAtUTC": "2026-11-16T17:19:50.302Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "report-correction-01",
+      "actualExpected": 1,
+      "actualUnexpected": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 5.01,
+      "startedAtUTC": "2026-11-16T18:27:58.766Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "s1-attempt-01",
+      "actualExpected": 1,
+      "actualUnexpected": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 36.418,
+      "startedAtUTC": "2026-11-16T17:22:16.309Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "s2-attempt-01",
+      "actualExpected": 0,
+      "actualUnexpected": 1,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 22.295,
+      "startedAtUTC": "2026-11-16T17:27:00.272Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "s2-continuation-01",
+      "actualExpected": 1,
+      "actualUnexpected": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 18.427,
+      "startedAtUTC": "2026-11-16T17:34:14.758Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "s3-attempt-01",
+      "actualExpected": 1,
+      "actualUnexpected": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 208.836,
+      "startedAtUTC": "2026-11-16T17:37:37.702Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "s4-attempt-01",
+      "actualExpected": 1,
+      "actualUnexpected": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 40.542,
+      "startedAtUTC": "2026-11-16T17:45:46.354Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "s5-attempt-01",
+      "actualExpected": 0,
+      "actualUnexpected": 1,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 86.382,
+      "startedAtUTC": "2026-11-16T17:49:37.416Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "s5-manual-fallback-01",
+      "actualExpected": 1,
+      "actualUnexpected": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 5.036,
+      "startedAtUTC": "2026-11-16T17:54:58.429Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "s6-attempt-01",
+      "actualExpected": 0,
+      "actualUnexpected": 1,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 11.408,
+      "startedAtUTC": "2026-11-16T18:00:45.340Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "s6-continuation-01",
+      "actualExpected": 1,
+      "actualUnexpected": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 32.644,
+      "startedAtUTC": "2026-11-16T18:06:02.608Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "sum-attempt-01",
+      "actualExpected": 0,
+      "actualUnexpected": 1,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 67.044,
+      "startedAtUTC": "2026-11-16T18:16:22.312Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    },
+    {
+      "attempt": "sum-continuation-01",
+      "actualExpected": 1,
+      "actualUnexpected": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "durationSeconds": 55.601,
+      "startedAtUTC": "2026-11-16T18:21:20.908Z",
+      "modelConnectionOrTeachingPassInferredFromStats": false
+    }
+  ],
+  "note": "只统计本轮Playwright文件内技术断言；含首红与同run/免费续完，不是业务阶段通过率。Design原始脚本与免费绑定另列。"
+}

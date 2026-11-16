@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "scope": "fresh same-group native AIDT acceptance, synthetic materials, existing funded admin+explicit project owner",
+  "fullOriginalNativeChainPassed": false,
+  "nativeLogicalTaskCount": 7,
+  "nativeSucceededCount": 6,
+  "nativeCancelledCount": 1,
+  "nativeTasks": [
+    {
+      "phase": "s1",
+      "actualRunId": "33945939-c856-4b46-ba35-6953c835c588",
+      "status": "succeeded",
+      "physicalRequests": 4,
+      "reportedSucceededTokens": 24544,
+      "unknownOrFailedUsageCount": 0,
+      "settledCreditRequests": 4,
+      "pendingCreditRequests": 0,
+      "evidence": "../../../completion-20261117/a1/s1-accounting.json"
+    },
+    {
+      "phase": "s2",
+      "actualRunId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d",
+      "status": "succeeded",
+      "physicalRequests": 6,
+      "reportedSucceededTokens": 40165,
+      "unknownOrFailedUsageCount": 0,
+      "settledCreditRequests": 6,
+      "pendingCreditRequests": 0,
+      "evidence": "../../../completion-20261117/a1/s2-final-accounting.json"
+    },
+    {
+      "phase": "s3",
+      "actualRunId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+      "status": "succeeded",
+      "physicalRequests": 44,
+      "reportedSucceededTokens": 281610,
+      "unknownOrFailedUsageCount": 1,
+      "settledCreditRequests": 43,
+      "pendingCreditRequests": 1,
+      "evidence": "../../../completion-20261117/a1/s3-final-accounting.json"
+    },
+    {
+      "phase": "s4",
+      "actualRunId": "f53bc122-fc39-40f5-972a-021467b6190b",
+      "status": "succeeded",
+      "physicalRequests": 6,
+      "reportedSucceededTokens": 49174,
+      "unknownOrFailedUsageCount": 0,
+      "settledCreditRequests": 6,
+      "pendingCreditRequests": 0,
+      "evidence": "../../../completion-20261117/a1/s4-final-accounting.json"
+    },
+    {
+      "phase": "s5",
+      "actualRunId": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+      "status": "cancelled",
+      "physicalRequests": 15,
+      "reportedSucceededTokens": 103507,
+      "unknownOrFailedUsageCount": 0,
+      "settledCreditRequests": 15,
+      "pendingCreditRequests": 0,
+      "evidence": "../../../completion-20261117/a1/s5-final-accounting.json"
+    },
+    {
+      "phase": "s6",
+      "actualRunId": "1010682b-3003-4358-a547-e19b5f01b1af",
+      "status": "succeeded",
+      "physicalRequests": 6,
+      "reportedSucceededTokens": 67749,
+      "unknownOrFailedUsageCount": 0,
+      "settledCreditRequests": 6,
+      "pendingCreditRequests": 0,
+      "evidence": "../../../completion-20261117/a1/s6-final-accounting.json"
+    },
+    {
+      "phase": "summary",
+      "actualRunId": "b8c3ca65-301e-4757-aa9b-032714145225",
+      "status": "succeeded",
+      "physicalRequests": 9,
+      "reportedSucceededTokens": 197065,
+      "unknownOrFailedUsageCount": 0,
+      "settledCreditRequests": 9,
+      "pendingCreditRequests": 0,
+      "evidence": "../../../completion-20261117/a1/summary-final-accounting.json"
+    }
+  ],
+  "browserCaseResults": [
+    {
+      "attempt": "s1-attempt-01",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 35062
+        }
+      ]
+    },
+    {
+      "attempt": "s2-attempt-01",
+      "results": [
+        {
+          "status": "failed",
+          "durationMs": 20885
+        }
+      ]
+    },
+    {
+      "attempt": "s2-continuation-01",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 17379
+        }
+      ]
+    },
+    {
+      "attempt": "s3-attempt-01",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 207754
+        }
+      ]
+    },
+    {
+      "attempt": "s4-attempt-01",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 39045
+        }
+      ]
+    },
+    {
+      "attempt": "s5-attempt-01",
+      "results": [
+        {
+          "status": "failed",
+          "durationMs": 84952
+        }
+      ]
+    },
+    {
+      "attempt": "s5-manual-fallback-01",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 3908
+        }
+      ]
+    },
+    {
+      "attempt": "s6-attempt-01",
+      "results": [
+        {
+          "status": "failed",
+          "durationMs": 9775
+        }
+      ]
+    },
+    {
+      "attempt": "s6-continuation-01",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 31112
+        }
+      ]
+    },
+    {
+      "attempt": "sum-attempt-01",
+      "results": [
+        {
+          "status": "failed",
+          "durationMs": 65586
+        }
+      ]
+    },
+    {
+      "attempt": "sum-continuation-01",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 54075
+        }
+      ]
+    },
+    {
+      "attempt": "report-correction-01",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 3925
+        }
+      ]
+    }
+  ],
+  "s5OriginalStatusPreserved": "attempting",
+  "s5ManualContinuation": {
+    "phase": "s5",
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "failedRunId": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+    "actualRunStatus": "cancelled",
+    "manualStudentFallback": true,
+    "modelTaskPassed": false,
+    "studentSavedRevision": 2,
+    "studentSavedContentSha256": "6ab1b426300fb636be72a9e5066f1d7a96afc71eba2970460e4395ba72335be6",
+    "freshLoginExactReadback": true,
+    "evidencePath": "/workspace/aidt-module-latest/docs/evidence/aidt-native/completion-20261116/a6/fresh-journey-20261117/s5-manual-student-fallback.json"
+  },
+  "nativeJournalEntryCount": 7,
+  "sameRunContinuationsDidNotCreateNewHumanMessages": true,
+  "originalThreeJournalsUnchanged": true,
+  "defaultCiRunsPaidLane": false,
+  "finalReport": {
+    "latestRevision": 9,
+    "bytes": 11664,
+    "sha256": "8c5c4144aef519e32ee98bb2ea294b58082146fd22847b5beeb7bf7e7e96210d",
+    "studentCorrectionNotAiOutput": true,
+    "freshLoginExactReadback": true,
+    "beforeAiReportAndOriginalExportPreserved": true,
+    "reportRefsAndDraftUnchanged": true,
+    "truncatedModelSources": true
+  },
+  "actualFiles": [
+    {
+      "file": "s4-candidate-1-actual-pdf-b8acbf98ea3e893b5f718c6564bd43fe574101f3.pdf",
+      "bytes": 305209,
+      "sha256": "80a6a41ddfc9d2cc9f09d29bae0812be00d46361c8383596572f161814d5791d"
+    },
+    {
+      "file": "s4-candidate-2-actual-pdf-99c3151d9c0e222536355bc2bd92c60051a44d7e.pdf",
+      "bytes": 272723,
+      "sha256": "0df05d9a1cb7e4436509aee933881f6be4ed93bf5c7cc0a5208a03ea6e5ea4e7"
+    },
+    {
+      "file": "s4-candidate-3-actual-pdf-743fbd1c54a5452603430535b4c74fa23f193c33.pdf",
+      "bytes": 262399,
+      "sha256": "5920e339b605a385155d1758f4596175bd37b319cef6ae8e775e522251d72728"
+    },
+    {
+      "file": "student-reviewed-interview-guide.pdf",
+      "bytes": 146318,
+      "sha256": "71313b1172c548d348aba50b0b0d0e41d3d88f694b76804c72c970d0ca1cf427"
+    },
+    {
+      "file": "student-reviewed-full-report.md",
+      "bytes": 8613,
+      "sha256": "ab17e70c701df9d9ee60af4584fe31c3042c488f5f1f3d1e6fd154991def17d6"
+    },
+    {
+      "file": "student-corrected-final-report.md",
+      "bytes": 11664,
+      "sha256": "8c5c4144aef519e32ee98bb2ea294b58082146fd22847b5beeb7bf7e7e96210d"
+    }
+  ],
+  "knownGaps": [
+    "S5 native cancelled after excessive calls; manual student fallback is independent, not native success",
+    "S3 slow/high calls with one failed-unknown usage/pending request preserved",
+    "Known scratch write_todos requires disruptive L2 UI confirmation; original test interruptions kept",
+    "AI report omitted known version evolution and did not disclose truncation; student added separate V9 correction",
+    "No real interviews, real-user prototype tests, teacher comments, ordinary-student funded-model proof, or classroom-scale acceptance"
+  ],
+  "humanSignaturesFilled": false,
+  "finalQaChecks": {
+    "unitTestsPassed": 10,
+    "scopedTypeScriptExitCode": 0,
+    "eslintExitCode": 0,
+    "e2eTestIdGateReferences": 6537,
+    "e2eTestIdGateExitCode": 0
+  }
+}

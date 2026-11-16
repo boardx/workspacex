@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-11-16T18:19:32.986Z",
+  "readOnly": true,
+  "orgId": "org-fullstack-20261117-01-7d265647426d",
+  "designId": "3cfcddff-456f-400a-ad26-64c3ca20a3e0",
+  "versionId": "3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47",
+  "seq": 1,
+  "prototypeSha256": "8547127735a405a9ff3715ceb1ea3bb4a24300659242a473c74796355e414c09",
+  "expectedSha256": "8547127735a405a9ff3715ceb1ea3bb4a24300659242a473c74796355e414c09",
+  "matchesBeforeV2": true,
+  "usesActualProductVersionProjection": true,
+  "noBrowserSessionTouched": true,
+  "modelRequestsSentByAudit": 0
+}

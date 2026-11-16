@@ -3,7 +3,10 @@ import { dirname, extname, isAbsolute } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
 export type CompletionPhase = "s1" | "s2" | "s3" | "s4" | "s5" | "s6" | "sum";
-type State = { schemaVersion: 1; projectId?: string; phases: Partial<Record<CompletionPhase, {
+type State = { schemaVersion: 1; projectId?: string;
+  manualContinuation?: { phase: "s5"; projectId: string; failedRunId: string; actualRunStatus: "cancelled"; manualStudentFallback: true; modelTaskPassed: false;
+    studentSavedRevision: number; studentSavedContentSha256: string; freshLoginExactReadback: true; evidencePath: string };
+  phases: Partial<Record<CompletionPhase, {
   status: "attempting" | "completed"; startedAt: string; completedAt?: string; evidence?: unknown;
   continuations?: { continuedAt: string; authorization: "approved-s2-upload-status-201"; proof: string; proofSha256?: string; oldBudgetSha256: string; priorFailure: string }[];
   originalFailedRun?: { runId: string; ledgerEntryId: string; ledgerStatus: "failed-or-interrupted"; actualTerminalStatus: "cancelled" };
@@ -54,7 +57,12 @@ export function beginCompletionPhase(phase: CompletionPhase): State {
       return;
     }
     const prior = predecessor[phase];
-    if (prior && (!state.projectId || state.phases[prior]?.status !== "completed")) throw new Error("AIDT_COMPLETION_PREDECESSOR_REQUIRED");
+    const manual = state.manualContinuation;
+    const independentS6 = phase === "s6" && process.env.AIDT_V2_FRESH_JOURNEY === "fresh-native-seven-20261117"
+      && manual?.phase === "s5" && manual.projectId === state.projectId && manual.manualStudentFallback === true && manual.modelTaskPassed === false
+      && manual.actualRunStatus === "cancelled" && manual.freshLoginExactReadback === true && Number.isSafeInteger(manual.studentSavedRevision)
+      && manual.studentSavedRevision > 0 && /^[a-f0-9]{64}$/.test(manual.studentSavedContentSha256);
+    if (prior && (!state.projectId || (state.phases[prior]?.status !== "completed" && !independentS6))) throw new Error("AIDT_COMPLETION_PREDECESSOR_REQUIRED");
     state.phases[phase] = { status: "attempting", startedAt: new Date().toISOString() };
   });
 }
@@ -89,5 +97,22 @@ export function completeSupplementalS2Attempt(projectId: string, runId: string, 
     if (state.projectId !== projectId || phase?.status !== "attempting" || attempt?.status !== "attempting" || runId === attempt.originalRunId) throw new Error("AIDT_COMPLETION_S2_SUPPLEMENT_SCOPE_OR_ATTEMPT_MISMATCH");
     phase.supplementalS2 = { ...attempt, status: "completed", evidence: { ...evidence, runId } };
     phase.status = "completed"; phase.completedAt = new Date().toISOString(); phase.completionKind = "supplemental-actual-success-original-failed-retained";
+  });
+}
+
+/** QA-only independent capability continuation; never changes S5's original attempted/failed result. */
+export function recordS5ManualContinuation(evidencePath: string): void {
+  if (process.env.AIDT_V2_FRESH_JOURNEY !== "fresh-native-seven-20261117" || process.env.AIDT_V2_MANUAL_CONTINUATION_PHASE !== "s5") throw new Error("AIDT_MANUAL_S5_EXPLICIT_FRESH_AUTHORIZATION_REQUIRED");
+  if (!isAbsolute(evidencePath) || extname(evidencePath) !== ".json") throw new Error("AIDT_MANUAL_S5_EVIDENCE_REQUIRED");
+  const e = JSON.parse(readFileSync(evidencePath, "utf8"));
+  if (e.manualStudentFallback !== true || e.modelTaskPassed !== false || e.actualRunStatus !== "cancelled" || e.studentSaved !== true || e.freshLoginExactReadback !== true
+    || e.after?.stageId !== 5 || e.after.projectId !== e.projectId || !Number.isSafeInteger(e.after.revision) || e.after.revision < 1
+    || e.after.content?.draft?.fields?.verificationQuestionConfirmed !== "true") throw new Error("AIDT_MANUAL_S5_ACTUAL_SAVED_CANCELLED_EVIDENCE_REQUIRED");
+  const ledger = JSON.parse(readFileSync(process.env.AIDT_V2_RUN_LEDGER!, "utf8")) as { entries: { runId: string; projectId: string; skill: string; status: string }[] };
+  if (!ledger.entries.some(row => row.runId === e.failedRunId && row.projectId === e.projectId && row.skill === "aidt-prototype" && row.status === "failed-or-interrupted")) throw new Error("AIDT_MANUAL_S5_ORIGINAL_FAILED_RUN_REQUIRED");
+  mutate(state => {
+    if (state.projectId !== e.projectId || state.phases.s5?.status !== "attempting" || state.manualContinuation) throw new Error("AIDT_MANUAL_S5_SCOPE_OR_ALREADY_RECORDED");
+    state.manualContinuation = { phase: "s5", projectId: e.projectId, failedRunId: e.failedRunId, actualRunStatus: "cancelled", manualStudentFallback: true, modelTaskPassed: false,
+      studentSavedRevision: e.after.revision, studentSavedContentSha256: createHash("sha256").update(JSON.stringify(e.after.content)).digest("hex"), freshLoginExactReadback: true, evidencePath };
   });
 }

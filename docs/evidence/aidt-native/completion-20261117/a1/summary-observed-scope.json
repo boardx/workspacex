@@ -1,0 +1,80 @@
+{
+  "observedAt": "2026-11-16T18:17:27.556Z",
+  "readOnly": true,
+  "orgId": "org-fullstack-20261117-01-7d265647426d",
+  "actor": {
+    "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+    "org_role": "admin"
+  },
+  "wallets": [
+    {
+      "owner_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "balance": "19360.67",
+      "held_hundredths": "16641",
+      "remaining_held_hundredths": "16641",
+      "unbounded_requests": "0"
+    }
+  ],
+  "totals": {
+    "runs": 7,
+    "physical": 89,
+    "usage": 88,
+    "credits": 89,
+    "active": 1
+  },
+  "threads": [
+    {
+      "id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+      "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "archived": false,
+      "messages": 1,
+      "runs": 1,
+      "physical": 4
+    }
+  ],
+  "runRows": [
+    {
+      "id": "b8c3ca65-301e-4757-aa9b-032714145225",
+      "thread_id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+      "status": "running",
+      "failure_reason": null
+    }
+  ],
+  "projectFacts": [],
+  "pendingCredits": [
+    {
+      "request_id": "47f715ad-fd4d-4bb5-8f1f-48ea8f368e8c",
+      "run_id": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+      "state": "pending",
+      "reserved_hundredths": "6346",
+      "debited_hundredths": null,
+      "settled_at": null
+    },
+    {
+      "request_id": "6ec1eac4-9618-41a0-8d82-8ec988e99e5f",
+      "run_id": "b8c3ca65-301e-4757-aa9b-032714145225",
+      "state": "reserved",
+      "reserved_hundredths": "10295",
+      "debited_hundredths": null,
+      "settled_at": null
+    }
+  ],
+  "oldBudgetHashes": [
+    {
+      "path": "/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json",
+      "sha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json",
+      "sha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s2-ledger.json",
+      "sha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true
+    }
+  ],
+  "modelRequestsSentByAudit": 0
+}

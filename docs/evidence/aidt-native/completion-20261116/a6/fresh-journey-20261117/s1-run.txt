@@ -1,0 +1,10 @@
+
+Running 1 test using 1 worker
+
+(node:394029) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[aidt-v2] native request observed · aidt-understand · budget entry 9977f21f-6818-4ae5-a27a-d33468bd8f12
+[aidt-v2] durable native run succeeded · aidt-understand · 33945939-c856-4b46-ba35-6953c835c588
+  ✓  1 e2e/aidt-v2-completion.spec.ts:27:5 › completion S1: separately authorized task, student source decision and same-group starting point (35.1s)
+
+  1 passed (36.4s)

@@ -1,0 +1,24 @@
+{
+  "observedAt": "2026-11-16T17:46:16.077410+00:00",
+  "runId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+  "remoteRunId": "8a363731-3110-474b-bcf9-896f5a1a6dac",
+  "readOnly": true,
+  "boundedLogs": {
+    "e2e-api.log": {
+      "lineCount": 39,
+      "scannedLastLines": 39,
+      "matchingS3PrivateDiagnostics": [],
+      "matchingRemoteRunTextLines": 0,
+      "closedErrorClassCounts": {}
+    },
+    "e2e-deep-agent.log": {
+      "lineCount": 133,
+      "scannedLastLines": 133,
+      "matchingS3PrivateDiagnostics": [],
+      "matchingRemoteRunTextLines": 2,
+      "closedErrorClassCounts": {}
+    }
+  },
+  "errorClassesWithoutRunBindingAreNotRootCause": true,
+  "modelRequestsSentByLogReview": 0
+}

@@ -104,6 +104,67 @@ async function readSince(page: Page, apiOrigin: string, path: string, from: numb
   throw new Error("Multiuser uniqueness readback exceeded bounded pagination");
 }
 
+/** Existing, normally authenticated project members only. No account, invitation or membership writes. */
+export async function acceptAidtExistingMemberPair({ owner, member, apiOrigin, projectId, privateProjectId }: {
+  owner: Page; member: Page; apiOrigin: string; projectId: string; privateProjectId: string;
+}) {
+  const first = await actor(owner), second = await actor(member);
+  expect(first.orgId).toBe(second.orgId); expect(first.userId).not.toBe(second.userId);
+  expect(privateProjectId).not.toBe(projectId);
+  const memberships = await api(owner, apiOrigin, `/projects/${projectId}/collaborators`);
+  success(memberships, "existing member pair authoritative membership");
+  const members = project.operations.listNonWorkshopMembers.out.parse(memberships.data).members;
+  expect(members).toEqual(expect.arrayContaining([
+    expect.objectContaining({ userId: first.userId, role: "owner" }),
+    expect.objectContaining({ userId: second.userId, role: "collaborator" }),
+  ]));
+  await openChannel(owner, projectId); await openChannel(member, projectId);
+  const path = `/projects/${projectId}/member-chat/messages`, initial = await api(owner, apiOrigin, `${path}?limit=1`);
+  success(initial, "existing pair channel baseline");
+  const baseline = memberChat.operations.listMessages.out.parse(initial.data).latestSequence, marker = randomUUID();
+  const a = await send(owner, projectId, first.userId, `双账号验收 ${marker}：成员A讨论分工，合成材料非研究结论。`);
+  await member.bringToFront(); await expect(row(member, a.message.id)).toHaveAttribute("data-delivery", "stored", { timeout: 15_000 });
+  const b = await send(member, projectId, second.userId, `双账号验收 ${marker}：成员B提出不同分工。`);
+  await owner.bringToFront(); await expect(row(owner, b.message.id)).toHaveAttribute("data-delivery", "stored", { timeout: 15_000 });
+  await member.bringToFront(); await member.getByTestId(`project-member-topic-${a.message.id}`).click();
+  const replyB = await send(member, projectId, second.userId, `双账号验收 ${marker}：成员B只回复A这条话题。`, a.message.id);
+  await owner.bringToFront(); await owner.getByTestId(`project-member-topic-${a.message.id}`).click();
+  await expect(row(owner, replyB.message.id)).toHaveAttribute("data-delivery", "stored", { timeout: 15_000 });
+  await owner.getByTestId("project-member-topic-close").click();
+  await owner.getByTestId(`project-member-topic-${b.message.id}`).click();
+  const replyA = await send(owner, projectId, first.userId, `双账号验收 ${marker}：成员A只回复B这条话题。`, b.message.id);
+  await member.bringToFront(); await member.getByTestId("project-member-topic-close").click();
+  await member.getByTestId(`project-member-topic-${b.message.id}`).click();
+  await expect(row(member, replyA.message.id)).toHaveAttribute("data-delivery", "stored", { timeout: 15_000 });
+  await expect(member.getByTestId("project-member-replies").getByTestId(`project-member-topic-${replyA.message.id}`)).toHaveCount(0);
+  const sent = [a, b, replyB, replyA];
+  for (const reader of [owner, member]) {
+    const persisted = await readSince(reader, apiOrigin, path, baseline);
+    for (const item of sent) expect(persisted.filter(message => message.clientMessageId === item.input.clientMessageId)).toEqual([item.message]);
+  }
+  const privateMembers = await api(owner, apiOrigin, `/projects/${privateProjectId}/collaborators`);
+  success(privateMembers, "private project existing ownership");
+  const privateList = project.operations.listNonWorkshopMembers.out.parse(privateMembers.data).members;
+  expect(privateList).toContainEqual(expect.objectContaining({ userId: first.userId, role: "owner" }));
+  expect(privateList.some(item => item.userId === second.userId)).toBe(false);
+  const privatePath = `/projects/${privateProjectId}/member-chat/messages`, canaryText = `仅限私有组的合成标记 ${marker}`;
+  const created = await api(owner, apiOrigin, privatePath, "POST", { projectId: privateProjectId, clientMessageId: randomUUID(), text: canaryText });
+  success(created, "normal owner-only canary");
+  const canary = memberChat.operations.postMessage.out.parse(created.data).message;
+  const denied = [await api(member, apiOrigin, privatePath), await api(member, apiOrigin, `${privatePath}/${canary.id}/replies`),
+    await api(member, apiOrigin, privatePath, "POST", { projectId: privateProjectId, clientMessageId: randomUUID(), text: `必须拒绝的跨组写入 ${marker}` })];
+  for (const response of denied) {
+    expect(response.status).toBe(404); expect((response.data as { reasonCode?: unknown }).reasonCode).toBe("NOT_FOUND");
+    expect(JSON.stringify(response.data)).not.toContain(canaryText);
+    for (const field of ["items", "message", "root", "text"]) expect(response.data).not.toHaveProperty(field);
+  }
+  const privateRead = await api(owner, apiOrigin, `${privatePath}?limit=100`); success(privateRead, "private canary remains alone");
+  expect(memberChat.operations.listMessages.out.parse(privateRead.data).items).toEqual([canary]);
+  return { orgId: first.orgId, projectId, privateProjectId, authors: [first.userId, second.userId], messages: sent.map(item => item.message),
+    actualMemberships: members, oneRecordPerClientIdForBothReaders: true, nonmemberDeniedStatuses: denied.map(item => item.status),
+    ordinaryExistingAccounts: true, accountsCreated: false, invitationsCreated: false, orgRoleOrBalanceChanged: false };
+}
+
 /** PROPOSAL ONLY until root integrates and executes on its isolated native stack.
  * Account creation uses the existing one-use ordinary org invitation API, never
  * test identities, SQL, verification-secret signing, localStorage injection or

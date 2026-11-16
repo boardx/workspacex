@@ -1,0 +1,95 @@
+{
+  "kind": "s2-fresh-seed-independent-resume-audit",
+  "at": "2026-11-16T17:38:14.104Z",
+  "runId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d",
+  "status": "succeeded",
+  "ordinaryDeriveScope": true,
+  "restoreAdapterUsed": false,
+  "actualOrgRole": "admin",
+  "actualGroupRole": "owner",
+  "ordinaryStudentModelPermissionProven": false,
+  "exactSources": [
+    {
+      "stageId": 2,
+      "revision": 3,
+      "currentHeadRevision": 4,
+      "sourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        }
+      ],
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "stageId": 1,
+      "revision": 2,
+      "currentHeadRevision": 2,
+      "sourceStageRevisions": [],
+      "exactSavedProjectionMatches": true
+    }
+  ],
+  "exactSavedBeforeAndAfter": [
+    {
+      "stage": "before",
+      "revision": 3,
+      "exactSavedContentMatches": true,
+      "exactSavedSourceRefsMatch": true,
+      "exactUpdatedByMatches": true,
+      "exactUpdatedAtMatches": true
+    },
+    {
+      "stage": "after",
+      "revision": 4,
+      "exactSavedContentMatches": true,
+      "exactSavedSourceRefsMatch": true,
+      "exactUpdatedByMatches": true,
+      "exactUpdatedAtMatches": true
+    }
+  ],
+  "s1SavedVersionsUnchanged": true,
+  "persistedHumanMatchesA6Original": true,
+  "canonicalHashesMatch": true,
+  "initialBrowserReceiptSnapshotHash": "89c155d9db4e823621ae3e071a3e439cfb998223cc2dff3379ef174a9505e68f",
+  "initialBrowserReceiptMatchesFinalFrozenSnapshot": true,
+  "dispatchAttemptId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d:1",
+  "resumeAttemptId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d:8",
+  "resumeInheritsDispatchAttemptId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d:1",
+  "dispatchAndResumeSameSnapshotAndBlock": true,
+  "threadCounts": {
+    "runs": "1",
+    "humanmessages": "1",
+    "snapshots": "1"
+  },
+  "physical": 6,
+  "usage": 6,
+  "reportedTokensTotal": 40165,
+  "usageAllReportedSucceeded": true,
+  "creditsAllSettled": true,
+  "oldThreeLedgerHashes": [
+    {
+      "ledgerLabel": "native-model-run-ledger.json",
+      "beforeSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "afterSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true
+    },
+    {
+      "ledgerLabel": "additional-s1-ledger.json",
+      "beforeSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "afterSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true
+    },
+    {
+      "ledgerLabel": "additional-s2-ledger.json",
+      "beforeSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "afterSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true
+    }
+  ],
+  "originalQaInterruptionPreserved": true,
+  "newStudentRequestSentByAudit": false,
+  "newReservationByAudit": false,
+  "modelRequestsSentByAudit": 0,
+  "dataWrites": 0,
+  "qualityHumanReviewPending": true
+}

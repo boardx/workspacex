@@ -1,0 +1,25 @@
+
+Running 1 test using 1 worker
+
+(node:401387) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/aidt-member-existing-zero.spec.ts:18:5 › existing collaboration accounts exchange real member texts and reject an unjoined QA group (5.3s)
+
+
+  1) e2e/aidt-member-existing-zero.spec.ts:18:5 › existing collaboration accounts exchange real member texts and reject an unjoined QA group 
+
+    Error: page.evaluate: TypeError: Failed to fetch
+        at eval (eval at evaluate (:311:30), <anonymous>:4:28)
+        at UtilityScript.evaluate (<anonymous>:313:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at eval (eval at evaluate (:311:30), <anonymous>:4:28)
+        at UtilityScript.evaluate (<anonymous>:313:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at api (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-member-multiuser-acceptance.ts:20:15)
+        at acceptAidtExistingMemberPair (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-member-multiuser-acceptance.ts:114:29)
+        at /workspace/aidt-module-latest/apps/web/e2e/aidt-member-existing-zero.spec.ts:52:20
+
+    Error Context: ../../../scratch/aidt-real-acceptance-20261117/a4-existing-member-pair-01/aidt-member-existing-zero--cc565-reject-an-unjoined-QA-group/error-context.md
+
+  1 failed
+    e2e/aidt-member-existing-zero.spec.ts:18:5 › existing collaboration accounts exchange real member texts and reject an unjoined QA group 

@@ -1,0 +1,3 @@
+Listing tests:
+  aidt-native-draft-zero.spec.ts:80:5 › zero-cost native failure: retry keeps draft B and its file; global member text remains independent
+Total: 1 test in 1 file
