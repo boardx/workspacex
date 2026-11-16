@@ -24,9 +24,11 @@ flowchart TD
   S5[5. 提交并交接父级接入]
   S6[6. 实现引用持久化与冻结版本ID]
   S7[7. 验证报告兼容与历史边界]
+  S8[8. 隔离纯格式化与API依赖]
 
   G --> S1 --> S2 --> S3 --> S4 --> S5
   S5 --> S6 --> S7
+  S7 --> S8
 
   classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
@@ -45,6 +47,8 @@ flowchart TD
   class S6 tested
   %% evidence S6: reference-persistence-tests.log: canonical StageContent roundtrip, frozen v1 while S5 v2, legacy schema and ID comparison passed
   class S7 tested
+  class S8 tested
+  %% evidence S8: pure-formatting-tests.log: 65 passed including runtime poison of api-client, native adapter and contracts barrel; pure-formatting-eslint.log exit 0
   %% evidence S7: reference-persistence-tests.log: 64 tests passed across 10 files; reference-eslint.log exit 0
 ```
 

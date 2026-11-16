@@ -94,5 +94,6 @@ import { aidtPrototypeVersionLabel, type AidtPrototypeVersionReference } from "@
 | A5.5 | 独立审阅发现：已有 A → 延迟核对 B → 移除 → B 回包，会覆盖学生的移除决定 | 移除时同步 abort 并清除 pending/error；完成回调也核对当前 controller；取消逻辑与收起/刷新复用 | `removal-race-red.log` 先复现 1 failed；`removal-race-green.log` 修复后 20/20 passed，含移除后重选可用 |
 | A5.6 | 原型 ID 还不能经过已批准阶段字段保存；冻结快照只比文字 | 新增本地 metadata schema/read/update；新快照带 primitive ID，旧版可读；手工文字清选择，旧 S6 不自动改 | 共享 StageContent JSON 往返、S5 v1→v2 / S6 冻结 v1、同 ID 改名、旧 label 不恢复 ID、报告分版本输出等实际纯逻辑测试 |
 | A5.7 | 解析历史 metadata 不证明过去真实读服务成功 | 格式化只称学生记录结构可读，并明确实际内容、权限、证据待核对 | parse任意合法metadata→report 不得出现“曾成功读取”“当前已授权”“证据核验通过” |
+| A5.8 | 纯报告格式化的 label import 经原型适配器牵入 api-client 与 contracts 总入口 | 唯一 label 实现移至纯 `aidt-prototype-label.ts`，旧适配器 re-export 兼容；reference/verification 从纯 helper 引用，契约改既有子路径 namespace | 原64项 + runtime poison边界断言，共65/65 passed；禁止 API client、适配器和contracts总入口加载后，完整报告仍能格式化 |
 
 首次定向测试的一个成功场景夹具错误地把 text node 内容放在非契约属性中，strict 解析如期拒绝。夹具已按原生 schema 改为 `props.content`，没有放宽树校验。

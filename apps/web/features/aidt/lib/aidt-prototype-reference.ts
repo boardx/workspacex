@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { designWorkbench } from "@repo/contracts";
+import * as designWorkbench from "@repo/contracts/design-workbench";
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
-import { aidtPrototypeVersionLabel, type AidtPrototypeVersionReference } from "./aidt-prototype-versions";
+import type { AidtPrototypeVersionReference } from "./aidt-prototype-versions";
+import { aidtPrototypeVersionLabel } from "./aidt-prototype-label";
 
 export const AIDT_PROTOTYPE_REFERENCE_FIELD = "prototypeReference";
 export const AidtPrototypeIdentifierSchema = designWorkbench.PrototypeVersionSummary.shape.id.refine(

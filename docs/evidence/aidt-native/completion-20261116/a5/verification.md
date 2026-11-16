@@ -12,6 +12,8 @@
 | 修复后完整 helper + picker 测试 | exit 0，20/20 passed（含移除后仍可重新选择） | `removal-race-green.log` |
 | 第三增量：结构化引用持久化、快照、阶段摘要、报告与 picker 回归（10 files） | exit 0，64/64 passed | `reference-persistence-tests.log` |
 | 第三增量修改文件的定向 ESLint | exit 0，无诊断 | `reference-eslint.log` |
+| 纯格式化依赖边界修复：原64项 + runtime poison断言（11 files） | exit 0，65/65 passed | `pure-formatting-tests.log` |
+| 纯格式化边界修改的定向 ESLint | exit 0，无诊断 | `pure-formatting-eslint.log` |
 
 A5.5 对 picker 与回归测试再次执行定向 ESLint，exit 0，无诊断。这个修复只取消被学生撤销的选择，不改变已保存问题快照。
 

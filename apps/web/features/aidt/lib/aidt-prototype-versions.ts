@@ -1,4 +1,6 @@
-import { designPrototype, designWorkbench, project } from "@repo/contracts";
+import * as designPrototype from "@repo/contracts/design-prototype";
+import * as designWorkbench from "@repo/contracts/design-workbench";
+import * as project from "@repo/contracts/project";
 import { apiRequest } from "@/lib/api-client";
 import type { DesignProject, PrototypeVersionSummary } from "@/lib/live-design-workbench";
 import { isAidtModuleEnabled } from "./aidt-module-config";
@@ -95,7 +97,5 @@ export async function resolveAidtPrototypeVersion(context: AidtPrototypeReadCont
   return { designId, versionId: version.id, designName: design.name, seq: version.seq, summary: version.summary, createdAt: version.createdAt, frameCount: version.frames.length, generatedFrameCount: version.prototype.filter(Boolean).length, source: version.source };
 }
 
-/** Human-readable companion; callers should preserve the two IDs separately when persisting. */
-export function aidtPrototypeVersionLabel(reference: AidtPrototypeVersionReference): string {
-  return `${reference.designName} / v${reference.seq}${reference.summary ? `：${reference.summary}` : ""}`;
-}
+/** Compatibility export; keep the sole implementation on the pure formatting path. */
+export { aidtPrototypeVersionLabel } from "./aidt-prototype-label";

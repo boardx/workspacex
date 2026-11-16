@@ -1,6 +1,6 @@
 import type { AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { AIDT_PROTOTYPE_REFERENCE_FIELD, AidtPrototypeIdentifierSchema, formatAidtPrototypeReference, readAidtPrototypeReference, updateAidtPrototypeVersionText } from "./aidt-prototype-reference";
-import { aidtPrototypeVersionLabel } from "./aidt-prototype-versions";
+import { aidtPrototypeVersionLabel } from "./aidt-prototype-label";
 
 /** These remain student-authored fields in the existing shared stage document. */
 export const AIDT_VERIFICATION_FIELDS = ["verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits"] as const;
