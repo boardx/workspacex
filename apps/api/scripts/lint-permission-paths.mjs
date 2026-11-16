@@ -76,9 +76,18 @@ const SUBTASK_BOUNDARIES = new Set([
 ]);
 verifyAiCatalogBoundary(new URL('../', import.meta.url).pathname);
 const ALLOWLIST = new Map([
-  ["src/infrastructure/ai-catalog/catalog-storage.ts", "#6418 explicitly scoped configuration storage only: PlatformOperatorGuard precedes platform routes; application AiCatalogAdminService verifies same-org membership/admin before public enable, uses named tenant transactions, exact publication/enablement ledgers and immutable local copies. No identity impersonation/global read. verifyAiCatalogBoundary mechanically bounds consumers, guarded routes and ordering; real agent-admin-http/ai-catalog-skill-http negatives must remain. Not a general tenant-content exception."],
-  ["src/infrastructure/ai-catalog/agent-adapter.ts", "#6418 explicitly scoped configuration storage only: PlatformOperatorGuard precedes platform routes; application AiCatalogAdminService verifies same-org membership/admin before public enable, uses named tenant transactions, exact publication/enablement ledgers and immutable local copies. No identity impersonation/global read. verifyAiCatalogBoundary mechanically bounds consumers, guarded routes and ordering; real agent-admin-http/ai-catalog-skill-http negatives must remain. Not a general tenant-content exception."],
-  ["src/infrastructure/skill/ai-catalog-skill-storage.ts", "#6418 explicitly scoped configuration storage only: PlatformOperatorGuard precedes platform routes; application AiCatalogAdminService verifies same-org membership/admin before public enable, uses named tenant transactions, exact publication/enablement ledgers and immutable local copies. No identity impersonation/global read. verifyAiCatalogBoundary mechanically bounds consumers, guarded routes and ordering; real agent-admin-http/ai-catalog-skill-http negatives must remain. Not a general tenant-content exception."],
+  [
+    "src/infrastructure/ai-catalog/catalog-storage.ts",
+    "#6418 explicitly scoped configuration storage only: PlatformOperatorGuard precedes platform routes; application AiCatalogAdminService verifies same-org membership/admin before public enable, uses named tenant transactions, exact publication/enablement ledgers and immutable local copies. No identity impersonation/global read. verifyAiCatalogBoundary mechanically bounds consumers, guarded routes and ordering; real agent-admin-http/ai-catalog-skill-http negatives must remain. Not a general tenant-content exception.",
+  ],
+  [
+    "src/infrastructure/ai-catalog/agent-adapter.ts",
+    "#6418 explicitly scoped configuration storage only: PlatformOperatorGuard precedes platform routes; application AiCatalogAdminService verifies same-org membership/admin before public enable, uses named tenant transactions, exact publication/enablement ledgers and immutable local copies. No identity impersonation/global read. verifyAiCatalogBoundary mechanically bounds consumers, guarded routes and ordering; real agent-admin-http/ai-catalog-skill-http negatives must remain. Not a general tenant-content exception.",
+  ],
+  [
+    "src/infrastructure/skill/ai-catalog-skill-storage.ts",
+    "#6418 explicitly scoped configuration storage only: PlatformOperatorGuard precedes platform routes; application AiCatalogAdminService verifies same-org membership/admin before public enable, uses named tenant transactions, exact publication/enablement ledgers and immutable local copies. No identity impersonation/global read. verifyAiCatalogBoundary mechanically bounds consumers, guarded routes and ordering; real agent-admin-http/ai-catalog-skill-http negatives must remain. Not a general tenant-content exception.",
+  ],
 
 
 
