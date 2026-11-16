@@ -1,0 +1,33 @@
+{
+  "kind": "fresh-seed-reader-preparation-only",
+  "at": "2026-11-16T17:08:26.556727+00:00",
+  "actualRuntimeAudited": false,
+  "actualModelResultsClaimed": false,
+  "scopedTypecheck": {
+    "command": "pnpm --dir apps/api exec tsc -p /tmp/aidt-fresh-audit-tsconfig.json --noEmit",
+    "exitCode": 0,
+    "initialTemporaryConfigMissingNodeTypeRootsCorrected": true
+  },
+  "controlledNegativeChecks": [
+    {
+      "case": "missing explicit paths",
+      "exitCode": 2,
+      "safeError": "AUDIT_EXPLICIT_PATHS_REQUIRED"
+    },
+    {
+      "case": "restore runtime rejected before request/database access",
+      "exitCode": 1,
+      "safeError": "FRESH_SEED_RUNTIME_REQUIRED"
+    },
+    {
+      "case": "foreign derived database/compose rejected",
+      "exitCode": 1,
+      "safeError": "ISOLATION_SCOPE_MISMATCH"
+    }
+  ],
+  "databaseConnections": 0,
+  "dockerInvocations": 0,
+  "externalRequests": 0,
+  "modelRequests": 0,
+  "dataWrites": 0
+}

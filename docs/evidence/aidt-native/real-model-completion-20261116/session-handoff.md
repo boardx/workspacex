@@ -15,3 +15,7 @@
 最终新私有诊断目录：/workspace/scratch/aidt-private-diagnostics-20261116/S2-failed-pending-20261116T143336845Z。仅用于保全，不能由现有zero-outstanding恢复入口直接恢复。全部服务、容器、卷、网络、13端口/租约及slot已正常释放，owner exit0。
 
 零费用后续见../zero-cost-followup-20261116/README.md：已补草稿保留、安全私有诊断及真SDK本机TLS测试，无新真实模型/金融写。原S2历史底层cause仍未知；未来最小复验需先安全核验最新含pending状态的恢复路径及实际子进程环境指纹，再另批一次独立任务，不能用旧dump/重置账本。最新交付源码v8 snapshot2f29f3543、PDFv7；完整模型链仍未全过。
+
+## 最新用户指令（客户端2026-11-17 Asia/Shanghai）
+
+用户明确“不要管credit预算，直接测试和验收”，再次授权真实模型与浏览器操作，无需继续询问审批；先前一次次数限制只保护历史，不用于阻止本轮新测试。最新真实SDK最小调用已经成功OK/3.7秒/22tokens/0retry。当前从全新隔离seed测试组重走（并非回滚旧pending），新namespace /workspace/scratch/aidt-real-acceptance-20261117，旧三账/未知费用原样保留。新授权与计划见../real-browser-acceptance-20261117，后续卡住留证跳过继续独立测试，最终报告分pass/fail/skip/notrun/human待验，不反复追问用户。禁止生产部署/合并/扩权/改余额hold；语音和访谈录音仍后置。

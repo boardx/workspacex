@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "status": "entry-prepared-not-model-tested",
+  "authorizationMarker": "fresh-native-seven-20261117",
+  "newNativeJournal": "native-run-journal.json",
+  "newJourneyState": "journey-state.json",
+  "plannedNativeStages": [
+    "s1",
+    "s2",
+    "s3",
+    "s4",
+    "s5",
+    "s6",
+    "sum"
+  ],
+  "unitTestsPassed": 9,
+  "scopedTypesExitCode": 0,
+  "eslintExitCode": 0,
+  "s1DiscoveredTests": 1,
+  "modelRequests": 0,
+  "browserStarted": false,
+  "oldJournalsReset": false,
+  "oldSupplementGuardsRemoved": false,
+  "qaFiles": {
+    "apps/web/e2e/aidt-v2-completion.spec.ts": "0b6f1acf7e1388feca49fc4b8f2ab559812b79aa9ee337dae23fd985b31018d4",
+    "apps/web/e2e/support/aidt-v2-fresh-journey.ts": "308b11166f2500d9b05c9b74e057c22b63dcae68afd2aee83b0f2c06afea4a33",
+    "apps/web/tests/aidt-v2-fresh-journey.test.ts": "523479f549a3fc54015c202ac3914fde438648f3c7af101175a878a07488375a"
+  }
+}

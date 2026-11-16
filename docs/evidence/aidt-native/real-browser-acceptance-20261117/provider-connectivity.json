@@ -1,0 +1,29 @@
+{
+  "scope": "user-authorized-real-validation-without-test-credit-stop-20261117",
+  "authorization": "user:不要管credit预算，直接测试和验收",
+  "attemptId": "9525aff2-216f-43c4-8539-52dd8ee50faf",
+  "maximumOutputTokens": 32,
+  "automaticRetries": 0,
+  "status": "succeeded",
+  "providerReturned": true,
+  "responseText": "OK",
+  "responseId": "chatcmpl-47e45aa3-d246-960a-b826-c5a80c47d2e6",
+  "requestId": "47e45aa3-d246-960a-b826-c5a80c47d2e6",
+  "finishReason": "stop",
+  "usage": {
+    "completion_tokens": 1,
+    "prompt_tokens": 21,
+    "total_tokens": 22,
+    "completion_tokens_details": null,
+    "prompt_tokens_details": {
+      "audio_tokens": null,
+      "cache_write_tokens": null,
+      "cached_tokens": 0,
+      "image_tokens": null,
+      "text_tokens": 21
+    }
+  },
+  "elapsedSeconds": 3.7,
+  "actualProductChatVerified": false,
+  "completedAt": "2026-11-16T17:03:32.928Z"
+}

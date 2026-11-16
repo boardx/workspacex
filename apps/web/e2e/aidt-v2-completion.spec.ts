@@ -5,6 +5,7 @@ import { operations, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { readAidtQuestionSnapshot } from "../features/aidt/lib/aidt-verification-loop";
 import { REAL_MODEL_SMOKE } from "./real-model-smoke-fixture";
 import { apiPath } from "./support/real-model-api";
+import { assertFreshAidtJourney } from "./support/aidt-v2-fresh-journey";
 import { reviewAidtSyntheticIntent } from "./support/aidt-v2-intent-review";
 import { beginCompletionPhase, completeCompletionPhase, readCompletionState, type CompletionPhase } from "./support/aidt-v2-completion-state";
 import { addCompletionIdeaImages, addCompletionResearch, completionIdeaPdfs } from "./support/aidt-v2-completion-materials";
@@ -13,7 +14,7 @@ import { aidtV2Api, askAidtV2Agent, assertAidtV2Target, createAidtV2Group, login
   readAidtV2Stage, saveAidtV2Stage, sendAidtV2NativeTurn } from "./support/aidt-v2-acceptance";
 
 // Each invocation selects exactly one externally authorized phase. No loop/retry can send a second task.
-test.beforeAll(() => assertAidtV2Target());
+test.beforeAll(() => { assertAidtV2Target(); assertFreshAidtJourney(); });
 async function freshReadback(browser: Browser, projectId: string, stage: SharedStageValue) {
   const context = await browser.newContext({ baseURL: REAL_MODEL_SMOKE.baseUrl });
   try {
@@ -25,9 +26,12 @@ const review = (page: Page, projectId: string) => ({ reviewSyntheticIntent: (run
 
 test("completion S1: separately authorized task, student source decision and same-group starting point", async ({ page, browser }, info) => {
   test.setTimeout(REAL_MODEL_SMOKE.runTimeoutMs + 150_000);
+  const fresh = assertFreshAidtJourney(true);
+  if (!fresh) {
+    expect(process.env.AIDT_V2_S1_SUPPLEMENT_AUTHORIZED).toBe("1");
+    expect(process.env.AIDT_V2_SUPPLEMENTAL_S1_LEDGER).toBeTruthy();
+  }
   beginCompletionPhase("s1");
-  expect(process.env.AIDT_V2_S1_SUPPLEMENT_AUTHORIZED).toBe("1");
-  expect(process.env.AIDT_V2_SUPPLEMENTAL_S1_LEDGER).toBeTruthy();
   await loginAidtV2(page); const projectId = await createAidtV2Group(page, "同组六步与历史报告");
   await openAidtV2Outcome(page, projectId, 1);
   const initial = "合成课堂练习：如何让新同学理解食堂取餐指示？尚无真人访谈。";
