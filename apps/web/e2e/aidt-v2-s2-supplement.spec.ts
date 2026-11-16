@@ -1,13 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { agentRuntime, chat, skills, wave2Runtime } from "@repo/contracts";
+import { agentRole, agentRuntime, chat, skills, wave2Runtime } from "@repo/contracts";
 import { operations as contextOperations } from "@repo/contracts/aidt-run-context";
 import { operations as stageOperations } from "@repo/contracts/aidt-stages";
 import { SESSION_STORAGE_KEY } from "../components/session/session-provider";
 import { REAL_MODEL_SMOKE } from "./real-model-smoke-fixture";
 import { additionalS2RunLedger } from "./support/aidt-v2-s2-supplement-ledger";
-import { validateS2SupplementPreflight } from "./support/aidt-v2-s2-supplement-preflight";
+import { validateS2EmptyThreadReuse, validateS2SupplementPreflight } from "./support/aidt-v2-s2-supplement-preflight";
 import { beginSupplementalS2Attempt, completeSupplementalS2Attempt, readCompletionState } from "./support/aidt-v2-completion-state";
 import { fillAidtV2Field } from "./support/aidt-v2-stage-cases";
 import { reviewAidtSyntheticIntent } from "./support/aidt-v2-intent-review";
@@ -61,21 +61,37 @@ test("supplemental S2: new native thread and canonical base preserve the origina
   expect(skill!.currentVersionId).toBe(oldMount!.versionId);
   const before = (await readAidtV2Stage(page, projectId, 2))!;
   expect(before.content.draft.fields.guide).toBeTruthy(); expect(before.content.draft.fields.adoptedGuide).toContain("人工");
-  const createInput = chat.operations.mutateThread.in.parse({ op: "create", projectId, threadId: null, groupId: oldThread.thread.groupId,
-    title: `[AIDT 2] 合成课堂补测 · ${randomUUID().slice(0, 8)}`, visibilityScope: oldThread.thread.visibilityScope, expectedVersion: null, reason: null });
-  const createdResponse = await aidtV2Api(page, chat.operations.mutateThread.path, "POST", createInput); expect(createdResponse.status).toBe(200);
-  const created = chat.operations.mutateThread.out.parse(createdResponse.data); expect(created.threadId).not.toBe(oldRun.threadId);
-  const newThreadId = created.threadId, mountReadPath = `/threads/${newThreadId}/skill-deviations?projectId=${encodeURIComponent(projectId)}`;
+  const reuseProofPath = process.env.AIDT_V2_S2_SUPPLEMENT_REUSE_EMPTY_THREAD_PROOF;
+  let newThreadId: string, reuseProofHash: string | null = null;
+  if (reuseProofPath) {
+    // Fresh paid-owner preflight above is still mandatory; this records the earlier closed-window zero-send audit.
+    expect(existsSync(process.env.AIDT_V2_SUPPLEMENTAL_S2_LEDGER!)).toBe(false);
+    const reuseBytes = readFileSync(reuseProofPath);
+    const reuse = validateS2EmptyThreadReuse(JSON.parse(reuseBytes.toString()), {
+      orgId: actor.currentOrgId, projectId, oldThreadId: oldRun.threadId, skillId: skill!.skillId, skillVersionId: oldMount!.versionId,
+      legacyHash: createHash("sha256").update(oldBudgetBytes).digest("hex"), s1Hash: createHash("sha256").update(s1BudgetBytes).digest("hex"),
+    });
+    newThreadId = reuse.newThread.id; reuseProofHash = createHash("sha256").update(reuseBytes).digest("hex");
+  } else {
+    const createInput = chat.operations.mutateThread.in.parse({ op: "create", projectId, threadId: null, groupId: oldThread.thread.groupId,
+      title: `[AIDT 2] 合成课堂补测 · ${randomUUID().slice(0, 8)}`, visibilityScope: oldThread.thread.visibilityScope, expectedVersion: null, reason: null });
+    const createdResponse = await aidtV2Api(page, chat.operations.mutateThread.path, "POST", createInput); expect(createdResponse.status).toBe(200);
+    newThreadId = chat.operations.mutateThread.out.parse(createdResponse.data).threadId;
+  }
+  expect(newThreadId).not.toBe(oldRun.threadId);
+  const mountReadPath = `/threads/${newThreadId}/skill-deviations?projectId=${encodeURIComponent(projectId)}`;
   const newThreadResponse = await aidtV2Api(page, `/chat/threads/${newThreadId}?projectId=${encodeURIComponent(projectId)}`); expect(newThreadResponse.status).toBe(200);
   const newThread = chat.operations.getThread.out.parse(newThreadResponse.data);
   expect(newThread.thread).toMatchObject({ id: newThreadId, projectId, groupId: oldThread.thread.groupId,
     visibilityScope: oldThread.thread.visibilityScope, createdBy: actor.userId, archived: false });
   expect(newThread.capabilities).toContain("composer.send");
-  const emptyMountResponse = await aidtV2Api(page, mountReadPath); expect(emptyMountResponse.status).toBe(200);
-  const emptyMounts = skills.operations.listThreadDeviations.out.parse(emptyMountResponse.data); expect(emptyMounts.temporary.filter(item => item.removedAt === null)).toEqual([]);
-  const mountedResponse = await aidtV2Api(page, `/threads/${newThreadId}/skill-mounts?projectId=${encodeURIComponent(projectId)}`, "POST",
-    skills.operations.mountSkillToThread.in.parse({ threadId: newThreadId, skillIds: [skill!.skillId], expectedVersion: emptyMounts.version }));
-  expect(mountedResponse.status).toBe(201); skills.operations.mountSkillToThread.out.parse(mountedResponse.data);
+  if (!reuseProofPath) {
+    const emptyMountResponse = await aidtV2Api(page, mountReadPath); expect(emptyMountResponse.status).toBe(200);
+    const emptyMounts = skills.operations.listThreadDeviations.out.parse(emptyMountResponse.data); expect(emptyMounts.temporary.filter(item => item.removedAt === null)).toEqual([]);
+    const mountedResponse = await aidtV2Api(page, `/threads/${newThreadId}/skill-mounts?projectId=${encodeURIComponent(projectId)}`, "POST",
+      skills.operations.mountSkillToThread.in.parse({ threadId: newThreadId, skillIds: [skill!.skillId], expectedVersion: emptyMounts.version }));
+    expect(mountedResponse.status).toBe(201); skills.operations.mountSkillToThread.out.parse(mountedResponse.data);
+  }
   const newMountResponse = await aidtV2Api(page, mountReadPath); expect(newMountResponse.status).toBe(200);
   const newMounts = skills.operations.listThreadDeviations.out.parse(newMountResponse.data).temporary.filter(item => item.removedAt === null);
   expect(newMounts).toEqual([expect.objectContaining({ skillId: skill!.skillId, versionId: oldMount!.versionId })]);
@@ -83,14 +99,22 @@ test("supplemental S2: new native thread and canonical base preserve the origina
   const emptyMessages = await aidtV2Api(page, newMessagesPath); expect(emptyMessages.status).toBe(200); expect(chat.operations.listMessages.out.parse(emptyMessages.data).messages).toEqual([]);
   await page.goto(`/aidt/${projectId}?step=2&tool=chat&thread=${encodeURIComponent(newThreadId)}`, { waitUntil: "domcontentloaded" });
   await page.getByTestId("aidt-step-skill").waitFor({ state: "visible" });
-  const picker = page.getByTestId("chat-task-workbench-capability-picker"); await expect(picker).toBeEnabled(); await picker.click();
+  const picker = page.getByTestId("chat-task-workbench-capability-picker"); await expect(picker).toBeEnabled();
+  const directoryResponse = page.waitForResponse(response => response.request().method() === "GET" && new URL(response.url()).pathname.endsWith(agentRole.operations.listAgentDirectory.path));
+  await picker.click();
+  const directory = await directoryResponse; expect(directory.status()).toBe(200);
+  agentRole.operations.listAgentDirectory.out.parse(await directory.json());
+  await expect(page.getByTestId("chat-task-workbench-capability-popover")).toHaveAttribute("data-layout", "popover");
+  // Directory hydration can rebuild the listing; select only after its response has rendered.
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   const defaultOption = page.locator(`[data-testid="chat-task-workbench-capability-card"][data-agent-id="${oldRun.agentId}"]`);
   await expect(defaultOption).toBeVisible(); await expect(defaultOption).toBeEnabled(); await defaultOption.click();
   await expect(picker).toHaveAttribute("data-auto-match", "false");
+  await expect(picker).toHaveAttribute("aria-expanded", "false");
   beginSupplementalS2Attempt(projectId, originalRunId, newThreadId);
   await info.attach("supplemental-s2-pre-send-facts", { contentType: "application/json", body: Buffer.from(JSON.stringify({
     projectId, originalRunId, oldThreadId: oldRun.threadId, newThreadId, approvedSkillVersionId: oldMount!.versionId,
-    preflight: proof, instructionsDigestSource: "A1 constrained read-only audit, not ordinary API", graphPublishedVersionId: graph.publishedVersionId,
+    preflight: proof, reuseProofHash, instructionsDigestSource: "A1 constrained read-only audit, not ordinary API", graphPublishedVersionId: graph.publishedVersionId,
     oldPhase: state.phases.s2, checkpointIsolationBrowserFacts: "new normal project thread with zero messages; remote checkpoint requires owner audit",
   }, null, 2)) });
   const prompt = "本组第2步合成课堂补测：此前任务因测试基础角色错误而取消，学生人工修订的清单与材料已经保存。请内部核对本组已保存来源，不逐项回显；只输出一句核心澄清问句，不追加分支或活动时长，等待学生回答。不替学生确认、保存、访谈或生成文件。全部材料仍为合成练习，没有真实访谈证据。";

@@ -1,0 +1,66 @@
+{
+  "zeroModelDiagnostic": true,
+  "threadId": "thr-0a23a022-c27f-43c4-96dc-0f40cd31b9d1",
+  "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+  "events": [
+    {
+      "at": 1794838415167,
+      "innerWidth": 1440,
+      "layout": "popover",
+      "auto": "true",
+      "expanded": "true",
+      "cardNode": 1,
+      "cardSection": "chat-task-workbench-capability-group-others"
+    },
+    {
+      "at": 1794838415308,
+      "innerWidth": 1440,
+      "layout": null,
+      "auto": "false",
+      "expanded": "false",
+      "cardNode": null,
+      "cardSection": null
+    }
+  ],
+  "directoryReads": [
+    {
+      "at": 1794838415202,
+      "status": 200
+    }
+  ],
+  "nativeRequests": [],
+  "normalUiSelectionOnly": true,
+  "agentId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+  "afterOpen": {
+    "innerWidth": 1440,
+    "layout": "popover",
+    "auto": "true",
+    "expanded": "true",
+    "cardNode": 1,
+    "cardSection": "chat-task-workbench-capability-group-others"
+  },
+  "directoryMatches": [
+    {
+      "agentId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+      "catalogSource": "org",
+      "avatarKey": null
+    }
+  ],
+  "afterDirectory": {
+    "innerWidth": 1440,
+    "layout": "popover",
+    "auto": "true",
+    "expanded": "true",
+    "cardNode": 1,
+    "cardSection": "chat-task-workbench-capability-group-others"
+  },
+  "afterSelection": {
+    "innerWidth": 1440,
+    "layout": null,
+    "auto": "false",
+    "expanded": "false",
+    "cardNode": null,
+    "cardSection": null
+  },
+  "passed": true
+}

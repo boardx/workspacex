@@ -25,3 +25,26 @@ export function validateS2SupplementPreflight(raw: unknown, reviewed: unknown, s
     || proof.publishedAgentVersionId === proof.oldAgentVersionId) throw new Error("AIDT_S2_SUPPLEMENT_CANONICAL_VERSION_MISMATCH");
   return proof;
 }
+
+/** This one empty thread survived the first, independently audited zero-send QA failure. */
+export function validateS2EmptyThreadReuse(raw: unknown, expected: {
+  orgId: string; projectId: string; oldThreadId: string; skillId: string; skillVersionId: string;
+  legacyHash: string; s1Hash: string;
+}) {
+  const proof = z.object({
+    at: z.string().datetime(), readOnly: z.literal(true), originalThreadsRetained: z.literal(true),
+    newThread: z.object({ id: z.string().min(1), org_id: z.string(), project_id: z.string() }),
+    messages: z.literal(0), runs: z.literal(0),
+    mounts: z.array(z.object({ skill_id: z.string(), version_id: z.string(), stable_name: z.literal("aidt-empathize") })).length(1),
+    finance: z.object({ total_runs: z.literal(2), active: z.literal(0), physical: z.literal(2), usage: z.literal(2), credit: z.literal(2),
+      unsettled: z.literal(0), holds: z.literal("0"), unbounded: z.literal("0") }),
+    oldBudgetHashes: z.object({ legacy: sha, supplementS1: sha }), oldBudgetsUnchanged: z.literal(true),
+    supplementalS2LedgerAbsent: z.literal(true), modelRequestsSentByAudit: z.literal(0),
+  }).parse(raw);
+  if (proof.newThread.org_id !== expected.orgId || proof.newThread.project_id !== expected.projectId || proof.newThread.id === expected.oldThreadId
+    || proof.mounts[0]!.skill_id !== expected.skillId || proof.mounts[0]!.version_id !== expected.skillVersionId
+    || proof.oldBudgetHashes.legacy !== expected.legacyHash || proof.oldBudgetHashes.supplementS1 !== expected.s1Hash) {
+    throw new Error("AIDT_S2_EMPTY_THREAD_REUSE_MISMATCH");
+  }
+  return proof;
+}

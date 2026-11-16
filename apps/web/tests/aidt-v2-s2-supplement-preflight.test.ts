@@ -2,7 +2,7 @@ import { afterEach, expect, it } from "vitest";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { validateS2SupplementPreflight } from "../e2e/support/aidt-v2-s2-supplement-preflight";
+import { validateS2EmptyThreadReuse, validateS2SupplementPreflight } from "../e2e/support/aidt-v2-s2-supplement-preflight";
 import { beginSupplementalS2Attempt, completeSupplementalS2Attempt, readCompletionState } from "../e2e/support/aidt-v2-completion-state";
 
 const scope = { orgId: "org", userId: "actor", projectId: "project", oldRunId: "old-cancelled", agentId: "default", oldAgentVersionId: "echo-v1" };
@@ -44,4 +44,21 @@ it("preserves the original failed phase and journal; only actual supplemental su
   expect(phase.status).toBe("completed"); expect(phase.completionKind).toBe("supplemental-actual-success-original-failed-retained");
   expect(phase.evidence).toEqual(failure.evidence); expect(phase.continuations).toEqual(failure.continuations); expect(phase.startedAt).toBe(failure.startedAt);
   expect(phase.originalFailedRun?.runId).toBe("old-cancelled"); expect(readFileSync(ledgerFile, "utf8")).toBe(ledgerBytes);
+});
+
+it("reuses only the independently audited empty same-project thread with unchanged budgets and the approved pin", () => {
+  const expected = { orgId: "org", projectId: "project", oldThreadId: "old", skillId: "skill", skillVersionId: "pin", legacyHash: "a".repeat(64), s1Hash: "b".repeat(64) };
+  const raw = { at: new Date(now).toISOString(), readOnly: true, originalThreadsRetained: true,
+    newThread: { id: "empty", org_id: "org", project_id: "project" }, messages: 0, runs: 0,
+    mounts: [{ skill_id: "skill", version_id: "pin", stable_name: "aidt-empathize" }],
+    finance: { total_runs: 2, active: 0, physical: 2, usage: 2, credit: 2, unsettled: 0, holds: "0", unbounded: "0" },
+    oldBudgetHashes: { legacy: expected.legacyHash, supplementS1: expected.s1Hash }, oldBudgetsUnchanged: true,
+    supplementalS2LedgerAbsent: true, modelRequestsSentByAudit: 0 };
+  expect(validateS2EmptyThreadReuse(raw, expected).newThread.id).toBe("empty");
+  for (const patch of [{ messages: 1 }, { runs: 1 }, { supplementalS2LedgerAbsent: false }, { readOnly: false },
+    { newThread: { ...raw.newThread, project_id: "other" } }, { newThread: { ...raw.newThread, id: "old" } },
+    { mounts: [{ ...raw.mounts[0], version_id: "new-unapproved" }] },
+    { oldBudgetHashes: { ...raw.oldBudgetHashes, legacy: "c".repeat(64) } }, { finance: { ...raw.finance, holds: "1" } }]) {
+    expect(() => validateS2EmptyThreadReuse({ ...raw, ...patch }, expected)).toThrow();
+  }
 });
