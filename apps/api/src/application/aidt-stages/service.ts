@@ -33,6 +33,15 @@ export class AidtStagesService {
     }); } catch(e) { if(e instanceof AidtStageError) throw e; throw new AidtStageError("AIDT_STAGE_UNAVAILABLE"); }
   }
   get(actor:StageActor,stageId:number) { const input=operations.get.in.safeParse({projectId:actor.projectId,stageId}); if(!input.success) throw new AidtStageError("AIDT_STAGE_INVALID"); return this.access(actor,false,async(tx,d)=>({stage:unwrap(await tx.current(stageId),d)})); }
+  getRevision(actor:StageActor,stageId:number,revision:number) {
+    if(!operations.get.in.safeParse({projectId:actor.projectId,stageId}).success || !Number.isSafeInteger(revision) || revision<1 || revision>2147483647) throw new AidtStageError("AIDT_STAGE_INVALID");
+    return this.access(actor,false,async(tx,d)=>{
+      if(!tx.revision) throw new AidtStageError("AIDT_STAGE_UNAVAILABLE");
+      const stage=unwrap(await tx.revision(stageId,revision),d);
+      if(stage && (stage.projectId!==actor.projectId || stage.stageId!==stageId || stage.revision!==revision)) throw new AidtStageError("AIDT_STAGE_NOT_FOUND");
+      return {stage};
+    });
+  }
   list(actor:StageActor) { return this.access(actor,false,async(tx,d)=>({items:await Promise.all([1,2,3,4,5,6].map(async stageId=>{const v=unwrap(await tx.current(stageId),d);return {stageId,revision:v?.revision??0,updatedBy:v?.updatedBy??null,updatedAt:v?.updatedAt??null};}))})); }
   history(actor:StageActor,stageId:number,beforeRevision?:number,limit=20) {
     const parsed=operations.history.in.safeParse({projectId:actor.projectId,stageId,beforeRevision,limit}); if(!parsed.success) throw new AidtStageError("AIDT_STAGE_INVALID");

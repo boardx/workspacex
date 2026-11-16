@@ -1,26 +1,13 @@
+import { readAidtQuestionSnapshot, aidtTestPrototypeMismatch, readAidtReturnDecision, isAidtReflectionConfirmed, type AidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
+export { AIDT_RETURN_STEPS, readAidtQuestionSnapshot, aidtTestPrototypeMismatch, readAidtReturnDecision, aidtReflectionMissingItems, isAidtReflectionConfirmed } from "@repo/contracts/aidt-return-reflection";
+export type { AidtQuestionSnapshot, AidtReturnStep } from "@repo/contracts/aidt-return-reflection";
 import type { AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
-import { AIDT_PROTOTYPE_REFERENCE_FIELD, AIDT_ITERATION_FEEDBACK_FIELD, AIDT_ITERATION_REASON_FIELD, AIDT_ITERATION_PROTOTYPE_RELATION_FIELD, AidtPrototypeIdentifierSchema, AidtIterationPrototypeRelationSchema, formatAidtPrototypeReference, readAidtPrototypeReference, readAidtIterationPrototypeReference, readAidtIterationPrototypeRelation, updateAidtPrototypeVersionText } from "./aidt-prototype-reference";
+import { AIDT_PROTOTYPE_REFERENCE_FIELD, AIDT_ITERATION_FEEDBACK_FIELD, AIDT_ITERATION_REASON_FIELD, AIDT_ITERATION_PROTOTYPE_RELATION_FIELD, AidtIterationPrototypeRelationSchema, formatAidtPrototypeReference, readAidtPrototypeReference, readAidtIterationPrototypeReference, readAidtIterationPrototypeRelation, updateAidtPrototypeVersionText } from "./aidt-prototype-reference";
 import { aidtPrototypeVersionLabel } from "./aidt-prototype-label";
 
 /** These remain student-authored fields in the existing shared stage document. */
 export const AIDT_VERIFICATION_FIELDS = ["verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits"] as const;
 export const AIDT_REFLECTION_FIELDS = ["afterTestBelief", "understandingChangeStatus", "understandingEvidence", "unresolvedQuestions", "returnStep", "returnReason", "nextAction"] as const;
-export const AIDT_RETURN_STEPS = [
-  { id: "1", label: "理解问题" }, { id: "2", label: "共情用户" }, { id: "3", label: "综合定义" },
-  { id: "4", label: "创意发散" }, { id: "5", label: "原型制作" },
-] as const;
-export type AidtReturnStep = (typeof AIDT_RETURN_STEPS)[number]["id"];
-export type AidtQuestionSnapshot = {
-  schemaVersion: 1;
-  question: string;
-  beforeTestBelief: string;
-  verificationBasis: string;
-  verificationLimits: string;
-  prototypeRef: string;
-  prototypeDesignId?: string;
-  prototypeVersionId?: string;
-  sourceStageRevision: number | null;
-};
 const value = (draft: AidtUiStageDraft, field: string): string => draft.fields[field]?.trim() ?? "";
 
 export function aidtVerificationConfirmation(draft: AidtUiStageDraft): string {
@@ -60,27 +47,6 @@ export function createAidtQuestionSnapshot(draft: AidtUiStageDraft, sourceStageR
   if (serialized.length > 6000) return { ok: false, reason: "本轮问题说明或版本引用过长，请先精简第5步的问题卡；原稿仍可保存。" };
   return { ok: true, snapshot, serialized };
 }
-export function readAidtQuestionSnapshot(draft: AidtUiStageDraft): AidtQuestionSnapshot | null {
-  const raw = draft.fields.questionSnapshot;
-  if (!raw || raw.length > 6000) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    const record = parsed as Record<string, unknown>;
-    if (record.schemaVersion !== 1 || typeof record.question !== "string" || !record.question.trim()
-      || typeof record.prototypeRef !== "string" || !record.prototypeRef.trim()
-      || ["beforeTestBelief", "verificationBasis", "verificationLimits"].some((field) => typeof record[field] !== "string")
-      || !(record.sourceStageRevision === null || (Number.isInteger(record.sourceStageRevision) && Number(record.sourceStageRevision) > 0))) return null;
-    const hasNativeIds = record.prototypeDesignId !== undefined || record.prototypeVersionId !== undefined;
-    if (hasNativeIds && (!AidtPrototypeIdentifierSchema.safeParse(record.prototypeDesignId).success || !AidtPrototypeIdentifierSchema.safeParse(record.prototypeVersionId).success)) return null;
-    return {
-      schemaVersion: 1, question: record.question, prototypeRef: record.prototypeRef,
-      beforeTestBelief: record.beforeTestBelief as string, verificationBasis: record.verificationBasis as string,
-      verificationLimits: record.verificationLimits as string, sourceStageRevision: record.sourceStageRevision as number | null,
-      ...(hasNativeIds ? { prototypeDesignId: record.prototypeDesignId as string, prototypeVersionId: record.prototypeVersionId as string } : {}),
-    };
-  } catch { return null; }
-}
 export function aidtQuestionSnapshotMatches(draft: AidtUiStageDraft, prototype: AidtUiStageDraft, sourceStageRevision?: number): boolean {
   const current = readAidtQuestionSnapshot(draft), incoming = createAidtQuestionSnapshot(prototype, sourceStageRevision);
   if (!current || !incoming.ok) return false;
@@ -95,13 +61,6 @@ export function updateAidtReflectionField(draft: AidtUiStageDraft, field: (typeo
   return { ...draft, fields: { ...draft.fields, [field]: text, reflectionConfirmed: "" } };
 }
 /** Current test selection is checked against frozen IDs; legacy text remains explicit history. */
-export function aidtTestPrototypeMismatch(draft: AidtUiStageDraft, snapshot = readAidtQuestionSnapshot(draft)): boolean {
-  if (!snapshot) return false;
-  const reference = readAidtPrototypeReference(draft);
-  if (value(draft, AIDT_PROTOTYPE_REFERENCE_FIELD) && !reference) return true;
-  if (reference) return reference.designId !== snapshot.prototypeDesignId || reference.versionId !== snapshot.prototypeVersionId;
-  return !!value(draft, "version") && value(draft, "version") !== snapshot.prototypeRef.trim();
-}
 export function aidtIterationPrototypeMissingItems(draft: AidtUiStageDraft): string[] {
   const missing: string[] = [], old = readAidtQuestionSnapshot(draft), produced = readAidtIterationPrototypeReference(draft);
   if (!old) missing.push("保留本轮旧问题与被测版本快照");
@@ -137,27 +96,6 @@ export function formatAidtIterationPrototypeMarkdown(draft: AidtUiStageDraft): s
     `相对旧版的修改与原因：${value(draft, AIDT_ITERATION_REASON_FIELD) || "待学生说明"}`,
     related ? "关系状态：学生已将本次产出关联到旧问题快照及所列反馈；新版待测试，不代表效果已证实或全组投票。" : "关系状态：尚未关联，或旧快照/产出/说明已有变化；原记录保留，待重新核对。",
     "返回前四步不需要先产生或关联新版；历史文字版本说明仍保留，不能代替原生版本核对。"];
-}
-export function readAidtReturnDecision(draft: AidtUiStageDraft): { kind: "selected"; step: AidtReturnStep; label: string } | { kind: "undecided" } | { kind: "unanswered" } {
-  const choice = value(draft, "returnStep");
-  const selected = AIDT_RETURN_STEPS.find((step) => step.id === choice);
-  return selected ? { kind: "selected", step: selected.id, label: selected.label } : choice === "undecided" ? { kind: "undecided" } : { kind: "unanswered" };
-}
-export function aidtReflectionMissingItems(draft: AidtUiStageDraft): string[] {
-  const missing: string[] = [], status = value(draft, "understandingChangeStatus"), decision = readAidtReturnDecision(draft);
-  const snapshot = readAidtQuestionSnapshot(draft);
-  if (!snapshot) missing.push("带入本轮原问题与被测版本");
-  if (aidtTestPrototypeMismatch(draft, snapshot)) missing.push("核对被测版本与本轮问题绑定的原型版本");
-  if (!["changed", "unchanged", "insufficient"].includes(status)) missing.push("说明认识是否改变或证据不足");
-  if (!value(draft, "afterTestBelief") && status !== "insufficient") missing.push("填写测试后的认识");
-  if (!value(draft, "understandingEvidence") && !(status === "insufficient" && value(draft, "unresolvedQuestions"))) missing.push("说明材料依据或证据不足之处");
-  if (decision.kind === "unanswered") missing.push("选择优先返回步骤或明确暂未决定");
-  if (!value(draft, "returnReason")) missing.push(decision.kind === "undecided" ? "说明需要的支持" : "说明返回的理由");
-  if (decision.kind === "selected" && !value(draft, "nextAction")) missing.push("写下下一步具体行动");
-  return missing;
-}
-export function isAidtReflectionConfirmed(draft: AidtUiStageDraft): boolean {
-  return draft.fields.reflectionConfirmed === "true" && aidtReflectionMissingItems(draft).length === 0;
 }
 export function formatAidtVerificationMarkdown(draft: AidtUiStageDraft): string[] {
   const selected = readAidtPrototypeReference(draft);

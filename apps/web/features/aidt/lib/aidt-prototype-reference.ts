@@ -1,5 +1,6 @@
 import { z } from "zod";
-import * as designWorkbench from "@repo/contracts/design-workbench";
+import { AidtPrototypeIdentifierSchema, AidtPrototypeReferenceSchema } from "@repo/contracts/aidt-return-reflection";
+export { AidtPrototypeIdentifierSchema, AidtPrototypeReferenceSchema } from "@repo/contracts/aidt-return-reflection";
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
 import type { AidtPrototypeVersionReference } from "./aidt-prototype-versions";
 import { aidtPrototypeVersionLabel } from "./aidt-prototype-label";
@@ -9,19 +10,6 @@ export const AIDT_ITERATION_PROTOTYPE_REFERENCE_FIELD = "iterationPrototypeRefer
 export const AIDT_ITERATION_PROTOTYPE_RELATION_FIELD = "iterationPrototypeRelation";
 export const AIDT_ITERATION_FEEDBACK_FIELD = "iterationFeedbackReference";
 export const AIDT_ITERATION_REASON_FIELD = "iterationChangeReason";
-export const AidtPrototypeIdentifierSchema = designWorkbench.PrototypeVersionSummary.shape.id.refine(
-  (id) => !!id.trim() && id !== "." && id !== ".." && !/[\u0000-\u001f\u007f]/.test(id),
-  "Use an actual native identifier",
-);
-/** Local persisted metadata format, not a new backend contract or authorization receipt. */
-export const AidtPrototypeReferenceSchema = designWorkbench.PrototypeVersionSummary.pick({ seq: true, summary: true, createdAt: true, source: true }).extend({
-  designId: AidtPrototypeIdentifierSchema,
-  versionId: AidtPrototypeIdentifierSchema,
-  designName: designWorkbench.DesignProject.innerType().shape.name,
-  frameCount: z.number().int().positive().safe(),
-  generatedFrameCount: z.number().int().positive().safe(),
-}).strict().refine((reference) => reference.generatedFrameCount <= reference.frameCount, "Generated pages cannot exceed planned pages");
-
 /** Structure validation only: never implies current access or independently verified evidence. */
 export function parseAidtPrototypeReference(raw: string | null | undefined): AidtPrototypeVersionReference | null {
   if (!raw || raw.length > 6000) return null;

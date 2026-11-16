@@ -19,20 +19,52 @@ import { TRANSPORT_ERROR_TEXT, RUN_ERROR_UNKNOWN, RUN_ERROR_GENERIC } from "./ch
  *
  * ## 文案表
  *
- * 覆盖两类稳定枚举码：
+ * 覆盖三类稳定枚举码：
  *   ① `wave2Runtime.AgentRunError`（run 执行层的终态错误码，`execute-run.ts` 产生）——
  *      与 `apps/web/lib/agent-run.ts` 的 `describeAgentRunError` 同一份文案，不重开
  *      一份措辞（唯一事实源原则），这里只是转调用。
  *   ② `copilotkit-agui.controller.ts` 自己在 AG-UI 桥接层额外产生的传输层码
  *      （`AGENT_RUN_TIMEOUT`/`THREAD_NOT_VISIBLE`/... ）——`AgentRunError` 枚举不包含
  *      它们，需要单独一份文案。
- * 两类之外的未知码给一句诚实但不带原始枚举字面量的兜底文案——不是因为"藏起来"，
+ *   ③ `AidtContextErrorCode`：已批准的教学材料 selector/快照闭码；也解析原生 HTTP 错误封装。
+ * 三类之外的未知码给一句诚实但不带原始枚举字面量的兜底文案——不是因为"藏起来"，
  * 是因为裸枚举值本来就不是人话，露出来只会让用户以为自己该认得这串大写下划线。
  */
 import { describeAgentRunFailure, type AgentRunError, type AgentRunFailureReason } from "./agent-run";
 import { wave2Runtime } from "@repo/contracts";
+import { AidtContextErrorCode } from "@repo/contracts/aidt-run-context";
 
 const AGENT_RUN_ERROR_CODES = new Set<string>(wave2Runtime.AgentRunError.options);
+/** Only the approved AIDT closed codes are projected; raw server text is never displayed. */
+const AIDT_CONTEXT_ERROR_TEXT = {
+  AIDT_CONTEXT_INVALID: "本次教学材料选择无效，请重新读取并选择已保存版本后发送",
+  AIDT_CONTEXT_TOO_LARGE: "本次教学材料请求过大，请减少所选历史修订后重新发送",
+  AIDT_CONTEXT_NOT_AVAILABLE: "当前无法使用所选教学材料，请核对小组、步骤和已保存版本后重新读取",
+  AIDT_CONTEXT_CONFLICT: "这条消息与已提交的内容或教学材料选择不一致，请按原请求重试，或重新发送新消息",
+  AIDT_CONTEXT_UNAVAILABLE: "教学材料服务暂时不可用，请稍后重试",
+  AIDT_CONTEXT_SNAPSHOT_MISSING: "这次运行的教学材料记录缺失，无法沿用，请重新读取材料后发送新消息",
+  AIDT_CONTEXT_SNAPSHOT_MISMATCH: "这次运行的教学材料与原记录不一致，无法继续沿用，请重新读取材料后发送新消息",
+} satisfies Record<AidtContextErrorCode, string>;
+
+function describeAidtContextError(raw: string): string | undefined {
+  const direct = AidtContextErrorCode.safeParse(raw);
+  if (direct.success) return AIDT_CONTEXT_ERROR_TEXT[direct.data];
+  // @ag-ui/client 0.0.57 converts a non-2xx JSON response to Error.message:
+  // `HTTP ${status}: ${JSON.stringify(payload)}`. Decode only that bounded wrapper,
+  // then read the closed reasonCode, ignoring trace/debug/source fields entirely.
+  if (raw.length > 16_384) return undefined;
+  const wrapper = /^HTTP [45]\d{2}: (\{[\s\S]*\})$/u.exec(raw);
+  if (!wrapper) return undefined;
+  try {
+    const body: unknown = JSON.parse(wrapper[1]!);
+    if (body === null || typeof body !== "object" || Array.isArray(body)) return undefined;
+    const code = AidtContextErrorCode.safeParse((body as { reasonCode?: unknown }).reasonCode);
+    return code.success ? AIDT_CONTEXT_ERROR_TEXT[code.data] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 
 /**
  * `copilotkit-agui.controller.ts` 里除了转发 `AgentRunError` 之外，自己额外写死的
@@ -70,6 +102,8 @@ export function describeCopilotkitV2RunError(
   if (code === null || code === undefined || code.trim() === "") {
     return RUN_ERROR_UNKNOWN;
   }
+  const aidtContext = describeAidtContextError(code);
+  if (aidtContext !== undefined) return aidtContext;
   if (AGENT_RUN_ERROR_CODES.has(code)) {
     return describeAgentRunFailure(code as AgentRunError, reason ?? null);
   }

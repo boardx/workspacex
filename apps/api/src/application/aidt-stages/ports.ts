@@ -6,6 +6,7 @@ export type StageActor = { orgId: OrgId; userId: string; projectId: string };
 export interface StageTransaction {
   identity: IdentityRepository;
   project: { status: string; orgStatus: string; aidt: boolean } | null;
+  revision?(stageId: number, revision: number): Promise<Guarded<SharedStageValue | null>>;
   current(stageId: number): Promise<Guarded<SharedStageValue | null>>;
   history(stageId:number,beforeRevision:number|undefined,limit:number):Promise<Guarded<SharedStageValue[]>>;
   receipt(operationId:string):Promise<Guarded<{requestKey:string;stage:SharedStageValue}|null>>;

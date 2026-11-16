@@ -1,25 +1,28 @@
 "use client";
 import * as React from "react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import type { AidtContextSelector } from "@repo/contracts/aidt-run-context";
+import { aidtSummaryContextSelector } from "../lib/aidt-native-context-selector";
 import { Button } from "@/components/ui/button";
 import { offerComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { loadAidtSummaryContext, aidtSummaryRequest, type AidtSummaryContext } from "../lib/aidt-summary-context";
 import type { AidtReportHistoryScope } from "../lib/aidt-report-history";
-import { AIDT_REPORT_GUIDANCE, AIDT_REPORT_SKILL } from "../lib/aidt-report-task";
 
-export function AidtSummaryChatContext({ scope, threadId }: { scope: AidtReportHistoryScope; threadId: string }) {
-  return <ContextReader key={JSON.stringify([scope, threadId])} scope={scope} threadId={threadId} />;
+
+type Props = { scope: AidtReportHistoryScope; threadId: string; onSelectorChange?: (selector: AidtContextSelector | null) => void };
+export function AidtSummaryChatContext(props: Props) {
+  return <ContextReader key={JSON.stringify([props.scope, props.threadId])} {...props} />;
 }
-function ContextReader({ scope, threadId }: { scope: AidtReportHistoryScope; threadId: string }) {
+function ContextReader({ scope, threadId, onSelectorChange }: Props) {
   const [packet, setPacket] = React.useState<AidtSummaryContext | null>(null);
   const [busy, setBusy] = React.useState(false), [status, setStatus] = React.useState("");
   const request = React.useRef<AbortController | null>(null);
   React.useEffect(() => () => request.current?.abort(), []);
-  useAgentContext({ description: "AIDT六步报告总结：服务器工作稿与历史，非已验证证据", value: { projectId: scope.projectId, task: "report-summary", skillStableName: AIDT_REPORT_SKILL, rules: AIDT_REPORT_GUIDANCE, reportSummaryContext: packet } });
+  const selectorCallback = React.useRef(onSelectorChange); selectorCallback.current = onSelectorChange;
+  React.useEffect(() => { selectorCallback.current?.(null); return () => selectorCallback.current?.(null); }, []);
   async function load() {
     request.current?.abort(); const controller = new AbortController(); request.current = controller;
-    setPacket(null); setBusy(true); setStatus("");
-    try { const value = await loadAidtSummaryContext(scope, controller.signal); if (!controller.signal.aborted) setPacket(value); }
+    setPacket(null); selectorCallback.current?.(null); setBusy(true); setStatus("");
+    try { const value = await loadAidtSummaryContext(scope, controller.signal); if (!controller.signal.aborted) { const selector = aidtSummaryContextSelector(scope.projectId, value); setPacket(value); selectorCallback.current?.(selector); } }
     catch { if (!controller.signal.aborted) setStatus("报告材料读取失败或无权访问，未将旧材料传给AI。已有报告保留，可重试。"); }
     finally { if (!controller.signal.aborted) setBusy(false); }
   }

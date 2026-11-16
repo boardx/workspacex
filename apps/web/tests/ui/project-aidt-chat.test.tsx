@@ -3,9 +3,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ProjectAidtChat } from "@/features/aidt/components/project-aidt-chat";
 import type { AidtStepChat } from "@/features/aidt/lib/live-aidt-step-chat";
+import { useHostRunContext } from "@/lib/chat/host-run-context";
 import { useChatHostReturnHref } from "@/lib/chat/chat-host-navigation";
 import { AIDT_STEPS } from "@/lib/project-aidt";
-const mocks = vi.hoisted(() => ({ enabled: true, resolve: vi.fn(), createLatest: vi.fn(), loadContext: vi.fn(), loadSharedContext: vi.fn(), loadReturnContext: vi.fn(), shell: vi.fn(), returnHref: vi.fn(), context: vi.fn(), session: { currentOrgId: "o", userId: "u", sessionToken: "token" } }));
+const mocks = vi.hoisted(() => ({ enabled: true, resolve: vi.fn(), createLatest: vi.fn(), loadContext: vi.fn(), loadSharedContext: vi.fn(), loadReturnContext: vi.fn(), shell: vi.fn(), returnHref: vi.fn(), context: vi.fn(), host: vi.fn(), session: { currentOrgId: "o", userId: "u", sessionToken: "token" } }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mocks.enabled }));
 vi.mock("@/features/aidt/lib/live-aidt-step-chat", () => ({ resolveAidtStepChat: mocks.resolve, createAidtStepChatWithLatest: mocks.createLatest, AidtStepChatChoiceError: class extends Error {} }));
 vi.mock("@/features/aidt/lib/aidt-chat-saved-context", async (original) => ({ ...await original<typeof import("@/features/aidt/lib/aidt-chat-saved-context")>(), loadAidtSavedChatContext: mocks.loadContext }));
@@ -13,7 +14,7 @@ vi.mock("@/features/aidt/lib/aidt-chat-shared-context", async (original) => ({ .
 vi.mock("@/features/aidt/lib/aidt-chat-return-context", async (original) => ({ ...await original<typeof import("@/features/aidt/lib/aidt-chat-return-context")>(), loadAidtReturnChatContext: mocks.loadReturnContext }));
 vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ session: mocks.session }) }));
 vi.mock("@copilotkit/react-core/v2", () => ({ useAgentContext: mocks.context }));
-vi.mock("@/components/chat/copilotkit-v2-shell", () => ({ CopilotKitV2Shell: function NativeShellStub(props: Record<string, unknown>) { mocks.shell(props); mocks.returnHref(useChatHostReturnHref(props.projectId as string)); return <div data-testid="chat-shell"><textarea aria-label="native-unsent-input" defaultValue="" /></div>; } }));
+vi.mock("@/components/chat/copilotkit-v2-shell", () => ({ CopilotKitV2Shell: function NativeShellStub(props: Record<string, unknown>) { mocks.shell(props); const host=useHostRunContext({orgId:mocks.session.currentOrgId,userId:mocks.session.userId,sessionToken:mocks.session.sessionToken,projectId:props.projectId as string,threadId:props.initialThreadId as string}); try { mocks.host(host.capture().forwardedProps); } catch { mocks.host(null); } mocks.returnHref(useChatHostReturnHref(props.projectId as string)); return <div data-testid="chat-shell"><textarea aria-label="native-unsent-input" defaultValue="" /></div>; } }));
 vi.mock("@/app/chat/copilotkit-v2/copilotkit-v2-providers", () => ({ CopilotKitV2Providers: ({ children }: React.PropsWithChildren) => children }));
 vi.mock("@/lib/copilotkit-v2-agent-selection", () => ({ CopilotKitV2AgentSelectionProvider: ({ children }: React.PropsWithChildren) => children }));
 beforeEach(() => { vi.clearAllMocks(); mocks.enabled = true; mocks.session = { currentOrgId: "o", userId: "u", sessionToken: "token" }; mocks.loadReturnContext.mockResolvedValue({ status: "ready", items: [], issues: [] }); mocks.loadSharedContext.mockResolvedValue({ status: "ready", items: [], issues: [] }); mocks.loadContext.mockResolvedValue({ status: "ready", items: [], issues: [] }); window.history.replaceState(null, "", "/aidt/p?step=1"); });
@@ -23,7 +24,7 @@ it("mounts native chat only after real skill readiness and preserves stage URL",
   await screen.findByTestId("chat-shell");
   expect(mocks.shell).toHaveBeenLastCalledWith(expect.objectContaining({ initialThreadId: "t1", projectId: "p", singleConversation: true }));
   expect(new URLSearchParams(window.location.search).get("thread")).toBe("t1");
-  expect(mocks.context).toHaveBeenCalledWith(expect.objectContaining({ value: expect.objectContaining({ skillStableName: "aidt-understand", step: 1, stageTitle: "理解与提出问题", stageCount: 6, stageTask: AIDT_STEPS[0].task, stageOutcome: AIDT_STEPS[0].outcome }) }));
+  expect(mocks.host).toHaveBeenLastCalledWith({aidtContext:{schemaVersion:1,projectId:"p",purpose:"stage",stageId:1,stageRevisions:[]}}); expect(mocks.context).not.toHaveBeenCalled();
 });
 it("shows a recoverable failure and does not offer an unconfigured composer", async () => {
   mocks.resolve.mockRejectedValueOnce(new Error("Skill unavailable"));
@@ -81,14 +82,14 @@ it("reports the actual resolved thread without sending student text or creating 
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread={null} onResolvedThread={resolved} />);
   await screen.findByTestId("chat-shell"); expect(resolved).toHaveBeenCalledWith("saved-thread");
   expect(mocks.loadContext).not.toHaveBeenCalled();
-  expect(mocks.context).toHaveBeenLastCalledWith(expect.objectContaining({ value: expect.objectContaining({ savedContext: { status: "not-selected", items: [], issues: [] } }) }));
+  expect(mocks.host).toHaveBeenLastCalledWith({aidtContext:{schemaVersion:1,projectId:"p",purpose:"stage",stageId:1,stageRevisions:[]}});
 });
 it("exposes only successful saved-source readback and leaves pinning distinct from group confirmation", async () => {
   mocks.resolve.mockResolvedValue({ threadId: "t1", skillName: "理解", versionId: "v1" });
   const savedContext = { status: "ready", items: [{ stageNumber: 1, threadId: "t1", artifactId: "a1", title: "学生已保存主题", mode: "pinned", reviewStatus: "not-confirmed", markdown: "基于学生自己的输入" }], issues: [] };
   mocks.loadContext.mockResolvedValue(savedContext);
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread={null} savedContextRefs={[{ stageNumber: 1, threadId: "t1", artifactId: "a1", expectedImmutableRevision: "artifact-v1:1" }]} />);
-  await waitFor(() => expect(mocks.context).toHaveBeenLastCalledWith(expect.objectContaining({ value: expect.objectContaining({ savedContext }) })));
+  await waitFor(() => expect(screen.getByTestId("aidt-chat-saved-context")).toHaveTextContent("学生已保存主题")); expect(mocks.context).not.toHaveBeenCalled(); expect(JSON.stringify(mocks.host.mock.calls)).not.toContain("基于学生自己的输入");
   expect(mocks.loadContext).toHaveBeenCalledWith(expect.objectContaining({ projectId: "p", sessionToken: "token", references: [{ stageNumber: 1, threadId: "t1", artifactId: "a1", expectedImmutableRevision: "artifact-v1:1" }] }));
   expect(screen.getByTestId("aidt-chat-saved-context")).toHaveTextContent("不代表全组确认或真实证据");
 });
@@ -101,8 +102,8 @@ it("never carries a previous group's late saved context into the new group's nat
   rerender(<ProjectAidtChat projectId="current" step={AIDT_STEPS[0]} thread={null} savedContextRefs={reference} />);
   await screen.findByTestId("chat-shell");
   await act(async () => { finish({ status: "ready", items: [{ markdown: "前组私有材料，不应泄漏" }], issues: [] }); });
-  expect(mocks.context).toHaveBeenLastCalledWith(expect.objectContaining({ value: expect.objectContaining({ projectId: "current", savedContext: { status: "ready", items: [], issues: [] } }) }));
-  expect(JSON.stringify(mocks.context.mock.calls.at(-1))).not.toContain("前组私有材料");
+  expect(mocks.host).toHaveBeenLastCalledWith({aidtContext:{schemaVersion:1,projectId:"current",purpose:"stage",stageId:1,stageRevisions:[]}}); expect(screen.queryByText("前组私有材料，不应泄漏")).toBeNull();
+  expect(JSON.stringify(mocks.host.mock.calls.at(-1))).not.toContain("前组私有材料");
 });
 
 it("uses the current callback without restarting thread initialization when only callback identity changes", async () => {
@@ -124,7 +125,7 @@ it("passes authorized shared stage readback separately from explicitly disclosed
   const sharedStageContext = { status: "ready", items: [item], issues: [] };
   mocks.loadSharedContext.mockResolvedValue(sharedStageContext);
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} sharedContextRefs={[{ stageNumber: 1, revision: 4 }]} />);
-  await waitFor(() => expect(mocks.context).toHaveBeenLastCalledWith(expect.objectContaining({ value: expect.objectContaining({ sharedStageContext, savedContext: { status: "not-selected", items: [], issues: [] } }) })));
+  await waitFor(() => expect(screen.getByTestId("aidt-chat-shared-context")).toHaveTextContent("V4")); expect(mocks.host).toHaveBeenLastCalledWith({aidtContext:{schemaVersion:1,projectId:"p",purpose:"stage",stageId:2,stageRevisions:[{stageId:1,revision:4}]}});
   expect(mocks.loadSharedContext).toHaveBeenCalledWith(expect.objectContaining({ projectId: "p", currentStage: 2, sessionToken: "token", references: [{ stageNumber: 1, revision: 4 }] }));
   expect(mocks.loadContext).not.toHaveBeenCalled();
   expect(screen.getByTestId("aidt-chat-shared-context")).toHaveTextContent("尚未保存的修改不会自动传入");
@@ -139,7 +140,7 @@ it("does not reactivate old shared context after selection A to B to A while new
   rerender(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread={null} sharedContextRefs={first} />);
   await waitFor(() => expect(mocks.loadSharedContext).toHaveBeenCalledTimes(3));
   expect(screen.getByTestId("aidt-chat-shared-context")).toHaveTextContent("读取中");
-  expect(mocks.context).toHaveBeenLastCalledWith(expect.objectContaining({ value: expect.objectContaining({ sharedStageContext: { status: "loading", items: [], issues: [] } }) }));
+  expect(screen.queryByText("旧授权材料")).toBeNull(); expect(mocks.context).not.toHaveBeenCalled();
 });
 it("keeps the active native resource in the canonical Shell's subsequent thread navigation", async () => {
   window.history.replaceState(null, "", "/aidt/p?step=2&tool=transcript&resource=session-1");
@@ -165,7 +166,7 @@ it("labels the readable summary and keeps the exact loaded report and selection 
   const exact = await screen.findByLabelText("第6步AI引用的已保存文本");
   expect(exact.textContent).toBe(draftText); expect(screen.getByLabelText("第6步已保存内容摘要")).toHaveTextContent("本组反思");
   expect(screen.getByLabelText("第6步已保存内容摘要")).not.toHaveTextContent("实际已保存的报告原文");
-  expect(screen.getByText("以上是已保存内容摘要，可能省略选择理由、报告等字段。AI实际参考的已保存字段见下方文本；引用材料与学生解释仍需核对。")).toBeInTheDocument();
+  expect(screen.getByText("以上是已保存内容摘要，可能省略选择理由、报告等字段。下方为页面读取的已保存文本预览；引用材料与学生解释仍需核对。")).toBeInTheDocument();
   expect(exact.querySelector("script")).toBeNull();
 });
 
@@ -252,10 +253,10 @@ it("retains the learning round on recoverable native Chat errors", async () => {
 });
 
 const returnedLearning = { status: "ready", items: [{ kind: "aidt-return-reflection", projectId: "p", stageNumber: 6, revision: 3, targetStage: 2, questionSourceStageRevision: 2, fields: { originalQuestion: "原问题", beforeTestBelief: "前认识", afterTestBelief: "后认识", returnReason: "补访谈", nextAction: "询问学生" }, truncated: true, reviewStatus: "editor-confirmed", evidenceStatus: "not-verified", trust: "untrusted-student-material" }], issues: [] };
-it("mounts selected historical reflection into native TeachingContext and shows exactly the bounded student fields", async () => {
+it("selects only the exact historical revision for native context and separately previews bounded student fields", async () => {
   mocks.resolve.mockResolvedValue({ threadId: "native", skillName: "共情", versionId: "v1" }); mocks.loadReturnContext.mockResolvedValue(returnedLearning);
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} returnRevision="3" />);
-  await waitFor(() => expect(mocks.context).toHaveBeenLastCalledWith(expect.objectContaining({ value: expect.objectContaining({ returnReflectionContext: returnedLearning }) })));
+  await waitFor(() => expect(screen.getByTestId("aidt-chat-return-context")).toHaveTextContent("内容已截断")); expect(mocks.host).toHaveBeenLastCalledWith({aidtContext:{schemaVersion:1,projectId:"p",purpose:"stage",stageId:2,stageRevisions:[],returnRevision:3}});
   expect(mocks.loadReturnContext).toHaveBeenCalledWith(expect.objectContaining({ projectId: "p", currentStage: 2, sessionToken: "token", returnRevision: "3", signal: expect.any(AbortSignal) }));
   expect(screen.getByTestId("aidt-chat-return-context")).toHaveTextContent("内容已截断");
   expect(screen.getByLabelText("AI参考的历史返工反思").textContent).toBe(JSON.stringify(returnedLearning.items[0]!.fields, null, 2));
@@ -267,7 +268,7 @@ it("keeps native Chat usable and retries a failed historical read without remoun
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} returnRevision="3" />);
   await screen.findByRole("button", { name: "重新读取返工反思" }); const composer = screen.getByLabelText("native-unsent-input");
   fireEvent.change(composer, { target: { value: "继续讨论" } }); fireEvent.click(screen.getByRole("button", { name: "重新读取返工反思" }));
-  await waitFor(() => expect(mocks.context).toHaveBeenLastCalledWith(expect.objectContaining({ value: expect.objectContaining({ returnReflectionContext: returnedLearning }) })));
+  await waitFor(() => expect(screen.getByTestId("aidt-chat-return-context")).toHaveTextContent("内容已截断")); expect(mocks.host).toHaveBeenLastCalledWith({aidtContext:{schemaVersion:1,projectId:"p",purpose:"stage",stageId:2,stageRevisions:[],returnRevision:3}});
   expect(screen.getByLabelText("native-unsent-input")).toBe(composer); expect(composer).toHaveValue("继续讨论");
 });
 it.each(["token", "user", "org", "project", "stage", "revision", "aba"])("drops a late historical response on %s scope change", async (change) => {
@@ -284,7 +285,7 @@ it.each(["token", "user", "org", "project", "stage", "revision", "aba"])("drops 
   if (change === "aba") rerender(initial);
   await waitFor(() => expect(signal.aborted).toBe(true));
   await act(async () => finish(returnedLearning));
-  expect(JSON.stringify(mocks.context.mock.calls.at(-1)![0].value.returnReflectionContext)).not.toContain("原问题");
+  expect(screen.queryByLabelText("AI参考的历史返工反思")).toBeNull(); expect(JSON.stringify(mocks.host.mock.calls)).not.toContain("原问题");
 });
 it("does not load URL hints without an explicit return selection and cancels on unmount", async () => {
   mocks.resolve.mockResolvedValue({ threadId: "native", skillName: "教学", versionId: "v1" }); window.history.replaceState(null, "", "/aidt/p?step=2&returnRevision=3");
@@ -296,9 +297,9 @@ it("does not load URL hints without an explicit return selection and cancels on 
 it("removes selected return material synchronously when it is no longer selected", async () => {
   mocks.resolve.mockResolvedValue({ threadId: "native", skillName: "共情", versionId: "v1" }); mocks.loadReturnContext.mockResolvedValue(returnedLearning);
   const { rerender } = render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} returnRevision="3" />);
-  await waitFor(() => expect(mocks.context.mock.calls.at(-1)![0].value.returnReflectionContext.items).toHaveLength(1));
+  await screen.findByLabelText("AI参考的历史返工反思");
   rerender(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} returnRevision={null} />);
-  expect(mocks.context.mock.calls.at(-1)![0].value.returnReflectionContext).toEqual({ status: "not-selected", items: [], issues: [] });
+  expect(mocks.host.mock.calls.at(-1)![0].aidtContext).not.toHaveProperty("returnRevision");
   expect(screen.queryByTestId("aidt-chat-return-context")).toBeNull();
 });
 
@@ -309,10 +310,10 @@ it("keeps the historical question source distinct from the current fifth-stage v
   const current = { status: "ready", items: [{ kind: "aidt-stage", projectId: "p", stageNumber: 5, revision: 99, sourceStageRevisions: [], draftText: "当前第5步新版本", truncated: false, reviewStatus: "not-confirmed", evidenceStatus: "not-verified", visibility: "group-shared" }], issues: [] };
   mocks.loadSharedContext.mockResolvedValue(current);
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[4]} thread={null} returnRevision="3" sharedContextRefs={[{ stageNumber: 5, revision: 99 }]} />);
-  await waitFor(() => expect(mocks.context).toHaveBeenLastCalledWith(expect.objectContaining({ value: expect.objectContaining({ returnReflectionContext: historical, sharedStageContext: current }) })));
+  await screen.findByLabelText("AI参考的历史返工反思"); expect(mocks.host).toHaveBeenLastCalledWith({aidtContext:{schemaVersion:1,projectId:"p",purpose:"stage",stageId:5,stageRevisions:[{stageId:5,revision:99}],returnRevision:3}});
   expect(screen.getByTestId("aidt-chat-return-context")).toHaveTextContent("原问题来源（学生记录，尚未核实）：第5步 V2");
   expect(screen.getByTestId("aidt-chat-return-context")).not.toHaveTextContent("第5步 V99");
-  expect(mocks.context.mock.calls.at(-1)![0].value.returnReflectionRules).toContain("不与当前第5步版本互换");
+  expect(mocks.context).not.toHaveBeenCalled();
 });
 it("routes an explicit report task through the native SUM host with a separate thread and no iterate context", async () => {
   mocks.resolve.mockResolvedValue({ threadId: "summary", skillName: "课程总结", versionId: "sum-v1" });
@@ -322,7 +323,19 @@ it("routes an explicit report task through the native SUM host with a separate t
   expect(mocks.resolve).toHaveBeenCalledWith(expect.objectContaining({ purpose: "report", thread: "summary" }));
   expect(new URLSearchParams(window.location.search).get("thread")).toBe("iterate");
   expect(new URLSearchParams(window.location.search).get("summaryThread")).toBe("summary");
-  expect(mocks.context.mock.calls.at(-1)![0].value).toMatchObject({ task:"report-summary", skillStableName:"dt-summarize-project",reportSummaryContext:null });
-  expect(mocks.context.mock.calls.at(-1)![0].value).not.toHaveProperty("returnReflectionContext");
+  expect(mocks.host).toHaveBeenLastCalledWith(null); expect(mocks.context).not.toHaveBeenCalled();
   expect(screen.getByTestId("aidt-summary-context")).toBeInTheDocument();
+});
+it("does not reinterpret unreadable shared-stage selection as an intentional empty selector, and preserves the native draft across readiness changes", async () => {
+  mocks.resolve.mockResolvedValue({ threadId: "native", skillName: "理解", versionId: "v1" });
+  const view = render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread={null} sharedContextReady={false} />);
+  await screen.findByTestId("chat-shell");
+  expect(mocks.host).toHaveBeenLastCalledWith(null);
+  const composer = screen.getByLabelText("native-unsent-input"); fireEvent.change(composer, { target: { value: "先保留学生尚未发送的想法" } });
+  // A successful empty read is different from loading or failure.
+  view.rerender(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread={null} sharedContextReady={true} />);
+  expect(mocks.host).toHaveBeenLastCalledWith({ aidtContext: { schemaVersion: 1, projectId: "p", purpose: "stage", stageId: 1, stageRevisions: [] } });
+  expect(screen.getByLabelText("native-unsent-input")).toBe(composer); expect(composer).toHaveValue("先保留学生尚未发送的想法");
+  view.rerender(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread={null} sharedContextReady={false} />);
+  expect(mocks.host).toHaveBeenLastCalledWith(null); expect(composer).toHaveValue("先保留学生尚未发送的想法");
 });

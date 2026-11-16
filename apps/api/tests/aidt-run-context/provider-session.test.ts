@@ -1,0 +1,9 @@
+import { expect,it } from 'vitest';
+import { toOrgId } from '../../src/domain/org-id';
+import type { DatabasePort,TenantSession } from '../../src/application/ports/database.port';
+import { PgAidtRunContextProvider } from '../../src/infrastructure/aidt-run-context/pg-aidt-run-context-provider';
+import { PgAidtRunContextStore } from '../../src/infrastructure/aidt-run-context/pg-aidt-run-context-store';
+const actor={orgId:toOrgId('org'),projectId:'p',threadId:'t',userId:'u'};
+const selector={schemaVersion:1 as const,projectId:'p',purpose:'stage' as const,stageId:1,stageRevisions:[]};
+it('constructs without DB or pack IO and refuses module-off preparation before any source access',async()=>{let queries=0,loads=0;const db:DatabasePort={async withTenant(){queries++;throw new Error('unexpected');},async withoutTenant(){throw new Error('forbidden');},async close(){}};const packs={load:async()=>{loads++;return null;}};const provider=new PgAidtRunContextProvider(db,packs,new PgAidtRunContextStore(db));expect(queries+loads).toBe(0);const session:TenantSession={async query(){queries++;throw new Error('unexpected');}};await expect(provider.prepareIn(session,actor,selector,{runId:'r',inputMessageId:'m',skillVersionIds:[]})).rejects.toMatchObject({reasonCode:'AIDT_CONTEXT_NOT_AVAILABLE'});expect(queries+loads).toBe(0);});
+it('rejects caller project mismatch before touching a tenant or loading packages',async()=>{const db:DatabasePort={async withTenant(){throw new Error('unexpected');},async withoutTenant(){throw new Error('forbidden');},async close(){}};const provider=new PgAidtRunContextProvider(db,{load:async()=>{throw new Error('unexpected');}},new PgAidtRunContextStore(db),()=>true);await expect(provider.prepareIn({query:async()=>{throw new Error('unexpected');}},actor,{...selector,projectId:'other'},{runId:'r',inputMessageId:'m',skillVersionIds:[]})).rejects.toMatchObject({reasonCode:'AIDT_CONTEXT_NOT_AVAILABLE'});});

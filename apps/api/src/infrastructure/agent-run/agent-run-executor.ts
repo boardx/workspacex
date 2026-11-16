@@ -55,6 +55,7 @@ import type { SkillSandboxPort } from "../../application/skill/skill-sandbox-por
 import type { ObjectStore } from "../../application/artifact/ports";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../../application/plan-control/ports";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
+import type { AidtRunContextExecutionPort } from "../../application/aidt-run-context/ports";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
 import type { InterjectionCarryOverDelivery } from "../../application/agent-run/interjection-carry-over";
 import { sweepInterjectionCarryOver } from "../../application/agent-run/interjection-carry-over";
@@ -194,6 +195,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     /** AG07 —— `request_handoff` 中断登记 handoff 行的存储。可选，同上面每一个既有理由；生产合成注入 `PgAgentHandoffStore`。 */
     private readonly handoffs?: AgentHandoffStore,
     private readonly aiAdmission?:RunAiAdmission,
+    private readonly aidtContexts?: AidtRunContextExecutionPort,
   ) {}
 
   /**
@@ -226,7 +228,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       });
     }
     const executed = await executeQueuedRuns({
-      runs: this.runs, model: this.model, aiAdmission:this.aiAdmission, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
+      runs: this.runs, model: this.model, aiAdmission:this.aiAdmission, aidtContexts: this.aidtContexts, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
       files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, memoryChange: this.memoryChange, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
       canvasTemplates: this.canvasTemplates,
       runImages: this.runImages,
@@ -266,7 +268,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       );
       if (carried > 0) {
         await executeQueuedRuns({
-          runs: this.runs, model: this.model, aiAdmission:this.aiAdmission, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
+          runs: this.runs, model: this.model, aiAdmission:this.aiAdmission, aidtContexts: this.aidtContexts, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
           files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, memoryChange: this.memoryChange, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
           canvasTemplates: this.canvasTemplates, runImages: this.runImages,
           sandbox: this.sandbox, objects: this.objects, planLedger: this.planLedger,

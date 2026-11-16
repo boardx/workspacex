@@ -30,6 +30,7 @@ export class PgAidtStageRepository implements AidtStageRepository {
       const ref={kind:"project" as const,id:actor.projectId};
       return fn({identity:new PgIdentityRepository(boundDatabase(s,actor.orgId)),
         project:project?{status:project.status,orgStatus:project.org_status,aidt:project.kind==="general"&&project.aidt}:null,
+        async revision(stageId,revision) {const r=await s.query<Row>(`SELECT * FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 AND stage_id=$3 AND revision=$4`,[actor.orgId,actor.projectId,stageId,revision]);return guard(ref,r.rows[0]?stage(r.rows[0]):null);},
         async current(stageId) {const r=await s.query<Row>(`SELECT * FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 AND stage_id=$3 ORDER BY revision DESC LIMIT 1`,[actor.orgId,actor.projectId,stageId]);return guard(ref,r.rows[0]?stage(r.rows[0]):null);},
         async history(stageId,beforeRevision,limit) {const r=await s.query<Row>(`SELECT * FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 AND stage_id=$3 AND ($4::integer IS NULL OR revision<$4) ORDER BY revision DESC LIMIT $5`,[actor.orgId,actor.projectId,stageId,beforeRevision??null,limit]);return guard(ref,r.rows.map(stage));},
         async receipt(operationId) {const r=await s.query<Row>(`SELECT * FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 AND updated_by=$3 AND operation_id=$4`,[actor.orgId,actor.projectId,actor.userId,operationId]);return guard(ref,r.rows[0]?{stage:stage(r.rows[0]),requestKey:r.rows[0].request_key}:null);},

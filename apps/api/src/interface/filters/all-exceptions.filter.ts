@@ -1,3 +1,4 @@
+import { AidtContextErrorCode } from "@repo/contracts/aidt-run-context";
 import { CourseError as AidtCourseErrorCode } from "@repo/contracts/aidt-courses";
 import { MemberCreditQuotaError } from "@repo/contracts/member-credit-quota";
 import { StageError as AidtStageErrorCode, SharedStage as AidtSharedStage } from "@repo/contracts/aidt-stages";
@@ -149,6 +150,8 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const raw = (body as { reasonCode?: unknown }).reasonCode;
+  const aidtContext = AidtContextErrorCode.safeParse(raw);
+  if (aidtContext.success) return { reasonCode: aidtContext.data };
   const aidtCourse = AidtCourseErrorCode.safeParse(raw);
   if (aidtCourse.success) return { reasonCode: aidtCourse.data };
   const aidtStage = AidtStageErrorCode.safeParse(raw);

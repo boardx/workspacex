@@ -1,4 +1,5 @@
 import type { ArtifactContinuationContext } from "@repo/contracts/artifacts-steering";
+import type { AidtContextSelector } from "@repo/contracts/aidt-run-context";
 import { randomUUID } from "node:crypto";
 import { chat as C } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
@@ -18,7 +19,8 @@ import type {
   AcceptedHumanMessage, ChatMessageCommandRepository, EnabledSkillVersionReader, MessagePageRow,
   PublishedAgentReader, PublishedAgentSnapshot, ThreadMountedSkillReader,
 } from "./message-command-ports";
-import { AttachmentNotPendingError } from "./message-command-ports";
+import { AttachmentNotPendingError, prepareAidtMessageSelector, sameAcceptedMessagePayload } from "./message-command-ports";
+import { AidtContextError } from "../aidt-run-context/errors";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 
 export class MessageThreadNotVisibleError extends Error {}
@@ -132,19 +134,12 @@ async function authorize(deps: Deps, input: { userId: string; orgId: OrgId; thre
   return outcome;
 }
 
-function samePayload(
-  accepted: AcceptedHumanMessage,
-  input: { text: string; selectedAgentId: string },
-): boolean {
-  // A replay retains its frozen server scope; client flags cannot change that run.
-  return accepted.text === input.text && accepted.requestedAgentId === input.selectedAgentId;
-}
-
 export async function acceptHumanMessage(
   deps: Deps,
   input: {
     userId: string; orgId: OrgId; threadId: string; clientMessageId: string;
     text: string; agentId: string;
+    aidtContext?: AidtContextSelector;
     /** Legacy selection provenance; scope is always derived from the trusted published catalog. */
     explicitAgent?: boolean;
     /** Server-owned product action, never accepted from the public message body.
@@ -161,11 +156,10 @@ export async function acceptHumanMessage(
      * 执行器（见下方 `autoTitleFromFirstMessage` 头注「2026-09-02 更新」）。
      * 新受理先调用一次，自动命名结束后再补一次有界唤醒（#3278：标题行锁会让
      * SKIP LOCKED 领取跳过该线程）；调用方必须保持 kick 幂等。
-     * 幂等命中（同一 clientMessageId 重发）也会调（见下方
+     * 普通 Chat 的幂等命中（同一 clientMessageId 重发）也会调（见下方
      * `if (existing)` 分支自己的注——第一次请求落库成功但 kick 丢失时，这是唯一能把
      * 卡住的 queued run 捞回来的路径，`kick` 本身对已在跑/已完成的 run 是 no-op）。
-     * 不会调的只有「起名」那一半：起名逻辑在这个钩子之后单独跑，幂等命中直接
-     * return，走不到那一步。
+     * AIDT 幂等命中仅重接原 run，不重复 kick。所有幂等命中都不再起名。
      */
     onAccepted?: () => void;
   },
@@ -173,6 +167,7 @@ export async function acceptHumanMessage(
   const visibility = await authorize(deps, input);
   if (visibility.actor.projectRole === "observer") throw new MessageNoWriteRoleError();
   if (visibility.thread.archived) throw new MessageThreadArchivedError();
+  const aidt = prepareAidtMessageSelector(input.aidtContext);
 
   const key = {
     projectId: visibility.thread.projectId, threadId: input.threadId,
@@ -183,7 +178,10 @@ export async function acceptHumanMessage(
   if (!isDisclosed(disclosedExisting)) throw new MessageThreadNotVisibleError();
   const existing = disclosedExisting.payload;
   if (existing) {
-    if (!samePayload(existing, { text: input.text, selectedAgentId: input.agentId })) {
+    if (!sameAcceptedMessagePayload(existing, {
+      text: input.text, selectedAgentId: input.agentId, aidtSelectorHash: aidt?.hash, attachmentIds: input.attachmentIds,
+    })) {
+      if (aidt || existing.aidtSelectorHash != null) throw new AidtContextError("AIDT_CONTEXT_CONFLICT");
       throw new MessageIdempotencyConflictError();
     }
     // 2026-09-02 补（独立 review 抓到的回归）：幂等命中也要 kick。上面头注「只在真正
@@ -196,7 +194,9 @@ export async function acceptHumanMessage(
     // kick 本身是幂等的重新触发一次 `AgentRunExecutor.tick()`（`claimQueued` 只认
     // `status='queued'` 的行，run 已经在跑或已完成时这次 tick 对它是 no-op），所以在
     // 这里也调用它不会有副作用，只会补上原本可能丢失的那一次。
-    input.onAccepted?.();
+    // Ordinary queued-run recovery keeps its established wake-up. An AIDT replay
+    // only reattaches to the already accepted immutable run; it never dispatches again.
+    if (!aidt) input.onAccepted?.();
     // #2693 -- stamped explicitly here, not by the repository: this `if (existing)` branch
     // IS the definition of "reused" (`acceptHumanMessage`'s idempotency guard handed back an
     // already-accepted call's run instead of creating one). See `AcceptedHumanMessage.reused`'s
@@ -253,6 +253,7 @@ export async function acceptHumanMessage(
       messageId: randomUUID(),
       runId: randomUUID(),
       snapshot,
+      ...(aidt ? { aidtContext: aidt.selector } : {}),
       attachmentIds,
       artifactContinuation: input.artifactContinuation,
       queuedMessageId: input.queuedMessageId,
@@ -266,7 +267,16 @@ export async function acceptHumanMessage(
   const disclosedOutcome = discloseDecided(guardedOutcome, visibility.base);
   if (!isDisclosed(disclosedOutcome)) throw new MessageThreadNotVisibleError();
   const outcome = disclosedOutcome.payload;
-  if (outcome.kind === "conflict") throw new MessageIdempotencyConflictError();
+  if (outcome.kind === "conflict") {
+    if (aidt) throw new AidtContextError("AIDT_CONTEXT_CONFLICT");
+    throw new MessageIdempotencyConflictError();
+  }
+  // Both requests may miss the optimistic read. The transaction is authoritative:
+  // do not rename or issue the fresh-run pair of wake-ups when another request won.
+  if (outcome.kind === "replay") {
+    if (!aidt) input.onAccepted?.();
+    return { ...outcome.accepted, reused: true };
+  }
 
   // run 已经在队列里了——先让执行器动起来，再去起名。起名最多等 THREAD_TITLE_TIMEOUT_MS，
   // 放在 kick 之前就是让模型回复白白晚这么久（见 autoTitleFromFirstMessage 头注）。

@@ -1063,6 +1063,13 @@ import { AidtRawFilesController, AidtRawUploadGuard } from "./interface/controll
 import { AIDT_RAW_FILES_SERVICE } from "./application/aidt-files/ports";
 import { AidtRawFilesService } from "./application/aidt-files/service";
 import { PgAidtRawFilesRepository } from "./infrastructure/aidt-files/pg-aidt-raw-files-repository";
+import { AidtRunContextController } from "./interface/controllers/aidt-run-context.controller";
+import {
+  AIDT_MESSAGE_ACCEPTANCE, AIDT_RUN_CONTEXT_STORE, AIDT_RUN_CONTEXT_EXECUTION, AIDT_RUN_CONTEXT_RECEIPT,
+  type AidtMessageAcceptancePort, type AidtRunContextExecutionPort, type AidtRunContextSnapshotStore,
+} from "./application/aidt-run-context/ports";
+import { PgAidtRunContextStore } from "./infrastructure/aidt-run-context/pg-aidt-run-context-store";
+import { PgAidtRunContextProvider } from "./infrastructure/aidt-run-context/pg-aidt-run-context-provider";
 import { LogSecurityAlert } from "./infrastructure/files/log-security-alert";
 import { PROJECT_MEMBER_CHAT_REPOSITORY } from "./application/project-member-chat/ports";
 import { PgProjectMemberChatRepository } from "./infrastructure/project-member-chat/pg-project-member-chat-repository";
@@ -1339,7 +1346,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     DeviceSessionController,
     ProjectController,
     AidtStagesController, AidtRawFilesController,
-    AidtCoursesController,
+    AidtCoursesController, AidtRunContextController,
     ProjectMemberChatController,
     ProjectAiSettingsController,
     AssetDirectoryController,
@@ -1976,6 +1983,17 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     AidtRawUploadGuard,
     { provide: AIDT_RAW_FILES_SERVICE, useFactory: (db: DatabasePort, store: ObjectStore, ids: IdFactory) => new AidtRawFilesService(new PgAidtRawFilesRepository(db), store, ids, new LogSecurityAlert(), isAidtModuleEnabled), inject: [DATABASE_PORT, OBJECT_STORE, ID_FACTORY] },
+    // Lazy, optional AIDT context: constructing these ports performs no queries or pack IO.
+    { provide: AIDT_RUN_CONTEXT_STORE, useFactory: (db: DatabasePort) => new PgAidtRunContextStore(db), inject: [DATABASE_PORT] },
+    {
+      provide: PgAidtRunContextProvider,
+      useFactory: (db: DatabasePort, packs: import("./application/skill-import/ports").SkillStarterPackSource, store: PgAidtRunContextStore) =>
+        new PgAidtRunContextProvider(db, packs, store, isAidtModuleEnabled),
+      inject: [DATABASE_PORT, SKILL_STARTER_PACK_SOURCE, AIDT_RUN_CONTEXT_STORE],
+    },
+    { provide: AIDT_MESSAGE_ACCEPTANCE, useExisting: PgAidtRunContextProvider },
+    { provide: AIDT_RUN_CONTEXT_EXECUTION, useExisting: PgAidtRunContextProvider },
+    { provide: AIDT_RUN_CONTEXT_RECEIPT, useExisting: PgAidtRunContextProvider },
     {
       provide: ARTIFACT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgArtifactRepository(db),
@@ -2162,8 +2180,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     {
       provide: CHAT_MESSAGE_COMMAND_REPOSITORY,
-      useFactory: (db: DatabasePort,availability:OrgCoreModelAvailability) => new PgChatMessageCommandRepository(db,availability),
-      inject: [DATABASE_PORT,ORG_CORE_MODEL_AVAILABILITY],
+      useFactory: (db: DatabasePort,availability:OrgCoreModelAvailability,aidt: AidtMessageAcceptancePort) => new PgChatMessageCommandRepository(db,availability,aidt),
+      inject: [DATABASE_PORT,ORG_CORE_MODEL_AVAILABILITY,AIDT_MESSAGE_ACCEPTANCE],
     },
     {
       // #946 · V9-a F150：附件 pending 计数 + 落行。复用 OBJECT_STORE / ID_FACTORY / CLOCK
@@ -2232,8 +2250,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       // `AGENT_RUN_TRANSCRIPT_KEY` is unconfigured; `PgAgentRunRepository` degrades
       // gracefully in that case rather than failing every agent run (see that class's own
       // constructor doc and `transcript-content-cipher.ts`'s header).
-      useFactory: (db: DatabasePort) => new PgAgentRunRepository(db, transcriptContentCipherFromEnv()),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, aidt: AidtRunContextSnapshotStore) => new PgAgentRunRepository(db, transcriptContentCipherFromEnv(), aidt),
+      inject: [DATABASE_PORT, AIDT_RUN_CONTEXT_STORE],
     },
     /**
      * Phase 14 F03 (`streaming-transport` 契约束) -- 一个进程内单例，`AGENT_RUN_EXECUTOR`
@@ -2466,6 +2484,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         embeddings: EmbeddingPort | null,
         workflows: WorkflowRuntimeService,
         aiWiring: AiQuotaRuntimeWiring|null,
+        aidtContexts: AidtRunContextExecutionPort,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -2524,14 +2543,14 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           workflows,
           // AG07：Agent 经 `request_handoff` 请求转交——登记待发起人确认的 handoff 行（与 HTTP 面同一个存储实现）。
           new PgAgentHandoffStore(db),
-          aiWiring?.run,
+          aiWiring?.run, aidtContexts,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
-        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT, WORKFLOW_RUNTIME_SERVICE, AI_QUOTA_RUNTIME_WIRING,
+        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT, WORKFLOW_RUNTIME_SERVICE, AI_QUOTA_RUNTIME_WIRING, AIDT_RUN_CONTEXT_EXECUTION,
       ],
     },
     // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，

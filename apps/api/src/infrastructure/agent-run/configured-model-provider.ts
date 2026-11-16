@@ -1,3 +1,4 @@
+import { verifyReferenceDispatch, revalidateReferenceDispatch } from "../../application/agent-run/reference-dispatch";
 /**
  * The ONE configured model provider (Wave 2 delta §5).
  *
@@ -568,6 +569,10 @@ export class ConfiguredModelProvider implements ModelCallPort {
             : {}),
         }),
       };
+      if (input.referenceDispatchObserver) {
+        verifyReferenceDispatch(input, (JSON.parse(options.body) as { messages: { role: string; content: unknown }[] }).messages, 1);
+        await revalidateReferenceDispatch(input);
+      }
       const requestId = randomUUID();
       await input.beforeProviderDispatch?.({ requestId, modelProvider: input.modelProvider, modelId: input.modelId,
         serializedBody: options.body, outputTokenLimit });

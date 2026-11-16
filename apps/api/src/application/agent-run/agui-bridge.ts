@@ -1,3 +1,5 @@
+import type { AidtContextSelector } from "@repo/contracts/aidt-run-context";
+import { AidtContextError } from "../aidt-run-context/errors";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 /**
  * `runAguiBridgeTurn` -- the orchestration behind the AG-UI SSE bridge (#654 Phase 1b).
@@ -129,6 +131,7 @@ export interface AguiBridgeDeps extends GenerateThreadTitleDeps {
 }
 
 export interface AguiBridgeInput {
+  readonly aidtContext?: AidtContextSelector;
   readonly explicitAgent?: boolean;
   readonly userId: string;
   readonly orgId: OrgId;
@@ -450,6 +453,7 @@ export async function runAguiBridgeTurn(
   deps: AguiBridgeDeps,
   input: AguiBridgeInput,
 ): Promise<AguiBridgeOutcome> {
+  if (input.aidtContext && !input.threadId) throw new AidtContextError("AIDT_CONTEXT_INVALID");
   const threadId = await resolveThreadId(deps, input);
   input.onThreadResolved?.(threadId);
 
@@ -457,6 +461,7 @@ export async function runAguiBridgeTurn(
     userId: input.userId, orgId: input.orgId, threadId,
     clientMessageId: input.clientMessageId, text: input.text, agentId: input.agentId, explicitAgent: input.explicitAgent,
     attachmentIds: input.attachmentIds,
+    aidtContext: input.aidtContext,
     onAccepted: () => deps.executor.kick(input.orgId),
   });
 

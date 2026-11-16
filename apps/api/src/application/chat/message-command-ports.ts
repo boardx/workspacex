@@ -2,6 +2,9 @@ import type {Attachment as PublicAttachment} from "@repo/contracts/chat-file-upl
 import type { ArtifactContinuationContext } from "@repo/contracts/artifacts-steering";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
+import { AidtContextSelector, aidtContextSelectorJson, AIDT_CONTEXT_LIMITS } from "@repo/contracts/aidt-run-context";
+import { computeContentHash } from "../../domain/artifact/content-hash";
+import { AidtContextError } from "../aidt-run-context/errors";
 
 export interface PublishedAgentSnapshot {
   /** Server catalog identity only: general is the system default stable name, never a client flag. */
@@ -140,6 +143,10 @@ export interface EnabledSkillVersionReader {
 export const ENABLED_SKILL_VERSION_READER = Symbol("EnabledSkillVersionReader");
 
 export interface AcceptedHumanMessage {
+  /** Internal immutable request identity; null/absent is an ordinary or historical run. */
+  readonly aidtSelectorHash?: string | null;
+  /** AIDT replay compares the accepted attachment set, never attaches new material to an old run. */
+  readonly attachmentIds?: readonly string[];
   readonly skillScope?: "agent_pins" | "general" | null;
   readonly id: string;
   readonly threadId: string;
@@ -209,6 +216,30 @@ export type AcceptMessageOutcome =
   | { readonly kind: "created" | "replay"; readonly accepted: AcceptedHumanMessage }
   | { readonly kind: "conflict" };
 
+/** Both acceptance guards use the contract's canonical selector, never a client-provided hash. */
+export function prepareAidtMessageSelector(raw: AidtContextSelector | undefined):
+  { selector: AidtContextSelector; hash: string } | undefined {
+  if (raw === undefined) return undefined;
+  if (new TextEncoder().encode(JSON.stringify(raw)).length > AIDT_CONTEXT_LIMITS.selectorBytes) {
+    throw new AidtContextError("AIDT_CONTEXT_TOO_LARGE");
+  }
+  const parsed = AidtContextSelector.safeParse(raw);
+  if (!parsed.success) throw new AidtContextError("AIDT_CONTEXT_INVALID");
+  return { selector: parsed.data, hash: computeContentHash(new TextEncoder().encode(aidtContextSelectorJson(parsed.data))) };
+}
+
+/** Keep ordinary Chat identity unchanged; AIDT additionally freezes its material selector and attachments. */
+export function sameAcceptedMessagePayload(
+  accepted: AcceptedHumanMessage,
+  input: { text: string; selectedAgentId: string; aidtSelectorHash?: string | null; attachmentIds?: readonly string[] },
+): boolean {
+  if (accepted.text !== input.text || accepted.requestedAgentId !== input.selectedAgentId
+    || (accepted.aidtSelectorHash ?? null) !== (input.aidtSelectorHash ?? null)) return false;
+  if (input.aidtSelectorHash == null) return true;
+  const ids = (value: readonly string[] | undefined) => JSON.stringify([...new Set(value ?? [])].sort());
+  return ids(accepted.attachmentIds) === ids(input.attachmentIds);
+}
+
 /**
  * 🔴 #594：三处 `projectId` 全部改成 `string | null`——`null` = 消息挂在一条
  * 个人线程上。仓储实现只把它当一个可为空的过滤/落库字段用，**不做任何判权**
@@ -233,6 +264,8 @@ export interface ChatMessageCommandRepository {
       messageId: string;
       runId: string;
       snapshot: PublishedAgentSnapshot;
+      /** Validated selector only; the repository prepares authorized source bytes inside its transaction. */
+      aidtContext?: AidtContextSelector;
       /**
        * #946 · V9-a F151：挂到这条消息上的 pending 附件 id（已去重、≤10）。在**同一事务内**
        * set message_id；任一 id 不属本线程/已挂过/不存在 ⇒ 抛 `AttachmentNotPendingError`

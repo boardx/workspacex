@@ -17,7 +17,7 @@ it("loads six real saved stage revisions and learning history, preserves V2 refl
   const result = await loadAidtSummaryContext(scope, signal);
   expect(result.currentStages.map(row => row.revision)).toEqual([1,2,3,4,5,6]);
   expect(result.currentStages[0]!.markdown).toContain("学生的价值反思"); expect(result.currentStages[4]!.markdown).toContain("本轮确切问题");
-  expect(result.historyMarkdown).toContain("先补访谈"); expect(result.teacherComments).toBeNull();
+  expect(result.historyRevisions).toEqual([{stageId:6,revision:1}]); expect(result.historyMarkdown).toContain("先补访谈"); expect(result.teacherComments).toBeNull();
   expect(aidtSummaryRequest(result)).toContain("dt-summarize-project"); expect(aidtSummaryRequest(result)).toContain("教师点评尚无授权来源");
   for (const call of mocks.read.mock.calls) expect([call[0],call[2],call[3]]).toEqual(["p","token",signal]);
   expect(mocks.history).toHaveBeenCalledWith(scope, signal);

@@ -9,6 +9,7 @@ import { useChatStreamSlots } from "@/components/chat/chat-stream-slots";
 import { useChatHistoryPreview } from "@/lib/use-chat-history-preview";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { useSession } from "@/components/session/session-provider";
+import { useHostRunContext, HOST_RUN_BUSY, HOST_RUN_CONTEXT_UNAVAILABLE, type FrozenHostRunContext, type HostRunAttempt } from "@/lib/chat/host-run-context";
 
 import * as React from "react";
 import { createWorkbenchThread } from "@/lib/chat-workbench/project-scope";
@@ -560,6 +561,7 @@ function useCopilotKitV2PanelController({
    * 不会漂移——不是两个独立维护的来源。
    */
   const [resolvedChatThreadId, setResolvedChatThreadId] = React.useState<string | null>(initialChatThreadId);
+  const { capture: captureHostRunContext, present: hostRunPresent, observeRun: observeHostRun } = useHostRunContext({ orgId: draftSession?.currentOrgId ?? orgId, userId: draftSession?.userId, sessionToken: draftSession?.sessionToken, projectId, threadId: resolvedChatThreadId ?? initialChatThreadId });
   React.useEffect(() => {
     if (initialChatThreadId !== null) setResolvedChatThreadId(initialChatThreadId);
   }, [initialChatThreadId]);
@@ -889,6 +891,7 @@ function useCopilotKitV2PanelController({
       return;
     }
     setRecoveryDiagnostic(outcome.view.recoveryDiagnostic ?? null);
+    if (resolvedChatThreadId) observeHostRun({ runId: outcome.view.runId, threadId: resolvedChatThreadId, clientMessageId: null });
     if (outcome.view.status === "failed") {
       // issue #3211 ①：run 视图带成因，横幅就说得出「为什么」，不只是「失败了」。
       // issue #3261：这句话的算法搬进 `describeFailedRunBanner`——失败当场那条路径
@@ -959,7 +962,7 @@ function useCopilotKitV2PanelController({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, hydrateActiveFiles, onMessageSent, projectId, registerHydrated, attemptErrors.identity, pendingRunId]);
+  }, [agent, hydrateActiveFiles, onMessageSent, projectId, registerHydrated, attemptErrors.identity, pendingRunId, observeHostRun, resolvedChatThreadId]);
   const runRestore = useCopilotKitV2RunRestore(
     pendingRunId,
     getStoredSessionToken() ?? undefined,
@@ -1442,8 +1445,15 @@ function useCopilotKitV2PanelController({
    * 人类消息 + 全新的 agent run，而原来那个 run（真实 skill 调用，例如 PDF 生成）
    * 可能仍在服务端跑，两边互不知情，各自写回一条回复、各自真的生成一次文件。 */
   const lastSentRef = React.useRef<
-    { text: string; attachments: readonly ChatAttachment[]; clientMessageId: string } | null
+    { text: string; attachments: readonly ChatAttachment[]; clientMessageId: string; hostContext: FrozenHostRunContext | null } | null
   >(null);
+  const hostAcceptance = React.useRef<{ attempt: HostRunAttempt; clientMessageId: string; afterGeneration: number; notified?: string } | null>(null);
+  React.useEffect(() => {
+    const pending = hostAcceptance.current, event = runTrace.liveSignal.event;
+    if (pending && event && runTrace.liveSignal.generation > pending.afterGeneration && pending.notified !== event.runId && resolvedChatThreadId && pending.attempt.isCurrent(resolvedChatThreadId)) {
+      pending.notified = event.runId; pending.attempt.context?.accepted({ runId: event.runId, threadId: resolvedChatThreadId, clientMessageId: pending.clientMessageId });
+    }
+  }, [runTrace.liveSignal.event, runTrace.liveSignal.generation, resolvedChatThreadId]);
 
   // Use the same empty-branch decision for layout and automatic following.
   // Loading, running and supplied stream blocks retain timeline behavior.
@@ -1465,10 +1475,14 @@ function useCopilotKitV2PanelController({
          * 原样传回来，不从已经空了的队列里再读一次。
          */
         readonly attachments?: readonly ChatAttachment[];
+        readonly hostContext?: FrozenHostRunContext | null;
       },
     ) => {
       const text = (override ?? inputDraft).trim();
       if (sendIsBlocked || text === "") return false;
+      let hostAttempt: HostRunAttempt;
+      try { hostAttempt = captureHostRunContext(opts?.hostContext); if (hostAttempt.context && !chatThreadIdRef.current) throw new Error("HOST_RUN_CONTEXT_UNAVAILABLE"); }
+      catch { setError(HOST_RUN_CONTEXT_UNAVAILABLE); return false; }
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
@@ -1494,7 +1508,8 @@ function useCopilotKitV2PanelController({
       // 回的原始实体行）。`attachmentIds` 从同一份派生，不另数一遍。
       const sentAttachments = opts?.attachments ?? attach.uploadedAttachments;
       const attachmentIds = sentAttachments.map((a) => a.id);
-      lastSentRef.current = { text, attachments: sentAttachments, clientMessageId };
+      lastSentRef.current = { text, attachments: sentAttachments, clientMessageId, hostContext: hostAttempt.context };
+      hostAcceptance.current = { attempt: hostAttempt, clientMessageId, afterGeneration: runTrace.liveSignal.generation };
       // issue #4180 —— 这一条是本会话真的发出去的（不是重试复用同一个 id 的第二次登记也无妨，
       // Set 天然去重）。
       setSentMessageIds((cur) => (cur.has(clientMessageId) ? cur : new Set(cur).add(clientMessageId)));
@@ -1526,6 +1541,7 @@ function useCopilotKitV2PanelController({
       let chatThreadId = chatThreadIdRef.current ?? (attachmentIds.length > 0 ? attachmentThreadId : null);
       try {
         if (!chatThreadId && projectId) chatThreadId = await resolveAttachmentThreadId();
+        if (!hostAttempt.isCurrent(chatThreadId)) return false;
         // DA-19g -- echo the resolved Chat thread id back on every turn AFTER the first
         // (see the `chatThreadIdRef` block above for why this is the fix, not a new
         // mechanism). Omitted entirely on turn 1 -- identical to pre-fix behaviour, UNLESS
@@ -1535,11 +1551,12 @@ function useCopilotKitV2PanelController({
         const forwardedProps: {
           chatThreadId?: string; attachmentIds?: readonly string[]; clientMessageId: string;
           realtimeContext?: { readonly boardId: string; readonly selectedObjectIds: readonly string[] };
-        } = { clientMessageId };
+        } = { ...hostAttempt.forwardedProps, clientMessageId };
         if (chatThreadId !== null) forwardedProps.chatThreadId = chatThreadId;
         if (attachmentIds.length > 0) forwardedProps.attachmentIds = attachmentIds;
         if (realtimeContext) forwardedProps.realtimeContext = realtimeContext;
         await copilotkit.runAgent({ agent, forwardedProps });
+        if (!hostAttempt.isCurrent(chatThreadId)) return false;
         // issue #2046（CK-P1）—— run settle 后通知外壳刷新右栏「材料」/「产物」
         // （消息与附件此时都已真实落库；与旧轨道 `onMessageSent` 同语义）。
         onMessageSent?.();
@@ -1553,7 +1570,7 @@ function useCopilotKitV2PanelController({
         // issue #2779 —— 同上面 `onError` 订阅那条注释：只补诊断日志，不改用户可见
         // 文案。这条分支此前把 `e` 完全丢弃，落进通用兜底文案时排障者连原始异常
         // 是什么都看不到。
-        if (!attemptErrors.owns(sendAttempt)) return;
+        if (!hostAttempt.isCurrent(chatThreadId) || !attemptErrors.owns(sendAttempt)) return;
         console.error("[copilotkit-v2] runAgent() threw", e);
         const thrownCode = e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED";
         setError(ownedRunError(describeCopilotkitV2RunError(thrownCode)));
@@ -1581,7 +1598,7 @@ function useCopilotKitV2PanelController({
         return acceptedRunEpoch.current > acceptedBefore;
       }
     },
-    [attemptErrors, runTrace.liveSignal.generation, agent, copilotkit, inputDraft, setInputDraft, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, projectId, resolveAttachmentThreadId, realtimeContext, sendIsBlocked, scrollMessagesToBottom],
+    [attemptErrors, runTrace.liveSignal.generation, agent, copilotkit, inputDraft, setInputDraft, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, projectId, resolveAttachmentThreadId, realtimeContext, sendIsBlocked, scrollMessagesToBottom, captureHostRunContext],
 
   );
 
@@ -1731,11 +1748,12 @@ function useCopilotKitV2PanelController({
   const resendInterjection = React.useCallback((text: string) => {
     void (async () => { if (!(await send(text))) setInputDraft(text); })();
   }, [send, setInputDraft]);
-  const { queuedReply, setQueuedReply, queuedFailed, retryQueuedReply, runningReplyAck, interjectPending, sendWhileRunning } = useRunningReply({
-    agent, canWrite: canWrite && !archived, threadId: resolvedChatThreadId ?? initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, inputDraftRevision: composerDraft.revision, sessionToken, enqueue: serverQueue.enqueue,
+  const { queuedReply, setQueuedReply, queuedFailed, retryQueuedReply, runningReplyAck, interjectPending, sendWhileRunning: ordinarySendWhileRunning } = useRunningReply({
+    agent, canWrite: canWrite && !archived && !hostRunPresent, threadId: resolvedChatThreadId ?? initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, inputDraftRevision: composerDraft.revision, sessionToken, enqueue: serverQueue.enqueue,
     draftScope: JSON.stringify([draftSession?.currentOrgId ?? orgId, draftSession?.userId ?? null, projectId]),
     clearDraft: clearRunningDraft, setError,
   });
+  const sendWhileRunning = React.useCallback((options?: { forceQueue?: boolean }) => { if (hostRunPresent) { setError(HOST_RUN_BUSY); return Promise.resolve(); } return ordinarySendWhileRunning(options); }, [hostRunPresent, ordinarySendWhileRunning]);
 
   /*
     2026-09-02 composer 三层结构——三样新状态，全部只服务于第二行：

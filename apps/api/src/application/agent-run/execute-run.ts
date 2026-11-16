@@ -1,4 +1,6 @@
 import {ownedRunCreditFailure} from "./run-credit-failure";
+import { assembleAidtRunReference } from "./aidt-context-reference";
+import type { AidtRunContextExecutionPort } from "../aidt-run-context/ports";
 import {CreditConsumptionError} from "../billing/credit-consumption";
 import {assembleAttachmentContext,assembleSummaryHistory,bindAssembledRootInput,type SummarySourceSnapshot} from "./root-source-assembly";
 import {rootSourceHash} from "./root-input-source-provenance";
@@ -259,6 +261,8 @@ export interface ExecuteAgentRunDeps extends TurnKnowledgeDeps {
   readonly nativeSessions?: NativeSessionOwner;
   readonly nativeOutputs?: NativeOutputStaging;
   readonly artifactContinuations?: ArtifactContinuationReader;
+  /** Only required for runs accepted with an immutable AIDT selector marker. */
+  readonly aidtContexts?: AidtRunContextExecutionPort;
   readonly runs: AgentRunStore;
   readonly model: ModelCallPort;
   /** Legacy metering; enforced admission owns only actual dispatch receipts. */
@@ -505,6 +509,7 @@ async function executeClaimed(
   // 执行时已经写在 seq=2 的那一行，`agent_run_steps_seq_uniq` 直接拒绝。缺席（全新 run）
   // 时退回 1，与本次改动之前逐字节相同。
   const stepSeqBase = run.resumeStepSeqBase ?? 1;
+  const executionAttemptId = `${run.runId}:${stepSeqBase}`;
   /* ── step: context_built ── */
   const contextStartedAt = deps.clock.now();
   const readOnlyIntroduction = run.inputAttachments.length === 0 && isReadOnlyRoleIntroduction(run.inputText);
@@ -897,6 +902,18 @@ async function executeClaimed(
   const notes = useConversationContext && deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run, accounting: run.leaseEpoch===undefined?undefined:{orgId:String(orgId),runId:run.runId,attemptId:`${run.runId}:${stepSeqBase}`,leaseEpoch:run.leaseEpoch} }, deps.log, deps.memoryChange) : [];
   history = [...requesterMemoryHistory(notes), ...history];
 
+  let aidtReference: Awaited<ReturnType<typeof assembleAidtRunReference>>;
+  try {
+    aidtReference = await assembleAidtRunReference({ orgId, run, history, attemptId: executionAttemptId, contexts: deps.aidtContexts,
+      receiptUnavailable: () => deps.log("AIDT context application receipt unavailable", { runId: run.runId }) });
+    history = aidtReference.history;
+  } catch {
+    // No model request has been made; an expected-but-invalid/unauthorized snapshot never becomes ordinary Chat.
+    await record(deps, orgId, { runId: run.runId, seq: stepSeqBase + 2, kind: "model_called", startedAt: deps.clock.now(), inputDigest: systemDigest, outputDigest: null, failureCode: "MODEL_CALL_FAILED" });
+    await deps.runs.failRun(orgId, run.runId, "MODEL_CALL_FAILED");
+    publishStatusChange(deps, orgId, run.runId, "failed");
+    return;
+  }
   const attachmentContext=assembleAttachmentContext(run,history);
   history=attachmentContext.history;
   const artifactContinuation = await deps.artifactContinuations?.prepare(orgId, run.runId);
@@ -994,6 +1011,7 @@ async function executeClaimed(
     let healthDiagnosis: string | undefined;
     const health = await deps.model.checkKernelHealth(run.modelProvider, (detail) => { healthDiagnosis = detail; });
     if (health === "unavailable") {
+      await aidtReference.failed?.();
       deps.log("agent run kernel health check failed, run not forwarded", {
         runId: run.runId, modelProvider: run.modelProvider,
         detail: healthDiagnosis ?? "no diagnosis reported by this provider",
@@ -1010,7 +1028,6 @@ async function executeClaimed(
 
   let deltaSeq = (await deps.runs.readModelDeltas(orgId, run.runId, -1)).at(-1)?.seq ?? -1;
   deltaSeq += 1;
-  const executionAttemptId = `${run.runId}:${stepSeqBase}`;
   const toolTraceTimings = new ToolTraceTimings();
   // issue #3403 ② —— 「每一次开始了的工具调用都要有终态」。为什么只能在产生端补、
   // 为什么 #3316 / #3369 都没覆盖到，见 `open-tool-calls.ts` 的头注。
@@ -1050,6 +1067,7 @@ async function executeClaimed(
       deps.model,
       bindAssembledRootInput({
         modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
+        ...(aidtReference.observer ? { referenceDispatchObserver: aidtReference.observer } : {}),
         threadId: run.threadId,
         ...(requestAccounting ? { onProviderRequest: requestUsageObserver(deps,orgId,run,"primary",executionAttemptId) } : {}),
         // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
@@ -1180,6 +1198,7 @@ async function executeClaimed(
     // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
     providerOutput = completion;
   } catch (e) {
+    await aidtReference.failed?.();
     const creditFailure=ownedRunCreditFailure(e,run.requesterUserId,orgId);
     const code: RunFailureCode = creditFailure?.code ?? (e instanceof CreditConsumptionError ? (e.code === "credit_required" ? "CREDIT_REQUIRED" : "CREDIT_ACCOUNTING_UNAVAILABLE") : e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED");
     /*
