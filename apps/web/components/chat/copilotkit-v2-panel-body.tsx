@@ -1471,6 +1471,7 @@ function useCopilotKitV2PanelController({
          */
         readonly attachments?: readonly ChatAttachment[];
         readonly hostContext?: FrozenHostRunContext | null;
+        readonly retry?: boolean;
       },
     ) => {
       const text = (override ?? inputDraft).trim();
@@ -1489,10 +1490,8 @@ function useCopilotKitV2PanelController({
       setNotice(null);
       /* issue #3367 —— 新的一轮开始，上一轮「其实还在等人批」的重挂请求作废。 */
       setReattachApproval(null);
-      setInputDraft("");
-      // issue #2020 —— 正文已清空，活跃 mention 一并终结（不清的话外层的候选面板
-      // 会带着一个已不存在于正文里的 query 继续开着）。
-      setMention(null);
+      // A retry resends lastSent; the current composer text and mention still belong to a new draft.
+      if (!opts?.retry) { setInputDraft(""); setMention(null); }
       // issue #2321 round 2 -- 有 `opts.clientMessageId` 时（重试）复用它；否则
       // （正常发送/追问/建议候选）现铸一个新的，语义与升级前一致。
       const clientMessageId = opts?.clientMessageId ?? crypto.randomUUID();
@@ -1526,7 +1525,7 @@ function useCopilotKitV2PanelController({
        */
       if (attachmentIds.length > 0) {
         setUserMessageAttachments((cur) => new Map(cur).set(clientMessageId, sentAttachments));
-        attach.clear();
+        if (!opts?.retry) attach.clear();
       }
       // 附件必须挂在它们实际所在的那条真实线程上（`acceptHumanMessage` 校验
       // attachmentIds 归属），所以本轮一旦带了附件，chatThreadId 就必须是

@@ -4,7 +4,8 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 const copilotkitV2CssPath = vi.hoisted(() => require.resolve("@copilotkit/react-core/v2/styles.css"));
 vi.mock(copilotkitV2CssPath, () => ({}));
 
-const { listMessages, getAgentRun, createPersonalThread, listCapabilities } = vi.hoisted(() => ({
+const { listMessages, getAgentRun, createPersonalThread, listCapabilities, uploadAttachment } = vi.hoisted(() => ({
+  uploadAttachment: vi.fn(async (_threadId: string, file: File) => ({ id: `att-${file.name}`, filename: file.name, bytes: file.size, mime: file.type, createdAt: "2026-11-16T00:00:00.000Z" })),
   listMessages: vi.fn(),
   getAgentRun: vi.fn(),
   createPersonalThread: vi.fn(async () => ({ threadId: "thr-attach", version: 1 })),
@@ -13,7 +14,7 @@ const { listMessages, getAgentRun, createPersonalThread, listCapabilities } = vi
 
 vi.mock("@/lib/live-chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-chat")>()),
-  listMessages, createPersonalThread,
+  listMessages, createPersonalThread, uploadAttachment,
 }));
 vi.mock("@/lib/live-capabilities", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-capabilities")>()),
@@ -119,7 +120,7 @@ it("native banner retry retains the original exact selector/id while a fresh sen
  const input=await screen.findByTestId("copilotkit-v2-input");fireEvent.change(input,{target:{value:"学生原话：不要替我改写。"}});fireEvent.click(screen.getByTestId("copilotkit-v2-send"));await waitFor(()=>expect(run).toHaveBeenCalledTimes(1));
  const original=run.mock.calls[0]![0] as {forwardedProps:Record<string,unknown>;agent:{messages:{role:string;content:string}[]}};
  expect(original.forwardedProps).toEqual({...selector(1),chatThreadId:THREAD_ID,clientMessageId:expect.any(String)});expect(original.agent.messages.some(m=>m.role==="user"&&m.content==="学生原话：不要替我改写。")).toBe(true);
- await screen.findByTestId("copilotkit-v2-retry");view.rerender(<Mount revision={7}/>);expect(screen.getByTestId("copilotkit-v2-input")).toBe(input);fireEvent.click(screen.getByTestId("copilotkit-v2-retry"));await waitFor(()=>expect(run).toHaveBeenCalledTimes(2));expect((run.mock.calls[1]![0] as typeof original).forwardedProps).toEqual(original.forwardedProps);
+ expect(input).toHaveValue("");await screen.findByTestId("copilotkit-v2-retry");fireEvent.change(input,{target:{value:"尚未发送的新观察B"}});view.rerender(<Mount revision={7}/>);expect(screen.getByTestId("copilotkit-v2-input")).toBe(input);fireEvent.click(screen.getByTestId("copilotkit-v2-retry"));await waitFor(()=>expect(run).toHaveBeenCalledTimes(2));expect((run.mock.calls[1]![0] as typeof original).forwardedProps).toEqual(original.forwardedProps);expect(input).toHaveValue("尚未发送的新观察B");
  fireEvent.change(input,{target:{value:"新的明确问题"}});fireEvent.click(screen.getByTestId("copilotkit-v2-send"));await waitFor(()=>expect(run).toHaveBeenCalledTimes(3));expect((run.mock.calls[2]![0] as typeof original).forwardedProps).toMatchObject(selector(7));expect((run.mock.calls[2]![0] as typeof original).forwardedProps.clientMessageId).not.toBe(original.forwardedProps.clientMessageId);run.mockRestore();
 });
 it("an unready host retains the actual composer draft and never silently dispatches an ordinary run",async()=>{
@@ -134,7 +135,7 @@ it("observes only the persisted execution run id after dispatch, not the SDK cor
 
 it("native timeline failure retry also retains the frozen selector and client message id",async()=>{
  const view=render(<Mount/>);await waitFor(()=>expect(errorBus).not.toBeNull());let finish!:()=>void;const run=vi.spyOn(errorBus!,"runAgent").mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;})).mockResolvedValue();const input=await screen.findByTestId("copilotkit-v2-input");fireEvent.change(input,{target:{value:"原始学生问题"}});fireEvent.click(screen.getByTestId("copilotkit-v2-send"));await waitFor(()=>expect(run).toHaveBeenCalledOnce());const initial=(run.mock.calls[0]![0] as {forwardedProps:unknown}).forwardedProps;
- await act(async()=>{start();emitRunAccepted(RUN_ID);});await screen.findByTestId("copilotkit-v2-running-indicator");getAgentRun.mockResolvedValue({runId:RUN_ID,threadId:THREAD_ID,status:"failed",error:"MODEL_CALL_FAILED",failureReason:null,resultMessageId:null});await act(async()=>{await errorBus!.emitError({error:new Error("MODEL_CALL_FAILED"),code:"agent_run_error_event",context:{source:"onRunErrorEvent",runtimeErrorCode:"MODEL_CALL_FAILED"}});});await act(async()=>{for(const agent of Object.values(agents))for(const subscriber of agent.subscribers??[])subscriber.onCustomEvent?.({event:{name:"execution_event",value:{runId:RUN_ID,seq:1,kind:"status",status:"failed",emittedAt:"2026-09-10T00:00:01.000Z"}}});finish();});await screen.findByTestId("copilotkit-v2-retry");view.rerender(<Mount revision={9}/>);const trace=screen.getByTestId("run-trace-panel");fireEvent.click(within(trace).getByRole("button",{name:"重试"}));await waitFor(()=>expect(run).toHaveBeenCalledTimes(2));expect((run.mock.calls[1]![0] as {forwardedProps:unknown}).forwardedProps).toEqual(initial);run.mockRestore();
+ await act(async()=>{start();emitRunAccepted(RUN_ID);});await screen.findByTestId("copilotkit-v2-running-indicator");getAgentRun.mockResolvedValue({runId:RUN_ID,threadId:THREAD_ID,status:"failed",error:"MODEL_CALL_FAILED",failureReason:null,resultMessageId:null});await act(async()=>{await errorBus!.emitError({error:new Error("MODEL_CALL_FAILED"),code:"agent_run_error_event",context:{source:"onRunErrorEvent",runtimeErrorCode:"MODEL_CALL_FAILED"}});});await act(async()=>{for(const agent of Object.values(agents))for(const subscriber of agent.subscribers??[])subscriber.onCustomEvent?.({event:{name:"execution_event",value:{runId:RUN_ID,seq:1,kind:"status",status:"failed",emittedAt:"2026-09-10T00:00:01.000Z"}}});finish();});await screen.findByTestId("copilotkit-v2-retry");view.rerender(<Mount revision={9}/>);fireEvent.change(input,{target:{value:"时间线重试前的新草稿B"}});const trace=screen.getByTestId("run-trace-panel");fireEvent.click(within(trace).getByRole("button",{name:"重试"}));await waitFor(()=>expect(run).toHaveBeenCalledTimes(2));expect((run.mock.calls[1]![0] as {forwardedProps:unknown}).forwardedProps).toEqual(initial);expect(input).toHaveValue("时间线重试前的新草稿B");run.mockRestore();
 });
 
 it("queued host acceptance is read from the exact persisted human id without waiting for execution events",async()=>{
@@ -144,4 +145,49 @@ it("queued host acceptance is read from the exact persisted human id without wai
 
 it("ordinary native Chat does not add a host acceptance read on send or its SDK start",async()=>{
  render(<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}><CopilotKitV2AgentSelectionProvider><CoreProbe/><CopilotKitV2Panel chatThreadId={THREAD_ID} projectId="p" archived={false} canGeneratePersona={false}/></CopilotKitV2AgentSelectionProvider></CopilotKit>);await waitFor(()=>expect(errorBus).not.toBeNull());await waitFor(()=>expect(listMessages).toHaveBeenCalled());let finish!:()=>void;const run=vi.spyOn(errorBus!,"runAgent").mockImplementation(()=>new Promise<void>(resolve=>{finish=resolve;}));const input=await screen.findByTestId("copilotkit-v2-input"),before=listMessages.mock.calls.length;fireEvent.change(input,{target:{value:"普通Chat原话"}});fireEvent.click(screen.getByTestId("copilotkit-v2-send"));await waitFor(()=>expect(run).toHaveBeenCalledOnce());await act(async()=>{start();await new Promise(resolve=>setTimeout(resolve,20));});expect(listMessages).toHaveBeenCalledTimes(before);expect((run.mock.calls[0]![0] as {forwardedProps:Record<string,unknown>}).forwardedProps).not.toHaveProperty("aidtContext");await act(async()=>finish());run.mockRestore();
+});
+
+it.each(["banner", "timeline"] as const)("ordinary native %s retry preserves a newer composer draft and the original message id",async(entry)=>{
+ render(<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}><CopilotKitV2AgentSelectionProvider><CoreProbe/><CopilotKitV2Panel chatThreadId={THREAD_ID} projectId="p" archived={false} canGeneratePersona={false}/></CopilotKitV2AgentSelectionProvider></CopilotKit>);
+ await waitFor(()=>expect(errorBus).not.toBeNull());let finish!:()=>void;
+ const run=vi.spyOn(errorBus!,"runAgent").mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;})).mockResolvedValue();
+ const input=await screen.findByTestId("copilotkit-v2-input");
+ fireEvent.change(input,{target:{value:"普通Chat已发送原话A"}});fireEvent.click(screen.getByTestId("copilotkit-v2-send"));await waitFor(()=>expect(run).toHaveBeenCalledOnce());
+ expect(input).toHaveValue("");const initial=(run.mock.calls[0]![0] as {forwardedProps:Record<string,unknown>}).forwardedProps;expect(initial).not.toHaveProperty("aidtContext");
+ await act(async()=>{start();emitRunAccepted(RUN_ID);});await screen.findByTestId("copilotkit-v2-running-indicator");
+ getAgentRun.mockResolvedValue({runId:RUN_ID,threadId:THREAD_ID,status:"failed",error:"MODEL_CALL_FAILED",failureReason:null,resultMessageId:null});
+ await act(async()=>{await errorBus!.emitError({error:new Error("MODEL_CALL_FAILED"),code:"agent_run_error_event",context:{source:"onRunErrorEvent",runtimeErrorCode:"MODEL_CALL_FAILED"}});});
+ await act(async()=>{for(const agent of Object.values(agents))for(const subscriber of agent.subscribers??[])subscriber.onCustomEvent?.({event:{name:"execution_event",value:{runId:RUN_ID,seq:1,kind:"status",status:"failed",emittedAt:"2026-09-10T00:00:01.000Z"}}});finish();});
+ await screen.findByTestId("copilotkit-v2-retry");fireEvent.change(input,{target:{value:"普通Chat尚未发送的新稿B"}});
+ if(entry==="banner")fireEvent.click(screen.getByTestId("copilotkit-v2-retry"));else fireEvent.click(within(screen.getByTestId("run-trace-panel")).getByRole("button",{name:"重试"}));
+ await waitFor(()=>expect(run).toHaveBeenCalledTimes(2));expect((run.mock.calls[1]![0] as {forwardedProps:unknown}).forwardedProps).toEqual(initial);
+ expect(input).toHaveValue("普通Chat尚未发送的新稿B");run.mockRestore();
+});
+
+it.each(["banner", "timeline"] as const)("AIDT %s retry retains the newer pending file and mention while resending only A's old attachment",async(entry)=>{
+ render(<Mount/>);await waitFor(()=>expect(errorBus).not.toBeNull());
+ let finish!:()=>void;const run=vi.spyOn(errorBus!,"runAgent").mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;})).mockResolvedValue();
+ const input=await screen.findByTestId("copilotkit-v2-input"),fileInput=await screen.findByTestId("chat-attachment-file-input");
+ fireEvent.change(fileInput,{target:{files:[new File(["old evidence"],"old-A.txt",{type:"text/plain"})]}});
+ await waitFor(()=>expect(screen.getByTestId("chat-attachment-list")).toHaveTextContent("old-A.txt"));
+ fireEvent.change(input,{target:{value:"请检查A原附件"}});
+ await waitFor(()=>expect(screen.getByTestId("copilotkit-v2-send")).toBeEnabled());
+ fireEvent.click(screen.getByTestId("copilotkit-v2-send"));
+ expect(screen.queryByTestId("chat-attachment-list")).toBeNull();await waitFor(()=>expect(run).toHaveBeenCalledOnce());
+ const initial=(run.mock.calls[0]![0] as {forwardedProps:Record<string,unknown>}).forwardedProps;expect(initial.attachmentIds).toEqual(["att-old-A.txt"]);
+ await act(async()=>{start();emitRunAccepted(RUN_ID);});await screen.findByTestId("copilotkit-v2-running-indicator");
+ getAgentRun.mockResolvedValue({runId:RUN_ID,threadId:THREAD_ID,status:"failed",error:"MODEL_CALL_FAILED",failureReason:null,resultMessageId:null});
+ await act(async()=>{await errorBus!.emitError({error:new Error("MODEL_CALL_FAILED"),code:"agent_run_error_event",context:{source:"onRunErrorEvent",runtimeErrorCode:"MODEL_CALL_FAILED"}});});
+ await act(async()=>{for(const agent of Object.values(agents))for(const subscriber of agent.subscribers??[])subscriber.onCustomEvent?.({event:{name:"execution_event",value:{runId:RUN_ID,seq:1,kind:"status",status:"failed",emittedAt:"2026-09-10T00:00:01.000Z"}}});finish();});await screen.findByTestId("copilotkit-v2-retry");
+ fireEvent.change(fileInput,{target:{files:[new File(["new unsent evidence"],"new-B.txt",{type:"text/plain"})]}});
+ await waitFor(()=>expect(screen.getByTestId("chat-attachment-list")).toHaveTextContent("new-B.txt"));
+ fireEvent.change(input,{target:{value:"B：未发 @old",selectionStart:9}});fireEvent.keyUp(input,{key:"d"});
+ await screen.findByTestId("chat-attachment-mention-picker");
+ await waitFor(()=>expect(screen.getByTestId("copilotkit-v2-retry")).toBeEnabled());
+ if(entry==="banner")fireEvent.click(screen.getByTestId("copilotkit-v2-retry"));else fireEvent.click(within(screen.getByTestId("run-trace-panel")).getByRole("button",{name:"重试"}));
+ await waitFor(()=>expect(run).toHaveBeenCalledTimes(2));expect((run.mock.calls[1]![0] as {forwardedProps:unknown}).forwardedProps).toEqual(initial);
+ expect(input).toHaveValue("B：未发 @old");expect.soft(screen.queryByTestId("chat-attachment-list")).toHaveTextContent("new-B.txt");expect.soft(screen.queryByTestId("chat-attachment-mention-picker")).not.toBeNull();
+ expect(uploadAttachment).toHaveBeenCalledTimes(2);
+ fireEvent.change(input,{target:{value:"明确发送B的新观察"}});fireEvent.click(screen.getByTestId("copilotkit-v2-send"));await waitFor(()=>expect(run).toHaveBeenCalledTimes(3));
+ const fresh=(run.mock.calls[2]![0] as {forwardedProps:Record<string,unknown>}).forwardedProps;expect(fresh.attachmentIds).toEqual(["att-new-B.txt"]);expect(fresh.clientMessageId).not.toBe(initial.clientMessageId);expect(input).toHaveValue("");expect(screen.queryByTestId("chat-attachment-list")).toBeNull();run.mockRestore();
 });

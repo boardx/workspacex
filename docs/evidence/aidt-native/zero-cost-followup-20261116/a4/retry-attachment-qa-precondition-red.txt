@@ -1,0 +1,598 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native banner retry retains the original exact selector/id while a fresh send uses updated selection and verbatim student text
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native banner retry retains the original exact selector/id while a fresh send uses updated selection and verbatim student text
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+[copilotkit-v2] runAgent() threw Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:119:61
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native banner retry retains the original exact selector/id while a fresh send uses updated selection and verbatim student text
+[copilotkit-v2] runAgent() threw Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:119:61
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native banner retry retains the original exact selector/id while a fresh send uses updated selection and verbatim student text
+[copilotkit-v2] runAgent() threw Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:119:61
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > an unready host retains the actual composer draft and never silently dispatches an ordinary run
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > busy host rejects both native send and queue before clearing the draft or making any queue POST
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > observes only the persisted execution run id after dispatch, not the SDK correlation id
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native timeline failure retry also retains the frozen selector and client message id
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native timeline failure retry also retains the frozen selector and client message id
+[CopilotKit] Error (agent_run_error_event): Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:138:318
+    at /workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:47:24
+    at act (/workspace/aidt-module-latest/node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react.development.js:2512:16)
+    at Proxy.<anonymous> (/workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:46:25)
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:138:271
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3) { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+[copilotkit-v2] agent run failed {
+  code: 'MODEL_CALL_FAILED',
+  context: { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+}
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > queued host acceptance is read from the exact persisted human id without waiting for execution events
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > ordinary native Chat does not add a host acceptance read on send or its SDK start
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > ordinary native banner retry preserves a newer composer draft and the original message id
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > ordinary native banner retry preserves a newer composer draft and the original message id
+[CopilotKit] Error (agent_run_error_event): Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:159:55
+    at /workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:47:24
+    at act (/workspace/aidt-module-latest/node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react.development.js:2512:16)
+    at Proxy.<anonymous> (/workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:46:25)
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:159:8
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3) { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+[copilotkit-v2] agent run failed {
+  code: 'MODEL_CALL_FAILED',
+  context: { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+}
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > ordinary native timeline retry preserves a newer composer draft and the original message id
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > ordinary native timeline retry preserves a newer composer draft and the original message id
+[CopilotKit] Error (agent_run_error_event): Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:159:55
+    at /workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:47:24
+    at act (/workspace/aidt-module-latest/node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react.development.js:2512:16)
+    at Proxy.<anonymous> (/workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:46:25)
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:159:8
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3) { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+[copilotkit-v2] agent run failed {
+  code: 'MODEL_CALL_FAILED',
+  context: { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+}
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > AIDT banner retry retains the newer pending file and mention while resending only A's old attachment
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > AIDT timeline retry retains the newer pending file and mention while resending only A's old attachment
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+ ❯ tests/ui/copilotkit-v2-host-run-context.test.tsx (11 tests | 2 failed) 3596ms
+   ✓ native banner retry retains the original exact selector/id while a fresh send uses updated selection and verbatim student text 375ms
+   ✓ observes only the persisted execution run id after dispatch, not the SDK correlation id 581ms
+   × AIDT banner retry retains the newer pending file and mention while resending only A's old attachment 1049ms
+     → expect(element).toBeEnabled()
+
+Received element is not enabled:
+  <button
+  aria-label="发送"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-8 w-8 p-0 shrink-0 rounded-pill"
+  data-send-state="disabled"
+  data-testid="copilotkit-v2-send"
+  disabled=""
+  title="请先输入任务目标"
+  type="button"
+/>
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head>[39m
+    [36m<link[39m
+      [33mhref[39m=[32m"https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap"[39m
+      [33mid[39m=[32m"cpk-inspector-brand-fonts"[39m
+      [33mrel[39m=[32m"stylesheet"[39m
+    [36m/>[39m
+  [36m</head>[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"copilot-error-banner"[39m
+        [33mstyle[39m=[32m"position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background-color: rgb(254, 226, 226); border-width: 1px 1px 1px 4px; border-style: solid; border-color: rgb(220, 38, 38); border-image: none; border-radius: 8px; padding: 12px 16px; font-size: 13px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); backdrop-filter: blur(8px); max-width: min(90vw, 700px); width: 100%; box-sizing: border-box; overflow: hidden;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"display: flex; justify-content: space-between; align-items: center; gap: 10px;"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"display: flex; align-items: center; gap: 8px; flex: 1 1 0%; min-width: 0px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"width: 12px; height: 12px; border-radius: 50%; background-color: rgb(220, 38, 38); flex-shrink: 0;"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; align-items: center; gap: 10px; flex: 1 1 0%; min-width: 0px;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"color: rgb(127, 29, 29); line-height: 1.4; font-weight: 400; font-size: 13px; flex: 1 1 0%; word-break: break-all; overflow-wrap: break-word; max-width: 550px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical;"[39m
+              [36m>[39m
+                [0mRuntime info request failed with status 404[0m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mstyle[39m=[32m"background: transparent; border: 1px solid rgb(220, 38, 38); border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 500; cursor: pointer; color: rgb(127, 29, 29); flex-shrink: 0; transition: all 0.2s ease;"[39m
+              [36m>[39m
+                [0mShow Details[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"background: transparent; border: medium; color: rgb(127, 29, 29); cursor: pointer; padding: 2px; border-radius: 3px; font-size: 14px; line-height: 1; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0;"[39m
+            [33mtitle[39m=[32m"Dismiss"[39m
+          [36m>[39m
+            [0mx[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex h-full w-full flex-col gap-2 p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex h-full min-h-0 w-full gap-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33maria-atomic[39m=[32m"true"[39m
+                [33maria-live[39m=[32m"polite"[39m
+                [33mclass[39m=[32m"sr-only"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-live-announcer"[39m
+                [33mrole[39m=[32m"status"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative flex min-h-0 flex-1 flex-col"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"relative flex-1 overflow-y-auto p-3 flex flex-col"[39m
+                  [33mdata-testid[39m=[32m"copilotkit-v2-messages"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"mx-auto w-full max-w-3xl flex flex-1 flex-col"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"[39m
+                      [33mdata-testid[39m=[32m"copilotkit-v2-empty"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"flex flex-col items-center gap-2"[39m
+                        [33mdata-testid[39m=[32m"chat-task-workbench-goal-headline"[39m
+                      [36m>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+                        [36m>[39m
+                          [0m今天，想完成什么？[0m
+                        [36m</p>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+                        [36m>[39m
+                          [0m描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。[0m
+                        [36m</p>[39m
+                      [36m</div>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"grid w-full max-w-xl grid-cols-2 gap-x-3"[39m
+                      [36m>[39m
+                        [36m<button[39m
+                          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+                          [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+                          [33mtype[39m=[32m"button"[39m
+                        [36m>[39m
+                          [36m<span[39m
+                            [33maria-hidden[39m=[32m"true"[39m
+                            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+                          [36m>[39m
+                            [0m研[0m
+                          [36m</span>[39m
+                          [36m<span>[39m
+                            [0m调研市场并产出带来源的报告[0m
+                          [36m</span>[39m
+                        [36m</button>[39m
+                        [36m<button[39m
+                          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text...
+   × AIDT timeline retry retains the newer pending file and mention while resending only A's old attachment 1049ms
+     → expect(element).toBeEnabled()
+
+Received element is not enabled:
+  <button
+  aria-label="发送"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-8 w-8 p-0 shrink-0 rounded-pill"
+  data-send-state="disabled"
+  data-testid="copilotkit-v2-send"
+  disabled=""
+  title="请先输入任务目标"
+  type="button"
+/>
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head>[39m
+    [36m<link[39m
+      [33mhref[39m=[32m"https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap"[39m
+      [33mid[39m=[32m"cpk-inspector-brand-fonts"[39m
+      [33mrel[39m=[32m"stylesheet"[39m
+    [36m/>[39m
+  [36m</head>[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"copilot-error-banner"[39m
+        [33mstyle[39m=[32m"position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background-color: rgb(254, 226, 226); border-width: 1px 1px 1px 4px; border-style: solid; border-color: rgb(220, 38, 38); border-image: none; border-radius: 8px; padding: 12px 16px; font-size: 13px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); backdrop-filter: blur(8px); max-width: min(90vw, 700px); width: 100%; box-sizing: border-box; overflow: hidden;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"display: flex; justify-content: space-between; align-items: center; gap: 10px;"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"display: flex; align-items: center; gap: 8px; flex: 1 1 0%; min-width: 0px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"width: 12px; height: 12px; border-radius: 50%; background-color: rgb(220, 38, 38); flex-shrink: 0;"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; align-items: center; gap: 10px; flex: 1 1 0%; min-width: 0px;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"color: rgb(127, 29, 29); line-height: 1.4; font-weight: 400; font-size: 13px; flex: 1 1 0%; word-break: break-all; overflow-wrap: break-word; max-width: 550px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical;"[39m
+              [36m>[39m
+                [0mRuntime info request failed with status 404[0m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mstyle[39m=[32m"background: transparent; border: 1px solid rgb(220, 38, 38); border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 500; cursor: pointer; color: rgb(127, 29, 29); flex-shrink: 0; transition: all 0.2s ease;"[39m
+              [36m>[39m
+                [0mShow Details[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"background: transparent; border: medium; color: rgb(127, 29, 29); cursor: pointer; padding: 2px; border-radius: 3px; font-size: 14px; line-height: 1; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0;"[39m
+            [33mtitle[39m=[32m"Dismiss"[39m
+          [36m>[39m
+            [0mx[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex h-full w-full flex-col gap-2 p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex h-full min-h-0 w-full gap-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33maria-atomic[39m=[32m"true"[39m
+                [33maria-live[39m=[32m"polite"[39m
+                [33mclass[39m=[32m"sr-only"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-live-announcer"[39m
+                [33mrole[39m=[32m"status"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative flex min-h-0 flex-1 flex-col"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"relative flex-1 overflow-y-auto p-3 flex flex-col"[39m
+                  [33mdata-testid[39m=[32m"copilotkit-v2-messages"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"mx-auto w-full max-w-3xl flex flex-1 flex-col"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"[39m
+                      [33mdata-testid[39m=[32m"copilotkit-v2-empty"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"flex flex-col items-center gap-2"[39m
+                        [33mdata-testid[39m=[32m"chat-task-workbench-goal-headline"[39m
+                      [36m>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+                        [36m>[39m
+                          [0m今天，想完成什么？[0m
+                        [36m</p>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+                        [36m>[39m
+                          [0m描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。[0m
+                        [36m</p>[39m
+                      [36m</div>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"grid w-full max-w-xl grid-cols-2 gap-x-3"[39m
+                      [36m>[39m
+                        [36m<button[39m
+                          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+                          [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+                          [33mtype[39m=[32m"button"[39m
+                        [36m>[39m
+                          [36m<span[39m
+                            [33maria-hidden[39m=[32m"true"[39m
+                            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+                          [36m>[39m
+                            [0m研[0m
+                          [36m</span>[39m
+                          [36m<span>[39m
+                            [0m调研市场并产出带来源的报告[0m
+                          [36m</span>[39m
+                        [36m</button>[39m
+                        [36m<button[39m
+                          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text...
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/copilotkit-v2-host-run-context.test.tsx > AIDT banner retry retains the newer pending file and mention while resending only A's old attachment
+ FAIL  tests/ui/copilotkit-v2-host-run-context.test.tsx > AIDT timeline retry retains the newer pending file and mention while resending only A's old attachment
+Error: expect(element).toBeEnabled()
+
+Received element is not enabled:
+  <button
+  aria-label="发送"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-8 w-8 p-0 shrink-0 rounded-pill"
+  data-send-state="disabled"
+  data-testid="copilotkit-v2-send"
+  disabled=""
+  title="请先输入任务目标"
+  type="button"
+/>
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head>[39m
+    [36m<link[39m
+      [33mhref[39m=[32m"https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap"[39m
+      [33mid[39m=[32m"cpk-inspector-brand-fonts"[39m
+      [33mrel[39m=[32m"stylesheet"[39m
+    [36m/>[39m
+  [36m</head>[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"copilot-error-banner"[39m
+        [33mstyle[39m=[32m"position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background-color: rgb(254, 226, 226); border-width: 1px 1px 1px 4px; border-style: solid; border-color: rgb(220, 38, 38); border-image: none; border-radius: 8px; padding: 12px 16px; font-size: 13px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); backdrop-filter: blur(8px); max-width: min(90vw, 700px); width: 100%; box-sizing: border-box; overflow: hidden;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"display: flex; justify-content: space-between; align-items: center; gap: 10px;"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"display: flex; align-items: center; gap: 8px; flex: 1 1 0%; min-width: 0px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"width: 12px; height: 12px; border-radius: 50%; background-color: rgb(220, 38, 38); flex-shrink: 0;"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; align-items: center; gap: 10px; flex: 1 1 0%; min-width: 0px;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"color: rgb(127, 29, 29); line-height: 1.4; font-weight: 400; font-size: 13px; flex: 1 1 0%; word-break: break-all; overflow-wrap: break-word; max-width: 550px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical;"[39m
+              [36m>[39m
+                [0mRuntime info request failed with status 404[0m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mstyle[39m=[32m"background: transparent; border: 1px solid rgb(220, 38, 38); border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 500; cursor: pointer; color: rgb(127, 29, 29); flex-shrink: 0; transition: all 0.2s ease;"[39m
+              [36m>[39m
+                [0mShow Details[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"background: transparent; border: medium; color: rgb(127, 29, 29); cursor: pointer; padding: 2px; border-radius: 3px; font-size: 14px; line-height: 1; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0;"[39m
+            [33mtitle[39m=[32m"Dismiss"[39m
+          [36m>[39m
+            [0mx[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex h-full w-full flex-col gap-2 p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex h-full min-h-0 w-full gap-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33maria-atomic[39m=[32m"true"[39m
+                [33maria-live[39m=[32m"polite"[39m
+                [33mclass[39m=[32m"sr-only"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-live-announcer"[39m
+                [33mrole[39m=[32m"status"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative flex min-h-0 flex-1 flex-col"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"relative flex-1 overflow-y-auto p-3 flex flex-col"[39m
+                  [33mdata-testid[39m=[32m"copilotkit-v2-messages"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"mx-auto w-full max-w-3xl flex flex-1 flex-col"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"[39m
+                      [33mdata-testid[39m=[32m"copilotkit-v2-empty"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"flex flex-col items-center gap-2"[39m
+                        [33mdata-testid[39m=[32m"chat-task-workbench-goal-headline"[39m
+                      [36m>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+                        [36m>[39m
+                          [0m今天，想完成什么？[0m
+                        [36m</p>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+                        [36m>[39m
+                          [0m描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。[0m
+                        [36m</p>[39m
+                      [36m</div>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"grid w-full max-w-xl grid-cols-2 gap-x-3"[39m
+                      [36m>[39m
+                        [36m<button[39m
+                          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+                          [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+                          [33mtype[39m=[32m"button"[39m
+                        [36m>[39m
+                          [36m<span[39m
+                            [33maria-hidden[39m=[32m"true"[39m
+                            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+                          [36m>[39m
+                            [0m研[0m
+                          [36m</span>[39m
+                          [36m<span>[39m
+                            [0m调研市场并产出带来源的报告[0m
+                          [36m</span>[39m
+                        [36m</button>[39m
+                        [36m<button[39m
+                          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text...
+ ❯ tests/ui/copilotkit-v2-host-run-context.test.tsx:173:69
+    171|  fireEvent.change(fileInput,{target:{files:[new File(["old evidence"],…
+    172|  await waitFor(()=>expect(screen.getByTestId("chat-attachment-list")).…
+    173|  await waitFor(()=>expect(screen.getByTestId("copilotkit-v2-send")).to…
+       |                                                                     ^
+    174|  fireEvent.change(input,{target:{value:"请检查A原附件"}});fireEvent.cl…
+    175|  expect(screen.queryByTestId("chat-attachment-list")).toBeNull();await…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 9 passed (11)
+   Start at  14:56:20
+   Duration  10.11s (transform 2.95s, setup 80ms, collect 5.60s, tests 3.60s, environment 546ms, prepare 45ms)
+

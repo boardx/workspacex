@@ -307,7 +307,7 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps): JSX.El
                         retryFailureRunId={error && !sendIsBlocked && !planStepRecoveryOffered ? bannerRunRef.current : null}
                         onRetryFailure={lastSentRef.current ? () => {
                           const last = lastSentRef.current;
-                          if (last && !sendIsBlocked) void send(last.text, { clientMessageId: last.clientMessageId, attachments: last.attachments, hostContext: last.hostContext });
+                          if (last && !sendIsBlocked) void send(last.text, { clientMessageId: last.clientMessageId, attachments: last.attachments, hostContext: last.hostContext, retry: true });
                         } : undefined}
                         onResendInterjection={resendInterjection}
                         events={runTrace.events}
@@ -433,7 +433,7 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps): JSX.El
                   const last = lastSentRef.current;
                   if (last === null) return;
                   void send(last.text, {
-                    clientMessageId: last.clientMessageId, attachments: last.attachments, hostContext: last.hostContext,
+                    clientMessageId: last.clientMessageId, attachments: last.attachments, hostContext: last.hostContext, retry: true,
                   });
                 }}
                 className="shrink-0 rounded border border-destructive/30 px-2 py-0.5 text-11 transition-colors duration-fast hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
