@@ -115,6 +115,7 @@ async function readHistoricalReturn(page: Page, projectId: string, round: Native
   const chatReceived = await chatRead;
   expect(chatReceived.status()).toBe(200);
   expect(operations.history.out.parse(await chatReceived.json()).items).toEqual([round]);
+  await page.getByTestId("aidt-step-skill").waitFor({ state: "visible" });
   const chatContext = page.getByTestId("aidt-chat-return-context");
   await expect(chatContext).toBeVisible();
   await expect(chatContext.locator("summary")).toContainText(`第6步 V${round.revision}`);
