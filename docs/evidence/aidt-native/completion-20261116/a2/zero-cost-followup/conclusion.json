@@ -1,0 +1,99 @@
+{
+  "kind": "s2-zero-cost-offline-causality-followup",
+  "at": "2026-11-16T15:02:32.410017+00:00",
+  "runId": "40539aa6-2732-4661-9665-913013af806d",
+  "historicalS2RootCauseProven": false,
+  "directOriginalRunCertificateCauseFound": false,
+  "originalRunFailureClass": "APIConnectionError",
+  "originalOuterErrorCode": "MODEL_CALL_FAILED",
+  "observedEvidence": [
+    "Original target native run has status error and APIConnectionError only.",
+    "Exact remote-thread __error__ has a 41-byte msgpack primitive payload, fully inspected without ExtType or arbitrary deserialization; APIConnectionError only.",
+    "Exact original API trace joins one direct-run error log and one HTTP debug event; no nested cause, errno, verify_code or SSL marker.",
+    "Target native event metadata has updates=8 and metadata=1; no persisted error event. Non-error event payloads were not inspected."
+  ],
+  "notProven": [
+    "Exact historical TLS/certificate root cause",
+    "Upstream supplier acceptance or internal consumption",
+    "Final token usage",
+    "Final credit settlement/refund"
+  ],
+  "lastKnownAccounting": {
+    "usageReadAt": "2026-11-16T14:31:55.872Z",
+    "preservedDiagnosticCreatedAt": "2026-11-16T14:33:36.845Z",
+    "fullBackupComparedAt": "2026-11-16T14:38:14.476Z",
+    "cleanupReceiptAt": "2026-11-16T14:40:26.196Z",
+    "newPhysicalRequests": 2,
+    "newUsageRecords": 2,
+    "usageStatus": "failed",
+    "totalSource": "unknown",
+    "storedTokensTotal": 0,
+    "storedTokensTotalDoesNotProveZeroConsumption": true,
+    "tokensPrompt": null,
+    "tokensCompletion": null,
+    "newCreditRecords": 2,
+    "creditStatus": "pending",
+    "reservedHundredths": [
+      3412,
+      5217
+    ],
+    "walletHeldHundredths": 8629,
+    "remainingHeldHundredths": 8629,
+    "settledOrRefundProven": false,
+    "newS2LedgerSlotOccupied": true,
+    "oldTwoLedgerHashesPreserved": true,
+    "safeZeroOutstandingRestoreEligible": false,
+    "diagnosticRestorationTested": false
+  },
+  "scopeLimits": {
+    "tables": [
+      "debug_events",
+      "error_logs",
+      "wsx_agent_runs",
+      "wsx_agent_events",
+      "checkpoint_writes",
+      "checkpoints"
+    ],
+    "requestPromptColumnsRead": false,
+    "checkpointColumnRead": false,
+    "checkpointBlobsTableDecoded": false,
+    "unknownFormatsWouldBeHashOnly": true,
+    "primitiveMaximumBytes": 1048576,
+    "primitiveMaximumDepth": 12,
+    "primitiveMaximumNodes": 4096,
+    "pickleUnpickleJsonPlusEvalExecUsed": false,
+    "publicRawPayload": false
+  },
+  "tooling": {
+    "initialMissingDockerStdinAttachment": {
+      "exitCode": 1,
+      "decodedBytes": 0,
+      "ownContainerRemaining": 0,
+      "preservedReceipt": "decode-safe-receipt.json"
+    },
+    "correctedDebugDecodeExitCode": 0,
+    "nativeDecodeExitCode": 0,
+    "imageCachedPullNever": true,
+    "network": "none",
+    "readOnly": true,
+    "memoryBytes": 134217728,
+    "cpus": 1,
+    "pids": 64,
+    "capDrop": "ALL",
+    "noNewPrivileges": true,
+    "hostVolumes": 0,
+    "portsPublished": 0,
+    "ownContainersRemaining": 0,
+    "dbRestores": 0,
+    "sqlExecutions": 0,
+    "externalRequests": 0,
+    "modelRequests": 0,
+    "financialWrites": 0
+  },
+  "sourceDumpSha256": "44dce740c3e27db191bcebd5e92723ad5d221a485c75020a2040fb06fc73d653",
+  "parserSha256": {
+    "debug": "8eee027a63203812684c2d94b459d89b81cfc676c54f6f8846d3f8b90c3abe8d",
+    "native": "6f00d0b3b7c10d9c2d1d9c840e085833efd1dd43e7f4812be273144c6f699783"
+  },
+  "followupClosedWithoutMoreTables": true
+}

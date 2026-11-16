@@ -1,0 +1,25 @@
+{
+  "pages": 27,
+  "bytes": 194128,
+  "sourceSha256": "570f94b9b30aa708abc72d6feba6ddba2bc0efe2006810b883045f6adc404ee9",
+  "pdfSha256": "dd069479e28596e92cbda6480bebd9bc6dccf3495d5fae44b811e34f78e03140",
+  "emptyPages": [],
+  "outOfBoundsPages": [],
+  "reviewPages": {
+    "H12": [
+      1,
+      16,
+      20
+    ],
+    "M25": [
+      24
+    ]
+  },
+  "cjkEmbeddedVerifiedByGenerator": true,
+  "onlyManualChanges": [
+    "H12 new retry-draft test procedure",
+    "M25 zero-cost machine appendix"
+  ],
+  "previousHumanResultsAndSignaturesUnchanged": true,
+  "libraryWriteStatus": "pending"
+}

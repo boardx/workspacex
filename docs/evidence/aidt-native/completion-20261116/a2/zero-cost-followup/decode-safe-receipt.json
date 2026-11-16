@@ -1,0 +1,29 @@
+{
+  "kind": "offline-custom-dump-table-decode",
+  "at": "2026-11-16T14:52:15.066Z",
+  "tables": [
+    "public.debug_events",
+    "public.error_logs"
+  ],
+  "imageId": "sha256:6454cc4f9cdd37941197317eba96cd78685aac6c217acdc4f88d038d7e5c26dd",
+  "containerName": "aidt-s2-offline-debug-bb84a054",
+  "exitCode": 1,
+  "network": "none",
+  "readOnly": true,
+  "memoryBytes": 134217728,
+  "cpuLimit": 1,
+  "pidsLimit": 64,
+  "capabilitiesDropped": "ALL",
+  "noNewPrivileges": true,
+  "hostVolumes": 0,
+  "dbStarted": false,
+  "sqlExecuted": false,
+  "modelRequests": 0,
+  "externalRequests": 0,
+  "ownContainerRemaining": 0,
+  "portsPublished": 0,
+  "dumpSha256": "44dce740c3e27db191bcebd5e92723ad5d221a485c75020a2040fb06fc73d653",
+  "privateOutputBytes": 0,
+  "privateOutputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderrBytes": 64
+}

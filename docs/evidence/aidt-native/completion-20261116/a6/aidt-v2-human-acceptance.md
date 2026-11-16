@@ -258,6 +258,7 @@
 3. B明确比较并选择基于服务器继续编辑，再保存为V3；读取历史V1/V2/V3。
 4. 临时断网提交另一草稿，观察真实失败并保留本地文字；恢复网络后主动重试，检查真实回执与版本，不把旧错误清除等同成功。
 5. M归档练习组，A/B刷新后表单/发送/保存只读；服务端直接写入也应拒绝。重入可读旧成果。M解归档后再核对恢复权限和原稿。
+6. 如测试中已有AI消息A失败，在输入框另写未发送的B并加入新附件/活跃引用，分别检查错误横幅和运行记录的“重试”：必须仍重发A的原文、原附件及冻结来源，保留B全部草稿；随后正常发送B时再清稿。仅在本地回环环境或已明确批准模型费用的环境操作；没有可用失败状态则标阻塞，不为本项擅自新增付费任务。
 
 预期：真实CAS拒绝、学生显式选择后重试，失败不丢稿不重复；匿名、非组员及归档写入边界均由真实服务执行，不靠前端隐藏按钮。
 
@@ -350,6 +351,7 @@
 
 | M23 · 测试基础指令修复 | 私有隔离测试实例已追加一个不可变版本，逐字复用产品已有默认助手指令；只切换该测试Agent默认版本指针。A1独立核旧版本、消息、运行、来源快照、权限及资金15组数据和两份账本均不变，新增模型调用0 | 错误echo基础指令已在测试实例纠正，未来真实AIDT测试启动也改用现有默认指令；原失败保留 | 这是测试数据准备，不是普通发布API通过，也不是修复后S2教学重验通过；后者需补充一次S2任务额度 |
 | M24 · 补充授权S2实际任务失败 | API `adbb21d0e` / Web `ec5ff2e9d`；picker前置红及零SDK诊断无新增费用。14:20:46唯一native逻辑发送，run `40539aa6-2732-4661-9665-913013af806d` 为 `failed / MODEL_CALL_FAILED`，6.9秒退出1；独立max1已占、旧两账不变、S3未解锁 | 精确S1V2/S2V5与单approved `aidt-empathize`；浏览器早期assembled与后续14:20:48.750派发/hash独立核对均保留。[旧网络HEAD](../a1/s2-supplement-20261116/one-head-old-network-contract.json)复现SSLverify19：restore漏3项可信CA且覆盖NO_PROXY；`5df77b477`窄修转发CA并保留NO_PROXY大小写，5项离线测试通过；[修后HEAD](../a1/s2-supplement-20261116/one-head-fixed-network-contract.json)开TLS校验收到HTTP404，只证HTTP连接通，两次HEAD均无auth/正文/模型 | 无assistant/意图卡/学生后续保存/新登录，不记教学或机械全链通过，额度耗尽未重发。2次物理请求、2条failed用量；`total_source=unknown`，0是占位而非零用量；2笔pending占款86.29测试credit未结算。[私有诊断备份核对](../a1/s2-supplement-20261116/post-failure-diagnostic-financial-verification.json)保全failed/pending/第三账，非zero-outstanding可恢复；HTTP404不证明模型成功或费用已定，不退款或清账 |
+| M25 · 零模型费用后续回归 | [本机TLS/SDK对照](loopback-openai-tls-machine.json)使用临时CA、真实HTTPX/AsyncOpenAI与仅loopback故障桩；旧profile验证失败且服务端无HTTP请求，新helper CA后HEAD及canned SDK响应成功，均非真实模型。既有env5项加两项loopback共7项；[草稿修复](../../zero-cost-followup-20261116/a4/failure-draft-review.md)25项定向通过、完整Web类型检查0 | `c9cf6ebb7`重试A保留B正文/活跃引用/新附件，A原文/id/来源仍冻结，正常发送B再清稿；私有有界异常诊断12项离线测试含实际内存poll/SSE，公开error/事件逐字不变，不输出原文/URL/密钥。原始备份限定取证已完成，细节见[因果审阅](../a3/s2-causality-followup.md) | 旧profile HEAD系按当前工具env重构，非原S2历史进程指纹；受控机制因果已证，原S2底层cause未保留，不能追认唯一根因。mock canned响应不证明供应商或教学通过；原S2仍失败，最后在线14:38:14 UTC的两笔unknown/pending占款86.29保持，未结算、未重发 |
 
 M24来源为[补测执行说明](real-completion-20261116/s2-supplement-execution.md)、[零SDK诊断](real-completion-20261116/s2-supplement-picker-zero-model.json)、[实际执行记录](real-completion-20261116/s2-supplement-attempt02-execution.json)及[实际附件](real-completion-20261116/s2-supplement-attempt02-attachments.json)。QA为运行时增量，不冒称全部已在上述产品commit。原M20失败/取消与M21人工fallback保持原义；修复基础指令不等于S2成功。prepared snapshot为`326557fd…723968a`，当时assembled hash为`e9527c82…73a6f6`；该早期浏览器回执没有派发观察时间，后续[A1计量](../a1/s2-supplement-20261116/native-failed-accounting.json)和[A2来源审计](../a2/s2-supplement-audit-20261116/actual-failed-run-report.json)独立确认稍后实际派发，保留两时点区别，仍不推断供应商已成功采用。执行器已关闭、active为0，财务pending原样保留。S3–S6/SUM和本次新增Design任务未启动，普通学生付费权限及人工教学验收仍未证明。
 

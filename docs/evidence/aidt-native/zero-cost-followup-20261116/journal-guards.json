@@ -1,0 +1,6 @@
+{
+  "originalThreeJournalsUnchanged": true,
+  "modelRequestsThisFollowup": 0,
+  "realDatabaseOrFinancialWritesThisFollowup": 0,
+  "note": "All new request traffic is controlled in-process or loopback fixtures; no real provider/billing verdict inferred"
+}

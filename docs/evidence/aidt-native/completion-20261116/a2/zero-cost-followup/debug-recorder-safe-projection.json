@@ -1,0 +1,80 @@
+{
+  "kind": "offline-s2-debug-recorder-error-trace-projection",
+  "sourceDumpSha256": "44dce740c3e27db191bcebd5e92723ad5d221a485c75020a2040fb06fc73d653",
+  "privateDecodedSha256": "ed8587a387a1a8479c56355ec58b5ede288f80a878a0a7b37af7e066cf83aa7b",
+  "scope": {
+    "runId": "40539aa6-2732-4661-9665-913013af806d",
+    "orgId": "org-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+    "windowStart": "2026-11-16T14:20:00+00:00",
+    "windowEnd": "2026-11-16T14:21:00+00:00"
+  },
+  "decodedTableRowCounts": {
+    "debug_events": 1355,
+    "error_logs": 1
+  },
+  "relatedRowCount": 53,
+  "directOriginalRunCertificateCauseFound": false,
+  "rawPayloadIncluded": false,
+  "credentialFieldsProjected": false,
+  "promptsProjected": false,
+  "sqlExecuted": false,
+  "dbRestored": false,
+  "networkRequests": 0,
+  "modelRequests": 0,
+  "financialWrites": 0,
+  "relatedRowCounts": {
+    "debugHttpRows": 52,
+    "errorLogRows": 1
+  },
+  "originalErrorTraceId": "72dc8149-d56d-432e-9e90-d6a2ace4273c",
+  "originalErrorTraceRows": [
+    {
+      "table": "debug_events",
+      "id": "1346",
+      "traceId": "72dc8149-d56d-432e-9e90-d6a2ace4273c",
+      "createdAt": "2026-11-16 14:20:50.512+00",
+      "kind": "http.request",
+      "level": "info",
+      "directIdentityMatches": [],
+      "actualOrgMatch": false,
+      "messageSha256": "b5f1f3e2263bd722b9b1f4852de628cd477c4b538da55561b672731f682ccfc2",
+      "knownMessage": null,
+      "payloadSha256": "50164b71284fe1c04f85b34c995053064da3d32047f820325dcd8eaa9bd28e98",
+      "payloadFieldPaths": [
+        "$.status"
+      ],
+      "knownErrorClassMarkers": [],
+      "tlsCauseMarkerPresent": false,
+      "deepAgentGenericRuntimeErrorTextPresent": false,
+      "underlyingCauseFieldPresent": false
+    },
+    {
+      "table": "error_logs",
+      "id": "1",
+      "traceId": "72dc8149-d56d-432e-9e90-d6a2ace4273c",
+      "createdAt": "2026-11-16 14:20:50.512846+00",
+      "kind": null,
+      "level": null,
+      "directIdentityMatches": [
+        "run",
+        "thread"
+      ],
+      "actualOrgMatch": null,
+      "messageSha256": "1556f682889c556186d3a59ff6a8d32bdc3ec07466e2c0be5390b700673efb0f",
+      "knownMessage": null,
+      "payloadSha256": "7929197d580ddcf62af25262f42f46419bbf5a1e1c60b7f162ede1da7119df04",
+      "payloadFieldPaths": [
+        "$.stack",
+        "$.errorType"
+      ],
+      "knownErrorClassMarkers": [
+        "MODEL_CALL_FAILED"
+      ],
+      "tlsCauseMarkerPresent": false,
+      "deepAgentGenericRuntimeErrorTextPresent": false,
+      "underlyingCauseFieldPresent": false
+    }
+  ],
+  "correlationRule": "Exact original-run/thread identities within the UTC minute seed trace IDs; org_ref=null HTTP rows are included only when the trace matches. Other explicit orgs and payloads outside the window are excluded.",
+  "countsAreMetadataNotIndependentFailures": true
+}
