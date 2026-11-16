@@ -18,6 +18,11 @@ const request=(id:string)=>({requestId:id,userId:USER,windowStart:start,windowEn
 beforeAll(async()=>{await ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());admission=new PgAiAdmissionRepository(db);usage=new PgTokenUsageRepository(db);});
 beforeEach(async()=>{
  await resetOrgs(ORG,OTHER);await seedOrg({orgId:ORG,projectId:"p-admission-5261"});await seedOrg({orgId:OTHER,projectId:"p-admission-5261-other"});await addOrgMember(ORG,USER,"consultant",null);
+ // @global-scope-fixture table:credit_wallets: fund the isolated admission test account.
+ await asOwner(c=>c.query(
+  "INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES ('user',$1,20000) ON CONFLICT (owner_type,owner_id) DO UPDATE SET balance=EXCLUDED.balance",
+  [USER],
+ ));
  await asApp(ORG,c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by) VALUES($1,'ordinary',1,$2)",[ORG,USER]));
  await asOwner(c=>c.query(`INSERT INTO ai_budget_windows(org_id,user_id,window_start,window_end,timezone,token_limit,cost_limit_micros,currency,price_version,configured_by)
   VALUES($1,$2,$3,$4,'Etc/UTC',10,1000,'CNY','test-price-v1',$2)`,[ORG,USER,start,end]));
@@ -25,7 +30,7 @@ beforeEach(async()=>{
 afterAll(async()=>{await resetOrgs(ORG,OTHER);await db.close();});
 describe("shared atomic admission foundation — isolated PostgreSQL",()=>{
  it("unreserved in-flight starts are unknown cost, including enterprise activation",async()=>{
-  await usage.startRequest(toOrgId(ORG),{requestId:"legacy-inflight",userId:USER,runId:"legacy-running",executionAttemptId:null,projectId:null,modelProvider:"provider",modelId:"model",startedAt:new Date().toISOString()});
+  await usage.startRequest(toOrgId(ORG),{requestId:"legacy-inflight",userId:USER,maximumTokens:6,runId:"legacy-running",executionAttemptId:null,projectId:null,modelProvider:"provider",modelId:"model",startedAt:new Date().toISOString()});
   expect((await admission.reserve(toOrgId(ORG),request("after-activation"))).decision).toBe("COST_LIMIT_UNCONFIGURED");
   await asApp(ORG,c=>c.query("UPDATE organization_plans SET plan='enterprise' WHERE org_id=$1",[ORG]));
   expect((await admission.reserve(toOrgId(ORG),request("enterprise-after-activation"))).decision).toBe("COST_LIMIT_UNCONFIGURED");
