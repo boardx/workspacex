@@ -74,7 +74,13 @@ if [ "$SANDBOX_READY" != "1" ]; then
   exit 1
 fi
 echo "技能沙箱就绪：127.0.0.1:${SB}"
-pnpm --filter web exec tsx e2e/dump-fixture-env.ts > "${E2E_WORK_DIR}/e2e-fixture.sh"
+if [ -n "${REAL_MODEL_E2E_RESTORE_RECEIPT:-}" ]; then
+  # A receipt is checked against the actual owned restored DB and live port lease.
+  # A bare skip-seed flag is deliberately unsupported.
+  node --import tsx scripts/aidt-checkpoint-bootstrap.mjs --receipt "$REAL_MODEL_E2E_RESTORE_RECEIPT" --emit-fixture > "${E2E_WORK_DIR}/e2e-fixture.sh"
+else
+  pnpm --filter web exec tsx e2e/dump-fixture-env.ts > "${E2E_WORK_DIR}/e2e-fixture.sh"
+fi
 source "${E2E_WORK_DIR}/e2e-fixture.sh"
 # 原生链路时把 fixture agent 钉在 "deep-agent" provider（`DEEP_AGENT_PROVIDER_NAME`）
 # 上，否则即便 deep-agent-service 起来了、RoutingModelCallPort 也不会把 run 路由过去
@@ -95,7 +101,9 @@ echo "AGENT=$FULLSTACK_E2E_AGENT_ID"
 # 而失败原因被丢掉了——起栈日志止于上面那句 `AGENT=`，读日志的人（我自己）
 # 只看到「起栈进程已退出」，查不出为什么。**静默掉的失败等于没有失败信息**。
 # 改成落到文件里，并在失败时把末尾打出来。
-if ! pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts > "${E2E_WORK_DIR}/e2e-seed.log" 2>&1; then
+if [ -n "${REAL_MODEL_E2E_RESTORE_RECEIPT:-}" ]; then
+  echo "Verified private checkpoint receipt: preserved fixture; reset seed skipped."
+elif ! pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts > "${E2E_WORK_DIR}/e2e-seed.log" 2>&1; then
   echo "✗ 种子失败（fullstack-smoke）——末尾 30 行："
   tail -30 "${E2E_WORK_DIR}/e2e-seed.log"
   exit 1

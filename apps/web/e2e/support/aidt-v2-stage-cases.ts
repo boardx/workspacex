@@ -37,11 +37,14 @@ export async function fillSyntheticAidtIdeas(page: Page) {
   return titles;
 }
 
-export async function prepareAidtV2StageCase(page: Page, step: number) {
-  const projectId = step === 6 ? process.env.AIDT_V2_PROTOTYPE_PROJECT_ID : await createAidtV2Group(page, `第${step}步真实引导师`);
+export async function prepareAidtV2StageCase(page: Page, step: number, existingProjectId?: string) {
+  const projectId = existingProjectId ?? (step === 6 ? process.env.AIDT_V2_PROTOTYPE_PROJECT_ID : await createAidtV2Group(page, `第${step}步真实引导师`));
   expect(projectId, "S6必须使用A5实际生成且学生选定的原型小组，不能用手填引用补绿").toBeTruthy();
-  if (step !== 6) await seedStudentProblem(page, projectId!);
-  if (step === 3) {
+  if (existingProjectId) {
+    for (let prior = 1; prior < step; prior++) expect(await readAidtV2Stage(page, projectId!, prior), "同组链不得用重复seed代替已保存前步").not.toBeNull();
+  }
+  if (step !== 6 && !existingProjectId) await seedStudentProblem(page, projectId!);
+  if (step === 3 && !existingProjectId) {
     await openAidtV2Outcome(page, projectId!, 2);
     await page.getByTestId("aidt-discovery-add").click();
     await page.getByLabel("发现卡1受访者代号", { exact: true }).fill("模拟角色-A");
@@ -50,14 +53,14 @@ export async function prepareAidtV2StageCase(page: Page, step: number) {
     await page.getByLabel("发现卡1原始材料与定位", { exact: true }).fill("SYN-A.txt第2段（合成夹具，不是真人访谈）。");
     await saveAidtV2Stage(page, projectId!, 2);
   }
-  if (step === 4) {
+  if (step === 4 && !existingProjectId) {
     await openAidtV2Outcome(page, projectId!, 3);
     await page.getByRole("radio", { name: "暂无意外发现", exact: true }).check();
     await page.getByTestId("aidt-surprise-confirm").click();
     await fillAidtV2Field(page, "hmw", "合成练习HMW：我们如何帮助新同学理解取餐区域？没有真实研究支持。");
     await saveAidtV2Stage(page, projectId!, 3);
   }
-  if (step === 5) {
+  if (step === 5 && !existingProjectId) {
     await openAidtV2Outcome(page, projectId!, 4);
     await fillSyntheticAidtIdeas(page);
     await page.getByRole("radio", { name: "拟选择候选 1（不是投票）", exact: true }).check();
@@ -73,6 +76,12 @@ export async function prepareAidtV2StageCase(page: Page, step: number) {
   } else if (step === 3) {
     await page.getByRole("radio", { name: "暂无意外发现", exact: true }).check();
     await fillAidtV2Field(page, "patterns", "学生先判断：现有合成材料不足以推出真实人群模式，不编造画像年龄。");
+    if (existingProjectId) {
+      const research = await readAidtV2Stage(page, projectId!, 2);
+      await fillAidtV2Field(page, "personaBehavior", `合成画像初稿：仅S2 V${research!.revision}发现卡中的模拟角色先找牌子；不能推出真实新同学都这样做。`);
+      await fillAidtV2Field(page, "insight", "初稿假设：也许分区提示需要澄清，尚无真实证据支持因果判断。");
+      await fillAidtV2Field(page, "evidence", `初稿只引用S2 V${research!.revision}的合成原文/图片；年龄、兴趣、生活方式均无材料，保留未知。`);
+    }
   } else if (step === 4) {
     await fillSyntheticAidtIdeas(page);
     await fillAidtV2Field(page, "criteria", "学生先提出比较标准：能否帮助理解、能否做低成本练习；只是合成练习。");
@@ -84,6 +93,12 @@ export async function prepareAidtV2StageCase(page: Page, step: number) {
     await page.getByRole("textbox", { name: "目前看法的依据", exact: true }).fill("仅学生合成讨论，不是用户研究证据。");
     await page.getByRole("textbox", { name: "这个原型能了解什么，还有什么不能验证？", exact: true }).fill("只能讨论静态理解，不能证明时间节省或支付意愿。");
     await fillAidtV2Field(page, "type", "静态纸面界面草案，生成前仍须学生确认主问题。");
+    if (existingProjectId) {
+      await fillAidtV2Field(page, "idea", "合成点子：纸面分区牌");
+      await fillAidtV2Field(page, "task", "阅读纸面分区牌，并指出对应的取餐区域。");
+      await fillAidtV2Field(page, "situation", "新同学在食堂取餐区阅读静态指示；这是合成情境。");
+      await fillAidtV2Field(page, "requirements", "一页静态界面，标题、分区提示与一个按钮；不接外部脚本或图片。");
+    }
   } else if (step === 6) {
     const source = await readAidtV2Stage(page, projectId!, 5);
     expect(source).not.toBeNull();
@@ -105,7 +120,17 @@ export async function prepareAidtV2StageCase(page: Page, step: number) {
     await page.getByRole("textbox", { name: "支持判断的测试材料", exact: true }).fill("SYN-TEST-FEEDBACK.txt合成反馈，明确不是实访或真实操作证据。");
     await page.getByRole("textbox", { name: "仍不确定的地方", exact: true }).fill("仍缺真实测试者的理解过程、反例及授权记录。");
   }
+  if (existingProjectId && step > 1) {
+    const details = page.getByTestId("aidt-shared-details");
+    if (!await details.getByTestId(`aidt-shared-source-${step - 1}`).isVisible()) await details.locator("summary").first().click();
+    const previous = details.getByTestId(`aidt-shared-source-${step - 1}`);
+    if (await previous.isEnabled()) await previous.check();
+    await expect(previous).toBeChecked();
+    if (step === 5) await details.getByTestId("aidt-shared-source-3").check();
+  }
   const before = await saveAidtV2Stage(page, projectId!, step);
+  if (existingProjectId) expect(before.sourceStageRevisions).toContainEqual({ stageId: step - 1,
+    revision: step === 6 ? readAidtQuestionSnapshot(before.content.draft)!.sourceStageRevision : (await readAidtV2Stage(page, projectId!, step - 1))!.revision });
   return { projectId: projectId!, before, nativePrototype };
 }
 
@@ -115,6 +140,11 @@ export async function studentReviewsAidtV2Stage(page: Page, projectId: string, s
     await fillAidtV2Field(page, "adoptedGuide", "学生审阅后的合成提纲：请讲一次具体取餐经历；先听完整经过，再追问看到了什么。保留原稿。");
   } else if (step === 3) {
     await page.getByTestId("aidt-surprise-confirm").click();
+    const research = await readAidtV2Stage(page, projectId, 2);
+    await fillAidtV2Field(page, "personaBehavior", "学生审阅后的合成画像：模拟角色在取餐区先寻找牌子，再核对队列；这仅是夹具中的个体情境，不代表真实群体。");
+    await fillAidtV2Field(page, "insight", "学生修订洞察为待验证假设：区域提示与寻找路线也许有关，当前不能判断原因或普遍程度。");
+    await fillAidtV2Field(page, "evidence", `S2 V${research!.revision}，发现卡 ${research!.content.draft.discoveryCards?.[0]?.id ?? "缺失"}，SYN-A.txt/PNG均为合成。原文与学生解释分开；年龄、兴趣、生活方式没有来源，仍留空。`);
+    await fillAidtV2Field(page, "decision", "学生选择围绕理解取餐分区提出HMW，保留‘可能只是个体经验’的不同解释；不把AI建议当共识或证实结果。");
     await fillAidtV2Field(page, "hmw", "学生选择的合成HMW：如何让新同学理解取餐分区？明确需要真实研究验证。");
   } else if (step === 4) {
     const name = "合成点子：纸面分区牌";

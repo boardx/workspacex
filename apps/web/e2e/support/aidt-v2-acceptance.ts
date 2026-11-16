@@ -10,7 +10,7 @@ import { readAidtQuestionSnapshot } from "../../features/aidt/lib/aidt-verificat
 import { REAL_MODEL_SMOKE, REAL_MODEL_SKIP_REASON } from "../real-model-smoke-fixture";
 import { sendViaWorkbench } from "../chat-v2-send";
 import { apiPath } from "./real-model-api";
-import { reserveAidtNativeRun, recordAidtNativeRequest, finishAidtNativeRun } from "./aidt-v2-run-ledger";
+import { nativeRunLedger } from "./aidt-v2-supplemental-ledger";
 import { aidtV2WireMetadata, expectedAidtV2StageSelector, validateAidtV2Receipt } from "./aidt-v2-wire-metadata";
 
 export function assertAidtV2Target(): void {
@@ -116,9 +116,9 @@ async function readAidtV2StageRevision(page: Page, projectId: string, stageId: n
 
 export async function saveAidtV2Stage(page: Page, projectId: string, step: number): Promise<SharedStageValue> {
   const prior = await readAidtV2Stage(page, projectId, step);
+  await expect(page.getByTestId("aidt-shared-save")).toBeEnabled();
   const saved = page.waitForResponse(response => new URL(response.url()).origin === new URL(REAL_MODEL_SMOKE.baseUrl).origin
     && new URL(response.url()).pathname === apiPath(`/projects/${projectId}/aidt/stages/${step}`) && response.request().method() === "PUT");
-  await expect(page.getByTestId("aidt-shared-save")).toBeEnabled();
   await page.getByTestId("aidt-shared-save").click();
   const response = await saved;
   expect(response.status()).toBe(200);
@@ -142,6 +142,7 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
   await page.getByTestId("aidt-step-skill").waitFor({ state: "visible" });
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get(threadKey)).toBeTruthy();
+  await expect(page.getByTestId("aidt-chat-context-pending")).toHaveCount(0);
   const threadId = new URL(page.url()).searchParams.get(threadKey)!;
   const session = await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? "null") as { currentOrgId?: string } | null, SESSION_STORAGE_KEY);
   expect(session?.currentOrgId).toBeTruthy();
@@ -185,7 +186,8 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
   const contextMarkers = [...stagesBefore.filter((stage): stage is SharedStageValue => stage !== null), ...selectedStages].flatMap(stage => Object.entries(stage.content.draft.fields)
     .filter(([, value]) => value.length >= 12 && !/^[\[{]/.test(value)).map(([field, marker]) => ({ stageId: stage.stageId, revision: stage.revision, field, marker })));
   const previousRunIds = new Set(await page.locator("[data-run-id]").evaluateAll(nodes => nodes.map(node => node.getAttribute("data-run-id"))));
-  const reservation = reserveAidtNativeRun(projectId, threadId, skillName, prompt);
+  const ledger = nativeRunLedger(skillName);
+  const reservation = ledger.reserve(projectId, threadId, skillName, prompt);
   let observedRunId: string | undefined;
   let failureCode = "ASSERTION_OR_NATIVE_RUN_FAILED";
   let reviewedPermissionId: string | null | undefined;
@@ -201,7 +203,7 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
   };
   try {
     const request = await sendViaWorkbench(page, prompt);
-    recordAidtNativeRequest(reservation, new URL(request.url()).pathname);
+    ledger.record(reservation, new URL(request.url()).pathname);
     console.info(`[aidt-v2] native request observed · ${skillName} · budget entry ${reservation}`);
     expect(new URL(request.url()).origin).toBe(new URL(REAL_MODEL_SMOKE.baseUrl).origin);
     const wireMetadata = aidtV2WireMetadata(request.postDataJSON(), contextMarkers, skillName, expectedSelector, authoredStudentTexts);
@@ -277,7 +279,7 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
     await expect(panel.getByText(sourceReceipt.snapshotHash, { exact: true })).toBeVisible();
     await expect(panel.getByText(sourceReceipt.application.assembledContextHash!, { exact: true })).toBeVisible();
     expect(await Promise.all([1, 2, 3, 4, 5, 6].map(id => readAidtV2Stage(page, projectId, id))), "Agent不得替学生确认/保存阶段成果").toEqual(stagesBefore);
-    finishAidtNativeRun(reservation, { succeeded: true, runId: run.runId });
+    ledger.finish(reservation, { succeeded: true, runId: run.runId });
     console.info(`[aidt-v2] durable native run succeeded · ${skillName} · ${run.runId}`);
     return { threadId, skillId: skill!.skillId, runId: run.runId, agentId: run.agentId, modelProvider: run.modelProvider, modelId: run.modelId,
       agentVersionId: run.agentVersionId, skillVersionIds: run.skillVersionIds, sawRunning, studentInput: prompt,
@@ -285,7 +287,11 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
       mountedSkillVersionId: mountedSkill!.versionId, wireMetadata,
       modelActorRole: process.env.AIDT_V2_ACCOUNT_ROLE ?? "unspecified", studentPermissionProvenByModelRun: false, intentChoices };
   } catch (error) {
-    finishAidtNativeRun(reservation, { succeeded: false, runId: observedRunId, failureCode });
+    ledger.finish(reservation, { succeeded: false, runId: observedRunId, failureCode });
+    await test.info().attach(`native-turn-failure-${skillName}`, { contentType: "application/json", body: Buffer.from(JSON.stringify({
+      projectId, threadId, skillName, reservation, observedRunId, failureCode, selectorCoordinates: expectedSelector,
+      frozenReceipt: frozenReceipt ?? null, automaticNewSendRetry: false, intentChoices,
+    }, null, 2)) });
     throw error;
   }
 }

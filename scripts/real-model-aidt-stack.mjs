@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 const root = resolve(import.meta.dirname, '..');
 const work = process.env.REAL_MODEL_E2E_WORK_DIR;
 const webMode = process.env.REAL_MODEL_E2E_WEB_MODE ?? 'dev';
-if (!['dev', 'build-start'].includes(webMode)) throw new Error('Unsupported acceptance Web mode.');
+if (!['dev', 'build-start', 'reuse-start'].includes(webMode)) throw new Error('Unsupported acceptance Web mode.');
 if (!work || process.env.WORKSPACEX_REAL_MODEL_DEV_OPT_IN !== '1' || !process.env.WORKSPACEX_ISOLATION_ID || process.env.WORKSPACEX_MODEL_ENV_ONLY !== '1') {
   throw new Error('Use the explicit safe model configuration --stack entry with test isolation.');
 }
@@ -15,7 +15,17 @@ mkdirSync(work, { recursive: true, mode: 0o700 });
 mkdirSync(join(work, 'docker'), { recursive: true, mode: 0o700 });
 const api = `http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
 const web = `http://127.0.0.1:${process.env.WORKSPACEX_WEB_PORT}`;
-const { FULLSTACK_E2E } = await import(pathToFileURL(join(root, 'apps/web/e2e/fullstack-smoke-fixture.ts')));
+const restoreReceipt = process.env.REAL_MODEL_E2E_RESTORE_RECEIPT;
+let FULLSTACK_E2E;
+let restored;
+if (restoreReceipt) {
+  const { verifyRestoredReceipt } = await import('./lib/aidt-checkpoint-restored-db.mjs');
+  restored = await verifyRestoredReceipt(root, restoreReceipt);
+  FULLSTACK_E2E = restored.fixture;
+} else {
+  if (webMode === 'reuse-start') throw new Error('Reusing a build requires a verified private restore receipt.');
+  ({ FULLSTACK_E2E } = await import(pathToFileURL(join(root, 'apps/web/e2e/fullstack-smoke-fixture.ts'))));
+}
 const baseEnv = {
   ...process.env,
   DOCKER_CONFIG: join(work, 'docker'),
@@ -104,9 +114,9 @@ try {
   const webEnv = {
     ...baseEnv, NEXT_PUBLIC_API_URL: web,
     NEXT_PUBLIC_API_PATH_PREFIX: '/__fullstack_api', NEXT_PUBLIC_API_WS_URL: api,
-    FULLSTACK_E2E_API_ORIGIN: api, NEXT_DIST_DIR: '.next-aidt-real-model',
+    FULLSTACK_E2E_API_ORIGIN: api, NEXT_DIST_DIR: restored ? restored.plan.buildReceipt.dist : '.next-aidt-real-model',
     NEXT_FONT_GOOGLE_MOCKED_RESPONSES: join(root, 'apps/web/e2e/support/google-fonts-mock.cjs'),
-    ...(webMode === 'build-start' ? {
+    ...(webMode !== 'dev' ? {
       WORKSPACEX_RELEASE_BUILD: '1', NEXT_TELEMETRY_DISABLED: '1',
       NODE_OPTIONS: `${baseEnv.NODE_OPTIONS} --max-old-space-size=4096`,
     } : {}),
@@ -118,7 +128,7 @@ try {
     children.splice(children.indexOf(build), 1);
     if (code !== 0) throw new Error('Acceptance Web build failed; inspect private build log.');
   }
-  const server = start('pnpm', ['--filter', 'web', 'exec', 'next', webMode === 'build-start' ? 'start' : 'dev', '--hostname', '127.0.0.1', '-p', process.env.WORKSPACEX_WEB_PORT], { cwd: root, env: webEnv, stdio: ['ignore', log('web.log'), log('web.log')] });
+  const server = start('pnpm', ['--filter', 'web', 'exec', 'next', webMode === 'dev' ? 'dev' : 'start', '--hostname', '127.0.0.1', '-p', process.env.WORKSPACEX_WEB_PORT], { cwd: root, env: webEnv, stdio: ['ignore', log('web.log'), log('web.log')] });
   await wait(`${web}/login`, server);
   ready = true;
   writeFileSync(join(work, 'status.json'), JSON.stringify({ ready, api, web, webMode, nativeDeepAgent: true, realProviderConfigured: true, modelAcceptance: 'pending', pid: process.pid }, null, 2));

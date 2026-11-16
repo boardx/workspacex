@@ -5,7 +5,7 @@ import { REAL_MODEL_SMOKE } from "./e2e/real-model-smoke-fixture";
 export default defineConfig({
   testDir: "./e2e",
   testMatch: ["aidt-v2-*.spec.ts"],
-  testIgnore: ["aidt-v2-context-prepared.spec.ts"],
+  testIgnore: ["aidt-v2-context-prepared.spec.ts", "aidt-v2-deliverables.spec.ts", "aidt-v2-s2-supplement.spec.ts"],
   workers: 1,
   retries: 0,
   timeout: 180_000,
