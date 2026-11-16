@@ -1,4 +1,5 @@
 import { seedWorkflowRunsI18n } from "./fixtures/seed-workflow-runs-i18n";
+import { fullstackAgentInstructions } from "./fixtures/fullstack-agent-instructions";
 import { seedAboutMeI18n } from "./fixtures/seed-about-me-i18n";
 import { seedEntityLocalizationFixture } from "./fixtures/seed-entity-localization";
 import {seedChatPublicShare} from './fixtures/seed-chat-public-share';
@@ -84,6 +85,8 @@ const agentId = required("FULLSTACK_E2E_AGENT_ID");
 const agentDisplayName = required("FULLSTACK_E2E_AGENT_NAME");
 const agentModelProvider = required("FULLSTACK_E2E_AGENT_MODEL_PROVIDER");
 const agentModelId = required("FULLSTACK_E2E_AGENT_MODEL_ID");
+// Reject an invalid explicit profile before any database creation/reset.
+const fixtureAgentInstructions = fullstackAgentInstructions(process.env.FULLSTACK_E2E_AGENT_INSTRUCTIONS_PROFILE);
 /** #467: the one **enabled** Skill core-loop step 8a mounts. See the fixture for why it is seeded. */
 const mountableSkillId = required("FULLSTACK_E2E_MOUNTABLE_SKILL_ID");
 const mountableSkillName = required("FULLSTACK_E2E_MOUNTABLE_SKILL_NAME");
@@ -337,7 +340,7 @@ await asApp(orgId, async (client) => {
  */
 {
   const agentVersionId = `${agentId}-v1`;
-  const instructions = "You are the core-loop smoke agent. Echo back what you are given.";
+  const instructions = fixtureAgentInstructions;
   const { createHash } = await import("node:crypto");
   const instructionDigest = createHash("sha256").update(instructions).digest("hex");
   await asApp(orgId, async (client) => {

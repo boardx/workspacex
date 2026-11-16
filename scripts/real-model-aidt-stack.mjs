@@ -24,6 +24,8 @@ const baseEnv = {
   REAL_MODEL_E2E_PYTHON_PRELOAD_DIR: join(root, 'scripts/real-model-python'),
   NO_PROXY: [process.env.NO_PROXY, '127.0.0.1', 'localhost'].filter(Boolean).join(','),
   ENABLE_AIDT_MODULE: '1', ENABLE_PROJECT_MEMBER_CHAT: '1',
+  // Paid AIDT evidence must use the product's canonical default assistant, never the loopback echo oracle.
+  FULLSTACK_E2E_AGENT_INSTRUCTIONS_PROFILE: 'canonical-default',
   KERNEL_SKIP_LOCAL_ENV_FILE: '1',
   NEXT_PUBLIC_ENABLE_AIDT: '1', NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: '1',
   FULLSTACK_E2E_COLLABORATION_PROJECT_ID: FULLSTACK_E2E.collaborationFixtureProjectId,
