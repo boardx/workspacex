@@ -11,9 +11,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
+  addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
 import { addChatThread } from "../support/chat-db";
 
@@ -33,6 +33,11 @@ const V1 = "agent-version-i654-stream-ep-v1";
 const SKILL = "skill-i654-stream-ep";
 const SV = "skill-version-i654-stream-ep-v1";
 const MODEL = "pinned-model-i654-stream-ep";
+
+vi.mock("../../src/infrastructure/agent/pg-default-agent-repository", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../src/infrastructure/agent/pg-default-agent-repository")>(),
+  resolveDeepAgentModel: () => ({ provider: PROVIDER, modelId: MODEL }),
+}));
 
 const sha256 = (v: string): string => createHash("sha256").update(v).digest("hex");
 
@@ -186,6 +191,11 @@ beforeEach(async () => {
   await resetOrgs(ORG, OTHER_ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy!);
+  // @global-scope-fixture table:credit_wallets: fund the dedicated model-test actor.
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [ACTOR],
+  ));
   await addProjectMember(ORG, PROJECT, ACTOR, "facilitator", null);
   await addChatThread({ orgId: ORG, id: THREAD, projectId: PROJECT, visibilityScope: "plenary", createdBy: ACTOR });
   const otherFx = await seedOrg({ orgId: OTHER_ORG, projectId: `${PROJECT}-other` });
