@@ -128,8 +128,12 @@ def build(role, prefix, tag, output, source):
     probe=subprocess.run(['docker','manifest','inspect',prefix+'/'+repository+':'+tag],capture_output=True,text=True,timeout=60)
     need(probe.returncode!=0,'IMMUTABLE_TAG_ALREADY_EXISTS')
     need(re.search(r'manifest unknown|no such manifest|MANIFEST_UNKNOWN',probe.stderr,re.I),'TAG_EXISTENCE_UNVERIFIED')
+    # Share the 52-minute budget across build and upload, leaving time for
+    # checkout, registry verification, artifact upload and credential cleanup.
+    deadline = time.monotonic() + 3120
     run_release_stage(role, 'build', args+['--progress=plain', context], 2400)
-    run_release_stage(role, 'push', ['docker','push',prefix+'/'+repository+':'+tag], 720)
+    push_budget = max(1, int(deadline - time.monotonic()))
+    run_release_stage(role, 'push', ['docker','push',prefix+'/'+repository+':'+tag], push_budget)
     write(output,resolve('docker',prefix,tag,role))
 
 def aggregate(directory, source, tag, prefix):
