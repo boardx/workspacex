@@ -1,0 +1,33 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-courses-panel.test.tsx (10 tests | 1 failed | 9 skipped) 103ms
+   × does not let an older course-list success restore metadata after a current group access denial 103ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-courses-panel.test.tsx > does not let an older course-list success restore metadata after a current group access denial
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/ui/aidt-courses-panel.test.tsx:32:26
+     30|   fireEvent.click(screen.getByRole("button",{name:"更多小组"}));await …
+     31|   await act(async()=>resolve({items:[course("late-private")],nextCurso…
+     32|   expect(signal.aborted).toBe(true);expect(screen.queryByTestId("aidt-…
+       |                          ^
+     33| });
+     34|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 skipped (10)
+   Start at  04:26:12
+   Duration  810ms (transform 86ms, setup 64ms, collect 118ms, tests 103ms, environment 332ms, prepare 29ms)

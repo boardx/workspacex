@@ -33,9 +33,9 @@ SUM 形状为 `purpose:"summary"`，不传 stageId/returnRevision，可传 `hist
 
 依次核对：AIDT显式启用 → principal现有身份 → actual thread现有读写/可见性与未归档门 → thread真实project等于selector project → general+AIDT profile与当前真实成员 → 实际活动挂载的AIDT Skill及其版本匹配stage/SUM。
 
-stage1必须对应 `aidt-understand`，stage2对应 `aidt-empathize`，其余对应实际六步；SUM只匹配真实 `dt-summarize-project`。多个互斥教学挂载、错任务/错project、不可读Skill、非成员、未发布或无法验证一律失败，不映射通用五步，也不拿通用报告当别名。阶段证据必须是 selector 与该 thread 的真实活动挂载、即将冻结的run版本三者交集；通用run默认启用目录里恰有某个AIDT Skill不算当前阶段。还须核对成功导入记录/不可变包坐标（`aidt-methods` 或 `aidt-project-summary`）与实际版本，不能仅凭用户可创建的同名stableName冒充官方课程来源。已有可信包中的固定旧pin合法，不自动替换最新版；focus版本必须进入本run实际Skill快照。在验证实际活动mount之后，复用已有server-owned `requestedSkillVersionId`口，仅将general trusted pool收窄到本次focus版本，以减少通用五步Skill干扰；客户端不能直接指定任意授权Skill。非general Agent的角色pins不改；不满足既有pin边界时拒绝而非扩权。ordinary无selector不设置此收窄值。
+stage1必须对应 `aidt-understand`，stage2对应 `aidt-empathize`，其余对应实际六步；SUM只匹配真实 `dt-summarize-project`。多个互斥教学挂载、错任务/错project、不可读Skill、非成员、未发布或无法验证一律失败，不映射通用五步，也不拿通用报告当别名。阶段证据必须是 selector 与该 thread 的真实活动挂载、即将冻结的run版本三者交集；通用run默认启用目录里恰有某个AIDT Skill不算当前阶段。还须复用 `PgAgentRunRepository.readPinnedSkills` 在同tenant已有可见own/platform边界下的真实published/enabled版本、完整包字节及文件digest校验，再与受信starter-pack已发布JSON的canonical package manifest hash比对已知allowlisted不可变release（`aidt-methods` 或 `aidt-project-summary`）。这只证明实际所挂内容与已发布课程包摘要一致，不称平台import receipt或官方账号血统；同stableName的自建内容不能代替这项比对。已知allowlist内的固定旧pin合法，不匹配即拒绝并要求显式更新，不自动替换最新版；focus版本必须进入本run实际Skill快照。在验证实际活动mount之后，复用已有server-owned `requestedSkillVersionId`口，仅将general trusted pool收窄到本次focus版本，以减少通用五步Skill干扰；客户端不能直接指定任意授权Skill。非general Agent的角色pins不改；不满足既有pin边界时拒绝而非扩权。ordinary无selector不设置此收窄值。
 
-平台import receipt在当前tenant可能受RLS限制：只复用现有可见的可信package元数据及服务端已批准的不可变包digest映射，不暗加withoutTenant、切org新事务或放宽RLS。无法确认的包来源诚实记unknown，不伪写官方血统；若无法完成本任务要求的可信focus绑定则准备失败关闭。
+平台import receipt在当前tenant受RLS限制，并不享有published Skill包的跨平台只读例外；本方案不查询该receipt，不暗加withoutTenant、切org新事务或放宽RLS。仅采用上述可见真实包与受信发布JSON的内容摘要比对；证据来源关系仍不能证明的部分诚实记unknown，不伪写官方账号血统。无法完成本任务要求的focus绑定/内容匹配则准备失败关闭。
 
 标题/顺序映射在新契约模块只维护一份，现有Web `AIDT_STEPS` 引用该元数据，任务/引导文案仍归教学模块；不在API复制另一套六步映射。阶段不是权限，UI selector不是证据。所有已保存正文、选择理由、确认标记仍为不可信学生材料。
 

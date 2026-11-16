@@ -127,12 +127,24 @@
       "exitCode": 0,
       "log": "shared-filter-regressions.log",
       "counting": "Separate from the course 41; not a full-repository result"
+    },
+    {
+      "kind": "real-final-course-UI",
+      "sourceBuildCommit": "4bfb82e268a618d57af25e5596a11ddc04cf38cf",
+      "tests": 3,
+      "exitCode": 0,
+      "retries": 0,
+      "summary": "course-ui-final-02-summary.json",
+      "attachments": "course-ui-final-02-attachments.json",
+      "preservedPreviousThreeFail": "course-ui-final-01-summary.json",
+      "modelLedgerUnchanged": true,
+      "observedModelSends": 0
     }
   ],
   "pending": [
-    "Final API/Web build and refresh coordinated by root",
-    "A6 real course create/link/relogin/dual-account isolation",
-    "Runtime restart and original saved project revision restored"
+    "Real classroom/teacher effectiveness review remains outside technical acceptance",
+    "Known existing P3 createProject provenanceEventId contract gap remains",
+    "AIDT context-core bundle implementation still pending its separate human signoff; no model context behavior claimed"
   ],
   "humanApproval": "User approved plan A, relayed by root; design-signoff.md retains exact quote and original frontmatter",
   "productionDeployed": false

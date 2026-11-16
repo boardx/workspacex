@@ -1,0 +1,75 @@
+{
+  "layer": "real-isolated-PostgreSQL-readonly",
+  "syntheticOnly": true,
+  "queryWasReadOnly": true,
+  "paidModelRequests": 0,
+  "completed": true,
+  "projectId": "prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+  "ordinaryProjectId": "prj-8e4ba3b7-b4fd-4d4e-b4b7-056e09db13b4",
+  "isolationDatabaseAndComposeMatchRecorded": true,
+  "sql": "SELECT json_build_object(\n 'artifacts',(SELECT count(*) FROM artifacts WHERE project_id=$1),\n 'versions',(SELECT count(*) FROM artifact_versions v JOIN artifacts a ON a.id=v.artifact_id AND a.org_id=v.org_id WHERE a.project_id=$1),\n 'runs',(SELECT count(*) FROM aidt_raw_upload_runs WHERE project_id=$1),\n 'pendingJobs',(SELECT count(*) FROM ingestion_outbox j JOIN artifacts a ON a.id=j.artifact_id AND a.org_id=j.org_id WHERE a.project_id=$1 AND j.status='pending'),\n 'ordinaryArtifacts',(SELECT count(*) FROM artifacts WHERE project_id=$2),\n 'agentRuns',(SELECT count(*) FROM agent_runs r JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id WHERE t.project_id IN ($1,$2)),\n 'projectStatus',(SELECT status FROM projects WHERE id=$1),\n 'bindings',(SELECT json_agg(json_build_object('runId',r.id,'artifactId',r.artifact_id,'versionId',r.artifact_version_id,'versionNumber',v.version_number,'versionHash',v.content_hash,'submittedBy',r.created_by,'submittedAt',r.created_at,'sha256',r.sha256,'sizeBytes',r.size_bytes)) FROM aidt_raw_upload_runs r JOIN artifact_versions v ON v.id=r.artifact_version_id AND v.org_id=r.org_id AND v.artifact_id=r.artifact_id WHERE r.project_id=$1)) AS facts",
+  "facts": {
+    "artifacts": 2,
+    "versions": 3,
+    "runs": 4,
+    "pendingJobs": 3,
+    "ordinaryArtifacts": 0,
+    "agentRuns": 0,
+    "projectStatus": "active",
+    "bindings": [
+      {
+        "runId": "ingest-415e17f9-6f7f-4c55-a9e2-7d5cb3cf693d",
+        "artifactId": "art-acdbcc74-ed0d-4dab-88f6-74cc718ca019",
+        "versionId": "ver-bb469eea-9e65-4966-a613-3b819ee3affb",
+        "versionNumber": 1,
+        "versionHash": "7a68ec2f696cf0a1bbc86ce2381dcb4d5a20b17ea834e0de732add0fd19f9a42",
+        "submittedBy": "user-fullstack-ec-3614a47a-ef6245aa8d4e",
+        "submittedAt": "2026-11-16T05:37:24.123653+00:00",
+        "sha256": "2baab9f18ec0a9e673eecc9284e070841f144204d21c2469ff11a5e8c9eedf78",
+        "sizeBytes": 91
+      },
+      {
+        "runId": "ingest-4960d12c-89b3-4ec2-8d9f-3864d54a63ec",
+        "artifactId": "art-b087ac62-4dcd-4e7f-bff6-94f4bcc7c6fc",
+        "versionId": "ver-9d6bcc2b-b239-4024-aaf2-f9dd9639cbf0",
+        "versionNumber": 1,
+        "versionHash": "7a68ec2f696cf0a1bbc86ce2381dcb4d5a20b17ea834e0de732add0fd19f9a42",
+        "submittedBy": "user-fullstack-ec-3614a47a-ef6245aa8d4e",
+        "submittedAt": "2026-11-16T05:37:24.17935+00:00",
+        "sha256": "2baab9f18ec0a9e673eecc9284e070841f144204d21c2469ff11a5e8c9eedf78",
+        "sizeBytes": 91
+      },
+      {
+        "runId": "ingest-54a07ae3-6a50-479d-90de-0e7488e0ca49",
+        "artifactId": "art-b087ac62-4dcd-4e7f-bff6-94f4bcc7c6fc",
+        "versionId": "ver-9d6bcc2b-b239-4024-aaf2-f9dd9639cbf0",
+        "versionNumber": 1,
+        "versionHash": "7a68ec2f696cf0a1bbc86ce2381dcb4d5a20b17ea834e0de732add0fd19f9a42",
+        "submittedBy": "user-fullstack-ec-3614a47a-ef6245aa8d4e",
+        "submittedAt": "2026-11-16T05:37:24.232495+00:00",
+        "sha256": "2baab9f18ec0a9e673eecc9284e070841f144204d21c2469ff11a5e8c9eedf78",
+        "sizeBytes": 91
+      },
+      {
+        "runId": "ingest-b9c37dc8-8e97-407b-aaa2-0a9529b4cb72",
+        "artifactId": "art-b087ac62-4dcd-4e7f-bff6-94f4bcc7c6fc",
+        "versionId": "ver-98c31f00-43d1-41b3-9eac-dc84b863054d",
+        "versionNumber": 2,
+        "versionHash": "7a68ec2f696cf0a1bbc86ce2381dcb4d5a20b17ea834e0de732add0fd19f9a42",
+        "submittedBy": "user-fullstack-ec-3614a47a-ef6245aa8d4e",
+        "submittedAt": "2026-11-16T05:37:24.28057+00:00",
+        "sha256": "2baab9f18ec0a9e673eecc9284e070841f144204d21c2469ff11a5e8c9eedf78",
+        "sizeBytes": 91
+      }
+    ]
+  },
+  "rawTableSecurity": {
+    "relrowsecurity": true,
+    "relforcerowsecurity": true,
+    "can_read": true,
+    "can_insert": true,
+    "can_update": false,
+    "can_delete": false
+  },
+  "checkedAt": "2026-11-16T05:41:30.350Z"
+}

@@ -1,0 +1,43 @@
+{
+  "scope": "approved-raw-HTTP-PG-followup-and-summary-offline-checks",
+  "syntheticOnly": true,
+  "paidModelRequests": 0,
+  "memberRoleCreditOrRlsChanges": false,
+  "rawHttpAssertionsBeforeSqlPassed": true,
+  "initialCombinedProbeCompleted": false,
+  "initialCombinedProbeStop": "CalledProcessError",
+  "separateIsolatedReadonlyPgSupplementPassed": true,
+  "realOriginalHeadersMatchPersistedSubmitterAndTime": true,
+  "finalHttpCanonicalAndScopeReadsPassed": true,
+  "ordinaryPrimarySelfEnableDenied": true,
+  "oneSyntheticProfilePreparedViaNormalExistingAdmin": true,
+  "databaseCounts": {
+    "artifacts": 2,
+    "versions": 3,
+    "runs": 4,
+    "pendingJobs": 3,
+    "ordinaryArtifacts": 0,
+    "agentRuns": 0
+  },
+  "archiveReadOnlyRealHttp": "not verified; primary owner archive returned403",
+  "crossMemberRealRead": "not verified in this probe",
+  "browserAndCorsExposure": "not verified by HTTP-only probe",
+  "sumModelMaterialDelivery": "blocked by confirmed AGUI context drop; proposed fix pending human signoff",
+  "combinedApprovedUnitTests": {
+    "files": 5,
+    "tests": 42,
+    "passed": true
+  },
+  "sources": [
+    "approved-raw-sum-unit.txt",
+    "approved-raw-sum-architecture.txt",
+    "approved-raw-sum-permission.txt",
+    "raw-http-before-pg-supplement.json",
+    "raw-pg-readonly.json",
+    "raw-http-final-reads.json",
+    "raw-admin-profile.json",
+    "raw-primary-profile-denied.json",
+    "raw-compatible-dedup-red.txt"
+  ],
+  "checkedAt": "2026-11-16T05:44:02.231992+00:00"
+}

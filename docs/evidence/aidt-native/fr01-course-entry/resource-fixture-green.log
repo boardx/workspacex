@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/aidt-resource-isolation.test.tsx (11 tests) 352ms
+ ✓ tests/ui/aidt-course-role-lifecycle.test.tsx (3 tests) 86ms
+ ✓ tests/aidt-course-context.test.ts (7 tests) 161ms
+
+ Test Files  3 passed (3)
+      Tests  21 passed (21)
+   Start at  04:47:08
+   Duration  5.57s (transform 2.11s, setup 173ms, collect 3.65s, tests 599ms, environment 657ms, prepare 94ms)

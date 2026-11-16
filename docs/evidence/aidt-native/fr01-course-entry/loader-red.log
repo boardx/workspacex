@@ -1,0 +1,27 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/aidt-course-context.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-course-context.test.ts [ tests/aidt-course-context.test.ts ]
+Error: Cannot find module '@/features/aidt/lib/aidt-course-context' imported from '/workspace/aidt-module-latest/apps/web/tests/aidt-course-context.test.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/aidt-course-context.test.ts:5:25
+      3| const mock = vi.hoisted(() => ({ enabled: true, request: vi.fn() }));
+      4| vi.mock("@/lib/api-client", () => ({ apiRequest: mock.request }));
+      5| vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModul…
+       |                         ^
+      6| const scope = { orgId: "org", userId: "student", sessionToken: "captur…
+      7| const group = (id = "g1", tags = ["workspacex:aidt"]) => ({ id, name: …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  03:50:54
+   Duration  356ms (transform 37ms, setup 135ms, collect 0ms, tests 0ms, environment 0ms, prepare 48ms)

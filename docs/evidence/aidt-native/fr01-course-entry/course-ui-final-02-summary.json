@@ -1,0 +1,59 @@
+{
+  "sourceBuildCommit": "4bfb82e268a618d57af25e5596a11ddc04cf38cf",
+  "kind": "real-course-UI-E2E",
+  "actualBrowserRun": true,
+  "result": "3 passed",
+  "runnerExitCode": 0,
+  "retries": 0,
+  "workers": 1,
+  "baseURL": "http://127.0.0.1:25483",
+  "cases": [
+    {
+      "title": "FR01 course A: real UI create and owner links, same-course group isolation, fresh login preserves original saved input",
+      "status": "passed",
+      "durationMs": 9620,
+      "retry": 0,
+      "attachmentNames": [
+        "course-real-membership-isolation"
+      ]
+    },
+    {
+      "title": "FR01 lifecycle: archived existing course group remains readable; new binding is rejected without mutating native members",
+      "status": "passed",
+      "durationMs": 3050,
+      "retry": 0,
+      "attachmentNames": [
+        "course-real-archive-boundary"
+      ]
+    },
+    {
+      "title": "FR01 pagination and failure: real PG cursors have no overlap; native UI distinguishes offline error and explicit retry",
+      "status": "passed",
+      "durationMs": 1302,
+      "retry": 0,
+      "attachmentNames": [
+        "course-real-pagination-and-network-failure"
+      ]
+    }
+  ],
+  "attachmentFile": "docs/evidence/aidt-native/fr01-course-entry/course-ui-final-02-attachments.json",
+  "modelSendRequestsObserved": 0,
+  "sharedModelLedgerBefore": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "sharedModelLedgerAfter": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "sharedModelLedgerUnchanged": true,
+  "actors": "Existing isolated collaboration admin / consultant / admin; actual identity API verified",
+  "organizationRolesChanged": false,
+  "membershipChange": "Only explicitly added existing synthetic student as collaborator to this spec new group; course linking verified roster unchanged",
+  "browserClosedAndReleased": true,
+  "productionDeployment": false,
+  "apiOnlyEvidence": "course-api-after-filter.json; separate 17-check API lane",
+  "previousRealFailure": "course-ui-final-01-summary.json; all three failed on old 7235b9cd missing same-origin course rewrite, preserved",
+  "knownContractGap": "Existing P3: createProject HTTP201 body lacks required provenanceEventId; native UI/helper observes actual creation/navigation and later authorized read/save, never fabricates the receipt or loosens public contract",
+  "limits": [
+    "Synthetic technical acceptance, not real classroom/teacher effectiveness validation",
+    "No Agent/model behavior claimed",
+    "Fresh login and server saved revision reread verified; no runtime restart performed by this spec"
+  ],
+  "rawResultsPath": "/workspace/scratch/aidt-v2-acceptance/course-ui-final-02/results.json",
+  "executionRecordPath": "/workspace/scratch/aidt-v2-acceptance/course-ui-final-02.execution.json"
+}

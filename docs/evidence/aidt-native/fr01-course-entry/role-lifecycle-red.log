@@ -1,0 +1,694 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-course-role-lifecycle.test.tsx (3 tests | 3 failed) 2075ms
+   × the real Home invalidates a completed manager directory when org role changes with unchanged actor and token 47ms
+     → expected <button …(3)></button> to be null
+   × the real Home aborts a late manager group read on same-token demotion 1015ms
+     → Unable to find an element by: [data-testid="aidt-courses-empty"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"aidt-home"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0mAIDT · 设计思维[0m
+          [36m</p>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"mt-2 text-30 font-semibold"[39m
+          [36m>[39m
+            [0m找到你的小组，继续研究[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m每个小组一个学习空间，共同完成六步探索。学生先思考，AI 协助，小组做决定。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card p-5"[39m
+        [33mdata-testid[39m=[32m"aidt-courses"[39m
+      [36m>[39m
+        [36m<header>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-18 font-semibold"[39m
+          [36m>[39m
+            [0m课程与小组[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m按课程找到学习小组。这里只显示你有权进入的小组；成员由各小组名单管理。[0m
+          [36m</p>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"选择课程"[39m
+          [33mclass[39m=[32m"mt-4 flex flex-wrap gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"true"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"[39m
+            [33mdata-testid[39m=[32m"aidt-course-manager-only"[39m
+          [36m>[39m
+            [0m只有管理者可见的课程[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mt-5 border-t border-border pt-4"[39m
+          [33mdata-testid[39m=[32m"aidt-course-selected"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mrole[39m=[32m"status"[39m
+          [36m>[39m
+            [0m正在读取课程小组…[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-18 font-semibold"[39m
+      [36m>[39m
+        [0m全部已加入的小组[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-lg border border-dashed border-border p-6 text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-home-empty"[39m
+      [36m>[39m
+        [0m还没有可进入的小组空间。[0m
+        [0m请老师或空间负责人将你加入相应小组；加入后会出现在这里。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"aidt-home"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0mAIDT · 设计思维[0m
+          [36m</p>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"mt-2 text-30 font-semibold"[39m
+          [36m>[39m
+            [0m找到你的小组，继续研究[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m每个小组一个学习空间，共同完成六步探索。学生先思考，AI 协助，小组做决定。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card p-5"[39m
+        [33mdata-testid[39m=[32m"aidt-courses"[39m
+      [36m>[39m
+        [36m<header>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-18 font-semibold"[39m
+          [36m>[39m
+            [0m课程与小组[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m按课程找到学习小组。这里只显示你有权进入的小组；成员由各小组名单管理。[0m
+          [36m</p>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"选择课程"[39m
+          [33mclass[39m=[32m"mt-4 flex flex-wrap gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"true"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"[39m
+            [33mdata-testid[39m=[32m"aidt-course-manager-only"[39m
+          [36m>[39m
+            [0m只有管理者可见的课程[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mt-5 border-t border-border pt-4"[39m
+          [33mdata-testid[39m=[32m"aidt-course-selected"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mrole[39m=[32m"status"[39m
+          [36m>[39m
+            [0m正在读取课程小组…[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-18 font-semibold"[39m
+      [36m>[39m
+        [0m全部已加入的小组[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-lg border border-dashed border-border p-6 text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-home-empty"[39m
+      [36m>[39m
+        [0m还没有可进入的小组空间。[0m
+        [0m请老师或空间负责人将你加入相应小组；加入后会出现在这里。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × the real Home aborts a pending manager mutation and rejects its late success after same-token demotion 1012ms
+     → Unable to find an element by: [data-testid="aidt-courses-empty"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"aidt-home"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0mAIDT · 设计思维[0m
+          [36m</p>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"mt-2 text-30 font-semibold"[39m
+          [36m>[39m
+            [0m找到你的小组，继续研究[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m每个小组一个学习空间，共同完成六步探索。学生先思考，AI 协助，小组做决定。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card p-5"[39m
+        [33mdata-testid[39m=[32m"aidt-courses"[39m
+      [36m>[39m
+        [36m<header>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-18 font-semibold"[39m
+          [36m>[39m
+            [0m课程与小组[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m按课程找到学习小组。这里只显示你有权进入的小组；成员由各小组名单管理。[0m
+          [36m</p>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"选择课程"[39m
+          [33mclass[39m=[32m"mt-4 flex flex-wrap gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+            [33mdata-testid[39m=[32m"aidt-course-manager-only"[39m
+            [33mdisabled[39m=[32m""[39m
+          [36m>[39m
+            [0m只有管理者可见的课程[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-18 font-semibold"[39m
+      [36m>[39m
+        [0m全部已加入的小组[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-lg border border-dashed border-border p-6 text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-home-empty"[39m
+      [36m>[39m
+        [0m还没有可进入的小组空间。[0m
+        [0m请老师或空间负责人将你加入相应小组；加入后会出现在这里。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"aidt-home"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0mAIDT · 设计思维[0m
+          [36m</p>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"mt-2 text-30 font-semibold"[39m
+          [36m>[39m
+            [0m找到你的小组，继续研究[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m每个小组一个学习空间，共同完成六步探索。学生先思考，AI 协助，小组做决定。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card p-5"[39m
+        [33mdata-testid[39m=[32m"aidt-courses"[39m
+      [36m>[39m
+        [36m<header>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-18 font-semibold"[39m
+          [36m>[39m
+            [0m课程与小组[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m按课程找到学习小组。这里只显示你有权进入的小组；成员由各小组名单管理。[0m
+          [36m</p>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"选择课程"[39m
+          [33mclass[39m=[32m"mt-4 flex flex-wrap gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+            [33mdata-testid[39m=[32m"aidt-course-manager-only"[39m
+            [33mdisabled[39m=[32m""[39m
+          [36m>[39m
+            [0m只有管理者可见的课程[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-18 font-semibold"[39m
+      [36m>[39m
+        [0m全部已加入的小组[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-lg border border-dashed border-border p-6 text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-home-empty"[39m
+      [36m>[39m
+        [0m还没有可进入的小组空间。[0m
+        [0m请老师或空间负责人将你加入相应小组；加入后会出现在这里。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-course-role-lifecycle.test.tsx > the real Home invalidates a completed manager directory when org role changes with unchanged actor and token
+AssertionError: expected <button …(3)></button> to be null
+
+- Expected:
+null
+
++ Received:
+<button
+  aria-pressed="false"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+  data-testid="aidt-course-manager-only"
+>
+  只有管理者可见的课程
+</button>
+
+ ❯ tests/ui/aidt-course-role-lifecycle.test.tsx:18:59
+     16|  const firstSignal=mock.list.mock.calls[0]![0].signal as AbortSignal;
+     17|  mock.role="consultant";rerender(<AidtHome/>);
+     18|  expect(screen.queryByTestId("aidt-course-manager-only")).toBeNull();e…
+       |                                                           ^
+     19|  await screen.findByTestId("aidt-courses-empty");expect(mock.list).toH…
+     20|  expect(mock.list.mock.calls[1]![0]).toMatchObject({userId:"same-user"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/ui/aidt-course-role-lifecycle.test.tsx > the real Home aborts a late manager group read on same-token demotion
+TestingLibraryElementError: Unable to find an element by: [data-testid="aidt-courses-empty"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"aidt-home"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0mAIDT · 设计思维[0m
+          [36m</p>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"mt-2 text-30 font-semibold"[39m
+          [36m>[39m
+            [0m找到你的小组，继续研究[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m每个小组一个学习空间，共同完成六步探索。学生先思考，AI 协助，小组做决定。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card p-5"[39m
+        [33mdata-testid[39m=[32m"aidt-courses"[39m
+      [36m>[39m
+        [36m<header>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-18 font-semibold"[39m
+          [36m>[39m
+            [0m课程与小组[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m按课程找到学习小组。这里只显示你有权进入的小组；成员由各小组名单管理。[0m
+          [36m</p>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"选择课程"[39m
+          [33mclass[39m=[32m"mt-4 flex flex-wrap gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"true"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"[39m
+            [33mdata-testid[39m=[32m"aidt-course-manager-only"[39m
+          [36m>[39m
+            [0m只有管理者可见的课程[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mt-5 border-t border-border pt-4"[39m
+          [33mdata-testid[39m=[32m"aidt-course-selected"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mrole[39m=[32m"status"[39m
+          [36m>[39m
+            [0m正在读取课程小组…[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-18 font-semibold"[39m
+      [36m>[39m
+        [0m全部已加入的小组[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-lg border border-dashed border-border p-6 text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-home-empty"[39m
+      [36m>[39m
+        [0m还没有可进入的小组空间。[0m
+        [0m请老师或空间负责人将你加入相应小组；加入后会出现在这里。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"aidt-home"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0mAIDT · 设计思维[0m
+          [36m</p>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"mt-2 text-30 font-semibold"[39m
+          [36m>[39m
+            [0m找到你的小组，继续研究[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m每个小组一个学习空间，共同完成六步探索。学生先思考，AI 协助，小组做决定。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card p-5"[39m
+        [33mdata-testid[39m=[32m"aidt-courses"[39m
+      [36m>[39m
+        [36m<header>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-18 font-semibold"[39m
+          [36m>[39m
+            [0m课程与小组[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m按课程找到学习小组。这里只显示你有权进入的小组；成员由各小组名单管理。[0m
+          [36m</p>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"选择课程"[39m
+          [33mclass[39m=[32m"mt-4 flex flex-wrap gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"true"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"[39m
+            [33mdata-testid[39m=[32m"aidt-course-manager-only"[39m
+          [36m>[39m
+            [0m只有管理者可见的课程[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mt-5 border-t border-border pt-4"[39m
+          [33mdata-testid[39m=[32m"aidt-course-selected"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mrole[39m=[32m"status"[39m
+          [36m>[39m
+            [0m正在读取课程小组…[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-18 font-semibold"[39m
+      [36m>[39m
+        [0m全部已加入的小组[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-lg border border-dashed border-border p-6 text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-home-empty"[39m
+      [36m>[39m
+        [0m还没有可进入的小组空间。[0m
+        [0m请老师或空间负责人将你加入相应小组；加入后会出现在这里。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/aidt-course-role-lifecycle.test.tsx:26:60
+     24|  const {rerender}=render(<AidtHome/>);fireEvent.click(await screen.fin…
+     25|  const signal=mock.courseGroups.mock.calls[0]![0].signal as AbortSigna…
+     26|  mock.role="consultant";rerender(<AidtHome/>);await screen.findByTestI…
+       |                                                            ^
+     27|  expect(signal.aborted).toBe(true);await act(async()=>finish({course:m…
+     28|  expect(screen.queryByTestId("aidt-course-selected")).toBeNull();expec…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/ui/aidt-course-role-lifecycle.test.tsx > the real Home aborts a pending manager mutation and rejects its late success after same-token demotion
+TestingLibraryElementError: Unable to find an element by: [data-testid="aidt-courses-empty"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"aidt-home"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0mAIDT · 设计思维[0m
+          [36m</p>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"mt-2 text-30 font-semibold"[39m
+          [36m>[39m
+            [0m找到你的小组，继续研究[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m每个小组一个学习空间，共同完成六步探索。学生先思考，AI 协助，小组做决定。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card p-5"[39m
+        [33mdata-testid[39m=[32m"aidt-courses"[39m
+      [36m>[39m
+        [36m<header>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-18 font-semibold"[39m
+          [36m>[39m
+            [0m课程与小组[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m按课程找到学习小组。这里只显示你有权进入的小组；成员由各小组名单管理。[0m
+          [36m</p>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"选择课程"[39m
+          [33mclass[39m=[32m"mt-4 flex flex-wrap gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+            [33mdata-testid[39m=[32m"aidt-course-manager-only"[39m
+            [33mdisabled[39m=[32m""[39m
+          [36m>[39m
+            [0m只有管理者可见的课程[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-18 font-semibold"[39m
+      [36m>[39m
+        [0m全部已加入的小组[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-lg border border-dashed border-border p-6 text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-home-empty"[39m
+      [36m>[39m
+        [0m还没有可进入的小组空间。[0m
+        [0m请老师或空间负责人将你加入相应小组；加入后会出现在这里。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"aidt-home"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0mAIDT · 设计思维[0m
+          [36m</p>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"mt-2 text-30 font-semibold"[39m
+          [36m>[39m
+            [0m找到你的小组，继续研究[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m每个小组一个学习空间，共同完成六步探索。学生先思考，AI 协助，小组做决定。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-xl border border-border bg-card p-5"[39m
+        [33mdata-testid[39m=[32m"aidt-courses"[39m
+      [36m>[39m
+        [36m<header>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-18 font-semibold"[39m
+          [36m>[39m
+            [0m课程与小组[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m按课程找到学习小组。这里只显示你有权进入的小组；成员由各小组名单管理。[0m
+          [36m</p>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"选择课程"[39m
+          [33mclass[39m=[32m"mt-4 flex flex-wrap gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+            [33mdata-testid[39m=[32m"aidt-course-manager-only"[39m
+            [33mdisabled[39m=[32m""[39m
+          [36m>[39m
+            [0m只有管理者可见的课程[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-18 font-semibold"[39m
+      [36m>[39m
+        [0m全部已加入的小组[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-lg border border-dashed border-border p-6 text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-home-empty"[39m
+      [36m>[39m
+        [0m还没有可进入的小组空间。[0m
+        [0m请老师或空间负责人将你加入相应小组；加入后会出现在这里。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/aidt-course-role-lifecycle.test.tsx:35:60
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  04:34:54
+   Duration  4.74s (transform 1.23s, setup 68ms, collect 1.86s, tests 2.08s, environment 409ms, prepare 32ms)

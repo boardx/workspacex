@@ -1,0 +1,140 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+ ❯ tests/aidt-courses/course-error-boundary.test.ts (8 tests | 6 failed) 17ms
+   × real global Filter preserves closed course reason AIDT_COURSE_NOT_FOUND and strips unrelated fields 9ms
+     → expected { error: 'not_found', …(1) } to match object { …(2) }
+(1 matching property omitted from actual)
+   × real global Filter preserves closed course reason AIDT_COURSE_FORBIDDEN and strips unrelated fields 1ms
+     → expected { error: 'forbidden', …(1) } to match object { …(2) }
+(1 matching property omitted from actual)
+   × real global Filter preserves closed course reason AIDT_COURSE_GROUP_CONFLICT and strips unrelated fields 1ms
+     → expected { error: 'conflict', …(1) } to match object { …(2) }
+(1 matching property omitted from actual)
+   × real global Filter preserves closed course reason AIDT_COURSE_OPERATION_CONFLICT and strips unrelated fields 1ms
+     → expected { error: 'conflict', …(1) } to match object { …(2) }
+(1 matching property omitted from actual)
+   × real global Filter preserves closed course reason AIDT_COURSE_INVALID and strips unrelated fields 1ms
+     → expected { error: 'bad_request', …(1) } to match object { …(2) }
+(1 matching property omitted from actual)
+   × real global Filter preserves closed course reason AIDT_COURSE_UNAVAILABLE and strips unrelated fields 1ms
+     → expected { …(2) } to match object { …(2) }
+(1 matching property omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-courses/course-error-boundary.test.ts > real global Filter preserves closed course reason AIDT_COURSE_NOT_FOUND and strips unrelated fields
+AssertionError: expected { error: 'not_found', …(1) } to match object { …(2) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "reasonCode": "AIDT_COURSE_NOT_FOUND",
+    "traceId": "trace-aidt-course",
+  }
+
+ ❯ tests/aidt-courses/course-error-boundary.test.ts:18:25
+     16|   const response = filtered(reason, status);
+     17|   expect(response.status).toBe(status);
+     18|   expect(response.body).toMatchObject({ reasonCode: reason, traceId: "…
+       |                         ^
+     19|   expect(Object.keys(response.body as object).sort()).toEqual(["error"…
+     20| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/aidt-courses/course-error-boundary.test.ts > real global Filter preserves closed course reason AIDT_COURSE_FORBIDDEN and strips unrelated fields
+AssertionError: expected { error: 'forbidden', …(1) } to match object { …(2) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "reasonCode": "AIDT_COURSE_FORBIDDEN",
+    "traceId": "trace-aidt-course",
+  }
+
+ ❯ tests/aidt-courses/course-error-boundary.test.ts:18:25
+     16|   const response = filtered(reason, status);
+     17|   expect(response.status).toBe(status);
+     18|   expect(response.body).toMatchObject({ reasonCode: reason, traceId: "…
+       |                         ^
+     19|   expect(Object.keys(response.body as object).sort()).toEqual(["error"…
+     20| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/aidt-courses/course-error-boundary.test.ts > real global Filter preserves closed course reason AIDT_COURSE_GROUP_CONFLICT and strips unrelated fields
+ FAIL  tests/aidt-courses/course-error-boundary.test.ts > real global Filter preserves closed course reason AIDT_COURSE_OPERATION_CONFLICT and strips unrelated fields
+AssertionError: expected { error: 'conflict', …(1) } to match object { …(2) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "reasonCode": "AIDT_COURSE_GROUP_CONFLICT",
+    "traceId": "trace-aidt-course",
+  }
+
+ ❯ tests/aidt-courses/course-error-boundary.test.ts:18:25
+     16|   const response = filtered(reason, status);
+     17|   expect(response.status).toBe(status);
+     18|   expect(response.body).toMatchObject({ reasonCode: reason, traceId: "…
+       |                         ^
+     19|   expect(Object.keys(response.body as object).sort()).toEqual(["error"…
+     20| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/aidt-courses/course-error-boundary.test.ts > real global Filter preserves closed course reason AIDT_COURSE_INVALID and strips unrelated fields
+AssertionError: expected { error: 'bad_request', …(1) } to match object { …(2) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "reasonCode": "AIDT_COURSE_INVALID",
+    "traceId": "trace-aidt-course",
+  }
+
+ ❯ tests/aidt-courses/course-error-boundary.test.ts:18:25
+     16|   const response = filtered(reason, status);
+     17|   expect(response.status).toBe(status);
+     18|   expect(response.body).toMatchObject({ reasonCode: reason, traceId: "…
+       |                         ^
+     19|   expect(Object.keys(response.body as object).sort()).toEqual(["error"…
+     20| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  tests/aidt-courses/course-error-boundary.test.ts > real global Filter preserves closed course reason AIDT_COURSE_UNAVAILABLE and strips unrelated fields
+AssertionError: expected { …(2) } to match object { …(2) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "reasonCode": "AIDT_COURSE_UNAVAILABLE",
+    "traceId": "trace-aidt-course",
+  }
+
+ ❯ tests/aidt-courses/course-error-boundary.test.ts:18:25
+     16|   const response = filtered(reason, status);
+     17|   expect(response.status).toBe(status);
+     18|   expect(response.body).toMatchObject({ reasonCode: reason, traceId: "…
+       |                         ^
+     19|   expect(Object.keys(response.body as object).sort()).toEqual(["error"…
+     20| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 2 passed (8)
+   Start at  05:31:16
+   Duration  1.76s (transform 942ms, setup 0ms, collect 1.59s, tests 17ms, environment 0ms, prepare 46ms)

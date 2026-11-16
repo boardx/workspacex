@@ -1,0 +1,41 @@
+{
+  "layer": "real-primary-owner-HTTP-final-reads",
+  "paidModelRequests": 0,
+  "permissionChanges": false,
+  "completed": true,
+  "primaryOwnerMayArchive": false,
+  "archiveReadOnlyApiVerified": false,
+  "archiveLimitation": "No admin archival operation authorized in this probe; prior unit check covers archived original read/new write denial.",
+  "canonicalGetRunWithoutProjectQuery": true,
+  "contentWithoutProjectRejected": true,
+  "oldReceiptVersionAndSubmissionTimeUnchanged": true,
+  "rawByteShaStillMatches": true,
+  "steps": [
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-4960d12c-89b3-4ec2-8d9f-3864d54a63ec",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-4960d12c-89b3-4ec2-8d9f-3864d54a63ec/content",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "path": "/projects/prj-72367f6b-3d12-4066-97e9-cc0e576ac418/archive",
+      "status": 403
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-4960d12c-89b3-4ec2-8d9f-3864d54a63ec/content?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 200
+    }
+  ],
+  "checkedAt": "2026-11-16T05:42:34.706567+00:00"
+}

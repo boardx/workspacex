@@ -1,0 +1,37 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/aidt-idea-readiness.test.ts (2 tests | 1 failed) 5ms
+   × requires two or three complete sentences for each of the three illustrated idea sheets 4ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-idea-readiness.test.ts > requires two or three complete sentences for each of the three illustrated idea sheets
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/aidt-idea-readiness.test.ts:8:42
+      6|   expect(aidtIdeaReadiness(input).ready).toBe(true);
+      7|   input[1]!.description = "只有一句，尚未说清做法。";
+      8|   expect(aidtIdeaReadiness(input).ready).toBe(false);
+       |                                          ^
+      9|   input[1]!.description = "一句。两句。三句。四句。";
+     10|   expect(aidtIdeaReadiness(input).ready).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  03:53:25
+   Duration  381ms (transform 42ms, setup 86ms, collect 16ms, tests 5ms, environment 0ms, prepare 93ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --no-cache tests/aidt-idea-readiness.test.ts

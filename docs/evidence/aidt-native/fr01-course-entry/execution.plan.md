@@ -31,11 +31,12 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G doing
+  class G done
   class S1 done
   class S2 done
   class S3 done
-  class S4 doing
+  class S4 tested
+  %% evidence S4: docs/evidence/aidt-native/fr01-course-entry/course-final-index.json
   class S5 done
 ```
 
@@ -43,3 +44,5 @@ flowchart TD
 | 时间 | 节点 | 状态变化 | 依据（命令 / 证据 / 堵塞原因） |
 |---|---|---|---|
 | 2026-11-16 | G, S1 | todo → doing | 接到目标，开始理解 |
+
+| 2026-11-16 | S4, G | doing → tested / done | 用户方案A批准后实现课程关系；API-only真实17项；4bfb课程原生UI三场3pass/0retry/ledger不变0model；见course-final-index.json。技术功能验收不等于课堂/Agent行为验收，P3合同缺口另列。 |

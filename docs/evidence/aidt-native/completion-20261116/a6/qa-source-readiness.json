@@ -56,12 +56,15 @@
   "actualBrowserEvidence": [
     "v2-attempt05-machine.json",
     "v2-s1-existing-run-machine.json",
-    "global-member-text-surfaces.json"
+    "global-member-text-surfaces.json",
+    "v2-raw-materials-and-print-machine.json",
+    "v2-local-preview-and-print-machine.json",
+    "v2-final-rewrite-original-readback.json"
   ],
   "blocks": [
     "new server teaching-context contract awaits human signoff; production core not implemented",
-    "raw and course UI await final rebuilt runtime",
-    "S2-S6 and SUM provider runs paused; no retry/new charge to mask context drop"
+    "S2-S6 and SUM provider runs paused; no retry/new charge to mask context drop",
+    "native beforeprint passed; actual browser saved PDF file still requires human verification"
   ],
   "humanAcceptanceSigned": false,
   "productionDeployed": false,
@@ -81,5 +84,45 @@
       "apps/web/e2e/aidt-v2-student-journey.spec.ts": "26c01ba621ac21e526be120c9054a2e9a36b28a57517ee3867b743265a387025",
       "apps/web/e2e/support/aidt-v2-run-ledger.ts": "26abbdf0a3bd48030999d1088ba62b4f84c909f461c198d6101377e7773ce7df"
     }
+  },
+  "rawAndPrintRecheck": {
+    "webSourceSha": "7235b9cdcfea2774df913035cb3f2109504213ad",
+    "attempt12": {
+      "passed": 1,
+      "failed": 1,
+      "originalFailureRetained": true
+    },
+    "attempt13": {
+      "passed": 1,
+      "failed": 0,
+      "onlyLocalPreviewScenarioRerun": true
+    },
+    "modelRequests": 0,
+    "actualPdfSaved": false,
+    "specSha256": "b05fedf1af02ccfca4f5d74640c7cd1ac3363ebdd6dd08b7015ad3b605e48a86",
+    "qaEslintExitCode": 0,
+    "diffCheckExitCode": 0
+  },
+  "finalRewriteReadback": {
+    "sourceSha": "4bfb82e268a618d57af25e5596a11ddc04cf38cf",
+    "passed": true,
+    "existingOriginals": 2,
+    "newUploads": 0,
+    "postLoginWrites": 0,
+    "modelRequests": 0,
+    "browserClosed": true,
+    "ledgerSha256After": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806"
+  },
+  "courseUIFinal": {
+    "sourceSha": "4bfb82e268a618d57af25e5596a11ddc04cf38cf",
+    "executor": "A2",
+    "coordinatorConfirmed": true,
+    "passed": 3,
+    "failed": 0,
+    "durationSeconds": 15.4,
+    "modelRequests": 0,
+    "previousThreeUIFailuresRetained": true,
+    "evidenceIndex": "../../fr01-course-entry/course-final-index.json",
+    "knownGap": "P3 missing createProject provenanceEventId; not fabricated"
   }
 }

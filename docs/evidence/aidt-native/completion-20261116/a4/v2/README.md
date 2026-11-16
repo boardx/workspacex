@@ -56,3 +56,13 @@ flowchart LR
 root 的全模块回归揭示 formatter 间接导入了 Chat / files 网络层。原 `aidt-prototype-formatting-boundary.test.ts` poison 反例先复现为红（format-boundary-red.log），未删除或放宽任何 poison。引用结构/校验/标签分别提纯到 `aidt-research-material-reference.ts` 和 `aidt-discovery-source-reference.ts`，网络 adapter 仅 import / reexport 同一实现；`aidt-ui-drafts` 和描述单格式化只读取纯 helper。列表筛选也复用纯 helper，不复制字段识别规则。
 
 原边界用例及新增真实结构的研究文件/人类消息/AI推测格式化用例共2项绿；提纯后的8个受影响文件53项全部通过（format-boundary-green.log），scoped TS / ESLint 退出0，diffcheck0。另将父回写测试等待“移除引用”按钮最终 enabled，仍验证同一条件，避免成功提示出现早于异步 finally 收尾的一帧造成误报。未启动服务或模型。
+
+## 打印独立审阅补修
+
+- 实际反例：逐份打印只解码所选图片，坏的第三张仍可打印（all-images-red.log）；改为所有候选先共用 `preparePrintImages` 有界预检。第三图永不返回时，10秒失败后保留预览、草稿并恢复重试。
+- 共享打印函数在真实 iframe importNode 后将图片设为 eager，等待所有克隆图 decode / load 及非零自然尺寸；超时/损坏移除临时 iframe，不调用 print。rAF 等待有100ms兜底。保留原 afterprint 成功清理语义，不宣称 PDF 文件已保存。
+- `printIdeas`、`printAidtUiText`、报告预览及 guided report 全部处理 async 返回；报告失败保留编辑。真正 print 前检查宿主有效性；AIDT 额外核对身份/页面/草稿、图片状态与学生审阅的单调代次。
+- 实际反例：三个不同名称却重复/空 id 的点子被标 ready（idea-identifiers-red.log）；仅收紧前端 readiness 阻止错误逐份导出，保留可编辑草稿，不改 Stage 契约。
+- 新 `research-print-images.test.tsx` 操作真实 JSDOM iframe 内的克隆节点，覆盖延迟、全部图片、失败重试、零尺寸/超时、最终 scope、普通无图报告。它 mock 原生 print，不代表真实浏览器保存 PDF。
+
+最终6文件50项绿（final-print-green.log）；scoped TS/ESLint退出0，root随后完整API/Web tsc均退出0。A5独立静态复核无新阻塞。生产源码已向root声明冻结，本worker不再修改生产源、不起栈、不发模型；等待root/A6新构建真实 raw/print E2E。

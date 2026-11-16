@@ -63,3 +63,17 @@ A1随后按既有机制再刷新API（PID148475、health200，PG/Python/旧Web�
 共享Filter原有普通路径另跑指定两文件：`all-exceptions-filter-error-log.test.ts` 6项、`all-exceptions-filter-headers-sent.test.ts` 2项，独立8项通过，日志 `shared-filter-regressions.log`。没有改原测试或普通策略；该结果和课程41项分列，不冒充全仓回归。
 
 Root另要求仅以现有collaboration admin给A3合成primary组配置AIDT profile。真实登录200后发现该admin的Auth.orgs不含primary org，且组织不同，故在读取/写入目标tags之前停止；没有PATCH、跨org、改成员或角色。`primary-profile-scope-check.json`记录此拒绝边界，该组原状态保留。
+
+## 首轮真实课程UI回流：同源路由缺失
+
+在实际固定source7235b9cd、新Web25483上，独立三场均真实失败，0重试，浏览器已关闭；`course-ui-final-01-summary.json`保留结果。新建合成组/共享保存检查已在前两场执行，但到了课程入口时浏览器的 `/__fullstack_api/aidt/courses` 收到Next HTML404；第三场同源API helper也404。此前直接API17项通过不能证明Web代理已接通。没有改测试直连API掩盖问题。共享模型账本前后hash按summary记录，未观察模型发送。建组复用原生UI，既存P3缺provenanceEventId单列，未伪造receipt或修改公共schema。
+
+Root授权最小补同源rewrite：精确3课程资源路径，以及已批准且原family真实可达的raw exact `/ingestion-runs/:ingestionRunId/content`（使controller静态覆盖与实际一致）。新课程配置反例先2红/1绿（`rewrite-red.log`），补修后含raw、原projects/report-files回归3文件10项通过（`rewrite-green.log`）；严格coverage/shadow/970合同路由均通过（`rewrite-coverage.log`），类型/ESLint通过。未增origin、访问权或宽 `/aidt/:path*`，原raw family保留。真实UI重测须等root提交新SHA、A1重build；此时仍不声明3场通过。
+
+## 最终真实课程UI：4bfb三场通过
+
+统一同源路由修复后，在真实source **4bfb82e268a618d57af25e5596a11ddc04cf38cf**、新Web25483运行原三场，**3 passed / 15.4s / runner exit0 / 0 retries**。完整安全索引 [course-final-index.json](course-final-index.json)，机器结果 [course-ui-final-02-summary.json](course-ui-final-02-summary.json)，三场实际attachments全文 [course-ui-final-02-attachments.json](course-ui-final-02-attachments.json)。旧7235上的三红 [course-ui-final-01-summary.json](course-ui-final-01-summary.json) 保留，没有改写成新SHA成功。
+
+真实覆盖：UI建课及owner关联、原生成员名单前后不变；相同组第二课409；普通consultant建课/关联403；同课不同组隔离、admin非成员link/阶段读404；新登录回到原组并逐字读回原保存问题与revision；已关联归档组只读且原稿保留、新归档组关联403；课程和组cursor无重叠，21合成课程触发原生更多页；浏览器真实offline错误与明确重试。全部使用现有collaboration三账号，实际identity响应验证admin/consultant/admin；未造Teacher、未改组织角色。只给本spec新建组显式添加既有学生，课程关联本身不增员。
+
+未观察模型发送，共享账本前后SHA256均为 `a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806`。浏览器已关闭并明确释放A6作原件GET只读复验。此为合成技术验收，不宣称真人课堂、教师反馈或Agent上下文行为已验证；本spec没有自行重启运行时或部署生产。建组既存P3缺失provenanceEventId仍单列known gap，未伪造receipt或放宽公共schema。

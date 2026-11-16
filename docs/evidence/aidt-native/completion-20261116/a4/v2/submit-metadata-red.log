@@ -1,0 +1,50 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-research-material.test.tsx (9 tests | 1 failed) 235ms
+   × never promotes edited stage metadata to a verified submitter after the source is denied 11ms
+     → expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <p
+  class="mt-1"
+>
+  本次上传提交者：
+  伪造提交者
+  ；提交时间：
+  2026-11-16T00:30:00.000Z
+  。这不是阶段关联保存者或文件原作者。
+</p> instead
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-research-material.test.tsx > never promotes edited stage metadata to a verified submitter after the source is denied
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <p
+  class="mt-1"
+>
+  本次上传提交者：
+  伪造提交者
+  ；提交时间：
+  2026-11-16T00:30:00.000Z
+  。这不是阶段关联保存者或文件原作者。
+</p> instead
+ ❯ tests/ui/aidt-research-material.test.tsx:94:43
+     92|   render(<AidtResearchMaterialPreview projectId="p" reference={{ ...re…
+     93|   await screen.findByRole("alert"); fireEvent.click(screen.getByText("…
+     94|   expect(screen.queryByText(/伪造提交者/)).not.toBeInTheDocument();
+       |                                           ^
+     95|   expect(screen.getByText(/本次上传提交者：无法核对/)).toBeVisible();
+     96| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  04:37:30
+   Duration  2.57s (transform 1.17s, setup 70ms, collect 1.60s, tests 235ms, environment 463ms, prepare 31ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --no-cache tests/ui/aidt-research-material.test.tsx

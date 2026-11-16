@@ -1,0 +1,163 @@
+{
+  "at": "2026-11-16T05:59:59.876Z",
+  "source": "4bfb82e268a618d57af25e5596a11ddc04cf38cf",
+  "finalHealthRecordedBeforeCleanup": {
+    "api": true,
+    "oldWeb": true,
+    "newWeb": true,
+    "python": true
+  },
+  "activeRunsBeforeCleanup": 0,
+  "ownerExitedNormally": true,
+  "newWebStoppedBeforeLeaseDisposed": true,
+  "replacedServicesStopped": {
+    "api": true,
+    "python": true
+  },
+  "ownDockerContainersRemaining": 0,
+  "ownDockerVolumesRemaining": 0,
+  "portsVerified": 26,
+  "allPortsAvailable": true,
+  "allAdvisoryLeasesReleased": true,
+  "portChecks": [
+    {
+      "port": 20986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 21986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 22986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 23986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 24986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 25986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 26986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 27986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 28986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 29986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 30986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 31986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 19986,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 20483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 21483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 22483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 23483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 24483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 25483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 26483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 27483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 28483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 29483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 30483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 31483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    },
+    {
+      "port": 19483,
+      "available": true,
+      "advisoryLeaseAbsent": true
+    }
+  ],
+  "liveOwnedProcessesRemaining": [],
+  "privateUploadedConfigPreserved": true,
+  "privateConfigModePreserved": true,
+  "persistentBaselineDataTouched": false,
+  "extraModelRequestsSent": 0,
+  "newOomKills": 0,
+  "modelConfigurationNotPrinted": true,
+  "livePreviewStopped": true,
+  "delivery": "source/local package; no running acceptance server promised"
+}

@@ -1,0 +1,30 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-stage-original-image.test.tsx (2 tests | 1 failed) 261ms
+   × does not let a late local FileReader overwrite a subsequently selected stored original 46ms
+     → Unexpected end of JSON input
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-stage-original-image.test.tsx > does not let a late local FileReader overwrite a subsequently selected stored original
+SyntaxError: Unexpected end of JSON input
+ ❯ tests/ui/aidt-stage-original-image.test.tsx:41:15
+     39|   fireEvent.change(screen.getByLabelText("候选1参考图"), { target: { f…
+     40|   fireEvent.click(screen.getByRole("button", { name: "选原件候选1原始…
+     41|   expect(JSON.parse(snapshot().fields["ideaFile:one"]!)).toEqual(origi…
+       |               ^
+     42|   expect(snapshot().ideas[0]?.image).toBe("");
+     43| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  04:25:07
+   Duration  3.04s (transform 1.37s, setup 66ms, collect 1.98s, tests 261ms, environment 528ms, prepare 33ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --no-cache tests/ui/aidt-stage-original-image.test.tsx

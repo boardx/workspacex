@@ -1,0 +1,194 @@
+{
+  "layer": "real-isolated-HTTP-and-PostgreSQL",
+  "syntheticOnly": true,
+  "paidModelRequests": 0,
+  "permissionChanges": false,
+  "steps": [
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/projects",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/projects/prj-72367f6b-3d12-4066-97e9-cc0e576ac418/artifacts/upload",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-415e17f9-6f7f-4c55-a9e2-7d5cb3cf693d?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-415e17f9-6f7f-4c55-a9e2-7d5cb3cf693d/content?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/projects/prj-72367f6b-3d12-4066-97e9-cc0e576ac418/artifacts/upload",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-4960d12c-89b3-4ec2-8d9f-3864d54a63ec?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-4960d12c-89b3-4ec2-8d9f-3864d54a63ec/content?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/projects/prj-72367f6b-3d12-4066-97e9-cc0e576ac418/artifacts/upload",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-54a07ae3-6a50-479d-90de-0e7488e0ca49?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-54a07ae3-6a50-479d-90de-0e7488e0ca49/content?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/projects/prj-72367f6b-3d12-4066-97e9-cc0e576ac418/artifacts/upload",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-b9c37dc8-8e97-407b-aaa2-0a9529b4cb72?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-b9c37dc8-8e97-407b-aaa2-0a9529b4cb72/content?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-4960d12c-89b3-4ec2-8d9f-3864d54a63ec/content?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/projects/prj-72367f6b-3d12-4066-97e9-cc0e576ac418/artifacts/upload",
+      "status": 422
+    },
+    {
+      "method": "POST",
+      "path": "/projects/prj-72367f6b-3d12-4066-97e9-cc0e576ac418/artifacts/upload",
+      "status": 422
+    },
+    {
+      "method": "POST",
+      "path": "/projects/prj-72367f6b-3d12-4066-97e9-cc0e576ac418/artifacts/upload",
+      "status": 422
+    },
+    {
+      "method": "POST",
+      "path": "/projects/prj-8e4ba3b7-b4fd-4d4e-b4b7-056e09db13b4/artifacts/upload",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-4960d12c-89b3-4ec2-8d9f-3864d54a63ec/content?projectId=prj-8e4ba3b7-b4fd-4d4e-b4b7-056e09db13b4",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "path": "/ingestion-runs/ingest-4960d12c-89b3-4ec2-8d9f-3864d54a63ec/content?projectId=prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+      "status": 401
+    }
+  ],
+  "completed": false,
+  "projectContractBoundary": {
+    "canonicalFullCreateReceiptNotClaimed": true,
+    "observedKeys": [
+      "id",
+      "kind",
+      "status"
+    ]
+  },
+  "profilePreparedByExistingAdmin": true,
+  "primarySelfEnableAidt": false,
+  "projectId": "prj-72367f6b-3d12-4066-97e9-cc0e576ac418",
+  "ordinaryProjectId": "prj-8e4ba3b7-b4fd-4d4e-b4b7-056e09db13b4",
+  "uploads": [
+    {
+      "confidential": false,
+      "strategy": "use-existing",
+      "run": {
+        "ingestionRunId": "ingest-415e17f9-6f7f-4c55-a9e2-7d5cb3cf693d",
+        "artifactId": "art-acdbcc74-ed0d-4dab-88f6-74cc718ca019",
+        "duplicateHit": null
+      },
+      "versionId": "ver-bb469eea-9e65-4966-a613-3b819ee3affb",
+      "submittedByMatchesAuthenticatedSubmitter": true,
+      "submittedAt": "2026-11-16T05:37:24.123Z",
+      "originalHash": "2baab9f18ec0a9e673eecc9284e070841f144204d21c2469ff11a5e8c9eedf78"
+    },
+    {
+      "confidential": true,
+      "strategy": "use-existing",
+      "run": {
+        "ingestionRunId": "ingest-4960d12c-89b3-4ec2-8d9f-3864d54a63ec",
+        "artifactId": "art-b087ac62-4dcd-4e7f-bff6-94f4bcc7c6fc",
+        "duplicateHit": null
+      },
+      "versionId": "ver-9d6bcc2b-b239-4024-aaf2-f9dd9639cbf0",
+      "submittedByMatchesAuthenticatedSubmitter": true,
+      "submittedAt": "2026-11-16T05:37:24.179Z",
+      "originalHash": "2baab9f18ec0a9e673eecc9284e070841f144204d21c2469ff11a5e8c9eedf78"
+    },
+    {
+      "confidential": true,
+      "strategy": "use-existing",
+      "run": {
+        "ingestionRunId": "ingest-54a07ae3-6a50-479d-90de-0e7488e0ca49",
+        "artifactId": "art-b087ac62-4dcd-4e7f-bff6-94f4bcc7c6fc",
+        "duplicateHit": {
+          "artifactId": "art-b087ac62-4dcd-4e7f-bff6-94f4bcc7c6fc",
+          "versionNumber": 1,
+          "sha256": "2baab9f18ec0a9e673eecc9284e070841f144204d21c2469ff11a5e8c9eedf78"
+        }
+      },
+      "versionId": "ver-9d6bcc2b-b239-4024-aaf2-f9dd9639cbf0",
+      "submittedByMatchesAuthenticatedSubmitter": true,
+      "submittedAt": "2026-11-16T05:37:24.232Z",
+      "originalHash": "2baab9f18ec0a9e673eecc9284e070841f144204d21c2469ff11a5e8c9eedf78"
+    },
+    {
+      "confidential": true,
+      "strategy": "as-new-version",
+      "run": {
+        "ingestionRunId": "ingest-b9c37dc8-8e97-407b-aaa2-0a9529b4cb72",
+        "artifactId": "art-b087ac62-4dcd-4e7f-bff6-94f4bcc7c6fc",
+        "duplicateHit": {
+          "artifactId": "art-b087ac62-4dcd-4e7f-bff6-94f4bcc7c6fc",
+          "versionNumber": 1,
+          "sha256": "2baab9f18ec0a9e673eecc9284e070841f144204d21c2469ff11a5e8c9eedf78"
+        }
+      },
+      "versionId": "ver-98c31f00-43d1-41b3-9eac-dc84b863054d",
+      "submittedByMatchesAuthenticatedSubmitter": true,
+      "submittedAt": "2026-11-16T05:37:24.280Z",
+      "originalHash": "2baab9f18ec0a9e673eecc9284e070841f144204d21c2469ff11a5e8c9eedf78"
+    }
+  ],
+  "transportSpecific422Codes": "generic validation response; temporary AIDT_UPLOAD_* are not added to closed enum",
+  "failure": {
+    "kind": "CalledProcessError",
+    "safeMessage": "probe stopped; no credentials or response body recorded"
+  },
+  "checkedAt": "2026-11-16T05:37:24.518521+00:00"
+}

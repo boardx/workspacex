@@ -1,0 +1,10 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/aidt-discovery-source-picker.test.tsx (3 tests) 132ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  04:05:30
+   Duration  3.00s (transform 1.38s, setup 74ms, collect 2.10s, tests 132ms, environment 485ms, prepare 30ms)

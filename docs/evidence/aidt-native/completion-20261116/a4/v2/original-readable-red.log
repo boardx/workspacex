@@ -1,0 +1,107 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-research-material.test.tsx (7 tests | 2 failed) 225ms
+   × does not overwrite a freshly reloaded file reference when an older read completes in the same project 14ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      Object {
+        "artifactId": "artifact",
+        "bytes": 1,
+        "mime": "image/png",
+        "name": "教学夹具.png",
+        "projectId": "p",
+        "runId": "run",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "versionId": "version",
+      },
+    ]
+
+
+Number of calls: 1
+
+   × retains the upload-success and stage-unsaved feedback after its own parent commits the selected reference 13ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  后续材料处理失败
+Received:
+  检测到重复，已按你的选择复用已有原件版本。项目原件与上传回执已实际回读并校验，已关联到本页草稿；阶段关联尚未保存，请保存到小组。未向AI发送材料，也不代表内容已经核实。
+ ❯ tests/aidt-research-materials.test.ts (9 tests | 1 failed) 20ms
+   × keeps an intact original readable after explicit downstream ingestion failure without claiming READY 3ms
+     → INGESTION_FAILED
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-research-materials.test.ts > keeps an intact original readable after explicit downstream ingestion failure without claiming READY
+ApiError: INGESTION_FAILED
+ ❯ responseError features/aidt/lib/aidt-research-materials.ts:31:9
+     29| async function responseError(response: Response): Promise<never> {
+     30|   let body: unknown; try { body = await response.json(); } catch { bod…
+     31|   throw new ApiError(response.status, extractReasonCode(body), body);
+       |         ^
+     32| }
+     33| export async function hashAidtResearchBytes(bytes: ArrayBuffer): Promi…
+ ❯ tests/aidt-research-materials.test.ts:52:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/ui/aidt-research-material.test.tsx > does not overwrite a freshly reloaded file reference when an older read completes in the same project
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      Object {
+        "artifactId": "artifact",
+        "bytes": 1,
+        "mime": "image/png",
+        "name": "教学夹具.png",
+        "projectId": "p",
+        "runId": "run",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "versionId": "version",
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/ui/aidt-research-material.test.tsx:55:23
+     53|   view.rerender(<AidtResearchMaterialControl projectId="p" label="研究…
+     54|   await act(async () => finish({ reference, blob: new Blob(["x"]), sta…
+     55|   expect(changed).not.toHaveBeenCalled();
+       |                       ^
+     56| });
+     57| it("retains the upload-success and stage-unsaved feedback after its ow…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/ui/aidt-research-material.test.tsx > retains the upload-success and stage-unsaved feedback after its own parent commits the selected reference
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  后续材料处理失败
+Received:
+  检测到重复，已按你的选择复用已有原件版本。项目原件与上传回执已实际回读并校验，已关联到本页草稿；阶段关联尚未保存，请保存到小组。未向AI发送材料，也不代表内容已经核实。
+ ❯ tests/ui/aidt-research-material.test.tsx:61:47
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 13 passed (16)
+   Start at  04:32:22
+   Duration  3.53s (transform 1.59s, setup 132ms, collect 2.35s, tests 245ms, environment 448ms, prepare 103ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --no-cache tests/aidt-research-materials.test.ts tests/ui/aidt-research-material.test.tsx

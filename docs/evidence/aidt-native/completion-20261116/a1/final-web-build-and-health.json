@@ -1,0 +1,19 @@
+{
+  "source": "7235b9cdcfea2774df913035cb3f2109504213ad",
+  "dist": ".next-aidt-real-final",
+  "startedAt": "2026-11-16T05:40:23.644Z",
+  "endedAt": "2026-11-16T05:43:13.693Z",
+  "exitCode": 0,
+  "singleWorker": true,
+  "heapMb": 4096,
+  "modelRequestsSent": 0,
+  "modelConfigurationImported": false,
+  "ready": true,
+  "baseURL": "http://127.0.0.1:25483",
+  "apiOrigin": "http://127.0.0.1:24986",
+  "proxyHealth": true,
+  "directIdentityStatus": 401,
+  "proxyIdentityStatus": 401,
+  "oldWebReady": true,
+  "secondWebOwned": true
+}
