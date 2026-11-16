@@ -1,0 +1,5 @@
+
+> agentic-harness-template@ lint:test-listen-loopback /workspace/aidt-module-latest
+> pnpm exec tsx .harness/scripts/lint-test-listen-loopback.mjs
+
+✓ [test-listen-loopback] 9750 个文件，listen(0) 全部绑在回环地址上
