@@ -1,0 +1,75 @@
+{
+  "kind": "real-pg-return-acceptance-only",
+  "modelProviderConstructed": false,
+  "executionWorkerCalled": false,
+  "supplierCalls": 0,
+  "prototypeGenerationClaimed": false,
+  "evidence": [
+    {
+      "name": "confirmed-old-return",
+      "facts": {
+        "selectedS6Revision": 1,
+        "currentS6Revision": 2,
+        "questionSourceS5Revision": 1,
+        "currentS5Revision": 2,
+        "targetStage": 2,
+        "whitelistOnly": true,
+        "extraFieldExcluded": true,
+        "currentHeadsExcluded": true,
+        "snapshotHash": "bbd0a33c26aa7ae2f3155d7f9d92e233acce1f82097e0accefa3e7d71024d359",
+        "blockHash": "2dd9baafb11780fc981c3fcaa4c15588d4361d00998b5c2d199eff6c7c0e12d4",
+        "preparedNotDispatched": true,
+        "stageRowsUnchanged": true,
+        "modelCalls": 0
+      }
+    },
+    {
+      "name": "reject-unconfirmed",
+      "facts": {
+        "humanRunSnapshotApplicationRowsUnchanged": true,
+        "modelCalls": 0,
+        "stageScopeSubstitution": false
+      }
+    },
+    {
+      "name": "reject-wrong-target",
+      "facts": {
+        "humanRunSnapshotApplicationRowsUnchanged": true,
+        "modelCalls": 0,
+        "stageScopeSubstitution": false
+      }
+    },
+    {
+      "name": "reject-missing-exact-revision",
+      "facts": {
+        "humanRunSnapshotApplicationRowsUnchanged": true,
+        "modelCalls": 0,
+        "stageScopeSubstitution": false
+      }
+    },
+    {
+      "name": "reject-foreign-project-revision",
+      "facts": {
+        "humanRunSnapshotApplicationRowsUnchanged": true,
+        "modelCalls": 0,
+        "stageScopeSubstitution": false
+      }
+    },
+    {
+      "name": "reject-cross-org",
+      "facts": {
+        "humanRunSnapshotApplicationRowsUnchanged": true,
+        "modelCalls": 0,
+        "stageScopeSubstitution": false
+      }
+    },
+    {
+      "name": "reject-nonmember",
+      "facts": {
+        "humanRunSnapshotApplicationRowsUnchanged": true,
+        "modelCalls": 0,
+        "stageScopeSubstitution": false
+      }
+    }
+  ]
+}

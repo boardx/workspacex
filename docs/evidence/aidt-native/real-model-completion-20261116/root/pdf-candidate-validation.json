@@ -1,0 +1,15 @@
+{
+  "pages": 27,
+  "bytes": 189143,
+  "emptyPages": [],
+  "outOfBoundsPages": [],
+  "humanSignatureLinesBlank": true,
+  "sourceSha256": "63e0a5e1d8183c1035f6f816be4ed8062806258835f1de39d4c032576086e8e6",
+  "pdfSha256": "a4f5ee1c1ac2892a0ed1d0498248fe45b666df2505272e6aa8346952163bc95d",
+  "embeddedCjkFontCheckedByGenerator": true,
+  "manualNewEntryPages": [
+    8,
+    12
+  ],
+  "libraryWriteStatus": "pending"
+}

@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-16T13:04:56.445Z",
+  "scope": "owner",
+  "pid": 240969,
+  "signal": "SIGINT",
+  "ownershipVerified": true,
+  "ended": true,
+  "groupKillUsed": false,
+  "otherProcessesSignalled": false
+}

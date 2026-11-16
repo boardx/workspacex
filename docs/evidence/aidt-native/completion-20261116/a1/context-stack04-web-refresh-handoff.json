@@ -1,0 +1,24 @@
+{
+  "at": "2026-11-16T12:44:52.235Z",
+  "newWeb": "http://127.0.0.1:25826",
+  "newWebSource": "ec5ff2e9de501426f3fec9a0dddd6dfb314be4cd",
+  "apiSource": "c361ba55bde080b06d390bf98b72c3a130e935e5",
+  "originalOwnerWeb": "http://127.0.0.1:25111",
+  "originalStackPreserved": true,
+  "newWebReservation": {
+    "scope": "aidt-context04-refresh-owne-90dd31c88600",
+    "ownerPid": 279843,
+    "webPort": "25826"
+  },
+  "agentAutoExecution": false,
+  "paidWindowOpened": false,
+  "launchValue": "0",
+  "guards": {
+    "agentRuns": "0",
+    "skillTrialRuns": "0",
+    "attachmentExtraction": "0",
+    "threadTitleModel": "0",
+    "standardScheduler": "0"
+  },
+  "modelRequestsSent": 0
+}

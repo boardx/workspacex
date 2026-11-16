@@ -1,0 +1,204 @@
+{
+  "at": "2026-11-16T13:05:51.059Z",
+  "ownerNormalExitCode": 0,
+  "outerExecSession": 80289,
+  "cleanupOrder": [
+    "verified owned second Web SIGTERM",
+    "second reservation dispose(true)",
+    "verified replacement API SIGTERM",
+    "original owner SIGINT and normal finally own compose down-v",
+    "original outer isolation cleanup exit0"
+  ],
+  "originalCompose": "wsx-fc9ebf5fdbbe164840d1",
+  "ownContainersRemaining": 0,
+  "ownVolumesRemaining": 0,
+  "originalPortCount": 13,
+  "secondReservationPortCount": 13,
+  "totalUniquePortCount": 26,
+  "ports": [
+    {
+      "port": 20111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 21111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 22111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 23111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 24111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 25111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 26111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 27111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 28111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 29111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 30111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 31111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 19111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 20826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 21826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 22826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 23826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 24826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 25826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 26826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 27826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 28826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 29826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 30826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 31826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 19826,
+      "bindable": true,
+      "leaseReleased": true
+    }
+  ],
+  "processes": {
+    "api": {
+      "pid": 280648,
+      "state": "Z",
+      "live": false
+    },
+    "owner": {
+      "pid": 240969,
+      "state": "absent",
+      "live": false
+    },
+    "newWeb": {
+      "pid": 279979,
+      "state": "Z",
+      "live": false
+    },
+    "newLease": {
+      "pid": 279843,
+      "state": "absent",
+      "live": false
+    },
+    "python": {
+      "pid": 241968,
+      "state": "Z",
+      "live": false
+    },
+    "sandbox": {
+      "pid": 241501,
+      "state": "Z",
+      "live": false
+    }
+  },
+  "checkpointPreserved": true,
+  "checkpointDumpHashUnchanged": true,
+  "privateLoginPreserved": true,
+  "uploadedModelFilePreserved": true,
+  "uploadedModelFileMode": "600",
+  "ledgersUnchanged": true,
+  "ledgerHashes": {
+    "legacy": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "supplementS1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d"
+  },
+  "originalRuntimePreserved": true,
+  "objectStoreOriginalNotDeleted": true,
+  "restorationTested": false,
+  "postCheckpointProviderRequests": 0,
+  "cgroupMemoryEvents": {
+    "low": 0,
+    "high": 0,
+    "max": 41447,
+    "oom": 1,
+    "oom_kill": 1,
+    "oom_group_kill": 0
+  }
+}

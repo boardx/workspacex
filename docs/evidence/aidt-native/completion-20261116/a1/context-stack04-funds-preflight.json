@@ -1,0 +1,71 @@
+{
+  "source": "c361ba55bde080b06d390bf98b72c3a130e935e5",
+  "method": "normal own-wallet HTTP per actor plus before/after read-only isolated DB; no billing admin command",
+  "actors": [
+    {
+      "actor": "ordinary-consultant",
+      "orgRole": "consultant",
+      "walletRowExists": false,
+      "testCreditBalance": 0,
+      "heldHundredths": 0,
+      "remainingHeldHundredths": 0,
+      "unboundedRequests": 0
+    },
+    {
+      "actor": "existing-funded-admin",
+      "orgRole": "admin",
+      "walletRowExists": true,
+      "testCreditBalance": 20000,
+      "heldHundredths": 0,
+      "remainingHeldHundredths": 0,
+      "unboundedRequests": 0
+    },
+    {
+      "actor": "setup-lead-admin",
+      "orgRole": "admin",
+      "walletRowExists": false,
+      "testCreditBalance": 0,
+      "heldHundredths": 0,
+      "remainingHeldHundredths": 0,
+      "unboundedRequests": 0
+    }
+  ],
+  "ownWallets": [
+    {
+      "actor": "ordinary-consultant",
+      "status": 200,
+      "testCreditBalance": 0,
+      "reservedCredits": 0,
+      "availableCredits": 0,
+      "totalPurchased": 0,
+      "totalGranted": 0
+    },
+    {
+      "actor": "existing-funded-admin",
+      "status": 200,
+      "testCreditBalance": 20000,
+      "reservedCredits": 0,
+      "availableCredits": 20000,
+      "totalPurchased": 0,
+      "totalGranted": 0
+    },
+    {
+      "actor": "setup-lead-admin",
+      "status": 200,
+      "testCreditBalance": 0,
+      "reservedCredits": 0,
+      "availableCredits": 0,
+      "totalPurchased": 0,
+      "totalGranted": 0
+    }
+  ],
+  "rolesAndFinancialRowsUnchanged": true,
+  "modelCounts": {
+    "physical": 0,
+    "usage": 0,
+    "active": 0
+  },
+  "providerRequestsSent": 0,
+  "explicitBalanceOrRoleWrites": 0,
+  "testCreditSeedNotRealPayment": true
+}

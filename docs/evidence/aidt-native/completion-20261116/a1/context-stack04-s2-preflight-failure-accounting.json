@@ -1,0 +1,134 @@
+{
+  "at": "2026-11-16T12:24:55.557Z",
+  "readOnly": true,
+  "run": {
+    "id": "68880459-6de1-43a8-a909-0a969f03a7a8",
+    "org_id": "org-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+    "project_id": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "thread_id": "thr-d29f9cea-fe44-48fc-a99f-375dd4dcc866",
+    "status": "succeeded",
+    "error_code": null,
+    "skill_version_ids": [
+      "skill-version-625a892f-1b6f-42e0-9306-fe2059426b54"
+    ],
+    "aidt_selector_hash": "43a661b8964e2278767a6d0d30ac01c02785c9719d214aea4ddc537de03ef304",
+    "author_id": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+    "org_role": "admin",
+    "project_role": "owner"
+  },
+  "snapshot": {
+    "selector_json": {
+      "purpose": "stage",
+      "stageId": 1,
+      "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+      "schemaVersion": 1,
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 1
+        }
+      ]
+    },
+    "selector_hash": "43a661b8964e2278767a6d0d30ac01c02785c9719d214aea4ddc537de03ef304",
+    "snapshot_hash": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+    "focus": {
+      "title": "理解与提出问题",
+      "skillId": "skill-812b7f37-9c11-4a2a-970d-855554c32745",
+      "skillVersionId": "skill-version-625a892f-1b6f-42e0-9306-fe2059426b54",
+      "skillStableName": "aidt-understand"
+    },
+    "reference_block_hash": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41",
+    "prepared_at": "2026-11-16T12:20:02.572Z"
+  },
+  "applications": [
+    {
+      "seq": "1",
+      "attempt_id": "68880459-6de1-43a8-a909-0a969f03a7a8:1",
+      "kind": "assembled",
+      "snapshot_hash": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+      "event": {
+        "kind": "assembled",
+        "attemptId": "68880459-6de1-43a8-a909-0a969f03a7a8:1",
+        "snapshotHash": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+        "formatterVersion": 1,
+        "assembledContextHash": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41"
+      },
+      "occurred_at": "2026-11-16T12:20:02.692Z"
+    },
+    {
+      "seq": "2",
+      "attempt_id": "68880459-6de1-43a8-a909-0a969f03a7a8:1",
+      "kind": "message-dispatch-observed",
+      "snapshot_hash": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+      "event": {
+        "kind": "message-dispatch-observed",
+        "attemptId": "68880459-6de1-43a8-a909-0a969f03a7a8:1",
+        "remoteRunId": "ad301e9c-0ce8-445b-938f-09efd98a9d0e",
+        "snapshotHash": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+        "remoteThreadId": "4f9e7247-ccac-46c8-8c54-fa62a2a41bc0",
+        "formatterVersion": 1,
+        "assembledContextHash": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41"
+      },
+      "occurred_at": "2026-11-16T12:20:04.526Z"
+    }
+  ],
+  "physicalRequests": [
+    {
+      "id": "3ecb4523-ebe5-4877-a26f-f593a52985e8",
+      "user_id": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T12:20:04.601Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "3ecb4523-ebe5-4877-a26f-f593a52985e8",
+      "outcome": "succeeded",
+      "tokens_total": "10065",
+      "tokens_prompt": "9750",
+      "tokens_completion": "315",
+      "request_started_at": "2026-11-16T12:20:04.601Z",
+      "request_ended_at": "2026-11-16T12:20:12.691Z"
+    }
+  ],
+  "creditRequests": [
+    {
+      "request_id": "3ecb4523-ebe5-4877-a26f-f593a52985e8",
+      "state": "settled",
+      "reserved_hundredths": "4338",
+      "debited_hundredths": "1007",
+      "settled_at": "2026-11-16T12:20:12.716Z"
+    }
+  ],
+  "tokensTotal": 10065,
+  "tokensPrompt": 9750,
+  "tokensCompletion": 315,
+  "debitedHundredths": 1007,
+  "wallet": {
+    "balance": "19989.93",
+    "held_hundredths": "0",
+    "remaining_held_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "global": {
+    "active_runs": 0,
+    "physical_requests": 1,
+    "usage_receipts": 1,
+    "unsettled_requests": 0,
+    "outstanding_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "oldBudgetSha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "supplementBudgetSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+  "vendorRequestsSentByAudit": 0,
+  "checks": {
+    "terminalSuccess": true,
+    "singleFocusPin": true,
+    "selectorMarkerMatches": true,
+    "applicationSnapshotMatches": true,
+    "messageDispatchObserved": true,
+    "allPhysicalHaveUsage": true,
+    "allCreditSettled": true,
+    "noOutstanding": true
+  }
+}

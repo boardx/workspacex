@@ -1,0 +1,73 @@
+{
+  "createdAt": "2026-11-16T13:01:11.102Z",
+  "privateCheckpointPath": "/workspace/scratch/aidt-private-checkpoints-20261116/stack-context-04-20261116T130111102Z",
+  "scope": "owned isolated stack-context-04 only",
+  "dumpBytes": 3383152,
+  "dumpSha256": "85e37b355b608db9119d0501af8589b15c2440dde4fed09cb98e5d5e251830d7",
+  "customListReadable": true,
+  "criticalDumpTables": {
+    "agent_versions": {
+      "expectedRows": 2,
+      "dumpRows": 2,
+      "matches": true
+    },
+    "agent_runs": {
+      "expectedRows": 2,
+      "dumpRows": 2,
+      "matches": true
+    },
+    "aidt_stage_revisions": {
+      "expectedRows": 8,
+      "dumpRows": 8,
+      "matches": true
+    },
+    "aidt_raw_upload_runs": {
+      "expectedRows": 4,
+      "dumpRows": 4,
+      "matches": true
+    },
+    "aidt_run_context_snapshots": {
+      "expectedRows": 2,
+      "dumpRows": 2,
+      "matches": true
+    },
+    "aidt_run_context_applications": {
+      "expectedRows": 4,
+      "dumpRows": 4,
+      "matches": true
+    }
+  },
+  "groups": [
+    "prj-2b300ee6-d824-46af-bea0-81e9a36cf716",
+    "prj-e80203f2-ae55-4c7a-a5cf-6c8eeba6cf1d",
+    "prj-ee3e37a0-997b-41e2-960b-4801dfde2084"
+  ],
+  "agentVersionCount": 2,
+  "newCanonicalVersionPresent": true,
+  "objectStore": {
+    "copiedOrgCount": 1,
+    "copiedFiles": 10,
+    "copiedBytes": 57238,
+    "rawOriginalCount": 4,
+    "allRawBytesHashesAndMimeSidecarsVerified": true
+  },
+  "ledgerHashes": {
+    "legacy": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "supplementS1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d"
+  },
+  "finance": {
+    "active": 0,
+    "physical": 2,
+    "usage": 2,
+    "credit": 2,
+    "unsettled": 0,
+    "holds": "0",
+    "unbounded": "0"
+  },
+  "privateDirectoryMode": "0700",
+  "privateDumpMode": "0600",
+  "uploadedModelConfigCopied": false,
+  "restorationTested": false,
+  "servicesStopped": false,
+  "providerRequestsSent": 0
+}

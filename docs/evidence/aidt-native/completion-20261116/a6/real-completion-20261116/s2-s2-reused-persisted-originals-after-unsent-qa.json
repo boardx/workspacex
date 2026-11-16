@@ -1,0 +1,32 @@
+{
+  "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+  "originalStageRevision": 3,
+  "references": [
+    {
+      "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+      "runId": "ingest-aa830094-e868-4e7e-a4bb-3e8112e074e9",
+      "artifactId": "art-f85cc49a-cab6-42bd-be9d-79fdb945928c",
+      "versionId": "ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102",
+      "name": "SYN-A.txt",
+      "mime": "text/plain",
+      "sha256": "b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973",
+      "bytes": 529,
+      "submittedBy": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+      "submittedAt": "2026-11-16T12:24:13.327Z"
+    },
+    {
+      "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+      "runId": "ingest-0c362db1-5562-4756-8206-308349801ec6",
+      "artifactId": "art-3dfdc548-8b4e-430b-a65e-7d1a2202928f",
+      "versionId": "ver-69638e08-ae45-4409-a873-8e2f7f35c82a",
+      "name": "SYN-A.png",
+      "mime": "image/png",
+      "sha256": "a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef",
+      "bytes": 27913,
+      "submittedBy": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+      "submittedAt": "2026-11-16T12:33:21.267Z"
+    }
+  ],
+  "filesReposted": false,
+  "fieldsRewritten": false
+}

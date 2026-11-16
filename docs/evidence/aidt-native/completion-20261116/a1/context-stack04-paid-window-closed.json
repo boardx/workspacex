@@ -1,0 +1,41 @@
+{
+  "at": "2026-11-16T12:44:39.913Z",
+  "apiOnlyRestart": true,
+  "oldApiPid": 254588,
+  "newApiPid": 280648,
+  "apiHealthy": true,
+  "webHealthy": true,
+  "pythonHealthy": true,
+  "before": {
+    "active": 0,
+    "physical": 2,
+    "usage": 2,
+    "credit_requests": 2
+  },
+  "after": {
+    "active": 0,
+    "physical": 2,
+    "usage": 2,
+    "credit_requests": 2
+  },
+  "holds": 0,
+  "unbounded": 0,
+  "walletTestCredits": 19981.7,
+  "budgetSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+  "autoExecution": {
+    "enabled": false,
+    "launchValue": "0",
+    "paidWindowOpened": false,
+    "guards": {
+      "agentRuns": "0",
+      "skillTrialRuns": "0",
+      "attachmentExtraction": "0",
+      "threadTitleModel": "0",
+      "standardScheduler": "0"
+    },
+    "apiPid": 280648,
+    "closedAt": "2026-11-16T12:44:39.912Z",
+    "method": "root authorized close; verified direct detached API PID; SIGTERM only own API; restarted explicit agent0; PG/Python/Web preserved; accounting counts unchanged"
+  },
+  "providerRequestsSentByA1": 0
+}

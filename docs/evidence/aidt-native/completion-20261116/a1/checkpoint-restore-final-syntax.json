@@ -1,0 +1,37 @@
+{
+  "at": "2026-11-16T13:43:48.998Z",
+  "nodeVersion": "v22.23.5",
+  "checks": [
+    {
+      "command": "/tmp/aidt-node/node_modules/node/bin/node --check scripts/aidt-checkpoint-restore.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "/tmp/aidt-node/node_modules/node/bin/node --check scripts/aidt-checkpoint-bootstrap.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "/tmp/aidt-node/node_modules/node/bin/node --check scripts/lib/aidt-checkpoint-restore.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "/tmp/aidt-node/node_modules/node/bin/node --check scripts/lib/aidt-checkpoint-restored-db.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "/tmp/aidt-node/node_modules/node/bin/node --check scripts/lib/aidt-checkpoint-restore-owner.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "/tmp/aidt-node/node_modules/node/bin/node --check scripts/real-model-aidt-stack.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "bash -n e2e-up.sh",
+      "exitCode": 0
+    }
+  ],
+  "allPassed": true,
+  "resourcesStarted": 0,
+  "providerRequests": 0
+}

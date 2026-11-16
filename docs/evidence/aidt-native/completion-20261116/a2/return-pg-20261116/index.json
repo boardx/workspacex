@@ -1,0 +1,22 @@
+{
+  "kind": "qa-only-real-postgresql-return-revision",
+  "sourceBase": "c361ba55bde080b06d390bf98b72c3a130e935e5",
+  "testFile": "apps/api/tests/aidt-run-context/return-real-pg.test.ts",
+  "testSha256": "87b87a47c2a15bb3dd47d08f4e191d848847b3f62bb46c955d06c00926c5fc71",
+  "attempt": "01",
+  "exitCode": 0,
+  "passed": 7,
+  "failed": 0,
+  "durationSeconds": 15.76,
+  "typecheckExitCode": 0,
+  "productChanges": false,
+  "executionWorkerCalled": false,
+  "modelProviderConstructed": false,
+  "supplierCalls": 0,
+  "prototypeRealityClaimed": false,
+  "ownedComposeProject": "wsx-de7ecdc7ffcd83a7c643",
+  "ownedContainersRemaining": 0,
+  "ownedNetworksRemaining": 0,
+  "firstPgRunPassed": true,
+  "productRedToGreenClaimed": false
+}

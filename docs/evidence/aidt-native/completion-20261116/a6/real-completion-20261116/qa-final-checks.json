@@ -1,0 +1,52 @@
+{
+  "unit": {
+    "command": "pnpm --filter web exec vitest run tests/aidt-v2-supplemental-ledger.test.ts tests/aidt-v2-completion-state.test.ts tests/aidt-v2-wire-metadata.test.ts",
+    "exitCode": 0,
+    "passed": 31
+  },
+  "ownedScopedTypeScript": {
+    "exitCode": 0,
+    "configAtExecution": "/tmp/aidt-deliverables-tsconfig.json",
+    "note": "Extends actual Web tsconfig; includes owned e2e/spec/support/tests and Next types. Not a claim of final whole-repository CI."
+  },
+  "ownedESLint": {
+    "exitCode": 0,
+    "files": [
+      "apps/web/e2e/aidt-v2-completion.spec.ts",
+      "apps/web/e2e/aidt-v2-deliverables.spec.ts",
+      "apps/web/e2e/support/aidt-v2-acceptance.ts",
+      "apps/web/e2e/support/aidt-v2-completion-state.ts",
+      "apps/web/e2e/support/aidt-v2-completion-materials.ts",
+      "apps/web/e2e/support/aidt-v2-supplemental-ledger.ts",
+      "apps/web/e2e/support/aidt-v2-print-observation.ts",
+      "apps/web/e2e/support/aidt-v2-stage-cases.ts",
+      "apps/web/tests/aidt-v2-supplemental-ledger.test.ts",
+      "apps/web/tests/aidt-v2-completion-state.test.ts",
+      "apps/web/playwright.aidt-deliverables.config.ts",
+      "apps/web/playwright.aidt-v2.config.ts",
+      "apps/web/playwright.fullstack-smoke.config.ts"
+    ]
+  },
+  "noFeeDiscovery": {
+    "exitCode": 0,
+    "tests": 2
+  },
+  "diffCheckExitCode": 0,
+  "filesSha256": {
+    "apps/web/e2e/aidt-v2-completion.spec.ts": "8b8169c9714b27f4d1adfc7f73d29a28f5d25ef39aa6db5f0319f49d1debfc9d",
+    "apps/web/e2e/aidt-v2-deliverables.spec.ts": "75a02f48b26a16891ab75e97ea31d83f8372863ef00266018329bdd660cd8df4",
+    "apps/web/e2e/support/aidt-v2-acceptance.ts": "b83001a577949a62d376d90e5df357d6c32ac43b34c78757fc4288e3c5caa0c0",
+    "apps/web/e2e/support/aidt-v2-completion-state.ts": "e269a69a6c2bcaed5cff40a4129a922ad6ed657a777830e3ae492c2b5b92967f",
+    "apps/web/e2e/support/aidt-v2-completion-materials.ts": "83c608446d0199fcce919ac0b1a8f811ed9306804d52553154433b363b6c4cd4",
+    "apps/web/e2e/support/aidt-v2-supplemental-ledger.ts": "323838435b3c2e930b734dc66d45ac9f2a3544b4fe4a36ef7742538bfbc90327",
+    "apps/web/e2e/support/aidt-v2-print-observation.ts": "90133b4cd060aba9113a374bd926512b1217de086cf19f26181153d1a8259081",
+    "apps/web/e2e/support/aidt-v2-stage-cases.ts": "d3d03728881aae5aab6a371a4a2ef8aa39a10f2d66e63614c85f89aff96a16f5",
+    "apps/web/tests/aidt-v2-supplemental-ledger.test.ts": "5f2fd29a06fe26abd91220703d1c1993a9d2018c458b01d4a330f6edc4d8e323",
+    "apps/web/tests/aidt-v2-completion-state.test.ts": "bed680365289c7d43dd5546dc8270c7551dd9e20b83f5efb36b9887b04663ca2",
+    "apps/web/playwright.aidt-deliverables.config.ts": "eee336c1c326f1b9b52491cf2b88753603a957c18fb3a5078116ba7ad9006c32",
+    "apps/web/playwright.aidt-v2.config.ts": "9d2653c90b7e017b270910672d0dc59f5a0b000271ba17198a687ff9ebde34d1",
+    "apps/web/playwright.fullstack-smoke.config.ts": "b85b8b583bc4a57f42634471ddf12238c5d6e4a231940c87906c78bbb2d93c12"
+  },
+  "modelRequestsDuringStaticChecks": 0,
+  "noCommitByWorker": true
+}

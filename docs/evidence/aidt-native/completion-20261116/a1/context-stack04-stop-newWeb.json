@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-16T13:04:44.672Z",
+  "scope": "newWeb",
+  "pid": 279979,
+  "signal": "SIGTERM",
+  "ownershipVerified": true,
+  "ended": true,
+  "groupKillUsed": false,
+  "otherProcessesSignalled": false
+}

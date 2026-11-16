@@ -1,0 +1,90 @@
+{
+  "projectId": "prj-2b300ee6-d824-46af-bea0-81e9a36cf716",
+  "otherProjectId": "prj-e80203f2-ae55-4c7a-a5cf-6c8eeba6cf1d",
+  "uploadReceipts": [
+    {
+      "runs": [
+        {
+          "ingestionRunId": "ingest-bf5f5782-0e09-463f-b6e6-05561fe0f05c",
+          "artifactId": "art-defa7824-d939-4167-9909-36c5bd9cb0ad",
+          "duplicateHit": null
+        }
+      ]
+    },
+    {
+      "runs": [
+        {
+          "ingestionRunId": "ingest-f0c67c03-4fee-42e4-bdeb-e3da3bac07bb",
+          "artifactId": "art-c22498e4-365f-408a-a256-068df483563f",
+          "duplicateHit": null
+        }
+      ]
+    }
+  ],
+  "saved": {
+    "projectId": "prj-2b300ee6-d824-46af-bea0-81e9a36cf716",
+    "stageId": 6,
+    "revision": 1,
+    "content": {
+      "schemaVersion": 1,
+      "draft": {
+        "fields": {
+          "said": "独立软件验收夹具反馈见已上传SYN-TEST-FEEDBACK.txt，非真人测试或真实用户引文。",
+          "reflection": "仅验证测试材料保存与授权读取；PNG为合成示意图，仅测试预览，非测试照片。没有关联原型、不补造认识变化或确认学习完成。",
+          "reflectionConfirmed": "",
+          "researchFile:58d910f4-ba19-4e71-843c-23e1966bacea": "{\"projectId\":\"prj-2b300ee6-d824-46af-bea0-81e9a36cf716\",\"runId\":\"ingest-f0c67c03-4fee-42e4-bdeb-e3da3bac07bb\",\"artifactId\":\"art-c22498e4-365f-408a-a256-068df483563f\",\"versionId\":\"ver-12dc9991-ac6c-4719-af5e-048816e0c5ea\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:49:45.851Z\"}",
+          "researchFile:76e851a2-da3f-4dfa-9b2c-d3a477019624": "{\"projectId\":\"prj-2b300ee6-d824-46af-bea0-81e9a36cf716\",\"runId\":\"ingest-bf5f5782-0e09-463f-b6e6-05561fe0f05c\",\"artifactId\":\"art-defa7824-d939-4167-9909-36c5bd9cb0ad\",\"versionId\":\"ver-918b3ea0-dd6c-4ddd-920b-fb3722f029cc\",\"name\":\"SYN-TEST-FEEDBACK.txt\",\"mime\":\"text/plain\",\"sha256\":\"54fca4c87065afec8b855611280e1ec43d89de231430cac015fb710df6ded757\",\"bytes\":707,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:49:45.594Z\"}"
+        },
+        "ideas": [],
+        "selectedIdeaId": ""
+      }
+    },
+    "sourceStageRevisions": [],
+    "updatedBy": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+    "updatedAt": "2026-11-16T12:49:46.068Z"
+  },
+  "reference": {
+    "projectId": "prj-2b300ee6-d824-46af-bea0-81e9a36cf716",
+    "runId": "ingest-bf5f5782-0e09-463f-b6e6-05561fe0f05c",
+    "artifactId": "art-defa7824-d939-4167-9909-36c5bd9cb0ad",
+    "versionId": "ver-918b3ea0-dd6c-4ddd-920b-fb3722f029cc",
+    "name": "SYN-TEST-FEEDBACK.txt",
+    "mime": "text/plain",
+    "sha256": "54fca4c87065afec8b855611280e1ec43d89de231430cac015fb710df6ded757",
+    "bytes": 707,
+    "submittedBy": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+    "submittedAt": "2026-11-16T12:49:45.594Z"
+  },
+  "imageReference": {
+    "projectId": "prj-2b300ee6-d824-46af-bea0-81e9a36cf716",
+    "runId": "ingest-f0c67c03-4fee-42e4-bdeb-e3da3bac07bb",
+    "artifactId": "art-c22498e4-365f-408a-a256-068df483563f",
+    "versionId": "ver-12dc9991-ac6c-4719-af5e-048816e0c5ea",
+    "name": "SYN-A.png",
+    "mime": "image/png",
+    "sha256": "a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef",
+    "bytes": 27913,
+    "submittedBy": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+    "submittedAt": "2026-11-16T12:49:45.851Z"
+  },
+  "downloadedBytes": 707,
+  "imageBytes": 27913,
+  "imageDecodedBeforeAndAfterLogin": true,
+  "imageOnlySyntheticDiagramNotTestPhoto": true,
+  "sameOrgMember": {
+    "userId": "user-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+    "orgId": "org-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+    "orgRole": "consultant"
+  },
+  "exactBytesShaVerified": true,
+  "wrongProjectStatus": 404,
+  "nonmemberStatuses": [
+    404,
+    404
+  ],
+  "freshLoginExactReadback": true,
+  "nativeOrDesignRequests": [],
+  "noPrototypeWasInvented": true,
+  "fullSixStepJourneyProven": false,
+  "allInputSynthetic": true
+}

@@ -1,0 +1,49 @@
+[stack-admission] load1=1.76 cores=5 perCore=0.35 running=1/2
+[test-isolation] id=run-mwj7ziwz-0e36dc83-de7ecdc7ffcd db=wsx_de7ecdc7ffcd83a7c643 compose=wsx-de7ecdc7ffcd83a7c643 pg=20167 redis=21167 api=24167 web=25167 sandbox=26167 model=27167 deep-agent=28167 asr=29167 vision=30167 loopback-sandbox=31167 mail=19167
+ Network wsx-de7ecdc7ffcd83a7c643_default  Creating
+ Network wsx-de7ecdc7ffcd83a7c643_default  Created
+ Container wsx-de7ecdc7ffcd83a7c643-postgres-1  Creating
+ Container wsx-de7ecdc7ffcd83a7c643-postgres-1  Created
+ Container wsx-de7ecdc7ffcd83a7c643-postgres-1  Starting
+ Container wsx-de7ecdc7ffcd83a7c643-postgres-1  Started
+[aidt-return-pg] existing local postgres-age image; standard isolated compose; TCP ready; no supplier
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+[db-isolation] db=wsx_de7ecdc7ffcd83a7c643 capacity=100 current=6 required=32
+(node:245175) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > confirmed old S6 revision targets S2 and freezes only its whitelisted reflection despite newer S5/S6 heads
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > confirmed old S6 revision targets S2 and freezes only its whitelisted reflection despite newer S5/S6 heads 465ms
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > unconfirmed rejects before any human/run/snapshot/application insertion
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > unconfirmed rejects before any human/run/snapshot/application insertion 302ms
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > wrong-target rejects before any human/run/snapshot/application insertion
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > wrong-target rejects before any human/run/snapshot/application insertion
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > missing-exact-revision rejects before any human/run/snapshot/application insertion
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > missing-exact-revision rejects before any human/run/snapshot/application insertion
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > foreign-project-revision rejects before any human/run/snapshot/application insertion
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > foreign-project-revision rejects before any human/run/snapshot/application insertion 339ms
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > cross-org rejects before any human/run/snapshot/application insertion
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > cross-org rejects before any human/run/snapshot/application insertion
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > nonmember rejects before any human/run/snapshot/application insertion
+ ✓ tests/aidt-run-context/return-real-pg.test.ts > nonmember rejects before any human/run/snapshot/application insertion
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  12:08:42
+   Duration  15.76s (transform 1.51s, setup 22ms, collect 1.90s, tests 12.95s, environment 0ms, prepare 60ms)
+
+[db-isolation] db=wsx_de7ecdc7ffcd83a7c643 peak_connections=7
+ Container wsx-de7ecdc7ffcd83a7c643-postgres-1  Stopping
+ Container wsx-de7ecdc7ffcd83a7c643-postgres-1  Stopped
+ Container wsx-de7ecdc7ffcd83a7c643-postgres-1  Removing
+ Container wsx-de7ecdc7ffcd83a7c643-postgres-1  Removed
+ Network wsx-de7ecdc7ffcd83a7c643_default  Removing
+ Network wsx-de7ecdc7ffcd83a7c643_default  Removed
+[timing] node /tmp/aidt-return-pg-command.mjs
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：22s
+  清理：0s
+  总计：22s

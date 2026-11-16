@@ -1,0 +1,46 @@
+{
+  "productSource": "c361ba55bde080b06d390bf98b72c3a130e935e5",
+  "userAuthorizedAdditional": {
+    "s1NativeTasks": 1,
+    "designTasksMaximum": 2,
+    "explicitMoneyLimitGiven": false
+  },
+  "legacy": {
+    "sha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+    "maximumNativeModelRuns": 7,
+    "attempts": 3,
+    "resolutions": 2,
+    "countedNativeRuns": 1,
+    "remaining": 6,
+    "notReset": true
+  },
+  "supplementalReview": {
+    "separateAuthorization": "additional-s1-20261116",
+    "maximumNativeModelRuns": 1,
+    "explicitAuthorizationFlagRequired": true,
+    "failedUnknownRemainConsumed": true,
+    "legacyLedgerUnchanged": true
+  },
+  "offlineDoctor": {
+    "accountingEnabled": true,
+    "admissionEnabled": true,
+    "spoolAbsolute": true,
+    "spoolPrivateOwned": true,
+    "spoolInitialization": true,
+    "callbackLoopback": true,
+    "callbackKeyPresent": true,
+    "outputBoundExplicit": true,
+    "modelConstructed": true,
+    "sdkOutputTokenBoundVerified": true,
+    "serializedBodyWithinAdmissionLimit": true,
+    "accountingOuterTransportRetained": true,
+    "proxyExpected": true,
+    "exactOriginProxyConfigured": true,
+    "proxyOriginIsolationVerified": true,
+    "requestsSent": 0,
+    "runtimeOwnership": "bound-and-revalidated-by-API-per-real-run-not-fabricated-by-doctor"
+  },
+  "phase": "health-only awaiting per-task root paid window",
+  "providerRequestsSent": 0,
+  "sourceModifiedByA1": false
+}

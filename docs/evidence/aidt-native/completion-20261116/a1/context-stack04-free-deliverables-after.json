@@ -1,0 +1,67 @@
+{
+  "at": "2026-11-16T12:50:58.770Z",
+  "readOnly": true,
+  "phase": "zero-fee-ui-and-fixture-repair",
+  "agentAutoExecution": false,
+  "paidWindowOpened": false,
+  "guards": {
+    "agentRuns": "0",
+    "skillTrialRuns": "0",
+    "attachmentExtraction": "0",
+    "threadTitleModel": "0",
+    "standardScheduler": "0"
+  },
+  "global": {
+    "active_runs": 0,
+    "physical_requests": 2,
+    "usage_receipts": 2,
+    "credit_requests_total": 2,
+    "unsettled_requests": 0,
+    "holds_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "freeDeliverables": {
+    "s2LatestRevision": 5,
+    "s6MaterialProjectId": "prj-2b300ee6-d824-46af-bea0-81e9a36cf716",
+    "s6LatestRevision": 1,
+    "s6RawUploads": 2
+  },
+  "health": {
+    "api": 200,
+    "newWeb": 200,
+    "ownerWeb": 200
+  },
+  "ownership": {
+    "api": {
+      "pid": 280648,
+      "state": "S",
+      "parent": 1,
+      "processGroup": 280648,
+      "startTicks": 4418475
+    },
+    "owner": {
+      "pid": 240969,
+      "state": "S",
+      "parent": 240949,
+      "processGroup": 240890,
+      "startTicks": 4185371
+    },
+    "newWeb": {
+      "pid": 279979,
+      "state": "S",
+      "parent": 1,
+      "processGroup": 279979,
+      "startTicks": 4415079
+    },
+    "newLease": {
+      "pid": 279843,
+      "state": "S",
+      "parent": 279842,
+      "processGroup": 279842,
+      "startTicks": 4414265
+    }
+  },
+  "oldBudgetSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+  "supplementBudgetSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+  "vendorRequestsSentByCheck": 0
+}

@@ -1,0 +1,76 @@
+{
+  "at": "2026-11-16T13:37:12.456Z",
+  "restorationTested": true,
+  "webBuildSource": "ec5ff2e9de501426f3fec9a0dddd6dfb314be4cd",
+  "apiSource": "340f0ea2af1a85a91dd17eb0685b2b5d0b1eb978",
+  "normalLogin": true,
+  "modelRequestsSent": 0,
+  "threadsCreated": 0,
+  "nativeBudgetReservations": 0,
+  "agentAutoExecution": false,
+  "paidWindowOpened": false,
+  "actualActor": {
+    "userId": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+    "orgId": "org-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+    "orgRole": "admin",
+    "projectRole": "owner",
+    "roleEvidence": "restored protected membership rows; normal login principal exact"
+  },
+  "stageReadbacks": [
+    {
+      "stageId": 1,
+      "revision": 2,
+      "status": 200,
+      "exactSavedValueMatches": true,
+      "canonicalSha256": "7e67d461bb02c47aed074fca54ce6cc9fc235d8d9fbd6c623986bea9b9585fa6"
+    },
+    {
+      "stageId": 2,
+      "revision": 5,
+      "status": 200,
+      "exactSavedValueMatches": true,
+      "canonicalSha256": "33d96bf0fadeec5edde4278c23f80c4abb21399a9455ab3fe00cd11081ff38c2"
+    }
+  ],
+  "originalReadbacks": [
+    {
+      "runId": "ingest-0c362db1-5562-4756-8206-308349801ec6",
+      "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+      "versionId": "ver-69638e08-ae45-4409-a873-8e2f7f35c82a",
+      "status": 200,
+      "bytes": 27913,
+      "sha256": "a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef",
+      "mime": "image/png",
+      "sourceHeadersExact": true,
+      "imageDecodes": true
+    }
+  ],
+  "lastOriginalDiagnostic": {
+    "runId": "ingest-aa830094-e868-4e7e-a4bb-3e8112e074e9",
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "expected": {
+      "bytes": 529,
+      "sha256": "b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973",
+      "mime": "text/plain; charset=utf-8",
+      "artifactId": "art-f85cc49a-cab6-42bd-be9d-79fdb945928c",
+      "versionId": "ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102",
+      "submittedBy": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+      "submittedAt": "2026-11-16T12:24:13.327Z"
+    },
+    "actual": {
+      "status": 200,
+      "bytes": 529,
+      "sha256": "b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973",
+      "mime": "text/plain",
+      "hashHeader": "b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973",
+      "artifactId": "art-f85cc49a-cab6-42bd-be9d-79fdb945928c",
+      "versionId": "ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102",
+      "submittedBy": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+      "submittedAt": "2026-11-16T12:24:13.327Z",
+      "imageDecodes": null
+    }
+  },
+  "passed": false,
+  "failedAt": "original-normal-get",
+  "safeReason": "ORIGINAL_BYTE_HASH_OR_SOURCE_MISMATCH"
+}

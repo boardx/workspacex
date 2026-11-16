@@ -1,0 +1,135 @@
+{
+  "at": "2026-11-16T13:42:21.226Z",
+  "ownerNormalExitCode": 0,
+  "ownerExecSession": 37829,
+  "ownerCleanupReceipt": {
+    "at": "2026-11-16T13:41:35.624Z",
+    "cleanupComplete": true,
+    "compose": "wsx-7679f71f9921d30b179c",
+    "modelRequestsSent": 0
+  },
+  "compose": "wsx-7679f71f9921d30b179c",
+  "ownContainersRemaining": 0,
+  "ownVolumesRemaining": 0,
+  "ownNetworksRemaining": 0,
+  "ports": [
+    {
+      "port": 20607,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 21607,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 22607,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 23607,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 24111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 25826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 26607,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 27607,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 28607,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 29607,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 30607,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 31607,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 19607,
+      "bindable": true,
+      "leaseReleased": true
+    }
+  ],
+  "allThirteenPortsAndLeasesReleased": true,
+  "stackAdmissionReleased": true,
+  "processes": {
+    "owner": {
+      "pid": 307508,
+      "state": "absent",
+      "live": false
+    },
+    "stackOwner": {
+      "pid": 308232,
+      "state": "absent",
+      "live": false
+    },
+    "api": {
+      "pid": 308474,
+      "state": "Z",
+      "live": false
+    },
+    "python": {
+      "pid": 308442,
+      "state": "Z",
+      "live": false
+    },
+    "sandbox": {
+      "pid": 308322,
+      "state": "Z",
+      "live": false
+    }
+  },
+  "budgetHashes": {
+    "legacy": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "supplementS1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d"
+  },
+  "budgetsUnchanged": true,
+  "originalCheckpointDumpHashUnchanged": true,
+  "originalManifestHashUnchanged": true,
+  "originalRuntimeMetadataHashUnchanged": true,
+  "fixtureCredentialMode": "600",
+  "uploadedModelConfigMode": "600",
+  "backupAndOriginalObjectsPreserved": true,
+  "normalLoginAndReadbackVerified": true,
+  "newModelRequests": 0,
+  "newBudgetReservations": 0,
+  "newThreads": 0,
+  "restorationTested": true,
+  "cgroupMemoryEvents": {
+    "low": 0,
+    "high": 0,
+    "max": 41447,
+    "oom": 1,
+    "oom_kill": 1,
+    "oom_group_kill": 0
+  }
+}

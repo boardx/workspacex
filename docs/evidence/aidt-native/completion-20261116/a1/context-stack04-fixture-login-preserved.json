@@ -1,0 +1,11 @@
+{
+  "at": "2026-11-16T13:04:01.015Z",
+  "normalFixtureAccounts": 3,
+  "minimalCredentialsBackedUp": true,
+  "privateFileMode": "0600",
+  "checkpointDirectoryMode": "0700",
+  "credentialValuesPrinted": false,
+  "modelConfigurationCopied": false,
+  "originalRuntimeExists": true,
+  "originalOwnerCleanupDeletesRuntime": false
+}

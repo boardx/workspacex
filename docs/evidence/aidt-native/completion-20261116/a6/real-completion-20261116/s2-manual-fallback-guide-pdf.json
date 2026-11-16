@@ -1,0 +1,191 @@
+{
+  "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+  "cancelledRunId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+  "before": {
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "stageId": 2,
+    "revision": 4,
+    "content": {
+      "schemaVersion": 1,
+      "draft": {
+        "fields": {
+          "goal": "学生先提出未知问题：新同学怎样找到取餐口？目前没有真人访谈。",
+          "guide": "合成提纲原稿：你能说说上一次如何找取餐口吗？哪些地方还不清楚？",
+          "interpretation": "学生先说明：这是一份模拟提纲，还不是用户事实或AI结论。",
+          "discoveryAi:bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26": "AI推测隔离字段的合成夹具：可能存在信息不匹配；不是模型输出或研究事实。",
+          "researchFile:0889698f-21b5-4f70-a5b5-604e2a96f94e": "{\"projectId\":\"prj-ee3e37a0-997b-41e2-960b-4801dfde2084\",\"runId\":\"ingest-aa830094-e868-4e7e-a4bb-3e8112e074e9\",\"artifactId\":\"art-f85cc49a-cab6-42bd-be9d-79fdb945928c\",\"versionId\":\"ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102\",\"name\":\"SYN-A.txt\",\"mime\":\"text/plain\",\"sha256\":\"b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973\",\"bytes\":529,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:24:13.327Z\"}",
+          "researchFile:6a7a3afc-6f4d-487a-ad20-835b6f7792c7": "{\"projectId\":\"prj-ee3e37a0-997b-41e2-960b-4801dfde2084\",\"runId\":\"ingest-0c362db1-5562-4756-8206-308349801ec6\",\"artifactId\":\"art-3dfdc548-8b4e-430b-a65e-7d1a2202928f\",\"versionId\":\"ver-69638e08-ae45-4409-a873-8e2f7f35c82a\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:33:21.267Z\"}",
+          "researchFile:ff2625c4-9d99-4e93-a03d-26bb424ea839": "{\"projectId\":\"prj-ee3e37a0-997b-41e2-960b-4801dfde2084\",\"runId\":\"ingest-aa830094-e868-4e7e-a4bb-3e8112e074e9\",\"artifactId\":\"art-f85cc49a-cab6-42bd-be9d-79fdb945928c\",\"versionId\":\"ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102\",\"name\":\"SYN-A.txt\",\"mime\":\"text/plain\",\"sha256\":\"b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973\",\"bytes\":529,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:24:13.327Z\"}",
+          "discoveryFile:bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26": "{\"projectId\":\"prj-ee3e37a0-997b-41e2-960b-4801dfde2084\",\"runId\":\"ingest-aa830094-e868-4e7e-a4bb-3e8112e074e9\",\"artifactId\":\"art-f85cc49a-cab6-42bd-be9d-79fdb945928c\",\"versionId\":\"ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102\",\"name\":\"SYN-A.txt\",\"mime\":\"text/plain\",\"sha256\":\"b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973\",\"bytes\":529,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:24:13.327Z\"}",
+          "discoveryPhoto:bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26": "{\"projectId\":\"prj-ee3e37a0-997b-41e2-960b-4801dfde2084\",\"runId\":\"ingest-0c362db1-5562-4756-8206-308349801ec6\",\"artifactId\":\"art-3dfdc548-8b4e-430b-a65e-7d1a2202928f\",\"versionId\":\"ver-69638e08-ae45-4409-a873-8e2f7f35c82a\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:33:21.267Z\"}"
+        },
+        "ideas": [],
+        "selectedIdeaId": "",
+        "discoveryCards": [
+          {
+            "id": "bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26",
+            "participantCode": "模拟角色-A",
+            "headline": "学生概括：模拟角色先找牌子，不能代表真实人群。",
+            "headlineKind": "student-summary",
+            "context": "学生解释：也许需要更清楚的分区提示，仍未验证。",
+            "quote": "[模拟原话] 我先找牌子，再看看自己排在哪儿。",
+            "sourceRef": "SYN-A.txt 第01段；合成课堂材料，不是真实访谈。",
+            "photoRef": ""
+          }
+        ]
+      }
+    },
+    "sourceStageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      }
+    ],
+    "updatedBy": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+    "updatedAt": "2026-11-16T12:38:07.363Z"
+  },
+  "saved": {
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "stageId": 2,
+    "revision": 5,
+    "content": {
+      "schemaVersion": 1,
+      "draft": {
+        "fields": {
+          "goal": "学生先提出未知问题：新同学怎样找到取餐口？目前没有真人访谈。",
+          "guide": "合成提纲原稿：你能说说上一次如何找取餐口吗？哪些地方还不清楚？",
+          "reflection": "AI被错误echo基础角色阻断并已取消。学生选择人工先改写提纲；不把该fallback标成Agent成功或完整六步链完成。",
+          "adoptedGuide": "FALLBACK-S2-MANUAL-20261116\n本次AI任务未成功，以下是学生人工自行修订，不是采纳AI结论。\n1. 请讲述一次在陌生地方寻找取餐区域的经过。\n2. 当时你留意了哪些提示？\n3. 哪个地方还需要别人解释？\n这只是合成课堂访谈计划，采访尚未开展。",
+          "interpretation": "学生先说明：这是一份模拟提纲，还不是用户事实或AI结论。",
+          "discoveryAi:bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26": "AI推测隔离字段的合成夹具：可能存在信息不匹配；不是模型输出或研究事实。",
+          "researchFile:0889698f-21b5-4f70-a5b5-604e2a96f94e": "{\"projectId\":\"prj-ee3e37a0-997b-41e2-960b-4801dfde2084\",\"runId\":\"ingest-aa830094-e868-4e7e-a4bb-3e8112e074e9\",\"artifactId\":\"art-f85cc49a-cab6-42bd-be9d-79fdb945928c\",\"versionId\":\"ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102\",\"name\":\"SYN-A.txt\",\"mime\":\"text/plain\",\"sha256\":\"b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973\",\"bytes\":529,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:24:13.327Z\"}",
+          "researchFile:6a7a3afc-6f4d-487a-ad20-835b6f7792c7": "{\"projectId\":\"prj-ee3e37a0-997b-41e2-960b-4801dfde2084\",\"runId\":\"ingest-0c362db1-5562-4756-8206-308349801ec6\",\"artifactId\":\"art-3dfdc548-8b4e-430b-a65e-7d1a2202928f\",\"versionId\":\"ver-69638e08-ae45-4409-a873-8e2f7f35c82a\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:33:21.267Z\"}",
+          "researchFile:ff2625c4-9d99-4e93-a03d-26bb424ea839": "{\"projectId\":\"prj-ee3e37a0-997b-41e2-960b-4801dfde2084\",\"runId\":\"ingest-aa830094-e868-4e7e-a4bb-3e8112e074e9\",\"artifactId\":\"art-f85cc49a-cab6-42bd-be9d-79fdb945928c\",\"versionId\":\"ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102\",\"name\":\"SYN-A.txt\",\"mime\":\"text/plain\",\"sha256\":\"b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973\",\"bytes\":529,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:24:13.327Z\"}",
+          "discoveryFile:bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26": "{\"projectId\":\"prj-ee3e37a0-997b-41e2-960b-4801dfde2084\",\"runId\":\"ingest-aa830094-e868-4e7e-a4bb-3e8112e074e9\",\"artifactId\":\"art-f85cc49a-cab6-42bd-be9d-79fdb945928c\",\"versionId\":\"ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102\",\"name\":\"SYN-A.txt\",\"mime\":\"text/plain\",\"sha256\":\"b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973\",\"bytes\":529,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:24:13.327Z\"}",
+          "discoveryPhoto:bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26": "{\"projectId\":\"prj-ee3e37a0-997b-41e2-960b-4801dfde2084\",\"runId\":\"ingest-0c362db1-5562-4756-8206-308349801ec6\",\"artifactId\":\"art-3dfdc548-8b4e-430b-a65e-7d1a2202928f\",\"versionId\":\"ver-69638e08-ae45-4409-a873-8e2f7f35c82a\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe\",\"submittedAt\":\"2026-11-16T12:33:21.267Z\"}"
+        },
+        "ideas": [],
+        "selectedIdeaId": "",
+        "discoveryCards": [
+          {
+            "id": "bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26",
+            "participantCode": "模拟角色-A",
+            "headline": "学生概括：模拟角色先找牌子，不能代表真实人群。",
+            "headlineKind": "student-summary",
+            "context": "学生解释：也许需要更清楚的分区提示，仍未验证。",
+            "quote": "[模拟原话] 我先找牌子，再看看自己排在哪儿。",
+            "sourceRef": "SYN-A.txt 第01段；合成课堂材料，不是真实访谈。",
+            "photoRef": ""
+          }
+        ]
+      }
+    },
+    "sourceStageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      }
+    ],
+    "updatedBy": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+    "updatedAt": "2026-11-16T12:49:41.820Z"
+  },
+  "pdfSha256": "27a04b9427a18b8c8cc6b61242315b626b8e202ad2c9bd9e2c4c18a9af4e341a",
+  "pdfBytes": 181594,
+  "actualBeforeprint": true,
+  "pdfMethod": "Chromium PDF from copy of actual product print DOM",
+  "nativeSaveDialogAutomated": false,
+  "aiTaskSucceeded": false,
+  "manualFallback": true,
+  "phaseStateUnchanged": true,
+  "receiptBefore": {
+    "runId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "purpose": "stage",
+    "stageId": 2,
+    "skillVersionId": "skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6",
+    "snapshotHash": "c60b97677bae4618b856a385abd16e1bee2fa7d855b3badeb3ba6f3eb780ba04",
+    "preparedAt": "2026-11-16T12:38:08.173Z",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      }
+    ],
+    "historyRevisions": [],
+    "omissions": [
+      {
+        "kind": "personal-artifacts-not-included"
+      },
+      {
+        "kind": "original-file-bytes-not-read"
+      },
+      {
+        "kind": "teacher-comments-no-source"
+      },
+      {
+        "kind": "lineage-unknown"
+      }
+    ],
+    "truncated": false,
+    "application": {
+      "state": "message-dispatch-observed",
+      "attemptId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e:1",
+      "assembledContextHash": "5c3ee91956ae5b1896d1ed69493519e27a921575f900bf0023fd94b16eff50d2",
+      "assembledAt": "2026-11-16T12:38:08.270Z",
+      "messageDispatchedAt": "2026-11-16T12:38:08.346Z",
+      "checkpointResumedAt": null,
+      "inheritedMessageDispatchAttemptId": null
+    }
+  },
+  "receiptAfter": {
+    "runId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "purpose": "stage",
+    "stageId": 2,
+    "skillVersionId": "skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6",
+    "snapshotHash": "c60b97677bae4618b856a385abd16e1bee2fa7d855b3badeb3ba6f3eb780ba04",
+    "preparedAt": "2026-11-16T12:38:08.173Z",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      }
+    ],
+    "historyRevisions": [],
+    "omissions": [
+      {
+        "kind": "personal-artifacts-not-included"
+      },
+      {
+        "kind": "original-file-bytes-not-read"
+      },
+      {
+        "kind": "teacher-comments-no-source"
+      },
+      {
+        "kind": "lineage-unknown"
+      }
+    ],
+    "truncated": false,
+    "application": {
+      "state": "message-dispatch-observed",
+      "attemptId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e:1",
+      "assembledContextHash": "5c3ee91956ae5b1896d1ed69493519e27a921575f900bf0023fd94b16eff50d2",
+      "assembledAt": "2026-11-16T12:38:08.270Z",
+      "messageDispatchedAt": "2026-11-16T12:38:08.346Z",
+      "checkpointResumedAt": null,
+      "inheritedMessageDispatchAttemptId": null
+    }
+  },
+  "nativeOrDesignRequests": [],
+  "freshLoginExactReadback": true,
+  "teachingAcceptance": "pending-human-review"
+}

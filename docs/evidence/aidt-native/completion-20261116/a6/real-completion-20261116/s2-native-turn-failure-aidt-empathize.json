@@ -1,0 +1,70 @@
+{
+  "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+  "threadId": "thr-a67a019b-2631-411d-9471-8033efab37fd",
+  "skillName": "aidt-empathize",
+  "reservation": "18be09ec-afce-4a18-a8d4-88c0889d810a",
+  "observedRunId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+  "failureCode": "ASSERTION_OR_NATIVE_RUN_FAILED",
+  "selectorCoordinates": {
+    "schemaVersion": 1,
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 2
+  },
+  "frozenReceipt": {
+    "runId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "purpose": "stage",
+    "stageId": 2,
+    "skillVersionId": "skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6",
+    "snapshotHash": "c60b97677bae4618b856a385abd16e1bee2fa7d855b3badeb3ba6f3eb780ba04",
+    "preparedAt": "2026-11-16T12:38:08.173Z",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      }
+    ],
+    "historyRevisions": [],
+    "omissions": [
+      {
+        "kind": "personal-artifacts-not-included"
+      },
+      {
+        "kind": "original-file-bytes-not-read"
+      },
+      {
+        "kind": "teacher-comments-no-source"
+      },
+      {
+        "kind": "lineage-unknown"
+      }
+    ],
+    "truncated": false,
+    "application": {
+      "state": "message-dispatch-observed",
+      "attemptId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e:1",
+      "assembledContextHash": "5c3ee91956ae5b1896d1ed69493519e27a921575f900bf0023fd94b16eff50d2",
+      "assembledAt": "2026-11-16T12:38:08.270Z",
+      "messageDispatchedAt": "2026-11-16T12:38:08.346Z",
+      "checkpointResumedAt": null,
+      "inheritedMessageDispatchAttemptId": null
+    }
+  },
+  "automaticNewSendRetry": false,
+  "intentChoices": []
+}

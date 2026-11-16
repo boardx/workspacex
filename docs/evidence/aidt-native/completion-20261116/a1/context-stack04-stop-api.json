@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-16T13:04:51.368Z",
+  "scope": "api",
+  "pid": 280648,
+  "signal": "SIGTERM",
+  "ownershipVerified": true,
+  "ended": true,
+  "groupKillUsed": false,
+  "otherProcessesSignalled": false
+}

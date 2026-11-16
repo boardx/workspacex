@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/aidt-v2-wire-metadata.test.ts (25 tests) 28ms
+ ✓ tests/aidt-v2-completion-state.test.ts (3 tests) 6ms
+ ✓ tests/aidt-v2-supplemental-ledger.test.ts (3 tests) 220ms
+
+ Test Files  3 passed (3)
+      Tests  31 passed (31)
+   Start at  12:31:21
+   Duration  1.69s (transform 199ms, setup 271ms, collect 236ms, tests 253ms, environment 0ms, prepare 176ms)
+
