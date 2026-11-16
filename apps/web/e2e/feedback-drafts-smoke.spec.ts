@@ -49,7 +49,7 @@ test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
   test.describe.configure({ mode: "serial" });
 
   test("① 非管理员：存草稿 → 草稿列表可见 → 继续完善（首次自动追加澄清问题）→ 追加对话 → 提交 → 从列表消失、导航到收件箱后自动打开自己那条、正文可见", async ({ page }) => {
-    await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
+    await login(page, FULLSTACK_E2E.feedbackDraftEmail, FULLSTACK_E2E.password);
 
     /* ── 存草稿：图标栏「反馈」入口，先填正文（compose 阶段），点「下一步」进入
        review 阶段才有 kind/标题/结构化字段/存为草稿——#2683 表单渐进展示改的两段式

@@ -30,6 +30,7 @@ const tasksUserId = required("FULLSTACK_E2E_TASKS_USER_ID");
 const email = required("FULLSTACK_E2E_EMAIL");
 const password = required("FULLSTACK_E2E_PASSWORD");
 const isolatedCreditActors = [
+  { userId: required("FULLSTACK_E2E_FEEDBACK_DRAFT_USER_ID"), email: required("FULLSTACK_E2E_FEEDBACK_DRAFT_EMAIL"), name: "Fullstack feedback draft" },
   { userId: required("FULLSTACK_E2E_VOICE_JOURNEY_USER_ID"), email: required("FULLSTACK_E2E_VOICE_JOURNEY_EMAIL"), name: "Fullstack voice journey" },
   { userId: required("FULLSTACK_E2E_INTERVIEW_INTAKE_USER_ID"), email: required("FULLSTACK_E2E_INTERVIEW_INTAKE_EMAIL"), name: "Fullstack interview intake" },
 ];
