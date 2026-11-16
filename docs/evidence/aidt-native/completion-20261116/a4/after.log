@@ -1,0 +1,22 @@
+
+> web@0.1.0 test /workspace/scratch/aidt-complete-member_text/apps/web
+> vitest run "tests/ui/project-member-chat.test.tsx" "tests/ui/project-member-chat-launcher.test.tsx" "tests/live-project-member-chat.test.ts" "tests/project-member-chat-navigation.test.ts" "tests/ui/team-text-conversation.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-member_text/apps/web
+
+ ✓ tests/ui/project-member-chat.test.tsx (25 tests) 501ms
+stderr | tests/ui/team-text-conversation.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+ ✓ tests/ui/team-text-conversation.test.tsx (6 tests) 629ms
+ ✓ tests/ui/project-member-chat-launcher.test.tsx (6 tests) 193ms
+ ✓ tests/live-project-member-chat.test.ts (10 tests) 9ms
+ ✓ tests/project-member-chat-navigation.test.ts (8 tests) 2ms
+
+ Test Files  5 passed (5)
+      Tests  55 passed (55)
+   Start at  01:31:47
+   Duration  9.34s (transform 2.78s, setup 298ms, collect 5.64s, tests 1.33s, environment 1.30s, prepare 171ms)
+
