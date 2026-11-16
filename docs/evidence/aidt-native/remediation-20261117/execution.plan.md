@@ -50,5 +50,6 @@ flowchart TD
   %% evidence Q: summary102 compact complete; first compact source error preserved; normal student clarification -> model revision semantic0 -> explicit UI save V8/export17512B
  class E blocked
   %% blocked E: official build storage floor1.5GiB; E003 probe0/additional pytest0; original Python2skip not passed, no isolation weakening
- class D doing
+ class D tested
+  %% evidence D: Library report v1 17pages/manual v9 29pages/source v10 saved; identity helper0; Chinese/pages readback; source archive f1b4f15fd verified
 ```
