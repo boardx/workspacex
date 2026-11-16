@@ -1,15 +1,15 @@
-# 本轮继续工作说明
+# 本轮继续工作说明（新增S2已执行失败）
 
-需求以用户粘贴V2为准。继续原生WorkspaceX Chat、阶段Skill、共享保存及全局成员文字；语音和访谈录音仍按用户决定后置。没有生产部署、合并、角色/余额修改或重试已被拒绝的GitHub外发。
+需求仍以用户粘贴V2为准；现有原生Chat、阶段Skill、共享保存及成员文字保持，语音与访谈录音后置。没有生产部署、合并、权限或余额变更。
 
-当前真实模型链在S2暂停。旧S2运行`8a4188ab-7fa9-4b7c-a56f-ec059b0e290e`已取消，不能续作成功或清账；原七次账本有效消费两个，剩余S3–S6与SUM五次。新增S1补账已用一次；新增Design两次未用。需经用户明确另批一次S2，使用独立最多一次补账及同一小组新原生线程、原approved S2 Skill；不复用旧echo checkpoint。仅源代码准备/静态验证不构成新收费授权。
+新增一次S2授权已经实际使用，run40539aa6-2732-4661-9665-913013af806d终态failed/MODEL_CALL_FAILED，唯一新线程thr-0a23a022-c27f-43c4-96dc-0f40cd31b9d1保留。同一UI任务内部2physical失败、total_source unknown，两个credit pending合计预留86.29测试credits，不能写0费用或已释放。没有有效assistant回复或本次学生后续保存；phase保留attempting与原失败。原取消S2、人工V5、旧消息/快照和原两账不变。原5个S3–S6/SUM与2个Design额度未使用，因前序失败停止，不自动继续。
 
-原始同组项目`prj-ee3e37a0-997b-41e2-960b-4801dfde2084`，S1已保存V2，S2人工fallback清单V5；本次未通过的AI没有被写成已采纳。旧S2冻结材料是S1V2/S2V4，必须保持。后续新请求应读取学生实际选择的版本，不能偷换旧快照。
+独立S2预算/workspace/scratch/aidt-real-completion-20261116/additional-s2-ledger.json的max1已用完，禁止改路径绕额、重置或清失败。原两预算也不重置。再次模型调用须另获明确授权，并准备保留本次失败/未知计量的可审阅路径；不能用旧2run恢复点假装保留本次第三run与占款。
 
-当前canonical测试Agent版本为`agent-version-fixture-428d072b-cf41-465b-86f7-6b02fe39136f`，指令摘要`802cf79cc20cd6861c2aa766d7a7c4b1a9094add3624f523e467dd81c85fe371`。旧v1/旧run全部保留。新版本仅为本私有QA实例准备，不是普通发布API验收；不能修改不可变旧版本或赋权。
+连接兼容修复已提交5df77b477：恢复owner和下游真实测试launcher保留当前可信CA三键、proxy大小写及已有NO_PROXY，不从CN导入网络策略、不禁TLS。旧profile无Auth HEAD实证SSL verify19，修后profile仅HEAD得到HTTP404，证明HTTP连接通，不能冒称模型已重验或旧失败的底层cause已直接留存。只允许的两次HEAD均已执行，后续外部请求不自动重试。
 
-原服务均已停止。私有检查点所在父目录`/workspace/scratch/aidt-private-checkpoints-20261116/`，完整路径/摘要和恢复边界见A1 private-checkpoint与resume-assessment证据。检查点和正常登录私档均受私有文件模式保护，不上传、不打印。原预算仍在`/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json`及`/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json`，不重置。原模型配置单独保留在私有配置目录，只通过既有七字段解析器读取，绝不source整份部署env。
+原私有旧检查点仍保留，其实际零模型恢复验证是真的，但它不含本次新失败/pending。新的post-failure私有diagnostic备份由A1保存，含第三账与未知财务行，明确非zero-outstanding可恢复点、未实际restore。不可把旧dump回滚当作保留新状态；不可手工释放hold/改余额代替真实用量核算。证据和最终清理路径见a1/s2-supplement-20261116。
 
-重要：现有e2e-up直接seed会resetOrgs，不能用它冒充恢复。恢复仅可进入经检查点回执严格门控的新自有隔离空库路径；先验证原件、真实成员、余额/计量及两账不变，所有执行器为0，再正常登录。本轮已从唯一检查点实际恢复到新隔离空库，正常浏览器登录读取S1 V2、S2 V5、4份原件通过；15组保护哈希、两个预算账本、5个旧线程集合及钱包保持，无新模型请求。恢复实例亦已正常清理。下次必须生成新nonce、新目标目录及审阅后的恢复计划，不复用已存在目标；plan03仅离线准备、未执行。此结果不代表S2 AI及后续付费链通过。
+本轮源码ZIP及人工PDF保持原Library身份。人工结果/签字继续留空；原始配置、私有备份、凭据、runtime及浏览器trace不上传。GitHub外发此前被审批拒绝，未重试；无PR/远端CI或整体验收通过声明。
 
-最后交付需保持源码ZIP与人工PDF原Library文件身份及版本保护。源码ZIP只能含受选源码和脱敏证据，不能包含runtime、备份、真实env或浏览器私密trace；人工结果和签字继续留空。
+最终新私有诊断目录：/workspace/scratch/aidt-private-diagnostics-20261116/S2-failed-pending-20261116T143336845Z。仅用于保全，不能由现有zero-outstanding恢复入口直接恢复。全部服务、容器、卷、网络、13端口/租约及slot已正常释放，owner exit0。

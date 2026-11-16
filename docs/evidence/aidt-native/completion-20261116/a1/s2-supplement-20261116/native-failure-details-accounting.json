@@ -1,0 +1,185 @@
+{
+  "s2BudgetSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+  "namespaceSeparation": {
+    "newApiThread": true,
+    "newRemoteThread": true,
+    "newRemoteRun": true
+  },
+  "authoritativeTokenConsumption": null,
+  "storedZeroTotalsDoNotProveZeroUsage": true,
+  "creditSettlementUnresolved": true,
+  "at": "2026-11-16T14:31:55.872Z",
+  "readOnly": true,
+  "run": {
+    "id": "40539aa6-2732-4661-9665-913013af806d",
+    "org_id": "org-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+    "project_id": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "thread_id": "thr-0a23a022-c27f-43c4-96dc-0f40cd31b9d1",
+    "status": "failed",
+    "error_code": "MODEL_CALL_FAILED",
+    "failure_reason": "provider_rejected",
+    "skill_version_ids": [
+      "skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6"
+    ],
+    "aidt_selector_hash": "1e9cc0003aaabc2969d08022bff05b318cab4bf0188c0875a6b64dcaaf0e12a9",
+    "author_id": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+    "org_role": "admin",
+    "project_role": "owner"
+  },
+  "snapshot": {
+    "selector_json": {
+      "purpose": "stage",
+      "stageId": 2,
+      "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+      "schemaVersion": 1,
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 5
+        }
+      ]
+    },
+    "selector_hash": "1e9cc0003aaabc2969d08022bff05b318cab4bf0188c0875a6b64dcaaf0e12a9",
+    "snapshot_hash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+    "focus": {
+      "title": "共情用户",
+      "skillId": "skill-b1447c1f-9333-4082-acc9-19f58744fd68",
+      "skillVersionId": "skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6",
+      "skillStableName": "aidt-empathize"
+    },
+    "reference_block_hash": "e9527c822d1d11a723ed7676fdc17c5eca5a45de116f04c06c10e4298e73a6f6",
+    "prepared_at": "2026-11-16T14:20:46.742Z"
+  },
+  "applications": [
+    {
+      "seq": "1",
+      "attempt_id": "40539aa6-2732-4661-9665-913013af806d:1",
+      "kind": "assembled",
+      "snapshot_hash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+      "event": {
+        "kind": "assembled",
+        "attemptId": "40539aa6-2732-4661-9665-913013af806d:1",
+        "snapshotHash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+        "formatterVersion": 1,
+        "assembledContextHash": "e9527c822d1d11a723ed7676fdc17c5eca5a45de116f04c06c10e4298e73a6f6"
+      },
+      "occurred_at": "2026-11-16T14:20:46.862Z"
+    },
+    {
+      "seq": "2",
+      "attempt_id": "40539aa6-2732-4661-9665-913013af806d:1",
+      "kind": "message-dispatch-observed",
+      "snapshot_hash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+      "event": {
+        "kind": "message-dispatch-observed",
+        "attemptId": "40539aa6-2732-4661-9665-913013af806d:1",
+        "remoteRunId": "e8a86490-dd67-4920-adb7-b7761c60e067",
+        "snapshotHash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+        "remoteThreadId": "a82e1859-fb9b-47f5-86c2-25d7ce3d3dc7",
+        "formatterVersion": 1,
+        "assembledContextHash": "e9527c822d1d11a723ed7676fdc17c5eca5a45de116f04c06c10e4298e73a6f6"
+      },
+      "occurred_at": "2026-11-16T14:20:48.750Z"
+    },
+    {
+      "seq": "3",
+      "attempt_id": "40539aa6-2732-4661-9665-913013af806d:1",
+      "kind": "failed",
+      "snapshot_hash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+      "event": {
+        "kind": "failed",
+        "attemptId": "40539aa6-2732-4661-9665-913013af806d:1",
+        "errorCode": "AIDT_CONTEXT_UNAVAILABLE",
+        "snapshotHash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a"
+      },
+      "occurred_at": "2026-11-16T14:20:50.442Z"
+    }
+  ],
+  "physicalRequests": [
+    {
+      "id": "47734a22-1318-4fae-b522-5cabe3782bd7",
+      "user_id": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T14:20:48.814Z"
+    },
+    {
+      "id": "a9fcf2c8-e0ed-4bb1-8347-930d85e63ece",
+      "user_id": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T14:20:49.670Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "47734a22-1318-4fae-b522-5cabe3782bd7",
+      "outcome": "failed",
+      "total_source": "unknown",
+      "tokens_total": "0",
+      "tokens_prompt": null,
+      "tokens_completion": null,
+      "request_started_at": "2026-11-16T14:20:48.814Z",
+      "request_ended_at": "2026-11-16T14:20:49.619Z"
+    },
+    {
+      "id": "a9fcf2c8-e0ed-4bb1-8347-930d85e63ece",
+      "outcome": "failed",
+      "total_source": "unknown",
+      "tokens_total": "0",
+      "tokens_prompt": null,
+      "tokens_completion": null,
+      "request_started_at": "2026-11-16T14:20:49.670Z",
+      "request_ended_at": "2026-11-16T14:20:50.360Z"
+    }
+  ],
+  "creditRequests": [
+    {
+      "request_id": "47734a22-1318-4fae-b522-5cabe3782bd7",
+      "state": "pending",
+      "reserved_hundredths": "3412",
+      "debited_hundredths": null,
+      "settled_at": null
+    },
+    {
+      "request_id": "a9fcf2c8-e0ed-4bb1-8347-930d85e63ece",
+      "state": "pending",
+      "reserved_hundredths": "5217",
+      "debited_hundredths": null,
+      "settled_at": null
+    }
+  ],
+  "tokensTotal": 0,
+  "tokensPrompt": 0,
+  "tokensCompletion": 0,
+  "debitedHundredths": 0,
+  "wallet": {
+    "balance": "19981.70",
+    "held_hundredths": "8629",
+    "remaining_held_hundredths": "8629",
+    "unbounded_requests": "0"
+  },
+  "global": {
+    "active_runs": 0,
+    "physical_requests": 4,
+    "usage_receipts": 4,
+    "unsettled_requests": 2,
+    "outstanding_hundredths": "17258",
+    "unbounded_requests": "0"
+  },
+  "oldBudgetSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+  "supplementBudgetSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+  "vendorRequestsSentByAudit": 0,
+  "checks": {
+    "terminalSuccess": false,
+    "singleFocusPin": true,
+    "selectorMarkerMatches": true,
+    "applicationSnapshotMatches": true,
+    "messageDispatchObserved": true,
+    "allPhysicalHaveUsage": true,
+    "allCreditSettled": false,
+    "noOutstanding": false
+  }
+}

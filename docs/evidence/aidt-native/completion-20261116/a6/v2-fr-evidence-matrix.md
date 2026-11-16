@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | 01 | 课程/小组/成员关系，所属组入口，双组隔离，新登录重入 | V2-C1；A2真实课程UI；`fr01-course-entry/course-api-after-filter.json`与`course-final-index.json` | API-only 17项通过；final01三场UI因rewrite缺失失败并保留；修复后最终4bfb产物final02三场真实UI全部通过（15.4秒、0重试/模型），含真实普通成员边界、双组隔离、新登录、归档/分页/离线重试。P3创建项目回执缺provenanceEventId保留；人工H01未签字。 |
 | 02 | 六阶段当前成果、保存状态、返回保留旧成果 | N08双cycle、旧V1/3/4/5/6对比headV8 | 原有范围已真实通过；V2新字段需按小场景再验。 |
-| 03 | 一个引导师按阶段Skill及已保存组上下文追问，学生先输入/决定 | M17 PG22、M18 prepared、M19/M20本次真实S1/S2、A2来源审计 | 本次S1来源组装/派发与学生主题保存/新登录机械链通过，但实际追问3问且基础Agent为echo测试夹具，教学单一追问失败；S2精确S1V2/S2V4真实派发后错误理解为回显，未批准该卡并安全取消，不能计成功。S3–S6/SUM本次未运行。旧drop失败、prepared红/绿与本次真实费用分别保留。 |
+| 03 | 一个引导师按阶段Skill及已保存组上下文追问，学生先输入/决定 | M17 PG22、M18 prepared、M19/M20本次真实S1/S2、A2来源审计 | 本次S1来源组装/派发与学生主题保存/新登录机械链通过，但实际追问3问且基础Agent为echo测试夹具，教学单一追问失败；S2精确S1V2/S2V4真实派发后错误理解为回显，未批准该卡并安全取消，不能计成功。新canonical补S2在唯一send后MODEL_CALL_FAILED，未生成回复/完成学生后续，assembled不等于派发；独立max1已占且停止。S3–S6/SUM本次未运行。旧drop失败、prepared红/绿与本次真实费用分别保留。 |
 | 04 | 想法、讨论结论、选择理由可编辑、共享保存、重进 | CAS原实证；M19学生主题初稿V1→正式V2；M21人工fallbackV5 | 原有CAS/断网/重进通过；本次S1学生实际问题回答、分歧/方向选择/主题重写后保存V2与新登录通过。S2人工自行修订保存V5明确AI未成功，phase历史不改，不算Agent采纳完成。 |
 | 05 | 文字/图片材料上传与来源阶段关联；录音/语音另排 | 原M13/M15；本次M20原件/发现卡；M22独立S6真实TXT/PNG | 既有S2真实上传/字节/来源头/非组员/离线重试已过。本次S6新入口实际上传TXT+合成PNG、原字节/SHA/提交者与时间、decode/共享V1/新登录通过，同org真实consultant非成员404与错project404。S2孤立TXT恢复为真实API GET+stage PUT fallback，非全程UI恢复；未重POST。录音/转写后置。 |
 | 06 | 原始证据/学生解释/AI推测分开，洞察关联或待验证 | V2-E1/FR16发现卡与历史来源 | 图片/原件引用、原话逐字、学生解释与独立AI推测字段的真实保存回读通过；文本/卡片关联历史此前通过。推测字段是明确合成夹具，不声称本场调用了模型或做过真实访谈。 |
@@ -92,3 +92,11 @@ S1同run恢复 [实际证据](./v2-s1-existing-run-machine.json) 仅证明原机
 本次QA单元31项通过（含独立S1账、跨进程拒重复、同组状态、只接受fresh唯一零sendproof与严格selector/receipt），owned TypeScript/ESLint与用例发现通过；这些不是收费场景通过。人工验收手册H01–H15结果与签字全部保持空白。
 
 本轮后续配置修复：私有测试实例已追加canonical默认指令版本，原echo版本及旧run/消息/来源/权限/资金不变；A1独立15组数据与两账hash核对通过，模型新增0。普通发布API的legacy定义缺口没有绕成已验收；S2仍需修复后真实补测。见[修复证据](../../context-bridge-20261116/a5/fixture-canonical-repair.md)。
+
+### 新增S2补测：唯一实际请求失败
+
+用户批准新增独立max1额度；原prepared审批前文档不改写。实际[执行与边界](./real-completion-20261116/s2-supplement-execution.md)、[唯一请求附件](./real-completion-20261116/s2-supplement-attempt02-attachments.json)、[执行源与旧账hash](./real-completion-20261116/s2-supplement-attempt02-execution.json)分别保留。
+
+首次补测浏览器在picker断言模型前失败，A1证明0send/0新run/新账未建；零SDK诊断与QA守门后，只复用同空线程首send，不另建。2026-11-16 14:20:46实际run `40539aa6-2732-4661-9665-913013af806d`，终态failed/MODEL_CALL_FAILED，测试6.9秒退出1。浏览器selector精确S1V2/S2V5、approved S2 pin，独立receipt仅assembled，无dispatch观察；供应商实际调用/费用须另由A1核，未核前不写0。新max1的failed/unknown仍占额度，旧两账不变；无学生新save/freshlogin、无completionKind，原s2及supplemental仍attempting，S3未解锁。正确阶段追问、教学质量及完整S1–6/SUM均不得称通过。
+
+A1随后独立DB证明同run晚到原生dispatch观察及新remote隔离；当时browser只读到早期assembled，不覆写原附件。实际2 physical / 2 failed usage，tokens当前记录0；2笔credit仍pending、8629 hundredths占款未解决，不能声称0费用/结清。窗口已正常关闭agent0，未新send。见[最终机器索引](./real-completion-20261116/s2-supplement-attempt02-machine.json)。

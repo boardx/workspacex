@@ -1,0 +1,31 @@
+{
+  "at": "2026-11-16T14:39:35.100Z",
+  "api": {
+    "pid": 341838,
+    "startTicks": 5013559,
+    "stopped": true,
+    "signal": "SIGTERM"
+  },
+  "restoreOwner": {
+    "pid": 319571,
+    "startTicks": 4873149,
+    "signal": "SIGINT"
+  },
+  "noManualProcessGroupKill": true,
+  "financeBeforeStop": {
+    "active": 0,
+    "physical": 4,
+    "usage": 4,
+    "credit": 4,
+    "pending": 2,
+    "held": "8629",
+    "remaining_held": "8629"
+  },
+  "financialRecordsModified": false,
+  "postFailureDiagnosticVerified": true,
+  "restoreOwnerInitiatedModelRequests": 0,
+  "externalBrowserLogicalTasksThisRound": 1,
+  "physicalRequestsThisRound": 2,
+  "usageThisRound": "failed-unknown",
+  "pendingThisRound": 2
+}

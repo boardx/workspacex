@@ -42,6 +42,33 @@
 
 若未来决定改变Skill持久规则，需另一个明确发布坐标与新的文件/包digest；`build-aidt-methods-pack.ts:31–35`禁止改写已有release，服务器`approved-packs.ts`只认固定allowlist。更新来源MD而覆盖1.3.0 JSON、只换digest不换版本，或静默把现有thread升级，都不合法。仅改UI未被消费的描述也不能算模型表现已修。当前没有修改已签包、注册表、allowlist、产品源码或运行数据。
 
+## S2：新增一次补测的实际失败（不替换原失败）
+
+原S2 `8a4188ab-7fa9-4b7c-a56f-ec059b0e290e` 的echo任务误识、未批准的意图卡与最终cancelled结果继续保留；其旧费用、旧线程和旧账记录不因本节改变。这里记录的是用户另批一次补测后的新事实。
+
+实际来源：[attempt02执行记录](../a6/real-completion-20261116/s2-supplement-attempt02-execution.json)、[actual wire/来源回执/失败附件](../a6/real-completion-20261116/s2-supplement-attempt02-attachments.json)、[picker零模型诊断](../a6/real-completion-20261116/s2-supplement-picker-zero-model.json)。新线程为`thr-0a23a022-c27f-43c4-96dc-0f40cd31b9d1`；本次唯一send产生真实run `40539aa6-2732-4661-9665-913013af806d`，实际终态失败，`NATIVE_RUN_FAILED_MODEL_CALL_FAILED`；执行退出1，`automaticNewSendRetry:false`。
+
+| 层级 | 本次实际材料能证明什么 | 不能据此填写的结果 |
+| --- | --- | --- |
+| picker前置 | 零SDK诊断中真实目录GET200，正常选择后`auto-match:false`、popover关闭，`nativeRequests:[]`；本次attempt02随后走到唯一native send。 | 不代表引导师回复/教学通过；原picker首次红仍保留，未由本诊断确定产品竞态根因。 |
+| 基础角色准备 | pre-send proof及普通能力图核到新canonical published指针，与已审阅夹具digest一致。 | 这只是前置证据；本失败附件没有成功turn的actual agentVersion核验，精确失败run版本/提供方原因由A1/A2独立审计，不从指针猜模型已消费。 |
+| 范围、来源与组装 | selector精确为S1 V2+S2 V5，固定S2 pin `skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6`；真实snapshotHash `326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a`；所捕获的`frozenReceipt.application`为`assembled`，prepared/assembled时间非空，`truncated:false`。 | `messageDispatchedAt:null`、checkpoint时间为空，这份附件没有来源派发事实，不能写模型已收到/已消费材料；最终journal另待独立审计。也不能从缺派发回执推断供应商物理请求数或费用为0，计量等A1实际账。 |
+| 回复与任务意图 | 此次actualfailure附件没有`assistantText`或成功持久reply，`intentChoices:[]`；A6报告无assistant/HITL。 | 没有可审阅的真实追问或意图文本；不能从`MODEL_CALL_FAILED`合成一条教学反馈，也不能判本次是一问/多问、echo已消除或canonical教学质量通过。 |
+| 学生后续与保存 | 测试在唯一native helper的failed分支停止，未到本次回复后的学生修订、共享保存及新登录回读；未写完成S2 predecessor。此前人工fallback S2 V5仍是既有材料。 | 不能把前期V5人工稿或S1回读标为本次“学生看完AI后决定并保存”；也不声称项目此前从未有保存。 |
+| 旧记录与预算 | 执行记录显示legacy/S1两旧budget hash前后相同；本次slot已reserved/send/run出现，新独立账保留失败占位。 | 不能把失败当成未用额度自动重发或退额；旧费用结算、远端checkpoint和关窗计量由A1实际独立记录，本文不补造。 |
+
+**本次结论：前置选择与来源组装走通，模型运行失败；教学内容不可评价，学生回复后决定/保存/新登录未完成，S2补测不通过。** 未从error生成替代教学内容，未改原S1或旧S2实际结果，未重发模型。按当前约定暂停其余5个原生任务及2个Design任务；后续是否继续由新的明确协调决定，不能把此处当执行授权。
+
+### S2：晚到的实际journal独立核对（保留早期快照）
+
+已实际读取A2的[新失败run审计报告](../a2/s2-supplement-audit-20261116/actual-failed-run-report.json)与[退出0日志](../a2/s2-supplement-audit-20261116/actual-failed-run.log)，不是同目录的旧S1 baseline。审计时间为`2026-11-16T14:22:33.752Z`，目标仍为新失败run `40539aa6-2732-4661-9665-913013af806d`。本段补足前表当时尚待核验的来源与派发项；**不回写或替换A6早期的assembled浏览器快照**。
+
+- DB journal seq2在`2026-11-16T14:20:48.750Z`真实记录`message-dispatch-observed`；snapshotHash仍为`326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a`，实际提交观察的blockHash为`e9527c822d1d11a723ed7676fdc17c5eca5a45de116f04c06c10e4298e73a6f6`，均与冻结来源一致。其后seq3在`14:20:50.442Z`记录failed，运行终态仍为failed。较早浏览器只捕获assembled与后来journal出现提交事实并不矛盾。
+- actual run使用canonical Agent版本`agent-version-fixture-428d072b-cf41-465b-86f7-6b02fe39136f`；唯一focus为`aidt-empathize`的`skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6`，完整包匹配`aidt-methods@1.3.0`。S1 V2与S2 V5的精确已保存投影匹配冻结摘录，均未截断；这不是只核pre-send发布指针。
+- 实际新local线程、journal观察到的remote线程命名空间与remote run均与旧S2记录分离，`resumeObservationCount:0`。这证明此次观察范围内没有沿用旧resume；未读取或宣称掌握LangGraph完整checkpoint正文。旧run、旧6条消息、snapshot/application子集及旧不可变版本hash仍匹配。
+- **该事实仅为向原生服务提交消息的观察，不证明供应商内部已收到、实际模型推理成功或正确消费了教学材料。** A2报告明确`supplierConsumptionProvenByAudit:false`；`modelRequestsSent:0/dataWrites:0`仅指其只读审计动作，不能当作本次模型运行零费用。
+- 仍没有可审阅assistant回复或学生后续保存/新登录，教学内容不可评价、S2不通过及其余任务暂停的结论不变。费用/用量与未决占款继续以A1最终安全计量为准，当前不能标零费用或已结算，不能因失败自动补发。
+
 ## 后续实际产物
 
-S2–S6及SUM：等待实际运行结果。未收到的阶段不填通过、不从脚本内容预测模型表现。SUM到达后将另外核对旧S6返回记录、当前六步来源、无点评/原件字节缺口、报告主动导入保存与真实导出字节。
+S2新增补测已记录上述失败，没有教学回复可审；S3–S6及SUM仍没有本轮实际内容，不填通过、不从脚本预测模型表现。SUM如经另行明确协调执行并产出，才继续核对旧S6返回记录、当前六步来源、无点评/原件字节缺口、报告主动导入保存与真实导出字节。

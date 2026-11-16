@@ -38,8 +38,7 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G blocked
-  %% blocked G: S2真实旧任务取消且已计费；canonical修复、零模型恢复与补测源代码完成，新一次S2额度仍待用户授权；后续5次原生与2次Design未运行
+  class G doing
   class E tested
   %% evidence E: 本轮用户批准新增S1一次与Design两任务；init日志/tmp/aidt-paid-init-20261116.log实际exit0；旧预算hash未变
   class C tested
@@ -47,14 +46,13 @@ flowchart TD
   class U1 tested
   %% evidence U1: 真实Playwright S1 attempt02 1passed18.7s；run68880459-6de1-43a8-a909-0a969f03a7a8实际message-dispatch-observed，学生重写/保存与freshlogin；attempt01仅grep0测试失败保留
   class U2 blocked
-  %% blocked U2: 真实S2已消费1请求，被测试夹具echo基础指令误导，已取消并保留费用；不修改旧run/账本，修fixture后重验需单独新增S2额度。后续原5额度未动。
+  %% blocked U2: 新增一次S2 actualrun40539aa6 MODEL_CALL_FAILED；独立预算1/1已占、按约定停止不重发；来源精确与隔离审计过但无回复/学生新保存。2physical失败、pending2预留86.29测试credits，用量未知；执行器已关闭，不改账，连接原因诊断中
   class U3 todo
   class U4 todo
   class P todo
   class U6 todo
   class R todo
-  class V tested
-  %% evidence V: 唯一检查点实际恢复及正常GET通过后清理；源码ZIP v6/PDF v5同身份保存成功，27页中文字体/空页/越界检查及Library首页/末页回读通过；全部失败保留，完整模型链仍U2阻塞
+  class V doing
   class F tested
   %% evidence F: ec5ff2e9d新构建真实Playwright两场2passed10.1s：采纳清单实际PDF字节/文字/字体/视觉，新S6真实TXT与PNG上传回读、保存重登、同org非成员与错project404；A4相关52单测及全WebTS0。
 ```

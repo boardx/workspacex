@@ -1,0 +1,403 @@
+TAP version 13
+# Subtest: all three caller-supplied trusted CA fields survive byte for byte
+not ok 1 - all three caller-supplied trusted CA fields survive byte for byte
+  ---
+  duration_ms: 2.469955
+  type: 'test'
+  location: '/workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-network-env.test.mjs:8:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    SSL_CERT_FILE
+    + actual - expected
+    
+    + undefined
+    - '/caller/python.pem'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: '/caller/python.pem'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-network-env.test.mjs:10:59)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: NO_PROXY and no_proxy retain supplied casing, whitespace and explicit empty values without precedence changes
+not ok 2 - NO_PROXY and no_proxy retain supplied casing, whitespace and explicit empty values without precedence changes
+  ---
+  duration_ms: 0.451073
+  type: 'test'
+  location: '/workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-network-env.test.mjs:12:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + '127.0.0.1,localhost'
+    - ' .internal,localhost,, '
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ' .internal,localhost,, '
+  actual: '127.0.0.1,localhost'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-network-env.test.mjs:14:109)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: absent exclusions keep existing localhost defaults and all proxy spellings remain independently exact
+ok 3 - absent exclusions keep existing localhost defaults and all proxy spellings remain independently exact
+  ---
+  duration_ms: 0.760795
+  type: 'test'
+  ...
+# Subtest: model/deployment data cannot override caller networking, inject CA paths or disable TLS
+not ok 4 - model/deployment data cannot override caller networking, inject CA paths or disable TLS
+  ---
+  duration_ms: 0.258195
+  type: 'test'
+  location: '/workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-network-env.test.mjs:23:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + '127.0.0.1,localhost'
+    - 'trusted.internal'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'trusted.internal'
+  actual: '127.0.0.1,localhost'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-network-env.test.mjs:26:114)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: both actual QA launcher stages use the shared preparation without later NO_PROXY replacement or input mutation
+not ok 5 - both actual QA launcher stages use the shared preparation without later NO_PROXY replacement or input mutation
+  ---
+  duration_ms: 1.603291
+  type: 'test'
+  location: '/workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-network-env.test.mjs:31:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /trustedNetworkEnvironment\(process\.env\)/. Input:
+    
+    '// Explicit, isolated developer acceptance stack. Never used by aidt:local.\n' +
+      "import { spawn } from 'node:child_process';\n" +
+      "import { mkdirSync, openSync, writeFileSync, readFileSync, existsSync } from 'node:fs';\n" +
+      "import { resolve, join, dirname } from 'node:path';\n" +
+      "import { pathToFileURL } from 'node:url';\n" +
+      '\n' +
+      "const root = resolve(import.meta.dirname, '..');\n" +
+      'const work = process.env.REAL_MODEL_E2E_WORK_DIR;\n' +
+      "const webMode = process.env.REAL_MODEL_E2E_WEB_MODE ?? 'dev';\n" +
+      "if (!['dev', 'build-start', 'reuse-start'].includes(webMode)) throw new Error('Unsupported acceptance Web mode.');\n" +
+      "if (!work || process.env.WORKSPACEX_REAL_MODEL_DEV_OPT_IN !== '1' || !process.env.WORKSPACEX_ISOLATION_ID || process.env.WORKSPACEX_MODEL_ENV_ONLY !== '1') {\n" +
+      "  throw new Error('Use the explicit safe model configuration --stack entry with test isolation.');\n" +
+      '}\n' +
+      'mkdirSync(work, { recursive: true, mode: 0o700 });\n' +
+      "mkdirSync(join(work, 'docker'), { recursive: true, mode: 0o700 });\n" +
+      'const api = `http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;\n' +
+      'const web = `http://127.0.0.1:${process.env.WORKSPACEX_WEB_PORT}`;\n' +
+      'const restoreReceipt = process.env.REAL_MODEL_E2E_RESTORE_RECEIPT;\n' +
+      'let FULLSTACK_E2E;\n' +
+      'let restored;\n' +
+      'if (restoreReceipt) {\n' +
+      "  const { verifyRestoredReceipt } = await import('./lib/aidt-checkpoint-restored-db.mjs');\n" +
+      '  restored = await verifyRestoredReceipt(root, restoreReceipt);\n' +
+      '  FULLSTACK_E2E = restored.fixture;\n' +
+      '} else {\n' +
+      "  if (webMode === 'reuse-start') throw new Error('Reusing a build requires a verified private restore receipt.');\n" +
+      "  ({ FULLSTACK_E2E } = await import(pathToFileURL(join(root, 'apps/web/e2e/fullstack-smoke-fixture.ts'))));\n" +
+      '}\n' +
+      'const baseEnv = {\n' +
+      '  ...process.env,\n' +
+      "  DOCKER_CONFIG: join(work, 'docker'),\n" +
+      "  REAL_MODEL_E2E_REUSE_IMAGES: '1',\n" +
+      "  REAL_MODEL_E2E_USAGE_SPOOL_DIR: join(work, 'usage-spool'),\n" +
+      "  REAL_MODEL_E2E_PYTHON_PRELOAD_DIR: join(root, 'scripts/real-model-python'),\n" +
+      "  NO_PROXY: [process.env.NO_PROXY, '127.0.0.1', 'localhost'].filter(Boolean).join(','),\n" +
+      "  ENABLE_AIDT_MODULE: '1', ENABLE_PROJECT_MEMBER_CHAT: '1',\n" +
+      "  // Paid AIDT evidence must use the product's canonical default assistant, never the loopback echo oracle.\n" +
+      "  FULLSTACK_E2E_AGENT_INSTRUCTIONS_PROFILE: 'canonical-default',\n" +
+      "  KERNEL_SKIP_LOCAL_ENV_FILE: '1',\n" +
+      "  NEXT_PUBLIC_ENABLE_AIDT: '1', NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: '1',\n" +
+      '  FULLSTACK_E2E_COLLABORATION_PROJECT_ID: FULLSTACK_E2E.collaborationFixtureProjectId,\n' +
+      "  KERNEL_MODEL_MAX_OUTPUT_TOKENS: '2048',\n" +
+      '  KERNEL_MODEL_THINKING_DISABLE_IDS: process.env.DASHSCOPE_MODEL,\n' +
+      '  KERNEL_MODEL_VISION_IDS: process.env.DASHSCOPE_MODEL,\n' +
+      '  KERNEL_DEFAULT_AGENT_MODEL_ID: process.env.DASHSCOPE_MODEL,\n' +
+      '  // The native provider requires authenticated per-request accounting callbacks.\n' +
+      "  // This is our isolated API, never the uploaded deployment's callback address.\n" +
+      '  KERNEL_SUBTASK_CALLBACK_BASE_URL: api,\n' +
+      "  NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require=${JSON.stringify(join(root, 'scripts/real-model-proxy-preload.cjs'))}`].filter(Boolean).join(' '),\n" +
+      '};\n' +
+      'const children = [];\n' +
+      'const launchFailures = new WeakSet();\n' +
+      'let stopping = false;\n' +
+      'let ready = false;\n' +
+      "const log = name => openSync(join(work, name), 'a', 0o600);\n" +
+      'function start(command, args, options) {\n' +
+      '  const child = spawn(command, args, { ...options, detached: true });\n' +
+      "  child.once('error', () => launchFailures.add(child));\n" +
+      '  children.push(child);\n' +
+      '  return child;\n' +
+      '}\n' +
+      'async function stop() {\n' +
+      '  if (stopping) return;\n' +
+      '  stopping = true;\n' +
+      "  writeFileSync(join(work, 'status.json'), JSON.stringify({ ready: false, stopped: true, api, web }, null, 2));\n" +
+      "  for (const child of children.reverse()) try { process.kill(-child.pid, 'SIGTERM'); } catch {}\n" +
+      '  // e2e-up owns children with PID files; verify they were created in our private dir.\n' +
+      "  for (const name of ['api', 'sandbox', 'deep-agent']) {\n" +
+      '    const p = join(work, `e2e-${name}.pid`);\n' +
+      "    if (existsSync(p)) try { process.kill(Number(readFileSync(p, 'utf8').trim()), 'SIGTERM'); } catch {}\n" +
+      '  }\n' +
+      "  const down = spawn('docker', ['compose', '-f', 'apps/api/docker-compose.dev.yml', '-p', process.env.COMPOSE_PROJECT_NAME, 'down', '-v', '--remove-orphans'], { cwd: root, env: baseEnv, stdio: 'ignore' });\n" +
+      "  await new Promise(resolve => down.once('exit', resolve));\n" +
+      '}\n' +
+      "process.on('SIGTERM', () => void stop().then(() => process.exit(0)));\n" +
+      "process.on('SIGINT', () => void stop().then(() => process.exit(0)));\n" +
+      'async function wait(url, child, timeout = 300_000) {\n' +
+      '  const start = Date.now();\n' +
+      '  while (Date.now() - start < timeout) {\n' +
+      "    if (launchFailures.has(child) || child.exitCode !== null || child.signalCode !== null) throw new Error('Acceptance child exited before readiness; inspect private local logs.');\n" +
+      '    try { const r = await fetch(url, { signal: AbortSignal.timeout(1500) }); if (r.ok) return; } catch {}\n' +
+      '    await new Promise(resolve => setTimeout(resolve, 1000));\n' +
+      '  }\n' +
+      "  throw new Error('Acceptance service readiness timed out; inspect private local logs.');\n" +
+      '}\n' +
+      'try {\n' +
+      '  const offlineEnv = {\n' +
+      '    ...baseEnv,\n' +
+      "    PYTHONPATH: [baseEnv.REAL_MODEL_E2E_PYTHON_PRELOAD_DIR, join(root, 'apps/deep-agent-service/src')].join(':'),\n" +
+      '    KERNEL_MODEL_BASE_URL: process.env.DASHSCOPE_BASE_URL,\n' +
+      '    KERNEL_MODEL_API_KEY: process.env.DASHSCOPE_API_KEY,\n' +
+      '    KERNEL_DEEP_AGENT_MODEL_ID: process.env.DASHSCOPE_MODEL,\n' +
+      '    DEEP_AGENT_USAGE_SPOOL_DIR: baseEnv.REAL_MODEL_E2E_USAGE_SPOOL_DIR,\n' +
+      '    DEEP_AGENT_USAGE_CALLBACK_BASE_URL: api,\n' +
+      "    DEEP_AGENT_SERVICE_INTERNAL_KEY: process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY || 'e2e-internal-key-not-a-secret',\n" +
+      '  };\n' +
+      "  const offline = start(join(dirname(process.env.REAL_MODEL_E2E_UVICORN), 'python'), [join(root, 'scripts/real-model-python/doctor.py')], { cwd: root, env: offlineEnv, stdio: ['ignore', log('runtime-offline-preflight.log'), log('runtime-offline-preflight.log')] });\n" +
+      "  const offlineCode = await new Promise(resolve => { offline.once('exit', resolve); offline.once('error', () => resolve(1)); });\n" +
+      '  children.splice(children.indexOf(offline), 1);\n' +
+      "  if (offlineCode !== 0) throw new Error('Offline native accounting/model construction preflight failed.');\n" +
+      "  const stack = start('bash', ['e2e-up.sh'], { cwd: root, env: baseEnv, stdio: ['ignore', log('stack.log'), log('stack.log')] });\n" +
+      '  await wait(`${api}/healthz`, stack);\n' +
+      '  // Fixture identity from the same single source that the real-model lane uses.\n' +
+      '  const privateRuntime = {\n' +
+      '    apiOrigin: api, baseURL: web,\n' +
+      '    email: FULLSTACK_E2E.email, password: FULLSTACK_E2E.password,\n' +
+      '    leadEmail: FULLSTACK_E2E.leadEmail, leadPassword: FULLSTACK_E2E.leadPassword,\n' +
+      '    fundedAdminEmail: FULLSTACK_E2E.adminEmail, fundedAdminPassword: FULLSTACK_E2E.adminPassword,\n' +
+      '    orgId: FULLSTACK_E2E.orgId, userId: FULLSTACK_E2E.userId,\n' +
+      "    isolation: Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('WORKSPACEX_') && !key.includes('ENV_FILE'))),\n" +
+      '    composeProject: process.env.COMPOSE_PROJECT_NAME,\n' +
+      '  };\n' +
+      "  writeFileSync(join(work, 'runtime-private.json'), JSON.stringify(privateRuntime, null, 2), { mode: 0o600 });\n" +
+      '  const webEnv = {\n' +
+      '    ...baseEnv, NEXT_PUBLIC_API_URL: web,\n' +
+      "    NEXT_PUBLIC_API_PATH_PREFIX: '/__fullstack_api', NEXT_PUBLIC_API_WS_URL: api,\n" +
+      "    FULLSTACK_E2E_API_ORIGIN: api, NEXT_DIST_DIR: restored ? restored.plan.buildReceipt.dist : '.next-aidt-real-model',\n" +
+      "    NEXT_FONT_GOOGLE_MOCKED_RESPONSES: join(root, 'apps/web/e2e/support/google-fonts-mock.cjs'),\n" +
+      "    ...(webMode !== 'dev' ? {\n" +
+      "      WORKSPACEX_RELEASE_BUILD: '1', NEXT_TELEMETRY_DISABLED: '1',\n" +
+      '      NODE_OPTIONS: `${baseEnv.NODE_OPTIONS} --max-old-space-size=4096`,\n' +
+      '    } : {}),\n' +
+      '  };\n' +
+      "  if (webMode === 'build-start') {\n" +
+      "    writeFileSync(join(work, 'status.json'), JSON.stringify({ ready: false, phase: 'building', api, web, webMode }, null, 2));\n" +
+      "    const build = start('pnpm', ['--filter', 'web', 'exec', 'next', 'build'], { cwd: root, env: webEnv, stdio: ['ignore', log('web-build.log'), log('web-build.log')] });\n" +
+      "    const code = await new Promise(resolve => { build.once('exit', resolve); build.once('error', () => resolve(1)); });\n" +
+      '    children.splice(children.indexOf(build), 1);\n' +
+      "    if (code !== 0) throw new Error('Acceptance Web build failed; inspect private build log.');\n" +
+      '  }\n' +
+      "  const server = start('pnpm', ['--filter', 'web', 'exec', 'next', webMode === 'dev' ? 'dev' : 'start', '--hostname', '127.0.0.1', '-p', process.env.WORKSPACEX_WEB_PORT], { cwd: root, env: webEnv, stdio: ['ignore', log('web.log'), log('web.log')] });\n" +
+      '  await wait(`${web}/login`, server);\n' +
+      '  ready = true;\n' +
+      "  writeFileSync(join(work, 'status.json'), JSON.stringify({ ready, api, web, webMode, nativeDeepAgent: true, realProviderConfigured: true, modelAcceptance: 'pending', pid: process.pid }, null, 2));\n" +
+      "  console.log(JSON.stringify({ ready, api, web, runtimeFile: join(work, 'runtime-private.json'), modelAcceptance: 'pending' }));\n" +
+      "  await new Promise((resolve, reject) => { for (const child of children) child.once('exit', () => stopping ? resolve() : reject(new Error('Acceptance child exited.'))); });\n" +
+      '} catch (error) {\n' +
+      "  console.error('[real-model-stack] Failed; inspect private logs. No configuration values emitted.');\n" +
+      '  process.exitCode = 1;\n' +
+      '} finally { if (!stopping) await stop(); }\n'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    // Explicit, isolated developer acceptance stack. Never used by aidt:local.
+    import { spawn } from 'node:child_process';
+    import { mkdirSync, openSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+    import { resolve, join, dirname } from 'node:path';
+    import { pathToFileURL } from 'node:url';
+    
+    const root = resolve(import.meta.dirname, '..');
+    const work = process.env.REAL_MODEL_E2E_WORK_DIR;
+    const webMode = process.env.REAL_MODEL_E2E_WEB_MODE ?? 'dev';
+    if (!['dev', 'build-start', 'reuse-start'].includes(webMode)) throw new Error('Unsupported acceptance Web mode.');
+    if (!work || process.env.WORKSPACEX_REAL_MODEL_DEV_OPT_IN !== '1' || !process.env.WORKSPACEX_ISOLATION_ID || process.env.WORKSPACEX_MODEL_ENV_ONLY !== '1') {
+      throw new Error('Use the explicit safe model configuration --stack entry with test isolation.');
+    }
+    mkdirSync(work, { recursive: true, mode: 0o700 });
+    mkdirSync(join(work, 'docker'), { recursive: true, mode: 0o700 });
+    const api = `http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
+    const web = `http://127.0.0.1:${process.env.WORKSPACEX_WEB_PORT}`;
+    const restoreReceipt = process.env.REAL_MODEL_E2E_RESTORE_RECEIPT;
+    let FULLSTACK_E2E;
+    let restored;
+    if (restoreReceipt) {
+      const { verifyRestoredReceipt } = await import('./lib/aidt-checkpoint-restored-db.mjs');
+      restored = await verifyRestoredReceipt(root, restoreReceipt);
+      FULLSTACK_E2E = restored.fixture;
+    } else {
+      if (webMode === 'reuse-start') throw new Error('Reusing a build requires a verified private restore receipt.');
+      ({ FULLSTACK_E2E } = await import(pathToFileURL(join(root, 'apps/web/e2e/fullstack-smoke-fixture.ts'))));
+    }
+    const baseEnv = {
+      ...process.env,
+      DOCKER_CONFIG: join(work, 'docker'),
+      REAL_MODEL_E2E_REUSE_IMAGES: '1',
+      REAL_MODEL_E2E_USAGE_SPOOL_DIR: join(work, 'usage-spool'),
+      REAL_MODEL_E2E_PYTHON_PRELOAD_DIR: join(root, 'scripts/real-model-python'),
+      NO_PROXY: [process.env.NO_PROXY, '127.0.0.1', 'localhost'].filter(Boolean).join(','),
+      ENABLE_AIDT_MODULE: '1', ENABLE_PROJECT_MEMBER_CHAT: '1',
+      // Paid AIDT evidence must use the product's canonical default assistant, never the loopback echo oracle.
+      FULLSTACK_E2E_AGENT_INSTRUCTIONS_PROFILE: 'canonical-default',
+      KERNEL_SKIP_LOCAL_ENV_FILE: '1',
+      NEXT_PUBLIC_ENABLE_AIDT: '1', NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: '1',
+      FULLSTACK_E2E_COLLABORATION_PROJECT_ID: FULLSTACK_E2E.collaborationFixtureProjectId,
+      KERNEL_MODEL_MAX_OUTPUT_TOKENS: '2048',
+      KERNEL_MODEL_THINKING_DISABLE_IDS: process.env.DASHSCOPE_MODEL,
+      KERNEL_MODEL_VISION_IDS: process.env.DASHSCOPE_MODEL,
+      KERNEL_DEFAULT_AGENT_MODEL_ID: process.env.DASHSCOPE_MODEL,
+      // The native provider requires authenticated per-request accounting callbacks.
+      // This is our isolated API, never the uploaded deployment's callback address.
+      KERNEL_SUBTASK_CALLBACK_BASE_URL: api,
+      NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require=${JSON.stringify(join(root, 'scripts/real-model-proxy-preload.cjs'))}`].filter(Boolean).join(' '),
+    };
+    const children = [];
+    const launchFailures = new WeakSet();
+    let stopping = false;
+    let ready = false;
+    const log = name => openSync(join(work, name), 'a', 0o600);
+    function start(command, args, options) {
+      const child = spawn(command, args, { ...options, detached: true });
+      child.once('error', () => launchFailures.add(child));
+      children.push(child);
+      return child;
+    }
+    async function stop() {
+      if (stopping) return;
+      stopping = true;
+      writeFileSync(join(work, 'status.json'), JSON.stringify({ ready: false, stopped: true, api, web }, null, 2));
+      for (const child of children.reverse()) try { process.kill(-child.pid, 'SIGTERM'); } catch {}
+      // e2e-up owns children with PID files; verify they were created in our private dir.
+      for (const name of ['api', 'sandbox', 'deep-agent']) {
+        const p = join(work, `e2e-${name}.pid`);
+        if (existsSync(p)) try { process.kill(Number(readFileSync(p, 'utf8').trim()), 'SIGTERM'); } catch {}
+      }
+      const down = spawn('docker', ['compose', '-f', 'apps/api/docker-compose.dev.yml', '-p', process.env.COMPOSE_PROJECT_NAME, 'down', '-v', '--remove-orphans'], { cwd: root, env: baseEnv, stdio: 'ignore' });
+      await new Promise(resolve => down.once('exit', resolve));
+    }
+    process.on('SIGTERM', () => void stop().then(() => process.exit(0)));
+    process.on('SIGINT', () => void stop().then(() => process.exit(0)));
+    async function wait(url, child, timeout = 300_000) {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        if (launchFailures.has(child) || child.exitCode !== null || child.signalCode !== null) throw new Error('Acceptance child exited before readiness; inspect private local logs.');
+        try { const r = await fetch(url, { signal: AbortSignal.timeout(1500) }); if (r.ok) return; } catch {}
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      throw new Error('Acceptance service readiness timed out; inspect private local logs.');
+    }
+    try {
+      const offlineEnv = {
+        ...baseEnv,
+        PYTHONPATH: [baseEnv.REAL_MODEL_E2E_PYTHON_PRELOAD_DIR, join(root, 'apps/deep-agent-service/src')].join(':'),
+        KERNEL_MODEL_BASE_URL: process.env.DASHSCOPE_BASE_URL,
+        KERNEL_MODEL_API_KEY: process.env.DASHSCOPE_API_KEY,
+        KERNEL_DEEP_AGENT_MODEL_ID: process.env.DASHSCOPE_MODEL,
+        DEEP_AGENT_USAGE_SPOOL_DIR: baseEnv.REAL_MODEL_E2E_USAGE_SPOOL_DIR,
+        DEEP_AGENT_USAGE_CALLBACK_BASE_URL: api,
+        DEEP_AGENT_SERVICE_INTERNAL_KEY: process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY || 'e2e-internal-key-not-a-secret',
+      };
+      const offline = start(join(dirname(process.env.REAL_MODEL_E2E_UVICORN), 'python'), [join(root, 'scripts/real-model-python/doctor.py')], { cwd: root, env: offlineEnv, stdio: ['ignore', log('runtime-offline-preflight.log'), log('runtime-offline-preflight.log')] });
+      const offlineCode = await new Promise(resolve => { offline.once('exit', resolve); offline.once('error', () => resolve(1)); });
+      children.splice(children.indexOf(offline), 1);
+      if (offlineCode !== 0) throw new Error('Offline native accounting/model construction preflight failed.');
+      const stack = start('bash', ['e2e-up.sh'], { cwd: root, env: baseEnv, stdio: ['ignore', log('stack.log'), log('stack.log')] });
+      await wait(`${api}/healthz`, stack);
+      // Fixture identity from the same single source that the real-model lane uses.
+      const privateRuntime = {
+        apiOrigin: api, baseURL: web,
+        email: FULLSTACK_E2E.email, password: FULLSTACK_E2E.password,
+        leadEmail: FULLSTACK_E2E.leadEmail, leadPassword: FULLSTACK_E2E.leadPassword,
+        fundedAdminEmail: FULLSTACK_E2E.adminEmail, fundedAdminPassword: FULLSTACK_E2E.adminPassword,
+        orgId: FULLSTACK_E2E.orgId, userId: FULLSTACK_E2E.userId,
+        isolation: Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('WORKSPACEX_') && !key.includes('ENV_FILE'))),
+        composeProject: process.env.COMPOSE_PROJECT_NAME,
+      };
+      writeFileSync(join(work, 'runtime-private.json'), JSON.stringify(privateRuntime, null, 2), { mode: 0o600 });
+      const webEnv = {
+        ...baseEnv, NEXT_PUBLIC_API_URL: web,
+        NEXT_PUBLIC_API_PATH_PREFIX: '/__fullstack_api', NEXT_PUBLIC_API_WS_URL: api,
+        FULLSTACK_E2E_API_ORIGIN: api, NEXT_DIST_DIR: restored ? restored.plan.buildReceipt.dist : '.next-aidt-real-model',
+        NEXT_FONT_GOOGLE_MOCKED_RESPONSES: join(root, 'apps/web/e2e/support/google-fonts-mock.cjs'),
+        ...(webMode !== 'dev' ? {
+          WORKSPACEX_RELEASE_BUILD: '1', NEXT_TELEMETRY_DISABLED: '1',
+          NODE_OPTIONS: `${baseEnv.NODE_OPTIONS} --max-old-space-size=4096`,
+        } : {}),
+      };
+      if (webMode === 'build-start') {
+        writeFileSync(join(work, 'status.json'), JSON.stringify({ ready: false, phase: 'building', api, web, webMode }, null, 2));
+        const build = start('pnpm', ['--filter', 'web', 'exec', 'next', 'build'], { cwd: root, env: webEnv, stdio: ['ignore', log('web-build.log'), log('web-build.log')] });
+        const code = await new Promise(resolve => { build.once('exit', resolve); build.once('error', () => resolve(1)); });
+        children.splice(children.indexOf(build), 1);
+        if (code !== 0) throw new Error('Acceptance Web build failed; inspect private build log.');
+      }
+      const server = start('pnpm', ['--filter', 'web', 'exec', 'next', webMode === 'dev' ? 'dev' : 'start', '--hostname', '127.0.0.1', '-p', process.env.WORKSPACEX_WEB_PORT], { cwd: root, env: webEnv, stdio: ['ignore', log('web.log'), log('web.log')] });
+      await wait(`${web}/login`, server);
+      ready = true;
+      writeFileSync(join(work, 'status.json'), JSON.stringify({ ready, api, web, webMode, nativeDeepAgent: true, realProviderConfigured: true, modelAcceptance: 'pending', pid: process.pid }, null, 2));
+      console.log(JSON.stringify({ ready, api, web, runtimeFile: join(work, 'runtime-private.json'), modelAcceptance: 'pending' }));
+      await new Promise((resolve, reject) => { for (const child of children) child.once('exit', () => stopping ? resolve() : reject(new Error('Acceptance child exited.'))); });
+    } catch (error) {
+      console.error('[real-model-stack] Failed; inspect private logs. No configuration values emitted.');
+      process.exitCode = 1;
+    } finally { if (!stopping) await stop(); }
+    
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-network-env.test.mjs:33:312)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 1
+# fail 4
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 65.362046

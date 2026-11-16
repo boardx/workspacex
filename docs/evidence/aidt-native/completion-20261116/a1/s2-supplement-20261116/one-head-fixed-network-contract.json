@@ -1,0 +1,29 @@
+{
+  "at": "2026-11-16T14:35:05.345Z",
+  "rootAuthorizedOneHead": true,
+  "modelRequests": 0,
+  "networkPermissionsChanged": false,
+  "endpointPrinted": false,
+  "method": "HEAD",
+  "requestCountMaximum": 1,
+  "authorizationHeaderSent": false,
+  "requestBodySent": false,
+  "tlsVerification": true,
+  "trustEnv": true,
+  "retries": 0,
+  "timeoutSeconds": 5,
+  "followRedirects": false,
+  "profile": "fixed trusted network forwarding helper at source 5df77b477",
+  "clientCaPresence": {
+    "SSL_CERT_FILE": true,
+    "REQUESTS_CA_BUNDLE": true,
+    "NODE_EXTRA_CA_CERTS": true
+  },
+  "clientProxyPresence": {
+    "HTTP_PROXY": true,
+    "HTTPS_PROXY": true,
+    "http_proxy": true,
+    "https_proxy": true
+  },
+  "status": 404
+}

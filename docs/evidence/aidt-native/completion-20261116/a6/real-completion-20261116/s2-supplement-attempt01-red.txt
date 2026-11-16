@@ -1,0 +1,40 @@
+
+Running 1 test using 1 worker
+
+(node:327667) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/aidt-v2-s2-supplement.spec.ts:23:5 › supplemental S2: new native thread and canonical base preserve the original failed task (7.5s)
+
+
+  1) e2e/aidt-v2-s2-supplement.spec.ts:23:5 › supplemental S2: new native thread and canonical base preserve the original failed task 
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator:  getByTestId('chat-task-workbench-capability-picker')
+    Expected: "false"
+    Received: "true"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveAttribute" with timeout 5000ms
+      - waiting for getByTestId('chat-task-workbench-capability-picker')
+        14 × locator resolved to <button type="button" aria-expanded="true" data-auto-match="true" aria-haspopup="listbox" aria-label="选择数字人（当前自动匹配）" title="未指定时按任务自动匹配数字人，点击手选" data-testid="chat-task-workbench-capability-picker" class="flex h-7 max-w-[11rem] min-w-0 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2.5 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-fore…>…</button>
+           - unexpected value "true"
+
+
+      87 |   const defaultOption = page.locator(`[data-testid="chat-task-workbench-capability-card"][data-agent-id="${oldRun.agentId}"]`);
+      88 |   await expect(defaultOption).toBeVisible(); await expect(defaultOption).toBeEnabled(); await defaultOption.click();
+    > 89 |   await expect(picker).toHaveAttribute("data-auto-match", "false");
+         |                        ^
+      90 |   beginSupplementalS2Attempt(projectId, originalRunId, newThreadId);
+      91 |   await info.attach("supplemental-s2-pre-send-facts", { contentType: "application/json", body: Buffer.from(JSON.stringify({
+      92 |     projectId, originalRunId, oldThreadId: oldRun.threadId, newThreadId, approvedSkillVersionId: oldMount!.versionId,
+        at /workspace/aidt-module-latest/apps/web/e2e/aidt-v2-s2-supplement.spec.ts:89:24
+
+    Error Context: ../../../scratch/aidt-real-completion-20261116/s2-supplement-attempt-01/aidt-v2-s2-supplement-supp-895ff-ve-the-original-failed-task/error-context.md
+
+  1 failed
+    e2e/aidt-v2-s2-supplement.spec.ts:23:5 › supplemental S2: new native thread and canonical base preserve the original failed task 
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.aidt-s2-supplement.config.ts --grep supplemental S2:

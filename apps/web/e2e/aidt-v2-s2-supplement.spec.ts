@@ -118,7 +118,11 @@ test("supplemental S2: new native thread and canonical base preserve the origina
     oldPhase: state.phases.s2, checkpointIsolationBrowserFacts: "new normal project thread with zero messages; remote checkpoint requires owner audit",
   }, null, 2)) });
   const prompt = "本组第2步合成课堂补测：此前任务因测试基础角色错误而取消，学生人工修订的清单与材料已经保存。请内部核对本组已保存来源，不逐项回显；只输出一句核心澄清问句，不追加分支或活动时长，等待学生回答。不替学生确认、保存、访谈或生成文件。全部材料仍为合成练习，没有真实访谈证据。";
-  const turn = await sendAidtV2NativeTurn(page, projectId, "aidt-empathize", prompt, "thread", { reviewSyntheticIntent: runId => reviewAidtSyntheticIntent(page, projectId, runId) });
+  const turn = await sendAidtV2NativeTurn(page, projectId, "aidt-empathize", prompt, "thread", { reviewSyntheticIntent: async runId => {
+    const actualIntent = await page.getByTestId("agent-interrupt-confirm-intent-shell").innerText();
+    expect(/core[- ]loop|smoke|echo|原样回显|消息链路/i.test(actualIntent), "错误基础角色/回显意图必须停止，不编辑或批准").toBe(false);
+    return reviewAidtSyntheticIntent(page, projectId, runId);
+  } });
   await info.attach("supplemental-s2-actual-turn", { contentType: "application/json", body: Buffer.from(JSON.stringify(turn, null, 2)) });
   expect(turn.agentId).toBe(oldRun.agentId); expect(turn.agentVersionId).toBe(proof.publishedAgentVersionId); expect(turn.threadId).toBe(newThreadId);
   expect(turn.skillVersionIds).toEqual([oldMount!.versionId]); expect(turn.runId).not.toBe(originalRunId); expect(turn.assistantText).toMatch(/[?？]/);

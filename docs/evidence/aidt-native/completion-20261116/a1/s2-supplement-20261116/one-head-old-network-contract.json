@@ -1,0 +1,44 @@
+{
+  "at": "2026-11-16T14:31:03.789Z",
+  "rootAuthorizedOneHead": true,
+  "modelRequests": 0,
+  "networkPermissionsChanged": false,
+  "endpointPrinted": false,
+  "method": "HEAD",
+  "requestCountMaximum": 1,
+  "authorizationHeaderSent": false,
+  "requestBodySent": false,
+  "tlsVerification": true,
+  "trustEnv": true,
+  "retries": 0,
+  "timeoutSeconds": 5,
+  "followRedirects": false,
+  "profile": "old restore launcher network forwarding contract",
+  "clientCaPresence": {
+    "SSL_CERT_FILE": false,
+    "REQUESTS_CA_BUNDLE": false,
+    "NODE_EXTRA_CA_CERTS": false
+  },
+  "clientProxyPresence": {
+    "HTTP_PROXY": true,
+    "HTTPS_PROXY": true,
+    "http_proxy": true,
+    "https_proxy": true
+  },
+  "exceptionChain": [
+    {
+      "type": "ConnectError",
+      "certificateVerifyFailed": true
+    },
+    {
+      "type": "ConnectError",
+      "certificateVerifyFailed": true
+    },
+    {
+      "type": "SSLCertVerificationError",
+      "errno": 1,
+      "sslVerifyCode": 19,
+      "certificateVerifyFailed": true
+    }
+  ]
+}

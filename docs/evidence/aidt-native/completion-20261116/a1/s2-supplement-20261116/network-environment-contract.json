@@ -1,0 +1,87 @@
+{
+  "at": "2026-11-16T14:28:21.825Z",
+  "method": "current tool environment projected by key presence/hash plus committed restore launcher forwarding contract; not a live proc environ read",
+  "keys": {
+    "HTTP_PROXY": {
+      "currentToolEnvironmentPresent": true,
+      "currentValueSha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09",
+      "inRestoreOwnerForwardList": true,
+      "restoreOwnerOverrides": false
+    },
+    "HTTPS_PROXY": {
+      "currentToolEnvironmentPresent": true,
+      "currentValueSha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09",
+      "inRestoreOwnerForwardList": true,
+      "restoreOwnerOverrides": false
+    },
+    "ALL_PROXY": {
+      "currentToolEnvironmentPresent": false,
+      "currentValueSha256": null,
+      "inRestoreOwnerForwardList": true,
+      "restoreOwnerOverrides": false
+    },
+    "http_proxy": {
+      "currentToolEnvironmentPresent": true,
+      "currentValueSha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09",
+      "inRestoreOwnerForwardList": true,
+      "restoreOwnerOverrides": false
+    },
+    "https_proxy": {
+      "currentToolEnvironmentPresent": true,
+      "currentValueSha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09",
+      "inRestoreOwnerForwardList": true,
+      "restoreOwnerOverrides": false
+    },
+    "all_proxy": {
+      "currentToolEnvironmentPresent": false,
+      "currentValueSha256": null,
+      "inRestoreOwnerForwardList": true,
+      "restoreOwnerOverrides": false
+    },
+    "NO_PROXY": {
+      "currentToolEnvironmentPresent": true,
+      "currentValueSha256": "3ec16a3ac582efe2c150d78cec7b4fef85d422df5c7a147bf59c55b7f66ba93f",
+      "inRestoreOwnerForwardList": false,
+      "restoreOwnerOverrides": true
+    },
+    "no_proxy": {
+      "currentToolEnvironmentPresent": true,
+      "currentValueSha256": "3ec16a3ac582efe2c150d78cec7b4fef85d422df5c7a147bf59c55b7f66ba93f",
+      "inRestoreOwnerForwardList": false,
+      "restoreOwnerOverrides": false
+    },
+    "SSL_CERT_FILE": {
+      "currentToolEnvironmentPresent": true,
+      "currentValueSha256": "b583d63728636e5fa4b2ec89e062e655992406c08430f1b44b12e33fc357b80e",
+      "inRestoreOwnerForwardList": false,
+      "restoreOwnerOverrides": false
+    },
+    "SSL_CERT_DIR": {
+      "currentToolEnvironmentPresent": false,
+      "currentValueSha256": null,
+      "inRestoreOwnerForwardList": false,
+      "restoreOwnerOverrides": false
+    },
+    "REQUESTS_CA_BUNDLE": {
+      "currentToolEnvironmentPresent": true,
+      "currentValueSha256": "b583d63728636e5fa4b2ec89e062e655992406c08430f1b44b12e33fc357b80e",
+      "inRestoreOwnerForwardList": false,
+      "restoreOwnerOverrides": false
+    },
+    "CURL_CA_BUNDLE": {
+      "currentToolEnvironmentPresent": false,
+      "currentValueSha256": null,
+      "inRestoreOwnerForwardList": false,
+      "restoreOwnerOverrides": false
+    },
+    "NODE_EXTRA_CA_CERTS": {
+      "currentToolEnvironmentPresent": true,
+      "currentValueSha256": "f662fd20da405312fecbbd4e5a791983d9ae986be5faae019d788f140591f04e",
+      "inRestoreOwnerForwardList": false,
+      "restoreOwnerOverrides": false
+    }
+  },
+  "actualProcEnvironReadable": false,
+  "historicalSuccessfulStack04EnvDigestRecorded": false,
+  "externalRequestsSent": 0
+}

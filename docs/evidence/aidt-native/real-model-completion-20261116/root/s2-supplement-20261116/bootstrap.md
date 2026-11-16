@@ -1,0 +1,5 @@
+# 本轮初始化
+
+首次init因pnpm默认store路径/home/agent不可写而在安装前退出254，原日志保留。仅将PNPM_HOME、XDG_DATA_HOME、XDG_CACHE_HOME和npm_config_store_dir指向/tmp既有工具目录后，同一标准init快速路径退出0；未据此声称全仓验证通过。
+
+readiness退出0；本轮继续用户已明确授权的AIDT真实补测链，不挪去队列其他模块。harness tick因COORD_GATEWAY_URL未配置退出1，不能假造权威心跳。GitHub外发此前被审批拒绝，此处不重试外发、不创建伪PR或CI结果。

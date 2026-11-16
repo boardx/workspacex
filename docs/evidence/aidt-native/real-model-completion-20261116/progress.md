@@ -16,3 +16,13 @@
 原Stack04和后续恢复验证实例均已正常清理：自有容器、卷、网络、端口租约及stack slot全部释放。唯一检查点已实际恢复到新隔离空库，正常浏览器登录读取S1 V2、S2 V5与4份原件通过；15组保护数据、两账、5个旧线程及钱包保持，无新增模型调用或线程。初次MIME校验失败与修正记录保留。私有数据库检查点、原件及登录凭据不进仓库或Library。不能把已停止的localhost作为用户可访问链接。
 
 证据入口：A6本轮`completion-20261116/a6/real-completion-20261116/README.md`；A3内容审阅；A2来源审计；A1实际计量、免费验证、检查点及清理回执；A5 canonical修复记录。
+
+用户已明确批准新增最多一次S2补测。六个原Agent已重新分工：A1唯一恢复/计量owner，A6唯一浏览器执行，A2独立来源审计，A3教学内容复核，A4界面/成员文字复核，A5 Design衔接。恢复plan03已授权零模型apply；收费执行尚未开始，等待真实恢复与精确任务开窗。
+
+本轮S2 attempt01在真实桌面原生Agent picker选择的前置断言失败，尚未begin补测phase/reserve/wire。A1独立app_rw核新增run/physical/usage/credits均0，原两账字节与钱包保持，新空线程留存且消息0；窗口已关闭。A6复用该空线程做零SDK交互诊断，不以放宽断言替代原生选择。A2恢复QA读器12项scope守门与真实只读旧subset基线通过；新run来源审计待实际运行。
+
+本轮最终：新增S2唯一逻辑发送run40539aa6失败MODEL_CALL_FAILED，未学生后续保存/回复；A2实际晚到native派发与冻结来源/namespace隔离核过，不代表供应商接收。一次逻辑任务内2physical/2failed usage，total_source unknown、prompt/completion null、tokens0占位，2credit pending预留86.29测试credits；不称0费/已结清。按约定关闭执行器并停止所有后续模型任务。
+
+已修复恢复启动器漏传CA三键及覆写NO_PROXY的兼容缺陷（5df77b477），5定向离线测试及语法/lint通过。唯一旧profile无Auth HEAD复现SSL验证19，唯一新profile同TLS校验HEAD收到HTTP404，证明修复后纯HTTP连接通，不是模型成功或历史费用已确定。两HEAD无模型生成，已用完，不自动重试。
+
+自有恢复scope最终正常exit0，容器/卷/网络均0，13端口及租约/stack slot释放，所有自有进程无live。原旧checkpoint/三个预算hash保持，新diagnosticdump金融完整行、全部对象字节及三账核对通过；新备份非zero-outstanding恢复点、未restore。final-cleanup.json区分owner本身模型0与本轮外部逻辑1/物理2失败及pending2，不作0费用结案。

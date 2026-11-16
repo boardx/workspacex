@@ -1,6 +1,6 @@
 # 新增一次S2：独立来源审计
 
-本记录只覆盖用户新批准的一次独立S2补测。A1为唯一栈owner；A2不启动资源、模型或修改角色、钱包、账本。S2新任务结果未到时，不以旧run或恢复成功代替。
+本记录只覆盖用户新批准的一次独立S2补测。A1为唯一栈owner；A2不启动资源、模型或修改角色、钱包、账本。本次唯一S2实际请求终态failed，来源与隔离核对通过；不以恢复或native派发事实替代教学成功。
 
 ## 已完成：恢复后旧数据基线
 
@@ -22,6 +22,25 @@
 
 **后续范围限制：**旧legacy/S1两账必须保持原SHA，仅适用于本次S2独立账。未来S3–6/SUM可能合法追加原预算，不得删除本门来迁就，亦不得把预期hash拒绝误报为隔离故障；需单独核明确授权的journal前缀与append。
 
-## 待实际S2后核对
+## 唯一新增S2：实际失败运行只读审计
 
-精确保存来源、冻结哈希与独立receipt；原human正文哈希；新Agent版本；旧run/message/snapshot/版本未被改写；新local thread和journal观察到的remote namespace/run与旧S2分离。审计仅核服务端材料及派发事实，不声称独立读到了供应商内部prompt或LangGraph全部checkpoint正文。新S2尚未完成，当前不标教学通过。
+`actual-failed-run-report.json` / `.log`为真实app_rw只读审计，退出0。运行`40539aa6-2732-4661-9665-913013af806d`终态**failed**，保留A6的`MODEL_CALL_FAILED`结果；没有助理回复或阶段完成。没有新send、resume或数据修改。
+
+- actual Agent版本是canonical `agent-version-fixture-428d072b-cf41-465b-86f7-6b02fe39136f`，不是旧echo；唯一focus为实际`aidt-empathize`版本f4341571…，完整包匹配已批准发布。
+- S1 V2、S2 V5实际保存投影与冻结材料逐字匹配，均未截断；snapshot `326557fd…`、block `e9527c82…`的canonical hash一致。
+- 两条旧run、原6条消息、两类snapshot/application子集及旧不可变版本hash保持；旧S2仍cancelled。
+- 新local thread与旧run线程分离。实际journal记录的remote thread namespace与remote run也均与旧记录不同；这里不声称读取了LangGraph完整checkpoint正文。
+- A6早期frozenReceipt为`assembled`。之后独立DB审计读到真实`message-dispatch-observed`，时间`2026-11-16T14:20:48.750Z`，hash等于冻结block。保留两个时间点，不改写早期receipt。
+- native提交观察**不是**供应商内部收到或推理成功的证明。run仍失败，无resume。物理请求失败与结算细节等待A1安全计量诊断，不依据此次失败推测成功消费或自动再发。
+
+新增S2独立预算只占用这一条。旧两账SHA保持，不将失败请求从账本删除或释放后重发。`modelRequestsSent=0/dataWrites=0`仍仅指A2审计动作。
+
+### 后续安全计量诊断（不是成功或零费用结案）
+
+A1的[实际计量记录](../../a1/s2-supplement-20261116/native-failed-accounting.json)与[正常关窗回执](../../a1/s2-supplement-20261116/attempt02-paid-window-closed.json)进一步确认：本次一个native任务内部实际有2次physical attempt和2条failed usage记录。`tokens_total=0`且prompt/completion为null，不能解释为供应商确定未收到、实际消耗确定为零或无需计费。两个credit request仍pending，分别reserved 3412/5217 hundredths；held与remainingHeld各为8629，balance仍19981.70测试额度。没有已结算或退款证据，不合计两种held字段来推断最终费用。
+
+原两条运行对应的已结算记录保留；旧两预算不变。本次S2独立账只占这一条native任务，两个内部physical attempt不冒充两个新增学生请求。A1正常API-only关窗前后财务记录逐行不变、active为0；没有手工释放hold、改余额、reconcile或再次派发。
+
+DB journal还保留`failed`事件（14:20:50.442Z）。其中封闭fallback码`AIDT_CONTEXT_UNAVAILABLE`不能单独证明Stage来源或权限失败；本次实际保存投影、hash及当前授权的只读核对全部匹配。A1当前安全错误投影为`APIConnectionError / Connection error`，具体网络根因仍由零网络诊断继续确认。不要将该投影升级为供应商已收到或确定未收到的断言。
+
+本轮最终结论是：**来源、旧数据保护及新旧命名空间核对通过；新增S2模型任务失败，结算待处理，教学验收未完成。**

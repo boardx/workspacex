@@ -1,0 +1,1 @@
+{"output": "/workspace/artifacts/aidt-v2-acceptance/AIDT-V2-人工测试验收手册.pdf", "pages": 27, "bytes": 191881, "source_sha256": "3739fa72d04e092e7aca252a1e22459fa079664728eafd85c89043f1818f6576", "pdf_sha256": "697aaab2221ea9a4752fab69a2e1d867312912d56ab47bf61d36eb045771b852", "all_cases_present": true}

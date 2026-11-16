@@ -48,7 +48,7 @@ S4 的机器 PDF 字节是 Chromium 从实际产品 beforeprint 文档副本生�
 
 已有真实 PG return-only 正反验收由 A2 独立记录，不加额外收费浏览器任务。普通学生资金/课堂教学适切性、真实访谈/真实用户测试、教师点评、语音录音与人工签名继续单列，不因本条技术模型成功而自动通过。
 
-## 后续S2最小补测方案（仅准备，未获新额度、未执行）
+## 历史：审批前S2最小补测方案（当时仅准备）
 
 1. root/A5先完成只限隔离测试夹具的canonical默认base新不可变版本，并由A1独立核实际指令hash、旧default pointer CAS与旧历史保留。不得改变旧run的agentVersion、既有Skill/权限/余额。
 2. 先正常GET旧S2 thread确认真实visibilityScope；现有`live-aidt-step-chat.ts`第98行create分支为plenary、显式thread读分支只接受plenary，必须一致，不一致停止而不改隐私范围。复用本次group，通过既有`chat.operations.mutateThread`正常API `POST /chat/threads/mutate` 建新的plenary线程。完整输入为`{op:"create",projectId:P,threadId:null,groupId:null,title:"[AIDT 2] 合成课堂补测",visibilityScope:"plenary",expectedVersion:null,reason:null}`，出参取真实threadId/version/auditEventId，不能自造。
@@ -57,3 +57,7 @@ S4 的机器 PDF 字节是 Chromium 从实际产品 beforeprint 文档副本生�
 5. 将来若获新的一次S2任务授权，另建独立maximum=1补充账本与新的QA phase尝试。旧七次失败entry、S1补账、旧thread/run/card/snapshot及其费用全部不删不重置，也不把人工fallback当已完成AI任务以解锁S3。
 6. 仅一个新SDK send，确认实际run指向新canonical默认Agent不可变version，approved S2 Skill pin精确不变；新Deep远程thread不能承接旧echo checkpoint。读取真实当前S1V2/S2V5（人工稿）坐标与快照/派发回执，保留AI与学生输入、学生决定保存及新登录。实际更进一步head变化时以独立GET核定，不硬写预期版本。
 7. 本节没有执行任何建thread、mount或供应商请求，不算补测通过。重验费用授权仍待root审阅/用户明确额度；当前模型窗口关闭。
+
+## 新增S2已执行，失败即停
+
+本节是后续实际补充，不改写上面的审批前准备历史。用户新增独立max1已在2026-11-16执行一次SDK；同新thread/canonical默认v2/approved S2 pin和S1V2+S2V5精确来源核过，actualrun40539aa6-2732-4661-9665-913013af806d终态failed/MODEL_CALL_FAILED。新账failed占1，旧两账不变，phase未完成，未继续S3。实际2条physical/failed usage，两笔credit仍pending/占款8629 hundredths，费用未清。见[实际执行记录](./real-completion-20261116/s2-supplement-execution.md)。

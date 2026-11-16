@@ -12,6 +12,7 @@
 | [人工fallback清单详情](./s2-manual-fallback-guide-pdf.json)、[实际PDF文件](./student-manual-interview-guide.pdf) | 学生写明AI未成功，人工修订保存V5与新登录；真实beforeprint DOM副本→Chromium PDF bytes/文本/字体/可读性。没有自动操作OS另存为，也不是AI采纳成功。 |
 | [S6独立原件详情](./s6-independent-synthetic-test-original.json) | TXT+PNG真实UI上传/字节/SHA/来源/decode/保存/新登录，同org consultant非组员与错project404；独立组无假原型、快照或学习完成。 |
 | [免费after独立核验](../../a1/context-stack04-free-deliverables-after.json) | 总physical/usage/credit仍各2（此前S1/S2），此次无新增，active/holds/unsettled/unbounded0。 |
+| [新增S2补测实际记录](./s2-supplement-execution.md)、[机器](./s2-supplement-attempt02-machine.json) | 用户新增独立max1已实际执行唯一send；canonical新版本、来源/隔离成立，但任务failed/MODEL_CALL_FAILED，无回复或学生后续完成。两条physical/failed usage，两笔credit仍pending/占款8629 hundredths，未结清。旧账不改，不重发、不解锁S3。 |
 | [QA准备计划](../real-completion-plan-20261116.md) | 同组S3–SUM及本次新2个Design任务未执行，不因用例可发现而写通过。 |
 
 ## 失败与预算不变量
@@ -27,3 +28,7 @@
 ## 后续零模型配置修复
 
 当前测试实例已追加不可变canonical版本并切默认指针，旧版本与本页所有旧运行/费用保持；不是普通发布API验收，也不等于S2补测成功。见[修复记录](../../../context-bridge-20261116/a5/fixture-canonical-repair.md)及A1独立after；后续S2补测仍需新增一次额度，其余原有阶段与Design额度保留。
+
+## 新增一次S2补测当前结果
+
+上文“补测需新额度”为当时历史边界。本次用户已另批独立max1，并按一次SDK执行，失败即停；具体源SHA、原红/0SDK诊断、实际窗口/请求/早期回执与晚到派发、计量未清均在[新增执行记录](./s2-supplement-execution.md)。这不是成功完成S2，后续没有借预算新发。

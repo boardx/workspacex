@@ -1,0 +1,210 @@
+{
+  "kind": "authorized-read-only-real-run-source-audit",
+  "auditedAt": "2026-11-16T14:22:33.752Z",
+  "runId": "40539aa6-2732-4661-9665-913013af806d",
+  "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+  "threadId": "thr-0a23a022-c27f-43c4-96dc-0f40cd31b9d1",
+  "principalUserIdHash": "dbffea12712f3162a002dbf46d217e4453f7a5044786fb842013b2184e02aa85",
+  "agentVersionId": "agent-version-fixture-428d072b-cf41-465b-86f7-6b02fe39136f",
+  "runStatus": "failed",
+  "restoredResourceBinding": {
+    "approvedPlanSha256": "59500507741bccff83fc30c741c8ce6846fa69d7bb7cd651d04a4fb9a6cb62f4",
+    "sourceCheckpointDumpHash": "85e37b355b608db9119d0501af8589b15c2440dde4fed09cb98e5d5e251830d7",
+    "actualFreshContainerAndPortVerified": true,
+    "liveOwnerAndSlotVerified": true,
+    "emptyTargetAttested": true,
+    "oldBudgetHashesUnchanged": true,
+    "logicalDatabasePreserved": true,
+    "credentialFieldsAccessed": false
+  },
+  "oldProtection": {
+    "protectedRows": [
+      {
+        "table": "agent_runs",
+        "count": 2,
+        "sha256": "d55f2064caf76596e763f29e1e30dd466e1ad13715d6c3d2e42c7a709bb0701e",
+        "matchesOriginal": true
+      },
+      {
+        "table": "agent_run_context_snapshots",
+        "count": 2,
+        "sha256": "85ef14e45342e8ed79925482bb67a5e7610c8b31bea6c5c5393f1784b7dfeda6",
+        "matchesOriginal": true
+      },
+      {
+        "table": "aidt_run_context_snapshots",
+        "count": 2,
+        "sha256": "10da6c922d6a4e6499c5c69479e1074742f03ed1b015d9bf3650af903d0d0fde",
+        "matchesOriginal": true
+      },
+      {
+        "table": "aidt_run_context_applications",
+        "count": 4,
+        "sha256": "90f2a914e377f2b6ab77e5a518acc8196fc3af39e1e1d7743f64d69da712fea9",
+        "matchesOriginal": true
+      },
+      {
+        "table": "chat_messages",
+        "count": 6,
+        "sha256": "79a2c2d890a238437cd066d8650d99c6851d3dd1987fcf0bedba2c4db6b93f5c",
+        "matchesOriginal": true
+      }
+    ],
+    "oldImmutableVersionHashMatches": true,
+    "newRunUsesCanonicalAgentVersion": true,
+    "currentRunIsNew": true,
+    "oldRuns": [
+      {
+        "runId": "68880459-6de1-43a8-a909-0a969f03a7a8",
+        "status": "succeeded",
+        "threadIdHash": "9010b26dc528364e2d1097a1d161f2edb28537fdc7304c007d8f2048bd149691",
+        "remoteRunIdHash": "03f949c4b28e058d2fc37c31943bd725a832ab14e5264bbfb93c4a3dd733604b"
+      },
+      {
+        "runId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+        "status": "cancelled",
+        "threadIdHash": "b27da360c37baf2449fe3cd01782946d0e4bd2b91cacc07360bcc71937840f1e",
+        "remoteRunIdHash": "8e9ec4e7278f4a80cd6377f0d6c8098bc784c9ea3a218571769662b586228dc9"
+      }
+    ],
+    "newLocalThreadSeparate": true,
+    "newRemoteNamespaceSeparate": true,
+    "currentRemoteThreadIdHashes": [
+      "2ef9b9c910ff8ef464999a80610d23ed890201153f016775f942446869309932"
+    ],
+    "currentRemoteRunIdHash": "e51c7da0cbba67c45143bdf7c3ed3f835ea2cb2f45a14b4439baa2e42d3bd048"
+  },
+  "currentProjectStatus": "active",
+  "selector": {
+    "schemaVersion": 1,
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 5
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 2
+  },
+  "focus": {
+    "skillId": "skill-b1447c1f-9333-4082-acc9-19f58744fd68",
+    "skillVersionId": "skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6",
+    "skillStableName": "aidt-empathize",
+    "title": "共情用户"
+  },
+  "approvedPackage": {
+    "packId": "aidt-methods",
+    "packVersion": "1.3.0",
+    "packageDigest": "e1abf18a55f6543cbc89784338f4b5ff6e4addeb8bf6a8333cf21eb946d33b27"
+  },
+  "hashes": {
+    "selector": "1e9cc0003aaabc2969d08022bff05b318cab4bf0188c0875a6b64dcaaf0e12a9",
+    "snapshot": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+    "block": "e9527c822d1d11a723ed7676fdc17c5eca5a45de116f04c06c10e4298e73a6f6"
+  },
+  "canonicalHashesMatch": true,
+  "persistedHumanTextHash": "c2bf13109fcd3c94dc947828b7199574033b0b6b63987c9905e221268f533421",
+  "persistedHumanMatchesExpected": null,
+  "exactSources": [
+    {
+      "kind": "stage",
+      "stageId": 2,
+      "revision": 5,
+      "currentHeadRevision": 5,
+      "selectedIsCurrentHead": true,
+      "sourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "dbffea12712f3162a002dbf46d217e4453f7a5044786fb842013b2184e02aa85",
+      "updatedAt": "2026-11-16T12:49:41.820Z",
+      "contentHash": "688f8d58ac125e0da94b6a8a1fc2bb727f297ac74062de9a7d50a5b191ee2afb",
+      "excerptHash": "dcf522061d489cf73f7ac7ff0852e367742e37640f5ff943b853329705ea28ac",
+      "excerptUtf8Bytes": 4252,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    },
+    {
+      "kind": "stage",
+      "stageId": 1,
+      "revision": 2,
+      "currentHeadRevision": 2,
+      "selectedIsCurrentHead": true,
+      "sourceStageRevisions": [],
+      "updatedByHash": "dbffea12712f3162a002dbf46d217e4453f7a5044786fb842013b2184e02aa85",
+      "updatedAt": "2026-11-16T12:20:14.921Z",
+      "contentHash": "f110329553c8e0e8a51234af29fd4de6b0df42e18f420f8b816661fde19a23a0",
+      "excerptHash": "b2f9943a1c330e35adeddc0f9b713025e519f86c25401d814068d34a8ac68fed",
+      "excerptUtf8Bytes": 3355,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    }
+  ],
+  "omissions": [
+    {
+      "kind": "personal-artifacts-not-included"
+    },
+    {
+      "kind": "original-file-bytes-not-read"
+    },
+    {
+      "kind": "teacher-comments-no-source"
+    },
+    {
+      "kind": "lineage-unknown"
+    }
+  ],
+  "truncated": false,
+  "application": {
+    "state": "message-dispatch-observed",
+    "attemptId": "40539aa6-2732-4661-9665-913013af806d:1",
+    "assembledContextHash": "e9527c822d1d11a723ed7676fdc17c5eca5a45de116f04c06c10e4298e73a6f6",
+    "assembledAt": "2026-11-16T14:20:46.862Z",
+    "messageDispatchedAt": "2026-11-16T14:20:48.750Z",
+    "checkpointResumedAt": null,
+    "inheritedMessageDispatchAttemptId": null
+  },
+  "journal": [
+    {
+      "seq": 1,
+      "kind": "assembled",
+      "attemptId": "40539aa6-2732-4661-9665-913013af806d:1",
+      "occurredAt": "2026-11-16T14:20:46.862Z",
+      "snapshotHash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+      "assembledContextHash": "e9527c822d1d11a723ed7676fdc17c5eca5a45de116f04c06c10e4298e73a6f6"
+    },
+    {
+      "seq": 2,
+      "kind": "message-dispatch-observed",
+      "attemptId": "40539aa6-2732-4661-9665-913013af806d:1",
+      "occurredAt": "2026-11-16T14:20:48.750Z",
+      "snapshotHash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+      "assembledContextHash": "e9527c822d1d11a723ed7676fdc17c5eca5a45de116f04c06c10e4298e73a6f6"
+    },
+    {
+      "seq": 3,
+      "kind": "failed",
+      "attemptId": "40539aa6-2732-4661-9665-913013af806d:1",
+      "occurredAt": "2026-11-16T14:20:50.442Z",
+      "snapshotHash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a"
+    }
+  ],
+  "dispatchObservationCount": 1,
+  "resumeObservationCount": 0,
+  "serverDispatchObservationMatchesFrozenBlock": true,
+  "independentReceiptProvided": true,
+  "supplierConsumptionProvenByAudit": false,
+  "studentResearchValidityProven": false,
+  "rawStudentTextIncluded": false,
+  "privateConfigurationIncluded": false,
+  "databaseReadOnly": true,
+  "modelRequestsSent": 0,
+  "dataWrites": 0
+}
