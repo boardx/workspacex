@@ -7,12 +7,15 @@ import { printAidtUiText } from "@/features/aidt/components/aidt-stage-output";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
 import type { AidtSharedReportController } from "@/features/aidt/lib/use-aidt-shared-stages";
 import { useOptionalSession } from "@/components/session/session-provider";
+import { AidtReportHistory } from "./aidt-report-history";
+import type { AidtReportHistoryScope } from "../lib/aidt-report-history";
 
-export function AidtReportPreview({ drafts, text, sourceRevision, revision, onChange, regenerate, readOnly, toChat, shared, discoveryCardsRevision }: {
+export function AidtReportPreview({ drafts, text, sourceRevision, revision, onChange, regenerate, readOnly, toChat, shared, discoveryCardsRevision, historyScope }: {
   drafts: AidtUiDrafts; discoveryCardsRevision?: number; text: string | null; sourceRevision: number; revision: number;
   onChange: (text: string) => void; regenerate: () => void; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
   shared?: AidtSharedReportController;
+  historyScope?: AidtReportHistoryScope;
 }) {
   const [status, setStatus] = React.useState("");
   const [confirmReplace, setConfirmReplace] = React.useState(false);
@@ -38,7 +41,8 @@ export function AidtReportPreview({ drafts, text, sourceRevision, revision, onCh
   }
   return <section className="space-y-4" data-testid="aidt-report-preview">
     <div><span className="rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground" data-testid="aidt-report-save-state">{shared ? shared.saving ? "正在保存小组报告…" : shared.matchesServer ? "小组报告已保存" : "报告编辑尚未保存" : "UI 预览 · 未保存"}</span><h3 className="mt-3 text-20 font-semibold">把研究过程讲清楚</h3><p className="mt-1 text-13 text-muted-foreground">从问题、证据和选择，讲到原型、测试与下一步。</p></div>
-    <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">取材范围与缺失项</summary><p className="mt-2">{shared ? "从本页已读取的阶段成果与学生当前编辑整理，未保存的阶段修改不自动成为已保存来源。报告按小组保存，原始材料仍由各原生模块授权读取。" : "只整理本页填写的草稿，尚未读取全组历史或保存。"}原始证据、教师点评和版本关系缺失时保留缺口。</p></details>
+    <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">取材范围与缺失项</summary><p className="mt-2">{shared ? "从本页已读取的阶段成果与学生当前编辑整理，未保存的阶段修改不自动成为已保存来源。报告按小组保存，原始材料仍由各原生模块授权读取。" : historyScope ? "主体整理本页填写的草稿，历史需主动读取、审阅并加入；读取本身不保存报告。" : "只整理本页填写的草稿，尚未读取全组历史或保存。"}原始证据、教师点评和版本关系缺失时保留缺口。</p></details>
+    {historyScope && <AidtReportHistory scope={historyScope} value={value} onChange={onChange} readOnly={readOnly} />}
     {shared && <section className="space-y-2 rounded-lg border border-border p-3 text-12" aria-label="小组报告保存" data-testid="aidt-shared-report">
       <div className="flex flex-wrap gap-2"><Button size="sm" disabled={readOnly || !shared.canSave || shared.saving} data-testid="aidt-report-save" onClick={() => void shared.save()}>{shared.saving ? "正在保存…" : "保存小组报告"}</Button><Button size="sm" variant="outline" disabled={shared.saving || shared.loading} data-testid="aidt-report-reload" onClick={shared.reload}>重新读取</Button></div>
       {shared.loading && <p role="status">正在读取小组报告…</p>}

@@ -1,0 +1,7 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-report_history/apps/web
+
+undefined
+/workspace/scratch/aidt-complete-report_history/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command was killed with SIGTERM (Termination): vitest run tests/aidt-report-history.test.ts tests/ui/aidt-report-history.test.tsx tests/ui/aidt-shared-report-preview.test.tsx tests/ui/aidt-ui-v2.test.tsx tests/ui/aidt-ui-v5.test.tsx tests/aidt-stage-history-client.test.ts
