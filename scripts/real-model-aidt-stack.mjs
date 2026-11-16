@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, openSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { trustedNetworkEnvironment } from './lib/aidt-checkpoint-network-env.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const work = process.env.REAL_MODEL_E2E_WORK_DIR;
@@ -28,11 +29,11 @@ if (restoreReceipt) {
 }
 const baseEnv = {
   ...process.env,
+  ...trustedNetworkEnvironment(process.env),
   DOCKER_CONFIG: join(work, 'docker'),
   REAL_MODEL_E2E_REUSE_IMAGES: '1',
   REAL_MODEL_E2E_USAGE_SPOOL_DIR: join(work, 'usage-spool'),
   REAL_MODEL_E2E_PYTHON_PRELOAD_DIR: join(root, 'scripts/real-model-python'),
-  NO_PROXY: [process.env.NO_PROXY, '127.0.0.1', 'localhost'].filter(Boolean).join(','),
   ENABLE_AIDT_MODULE: '1', ENABLE_PROJECT_MEMBER_CHAT: '1',
   // Paid AIDT evidence must use the product's canonical default assistant, never the loopback echo oracle.
   FULLSTACK_E2E_AGENT_INSTRUCTIONS_PROFILE: 'canonical-default',

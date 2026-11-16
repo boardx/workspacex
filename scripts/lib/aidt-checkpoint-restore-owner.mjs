@@ -3,6 +3,7 @@ import{readFileSync,writeFileSync,mkdirSync,openSync,existsSync,statSync,lstatSy
 import{spawn,spawnSync}from'node:child_process';import{pathToFileURL}from'node:url';import{createRequire}from'node:module';import{join,relative,dirname}from'node:path';import{setTimeout as delay}from'node:timers/promises';
 import{hash,invariant,verifyCheckpoint,verifyRestoredObjects,privateTree,awaitRestoreStep,ZERO_EXECUTION_ENV}from'./aidt-checkpoint-restore.mjs';
 import{restoredDataFacts}from'./aidt-checkpoint-restored-db.mjs';
+import{restoreOwnerEnvironment}from'./aidt-checkpoint-network-env.mjs';
 export async function restoreAndStart(root,plan,options){
   invariant(!process.env.WORKSPACEX_DEPLOY_PROFILE,'CHECKPOINT_CLOUD_PROFILE_FORBIDDEN');
   const verified=verifyCheckpoint({checkpoint:plan.checkpoint,receiptFile:plan.checkpointReceiptFile,legacyLedger:plan.ledgerPaths.legacy,supplementLedger:plan.ledgerPaths.supplementS1});
@@ -15,9 +16,8 @@ export async function restoreAndStart(root,plan,options){
   invariant(fresh.COMPOSE_PROJECT_NAME!==original.composeProject,'CHECKPOINT_FRESH_COMPOSE_REQUIRED');
   const seed={...fresh,WORKSPACEX_API_PORT:String(plan.expectedApiPort),WORKSPACEX_WEB_PORT:String(plan.expectedWebPort)};
   let child,signalled=false;const abort=new AbortController();const stopSignal=()=>{signalled=true;abort.abort();if(child&&child.exitCode===null&&child.signalCode===null){try{child.kill('SIGINT');}catch{}}};process.on('SIGINT',stopSignal);process.on('SIGTERM',stopSignal);let reservation;try{reservation=await reserveIsolationPorts(seed);}catch(error){process.removeListener('SIGINT',stopSignal);process.removeListener('SIGTERM',stopSignal);throw error;}let childLaunchError=false,composeStarted=false,cleanupPromise,slot;const work=plan.destination;
-  const baseKeys=['PATH','HOME','USER','LANG','TMPDIR','HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy'];
-  const env=Object.fromEntries(baseKeys.filter(k=>process.env[k]!==undefined).map(k=>[k,process.env[k]]));
-  Object.assign(env,fresh,reservation.ports,model.values,ZERO_EXECUTION_ENV,{PGHOST:'127.0.0.1',PGDATABASE:plan.database,WORKSPACEX_DB:plan.database,DOCKER_CONFIG:join(work,'docker'),WORKSPACEX_MODEL_ENV_ONLY:'1',WORKSPACEX_REAL_MODEL_DEV_OPT_IN:'1',REAL_MODEL_E2E_WORK_DIR:work,REAL_MODEL_E2E_UVICORN:options.uvicorn,REAL_MODEL_E2E_SANDBOX_MODULES_DIR:options.sandboxModules,REAL_MODEL_E2E_WEB_MODE:'reuse-start',REAL_MODEL_E2E_WEB_DIST:plan.buildReceipt.dist,REAL_MODEL_E2E_RESTORE_PLAN_SHA256:options.actualPlanSha256,ENABLE_AIDT_MODULE:'1',ENABLE_PROJECT_MEMBER_CHAT:'1',NEXT_PUBLIC_ENABLE_AIDT:'1',NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT:'1',COPILOTKIT_TELEMETRY_DISABLED:'true',NEXT_TELEMETRY_DISABLED:'1',NO_PROXY:'127.0.0.1,localhost'});
+  const env=restoreOwnerEnvironment(process.env,model.values);
+  Object.assign(env,fresh,reservation.ports,ZERO_EXECUTION_ENV,{PGHOST:'127.0.0.1',PGDATABASE:plan.database,WORKSPACEX_DB:plan.database,DOCKER_CONFIG:join(work,'docker'),WORKSPACEX_MODEL_ENV_ONLY:'1',WORKSPACEX_REAL_MODEL_DEV_OPT_IN:'1',REAL_MODEL_E2E_WORK_DIR:work,REAL_MODEL_E2E_UVICORN:options.uvicorn,REAL_MODEL_E2E_SANDBOX_MODULES_DIR:options.sandboxModules,REAL_MODEL_E2E_WEB_MODE:'reuse-start',REAL_MODEL_E2E_WEB_DIST:plan.buildReceipt.dist,REAL_MODEL_E2E_RESTORE_PLAN_SHA256:options.actualPlanSha256,ENABLE_AIDT_MODULE:'1',ENABLE_PROJECT_MEMBER_CHAT:'1',NEXT_PUBLIC_ENABLE_AIDT:'1',NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT:'1',COPILOTKIT_TELEMETRY_DISABLED:'true',NEXT_TELEMETRY_DISABLED:'1'});
   const log=name=>openSync(join(work,name),'a',0o600);
   const composeArgs=['compose','-f','apps/api/docker-compose.dev.yml','-p',fresh.COMPOSE_PROJECT_NAME];
   const command=(args,extra={})=>{const r=spawnSync('docker',args,{cwd:root,env,encoding:'utf8',maxBuffer:4*1024*1024,...extra});invariant(r.status===0,'CHECKPOINT_OWNED_DOCKER_OPERATION_FAILED');return r.stdout;};
