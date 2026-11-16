@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { openFreshEchoAgentThread } from "./support/chat-path-coverage";
 import { planControl } from "@repo/contracts/plan-control";
 
 /**
@@ -52,19 +53,6 @@ async function loginAndOpenChat(page: Page): Promise<void> {
   await page.goto("/chat");
 }
 
-async function selectLoopbackAgent(page: Page): Promise<void> {
-  // issue #2130（TW-P0-2）—— 入口从裸的 `AgentPicker`（`chat-agent-select`）换成
-  // 「选择能力」（`chat-task-workbench-capability-picker`），同一个真实下拉；
-  // 候选项现在共用一个字面量 testid（判据要求），按真实 agent id 精确点中用
-  // `data-agent-id`，见 `chat-task-workbench-capability-picker.tsx` 头注。
-  const trigger = page.getByTestId("chat-task-workbench-capability-picker");
-  await expect(trigger).toBeVisible({ timeout: 20_000 });
-  await trigger.click();
-  await expect(page.getByTestId("chat-agent-select-listbox")).toBeVisible();
-  await page.locator(`[data-testid="chat-task-workbench-capability-card"][data-agent-id="${CHAT_READ_E2E.agentId}"]`).click();
-  await expect(page.getByTestId("chat-agent-select-listbox")).toBeHidden();
-}
-
 test.setTimeout(180_000);
 
 test("CK-P3 逐条消息操作——复制真进剪贴板、评分 POST 真被服务端接受（非 404）、反馈入口按 agent 归因", async ({
@@ -74,8 +62,7 @@ test("CK-P3 逐条消息操作——复制真进剪贴板、评分 POST 真被�
   // 读剪贴板需要显式授权；写入不需要，但断言"真的写进去了"必须能读回来。
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 
-  await loginAndOpenChat(page);
-  await selectLoopbackAgent(page);
+  await openFreshEchoAgentThread(page);
 
   const userText = "issue #2054 消息级操作取证";
   await page.getByTestId("copilotkit-v2-input").fill(userText);

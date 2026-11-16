@@ -55,7 +55,7 @@ export async function expectAnchor(
   return locator;
 }
 
-export async function login(page: Page): Promise<void> {
+export async function login(page: Page, email: string = CHAT_READ_E2E.email): Promise<void> {
   await page.goto("/login");
   /*
    * ⚠ **已登录时再调本函数，这里立刻红并说明原因**——而不是等 `fill()` 超时。
@@ -83,7 +83,7 @@ export async function login(page: Page): Promise<void> {
     "这个 page 已经登录了：`/login` 被 LoginSessionGate 重定向走，`login-email` 永远不会出现。"
       + "不要在 `openChatEmptyState` / `openFresh*Thread` 之前再自己 `login()`——它们内部已经登录过一次。",
   ).toBe("form");
-  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL(/\/home$/);
@@ -121,9 +121,9 @@ export async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
  */
 
 /** 登录 + 焐热 + 停在 `/chat` 空状态（TW-P0-1/2/4/5 的共同起点）。 */
-export async function openChatEmptyState(page: Page): Promise<void> {
+export async function openChatEmptyState(page: Page, email?: string): Promise<void> {
   await warmUpCopilotRuntimeRoute(page);
-  await login(page);
+  await login(page, email);
   await page.goto("/chat");
   // `/chat` 只在没有 `?projectId=` / `?thread=` 时渲染 v2 轨道，这里正是裸路径。
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
@@ -142,8 +142,8 @@ export async function openChatEmptyState(page: Page): Promise<void> {
  * 现在改走权威端口，并由 `openAuthoritativeFreshThread` **在 helper 内部**断言
  * 「是新的 + 是空的」。理由与例外清单逐字见 `support/authoritative-thread.ts` 头注。
  */
-export async function openFreshThread(page: Page): Promise<string> {
-  await openChatEmptyState(page);
+export async function openFreshThread(page: Page, email?: string): Promise<string> {
+  await openChatEmptyState(page, email);
   return await openAuthoritativeFreshThread(page);
 }
 

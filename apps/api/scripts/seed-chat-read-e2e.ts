@@ -225,6 +225,26 @@ await asApp(ORG_ID, async (client) => {
 await addProjectMember(ORG_ID, RESTRUCTURE_PROJECT_ID, USER_ID, "facilitator", null);
 
 const passwordHash = await new BcryptPasswordHasher().hash(password);
+const isolatedCreditActors = [
+  { id: required("CHAT_E2E_RECORDING_CONTROLS_USER_ID"), email: required("CHAT_E2E_RECORDING_CONTROLS_EMAIL"), projectId: PROJECT_ID },
+  { id: required("CHAT_E2E_VOICE_CREDIT_USER_ID"), email: required("CHAT_E2E_VOICE_CREDIT_EMAIL"), projectId: PROJECT_ID },
+  { id: required("CHAT_E2E_VISION_CREDIT_USER_ID"), email: required("CHAT_E2E_VISION_CREDIT_EMAIL"), projectId: RESTRUCTURE_PROJECT_ID },
+];
+// A provider request in another spec can hold the shared wallet until settlement.
+for (const actor of isolatedCreditActors) {
+  await addOrgMember(ORG_ID, actor.id, "consultant", null);
+  await addProjectMember(ORG_ID, actor.projectId, actor.id, "facilitator", null);
+  await asOwner(async client => {
+    await client.query(
+      "INSERT INTO credentials(user_id,email,display_name,password_hash,email_verified_at) VALUES($1,$2,'Chat media credit fixture',$3,now()) ON CONFLICT(user_id) DO UPDATE SET email=EXCLUDED.email,password_hash=EXCLUDED.password_hash",
+      [actor.id, actor.email, passwordHash],
+    );
+    await client.query(
+      "INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,20000) ON CONFLICT(owner_type,owner_id) DO UPDATE SET balance=EXCLUDED.balance",
+      [actor.id],
+    );
+  });
+}
 await asOwner(async (client) => {
   await client.query(
     `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
