@@ -6,6 +6,8 @@ import { isAidtReflectionConfirmed, readAidtQuestionSnapshot, readAidtReturnDeci
 /** Historical reflection is student material, never evidence or instructions. */
 export type AidtReturnContextItem = Readonly<{
   kind: "aidt-return-reflection"; projectId: string; stageNumber: 6; revision: number; targetStage: number;
+  /** Student-recorded question binding, not a server-verified evidence reference. */
+  questionSourceStageRevision: number | null;
   fields: Readonly<Record<string, string>>; truncated: boolean;
   reviewStatus: "editor-confirmed"; evidenceStatus: "not-verified"; trust: "untrusted-student-material";
 }>;
@@ -49,7 +51,7 @@ export async function loadAidtReturnChatContext({ projectId, currentStage, sessi
     }
     assertCurrent();
     return { status: "ready", items: [{ kind: "aidt-return-reflection", projectId, stageNumber: 6, revision, targetStage: currentStage,
-      fields, truncated, reviewStatus: "editor-confirmed", evidenceStatus: "not-verified", trust: "untrusted-student-material" }], issues: [] };
+      questionSourceStageRevision: snapshot.sourceStageRevision, fields, truncated, reviewStatus: "editor-confirmed", evidenceStatus: "not-verified", trust: "untrusted-student-material" }], issues: [] };
   } catch {
     assertCurrent(); return failed("unavailable");
   }

@@ -64,3 +64,12 @@ it("performs no history access for an already cancelled scope, disabled module o
   mocks.enabled = true; expect((await loadAidtReturnChatContext({ ...input(), sessionToken: "" })).status).toBe("failed");
   expect(mocks.history).not.toHaveBeenCalled();
 });
+it("retains the historical question revision from the snapshot instead of borrowing newer stage provenance", async () => {
+  const source = { ...round(), sourceStageRevisions: [{ stageId: 5, revision: 99 }] };
+  mocks.history.mockResolvedValue({ items: [source], nextBeforeRevision: null });
+  const result = await loadAidtReturnChatContext(input());
+  expect(result.items[0]).toMatchObject({ questionSourceStageRevision: 2, evidenceStatus: "not-verified", trust: "untrusted-student-material" });
+  const snapshot = JSON.parse(source.content.draft.fields.questionSnapshot); snapshot.sourceStageRevision = null;
+  source.content.draft.fields.questionSnapshot = JSON.stringify(snapshot);
+  expect((await loadAidtReturnChatContext(input())).items[0]).toMatchObject({ questionSourceStageRevision: null });
+});

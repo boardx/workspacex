@@ -251,7 +251,7 @@ it("retains the learning round on recoverable native Chat errors", async () => {
   expect(screen.getByRole("link", { name: "返回本步对话" })).toHaveAttribute("href", "/aidt/p?step=2&returnRevision=3");
 });
 
-const returnedLearning = { status: "ready", items: [{ kind: "aidt-return-reflection", projectId: "p", stageNumber: 6, revision: 3, targetStage: 2, fields: { originalQuestion: "原问题", beforeTestBelief: "前认识", afterTestBelief: "后认识", returnReason: "补访谈", nextAction: "询问学生" }, truncated: true, reviewStatus: "editor-confirmed", evidenceStatus: "not-verified", trust: "untrusted-student-material" }], issues: [] };
+const returnedLearning = { status: "ready", items: [{ kind: "aidt-return-reflection", projectId: "p", stageNumber: 6, revision: 3, targetStage: 2, questionSourceStageRevision: 2, fields: { originalQuestion: "原问题", beforeTestBelief: "前认识", afterTestBelief: "后认识", returnReason: "补访谈", nextAction: "询问学生" }, truncated: true, reviewStatus: "editor-confirmed", evidenceStatus: "not-verified", trust: "untrusted-student-material" }], issues: [] };
 it("mounts selected historical reflection into native TeachingContext and shows exactly the bounded student fields", async () => {
   mocks.resolve.mockResolvedValue({ threadId: "native", skillName: "共情", versionId: "v1" }); mocks.loadReturnContext.mockResolvedValue(returnedLearning);
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} returnRevision="3" />);
@@ -300,4 +300,17 @@ it("removes selected return material synchronously when it is no longer selected
   rerender(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} returnRevision={null} />);
   expect(mocks.context.mock.calls.at(-1)![0].value.returnReflectionContext).toEqual({ status: "not-selected", items: [], issues: [] });
   expect(screen.queryByTestId("aidt-chat-return-context")).toBeNull();
+});
+
+it("keeps the historical question source distinct from the current fifth-stage version", async () => {
+  mocks.resolve.mockResolvedValue({ threadId: "native", skillName: "原型", versionId: "v1" });
+  const historical = { ...returnedLearning, items: [{ ...returnedLearning.items[0]!, targetStage: 5 }] };
+  mocks.loadReturnContext.mockResolvedValue(historical);
+  const current = { status: "ready", items: [{ kind: "aidt-stage", projectId: "p", stageNumber: 5, revision: 99, sourceStageRevisions: [], draftText: "当前第5步新版本", truncated: false, reviewStatus: "not-confirmed", evidenceStatus: "not-verified", visibility: "group-shared" }], issues: [] };
+  mocks.loadSharedContext.mockResolvedValue(current);
+  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[4]} thread={null} returnRevision="3" sharedContextRefs={[{ stageNumber: 5, revision: 99 }]} />);
+  await waitFor(() => expect(mocks.context).toHaveBeenLastCalledWith(expect.objectContaining({ value: expect.objectContaining({ returnReflectionContext: historical, sharedStageContext: current }) })));
+  expect(screen.getByTestId("aidt-chat-return-context")).toHaveTextContent("原问题来源（学生记录，尚未核实）：第5步 V2");
+  expect(screen.getByTestId("aidt-chat-return-context")).not.toHaveTextContent("第5步 V99");
+  expect(mocks.context.mock.calls.at(-1)![0].value.returnReflectionRules).toContain("不与当前第5步版本互换");
 });

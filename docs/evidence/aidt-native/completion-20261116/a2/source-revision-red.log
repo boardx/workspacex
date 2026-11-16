@@ -1,0 +1,39 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-return_context/apps/web
+
+ ❯ tests/aidt-chat-return-context.test.ts (8 tests | 1 failed | 7 skipped) 8ms
+   × retains the historical question revision from the snapshot instead of borrowing newer stage provenance 7ms
+     → expected { …(10) } to match object { Object (questionSourceStageRevision, evidenceStatus, ...) }
+(17 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-chat-return-context.test.ts > retains the historical question revision from the snapshot instead of borrowing newer stage provenance
+AssertionError: expected { …(10) } to match object { Object (questionSourceStageRevision, evidenceStatus, ...) }
+(17 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "evidenceStatus": "not-verified",
+-   "questionSourceStageRevision": 2,
+    "trust": "untrusted-student-material",
+  }
+
+ ❯ tests/aidt-chat-return-context.test.ts:71:27
+     69|   mocks.history.mockResolvedValue({ items: [source], nextBeforeRevisio…
+     70|   const result = await loadAidtReturnChatContext(input());
+     71|   expect(result.items[0]).toMatchObject({ questionSourceStageRevision:…
+       |                           ^
+     72|   const snapshot = JSON.parse(source.content.draft.fields.questionSnap…
+     73|   source.content.draft.fields.questionSnapshot = JSON.stringify(snapsh…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 skipped (8)
+   Start at  01:39:19
+   Duration  340ms (transform 54ms, setup 63ms, collect 60ms, tests 8ms, environment 0ms, prepare 30ms)
+

@@ -36,7 +36,7 @@ flowchart TD
   class S2 done
   class S3 done
   class S4 tested
-  %% evidence S4: 6 files / 69 tests and targeted ESLint exit 0; green-targeted.log and lint.log
+  %% evidence S4: Initial 69 tests plus follow-up 43 affected tests and ESLint exit 0; source-revision-green.log/source-revision-lint.log
   class S5 done
 ```
 
