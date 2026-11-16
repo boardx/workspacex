@@ -1,5 +1,6 @@
 /** QA-only live-stack reader. No HTTP, migrations, dispatch, ledger writes, or service startup. */
 import { verifyLiveAuditRestore } from './audit-restore-binding';
+import { verifyAidtAuditExcerpt } from './audit-saved-excerpt';
 import { createHash,randomUUID } from 'node:crypto';
 import { readFileSync,realpathSync,writeFileSync,mkdirSync } from 'node:fs';
 import { dirname,isAbsolute,resolve } from 'node:path';
@@ -73,9 +74,10 @@ async function audit(runtimePath:string,requestPath:string,outputPath:string){
     payload={trust:'untrusted-student-material',evidenceStatus:'not-verified',reviewStatus:'editor-confirmed',targetStage:reflection.targetStage,questionSourceStageRevision:reflection.snapshot.sourceStageRevision,fields:reflection.fields};
     reflectionFacts={confirmed:true,targetStage:reflection.targetStage,questionSourceStageRevision:reflection.snapshot.sourceStageRevision,fieldNames:Object.keys(reflection.fields).sort(),fieldHashes:Object.fromEntries(Object.entries(reflection.fields).map(([k,v])=>[k,hash(v)]))};
    }
-   const full=aidtContextCanonicalJson(payload);need(full.startsWith(material.excerpt)&&material.truncated===source.truncated&&(source.truncated||full===material.excerpt),'SAVED_PROJECTION_DOES_NOT_MATCH_FROZEN_EXCERPT');
+   need(material.truncated===source.truncated,'FROZEN_SOURCE_TRUNCATION_MISMATCH');
+   const excerptAudit=verifyAidtAuditExcerpt({stage:saved,excerpt:material.excerpt,truncated:source.truncated,purpose:selector.purpose,...(source.kind==='return'?{payload}:{})});
    const question=saved.stageId===6?readAidtQuestionSnapshot(saved.content.draft):null;
-   sourceFacts.push({kind:source.kind,stageId:source.stageId,revision:source.revision,currentHeadRevision:heads.get(source.stageId)??null,selectedIsCurrentHead:heads.get(source.stageId)===source.revision,sourceStageRevisions:saved.sourceStageRevisions,updatedByHash:hash(saved.updatedBy),updatedAt:saved.updatedAt,contentHash:hash(aidtContextCanonicalJson(saved.content)),excerptHash:hash(material.excerpt),excerptUtf8Bytes:Buffer.byteLength(material.excerpt),truncated:source.truncated,exactSavedProjectionMatches:true,...(question?{questionSnapshot:{sourceStageRevision:question.sourceStageRevision,prototypeDesignIdHash:question.prototypeDesignId?hash(question.prototypeDesignId):null,prototypeVersionIdHash:question.prototypeVersionId?hash(question.prototypeVersionId):null}}:{}),...(reflectionFacts?{reflection:reflectionFacts}:{})});
+   sourceFacts.push({kind:source.kind,stageId:source.stageId,revision:source.revision,currentHeadRevision:heads.get(source.stageId)??null,selectedIsCurrentHead:heads.get(source.stageId)===source.revision,sourceStageRevisions:saved.sourceStageRevisions,updatedByHash:hash(saved.updatedBy),updatedAt:saved.updatedAt,contentHash:hash(aidtContextCanonicalJson(saved.content)),excerptHash:hash(material.excerpt),excerptUtf8Bytes:Buffer.byteLength(material.excerpt),truncated:source.truncated,exactSavedProjectionMatches:true,excerptAudit,...(question?{questionSnapshot:{sourceStageRevision:question.sourceStageRevision,prototypeDesignIdHash:question.prototypeDesignId?hash(question.prototypeDesignId):null,prototypeVersionIdHash:question.prototypeVersionId?hash(question.prototypeVersionId):null}}:{}),...(reflectionFacts?{reflection:reflectionFacts}:{})});
   }
   const events=await store.eventsIn(session,orgId,request.runId),application=reduceAidtApplication(request.runId,events);
   const dispatch=events.filter(e=>e.event.kind==='message-dispatch-observed'),resume=events.filter(e=>e.event.kind==='checkpoint-resume-observed');

@@ -1,0 +1,124 @@
+{
+  "observedAt": "2026-11-16T20:24:49.089959+00:00",
+  "actualChildren": [
+    {
+      "pid": 495908,
+      "kind": "node",
+      "startTicks": "7166842",
+      "guardValues": {
+        "KERNEL_AGENT_RUN_AUTOSTART": "0",
+        "KERNEL_SKILL_TRIALRUN_AUTOSTART": "0",
+        "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART": "0",
+        "KERNEL_THREAD_TITLE_MODEL_ENABLED": "0",
+        "KERNEL_STANDARD_SCHEDULER": "0"
+      },
+      "networkFingerprintMatchesOwner": true,
+      "network": {
+        "HTTP_PROXY": {
+          "present": true,
+          "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+        },
+        "HTTPS_PROXY": {
+          "present": true,
+          "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+        },
+        "ALL_PROXY": {
+          "present": false,
+          "sha256": null
+        },
+        "http_proxy": {
+          "present": true,
+          "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+        },
+        "https_proxy": {
+          "present": true,
+          "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+        },
+        "all_proxy": {
+          "present": false,
+          "sha256": null
+        },
+        "NO_PROXY": {
+          "present": true,
+          "sha256": "3ec16a3ac582efe2c150d78cec7b4fef85d422df5c7a147bf59c55b7f66ba93f"
+        },
+        "no_proxy": {
+          "present": true,
+          "sha256": "3ec16a3ac582efe2c150d78cec7b4fef85d422df5c7a147bf59c55b7f66ba93f"
+        },
+        "SSL_CERT_FILE": {
+          "present": true,
+          "sha256": "b583d63728636e5fa4b2ec89e062e655992406c08430f1b44b12e33fc357b80e"
+        },
+        "REQUESTS_CA_BUNDLE": {
+          "present": true,
+          "sha256": "b583d63728636e5fa4b2ec89e062e655992406c08430f1b44b12e33fc357b80e"
+        },
+        "NODE_EXTRA_CA_CERTS": {
+          "present": true,
+          "sha256": "f662fd20da405312fecbbd4e5a791983d9ae986be5faae019d788f140591f04e"
+        }
+      }
+    },
+    {
+      "pid": 495845,
+      "kind": "python-exec",
+      "startTicks": "7166598",
+      "guardValues": {
+        "KERNEL_AGENT_RUN_AUTOSTART": "0",
+        "KERNEL_SKILL_TRIALRUN_AUTOSTART": "0",
+        "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART": "0",
+        "KERNEL_THREAD_TITLE_MODEL_ENABLED": "0",
+        "KERNEL_STANDARD_SCHEDULER": "0"
+      },
+      "networkFingerprintMatchesOwner": true,
+      "network": {
+        "HTTP_PROXY": {
+          "present": true,
+          "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+        },
+        "HTTPS_PROXY": {
+          "present": true,
+          "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+        },
+        "ALL_PROXY": {
+          "present": false,
+          "sha256": null
+        },
+        "http_proxy": {
+          "present": true,
+          "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+        },
+        "https_proxy": {
+          "present": true,
+          "sha256": "e4d7783ba0b1d7118985e3de887cc689c23041057222c3ad01cb6c9885cc4b09"
+        },
+        "all_proxy": {
+          "present": false,
+          "sha256": null
+        },
+        "NO_PROXY": {
+          "present": true,
+          "sha256": "3ec16a3ac582efe2c150d78cec7b4fef85d422df5c7a147bf59c55b7f66ba93f"
+        },
+        "no_proxy": {
+          "present": true,
+          "sha256": "3ec16a3ac582efe2c150d78cec7b4fef85d422df5c7a147bf59c55b7f66ba93f"
+        },
+        "SSL_CERT_FILE": {
+          "present": true,
+          "sha256": "b583d63728636e5fa4b2ec89e062e655992406c08430f1b44b12e33fc357b80e"
+        },
+        "REQUESTS_CA_BUNDLE": {
+          "present": true,
+          "sha256": "b583d63728636e5fa4b2ec89e062e655992406c08430f1b44b12e33fc357b80e"
+        },
+        "NODE_EXTRA_CA_CERTS": {
+          "present": true,
+          "sha256": "f662fd20da405312fecbbd4e5a791983d9ae986be5faae019d788f140591f04e"
+        }
+      }
+    }
+  ],
+  "modelRequestsSentByAudit": 0
+}

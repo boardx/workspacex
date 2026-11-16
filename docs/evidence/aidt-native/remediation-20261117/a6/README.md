@@ -33,7 +33,9 @@
 
 ## 已执行无模型检查
 
-- QA 单测：4 文件、15 用例通过（加入单问题门槛后将复查）。
+- QA 单测：7 文件、46 用例通过，包括旧真实 S2/SUM 原文的只读回归。
 - 改动文件 ESLint：0 warnings/errors。
 - Playwright `--list`：主链7用例发现成功，未启动浏览器或模型。
-- Web TypeScript：执行中，实际结果另记。
+- Web TypeScript：此前读到 report fixture 与 plan-review permission ID 类型红；两处均已修复，由 root 统一复查，避免并发整体编译。
+
+最近 QA 补充：S6 从确切被冻结原型版本读取实际 HTML；脚本/事件/native goto/links 分别检查。号码相关文字无法确定对应时标待人工核对，不能硬写“无映射”。报告导入还须常显真实回执的版本/截断范围；软件范围说明与所选模型原文分开，原文精确不改。

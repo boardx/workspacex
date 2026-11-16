@@ -1,0 +1,16 @@
+{
+  "createdByEnvironmentOwner": true,
+  "database": "aidt_tc5_remediation_20261117",
+  "composeProject": "wsx-1e261c1b8eacf1988f72",
+  "port": 20555,
+  "businessDatabaseUsed": false,
+  "modelCalls": 0,
+  "observedAt": "2026-11-16T20:23:29.397527+00:00",
+  "exitCode": 0,
+  "log": "/workspace/scratch/aidt-remediation-20261117/stack-01/tc5-checkpoint-test.log",
+  "testFile": "tests/golden/test_tc5_checkpoint_kill_recovery.py",
+  "passed": 5,
+  "seconds": 3.72,
+  "modelRequestsSent": 0,
+  "businessOrWalletWrites": false
+}

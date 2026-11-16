@@ -238,11 +238,24 @@ test("completion SUM: full same-group history → real summary → reviewed repo
   const choices = page.getByRole("combobox", { name: "选择要审阅的AI结果", exact: true }); await expect(choices).toHaveValue("");
   await choices.selectOption(`message:${turn.assistantMessageId}`);
   await expect(page.getByTestId("aidt-summary-result-preview")).toHaveText(turn.assistantText);
+  if (isAidtRemediation()) {
+    const sourceReview = page.getByTestId("aidt-summary-source-review");
+    await expect(sourceReview).toBeVisible();
+    for (const ref of turn.sourceReceipt.stageRevisions) await expect(sourceReview).toContainText(`第${ref.stageId}步 V${ref.revision}`);
+    await expect(sourceReview).toContainText(turn.sourceReceipt.truncated ? "来源已截断" : "回执未标记摘录截断");
+    await expect(sourceReview).toContainText("软件不代替学生确认报告事实");
+  }
   const apply = page.getByTestId("aidt-summary-import-apply"); await expect(apply).toBeDisabled();
   expect(await readAidtV2Stage(page, projectId, 6)).toEqual(stages[5]);
   await page.getByRole("checkbox", { name: "我已核对AI草稿、材料缺口与点评来源", exact: true }).check(); await apply.click();
   await expect(report).toHaveValue(new RegExp(manual)); const expected = await report.inputValue();
   expect(expected).toContain(turn.assistantText); expect(expected).toContain(turn.assistantMessageId); expect(expected).toContain(turn.runId);
+  if (isAidtRemediation()) {
+    expect(expected.slice(0, manual.length)).toBe(manual);
+    const rawMarker = "### 所选AI原文（未经软件改写）\n\n";
+    expect(expected.slice(expected.indexOf(rawMarker) + rawMarker.length)).toBe(`${turn.assistantText}\n`);
+    expect(expected).toContain("### 软件记录的来源范围（不是AI报告正文）");
+  }
   expect(await readAidtV2Stage(page, projectId, 6)).toEqual(stages[5]);
   const savedResponse = page.waitForResponse(value => value.request().method() === "PUT" && new URL(value.url()).pathname === apiPath(`/projects/${projectId}/aidt/stages/6`));
   await page.getByTestId("aidt-report-save").click(); const response = await savedResponse; expect(response.status()).toBe(200);

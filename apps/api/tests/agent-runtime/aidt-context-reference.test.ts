@@ -87,7 +87,7 @@ it.each(['legacy-prefix','field-projection'])('resumes an already frozen SUM %s 
  const result=await assembleAidtRunReference({orgId:org,run,history:[],attemptId:'run:resume',contexts});
  expect(result.history).toEqual([{role:'user',content:snapshot.modelReferenceBlock}]);
  expect(contexts.append).not.toHaveBeenCalled();
- await result.observer!.onDispatched({kind:'checkpoint-resume-observed',contentSha256:snapshot.modelReferenceBlockHash});
+ await result.observer!.onDispatched({kind:'checkpoint-resume-observed',contentSha256:snapshot.modelReferenceBlockHash,remoteRunId:'remote-resumed-run',remoteThreadId:'remote-resumed-thread'});
  expect(contexts.append).toHaveBeenCalledWith(org,'run',expect.objectContaining({kind:'checkpoint-resume-observed',snapshotHash:stored.snapshotHash}));
  expect(result.history[0]!.content).toBe(snapshot.modelReferenceBlock);
 });
