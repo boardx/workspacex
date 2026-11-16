@@ -4,7 +4,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { research as C } from "@repo/contracts";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
-import { addOrgMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -218,6 +218,11 @@ beforeEach(async () => {
   await resetOrgs(ORG, OTHER_ORG);
   const fixture = await seedOrg({ orgId: ORG, projectId: "proj-f195" });
   await addOrgMember(ORG, OWNER, "consultant", fixture.teams.energy!);
+  // @global-scope-fixture table:credit_wallets: fund this suite's isolated model caller.
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [OWNER],
+  ));
   await addOrgMember(ORG, OTHER_USER, "consultant", fixture.teams.energy!);
   await seedOrg({ orgId: OTHER_ORG, projectId: "proj-f195-other" });
 });

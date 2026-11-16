@@ -43,7 +43,13 @@ afterAll(async () => { await app?.close(); await resetOrgs(ORG, OTHER); if (prov
 beforeEach(async () => {
   providerMessages = []; providerHook = null;
   await resetOrgs(ORG, OTHER); const fx = await seedOrg({ orgId: ORG, projectId: "proj-f03" });
-  await addOrgMember(ORG, USER, "consultant", fx.teams.energy!); const otherFx=await seedOrg({ orgId: OTHER, projectId: "proj-other" });
+  await addOrgMember(ORG, USER, "consultant", fx.teams.energy!);
+  // @global-scope-fixture table:credit_wallets: fund this suite's isolated model caller.
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [USER],
+  ));
+  const otherFx=await seedOrg({ orgId: OTHER, projectId: "proj-other" });
   await addOrgMember(OTHER, "other", "consultant", otherFx.teams.energy!);
   await asApp(ORG, async c => {
     await c.query(`INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,initials,role,visibility,source,publish_state,model_id,concurrency_limit,degrade_policy)
