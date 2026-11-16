@@ -1,4 +1,4 @@
-# Teaching boundary remediation: methods 1.3.1 / summary 1.0.1
+# Teaching boundary remediation: methods 1.3.2 / summary 1.0.1
 
 These immutable source candidates address observed behavior in [the fresh-round review](../../docs/evidence/aidt-native/completion-20261116/a3/fresh-round-content-review.md), using the existing [V2 requirements](../../docs/requirements/aidt-v2-full.md). Source readiness and deterministic package checks do not establish model compliance or human teaching approval.
 
@@ -20,7 +20,7 @@ The seven new source files put this precise marker in the first nonblank body li
 
 Runtime recognizes the marker from the actual mounted Skill content, not user text or reference material. A successful focused Skill reply is feedback for the current student request; it is not stage completion, group consensus, confirmation, evidence validation or saving. Failed/unknown calls and older packages retain their existing behavior. The runtime implementation is independently tested by its owner.
 
-The existing opt-in registry now selects 1.3.1/1.0.1 for future imports/selections. Source files are versioned separately so all old release bytes and source inputs remain available. The context verifier appends the exact new coordinates and retains previous releases. No existing thread pin, user clone or ordinary Chat selection is migrated. Builds do not install, publish, deploy or create human approval records.
+The existing opt-in registry now selects 1.3.2/1.0.1 for future imports/selections. Source files are versioned separately so all old release bytes and source inputs remain available. The context verifier appends the exact new coordinates and retains previous releases. No existing thread pin, user clone or ordinary Chat selection is migrated. Builds do not install, publish, deploy or create human approval records.
 
 ```bash
 pnpm --filter @repo/api exec tsx scripts/build-aidt-methods-pack.ts --check
@@ -32,3 +32,11 @@ pnpm run lint:skill-metadata-source
 ```
 
 Content assertions check that the shipped input carries the intended boundaries. They cannot prove how a supplier model will respond, whether evidence is genuine, or whether a class learns effectively. New real-model S2/SUM results must be inspected against frozen inputs before claiming these defects resolved in actual use.
+
+## S1 follow-up: methods 1.3.2
+
+The actual 1.3.1 S1 reply correctly retained guess/no-real-interview boundaries, but restated an open “understand the signs” topic as a quoted “cannot understand the area signs” premise. Its two interrogative clauses addressed one source topic; that does not remove the inaccurate negative paraphrase or satisfy a strict single-question presentation request. The old run and its QA failure remain in [the independent semantic review](../../docs/evidence/aidt-native/remediation-20261117/a2-boundaries/review.md). They are not rewritten as full teaching acceptance.
+
+Version 1.3.2 preserves every 1.3.1 source/release byte and adds S1 guidance only: quote student wording exactly or paraphrase without changing uncertainty; retain unknown whether a difficulty exists; label any new possibility as an AI-proposed conditional hypothesis for student judgment. If the student explicitly asks for one follow-up, return one complete neutral main question, with no second question or extra assignment; optional source categories are non-question hints. The other five Skills only receive the required semantic version bump and retain the same content and execution marker. Summary remains 1.0.1.
+
+The API context release list appends 1.3.2 while retaining 1.3.1 and all earlier allowed pins. New selection/import is explicit through the existing lifecycle; no stored thread is migrated. This new package has source/immutable-byte regressions; actual 1.3.2 supplier-model behavior still requires a separate frozen-input run and semantic review.

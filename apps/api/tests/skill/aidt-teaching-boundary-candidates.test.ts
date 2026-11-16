@@ -17,13 +17,14 @@ const content = (name: string) => readFileSync(join(AIDT_METHODS_CANDIDATE_SOURC
 
 describe("opt-in teaching boundary release candidates", () => {
   it("selects new opt-in coordinates while retaining published bytes", () => {
-    expect(AIDT_PLATFORM_SKILL_PACK).toEqual({ packId: "aidt-methods", packVersion: "1.3.1" });
+    expect(AIDT_PLATFORM_SKILL_PACK).toEqual({ packId: "aidt-methods", packVersion: "1.3.2" });
     expect(AIDT_SUMMARY_SKILL_PACK).toEqual({ packId: "aidt-project-summary", packVersion: "1.0.1" });
     for (const [path, digest] of [
       ["aidt-methods/1.3.0.json", "43bd0807885fb9a47d2c4dc56c5403969d2be7fda665b10d83a34a99409d40af"],
+      ["aidt-methods/1.3.1.json", "f0371a57c32b4bec955d83267a5f4f3d1c8c63f2460dcd685727d4503b55020b"],
       ["aidt-project-summary/1.0.0.json", "ccf956f35998325fe48586c8d7372b5225435eb2489193baa6d1eeb44f8dffb7"],
     ]) expect(sha256(readFileSync(new URL(`skills/starter-packs/${path}`, root)))).toBe(digest);
-    expect(buildAidtMethodsPack().packVersion).toBe("1.3.1");
+    expect(buildAidtMethodsPack().packVersion).toBe("1.3.2");
     expect(buildAidtSummaryPack().packVersion).toBe("1.0.1");
   });
 
@@ -56,6 +57,20 @@ describe("opt-in teaching boundary release candidates", () => {
         expect(readFileSync(new URL(`skills/${sourceRoot}/${skill.stableName}/SKILL.md`, root), "utf8")).toBe(original);
       }
     }
+  });
+
+  it("preserves all 1.3.1 authoring bytes and changes only S1 guidance beyond the 1.3.2 version bump", () => {
+    const previous = JSON.parse(readFileSync(new URL("skills/starter-packs/aidt-methods/1.3.1.json", root), "utf8"));
+    for (const skill of previous.skills) {
+      const original = Buffer.from(skill.files[0].contentBase64, "base64").toString("utf8");
+      expect(readFileSync(new URL(`skills/aidt-methods-candidates/1.3.1/${skill.stableName}/SKILL.md`, root), "utf8")).toBe(original);
+      if (skill.stableName !== "aidt-understand") expect(content(skill.stableName)).toBe(original.replace("version: 1.3.1\n", "version: 1.3.2\n"));
+    }
+  });
+
+  it("S1 preserves the student's uncertainty and obeys an explicit single neutral question request", () => {
+    const text = content("aidt-understand");
+    for (const rule of ["逐字引用", "忠实转述", "不得改变原句的确定程度", "困惑是否存在未知", "不能改成“看不懂”“找错位置”等已定缺陷", "用“如果……”条件化", "AI 提出的待验证假设", "由学生判断", "只有一个问号", "不要再附第二个问句、独立子问或额外作业", "非问句提示", "不因已知来源类别而否定学生后续更正"]) expect(text).toContain(rule);
   });
 
   it("refuses cross-lineage construction or a source/coordinate mismatch", () => {

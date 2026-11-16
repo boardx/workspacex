@@ -12,6 +12,7 @@ it("rejects same-name fabricated content even with its self-consistent package d
 it("rejects extra/missing package files and unavailable deployment pack sources",async()=>{const p={...pinned()};p.package={...p.package!,files:[...p.package!.files,{path:"extra.md",contentBase64:"eA==",mediaType:"text/markdown",digest:"2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"}]};await expect(verifyAidtPinnedSkill(p,source)).rejects.toThrow();await expect(verifyAidtPinnedSkill(pinned(),{load:async()=>null})).rejects.toMatchObject({reasonCode:"AIDT_CONTEXT_NOT_AVAILABLE"});});
 it.each([
   ["aidt-methods", "1.3.1", "aidt-empathize"],
+  ["aidt-methods", "1.3.2", "aidt-understand"],
   ["aidt-project-summary", "1.0.1", "dt-summarize-project"],
 ])("verifies the exact new %s@%s release without rewriting an older pin", async (packId, packVersion, stableName) => {
   const pack = JSON.parse(readFileSync(new URL(`../../../../skills/starter-packs/${packId}/${packVersion}.json`, import.meta.url), "utf8"));
