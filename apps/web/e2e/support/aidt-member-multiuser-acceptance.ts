@@ -60,13 +60,19 @@ function row(page: Page, id: string) {
 }
 async function send(page: Page, projectId: string, userId: string, text: string, rootId?: string) {
   await page.bringToFront();
-  await expect(page.getByTestId("project-member-input")).toBeEnabled();
-  await page.getByTestId("project-member-input").fill(text);
+  if (rootId) await expect(page.getByTestId("project-member-topic-root")).toHaveAttribute("data-message-id", rootId);
+  else await expect(page.getByTestId("project-member-topic-close")).toHaveCount(0);
+  const composer = page.getByRole("textbox", { name: rootId ? "回复此话题" : "发给项目成员", exact: true });
+  const submit = page.getByRole("button", { name: rootId ? "发送话题回复" : "发送给项目成员", exact: true });
+  await expect(composer).toBeEnabled();
+  await composer.fill(text);
+  await expect(composer).toHaveValue(text);
+  await expect(submit).toBeEnabled();
   const path = `/projects/${encodeURIComponent(projectId)}/member-chat/messages`;
   const [response] = await Promise.all([
     page.waitForResponse(response => response.request().method() === "POST"
       && new URL(response.url()).pathname.endsWith(path) && response.request().postDataJSON()?.text === text),
-    page.getByTestId("project-member-send").click(),
+    submit.click(),
   ]);
   expect([200, 201]).toContain(response.status());
   // Compare bearer equality inside the browser, return only a boolean.
@@ -185,17 +191,21 @@ export async function acceptAidtMemberMultiuser(options: MemberMultiuserOptions)
     const secondRoot = await send(second, projectId, activated.userId, `多人验收 ${suffix}：第二位成员提出不同分工，非研究结论。`);
     await owner.bringToFront();
     await expect(row(owner, secondRoot.message.id)).toHaveAttribute("data-delivery", "stored", { timeout: 15_000 });
+    await second.bringToFront();
     await second.getByTestId(`project-member-topic-${ownerRoot.message.id}`).click();
     const secondReply = await send(second, projectId, activated.userId, `多人验收 ${suffix}：第二位成员单层回复第一条。`, ownerRoot.message.id);
-    await owner.getByTestId(`project-member-topic-${ownerRoot.message.id}`).click();
     await owner.bringToFront();
+    await owner.getByTestId(`project-member-topic-${ownerRoot.message.id}`).click();
     await expect(row(owner, secondReply.message.id)).toHaveAttribute("data-delivery", "stored", { timeout: 15_000 });
+    await owner.bringToFront();
     await owner.getByTestId("project-member-topic-close").click();
+    await owner.bringToFront();
     await owner.getByTestId(`project-member-topic-${secondRoot.message.id}`).click();
     const ownerReply = await send(owner, projectId, ownerActor.userId, `多人验收 ${suffix}：第一位成员单层回复第二条。`, secondRoot.message.id);
-    await second.getByTestId("project-member-topic-close").click();
-    await second.getByTestId(`project-member-topic-${secondRoot.message.id}`).click();
     await second.bringToFront();
+    await second.getByTestId("project-member-topic-close").click();
+    await second.bringToFront();
+    await second.getByTestId(`project-member-topic-${secondRoot.message.id}`).click();
     await expect(row(second, ownerReply.message.id)).toHaveAttribute("data-delivery", "stored", { timeout: 15_000 });
     await checkpoint?.("two-browser-channel-and-topic-mutual-readback");
     const sent = [{ page: owner, value: ownerRoot }, { page: second, value: secondRoot }, { page: second, value: secondReply }, { page: owner, value: ownerReply }];
@@ -235,6 +245,7 @@ export async function acceptAidtMemberMultiuser(options: MemberMultiuserOptions)
     const privateRead = await api(owner, apiOrigin, `${privatePath}?limit=100`);
     success(privateRead, "rejection project authoritative readback");
     expect(memberChat.operations.listMessages.out.parse(privateRead.data).items).toEqual([privateMessage]);
+    await owner.bringToFront();
     await owner.getByTestId("project-member-topic-close").click();
     await owner.getByTestId("global-member-chat-close").click();
     expect(generationRequests).toEqual([]);

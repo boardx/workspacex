@@ -36,12 +36,12 @@ flowchart TD
   class S3 tested
   %% evidence S3: 报告历史与冻结来源测试通过；待S8原生验收
   class S4 tested
-  %% evidence S4: 成员范围59项测试已覆盖；待S8真实主消息和回复停启
+  %% evidence S4: 真实full04话题窗口反例先红，产品与helper修后60项回归+全Web类型通过；完整N仍待重跑
   class S5 tested
   %% evidence S5: Design交接47项、错目标撤权及类型精准19项，普通Design兼容；非模型质量验收
   class S6 done
   class S7 tested
-  %% evidence S7: 987项不同Web用例，最终typecheck/design/testid通过，见integration
+  %% evidence S7: 988项不同Web用例、最终typecheck及6299 testid引用通过
   class S8 doing
   class S9 todo
   class S10 blocked

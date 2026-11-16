@@ -1036,4 +1036,3 @@ Ignored nodes: comments, script, style
       Tests  2 failed | 985 passed (987)
    Start at  02:24:50
    Duration  39.67s (transform 9.24s, setup 4.90s, collect 38.44s, tests 34.91s, environment 21.66s, prepare 2.93s)
-

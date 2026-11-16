@@ -1,0 +1,31 @@
+{
+  "startedAt": "2026-11-16T02:37:31.246378+00:00",
+  "sourceCommit": "6b648dfc88cb4d1d9478daf08edd6ee4c938d1b1",
+  "dirtyStatus": "",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.aidt-local.config.ts",
+    "--workers=1"
+  ],
+  "seed": "aidt-completion-20261116-full-04",
+  "webMode": "start",
+  "reuseBuild": false,
+  "parentNodeEnv": "development",
+  "dataDir": "/workspace/scratch/aidt-local-persistent-acceptance/data",
+  "browserCache": "/tmp/aidt-playwright",
+  "modelFixture": false,
+  "finishedAt": "2026-11-16T02:43:34.396166+00:00",
+  "exitCode": 1,
+  "durationMs": 363106
+}

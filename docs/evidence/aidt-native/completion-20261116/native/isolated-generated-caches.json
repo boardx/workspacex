@@ -1,0 +1,10 @@
+[
+  {
+    "link": "/workspace/aidt-module-latest/node_modules/.vite",
+    "oldTargetPreserved": "/workspace/aidt-native/node_modules/.vite"
+  },
+  {
+    "link": "/workspace/aidt-module-latest/apps/web/node_modules/.vite",
+    "oldTargetPreserved": "/workspace/aidt-native/apps/web/node_modules/.vite"
+  }
+]
