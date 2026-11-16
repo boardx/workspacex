@@ -141,6 +141,11 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
     });
     await resetOrgs(ORG);
     await seedWorkflowOrg(ORG, [{ userId: PM }, { userId: PEER }], "agent-ct06-plain");
+    // @global-scope-fixture table:credit_wallets: funds the isolated workflow initiator.
+    await asOwner(client => client.query(
+      "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+      [PM],
+    ));
     // D003 / D011：已发布版本冻结各自官方角色的 workflowAllowlist（官方角色包同一份种子），模型指向回环 provider。
     for (const [agentId, role] of [[D003_AGENT, "D003"], [D011_AGENT, "D011"]] as const) {
       await asApp(ORG, async (c) => {
@@ -219,8 +224,8 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
       expect(a.status).toBe(200);
       p = WorkflowInstanceProjection.parse((await settled(started.instanceId)).body);
     }
-    expect(approvedGates).toEqual(["frame_gate", "target_gate", "solution_gate", "prd_gate"]);
     expect(p.status, JSON.stringify({ stages: p.stages.map(s => ({ stageId: s.stageId, status: s.status, reasonCode: s.reasonCode })), effects: p.effects })).toBe("succeeded");
+    expect(approvedGates).toEqual(["frame_gate", "target_gate", "solution_gate", "prd_gate"]);
     expect(p.stages.every((s) => s.status === "succeeded")).toBe(true);
 
     // Skill 调用顺序与版本固定（ADR-118 #9：来自实例冻结的 pinnedSkills），经生产 ModelCallPort 到回环模型。
