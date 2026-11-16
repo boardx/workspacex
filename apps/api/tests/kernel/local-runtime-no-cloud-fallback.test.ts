@@ -27,7 +27,7 @@ import http from "node:http";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { identity as C } from "@repo/contracts";
-import { addCapability, addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addCapability, addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { invokeLocalModel } from "../../src/application/identity/invoke-local-model";
 import {
   CloudModelForbiddenError,
@@ -128,6 +128,11 @@ beforeEach(async () => {
   await resetOrgs(LOCAL_ORG);
   await seedOrg({ orgId: LOCAL_ORG, kind: "personal-local", ownerUserId: USER, projectId: `${LOCAL_ORG}-p` });
   await addOrgMember(LOCAL_ORG, USER, "admin", null);
+  // @global-scope-fixture table:credit_wallets: fund the isolated local model caller.
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [USER],
+  ));
   await addCapability({
     orgId: LOCAL_ORG, id: MODEL_ID, kind: "model", name: "local-llm",
     endpoint: `http://127.0.0.1:${runtimePort}`,
