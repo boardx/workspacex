@@ -24,9 +24,11 @@ flowchart TD
   S5[5. 收尾：本地提交与限制交接]
   S6[6. 交叉审阅配置入口并复现旧404错误]
   S7[7. 补修旧错误并验证当前404隔离]
+  S8[8. 提供真实文字浏览器验收helper及调用契约]
 
   G --> S1 --> S2 --> S3 --> S4 --> S5
   S5 --> S6 --> S7
+  S7 --> S8
 
   classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
@@ -34,8 +36,7 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G tested
-  %% evidence G: before.log与after.log证实先失败后修复；55条定向测试通过；README记录真实验收边界
+  class G doing
   class S1 done
   class S2 tested
   %% evidence S2: before.log: 4个新反例失败/21个既有测试通过，after-controller.log:25通过
@@ -47,6 +48,7 @@ flowchart TD
   class S6 tested
   %% evidence S6: stale-error-before.log:两反例失败；README记录A1无密钥独立接线检查4项通过
   class S7 tested
+  class S8 done
   %% evidence S7: stale-error-after.log:59/59；含当前404隐藏缓存和禁止发送的反向验证
 ```
 

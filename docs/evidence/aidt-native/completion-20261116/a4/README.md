@@ -65,3 +65,28 @@ A1 只读审阅指出历史/话题的 catch 分支仍可能清除已恢复的新
 4. 只拦截唯一子进程启动，不模拟模型响应：safe smoke 保留调用者已有隔离 DB/API port/compose 值，不导入 CN 文件同名覆盖或 DATABASE_URL；设置 model-only 标记；精确调用现有 `with-test-isolation.ts → real-model-smoke.sh office`；合成子进程退出 19 原样传播。
 
 未发现新增阻塞。这里只确认诊断与接线；没有验证实际模型连通、隔离栈启动或旧 smoke 下游所有日志的脱敏。旧非 safe loader 仍 source 配置、safe 入口不清洗调用者已导出的全部变量，这两点 A1 文档已有明确限制。
+
+## 可接入现有原生验收的真实文字 helper
+
+新增 `apps/web/e2e/support/aidt-member-text-acceptance.ts`，导出：
+
+```ts
+acceptAidtMemberText({
+  page, projectId,
+  request: (path, method, body) => existingAuthenticatedRequest(page, path, method, body),
+  toStep: 1, // 可选；默认从S1去S2，其余步骤去S1，必须与当前步不同
+  checkpoint: async (name) => { console.info(`[member-text] ${name}`); },
+});
+```
+
+`request(path, "GET" | "POST", body?)` 必须绑定当前 Page 的真实已认证 HTTP 端口，返回 `{ status: number, data: unknown }`；可用原 native API helper 扩展支持 POST。不得传测试替身或安装 HTTP route fixture。
+
+调用前提：已有真实本机服务、登录和当前身份可写的专用验收项目；当前 Page 位于 `/aidt/<projectId>?step=1..6`，当前频道没有未发送草稿和未关闭的话题。helper 不登录、不起栈、不改视窗、不调用 `page.goto`，仅点击既有桌面/移动阶段导航 Link。若前提不符直接失败，避免覆盖调用方的未发草稿。
+
+流程：真实全局 UI 发主消息 → 频道留草稿 → 单层话题真实回复并留独立草稿 → 关闭插件 → 切本组另一步 → 重开并核对话题/两份草稿 → 真实 API 重放两个原请求并确认 `replayed=true` → 有界增量分页回读各 client ID 仅一条，话题端点再次回读实际根和回复，确认未发草稿没有进入服务器 → 通过现有 UI 清除 helper 自建草稿并关闭插件。
+
+返回可序列化证据：`projectId/fromStep/toStep/root/reply/uniqueClientMessageCounts/exactRequestReplay/channelDraftRestored/topicDraftRestored/draftPersistenceScope/generationRequestPaths`。`checkpoint` 依次收到 `topic-restored`、`channel-restored`，默认建议仅记录 phase；需要截图时沿用调用方自身 output，不打印 token。页面最终位于目标步骤，插件关闭；调用方决定随后是否回到报告或重启服务。
+
+UI POST 必须实际返回 200/201；还核对原生已提交且未过期的会话身份、UI 请求与当前会话 Bearer 的布尔一致性、服务端回执作者等于当前 userId。token 不返回、不输出，也不参与会把两边原值打印出来的断言。helper 临时监听原生消息/队列、Agent run 和 Design Chat 的 POST 路径，要求文字流程与阶段跳转没有发起这些生成请求，并在 finally 移除监听。它不把页面上的“已保存”标记单独作为服务器回执。
+
+已执行、退出 0：此单文件的 `tsc --noEmit --skipLibCheck --target ES2022 --module esnext --moduleResolution bundler --esModuleInterop`、定向 ESLint、`git diff --check`。**本 worker 未调用 helper、未启动浏览器或重型 E2E**；这些断言的编写和编译不代表运行通过，真实执行结果必须由 root/A6 的原生验收另行记录。helper 验证同一已认证页面会话的未发草稿保留，不声称刷新或重启恢复草稿；服务器消息跨重启仍由原 native 测试独立证明。
