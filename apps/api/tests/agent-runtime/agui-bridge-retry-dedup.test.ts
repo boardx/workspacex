@@ -20,11 +20,11 @@ import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "@ag-ui/core";
 import { closeAppDeterministically, closeHttpServerDeterministically } from "../support/close-app";
 import {
-  addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
+  addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
@@ -40,6 +40,11 @@ const V1 = "agent-version-agui-retry-dedup-v1";
 const SKILL = "skill-agui-retry-dedup";
 const SV = "skill-version-agui-retry-dedup-v1";
 const MODEL = "pinned-model-agui-retry-dedup";
+
+vi.mock("../../src/infrastructure/agent/pg-default-agent-repository", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../src/infrastructure/agent/pg-default-agent-repository")>(),
+  resolveDeepAgentModel: () => ({ provider: PROVIDER, modelId: MODEL }),
+}));
 
 const sha256 = (v: string): string => createHash("sha256").update(v).digest("hex");
 
@@ -184,6 +189,11 @@ beforeEach(async () => {
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy!);
+  // @global-scope-fixture table:credit_wallets: fund the isolated retry actor.
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [ACTOR],
+  ));
   await addProjectMember(ORG, PROJECT, ACTOR, "facilitator", null);
   await addSkillVersion();
   await addPublishedAgentVersion();
