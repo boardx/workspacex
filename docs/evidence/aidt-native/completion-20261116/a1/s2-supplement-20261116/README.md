@@ -14,7 +14,7 @@ Both credit requests remain **pending**, with reservations 3412 + 5217 hundredth
 
 ## Zero-model diagnosis and source repair
 
-The first QA attempt stopped before any native request because its picker assertion ran before the real directory was ready. Its one empty mounted thread was retained. A zero-SDK diagnostic and revised QA then reused that exact thread; no second thread was created for the actual send.
+The first QA attempt stopped before any native request at the picker-selection assertion. Its precise original event timing was not established; a later zero-SDK diagnostic waited for the real directory and proved normal selection. Its one empty mounted thread was retained. A zero-SDK diagnostic and revised QA then reused that exact thread; no second thread was created for the actual send.
 
 Two separately authorized HEAD diagnostics were performed, exactly once each. Both used the existing Python/httpx client, a validated non-model base path, no Authorization, no request body, TLS verification/trust_env enabled, retry 0, timeout 5 seconds and no redirects.
 
