@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "sourceSnapshotCommit": "1c29e6c55bfa26e4db064c8eb466111a121f1bfc",
+  "orderedWrites": [
+    {
+      "index": 0,
+      "status": "succeeded",
+      "library_file_id": "libfile_fde3_f-870b35a7c80c81919969821a5c7163d8_f2550309ede48191b6efb8c3155855a5",
+      "file_id": "file_00000000ae2c81fdb52bbfeb841d0b1c",
+      "file_name": "AIDT-local-source.zip",
+      "current_version_number": 9,
+      "file_size_bytes": 51566678,
+      "localMetadataApplied": true
+    },
+    {
+      "index": 1,
+      "status": "succeeded",
+      "library_file_id": "libfile_fde3_f-a8b95826bf588191ab5049a8b797c528_f2550309ede48191b6efb8c3155855a5",
+      "file_id": "file_000000006a3c81fdb6e6afd9c103e98d",
+      "file_name": "AIDT-V2-人工测试验收手册.pdf",
+      "current_version_number": 8,
+      "file_size_bytes": 221575,
+      "localMetadataApplied": true
+    },
+    {
+      "index": 2,
+      "status": "succeeded",
+      "library_file_id": "libfile_fde3_f-8b8d9ee204b08191a5b4cfdcd76337e5_f2550309ede48191b6efb8c3155855a5",
+      "file_id": "file_00000000922c81fdba119eb0f55944a9",
+      "file_name": "AIDT-V2-完整测试报告.pdf",
+      "current_version_number": 0,
+      "file_size_bytes": 171062,
+      "localMetadataApplied": true
+    }
+  ],
+  "preparedHelper": {
+    "status": "pre-write-tools-list-401",
+    "writesStarted": false,
+    "directOwnedFallback": "ordered, original IDs and retained version guards preserved"
+  },
+  "privateRuntimeOrBackupUploaded": false,
+  "screenshotsUploaded": false,
+  "readback": "Both saved PDF files re-materialized; all pages text and pixels exactly match validated local render. See library-pdf-readback.json.",
+  "recordedAtUTC": "2026-11-16T18:47:52.692136+00:00"
+}

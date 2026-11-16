@@ -1,0 +1,15 @@
+{
+  "sourceSnapshot": "1c29e6c55bfa26e4db064c8eb466111a121f1bfc",
+  "archiveBytes": 51566678,
+  "archiveSha256": "c9accdb0e2d9b1bb0bda8502d18f95812d40d3deb6c1b6bc1342205444aa20d7",
+  "manifestFiles": 12623,
+  "everyManifestHashMatched": true,
+  "archiveCRC": "passed",
+  "requiredNewQAAndSamplesPresent": 10,
+  "providedModelKeyMatches": 0,
+  "privateRuntimeOrBackupFiles": 0,
+  "browserScreenshotsIncluded": false,
+  "PDFDecodedTextModelKeyMatches": 0,
+  "publicSyntheticSeedCredentialsMayExist": true,
+  "credentialClaim": "No provided model keys or private runtime/config/diagnostic files; synthetic test seed constants in source are not real user credentials."
+}

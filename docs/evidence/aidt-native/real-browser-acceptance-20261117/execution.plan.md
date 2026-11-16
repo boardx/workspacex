@@ -46,5 +46,6 @@ flowchart TD
  %% evidence S6: S6原护栏红保留，once同run续完1pass32.6s，无新human/reserve；学生V3到V4/unchanged/return2/真实静态检查纠正/重登，旧题V1冻结。A1 6physical/6reported67749tokens/6settled，S3pending不变；非完整链绿。
  class R tested
  %% evidence R: SUM原护栏红保留，once同run续完1pass54.1s/实际3070字草稿/学生V8+8613B精确MD；再0费学生纠正V9/11664B+freshlogin/旧refs原AI旧导出不变。A1 9physical/197065reportedtokens/9settled。A2可见投影29源17截断，V2/currentreturn5可见仍被遗漏、旧return2不完整；AI整编内容未全过，学生补正不追认模型全读。
- class V doing
+ class V tested
+ %% evidence V: 源码snapshot1c29e6c55 CRC/全部12623manifest hash/新QA样例/私钥配置排除校验过；结果PDF14p/人工27p字体嵌入无空页越界，Library源码v9/手册v8/新结果文件保存成功，两PDF实际读回逐页text+pixels完全相同；A1单次private诊断核全列/原件+最终owner exit0/13端口租约槽全释放。保留AI缺陷，G与S5红不洗绿。
 ```

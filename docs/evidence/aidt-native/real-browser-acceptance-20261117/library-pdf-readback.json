@@ -1,0 +1,28 @@
+{
+  "verifiedAtUTC": "2026-11-16T18:46Z",
+  "savedBytesMayDifferBySigningMetadata": true,
+  "files": [
+    {
+      "filename": "AIDT-V2-完整测试报告.pdf",
+      "storedBytes": 171062,
+      "storedSha256": "0b27e898aad7a7ff1bf574e79f52dee833cddeac9505bace6a45b26e9fe33f91",
+      "pages": 14,
+      "allPagesTextExactlyMatchLocal": true,
+      "allPagesRenderedPixelsExactlyMatchLocal": true,
+      "embeddedCJK": true,
+      "emptyPages": 0,
+      "humanSignaturesFilledByAgent": false
+    },
+    {
+      "filename": "AIDT-V2-人工测试验收手册.pdf",
+      "storedBytes": 221575,
+      "storedSha256": "2f34be994f7c2fc202763f136ce3bfe2ef8bff9a90bab9e1364ff915151e94cb",
+      "pages": 27,
+      "allPagesTextExactlyMatchLocal": true,
+      "allPagesRenderedPixelsExactlyMatchLocal": true,
+      "embeddedCJK": true,
+      "emptyPages": 0,
+      "humanSignaturesFilledByAgent": false
+    }
+  ]
+}
