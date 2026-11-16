@@ -2478,4 +2478,3 @@ Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /ap
       Tests  1060 passed | 4 skipped (1064)
    Start at  10:36:09
    Duration  146.29s (transform 7.79s, setup 6.98s, collect 67.21s, tests 28.02s, environment 29.46s, prepare 3.83s)
-

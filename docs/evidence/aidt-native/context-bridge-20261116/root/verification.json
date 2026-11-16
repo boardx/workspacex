@@ -78,5 +78,6 @@
     "finalOwnerExitCode": 0,
     "privateConfigRetainedMode": "0600",
     "ledgerUnchanged": true
-  }
+  },
+  "archivedLogFormatting": "Only duplicate blank lines at EOF trimmed for git whitespace gate; test output body unchanged, original private /tmp logs retained."
 }
