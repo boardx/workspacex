@@ -484,7 +484,6 @@ test("FR07/FR17: three distinct sheets and independent multi-label choice reach 
   for (let n = 1; n <= 3; n++) {
     await page.getByLabel(`候选${n}名称`, { exact: true }).fill(names[n - 1]!);
     await page.getByLabel(`候选${n}核心说明`, { exact: true }).fill(descriptions[n - 1]!);
-    await page.getByLabel(`候选${n}参考图`, { exact: true }).setInputFiles(join(fixtureDir, localImages[n - 1]!));
   }
   await page.getByRole("checkbox", { name: `${names[0]} · 最容易实现的`, exact: true }).check();
   await page.getByRole("checkbox", { name: `${names[0]} · 最有趣的`, exact: true }).check();
@@ -497,6 +496,16 @@ test("FR07/FR17: three distinct sheets and independent multi-label choice reach 
   expect(saved.content.draft.selectedIdeaId).toBe(ids[1]);
   expect(JSON.parse(saved.content.draft.fields.ideaClassificationTags!)[ids[0]!]).toEqual(["easy", "fun"]);
   expect(saved.content.draft.ideas.every(idea => !idea.imageAttachment && !idea.image)).toBe(true);
+  const rejectedPreviewWrites: string[] = [];
+  page.on("request", request => {
+    if (request.method() === "PUT" && new URL(request.url()).pathname === apiPath(`/projects/${projectId}/aidt/stages/4`)) rejectedPreviewWrites.push(new URL(request.url()).pathname);
+  });
+  for (let n = 1; n <= 3; n++) await page.getByLabel(`候选${n}参考图`, { exact: true }).setInputFiles(join(fixtureDir, localImages[n - 1]!));
+  await page.getByTestId("aidt-shared-save").click();
+  await expect(page.getByRole("alert").filter({ hasText: "图片请使用已上传材料引用" })).toBeVisible();
+  expect(rejectedPreviewWrites).toEqual([]);
+  expect(await readAidtV2Stage(page, projectId, 4)).toEqual(saved);
+  await page.getByRole("button", { name: "确认本组分类", exact: true }).click();
   await page.getByRole("checkbox", { name: "本组已比较：这些是不同点子，说明讲清做什么及如何帮助用户。", exact: true }).check();
   await page.getByTestId("aidt-idea-sheets-open").click();
   const preview = page.getByTestId("aidt-idea-sheets-preview");
@@ -518,9 +527,12 @@ test("FR07/FR17: three distinct sheets and independent multi-label choice reach 
     for (const other of names.filter((_, index) => index !== n - 1)) expect(observed.text).not.toContain(other);
     expect(observed.imagesLoaded, "真实beforeprint时克隆图像须已加载，不能只凭源预览成功").toBe(true);
   }
+  expect(rejectedPreviewWrites).toEqual([]);
+  expect(await readAidtV2Stage(page, projectId, 4)).toEqual(saved);
   await info.attach("FR07-real-print-events-not-file-delivery", { contentType: "application/json", body: Buffer.from(JSON.stringify({
     projectId, ideaIds: ids, prints: await readAidtNativePrints(page), actualPdfSaved: false,
     imagesAreTemporaryLocalFixtures: true, actualUploadedSharedImages: false, humanSavePdfStillRequired: true,
+    savedWithoutLocalBytes: saved, localPreviewSaveRejected: true, rejectedPreviewWrites, serverUnchangedAfterPrint: true,
   }, null, 2)) });
 });
 
