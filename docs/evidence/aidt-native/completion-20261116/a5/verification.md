@@ -8,6 +8,10 @@
 | `pnpm --filter web exec vitest run tests/aidt-module-boundary.test.ts tests/ui/aidt-module-compatibility.test.tsx` | exit 0，14/14 passed | `isolation-tests.log` |
 | `pnpm --filter web exec eslint features/aidt/components/aidt-prototype-version-picker.tsx features/aidt/lib/aidt-prototype-versions.ts tests/aidt-prototype-versions.test.ts tests/ui/aidt-prototype-version-picker.test.tsx` | exit 0，无诊断 | `eslint.log`（空输出） |
 | `node .harness/scripts/execution-plan.mjs check docs/evidence/aidt-native/completion-20261116/a5/plan.md` | exit 0 | 本地本轮执行 |
+| 移除引用竞态反证：旧 A → 延迟选择 B → 移除 → B 晚到 | 修复前 exit 1，1 failed（callback 从 null 变 B） | `removal-race-red.log` |
+| 修复后完整 helper + picker 测试 | exit 0，20/20 passed（含移除后仍可重新选择） | `removal-race-green.log` |
+
+A5.5 对 picker 与回归测试再次执行定向 ESLint，exit 0，无诊断。这个修复只取消被学生撤销的选择，不改变已保存问题快照。
 
 本轮未跑完整 typecheck/build，遵照 root 统一集成验证分工。API 测试使用捕获请求参数与受控响应；UI 测试为 jsdom。未证明真栈账号、实际数据库历史版本、真实模型、浏览器截图或课堂协作验收。没有读取不可用的 `cn.local.env`，没有声称模型已连接。
 

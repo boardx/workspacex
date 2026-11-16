@@ -71,5 +71,6 @@ import { aidtPrototypeVersionLabel, type AidtPrototypeVersionReference } from "@
 | A5.2 | 列表版本不保证存在实际原型；原生 links 漂移 | 点击时复核真实快照；验证 known links，拒绝异常字段、重复 ID/seq、空快照 | helper tests：实际 ID、部分生成、全 null、损坏树 |
 | A5.3 | 旧身份响应或只读降级可能改错引用 | keyed 消费者 + AbortController；只读禁止读取/更改；收起取消选中请求 | UI tests：project/org/user/token/readOnly 变更、旧请求和收起重开 |
 | A5.4 | 服务失败易被当作空态；旧快照可能被覆盖 | 分离加载/空/失败，显式 retry；回调无 draft/snapshot 写入能力；历史值保留说明 | UI tests：失败/空态、重试、旧值保留；父级快照集成仍需验收 |
+| A5.5 | 独立审阅发现：已有 A → 延迟核对 B → 移除 → B 回包，会覆盖学生的移除决定 | 移除时同步 abort 并清除 pending/error；完成回调也核对当前 controller；取消逻辑与收起/刷新复用 | `removal-race-red.log` 先复现 1 failed；`removal-race-green.log` 修复后 20/20 passed，含移除后重选可用 |
 
 首次定向测试的一个成功场景夹具错误地把 text node 内容放在非契约属性中，strict 解析如期拒绝。夹具已按原生 schema 改为 `props.content`，没有放宽树校验。

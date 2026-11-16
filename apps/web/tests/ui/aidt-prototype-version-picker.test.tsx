@@ -2,6 +2,7 @@ import * as React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { AidtPrototypeVersionPicker } from "@/features/aidt/components/aidt-prototype-version-picker";
+import type { AidtPrototypeVersionReference } from "@/features/aidt/lib/aidt-prototype-versions";
 const mocks = vi.hoisted(() => ({ enabled: true, hasSession: true, session: { currentOrgId: "org", userId: "student", sessionToken: "token" }, designs: vi.fn(), versions: vi.fn(), resolve: vi.fn() }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mocks.enabled }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => mocks.hasSession ? { session: mocks.session } : null }));
@@ -91,6 +92,28 @@ it("cancels selection on collapse and permits a fresh selection after reopening"
   expect(mocks.resolve.mock.calls[0]![0].signal.aborted).toBe(true);
   await act(async () => { finish(reference); }); expect(changed).not.toHaveBeenCalled();
   fireEvent.click(await openVersions()); await waitFor(() => expect(changed).toHaveBeenCalledWith(reference));
+});
+it("keeps removal authoritative when an earlier replacement snapshot arrives late, then permits a fresh selection", async () => {
+  let finish!: (result: typeof reference) => void;
+  mocks.resolve.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  const changed = vi.fn();
+  const oldReference = { ...reference, versionId: "old-v", seq: 1, summary: "旧版本" };
+  function Host() {
+    const [value, setValue] = React.useState<AidtPrototypeVersionReference | null>(oldReference);
+    return <AidtPrototypeVersionPicker projectId="p" value={value} onChange={(next) => { changed(next); setValue(next); }} />;
+  }
+  render(<Host />); fireEvent.click(await openVersions());
+  const pendingSignal = mocks.resolve.mock.calls[0]![0].signal as AbortSignal;
+  fireEvent.click(screen.getByRole("button", { name: "移除版本引用" }));
+  expect(changed).toHaveBeenLastCalledWith(null);
+  await act(async () => { finish(reference); });
+  expect(changed).toHaveBeenCalledTimes(1);
+  expect(changed).toHaveBeenLastCalledWith(null);
+  expect(pendingSignal.aborted).toBe(true);
+  expect(screen.queryByTestId("aidt-prototype-recorded-reference")).not.toBeInTheDocument();
+  const nextChoice = screen.getByRole("button", { name: /选择 v2/ });
+  expect(nextChoice).toBeEnabled(); fireEvent.click(nextChoice);
+  await waitFor(() => expect(changed).toHaveBeenLastCalledWith(reference));
 });
 it("performs no reads when the module or identity is unavailable, and removes only the local reference", () => {
   const changed = vi.fn(); mocks.enabled = false;

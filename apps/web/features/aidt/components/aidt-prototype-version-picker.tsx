@@ -58,30 +58,38 @@ function EnabledPicker({ context, value, onChange, readOnly = false }: AidtProto
 
   React.useEffect(() => () => { selection.current?.abort(); }, [open, designId, retry]);
 
+  function cancelSelection() {
+    selection.current?.abort(); selection.current = null;
+    setPending(null); setSelectionFailed(false);
+  }
   function select(versionId: string) {
     if (readOnly || !open || !designId || pending) return;
     const controller = new AbortController(); selection.current = controller;
     setPending(versionId); setSelectionFailed(false);
     void resolveAidtPrototypeVersion({ projectId, userId, sessionToken, signal: controller.signal }, designId, versionId)
       .then((reference) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || selection.current !== controller) return;
         notify.current(reference); setOpen(false);
       }).catch(() => { if (!controller.signal.aborted) setSelectionFailed(true); })
       .finally(() => { if (!controller.signal.aborted) setPending(null); });
   }
   function toggle() {
-    selection.current?.abort(); setPending(null); setSelectionFailed(false);
+    cancelSelection();
     setDesignId(null); setVersions(null); setOpen((wasOpen) => !wasOpen);
   }
   function refresh() {
-    selection.current?.abort(); setPending(null); setSelectionFailed(false);
+    cancelSelection();
     setDesignId(null); setVersions(null); setRetry((count) => count + 1);
+  }
+  function remove() {
+    if (readOnly) return;
+    cancelSelection(); notify.current(null);
   }
 
   return <section className="space-y-2" aria-label="真实原型版本引用" data-testid="aidt-prototype-version-picker">
     <div className="flex flex-wrap items-center gap-2">
       <Button type="button" size="sm" variant="outline" disabled={readOnly} aria-expanded={open} onClick={toggle}>{open ? "收起原型版本" : "选择真实原型版本"}</Button>
-      {value && <Button type="button" size="sm" variant="ghost" disabled={readOnly} onClick={() => { if (!readOnly) notify.current(null); }}>移除版本引用</Button>}
+      {value && <Button type="button" size="sm" variant="ghost" disabled={readOnly} onClick={remove}>移除版本引用</Button>}
     </div>
     {value && <p className="break-words text-12" data-testid="aidt-prototype-recorded-reference">已记录：{aidtPrototypeVersionLabel(value)}<span className="block text-muted-foreground">已生成 {value.generatedFrameCount}/{value.frameCount} 页；Design ID：{value.designId}；版本 ID：{value.versionId}。历史记录不代表当前仍有访问权限。</span></p>}
     {readOnly && <p role="status" className="text-12 text-muted-foreground">当前只读，不能更改原型版本引用。</p>}

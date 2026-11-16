@@ -1,0 +1,30 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-prototype_link/apps/web
+
+ ❯ tests/ui/aidt-prototype-version-picker.test.tsx (13 tests | 1 failed | 12 skipped) 164ms
+   × keeps removal authoritative when an earlier replacement snapshot arrives late, then permits a fresh selection 163ms
+     → expected "spy" to be called 1 times, but got 2 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-prototype-version-picker.test.tsx > keeps removal authoritative when an earlier replacement snapshot arrives late, then permits a fresh selection
+AssertionError: expected "spy" to be called 1 times, but got 2 times
+ ❯ tests/ui/aidt-prototype-version-picker.test.tsx:109:19
+    107|   expect(changed).toHaveBeenLastCalledWith(null);
+    108|   await act(async () => { finish(reference); });
+    109|   expect(changed).toHaveBeenCalledTimes(1);
+       |                   ^
+    110|   expect(changed).toHaveBeenLastCalledWith(null);
+    111|   expect(pendingSignal.aborted).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 skipped (13)
+   Start at  01:36:47
+   Duration  2.47s (transform 972ms, setup 88ms, collect 1.40s, tests 164ms, environment 523ms, prepare 45ms)
+
+undefined
+/workspace/scratch/aidt-complete-prototype_link/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/aidt-prototype-version-picker.test.tsx -t keeps removal authoritative
