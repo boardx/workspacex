@@ -23,7 +23,7 @@ import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { wave2Runtime as C, agentRuntime } from "@repo/contracts";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -187,6 +187,11 @@ beforeEach(async () => {
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ADMIN, "admin", fx.teams.energy ?? null);
+  // @global-scope-fixture table:credit_wallets: fund the dedicated model-test actor.
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [ADMIN],
+  ));
   await addOrgMember(ORG, NON_ADMIN, "consultant", fx.teams.energy ?? null);
   await addSkillVersion(SKILL_V1, SKILL, ORIGINAL_CONTENT);
   await addAgentVersion(AGENT_V1, [SKILL_V1]);
