@@ -1,23 +1,39 @@
 {
   "source": "a6/aidt-v2-human-acceptance.md",
-  "sourceSha256": "3309d60361378fd322c8c86b00a8c60e9d38da89ec2d3970c63b19f18a4ac3e3",
-  "pages": 24,
+  "sourceSha256": "e19d4314b7609a68bbf1c43a578bd383d8286d3939b6d74bcc275c7766ec6359",
+  "localPdfSha256": "c120b9c6597e397fd6c6b6d3104fc047c9237dac79e6ecbad4959715959671e2",
+  "pages": 25,
   "all15HumanCasesPresent": true,
   "FR01to19IndexPresent": true,
+  "all16MachineEntriesPresent": true,
   "resultsAndSignaturesRemainBlank": true,
   "humanAcceptanceCompleted": false,
   "status": "acceptance-procedure-not-passing-certificate",
-  "fontChecked": "Chinese rendered and text extracted",
+  "fontChecked": "Droid Sans Fallback TrueType subsets embedded; extracted font bytes nonempty",
+  "embeddedChineseFontSubsets": 4,
+  "embeddedChineseFontBytes": 123796,
+  "emptyTextPages": [],
+  "outOfBoundsTextPages": [],
+  "visualPagesRendered": [
+    1,
+    4,
+    22,
+    24,
+    25
+  ],
   "visualPagesInspected": [
     1,
     4,
-    21,
-    22,
-    23,
-    24
+    25
   ],
-  "notes": "Final procedure contains H01–H15/FR01–19 and separate M01–M16 machine index, original failures retained, human results and signatures blank. No browser screenshots or credentials.",
-  "reproduce": "python3 scripts/render-aidt-acceptance-pdf.py --output <output.pdf> --qa-dir <private-qa-folder>",
-  "outOfBoundsTextPages": [],
-  "all16MachineEntriesPresent": true
+  "libraryVersion": 2,
+  "remoteReadVerified": {
+    "pages": 25,
+    "version": 2,
+    "firstPageAndBodyTextPresent": true
+  },
+  "userViewerVerified": false,
+  "compatibilityFix": "Old PDF used unembedded STSong-Light CID font; regenerated with embedded TrueType Chinese font. Viewer incompatibility is a hypothesis, not a reproduced user-side root cause.",
+  "readableFallback": "https://chatgpt.com/space/page_b8000900cf9c8191980c5aceb2f71392",
+  "reproduce": "python3 scripts/render-aidt-acceptance-pdf.py --output <output.pdf> --qa-dir <private-qa-folder>"
 }

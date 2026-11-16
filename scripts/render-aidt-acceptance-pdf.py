@@ -3,14 +3,13 @@
 Requires reportlab and PyMuPDF; never reads application configuration.
 """
 from pathlib import Path
-import argparse,re,html,json,hashlib
+import argparse,re,html,json,hashlib,io
 from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle,PageBreak,KeepTogether
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfbase.ttfonts import TTFont
 import fitz
 parser=argparse.ArgumentParser(description=__doc__)
@@ -19,9 +18,11 @@ parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--qa-dir',type=Path)
 args=parser.parse_args()
 src=args.source.resolve();out=args.output.resolve();out.parent.mkdir(parents=True,exist_ok=True)
-pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+# Embed a TrueType Chinese font. A viewer must not need a local CID font pack.
+# PyMuPDF ships this font; this adds no network/font-service dependency.
+pdfmetrics.registerFont(TTFont('AidtEmbeddedCJK',io.BytesIO(fitz.Font('cjk').buffer)))
 pdfmetrics.registerFont(TTFont('Latin','/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
-FONT='STSong-Light';W,H=A4;left=42;right=42;usable=W-left-right
+FONT='AidtEmbeddedCJK';W,H=A4;left=42;right=42;usable=W-left-right
 navy=colors.HexColor('#172D45');teal=colors.HexColor('#087F8C');gray=colors.HexColor('#576777')
 styles={
  'body':ParagraphStyle('body',fontName=FONT,fontSize=10,leading=16,textColor=navy,wordWrap='CJK',spaceAfter=7),
@@ -95,6 +96,9 @@ with fitz.open(out) as pdf:
  assert not missing,missing
  assert all(x in text for x in ['暂无','证据不足','实际结果','签字','M01','M06'])
  assert len(pdf)>=16
+ assert all(len(p.get_text().strip())>=50 for p in pdf),'Unexpected empty PDF page'
+ cjk_fonts={f[0] for p in pdf for f in p.get_fonts(full=True) if 'Droid-Sans-Fallback' in f[3]}
+ assert cjk_fonts and all(pdf.extract_font(xref)[3] for xref in cjk_fonts),'Chinese fonts must be embedded'
  if args.qa_dir:
   args.qa_dir.mkdir(parents=True,exist_ok=True)
   for i in sorted(set([0,1,4,9,len(pdf)-1])):pdf[i].get_pixmap(matrix=fitz.Matrix(1.15,1.15)).save(str(args.qa_dir/f'qa-page-{i+1}.png'))
