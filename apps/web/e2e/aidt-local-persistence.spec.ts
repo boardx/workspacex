@@ -8,6 +8,7 @@ import { LOCAL_ADMIN_EMAIL, resolveLocalConfig, webEnv } from "../../../packages
 import { acquireWebOutputLease, checkAidtWebBuild } from "../../../packages/local-runtime/src/aidt-web-build";
 import { operations, SharedStage } from "@repo/contracts/aidt-stages";
 import type { z } from "zod";
+import { acceptAidtMemberText } from "./support/aidt-member-text-acceptance";
 
 const repo = resolve(process.cwd(), "../..");
 const dataDir = process.env.AIDT_LOCAL_DATA_DIR!;
@@ -63,11 +64,11 @@ async function login(page: Page) {
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/, { timeout: 60_000 });
 }
-async function api(page: Page, path: string) {
-  return page.evaluate(async ({ origin, path }) => {
-    const r = await fetch(`${origin}${path}`, { headers: { authorization: `Bearer ${localStorage.getItem("wsx.sessionToken")}` } });
+async function api(page: Page, path: string, method: "GET" | "POST" = "GET", body?: unknown) {
+  return page.evaluate(async ({ origin, path, method, body }) => {
+    const r = await fetch(`${origin}${path}`, { method, headers: { authorization: `Bearer ${localStorage.getItem("wsx.sessionToken")}`, ...(body === undefined ? {} : { "content-type": "application/json" }) }, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: r.status, data: await r.json() };
-  }, { origin, path });
+  }, { origin, path, method, body });
 }
 type NativeStage = z.infer<typeof SharedStage>;
 function phase(name: string) { console.info(`[aidt-native] ${new Date().toISOString()} ${name}`); }
@@ -156,6 +157,107 @@ async function saveNativeStage(page: Page, projectId: string, stage: number): Pr
   expect(SharedStage.parse((await api(page, path)).data.stage)).toEqual(value);
   phase(`stage-${stage}-saved-V${value.revision}`);
   return value;
+}
+async function appendNativeReportHistory(page: Page, projectId: string, priorHead: NativeStage, branches: NativeStage[]) {
+  const report = page.getByLabel("小组报告草稿", { exact: true });
+  await expect(report).toHaveValue(priorHead.content.summaryReport!.markdown);
+  const manualMarker = `学生人工审阅说明 ${randomUUID()}：历史记录是学习过程，材料真实性仍需核对。`;
+  const before = `${await report.inputValue()}\n\n${manualMarker}`;
+  await report.fill(before);
+  await expect(report).toHaveValue(before);
+  const history = page.getByTestId("aidt-report-history");
+  await history.locator("summary").click();
+  const mutations: string[] = [];
+  const watchMutation = (request: Request) => {
+    if (["PUT", "PATCH", "DELETE"].includes(request.method()) && new URL(request.url()).pathname.startsWith(`/projects/${projectId}/aidt/stages`)) mutations.push(request.url());
+  };
+  page.on("request", watchMutation);
+  let chapter: string;
+  let reportText: string;
+  let readRevisions: number[];
+  try {
+    // The real service reads limit+1 rows: nextBeforeRevision is the last
+    // returned revision only when more rows exist. Register both pages before
+    // starting the collector so its sequential reads cannot race the observer.
+    const firstPageResponses = [1, 2, 3, 4, 5, 6].map(stage => page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.origin === origin && response.request().method() === "GET"
+        && url.pathname === `/projects/${projectId}/aidt/stages/${stage}/revisions`
+        && url.searchParams.get("limit") === "5" && !url.searchParams.has("beforeRevision");
+    }));
+    const secondPageResponse = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.origin === origin && response.request().method() === "GET"
+        && url.pathname === `/projects/${projectId}/aidt/stages/6/revisions`
+        && url.searchParams.get("limit") === "5" && url.searchParams.has("beforeRevision");
+    });
+    await page.getByRole("button", { name: "读取历史学习记录", exact: true }).click();
+    const [firstResponses, secondResponse] = await Promise.all([Promise.all(firstPageResponses), secondPageResponse]);
+    const firstPages = await Promise.all(firstResponses.map(async response => {
+      expect(response.status()).toBe(200);
+      return operations.history.out.parse(await response.json());
+    }));
+    const firstLearning = firstPages[5]!;
+    expect(firstLearning.items).toHaveLength(5);
+    expect(firstLearning.nextBeforeRevision).toBe(firstLearning.items.at(-1)!.revision);
+    expect(new URL(secondResponse.url()).searchParams.get("beforeRevision")).toBe(String(firstLearning.nextBeforeRevision));
+    expect(secondResponse.status()).toBe(200);
+    const secondLearning = operations.history.out.parse(await secondResponse.json());
+    expect(secondLearning.nextBeforeRevision).toBeNull();
+    const actualLearning = [...firstLearning.items, ...secondLearning.items];
+    expect(actualLearning).toEqual([...branches, priorHead].sort((a, b) => b.revision - a.revision));
+    readRevisions = actualLearning.map(round => round.revision);
+    // No S2 research was submitted in this synthetic journey; the collector
+    // must retain that actual server gap rather than inventing research.
+    expect(firstPages[1]!.items).toEqual([]);
+    expect(firstPages[1]!.nextBeforeRevision).toBeNull();
+    const preview = page.getByTestId("aidt-report-history-chapter");
+    await expect(preview).toBeVisible();
+    for (const stage of [1, 2, 3, 4, 5, 6]) await expect(preview).toContainText(`第${stage}步历史`);
+    for (const round of [branches[0]!, priorHead]) {
+      await expect(preview).toContainText(`第6步 V${round.revision}`);
+      await expect(preview).toContainText(round.content.draft.fields.returnReason!);
+    }
+    for (const text of ["历史学习追溯 · 服务器保存记录", "暂未决定，待支持", "没有服务器保存记录，材料缺失", "保存修订并非独立学习轮次"]) await expect(preview).toContainText(text);
+    for (const text of ["读取失败或超时", "时间预算已用完", "达到读取上限，历史已截断"]) await expect(preview).not.toContainText(text);
+    chapter = await preview.innerText();
+    await expect(report).toHaveValue(before);
+    const review = page.getByRole("checkbox", { name: "我已审阅来源版本、学习决定与缺失项", exact: true });
+    const append = page.getByRole("button", { name: "追加历史章节到当前报告", exact: true });
+    await expect(review).not.toBeChecked();
+    await expect(append).toBeDisabled();
+    expect(mutations).toEqual([]);
+    await review.check();
+    await expect(append).toBeEnabled();
+    await append.click();
+    reportText = `${before}\n\n${chapter}\n`;
+    await expect(report).toHaveValue(reportText);
+    await expect(page.getByTestId("aidt-report-history-chapter")).toHaveCount(0);
+    expect(mutations).toEqual([]);
+    const unchanged = await api(page, `/projects/${projectId}/aidt/stages/6`);
+    expect(unchanged.status).toBe(200);
+    expect(SharedStage.parse(unchanged.data.stage)).toEqual(priorHead);
+  } finally { page.off("request", watchMutation); }
+  const response = page.waitForResponse(value => value.request().method() === "PUT" && new URL(value.url()).pathname === `/projects/${projectId}/aidt/stages/6`);
+  await expect(page.getByTestId("aidt-report-save")).toBeEnabled();
+  await page.getByTestId("aidt-report-save").click();
+  const received = await response;
+  expect(received.status()).toBe(200);
+  const stage = SharedStage.parse((await received.json()).stage);
+  expect(stage.revision).toBe(priorHead.revision + 1);
+  expect(stage.content.draft).toEqual(priorHead.content.draft);
+  expect(stage.content.summaryReport!.markdown).toBe(reportText);
+  expect(stage.content.summaryReport!.sourceStageRevisions).toEqual(priorHead.content.summaryReport!.sourceStageRevisions);
+  await expect(page.getByTestId("aidt-report-save-state")).toContainText("小组报告已保存");
+  await expect(page.getByTestId("aidt-report-receipt").locator("summary")).toContainText(`V${stage.revision}`);
+  const current = await api(page, `/projects/${projectId}/aidt/stages/6`);
+  expect(current.status).toBe(200);
+  expect(SharedStage.parse(current.data.stage)).toEqual(stage);
+  const priorReport = await api(page, `/projects/${projectId}/aidt/stages/6/revisions?beforeRevision=${priorHead.revision + 1}&limit=1`);
+  expect(priorReport.status).toBe(200);
+  expect(operations.history.out.parse(priorReport.data).items).toEqual([priorHead]);
+  phase(`report-history-reviewed-and-saved-V${stage.revision}-preserves-prior-V${priorHead.revision}`);
+  return { stage, chapter, reportText, manualMarker, readRevisions, previousReportRevision: priorHead.revision, historyReadAutomaticallySaved: false };
 }
 async function nativeV2Journey(page: Page, projectId: string) {
   const saved: Record<number, NativeStage> = {}, branches: NativeStage[] = [];
@@ -345,7 +447,9 @@ async function nativeV2Journey(page: Page, projectId: string) {
   // Preserve the original member-plugin entry from the saved report workspace.
   await page.goto(`/aidt/${projectId}?step=6&tool=report`);
   await expect(page.getByTestId("aidt-report-reload")).toBeEnabled();
-  return { saved, branches, returnRounds, historicalReadsDoNotSave: true, prototypeInputIsStudentText: true, actualGeneratedPrototype: false, actualResearchCollected: false };
+  const historyReport = await appendNativeReportHistory(page, projectId, latest, branches);
+  saved[6] = historyReport.stage;
+  return { saved, branches, returnRounds, historyReport, historicalReadsDoNotSave: true, prototypeInputIsStudentText: true, actualGeneratedPrototype: false, actualResearchCollected: false };
 }
 
 test("native local start/save/stop/restart preserves AIDT and human text without Docker or a model fixture", async ({ page, browser }) => {
@@ -557,6 +661,13 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     expect(generationRequests).toEqual([]);
     await page.screenshot({ path: join(output, "native-member-stored.png"), fullPage: true });
     await page.getByTestId("global-member-chat-close").click();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const memberTextNavigation = await acceptAidtMemberText({ page, projectId, toStep: 1,
+      request: (path, method, body) => api(page, path, method, body),
+      checkpoint: async (name, checkpointPage) => { await checkpointPage.screenshot({ path: join(output, `native-member-${name}.png`), fullPage: true }); },
+    });
+    evidence.memberTextNavigation = memberTextNavigation;
+    expect(generationRequests).toEqual([]);
     await stop(1);
     await start(2);
     expect(createHash("sha256").update(readFileSync(join(dataDir, "secrets.json"))).digest("hex")).toBe(secretsBefore);
@@ -602,12 +713,21 @@ test("native local start/save/stop/restart preserves AIDT and human text without
       await expect(fresh.getByTestId("aidt-round-navigation").getByRole("link")).toHaveAttribute("href", new RegExp(`/aidt/${projectId}\\?step=2&tool=outcome&returnRevision=`));
       await fresh.goto(`/aidt/${projectId}?step=6&tool=report`);
       await expect(fresh.getByTestId("aidt-report-reload")).toBeEnabled();
-      await expect(fresh.getByLabel("小组报告草稿", { exact: true })).toHaveValue(v2.saved[6]!.content.summaryReport!.markdown);
+      const restoredReport = fresh.getByLabel("小组报告草稿", { exact: true });
+      await expect(restoredReport).toHaveValue(v2.historyReport.reportText);
+      const restoredReportText = await restoredReport.inputValue();
+      for (const text of [v2.historyReport.chapter, v2.historyReport.manualMarker, v2.returnRounds[0]!.content.draft.fields.returnReason!, "没有服务器保存记录，材料缺失"]) expect(restoredReportText).toContain(text);
       await fresh.goto(`/aidt/${projectId}?step=1&tool=outcome`);
       await expect(fresh.getByLabel("初始问题", { exact: true })).toHaveValue(statement);
       const messages = await api(fresh, `/projects/${projectId}/member-chat/messages`);
       expect(messages.status).toBe(200);
       expect(messages.data.items.some((m: { text: string }) => m.text === humanText)).toBe(true);
+      expect(messages.data.items.find((message: { id: string }) => message.id === memberTextNavigation.root.id)).toEqual(memberTextNavigation.root);
+      const restoredTopic = await api(fresh, `/projects/${projectId}/member-chat/messages/${memberTextNavigation.root.id}/replies?limit=100`);
+      expect(restoredTopic.status).toBe(200);
+      expect(restoredTopic.data.root).toEqual(memberTextNavigation.root);
+      expect(restoredTopic.data.items.filter((message: { clientMessageId: string }) => message.clientMessageId === memberTextNavigation.reply.clientMessageId)).toEqual([memberTextNavigation.reply]);
+      evidence.memberTextTopicRestoredAfterRestart = true;
       await fresh.setViewportSize({ width: 375, height: 812 });
       await fresh.screenshot({ path: join(output, "native-stage-after-restart-375.png"), fullPage: true });
       await fresh.getByTestId("global-member-chat-open").click();
