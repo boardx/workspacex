@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { createThreadViaApi, openAuthoritativeFreshThread } from "./support/authoritative-thread";
 
 /**
  * issue #2021 —— `/chat` 消息持久化 + 多线程管理。
@@ -76,10 +77,8 @@ async function sendAndWaitEcho(page: Page, text: string): Promise<void> {
 
 test("#6545 double-click renames a conversation and confirmation deletes it", async ({ page }) => {
   await login(page);
-  await page.goto("/chat");
-  await page.getByTestId("chat-thread-create").click();
-  await expect(page).toHaveURL(/\/chat\/[^/]+$/);
-  const threadId = new URL(page.url()).pathname.split("/").pop();
+  const controlThreadId = await createThreadViaApi(page);
+  const threadId = await openAuthoritativeFreshThread(page);
   const list = page.getByTestId("copilotkit-v2-thread-list");
   const thread = page.getByTestId(`chat-thread-${threadId}`);
   const title = `Conversation ${Date.now()}`;
@@ -107,8 +106,10 @@ test("#6545 double-click renames a conversation and confirmation deletes it", as
   expect(deleted.ok()).toBe(true);
   expect(deleted.request().postDataJSON()).toMatchObject({ threadId, reason: null });
   await expect(thread).toHaveCount(0);
+  const controlThread = list.getByTestId(`chat-thread-${controlThreadId}`);
+  await expect(controlThread).toBeVisible();
   await page.reload();
-  await expect(list.getByTestId(`chat-thread-${CHAT_READ_E2E.artifactConsumerThreadId}`)).toBeVisible();
+  await expect(controlThread).toBeVisible();
   await expect(thread).toHaveCount(0);
 });
 
