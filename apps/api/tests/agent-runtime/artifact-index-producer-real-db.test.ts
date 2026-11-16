@@ -10,7 +10,7 @@ import {mkdtemp,rm,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {beforeAll,afterAll,it,expect,vi} from 'vitest';
-import {seedOrg,addOrgMember,addProjectMember,asApp,ensureDatabase,migrateOnce,resetOrgs} from '../support/db';
+import {seedOrg,addOrgMember,addProjectMember,asApp,asOwner,ensureDatabase,migrateOnce,resetOrgs} from '../support/db';
 import {registerEmbeddingModel} from '../../src/infrastructure/retrieval/register-embedding-model';
 import {PgDatabase} from '../../src/infrastructure/db/pg-database';
 import {appConfig,migrationConfig} from '../../src/infrastructure/db/pg-config';
@@ -144,10 +144,19 @@ it('structural review refuses unknown version and missing real derived bytes',as
 });
 
 
+// @global-scope-fixture table:credit_wallets: fund isolated accounting test payers.
+async function fundFixturePayer(userId: string): Promise<void> {
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [userId],
+  ));
+}
+
 it('real artifact accounting serializes conflicting starts and preserves the original owner after revocation',async()=>{
  vi.stubEnv('KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED','1');vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','0');vi.stubEnv('KERNEL_MODEL_PROVIDER','pg-accounting-provider');vi.stubEnv('KERNEL_EMBEDDING_MODEL_ID','pg-embedding');
  let membershipRemoved=false;
  try{
+  await fundFixturePayer("publisher");
   const file=await upload('ACCOUNTINGRACENEEDLE original source');
   const {replayIngestionRun}=await import('../../src/application/files/ingestion-worker');
   for(let i=0;i<7;i++){const tick=await replayIngestionRun({outbox,artifacts,store:objects,ids,indexer},org,file.versionId,'accounting-fixture');if(!tick.claimed)break;}
@@ -171,6 +180,7 @@ it('valid foreign artifact operation cannot acknowledge a globally colliding hid
  vi.stubEnv('KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED','1');vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','0');vi.stubEnv('KERNEL_MODEL_PROVIDER','pg-accounting-provider');vi.stubEnv('KERNEL_EMBEDDING_MODEL_ID','pg-embedding');
  const foreign=toOrgId('foreign-accounting-'+randomUUID()),foreignProject='project-'+foreign;
  try{
+  await fundFixturePayer('publisher');
   const file=await upload('ACCOUNTINGCOLLISIONNEEDLE original');
   const {replayIngestionRun}=await import('../../src/application/files/ingestion-worker');
   for(let i=0;i<7;i++){const tick=await replayIngestionRun({outbox,artifacts,store:objects,ids,indexer},org,file.versionId,'collision-worker');if(!tick.claimed)break;}
@@ -179,6 +189,7 @@ it('valid foreign artifact operation cannot acknowledge a globally colliding hid
   const original=await accounting.open({orgId:org,artifactVersionId:file.versionId},batch);
   const request={requestId:randomUUID(),modelId:'pg-embedding',startedAt:new Date().toISOString()};await accounting.start(org,original.operationId,request);
   await seedOrg({orgId:foreign,projectId:foreignProject});await addOrgMember(foreign,'foreign-publisher','consultant',null);await addProjectMember(foreign,foreignProject,'foreign-publisher','member',null);
+  await fundFixturePayer('foreign-publisher');
   const result=await uploadArtifact({store:objects,repo:artifacts,ids,quarantine:new PgQuarantineRepository(db),alerts:{raise:async()=>{}}},{orgId:foreign,projectId:foreignProject,agendaSegmentId:null,confidential:false,actorId:'foreign-publisher',files:[{filename:'foreign.txt',bytes:Buffer.from('FOREIGNACCOUNTING original')}]});
   const foreignFile=result.files[0]!;if(foreignFile.status!=='accepted')throw new Error('foreign upload rejected');
   for(let i=0;i<7;i++){const tick=await runIngestionWorkerTick({outbox,artifacts,store:objects,ids,indexer},foreign,'foreign-worker');if(!tick.claimed)break;}
@@ -200,6 +211,7 @@ it('real input-only artifact admission serializes per-user budgets and keeps unk
  vi.stubEnv('KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED','1');vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','1');
  try{
   await seedOrg({orgId:quotaOrg,projectId:quotaProject});await addOrgMember(quotaOrg,'quota-publisher','consultant',null);await addProjectMember(quotaOrg,quotaProject,'quota-publisher','member',null);
+  await fundFixturePayer('quota-publisher');
   const uploaded=await uploadArtifact({store:objects,repo:artifacts,ids,quarantine:new PgQuarantineRepository(db),alerts:{raise:async()=>{}}},{orgId:quotaOrg,projectId:quotaProject,agendaSegmentId:null,confidential:false,actorId:'quota-publisher',files:[{filename:'quota.txt',bytes:Buffer.from('INPUTONLY real source')}]});
   const file=uploaded.files[0]!;if(file.status!=='accepted')throw new Error('quota upload rejected');
   const {replayIngestionRun}=await import('../../src/application/files/ingestion-worker');
