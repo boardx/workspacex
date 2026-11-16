@@ -51,3 +51,5 @@ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec 
 ## 待验收边界
 
 新增原生场景、A2/A3/A5最终host接线、真实 Design 版本选择尚待集成真实浏览器验收。真实模型供应商未配置，不能以 no-model native、单元mock或历史规划文档证明模型教学质量、模型超时恢复、生成原型、课堂多人协作、真实访谈/ASR及macOS/Windows实机。错误历史引用的恢复也不等于网络中断或模型供应商故障恢复已验证。没有生产部署、合并、签核改动或GitHub外发。
+
+第二提交扩展：报告历史真实两页读取、审阅后追加、保留来源主动保存、新登录textarea恢复，以及A4真实成员文字/话题/草稿/幂等helper集成，见 [report-history-addendum.md](report-history-addendum.md)。仍待root整合冻结后实际运行完整native。

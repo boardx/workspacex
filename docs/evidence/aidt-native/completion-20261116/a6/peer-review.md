@@ -25,4 +25,4 @@
 
 ## A3 / A4兼容与建议
 
-两位owner确认原report/global-member-chat接口、按钮和testid保持兼容。A6保留report页发送成员文字的原入口。报告历史目前每步limit5；本native会有7份S6保存修订，因此较早V1不在首个5项范围内。集成验收必须核对范围/截断提示，不把5份保存修订称为全部学习轮次或完整全部历史。A3提供的追加流程可在root最终范围决定后补验，不能把组件测试当原生报告追加已通过。
+两位owner确认原report/global-member-chat接口、按钮和testid保持兼容。A6保留report页发送成员文字的原入口。初次只核对pageSize5而担心较早V1不在首个5项范围内；与A3进一步核对后已纠正：collector会按实际nextBeforeRevision读取第二页，每阶段最多10份，本例7份S6均应读到。第二提交已补实际两页响应、章节审阅/追加/主动保存及新登录textarea恢复断言，待root完整native执行，组件测试不能替代其结果。

@@ -1,0 +1,3 @@
+Scope: only native spec semantic/syntactic diagnostics; root still owns full integrated typecheck.
+
+Native spec diagnostics: 0

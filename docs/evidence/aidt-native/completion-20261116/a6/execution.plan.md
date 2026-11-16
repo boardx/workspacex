@@ -23,8 +23,10 @@ flowchart TD
   S4[4. 跑定向静态检查及用例发现]
   S5[5. 提交交接与主任务验收命令]
   S6[6. 由主任务冻结后执行完整原生验收]
+  S7[7. 补报告历史审阅保存恢复及A4真实文字调用]
+  S8[8. 验证第二提交并交接最新报告版本]
 
-  G --> S1 --> S2 --> S3 --> S4 --> S5 --> S6
+  G --> S1 --> S2 --> S3 --> S4 --> S5 --> S7 --> S8 --> S6
 
   classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
@@ -40,9 +42,13 @@ flowchart TD
   %% evidence S4: 最终ESLint和Playwright --list均exit0，见eslint.txt/discovery.txt；canonical testid gate真实失败另记README/validation.json，不计通过
   class S5 done
   class S6 todo
+  class S7 done
+  class S8 tested
+  %% evidence S8: 第二提交2b29d5030仅spec；最终report-history-eslint.txt、report-history-spec-semantic.txt诊断0、report-history-discovery.txt发现1例；真实native仍待S6 root执行
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
 | 时间 | 节点 | 状态变化 | 依据（命令 / 证据 / 堵塞原因） |
 |---|---|---|---|
 | 2026-11-16 | G, S1 | todo → doing | 接到目标，开始理解 |
+| 2026-11-16 | S7 | todo → doing | root追加真实报告历史验收任务；已与A3核对pageSize5、最多2页，服务读取limit+1决定游标 |
