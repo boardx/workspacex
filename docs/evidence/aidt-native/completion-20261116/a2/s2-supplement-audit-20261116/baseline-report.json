@@ -1,0 +1,177 @@
+{
+  "kind": "authorized-read-only-real-run-source-audit",
+  "auditedAt": "2026-11-16T14:07:45.861Z",
+  "runId": "68880459-6de1-43a8-a909-0a969f03a7a8",
+  "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+  "threadId": "thr-d29f9cea-fe44-48fc-a99f-375dd4dcc866",
+  "principalUserIdHash": "dbffea12712f3162a002dbf46d217e4453f7a5044786fb842013b2184e02aa85",
+  "runStatus": "succeeded",
+  "restoredResourceBinding": {
+    "approvedPlanSha256": "59500507741bccff83fc30c741c8ce6846fa69d7bb7cd651d04a4fb9a6cb62f4",
+    "sourceCheckpointDumpHash": "85e37b355b608db9119d0501af8589b15c2440dde4fed09cb98e5d5e251830d7",
+    "actualFreshContainerAndPortVerified": true,
+    "liveOwnerAndSlotVerified": true,
+    "emptyTargetAttested": true,
+    "oldBudgetHashesUnchanged": true,
+    "logicalDatabasePreserved": true,
+    "credentialFieldsAccessed": false
+  },
+  "oldProtection": {
+    "protectedRows": [
+      {
+        "table": "agent_runs",
+        "count": 2,
+        "sha256": "d55f2064caf76596e763f29e1e30dd466e1ad13715d6c3d2e42c7a709bb0701e",
+        "matchesOriginal": true
+      },
+      {
+        "table": "agent_run_context_snapshots",
+        "count": 2,
+        "sha256": "85ef14e45342e8ed79925482bb67a5e7610c8b31bea6c5c5393f1784b7dfeda6",
+        "matchesOriginal": true
+      },
+      {
+        "table": "aidt_run_context_snapshots",
+        "count": 2,
+        "sha256": "10da6c922d6a4e6499c5c69479e1074742f03ed1b015d9bf3650af903d0d0fde",
+        "matchesOriginal": true
+      },
+      {
+        "table": "aidt_run_context_applications",
+        "count": 4,
+        "sha256": "90f2a914e377f2b6ab77e5a518acc8196fc3af39e1e1d7743f64d69da712fea9",
+        "matchesOriginal": true
+      },
+      {
+        "table": "chat_messages",
+        "count": 6,
+        "sha256": "79a2c2d890a238437cd066d8650d99c6851d3dd1987fcf0bedba2c4db6b93f5c",
+        "matchesOriginal": true
+      }
+    ],
+    "oldImmutableVersionHashMatches": true,
+    "currentRunIsNew": false,
+    "oldRuns": [
+      {
+        "runId": "68880459-6de1-43a8-a909-0a969f03a7a8",
+        "status": "succeeded",
+        "threadIdHash": "9010b26dc528364e2d1097a1d161f2edb28537fdc7304c007d8f2048bd149691",
+        "remoteRunIdHash": "03f949c4b28e058d2fc37c31943bd725a832ab14e5264bbfb93c4a3dd733604b"
+      },
+      {
+        "runId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+        "status": "cancelled",
+        "threadIdHash": "b27da360c37baf2449fe3cd01782946d0e4bd2b91cacc07360bcc71937840f1e",
+        "remoteRunIdHash": "8e9ec4e7278f4a80cd6377f0d6c8098bc784c9ea3a218571769662b586228dc9"
+      }
+    ],
+    "newLocalThreadSeparate": null,
+    "newRemoteNamespaceSeparate": null,
+    "currentRemoteThreadIdHashes": [
+      "e06008dac384d446c70a09d45ef630214d1fce52688c058d76d1e31e055b0451"
+    ],
+    "currentRemoteRunIdHash": "03f949c4b28e058d2fc37c31943bd725a832ab14e5264bbfb93c4a3dd733604b"
+  },
+  "currentProjectStatus": "active",
+  "selector": {
+    "schemaVersion": 1,
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 1
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 1
+  },
+  "focus": {
+    "skillId": "skill-812b7f37-9c11-4a2a-970d-855554c32745",
+    "skillVersionId": "skill-version-625a892f-1b6f-42e0-9306-fe2059426b54",
+    "skillStableName": "aidt-understand",
+    "title": "理解与提出问题"
+  },
+  "approvedPackage": {
+    "packId": "aidt-methods",
+    "packVersion": "1.3.0",
+    "packageDigest": "9a3d1e6bdf3ced5860a4f1124edb1be05fb7f952039c9549fbff50eb89ac52ee"
+  },
+  "hashes": {
+    "selector": "43a661b8964e2278767a6d0d30ac01c02785c9719d214aea4ddc537de03ef304",
+    "snapshot": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+    "block": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41"
+  },
+  "canonicalHashesMatch": true,
+  "persistedHumanTextHash": "a967f3f3a0cc9cc9a0361ead9b9155104e9ba0ef398b4bba705bce56d9b4e410",
+  "persistedHumanMatchesExpected": true,
+  "exactSources": [
+    {
+      "kind": "stage",
+      "stageId": 1,
+      "revision": 1,
+      "currentHeadRevision": 2,
+      "selectedIsCurrentHead": false,
+      "sourceStageRevisions": [],
+      "updatedByHash": "dbffea12712f3162a002dbf46d217e4453f7a5044786fb842013b2184e02aa85",
+      "updatedAt": "2026-11-16T12:20:01.776Z",
+      "contentHash": "1af2e5a371467d1e3c99fa515bbc9e4c85ab1ebd0b144de5419f5d6d03e5a569",
+      "excerptHash": "5c54423d592ea92e3822e9948eff7404b467f472f776d3cf797857fe7cfeba44",
+      "excerptUtf8Bytes": 817,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    }
+  ],
+  "omissions": [
+    {
+      "kind": "personal-artifacts-not-included"
+    },
+    {
+      "kind": "original-file-bytes-not-read"
+    },
+    {
+      "kind": "teacher-comments-no-source"
+    },
+    {
+      "kind": "lineage-unknown"
+    }
+  ],
+  "truncated": false,
+  "application": {
+    "state": "message-dispatch-observed",
+    "attemptId": "68880459-6de1-43a8-a909-0a969f03a7a8:1",
+    "assembledContextHash": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41",
+    "assembledAt": "2026-11-16T12:20:02.692Z",
+    "messageDispatchedAt": "2026-11-16T12:20:04.526Z",
+    "checkpointResumedAt": null,
+    "inheritedMessageDispatchAttemptId": null
+  },
+  "journal": [
+    {
+      "seq": 1,
+      "kind": "assembled",
+      "attemptId": "68880459-6de1-43a8-a909-0a969f03a7a8:1",
+      "occurredAt": "2026-11-16T12:20:02.692Z",
+      "snapshotHash": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+      "assembledContextHash": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41"
+    },
+    {
+      "seq": 2,
+      "kind": "message-dispatch-observed",
+      "attemptId": "68880459-6de1-43a8-a909-0a969f03a7a8:1",
+      "occurredAt": "2026-11-16T12:20:04.526Z",
+      "snapshotHash": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+      "assembledContextHash": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41"
+    }
+  ],
+  "dispatchObservationCount": 1,
+  "resumeObservationCount": 0,
+  "serverDispatchObservationMatchesFrozenBlock": true,
+  "independentReceiptProvided": true,
+  "supplierConsumptionProvenByAudit": false,
+  "studentResearchValidityProven": false,
+  "rawStudentTextIncluded": false,
+  "privateConfigurationIncluded": false,
+  "databaseReadOnly": true,
+  "modelRequestsSent": 0,
+  "dataWrites": 0
+}
