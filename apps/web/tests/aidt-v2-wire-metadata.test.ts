@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { AidtContextSelector, type AidtContextReceipt } from "@repo/contracts/aidt-run-context";
-import { aidtV2WireMetadata, validateAidtV2Receipt } from "../e2e/support/aidt-v2-wire-metadata";
+import { aidtV2WireMetadata, expectedAidtV2StageSelector, validateAidtV2Receipt } from "../e2e/support/aidt-v2-wire-metadata";
 
 const source = { stageId: 1, field: "initial", marker: "UNIQUE_DB_MATERIAL_NOT_STUDENT_PROMPT" };
 const selector = { schemaVersion: 1, purpose: "stage", projectId: "synthetic-project", stageId: 2, stageRevisions: [{ stageId: 1, revision: 2 }] };
 const body = () => ({ messages: [{ role: "user", content: "学生自己的问题，逐字保留。" }], forwardedProps: { aidtContext: selector }, context: [] });
 
 describe("real-model QA wire: coordinates only, never material consumption proof", () => {
+  it("expects S2's actual saved S1 V1 reference even when S1 head is V3", () => {
+    const saved = [{ projectId: "p", stageId: 1, revision: 3, sourceStageRevisions: [] }, { projectId: "p", stageId: 2, revision: 2, sourceStageRevisions: [{ stageId: 1, revision: 1 }] }];
+    expect(expectedAidtV2StageSelector("p", 2, saved).stageRevisions).toEqual([{ stageId: 1, revision: 1 }, { stageId: 2, revision: 2 }]);
+    expect(saved[0]?.revision).toBe(3);
+  });
+  it("only falls back to heads when the current step has no saved references", () => {
+    expect(expectedAidtV2StageSelector("p", 2, [{ projectId: "p", stageId: 1, revision: 3, sourceStageRevisions: [] }, null]).stageRevisions).toEqual([{ stageId: 1, revision: 3 }]);
+  });
+  it("does not derive a plausible selector from a cross-project server row", () => {
+    expect(() => expectedAidtV2StageSelector("p", 2, [{ projectId: "other", stageId: 1, revision: 3, sourceStageRevisions: [] }])).toThrow(/SCOPE_MISMATCH/);
+  });
   it("accepts a strict stage selector without saved material in the browser body", () => {
     expect(aidtV2WireMetadata(body(), [source], "aidt-empathize")).toMatchObject({ selectorCoordinates: selector, coordinatesOnly: true, rawValuesRetained: false });
   });

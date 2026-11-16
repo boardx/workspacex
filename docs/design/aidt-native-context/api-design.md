@@ -1,6 +1,6 @@
-# ③ API、持久快照与执行边界（待签核）
+# ③ API、持久快照与执行边界（本轮会话已批准）
 
-本页是待批准提案，核心 pipeline 尚未实现。未来单源拟为 `packages/contracts/src/aidt-run-context.ts`，Web/API共同导入；本设计不是已生效的第二份运行时 schema。旧六步不可变 Skill 包不改。既有普通 GET run JSON 与普通无selector Chat 路径保持原样。
+本轮用户会话已批准方案A，原提案状态保留作历史；当前实现验证中。运行时单源为 `packages/contracts/src/aidt-run-context.ts`，Web/API共同导入；本文说明已批准边界，不构成第二份运行时 schema。旧六步不可变 Skill 包不改。既有普通 GET run JSON 与普通无selector Chat 路径保持原样。
 
 ## 1. 已验证的丢失点与补修范围
 
@@ -27,7 +27,7 @@ SUM 形状为 `purpose:"summary"`，不传 stageId/returnRevision，可传 `hist
 
 省略某步引用不等于它没有数据：服务端可只读取该步 head 元数据以区分 `not-selected` 与 `missing`，不自动把head正文带入。前端历史collector内部已给出每条stageId/revision；目前summary packet只回历史markdown，实施时须额外投影这份已有结构化refs给host，不能从markdown猜修订，也不能在发送时让服务端重新选择latest；读失败的正文不回传。不接材料正文、role、system指令、teacherComments、orgId/userId或客户端Skill授权声明；selector未知键拒绝，AG-UI `body.context` 正文继续忽略。
 
-拟议预算：selector JSON≤8KiB UTF-8；当前引用≤6、历史≤60、精确返工≤1；准备总超时20秒；**最终带边界、转义与消息封装的模型参考消息≤128KiB UTF-8**，当前每步≤5000字、历史每条≤1200字且历史总摘录≤18000字，最终仍服从UTF-8总上限。保留全部所选版本定位，正文按当前任务/返工/六步/历史顺序截断并记录逐项与总截断标志。prepare使用版本固定的确定性formatter，按最终消息序列化后的UTF-8字节数截断并冻结modelReferenceBlock及其hash/formatterVersion；execute不得二次静默剪裁。包装、转义和标记开销都算入预算。不静默丢字段或把部分材料标全文。预算为本束待批准的运行边界，不冒充既有人类确认值。
+本轮批准预算：selector JSON≤8KiB UTF-8；当前引用≤6、历史≤60、精确返工≤1；准备总超时20秒；**最终带边界、转义与消息封装的模型参考消息≤128KiB UTF-8**，当前每步≤5000字、历史每条≤1200字且历史总摘录≤18000字，最终仍服从UTF-8总上限。保留全部所选版本定位，正文按当前任务/返工/六步/历史顺序截断并记录逐项与总截断标志。prepare使用版本固定的确定性formatter，按最终消息序列化后的UTF-8字节数截断并冻结modelReferenceBlock及其hash/formatterVersion；execute不得二次静默剪裁。包装、转义和标记开销都算入预算；冻结 role/content 编码块额外预留1024字节给原生 message id 等 envelope，provider 再核实际序列化消息总字节，不符即失败而非二次剪裁。不静默丢字段或把部分材料标全文。以上预算随本束方案A获本轮会话批准；实现必须同时遵守最终编码字节上限。
 
 ## 3. 服务端授权与实际读取
 
@@ -105,11 +105,11 @@ Python收到的system/history/user消息传输必须有无模型费用的loopbac
 
 SUM不返回stageId/returnRevision。应用状态从仅AIDT的真实application journal派生；多attempt保留各次journal，回执当前attempt不改snapshot。无组装事件为prepared，无首次message派发事件不得填messageDispatchedAt。resume显示其checkpoint恢复事实和继承的原始派发关联，本attempt没有新messages则新messageDispatchedAt为null。该GET只重读，不能kick/resume模型或重建快照；关闭重开/重登录后仍显示同一run/snapshot。
 
-拟新增封闭错误：selector非法/过大422；不可用来源/错scope/错pin统一404；幂等selector冲突409；服务端准备或回执依赖故障503。运行中组装/派发失败沿既有RUN_ERROR/失败状态，需要在新契约单源中精确登记安全码并由现有边界过滤，不回传原始SQL/正文。普通Chat错误码与合同不借此改动。
+本轮批准封闭错误：selector非法/过大422；不可用来源/错scope/错pin统一404；幂等selector冲突409；服务端准备或回执依赖故障503。运行中组装/派发失败沿既有RUN_ERROR/失败状态，需要在新契约单源中精确登记安全码并由现有边界过滤，不回传原始SQL/正文。普通Chat错误码与合同不借此改动。
 
 ## 7. 文件owner拆分与可复用端口
 
-| 工作路 | 拟涉及文件/职责 | 限制 |
+| 工作路 | 本轮批准的文件/职责 | 限制 |
 | --- | --- | --- |
 | 契约/快照 | 新`packages/contracts/src/aidt-run-context.ts`、2张仅AIDT表/marker迁移、`application/aidt-context`与Pg adapter | 一处schema；普通run无行；RLS/幂等/精确读取 |
 | AGUI与原子受理 | `interface/controllers/copilotkit-agui.controller.ts`、`application/agent-run/agui-bridge.ts`、`application/chat/message-roundtrip.ts`、`message-command-ports.ts`、`infrastructure/chat/pg-chat-message-command-repository.ts` | 同一事务；原文不变；严格保持无selector路径 |
@@ -120,4 +120,8 @@ SUM不返回stageId/returnRevision。应用状态从仅AIDT的真实application 
 
 可复用：`ThreadMountedSkillReader.activeMountedSkillVersionIds`、`PublishedAgentReader`、现有run固定Skill与权限快照、`AidtStageRepository.inProject`、guard/disclose、`ChatMessageCommandRepository.accept/findAccepted`、现有clientMessageId、既有claim/resume及新AIDT application journal、`ModelCallPort`与DeepAgent消息序列化。现有 `requestedSkillVersionId` 是server-owned产品动作的收窄口，不能变成客户端给任意Skill授权；本束先验证focus在真实pins中并发送准确阶段，不擅自改全部Agent角色配置。
 
-以上是计划文件地图，不表示这些接线已存在。人类批准后root再划6路owner，避免多人同时改AGUI/accept/execute-run核心文件。
+以上是本轮批准的文件责任地图；root已划6路独占实现，避免同时改AGUI/accept/execute-run核心文件。实现与实际验证结果分别记录，不以该地图宣称已经端到端通过。
+
+## 已批准实现中的 AG-UI 传输澄清
+
+普通无 selector 请求保留既有立即 SSE 协议，不为普通请求预读 AIDT 表。fresh 带 selector 在受理成功首事件前才开启 SSE，准备/幂等失败可返回实际 HTTP 404/409/422/503。相同消息键从 null→有 selector 或有→不同 selector 均冲突（尚未开启 SSE 时 HTTP409）；有→null 重放从 wire 仍是普通输入，立即 SSE 后仓储识别旧 AIDT marker，返回既有 `RUN_ERROR IDEMPOTENCY_CONFLICT`，HTTP 是200，不能记为HTTP409。三种方向均不新增 message/run、不换快照、不派发模型。该差异保留普通协议，不扩大权限或提供第二份上下文来源。

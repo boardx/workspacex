@@ -1,0 +1,4 @@
+
+> @repo/contracts@0.0.0 typecheck /workspace/aidt-module-latest/packages/contracts
+> tsc --noEmit
+

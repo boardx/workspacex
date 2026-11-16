@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/lib/copilotkit-v2-error-copy.test.ts (37 tests) 7ms
+ ✓ tests/lib/agent-run-failure-reason-copy.test.ts (5 tests) 3ms
+ ✓ tests/chat-runtime-display-i18n.test.ts (3 tests) 2ms
+
+ Test Files  3 passed (3)
+      Tests  45 passed (45)
+   Start at  10:33:58
+   Duration  5.41s (transform 2.21s, setup 305ms, collect 4.35s, tests 13ms, environment 0ms, prepare 138ms)
+

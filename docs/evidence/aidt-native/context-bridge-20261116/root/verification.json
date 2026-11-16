@@ -1,0 +1,82 @@
+{
+  "coreCommit": "b8e27049e6fcfd73805844f349c2325368c26385",
+  "layer": "controlled frontend + static root integration; PG evidence separate A6",
+  "webRegression": {
+    "files": 122,
+    "passed": 1060,
+    "skipped": 4,
+    "failed": 0,
+    "durationSeconds": 146.29
+  },
+  "typecheck": {
+    "api": 0,
+    "web": 0
+  },
+  "apiLint": {
+    "first": 1,
+    "final": 0,
+    "fix": "Removed obsolete global-scope fixture annotation from in-memory summary importer test; no DB/permission behavior changed."
+  },
+  "designLintExit": 0,
+  "receiptTests": {
+    "passed": 11,
+    "failed": 0
+  },
+  "testIdReferences": 6426,
+  "zeroEgressStaticExit": 0,
+  "initFinalExit": 0,
+  "vendorRequests": 0,
+  "humanAcceptanceSigned": false,
+  "newBrowserReceiptVerified": true,
+  "notes": "S6/S3未保存草稿混用来源与queued回执缺失均由真实反例修复；最终产品741bc9f69独立真实浏览器prepared-only 1passed，非模型派发或课堂验收。后续QA旧refs小类另有25项，未与1103项相加。",
+  "lockedSourceFollowup": {
+    "commit": "696e5da061977eb961c4d9bae4a3a5e9447cccf7",
+    "tests": 68,
+    "files": 4,
+    "typecheckExit": 0,
+    "fullWebLintExit": 0,
+    "coverage": "Real parent + actual shared hook retain S6→S5V2 and S3→S2V2 despite newer heads; exact history preview; absence/loading/failed boundaries."
+  },
+  "finalProductCommit": "741bc9f69693667868e88e780ff9a798e95d80ec",
+  "webFinalRegression": {
+    "files": 125,
+    "passed": 1103,
+    "skipped": 4,
+    "failed": 0,
+    "durationSeconds": 159.3,
+    "skippedScope": "4 pre-existing plan-control cases; no new AIDT test skipped"
+  },
+  "finalChecks": {
+    "webTypecheck": 0,
+    "webFullLint": 0,
+    "testIdReferences": 6428
+  },
+  "queuedAcceptanceFollowup": {
+    "ownerTests": 89,
+    "files": 8,
+    "newBackendContract": false,
+    "sdkCorrelationUsedAsBackendRunId": false,
+    "ordinaryExtraMessageReads": 0,
+    "lookup": "Current author + exact clientMessageId + captured text; after server RUN_STARTED only; bounded and scope-cancelled",
+    "newBrowserRetest": {
+      "passed": 1,
+      "failed": 0,
+      "durationSeconds": 4.7,
+      "productCommit": "741bc9f69693667868e88e780ff9a798e95d80ec",
+      "humanExact": true,
+      "selectorOnly": true,
+      "preparedHttpReceipt": true,
+      "collapsedThenExpandedUiReceipt": true,
+      "actualQueuedCancel": true,
+      "vendorRequests": 0,
+      "priorFailureRetained": true
+    }
+  },
+  "resources": {
+    "stacksStopped": 3,
+    "allOwnPortsAndLeasesReleased": true,
+    "finalOwnerExitCode": 0,
+    "privateConfigRetainedMode": "0600",
+    "ledgerUnchanged": true
+  }
+}

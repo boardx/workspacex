@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-16",
+  "scope": "A3 approved context contracts + transport, no provider network",
+  "checks": [
+    {
+      "command": "pnpm --filter @repo/contracts exec vitest run tests/aidt-run-context.test.ts",
+      "exitCode": 0,
+      "tests": 13,
+      "log": "contracts.txt"
+    },
+    {
+      "command": "pnpm --filter @repo/api exec vitest run --config /tmp/aidt-context-api-contract-tests.config.ts",
+      "exitCode": 0,
+      "files": 8,
+      "tests": 72,
+      "log": "api-targeted.txt"
+    },
+    {
+      "command": "pnpm --filter @repo/contracts typecheck",
+      "exitCode": 0,
+      "log": "contracts-typecheck.txt"
+    },
+    {
+      "command": "pnpm exec tsc -p /tmp/aidt-context-controller-tsconfig.json",
+      "exitCode": 0,
+      "log": "controller-typecheck.txt"
+    },
+    {
+      "command": "node .harness/scripts/lint-arch-deps.mjs apps/api/src",
+      "exitCode": 0,
+      "files": 2312,
+      "log": "architecture.txt"
+    },
+    {
+      "command": "node scripts/lint-permission-paths.mjs",
+      "cwd": "apps/api",
+      "exitCode": 0,
+      "files": 2317,
+      "tenantTables": 343,
+      "log": "permission-paths.txt"
+    }
+  ],
+  "notProven": [
+    "real PostgreSQL migration replay and ACL",
+    "real HTTP through rebuilt native stack",
+    "real model input / supplier receipt / teaching quality"
+  ],
+  "paidModelRequests": 0,
+  "servicesStarted": 0,
+  "commitCreated": false
+}

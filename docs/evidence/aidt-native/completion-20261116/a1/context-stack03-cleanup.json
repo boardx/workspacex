@@ -1,0 +1,81 @@
+{
+  "ownerExitedNormally": true,
+  "outerExecExitCode": 0,
+  "containersRemaining": 0,
+  "volumesRemaining": 0,
+  "portCount": 13,
+  "allPortsFree": true,
+  "allLeasesReleased": true,
+  "recordedServicePidsAlive": 0,
+  "ports": [
+    {
+      "port": 20825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 21825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 22825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 23825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 24825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 25825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 26825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 27825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 28825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 29825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 30825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 31825,
+      "available": true,
+      "leaseAbsent": true
+    },
+    {
+      "port": 19825,
+      "available": true,
+      "leaseAbsent": true
+    }
+  ],
+  "privateConfigPreserved": true,
+  "privateConfigMode600": true,
+  "extraModelRequestsSent": 0,
+  "baselinePersistentDataTouched": false
+}

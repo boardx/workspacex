@@ -1,39 +1,40 @@
 {
   "source": "a6/aidt-v2-human-acceptance.md",
-  "sourceSha256": "e19d4314b7609a68bbf1c43a578bd383d8286d3939b6d74bcc275c7766ec6359",
-  "localPdfSha256": "c120b9c6597e397fd6c6b6d3104fc047c9237dac79e6ecbad4959715959671e2",
-  "pages": 25,
+  "sourceSha256": "2dcebffba7bf682db6ce97603c43d26287f7fa3e704b94ee3aaef76629132901",
+  "localPdfSha256": "01f700974cd1e9b8544575485499ee9fcee42c3895fa61c0b0bb8c43f137f1b8",
+  "pages": 26,
   "all15HumanCasesPresent": true,
   "FR01to19IndexPresent": true,
-  "all16MachineEntriesPresent": true,
   "resultsAndSignaturesRemainBlank": true,
   "humanAcceptanceCompleted": false,
   "status": "acceptance-procedure-not-passing-certificate",
   "fontChecked": "Droid Sans Fallback TrueType subsets embedded; extracted font bytes nonempty",
   "embeddedChineseFontSubsets": 4,
-  "embeddedChineseFontBytes": 123796,
+  "embeddedChineseFontBytes": 126568,
   "emptyTextPages": [],
   "outOfBoundsTextPages": [],
   "visualPagesRendered": [
     1,
-    4,
-    22,
-    24,
-    25
+    2,
+    5,
+    10,
+    26
   ],
   "visualPagesInspected": [
     1,
     4,
-    25
+    26
   ],
-  "libraryVersion": 2,
+  "libraryVersion": 4,
   "remoteReadVerified": {
-    "pages": 25,
-    "version": 2,
-    "firstPageAndBodyTextPresent": true
+    "pages": 26,
+    "version": 4,
+    "bodyAndBlankSignaturesPresent": true
   },
   "userViewerVerified": false,
   "compatibilityFix": "Old PDF used unembedded STSong-Light CID font; regenerated with embedded TrueType Chinese font. Viewer incompatibility is a hypothesis, not a reproduced user-side root cause.",
   "readableFallback": "https://chatgpt.com/space/page_b8000900cf9c8191980c5aceb2f71392",
-  "reproduce": "python3 scripts/render-aidt-acceptance-pdf.py --output <output.pdf> --qa-dir <private-qa-folder>"
+  "reproduce": "python3 scripts/render-aidt-acceptance-pdf.py --output <output.pdf> --qa-dir <private-qa-folder>",
+  "machineEntriesPresent": 18,
+  "all18MachineEntriesPresent": true
 }

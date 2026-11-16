@@ -8,14 +8,14 @@
 | --- | --- | --- | --- |
 | 01 | 课程/小组/成员关系，所属组入口，双组隔离，新登录重入 | V2-C1；A2真实课程UI；`fr01-course-entry/course-api-after-filter.json`与`course-final-index.json` | API-only 17项通过；final01三场UI因rewrite缺失失败并保留；修复后最终4bfb产物final02三场真实UI全部通过（15.4秒、0重试/模型），含真实普通成员边界、双组隔离、新登录、归档/分页/离线重试。P3创建项目回执缺provenanceEventId保留；人工H01未签字。 |
 | 02 | 六阶段当前成果、保存状态、返回保留旧成果 | N08双cycle、旧V1/3/4/5/6对比headV8 | 原有范围已真实通过；V2新字段需按小场景再验。 |
-| 03 | 一个引导师按阶段Skill及已保存组上下文追问，学生先输入/决定 | V2-R1与S2–S6参数场景：真实UI发送→native run→durable assistant→学生确认 | S1机械同run恢复通过；已确认旧桥接丢弃TeachingContext。修复三件束待人类签核、新来源回执未实现；后5步已编写但收费暂停，不能把wire匹配当模型消费证明。 |
+| 03 | 一个引导师按阶段Skill及已保存组上下文追问，学生先输入/决定 | V2-R1与S2–S6参数场景；M17真实PG桥接；M18仅受理浏览器 | 新桥接22项真实PG/实际适配器本机HTTP集成通过。context-02回执UI初次红保留；修复后context-03原单场1 passed：S2真实保存/SDK坐标/原文/queued/pin、独立GET与折叠UI prepared读取/hash全过，已cancel且独立核0usage/physical/active及账本不变。未组装/派发/消费新供应商模型，原S1 drop失败保留。 |
 | 04 | 想法、讨论结论、选择理由可编辑、共享保存、重进 | V2-R1/共享CAS；N08已保存S1/S4/S6精确重读 | CAS/断网留稿及明确重试真实通过；S1同run恢复后学生编辑确认与新登录精确恢复通过。该机械保存结果不证明Agent读取了组上下文。 |
 | 05 | 文字/图片材料上传与来源阶段关联；录音/语音另排 | V2-E1：真实上传回执、原字节/引用回读、发现卡；`v2-raw-materials-and-print-machine.json` | 新生产产物真实文字/PNG上传、SHA/原字节/来源头、共享保存重载、非组员404、离线读取重试且无再上传通过，模型请求0。录音/转写按用户决定后置。 |
 | 06 | 原始证据/学生解释/AI推测分开，洞察关联或待验证 | V2-E1/FR16发现卡与历史来源 | 图片/原件引用、原话逐字、学生解释与独立AI推测字段的真实保存回读通过；文本/卡片关联历史此前通过。推测字段是明确合成夹具，不声称本场调用了模型或做过真实访谈。 |
 | 07 | 选择/投票边界；至少三不同点子，名称/图/2–3句描述单/PDF | V2-I1；N08多标签与选择分离；M13/M14 | 三不同点子持久图片与临时图两条路径、逐份真实beforeprint/独立ideaID/图片已加载均通过；本地bytes共享保存明确拒绝且server不变。原生选择不是投票；实际另存PDF字节仍由人工H06核对。 |
 | 08 | 原型类型、界面文字/可选参考图及历史上下文→静态方案→选择修改与版本 | V2-P1，A5 native Design实际POST与GET version | A5 funded技术actor实际2次POST、V1/V2 source=model与immutable seq/可见内容通过；不证明学生资金权限或真实研究。最新scope修复仍需最终产物复验。 |
 | 09 | 测试问题/反馈材料、对应原型与认识变化、按需新版 | V2-P1/FR19；N08原问题snapshot固定 | A5真实S5新问题与S6旧问题/版本冻结隔离、版本变更关系保存重载通过；真实用户测试不存在，图片反馈待最终原件链验收。 |
-| 10 | 一组报告汇集问题演变、证据、创意、原型/测试、已有教师点评与建议；可编辑导出/缺口不编 | V2-S1真实summary线程与审阅导入；N08历史追加/保存/重登录 | N08历史报告范围已真绿；SUM入口/独立线程/审阅导入已实现，收费真实运行因服务端上下文来源契约待签核暂停，不能称完整Agent报告/导出通过。 |
+| 10 | 一组报告汇集问题演变、证据、创意、原型/测试、已有教师点评与建议；可编辑导出/缺口不编 | V2-S1真实summary线程与审阅导入；N08历史追加/保存/重登录；M17 SUM来源 | N08历史报告范围已真绿；SUM独立pin/线程、真实当前与历史来源、无点评来源与缺阶段提示的PG/实际适配器本机集成通过。新浏览器及供应商总结/主动导入导出仍待测。 |
 | 11 | 线上线下同组共享成果，多端隔离与冲突 | V2-B1、全界面22场景；N08双账号跨重启 | V2 CAS/网络恢复/只读与22处全局文字插件真实通过（setup admin）；N08成员互发/幂等/重启通过。学生角色课程隔离由A2独立用例另验；实时合并/会议规则待定。 |
 | 12 | 教师授权进度与点评，不评分 | 教师授权/已有点评入口 | P1后置；不编造教师点评或用管理员替代教师验收。 |
 | 13 | 学生自主叙事展示 | 学生编辑报告与现有导出 | P1；自动PPT待定，不把HTML/Markdown称PPT。 |
@@ -64,7 +64,7 @@ N08 `/workspace/scratch/aidt-completion-acceptance/attempt-full-08/results/persi
 
 attempt05已脱敏的 [机器结论](./v2-attempt05-machine.json) 与原Playwright结果分开留存；两项通过不扩大为真实Agent、照片上传或完整V2通过。跨进程预算动态检查退出0：失败保留额度、不同进程不能重置七次上限、同Skill不自动重发、并发锁冲突不覆盖总账；该检查不调用模型。
 
-S1同run恢复 [实际证据](./v2-s1-existing-run-machine.json) 仅证明机械记录范围；真实TeachingContext drop缺陷已确认，来源三件束待人签核且新receipt未实现。后5步/SUM暂停收费，不以wire证明模型收到材料。无收费新设计见 [服务端验收草稿](./server-context-acceptance-draft.md)。普通学生余额0，funded管理员仅模型技术actor；attempt05 setup账号也为admin，不单独证明consultant学生权限。
+S1同run恢复 [实际证据](./v2-s1-existing-run-machine.json) 仅证明原机械记录范围；旧TeachingContext drop缺陷保留。来源桥接已批准并通过[22项真实PG/实际适配器本机集成](./bridge-real-pg-machine.json)；[S2浏览器仅受理/prepared回执](./context-prepared-browser-final-machine.json)已真实通过，保留[修复前UI红](./context-prepared-browser-machine.json)。本轮未开启新的供应商执行，S2–S6/SUM的浏览器组装/派发及模型消费仍待授权验证，不用prepared当consume。普通学生余额0，管理员+owner的无费用受理不证明学生付费权限。
 
 22处成员文字 [实际证据](./global-member-text-surfaces.json) 与机器S1、A5静态原型、root812项Web回归分别记载，任何单项不合并冒称完整V2或人类已验收。
 

@@ -93,10 +93,10 @@
 | 层级 | 人工核对对象 | 当前状态 / 实际结果 |
 | --- | --- | --- |
 | 准备 | 自有小组、阶段、明确保存版本、对应Skill pin与有效权限 | __________________ |
-| 组装 | 服务端实际模型入参所使用的来源快照/只读哈希回执；伪造客户端正文不能成为可信材料 | **新回执尚未实现、契约待人类签核，当前阻塞**；人工结果：__________________ |
+| 组装 | 服务端实际模型入参所使用的来源快照/只读哈希回执；伪造客户端正文不能成为可信材料 | 真实PG/实际适配器本机HTTP集成22项通过（M17）；浏览器prepared读取已过（M18），浏览器组装/派发与供应商链仍待测；人工结果：__________________ |
 | 派发 | 同一真实run的派发/用量/结算与来源快照对应，恢复时不偷换新head | __________________ |
 
-原生wire含marker只能证明浏览器发送过，不能证明后端模型已经使用。原桥接已发现丢弃TeachingContext缺陷；在修复签核、实现及回执验收前，暂停相关收费生成，可继续非收费输入/保存/协作检查，不能靠反复发送试错。
+现行请求的`forwardedProps.aidtContext`仅含strict selector的项目、阶段和明确版本坐标；应用不自动夹带已保存材料正文，正文由服务端读取并冻结。原生messages逐字保留学生输入，允许学生主动引用材料原话，不能为了“无自动夹带”而删改人话。独立读取真实来源回执，区分prepared、assembled、message-dispatch-observed与合法同run恢复，不能把准备或组装当作已派发。旧机制曾在wire发送marker但后端丢弃TeachingContext，该失败记录保留。新桥接22项无供应商费用集成及浏览器仅受理/prepared回执检查已通过；浏览器真实组装/派发与供应商模型消费仍待测。后续收费须由协调者明确总次数，不能靠反复发送试错。
 
 预期：沿用WorkspaceX原生Chat界面与交互；同一引导师按本步Skill工作。AI不替学生完成访谈、不自动保存/确认、不默认选择其推荐方向。猜测仍明确待研究，观察也不等于原因已证实。原始命题、学生重写命题、理由/来源与追问回应可对应。
 
@@ -220,7 +220,7 @@
 
 若总结任务出现原生理解/假设确认卡，同H03检查当前组、报告任务和材料缺口，允许学生修改或拒绝后再明确确认；继续原运行，不能重新生成以绕过确认，也不把任务确认等同报告导入/共享保存。
 
-总结也须按H03逐层核对准备、服务端组装和实际派发的来源回执。当前新回执尚未实现且待签核，H10模型材料消费部分记阻塞；报告页packet/前端wire/本地模板不代替实际模型入参证据。
+总结也须按H03逐层核对准备、服务端组装和实际派发的来源回执。现行SUM的`forwardedProps.aidtContext`仅选择明确当前版本与历史版本坐标，应用不自动把报告材料packet夹入请求；原生messages仍保留学生输入与主动引用，材料来源由服务端冻结。新回执方案已通过M17无供应商费用集成，含SUM独立pin与真实选定历史；M18另证明S2浏览器prepared回执读取。H10的SUM浏览器及供应商材料消费仍待测，不能把S2准备回执、报告页packet/前端wire/本地模板代替总结模型入参证据。
 
 预期：每组一份可编辑可审阅报告；AI草稿不自动成为结论，不自动保存/归档。来源可定位，缺失研究/点评不虚构。导出内容与学生保存/审阅的版本一致。
 
@@ -339,10 +339,12 @@
 | M14 · 临时预览/分类/打印边界 | 首次因QA误期望自动剥离本地图片而失败，修正操作顺序后单场1 passed（3.1秒）：先存文字/多标签/选择，再加临时图；共享保存明确报图片引用错误且无PUT/服务器不变，重新审阅后三次真实beforeprint图片均已加载 | 临时图未被冒充为持久原件；保存/分类/拟选择与临时打印边界实际核验，旧失败保留 | 临时图没有跨重登录保存；未实际另存PDF，人工H06仍须核验输出文件 |
 | M15 · 最终同源原件只读复验 | 最终`4bfb82e268a618d57af25e5596a11ddc04cf38cf`生产产物：原账号正常登录，复用M13已保存的文字与PNG，两次同源GET200，逐字节/SHA/版本/上传者与时间头精确一致；旧S2成果前后逐字不变 | 新增精确原件rewrite没有改变本次已存原件读取行为；登录后写入0、新上传0、模型请求0，浏览器已关闭 | 只复验两份旧原件读取，不把M13/M14改标为新源码，也不证明完整V2或实际另存PDF |
 | M16 · 最终课程真实UI | A2在最终`4bfb82e268a618d57af25e5596a11ddc04cf38cf`生产产物实际3 passed（15.4秒）：建课/关联真实组、同课双组隔离与新登录；归档组读取/拒绝新绑定；真实分页与离线明确重试。浏览器已关闭，重试0、模型0、收费总账前后hash一致 | 本次课程入口与真实普通成员/管理员角色边界；同源rewrite修复后UI可达 | 初验final01三红保留，不能删除或写成从未失败；课程不是自动入组，不是教师角色验收，也不代表完整V2或人工签字 |
+| M17 · 已批准桥接无供应商费用集成 | 最终22/22真实PG通过（20.71秒）：实际授权来源/原子快照/ModelCall历史槽/Deep适配器实际本机HTTP消息hash/receipt一致，拒绝与撤权竞态、旧快照恢复、SUM缺口、S6旧源、普通Chat零AIDT副作用；3源显式TS诊断0 | 可证明本次真实数据库、受理事务、实际适配消息和来源回执的对应；本机协议HITL恢复与旧派发事实迟到不回退，全部测试资源已清理 | 供应商调用0；本机协议记录服务不是实际LangGraph/模型推理；新浏览器回执、HTTP全链与收费Agent仍待测；原S1错误/环境红/QA红均保留 |
+| M18 · 真实浏览器仅受理检查 | 修复前`696e5da`/context-02首场1 failed（8.716秒）保留；修复后`741bc9f69`/context-03原单场**1 passed（4.7秒）**：真实保存/SDK一次/strict坐标/原文/pin/queued、独立HTTP prepared回执及UI初始折叠不请求→展开真实读取/可见hash、真实cancelled全部通过 | A1独立SQL确认精确S1V1/S2V1、真实snapshot、application0；浏览器已关闭，physical/usage/credits/holds/unbounded/active全0，资金与旧预算hash不变 | 仅prepared受理和读取通过，未组装、未派发、未模型消费；actor为既有未funded管理员+本组owner，不证明普通学生付费权限；QA旧refs增量另记hash，不冒产品构建SHA |
 
 M07详见工程证据`a6/v2-attempt05-machine.json`。后续真实Agent计划为六步各一次加总结一次，跨进程合计最多七个可能收费运行；此前明确未到供应商的失败另列。原型生成的两次另获授权并单列。人工教学质量仍由本手册实际操作与签字决定。
 
-M08独立脱敏来源为`a6/v2-s1-existing-run-machine.json`与`a1/native-s1-settlement.json`；M09来源为`a5/real-design-funded-result.json`、`a5/real-design-v2-frame-result.json`与`a1/design-real-accounting.json`。保留原卡、学生修改和实际记录；后续阶段在来源契约签核/实现前暂停收费，不靠重发模型掩盖缺陷。
+M08独立脱敏来源为`a6/v2-s1-existing-run-machine.json`与`a1/native-s1-settlement.json`；M09来源为`a5/real-design-funded-result.json`、`a5/real-design-v2-frame-result.json`与`a1/design-real-accounting.json`。保留原卡、学生修改和实际记录；来源契约本轮已获批准；后续阶段在接线及无费用反例验证通过前暂停收费，不靠重发模型掩盖缺陷。
 
 M11来源为`a6/global-member-text-surfaces.json`；其前两次QA selector/进入Design前提错误独立保留，最终通过没有删断言、延长等待或绕过验证问题门。
 
@@ -353,6 +355,12 @@ M13来源为`a6/v2-raw-materials-and-print-machine.json`；M14来源为`a6/v2-lo
 M15来源为`a6/v2-final-rewrite-original-readback.json`；用M13相同真实组与保存引用核对，不重建素材或替换旧证据源码标识。
 
 M16由A2实际执行并经协调者确认；[课程最终证据索引](../../fr01-course-entry/course-final-index.json)列出`course-ui-final-01-summary.json`三红、`course-ui-final-02-summary.json`三绿及`course-ui-final-02-attachments.json`完整三场实际附件。P3缺口仍保留：创建项目回执缺少`provenanceEventId`，未伪造该值。H01实际结果与签字仍由人类填写。
+
+M17来源为`a6/bridge-real-pg-machine.json`及[执行说明](./bridge-real-pg-verification.md)。执行时工作树尚未统一提交，文件hash与原基线已留存；后续桥接落入`b8e27049e`，不将其伪装成此前运行SHA。22绿包括回执最后增量；此前21绿与环境/夹具失败分开保留。
+
+M18初次红保留在`a6/context-prepared-browser-machine.json`，最终绿见`a6/context-prepared-browser-final-machine.json`，并关联A1的`context-stack03-prepared-run.json`、`context-stack03-prepared-actor.json`和`context-stack03-after-browser.json`。context-03仅按修复后明确授权复验一次，重试0；旧预算未重置、执行保持关闭。新坐标/回执QA helper另有25项零网络单元检查，其中保存旧refs与head不同时仍独立期望旧版；单元绿与真实浏览器实证分开记录。
+
+本轮测试栈已由A1正常关闭，`context-stack03-final-receipt.json`确认自有容器/卷、13端口和预约均已释放。临时验收地址不再提供服务；后续按源码说明在获授权的测试环境启动，不能把本轮prepared通过当作实际模型生成已经验收。
 
 模型技术actor说明：本轮已有合法测试余额的管理员用于模型链路验证，未充值、改角色或提升课程/组织plan；这不证明普通学生已有模型额度或相同权限。独立只读检查显示普通学生测试账号当前可用余额为0，其资金前提尚未满足。H03/H10的真实学生人工结果仍保持空白，须在学生实际授权与合法额度到位后操作；管理员模型通过不得代填。
 

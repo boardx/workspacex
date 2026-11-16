@@ -1,0 +1,21 @@
+{
+  "accountingEnabled": true,
+  "admissionEnabled": true,
+  "spoolAbsolute": true,
+  "spoolPrivateOwned": true,
+  "spoolInitialization": true,
+  "callbackLoopback": true,
+  "callbackKeyPresent": true,
+  "outputBoundExplicit": true,
+  "modelConstructed": true,
+  "sdkOutputTokenBoundVerified": true,
+  "serializedBodyWithinAdmissionLimit": true,
+  "accountingOuterTransportRetained": true,
+  "proxyExpected": true,
+  "exactOriginProxyConfigured": true,
+  "proxyOriginIsolationVerified": true,
+  "requestsSent": 0,
+  "runtimeOwnership": "bound-and-revalidated-by-API-per-real-run-not-fabricated-by-doctor",
+  "source": "696e5da061977eb961c4d9bae4a3a5e9447cccf7",
+  "modelRequestsSentByA1": 0
+}

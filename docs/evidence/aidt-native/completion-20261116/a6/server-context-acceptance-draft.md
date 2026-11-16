@@ -1,6 +1,6 @@
-# AIDT 服务端上下文：待签核验收设计
+# AIDT 服务端上下文：集成验收设计
 
-状态：**测试设计草稿，尚未实现/运行，不是生产契约或人类签核。** root于本轮要求先准备无收费反例；API/授权/atomic accept/execute的具体设计由对应owner提交人类审阅。本文不发明新HTTP地址、错误码或权限，不把客户端wire包含材料当作模型消费证明。后续S2–S6/SUM收费仍暂停。
+状态：**用户已批准桥接；真实PG/实际适配器本机HTTP集成22项通过，S2真实浏览器仅受理/prepared回执复验通过，供应商调用0。** 本文不代替或修改人类签核。浏览器组装/派发及真实供应商链仍待后续验收，不把prepared、客户端wire或本机协议记录服务当模型消费证明；本轮已收口、不开启收费执行。
 
 ## 目标与证据层级
 
@@ -61,8 +61,10 @@
 | --- | --- |
 | 原S1付费运行 | 真实succeeded；同run内部5次模型请求/33647模型tokens/5 settled；学生纠正错误阶段后保存/重登录通过；不证明服务端收到保存context |
 | 浏览器wire | 发送时marker断言到达过；原请求未保留raw body，不能事后补造位置。新helper将只存top keys、message roles和布尔marker路径，不存原文/令牌 |
-| controller到provider教学数据 | A3正在核对/设计，未标通过 |
-| 人类契约签核 | 待人类；本文不更改status |
-| 本文CTX用例 | 全部待实现/待运行，不计入已通过数量 |
+| 服务端来源到实际适配器 | 真实PG→原子受理→ModelCall历史块→Deep适配器实际本机HTTP槽/hash→receipt通过；不是供应商推理 |
+| 人类契约签核 | 协调者已通知用户批准桥接；本文不更改签核status |
+| 本文CTX用例 | 22项真实PG跨层检查与S2浏览器prepared读取通过；HTTP409全链、浏览器恢复/组装/派发及真实供应商仍待测，不能用PG或prepared代替 |
 
 最终交付须逐项补：实际命令、源码/产物、退出码、call/usage计数、只读receipt来源、证据编号和未解决差异。任何签核等待在人工PDF中保留，不用收费试错代替设计确认。
+
+实际执行、各范围与失败保留见[真实PG执行说明](./bridge-real-pg-verification.md)和[机器证据](./bridge-real-pg-machine.json)。CTX-R02的跨repository持久恢复已测，新浏览器回执恢复尚未测；CTX-R03的PG原型标签是明确合成legacy文字，真实Design两版另有A5旧产物证据，不混作本次生成。新来源lane应按strict selector校验坐标并独立GET真实receipt，替换旧“wire每个marker必须出现”的调试断言。

@@ -1,0 +1,34 @@
+{
+  "configuration": {
+    "configuration": "ready",
+    "source": {
+      "requested": "explicit_file",
+      "fileStatus": "readable"
+    },
+    "provider": "dashscope",
+    "fields": {
+      "DASHSCOPE_API_KEY": "present",
+      "DASHSCOPE_BASE_URL": "present",
+      "DASHSCOPE_MODEL": "present"
+    },
+    "errors": [],
+    "connectivity": "not_checked",
+    "modelAcceptance": "not_run",
+    "localProfileChanged": false
+  },
+  "privateFileMode600": true,
+  "node22": true,
+  "uvicornExists": true,
+  "uvicornExecutable": true,
+  "sandboxPackages": {
+    "pptxgenjs": true,
+    "docx": true,
+    "exceljs": true,
+    "pdf-lib": true
+  },
+  "dockerDaemonAvailable": true,
+  "newWorkDirectoryAbsent": true,
+  "newPortReservationCreated": false,
+  "servicesStarted": 0,
+  "providerRequestsSent": 0
+}

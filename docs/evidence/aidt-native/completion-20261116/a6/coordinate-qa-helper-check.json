@@ -1,0 +1,47 @@
+{
+  "kind": "zero-network-QA-helper-unit-and-static-check",
+  "red": {
+    "testsFailed": 6,
+    "testsPassed": 1,
+    "preservedLog": "/tmp/aidt-v2-coordinate-qa-red.log"
+  },
+  "green": {
+    "testsPassed": 22,
+    "testsFailed": 0,
+    "preservedLog": "/tmp/aidt-v2-coordinate-qa-green.log"
+  },
+  "strictScopedTypeScriptDiagnostics": 0,
+  "eslintExitCode": 0,
+  "realModelLaneDiscoveredTests": 16,
+  "preparedOnlyLaneDiscoveredTests": 1,
+  "defaultCiExcludesOnlyExactOwnedSpecs": true,
+  "nativeModelRequestSentByTheseChecks": false,
+  "paidBudgetFileModified": false,
+  "paidBudgetSha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "sourceSha256": {
+    "apps/web/e2e/support/aidt-v2-acceptance.ts": "563e7cf7446a2def53c492aa0dcf5a2b4c67400e4b38b66f79e17984a47ccb40",
+    "apps/web/e2e/support/aidt-v2-wire-metadata.ts": "fa73aad7c5aef760c8cafd20b1c790062174d8543f2ec79e2d6204e537712f08",
+    "apps/web/tests/aidt-v2-wire-metadata.test.ts": "908eadacfb6a58d68180345101be03e89eeea8a189ac36545a76cf85d93bce3c",
+    "apps/web/e2e/aidt-v2-context-prepared.spec.ts": "547d41155296abcddf7e382dbc47984b765f6f10e12db2244bd224fe87407e3b",
+    "apps/web/playwright.aidt-context-prepared.config.ts": "42f61f16e8dff7652e8857bab849bb5f31cc34f0a8804477ce3b17bba45a8150"
+  },
+  "actualBrowserPassingClaimed": false,
+  "lastStaticRecheck": {
+    "unitTestsPassed": 25,
+    "strictOwnedTypeScriptDiagnostics": 0,
+    "eslintExitCode": 0,
+    "diffCheckExitCode": 0,
+    "browserRun": false
+  },
+  "preparedOnlyBrowserEvidence": "context-prepared-browser-final-machine.json",
+  "rawModelOrSupplierE2EClaimed": false,
+  "finalSavedReferenceExpectationCheck": {
+    "testsPassed": 25,
+    "testsFailed": 0,
+    "exitCode": 0,
+    "observedAt": "2026-11-16T11:21:04Z",
+    "evidence": "Actual command result returned in the A6 tool transcript; initial green log above preserves the earlier 22-test stage",
+    "strictOwnedTypeScriptDiagnostics": 0,
+    "eslintExitCode": 0
+  }
+}

@@ -59,12 +59,15 @@
     "global-member-text-surfaces.json",
     "v2-raw-materials-and-print-machine.json",
     "v2-local-preview-and-print-machine.json",
-    "v2-final-rewrite-original-readback.json"
+    "v2-final-rewrite-original-readback.json",
+    "context-prepared-browser-machine.json",
+    "context-prepared-browser-final-machine.json"
   ],
   "blocks": [
-    "new server teaching-context contract awaits human signoff; production core not implemented",
-    "S2-S6 and SUM provider runs paused; no retry/new charge to mask context drop",
-    "native beforeprint passed; actual browser saved PDF file still requires human verification"
+    "New bridge supplier execution and browser assembled/dispatch/restore consumption not exercised; this iteration ended with executor disabled",
+    "SUM browser report generation/import/export with new server bridge still awaits authorized execution",
+    "Actual browser-saved PDF bytes and classroom/human signoff remain separate manual checks",
+    "Ordinary student legal model funding and paid execution permission are not established by an admin prepared-only test"
   ],
   "humanAcceptanceSigned": false,
   "productionDeployed": false,
@@ -124,5 +127,22 @@
     "previousThreeUIFailuresRetained": true,
     "evidenceIndex": "../../fr01-course-entry/course-final-index.json",
     "knownGap": "P3 missing createProject provenanceEventId; not fabricated"
+  },
+  "serverBridge": {
+    "approved": true,
+    "realPgIntegrationPassed": 22,
+    "realSupplierE2E": false
+  },
+  "preparedBrowserFinal": {
+    "productSourceSha": "741bc9f69693667868e88e780ff9a798e95d80ec",
+    "passed": 1,
+    "failed": 0,
+    "previousFailurePreserved": true,
+    "applicationState": "prepared",
+    "assembled": false,
+    "dispatched": false,
+    "supplierConsumed": false,
+    "ownerIndependentCountersAllZero": true,
+    "ownerFinalCleanup": "../a1/context-stack03-final-receipt.json"
   }
 }

@@ -1,5 +1,17 @@
 import { AIDT_STAGE_IDENTITIES, AIDT_SUMMARY_STABLE_NAME, AidtContextSelector, AidtContextReceipt, aidtContextSelectorJson } from "@repo/contracts/aidt-run-context";
 
+/** QA expectation from independently GET-read server rows, without importing the business selector builder. */
+export function expectedAidtV2StageSelector(projectId: string, stageId: number, saved: readonly ({ projectId: string; stageId: number; revision: number; sourceStageRevisions: readonly { stageId: number; revision: number }[] } | null)[], returnRevision?: number) {
+  const rows = saved.filter((row): row is NonNullable<typeof row> => row !== null);
+  if (rows.some(row => row.projectId !== projectId) || new Set(rows.map(row => row.stageId)).size !== rows.length) throw new Error("AIDT_QA_SAVED_SOURCE_SCOPE_MISMATCH");
+  const refs = new Map(rows.filter(row => row.stageId <= stageId).map(row => [row.stageId, { stageId: row.stageId, revision: row.revision }]));
+  for (const source of rows.find(row => row.stageId === stageId)?.sourceStageRevisions ?? []) {
+    if (source.stageId >= stageId) throw new Error("AIDT_QA_SAVED_SOURCE_STAGE_MISMATCH");
+    refs.set(source.stageId, { ...source });
+  }
+  return AidtContextSelector.parse({ schemaVersion: 1, projectId, purpose: "stage", stageId, stageRevisions: [...refs.values()].sort((a, b) => a.stageId - b.stageId), ...(returnRevision !== undefined ? { returnRevision } : {}) });
+}
+
 /** Validate coordinates-only teaching input; safe metadata never substitutes for a server receipt. */
 export function aidtV2WireMetadata(body: unknown, markers: readonly { stageId: number; field: string; marker: string }[], skillName: string, expected?: AidtContextSelector, authoredStudentTexts: readonly string[] = []) {
   const root = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : {};

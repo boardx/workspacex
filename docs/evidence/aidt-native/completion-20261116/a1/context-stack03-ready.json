@@ -1,0 +1,46 @@
+{
+  "ready": true,
+  "phase": "health-only",
+  "source": "741bc9f69693667868e88e780ff9a798e95d80ec",
+  "finalSourceBuild": true,
+  "buildExitCode": 0,
+  "baseURL": "http://127.0.0.1:25825",
+  "apiOrigin": "http://127.0.0.1:24825",
+  "routes": {
+    "/login": {
+      "status": 200,
+      "json": false
+    },
+    "/__fullstack_api/identity/me": {
+      "status": 401,
+      "json": true
+    },
+    "/__fullstack_api/aidt/courses": {
+      "status": 401,
+      "json": true
+    },
+    "/__fullstack_api/agent-runs/00000000-0000-4000-8000-000000000000/aidt-context": {
+      "status": 401,
+      "json": true
+    }
+  },
+  "productionDiff": [],
+  "qaHelperWorkingTreeDiff": [],
+  "autoExecution": {
+    "enabled": false,
+    "launchValue": "0",
+    "method": "explicit launch environment; inherited unchanged by runner/e2e-up; kernel env gate; AgentRunExecutor.kick early return; API not replaced",
+    "apiPid": 231199,
+    "source": "741bc9f69693667868e88e780ff9a798e95d80ec",
+    "guards": {
+      "agentRuns": "0",
+      "skillTrialRuns": "0",
+      "attachmentExtraction": "0",
+      "threadTitleModel": "0"
+    },
+    "paidRequestsAuthorized": false
+  },
+  "privateRuntimeMode600": true,
+  "modelAcceptance": "not_run",
+  "providerRequestsSent": 0
+}

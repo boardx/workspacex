@@ -11,7 +11,7 @@ import { REAL_MODEL_SMOKE, REAL_MODEL_SKIP_REASON } from "../real-model-smoke-fi
 import { sendViaWorkbench } from "../chat-v2-send";
 import { apiPath } from "./real-model-api";
 import { reserveAidtNativeRun, recordAidtNativeRequest, finishAidtNativeRun } from "./aidt-v2-run-ledger";
-import { aidtV2WireMetadata, validateAidtV2Receipt } from "./aidt-v2-wire-metadata";
+import { aidtV2WireMetadata, expectedAidtV2StageSelector, validateAidtV2Receipt } from "./aidt-v2-wire-metadata";
 
 export function assertAidtV2Target(): void {
   expect(REAL_MODEL_SKIP_REASON, "实际凭据缺失必须失败，不以skip或回环模型补绿").toBeNull();
@@ -175,12 +175,10 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
     expect(packet.projectId).toBe(projectId);
     expectedSelector = AidtContextSelector.parse({ schemaVersion: 1, projectId, purpose: "summary", stageRevisions: packet.currentStages.map(({ stageId, revision }) => ({ stageId, revision })), historyRevisions: packet.historyRevisions });
   } else {
-    const refs = stagesBefore.filter((stage): stage is SharedStageValue => stage !== null && stage.stageId <= stageLimit).map(stage => ({ stageId: stage.stageId, revision: stage.revision }));
-    const frozenS5 = stageLimit === 6 && stagesBefore[5] ? readAidtQuestionSnapshot(stagesBefore[5].content.draft)?.sourceStageRevision : null;
-    if (frozenS5) { const ref = refs.find(row => row.stageId === 5); if (ref) ref.revision = frozenS5; else refs.push({ stageId: 5, revision: frozenS5 }); }
     const returnRevision = new URL(page.url()).searchParams.get("returnRevision");
-    expectedSelector = AidtContextSelector.parse({ schemaVersion: 1, projectId, purpose: "stage", stageId: stageLimit, stageRevisions: refs,
-      ...(returnRevision !== null ? { returnRevision: Number(returnRevision) } : {}) });
+    expectedSelector = expectedAidtV2StageSelector(projectId, stageLimit, stagesBefore, returnRevision === null ? undefined : Number(returnRevision));
+    const frozenS5 = stageLimit === 6 && stagesBefore[5] ? readAidtQuestionSnapshot(stagesBefore[5].content.draft)?.sourceStageRevision : null;
+    if (frozenS5) expect(expectedSelector.stageRevisions.find(row => row.stageId === 5)?.revision, "S6保存来源须与已保存问题snapshot中的旧S5一致").toBe(frozenS5);
   }
   const selectedRefs = [...expectedSelector.stageRevisions, ...(expectedSelector.purpose === "summary" ? expectedSelector.historyRevisions : []), ...(expectedSelector.purpose === "stage" && expectedSelector.returnRevision !== undefined ? [{ stageId: 6, revision: expectedSelector.returnRevision }] : [])];
   const selectedStages = await Promise.all([...new Map(selectedRefs.map(ref => [`${ref.stageId}:${ref.revision}`, ref])).values()].map(ref => readAidtV2StageRevision(page, projectId, ref.stageId, ref.revision, stagesBefore)));

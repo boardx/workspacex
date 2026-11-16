@@ -1,0 +1,289 @@
+{
+  "date": "2026-11-16",
+  "baselineHead": "7d1abe52bd30f621acaa6db7749c2077f82c3ece",
+  "finalProductionChangesUncommittedAtExecution": true,
+  "sourceHashSnapshotCapturedAfterFinalRunWhileFrozen": {
+    "apps/api/tests/aidt-run-context/bridge-real-pg.test.ts": "335b89f5122d68c5dbbdab1d3039ccc0a1f265f408f72884047da662ecd89796",
+    "apps/api/tests/aidt-run-context/support/real-pg-fixture.ts": "e0475e6f9f0e163d0364054ae443d39e4108a487ceb65865c992f644fb5fbd78",
+    "apps/api/tests/support/aidt-recording-native.ts": "eb004f106949584c2bcb1a5e744a4fa325b8c13b170f3d502fc44834af992fed",
+    "packages/contracts/src/aidt-run-context.ts": "7b63048c2d966c8e877f04f8e5375520153e05c7a79c9d75639ee08b38b28061",
+    "apps/api/src/infrastructure/chat/pg-chat-message-command-repository.ts": "6ebe75811ae5dea7cc5784f83bab889ff95627cd54f7768ced2eac452389b042",
+    "apps/api/src/infrastructure/aidt-run-context/pg-aidt-run-context-provider.ts": "49eb09d23f9378413edc61be2d84a20095ed4959ddf52ed8466e8d23cc3091c9",
+    "apps/api/src/infrastructure/aidt-run-context/pg-aidt-run-context-store.ts": "a96c76de83f9ea403174469c1cb4d269ba867987cafd94ec7108d2a470113d41",
+    "apps/api/src/application/aidt-run-context/application-receipt.ts": "1009c066fc7a9f2d11d9c079265d256811c1dfe028402dffb550bf9c1cd324cb",
+    "apps/api/src/application/agent-run/aidt-context-reference.ts": "b558f26a95e8adc108c14133c9da80a8c8e1b70e4c7cc11092b6543bf8b8c16f",
+    "apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts": "4402e78f50596138ed15b28f027f86ce9969f2324f71120a5ccfe5d12d0a675d"
+  },
+  "attempt": "attempt-05",
+  "testsPassed": 22,
+  "testsFailed": 0,
+  "durationSeconds": 20.71,
+  "exitCode": 0,
+  "strictOwnedTypeScriptDiagnostics": 0,
+  "executionIsolation": {
+    "standardWithTestIsolation": true,
+    "disposableRealPostgres": true,
+    "workerCount": 1,
+    "existingLocalPostgresAgeImage": true,
+    "supplierCalls": 0,
+    "postTestOwnedComposeRemoved": true,
+    "reservationReleased": true,
+    "peakConnections": 5
+  },
+  "actualEvidence": {
+    "kind": "real-pg-actual-adapter-recording-transport",
+    "supplierCalls": 0,
+    "realSupplierE2E": false,
+    "evidence": [
+      {
+        "name": "CTX-P01/N01/I03",
+        "facts": {
+          "sourceRevisions": [
+            {
+              "stageId": 1,
+              "revision": 1
+            },
+            {
+              "stageId": 2,
+              "revision": 1
+            }
+          ],
+          "snapshotHash": "a5f5ceab00ec58a737039c8fbc964986ea90578537abd1026d85a9c31b7c2940",
+          "actualMessageHash": "825e3c0c8486c0f0af243de1bde91e003021cc07e1fae78959d829cc7cd6e673",
+          "sourceMarkerInActualSlot": true,
+          "forgedAndPrivateExcluded": true,
+          "humanExact": true,
+          "transportSubmissions": 1,
+          "ownTenantApprovedPackImport": true,
+          "platformLineageClaimed": false
+        }
+      },
+      {
+        "name": "CTX-reject-project",
+        "facts": {
+          "humanRunSnapshotRowsUnchanged": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-reject-org",
+        "facts": {
+          "humanRunSnapshotRowsUnchanged": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-reject-member",
+        "facts": {
+          "humanRunSnapshotRowsUnchanged": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-reject-admin-not-group-member",
+        "facts": {
+          "humanRunSnapshotRowsUnchanged": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-reject-revision",
+        "facts": {
+          "humanRunSnapshotRowsUnchanged": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-reject-stage",
+        "facts": {
+          "humanRunSnapshotRowsUnchanged": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-reject-pin",
+        "facts": {
+          "humanRunSnapshotRowsUnchanged": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-reject-pin-missing",
+        "facts": {
+          "humanRunSnapshotRowsUnchanged": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-reject-archived",
+        "facts": {
+          "humanRunSnapshotRowsUnchanged": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-I01/I02",
+        "facts": {
+          "sameSnapshotReplayed": true,
+          "changedSourceConflict": true,
+          "additionalRows": 0,
+          "modelCalls": 0
+        }
+      },
+      {
+        "name": "CTX-atomic-rollback",
+        "facts": {
+          "actualSnapshotInsertThenAbort": true,
+          "humanRunSnapshotRolledBackTogether": true,
+          "modelCalls": 0,
+          "sharedGrantsOrTriggersChanged": false
+        }
+      },
+      {
+        "name": "CTX-N05",
+        "facts": {
+          "realOwnerRemovalUsecase": true,
+          "oldAcceptanceCannotAuthorizeDispatch": true,
+          "modelCalls": 0
+        }
+      },
+      {
+        "name": "CTX-N05-real-lock-race",
+        "facts": {
+          "actualDeleteObservedBlockedOnAcceptedSourceLock": true,
+          "revocationThenCommitted": true,
+          "freshDispatchDenied": true,
+          "modelCalls": 0,
+          "noSharedGrantMutation": true
+        }
+      },
+      {
+        "name": "CTX-untrusted-same-name",
+        "facts": {
+          "matchingStableNameInsufficient": true,
+          "actualPackageBytesRejected": true,
+          "acceptedRuns": 0,
+          "modelCalls": 0
+        }
+      },
+      {
+        "name": "CTX-snapshot-missing",
+        "facts": {
+          "malformedFixtureInsertedWithoutUpdatingImmutableRows": true,
+          "terminalFailed": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-snapshot-bad-hash",
+        "facts": {
+          "malformedFixtureInsertedWithoutUpdatingImmutableRows": true,
+          "terminalFailed": true,
+          "modelCalls": 0,
+          "transportSubmissions": 0
+        }
+      },
+      {
+        "name": "CTX-R01/R02-PG-layer",
+        "facts": {
+          "acceptedSnapshotHash": "ed107fa7434d283c4f153f2dc9c8983015066cb8d4fc9bc7963266550032f572",
+          "oldRevisionRetainedOnNewRepository": true,
+          "newHumanOrRun": false,
+          "realBrowserResumeTested": false,
+          "modelCalls": 0
+        }
+      },
+      {
+        "name": "CTX-late-original-dispatch-after-actual-resume",
+        "facts": {
+          "oldActualDispatchAttempt": "aidt-context-pg-16fdcdf3-b9bf-4624-a2d6-5297e01cc580-run-49dbf30a-1e51-4429-8fa6-b8e1f6c78d8d:1",
+          "actualResumeAttempt": "aidt-context-pg-16fdcdf3-b9bf-4624-a2d6-5297e01cc580-run-49dbf30a-1e51-4429-8fa6-b8e1f6c78d8d:4",
+          "finalReceiptStillResume": true,
+          "inheritedOriginalHash": "887c3e55f32c145d74293199f8fe1309be2b7fd0f9f6194964cdc68d00dd8d29",
+          "oldSnapshotUsed": true,
+          "remoteThreadUnchanged": true,
+          "resumeCommandWithoutNewInput": true,
+          "actualTransportSubmissions": 2,
+          "realSupplierOrBrowserResumeClaimed": false
+        }
+      },
+      {
+        "name": "CTX-S01",
+        "facts": {
+          "exactSummarySkillVersionId": "skill-version-993de402-1509-4d12-b166-d73b1117e054",
+          "oldAndCurrentSelectedSourcesPresent": true,
+          "stagePinUnchanged": true,
+          "teacherCommentSourceAbsent": true,
+          "missingStagesExplicit": true,
+          "transportSubmissions": 1
+        }
+      },
+      {
+        "name": "CTX-R03",
+        "facts": {
+          "selectedS5Revision": 2,
+          "currentS5Revision": 3,
+          "oldQuestionAndLegacyPrototypeTextOnly": true,
+          "currentHeadExcludedFromActualModelSlot": true,
+          "sharedDraftsUnchanged": true,
+          "generatedPrototypeOrRealTestClaimed": false
+        }
+      },
+      {
+        "name": "ordinary-chat",
+        "facts": {
+          "aidtPortCalls": 0,
+          "snapshotRows": 0,
+          "applicationRows": 0,
+          "ordinaryTransportStillWorks": true
+        }
+      }
+    ]
+  },
+  "limits": [
+    "Actual PostgreSQL and actual Deep adapter loopback HTTP serialization; no supplier or physical LLM inference",
+    "Raw HTTP selector 409 and new browser receipt/resume are separate next-lane checks",
+    "S6 uses explicitly synthetic legacy prototype reference text, not a newly generated native Design",
+    "Paid budget file not opened or modified by these tests; payment admission is not verified here"
+  ],
+  "preservedAttempts": [
+    {
+      "id": "attempt-01",
+      "testsExecuted": 0,
+      "exitCode": 1,
+      "reason": "Docker buildx tried read-only home; isolated DOCKER_CONFIG adopted"
+    },
+    {
+      "id": "attempt-02",
+      "testsExecuted": 0,
+      "exitCode": 1,
+      "reason": "Compose forced image rebuild; public apt HTTP refused"
+    },
+    {
+      "id": "attempt-03",
+      "testsPassed": 13,
+      "testsFailed": 8,
+      "exitCode": 1,
+      "reason": "QA fixture used explicit agent_pins outside approved general scope; second agent name collided"
+    },
+    {
+      "id": "attempt-04",
+      "testsPassed": 21,
+      "testsFailed": 0,
+      "exitCode": 0,
+      "receiptIncrementNotYetCovered": true
+    }
+  ],
+  "humanAcceptanceSigned": false,
+  "realSupplierE2E": false
+}

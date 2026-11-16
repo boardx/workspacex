@@ -1,0 +1,19 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (42 tests) 285ms
+ ✓ tests/agent-runtime/deep-agent-model-provider.test.ts (19 tests) 176ms
+ ✓ tests/agent-runtime/configured-model-provider-stream.test.ts (20 tests) 233ms
+ ✓ tests/agent-runtime/deep-agent-hitl.test.ts (19 tests) 2125ms
+ ✓ tests/agent-runtime/configured-model-provider-thinking.test.ts (21 tests) 56ms
+ ✓ tests/agent-runtime/aidt-context-reference.test.ts (15 tests) 26ms
+ ✓ tests/agent-runtime/aidt-context-execute.test.ts (6 tests) 17ms
+ ✓ tests/agent-runtime/aidt-context-provider.test.ts (8 tests) 70ms
+ ✓ tests/agent-runtime/reference-dispatch.test.ts (14 tests) 7ms
+ ✓ tests/agent-runtime/aidt-context-claim.test.ts (6 tests) 13ms
+
+ Test Files  10 passed (10)
+      Tests  170 passed (170)
+   Start at  10:33:47
+   Duration  8.95s (transform 1.49s, setup 0ms, collect 4.85s, tests 3.01s, environment 1ms, prepare 305ms)
+
