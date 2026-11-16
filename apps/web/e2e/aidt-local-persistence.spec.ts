@@ -133,6 +133,7 @@ async function rejectedReturnKeepsChat(page: Page, projectId: string, revision: 
   await page.getByRole("link", { name: "返回本步对话", exact: true }).click();
   await expect(page).toHaveURL(url => url.pathname === `/aidt/${projectId}` && url.searchParams.get("tool") === "chat"
     && url.searchParams.get("returnRevision") === String(revision));
+  await page.getByTestId("aidt-step-skill").waitFor({ state: "visible" });
   const context = page.getByTestId("aidt-chat-return-context");
   await expect(context).toBeVisible();
   await expect(context.locator("summary")).toContainText("尚未带入AI");
