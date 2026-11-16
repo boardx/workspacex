@@ -7,8 +7,10 @@ import { expect, test, type Page, type Request } from "@playwright/test";
 import { LOCAL_ADMIN_EMAIL, resolveLocalConfig, webEnv } from "../../../packages/local-runtime/src/config";
 import { acquireWebOutputLease, checkAidtWebBuild } from "../../../packages/local-runtime/src/aidt-web-build";
 import { operations, SharedStage } from "@repo/contracts/aidt-stages";
+import * as memberChat from "@repo/contracts/project-member-chat";
 import type { z } from "zod";
 import { acceptAidtMemberText } from "./support/aidt-member-text-acceptance";
+import { acceptAidtMemberMultiuser } from "./support/aidt-member-multiuser-acceptance";
 
 const repo = resolve(process.cwd(), "../..");
 const dataDir = process.env.AIDT_LOCAL_DATA_DIR!;
@@ -99,14 +101,22 @@ async function readHistoricalReturn(page: Page, projectId: string, round: Native
   // The same real historical read must reach the existing native Chat host.
   // This proves the mounted projection, without claiming a model consumed it.
   await page.getByRole("link", { name: "返回本步对话", exact: true }).click();
+  const isSelectedChat = (url: URL) => url.pathname === `/aidt/${projectId}` && url.searchParams.get("step") === String(step)
+    && url.searchParams.get("tool") === "chat" && url.searchParams.get("returnRevision") === String(round.revision);
+  // A Link click can finish before the App Router commits its navigation.
+  // Reload only after Chat is visible, or the old outcome route is reloaded.
+  await expect(page).toHaveURL(isSelectedChat);
+  await expect(page.getByTestId("aidt-assistant-panel")).toBeVisible();
   // Reload the visible Chat route so this response belongs to its own loader,
   // rather than the outcome panel's earlier historical read.
   const chatRead = historicalResponse(page, projectId, round.revision);
   await page.reload();
+  await expect(page).toHaveURL(isSelectedChat);
   const chatReceived = await chatRead;
   expect(chatReceived.status()).toBe(200);
   expect(operations.history.out.parse(await chatReceived.json()).items).toEqual([round]);
   const chatContext = page.getByTestId("aidt-chat-return-context");
+  await expect(chatContext).toBeVisible();
   await expect(chatContext.locator("summary")).toContainText(`第6步 V${round.revision}`);
   await chatContext.locator("summary").click();
   const preview = page.getByLabel("AI参考的历史返工反思", { exact: true });
@@ -121,7 +131,10 @@ async function readHistoricalReturn(page: Page, projectId: string, round: Native
 }
 async function rejectedReturnKeepsChat(page: Page, projectId: string, revision: number) {
   await page.getByRole("link", { name: "返回本步对话", exact: true }).click();
+  await expect(page).toHaveURL(url => url.pathname === `/aidt/${projectId}` && url.searchParams.get("tool") === "chat"
+    && url.searchParams.get("returnRevision") === String(revision));
   const context = page.getByTestId("aidt-chat-return-context");
+  await expect(context).toBeVisible();
   await expect(context.locator("summary")).toContainText("尚未带入AI");
   await context.locator("summary").click();
   await expect(page.getByLabel("AI参考的历史返工反思", { exact: true })).toHaveCount(0);
@@ -668,6 +681,11 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     });
     evidence.memberTextNavigation = memberTextNavigation;
     expect(generationRequests).toEqual([]);
+    const memberMultiuser = await acceptAidtMemberMultiuser({ owner: page, browser, apiOrigin: origin, projectId,
+      checkpoint: async name => { phase(`member-multiuser-${name}`); await page.screenshot({ path: join(output, "native-member-multiuser.png"), fullPage: true }); },
+    });
+    evidence.memberMultiuser = memberMultiuser;
+    expect(generationRequests).toEqual([]);
     await stop(1);
     await start(2);
     expect(createHash("sha256").update(readFileSync(join(dataDir, "secrets.json"))).digest("hex")).toBe(secretsBefore);
@@ -728,6 +746,25 @@ test("native local start/save/stop/restart preserves AIDT and human text without
       expect(restoredTopic.data.root).toEqual(memberTextNavigation.root);
       expect(restoredTopic.data.items.filter((message: { clientMessageId: string }) => message.clientMessageId === memberTextNavigation.reply.clientMessageId)).toEqual([memberTextNavigation.reply]);
       evidence.memberTextTopicRestoredAfterRestart = true;
+      const restoredMultiuser = await api(fresh, `/projects/${projectId}/member-chat/messages?limit=100`);
+      expect(restoredMultiuser.status).toBe(200);
+      const restoredChannel = memberChat.operations.listMessages.out.parse(restoredMultiuser.data);
+      const multiuserRoots = memberMultiuser.messages.filter(message => message.threadRootId === null);
+      expect(new Set(memberMultiuser.authors).size).toBe(2);
+      expect(multiuserRoots).toHaveLength(2);
+      expect(new Set(multiuserRoots.map(message => message.authorId))).toEqual(new Set(memberMultiuser.authors));
+      for (const root of multiuserRoots) {
+        expect(restoredChannel.items.filter(message => message.clientMessageId === root.clientMessageId)).toEqual([root]);
+        const replyResponse = await api(fresh, `/projects/${projectId}/member-chat/messages/${root.id}/replies?limit=100`);
+        expect(replyResponse.status).toBe(200);
+        const restoredReplies = memberChat.operations.listReplies.out.parse(replyResponse.data);
+        expect(restoredReplies.root).toEqual(root);
+        const expectedReplies = memberMultiuser.messages.filter(message => message.threadRootId === root.id);
+        expect(expectedReplies).toHaveLength(1);
+        expect(expectedReplies[0]!.authorId).not.toBe(root.authorId);
+        expect(restoredReplies.items).toEqual(expectedReplies);
+      }
+      evidence.memberMultiuserRestoredAfterRestart = true;
       await fresh.setViewportSize({ width: 375, height: 812 });
       await fresh.screenshot({ path: join(output, "native-stage-after-restart-375.png"), fullPage: true });
       await fresh.getByTestId("global-member-chat-open").click();

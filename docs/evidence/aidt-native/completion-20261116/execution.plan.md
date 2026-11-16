@@ -38,10 +38,10 @@ flowchart TD
   class S4 tested
   %% evidence S4: 成员范围59项测试已覆盖；待S8真实主消息和回复停启
   class S5 tested
-  %% evidence S5: 原型DTO及父组件绑定测试通过；非真实生成验收
+  %% evidence S5: Design交接47项、错目标撤权及类型精准19项，普通Design兼容；非模型质量验收
   class S6 done
   class S7 tested
-  %% evidence S7: 650项不同Web测试、类型/设计/ESLint通过；见integration目录
+  %% evidence S7: 987项不同Web用例，最终typecheck/design/testid通过，见integration
   class S8 doing
   class S9 todo
   class S10 blocked

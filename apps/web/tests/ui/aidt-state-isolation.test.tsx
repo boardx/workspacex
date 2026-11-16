@@ -12,7 +12,7 @@ vi.mock("next/dynamic", () => ({ default: (loader: () => Promise<unknown>) => {
   const source = loader.toString();
   return function DynamicStub() {
     const [mountedActor] = React.useState(() => mocks.session?.userId);
-    return source.includes("detail-screen") ? <div data-testid="native-design">{mountedActor}</div> : source.includes("transcription-history") ? <div data-testid="native-rec" /> : <div data-testid="native-chat">{mountedActor}</div>;
+    return source.includes("detail-screen") || source.includes("aidt-design-workspace") ? <div data-testid="native-design">{mountedActor}</div> : source.includes("transcription-history") ? <div data-testid="native-rec" /> : <div data-testid="native-chat">{mountedActor}</div>;
   };
 } }));
 vi.mock("@/lib/live-project-resources", () => ({ listProjectResources: mocks.list }));

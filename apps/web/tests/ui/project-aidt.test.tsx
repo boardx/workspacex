@@ -15,6 +15,7 @@ vi.mock("@/lib/live-project-resources", () => ({ listProjectResources: mocks.lis
 vi.mock("@/features/aidt/components/project-aidt-chat", () => ({ ProjectAidtChat: (props: any) => { mocks.chat(props); return <div data-testid="native-chat" />; } }));
 vi.mock("@/components/rec/transcription-history", () => ({ TranscriptionHistory: (props: any) => { mocks.rec(props); return <div data-testid="native-rec" />; } }));
 vi.mock("@/components/design-loop/detail-screen", () => ({ DesignDetailScreen: (props: any) => { mocks.design(props); return <div data-testid="native-design" />; } }));
+vi.mock("@/features/aidt/components/aidt-design-workspace", () => ({ AidtDesignWorkspace: (props: any) => { mocks.design(props); return <div data-testid="native-design" />; } }));
 vi.mock("@/components/project/project-conversations", () => ({ ProjectConversations: () => <div data-testid="readonly-conversations" /> }));
 vi.mock("@/components/project/project-evidence-section", () => ({ ProjectEvidenceSection: () => <div data-testid="native-evidence" /> }));
 vi.mock("@/components/project/project-resource-section", () => ({
@@ -66,7 +67,7 @@ describe("native AIDT project workspace", () => {
     rerender(<ProjectAidt projectId="p2" sub="aidt-6" canWrite />);
     await screen.findByTestId("native-design");
     expect(mocks.list).toHaveBeenLastCalledWith("p2");
-    expect(mocks.design).toHaveBeenCalledWith(expect.objectContaining({ projectId: "d1" }));
+    expect(mocks.design).toHaveBeenCalledWith(expect.objectContaining({ projectId: "d1", teachingProjectId: "p2", stageId: 6, sessionToken: "token-test" }));
   });
   it("retains step and thread when opening a Board, and opens saved transcripts in place", async () => {
     mocks.search = "tool=whiteboard&thread=t1";

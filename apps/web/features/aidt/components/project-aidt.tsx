@@ -39,7 +39,7 @@ import { getAidtPrototypeGenerationReadiness } from "../lib/aidt-verification-lo
 const loading = () => <p role="status" className="p-4 text-12 text-muted-foreground">正在加载工作区…</p>;
 const Chat = dynamic(() => import("@/features/aidt/components/project-aidt-chat").then((m) => m.ProjectAidtChat), { loading });
 const Transcription = dynamic(() => import("@/components/rec/transcription-history").then((m) => m.TranscriptionHistory), { loading });
-const Design = dynamic(() => import("@/components/design-loop/detail-screen").then((m) => m.DesignDetailScreen), { loading });
+const Design = dynamic(() => import("@/features/aidt/components/aidt-design-workspace").then((m) => m.AidtDesignWorkspace), { loading });
 
 const TOOLS = {
   outcome: "本步成果", context: "阶段交接", report: "小组报告", chat: "讨论与产出物", sources: "真实证据", transcript: "转录资料", record: "个人录音笔记",
@@ -116,7 +116,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
   const explicitResourceView = Boolean(resource && (requested === "design" || requested === "transcript"));
   const tool: Tool = !canWrite && requested === "record" && allowed.includes("transcript") ? "transcript" : requested && (allowed.includes(requested) || requested === "sources" || explicitResourceView) ? requested : "chat";
   const prototypeGate = getAidtPrototypeGenerationReadiness(currentUi.drafts[5]!);
-  const designAllowed = step?.id !== 5 || prototypeGate.ready;
+  const designAllowed = step?.id !== 5 || Boolean(returnRevision) || prototypeGate.ready;
   const href = (nextTool: Tool, id?: string) => aidtHref(projectId, step?.id, { tool: nextTool, resource: id, thread, returnRevision });
   const threadResolutionScope = JSON.stringify([uiLifecycleKey, step?.id, thread]);
   const [resolvedThread, setResolvedThread] = React.useState<{ scope: string; id: string } | null>(null);
@@ -230,7 +230,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
         : tool === "sources" ? <ProjectEvidenceSection key={uiScope} projectId={projectId} />
         : tool === "record" ? canWrite ? <div data-testid="aidt-native-recording"><p className="px-4 text-12 text-muted-foreground">个人录音笔记只用于自己的思考。不得借此绕过项目访谈的参与者同意校验；项目访谈同意采集入口尚未集成。</p><Transcription key={uiScope} uiState="default" projectId={projectId} /></div> : null
         : selected ? !authenticated ? <p role="status" className="p-4 text-12 text-muted-foreground">登录后可查看关联资源。</p> : access?.key !== accessKey ? loading() : access.error ? <div role="alert" data-testid="aidt-resource-error" className="p-4"><p>{access.error}</p><Button variant="outline" onClick={() => setRetry((n) => n + 1)}>重试</Button></div>
-          : access.allowed && canWrite ? tool === "design" ? !designAllowed ? <div className="space-y-3 p-4 text-13" data-testid="aidt-design-question-required"><p>{prototypeGate.reason}</p><Button asChild variant="outline"><Link href={href("outcome")}>回到验证问题卡</Link></Button><p className="text-12 text-muted-foreground">原有设计资料仍保留，可在项目资料中查看。本教学入口在学生确认问题后继续原型制作。</p></div> : <Design key={selected} projectId={selected} onBack={() => router.push(href("design"))} onNextDesign={() => router.push(href("design"))} /> : <Transcription key={selected} uiState="default" projectId={projectId} initialSessionId={selected} />
+          : access.allowed && canWrite ? tool === "design" ? !designAllowed ? <div className="space-y-3 p-4 text-13" data-testid="aidt-design-question-required"><p>{prototypeGate.reason}</p><Button asChild variant="outline"><Link href={href("outcome")}>回到验证问题卡</Link></Button><p className="text-12 text-muted-foreground">原有设计资料仍保留，可在项目资料中查看。本教学入口在学生确认问题后继续原型制作。</p></div> : <Design key={`${uiLifecycleKey}:${step.id}:${selected}`} projectId={selected} teachingProjectId={projectId} stageId={step.id} lifecycleKey={uiLifecycleKey} sessionToken={checkpointScope?.sessionToken ?? null} returnRevision={returnRevision} onBack={() => router.push(href("design"))} onNextDesign={() => router.push(href("design"))} /> : <Transcription key={selected} uiState="default" projectId={projectId} initialSessionId={selected} />
           : <p className="p-4 text-12 text-muted-foreground">项目只读，请返回资料列表查看资源摘要。</p>
         : tool === "design" && !designAllowed ? <div className="space-y-3 p-4 text-13" data-testid="aidt-design-question-required"><p>{prototypeGate.reason}</p><Button asChild variant="outline"><Link href={href("outcome")}>回到验证问题卡</Link></Button><p className="text-12 text-muted-foreground">原有设计资料仍保留，可在项目资料中查看。本教学入口在学生确认问题后继续原型制作。</p></div>
         : <ProjectResourceSection key={`${uiScope}:${tool}`} projectId={projectId} kind={tool as ProjectResearchSub} canWrite={canWrite} resourceHref={resourceHref} transformCreateHref={createdHref} />}

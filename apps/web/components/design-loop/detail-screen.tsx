@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
 import { DetailSpec, DetailTab, PushConfirm, PushSuccess } from "./detail-parts";
 import { DetailChatLog } from "./detail-chat-log";
+import { ComposerContextOffer, type DesignComposerContextOffer } from "./composer-context-offer";
 import { CanvasToolbar } from "./detail-canvas-toolbar";
 import { DetailSidePanel } from "./detail-side-panel";
 import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScaleScrollable, CANVAS_LABEL_H } from "./prototype-canvas";
@@ -128,11 +129,16 @@ type Load =
 export function DesignDetailScreen({
   projectId,
   autoStart = false,
+  composerContextOffer,
+  sendBlockedReason,
   onBack,
   onOpenInbox,
   onNextDesign,
 }: {
   projectId: string;
+  composerContextOffer?: DesignComposerContextOffer;
+  /** Host-side readiness only; existing service permissions still apply. */
+  sendBlockedReason?: string;
   /**
    * 迭代 16（#3773 R7）：这是**刚建好**的项目，进来就照背景画第一版。
    * 由创建流程跳转时带上（`?new=1`），不是每次打开详情页都成立——见 `autoStartedRef` 那段。
@@ -406,6 +412,7 @@ export function DesignDetailScreen({
   const variantScreen = project === null ? 0 : Math.min(frame, Math.max(0, project.frames.length - 1));
   const askVariants = async (ask: VariantsAsk = {}) => {
     if (project === null) return;
+    if (sendBlockedReason) { setNotice(sendBlockedReason); return; }
     setVariants({ kind: "loading" });
     try {
       const out = await proposeVariants(project.id, variantScreen, ask);
@@ -659,7 +666,7 @@ export function DesignDetailScreen({
   });
 
   React.useEffect(() => {
-    if (project === null || sending) return;
+    if (project === null || sending || sendBlockedReason) return;
     if (!autoStart || autoStartedRef.current === project.id) return;
     const saidSomething = project.chat.some((t) => t.role === "user");
     if (project.prototype.length > 0 || saidSomething || project.problem.trim() === "") return;
@@ -670,7 +677,7 @@ export function DesignDetailScreen({
     // `send` 每次渲染都是新函数，进依赖数组会让这个 effect 每帧都重跑；
     // 真正的守卫是 `autoStartedRef`（每个项目只发一次），不是依赖数组。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, sending, autoStart]);
+  }, [project, sending, autoStart, sendBlockedReason]);
 
   React.useEffect(() => {
     // jsdom（测试环境）没有实现 `Element.scrollTo`——同 `inbox-screen.tsx` 的既有成例，
@@ -716,6 +723,7 @@ export function DesignDetailScreen({
   /** 对标 R8：返回这一轮是否真的发成功了——批注据此才标「已交给 AI」。 */
   const send = async (override?: string, maxScreens?: number): Promise<boolean> => {
     const value = (override ?? text).trim();
+    if (sendBlockedReason) { setNotice(sendBlockedReason); return false; }
     if (value === "") return false;
     const controller = new AbortController();
     abortRef.current = controller;
@@ -1018,6 +1026,10 @@ export function DesignDetailScreen({
                 : `还能再打 ${MAX_CHARS - text.length} 个字`}
             </p>
           )}
+          {sendBlockedReason && <p role="status" className="px-3 py-2 text-12 text-muted-foreground" data-testid="design-composer-blocked">{sendBlockedReason}</p>}
+          {composerContextOffer && <ComposerContextOffer offer={composerContextOffer} occupied={!!text.trim()} sending={sending} onAccept={() => {
+            if (!sending) setText(old => old.trim() ? old : composerContextOffer.text);
+          }} />}
           <div className="flex items-end gap-2 border-t border-border p-3">
             <Textarea
               value={text}
@@ -1051,7 +1063,7 @@ export function DesignDetailScreen({
             <Button
               variant="primary"
               size="icon"
-              disabled={text.trim() === "" || sending || overLimit}
+              disabled={text.trim() === "" || sending || overLimit || !!sendBlockedReason}
               onClick={() => void send()}
               aria-label="发送"
               data-testid="design-detail-send"
