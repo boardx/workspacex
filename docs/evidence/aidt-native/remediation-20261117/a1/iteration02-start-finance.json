@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-11-16T20:46:56.075670+00:00",
+  "iterationId": "iteration-02",
+  "readOnly": true,
+  "sameOrgCumulativeBaseline": {
+    "runs": 1,
+    "physical": 3,
+    "usage": 3,
+    "settled": 3,
+    "active": 0,
+    "reportedTokens": "14097"
+  },
+  "priorIterationChargesPreserved": true,
+  "newModelTasksSent": 0,
+  "walletReset": false,
+  "allGuardsZero": true
+}

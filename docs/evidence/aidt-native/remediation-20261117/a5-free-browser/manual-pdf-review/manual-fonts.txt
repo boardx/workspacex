@@ -1,0 +1,8 @@
+name                                 type              encoding         emb sub uni object ID
+------------------------------------ ----------------- ---------------- --- --- --- ---------
+Helvetica                            Type 1            WinAnsi          no  no  no       2  0
+AAAAAA+Droid-Sans-Fallback           TrueType          WinAnsi          yes yes yes     35  0
+AAAAAB+Droid-Sans-Fallback           TrueType          WinAnsi          yes yes yes     39  0
+AAAAAC+Droid-Sans-Fallback           TrueType          WinAnsi          yes yes yes     43  0
+AAAAAD+Droid-Sans-Fallback           TrueType          WinAnsi          yes yes yes     47  0
+AAAAAA+DejaVuSans                    TrueType          WinAnsi          yes yes yes     51  0

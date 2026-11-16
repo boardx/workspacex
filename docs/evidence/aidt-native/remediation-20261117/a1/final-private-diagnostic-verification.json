@@ -1,0 +1,95 @@
+{
+  "additionalPrivateDiagnosticFilesVerified": 58,
+  "finalReport": {
+    "stageId": 6,
+    "revision": 8,
+    "markdownExportBytes": 17512,
+    "sha256": "cff2d718fa456dc60c7ed8016fd26e6979fad5fc912050ef47ff534bfec68728",
+    "actualSQLAndBrowserReceiptExact": true
+  },
+  "manifestSha256": "40fa2fc597399391ba07c7eccc50a8e320bf4e07ec0042041df648811a65da9d",
+  "at": "2026-11-16T22:36:13.850Z",
+  "readOnly": true,
+  "privateDiagnosticPath": "/workspace/scratch/aidt-private-diagnostics-20261117/remediation-final-20261116T223520792Z",
+  "diagnosticDumpSha256": "39d50b82d5e7be1b810bad1a42da27f33673e43ab2672902cb8339f6e2620ecb",
+  "fullFinancialTables": {
+    "credit_consumption_requests": {
+      "rows": 42,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "62a0efe1de9173b4f558bb78d6a47f9b53d06c4163e2acbcdd8829716b785038"
+    },
+    "credit_wallets": {
+      "rows": 1,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "fe604bd8fdf5a8a63ecf4bf01322aa3c8428046fb7b4a53c53d192e7d832cdd4"
+    },
+    "token_usage_events": {
+      "rows": 42,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "05c9f24c09f6950916eb5fa8ebc7193a4d1018f758f14870ccd829d525b7d2be"
+    },
+    "model_request_starts": {
+      "rows": 42,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "945faaa7e7f05e57a8a877a0314487623cfb1107cb67d2f547ff917ee108c707"
+    },
+    "aidt_stage_revisions": {
+      "rows": 26,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "cd753e61f951b8b36907171c8848fd6c8588af330c3254f15c3017b3fc8b7e84"
+    },
+    "agent_versions": {
+      "rows": 1,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "5179ef2a821740cb1d07b376d946c483a0f0a1cf202fcaf35562c14c476f00a8"
+    },
+    "agent_runs": {
+      "rows": 11,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "1aedb019113b8f2a23a05d4d0d08d41437967e0dcf358f0f671507dbf9608c41"
+    },
+    "design_project_prototype_versions": {
+      "rows": 2,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "7c5a31fb2fa2bf0e738dc087f8ca521a2152544e3e976fa9ee792e5ab21e57d4"
+    }
+  },
+  "allCopiedObjectsAndMimeFilesMatchLive": true,
+  "copiedObjectFiles": 14,
+  "rawOriginals": 7,
+  "allTrackedJournalAndStateCopiesExact": true,
+  "ledgerHashes": {
+    "protected0": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "protected1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+    "protected2": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+    "protected3": "6075b11d41d6a2c4989ab7ee7173cb367e7fd67ce5b9e879c0b036a5d61b578c",
+    "protected4": "76d40fcc66da7148ece5521c3f05d1ebcd3b106dfcf47f3e069bc7a62996ee19",
+    "protected5": "ed1900edbe44e6e166169ce2f249af98fef1815ad5f0f85f7b3a3332c1e5f8af",
+    "protected6": "0a3f45d6c77260a78764a6ccfb073e9a9b3688492a262934ba894e58d3fde78a",
+    "protected7": "d2095accd4d921fcd4285b2e05cec0e636609e2e4308ed532916d8958cfc39fc",
+    "protected8": "ce7d3a7f1d2e0812aa77218f156b70e66d77091070330af9d14b7d8596558f4c",
+    "protected9": "02f28016fceb4c7449bcbefcfa11a6cf7b81610fbc8faa45bdcdaaf8d45e5d23",
+    "nativeFresh": "e119d56ef484f50aaed5816363d99b8e6e167a658ae04eff765afa18f03c08f8",
+    "designFresh": "2049871bee9877568f3e33e3ca0e3d05f4fdc85dfc8cf8fa7b1d4b156c05ec50",
+    "journeyFresh": "af255e2dc8caf6fbe428056800b4f77d84a716541e0df18ea6540c5e0d4c7588",
+    "designState": "8a1be521e176e40f20fbec74d03f6f3f8097d6b25c550ffb69a6307eac7d6feb",
+    "currentSetup": "d9f83132df1dbbae6fe5c8356e83441e05ea254ebceab27045312ab3a16a3848",
+    "firstFocusProbe": "8432171aeecf0a122c872c771841a8b77937ec6f1bb320585b2c3384745e6499",
+    "designV2Confirmation": "d6732938d0c60153320bc09c8628de062172a983cd464d9ef341d2198959fd22",
+    "summaryCompactSetup": "60e8e3da39d302b97e42de33e0c3817c072b4d88f5a6094be7579fffcf9f6370",
+    "summaryCompactLedger": "b657519b9fe54e95ac5353a960d21fd36742b59c63d128cf68e6cfd947054977",
+    "summaryCompactSemantic": "c2585e8cb5dc7db3177e7ca365012a2942e5cc27cd950570b4859cdd8a5a9e91",
+    "extra_design_v2_student_confirmation_ledger_json": "d6732938d0c60153320bc09c8628de062172a983cd464d9ef341d2198959fd22",
+    "extra_s1_first_focus_probe_ledger_json": "8432171aeecf0a122c872c771841a8b77937ec6f1bb320585b2c3384745e6499",
+    "extra_summary_compact_semantic_review_json": "c2585e8cb5dc7db3177e7ca365012a2942e5cc27cd950570b4859cdd8a5a9e91",
+    "extra_summary_compact_thread_proof_json": "ceb8d22500a4b6331a64a079650af207aecb4aeec9b47321f65f76927be7df41",
+    "extra_summary_correction_run_ledger_json": "0f7500a9655c92e73e8ec8eed5a2356a2455d96a7d539076b7bcf65ecafd2088",
+    "extra_summary_correction_semantic_review_json": "694b5f8b4ac4677ece6bdca962cc195d9ec63017a793ac60a3d745dbc5d093cb",
+    "extra_summary_semantic_review_json": "d3cb08a1e2bac47c14e9e42cbec5530912d3820a8465d5b27432c0b4b1d29e9d"
+  },
+  "protectedHistoryAndPreviousPendingDiagnosticUnchanged": true,
+  "restorationTested": false,
+  "safeZeroOutstandingRestoreEligible": false,
+  "actualAccountingPreserved": true,
+  "modelRequestsSent": 0
+}

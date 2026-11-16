@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "failures": [],
+  "advisories": [
+    "LITERAL_QUESTION_MARK_COUNT:2"
+  ],
+  "humanTeachingReview": "required"
+}

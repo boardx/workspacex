@@ -1,0 +1,36 @@
+{
+  "at": "2026-11-16T21:30:31.832293+00:00",
+  "observedAt": "2026-11-16T21:30:31.832293+00:00",
+  "phaseFrom": "s6",
+  "phaseTo": "design-v2",
+  "previousActualRun": "1b664aa9-3494-4e23-8f66-ec8eb8fce8a1",
+  "previousPhaseSettled": true,
+  "cumulative": {
+    "active": 0,
+    "physical": 28,
+    "usage": 28,
+    "credits": 28,
+    "unsettled": 0
+  },
+  "wallet": {
+    "balance": "19844.15",
+    "held_hundredths": "0",
+    "remaining_held_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "oldTenFilesUnchanged": true,
+  "actualApiOwner": {
+    "pid": 545603,
+    "startTicks": "7472097"
+  },
+  "actualGuards": {
+    "KERNEL_AGENT_RUN_AUTOSTART": "1",
+    "KERNEL_SKILL_TRIALRUN_AUTOSTART": "0",
+    "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART": "0",
+    "KERNEL_THREAD_TITLE_MODEL_ENABLED": "0",
+    "KERNEL_STANDARD_SCHEDULER": "0"
+  },
+  "sameHealthyApiProcessReused": true,
+  "rootConditionalNextPhaseGoApplied": true,
+  "modelRequestsSentByOwner": 0
+}

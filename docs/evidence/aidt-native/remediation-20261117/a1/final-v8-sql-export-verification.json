@@ -1,0 +1,40 @@
+{
+  "at": "2026-11-16T22:35:20.789Z",
+  "readOnly": true,
+  "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+  "stageId": 6,
+  "revision": 8,
+  "actualSQLContentEqualsBrowserReceipt": true,
+  "actualSQLReportAndVersionFooterEqualsBrowserExport": true,
+  "reportBodyBytes": 17222,
+  "markdownBytes": 17512,
+  "markdownSha256": "cff2d718fa456dc60c7ed8016fd26e6979fad5fc912050ef47ff534bfec68728",
+  "correctionRunId": "3afe33fe-42ce-4db8-9884-70b14253f2ba",
+  "summarySkillVersionId": "skill-version-54da7b77-e4e3-4e5f-8b1a-5ea96ff17efc",
+  "finance": {
+    "active": 0,
+    "physical": 42,
+    "usage": 42,
+    "credit": 42,
+    "unsettled": 0,
+    "heldhundredths": "0",
+    "remainingheldhundredths": "0",
+    "unbounded": "0",
+    "reportedKnownTokens": "330391",
+    "unknownUsageCount": 0,
+    "settledCreditCount": 42,
+    "pendingCreditCount": 0,
+    "wallets": [
+      {
+        "owner_type": "user",
+        "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+        "balance": "19669.42",
+        "held_hundredths": "0",
+        "remaining_held_hundredths": "0",
+        "unbounded_requests": "0"
+      }
+    ],
+    "unresolvedRequests": []
+  },
+  "modelRequestsSent": 0
+}

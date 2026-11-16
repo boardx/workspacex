@@ -9,3 +9,23 @@ pending、deny、error 都以已有 AI tool_call 视为 attempted，不再次强
 先加真图、恶意直接回答的 sync/async × classifier 开关共 4 例，原实现 4 failed；修后 4 passed。完整反馈文件 65 passed，原绿色回归命令扩展为 241 passed / 2 skipped / 2 上游 warning（13.99s），显式排除需独立 PG 的 TC5，未重复其既有独立验收。包含真实图 HITL pending→reject、excluded tool、错误/拒绝/pending attempt、GraphBubbleUp 与普通异常不重发。详细结果与源码 hash 见 first-focus-local-receipt.json。
 
 这些是本地假供应商验证，模型请求为 0，未启动或重启栈、未写数据库和计量。sourceReady 不代表运行进程已加载；真实模型验收和环境 owner 的重启回执另行核对。
+
+## 可复用的准确回归命令
+
+从 `/workspace/aidt-module-latest` 执行，以下为产生 241 passed / 2 skipped 的原命令（不是新增运行回执）：
+
+```bash
+PYTHONPATH=/workspace/scratch/aidt-remediation-20261117/qa-tools:apps/deep-agent-service/src \
+  /workspace/scratch/aidt-real-model-20261116/python/bin/python -m pytest \
+  apps/deep-agent-service/tests/test_aidt_feedback_turn.py \
+  apps/deep-agent-service/tests/test_tools.py \
+  apps/deep-agent-service/tests/test_harness.py \
+  apps/deep-agent-service/tests/test_tool_budget.py \
+  apps/deep-agent-service/tests/test_graph.py \
+  apps/deep-agent-service/tests/test_native_graph.py \
+  apps/deep-agent-service/tests/golden \
+  --ignore=apps/deep-agent-service/tests/golden/test_tc5_checkpoint_kill_recovery.py \
+  -q
+```
+
+只读核对当前 HEAD `93b76865a`：receipt 中 harness.py 与 test_aidt_feedback_turn.py 的完整源码 SHA256 均仍匹配。

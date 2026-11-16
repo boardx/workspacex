@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { isAbsolute } from "node:path";
+import { isAidtRemediation } from "./aidt-v2-remediation-criteria";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { auth, chat, skills, wave2Runtime } from "@repo/contracts";
@@ -156,6 +159,21 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
   expect(mounts.status).toBe(200);
   const mountedSkill = skills.operations.listThreadDeviations.out.parse(mounts.data).temporary.find(item => item.skillId === skill!.skillId && item.removedAt === null);
   expect(mountedSkill?.versionId).toBeTruthy();
+  if (isAidtRemediation()) {
+    const file = process.env.AIDT_V2_SETUP_RESULT;
+    if (!file || !isAbsolute(file)) throw new Error("AIDT_REMEDIATION_EXACT_IMPORTED_PINS_REQUIRED");
+    const setup = JSON.parse(readFileSync(file, "utf8")) as { orgId: string; pins: Record<string, string>; imported: { packId: string; packVersion: string; versionIds: string[] }[] };
+    expect(setup.orgId, "包导入与本轮必须同一实际org").toBe(session!.currentOrgId);
+    expect(mountedSkill!.versionId, "目录与挂载不能漂移为旧包或其他新版本").toBe(setup.pins[skillName]);
+    const packId = skillName === "dt-summarize-project" ? "aidt-project-summary" : "aidt-methods";
+    const methodsVersion = process.env.AIDT_V2_METHODS_VERSION;
+    expect(["1.3.1", "1.3.2"]).toContain(methodsVersion);
+    const summaryVersion = process.env.AIDT_V2_SUMMARY_VERSION ?? "1.0.1";
+    expect(["1.0.1", "1.0.2"]).toContain(summaryVersion);
+    const packVersion = packId === "aidt-methods" ? methodsVersion : summaryVersion;
+    const imported = setup.imported.find(item => item.packId === packId && item.packVersion === packVersion);
+    expect(imported?.versionIds).toContain(mountedSkill!.versionId);
+  }
   const messagePath = `/chat/threads/${encodeURIComponent(threadId)}/messages?limit=100`;
   const readMessages = async () => {
     const response = await aidtV2Api(page, messagePath);
@@ -164,7 +182,7 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
   };
   const existingMessages = await readMessages();
   const before = new Set(existingMessages.map(message => message.id));
-  const authoredStudentTexts = [...existingMessages.filter(message => message.authorKind === "human").map(message => message.text), prompt];
+  const authoredStudentTexts = [prompt];
   const stagesBefore = await Promise.all([1, 2, 3, 4, 5, 6].map(id => readAidtV2Stage(page, projectId, id)));
   const stageLimit = Number(new URL(page.url()).searchParams.get("step"));
   let expectedSelector: AidtContextSelector;
@@ -207,7 +225,7 @@ export async function sendAidtV2NativeTurn(page: Page, projectId: string, skillN
     ledger.record(reservation, new URL(request.url()).pathname);
     console.info(`[aidt-v2] native request observed · ${skillName} · budget entry ${reservation}`);
     expect(new URL(request.url()).origin).toBe(new URL(REAL_MODEL_SMOKE.baseUrl).origin);
-    const wireMetadata = aidtV2WireMetadata(request.postDataJSON(), contextMarkers, skillName, expectedSelector, authoredStudentTexts);
+    const wireMetadata = aidtV2WireMetadata(request.postDataJSON(), contextMarkers, skillName, expectedSelector, authoredStudentTexts, existingMessages.filter(message => message.authorKind === "human" || message.authorKind === "agent").map(message => ({ id: message.id, role: message.authorKind === "agent" ? "assistant" as const : "user" as const, text: message.text })));
     await test.info().attach(`native-wire-shape-${skillName}`, { contentType: "application/json", body: Buffer.from(JSON.stringify(wireMetadata, null, 2)) });
     let fresh: Awaited<ReturnType<typeof readMessages>> = [];
     await expect.poll(async () => {

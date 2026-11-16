@@ -1,0 +1,18 @@
+{
+  "at": "2026-11-16T20:33:15.754905+00:00",
+  "scope": "after setup driver wrong /api prefix failure; no real model task sent",
+  "readOnly": true,
+  "actualBuildApiPathPrefix": "/__fullstack_api",
+  "prefixEvidence": "scripts/real-model-aidt-stack.mjs webEnv NEXT_PUBLIC_API_PATH_PREFIX; zero-window-ready actual courseSameOrigin401 JSON",
+  "imports": [],
+  "skillCount": 0,
+  "counts": {
+    "runs": 0,
+    "snapshots": 0,
+    "physical": 0,
+    "usage": 0,
+    "credits": 0,
+    "active": 0
+  },
+  "oldHistoryUnchanged": true
+}

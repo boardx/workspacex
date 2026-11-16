@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-11-16T21:41:16.029Z",
+  "completed": true,
+  "modelPostAttempts": 0,
+  "observedModelPostCount": 0,
+  "synthetic": true,
+  "realUserTestConducted": false,
+  "stage6Revision": 6,
+  "previousReturn2Revision": 4,
+  "currentS5Revision": 4,
+  "questionSnapshotUnchanged": true,
+  "previousReturn2ExactReadback": true,
+  "reloadedExact": true,
+  "relation": {
+    "schemaVersion": 1,
+    "questionSnapshot": "{\"schemaVersion\":1,\"question\":\"合成验证问题：新同学能否说出纸面分区牌指向哪里？\",\"beforeTestBelief\":\"学生先前猜测：也许能理解，尚无真实测试。\",\"verificationBasis\":\"仅学生合成讨论，不是用户研究证据。\",\"verificationLimits\":\"只能讨论静态理解，不能证明时间节省或支付意愿。\",\"prototypeRef\":\"Synthetic static V1-V2 c922af9f / v1：已按验收标准生成极简教学原型，仅含标题、说明、按钮与页脚，供学生审阅后用于纸面测试。\",\"prototypeDesignId\":\"5e9e0ac2-137d-46b6-bbad-7448868b7cad\",\"prototypeVersionId\":\"5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr\",\"sourceStageRevision\":3}",
+    "producedDesignId": "5e9e0ac2-137d-46b6-bbad-7448868b7cad",
+    "producedVersionId": "5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794865157404-pcrfiz",
+    "feedbackReference": "第6步V4，被审原型 5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr。学生保存的静态检查原文：静态检查（非真人测试）：被审V1 5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr；无号码分区映射（可见设计文字无具体号码到分区示例，仅静态内容检查）；按钮无交互（未配置脚本、事件或跳转）。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+    "changeReason": "根据旧版静态检查补“示例2→B分区”的合成设计示意并改按钮文案；按钮仍是静态占位，没有真人反馈或效果验证。"
+  },
+  "finishedAt": "2026-11-16T21:41:18.382Z"
+}

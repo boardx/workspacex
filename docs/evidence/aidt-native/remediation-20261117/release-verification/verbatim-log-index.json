@@ -1,0 +1,47 @@
+{
+  "scope": "verbatim machine transcripts, including original failed expectations and skipped checks",
+  "files": [
+    {
+      "path": "a3-context/return-real-pg.log",
+      "bytes": 979,
+      "sha256": "ec43807fdcd574f38cd1ffd6fe04b7215d970493428f36090a2c76eb043dcd2a"
+    },
+    {
+      "path": "a3-context/bridge-real-pg.log",
+      "bytes": 2121,
+      "sha256": "97a3989d5ee74662ddd34b6b65ac90829d69125f4acac9af8491944af515e9f6"
+    },
+    {
+      "path": "a4-runtime/first-focus-regression.log",
+      "bytes": 1435,
+      "sha256": "d133f566547a9f520dcb16d57fc643617db49659f5516de7f1c60dca968e8321"
+    },
+    {
+      "path": "a4-runtime/first-focus-skips.log",
+      "bytes": 308,
+      "sha256": "b6f6e831e4d3734d875e920be36d7ff0f8988f2c1e11a6cfcec90b597e867d9a"
+    },
+    {
+      "path": "a4-runtime/first-focus-feedback.log",
+      "bytes": 99,
+      "sha256": "a3f3ec2337063ace759296256e4df69f364a8b1ae2fe4c6c207cd584055e8ce1"
+    },
+    {
+      "path": "a4-runtime/first-focus-green.log",
+      "bytes": 783,
+      "sha256": "d2eb00f5791f68cb2b3fe2599d581a9fdde989b8d763587a64f99b781543d4b0"
+    },
+    {
+      "path": "a4-runtime/first-focus-red-summary.log",
+      "bytes": 2369,
+      "sha256": "e4324e9d1198d4e83fb719d3562758e3c72f87f5e4601a74397d6b7739e4ab2e"
+    },
+    {
+      "path": "a1/tc5-checkpoint.log",
+      "bytes": 98,
+      "sha256": "690d58a211d5de5d8e8428118005e80bfcb77a667e2478549a82826a05d850aa"
+    }
+  ],
+  "contentsModified": false,
+  "whitespace": "machine-generated EOF blank lines retained; code/docs whitespace checked separately"
+}

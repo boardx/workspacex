@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "phase": "v1",
+  "startedAt": "2026-11-16T21:22:31.016Z",
+  "completed": true,
+  "modelPostAttempts": 1,
+  "observedBusinessRequests": [
+    {
+      "path": "/pm-designs/5e9e0ac2-137d-46b6-bbad-7448868b7cad/chat",
+      "at": "2026-11-16T21:22:34.688Z"
+    }
+  ],
+  "researchEvidenceVerified": false,
+  "realUserTestConducted": false,
+  "physicalRequests": "pending-stack-owner-audit",
+  "tokens": "pending-stack-owner-audit",
+  "settlement": "pending-stack-owner-audit",
+  "checks": [
+    "NEW_FUNDED_RUNTIME_FIXTURE_READY",
+    "AUTHENTICATED_ACTOR_READY",
+    "API_GET_HTTP_200",
+    "REAL_GROUP_READ_AUTHORIZED",
+    "PHASE_STATE_MATCHES_RUNTIME_GROUP_ACTOR",
+    "API_GET_HTTP_200",
+    "ACTUAL_DESIGN_OWNER_UNCHANGED",
+    "API_GET_HTTP_200",
+    "ACTUAL_PROJECT_DESIGN_LINK_STILL_EXISTS",
+    "V1_NOT_ALREADY_ATTEMPTED",
+    "API_GET_HTTP_200",
+    "S5_STILL_EXACT_PREPARED_VERSION",
+    "API_GET_HTTP_200",
+    "S6_NOT_PREVIOUSLY_FROZEN",
+    "SAVED_QUESTION_IDEA_HMW_IN_NATIVE_COMPOSER",
+    "EXPLICIT_ROOT_TASK_WINDOW_REQUIRED",
+    "ONE_BUSINESS_POST_PER_WINDOW",
+    "PROMPT_WITHIN_NATIVE_LIMIT",
+    "API_GET_HTTP_200",
+    "API_POST_HTTP_201",
+    "ACTUAL_REPLY_SOURCE_MODEL",
+    "API_GET_HTTP_200",
+    "EXACTLY_ONE_NEW_NATIVE_VERSION",
+    "API_GET_HTTP_200",
+    "ACTUAL_SINGLE_SCREEN_CONTENT_AND_MARKER",
+    "UI_SHARED_SAVE_HTTP_200",
+    "V1_NATIVE_PICKER_SAVED",
+    "UI_SHARED_SAVE_HTTP_200",
+    "V1_FROZEN_S6_QUESTION_BOUND_TO_EXACT_S5",
+    "OBSERVED_BUSINESS_POST_COUNT_MATCHES"
+  ],
+  "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+  "designId": "5e9e0ac2-137d-46b6-bbad-7448868b7cad",
+  "taskId": "7017db10-6f17-47fd-a0cb-5cafd5d6fdec",
+  "nativeReply": {
+    "source": "model"
+  },
+  "v1": {
+    "id": "5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr",
+    "seq": 1,
+    "source": "model",
+    "replySource": "model",
+    "prototypeSha256": "e650d3eb7f480d1ac98f05b9e5cf8be40c623efa71e900b0edd8b36880596245",
+    "durationMs": 24463,
+    "marker": "AIDT-SUPPLEMENT-V1",
+    "files": [
+      "v1-actual-version.json",
+      "v1-actual-page.html"
+    ]
+  },
+  "stage5Revision": 3,
+  "stage6Revision": 1,
+  "frozenSnapshotSha256": "e5e5ec12f49b1dbcbe5b22cedcf0ce29c13c209bf656a3c280aff5f4c30de70b",
+  "finishedAt": "2026-11-16T21:23:01.699Z"
+}

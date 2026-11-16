@@ -1,0 +1,74 @@
+{
+  "kind": "aidt-independent-free-native-failure-real-browser-regression",
+  "status": "passed-with-explicit-scope",
+  "case": "aidt-native-draft-zero.spec.ts",
+  "commands": [
+    "pnpm --filter web exec playwright test --config playwright.aidt-native-draft-zero.config.ts --list",
+    "pnpm --filter web exec playwright test --config playwright.aidt-native-draft-zero.config.ts --retries=0"
+  ],
+  "attempt": 1,
+  "automaticRetries": 0,
+  "testDurationSeconds": 5.5,
+  "runnerDurationSeconds": 6.9,
+  "webSource": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
+  "zeroWindowProofSha256": "8543ca4d8fea00708e2eeb735aa4d09fa995cc7220ecb6ebdc9701bccc6ba6a5",
+  "ownerZeroWindowProof": "../a1/free-draft-zero-window.json",
+  "actor": {
+    "userId": "user-collab-lead--20261117-s-1e261c1b8eac",
+    "orgId": "org-collaboration--20261117-s-1e261c1b8eac",
+    "orgRole": "admin"
+  },
+  "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+  "threadId": "thr-ba315a41-7195-4141-ba71-7763d4799f13",
+  "checks": {
+    "firstSendAIntercepted": true,
+    "retryResendsOriginalAIdentityTextAttachmentsAndSelector": true,
+    "newBIdentityDifferent": true,
+    "newBAttachmentDifferent": true,
+    "unsentBTextFileAndMentionPreservedDuringRetry": true,
+    "normalBSendClearsOnlyBComposer": true,
+    "savedS1Unchanged": true,
+    "globalMemberTextIndependent": true,
+    "channelAndTopicDraftsRestoredAcrossStep": true
+  },
+  "browserInterceptedSdkRequests": 3,
+  "blockedPaths": [
+    "/api/copilotkit/agent/default/run",
+    "/api/copilotkit/agent/default/run",
+    "/api/copilotkit/agent/default/run"
+  ],
+  "canonicalThreadReadback": {
+    "status": 200,
+    "messages": 0,
+    "canonicalRunIds": []
+  },
+  "nativeBrowserRequestsReachedServer": false,
+  "pendingFileCleanupStatuses": [
+    204,
+    204
+  ],
+  "independentReadOnlyAudit": "../a1/free-native-draft-audit.json",
+  "independentAuditReadOnly": true,
+  "evidence": [
+    "native-attempt-01/results.json",
+    "native-attempt-01/zero-cost-native-draft-and-member-ui.json",
+    "native-attempt-01/zero-cost-exit-state.json",
+    "native-attempt-01/zero-cost-pending-file-cleanup.json"
+  ],
+  "limits": [
+    "These are actual browser UI interactions with deliberately aborted native SDK transport. No server run, model response, canonical error event or server success receipt is fabricated.",
+    "Three intercepted browser SDK attempts are not three model calls; the owner read-only audit is the separate server-side no-acceptance/no-physical-request check.",
+    "This proves failed-send/retry composer isolation and real member text behavior, not supplier connectivity, model teaching quality, timeline retry UI or classroom acceptance.",
+    "Only this newly created synthetic QA group, its S1 saved draft, two member texts and two normally cancelled pending attachments were touched; existing groups, permissions, organization roles, balances and old ledgers were not changed."
+  ],
+  "fixtureCleanup": "Browser context closed; two own pending attachments cancelled through normal DELETE204. Saved synthetic group/messages retained for owner backup.",
+  "independentTenantTotals": {
+    "runs": 0,
+    "physical": 0,
+    "usage": 0,
+    "credits": 0,
+    "active": 0
+  },
+  "independentPendingCredits": [],
+  "oldProtectedHashesAllUnchanged": true
+}

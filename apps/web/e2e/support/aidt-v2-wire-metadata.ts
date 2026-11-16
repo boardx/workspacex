@@ -13,7 +13,7 @@ export function expectedAidtV2StageSelector(projectId: string, stageId: number, 
 }
 
 /** Validate coordinates-only teaching input; safe metadata never substitutes for a server receipt. */
-export function aidtV2WireMetadata(body: unknown, markers: readonly { stageId: number; field: string; marker: string }[], skillName: string, expected?: AidtContextSelector, authoredStudentTexts: readonly string[] = []) {
+export function aidtV2WireMetadata(body: unknown, markers: readonly { stageId: number; field: string; marker: string }[], skillName: string, expected?: AidtContextSelector, authoredStudentTexts: readonly string[] = [], canonicalHistory: readonly { id: string; role: "user" | "assistant"; text: string }[] = []) {
   const root = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : {};
   const forwarded = root.forwardedProps && typeof root.forwardedProps === "object" ? root.forwardedProps as Record<string, unknown> : {};
   const selector = AidtContextSelector.parse(forwarded.aidtContext);
@@ -24,13 +24,14 @@ export function aidtV2WireMetadata(body: unknown, markers: readonly { stageId: n
   if (Array.isArray(root.messages)) root.messages.forEach((message, index) => {
     if (!message || typeof message !== "object") return;
     const row = message as Record<string, unknown>;
-    if (row.role !== "user" && row.role !== "human") return;
-    if (typeof row.content === "string" && authoredStudentTexts.includes(row.content)) authoredPaths.add(`$.messages[${index}].content`);
-    if (Array.isArray(row.content)) {
-      const parts = row.content as { type?: unknown; text?: unknown }[];
-      const text = parts.filter(part => part.type === "text" && typeof part.text === "string").map(part => part.text).join("");
-      if (authoredStudentTexts.includes(text)) parts.forEach((part, partIndex) => { if (part.type === "text" && typeof part.text === "string") authoredPaths.add(`$.messages[${index}].content[${partIndex}].text`); });
-    }
+    const parts = Array.isArray(row.content) ? row.content as { type?: unknown; text?: unknown }[] : [];
+    const text = typeof row.content === "string" ? row.content : parts.filter(part => part.type === "text" && typeof part.text === "string").map(part => part.text).join("");
+    const studentAuthored = (row.role === "user" || row.role === "human") && authoredStudentTexts.includes(text);
+    // Only previously GET-verified immutable message identity, role and full text qualify.
+    const canonical = canonicalHistory.some(message => message.id === row.id && message.role === row.role && message.text === text);
+    if (!studentAuthored && !canonical) return;
+    if (typeof row.content === "string") authoredPaths.add(`$.messages[${index}].content`);
+    else parts.forEach((part, partIndex) => { if (part.type === "text" && typeof part.text === "string") authoredPaths.add(`$.messages[${index}].content[${partIndex}].text`); });
   });
   const strings: { path: string; value: string }[] = [];
   const collect = (value: unknown, path: string, depth: number): void => {

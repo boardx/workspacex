@@ -1,0 +1,19 @@
+{
+  "kind": "aidt-independent-zero-model-browser-index",
+  "actualCasesPassed": 2,
+  "automaticRetries": 0,
+  "caseSummaries": [
+    "member-summary.json",
+    "native-summary.json"
+  ],
+  "sourceWeb": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
+  "independentOwnerAudits": [
+    "../a1/free-member-collaboration-audit.json",
+    "../a1/free-native-draft-audit.json"
+  ],
+  "generationBoundary": "Member case sent no generation requests. Native case aborted exactly three SDK attempts before server acceptance; these are not real model E2E successes.",
+  "newGroupMemberInitialization": "One normal collaborator membership was initialized only in a newly created synthetic QA group, with actual201/provenance receipt; no existing group membership/org role/balance/global permission was changed.",
+  "nativeZeroWindow": "Owner attested actual API process with five executor guards zero before native case; this agent never changed service state or started services.",
+  "humanClassroomAcceptance": "not established",
+  "productionDeployment": "not performed"
+}

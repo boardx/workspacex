@@ -1,0 +1,629 @@
+{
+  "observedAt": "2026-11-16T22:37:25.508Z",
+  "completed": true,
+  "scope": "aidt-remediation-20261117-s-1e261c1b8eac",
+  "composeProject": "wsx-1e261c1b8eacf1988f72",
+  "ownerExecSession": 32704,
+  "ownerExecExitCode": null,
+  "normalOwnerStop": true,
+  "sharedProcessGroupKillUsed": false,
+  "resources": {
+    "containers": 0,
+    "volumes": 0,
+    "networks": 0
+  },
+  "ports": [
+    {
+      "key": "PGPORT",
+      "port": 20555,
+      "bindable": true
+    },
+    {
+      "key": "REDIS_PORT",
+      "port": 21555,
+      "bindable": true
+    },
+    {
+      "key": "MINIO_PORT",
+      "port": 22555,
+      "bindable": true
+    },
+    {
+      "key": "MINIO_CONSOLE_PORT",
+      "port": 23555,
+      "bindable": true
+    },
+    {
+      "key": "SKILL_SANDBOX_PORT",
+      "port": 26555,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_VISION_PROVIDER_PORT",
+      "port": 30555,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_DEEP_AGENT_PROVIDER_PORT",
+      "port": 28555,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_API_PORT",
+      "port": 24555,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_WEB_PORT",
+      "port": 25555,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_MODEL_PROVIDER_PORT",
+      "port": 27555,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_MAIL_PROVIDER_PORT",
+      "port": 19555,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_LOOPBACK_SANDBOX_PORT",
+      "port": 31555,
+      "bindable": true
+    },
+    {
+      "key": "WORKSPACEX_ASR_PROVIDER_PORT",
+      "port": 29555,
+      "bindable": true
+    }
+  ],
+  "portLeaseCount": 13,
+  "all13PortLeasesReleased": true,
+  "stackSlotCount": 1,
+  "allOwnedStackSlotsReleased": true,
+  "observedOwnedProcessCount": 63,
+  "allObservedOwnedProcessesStopped": true,
+  "processStatus": [
+    {
+      "pid": 605957,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 494905,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493318,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493325,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493337,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493353,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493360,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493380,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493876,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493883,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493895,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493911,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493918,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 493938,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 494354,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 494370,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 494387,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 494843,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 494850,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 494862,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 494878,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 494885,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 495370,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 495386,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 495403,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 495416,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 495428,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 495465,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 495477,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 495489,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 495506,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 495875,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 495891,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 495908,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 495982,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 496034,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 496065,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 497182,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 497225,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 498354,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 498360,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 499127,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 499128,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 499470,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 499482,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 500673,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 509389,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 514389,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 516737,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 521952,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 524914,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 526604,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 529464,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 539653,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 545603,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 577461,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 587413,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 594076,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 598357,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 598913,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 495845,
+      "state": "absent",
+      "live": false
+    },
+    {
+      "pid": 514018,
+      "state": "Z",
+      "live": false
+    },
+    {
+      "pid": 545064,
+      "state": "Z",
+      "live": false
+    }
+  ],
+  "memoryEvents": {
+    "low": 0,
+    "high": 0,
+    "max": 69244,
+    "oom": 1,
+    "oom_kill": 1,
+    "oom_group_kill": 0
+  },
+  "noNewOOMSincePreCleanup": true,
+  "privateBackupPath": "/workspace/scratch/aidt-private-diagnostics-20261117/remediation-final-20261116T223520792Z",
+  "backupDumpSha256": "39d50b82d5e7be1b810bad1a42da27f33673e43ab2672902cb8339f6e2620ecb",
+  "backupNotRestored": true,
+  "safeZeroOutstandingRestoreEligible": false,
+  "financialLastKnown": {
+    "active": 0,
+    "physical": 42,
+    "usage": 42,
+    "credit": 42,
+    "unsettled": 0,
+    "heldhundredths": "0",
+    "remainingheldhundredths": "0",
+    "unbounded": "0",
+    "reportedKnownTokens": "330391",
+    "unknownUsageCount": 0,
+    "settledCreditCount": 42,
+    "pendingCreditCount": 0,
+    "wallets": [
+      {
+        "owner_type": "user",
+        "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+        "balance": "19669.42",
+        "held_hundredths": "0",
+        "remaining_held_hundredths": "0",
+        "unbounded_requests": "0"
+      }
+    ],
+    "unresolvedRequests": []
+  },
+  "closingWallets": [
+    {
+      "owner_type": "user",
+      "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "balance": "19669.42",
+      "held_hundredths": "0",
+      "remaining_held_hundredths": "0",
+      "unbounded_requests": "0"
+    }
+  ],
+  "unresolvedRequests": [],
+  "exactTotalTokensKnown": true,
+  "knownReportedTokens": "330391",
+  "unknownUsageCount": 0,
+  "budgetAndStateHashes": [
+    {
+      "key": "protected0",
+      "sha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "protected1",
+      "sha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "protected2",
+      "sha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "protected3",
+      "sha256": "6075b11d41d6a2c4989ab7ee7173cb367e7fd67ce5b9e879c0b036a5d61b578c",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "protected4",
+      "sha256": "76d40fcc66da7148ece5521c3f05d1ebcd3b106dfcf47f3e069bc7a62996ee19",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "protected5",
+      "sha256": "ed1900edbe44e6e166169ce2f249af98fef1815ad5f0f85f7b3a3332c1e5f8af",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "protected6",
+      "sha256": "0a3f45d6c77260a78764a6ccfb073e9a9b3688492a262934ba894e58d3fde78a",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "protected7",
+      "sha256": "d2095accd4d921fcd4285b2e05cec0e636609e2e4308ed532916d8958cfc39fc",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "protected8",
+      "sha256": "ce7d3a7f1d2e0812aa77218f156b70e66d77091070330af9d14b7d8596558f4c",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "protected9",
+      "sha256": "02f28016fceb4c7449bcbefcfa11a6cf7b81610fbc8faa45bdcdaaf8d45e5d23",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "nativeFresh",
+      "sha256": "e119d56ef484f50aaed5816363d99b8e6e167a658ae04eff765afa18f03c08f8",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "designFresh",
+      "sha256": "2049871bee9877568f3e33e3ca0e3d05f4fdc85dfc8cf8fa7b1d4b156c05ec50",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "journeyFresh",
+      "sha256": "af255e2dc8caf6fbe428056800b4f77d84a716541e0df18ea6540c5e0d4c7588",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "designState",
+      "sha256": "8a1be521e176e40f20fbec74d03f6f3f8097d6b25c550ffb69a6307eac7d6feb",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "currentSetup",
+      "sha256": "d9f83132df1dbbae6fe5c8356e83441e05ea254ebceab27045312ab3a16a3848",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "firstFocusProbe",
+      "sha256": "8432171aeecf0a122c872c771841a8b77937ec6f1bb320585b2c3384745e6499",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "designV2Confirmation",
+      "sha256": "d6732938d0c60153320bc09c8628de062172a983cd464d9ef341d2198959fd22",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "summaryCompactSetup",
+      "sha256": "60e8e3da39d302b97e42de33e0c3817c072b4d88f5a6094be7579fffcf9f6370",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "summaryCompactLedger",
+      "sha256": "b657519b9fe54e95ac5353a960d21fd36742b59c63d128cf68e6cfd947054977",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "summaryCompactSemantic",
+      "sha256": "c2585e8cb5dc7db3177e7ca365012a2942e5cc27cd950570b4859cdd8a5a9e91",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "extra_design_v2_student_confirmation_ledger_json",
+      "sha256": "d6732938d0c60153320bc09c8628de062172a983cd464d9ef341d2198959fd22",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "extra_s1_first_focus_probe_ledger_json",
+      "sha256": "8432171aeecf0a122c872c771841a8b77937ec6f1bb320585b2c3384745e6499",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "extra_summary_compact_semantic_review_json",
+      "sha256": "c2585e8cb5dc7db3177e7ca365012a2942e5cc27cd950570b4859cdd8a5a9e91",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "extra_summary_compact_thread_proof_json",
+      "sha256": "ceb8d22500a4b6331a64a079650af207aecb4aeec9b47321f65f76927be7df41",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "extra_summary_correction_run_ledger_json",
+      "sha256": "0f7500a9655c92e73e8ec8eed5a2356a2455d96a7d539076b7bcf65ecafd2088",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "extra_summary_correction_semantic_review_json",
+      "sha256": "694b5f8b4ac4677ece6bdca962cc195d9ec63017a793ac60a3d745dbc5d093cb",
+      "unchanged": true,
+      "privateCopyExact": true
+    },
+    {
+      "key": "extra_summary_semantic_review_json",
+      "sha256": "d3cb08a1e2bac47c14e9e42cbec5530912d3820a8465d5b27432c0b4b1d29e9d",
+      "unchanged": true,
+      "privateCopyExact": true
+    }
+  ],
+  "uploadedConfigExists": true,
+  "uploadedConfigMode": "0600",
+  "uploadedConfigCopiedToBackup": false,
+  "sharedObjectRootDeleted": false,
+  "sourceObjectsRetained": true,
+  "modelRequestsSentByResourceOwner": 0,
+  "modelRequestsByExternalAcceptance": 42,
+  "metadataUpdatedWithoutFinancialMutation": true
+}

@@ -1,0 +1,23 @@
+{
+  "id": "5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794865157404-pcrfiz",
+  "seq": 2,
+  "source": "model",
+  "summary": "已按小组指定新增“示例2→B分区”及合成标注，按钮改为“先看取餐分区”，页脚更新为V2。",
+  "frames": [
+    "取餐分区"
+  ],
+  "notes": [
+    "本页为静态纸面分区牌粗原型示意，仅展示标题、说明、号码映射示例与按钮；点击「先看取餐分区」按钮无跳转（单页原型）；页面加载即呈现完整内容，无需空态或加载处理。"
+  ],
+  "links": [],
+  "createdAt": "2026-11-16T21:39:17.402Z",
+  "prototype": [
+    {
+      "id": "n1",
+      "type": "html",
+      "props": {
+        "html": "<style>.pg{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#FFFFFF;padding:64px 24px;font-family:system-ui,\"PingFang SC\",sans-serif}.ttl{font-size:32px;font-weight:700;color:#1A1A1A;margin:0 0 24px;line-height:1.5;text-align:center}.dsc{font-size:16px;font-weight:400;color:#4B5563;margin:0 0 32px;line-height:1.6;text-align:center;max-width:32em}.map{font-size:20px;font-weight:600;color:#1D4ED8;margin:0 0 8px;line-height:1.5;text-align:center}.syn{font-size:12px;font-weight:400;color:#6B7280;margin:0 0 48px;line-height:1.5;text-align:center}.bt{font-size:16px;font-weight:500;color:#1A1A1A;background:none;border:1px solid #D1D5DB;border-radius:4px;padding:12px 32px;cursor:pointer;font-family:inherit;line-height:1.5}.bt:focus-visible{outline:2px solid #1D4ED8;outline-offset:4px}.ft{position:fixed;bottom:24px;left:0;width:100%;text-align:center;font-size:10px;font-weight:400;font-family:ui-monospace,monospace;color:#9CA3AF;line-height:1.5}</style>\n<div class=\"pg\" data-ref=\"r1\">\n<h1 class=\"ttl\" data-ref=\"r2\">取餐分区</h1>\n<p class=\"dsc\" data-ref=\"r3\">请阅读此指示牌，指出您的取餐号码对应的区域位置。</p>\n<p class=\"map\" data-ref=\"r4\">示例2 → B分区</p>\n<p class=\"syn\" data-ref=\"r5\">合成设计内容，非实测</p>\n<button class=\"bt\" type=\"button\" data-ref=\"r6\">先看取餐分区</button>\n<div class=\"ft\" data-ref=\"r7\">AIDT-SUPPLEMENT-V2</div>\n</div>"
+      }
+    }
+  ]
+}

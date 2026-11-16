@@ -1,0 +1,123 @@
+{
+  "observedAt": "2026-11-16T20:49:22.074Z",
+  "readOnly": true,
+  "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
+  "actor": {
+    "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+    "org_role": "admin"
+  },
+  "wallets": [
+    {
+      "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "balance": "19985.88",
+      "held_hundredths": "0",
+      "remaining_held_hundredths": "0",
+      "unbounded_requests": "0"
+    }
+  ],
+  "totals": {
+    "runs": 1,
+    "physical": 3,
+    "usage": 3,
+    "credits": 3,
+    "active": 0
+  },
+  "threads": [
+    {
+      "id": "thr-aa7d3d0a-7dbe-4a01-95af-56302e7c218e",
+      "project_id": "prj-726a67d0-cba8-45f3-b61b-dd55c13c0f8f",
+      "archived": false,
+      "messages": 2,
+      "runs": 1,
+      "physical": 3
+    }
+  ],
+  "runRows": [
+    {
+      "id": "cc29fef8-3cb3-4cc4-8969-2df5e2e2631a",
+      "thread_id": "thr-aa7d3d0a-7dbe-4a01-95af-56302e7c218e",
+      "status": "succeeded",
+      "failure_reason": null
+    }
+  ],
+  "projectFacts": [
+    {
+      "projectId": "prj-726a67d0-cba8-45f3-b61b-dd55c13c0f8f",
+      "members": [
+        {
+          "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+          "role": "owner"
+        }
+      ],
+      "memberChat": {
+        "messages": 0,
+        "authors": 0
+      },
+      "runs": 1
+    }
+  ],
+  "pendingCredits": [],
+  "oldBudgetHashes": [
+    {
+      "path": "/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json",
+      "sha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "bytes": 4044,
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json",
+      "sha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "bytes": 931,
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s2-ledger.json",
+      "sha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "bytes": 1107,
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-acceptance-20261117/native-run-journal.json",
+      "sha256": "6075b11d41d6a2c4989ab7ee7173cb367e7fd67ce5b9e879c0b036a5d61b578c",
+      "bytes": 6330,
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-acceptance-20261117/design-task-journal.json",
+      "sha256": "76d40fcc66da7148ece5521c3f05d1ebcd3b106dfcf47f3e069bc7a62996ee19",
+      "bytes": 1884,
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-acceptance-20261117/journey-state.json",
+      "sha256": "ed1900edbe44e6e166169ce2f249af98fef1815ad5f0f85f7b3a3332c1e5f8af",
+      "bytes": 149423,
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-acceptance-20261117/design-state.json",
+      "sha256": "0a3f45d6c77260a78764a6ccfb073e9a9b3688492a262934ba894e58d3fde78a",
+      "bytes": 37476,
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-remediation-20261117/native-run-journal.json",
+      "sha256": "d2095accd4d921fcd4285b2e05cec0e636609e2e4308ed532916d8958cfc39fc",
+      "bytes": 827,
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-remediation-20261117/journey-state.json",
+      "sha256": "ce7d3a7f1d2e0812aa77218f156b70e66d77091070330af9d14b7d8596558f4c",
+      "bytes": 137,
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-remediation-20261117/setup-import-pins.json",
+      "sha256": "02f28016fceb4c7449bcbefcfa11a6cf7b81610fbc8faa45bdcdaaf8d45e5d23",
+      "bytes": 2421,
+      "unchanged": true
+    }
+  ],
+  "modelRequestsSentByAudit": 0
+}

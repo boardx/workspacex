@@ -1,0 +1,27 @@
+{
+  "at": "2026-11-16T22:05:31.200767+00:00",
+  "readOnly": true,
+  "newSummaryThread": "thr-dd36869e-3bbe-4508-b2e6-660102b64f1e",
+  "selectedActiveVersion": "skill-version-54da7b77-e4e3-4e5f-8b1a-5ea96ff17efc",
+  "messages": 0,
+  "runs": 0,
+  "publishedPack": "1.0.2",
+  "cumulative": {
+    "runs": 9,
+    "physical": 35,
+    "usage": 35,
+    "credits": 35,
+    "active": 0
+  },
+  "wallets": [
+    {
+      "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "balance": "19774.30",
+      "held_hundredths": "0",
+      "remaining_held_hundredths": "0",
+      "unbounded_requests": "0"
+    }
+  ],
+  "oldTenFilesUnchanged": true,
+  "modelRequestsSentByOwner": 0
+}

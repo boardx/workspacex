@@ -1,0 +1,36 @@
+{
+  "at": "2026-11-16T21:27:18.816577+00:00",
+  "phaseFrom": "design-v1",
+  "phaseTo": "s6",
+  "previousPhasePhysical": 2,
+  "previousPhaseTokens": 6705,
+  "previousPhaseSettled": true,
+  "cumulative": {
+    "physical": 24,
+    "usage": 24,
+    "credits": 24,
+    "active": 0
+  },
+  "wallet": {
+    "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+    "balance": "19868.42",
+    "held_hundredths": "0",
+    "remaining_held_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "oldTenFilesUnchanged": true,
+  "actualApiOwner": {
+    "pid": 545603,
+    "startTicks": "7472097"
+  },
+  "actualGuards": {
+    "KERNEL_AGENT_RUN_AUTOSTART": "1",
+    "KERNEL_SKILL_TRIALRUN_AUTOSTART": "0",
+    "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART": "0",
+    "KERNEL_THREAD_TITLE_MODEL_ENABLED": "0",
+    "KERNEL_STANDARD_SCHEDULER": "0"
+  },
+  "sameHealthyApiProcessReused": true,
+  "rootConditionalNextPhaseGoApplied": true,
+  "modelRequestsSentByOwner": 0
+}

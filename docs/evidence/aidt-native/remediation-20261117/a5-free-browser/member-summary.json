@@ -1,0 +1,77 @@
+{
+  "kind": "aidt-independent-free-member-real-browser-regression",
+  "status": "passed-with-explicit-scope",
+  "case": "aidt-member-existing-zero.spec.ts",
+  "commands": [
+    "pnpm --filter web exec playwright test --config playwright.aidt-member-existing-zero.config.ts --list",
+    "pnpm --filter web exec playwright test --config playwright.aidt-member-existing-zero.config.ts --retries=0"
+  ],
+  "attempt": 1,
+  "automaticRetries": 0,
+  "testDurationSeconds": 17.1,
+  "runnerDurationSeconds": 18.8,
+  "webSource": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
+  "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+  "privateProjectId": "prj-39352b3d-4e4f-4abc-9663-3bcd468dcf65",
+  "membershipInitialization": {
+    "performed": true,
+    "scope": "本轮新建合成QA组成员初始化；未修改既有组成员或组织角色",
+    "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+    "actorUserId": "user-collab-lead--20261117-s-1e261c1b8eac",
+    "addedUserId": "user-collab-member--20261117-s-1e261c1b8eac",
+    "role": "collaborator",
+    "transport": "normally authenticated product collaborator API",
+    "status": 201,
+    "receipt": {
+      "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+      "userId": "user-collab-member--20261117-s-1e261c1b8eac",
+      "role": "collaborator",
+      "provenanceEventId": "7d7ae478-2d64-4504-97b7-38d5fb4bc76a"
+    }
+  },
+  "checks": {
+    "twoNormalAccounts": true,
+    "storedMessagesByBothAuthors": 4,
+    "singleLevelTopicReplies": true,
+    "nonmemberGetRepliesPostStatuses": [
+      404,
+      404,
+      404
+    ],
+    "newSingleAccountMemberMessages": 2,
+    "exactRequestReplayIdempotency": true,
+    "channelDraftRestored": true,
+    "topicDraftRestored": true,
+    "stepTransition": [
+      1,
+      2
+    ]
+  },
+  "blockedOrObservedGenerationRequests": [],
+  "independentReadOnlyAudit": "../a1/free-member-collaboration-audit.json",
+  "independentTenantTotals": {
+    "runs": 0,
+    "physical": 0,
+    "usage": 0,
+    "credits": 0,
+    "active": 0
+  },
+  "independentPendingCredits": [],
+  "oldProtectedHashesAllUnchanged": true,
+  "evidence": [
+    "member-attempt-01/results.json",
+    "member-attempt-01/existing-member-pair-real-browser.json",
+    "member-attempt-01/existing-member-pair-exit-state.json",
+    "member-attempt-01/member-topic-real-browser.png",
+    "member-attempt-01/member-topic-restored-real-browser.png",
+    "member-attempt-01/member-channel-restored-real-browser.png"
+  ],
+  "limits": [
+    "This creates synthetic QA groups and initializes one new collaborator membership through an actual authorized product API; it is not zero permission writes across the environment.",
+    "Same-page authenticated draft preservation across steps one and two; no claim of persistence through browser restart or sign-out.",
+    "The step-two screenshot captures its workspace preparation state while the global member plugin remains usable; this case does not certify stage-two Agent readiness.",
+    "No voice room, real model generation, ordinary-student model funding, teaching quality or human classroom acceptance is established.",
+    "Native Chat failed-send/retry draft A/B is a separate case; its later actual zero-window result is recorded in native-summary.json."
+  ],
+  "fixtureCleanup": "Browser contexts closed; synthetic groups/messages retained for final owner audit/backup. No pre-existing group, organization role, balance, service switch or A6 study group was modified."
+}

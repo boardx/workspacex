@@ -1,0 +1,54 @@
+{
+  "observedAt": "2026-11-16T21:32:34.275Z",
+  "phase": "design-v2",
+  "windowStart": "2026-11-16T21:30:31.832293+00:00",
+  "readOnly": true,
+  "physical": [
+    {
+      "id": "00e3ef8b-c897-45a4-bea4-8f29cde11a9f",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "run_id": null,
+      "call_purpose": "auxiliary",
+      "started_at": "2026-11-16T21:30:59.048Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "00e3ef8b-c897-45a4-bea4-8f29cde11a9f",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "2865",
+      "tokens_prompt": "2729",
+      "tokens_completion": "136",
+      "request_started_at": "2026-11-16T21:30:59.048Z",
+      "request_ended_at": "2026-11-16T21:31:05.685Z"
+    }
+  ],
+  "credit": [
+    {
+      "request_id": "00e3ef8b-c897-45a4-bea4-8f29cde11a9f",
+      "run_id": null,
+      "state": "settled",
+      "reserved_hundredths": "1311",
+      "debited_hundredths": "287",
+      "settled_at": "2026-11-16T21:31:05.691Z"
+    }
+  ],
+  "reportedKnownTokens": 2865,
+  "unknownUsageCount": 0,
+  "pending": [],
+  "wallet": {
+    "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+    "balance": "19841.28",
+    "held_hundredths": "0",
+    "remaining_held_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "total": {
+    "physical": 29,
+    "usage": 29,
+    "credits": 29,
+    "active": 0
+  },
+  "modelRequestsSentByAudit": 0
+}

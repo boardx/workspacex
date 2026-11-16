@@ -1,0 +1,159 @@
+{
+  "observedAt": "2026-11-16T21:29:37.765Z",
+  "readOnly": true,
+  "run": {
+    "id": "1b664aa9-3494-4e23-8f66-ec8eb8fce8a1",
+    "org_id": "org-fullstack--20261117-s-1e261c1b8eac",
+    "thread_id": "thr-8290891c-a9bc-4484-81ba-f440580d914e",
+    "author_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+    "status": "succeeded",
+    "failure_reason": null,
+    "agent_version_id": "agent-fullstack--20261117-s-1e261c1b8eac-v1",
+    "skill_version_ids": [
+      "skill-version-3a7564bc-48a6-44f6-9ccb-3c5b7f11f338"
+    ],
+    "aidt_selector_hash": "5cb9e23ef8bdcbab85554bb3497e5f4afa2c4cdfda0ea16ab64bb95eeab5cdb2",
+    "remote_run_id": "be323993-9dfe-4e86-a9a8-9f9a2541ecec"
+  },
+  "snapshot": {
+    "selectorHash": "5cb9e23ef8bdcbab85554bb3497e5f4afa2c4cdfda0ea16ab64bb95eeab5cdb2",
+    "snapshotHash": "d2cd693b2758b5c56d10995b2360f33cfdc08982272366095a162cf7b1253bd5",
+    "focus": {
+      "title": "测试与迭代",
+      "skillId": "skill-4b2effc2-5e0e-4e3b-a4b1-609bf88a9103",
+      "skillVersionId": "skill-version-3a7564bc-48a6-44f6-9ccb-3c5b7f11f338",
+      "skillStableName": "aidt-iterate"
+    },
+    "blockHash": "2988c32731b256eab5b70b3b7d067e33c4e7058191ffaeebad8dd93fbddc3a4e"
+  },
+  "applications": [
+    {
+      "seq": "1",
+      "kind": "assembled",
+      "snapshotHash": "d2cd693b2758b5c56d10995b2360f33cfdc08982272366095a162cf7b1253bd5",
+      "occurredAt": "2026-11-16T21:27:55.502Z"
+    },
+    {
+      "seq": "2",
+      "kind": "message-dispatch-observed",
+      "snapshotHash": "d2cd693b2758b5c56d10995b2360f33cfdc08982272366095a162cf7b1253bd5",
+      "occurredAt": "2026-11-16T21:27:55.579Z",
+      "remoteThreadId": "ee004c42-3f39-4dad-815f-86c0a1db9e89",
+      "remoteRunId": "be323993-9dfe-4e86-a9a8-9f9a2541ecec"
+    }
+  ],
+  "physical": [
+    {
+      "id": "d6335f6a-7d10-4ca5-8291-4ad6f60c81ee",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T21:27:55.634Z"
+    },
+    {
+      "id": "6a4736c7-26f4-48ee-b699-fe8c0376bac0",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T21:28:00.334Z"
+    },
+    {
+      "id": "264a6332-a1f5-432f-b2ce-bf42ae204e14",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T21:28:08.825Z"
+    },
+    {
+      "id": "94215a0f-9ed1-4b3a-b0a2-a02d40e679c1",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T21:28:14.109Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "d6335f6a-7d10-4ca5-8291-4ad6f60c81ee",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "10587",
+      "tokens_prompt": "10428",
+      "tokens_completion": "159",
+      "request_started_at": "2026-11-16T21:27:55.634Z",
+      "request_ended_at": "2026-11-16T21:28:00.240Z"
+    },
+    {
+      "id": "6a4736c7-26f4-48ee-b699-fe8c0376bac0",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "8488",
+      "tokens_prompt": "8248",
+      "tokens_completion": "240",
+      "request_started_at": "2026-11-16T21:28:00.334Z",
+      "request_ended_at": "2026-11-16T21:28:08.711Z"
+    },
+    {
+      "id": "264a6332-a1f5-432f-b2ce-bf42ae204e14",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "2289",
+      "tokens_prompt": "2013",
+      "tokens_completion": "276",
+      "request_started_at": "2026-11-16T21:28:08.825Z",
+      "request_ended_at": "2026-11-16T21:28:14.002Z"
+    },
+    {
+      "id": "94215a0f-9ed1-4b3a-b0a2-a02d40e679c1",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "2898",
+      "tokens_prompt": "2574",
+      "tokens_completion": "324",
+      "request_started_at": "2026-11-16T21:28:14.109Z",
+      "request_ended_at": "2026-11-16T21:28:19.118Z"
+    }
+  ],
+  "credit": [
+    {
+      "request_id": "d6335f6a-7d10-4ca5-8291-4ad6f60c81ee",
+      "state": "settled",
+      "reserved_hundredths": "3923",
+      "debited_hundredths": "1059",
+      "settled_at": "2026-11-16T21:28:00.280Z"
+    },
+    {
+      "request_id": "6a4736c7-26f4-48ee-b699-fe8c0376bac0",
+      "state": "settled",
+      "reserved_hundredths": "2979",
+      "debited_hundredths": "849",
+      "settled_at": "2026-11-16T21:28:08.733Z"
+    },
+    {
+      "request_id": "264a6332-a1f5-432f-b2ce-bf42ae204e14",
+      "state": "settled",
+      "reserved_hundredths": "978",
+      "debited_hundredths": "229",
+      "settled_at": "2026-11-16T21:28:14.024Z"
+    },
+    {
+      "request_id": "94215a0f-9ed1-4b3a-b0a2-a02d40e679c1",
+      "state": "settled",
+      "reserved_hundredths": "1247",
+      "debited_hundredths": "290",
+      "settled_at": "2026-11-16T21:28:19.142Z"
+    }
+  ],
+  "wallet": {
+    "balance": "19844.15",
+    "held_hundredths": "0",
+    "remaining_held_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "counts": {
+    "active": 0,
+    "physical": 28,
+    "usage": 28,
+    "credits": 28,
+    "unsettled": 0
+  },
+  "tokensTotal": 24262,
+  "oldBudgetsUnchanged": true,
+  "auditModelRequests": 0
+}

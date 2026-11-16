@@ -1,0 +1,258 @@
+{
+  "createdAt": "2026-11-16T22:35:20.792Z",
+  "privateCheckpointPath": "/workspace/scratch/aidt-private-diagnostics-20261117/remediation-final-20261116T223520792Z",
+  "scope": "owned isolated remediation stack-01 final diagnostic backup; all actual accounting including unresolved preserved",
+  "safeZeroOutstandingRestoreEligible": false,
+  "accountingUnresolved": false,
+  "unresolvedRequests": [],
+  "dumpBytes": 4514960,
+  "dumpSha256": "39d50b82d5e7be1b810bad1a42da27f33673e43ab2672902cb8339f6e2620ecb",
+  "customListReadable": true,
+  "criticalDumpTables": {
+    "agent_versions": {
+      "expectedRows": 1,
+      "dumpRows": 1,
+      "matches": true
+    },
+    "agent_runs": {
+      "expectedRows": 11,
+      "dumpRows": 11,
+      "matches": true
+    },
+    "aidt_stage_revisions": {
+      "expectedRows": 26,
+      "dumpRows": 26,
+      "matches": true
+    },
+    "aidt_raw_upload_runs": {
+      "expectedRows": 7,
+      "dumpRows": 7,
+      "matches": true
+    },
+    "aidt_run_context_snapshots": {
+      "expectedRows": 11,
+      "dumpRows": 11,
+      "matches": true
+    },
+    "aidt_run_context_applications": {
+      "expectedRows": 22,
+      "dumpRows": 22,
+      "matches": true
+    },
+    "design_projects": {
+      "expectedRows": 1,
+      "dumpRows": 1,
+      "matches": true
+    },
+    "design_project_prototype_versions": {
+      "expectedRows": 2,
+      "dumpRows": 2,
+      "matches": true
+    },
+    "design_project_chat_messages": {
+      "expectedRows": 6,
+      "dumpRows": 6,
+      "matches": true
+    },
+    "project_member_chat_messages": {
+      "expectedRows": 9,
+      "dumpRows": 9,
+      "matches": true
+    },
+    "model_request_starts": {
+      "expectedRows": 42,
+      "dumpRows": 42,
+      "matches": true
+    },
+    "token_usage_events": {
+      "expectedRows": 42,
+      "dumpRows": 42,
+      "matches": true
+    },
+    "credit_consumption_requests": {
+      "expectedRows": 42,
+      "dumpRows": 42,
+      "matches": true
+    },
+    "credit_wallets": {
+      "expectedRows": 1,
+      "dumpRows": 1,
+      "matches": true
+    },
+    "skills": {
+      "expectedRows": 30,
+      "dumpRows": 30,
+      "matches": true
+    },
+    "skill_versions": {
+      "expectedRows": 37,
+      "dumpRows": 37,
+      "matches": true
+    },
+    "skill_version_files": {
+      "expectedRows": 114,
+      "dumpRows": 114,
+      "matches": true
+    },
+    "starter_pack_imports": {
+      "expectedRows": 18,
+      "dumpRows": 18,
+      "matches": true
+    },
+    "thread_skill_mounts": {
+      "expectedRows": 13,
+      "dumpRows": 13,
+      "matches": true
+    }
+  },
+  "stageHeads": [
+    {
+      "orgId": "org-collaboration--20261117-s-1e261c1b8eac",
+      "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+      "stageId": 1,
+      "revision": 1,
+      "contentCanonicalSha256": "7a08dfdb8dcb1042b1dae81ef36a4b1ad2dd33b64bfa97634db1c32074526266",
+      "updatedBy": "user-collab-lead--20261117-s-1e261c1b8eac",
+      "updatedAt": "2026-11-16T21:09:41.685Z"
+    },
+    {
+      "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
+      "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+      "stageId": 1,
+      "revision": 2,
+      "contentCanonicalSha256": "6d4a6a57eba7128855423704a361706f2c0025c66de8c8875184b43c8679d7f9",
+      "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "updatedAt": "2026-11-16T20:50:53.612Z"
+    },
+    {
+      "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
+      "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+      "stageId": 2,
+      "revision": 4,
+      "contentCanonicalSha256": "8eb38243b680acc241cdd30f60eda74319b82656d327cee364c703108cdbd694",
+      "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "updatedAt": "2026-11-16T21:01:17.485Z"
+    },
+    {
+      "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
+      "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+      "stageId": 3,
+      "revision": 2,
+      "contentCanonicalSha256": "2c3a4369b53f0de9346cbb1079de949c3daf4f1729d0d8656ff32d5e0d26fc07",
+      "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "updatedAt": "2026-11-16T21:03:10.236Z"
+    },
+    {
+      "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
+      "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+      "stageId": 4,
+      "revision": 4,
+      "contentCanonicalSha256": "05f5645f58651b3be3290e9607d88541242896f53f6b1405adaa0fc9faf7662a",
+      "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "updatedAt": "2026-11-16T21:19:16.607Z"
+    },
+    {
+      "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
+      "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+      "stageId": 5,
+      "revision": 4,
+      "contentCanonicalSha256": "ab9521d3a82c622366dccad874013c1a6f464ff8fac3689a00bc684e9d6aa60e",
+      "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "updatedAt": "2026-11-16T21:30:56.881Z"
+    },
+    {
+      "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
+      "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+      "stageId": 6,
+      "revision": 8,
+      "contentCanonicalSha256": "afbd9f96e2a4fe554df8a72b4d1876c7241b058fb89b399b6125c97c7cbb2943",
+      "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "updatedAt": "2026-11-16T22:29:53.029Z"
+    },
+    {
+      "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
+      "projectId": "prj-726a67d0-cba8-45f3-b61b-dd55c13c0f8f",
+      "stageId": 1,
+      "revision": 1,
+      "contentCanonicalSha256": "1af2e5a371467d1e3c99fa515bbc9e4c85ab1ebd0b144de5419f5d6d03e5a569",
+      "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "updatedAt": "2026-11-16T20:39:28.843Z"
+    }
+  ],
+  "groups": [
+    "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+    "prj-39352b3d-4e4f-4abc-9663-3bcd468dcf65",
+    "prj-6e591974-4258-4107-8942-357243a00238",
+    "prj-726a67d0-cba8-45f3-b61b-dd55c13c0f8f",
+    "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc"
+  ],
+  "agentVersionCount": 1,
+  "canonicalDefaultVersionPresent": true,
+  "objectStore": {
+    "copiedOrgCount": 1,
+    "copiedFiles": 14,
+    "copiedBytes": 115268,
+    "rawOriginalCount": 7,
+    "allRawBytesHashesAndMimeSidecarsVerified": true
+  },
+  "ledgerHashes": {
+    "protected0": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "protected1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+    "protected2": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+    "protected3": "6075b11d41d6a2c4989ab7ee7173cb367e7fd67ce5b9e879c0b036a5d61b578c",
+    "protected4": "76d40fcc66da7148ece5521c3f05d1ebcd3b106dfcf47f3e069bc7a62996ee19",
+    "protected5": "ed1900edbe44e6e166169ce2f249af98fef1815ad5f0f85f7b3a3332c1e5f8af",
+    "protected6": "0a3f45d6c77260a78764a6ccfb073e9a9b3688492a262934ba894e58d3fde78a",
+    "protected7": "d2095accd4d921fcd4285b2e05cec0e636609e2e4308ed532916d8958cfc39fc",
+    "protected8": "ce7d3a7f1d2e0812aa77218f156b70e66d77091070330af9d14b7d8596558f4c",
+    "protected9": "02f28016fceb4c7449bcbefcfa11a6cf7b81610fbc8faa45bdcdaaf8d45e5d23",
+    "nativeFresh": "e119d56ef484f50aaed5816363d99b8e6e167a658ae04eff765afa18f03c08f8",
+    "designFresh": "2049871bee9877568f3e33e3ca0e3d05f4fdc85dfc8cf8fa7b1d4b156c05ec50",
+    "journeyFresh": "af255e2dc8caf6fbe428056800b4f77d84a716541e0df18ea6540c5e0d4c7588",
+    "designState": "8a1be521e176e40f20fbec74d03f6f3f8097d6b25c550ffb69a6307eac7d6feb",
+    "currentSetup": "d9f83132df1dbbae6fe5c8356e83441e05ea254ebceab27045312ab3a16a3848",
+    "firstFocusProbe": "8432171aeecf0a122c872c771841a8b77937ec6f1bb320585b2c3384745e6499",
+    "designV2Confirmation": "d6732938d0c60153320bc09c8628de062172a983cd464d9ef341d2198959fd22",
+    "summaryCompactSetup": "60e8e3da39d302b97e42de33e0c3817c072b4d88f5a6094be7579fffcf9f6370",
+    "summaryCompactLedger": "b657519b9fe54e95ac5353a960d21fd36742b59c63d128cf68e6cfd947054977",
+    "summaryCompactSemantic": "c2585e8cb5dc7db3177e7ca365012a2942e5cc27cd950570b4859cdd8a5a9e91",
+    "extra_design_v2_student_confirmation_ledger_json": "d6732938d0c60153320bc09c8628de062172a983cd464d9ef341d2198959fd22",
+    "extra_s1_first_focus_probe_ledger_json": "8432171aeecf0a122c872c771841a8b77937ec6f1bb320585b2c3384745e6499",
+    "extra_summary_compact_semantic_review_json": "c2585e8cb5dc7db3177e7ca365012a2942e5cc27cd950570b4859cdd8a5a9e91",
+    "extra_summary_compact_thread_proof_json": "ceb8d22500a4b6331a64a079650af207aecb4aeec9b47321f65f76927be7df41",
+    "extra_summary_correction_run_ledger_json": "0f7500a9655c92e73e8ec8eed5a2356a2455d96a7d539076b7bcf65ecafd2088",
+    "extra_summary_correction_semantic_review_json": "694b5f8b4ac4677ece6bdca962cc195d9ec63017a793ac60a3d745dbc5d093cb",
+    "extra_summary_semantic_review_json": "d3cb08a1e2bac47c14e9e42cbec5530912d3820a8465d5b27432c0b4b1d29e9d"
+  },
+  "finance": {
+    "active": 0,
+    "physical": 42,
+    "usage": 42,
+    "credit": 42,
+    "unsettled": 0,
+    "heldhundredths": "0",
+    "remainingheldhundredths": "0",
+    "unbounded": "0",
+    "reportedKnownTokens": "330391",
+    "unknownUsageCount": 0,
+    "settledCreditCount": 42,
+    "pendingCreditCount": 0,
+    "wallets": [
+      {
+        "owner_type": "user",
+        "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+        "balance": "19669.42",
+        "held_hundredths": "0",
+        "remaining_held_hundredths": "0",
+        "unbounded_requests": "0"
+      }
+    ],
+    "unresolvedRequests": []
+  },
+  "privateDirectoryMode": "0700",
+  "privateDumpMode": "0600",
+  "uploadedModelConfigCopied": false,
+  "restorationTested": false,
+  "servicesStopped": false,
+  "providerRequestsSent": 0
+}

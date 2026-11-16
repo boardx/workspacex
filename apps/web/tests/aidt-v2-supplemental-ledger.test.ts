@@ -51,3 +51,13 @@ describe("separately approved additional S1, never an eighth slot in the origina
     expect(JSON.parse(readFileSync(old, "utf8"))).toMatchObject({ maximumNativeModelRuns: 7, entries: [{ skill: "aidt-understand" }, { skill: "aidt-empathize" }] });
   });
 });
+
+it("uses a separately authorized first-focus probe slot without touching or reusing the main seven", () => {
+  const { old, extra, bytes } = setup();
+  process.env.AIDT_V2_S1_PROBE_AUTHORIZED = "s1-first-focus-probe-20261117";
+  const ledger = nativeRunLedger("aidt-understand"), id = ledger.reserve("p", "thread", "aidt-understand", "one current-run focus probe");
+  ledger.record(id, "/native-send"); ledger.finish(id, { succeeded: true, runId: "actual-probe" });
+  expect(JSON.parse(readFileSync(extra, "utf8"))).toMatchObject({ maximumNativeModelRuns: 1, authorization: "s1-first-focus-probe-20261117" });
+  expect(readFileSync(old, "utf8")).toBe(bytes);
+  expect(() => ledger.reserve("p", "thread", "aidt-understand", "second probe")).toThrow("SUPPLEMENT_EXHAUSTED");
+});

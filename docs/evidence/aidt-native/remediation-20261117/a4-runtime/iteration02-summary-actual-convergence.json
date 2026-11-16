@@ -1,0 +1,156 @@
+{
+  "observedAt": "2026-11-16T21:47:23.411Z",
+  "audit": {
+    "role": "app_rw",
+    "readOnly": true,
+    "tenantScoped": true,
+    "modelRequestsSent": 0,
+    "methods": [
+      "tenant-scoped SQL SELECT",
+      "owned Python GET run",
+      "owned Python GET persisted state"
+    ],
+    "runtimeFile": "runtime-private.json"
+  },
+  "run": {
+    "id": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03",
+    "status": "succeeded",
+    "startedAt": "2026-11-16T21:45:27.501Z",
+    "endedAt": "2026-11-16T21:46:35.517Z",
+    "remoteRunId": "6ffebeae-d236-4451-aa72-7721133d2991",
+    "remoteThreadId": "2a516475-8375-4306-8d32-0a68a2c02279"
+  },
+  "journal": {
+    "stepCount": 6,
+    "eventCount": 17,
+    "eventKinds": {
+      "status": 2,
+      "tool_start": 1,
+      "tool_progress": 10,
+      "tool_end": 1,
+      "text_delta": 2,
+      "final_message": 1
+    },
+    "distinctSkillStepCallIds": [
+      "call_dc559a7fe04148c5b1fb0321"
+    ],
+    "skillSteps": [
+      {
+        "seq": 3,
+        "status": "in_progress",
+        "toolCallId": "call_dc559a7fe04148c5b1fb0321",
+        "failureCode": null,
+        "resultPublicSummary": {
+          "present": false,
+          "chars": null,
+          "sha256": null
+        }
+      },
+      {
+        "seq": 4,
+        "status": "succeeded",
+        "toolCallId": "call_dc559a7fe04148c5b1fb0321",
+        "failureCode": null,
+        "resultPublicSummary": {
+          "present": true,
+          "chars": 501,
+          "sha256": "f6510ab25a7a847f9109590a9566a099f8662e66fc8cd1d1006abb733f273c2f"
+        }
+      }
+    ],
+    "toolEvents": [
+      {
+        "seq": 1,
+        "kind": "tool_start",
+        "toolName": "call_skill",
+        "toolCallId": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03:1:call_dc559a7fe04148c5b1fb0321",
+        "sourceToolCallId": "call_dc559a7fe04148c5b1fb0321",
+        "ok": null,
+        "resultPublicSummary": {
+          "present": false,
+          "chars": null,
+          "sha256": null
+        }
+      },
+      {
+        "seq": 12,
+        "kind": "tool_end",
+        "toolName": "call_skill",
+        "toolCallId": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03:1:call_dc559a7fe04148c5b1fb0321",
+        "sourceToolCallId": "call_dc559a7fe04148c5b1fb0321",
+        "ok": true,
+        "resultPublicSummary": {
+          "present": true,
+          "chars": 501,
+          "sha256": "f6510ab25a7a847f9109590a9566a099f8662e66fc8cd1d1006abb733f273c2f"
+        }
+      }
+    ]
+  },
+  "persistedState": {
+    "stateRunMatchesRequestedRun": true,
+    "canonicalCurrentStudentTurnFound": true,
+    "totalMessages": 8,
+    "currentTurnMessages": 6,
+    "toolBatchCount": 1,
+    "toolCallCount": 1,
+    "callSkillCount": 1,
+    "toolMessageCount": 1,
+    "skillCalls": [
+      {
+        "toolCallId": "call_dc559a7fe04148c5b1fb0321",
+        "batchIndex": 1,
+        "pairedResults": 1,
+        "status": "success",
+        "content": {
+          "present": true,
+          "chars": 3688,
+          "sha256": "c7c64e6e31a54f825e4dc7704a4c32e6dd80b8625d139695d17603bb5e3d36b3"
+        },
+        "hasFeedbackArtifact": true,
+        "taskHashMatches": true,
+        "resultHashMatches": true,
+        "mountedBytesEstablished": false,
+        "mountedBytesHashMatches": null,
+        "outputEqualsFullFocusedResult": true,
+        "artifactSkillContentSha256": "12c08a161b04d9bd971f578a60ead2e2748774ad1261a9fa430d21610b1358fd",
+        "artifactSkillStableName": "dt-summarize-project",
+        "actualToolMessageName": "call_skill"
+      }
+    ],
+    "latestBatch": {
+      "callCount": 1,
+      "toolNames": [
+        "call_skill"
+      ],
+      "pairedTailResultCount": 1,
+      "singleFeedbackSuccess": true
+    },
+    "finalAnswer": {
+      "present": true,
+      "chars": 3688,
+      "sha256": "c7c64e6e31a54f825e4dc7704a4c32e6dd80b8625d139695d17603bb5e3d36b3"
+    },
+    "modelOutput": {
+      "present": true,
+      "chars": 3688,
+      "sha256": "c7c64e6e31a54f825e4dc7704a4c32e6dd80b8625d139695d17603bb5e3d36b3"
+    },
+    "modelOutputEqualsLastAnswer": true,
+    "pendingNextNodes": 0,
+    "currentRunOnly": true,
+    "metadataRemoteRunIdMatchesRequestedRun": true,
+    "successfulCallSkillCount": 1
+  },
+  "limitations": [
+    "Journal text is a bounded/redacted public summary, not a full ToolMessage.",
+    "Full hashes derive only from the matching persisted Python state, never from public summary equality.",
+    "GET run does not expose mounted org_skills config on this runtime; absent mounted bytes are unestablished, not a mismatch.",
+    "No inference of model pedagogy, financial settlement or permissions from a successful tool status."
+  ],
+  "proofExtension": {
+    "source": "Same matching owned persisted Python state as base audit; artifact hashes only",
+    "rawToolMessageExposed": false,
+    "artifactSkillContentSha256DoesNotEstablishMountedConfigBytes": true
+  }
+}

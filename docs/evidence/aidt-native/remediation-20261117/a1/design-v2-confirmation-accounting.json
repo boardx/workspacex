@@ -1,0 +1,79 @@
+{
+  "observedAt": "2026-11-16T21:42:40.621Z",
+  "phase": "design-v2-confirmation",
+  "windowStart": "2026-11-16T21:36:33.639995+00:00",
+  "readOnly": true,
+  "physical": [
+    {
+      "id": "f2e41729-f64b-4dc7-aa81-dc3dfc90fdb8",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "run_id": null,
+      "call_purpose": "auxiliary",
+      "started_at": "2026-11-16T21:39:00.855Z"
+    },
+    {
+      "id": "45b7c31f-90ac-4e84-9457-1417cadc563f",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "run_id": null,
+      "call_purpose": "auxiliary",
+      "started_at": "2026-11-16T21:39:05.610Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "f2e41729-f64b-4dc7-aa81-dc3dfc90fdb8",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "3072",
+      "tokens_prompt": "2976",
+      "tokens_completion": "96",
+      "request_started_at": "2026-11-16T21:39:00.855Z",
+      "request_ended_at": "2026-11-16T21:39:05.599Z"
+    },
+    {
+      "id": "45b7c31f-90ac-4e84-9457-1417cadc563f",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "5275",
+      "tokens_prompt": "4652",
+      "tokens_completion": "623",
+      "request_started_at": "2026-11-16T21:39:05.610Z",
+      "request_ended_at": "2026-11-16T21:39:17.387Z"
+    }
+  ],
+  "credit": [
+    {
+      "request_id": "f2e41729-f64b-4dc7-aa81-dc3dfc90fdb8",
+      "run_id": null,
+      "state": "settled",
+      "reserved_hundredths": "1417",
+      "debited_hundredths": "308",
+      "settled_at": "2026-11-16T21:39:05.603Z"
+    },
+    {
+      "request_id": "45b7c31f-90ac-4e84-9457-1417cadc563f",
+      "run_id": null,
+      "state": "settled",
+      "reserved_hundredths": "2070",
+      "debited_hundredths": "528",
+      "settled_at": "2026-11-16T21:39:17.393Z"
+    }
+  ],
+  "reportedKnownTokens": 8347,
+  "unknownUsageCount": 0,
+  "pending": [],
+  "wallet": {
+    "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+    "balance": "19832.92",
+    "held_hundredths": "0",
+    "remaining_held_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "total": {
+    "physical": 31,
+    "usage": 31,
+    "credits": 31,
+    "active": 0
+  },
+  "modelRequestsSentByAudit": 0
+}

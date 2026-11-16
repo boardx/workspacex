@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
+  "actorId": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+  "imported": [
+    {
+      "importId": "skill-import-681c63cd-07bd-4ca2-9932-d5e5a81283bf",
+      "packId": "aidt-methods",
+      "packVersion": "1.3.1",
+      "packDigest": "fe21cd22acefd26b63ebe822b57c04ac178ed58d827fa89c121983919bcb666d",
+      "status": "succeeded",
+      "skillIds": [
+        "skill-9041f4a3-cb38-4a6e-8c66-0fd1e73d791a",
+        "skill-168076ae-360b-4a06-9368-29e35ea8f313",
+        "skill-79cb31cc-5164-45cd-8347-da0cabd303ce",
+        "skill-4b2effc2-5e0e-4e3b-a4b1-609bf88a9103",
+        "skill-e91e9108-4288-4882-a05c-2233a253757a",
+        "skill-269284cc-4d39-4cfb-b33c-2fc2b586098d"
+      ],
+      "versionIds": [
+        "skill-version-a4c29acf-cdbd-4f4f-a5c6-3f3190ded7d2",
+        "skill-version-e8321d73-7994-4285-9b73-6a8a7093daf0",
+        "skill-version-c74684c9-be56-4598-9bfe-82b80f5d3381",
+        "skill-version-908b9982-7a26-46b3-a067-297dbb7728ea",
+        "skill-version-4a54b547-ada5-473e-92c9-828f4c38512c",
+        "skill-version-f0620b1c-06a4-48e5-997c-2e7aecf2f40c"
+      ],
+      "importedAt": "2026-11-16T20:33:31.408Z"
+    },
+    {
+      "importId": "skill-import-c1862052-afbd-4648-8947-5704ce707216",
+      "packId": "aidt-project-summary",
+      "packVersion": "1.0.1",
+      "packDigest": "f61a9b50f6768903867a1be137e2d334c1d65be28535dad59b6a30740f1ad5d7",
+      "status": "succeeded",
+      "skillIds": [
+        "skill-e4cfdbad-bee9-49a4-ab6e-dc6da0c7c4d0"
+      ],
+      "versionIds": [
+        "skill-version-72ce0de1-3383-4757-b365-a1201907a2be"
+      ],
+      "importedAt": "2026-11-16T20:33:31.567Z"
+    }
+  ],
+  "pins": {
+    "dt-summarize-project": "skill-version-72ce0de1-3383-4757-b365-a1201907a2be",
+    "aidt-empathize": "skill-version-e8321d73-7994-4285-9b73-6a8a7093daf0",
+    "aidt-understand": "skill-version-f0620b1c-06a4-48e5-997c-2e7aecf2f40c",
+    "aidt-iterate": "skill-version-908b9982-7a26-46b3-a067-297dbb7728ea",
+    "aidt-ideate": "skill-version-c74684c9-be56-4598-9bfe-82b80f5d3381",
+    "aidt-define": "skill-version-a4c29acf-cdbd-4f4f-a5c6-3f3190ded7d2",
+    "aidt-prototype": "skill-version-4a54b547-ada5-473e-92c9-828f4c38512c"
+  },
+  "generations": [],
+  "defaultsRolesAndWalletsChanged": false,
+  "realModelRequests": 0,
+  "independentOwnerByteVerification": "required-before-native-send"
+}

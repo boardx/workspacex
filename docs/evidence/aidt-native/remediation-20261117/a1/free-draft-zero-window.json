@@ -1,0 +1,23 @@
+{
+  "observedAt": "2026-11-16T21:09:03.783339Z",
+  "verifiedWhileActualLaunchWasZero": true,
+  "apiOwner": {
+    "pid": 539653,
+    "startTicks": "7441655"
+  },
+  "webSource": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
+  "webBuildId": "PJLKjWTjmbPQiKDY6HuwN",
+  "webBuildIdSha256": "5685118bfc40aba11cc8eea1819053f582bb23fe363aedc57f236a3906a8c4b3",
+  "allGuards": {
+    "KERNEL_AGENT_RUN_AUTOSTART": "0",
+    "KERNEL_SKILL_TRIALRUN_AUTOSTART": "0",
+    "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART": "0",
+    "KERNEL_THREAD_TITLE_MODEL_ENABLED": "0",
+    "KERNEL_STANDARD_SCHEDULER": "0"
+  },
+  "apiHealth": 200,
+  "sameOrgCumulativePhysical": 16,
+  "sameOrgCumulativeReportedTokens": 96415,
+  "sourcePurpose": "free draft transport A/B while S5 paused; root GO",
+  "modelRequestsSentByOwner": 0
+}

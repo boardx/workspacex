@@ -1,0 +1,217 @@
+{
+  "observedAt": "2026-11-16T22:03:41.473Z",
+  "readOnly": true,
+  "skills": [
+    {
+      "org_id": "org-platform",
+      "id": "skill-9041f4a3-cb38-4a6e-8c66-0fd1e73d791a",
+      "stable_name": "aidt-define",
+      "version_id": "skill-version-ddbfda45-8140-4170-bda2-bbe7a1b593d0",
+      "semantic_label": "1.3.2",
+      "content_digest": "8c3f514afa9b2e6a20a23d1356bab788d49a1713a2157cb5037e7733c3e2a052",
+      "published": true
+    },
+    {
+      "org_id": "org-platform",
+      "id": "skill-168076ae-360b-4a06-9368-29e35ea8f313",
+      "stable_name": "aidt-empathize",
+      "version_id": "skill-version-c246169d-c99f-4788-971d-9eff19d5ecb0",
+      "semantic_label": "1.3.2",
+      "content_digest": "aacfc60c87e719114e42a040c7e693a72e1f2b0a7577012fbb67ac7bcec5f100",
+      "published": true
+    },
+    {
+      "org_id": "org-platform",
+      "id": "skill-79cb31cc-5164-45cd-8347-da0cabd303ce",
+      "stable_name": "aidt-ideate",
+      "version_id": "skill-version-1d2db55e-17b3-4c63-8388-d00f4bbf4b9f",
+      "semantic_label": "1.3.2",
+      "content_digest": "9156ab1ba2762765681d4c97bc6515120ba1fe45c8e9e32b047e92b4bf69a1b3",
+      "published": true
+    },
+    {
+      "org_id": "org-platform",
+      "id": "skill-4b2effc2-5e0e-4e3b-a4b1-609bf88a9103",
+      "stable_name": "aidt-iterate",
+      "version_id": "skill-version-3a7564bc-48a6-44f6-9ccb-3c5b7f11f338",
+      "semantic_label": "1.3.2",
+      "content_digest": "1577d0b41c7ea386a83c466dbc7177a355553f05f1bced85c292d9750f4277f1",
+      "published": true
+    },
+    {
+      "org_id": "org-platform",
+      "id": "skill-e91e9108-4288-4882-a05c-2233a253757a",
+      "stable_name": "aidt-prototype",
+      "version_id": "skill-version-f214ac41-6e35-4f4f-8f44-aa19e8ba05fa",
+      "semantic_label": "1.3.2",
+      "content_digest": "bea3685f309f009ecb5677a686b2581dc59ba7ffb03acc688e387376cc6f6695",
+      "published": true
+    },
+    {
+      "org_id": "org-platform",
+      "id": "skill-269284cc-4d39-4cfb-b33c-2fc2b586098d",
+      "stable_name": "aidt-understand",
+      "version_id": "skill-version-fc7b65ce-ab13-4810-92c8-8346f137902d",
+      "semantic_label": "1.3.2",
+      "content_digest": "49c86af8e2776c22e5c2109b8676648993312d22bc09ee0170f796a4a9b57bb9",
+      "published": true
+    },
+    {
+      "org_id": "org-platform",
+      "id": "skill-e4cfdbad-bee9-49a4-ab6e-dc6da0c7c4d0",
+      "stable_name": "dt-summarize-project",
+      "version_id": "skill-version-72ce0de1-3383-4757-b365-a1201907a2be",
+      "semantic_label": "1.0.1",
+      "content_digest": "e963f35a2e2df15f9a6556b66f9c20c4a16927c8ba500e5ebf0e59ba128145da",
+      "published": true
+    }
+  ],
+  "imports": [
+    {
+      "pack_id": "aidt-methods",
+      "pack_version": "1.3.1",
+      "status": "succeeded",
+      "pack_digest": "fe21cd22acefd26b63ebe822b57c04ac178ed58d827fa89c121983919bcb666d"
+    },
+    {
+      "pack_id": "aidt-project-summary",
+      "pack_version": "1.0.1",
+      "status": "succeeded",
+      "pack_digest": "f61a9b50f6768903867a1be137e2d334c1d65be28535dad59b6a30740f1ad5d7"
+    },
+    {
+      "pack_id": "aidt-methods",
+      "pack_version": "1.3.2",
+      "status": "succeeded",
+      "pack_digest": "512e9e2a7a896238202ce4399cea5f99dfc3bc4e2ecef3cd26c4a2d2ea248dc6"
+    },
+    {
+      "pack_id": "aidt-project-summary",
+      "pack_version": "1.0.2",
+      "status": "succeeded",
+      "pack_digest": "3c6a29ab7d58289a44801305e4d597a582f13047d5860c538dd8dd4cc892cfc2"
+    }
+  ],
+  "modelRequestsSent": 0,
+  "installedContentChecks": [
+    {
+      "storedOrgId": "org-platform",
+      "stableName": "aidt-define",
+      "versionId": "skill-version-ddbfda45-8140-4170-bda2-bbe7a1b593d0",
+      "semanticLabel": "1.3.2",
+      "published": true,
+      "packId": "aidt-methods",
+      "packVersion": "1.3.2",
+      "packDigest": "512e9e2a7a896238202ce4399cea5f99dfc3bc4e2ecef3cd26c4a2d2ea248dc6",
+      "exactFilesMatch": true,
+      "fileDigests": [
+        {
+          "path": "SKILL.md",
+          "digest": "708bcbacfc07024b28866e8975c019acc1e2be3cde9e122de18847c2ae8f9e80"
+        }
+      ]
+    },
+    {
+      "storedOrgId": "org-platform",
+      "stableName": "aidt-empathize",
+      "versionId": "skill-version-c246169d-c99f-4788-971d-9eff19d5ecb0",
+      "semanticLabel": "1.3.2",
+      "published": true,
+      "packId": "aidt-methods",
+      "packVersion": "1.3.2",
+      "packDigest": "512e9e2a7a896238202ce4399cea5f99dfc3bc4e2ecef3cd26c4a2d2ea248dc6",
+      "exactFilesMatch": true,
+      "fileDigests": [
+        {
+          "path": "SKILL.md",
+          "digest": "58c8e741de027570c97354ce371c4a8e3358ea986340867279c9e8240ef9ef48"
+        }
+      ]
+    },
+    {
+      "storedOrgId": "org-platform",
+      "stableName": "aidt-ideate",
+      "versionId": "skill-version-1d2db55e-17b3-4c63-8388-d00f4bbf4b9f",
+      "semanticLabel": "1.3.2",
+      "published": true,
+      "packId": "aidt-methods",
+      "packVersion": "1.3.2",
+      "packDigest": "512e9e2a7a896238202ce4399cea5f99dfc3bc4e2ecef3cd26c4a2d2ea248dc6",
+      "exactFilesMatch": true,
+      "fileDigests": [
+        {
+          "path": "SKILL.md",
+          "digest": "3f0802db8c48dc63c67e601eba375f05db2e7f014a5683dfa23b68069ee65aef"
+        }
+      ]
+    },
+    {
+      "storedOrgId": "org-platform",
+      "stableName": "aidt-iterate",
+      "versionId": "skill-version-3a7564bc-48a6-44f6-9ccb-3c5b7f11f338",
+      "semanticLabel": "1.3.2",
+      "published": true,
+      "packId": "aidt-methods",
+      "packVersion": "1.3.2",
+      "packDigest": "512e9e2a7a896238202ce4399cea5f99dfc3bc4e2ecef3cd26c4a2d2ea248dc6",
+      "exactFilesMatch": true,
+      "fileDigests": [
+        {
+          "path": "SKILL.md",
+          "digest": "a5b2811cf4f5ba5a3e25fbd1972e8fb199bd100d1df7304a1b5eb6e4c08b8835"
+        }
+      ]
+    },
+    {
+      "storedOrgId": "org-platform",
+      "stableName": "aidt-prototype",
+      "versionId": "skill-version-f214ac41-6e35-4f4f-8f44-aa19e8ba05fa",
+      "semanticLabel": "1.3.2",
+      "published": true,
+      "packId": "aidt-methods",
+      "packVersion": "1.3.2",
+      "packDigest": "512e9e2a7a896238202ce4399cea5f99dfc3bc4e2ecef3cd26c4a2d2ea248dc6",
+      "exactFilesMatch": true,
+      "fileDigests": [
+        {
+          "path": "SKILL.md",
+          "digest": "b84b49cfde6a69a17e97cc2820bd9145f09be5472f3e630e78638d10d33c5115"
+        }
+      ]
+    },
+    {
+      "storedOrgId": "org-platform",
+      "stableName": "aidt-understand",
+      "versionId": "skill-version-fc7b65ce-ab13-4810-92c8-8346f137902d",
+      "semanticLabel": "1.3.2",
+      "published": true,
+      "packId": "aidt-methods",
+      "packVersion": "1.3.2",
+      "packDigest": "512e9e2a7a896238202ce4399cea5f99dfc3bc4e2ecef3cd26c4a2d2ea248dc6",
+      "exactFilesMatch": true,
+      "fileDigests": [
+        {
+          "path": "SKILL.md",
+          "digest": "1fdf7d368be2d1d9a0e61a8f98ee8a87a69e54cc21c5478da7baf9d6fc104cb9"
+        }
+      ]
+    },
+    {
+      "storedOrgId": "org-platform",
+      "stableName": "dt-summarize-project",
+      "versionId": "skill-version-72ce0de1-3383-4757-b365-a1201907a2be",
+      "semanticLabel": "1.0.1",
+      "published": true,
+      "packId": "aidt-project-summary",
+      "packVersion": "1.0.1",
+      "packDigest": "f61a9b50f6768903867a1be137e2d334c1d65be28535dad59b6a30740f1ad5d7",
+      "exactFilesMatch": true,
+      "fileDigests": [
+        {
+          "path": "SKILL.md",
+          "digest": "12c08a161b04d9bd971f578a60ead2e2748774ad1261a9fa430d21610b1358fd"
+        }
+      ]
+    }
+  ]
+}

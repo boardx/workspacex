@@ -1,0 +1,36 @@
+{
+  "scope": "free setup, not a native model task",
+  "attempts": [
+    {
+      "attempt": 1,
+      "status": "failed-before-collection",
+      "reason": "QA import.meta compiled as CJS",
+      "browserOpened": false,
+      "modelSent": false,
+      "originalConsole": "/workspace/scratch/aidt-remediation-20261117/setup-console.txt"
+    },
+    {
+      "attempt": 2,
+      "status": "failed-after-normal-login-before-api-import",
+      "reason": "QA process API prefix unset; Next HTML404 at /api; actual API imports and model counters independently zero",
+      "modelSent": false,
+      "originalResults": "/workspace/scratch/aidt-remediation-20261117/setup-attempt02-output/results.json"
+    },
+    {
+      "attempt": 3,
+      "status": "passed",
+      "tests": 1,
+      "durationSeconds": 2.6,
+      "packCoordinates": [
+        "aidt-methods@1.3.1",
+        "aidt-project-summary@1.0.1"
+      ],
+      "realAdminImports": 2,
+      "generationRequests": 0,
+      "actualApiPrefix": "/__fullstack_api",
+      "evidence": "free-setup-attempt03.json"
+    }
+  ],
+  "nativeJournalOrJourneyStateCreated": false,
+  "next": "S1 paused by root until Python mixed-tool fix and independent owner pin-byte audit"
+}

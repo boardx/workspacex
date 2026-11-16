@@ -1,0 +1,17 @@
+{
+  "at": "2026-11-16T21:34:26.690291+00:00",
+  "readOnly": true,
+  "designProjectId": "5e9e0ac2-137d-46b6-bbad-7448868b7cad",
+  "actualVersionCount": 1,
+  "versions": [
+    {
+      "id": "5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr",
+      "seq": 1,
+      "source": "model",
+      "prototypeCanonicalSha256": "365179b5621a87f831c1a49c96b7f036b5a5db0668fdddb540f0e54d5b3c86e3",
+      "screensCount": 1,
+      "createdAt": "2026-11-16 21:22:59.100730+00:00"
+    }
+  ],
+  "noModelRequestsSent": true
+}

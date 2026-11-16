@@ -37,3 +37,29 @@ The original SUM defect must remain accurately described: the report did include
 ## Follow-up acceptance
 
 Root/A6 will provide frozen inputs and actual model replies for S2/S3/SUM. Semantic review must compare those actual sources with the reply, checking simulation/practice boundaries, exact source categories, student decision ownership, the valid “暂无” branch, source-scope disclosure and version/return history. If content still deviates, report the deviation; do not reinterpret a successful request, saved object, exported file, or later student correction as original-model teaching acceptance.
+
+## Actual S1 semantic review — one source question, with a framing defect
+
+**Actual evidence:** [S1 actual turn](../a6/s1-actual-turn.json), run `cc29fef8-3cb3-4cc4-8969-2df5e2e2631a`, selected S1 revision 1, new mounted Skill version `skill-version-f0620b1c-06a4-48e5-997c-2e7aecf2f40c`. The JSON contains the actual student request and reply. The setup in `apps/web/e2e/aidt-v2-completion.spec.ts` saves `guess`, no observation/interview quote, and expressly leaves whether the difficulty exists unknown. Source/UI receipts agree on the frozen snapshot and show `message-dispatch-observed`; they do not prove provider understanding or research truth. This review did not send another model request or change the saved evidence.
+
+The request was: “只追问一个帮助学生澄清问题来源的问题”. The bold reply asks:
+
+> 你们最初为什么会想到“新同学在食堂看不懂分区牌”这件事？是因为有人亲口抱怨过、你们自己亲眼看到谁找错过位置，还是大家凭经验觉得“应该会有人搞不清楚”？
+
+### Question focus
+
+These are two interrogative sentences but one response task: describe where the initial research idea came from. The second sentence supplies concrete source categories for answering the first. It does not ask students to perform a second independent activity such as choose a solution, synthesize interview evidence, rewrite the topic, or generate a prototype. Thus a strict `ONE_FOCUSED_QUESTION_REQUIRED` failure based only on two question marks overstates this defect. The valid semantic check is one focused source clarification, with optional examples/options that do not become additional required tasks. Do not remove the substantive one-focus requirement merely to turn this run green.
+
+### Premise fidelity
+
+A separate defect remains. The stored initial topic is “如何让新同学理解食堂取餐指示”, while its activity field explicitly says “困惑是否实际存在仍待讨论”. The reply changes this to a quoted “新同学在食堂看不懂分区牌”. That negative formulation narrows the student's open understanding question into a proposed deficit and is not an exact quotation of their topic. It can prime students to explain a difficulty whose existence is still unknown. Future wording should preserve the original topic or explicitly label any proposed negative formulation as an optional hypothesis, not put it in the student's mouth.
+
+The complete reply does **not** claim this deficit is verified: its opening correctly says the source is guess, there has been no actual observation or human interview, and whether any difficulty exists is unknown. Its closing says not to treat the difficulty as already established. It neither creates participant quotations nor saves/confirms a stage, and it waits for students' own accounts. Consequently this is a real framing/quotation-fidelity defect, not a demonstrated fabricated interview or claim of proven user difficulty.
+
+**Judgment:** the single-source-question and student/evidence boundaries are substantively met in this turn; a punctuation-only focused-question assertion is not a sound reason to fail or rerun it. Record the inaccurate negative paraphrase as a remaining quality defect. Do not label this reply “zero deviation”, erase the earlier QA failure, infer full FR15 value-question coverage, or credit a later student correction to the model. Preserve this run and continue independent tests; a wording fix and its later verification should have their own evidence rather than a gratuitous repeat paid request.
+
+## R1 follow-up — narrow source fix inspected
+
+After the finding was reported, A1's owner supplied a root-authorized narrow fix. Independent reread confirms `_completed_feedback_message` now selects the **latest** assistant tool-call batch, requires exactly one `call_skill`, requires exactly one matching successful tool result after it, and then applies the mounted-byte/task/result binding. Mixed batches, another latest pending batch, unpaired/duplicate results and failed results fall back to the original handler rather than searching backward for a convenient earlier success.
+
+The owner added explicit mixed error/denied/unknown/success/pending and later-batch/duplicate-result counterexamples, plus a real graph with a fake provider that must deliver an unknown-tool error to the outer model. Owner-reported verification is 41 feedback tests passed and combined 217 passed / 2 skipped. This reviewer inspected the new code and test cases but did not independently rerun them. The original R1 observation above remains a record of the pre-fix state; deployment, actual-stack results and cancellation/HITL acceptance belong to their respective live evidence, not this source review.

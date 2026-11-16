@@ -1,0 +1,52 @@
+{
+  "samples": [
+    {
+      "file": "SYNTHETIC-interview-guide.pdf",
+      "originalPath": "/workspace/scratch/aidt-remediation-20261117/iteration-02/s2-attempt01/aidt-v2-completion-complet-5a5a3-tudent-revision-→-new-login/student-reviewed-interview-guide.pdf",
+      "bytes": 141561,
+      "sha256": "cedc6b2d18c5b442d4283e1a7725721e9321a8a7e7316bf377cb2729257f4141",
+      "synthetic": true,
+      "realResearchEvidence": false,
+      "generationReRun": false
+    },
+    {
+      "file": "SYNTHETIC-idea-1.pdf",
+      "originalPath": "/workspace/scratch/aidt-remediation-20261117/iteration-02/s4-attempt01/aidt-v2-completion-complet-0bc08-tudent-revision-→-new-login/idea-1.pdf",
+      "bytes": 305211,
+      "sha256": "ab7bba937332993af4b1d76df378a822723161c94eeea3524ecb6176713575eb",
+      "synthetic": true,
+      "realResearchEvidence": false,
+      "generationReRun": false
+    },
+    {
+      "file": "SYNTHETIC-idea-2.pdf",
+      "originalPath": "/workspace/scratch/aidt-remediation-20261117/iteration-02/s4-attempt01/aidt-v2-completion-complet-0bc08-tudent-revision-→-new-login/idea-2.pdf",
+      "bytes": 272718,
+      "sha256": "a78ad7270a8014ce93836c1e731ec1fcc4ddc207eb1281aac9124118d7a9b6a6",
+      "synthetic": true,
+      "realResearchEvidence": false,
+      "generationReRun": false
+    },
+    {
+      "file": "SYNTHETIC-idea-3.pdf",
+      "originalPath": "/workspace/scratch/aidt-remediation-20261117/iteration-02/s4-attempt01/aidt-v2-completion-complet-0bc08-tudent-revision-→-new-login/idea-3.pdf",
+      "bytes": 262394,
+      "sha256": "d01b7acad782b0f27a9454a139882845d451306a67013504e9915b15e1663a4b",
+      "synthetic": true,
+      "realResearchEvidence": false,
+      "generationReRun": false
+    },
+    {
+      "file": "SYNTHETIC-student-corrected-group-report.md",
+      "originalPath": "/workspace/scratch/aidt-remediation-20261117/iteration-02/summary-correction-free-ui01/aidt-v2-summary-compact-st-4b5a7-ion-→-save-export-and-login/student-reviewed-compact-report.md",
+      "sizeBytes": 17512,
+      "sha256": "cff2d718fa456dc60c7ed8016fd26e6979fad5fc912050ef47ff534bfec68728",
+      "synthetic": true,
+      "actualProductExport": true,
+      "studentCorrectionRequired": true,
+      "sourceRunId": "3afe33fe-42ce-4db8-9884-70b14253f2ba",
+      "notRealResearchOrClassroomAcceptance": true
+    }
+  ],
+  "scope": "Original actual product beforeprint DOM captured as Chromium PDF; synthetic classroom E2E material; native OS save dialog not automated."
+}

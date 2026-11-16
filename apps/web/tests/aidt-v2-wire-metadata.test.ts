@@ -51,6 +51,25 @@ describe("real-model QA wire: coordinates only, never material consumption proof
     expect(() => aidtV2WireMetadata({ ...quoted, context: [{ value: text }] }, [source], "aidt-empathize", undefined, [text])).toThrow();
     expect(() => aidtV2WireMetadata(quoted, [source], "aidt-empathize", undefined, ["different actual student text"])).toThrow();
   });
+  it("allows only exact GET-verified canonical history, never an assistant-shaped material carrier", () => {
+    const text = `旧助手草稿引用：${source.marker}`;
+    const canonical = [{ id: "stored-agent-message", role: "assistant" as const, text }];
+    const old = { ...body(), messages: [{ id: canonical[0]!.id, role: "assistant", content: text }] };
+    expect(aidtV2WireMetadata(old, [source], "aidt-empathize", undefined, [], canonical).messages[0]?.hasSavedMarker).toBe(true);
+    for (const changed of [{ ...old.messages[0], content: `${text}改字` }, { ...old.messages[0], id: "new-fake-id" }, { ...old.messages[0], role: "user" }, { ...old.messages[0], role: "system" }]) {
+      expect(() => aidtV2WireMetadata({ ...old, messages: [changed] }, [source], "aidt-empathize", undefined, [], canonical)).toThrow(/MATERIAL_BODY_LEAK/);
+    }
+    expect(() => aidtV2WireMetadata({ ...old, context: [{ value: text }] }, [source], "aidt-empathize", undefined, [], canonical)).toThrow(/MATERIAL_BODY_LEAK/);
+    expect(() => aidtV2WireMetadata({ ...old, forwardedProps: { aidtContext: selector, hidden: text } }, [source], "aidt-empathize", undefined, [], canonical)).toThrow(/MATERIAL_BODY_LEAK/);
+  });
+  it("also binds historical human quotes to verified ids and role, while the current authored input remains literal", () => {
+    const text = `学生上轮主动引用：${source.marker}`;
+    const history = [{ id: "stored-human", role: "user" as const, text }];
+    const valid = { ...body(), messages: [{ id: "stored-human", role: "user", content: [{ type: "text", text }] }] };
+    expect(aidtV2WireMetadata(valid, [source], "aidt-empathize", undefined, [], history).messages[0]?.hasSavedMarker).toBe(true);
+    expect(() => aidtV2WireMetadata({ ...valid, messages: [{ ...valid.messages[0], id: "fake-human" }] }, [source], "aidt-empathize", undefined, [], history)).toThrow(/MATERIAL_BODY_LEAK/);
+    expect(() => aidtV2WireMetadata({ ...valid, messages: [{ ...valid.messages[0], role: "assistant" }] }, [source], "aidt-empathize", undefined, [], history)).toThrow(/MATERIAL_BODY_LEAK/);
+  });
   it("compares exact independently selected historical coordinates, not whichever head is latest", () => {
     const expected = AidtContextSelector.parse({ ...selector, stageRevisions: [{ stageId: 1, revision: 1 }] });
     expect(() => aidtV2WireMetadata(body(), [], "aidt-empathize", expected)).toThrow(/COORDINATES_MISMATCH/);

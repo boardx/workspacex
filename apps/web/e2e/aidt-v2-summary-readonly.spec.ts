@@ -1,0 +1,24 @@
+import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
+import { expect, test } from "@playwright/test";
+import { chat, wave2Runtime } from "@repo/contracts";
+import { operations as contextOperations } from "@repo/contracts/aidt-run-context";
+import { aidtV2Api, assertAidtV2Target, loginAidtV2, readAidtV2Stage } from "./support/aidt-v2-acceptance";
+test("read-only correction existing native run and source packet without resending", async ({ page }, info) => {
+ test.setTimeout(120_000); assertAidtV2Target();
+ const proof = JSON.parse(readFileSync(process.env.AIDT_V2_SUMMARY_UPGRADE_PROOF!, "utf8"));
+ const posts: string[] = []; page.on("request", request => { if (request.method() === "POST" && /copilotkit/u.test(new URL(request.url()).pathname)) posts.push(request.url()); });
+ await loginAidtV2(page); await page.goto(`/aidt/${proof.projectId}?step=6&tool=chat&summary=1&summaryThread=${proof.threadId}`);
+ let messages: ReturnType<typeof chat.operations.listMessages.out.parse>["messages"] = [];
+ await expect.poll(async () => { const r = await aidtV2Api(page, `/chat/threads/${proof.threadId}/messages?limit=100`); expect(r.status).toBe(200); messages = chat.operations.listMessages.out.parse(r.data).messages; return messages.filter(row => row.authorKind === "agent" && row.agentRunId).length; }, { timeout: 90_000, intervals: [1_000] }).toBe(2);
+ const reply = messages.filter(row => row.authorKind === "agent" && row.agentRunId).at(-1)!;
+ const human = messages.filter(row => row.authorKind === "human").at(-1)!;
+ const response = await aidtV2Api(page, `/agent-runs/${reply.agentRunId!}`); expect(response.status).toBe(200); const run = wave2Runtime.operations.getAgentRun.out.parse(response.data); expect(run.status).toBe("succeeded");
+ const receipt = await aidtV2Api(page, contextOperations.receipt.path.replace(":runId", run.runId)); expect(receipt.status).toBe(200);
+ await page.getByRole("button", { name: "读取报告材料", exact: true }).click(); const materials = page.getByTestId("aidt-summary-materials"); await materials.locator("summary").first().click();
+ const packet = JSON.parse(await materials.locator("pre").innerText());
+ const stages = await Promise.all([1,2,3,4,5,6].map(id => readAidtV2Stage(page, proof.projectId, id)));
+ const payload = { projectId: proof.projectId, turn: { threadId: proof.threadId, runId: run.runId, assistantMessageId: reply.id, assistantText: reply.text, studentInput: human.text, sourceReceipt: receipt.data }, run, packet, currentSavedStages: stages, messages, assistantTextSha256: createHash("sha256").update(reply.text).digest("hex"), modelRequestsSentByRecovery: posts.length, originalBrowserFailureRetained: true };
+ expect(posts).toEqual([]); writeFileSync(info.outputPath("correction-pending-independent-review.json"), JSON.stringify(payload, null, 2), {flag:"wx",mode:0o600});
+ console.info(`[aidt-v2] EXISTING_CORRECTION_READ_ONLY run=${run.runId} output=${info.outputPath("correction-pending-independent-review.json")}`);
+});

@@ -1,0 +1,37 @@
+{
+  "at": "2026-11-16T21:05:41.750081+00:00",
+  "phaseFrom": "s3",
+  "phaseTo": "s4",
+  "previousActualRun": "9a9ad962-491a-45e7-853e-e709d5737b72",
+  "previousPhasePhysical": 4,
+  "previousPhaseTokens": 22843,
+  "cumulative": {
+    "active": 0,
+    "physical": 12,
+    "usage": 12,
+    "credits": 12,
+    "unsettled": 0
+  },
+  "wallet": {
+    "balance": "19930.95",
+    "held_hundredths": "0",
+    "remaining_held_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "oldTenFilesUnchanged": true,
+  "actualApiOwner": {
+    "pid": 529464,
+    "startTicks": "7366684"
+  },
+  "actualGuards": {
+    "KERNEL_AGENT_RUN_AUTOSTART": "1",
+    "KERNEL_SKILL_TRIALRUN_AUTOSTART": "0",
+    "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART": "0",
+    "KERNEL_THREAD_TITLE_MODEL_ENABLED": "0",
+    "KERNEL_STANDARD_SCHEDULER": "0"
+  },
+  "apiHealth": 200,
+  "sameHealthyApiProcessReused": true,
+  "rootConditionalNextPhaseGoApplied": true,
+  "modelRequestsSentByOwner": 0
+}

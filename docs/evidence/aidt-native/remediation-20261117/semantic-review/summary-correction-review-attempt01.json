@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "runId": "3afe33fe-42ce-4db8-9884-70b14253f2ba",
+  "assistantMessageId": "7b62d747-256d-4587-97f2-58f1487d486d",
+  "assistantTextSha256": "c3cf8eaa998cbe2ea42eae16c296c8d46c10b2ed54e3b66a76d6e7f10050e871",
+  "assistantTextCharacters": 1976,
+  "assistantTextUtf8Bytes": 4986,
+  "criticalCount": 0,
+  "reviewedFullReport": true,
+  "referencesChecked": true,
+  "reviewRole": "independent-teaching-semantic-agent",
+  "classroomAcceptance": false,
+  "modelRequestsSent": 0,
+  "reviewedAt": "2026-11-16T22:20:05.225189+00:00",
+  "disposition": "allow-explicit-student-import-of-reviewed-corrected-draft-with-advisories",
+  "generatedReportComplete": true,
+  "criticalFindings": [],
+  "reviewScope": "Read full new correction response without display truncation, actual succeeded run and student clarification, sourceReceipt/packet, exact current six-stage objects (equal to independently reviewed compact source), prior old S6 V4 and V5/V6 objects, and actual V1/V2 HTML/version evidence. This is independent AI semantic review, not a teacher signoff or autonomous confirmation.",
+  "resolvedFindings": [
+    {
+      "id": "SUM-C1",
+      "scope": "new response only",
+      "finding": "The corrected response has all seven sections and a complete final student-review invitation. The old truncated response remains rejected."
+    },
+    {
+      "id": "SUM2-C1",
+      "scope": "student-clarified correction only",
+      "finding": "The new text quotes frozen S6 old question exactly, identifies sourceStageRevision=3/S5 V3, separately quotes actual S5 V4 next-round new question, and does not backfill the new question into the old round. The original compact response remains rejected."
+    }
+  ],
+  "positiveBoundaries": [
+    "No real study, user test or teacher comment is invented; unknowns and no-surprise remain explicit.",
+    "Input excerpts/truncation and static noninteractive nature are disclosed.",
+    "Actual V1 and distinct V2 remain traceable, synthetic mapping is identified, and effectiveness is not declared.",
+    "Historical return2 and later separately chosen return5 remain distinct; real research gaps persist.",
+    "The correction explicitly follows student source clarification and returns the draft to students for review; it does not claim saved/confirmed/exported."
+  ],
+  "advisories": [
+    {
+      "id": "SUM3-A1",
+      "finding": "S2 phrasing 请模拟角色讲述具体经历 still sounds like performed interaction; prefer describing the preauthored synthetic card directly. Its synthetic status is explicit, so no real interview is fabricated."
+    },
+    {
+      "id": "SUM3-A2",
+      "finding": "V2 contains one synthetic number-to-zone-label mapping, with no physical B-zone location/map. Future testing must distinguish verbal label understanding from real window/location identification and efficiency; this draft makes no such effectiveness claim."
+    },
+    {
+      "id": "SUM3-A3",
+      "finding": "For precise history, return5 begins at S6 V5 and V6 binds V2; the report cites V6/V7 for the later action. Broad old/new decision separation is preserved."
+    },
+    {
+      "id": "SUM3-A4",
+      "finding": "Use 被审/静态检查 rather than 被测试 for V1, and tighten version-specific minor citations where only V4 contains the detailed static findings. Repeated no-real-test statements currently preserve the research boundary."
+    }
+  ],
+  "notProven": [
+    "Human course/design signoff",
+    "Real classroom learning or user testing",
+    "V2 spatial task fitness or effectiveness",
+    "Student import/save/export completion; must be separately observed"
+  ],
+  "recoveryModelRequestsSent": 0,
+  "originalBrowserFailureRetained": true,
+  "priorRejectedRunIds": [
+    "5d5c6b78-4375-4d5e-afcf-257bd0f76e03",
+    "0bb61ff9-9136-4fc5-8b8c-d98f5dec435f"
+  ],
+  "sourcePacketSha256": "797e7aa6a32532b7918ddabfb8595d0327bace0bd19116f20865be99f40d1fe7"
+}

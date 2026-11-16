@@ -1,0 +1,45 @@
+{
+  "frozenAt": "2026-11-16T20:45:34.582256+00:00",
+  "modelResult": "server succeeded; teaching E2E not accepted",
+  "projectId": "prj-726a67d0-cba8-45f3-b61b-dd55c13c0f8f",
+  "runId": "cc29fef8-3cb3-4cc4-8969-2df5e2e2631a",
+  "files": [
+    {
+      "path": "/workspace/scratch/aidt-remediation-20261117/native-run-journal.json",
+      "sha256": "d2095accd4d921fcd4285b2e05cec0e636609e2e4308ed532916d8958cfc39fc",
+      "bytes": 827
+    },
+    {
+      "path": "/workspace/scratch/aidt-remediation-20261117/journey-state.json",
+      "sha256": "ce7d3a7f1d2e0812aa77218f156b70e66d77091070330af9d14b7d8596558f4c",
+      "bytes": 137
+    },
+    {
+      "path": "/workspace/scratch/aidt-remediation-20261117/setup-import-pins.json",
+      "sha256": "02f28016fceb4c7449bcbefcfa11a6cf7b81610fbc8faa45bdcdaaf8d45e5d23",
+      "bytes": 2421
+    }
+  ],
+  "physical": 3,
+  "reportedTokens": 14097,
+  "settled": 3,
+  "debitedTestCredits": "14.12",
+  "resetOrRestored": false,
+  "entryCanonicalHashFormat": "JSON sorted keys, compact separators, UTF-8",
+  "entries": [
+    {
+      "runId": "cc29fef8-3cb3-4cc4-8969-2df5e2e2631a",
+      "sha256": "919d5530a8a20cbf4285445ed284ee762edce2248fa8cd90fd3d071da1cf0bc1",
+      "status": "succeeded"
+    }
+  ],
+  "savedStages": [
+    {
+      "stageId": 1,
+      "revision": 1,
+      "contentSha256": "1af2e5a371467d1e3c99fa515bbc9e4c85ab1ebd0b144de5419f5d6d03e5a569",
+      "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "updatedAt": "2026-11-16 20:39:28.843219+00:00"
+    }
+  ]
+}

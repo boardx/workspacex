@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+  "runId": "3afe33fe-42ce-4db8-9884-70b14253f2ba",
+  "assistantMessageId": "7b62d747-256d-4587-97f2-58f1487d486d",
+  "assistantTextSha256": "c3cf8eaa998cbe2ea42eae16c296c8d46c10b2ed54e3b66a76d6e7f10050e871",
+  "savedStageRevision": 8,
+  "savedReportBodySha256": "33b491f1e3f19166ee131583aef0506c9548fa985c0af844495a621a3d1e5e5a",
+  "actualExportSha256": "cff2d718fa456dc60c7ed8016fd26e6979fad5fc912050ef47ff534bfec68728",
+  "actualExportBytes": 17512,
+  "sameRunFreeRecovery": true,
+  "newModelPosts": 0,
+  "sameThreadStudentCorrection": true,
+  "independentSemanticCriticalCount": 0,
+  "oldMainJourneySumStatus": "attempting-preserved",
+  "oldMainAndBothExtraLedgersUnchanged": true,
+  "originalPaidBrowserWireAssertion": "failed-preserved-not-reclassified",
+  "originalTwoSummarySemanticFailuresRetained": true,
+  "syntheticResearchOnly": true,
+  "humanClassroomAcceptance": false
+}

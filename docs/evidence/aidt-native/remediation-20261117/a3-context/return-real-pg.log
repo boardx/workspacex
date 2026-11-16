@@ -1,0 +1,16 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+[db-isolation] db=wsx_aidt_bridge_remediation_20261117 capacity=100 current=11 required=32
+(node:507599) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ tests/aidt-run-context/return-real-pg.test.ts (7 tests) 2283ms
+   ✓ confirmed old S6 revision targets S2 and freezes only its whitelisted reflection despite newer S5/S6 heads 400ms
+   ✓ foreign-project-revision rejects before any human/run/snapshot/application insertion 366ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  20:32:24
+   Duration  4.54s (transform 1.28s, setup 6ms, collect 1.60s, tests 2.28s, environment 0ms, prepare 32ms)
+
+[db-isolation] db=wsx_aidt_bridge_remediation_20261117 peak_connections=7

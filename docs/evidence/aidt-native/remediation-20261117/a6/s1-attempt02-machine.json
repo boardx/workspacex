@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "actualNativeRunStatus": "succeeded",
+  "runId": "cc29fef8-3cb3-4cc4-8969-2df5e2e2631a",
+  "automatedCaseStatus": "failed-content-gate",
+  "failedCriteria": [
+    {
+      "passed": false,
+      "failures": [
+        "ONE_FOCUSED_QUESTION_REQUIRED"
+      ],
+      "humanTeachingReview": "required"
+    }
+  ],
+  "studentSaveAndFreshLoginVerified": false,
+  "stateStatus": "attempting",
+  "automaticRetry": false,
+  "rawOriginalResults": "/workspace/scratch/aidt-remediation-20261117/s1-attempt02/results.json",
+  "contentAssessment": "root independent review requested: two question marks within one origin question and clarifying source alternatives",
+  "nextPhaseAuthorized": false
+}

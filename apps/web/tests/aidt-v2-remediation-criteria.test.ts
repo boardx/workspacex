@@ -40,3 +40,29 @@ it("catches the preserved real S2 and SUM failures without rewriting their evide
   const oldSummary = evaluateAidtSummary(read("sum-actual-turn.json").assistantText, { truncated: true, hasV2: true, historicalReturnStep: 2, currentReturnStep: 5 });
   expect(oldSummary.failures).toEqual(expect.arrayContaining(["VISIBLE_SAVED_V2_MUST_BE_REPORTED", "HISTORICAL_STUDENT_RETURN_DECISION_REQUIRED", "TRUNCATED_MODEL_SCOPE_MUST_BE_DISCLOSED"]));
 });
+
+it("separates a coherent source question with options from a single-question-mark batch of tasks", () => {
+  const source = { studentProblem: "如何让新同学理解取餐指示？目前只是猜测，是否存在困惑未知。" };
+  const coherent = evaluateAidtStageReply(1, "你们最初为什么提出这个问题？是亲眼观察、听到抱怨，还是暂时的猜测？", source);
+  expect(coherent.passed).toBe(true); expect(coherent.advisories).toContain("LITERAL_QUESTION_MARK_COUNT:2");
+  const batch = evaluateAidtStageReply(1, "围绕问题来源，请先填写画像，再投票选择点子，最后制作原型，你们可以一次完成吗？", source);
+  expect(batch.failures).toContain("MULTIPLE_INDEPENDENT_STUDENT_TASKS");
+});
+it("checks the actual saved student's premise rather than upgrading neutral unknowns into quoted difficulty", () => {
+  const neutral = { studentProblem: "如何让新同学理解食堂取餐指示？尚无真人访谈，是否困惑未知。" };
+  expect(evaluateAidtStageReply(1, "你们最初为什么会想到“新同学在食堂看不懂分区牌”这件事？", neutral).failures).toContain("S1_STUDENT_PREMISE_MUST_NOT_BE_STRENGTHENED");
+  expect(evaluateAidtStageReply(1, "你们最初为什么会想到“新同学在食堂看不懂分区牌”这件事？", { studentProblem: "新同学在食堂看不懂分区牌；这是未经核实的猜测。" }).passed).toBe(true);
+  expect(evaluateAidtStageReply(1, "目前只是猜测。下一步可观察是否出现“看不懂”的情况，你们会先核对哪项来源？", neutral).passed).toBe(true);
+});
+it("preserves the actual S1 format advisory and still rejects its strengthened quoted premise", () => {
+  const turn = JSON.parse(readFileSync(new URL("../../../docs/evidence/aidt-native/remediation-20261117/a6/s1-actual-turn.json", import.meta.url), "utf8")) as { assistantText: string };
+  const reviewed = evaluateAidtStageReply(1, turn.assistantText, { studentProblem: "合成课堂练习：如何让新同学理解食堂取餐指示？尚无真人访谈。" });
+  expect(reviewed.advisories).toContain("LITERAL_QUESTION_MARK_COUNT:2");
+  expect(reviewed.failures).toContain("S1_STUDENT_PREMISE_MUST_NOT_BE_STRENGTHENED");
+});
+
+it("keeps scope denials and compact structured return labels distinct from unsupported claims", () => {
+  const compact = honest.replace("历史选择返回第2步补访，当前选择回第五步修改原型。", "历史S6V4 returnStep=2，当前V6 return5，未完整读取原件。 ");
+  expect(evaluateAidtSummary(compact, { truncated: true, hasV2: true, historicalReturnStep: 2, currentReturnStep: 5 }).passed).toBe(true);
+  expect(evaluateAidtSummary(compact.replace("returnStep=2", "returnStep=3"), { truncated: true, hasV2: true, historicalReturnStep: 2, currentReturnStep: 5 }).failures).toContain("HISTORICAL_STUDENT_RETURN_DECISION_REQUIRED");
+});

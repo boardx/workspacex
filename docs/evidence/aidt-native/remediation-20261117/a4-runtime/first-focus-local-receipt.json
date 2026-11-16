@@ -16,7 +16,20 @@
     "regressionSkipped": 2,
     "regressionWarnings": 2,
     "regressionSeconds": 13.99,
-    "excludedTest": "tests/golden/test_tc5_checkpoint_kill_recovery.py requires separate PostgreSQL fixture"
+    "excludedTest": "tests/golden/test_tc5_checkpoint_kill_recovery.py requires separate PostgreSQL fixture",
+    "skippedTests": [
+      {
+        "nodeId": "tests/test_native_graph.py::test_real_pinned_skill_executes_in_isolated_session",
+        "reason": "Requires an explicitly owned E003 integration container",
+        "source": "tests/native_sandbox_fixture.py:44"
+      },
+      {
+        "nodeId": "tests/test_native_graph.py::test_real_execute_waits_for_official_approval",
+        "reason": "Requires an explicitly owned E003 integration container",
+        "source": "tests/native_sandbox_fixture.py:44"
+      }
+    ],
+    "skipVerification": "Exact two test nodes targeted with -q -rs; 2 skipped in 1.25s, no whole-suite rerun"
   },
   "checks": {
     "diffCheck": true,
@@ -28,5 +41,30 @@
     "Local scripted provider tests do not prove real-provider teaching quality, latency, or model pricing.",
     "Source readiness is not proof a running process loaded these bytes. Environment owner must attest restart.",
     "Existing S1-S4 real-run evidence predates this first-focus fix and is not rewritten."
-  ]
+  ],
+  "verificationCommand": {
+    "cwd": "/workspace/aidt-module-latest",
+    "environment": {
+      "PYTHONPATH": "/workspace/scratch/aidt-remediation-20261117/qa-tools:apps/deep-agent-service/src"
+    },
+    "executable": "/workspace/scratch/aidt-real-model-20261116/python/bin/python",
+    "args": [
+      "-m",
+      "pytest",
+      "apps/deep-agent-service/tests/test_aidt_feedback_turn.py",
+      "apps/deep-agent-service/tests/test_tools.py",
+      "apps/deep-agent-service/tests/test_harness.py",
+      "apps/deep-agent-service/tests/test_tool_budget.py",
+      "apps/deep-agent-service/tests/test_graph.py",
+      "apps/deep-agent-service/tests/test_native_graph.py",
+      "apps/deep-agent-service/tests/golden",
+      "--ignore=apps/deep-agent-service/tests/golden/test_tc5_checkpoint_kill_recovery.py",
+      "-q"
+    ]
+  },
+  "sourceAttestation": {
+    "observedHead": "93b76865a",
+    "recordedSourceHashesStillMatchCurrent": true,
+    "check": "Read-only SHA256 recheck of both recorded source files; no test rerun"
+  }
 }

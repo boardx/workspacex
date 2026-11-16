@@ -1,0 +1,21 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+[db-isolation] db=wsx_aidt_bridge_remediation_20261117 capacity=100 current=9 required=32
+(node:506392) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ tests/aidt-run-context/bridge-real-pg.test.ts (22 tests) 16634ms
+   ✓ approved AIDT bridge: real database to actual adapter without supplier fees > CTX-P01/N01/I03: atomic source snapshot reaches exact actual HTTP history slot; human remains exact 526ms
+   ✓ approved AIDT bridge: real database to actual adapter without supplier fees > CTX-N02/N03/N04: admin-not-group-member rejection rolls back human/run/snapshot before any ModelCall 304ms
+   ✓ approved AIDT bridge: real database to actual adapter without supplier fees > CTX-N05 race: actual membership delete waits for atomic acceptance, then fresh dispatch authorization denies 310ms
+   ✓ approved AIDT bridge: real database to actual adapter without supplier fees > CTX-N03: matching stableName with different package bytes is rejected in a separate real tenant 396ms
+   ✓ approved AIDT bridge: real database to actual adapter without supplier fees > CTX-receipt: actual command-only same-run resume stays current when an earlier real dispatch fact arrives late 397ms
+   ✓ approved AIDT bridge: real database to actual adapter without supplier fees > CTX-S01: summary uses independent approved pin, exact selected history and explicit unsourced teacher/missing-stage gaps 302ms
+   ✓ approved AIDT bridge: real database to actual adapter without supplier fees > CTX-R03: S6 explicitly selected old S5 V2 remains the source when S5 head is V3 364ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  20:31:51
+   Duration  20.41s (transform 2.08s, setup 8ms, collect 2.88s, tests 16.63s, environment 0ms, prepare 52ms)
+
+[db-isolation] db=wsx_aidt_bridge_remediation_20261117 peak_connections=5

@@ -4,6 +4,7 @@ import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { REAL_MODEL_SMOKE } from "./real-model-smoke-fixture";
 import { aidtV2Api, createAidtV2Group, loginAidtV2 } from "./support/aidt-v2-acceptance";
 import { acceptAidtExistingMemberPair } from "./support/aidt-member-multiuser-acceptance";
+import { acceptAidtMemberText } from "./support/aidt-member-text-acceptance";
 import { apiPath } from "./support/real-model-api";
 
 test.skip(process.env.AIDT_MEMBER_ZERO !== "1", "Exclusive root-authorized existing collaboration fixture lane");
@@ -24,6 +25,7 @@ test("existing collaboration accounts exchange real member texts and reject an u
     if (request.method() === "POST" && (path.includes("/api/copilotkit") || /\/chat\/threads\/[^/]+\/(messages|queued-messages)$/.test(path)
       || /\/agent-runs\/[^/]+\/(decision|resume|execute|retries)$/.test(path) || /\/pm-designs\/[^/]+\/(chat|variants)$/.test(path))) {
       blocked.push({ path, actor }); await route.abort("failed");
+      throw new Error("AIDT_MEMBER_ZERO_UNEXPECTED_GENERATION_BLOCKED");
     } else await route.continue();
   };
   const ownerGuard = generationGuard("collaboration-lead"), memberGuard = generationGuard("collaboration-member");
@@ -31,6 +33,7 @@ test("existing collaboration accounts exchange real member texts and reject an u
   const secondContext = await browser.newContext({ baseURL: REAL_MODEL_SMOKE.baseUrl, viewport: { width: 1440, height: 1000 } });
   await secondContext.route("**/*", memberGuard);
   let projectId = "", privateProjectId = "";
+  let membershipInitialization: unknown = { performed: false };
   try {
     await loginAidtV2(page); phases.push("lead-normal-login");
     const me = await aidtV2Api(page, `/identity/me?orgId=${encodeURIComponent(FULLSTACK_E2E.collaborationOrgId)}`); expect(me.status).toBe(200);
@@ -46,6 +49,9 @@ test("existing collaboration accounts exchange real member texts and reject an u
     } else {
       const added = await aidtV2Api(page, membershipPath, "POST", { projectId, userId: FULLSTACK_E2E.collaborationMemberUserId, role: "collaborator" });
       expect([200, 201]).toContain(added.status); expect(project.operations.addNonWorkshopMember.out.parse(added.data)).toMatchObject({ projectId, userId: FULLSTACK_E2E.collaborationMemberUserId, role: "collaborator" });
+      membershipInitialization = { performed: true, scope: "本轮新建合成QA组成员初始化；未修改既有组成员或组织角色", projectId,
+        actorUserId: FULLSTACK_E2E.collaborationLeadUserId, addedUserId: FULLSTACK_E2E.collaborationMemberUserId, role: "collaborator",
+        transport: "normally authenticated product collaborator API", status: added.status, receipt: project.operations.addNonWorkshopMember.out.parse(added.data) };
       phases.push("normal-owner-added-existing-collaborator");
       await page.goto("/home", { waitUntil: "domcontentloaded" });
     }
@@ -64,10 +70,14 @@ test("existing collaboration accounts exchange real member texts and reject an u
       await expect(current.getByTestId("aidt-workspace")).toBeVisible();
     }
     const result = await acceptAidtExistingMemberPair({ owner: page, member: second, projectId, privateProjectId, apiOrigin: new URL(apiPath("/"), REAL_MODEL_SMOKE.baseUrl).href.replace(/\/$/, "") });
+    await info.attach("member-topic-real-browser", { contentType: "image/png", body: await page.screenshot({ animations: "disabled" }) });
+    await page.getByTestId("project-member-topic-close").click();
+    const drafts = await acceptAidtMemberText({ page, projectId, toStep: 2, request: (path, method, body) => aidtV2Api(page, path, method, body),
+      checkpoint: async (name, current) => { await info.attach(`member-${name}-real-browser`, { contentType: "image/png", body: await current.screenshot({ animations: "disabled" }) }); } });
     phases.push("two-browser-channel-topic-and-isolation-complete"); expect(blocked).toEqual([]);
     await info.attach("existing-member-pair-real-browser", { contentType: "application/json", body: Buffer.from(JSON.stringify({
-      source: process.env.AIDT_MEMBER_ZERO_WEB_SOURCE, result, phases, blockedGenerationRequests: blocked,
-      setup: "normal existing org admin creates own QA groups and adds the existing org consultant through the product collaborator API",
+      source: process.env.AIDT_MEMBER_ZERO_WEB_SOURCE, result, drafts, phases, blockedGenerationRequests: blocked,
+      setup: "normal existing org admin creates own QA groups and adds the existing org consultant through the product collaborator API", membershipInitialization,
       ordinaryStudentCreatesGroupProven: false, membershipRowsWrittenThroughNormalProductApi: !reuse, previousSetupEvidenceRetained: reuse,
       providerOrTeachingSuccessClaimed: false, isolatedFromFundedAdminDeviceSession: true,
       independentOwnerModelAudit: "A1 exact collaboration tenant/project audit required; main paid org activity is unrelated",
@@ -75,7 +85,7 @@ test("existing collaboration accounts exchange real member texts and reject an u
   } finally {
     await info.attach("existing-member-pair-exit-state", { contentType: "application/json", body: Buffer.from(JSON.stringify({
       orgId: FULLSTACK_E2E.collaborationOrgId, projectId, privateProjectId, phases, blockedGenerationRequests: blocked,
-      source: process.env.AIDT_MEMBER_ZERO_WEB_SOURCE, oldFundedActorUsed: false,
+      source: process.env.AIDT_MEMBER_ZERO_WEB_SOURCE, membershipInitialization, oldFundedActorUsed: false,
     }, null, 2)) });
     await secondContext.close(); await page.context().unroute("**/*", ownerGuard);
   }

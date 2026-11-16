@@ -1,8 +1,11 @@
 {
+  "iterationId": "iteration-02",
+  "methodsPackVersion": "1.3.2",
+  "summaryPackVersion": "1.0.1",
   "apiOrigin": "http://127.0.0.1:24555",
   "baseURL": "http://127.0.0.1:25555",
+  "apiPathPrefix": "/__fullstack_api",
   "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
-  "userId": "user-fullstack--20261117-s-1e261c1b8eac",
   "isolation": {
     "WORKSPACEX_VISION_PROVIDER_PORT": "30555",
     "WORKSPACEX_DEEP_AGENT_PROVIDER_PORT": "28555",
@@ -21,20 +24,21 @@
   },
   "composeProject": "wsx-1e261c1b8eacf1988f72",
   "apiOwner": {
-    "pid": 495908,
-    "startTicks": "7166842"
+    "pid": 605957,
+    "startTicks": "7872920"
   },
   "pythonOwner": {
-    "pid": 495845,
-    "startTicks": "7166598"
+    "pid": 545064,
+    "startTicks": "7468892"
   },
-  "apiSource": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
+  "pythonSource": "c1e5146c20e6989c6c32e97bc08628aa586ccf08",
+  "apiSource": "5411f32454629af1c143bfd8de0b159279a0b394",
   "webSource": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
-  "source": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
-  "nativeJournal": "/workspace/scratch/aidt-remediation-20261117/native-run-journal.json",
-  "designJournal": "/workspace/scratch/aidt-remediation-20261117/design-task-journal.json",
-  "journeyState": "/workspace/scratch/aidt-remediation-20261117/journey-state.json",
-  "designState": "/workspace/scratch/aidt-remediation-20261117/design-state.json",
+  "nativeJournal": "/workspace/scratch/aidt-remediation-20261117/iteration-02/native-run-journal.json",
+  "designJournal": "/workspace/scratch/aidt-remediation-20261117/iteration-02/design-task-journal.json",
+  "journeyState": "/workspace/scratch/aidt-remediation-20261117/iteration-02/journey-state.json",
+  "designState": "/workspace/scratch/aidt-remediation-20261117/iteration-02/design-state.json",
+  "setupPins": "/workspace/scratch/aidt-remediation-20261117/iteration-02/setup-import-pins.json",
   "paidWindowOpened": false,
   "autoExecutionAttestation": {
     "launchValue": "0",
@@ -47,81 +51,86 @@
     },
     "observedInActualChildLaunch": true,
     "apiOwner": {
-      "pid": 495908,
-      "startTicks": "7166842"
+      "pid": 605957,
+      "startTicks": "7872920"
     }
   },
   "webBuildId": "PJLKjWTjmbPQiKDY6HuwN",
   "webBuildIdSha256": "5685118bfc40aba11cc8eea1819053f582bb23fe363aedc57f236a3906a8c4b3",
-  "webBuildManifestSha256": "9bdadd6d6c86fb02d4e0fe38cdcc2e8c31ad741774408df853ebebcac342e2ce",
-  "ownerExecSession": 32704,
-  "observedAt": "2026-11-16T20:26:58.542186+00:00",
+  "observedAt": "2026-11-16T20:46:56.075670+00:00",
+  "status": "owned test stack stopped after verified private backup",
   "credentialsIncluded": false,
   "modelConfigurationIncluded": false,
-  "normalSeedBaseline": {
-    "observedAt": "2026-11-16T20:26:42.168Z",
+  "iteration02Baseline": {
+    "observedAt": "2026-11-16T20:46:56.075670+00:00",
+    "iterationId": "iteration-02",
     "readOnly": true,
-    "appRole": "app_rw",
-    "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
-    "fundedPrincipalId": "user-fullstack-admin--20261117-s-1e261c1b8eac",
-    "consultantPrincipalId": "user-fullstack--20261117-s-1e261c1b8eac",
-    "counts": {
-      "runs": 0,
-      "snapshots": 0,
-      "physical": 0,
-      "usage": 0,
-      "credits": 0,
-      "active": 0
+    "sameOrgCumulativeBaseline": {
+      "runs": 1,
+      "physical": 3,
+      "usage": 3,
+      "settled": 3,
+      "active": 0,
+      "reportedTokens": "14097"
     },
-    "agent": {
-      "id": "agent-fullstack--20261117-s-1e261c1b8eac",
-      "publishedVersionId": "agent-fullstack--20261117-s-1e261c1b8eac-v1",
-      "instructionDigest": "802cf79cc20cd6861c2aa766d7a7c4b1a9094add3624f523e467dd81c85fe371",
-      "storedDigestMatches": true,
-      "canonicalInstructionsMatch": true,
-      "providerIsNative": true,
-      "modelConfigured": true
-    },
-    "wallets": [
-      {
-        "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
-        "balance": "20000.00",
-        "held_hundredths": "0",
-        "remaining_held_hundredths": "0",
-        "unbounded_requests": "0"
-      }
-    ],
-    "oldBudgetHashes": [
-      {
-        "path": "/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json",
-        "sha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae"
-      },
-      {
-        "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json",
-        "sha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d"
-      },
-      {
-        "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s2-ledger.json",
-        "sha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f"
-      },
-      {
-        "path": "/workspace/scratch/aidt-real-acceptance-20261117/native-run-journal.json",
-        "sha256": "6075b11d41d6a2c4989ab7ee7173cb367e7fd67ce5b9e879c0b036a5d61b578c"
-      },
-      {
-        "path": "/workspace/scratch/aidt-real-acceptance-20261117/design-task-journal.json",
-        "sha256": "76d40fcc66da7148ece5521c3f05d1ebcd3b106dfcf47f3e069bc7a62996ee19"
-      },
-      {
-        "path": "/workspace/scratch/aidt-real-acceptance-20261117/journey-state.json",
-        "sha256": "ed1900edbe44e6e166169ce2f249af98fef1815ad5f0f85f7b3a3332c1e5f8af"
-      },
-      {
-        "path": "/workspace/scratch/aidt-real-acceptance-20261117/design-state.json",
-        "sha256": "0a3f45d6c77260a78764a6ccfb073e9a9b3688492a262934ba894e58d3fde78a"
-      }
-    ],
-    "modelRequestsSentByAudit": 0
+    "priorIterationChargesPreserved": true,
+    "newModelTasksSent": 0,
+    "walletReset": false,
+    "allGuardsZero": true
   },
-  "realModelAcceptance": "not yet run; root phase GO required"
+  "priorIterationPreserved": {
+    "frozenAt": "2026-11-16T20:45:34.582256+00:00",
+    "modelResult": "server succeeded; teaching E2E not accepted",
+    "projectId": "prj-726a67d0-cba8-45f3-b61b-dd55c13c0f8f",
+    "runId": "cc29fef8-3cb3-4cc4-8969-2df5e2e2631a",
+    "files": [
+      {
+        "path": "/workspace/scratch/aidt-remediation-20261117/native-run-journal.json",
+        "sha256": "d2095accd4d921fcd4285b2e05cec0e636609e2e4308ed532916d8958cfc39fc",
+        "bytes": 827
+      },
+      {
+        "path": "/workspace/scratch/aidt-remediation-20261117/journey-state.json",
+        "sha256": "ce7d3a7f1d2e0812aa77218f156b70e66d77091070330af9d14b7d8596558f4c",
+        "bytes": 137
+      },
+      {
+        "path": "/workspace/scratch/aidt-remediation-20261117/setup-import-pins.json",
+        "sha256": "02f28016fceb4c7449bcbefcfa11a6cf7b81610fbc8faa45bdcdaaf8d45e5d23",
+        "bytes": 2421
+      }
+    ],
+    "physical": 3,
+    "reportedTokens": 14097,
+    "settled": 3,
+    "debitedTestCredits": "14.12",
+    "resetOrRestored": false,
+    "entryCanonicalHashFormat": "JSON sorted keys, compact separators, UTF-8",
+    "entries": [
+      {
+        "runId": "cc29fef8-3cb3-4cc4-8969-2df5e2e2631a",
+        "sha256": "919d5530a8a20cbf4285445ed284ee762edce2248fa8cd90fd3d071da1cf0bc1",
+        "status": "succeeded"
+      }
+    ],
+    "savedStages": [
+      {
+        "stageId": 1,
+        "revision": 1,
+        "contentSha256": "1af2e5a371467d1e3c99fa515bbc9e4c85ab1ebd0b144de5419f5d6d03e5a569",
+        "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+        "updatedAt": "2026-11-16 20:39:28.843219+00:00"
+      }
+    ]
+  },
+  "initialSummaryPackVersion": "1.0.1",
+  "finalDefaultSummaryPackVersion": "1.0.2",
+  "finalSummarySkillVersionId": "skill-version-54da7b77-e4e3-4e5f-8b1a-5ea96ff17efc",
+  "finalSummaryThreadId": "thr-dd36869e-3bbe-4508-b2e6-660102b64f1e",
+  "finalSummaryPackDigest": "3c6a29ab7d58289a44801305e4d597a582f13047d5860c538dd8dd4cc892cfc2",
+  "summaryPackVersionMeaning": "initial imported baseline; preserved unchanged, final summary default/thread uses 1.0.2",
+  "finalSavedReportRevision": 8,
+  "servicesRunning": false,
+  "lifecycleProof": "final-cleanup.json",
+  "cleanupAt": "2026-11-16T22:37:25.508Z"
 }

@@ -1,0 +1,54 @@
+{
+  "reviewer": "independent child agent /root/fix_report_review",
+  "observed_at_utc": "2026-11-16T22:43:54.978274+00:00",
+  "scope": "Local generated PDF readability/content-presence review only; no new product/model/browser execution or human acceptance.",
+  "pdf_path": "/workspace/artifacts/aidt-v2-acceptance/AIDT-V2-完整测试报告.pdf",
+  "pdf_sha256": "a9e5cb25b978823e3f501f4beed0a1ae563126133a1035a9db4726bdb44ba02f",
+  "source_sha256": "4c47d892737e363ff652cfd3dced0c476090b1c343dff004f9fbaeb5720a7bb6",
+  "bytes": 179383,
+  "pages": 17,
+  "all_pages_nonempty_body": true,
+  "min_body_chars": 223,
+  "text_bbox_outside_page_count": 0,
+  "visible_fonts": [
+    {
+      "font": "DejaVuSans",
+      "embedded": true
+    },
+    {
+      "font": "Droid-Sans-Fallback",
+      "embedded": true
+    }
+  ],
+  "registered_unused_font_note": "Base14 Helvetica is registered unembedded; no nonempty visible text span uses it. All actual visible span fonts are embedded subsets.",
+  "visually_inspected_existing_render_pages": [
+    1,
+    2,
+    5,
+    10,
+    17
+  ],
+  "visual_result": "Chinese glyphs readable; headings, page numbers and tables visible; no clipping, tofu or overlapping text seen in sampled pages. Remaining pages checked by extracted body text and span bounds, not visually certified.",
+  "content_presence": {
+    "web_818_api_86_and_52": true,
+    "42_physical_330391_reported_tokens": true,
+    "e003_original_2skip_not_passed": true,
+    "student_clarification_then_real_same_thread_model_revision_1976_chars": true,
+    "explicit_review_save_export_17512_bytes": true,
+    "first_two_summary_critical1_retained": true,
+    "human_acceptance_blank_pending": true,
+    "no_real_interview_or_prototype_user_test_claim": true,
+    "not_all_P0_or_classroom_acceptance": true,
+    "not_yet_Library_saved_at_render": true
+  },
+  "manual_pdf_unchanged_sha256": "931196e442ebf94ff1704759b6fcd1bb310da2790fbb0cc88df16d4ef7c1313e",
+  "operations": {
+    "pdf_modified": false,
+    "source_modified": false,
+    "rerendered": false,
+    "models_called": 0,
+    "Library_uploaded": false,
+    "human_signed": false
+  },
+  "finding": "No blocking local PDF readability finding. Presence of test counts and receipts in the PDF is verified; this review does not independently rerun or upgrade their product acceptance status."
+}

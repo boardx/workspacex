@@ -39,3 +39,11 @@
 - Web TypeScript：此前读到 report fixture 与 plan-review permission ID 类型红；两处均已修复，由 root 统一复查，避免并发整体编译。
 
 最近 QA 补充：S6 从确切被冻结原型版本读取实际 HTML；脚本/事件/native goto/links 分别检查。号码相关文字无法确定对应时标待人工核对，不能硬写“无映射”。报告导入还须常显真实回执的版本/截断范围；软件范围说明与所选模型原文分开，原文精确不改。
+
+## 已发生的本轮真实 S1（原红保留）
+
+免费 setup 第三次通过；前两次分别为 QA CJS/import.meta 收集错误和 QA 请求前缀漏配导致 Next HTML404，均未触达模型。正常管理员两次 201 导入 methods1.3.1 / summary1.0.1，7 个 catalogue pin 与返回 versionIds 一致；环境 owner 独立核实际 published SKILL.md 字节和 SHA 全部精确匹配。
+
+S1 首个 runner 收集错误（grep 误加起始锚）没有发送，原目录保留。runner 已强制对完全同一 command + grep 先 `--list`，必须恰好一条才执行。
+
+随后 S1 唯一实际任务 `cc29fef8-3cb3-4cc4-8969-2df5e2e2631a` 真实 succeeded；owner 独立计量 3 physical / 3 usage / 3 settled、14097 reported tokens、active0/hold0。用例在内容门槛 `ONE_FOCUSED_QUESTION_REQUIRED` 红，尚未学生保存/重新登录，也没有执行 S2。[真实原文](s1-actual-turn.json) 和 [机器状态](s1-attempt02-machine.json) 保留。原文围绕问题来源，用两个问号呈现主问与观察/抱怨/猜测备选追问；已请求 root 独立审阅该标点代理门槛是否过严，没有自行删断言、重发模型或标全链通过。

@@ -7,18 +7,32 @@ export function isAidtRemediation(): boolean {
   if (value !== AIDT_REMEDIATION_MARKER) throw new Error("AIDT_REMEDIATION_EXACT_MARKER_REQUIRED");
   return true;
 }
-export type ContentCheck = { passed: boolean; failures: string[]; humanTeachingReview: "required" };
-const result = (failures: string[]): ContentCheck => ({ passed: failures.length === 0, failures, humanTeachingReview: "required" });
+export type ContentCheck = { passed: boolean; failures: string[]; advisories: string[]; humanTeachingReview: "required" };
+const result = (failures: string[], advisories: string[] = []): ContentCheck => ({ passed: failures.length === 0, failures, advisories, humanTeachingReview: "required" });
 
 /** Inspect affirmative clauses; negated prohibitions must not trigger the forbidden-claim gate. */
 function affirmativeClauses(text: string): string[] {
-  return text.split(/[。！!；;\n]|但是|然而|不过|但|却/u).filter(clause => !/(?:不能|不得|不可|不应|不要|并非|不等于|没有|尚无|未曾|未开展|尚未|不代表|不是|勿|不将|不把)/u.test(clause));
+  return text.split(/[。！!；;\n]|但是|然而|不过|但|却/u).filter(clause => !/(?:不能|不得|不可|不应|不要|并非|不等于|没有|尚无|未曾|未开展|未完整|未全部|尚未|不代表|不是|勿|不将|不把)/u.test(clause));
 }
-export function evaluateAidtStageReply(step: number, text: string): ContentCheck {
-  const failures: string[] = [];
+export function evaluateAidtStageReply(step: number, text: string, source?: { studentProblem: string }): ContentCheck {
+  const failures: string[] = [], advisories: string[] = [];
   const compact = text.trim();
   if (compact.length < 18 || !/[?？]/u.test(compact)) failures.push("SUBSTANTIVE_STUDENT_QUESTION_REQUIRED");
-  if ((compact.match(/[?？]/gu) ?? []).length > 1) failures.push("ONE_FOCUSED_QUESTION_REQUIRED");
+  const literalQuestions = (compact.match(/[?？]/gu) ?? []).length;
+  if (literalQuestions > 1) advisories.push(`LITERAL_QUESTION_MARK_COUNT:${literalQuestions}`);
+  const independentTasks = compact.match(/(?:填写|写出|生成|完成|制作|投票选择).{0,8}(?:画像|HMW|点子|原型|研究报告)/gu) ?? [];
+  if (independentTasks.length >= 2) failures.push("MULTIPLE_INDEPENDENT_STUDENT_TASKS");
+  if (step === 1) {
+    if (!source?.studentProblem.trim()) failures.push("S1_SAVED_STUDENT_PROBLEM_REQUIRED");
+    else {
+      const negative = /看不懂|不理解|不明白|搞不清|无法理解|找不到|找错|普遍困惑|都有困难/gu;
+      for (const quote of compact.matchAll(/[“「"]([^”」"]+)[”」"]/gu)) {
+        const preceding = compact.slice(Math.max(0, quote.index! - 24), quote.index);
+        const attributed = /(?:原始命题|初始问题|问题原文|已保存.{0,5}(?:问题|命题)|为什么(?:会)?想到|你们(?:认为|提出)|最初.{0,8}想到)/u.test(preceding);
+        if (attributed && [...quote[1]!.matchAll(negative)].some(term => !source.studentProblem.includes(term[0]))) failures.push("S1_STUDENT_PREMISE_MUST_NOT_BE_STRENGTHENED");
+      }
+    }
+  }
   const topic: Record<number, RegExp> = {
     1: /来源|依据|猜测|观察|抱怨|为什么|值得|取餐|提示/u,
     2: /访谈|采访|真实|真人|具体经历|原话|研究|材料/u,
@@ -35,7 +49,7 @@ export function evaluateAidtStageReply(step: number, text: string): ContentCheck
     if (step === 3 && /(?:年龄(?:为|是|：|:)?\s*\d+|\d+岁|喜欢(?:游戏|运动)|生活方式是)/u.test(clause)) failures.push("UNKNOWN_PERSONA_FIELDS_MUST_NOT_BE_INVENTED");
     if (step === 3 && /(?:必须|需要|务必).{0,12}(?:编|补充|找出|生成).{0,8}意外发现/u.test(clause)) failures.push("NONE_IS_A_VALID_SURPRISE_RESPONSE");
   }
-  return result([...new Set(failures)]);
+  return result([...new Set(failures)], advisories);
 }
 export type SummaryCriteria = {
   truncated: boolean;
@@ -57,8 +71,9 @@ export function evaluateAidtSummary(text: string, scope: SummaryCriteria): Conte
   for (const [failure, pattern] of required) if (!pattern.test(text)) failures.push(failure);
   if (scope.hasV2 && !/(?:原型.{0,20}(?:V2|第二版|第2版)|(?:V2|第二版|第2版).{0,25}(?:原型|待测|待测试|合成))/iu.test(text)) failures.push("VISIBLE_SAVED_V2_MUST_BE_REPORTED");
   const stepMention = (step: number) => new RegExp(`(?:回到|返回|回|重返|重做|重新从|选择从).{0,12}(?:第?\\s*${step}\\s*步|第${["", "一", "二", "三", "四", "五", "六"][step]}步|${step === 2 ? "共情" : step === 5 ? "原型" : "第" + step + "阶段"})`, "u");
-  if (scope.historicalReturnStep !== undefined && !stepMention(scope.historicalReturnStep).test(text)) failures.push("HISTORICAL_STUDENT_RETURN_DECISION_REQUIRED");
-  if (scope.currentReturnStep !== undefined && !stepMention(scope.currentReturnStep).test(text)) failures.push("CURRENT_STUDENT_RETURN_DECISION_REQUIRED");
+  const returnMention = (step: number) => stepMention(step).test(text) || new RegExp(`(?:return(?:Step)?\\s*[:=]?\\s*["\']?|回(?:到)?第?)${step}\\b`, "iu").test(text);
+  if (scope.historicalReturnStep !== undefined && !returnMention(scope.historicalReturnStep)) failures.push("HISTORICAL_STUDENT_RETURN_DECISION_REQUIRED");
+  if (scope.currentReturnStep !== undefined && !returnMention(scope.currentReturnStep)) failures.push("CURRENT_STUDENT_RETURN_DECISION_REQUIRED");
   if (scope.truncated && !/截断|节选|未完整|仅.{0,8}(?:可见|摘录)|可见范围|裁剪/u.test(text)) failures.push("TRUNCATED_MODEL_SCOPE_MUST_BE_DISCLOSED");
   for (const clause of affirmativeClauses(text)) if (/完整(?:读取|覆盖|分析)|所有材料.{0,6}(?:已|均).{0,8}(?:阅读|分析)|测试通过|已获用户认可/u.test(clause)) failures.push("NO_UNSUPPORTED_COMPLETENESS_OR_TEST_SUCCESS");
   return result([...new Set(failures)]);
