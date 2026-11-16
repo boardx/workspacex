@@ -1448,7 +1448,10 @@ describe("lint-permission-paths: counter-proof", () => {
     // runtime-model-usage.test.ts bounds tables, tenant SQL and no-content/no-raw-row
     // premises, and denies missing/stale ownership before append. Real PG/RLS remains
     // an activation gate; remove this single increment with the adapter or premise tests.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(128);
+    // #6418 adds three existing AI catalog configuration stores. Their platform and
+    // organization access checks, consumers, and tenant-only queries are checked by
+    // verifyAiCatalogBoundary before the permission lint emits its count.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(131);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
