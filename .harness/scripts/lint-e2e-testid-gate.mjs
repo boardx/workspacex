@@ -54,7 +54,7 @@ export const SPEC_ROOTS = ["apps/web/e2e"];
 export const SPEC_EXTS = [".ts"];
 
 /** 声明侧扫描范围：源码平面，不含测试自身。 */
-export const SOURCE_ROOTS = ["apps/web/components", "apps/web/app", "apps/web/lib", "packages"];
+export const SOURCE_ROOTS = ["apps/web/components", "apps/web/app", "apps/web/lib", "apps/web/features", "packages"];
 export const SOURCE_EXTS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".css"];
 
 /** 行内豁免标注。 */

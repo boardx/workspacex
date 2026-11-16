@@ -143,7 +143,7 @@ it("does not relabel a retained old report as using a newer fifth-stage revision
   expect(request.content.summaryReport?.sourceStageRevisions).not.toContainEqual({ stageId: 5, revision: 2 });
 });
 it("freezes a generated report's sources through stage changes and historical append, then refreshes them only when students replace the report with current assembly", async () => {
-  let prototype: AidtSharedStage = { ...saved("", 1, 5), content: { schemaVersion: 1, draft: { ...emptyAidtUiDrafts()[5]!, fields: { version: "first-prototype", verificationQuestion: "第一版验证问题" } } } };
+  let prototype: AidtSharedStage = { ...saved("", 1, 5), content: { schemaVersion: 1, draft: StageDraft.parse({ ...emptyAidtUiDrafts()[5]!, fields: { version: "first-prototype", verificationQuestion: "第一版验证问题" } }) } };
   mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 5 ? prototype : id === 6 ? saved("测试反馈", 1, 6) : null }));
   render(<Harness stageId={6} initial="" />); await ready();
   await waitFor(() => expect(screen.getByTestId("full-drafts")).toHaveTextContent("first-prototype"));

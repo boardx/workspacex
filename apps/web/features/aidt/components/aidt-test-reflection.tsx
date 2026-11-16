@@ -2,7 +2,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import type { AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
-import { AIDT_RETURN_STEPS, aidtQuestionSnapshotMatches, aidtReflectionMissingItems, createAidtQuestionSnapshot, isAidtReflectionConfirmed, readAidtQuestionSnapshot, readAidtReturnDecision, updateAidtReflectionField, type AIDT_REFLECTION_FIELDS } from "@/features/aidt/lib/aidt-verification-loop";
+import { AIDT_RETURN_STEPS, aidtTestPrototypeMismatch, aidtQuestionSnapshotMatches, aidtReflectionMissingItems, createAidtQuestionSnapshot, isAidtReflectionConfirmed, readAidtQuestionSnapshot, readAidtReturnDecision, updateAidtReflectionField, type AIDT_REFLECTION_FIELDS } from "@/features/aidt/lib/aidt-verification-loop";
 
 export function AidtTestReflection({ draft, onChange, readOnly = false, previousPrototype, previousPrototypeRevision }: {
   draft: AidtUiStageDraft; onChange: (draft: AidtUiStageDraft) => void; readOnly?: boolean;
@@ -15,7 +15,7 @@ export function AidtTestReflection({ draft, onChange, readOnly = false, previous
   const missing = aidtReflectionMissingItems(draft);
   const confirmed = isAidtReflectionConfirmed(draft);
   const changedSource = snapshot && previousPrototype && !aidtQuestionSnapshotMatches(draft, previousPrototype, previousPrototypeRevision);
-  const versionMismatch = snapshot && !!draft.fields.version?.trim() && draft.fields.version.trim() !== snapshot.prototypeRef.trim();
+  const versionMismatch = aidtTestPrototypeMismatch(draft, snapshot);
   const update = (field: (typeof AIDT_REFLECTION_FIELDS)[number], text: string) => {
     if (!readOnly) onChange(updateAidtReflectionField(draft, field, text));
   };
@@ -27,7 +27,7 @@ export function AidtTestReflection({ draft, onChange, readOnly = false, previous
       onChange({ ...next, fields: { ...next.fields, version: draft.fields.version?.trim() ? draft.fields.version : incoming.snapshot.prototypeRef } });
     }}>带入本轮验证问题</Button><p className="mt-2 text-12 text-muted-foreground">{incoming?.ok ? "请核对第5步的已确认问题与实际被测原型版本，带入后保留本轮原始预期。" : incoming && !incoming.ok ? incoming.reason : "先保存第5步的问题卡与被测原型版本。"}</p></div>}
     {changedSource && <p role="status" className="text-12 text-muted-foreground">第5步已有不同的内容。本轮仍保留原问题与被测版本；新一轮请先保存本轮记录。</p>}
-    {versionMismatch && <p role="alert" className="rounded-lg border border-border p-3 text-12">测试表单的被测版本“{draft.fields.version}”与本轮问题绑定的“{snapshot.prototypeRef}”不同。已保留两者，请核对实际测试版本后再确认记录；不会自动改写原问题。</p>}
+    {versionMismatch && <p role="alert" className="rounded-lg border border-border p-3 text-12">测试表单记录的被测版本与本轮问题绑定的“{snapshot?.prototypeRef}”不同。已保留两者，请核对实际测试版本后再确认记录；不会自动改写原问题。</p>}
     <label className="block text-12" htmlFor={`${id}-change`}>测试之后，对这个问题的认识有什么变化？<select id={`${id}-change`} className="mt-1 w-full rounded-md border border-border bg-background p-2 text-13 disabled:bg-disabled disabled:text-disabled-foreground" value={draft.fields.understandingChangeStatus ?? ""} disabled={readOnly} onChange={(event) => update("understandingChangeStatus", event.currentTarget.value)}><option value="">请选择</option><option value="changed">认识有变化</option><option value="unchanged">暂未改变</option><option value="insufficient">证据不足，尚不能判断</option></select></label>
     <div className="grid gap-3 md:grid-cols-2">{([
       ["afterTestBelief", "测试后的认识", "写下现在的看法；暂未改变也有学习价值。"],

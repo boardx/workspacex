@@ -42,7 +42,8 @@ it("manual version edits clear native markers even when students type the origin
   expect(reverted.fields.version).toBe("学生旧文字V0");
 });
 it("compares actual version identity independently from names and descriptive metadata", () => {
-  expect(sameAidtPrototypeVersion(reference(), { ...reference(), designName: "改名", summary: "新标题" })).toBe(true);
+  const renamed: AidtPrototypeVersionReference = { ...reference(), designName: "改名", summary: "新标题" };
+  expect(sameAidtPrototypeVersion(reference(), renamed)).toBe(true);
   expect(sameAidtPrototypeVersion(reference(), reference("v2", 2))).toBe(false);
   expect(sameAidtPrototypeVersion(reference(), { ...reference(), designId: "other-design" })).toBe(false);
 });

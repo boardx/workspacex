@@ -161,5 +161,6 @@ it("keeps the saved learning round across tools and native resources but clears 
   }
   expect(new URL(props.resourceHref("personal_transcription", "s1"), "https://workspace.invalid").searchParams.get("returnRevision")).toBe("3");
   expect(screen.getByRole("link", { name: "关闭工具，回到对话" }).getAttribute("href")).toContain("returnRevision=3");
+  await waitFor(() => expect(mocks.chat).toHaveBeenLastCalledWith(expect.objectContaining({ returnRevision: "3" })));
   expect(screen.getByTestId("aidt-stage-desktop-4").getAttribute("href")).not.toContain("returnRevision");
 });

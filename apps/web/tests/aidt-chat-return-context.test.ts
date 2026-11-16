@@ -33,7 +33,9 @@ it("bounds and labels long student material without splitting Unicode pairs", as
   const source = round(); source.content.draft.fields.returnReason = "😀".repeat(3000);
   mocks.history.mockResolvedValue({ items: [source], nextBeforeRevision: null });
   const result = await loadAidtReturnChatContext(input()), item = result.items[0]!;
-  expect(item.truncated).toBe(true); expect(item.fields.returnReason.length).toBeLessThanOrEqual(1200); expect(item.fields.returnReason).not.toMatch(/[\uD800-\uDBFF]$/);
+  const returnReason = item.fields.returnReason;
+  if (typeof returnReason !== "string") throw new Error("Expected the bounded return reason to be present");
+  expect(item.truncated).toBe(true); expect(returnReason.length).toBeLessThanOrEqual(1200); expect(returnReason).not.toMatch(/[\uD800-\uDBFF]$/);
   expect(Object.values(item.fields).join("").length).toBeLessThanOrEqual(8000);
 });
 it("drops cancelled or disabled results even when the transport ignores abort", async () => {

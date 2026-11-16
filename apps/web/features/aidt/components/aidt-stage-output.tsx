@@ -16,6 +16,8 @@ import { useOptionalSession } from "@/components/session/session-provider";
 import { AidtIdeaClassification } from "@/features/aidt/components/aidt-idea-classification";
 import { AIDT_IDEA_CLASSIFICATION_FIELDS, aidtIdeaClassificationFor, invalidateAidtIdeaClassification } from "@/features/aidt/lib/aidt-idea-classification";
 import { getAidtPrototypeGenerationReadiness } from "@/features/aidt/lib/aidt-verification-loop";
+import { AidtPrototypeVersionPicker } from "./aidt-prototype-version-picker";
+import { readAidtPrototypeReference, updateAidtPrototypeReference, updateAidtPrototypeVersionText } from "../lib/aidt-prototype-reference";
 
 export function printAidtUiText(text: string) {
   const root = document.createElement("article");
@@ -56,7 +58,7 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
   const readiness = aidtIdeaReadiness(draft.ideas);
   const prototypeReadiness = getAidtPrototypeGenerationReadiness(draft);
   const imageRequests = React.useRef(new Map<string, number>());
-  const field = (id: string, value: string) => { if (!readOnly) update((old) => ({ ...old, fields: { ...old.fields, [id]: value, ...(["initial", "rewrittenTheme"].includes(id) ? { problemReflectionConfirmed: "" } : {}), ...(step.id === 6 ? { reflectionConfirmed: "" } : {}), ...(step.id === 5 && id === "idea" ? { verificationQuestionConfirmed: "", verificationQuestionConfirmation: "" } : {}) }, ...(id === "reason" && old.selectedIdeaId ? { selectionReasons: { ...old.selectionReasons, [old.selectedIdeaId]: value } } : {}) })); };
+  const field = (id: string, value: string) => { if (readOnly) return; if (id === "version") { update((old) => updateAidtPrototypeVersionText(old, value)); return; } update((old) => ({ ...old, fields: { ...old.fields, [id]: value, ...(["initial", "rewrittenTheme"].includes(id) ? { problemReflectionConfirmed: "" } : {}), ...(step.id === 6 ? { reflectionConfirmed: "" } : {}), ...(step.id === 5 && id === "idea" ? { verificationQuestionConfirmed: "", verificationQuestionConfirmation: "" } : {}) }, ...(id === "reason" && old.selectedIdeaId ? { selectionReasons: { ...old.selectionReasons, [old.selectedIdeaId]: value } } : {}) })); };
   const idea = (id: string, value: Partial<AidtIdeaDraft>) => { if (readOnly) return; setDistinctReviewed(false); update((old) => invalidateAidtIdeaClassification({ ...old, ideas: old.ideas.map((item) => item.id === id ? { ...item, ...value } : item) })); };
   const removeIdea = (id: string) => {
     if (readOnly) return;
@@ -129,6 +131,7 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
     <AidtStageFields stageNumber={step.id} draft={draft} onChange={field} onDraftChange={(next) => { if (!readOnly) update(() => next); }} availableCards={availableCards} availableCardsRevision={availableCardsRevision} previousPrototype={previousPrototype} previousPrototypeRevision={previousPrototypeRevision} readOnly={readOnly} />
     {step.id === 2 && <AidtDiscoveryCards projectId={projectId} thread={thread} cards={draft.discoveryCards ?? []} readOnly={readOnly} onChange={(mutate) => update((old) => ({ ...old, discoveryCards: mutate(old.discoveryCards ?? []) }))} />}
     {step.id === 4 && (draft.unboundReason || Object.entries(draft.selectionReasons ?? {}).some(([id, text]) => id !== draft.selectedIdeaId && text.trim())) && <details className="text-12"><summary className="cursor-pointer">其他候选的理由与未归属笔记</summary>{Object.entries(draft.selectionReasons ?? {}).filter(([id, text]) => id !== draft.selectedIdeaId && text.trim()).map(([id, text]) => <p className="mt-2 whitespace-pre-wrap" key={id}>{draft.ideas.find((item) => item.id === id)?.title || "已移除候选"}：{text}</p>)}{draft.unboundReason && <p className="mt-2 whitespace-pre-wrap">未归属笔记：{draft.unboundReason}</p>}</details>}
+    {(step.id === 5 || step.id === 6) && identity?.currentOrgId && identity.userId && identity.sessionToken && <AidtPrototypeVersionPicker projectId={projectId} value={readAidtPrototypeReference(draft)} readOnly={readOnly} onChange={(reference) => { if (!readOnly) update((old) => updateAidtPrototypeReference(old, reference)); }} />}
     {step.id === 5 && <div className="space-y-2">{prototypeReadiness.ready ? <Button asChild variant="outline" className="w-full"><Link href={toolHref("design")}>打开原生 Design Workbench</Link></Button> : <><Button variant="outline" className="w-full" disabled>打开原生 Design Workbench</Button><p role="status" className="text-12 text-muted-foreground">{prototypeReadiness.reason}</p></>}</div>}
     {step.id === 2 && <Button asChild variant="outline" className="w-full"><Link href={toolHref("sources")}>查看与关联真实研究资料</Link></Button>}
     <div className="space-y-2 border-t border-border bg-background py-3" data-testid="aidt-stage-output-actions">{toChat && <Button className="w-full sm:w-auto" disabled={readOnly} onClick={() => {
