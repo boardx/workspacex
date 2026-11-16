@@ -38,7 +38,8 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G doing
+  class G blocked
+  %% blocked G: 新增S2唯一actualrun失败；CA透传已修且HTTP可达，但模型未重新验收，独立max1耗尽且2pending未知占款保留；后续5原生与2Design依赖前序未执行，不自动重跑
   class E tested
   %% evidence E: 本轮用户批准新增S1一次与Design两任务；init日志/tmp/aidt-paid-init-20261116.log实际exit0；旧预算hash未变
   class C tested
@@ -52,7 +53,8 @@ flowchart TD
   class P todo
   class U6 todo
   class R todo
-  class V doing
+  class V tested
+  %% evidence V: 本轮final-cleanup normalexit0、自有容器卷网/13端口租约slot清0，未知financial状态保全不改账；源码Libraryv7/PDFv6已guarded保存，PDF27页非空/无越界/字体嵌入，Library页1/24/27回读通过；完整模型E2E仍U2失败
   class F tested
   %% evidence F: ec5ff2e9d新构建真实Playwright两场2passed10.1s：采纳清单实际PDF字节/文字/字体/视觉，新S6真实TXT与PNG上传回读、保存重登、同org非成员与错project404；A4相关52单测及全WebTS0。
 ```

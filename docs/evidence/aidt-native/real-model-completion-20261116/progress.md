@@ -26,3 +26,5 @@
 已修复恢复启动器漏传CA三键及覆写NO_PROXY的兼容缺陷（5df77b477），5定向离线测试及语法/lint通过。唯一旧profile无Auth HEAD复现SSL验证19，唯一新profile同TLS校验HEAD收到HTTP404，证明修复后纯HTTP连接通，不是模型成功或历史费用已确定。两HEAD无模型生成，已用完，不自动重试。
 
 自有恢复scope最终正常exit0，容器/卷/网络均0，13端口及租约/stack slot释放，所有自有进程无live。原旧checkpoint/三个预算hash保持，新diagnosticdump金融完整行、全部对象字节及三账核对通过；新备份非zero-outstanding恢复点、未restore。final-cleanup.json区分owner本身模型0与本轮外部逻辑1/物理2失败及pending2，不作0费用结案。
+
+本轮Library交付已确认：源码v7（snapshot f96906f9a、完整性与manifest全hash核过，无实际模型key/私有runtime），人工PDF v6共27页；资料库首页、M24第24页、签字末页27均回读有内容。原文件身份保持。完整真实模型E2E仍失败待验，不代填人工结果。

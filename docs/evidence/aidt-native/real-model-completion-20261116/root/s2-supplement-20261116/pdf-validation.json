@@ -10,10 +10,23 @@
   ],
   "CjkEmbeddedVerifiedByGenerator": true,
   "humanSectionsUnchangedVerifiedByA4": true,
-  "libraryWriteStatus": "pending",
+  "libraryWriteStatus": "succeeded",
   "visualReviewPages": [
     24,
     27
   ],
-  "signaturePageBlankVisualCheck": true
+  "signaturePageBlankVisualCheck": true,
+  "libraryVersion": 6,
+  "libraryStoredBytes": 216872,
+  "remoteReadback": {
+    "version": "6",
+    "numPages": 27,
+    "pagesChecked": [
+      1,
+      24,
+      27
+    ],
+    "allNonempty": true,
+    "warnings": []
+  }
 }

@@ -1,0 +1,21 @@
+{
+  "sourceCommit": "f96906f9a6f7445ea0860d838e6e04f5cab3e51f",
+  "entryCount": 12364,
+  "filesChecked": 12362,
+  "archiveIntegrity": "passed",
+  "allManifestHashes": "passed",
+  "requiredAcceptanceAndNetworkEntries": "included",
+  "syntheticFixtures": 11,
+  "forbiddenEntries": [],
+  "actualModelKeyMatches": 0,
+  "privateLoginUnexpectedPaths": [],
+  "publicSeedPasswordLiteralSourceMatches": [
+    "AIDT-local/apps/web/e2e/fullstack-smoke-fixture.ts",
+    "AIDT-local/apps/web/tests/e2e-support/real-model-evidence.test.ts"
+  ],
+  "publicSeedLiteralScope": "existing deterministic QA fixture and scrubber unit test only; private login/runtime files excluded",
+  "runtimeOrPrivateDataIncluded": false,
+  "publicSyntheticPdfIncluded": true,
+  "finalArchiveHashesRechecked": true,
+  "finalReadmeIncluded": true
+}
