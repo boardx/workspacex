@@ -18,6 +18,51 @@ function type(text: string) { fireEvent.change(screen.getByTestId("project-membe
 beforeEach(() => { mocks.enabled=true; mocks.names.mockReset().mockResolvedValue(new Map()); mocks.session={status:"authenticated",session:{currentOrgId:"org",userId:"alice",sessionToken:"token"}}; mocks.list.mockReset().mockResolvedValue(page()); mocks.replies.mockReset().mockResolvedValue(topic()); mocks.post.mockReset().mockImplementation((input:MemberChatPost) => Promise.resolve({message:msg({ id: replyId, authorId:"alice",clientMessageId:input.clientMessageId,text:input.text,threadRootId:input.threadRootId??null,stageReference:input.stageReference??null }),replayed:false})); Object.defineProperty(document,"hidden",{configurable:true,value:false}); Object.defineProperty(navigator,"onLine",{configurable:true,value:true}); });
 afterEach(() => { vi.useRealTimers(); });
 describe("real member chat controller", () => {
+ it.each(["history", "topic"] as const)("still hides cached contents when the current %s request denies access", async (source) => {
+  mocks.list.mockResolvedValueOnce(page([msg()], {nextBeforeSequence:1})).mockRejectedValue({reasonCode:"NOT_FOUND",status:404});
+  mocks.replies.mockRejectedValue({reasonCode:"NOT_FOUND",status:404});
+  render(<ProjectMemberChat projectId="p"/>);
+  await ready();
+  type("当前撤权后保留的未发草稿");
+  if (source === "history") fireEvent.click(screen.getByTestId("project-member-load-older"));
+  else fireEvent.click(screen.getByTestId(`project-member-topic-${rootId}`));
+  await screen.findByTestId("project-member-history-error");
+  expect(screen.queryByText("真实成员的讨论")).toBeNull();
+  expect(screen.getByTestId("project-member-input")).toBeDisabled();
+  expect(screen.getByTestId("project-member-input")).toHaveValue("当前撤权后保留的未发草稿");
+  expect(mocks.post).not.toHaveBeenCalled();
+ });
+ it.each(["history", "topic"] as const)("keeps fresh authorization after an obsolete %s request rejects access", async (source) => {
+  vi.useFakeTimers();
+  const stale = deferred<never>();
+  mocks.list.mockImplementationOnce(() => Promise.resolve(page([msg()], {nextBeforeSequence:1})))
+   .mockImplementation(({beforeSequence}: {beforeSequence?:number}) => beforeSequence !== undefined ? stale.promise : Promise.resolve(page()));
+  mocks.replies.mockReturnValueOnce(stale.promise).mockResolvedValue(topic());
+  render(<ProjectMemberChat projectId="p"/>);
+  await act(async () => { await Promise.resolve(); });
+  type("恢复权限后保留的频道草稿");
+  if (source === "history") fireEvent.click(screen.getByTestId("project-member-load-older"));
+  else fireEvent.click(screen.getByTestId(`project-member-topic-${rootId}`));
+  mocks.list.mockResolvedValueOnce(page([], {canWrite:false,readOnlyReason:"role"}));
+  await act(async () => { vi.advanceTimersByTime(5000); });
+  expect(screen.getByTestId("project-member-readonly")).toHaveTextContent("只读");
+  await act(async () => { vi.advanceTimersByTime(5000); });
+  expect(screen.queryByTestId("project-member-readonly")).toBeNull();
+  await act(async () => stale.reject({reasonCode:"NOT_FOUND",status:404}));
+  expect(screen.queryByTestId("project-member-readonly")).toBeNull();
+  if (source === "topic") {
+   expect(screen.getByTestId("project-member-history-error")).toHaveTextContent("话题读取失败");
+   fireEvent.click(screen.getByRole("button", {name:"重试读取"}));
+   await act(async () => { await Promise.resolve(); });
+   expect(screen.getByTestId("project-member-topic-root")).toBeVisible();
+   fireEvent.click(screen.getByTestId("project-member-topic-close"));
+  }
+  expect(screen.getByTestId("project-member-input")).not.toBeDisabled();
+  expect(screen.getByTestId("project-member-input")).toHaveValue("恢复权限后保留的频道草稿");
+  const calls = mocks.list.mock.calls.length;
+  await act(async () => { vi.advanceTimersByTime(5000); });
+  expect(mocks.list.mock.calls.length).toBeGreaterThan(calls);
+ });
  it.each(["archived", "removed"] as const)("does not restore write access from older history after a newer %s observation", async (change) => {
   vi.useFakeTimers();
   const history = deferred<MemberChatPage>();

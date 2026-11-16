@@ -130,7 +130,7 @@ function AuthenticatedMemberChat({ projectId, compact = false, onClose, active =
       if (!validRead()) return;
       if (!access(result, readVersion) && !store.readable) return;
       merge(store, [result.root, ...result.items], userId); topic.before = result.nextBeforeSequence; topic.loaded = true; topic.status = "ready"; topic.error = undefined; store.status = "ready"; store.error = undefined;
-    } catch (error) { if (!validRead()) return; if (denied(error)) { clearAccess(store); store.status = "error"; store.error = "无法访问此项目的成员讨论。"; } else { topic.status = "error"; topic.error = "话题读取失败，草稿保留，可重试。"; } }
+    } catch (error) { if (!validRead()) return; if (denied(error) && readVersion === store.accessVersion) { clearAccess(store); store.status = "error"; store.error = "无法访问此项目的成员讨论。"; } else { topic.status = "error"; topic.error = "话题读取失败，草稿保留，可重试。"; } }
     finally { if (topic.request === controller) { topic.request = undefined; topic.busy = false; topic.loadingOlder = false; if (isCurrent()) notify(); } }
   }
   // A closed topic can be reopened without losing its draft. Recheck the real root before replies.
@@ -141,7 +141,7 @@ function AuthenticatedMemberChat({ projectId, compact = false, onClose, active =
     if (store.loadingOlder || store.before === null || !store.verified || !active || !online) return;
     store.loadingOlder = true; const readVersion = store.accessVersion; notify();
     try { const page = await listProjectMemberMessages({ projectId, beforeSequence: store.before, limit: 30 }, { sessionToken }); if (!isCurrent()) return; if (!access(page, readVersion) && !store.readable) return; merge(store, page.items, userId); mergeThreadUpdates(store, page.threadUpdates); store.before = page.nextBeforeSequence; }
-    catch (error) { if (!isCurrent()) return; if (denied(error)) clearAccess(store); store.status = "error"; store.error = "较早消息读取失败，请重试；草稿保留。"; }
+    catch (error) { if (!isCurrent() || readVersion !== store.accessVersion) return; if (denied(error)) clearAccess(store); store.status = "error"; store.error = "较早消息读取失败，请重试；草稿保留。"; }
     finally { if (isCurrent()) { store.loadingOlder = false; notify(); } }
   }
   async function transmit(pending: Pending) {

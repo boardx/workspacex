@@ -44,3 +44,24 @@ WORKSPACEX_WEB_TEST_MAX_WORKERS=1 pnpm --filter web test \
 - 未读数、read cursor、成员通知与已读回执在获准 B 设计中明确后置，本轮不实现，也不显示假红点、在线人数或阅读状态。
 - 约五秒前台 HTTP 拉取继续沿用；30 人并发、真实网络断连延迟和真人课堂体验需要独立验收。语音、浏览器 P2P、访谈录音均未新增。
 - 协调网关当前缺失，root 记录 harness tick 限制；没有代理 GitHub 可见性或签核门状态为已完成。
+
+## 交叉审阅补修：旧错误不能撤销新授权
+
+A1 只读审阅指出历史/话题的 catch 分支仍可能清除已恢复的新授权。实际复现：旧请求 V0 挂起 → 新频道读取角色只读，限制版本 V1 → 更新的读取恢复可写 → 旧请求最后返回 404。旧代码会清除频道访问并停止后续拉取。
+
+[`stale-error-before.log`](./stale-error-before.log)：两个新反例失败，已有 25 条通过。补修让更早历史的过时错误直接退出；话题的过时错误只显示话题读取失败和局部重试，不清除新的频道授权，也不留下永久 loading。反例同时检查频道草稿、话题重试和后续五秒拉取继续。
+
+另加两个反向用例：当前历史/话题请求的真实 404 仍清空可见内容并禁止发送，自己的未发送草稿保留。全套同范围验证见 [`stale-error-after.log`](./stale-error-after.log)：**59/59 通过、5 文件、退出 0**；定向 ESLint 与差异检查通过。A1 已只读核对补修 diff，未修改本 worker 文件。
+
+## 对 A1 配置诊断的独立只读交叉检查
+
+审阅目标：独立 worktree `aidt-complete-model_config` 的 `3c54f5ca8`，只读检查三个新脚本入口、字面量解析器、shell 安全标记与现有隔离链路。没有修改 A1 文件、读取真实凭据、联网或启动栈。
+
+用 `/tmp` 单次合成文件和 Node22 执行四项额外检查，全部退出 0；临时文件已删除：
+
+1. 通过真实 `pnpm real-model:doctor --model-env-file <含空格路径>` 调用。文件含合成模型字段、`touch` 命令和非模型部署字段；命令未执行，诊断不含合成密钥、endpoint、数据库 URL 或配置值。
+2. 显式缺失文件即使继承完整合成模型三件套，也以 2 退出；输出 `fileStatus=missing`、`modelAcceptance=not_run`。
+3. 含合成敏感 query 的 endpoint 被拒绝；输出不回显 URL、query 或密钥。
+4. 只拦截唯一子进程启动，不模拟模型响应：safe smoke 保留调用者已有隔离 DB/API port/compose 值，不导入 CN 文件同名覆盖或 DATABASE_URL；设置 model-only 标记；精确调用现有 `with-test-isolation.ts → real-model-smoke.sh office`；合成子进程退出 19 原样传播。
+
+未发现新增阻塞。这里只确认诊断与接线；没有验证实际模型连通、隔离栈启动或旧 smoke 下游所有日志的脱敏。旧非 safe loader 仍 source 配置、safe 入口不清洗调用者已导出的全部变量，这两点 A1 文档已有明确限制。
