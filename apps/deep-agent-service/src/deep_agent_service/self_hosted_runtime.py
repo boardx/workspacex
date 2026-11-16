@@ -23,6 +23,7 @@ import threading
 import psycopg
 from psycopg.rows import dict_row
 from langchain.agents.middleware.internal_call_transformer import internal_call_metadata
+from deep_agent_service.error_diagnostics import log_private_run_failure
 
 
 TERMINAL = frozenset({"success", "error", "cancelled", "interrupted"})
@@ -423,6 +424,7 @@ class Runtime:
         except asyncio.CancelledError:
             return
         except Exception as error:
+            log_private_run_failure(logging.getLogger(__name__), error, run_id)
             failure = credit_failure_projection(error)
             # Durable polling and replaying SSE expose the same safe failure after restart.
             await self.ledger.update_run(run_id, "error", json.dumps(failure) if failure else type(error).__name__)

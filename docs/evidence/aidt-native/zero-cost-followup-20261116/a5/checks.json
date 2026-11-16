@@ -1,0 +1,12 @@
+{
+  "unitPassed": 12,
+  "unitExitCode": 0,
+  "sourceFiles": 3,
+  "compileExitCode": 0,
+  "publicPollAndSseUnchanged": true,
+  "privateDiagnosticNodesMax": 6,
+  "modelRequests": 0,
+  "externalNetworkRequests": 0,
+  "fullExistingPytestExecuted": false,
+  "historicalS2RootCauseProven": false
+}
