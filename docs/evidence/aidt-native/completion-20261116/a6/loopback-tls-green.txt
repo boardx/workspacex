@@ -1,0 +1,48 @@
+TAP version 13
+# {"scope":"controlled-loopback-launch-environment-mechanism-only","historicalS2RootCauseProven":false,"noExternalNetwork":true,"modelRequests":0,"databaseAccess":false,"standardPortLease":true,"port":47970,"caSha256Fingerprint":"98:73:4C:14:9F:8C:AB:B2:A4:07:90:72:C5:E2:AF:D0:39:EB:12:40:17:60:57:B6:76:A0:95:FB:4C:CC:4E:73","oldResult":{"certificateValidationRequired":true,"certificateVerificationFailed":true,"exceptionTypes":["ConnectError","ConnectError","SSLCertVerificationError"]},"newResult":{"status":200,"bodyBytes":0,"certificateValidationRequired":true},"headCount":1,"requests":[{"method":"HEAD","path":"/tls-regression","authorization":false,"cookie":false,"bodyBytes":0}],"retries":0,"timeoutSeconds":3}
+# {"cleanup":true,"portRebindSucceeded":true,"leaseReleased":true,"temporaryPrivateKeysRemoved":true}
+# Subtest: real loopback TLS: omitted caller CA fails; inherited caller CA succeeds with verification on
+ok 1 - real loopback TLS: omitted caller CA fails; inherited caller CA succeeds with verification on
+  ---
+  duration_ms: 380.10716
+  type: 'test'
+  ...
+# Subtest: all three caller-supplied trusted CA fields survive byte for byte
+ok 2 - all three caller-supplied trusted CA fields survive byte for byte
+  ---
+  duration_ms: 0.65146
+  type: 'test'
+  ...
+# Subtest: NO_PROXY and no_proxy retain supplied casing, whitespace and explicit empty values without precedence changes
+ok 3 - NO_PROXY and no_proxy retain supplied casing, whitespace and explicit empty values without precedence changes
+  ---
+  duration_ms: 0.18628
+  type: 'test'
+  ...
+# Subtest: absent exclusions keep existing localhost defaults and all proxy spellings remain independently exact
+ok 4 - absent exclusions keep existing localhost defaults and all proxy spellings remain independently exact
+  ---
+  duration_ms: 0.438409
+  type: 'test'
+  ...
+# Subtest: model/deployment data cannot override caller networking, inject CA paths or disable TLS
+ok 5 - model/deployment data cannot override caller networking, inject CA paths or disable TLS
+  ---
+  duration_ms: 0.410828
+  type: 'test'
+  ...
+# Subtest: restore preparation followed by downstream network preparation is idempotent and cannot mutate frozen inputs
+ok 6 - restore preparation followed by downstream network preparation is idempotent and cannot mutate frozen inputs
+  ---
+  duration_ms: 0.284689
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 570.796349

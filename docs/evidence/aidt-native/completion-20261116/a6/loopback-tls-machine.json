@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "scope": "controlled-loopback-launch-environment-mechanism-only",
+  "historicalS2RootCauseProven": false,
+  "testExitCode": 0,
+  "testsPassed": 6,
+  "testsSkipped": 0,
+  "actualTlsTests": 1,
+  "existingEnvironmentTests": 5,
+  "usedMocks": false,
+  "versions": {
+    "node": "22.23.5",
+    "python": "3.12.14",
+    "httpx": "0.28.1",
+    "openssl": "3.5.7"
+  },
+  "execution": {
+    "scope": "controlled-loopback-launch-environment-mechanism-only",
+    "historicalS2RootCauseProven": false,
+    "noExternalNetwork": true,
+    "modelRequests": 0,
+    "databaseAccess": false,
+    "standardPortLease": true,
+    "port": 47970,
+    "caSha256Fingerprint": "98:73:4C:14:9F:8C:AB:B2:A4:07:90:72:C5:E2:AF:D0:39:EB:12:40:17:60:57:B6:76:A0:95:FB:4C:CC:4E:73",
+    "oldResult": {
+      "certificateValidationRequired": true,
+      "certificateVerificationFailed": true,
+      "exceptionTypes": [
+        "ConnectError",
+        "ConnectError",
+        "SSLCertVerificationError"
+      ]
+    },
+    "newResult": {
+      "status": 200,
+      "bodyBytes": 0,
+      "certificateValidationRequired": true
+    },
+    "headCount": 1,
+    "requests": [
+      {
+        "method": "HEAD",
+        "path": "/tls-regression",
+        "authorization": false,
+        "cookie": false,
+        "bodyBytes": 0
+      }
+    ],
+    "retries": 0,
+    "timeoutSeconds": 3
+  },
+  "cleanup": {
+    "cleanup": true,
+    "portRebindSucceeded": true,
+    "leaseReleased": true,
+    "temporaryPrivateKeysRemoved": true
+  },
+  "scopedTypeScriptExitCode": 0,
+  "testListenLoopbackGateExitCode": 0,
+  "qaHead": "972e2cc4c8cd38d67de843d2be088b313155a377",
+  "qaFileSha256": {
+    "scripts/tests/aidt-checkpoint-network-env-tls.test.ts": "104c8d8caceb9cdccbed7a8417d0ba0f4e5587416b78a2e60dcb6e8685839cca",
+    "scripts/lib/aidt-checkpoint-network-env.mjs": "38676ae4187738379e8e6beed4a06739ee9e1892d018b0804d64f7be27776df4",
+    ".harness/scripts/lib/test-port-lease.ts": "4e30f1dd482130b5957803ab5670a896ec958154f002e38274b95722b1c4787a"
+  },
+  "originalS2BudgetAndFinancialStateChanged": false,
+  "earlierQaRed": {
+    "preserved": true,
+    "reason": "cause-only exception traversal missed ssl.SSLCertVerificationError retained in __context__; changed to bounded cycle-safe traversal of both fields",
+    "cleanupSucceeded": true
+  }
+}
