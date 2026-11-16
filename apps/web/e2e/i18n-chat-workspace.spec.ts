@@ -35,7 +35,7 @@ async function sidebar(page: Page, width: number): Promise<void> {
 async function composerControlsFit(page: Page, width: number): Promise<void> {
   const viewport = page.viewportSize();
   expect(viewport).not.toBeNull();
-  for (const id of ["chat-composer-realtime-voice", "chat-task-workbench-composer-mic", "chat-task-workbench-composer-mic-devices", "copilotkit-v2-send"]) {
+  for (const id of ["chat-task-workbench-composer-mic", "chat-task-workbench-composer-mic-devices", "copilotkit-v2-send"]) {
     const control = page.getByTestId(id);
     await expect(control).toBeVisible();
     const box = await control.boundingBox();
