@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-16",
+  "baseCommit": "15ca37c4d",
+  "scope": "native spec and QA evidence only",
+  "node": "22",
+  "pnpm": "9.15",
+  "checks": [
+    { "command": "pnpm --filter web typecheck", "exitCode": 0, "evidence": "typecheck.txt", "scopeNote": "Before final Chat/recovery/report assertions; final integrated semantic typecheck owned by root" },
+    { "command": "pnpm --filter web exec eslint e2e/aidt-local-persistence.spec.ts --max-warnings 0", "exitCode": 0, "evidence": "eslint.txt", "scopeNote": "Final native spec" },
+    { "command": "pnpm --filter web exec playwright test --config playwright.aidt-local.config.ts --list", "exitCode": 0, "evidence": "discovery.txt", "tests": 1, "files": 1, "browserStarted": false },
+    { "command": "node .harness/scripts/lint-e2e-testid-gate.mjs", "exitCode": 1, "evidence": "testid-gate.txt", "scopeNote": "Actual canonical failure: SOURCE_ROOTS omits features; root owns repair, no exemption added" },
+    { "command": "node docs/evidence/aidt-native/completion-20261116/a6/testid-scope-audit.mjs", "exitCode": 0, "evidence": "testid-scope-audit.json", "scopeNote": "Read-only diagnostic, not replacement gate; current spec additionally depends on A2 host commit and root prop wiring" },
+    { "command": "git diff --check", "exitCode": 0 }
+  ],
+  "nativeBuildRun": false,
+  "nativeBrowserRun": false,
+  "modelRequests": 0,
+  "providerFixtureAdded": false,
+  "designSignoffChanged": false,
+  "deployed": false,
+  "githubOutbound": false,
+  "pending": "Root integrates A2/A3/A5 and canonical gate repair, freezes source, then runs standard isolated native build/browser double cycle"
+}

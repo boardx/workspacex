@@ -3,10 +3,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, statfsSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { resolve, join, isAbsolute } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Request } from "@playwright/test";
 import { LOCAL_ADMIN_EMAIL, resolveLocalConfig, webEnv } from "../../../packages/local-runtime/src/config";
 import { acquireWebOutputLease, checkAidtWebBuild } from "../../../packages/local-runtime/src/aidt-web-build";
-import { SharedStage } from "@repo/contracts/aidt-stages";
+import { operations, SharedStage } from "@repo/contracts/aidt-stages";
 import type { z } from "zod";
 
 const repo = resolve(process.cwd(), "../..");
@@ -71,6 +71,71 @@ async function api(page: Page, path: string) {
 }
 type NativeStage = z.infer<typeof SharedStage>;
 function phase(name: string) { console.info(`[aidt-native] ${new Date().toISOString()} ${name}`); }
+function historicalResponse(page: Page, projectId: string, revision: number) {
+  return page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.origin === origin && response.request().method() === "GET"
+      && url.pathname === `/projects/${projectId}/aidt/stages/6/revisions`
+      && url.searchParams.get("beforeRevision") === String(revision + 1)
+      && url.searchParams.get("limit") === "1";
+  });
+}
+async function readHistoricalReturn(page: Page, projectId: string, round: NativeStage, latest: NativeStage) {
+  expect(round.revision).toBeLessThan(latest.revision);
+  const step = Number(round.content.draft.fields.returnStep);
+  expect(Number.isInteger(step) && step >= 1 && step <= 5).toBe(true);
+  const response = historicalResponse(page, projectId, round.revision);
+  await page.goto(`/aidt/${projectId}?step=${step}&tool=outcome&returnRevision=${round.revision}`);
+  const received = await response;
+  expect(received.status()).toBe(200);
+  expect(operations.history.out.parse(await received.json()).items).toEqual([round]);
+  const context = page.getByTestId("aidt-return-context");
+  await expect(context).toContainText(`第6步共享 V${round.revision}`);
+  await expect(context).toContainText(round.content.draft.fields.returnReason!);
+  await expect(context).toContainText(round.content.draft.fields.nextAction!);
+  await expect(page.getByTestId("aidt-return-unavailable")).toHaveCount(0);
+  expect(new URL(page.url()).searchParams.get("returnRevision")).toBe(String(round.revision));
+  // The same real historical read must reach the existing native Chat host.
+  // This proves the mounted projection, without claiming a model consumed it.
+  await page.getByRole("link", { name: "返回本步对话", exact: true }).click();
+  // Reload the visible Chat route so this response belongs to its own loader,
+  // rather than the outcome panel's earlier historical read.
+  const chatRead = historicalResponse(page, projectId, round.revision);
+  await page.reload();
+  const chatReceived = await chatRead;
+  expect(chatReceived.status()).toBe(200);
+  expect(operations.history.out.parse(await chatReceived.json()).items).toEqual([round]);
+  const chatContext = page.getByTestId("aidt-chat-return-context");
+  await expect(chatContext.locator("summary")).toContainText(`第6步 V${round.revision}`);
+  await chatContext.locator("summary").click();
+  const preview = page.getByLabel("AI参考的历史返工反思", { exact: true });
+  await expect(preview).toBeVisible();
+  const projected = JSON.parse(await preview.innerText()) as Record<string, string>;
+  expect(projected).toMatchObject({ returnReason: round.content.draft.fields.returnReason, nextAction: round.content.draft.fields.nextAction, originalQuestion: JSON.parse(round.content.draft.fields.questionSnapshot!).question });
+  expect(new URL(page.url()).searchParams.get("returnRevision")).toBe(String(round.revision));
+  await page.getByTestId("aidt-open-output").click();
+  await expect(page.getByTestId("aidt-return-context")).toContainText(round.content.draft.fields.returnReason!);
+  expect(SharedStage.parse((await api(page, `/projects/${projectId}/aidt/stages/6`)).data.stage)).toEqual(latest);
+  phase(`historical-return-${step}-reads-V${round.revision}-not-head-V${latest.revision}`);
+}
+async function rejectedReturnKeepsChat(page: Page, projectId: string, revision: number) {
+  await page.getByRole("link", { name: "返回本步对话", exact: true }).click();
+  const context = page.getByTestId("aidt-chat-return-context");
+  await expect(context.locator("summary")).toContainText("尚未带入AI");
+  await context.locator("summary").click();
+  await expect(page.getByLabel("AI参考的历史返工反思", { exact: true })).toHaveCount(0);
+  const retried = historicalResponse(page, projectId, revision);
+  await page.getByRole("button", { name: "重新读取返工反思", exact: true }).click();
+  expect((await retried).status()).toBe(200);
+  await expect(context.locator("summary")).toContainText("尚未带入AI");
+  const composer = page.getByTestId("copilotkit-v2-input");
+  await expect(composer).toBeVisible();
+  await composer.fill("合成验收草稿：上下文缺失时仍可自行讨论；不发送模型请求。");
+  await expect(composer).toHaveValue(/上下文缺失/);
+  await composer.fill("");
+  await page.getByTestId("aidt-open-output").click();
+  await expect(page.getByTestId("aidt-return-unavailable")).toBeVisible();
+}
 async function openOutcome(page: Page, projectId: string, stage: number) {
   phase(`opening-stage-${stage}`);
   await page.goto(`/aidt/${projectId}?step=${stage}&tool=outcome`);
@@ -195,6 +260,21 @@ async function nativeV2Journey(page: Page, projectId: string) {
   await reflection.getByRole("button", { name: "确认本轮学习记录", exact: true }).click();
   branches.push(await saveNativeStage(page, projectId, 6));
   await expect(page.getByTestId("aidt-round-navigation")).toHaveCount(0);
+  for (const step of [3, 4, 5]) {
+    await reflection.getByRole("combobox", { name: "如果继续改进，优先从哪一步重新入手？", exact: true }).selectOption(String(step));
+    await reflection.getByRole("textbox", { name: "为什么从这里重新入手？", exact: true }).fill(`学生选择返回第${step}步：补充本步讨论，证据仍不足。`);
+    await reflection.getByRole("textbox", { name: "下一步具体做什么？", exact: true }).fill(`先由学生审阅第${step}步已有成果，再决定是否修订；不自动生成新版。`);
+    await reflection.getByRole("button", { name: "确认本轮学习记录", exact: true }).click();
+    const round = await saveNativeStage(page, projectId, 6);
+    branches.push(round);
+    expect(round.content.draft.fields.questionSnapshot).toBe(originalSnapshot);
+    expect(round.content.draft.fields.newVersion ?? "").toBe("");
+    await page.getByTestId("aidt-round-navigation").getByRole("link").click();
+    await expect(page.getByTestId("aidt-return-context")).toContainText(round.content.draft.fields.returnReason!);
+    expect(new URL(page.url()).searchParams.get("step")).toBe(String(step));
+    expect(new URL(page.url()).searchParams.get("returnRevision")).toBe(String(round.revision));
+    await openOutcome(page, projectId, 6);
+  }
   await reflection.getByRole("combobox", { name: "如果继续改进，优先从哪一步重新入手？", exact: true }).selectOption("2");
   await reflection.getByRole("textbox", { name: "为什么从这里重新入手？", exact: true }).fill("缺少真实证据，先回访谈；不是测试通过。");
   await reflection.getByRole("textbox", { name: "下一步具体做什么？", exact: true }).fill("拟定真实访谈问题并取得适当授权。");
@@ -210,7 +290,9 @@ async function nativeV2Journey(page: Page, projectId: string) {
   await page.goto(`/aidt/${projectId}?step=6&tool=report`);
   await expect(page.getByTestId("aidt-report-reload")).toBeEnabled();
   await page.getByRole("button", { name: "从成果重新整理", exact: true }).click();
-  const reportText = await page.getByLabel("小组报告草稿", { exact: true }).inputValue();
+  const reportDraft = page.getByLabel("小组报告草稿", { exact: true });
+  await expect(reportDraft).toHaveValue(/拟定真实访谈问题/);
+  const reportText = await reportDraft.inputValue();
   for (const value of ["暂无", "最容易实现", "纸面取餐分区提示", "证据不足", "拟定真实访谈问题"]) expect(reportText).toContain(value);
   const reportResponse = page.waitForResponse(r => r.request().method() === "PUT" && new URL(r.url()).pathname === `/projects/${projectId}/aidt/stages/6`);
   await page.getByTestId("aidt-report-save").click();
@@ -223,7 +305,47 @@ async function nativeV2Journey(page: Page, projectId: string) {
   const history = await api(page, `/projects/${projectId}/aidt/stages/6/revisions`);
   expect(history.status).toBe(200);
   for (const branch of branches) expect(SharedStage.parse(history.data.items.find((item: NativeStage) => item.revision === branch.revision))).toEqual(branch);
-  return { saved, branches, prototypeInputIsStudentText: true, actualGeneratedPrototype: false, actualResearchCollected: false };
+  const returnRounds = branches.filter(branch => /^[1-5]$/.test(branch.content.draft.fields.returnStep ?? ""));
+  expect(new Set(returnRounds.map(round => round.content.draft.fields.returnStep))).toEqual(new Set(["1", "2", "3", "4", "5"]));
+  const mutations: string[] = [];
+  const watchMutation = (request: Request) => {
+    if (["PUT", "PATCH", "DELETE"].includes(request.method()) && new URL(request.url()).pathname.startsWith(`/projects/${projectId}/aidt/stages`)) mutations.push(request.url());
+  };
+  page.on("request", watchMutation);
+  try {
+    for (const round of returnRounds) await readHistoricalReturn(page, projectId, round, latest);
+    const oldRound = returnRounds[0]!;
+    // A valid saved revision is insufficient when its chosen destination differs.
+    const wrongTargetResponse = historicalResponse(page, projectId, oldRound.revision);
+    await page.goto(`/aidt/${projectId}?step=2&tool=outcome&returnRevision=${oldRound.revision}`);
+    expect((await wrongTargetResponse).status()).toBe(200);
+    await expect(page.getByTestId("aidt-return-unavailable")).toBeVisible();
+    await expect(page.getByTestId("aidt-return-context")).toHaveCount(0);
+    await rejectedReturnKeepsChat(page, projectId, oldRound.revision);
+    // The real endpoint returns a different, existing head for a missing future
+    // revision. The UI must reject it, including on an actual read retry.
+    const missingRevision = latest.revision + 1;
+    const missingResponse = historicalResponse(page, projectId, missingRevision);
+    await page.goto(`/aidt/${projectId}?step=1&tool=outcome&returnRevision=${missingRevision}`);
+    const missing = await missingResponse;
+    expect(missing.status()).toBe(200);
+    expect(operations.history.out.parse(await missing.json()).items).toEqual([latest]);
+    await expect(page.getByTestId("aidt-return-unavailable")).toBeVisible();
+    await expect(page.getByTestId("aidt-return-context")).toHaveCount(0);
+    const retried = historicalResponse(page, projectId, missingRevision);
+    await page.getByRole("button", { name: "重试读取本轮学习", exact: true }).click();
+    expect((await retried).status()).toBe(200);
+    await expect(page.getByTestId("aidt-return-unavailable")).toBeVisible();
+    await expect(page.getByTestId("aidt-return-context")).toHaveCount(0);
+    await rejectedReturnKeepsChat(page, projectId, missingRevision);
+    await readHistoricalReturn(page, projectId, oldRound, latest);
+    expect(mutations).toEqual([]);
+    expect(SharedStage.parse((await api(page, `/projects/${projectId}/aidt/stages/5`)).data.stage)).toEqual(saved[5]);
+  } finally { page.off("request", watchMutation); }
+  // Preserve the original member-plugin entry from the saved report workspace.
+  await page.goto(`/aidt/${projectId}?step=6&tool=report`);
+  await expect(page.getByTestId("aidt-report-reload")).toBeEnabled();
+  return { saved, branches, returnRounds, historicalReadsDoNotSave: true, prototypeInputIsStudentText: true, actualGeneratedPrototype: false, actualResearchCollected: false };
 }
 
 test("native local start/save/stop/restart preserves AIDT and human text without Docker or a model fixture", async ({ page, browser }) => {
@@ -416,9 +538,10 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     expect(saved.data.stage.content.draft.fields).toMatchObject({ problemReflectionConfirmed: "true", problemSources: '["guess"]' });
     evidence.stageRevision = saved.data.stage.revision;
     const generationRequests: string[] = [];
-    page.on("request", request => {
+    const watchGeneration = (request: Request) => {
       if (request.method() === "POST" && (/\/agent\/[^/]+\/run$/.test(new URL(request.url()).pathname) || /\/pm-designs\/[^/]+\/chat$/.test(new URL(request.url()).pathname))) generationRequests.push(new URL(request.url()).pathname);
-    });
+    };
+    page.on("request", watchGeneration);
     const v2 = await nativeV2Journey(page, projectId);
     phase("v2-ui-branches-and-report-complete");
     expect(generationRequests).toEqual([]);
@@ -428,6 +551,10 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     await page.getByTestId("project-member-input").fill(humanText);
     await page.getByTestId("project-member-send").click();
     await expect(page.getByTestId("project-member-message").filter({ hasText: humanText }).first()).toHaveAttribute("data-delivery", "stored");
+    const initialMessages = await api(page, `/projects/${projectId}/member-chat/messages`);
+    expect(initialMessages.status).toBe(200);
+    expect(initialMessages.data.items.filter((m: { text: string }) => m.text === humanText)).toHaveLength(1);
+    expect(generationRequests).toEqual([]);
     await page.screenshot({ path: join(output, "native-member-stored.png"), fullPage: true });
     await page.getByTestId("global-member-chat-close").click();
     await stop(1);
@@ -435,7 +562,18 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     expect(createHash("sha256").update(readFileSync(join(dataDir, "secrets.json"))).digest("hex")).toBe(secretsBefore);
     const context = await browser.newContext({ baseURL: `http://127.0.0.1:${ports.web}` });
     try {
+      const anonymous = await context.request.get(`${origin}/projects/${projectId}/aidt/stages/6/revisions?limit=1`);
+      expect(anonymous.status()).toBe(401);
+      const deniedBody = await anonymous.text();
+      const deniedData = JSON.parse(deniedBody) as Record<string, unknown>;
+      for (const key of ["items", "stage", "content", "current"]) expect(deniedData).not.toHaveProperty(key);
+      for (const field of ["returnReason", "questionSnapshot", "markdown"]) expect(deniedBody).not.toContain(field);
+      expect(deniedBody).not.toContain(statement);
+      expect(deniedBody).not.toContain(v2.returnRounds[0]!.content.draft.fields.returnReason!);
+      expect(deniedBody).not.toContain(v2.saved[6]!.content.summaryReport!.markdown);
+      evidence.anonymousHistoryDenied = true;
       const fresh = await context.newPage(); await login(fresh);
+      fresh.on("request", watchGeneration);
       await fresh.goto(`/aidt/${projectId}?step=1&tool=outcome`);
       await expect(fresh.getByLabel("初始问题", { exact: true })).toHaveValue(statement, { timeout: 60_000 });
       const restored = await api(fresh, `/projects/${projectId}/aidt/stages/1`);
@@ -447,6 +585,8 @@ test("native local start/save/stop/restart preserves AIDT and human text without
         expect(restoredV2.status).toBe(200);
         expect(SharedStage.parse(restoredV2.data.stage)).toEqual(expected);
       }
+      for (const round of v2.returnRounds) await readHistoricalReturn(fresh, projectId, round, v2.saved[6]!);
+      evidence.historicalReturnsAfterRestart = v2.returnRounds.map(round => ({ step: Number(round.content.draft.fields.returnStep), revision: round.revision, headRevision: v2.saved[6]!.revision }));
       await openOutcome(fresh, projectId, 3);
       await expect(fresh.getByRole("radio", { name: "暂无意外发现", exact: true })).toBeChecked();
       await expect(fresh.getByTestId("aidt-surprise-status")).toContainText("已由学生确认");
@@ -460,6 +600,9 @@ test("native local start/save/stop/restart preserves AIDT and human text without
       await expect(fresh.getByTestId("aidt-bound-question")).toContainText("学生能否看懂纸面取餐分区提示");
       await expect(fresh.getByTestId("aidt-test-reflection").getByRole("combobox", { name: "测试之后，对这个问题的认识有什么变化？", exact: true })).toHaveValue("insufficient");
       await expect(fresh.getByTestId("aidt-round-navigation").getByRole("link")).toHaveAttribute("href", new RegExp(`/aidt/${projectId}\\?step=2&tool=outcome&returnRevision=`));
+      await fresh.goto(`/aidt/${projectId}?step=6&tool=report`);
+      await expect(fresh.getByTestId("aidt-report-reload")).toBeEnabled();
+      await expect(fresh.getByLabel("小组报告草稿", { exact: true })).toHaveValue(v2.saved[6]!.content.summaryReport!.markdown);
       await fresh.goto(`/aidt/${projectId}?step=1&tool=outcome`);
       await expect(fresh.getByLabel("初始问题", { exact: true })).toHaveValue(statement);
       const messages = await api(fresh, `/projects/${projectId}/member-chat/messages`);
@@ -469,6 +612,15 @@ test("native local start/save/stop/restart preserves AIDT and human text without
       await fresh.screenshot({ path: join(output, "native-stage-after-restart-375.png"), fullPage: true });
       await fresh.getByTestId("global-member-chat-open").click();
       await expect(fresh.getByTestId("project-member-message").filter({ hasText: humanText }).first()).toHaveAttribute("data-delivery", "stored");
+      const continuedHumanText = `重启后继续讨论 ${randomUUID()}：先核对旧轮次，再由学生决定下一步。`;
+      await fresh.getByTestId("project-member-input").fill(continuedHumanText);
+      await fresh.getByTestId("project-member-send").click();
+      await expect(fresh.getByTestId("project-member-message").filter({ hasText: continuedHumanText }).first()).toHaveAttribute("data-delivery", "stored");
+      const continuedMessages = await api(fresh, `/projects/${projectId}/member-chat/messages`);
+      expect(continuedMessages.status).toBe(200);
+      for (const text of [humanText, continuedHumanText]) expect(continuedMessages.data.items.filter((m: { text: string }) => m.text === text)).toHaveLength(1);
+      expect(generationRequests).toEqual([]);
+      evidence.humanTextContinuesAfterRestart = true;
       await fresh.screenshot({ path: join(output, "native-member-after-restart-375.png"), fullPage: true });
       evidence.projectId = projectId; evidence.stageRevision = restored.data.stage.revision;
       evidence.memberMessagesReadBack = messages.data.items.length; evidence.secretsPreserved = true;

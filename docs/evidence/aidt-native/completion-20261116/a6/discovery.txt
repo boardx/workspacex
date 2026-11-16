@@ -1,0 +1,3 @@
+Listing tests:
+  aidt-local-persistence.spec.ts:351:5 › native local start/save/stop/restart preserves AIDT and human text without Docker or a model fixture
+Total: 1 test in 1 file
