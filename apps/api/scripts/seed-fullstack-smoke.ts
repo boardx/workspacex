@@ -29,6 +29,10 @@ const tasksUserId = required("FULLSTACK_E2E_TASKS_USER_ID");
 
 const email = required("FULLSTACK_E2E_EMAIL");
 const password = required("FULLSTACK_E2E_PASSWORD");
+const isolatedCreditActors = [
+  { userId: required("FULLSTACK_E2E_VOICE_JOURNEY_USER_ID"), email: required("FULLSTACK_E2E_VOICE_JOURNEY_EMAIL"), name: "Fullstack voice journey" },
+  { userId: required("FULLSTACK_E2E_INTERVIEW_INTAKE_USER_ID"), email: required("FULLSTACK_E2E_INTERVIEW_INTAKE_EMAIL"), name: "Fullstack interview intake" },
+];
 const orgId = required("FULLSTACK_E2E_ORG_ID");
 const userId = required("FULLSTACK_E2E_USER_ID");
 const projectId = required("FULLSTACK_E2E_PROJECT_ID");
@@ -144,6 +148,21 @@ await asOwner(async client => {
 const hasher = new BcryptPasswordHasher();
 const tasksPasswordHash = await hasher.hash(tasksPassword);
 const passwordHash = await hasher.hash(password);
+// Keep concurrent model/ASR scenarios from reserving the same personal wallet.
+for (const actor of isolatedCreditActors) {
+  await addOrgMember(orgId, actor.userId, "consultant", fixture.teams.fullstack ?? null);
+  await addProjectMember(orgId, projectId, actor.userId, "facilitator", null, true);
+  await asOwner(async client => {
+    await client.query(
+      "INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at) VALUES ($1,$2,$3,$4,now()) ON CONFLICT (user_id) DO UPDATE SET email=EXCLUDED.email, password_hash=EXCLUDED.password_hash",
+      [actor.userId, actor.email, actor.name, passwordHash],
+    );
+    await client.query(
+      "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance=EXCLUDED.balance",
+      [actor.userId],
+    );
+  });
+}
 const adminPasswordHash = await hasher.hash(adminPassword);
 const feedbackAdminPasswordHash = await hasher.hash(feedbackAdminPassword);
 const memberPasswordHash = await hasher.hash(memberPassword);
