@@ -77,6 +77,11 @@ describe("W029 end-to-end on the real loopback model script (dashscope alias)", 
     });
     await resetOrgs(ORG);
     await seedWorkflowOrg(ORG, [{ userId: PM }, { userId: PEER }], "agent-ct06-plain");
+    // @global-scope-fixture table:credit_wallets: fund the isolated workflow initiator.
+    await asOwner(client => client.query(
+      "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+      [PM],
+    ));
     // D003 / D011：已发布版本冻结各自官方角色的 workflowAllowlist（官方角色包同一份种子），模型指向回环 provider。
     for (const [agentId, role] of [[D003_AGENT, "D003"]] as const) {
       await asApp(ORG, async (c) => {
