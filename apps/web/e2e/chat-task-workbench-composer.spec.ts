@@ -151,12 +151,16 @@ test("TW-P0-5⑥：设备选择是语音按钮的二级菜单，录音时显示�
   );
   await page.getByTestId("chat-task-workbench-composer-mic-devices").click();
   await expectAnchor(page, "chat-task-workbench-composer-mic-devices-listbox", "TW-P0-5⑥", "小箭头点开后没有设备列表", 10_000);
-  await expectAnchor(page, "chat-task-workbench-composer-mic-silence-autopause", "TW-P0-5⑥", "设备菜单里没有静音自动暂停开关", 10_000);
+  const autoPause = await expectAnchor(page, "chat-task-workbench-composer-mic-silence-autopause", "TW-P0-5⑥", "设备菜单里没有静音自动暂停开关", 10_000);
+  // The CI microphone can be silent. Keep this recording under manual control
+  // so the test can observe the listening controls before invoking pause.
+  if (await autoPause.getAttribute("aria-checked") === "true") await autoPause.click();
+  await expect(autoPause).toHaveAttribute("aria-checked", "false");
   await page.keyboard.press("Escape");
 
   // 录音态四件：计时 + 音量条在语音胶囊上；正在听 → 暂停 / 停止；暂停 → 丢弃 / 继续 / 完成。
   await mic.click();
-  await expect(mic).toHaveAttribute("data-mic-status", "listening", { timeout: 30_000 });
+  await expect(mic).toHaveAttribute("data-voice-phase", "listening", { timeout: 30_000 });
   for (const [suffix, what] of [
     ["timer", "录音计时"],
     ["level", "音量指示"],
