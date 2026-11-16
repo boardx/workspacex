@@ -1,0 +1,17 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-return_context/apps/web
+
+ ✓ tests/ui/project-aidt-chat.test.tsx (34 tests) 408ms
+ ✓ tests/ui/aidt-module-compatibility.test.tsx (10 tests) 201ms
+ ✓ tests/aidt-module-boundary.test.ts (4 tests) 1805ms
+   ✓ keeps production AIDT consumers on explicit public registration adapters 1792ms
+ ✓ tests/aidt-chat-return-context.test.ts (7 tests) 8ms
+ ✓ tests/aidt-chat-shared-context.test.ts (10 tests) 6ms
+ ✓ tests/aidt-stage-history-client.test.ts (4 tests) 8ms
+
+ Test Files  6 passed (6)
+      Tests  69 passed (69)
+   Start at  01:30:06
+   Duration  8.48s (transform 2.05s, setup 355ms, collect 4.00s, tests 2.44s, environment 858ms, prepare 208ms)
+
