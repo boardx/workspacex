@@ -93,5 +93,6 @@ test("旅程②：组织管理员邀请一位新成员 → 受邀人用邮件链
      「刷新后仍在」区分「写进 PostgreSQL」与「只是激活页自己的乐观 UI」。 */
   await page.goto("/org-admin/members");
   await expect(page.getByTestId("org-admin-screen")).toBeVisible();
+  await page.getByRole("textbox", { name: "搜索姓名或邮箱" }).fill(inviteEmail);
   await expect(page.getByTestId("org-admin-member-list")).toContainText(inviteeName);
 });
