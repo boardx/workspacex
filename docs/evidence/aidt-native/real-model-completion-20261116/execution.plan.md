@@ -53,7 +53,8 @@ flowchart TD
   class P todo
   class U6 todo
   class R todo
-  class V doing
+  class V tested
+  %% evidence V: 唯一检查点实际恢复及正常GET通过后清理；源码ZIP v6/PDF v5同身份保存成功，27页中文字体/空页/越界检查及Library首页/末页回读通过；全部失败保留，完整模型链仍U2阻塞
   class F tested
   %% evidence F: ec5ff2e9d新构建真实Playwright两场2passed10.1s：采纳清单实际PDF字节/文字/字体/视觉，新S6真实TXT与PNG上传回读、保存重登、同org非成员与错project404；A4相关52单测及全WebTS0。
 ```

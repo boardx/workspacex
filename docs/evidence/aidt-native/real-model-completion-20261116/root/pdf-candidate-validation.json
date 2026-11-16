@@ -11,5 +11,22 @@
     8,
     12
   ],
-  "libraryWriteStatus": "pending"
+  "libraryWriteStatus": "succeeded",
+  "libraryVersion": 5,
+  "postUploadBytes": 189143,
+  "postUploadSha256": "a4f5ee1c1ac2892a0ed1d0498248fe45b666df2505272e6aa8346952163bc95d",
+  "postUploadPages": 27,
+  "postUploadEmptyPages": [],
+  "libraryStoredBytes": 214134,
+  "remoteLibraryReadback": {
+    "version": "5",
+    "numPages": 27,
+    "pagesChecked": [
+      1,
+      27
+    ],
+    "allNonempty": true,
+    "warnings": []
+  },
+  "postUploadFieldsDescribeLocalSource": true
 }
