@@ -1,0 +1,234 @@
+
+ RUN  v2.1.9 /workspace/aidt-pr-20261117/packages/contracts
+
+ ✓ tests/design-workbench.test.ts (64 tests) 147ms
+ ✓ tests/design-prototype.test.ts (58 tests) 191ms
+ ✓ tests/guided-research-session-contract.test.ts (28 tests) 28ms
+ ✓ tests/digital-interview-contract.test.ts (18 tests) 50ms
+ ✓ tests/survey-question-types.test.ts (22 tests) 87ms
+ ✓ tests/plan-control/plan-control-schema-single-source.test.ts (45 tests) 47ms
+ ✓ tests/inbox.test.ts (45 tests) 73ms
+ ✓ tests/plan-control/plan-surface-single-source.test.ts (29 tests) 297ms
+ ✓ tests/interview-markdown.test.ts (70 tests) 287ms
+ ✓ tests/billing-team-purchase-design.test.ts (22 tests) 38ms
+ ✓ tests/capability-admin-deltas.test.ts (9 tests) 22ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 4ms
+ ✓ tests/skill-source-connections.test.ts (9 tests) 33ms
+ ✓ tests/skill-import-recovery.test.ts (10 tests) 16ms
+ ✓ tests/skill-development.test.ts (10 tests) 21ms
+ ✓ tests/survey-report.test.ts (15 tests) 46ms
+ ✓ tests/agent-interrupts/cross-lang-tool-parity.test.ts (8 tests) 13ms
+ ✓ tests/skill-trial-artifact-download.test.ts (9 tests) 48ms
+ ✓ tests/deep-agent-hitl.test.ts (7 tests) 11ms
+ ✓ tests/agui-file-event-contract.test.ts (30 tests) 15ms
+ ✓ tests/skill-source-binding.test.ts (7 tests) 56ms
+ ✓ tests/survey-source.test.ts (15 tests) 32ms
+ ✓ tests/design-html-page.test.ts (20 tests) 89ms
+ ✓ tests/billing-team-entitlement-design.test.ts (26 tests) 46ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 678ms
+   ✓ 业务代码不得硬编码待定阈值 > 'retentionMaterial' 没有被写死 511ms
+ ✓ tests/billing-team-design.test.ts (33 tests) 25ms
+ ✓ tests/skill-history-content.test.ts (5 tests) 28ms
+ ✓ tests/plan-control/run-status-view-single-source.test.ts (10 tests) 438ms
+ ✓ tests/plan-permissions/cross-lang-skill-hitl-parity.test.ts (11 tests) 7ms
+ ✓ tests/agent-interrupts/schema.test.ts (14 tests) 15ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 11ms
+ ✓ tests/first-value-events.test.ts (7 tests) 16ms
+ ✓ tests/skill-source-assessment.test.ts (6 tests) 43ms
+ ✓ tests/personal-realtime-transcription.test.ts (8 tests) 8ms
+ ✓ tests/billing-pricing.test.ts (7 tests) 16ms
+ ✓ tests/survey-report-analysis.test.ts (9 tests) 19ms
+ ✓ tests/plan-control/evaluate-plan-gate-table.test.ts (21 tests) 9ms
+ ✓ tests/artifacts-steering/cross-lang-interjection-parity.test.ts (6 tests) 12ms
+ ✓ tests/work-eval/suite-schema.test.ts (8 tests) 19ms
+ ✓ tests/contract-shape.test.ts (87 tests) 202ms
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 4ms
+ ✓ tests/instance-telemetry.test.ts (12 tests) 8ms
+ ✓ tests/capability-runtime-policy.test.ts (5 tests) 7ms
+ ✓ tests/skill-trial-read-deltas.test.ts (5 tests) 11ms
+ ✓ tests/plan-control/plan-confirm-gate.test.ts (10 tests) 3ms
+ ✓ tests/wave2-runtime/agui-event-schema.test.ts (6 tests) 14ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 7ms
+ ✓ tests/billing-team-quote-design.test.ts (20 tests) 11ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 14ms
+ ✓ tests/entity-localization.test.ts (14 tests) 12ms
+ ✓ src/research-trust.test.ts (7 tests) 22ms
+ ✓ tests/entity-localization-pack.test.ts (7 tests) 6ms
+ ✓ tests/billing-team-operations-design.test.ts (12 tests) 12ms
+ ✓ tests/standard-document-tools.test.ts (5 tests) 13ms
+ ✓ tests/aidt-run-context.test.ts (13 tests) 9ms
+ ✓ tests/provider-model-catalog.test.ts (5 tests) 57ms
+ ✓ tests/agent/role-fields-schema.test.ts (23 tests) 7ms
+ ✓ tests/agent-interrupts/choose-option-schema.test.ts (11 tests) 5ms
+ ✓ tests/edition-capability-enforcement.test.ts (5 tests) 1574ms
+   ✓ passes on the real matrix and names every known gap 360ms
+   ✓ rejects a new known gap that nobody accounted for 359ms
+ ✓ tests/knowledge-graph/invalidate-edges-contract.test.ts (9 tests) 5ms
+ ✓ tests/standard-capabilities.test.ts (20 tests) 71ms
+ ✓ tests/skill-patch-proposal.test.ts (5 tests) 7ms
+ ❯ tests/skill-entry-points.test.ts (6 tests | 2 failed) 60ms
+   × skill entry points gate (backlog E6) > 每个 SKILL.md slug 恰好分配一次 12ms
+     → 这些 skill 没归入任何入口或隐藏表: expected [ 'aidt-define', …(20) ] to deeply equal []
+   × skill entry points gate (backlog E6) > starter-pack 发货的 stableName 与 SKILL.md slug 同一套，且全部已分配 41ms
+     → expected [ 'aidt-define', …(6) ] to deeply equal []
+ ✓ tests/skill-upload-feedback.test.ts (4 tests) 7ms
+ ✓ tests/system-error-logs.test.ts (15 tests) 6ms
+ ✓ tests/billing-team-history-design.test.ts (15 tests) 16ms
+ ✓ tests/interview-analysis.test.ts (5 tests) 75ms
+ ✓ tests/whiteboard-sync.test.ts (2 tests) 191ms
+ ✓ tests/workflow/definition-schema.test.ts (6 tests) 9ms
+ ✓ tests/survey.test.ts (6 tests) 5ms
+ ✓ tests/model-admission-history.test.ts (5 tests) 12ms
+ ✓ tests/whiteboard-operation.test.ts (4 tests) 8ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 6ms
+ ✓ tests/agent-interrupts/fill-params-guess-rationale.test.ts (7 tests) 6ms
+ ✓ tests/billing-team-platform-design.test.ts (8 tests) 8ms
+ ✓ tests/native-tool-identities.test.ts (4 tests) 7ms
+ ✓ tests/billing-team-catalog-design.test.ts (14 tests) 11ms
+ ✓ tests/whiteboard.test.ts (4 tests) 9ms
+ ✓ tests/standard-browser-tools.test.ts (3 tests) 11ms
+ ✓ tests/wave2-runtime/awaiting-tool-permission-status.test.ts (5 tests) 25ms
+ ✓ tests/skill-file-edit.test.ts (3 tests) 10ms
+ ✓ tests/work-skill/manifest-schema.test.ts (16 tests) 11ms
+ ✓ tests/plan-control/plan-phase-running-not-preparing.test.ts (4 tests) 3ms
+ ✓ tests/canvas-grid-density.test.ts (4 tests) 7ms
+ ✓ tests/interview-expert-library.test.ts (13 tests) 113ms
+ ✓ tests/agui-assistant-body-composition.test.ts (6 tests) 8ms
+ ✓ tests/deployment.test.ts (6 tests) 5ms
+ ✓ tests/standard-schedule.test.ts (4 tests) 25ms
+ ✓ tests/agui-run-error-disposition.test.ts (4 tests) 6ms
+ ✓ tests/design-prototype-image-src.test.ts (3 tests) 9ms
+ ✓ tests/whiteboard-import.test.ts (3 tests) 13ms
+ ✓ tests/agent/escalate-interrupt-kind.test.ts (5 tests) 8ms
+ ✓ tests/standard-remember.test.ts (3 tests) 6ms
+ ✓ tests/research-source-policy-bootstrap.test.ts (27 tests) 7ms
+ ✓ tests/standard-image-tools.test.ts (3 tests) 13ms
+ ✓ tests/standard-subtask-tools.test.ts (5 tests) 930ms
+   ✓ native subtask shared boundary > generated Python boundary is fresh 913ms
+ ✓ tests/survey-default-report.test.ts (33 tests) 15ms
+ ✓ tests/report-files.test.ts (3 tests) 6ms
+ ✓ tests/identity-activity-display.test.ts (9 tests) 4ms
+ ✓ tests/whiteboard-connector-endpoints.test.ts (3 tests) 4ms
+ ✓ tests/tag-input-limits.test.ts (6 tests) 7ms
+ ✓ tests/whiteboard-objects-read.test.ts (3 tests) 239ms
+ ✓ tests/feedback-tags.test.ts (3 tests) 5ms
+ ✓ tests/standard-sql.test.ts (3 tests) 8ms
+ ✓ tests/canvas-section-layout-bounds.test.ts (4 tests) 11ms
+ ✓ tests/agent/starter-pack-toolpolicy-schema.test.ts (18 tests) 9ms
+ ✓ tests/invite-email-authoritative.test.ts (7 tests) 6ms
+ ✓ src/survey-runtime.test.ts (2 tests) 16ms
+ ✓ tests/billing-consumption.test.ts (3 tests) 5ms
+ ✓ tests/billing-order-outcomes.test.ts (6 tests) 6ms
+ ✓ tests/native-file-delegation.test.ts (2 tests) 8ms
+ ✓ tests/billing-credit-calendar.test.ts (8 tests) 8ms
+ ✓ tests/standard-web-tools.test.ts (2 tests) 12ms
+ ✓ tests/sandbox-session.test.ts (3 tests) 7ms
+ ✓ tests/whiteboard-collaboration.test.ts (1 test) 4ms
+ ✓ tests/standard-canvas-tools.test.ts (2 tests) 6ms
+ ✓ tests/interview-evidence-single-source.test.ts (1 test) 2ms
+ ✓ tests/standard-context-tools.test.ts (2 tests) 9ms
+ ✓ tests/native-input-binding.test.ts (2 tests) 5ms
+ ✓ tests/survey-collection-settings.test.ts (6 tests) 8ms
+ ✓ tests/skill-package-manifest.test.ts (2 tests) 5ms
+ ✓ tests/standard-skill-draft.test.ts (2 tests) 9ms
+ ✓ tests/assignable-org-role.test.ts (4 tests) 3ms
+ ✓ tests/schedule-notifications.test.ts (2 tests) 6ms
+ ✓ tests/standard-audio-tools.test.ts (2 tests) 5ms
+ ✓ tests/billing/billing-operations-export.test.ts (2 tests) 4ms
+ ✓ tests/whiteboard-asset.test.ts (1 test) 23ms
+ ✓ tests/billing-subscription.test.ts (10 tests) 231ms
+ ✓ tests/whiteboard-free-arrow.test.ts (2 tests) 14ms
+ ✓ tests/ai-catalog-admin.test.ts (3 tests) 6ms
+ ✓ tests/whiteboard-document.test.ts (2 tests) 3ms
+ ✓ tests/guided-research-citations.test.ts (7 tests) 15ms
+ ✓ tests/agent-skill-pins.test.ts (2 tests) 8ms
+ ✓ tests/prototype-node-type-label.test.ts (2 tests) 3ms
+ ✓ tests/chat-file-upload-mime.test.ts (2 tests) 2ms
+ ✓ tests/standard-artifact-download.test.ts (1 test) 9ms
+ ✓ tests/survey-markdown-proposal.test.ts (2 tests) 3ms
+ ✓ tests/tool-progress-schema.test.ts (1 test) 4ms
+ ✓ tests/standard-run-cancel.test.ts (1 test) 3ms
+ ✓ tests/billing-welcome-credit.test.ts (1 test) 2ms
+ ✓ tests/whiteboard-portable.test.ts (1 test) 119ms
+ ✓ tests/standard-run-status.test.ts (1 test) 3ms
+ ✓ tests/tool-authority-schema.test.ts (1 test) 14ms
+ ✓ src/standard-memory.test.ts (1 test) 2ms
+ ✓ tests/native-artifact-schema.test.ts (1 test) 269ms
+ ✓ tests/board-event-model.test.ts (1 test) 3ms
+ ✓ tests/board-operation-contract.test.ts (1 test) 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/skill-entry-points.test.ts > skill entry points gate (backlog E6) > 每个 SKILL.md slug 恰好分配一次
+AssertionError: 这些 skill 没归入任何入口或隐藏表: expected [ 'aidt-define', …(20) ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "aidt-define",
++   "aidt-empathize",
++   "aidt-ideate",
++   "aidt-iterate",
++   "aidt-prototype",
++   "aidt-understand",
++   "aidt-define",
++   "aidt-empathize",
++   "aidt-ideate",
++   "aidt-iterate",
++   "aidt-prototype",
++   "aidt-understand",
++   "aidt-define",
++   "aidt-empathize",
++   "aidt-ideate",
++   "aidt-iterate",
++   "aidt-prototype",
++   "aidt-understand",
++   "dt-summarize-project",
++   "dt-summarize-project",
++   "dt-summarize-project",
++ ]
+
+ ❯ tests/skill-entry-points.test.ts:73:48
+     71|     const assigned = allAssignedSkillSlugs();
+     72|     const unassigned = repoSlugs.filter((s) => entryPointOf(s) === nul…
+     73|     expect(unassigned, "这些 skill 没归入任何入口或隐藏表").toEqual([]…
+       |                                                ^
+     74|     const dupes = assigned.filter((s, i) => assigned.indexOf(s) !== i);
+     75|     expect(dupes, "这些 slug 被分配了不止一次").toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/skill-entry-points.test.ts > skill entry points gate (backlog E6) > starter-pack 发货的 stableName 与 SKILL.md slug 同一套，且全部已分配
+AssertionError: expected [ 'aidt-define', …(6) ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "aidt-define",
++   "aidt-empathize",
++   "aidt-ideate",
++   "aidt-iterate",
++   "aidt-prototype",
++   "aidt-understand",
++   "dt-summarize-project",
++ ]
+
+ ❯ tests/skill-entry-points.test.ts:85:63
+     83|   it("starter-pack 发货的 stableName 与 SKILL.md slug 同一套，且全部已…
+     84|     const packSlugs = starterPackSlugs();
+     85|     expect(packSlugs.filter((s) => entryPointOf(s) === null)).toEqual(…
+       |                                                               ^
+     86|     expect(new Set(packSlugs)).toEqual(new Set(repoSlugs));
+     87|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed | 146 passed (147)
+      Tests  2 failed | 1501 passed (1503)
+   Start at  01:31:30
+   Duration  26.55s (transform 5.94s, setup 0ms, collect 26.38s, tests 7.95s, environment 25ms, prepare 11.78s)
+
