@@ -10,7 +10,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace: vi.fn() }), usePathname: () => "/itv" }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push, replace: vi.fn() }), usePathname: () => "/itv" }));
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({ session: { currentOrgId: "org-1" } }),
   useOptionalSession: () => ({ session: { currentOrgId: "org-1", sessionToken: "tok" } }),
