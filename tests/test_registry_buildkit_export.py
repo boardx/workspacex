@@ -41,6 +41,8 @@ class ProducerFixture:
         elif args[:3] == ['docker', 'manifest', 'inspect']:
             status, error = 1, 'manifest unknown'
         elif args[:3] == ['docker', 'buildx', 'build']:
+            if '--load' in args:
+                return subprocess.CompletedProcess(args, 0, '', '')
             self.metadata = Path(args[args.index('--metadata-file') + 1])
             assert self.metadata.parent.stat().st_mode & 0o777 == 0o700
             assert self.metadata.stat().st_mode & 0o777 == 0o600
@@ -71,6 +73,13 @@ class ProducerFixture:
                 if self.failure == 'missing-field':
                     value.pop('containerimage.config.digest')
                 self.metadata.write_text(json.dumps(value))
+        elif args[:2] == ['docker', 'push']:
+            if self.failure == 'push-timeout':
+                raise subprocess.TimeoutExpired(args, kwargs['timeout'])
+            if self.failure != 'missing-push-digest':
+                out = f'123-1: digest: {MANIFEST} size: 1234\n'
+        elif args[:4] == ['docker', 'image', 'inspect', '--format']:
+            out = CONFIG
         elif args[:2] == ['docker', 'pull']:
             if self.failure in ('pull-missing', 'pull-denied'):
                 status, error = 1, ('manifest unknown' if self.failure == 'pull-missing' else 'denied') + ': ' + SYNTHETIC
@@ -93,14 +102,14 @@ class ProducerFixture:
 
 
 class ExportTests(unittest.TestCase):
-    def execute(self, failure=None):
+    def execute(self, failure=None, target="devapp"):
         m = module()
         fixture = ProducerFixture(m, failure)
         stdout, stderr = io.StringIO(), io.StringIO()
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'result.json'
             error = None
-            with patch.dict(os.environ, ENV, clear=True), patch.object(m.subprocess, 'run', side_effect=fixture), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            with patch.dict(os.environ, {**ENV, "TARGET_ENVIRONMENT": target}, clear=True), patch.object(m.subprocess, 'run', side_effect=fixture), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
                 try:
                     m.build('api', 'registry.example/team', '123-1', str(output), SOURCE)
                 except Exception as caught:
@@ -132,6 +141,25 @@ class ExportTests(unittest.TestCase):
         self.assertFalse(any(args[:2] == ['docker', 'push'] for args in commands))
         self.assertEqual(sum(args[:2] == ['docker', 'pull'] for args in commands), 1)
         self.assertLess(commands.index(args), next(i for i, command in enumerate(commands) if command[:2] == ['docker', 'pull']))
+
+    def test_cn_loads_then_pushes_and_verifies_registry_identity(self):
+        _, fixture, row, error, _ = self.execute(target='cn')
+        self.assertIsNone(error)
+        commands = [args for args, _ in fixture.calls]
+        self.assertEqual([args[1] for args in commands[2:]], ['buildx', 'image', 'push', 'pull', 'image'])
+        self.assertIn('--load', commands[2])
+        self.assertEqual(row['imageId'], CONFIG)
+        self.assertEqual(row['image'], 'registry.example/team/api@' + MANIFEST)
+
+    def test_cn_push_timeout_or_unverified_digest_has_no_receipt(self):
+        for failure, code in (('push-timeout', 'PUSH_TIMEOUT_API'),
+                              ('missing-push-digest', 'IMAGE_PUSH_DIGEST'),
+                              ('manifest', 'IMAGE_MANIFEST_MISMATCH'),
+                              ('config', 'IMAGE_CONFIG_MISMATCH')):
+            with self.subTest(failure=failure):
+                _, _, row, error, _ = self.execute(failure, target='cn')
+                self.assertIsNone(row)
+                self.assertEqual(str(error), code)
 
     def test_missing_empty_oversize_symlink_or_invalid_metadata_never_reads_back_or_writes_result(self):
         for failure in ('missing-metadata', 'empty-metadata', 'oversize-metadata', 'symlink-metadata',
