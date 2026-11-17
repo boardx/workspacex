@@ -1,0 +1,43 @@
+{
+  "kind": "registry-images-v1",
+  "sourceRevision": "27b305e607281e54b4cf905269e30e26a35bee9e",
+  "tag": "44015992148-90000000000000000001",
+  "platform": "linux/amd64",
+  "images": {
+    "postgres": {
+      "service": "postgres",
+      "sourceRevision": "27b305e607281e54b4cf905269e30e26a35bee9e",
+      "tag": "44015992148-90000000000000000001",
+      "image": "workspacex-cn-prod-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod/postgres-age@sha256:5e6c9aae363ffec6dbce6d279537b0c21f4e7ec10919a2c81756dc49881f782f",
+      "imageId": "sha256:b2478116994bea553a3be1d374654c8cdbbc2b68ee8736c9d2307ee01d198ca2"
+    },
+    "api": {
+      "service": "api",
+      "sourceRevision": "27b305e607281e54b4cf905269e30e26a35bee9e",
+      "tag": "44015992148-90000000000000000001",
+      "image": "workspacex-cn-prod-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod/api@sha256:7332426f6120be8f7c6b88f511260071ba8f8d943aad8f9ddb028b72970209cc",
+      "imageId": "sha256:0b80c19eab84d1486d55159b6d3e84244b373abfe82db2d5943c39971bc23c14"
+    },
+    "web": {
+      "service": "web",
+      "sourceRevision": "27b305e607281e54b4cf905269e30e26a35bee9e",
+      "tag": "44015992148-90000000000000000001",
+      "image": "workspacex-cn-prod-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod/web@sha256:e6d25d3577c4fafddf307e25582bc7c3dd250cd8a11fcec9bc2790e4b7f10e47",
+      "imageId": "sha256:8fcc6b19f0fd4efedcc66d13324f9f9390b86e7b86b10e824155a1a28346122c"
+    },
+    "sandbox": {
+      "service": "sandbox",
+      "sourceRevision": "27b305e607281e54b4cf905269e30e26a35bee9e",
+      "tag": "44015992148-90000000000000000001",
+      "image": "workspacex-cn-prod-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod/skill-sandbox@sha256:64f18d7646e24eacb0c22ab9df8d618dd6ca9d5de7728f29fb50d02e33d406c5",
+      "imageId": "sha256:ec12c88a7a69a518ec5989ad13ce01ad71bcd15bbbf6b86ccf4faeacc9ce1630"
+    },
+    "agent": {
+      "service": "agent",
+      "sourceRevision": "27b305e607281e54b4cf905269e30e26a35bee9e",
+      "tag": "44015992148-90000000000000000001",
+      "image": "workspacex-cn-prod-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod/deep-agent@sha256:dec669cbf6d77a3cf4cae774aaed83df07a638a89027bee6d56bf9064558ab27",
+      "imageId": "sha256:13dffa18a25d465dec462ef334d2b2823a251d0fe35f963ac268b25b4fbb1c4f"
+    }
+  }
+}

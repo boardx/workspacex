@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """GitHub-hosted ACR producer; shares Dockerfiles with the existing CN producer."""
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -24,6 +25,10 @@ AIDT_ATTEMPT_PREFIX = '9000000000000000000'
 PREFIX = re.compile(r'[a-z0-9][a-z0-9.-]*(?::[0-9]+)?/[a-z0-9]+(?:[._-][a-z0-9]+)*')
 MAX_BUILD_METADATA_BYTES = 2*1024*1024
 API_AIDT_FLAGS = ('ENABLE_AIDT_MODULE','ENABLE_PROJECT_MEMBER_CHAT')
+# Reviewed, complete release input. This mode activates configuration of this
+# application source, rather than claiming to rebuild it from the control SHA.
+ACTIVATION_PARENT_SHA256 = 'e2422ce0260fa39101bd5464e975baadd4992e3e7991e4c83801faba7fc3412b'
+ACTIVATION_PARENT_PATH = Path(__file__).resolve().parents[1]/'docs/evidence/aidt-native/registry-diagnostics-20261117/activation-parent-release.json'
 
 def need(ok, code):
     if not ok: raise ValueError(code)
@@ -181,6 +186,127 @@ def buildkit_identity(path):
         raise ValueError('BUILD_METADATA_INVALID') from None
 
 
+def activation_selected():
+    value=os.environ.get('AIDT_CONFIG_ACTIVATION','0')
+    need(value in ('0','1'),'INVALID_ACTIVATION_FLAG')
+    return value=='1'
+
+
+def activation_parent(prefix, source, tag, target, enabled, build_only, selected, existing=''):
+    """Admit only the pinned five-image DevApp configuration activation."""
+    need(target=='devapp' and enabled=='1','ACTIVATION_REQUIRES_AIDT_DEVAPP')
+    need(build_only is True and selected=='all' and not existing,'ACTIVATION_REQUIRES_NEW_FULL_BUILD_ONLY')
+    need(os.environ.get('SOURCE_OVERRIDE')==source and os.environ.get('GITHUB_EVENT_NAME')=='workflow_dispatch','ACTIVATION_REQUIRES_EXPLICIT_SOURCE_DISPATCH')
+    need(not os.environ.get('ACTIVATION_PARENT_MANIFEST') and not os.environ.get('ACTIVATION_PARENT_SHA256'),'ACTIVATION_PARENT_OVERRIDE_FORBIDDEN')
+    coordinates(prefix,tag)
+    need(is_aidt_tag(tag),'ACTIVATION_REQUIRES_AIDT_TAG')
+    need(tag==release_tag(source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'],True),'RERUN_ALL_JOBS_REQUIRED')
+    try:
+        path=ACTIVATION_PARENT_PATH
+        need(not path.is_symlink() and path.is_file(),'ACTIVATION_PARENT_INVALID')
+        with path.open('rb') as stream: raw=stream.read(MAX_BUILD_METADATA_BYTES+1)
+        need(0<len(raw)<=MAX_BUILD_METADATA_BYTES and hashlib.sha256(raw).hexdigest()==ACTIVATION_PARENT_SHA256,'ACTIVATION_PARENT_INVALID')
+        parent=json.loads(raw)
+        need(type(parent) is dict and set(parent)=={'kind','sourceRevision','tag','platform','images'},'ACTIVATION_PARENT_INVALID')
+        need(parent['kind']=='registry-images-v1' and parent['platform']=='linux/amd64' and parent['sourceRevision']==source,'ACTIVATION_PARENT_INVALID')
+        parent_tag=parent['tag']
+        coordinates(prefix,parent_tag)
+        need(parent_tag!=tag and is_aidt_tag(parent_tag),'ACTIVATION_PARENT_INVALID')
+        need(type(parent['images']) is dict and set(parent['images'])==set(SERVICES),'ACTIVATION_PARENT_INVALID')
+        for role,row in parent['images'].items():
+            need(type(row) is dict and set(row)=={'service','sourceRevision','tag','image','imageId'},'ACTIVATION_PARENT_INVALID')
+            need(row['service']==role and row['sourceRevision']==source and row['tag']==parent_tag,'ACTIVATION_PARENT_INVALID')
+            need(type(row['image']) is str and re.fullmatch(re.escape(prefix+'/'+SERVICES[role][0])+r'@sha256:[a-f0-9]{64}',row['image']),'ACTIVATION_PARENT_INVALID')
+            need(type(row['imageId']) is str and re.fullmatch(r'sha256:[a-f0-9]{64}',row['imageId']),'ACTIVATION_PARENT_INVALID')
+        return parent
+    except (OSError,ValueError,TypeError,KeyError):
+        raise ValueError('ACTIVATION_PARENT_INVALID') from None
+
+
+def activation_json(args):
+    raw=run(args,timeout=60)
+    need(len(raw.encode())<=MAX_BUILD_METADATA_BYTES,'ACTIVATION_READBACK_INVALID')
+    try: return json.loads(raw)
+    except (ValueError,TypeError): raise ValueError('ACTIVATION_READBACK_INVALID') from None
+
+
+def activation_snapshot(reference, source, tag, config_digest):
+    values=activation_json(['docker','image','inspect',reference])
+    need(type(values) is list and len(values)==1 and type(values[0]) is dict,'ACTIVATION_READBACK_INVALID')
+    value=values[0]
+    need(value.get('Id')==config_digest and value.get('Os')=='linux' and value.get('Architecture')=='amd64','ACTIVATION_READBACK_INVALID')
+    need(type(value.get('RepoDigests')) is list and reference in value['RepoDigests'],'ACTIVATION_READBACK_INVALID')
+    config=value.get('Config');rootfs=value.get('RootFS')
+    need(type(config) is dict and type(config.get('Labels')) is dict,'ACTIVATION_READBACK_INVALID')
+    need(config['Labels'].get('org.opencontainers.image.revision')==source and config['Labels'].get('io.boardx.workspacex.release-tag')==tag,'ACTIVATION_READBACK_INVALID')
+    need(type(rootfs) is dict and rootfs.get('Type')=='layers' and type(rootfs.get('Layers')) is list,'ACTIVATION_READBACK_INVALID')
+    need(all(type(v) is str and re.fullmatch(r'sha256:[a-f0-9]{64}',v) for v in rootfs['Layers']),'ACTIVATION_READBACK_INVALID')
+    manifest=activation_json(['docker','manifest','inspect',reference])
+    need(type(manifest) is dict and manifest.get('schemaVersion')==2 and manifest.get('mediaType') in (
+        'application/vnd.docker.distribution.manifest.v2+json','application/vnd.oci.image.manifest.v1+json'),'ACTIVATION_READBACK_INVALID')
+    descriptor=manifest.get('config')
+    need(type(descriptor) is dict and descriptor.get('digest')==config_digest and type(descriptor.get('size')) is int and descriptor['size']>0 and
+         descriptor.get('mediaType') in ('application/vnd.docker.container.image.v1+json','application/vnd.oci.image.config.v1+json'),'ACTIVATION_READBACK_INVALID')
+    layers=manifest.get('layers')
+    need(type(layers) is list and len(layers)<=1000,'ACTIVATION_READBACK_INVALID')
+    for layer in layers:
+        need(type(layer) is dict and set(layer)=={'mediaType','size','digest'} and
+             layer['mediaType'] in ('application/vnd.docker.image.rootfs.diff.tar.gzip','application/vnd.oci.image.layer.v1.tar+gzip','application/vnd.oci.image.layer.v1.tar','application/vnd.oci.image.layer.v1.tar+zstd') and
+             type(layer['size']) is int and layer['size']>=0 and type(layer['digest']) is str and re.fullmatch(r'sha256:[a-f0-9]{64}',layer['digest']),'ACTIVATION_READBACK_INVALID')
+    need(len(rootfs['Layers'])==len(layers),'ACTIVATION_READBACK_INVALID')
+    return config,rootfs,layers
+
+
+def verify_activation(role, before, row):
+    # Child was freshly pulled by resolve; bind the comparison to its digest.
+    child=activation_snapshot(row['image'],row['sourceRevision'],row['tag'],row['imageId'])
+    need(before[1:]==child[1:],'ACTIVATION_FILESYSTEM_CHANGED')
+    before_config=dict(before[0]);child_config=dict(child[0])
+    before_labels=dict(before_config.pop('Labels'));child_labels=dict(child_config.pop('Labels'))
+    before_labels.pop('io.boardx.workspacex.release-tag');child_labels.pop('io.boardx.workspacex.release-tag')
+    need(before_labels==child_labels,'ACTIVATION_CONFIG_CHANGED')
+    if role=='api':
+        for config in (before_config,child_config):
+            env=config.get('Env')
+            need(type(env) is list and all(type(entry) is str for entry in env),'ACTIVATION_CONFIG_CHANGED')
+        for name in API_AIDT_FLAGS:
+            need([entry for entry in child_config['Env'] if entry.partition('=')[0]==name]==[name+'=1'],'ACTIVATION_CONFIG_CHANGED')
+        for config in (before_config,child_config):
+            config['Env']=[entry for entry in config['Env'] if entry.partition('=')[0] not in API_AIDT_FLAGS]
+    need(before_config==child_config,'ACTIVATION_CONFIG_CHANGED')
+
+
+def build_activation(role,prefix,tag,output,source,parent):
+    repository=prefix+'/'+SERVICES[role][0]
+    probe=subprocess.run(['docker','manifest','inspect',repository+':'+tag],capture_output=True,text=True,timeout=60)
+    need(probe.returncode!=0,'IMMUTABLE_TAG_ALREADY_EXISTS')
+    need(re.search(r'manifest unknown|no such manifest|MANIFEST_UNKNOWN',probe.stderr,re.I) and
+         not re.search(r'unauthorized|denied|forbidden|TLS|timeout|connection|certificate',probe.stderr,re.I),'TAG_EXISTENCE_UNVERIFIED')
+    previous=parent['images'][role]
+    run(['docker','pull','--platform','linux/amd64',previous['image']],retry_transient=True)
+    before=activation_snapshot(previous['image'],source,previous['tag'],previous['imageId'])
+    # FROM can execute inherited ONBUILD instructions. Refuse them before any
+    # child build, even when a trigger could leave no filesystem difference.
+    need(before[0].get('OnBuild') in (None,[]),'ACTIVATION_ONBUILD_FORBIDDEN')
+    with tempfile.TemporaryDirectory(prefix='registry-activation-') as directory:
+        context=Path(directory);dockerfile=context/'Dockerfile';metadata=context/'result.json'
+        # All interpolated values have strict coordinate/hash validation. There
+        # are no caller-provided Dockerfile instructions, COPY, RUN or build args.
+        text='FROM '+parent['images'][role]['image']+'\n'
+        text+='LABEL org.opencontainers.image.revision='+source+'\n'
+        text+='LABEL io.boardx.workspacex.release-tag='+tag+'\n'
+        if role=='api': text+='ENV ENABLE_AIDT_MODULE=1 ENABLE_PROJECT_MEMBER_CHAT=1\n'
+        dockerfile.write_text(text)
+        fd=os.open(metadata,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600);os.close(fd)
+        args=['docker','buildx','build','--output=type=registry,oci-mediatypes=false','--provenance=false','--network=none','--platform','linux/amd64',
+              '--file',str(dockerfile),'--tag',repository+':'+tag,'--metadata-file',str(metadata),'--progress=plain',str(context)]
+        run_release_stage(role,'build',args,3120)
+        config_digest,manifest_digest=buildkit_identity(metadata)
+        row=publication_row(role,prefix,tag,source,config_digest,manifest_digest,True)
+        verify_activation(role,before,row)
+        write(output,row)
+
+
 def build(role, prefix, tag, output, source):
     coordinates(prefix,tag)
     need(role in SERVICES,'INVALID_SERVICE')
@@ -188,7 +314,13 @@ def build(role, prefix, tag, output, source):
     module_args=aidt_web_build_args(role)
     enabled=os.environ.get('AIDT_RELEASE_ENABLED','0')=='1'
     need(is_aidt_tag(tag)==enabled,'AIDT_TAG_FLAVOR_MISMATCH')
+    activation=activation_selected()
+    parent=activation_parent(prefix,source,tag,os.environ.get('TARGET_ENVIRONMENT'), '1' if enabled else '0',
+                             os.environ.get('BUILD_ONLY')=='true',os.environ.get('BUILD_SERVICE') or 'all',os.environ.get('EXISTING_TAG','')) if activation else None
     need(run(['git','rev-parse','HEAD']).strip()==source,'SOURCE_CHECKOUT_MISMATCH')
+    if activation:
+        build_activation(role,prefix,tag,output,source,parent)
+        return
     repository,dockerfile,context,bases=SERVICES[role]
     cn=os.environ.get('TARGET_ENVIRONMENT')=='cn'
     reference=prefix+'/'+repository+':'+tag
@@ -235,12 +367,16 @@ def build(role, prefix, tag, output, source):
 
 
 def verify_publication(role,prefix,tag,output,source,config_digest,manifest_digest,enabled):
+    write(output,publication_row(role,prefix,tag,source,config_digest,manifest_digest,enabled))
+
+
+def publication_row(role,prefix,tag,source,config_digest,manifest_digest,enabled):
     expected_api_flags=('1' if enabled else '0') if role=='api' else None
     row=resolve('docker',prefix,tag,role,expected_source=source,expected_api_flags=expected_api_flags)
     repository=SERVICES[role][0]
     need(row['imageId']==config_digest,'IMAGE_CONFIG_MISMATCH')
     need(row['image']==prefix+'/'+repository+'@'+manifest_digest,'IMAGE_MANIFEST_MISMATCH')
-    write(output,row)
+    return row
 
 
 def aggregate(directory, source, tag, prefix):
@@ -317,6 +453,9 @@ def main():
         selected=os.environ.get('BUILD_SERVICE') or 'all'
         need(selected=='all' or selected in SERVICES and os.environ.get('BUILD_ONLY')=='true','PARTIAL_BUILD_REQUIRES_BUILD_ONLY')
         services=list(SERVICES) if selected=='all' else [selected]
+        activation=activation_selected()
+        if activation:
+            activation_parent(os.environ.get('REGISTRY_PREFIX',''),args.source,tag,target,aidt,build_only,selected,existing)
         lane={'devapp':('devapp','workspacex','workspacex-devapp-deploy'),
               'cn':('production-cn','workspacex-cn-production','workspacex-cn-production-deploy'),
               'us':('production-us','workspacex-us-production','workspacex-us-production-deploy')}[target]
@@ -324,7 +463,7 @@ def main():
         with open(os.environ['GITHUB_OUTPUT'],'a') as output:
             values={'source':args.source,'tag':tag,'services':json.dumps(services),'fullset':'true' if selected=='all' else 'false','target':target,'environment':lane[0],
                     'runner':json.dumps(runner),'build':'false' if existing else 'true','group':lane[2],'aidt_web_enabled':aidt}
-            if args.resolve_bases and not existing: values.update(resolve_bases())
+            if args.resolve_bases and not existing and not activation: values.update(resolve_bases())
             for key,value in values.items(): output.write(key+'='+value+'\n')
         summary=os.environ.get('GITHUB_STEP_SUMMARY')
         if summary:
