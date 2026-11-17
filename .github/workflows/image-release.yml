@@ -42,7 +42,7 @@ on:
         default: false
         type: boolean
       enable_aidt:
-        description: Build AIDT and member chat into Web (DevApp only; requires a new tag)
+        description: Build AIDT and member chat Web UI plus API defaults (DevApp only; requires a new tag)
         required: false
         default: false
         type: boolean

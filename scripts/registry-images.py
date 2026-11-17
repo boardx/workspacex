@@ -23,6 +23,7 @@ LEGACY_TAG = re.compile(r'[a-f0-9]{40}-[1-9][0-9]*-[1-9][0-9]*')
 AIDT_ATTEMPT_PREFIX = '9000000000000000000'
 PREFIX = re.compile(r'[a-z0-9][a-z0-9.-]*(?::[0-9]+)?/[a-z0-9]+(?:[._-][a-z0-9]+)*')
 MAX_BUILD_METADATA_BYTES = 2*1024*1024
+API_AIDT_FLAGS = ('ENABLE_AIDT_MODULE','ENABLE_PROJECT_MEMBER_CHAT')
 
 def need(ok, code):
     if not ok: raise ValueError(code)
@@ -67,6 +68,9 @@ def aidt_web_build_args(role):
     need(values[0]=='0' or role=='web','AIDT_WEB_BUILD_ONLY')
     need(values[0]=='0' or os.environ.get('TARGET_ENVIRONMENT')=='devapp','AIDT_REQUIRES_DEVAPP')
     need(role!='web' or values[0]==release,'AIDT_BUILD_FLAGS_MISMATCH')
+    if role=='api':
+        # API defaults follow the admitted release flavor, never host runtime env.
+        return [arg for name in API_AIDT_FLAGS for arg in ('--build-arg',name+'='+release)]
     return [arg for name,value in zip(names,values) for arg in ('--build-arg',name+'='+value)] if role=='web' else []
 
 def safe_diagnostics(raw):
@@ -98,7 +102,7 @@ def run(args, timeout=3600, retry_transient=False):
         print('Transient registry pull transport failure; retry '+str(attempt+2)+'/'+str(attempts),file=sys.stderr)
         time.sleep((2,5)[attempt])
 
-def resolve(docker, prefix, tag, role, pull=True, expected_source=None):
+def resolve(docker, prefix, tag, role, pull=True, expected_source=None, expected_api_flags=None):
     coordinates(prefix,tag)
     need(role in SERVICES,'INVALID_SERVICE')
     repository=prefix+'/'+SERVICES[role][0]
@@ -109,6 +113,17 @@ def resolve(docker, prefix, tag, role, pull=True, expected_source=None):
     need(len(values)==1,'IMAGE_INSPECT')
     value=values[0]
     need(value['Os']=='linux' and value['Architecture']=='amd64','IMAGE_PLATFORM')
+    if expected_api_flags is not None:
+        need(role=='api' and expected_api_flags in ('0','1'),'INVALID_API_FLAG_EXPECTATION')
+        config=value.get('Config')
+        need(type(config) is dict,'API_IMAGE_FLAGS_MISMATCH')
+        environment=config.get('Env')
+        environment=[] if environment is None else environment
+        need(type(environment) is list and all(type(entry) is str for entry in environment),'API_IMAGE_FLAGS_MISMATCH')
+        for name in API_AIDT_FLAGS:
+            matches=[entry for entry in environment if entry.partition('=')[0]==name]
+            need(matches==[name+'='+expected_api_flags] or expected_api_flags=='0' and not matches,
+                 'API_IMAGE_FLAGS_MISMATCH')
     labels=value.get('Config',{}).get('Labels',{}) or {}
     source=labels.get('org.opencontainers.image.revision','')
     need(isinstance(source,str) and SHA.fullmatch(source),'IMAGE_SOURCE_MISMATCH')
@@ -199,7 +214,8 @@ def build(role, prefix, tag, output, source):
         # No daemon push, fallback or additional upload retry follows it.
         run_release_stage(role, 'build', args+['--metadata-file',str(metadata),'--progress=plain', context], 3120)
         config_digest,manifest_digest=buildkit_identity(metadata)
-        row=resolve('docker',prefix,tag,role,expected_source=source)
+        row=resolve('docker',prefix,tag,role,expected_source=source,
+                    expected_api_flags=('1' if enabled else '0') if role=='api' else None)
         need(row['sourceRevision']==source,'IMAGE_SOURCE_MISMATCH')
         need(row['imageId']==config_digest,'IMAGE_CONFIG_MISMATCH')
         need(row['image']==prefix+'/'+repository+'@'+manifest_digest,'IMAGE_MANIFEST_MISMATCH')
