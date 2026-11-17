@@ -72,7 +72,7 @@ on:
         required: true
         type: string
       release:
-        description: Semantic release identifier
+        description: Semantic release identifier; DevApp host-only probe accepts an exact immutable image tag
         required: true
         type: string
       platform:
@@ -154,6 +154,8 @@ jobs:
         env:
           EXPECTED_SHA256: ${{ needs.host-permission-source.outputs.sha256 }}
           TARGET_ENVIRONMENT: ${{ inputs.host_permission_probe }}
+          AIDT_RELEASE_SOURCE: ${{ inputs.host_permission_probe == 'devapp' && inputs.release_sha || '' }}
+          AIDT_RELEASE_TAG: ${{ inputs.host_permission_probe == 'devapp' && inputs.release || '' }}
         run: |
           printf '%s  image-release-host-permissions.py\n' "$EXPECTED_SHA256" | sha256sum --check --strict
           python3 -I -B image-release-host-permissions.py

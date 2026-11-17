@@ -18,6 +18,9 @@ ENTRIES = ('/usr/local/bin/workspacex-image-release', '/usr/local/bin/workspacex
 DEVAPP_PROJECTS = frozenset(('workspacex', 'workspacex-devapp', 'devapp', 'wsx-devapp'))
 DOCKER_READ_LIMIT = 1048576
 API_FLAGS = ('ENABLE_AIDT_MODULE', 'ENABLE_PROJECT_MEMBER_CHAT')
+EXACT_RELEASE_ROLES = {'api': 'api', 'web': 'web', 'agent': 'agent', 'deep-agent': 'agent',
+                       'sandbox': 'sandbox', 'skill-sandbox': 'sandbox', 'sandbox-sessions': 'sandbox-sessions'}
+EXACT_RELEASE_REQUIRED = frozenset(('api', 'web', 'agent', 'sandbox'))
 
 def metadata(path):
     try:
@@ -157,6 +160,98 @@ def aidt_readiness():
         result['api'] = dict(status='UNKNOWN', reason='READ_UNAVAILABLE')
     return result
 
+def exact_release_marker(environment):
+    matches = [entry.partition('=')[2] for entry in environment if entry.partition('=')[0] == 'WORKSPACEX_DEPLOYMENT_MARKER']
+    if not matches:
+        return dict(state='unset')
+    if len(matches) != 1:
+        return dict(state='duplicate')
+    if re.fullmatch(r'[a-f0-9]{40}', matches[0]):
+        return dict(state='observed', value=matches[0])
+    return dict(state='invalid')
+
+def aidt_exact_release():
+    """GET-only exact identity observation; never expand the legacy project scope."""
+    result = dict(status='UNKNOWN', containers=[],
+                  api=dict(status='UNKNOWN', aidtModule='unknown', memberChat='unknown'),
+                  web=dict(status='UNKNOWN', marker=dict(state='unknown')))
+    source, tag = os.environ.get('AIDT_RELEASE_SOURCE', ''), os.environ.get('AIDT_RELEASE_TAG', '')
+    tag_match = re.fullmatch(r'(?:(?P<source>[a-f0-9]{40})-)?[1-9][0-9]*-[1-9][0-9]*', tag)
+    if (os.environ.get('TARGET_ENVIRONMENT') != 'devapp'
+            or re.fullmatch(r'[a-f0-9]{40}', source) is None or tag_match is None or len(tag) > 128
+            or tag_match.group('source') not in (None, source)):
+        result['reason'] = 'INVALID_SELECTORS'
+        return result
+    try:
+        items = docker_json('/containers/json')
+        if not isinstance(items, list) or len(items) > 1024:
+            raise DockerReadError('INVALID_LIST')
+        selected = {}
+        identifiers = set()
+        for item in items:
+            if not isinstance(item, dict) or not isinstance(item.get('Labels') or {}, dict):
+                raise DockerReadError('INVALID_LIST')
+            labels = item.get('Labels') or {}
+            if (labels.get('org.opencontainers.image.revision') != source
+                    or labels.get('io.boardx.workspacex.release-tag') != tag):
+                continue
+            service = labels.get('com.docker.compose.service')
+            role = EXACT_RELEASE_ROLES.get(service) if isinstance(service, str) else None
+            if role is None:
+                raise DockerReadError('UNKNOWN_ROLE')
+            if role in selected:
+                raise DockerReadError('DUPLICATE_ROLE')
+            identifier, image = item.get('Id'), item.get('ImageID')
+            if not isinstance(identifier, str) or not re.fullmatch(r'[a-f0-9]{64}', identifier):
+                raise DockerReadError('INVALID_CONTAINER_ID')
+            if not isinstance(image, str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', image):
+                raise DockerReadError('INVALID_IMAGE_ID')
+            if identifier in identifiers:
+                raise DockerReadError('DUPLICATE_CONTAINER')
+            identifiers.add(identifier)
+            selected[role] = (identifier, image, service, labels.get('com.docker.compose.project'))
+        if not EXACT_RELEASE_REQUIRED.issubset(selected):
+            raise DockerReadError('MISSING_REQUIRED_ROLES')
+        observed, api, web = [], None, None
+        for role in ('api', 'web', 'agent', 'sandbox', 'sandbox-sessions'):
+            if role not in selected:
+                continue
+            identifier, image, service, project = selected[role]
+            detail = docker_json('/containers/' + identifier + '/json')
+            if not isinstance(detail, dict) or detail.get('Id') != identifier or detail.get('Image') != image:
+                raise DockerReadError('CONTAINER_BINDING_CHANGED')
+            config = detail.get('Config')
+            labels = config.get('Labels') if isinstance(config, dict) else None
+            if (not isinstance(labels, dict) or labels.get('org.opencontainers.image.revision') != source
+                    or labels.get('io.boardx.workspacex.release-tag') != tag
+                    or labels.get('com.docker.compose.service') != service
+                    or labels.get('com.docker.compose.project') != project):
+                raise DockerReadError('CONTAINER_BINDING_CHANGED')
+            if (not isinstance(detail.get('State'), dict) or detail['State'].get('Running') is not True
+                    or any(detail['State'].get(name) is True for name in ('Paused', 'Restarting', 'Dead'))):
+                raise DockerReadError('CONTAINER_NOT_RUNNING')
+            if role in ('api', 'web'):
+                environment = config.get('Env')
+                environment = [] if environment is None else environment
+                if not isinstance(environment, list) or not all(isinstance(entry, str) for entry in environment):
+                    raise DockerReadError('INVALID_ENVIRONMENT')
+                if role == 'api':
+                    api = dict(status='OBSERVED', aidtModule=flag_state(environment, API_FLAGS[0]),
+                               memberChat=flag_state(environment, API_FLAGS[1]))
+                else:
+                    web = dict(status='OBSERVED', marker=exact_release_marker(environment))
+            observed.append(dict(role=role, service=service, imageId=image, sourceRevision=source, tag=tag))
+        result.update(status='OBSERVED', containers=observed, api=api, web=web)
+    except DockerReadError as error:
+        allowed = ('INVALID_READ_PATH', 'HTTP_REJECTED', 'OUTPUT_BOUND', 'READ_UNAVAILABLE',
+                   'INVALID_LIST', 'UNKNOWN_ROLE', 'DUPLICATE_ROLE', 'INVALID_CONTAINER_ID', 'INVALID_IMAGE_ID',
+                   'DUPLICATE_CONTAINER', 'MISSING_REQUIRED_ROLES', 'CONTAINER_BINDING_CHANGED',
+                   'CONTAINER_NOT_RUNNING', 'INVALID_ENVIRONMENT')
+        result['reason'] = error.args[0] if error.args and error.args[0] in allowed else 'READ_UNAVAILABLE'
+    except Exception:
+        result['reason'] = 'READ_UNAVAILABLE'
+    return result
+
 def collect():
     identity = pwd.getpwuid(os.geteuid())
     groups = sorted(set(os.getgroups() + [identity.pw_gid]))
@@ -166,7 +261,14 @@ def collect():
                   paths={path: metadata(path) for path in PATHS}, docker=containers(),
                   changesMade=False)
     if os.environ.get('TARGET_ENVIRONMENT') == 'devapp':
-        result['aidtReadiness'] = aidt_readiness()
+        if 'AIDT_RELEASE_SOURCE' in os.environ or 'AIDT_RELEASE_TAG' in os.environ:
+            # Explicit selectors never fall back to inspecting an unrelated
+            # legacy-project API's environment, including invalid selectors.
+            result['aidtReadiness'] = dict(status='UNKNOWN', containers=[], truncated=False,
+                                          api=dict(status='UNKNOWN', reason='EXACT_RELEASE_SELECTED'))
+            result['aidtExactRelease'] = aidt_exact_release()
+        else:
+            result['aidtReadiness'] = aidt_readiness()
     try:
         checked = subprocess.run(['/usr/bin/sudo', '-n', '-l'], capture_output=True, text=True, timeout=10)
         # Never emit the raw policy: summarize only fixed release entry mentions.
