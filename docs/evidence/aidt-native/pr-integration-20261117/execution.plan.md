@@ -36,8 +36,9 @@ flowchart TD
   %% evidence S1: git fetch latest develop and isolated merge 1a2ec212d; root instructions and user merge authorization read
   class S2 tested
   %% evidence S2: publication-audit.md and credential-history-scan.json: 94 commits / 2142 blobs, zero credential matches
-  class S3 doing
-  class S4 todo
+  class S3 tested
+  %% evidence S3: contracts1504, Web818+shared192, API625, Python241+2skip, release34+9+5; strict secret0new and route72pass receipts
+  class S4 doing
   class S5 todo
 ```
 

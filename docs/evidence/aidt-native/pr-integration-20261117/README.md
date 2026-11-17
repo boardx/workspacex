@@ -55,3 +55,11 @@ Five migrations are required before this API can run against an old schema, **ev
 These require the existing separately reviewed schema release route; merging source is not a migration/privilege approval. The existing release consumer must retain its schema inventory/admission checks and exact source/image bindings. Actual DevApp schema adapter and runtime configuration have not yet been verified. New Web compilation flags alone do not enable the API. API `ENABLE_AIDT_MODULE=1` and `ENABLE_PROJECT_MEMBER_CHAT=1` must use existing reviewed host configuration. No host config, app_rw grants, roles, root wrapper or policy has been changed here.
 
 The manual `image-release` workflow, exact merged source, all-five-images manifest, native schema admission, running artifact and actual `/aidt` UI must be verified separately before calling DevApp available. Public ordinary-site HTTP response alone is not AIDT acceptance. PR/CI/release receipts will be posted on the PR rather than self-marking any feature passing or human signoff approved.
+
+## Strict CI preflight corrections
+
+The OSS scanner originally rejected three newly introduced synthetic secret literals in tests. Only those fixture values were labeled with the existing accepted dummy prefix; the redaction assertions still check full values, and the scanner/baseline were not changed. Diagnostics Python passed 12 tests plus 6 subtests, local CLI passed 10, and real loopback TLS/canned SDK transport passed 2 (zero provider calls). Final strict scan has zero baseline-external matches. Original failure output is retained alongside green output.
+
+Route coverage correctly found two stale allowlist entries for newly implemented `files:getIngestionRun` and `files:uploadArtifact`. Only these entries were removed: strict gate exit 0, 247/247 remaining entries still missing, four existing gate/ratchet suites 72/72 pass. No exception or strictness was expanded. See route-ratchet-verification.md.
+
+The pure current lightweight CI selector locally selects five contract files (37 passing tests), and reports the broad feature impact as deferred. This is not full regression; the broader fresh integration suites above are separate evidence. Arch-dependencies (2314 files), edition-capability and lightweight graph checks pass.

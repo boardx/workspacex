@@ -11,7 +11,7 @@ import openai
 from deep_agent_service.error_diagnostics import MAX_CAUSE_NODES, log_private_run_failure, private_error_diagnostic
 
 
-SECRET = "sk-private-key prompt password=https://private.invalid?token=private"
+SECRET = 'DUMMY_sk-private-key prompt password=https://private.invalid?token=private'
 RUN_ID = "11111111-1111-4111-8111-111111111111"
 
 

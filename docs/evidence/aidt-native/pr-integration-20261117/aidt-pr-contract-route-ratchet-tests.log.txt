@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-pr-20261117
+
+ ✓ .harness/scripts/lib/contract-route-coverage.test.ts (33 tests) 13ms
+ ✓ .harness/scripts/lib/contract-route-ratchet.test.ts (20 tests) 5ms
+ ✓ .harness/scripts/lint-contract-route-coverage-gate.test.ts (9 tests) 1395ms
+   ✓ 命令行入口（正样本：门不是恒红） > 真仓库 → 退出 0，并说清楚名单有多长 709ms
+   ✓ 命令行入口（正样本：门不是恒红） > 真仓库 + --strict → 同样退出 0（门控模式不是把正常状态判红） 675ms
+ ✓ .harness/scripts/lib/contract-route-coverage-fs.test.ts (10 tests) 62ms
+
+ Test Files  4 passed (4)
+      Tests  72 passed (72)
+   Start at  01:48:39
+   Duration  3.01s (transform 128ms, setup 0ms, collect 679ms, tests 1.47s, environment 1ms, prepare 233ms)
+

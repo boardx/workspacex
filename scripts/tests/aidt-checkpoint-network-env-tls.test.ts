@@ -55,7 +55,7 @@ async def main():
     assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
     http = httpx.AsyncClient(transport=transport, trust_env=True, timeout=3.0, follow_redirects=False)
     try:
-        async with AsyncOpenAI(api_key='offline-fixture', base_url=str(url), max_retries=0, timeout=3.0, http_client=http) as sdk:
+        async with AsyncOpenAI(api_key='dummy-offline-fixture', base_url=str(url), max_retries=0, timeout=3.0, http_client=http) as sdk:
             reply = await sdk.chat.completions.create(model='offline-fixture-model', messages=[{'role':'user','content':'Synthetic local TLS fixture only.'}])
             result = {'mockOnly': True, 'notModel': True, 'reply': reply.choices[0].message.content, 'certificateValidationRequired': True}
     except APIConnectionError as error:
@@ -112,7 +112,7 @@ test("real loopback TLS: omitted caller CA fails; inherited caller CA succeeds w
       lease.markStarting();
       server = https.createServer({ key: readFileSync(key), cert: readFileSync(cert) }, (request, response) => {
         if (request.method === "POST" && request.url === "/mock-only/v1/chat/completions") {
-          const observed = { method: request.method, path: request.url, dummyAuthorization: request.headers.authorization === "Bearer offline-fixture",
+          const observed = { method: request.method, path: request.url, dummyAuthorization: request.headers.authorization === "Bearer dummy-offline-fixture",
             cookie: Boolean(request.headers.cookie), body: null as unknown, bodyBytes: 0 };
           sdkRequests.push(observed); let bytes = "";
           request.on("data", chunk => { observed.bodyBytes += chunk.length; if (observed.bodyBytes > 4_096) request.destroy(); else bytes += chunk; });

@@ -15,7 +15,7 @@ vi.mock("../src/processes", () => ({ startManaged: mocks.childStart }));
 const stack = () => ({
   stop: mocks.stop, health: () => [], capabilities: [], warnings: [],
   urls: { api: "http://127.0.0.1:3200", web: "http://127.0.0.1:3100", ollama: null, deepAgent: null, asr: null },
-  login: { email: "me@local.workspacex", password: "PRIVATE_PASSWORD_SENTINEL" },
+  login: { email: "me@local.workspacex", password: "DUMMY_PRIVATE_PASSWORD_SENTINEL" },
 });
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (error: unknown) => void; const promise = new Promise<T>((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
 let originalArgv: string[], originalExit: typeof process.exitCode;
@@ -140,8 +140,8 @@ describe("AIDT CLI lifecycle boundaries", () => {
     mocks.fetch.mockResolvedValueOnce({ status: 503, body: { cancel: async () => {} } });
     const second = await control("status"); expect(second).toMatchObject({ phase: "running", healthy: false });
     expect(mocks.fetch).toHaveBeenCalledTimes(4);
-    const output = JSON.stringify([first, second]); expect(output).not.toContain("PRIVATE_PASSWORD_SENTINEL"); expect(output).not.toContain("PRIVATE_CONTROL_TOKEN");
-    expect(logged).not.toContain("PRIVATE_PASSWORD_SENTINEL");
+    const output = JSON.stringify([first, second]); expect(output).not.toContain("DUMMY_PRIVATE_PASSWORD_SENTINEL"); expect(output).not.toContain("PRIVATE_CONTROL_TOKEN");
+    expect(logged).not.toContain("DUMMY_PRIVATE_PASSWORD_SENTINEL");
     expect(mocks.up).toHaveBeenCalledWith(expect.objectContaining({ webMode: "dev", pullModel: false, allowAlternateOllamaRestart: false }));
     ownSignal()(); await vi.waitFor(() => expect(mocks.close).toHaveBeenCalledTimes(1));
   });
