@@ -30,6 +30,7 @@
       "plan-control": "/preview/plan-control"
     },
     "allowRoutes": [
+      "/aidt",
       "/home",
       "/preview/chat-knowledge-graph",
       "/studio/survey",
@@ -63,6 +64,7 @@
       "design-workbench": "/studio/design-workbench"
     },
     "allowRoutes": [
+      "/aidt",
       "/home",
       "/admin",
       "/asset-governance",
@@ -102,6 +104,7 @@
       "error-observability": "/preview/agent-kernel"
     },
     "allowRoutes": [
+      "/aidt",
       "/home",
       "/admin",
       "/asset-governance",
@@ -139,6 +142,7 @@
       "chat-knowledge-graph": "/preview/chat-knowledge-graph"
     },
     "allowRoutes": [
+      "/aidt",
       "/home",
       "/admin",
       "/asset-governance",
@@ -177,6 +181,7 @@
       "billing-subscription": "/billing"
     },
     "allowRoutes": [
+      "/aidt",
       "/home",
       "/admin",
       "/asset-governance",

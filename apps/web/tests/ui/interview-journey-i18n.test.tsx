@@ -9,7 +9,7 @@ import { InterviewReportStep } from "@/components/itv/interview-report-step";
 import { InterviewStudioHome } from "@/components/itv/interview-studio-home";
 import type { InterviewMarkdownDocument } from "@/lib/interview-markdown-api";
 const api = vi.hoisted(() => ({ history: vi.fn(), experts: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/interview-api", async original => ({ ...await original<typeof import("@/lib/interview-api")>(), loadDigitalInterviewHistory: api.history, loadDigitalExperts: api.experts }));
 vi.mock("@/lib/interview-expert-library-api", () => ({ loadCustomInterviewExperts: async () => ({ items: [] }) }));
 const raw = "# 私有研究 {count}\n\n## 原文结论\n内容与符号 **保留**。";
