@@ -986,7 +986,7 @@ test("restoring a question edit then regenerating shows a new reviewable draft",
   await expect(page).toHaveURL(/\/outline$/u);
   await page.getByRole("button", { name: "确认问题并开始访谈", exact: true }).click();
   await expect(page).toHaveURL(/\/runs$/u);
-  expect(sequence).toEqual(["generate", "confirm", "start"]);
+  await expect.poll(() => sequence).toEqual(["generate", "confirm", "start"]);
   await page.reload();
   await expect(page.getByTestId("itv-workbench-step-runs")).toHaveAttribute("aria-current", "step");
   expect(sequence).toEqual(["generate", "confirm", "start"]);
