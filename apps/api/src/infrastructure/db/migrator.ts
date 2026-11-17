@@ -115,7 +115,23 @@ export async function migrate(
         await client.query("BEGIN");
         try {
           const replay=await nativeTariffForceReplay(client,name,sql,opts.force===true);
-          await client.query(replay.sql);
+          let replaySql = replay.sql;
+          if (opts.force && done.has(name) && replaySql.includes("ALTER TABLE credit_transactions")) {
+            // Later migrations extend transaction kinds. Replaying an older file
+            // must retain the installed checks that already validate stored rows.
+            const constraints = await client.query<{ conname: string; definition: string }>(
+              "SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid=to_regclass('public.credit_transactions') AND contype='c'",
+            );
+            const definitions = new Map(constraints.rows.map(row => [row.conname, row.definition]));
+            replaySql = replaySql.replace(
+              /ALTER TABLE credit_transactions ADD CONSTRAINT (credit_transactions_\w+) CHECK\([\s\S]*?\);/g,
+              (statement, constraint: string) => {
+                const definition = definitions.get(constraint);
+                return definition ? `ALTER TABLE credit_transactions ADD CONSTRAINT ${constraint} ${definition};` : statement;
+              },
+            );
+          }
+          await client.query(replaySql);
           // The historical file grants its old tenant writer; keep those privileges
           // revoked inside this same transaction, before exposing a completed replay.
           if(replay.mapped)await client.query('REVOKE ALL ON credit_native_tariffs_legacy FROM PUBLIC,app_rw');
