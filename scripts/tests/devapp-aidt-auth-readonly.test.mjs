@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { ORIGIN, CREDENTIAL_PATH, parseQaCredentials, readQaCredentials, createRequestGuard, projectApiResponse, validLoginBody, routeReadonly } from '../../apps/web/e2e/support/devapp-aidt-auth-readonly.mjs';
@@ -205,10 +208,116 @@ test('manual lane pins the official credential-path contract, data-only prefligh
   assert.match(readonly, /runs-on: \[self-hosted, linux, x64, workspacex\]/);
   assert.match(readonly, /permissions:\n      contents: read/);
   assert.match(readonly, /devapp-aidt-auth-readonly\.mjs --preflight/);
-  assert.doesNotMatch(readonly, /real-model-chat-evidence\.sh|e2e:real-model-smoke|storageState|\.screenshot|REAL_MODEL_RUN_ENV_FILE|source |\.env"/);
+  assert.doesNotMatch(readonly, /real-model-chat-evidence\.sh|e2e:real-model-smoke|storageState|\.screenshot|REAL_MODEL_RUN_ENV_FILE|\.env"/);
   assert.ok(readonly.indexOf('.mjs --preflight') < readonly.indexOf('pnpm install'));
   const script = readFileSync(new URL('../../apps/web/e2e/support/devapp-aidt-auth-readonly.mjs', import.meta.url), 'utf8');
   assert.match(script, /CREDENTIAL_PATH = '\/opt\/workspacex\/real-model-e2e\.env'/);
   assert.doesNotMatch(script, /process\.env\.REAL_MODEL_E2E_(?:EMAIL|PASSWORD|BASE_URL)|writeFile|storageState|\.screenshot\(/);
   assert.equal(ORIGIN, 'https://devapp.boardx.us');
+});
+
+
+const registeredWorkflow = readFileSync(new URL('../../.github/workflows/real-model-chat-evidence.yml', import.meta.url), 'utf8');
+const readonlyJob = registeredWorkflow.split('\n  readonly-gates:\n')[1];
+function runBlockAfter(marker) {
+  const after = readonlyJob.split(marker)[1];
+  assert.ok(after, `missing step ${marker}`);
+  const block = after.split('        run: |\n')[1].split(/\n      - /)[0];
+  return block.split('\n').filter(line => !line || line.startsWith('          '))
+    .map(line => line.slice(10)).join('\n');
+}
+const checkoutShell = runBlockAfter('id: private-source\n');
+const cleanupShell = runBlockAfter('- name: Remove only this attempt\'s owned private directory\n');
+
+function isolatedCheckoutFixture() {
+  const base = mkdtempSync(join(tmpdir(), 'aidt-private-checkout-test-'));
+  const runnerTemp = join(base, '_temp'); const bin = join(base, 'bin');
+  mkdirSync(runnerTemp); mkdirSync(bin);
+  const root = `${runnerTemp}/../wsx-aidt-auth-123-1`;
+  const output = join(base, 'output'); const gitLog = join(base, 'git-argv');
+  writeFileSync(output, '');
+  writeFileSync(join(bin, 'git'), `#!${process.execPath}
+const fs = require('node:fs');
+const a = process.argv.slice(2);
+fs.appendFileSync(process.env.DUMMY_GIT_LOG, JSON.stringify(a)+'\\n');
+if(a.some(x=>x.includes(process.env.AIDT_FETCH_TOKEN))) process.exit(91);
+if(process.env.GIT_CONFIG_GLOBAL!=='/dev/null'||process.env.GIT_CONFIG_SYSTEM!=='/dev/null'||process.env.GIT_CONFIG_NOSYSTEM!=='1'||process.env.GIT_TRACE||process.env.GIT_CONFIG_COUNT) process.exit(92);
+if(a.includes('fetch')) {
+ const helper=fs.readFileSync(process.env.GIT_ASKPASS,'utf8');
+ if(helper.includes(process.env.AIDT_FETCH_TOKEN)||!helper.includes('$AIDT_FETCH_TOKEN')) process.exit(93);
+ if(process.env.DUMMY_FAIL_FETCH) process.exit(94);
+}
+if(a.includes('checkout')) { fs.writeFileSync('.nvmrc','22\\n'); fs.writeFileSync('package.json','{"packageManager":"pnpm@9.15.0"}'); }
+if(a.includes('rev-parse')) console.log(process.env.DUMMY_HEAD || process.env.GITHUB_SHA);
+`, { mode: 0o700 });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, RUNNER_TEMP: runnerTemp,
+    AIDT_AUTH_ROOT: root, GITHUB_SHA: 'ab'.repeat(20), GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '1',
+    GITHUB_OUTPUT: output, AIDT_FETCH_TOKEN: 'DUMMY_FETCH_CREDENTIAL_NEVER_LOG', DUMMY_GIT_LOG: gitLog,
+    GIT_TRACE: '1', GIT_CONFIG_COUNT: '0' };
+  return { base, root, output, gitLog, env, run: (shell, overrides={}) => spawnSync('bash', ['-c', shell], { env: { ...env, ...overrides }, encoding: 'utf8' }),
+    close: () => rmSync(base, { recursive: true, force: true }) };
+}
+
+test('readonly setup uses unique exact source, validated Node value and isolated pinned pnpm', () => {
+  assert.doesNotMatch(readonlyJob, /uses: actions\/checkout@|uses: pnpm\/action-setup@|node-version-file:/);
+  assert.match(readonlyJob, /AIDT_AUTH_ROOT: \$\{\{ runner.temp \}\}\/\.\.\/wsx-aidt-auth-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}/);
+  assert.match(readonlyJob, /node-version: \$\{\{ steps.private-source.outputs.node-version \}\}/);
+  assert.match(readonlyJob, /package-manager-cache: false/);
+  assert.match(readonlyJob, /if: \$\{\{ always\(\) && steps.private-source.outputs.owned == 'true' \}\}/);
+  assert.match(readonlyJob, /--userconfig="\$AIDT_AUTH_ROOT\/user.npmrc" --globalconfig="\$AIDT_AUTH_ROOT\/global.npmrc"/);
+  assert.match(readonlyJob, /--prefix "\$AIDT_AUTH_ROOT\/pnpm" --cache "\$AIDT_AUTH_ROOT\/npm-cache"/);
+  const commands = readonlyJob.split('        run: |\n').slice(1);
+  assert.equal((readonlyJob.match(/        working-directory: \$\{\{ runner.temp \}\}/g)||[]).length, commands.length);
+  assert.equal((readonlyJob.match(/        working-directory:/g)||[]).length, commands.length);
+  for (const command of commands) {
+    assert.match(command.split(/\n      - /)[0], /cd "\$(?:AIDT_AUTH_ROOT\/source|RUNNER_TEMP)"/);
+  }
+  assert.equal((readonlyJob.match(/\$\{\{ github.token \}\}/g)||[]).length, 1);
+  assert.match(readonlyJob, /env:\n          AIDT_FETCH_TOKEN: \$\{\{ github.token \}\}/);
+  assert.equal(createHash('sha256').update(readFileSync(new URL('../../apps/web/e2e/support/devapp-aidt-auth-readonly.mjs', import.meta.url))).digest('hex'), '93f11ad6006a1504389d7885f964e372bbc3c2b71a2c5a6763eac29f87a1e454');
+});
+
+test('private checkout fetches only fixed HTTPS exact SHA, keeps token out of files and argv, then cleans its own source', () => {
+  const f=isolatedCheckoutFixture();
+  try {
+    const result=f.run(checkoutShell);
+    assert.equal(result.status,0,result.stderr+result.stdout);
+    assert.equal(existsSync(join(f.root,'source','.nvmrc')),true);
+    assert.equal(existsSync(join(f.root,'askpass')),false);
+    assert.match(readFileSync(f.output,'utf8'),/^owned=true\nnode-version=22\n$/);
+    const args=readFileSync(f.gitLog,'utf8').trim().split('\n').map(line=>JSON.parse(line));
+    assert.deepEqual(args.find(a=>a.includes('init')), ['-c','core.hooksPath=/dev/null','init','-q','--template=','.']);
+    assert.deepEqual(args.find(a=>a.includes('fetch')), ['-c','core.hooksPath=/dev/null','-c','credential.helper=','-c','http.followRedirects=false','fetch','-q','--depth=1','https://github.com/boardx/workspacex.git',f.env.GITHUB_SHA]);
+    assert.equal(JSON.stringify(args).includes(f.env.AIDT_FETCH_TOKEN),false);
+    assert.equal((result.stdout+result.stderr).includes(f.env.AIDT_FETCH_TOKEN),false);
+    assert.equal(f.run(cleanupShell).status,0);
+    assert.equal(existsSync(f.root),false);
+  } finally { f.close(); }
+});
+
+test('existing attempt directory is never reused or removed, and cleanup rejects a foreign owner', () => {
+  const f=isolatedCheckoutFixture();
+  try {
+    mkdirSync(f.root); writeFileSync(join(f.root,'.owner'),'DUMMY_FOREIGN_OWNER');
+    const result=f.run(checkoutShell);
+    assert.notEqual(result.status,0); assert.match(result.stdout,/PRIVATE_SOURCE_ALREADY_EXISTS/);
+    assert.equal(readFileSync(f.output,'utf8'),'');
+    assert.equal(existsSync(f.gitLog),false);
+    assert.notEqual(f.run(cleanupShell).status,0);
+    assert.equal(readFileSync(join(f.root,'.owner'),'utf8'),'DUMMY_FOREIGN_OWNER');
+  } finally { f.close(); }
+});
+
+test('fetch failure or wrong source identity stops before setup and removes only the new private directory', () => {
+  for (const overrides of [{DUMMY_FAIL_FETCH:'1'}, {DUMMY_HEAD:'cd'.repeat(20)}]) {
+    const f=isolatedCheckoutFixture();
+    try {
+      const result=f.run(checkoutShell,overrides);
+      assert.notEqual(result.status,0);
+      assert.match(result.stdout,/SOURCE_FETCH_FAILED|SOURCE_IDENTITY_MISMATCH/);
+      assert.equal(existsSync(f.root),false);
+      assert.doesNotMatch(readFileSync(f.output,'utf8'),/node-version=/);
+      assert.equal((result.stdout+result.stderr).includes(f.env.AIDT_FETCH_TOKEN),false);
+    } finally { f.close(); }
+  }
 });
