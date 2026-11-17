@@ -234,8 +234,8 @@ function isolatedCheckoutFixture() {
   const runnerTemp = join(base, '_temp'); const bin = join(base, 'bin');
   mkdirSync(runnerTemp); mkdirSync(bin);
   const root = `${runnerTemp}/../wsx-aidt-auth-123-1`;
-  const output = join(base, 'output'); const gitLog = join(base, 'git-argv');
-  writeFileSync(output, '');
+  const output = join(base, 'output'); const envFile = join(base, 'environment'); const gitLog = join(base, 'git-argv');
+  writeFileSync(output, ''); writeFileSync(envFile, '');
   writeFileSync(join(bin, 'git'), `#!${process.execPath}
 const fs = require('node:fs');
 const a = process.argv.slice(2);
@@ -251,16 +251,22 @@ if(a.includes('checkout')) { fs.writeFileSync('.nvmrc','22\\n'); fs.writeFileSyn
 if(a.includes('rev-parse')) console.log(process.env.DUMMY_HEAD || process.env.GITHUB_SHA);
 `, { mode: 0o700 });
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, RUNNER_TEMP: runnerTemp,
-    AIDT_AUTH_ROOT: root, GITHUB_SHA: 'ab'.repeat(20), GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '1',
-    GITHUB_OUTPUT: output, AIDT_FETCH_TOKEN: 'DUMMY_FETCH_CREDENTIAL_NEVER_LOG', DUMMY_GIT_LOG: gitLog,
+    AIDT_AUTH_ROOT: 'DUMMY_INHERITED_ROOT_MUST_NOT_BE_USED', GITHUB_SHA: 'ab'.repeat(20), GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '1',
+    GITHUB_OUTPUT: output, GITHUB_ENV: envFile, AIDT_FETCH_TOKEN: 'DUMMY_FETCH_CREDENTIAL_NEVER_LOG', DUMMY_GIT_LOG: gitLog,
     GIT_TRACE: '1', GIT_CONFIG_COUNT: '0' };
-  return { base, root, output, gitLog, env, run: (shell, overrides={}) => spawnSync('bash', ['-c', shell], { env: { ...env, ...overrides }, encoding: 'utf8' }),
+  return { base, root, output, envFile, gitLog, env, run: (shell, overrides={}) => spawnSync('bash', ['-c', shell], { env: { ...env, ...overrides }, encoding: 'utf8' }),
     close: () => rmSync(base, { recursive: true, force: true }) };
 }
 
 test('readonly setup uses unique exact source, validated Node value and isolated pinned pnpm', () => {
   assert.doesNotMatch(readonlyJob, /uses: actions\/checkout@|uses: pnpm\/action-setup@|node-version-file:/);
-  assert.match(readonlyJob, /AIDT_AUTH_ROOT: \$\{\{ runner.temp \}\}\/\.\.\/wsx-aidt-auth-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}/);
+  const jobEnv = readonlyJob.split('    env:\n')[1].split('    steps:\n')[0];
+  // jobs.<id>.env is evaluated before runner allocation: runner/steps/env contexts are forbidden.
+  assert.doesNotMatch(jobEnv, /\$\{\{[\s\S]*?\b(?:runner|steps|env|job)\./);
+  assert.doesNotMatch(jobEnv, /AIDT_AUTH_ROOT:/);
+  assert.match(checkoutShell, /AIDT_AUTH_ROOT="\$RUNNER_TEMP\/\.\.\/wsx-aidt-auth-\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT"/);
+  assert.match(checkoutShell, />> "\$GITHUB_ENV"/);
+  assert.match(cleanupShell, /AIDT_AUTH_ROOT="\$RUNNER_TEMP\/\.\.\/wsx-aidt-auth-\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT"/);
   assert.match(readonlyJob, /node-version: \$\{\{ steps.private-source.outputs.node-version \}\}/);
   assert.match(readonlyJob, /package-manager-cache: false/);
   assert.match(readonlyJob, /if: \$\{\{ always\(\) && steps.private-source.outputs.owned == 'true' \}\}/);
@@ -285,6 +291,7 @@ test('private checkout fetches only fixed HTTPS exact SHA, keeps token out of fi
     assert.equal(existsSync(join(f.root,'source','.nvmrc')),true);
     assert.equal(existsSync(join(f.root,'askpass')),false);
     assert.match(readFileSync(f.output,'utf8'),/^owned=true\nnode-version=22\n$/);
+    assert.equal(readFileSync(f.envFile,'utf8'), `AIDT_AUTH_ROOT=${f.root}\nPLAYWRIGHT_BROWSERS_PATH=${f.root}/browsers\n`);
     const args=readFileSync(f.gitLog,'utf8').trim().split('\n').map(line=>JSON.parse(line));
     assert.deepEqual(args.find(a=>a.includes('init')), ['-c','core.hooksPath=/dev/null','init','-q','--template=','.']);
     assert.deepEqual(args.find(a=>a.includes('fetch')), ['-c','core.hooksPath=/dev/null','-c','credential.helper=','-c','http.followRedirects=false','fetch','-q','--depth=1','https://github.com/boardx/workspacex.git',f.env.GITHUB_SHA]);
@@ -302,6 +309,7 @@ test('existing attempt directory is never reused or removed, and cleanup rejects
     const result=f.run(checkoutShell);
     assert.notEqual(result.status,0); assert.match(result.stdout,/PRIVATE_SOURCE_ALREADY_EXISTS/);
     assert.equal(readFileSync(f.output,'utf8'),'');
+    assert.equal(readFileSync(f.envFile,'utf8'),'');
     assert.equal(existsSync(f.gitLog),false);
     assert.notEqual(f.run(cleanupShell).status,0);
     assert.equal(readFileSync(join(f.root,'.owner'),'utf8'),'DUMMY_FOREIGN_OWNER');
@@ -320,4 +328,33 @@ test('fetch failure or wrong source identity stops before setup and removes only
       assert.equal((result.stdout+result.stderr).includes(f.env.AIDT_FETCH_TOKEN),false);
     } finally { f.close(); }
   }
+});
+
+
+test('runner temp with env-file injection or invalid run identity fails before ownership/export', () => {
+  for (const overrides of [{ RUNNER_TEMP: '/tmp/DUMMY_RUNNER\nDUMMY_INJECTED=value' },
+    { RUNNER_TEMP: '/tmp/DUMMY_RUNNER\rDUMMY_INJECTED=value' }, { GITHUB_RUN_ID: '../DUMMY_OTHER' }]) {
+    const f = isolatedCheckoutFixture();
+    try {
+      const result = f.run(checkoutShell, overrides);
+      assert.notEqual(result.status, 0);
+      assert.equal(readFileSync(f.output, 'utf8'), '');
+      assert.equal(readFileSync(f.envFile, 'utf8'), '');
+      assert.equal(existsSync(f.gitLog), false);
+      assert.equal(existsSync(f.root), false);
+    } finally { f.close(); }
+  }
+});
+
+
+test('first-step env export failure cleans owned source and later cleanup does not need exported env', () => {
+  const f = isolatedCheckoutFixture();
+  try {
+    const result = f.run(checkoutShell, { GITHUB_ENV: f.base }); // Directory: file-command export must fail.
+    assert.notEqual(result.status, 0);
+    assert.equal(readFileSync(f.output, 'utf8'), 'owned=true\n');
+    assert.equal(existsSync(f.root), false);
+    assert.equal(existsSync(f.gitLog), false);
+    assert.equal(f.run(cleanupShell).status, 0);
+  } finally { f.close(); }
 });

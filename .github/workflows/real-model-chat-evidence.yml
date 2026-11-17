@@ -177,7 +177,6 @@ jobs:
       contents: read
     timeout-minutes: 12
     env:
-      AIDT_AUTH_ROOT: ${{ runner.temp }}/../wsx-aidt-auth-${{ github.run_id }}-${{ github.run_attempt }}
       DEBUG: ''
       PWDEBUG: ''
       NEXT_TELEMETRY_DISABLED: '1'
@@ -194,12 +193,14 @@ jobs:
           set +x
           umask 077
           [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ && "$GITHUB_RUN_ID" =~ ^[0-9]+$ && "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
-          [[ "$AIDT_AUTH_ROOT" == "$RUNNER_TEMP/../wsx-aidt-auth-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" ]]
+          [[ "$RUNNER_TEMP" == /* && "$RUNNER_TEMP" != *$'\n'* && "$RUNNER_TEMP" != *$'\r'* ]]
+          AIDT_AUTH_ROOT="$RUNNER_TEMP/../wsx-aidt-auth-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           cd "$RUNNER_TEMP"
           mkdir -- "$AIDT_AUTH_ROOT" || { echo 'PRIVATE_SOURCE_ALREADY_EXISTS'; exit 1; }
           trap 'status=$?; rm -f -- "$AIDT_AUTH_ROOT/askpass"; if (( status != 0 )); then rm -rf -- "$AIDT_AUTH_ROOT"; fi' EXIT
           printf '%s\n' "$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT:$GITHUB_SHA" > "$AIDT_AUTH_ROOT/.owner"
           printf 'owned=true\n' >> "$GITHUB_OUTPUT"
+          printf 'AIDT_AUTH_ROOT=%s\nPLAYWRIGHT_BROWSERS_PATH=%s/browsers\n' "$AIDT_AUTH_ROOT" "$AIDT_AUTH_ROOT" >> "$GITHUB_ENV"
           mkdir -- "$AIDT_AUTH_ROOT/source"
           cd "$AIDT_AUTH_ROOT/source"
           unset GIT_CONFIG GIT_COMMON_DIR GIT_TEMPLATE_DIR GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
@@ -258,16 +259,12 @@ jobs:
           node --test scripts/tests/devapp-aidt-auth-readonly.test.mjs
       # Chromium download only; no system package installation.
       - name: Install Chromium
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/../wsx-aidt-auth-${{ github.run_id }}-${{ github.run_attempt }}/browsers
         working-directory: ${{ runner.temp }}
         run: |
           cd "$AIDT_AUTH_ROOT/source"
           pnpm --filter web exec playwright install chromium
       - name: One UI login and read-only route gates
         # No credential copies, screenshots, traces or persisted storage-state files.
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/../wsx-aidt-auth-${{ github.run_id }}-${{ github.run_attempt }}/browsers
         working-directory: ${{ runner.temp }}
         run: |
           cd "$AIDT_AUTH_ROOT/source"
@@ -279,7 +276,9 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          [[ "$AIDT_AUTH_ROOT" == "$RUNNER_TEMP/../wsx-aidt-auth-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" ]]
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ && "$GITHUB_RUN_ID" =~ ^[0-9]+$ && "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$RUNNER_TEMP" == /* && "$RUNNER_TEMP" != *$'\n'* && "$RUNNER_TEMP" != *$'\r'* ]]
+          AIDT_AUTH_ROOT="$RUNNER_TEMP/../wsx-aidt-auth-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           [[ ! -L "$AIDT_AUTH_ROOT" ]] || exit 1
           if [[ -d "$AIDT_AUTH_ROOT" ]]; then
             [[ -f "$AIDT_AUTH_ROOT/.owner" && ! -L "$AIDT_AUTH_ROOT/.owner" ]]
