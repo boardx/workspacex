@@ -63,3 +63,5 @@ The OSS scanner originally rejected three newly introduced synthetic secret lite
 Route coverage correctly found two stale allowlist entries for newly implemented `files:getIngestionRun` and `files:uploadArtifact`. Only these entries were removed: strict gate exit 0, 247/247 remaining entries still missing, four existing gate/ratchet suites 72/72 pass. No exception or strictness was expanded. See route-ratchet-verification.md.
 
 The pure current lightweight CI selector locally selects five contract files (37 passing tests), and reports the broad feature impact as deferred. This is not full regression; the broader fresh integration suites above are separate evidence. Arch-dependencies (2314 files), edition-capability and lightweight graph checks pass.
+
+The two display log copies for route tests and CLI tests omit redundant final blank lines; original process logs remain intact at their recorded local paths.
