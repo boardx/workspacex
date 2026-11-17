@@ -1,0 +1,14 @@
+{
+  "scope": "same single A6 prepared-only run/project/thread",
+  "runId": "a346cc6f-039b-4e07-a0b0-835826637a10",
+  "orgRole": "admin",
+  "projectKind": "general",
+  "projectMemberRole": "owner",
+  "matchesLeadFixture": true,
+  "matchesFundedAdminFixture": false,
+  "walletExists": false,
+  "walletPositiveBalance": false,
+  "actorCredentialsPrinted": false,
+  "roleOrBalanceChangesMade": false,
+  "modelRequestsSent": 0
+}

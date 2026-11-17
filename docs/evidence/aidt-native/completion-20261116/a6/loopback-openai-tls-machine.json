@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "scope": "actual-AsyncOpenAI-SDK-over-loopback-canned-response-only",
+  "mockOnly": true,
+  "historicalS2RootCauseProven": false,
+  "testExitCode": 0,
+  "testsPassed": 7,
+  "testsSkipped": 0,
+  "testCounts": {
+    "existingEnvironment": 5,
+    "realHttpxHead": 1,
+    "realAsyncOpenaiSdkCanned": 1
+  },
+  "versions": {
+    "node": "22.23.5",
+    "python": "3.12.14",
+    "httpx": "0.28.1",
+    "openai": "3.1.0",
+    "openssl": "3.5.7"
+  },
+  "headCaseUnchanged": {
+    "scope": "controlled-loopback-launch-environment-mechanism-only",
+    "historicalS2RootCauseProven": false,
+    "noExternalNetwork": true,
+    "modelRequests": 0,
+    "databaseAccess": false,
+    "standardPortLease": true,
+    "port": 36507,
+    "caSha256Fingerprint": "AC:75:3B:C8:45:1C:0B:33:CE:CA:44:26:46:DE:28:50:6F:30:AC:5B:DC:8F:BA:ED:81:C9:10:3D:BC:39:4C:03",
+    "oldResult": {
+      "certificateValidationRequired": true,
+      "certificateVerificationFailed": true,
+      "exceptionTypes": [
+        "ConnectError",
+        "ConnectError",
+        "SSLCertVerificationError"
+      ]
+    },
+    "newResult": {
+      "status": 200,
+      "bodyBytes": 0,
+      "certificateValidationRequired": true
+    },
+    "headCount": 1,
+    "requests": [
+      {
+        "method": "HEAD",
+        "path": "/tls-regression",
+        "authorization": false,
+        "cookie": false,
+        "bodyBytes": 0
+      }
+    ],
+    "retries": 0,
+    "timeoutSeconds": 3
+  },
+  "sdkCase": {
+    "scope": "real-AsyncOpenAI-client-loopback-canned-fixture-only",
+    "mockOnly": true,
+    "providerCalled": false,
+    "historicalS2RootCauseProven": false,
+    "modelRequests": 0,
+    "databaseAccess": false,
+    "sdkRetries": 0,
+    "httpRetries": 0,
+    "timeoutSeconds": 3,
+    "oldSdk": {
+      "mockOnly": true,
+      "notModel": true,
+      "errorClass": "APIConnectionError",
+      "diagnostic": {
+        "causes": [
+          {
+            "class": "APIConnectionError"
+          },
+          {
+            "class": "ConnectError"
+          },
+          {
+            "class": "ConnectError"
+          },
+          {
+            "class": "SSLCertVerificationError",
+            "errno": 1,
+            "ssl_verify_code": 20
+          }
+        ],
+        "truncated": false,
+        "cycle_detected": false
+      },
+      "certificateValidationRequired": true
+    },
+    "newSdk": {
+      "mockOnly": true,
+      "notModel": true,
+      "reply": "Offline loopback fixture response; not a model.",
+      "certificateValidationRequired": true
+    },
+    "postCount": 1,
+    "sdkRequests": [
+      {
+        "method": "POST",
+        "path": "/mock-only/v1/chat/completions",
+        "dummyAuthorization": true,
+        "cookie": false,
+        "body": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "Synthetic local TLS fixture only."
+            }
+          ],
+          "model": "offline-fixture-model"
+        },
+        "bodyBytes": 108
+      }
+    ],
+    "cannedUsageIsOnlyLocalFixture": true
+  },
+  "cleanup": {
+    "cleanup": true,
+    "portRebindSucceeded": true,
+    "leaseReleased": true,
+    "temporaryPrivateKeysRemoved": true
+  },
+  "scopedTypeScriptExitCode": 0,
+  "testListenLoopbackGateExitCode": 0,
+  "qaHead": "ebbb40272f6bed456e377ccecf9d759532c81e96",
+  "qaFileSha256": {
+    "scripts/tests/aidt-checkpoint-network-env-tls.test.ts": "8445ff8e640ffb2021105ca4c095789e6c8c09cced50c65cf03f4bcaa6a84237",
+    "scripts/lib/aidt-checkpoint-network-env.mjs": "38676ae4187738379e8e6beed4a06739ee9e1892d018b0804d64f7be27776df4",
+    ".harness/scripts/lib/test-port-lease.ts": "4e30f1dd482130b5957803ab5670a896ec958154f002e38274b95722b1c4787a",
+    "apps/deep-agent-service/src/deep_agent_service/error_diagnostics.py": "29cb826c02b01a93c5fa794956ae98069ae3da8b01a31e4b03cdc394761871ff"
+  },
+  "actualModelRequests": 0,
+  "actualUsageOrCreditRecordsWritten": 0,
+  "databaseAccess": false,
+  "realCredentialsOrUserCnUsed": false,
+  "originalS2RootCauseOrSettlementReclassified": false
+}

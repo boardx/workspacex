@@ -1,0 +1,26 @@
+TAP version 13
+# {"scope":"controlled-loopback-launch-environment-mechanism-only","historicalS2RootCauseProven":false,"noExternalNetwork":true,"modelRequests":0,"databaseAccess":false,"standardPortLease":true,"port":26748,"caSha256Fingerprint":"96:19:4A:D3:E4:BD:4B:C6:5E:03:9B:46:CB:EE:31:7A:66:28:A7:0A:B9:79:F9:63:5C:F5:F1:A2:0E:A8:9A:67","oldResult":{"certificateValidationRequired":true,"certificateVerificationFailed":true,"exceptionTypes":["ConnectError","ConnectError","SSLCertVerificationError"]},"newResult":{"status":200,"bodyBytes":0,"certificateValidationRequired":true},"headCount":1,"requests":[{"method":"HEAD","path":"/tls-regression","authorization":false,"cookie":false,"bodyBytes":0}],"retries":0,"timeoutSeconds":3}
+# {"scope":"real-AsyncOpenAI-client-loopback-canned-fixture-only","mockOnly":true,"providerCalled":false,"historicalS2RootCauseProven":false,"modelRequests":0,"databaseAccess":false,"sdkRetries":0,"httpRetries":0,"timeoutSeconds":3,"oldSdk":{"mockOnly":true,"notModel":true,"errorClass":"APIConnectionError","diagnostic":{"causes":[{"class":"APIConnectionError"},{"class":"ConnectError"},{"class":"ConnectError"},{"class":"SSLCertVerificationError","errno":1,"ssl_verify_code":20}],"truncated":false,"cycle_detected":false},"certificateValidationRequired":true},"newSdk":{"mockOnly":true,"notModel":true,"reply":"Offline loopback fixture response; not a model.","certificateValidationRequired":true},"postCount":1,"sdkRequests":[{"method":"POST","path":"/mock-only/v1/chat/completions","dummyAuthorization":true,"cookie":false,"body":{"messages":[{"role":"user","content":"Synthetic local TLS fixture only."}],"model":"offline-fixture-model"},"bodyBytes":108}],"cannedUsageIsOnlyLocalFixture":true}
+# Subtest: real loopback TLS: omitted caller CA fails; inherited caller CA succeeds with verification on
+    # Subtest: AsyncOpenAI local canned fixture only: SDK wraps TLS failure; inherited CA permits exactly one mock POST
+# {"cleanup":true,"portRebindSucceeded":true,"leaseReleased":true,"temporaryPrivateKeysRemoved":true}
+    ok 1 - AsyncOpenAI local canned fixture only: SDK wraps TLS failure; inherited CA permits exactly one mock POST
+      ---
+      duration_ms: 2072.988871
+      type: 'test'
+      ...
+    1..1
+ok 1 - real loopback TLS: omitted caller CA fails; inherited caller CA succeeds with verification on
+  ---
+  duration_ms: 2491.148445
+  type: 'test'
+  ...
+1..1
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2771.157494

@@ -1,0 +1,20 @@
+{
+  "runId": "17281977-6dc2-4797-a4c2-53953d978908",
+  "status": "awaiting_tool_permission",
+  "toolName": "confirm_task_intent",
+  "grantScope": null,
+  "projectId": "prj-f977f1d5-d0f6-47ee-b0e8-e75a5db8d124",
+  "permissionRequestId": "fddbe270-558f-43c3-9f79-0f10284430e3",
+  "argumentObjectKeys": [
+    "args",
+    "toolName"
+  ],
+  "argumentStringCount": 5,
+  "argumentDigest": "8ba37a852bef736798ef4bbb309e3aaf80d83946187f1884d7351b5ada32db53",
+  "containsExternalUrl": false,
+  "containsCredentialOrEnvInstructions": false,
+  "containsAclOrProductionOperation": false,
+  "containsExternalMessageInstruction": false,
+  "contractEffect": "human-confirmation-interrupt-only-no-tool-side-effect-or-persistent-grant",
+  "bodyRecorded": false
+}

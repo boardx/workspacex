@@ -1,0 +1,159 @@
+{
+  "observedAt": "2026-11-16T21:02:33.270Z",
+  "readOnly": true,
+  "run": {
+    "id": "1a9e77c1-a32f-47eb-a364-56a969937c09",
+    "org_id": "org-fullstack--20261117-s-1e261c1b8eac",
+    "thread_id": "thr-fa9931c4-ffcd-4174-92da-13898352ad04",
+    "author_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+    "status": "succeeded",
+    "failure_reason": null,
+    "agent_version_id": "agent-fullstack--20261117-s-1e261c1b8eac-v1",
+    "skill_version_ids": [
+      "skill-version-c246169d-c99f-4788-971d-9eff19d5ecb0"
+    ],
+    "aidt_selector_hash": "7d5ae717cb4e8e4d05fc46b1e84b0fd86d261ea6d5d66fd3ec9825649c59f8e8",
+    "remote_run_id": "d1a60442-6f72-4fd3-8e12-bede01e02dd0"
+  },
+  "snapshot": {
+    "selectorHash": "7d5ae717cb4e8e4d05fc46b1e84b0fd86d261ea6d5d66fd3ec9825649c59f8e8",
+    "snapshotHash": "a89d930a977f93f1f9143485e2ca91411265e6bff0b64115f03313a1f70e4a59",
+    "focus": {
+      "title": "共情用户",
+      "skillId": "skill-168076ae-360b-4a06-9368-29e35ea8f313",
+      "skillVersionId": "skill-version-c246169d-c99f-4788-971d-9eff19d5ecb0",
+      "skillStableName": "aidt-empathize"
+    },
+    "blockHash": "a1308d6574d49c86e9f9944421deaa8d7d15e48a5e505c521f41765e35032818"
+  },
+  "applications": [
+    {
+      "seq": "1",
+      "kind": "assembled",
+      "snapshotHash": "a89d930a977f93f1f9143485e2ca91411265e6bff0b64115f03313a1f70e4a59",
+      "occurredAt": "2026-11-16T21:00:56.886Z"
+    },
+    {
+      "seq": "2",
+      "kind": "message-dispatch-observed",
+      "snapshotHash": "a89d930a977f93f1f9143485e2ca91411265e6bff0b64115f03313a1f70e4a59",
+      "occurredAt": "2026-11-16T21:00:56.983Z",
+      "remoteThreadId": "a5f032bf-66fd-4849-82ad-de8508e9265a",
+      "remoteRunId": "d1a60442-6f72-4fd3-8e12-bede01e02dd0"
+    }
+  ],
+  "physical": [
+    {
+      "id": "77bc1ba6-838d-44ab-9e04-6a0ba59f844f",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T21:00:57.031Z"
+    },
+    {
+      "id": "4c937097-edbe-480d-a37a-cb157d1b57f8",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T21:01:00.637Z"
+    },
+    {
+      "id": "a34bbbb0-09aa-4545-a580-7c7f5fb8f9ef",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T21:01:04.842Z"
+    },
+    {
+      "id": "69a1ac41-a1e0-4c73-9c37-728f88a650d9",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T21:01:11.735Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "77bc1ba6-838d-44ab-9e04-6a0ba59f844f",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "7664",
+      "tokens_prompt": "7637",
+      "tokens_completion": "27",
+      "request_started_at": "2026-11-16T21:00:57.031Z",
+      "request_ended_at": "2026-11-16T21:01:00.535Z"
+    },
+    {
+      "id": "4c937097-edbe-480d-a37a-cb157d1b57f8",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "7827",
+      "tokens_prompt": "7721",
+      "tokens_completion": "106",
+      "request_started_at": "2026-11-16T21:01:00.637Z",
+      "request_ended_at": "2026-11-16T21:01:04.775Z"
+    },
+    {
+      "id": "a34bbbb0-09aa-4545-a580-7c7f5fb8f9ef",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "4460",
+      "tokens_prompt": "4267",
+      "tokens_completion": "193",
+      "request_started_at": "2026-11-16T21:01:04.842Z",
+      "request_ended_at": "2026-11-16T21:01:11.628Z"
+    },
+    {
+      "id": "69a1ac41-a1e0-4c73-9c37-728f88a650d9",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "2133",
+      "tokens_prompt": "1917",
+      "tokens_completion": "216",
+      "request_started_at": "2026-11-16T21:01:11.735Z",
+      "request_ended_at": "2026-11-16T21:01:15.168Z"
+    }
+  ],
+  "credit": [
+    {
+      "request_id": "77bc1ba6-838d-44ab-9e04-6a0ba59f844f",
+      "state": "settled",
+      "reserved_hundredths": "3204",
+      "debited_hundredths": "767",
+      "settled_at": "2026-11-16T21:01:00.561Z"
+    },
+    {
+      "request_id": "4c937097-edbe-480d-a37a-cb157d1b57f8",
+      "state": "settled",
+      "reserved_hundredths": "3245",
+      "debited_hundredths": "783",
+      "settled_at": "2026-11-16T21:01:04.797Z"
+    },
+    {
+      "request_id": "a34bbbb0-09aa-4545-a580-7c7f5fb8f9ef",
+      "state": "settled",
+      "reserved_hundredths": "1760",
+      "debited_hundredths": "446",
+      "settled_at": "2026-11-16T21:01:11.651Z"
+    },
+    {
+      "request_id": "69a1ac41-a1e0-4c73-9c37-728f88a650d9",
+      "state": "settled",
+      "reserved_hundredths": "947",
+      "debited_hundredths": "214",
+      "settled_at": "2026-11-16T21:01:15.191Z"
+    }
+  ],
+  "wallet": {
+    "balance": "19953.82",
+    "held_hundredths": "0",
+    "remaining_held_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "counts": {
+    "active": 0,
+    "physical": 8,
+    "usage": 8,
+    "credits": 8,
+    "unsettled": 0
+  },
+  "tokensTotal": 22084,
+  "oldBudgetsUnchanged": true,
+  "auditModelRequests": 0
+}

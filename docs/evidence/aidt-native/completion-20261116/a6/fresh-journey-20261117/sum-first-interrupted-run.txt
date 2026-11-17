@@ -1,0 +1,33 @@
+
+Running 1 test using 1 worker
+
+(node:447649) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[aidt-v2] native request observed · dt-summarize-project · budget entry eb91e9c5-5350-490a-b591-17b9b9a17431
+  ✘  1 e2e/aidt-v2-completion.spec.ts:168:5 › completion SUM: full same-group history → real summary → reviewed report → exact export bytes and fresh login (1.1m)
+
+
+  1) e2e/aidt-v2-completion.spec.ts:168:5 › completion SUM: full same-group history → real summary → reviewed report → exact export bytes and fresh login 
+
+    Error: NATIVE_RUN_REQUIRES_EXPLICIT_STUDENT_REVIEW_NO_AUTOMATIC_PERMISSION
+
+       at support/aidt-v2-acceptance.ts:232
+
+      230 |           if (actualRun.pendingApproval?.toolName !== "confirm_task_intent" || !review?.reviewSyntheticIntent) {
+      231 |             failureCode = "NATIVE_RUN_REQUIRES_EXPLICIT_STUDENT_REVIEW_NO_AUTOMATIC_PERMISSION";
+    > 232 |             throw new Error(failureCode);
+          |                   ^
+      233 |           }
+      234 |           const permissionId = actualRun.pendingApproval.permissionRequestId;
+      235 |           if (!permissionId) throw new Error("NATIVE_INTENT_PERMISSION_ID_REQUIRED");
+        at _test.expect.poll.timeout (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-acceptance.ts:232:19)
+        at sendAidtV2NativeTurn (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-acceptance.ts:212:5)
+        at /workspace/aidt-module-latest/apps/web/e2e/aidt-v2-completion.spec.ts:202:16
+
+    Error Context: ../../../scratch/aidt-real-acceptance-20261117/sum-attempt-01/aidt-v2-completion-complet-31a07-xport-bytes-and-fresh-login/error-context.md
+
+  1 failed
+    e2e/aidt-v2-completion.spec.ts:168:5 › completion SUM: full same-group history → real summary → reviewed report → exact export bytes and fresh login 
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.aidt-v2.config.ts --grep completion SUM:

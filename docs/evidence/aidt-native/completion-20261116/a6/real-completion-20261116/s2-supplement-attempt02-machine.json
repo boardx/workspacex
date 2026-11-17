@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "scope": "single-user-authorized-additional-S2-native-task",
+  "actualBrowserExitCode": 1,
+  "browserRetries": 0,
+  "testDurationSeconds": 6.9,
+  "runId": "40539aa6-2732-4661-9665-913013af806d",
+  "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+  "threadId": "thr-0a23a022-c27f-43c4-96dc-0f40cd31b9d1",
+  "actualNativeSendObserved": true,
+  "actualTerminalStatus": "failed",
+  "terminalError": "MODEL_CALL_FAILED",
+  "supplierErrorCode": "unknown-pending-safe-runtime-log-review",
+  "providerRequests": 2,
+  "mechanicalIntegrationPassed": false,
+  "teachingQualityPassed": false,
+  "assistantTextAvailable": false,
+  "studentSavedAfterReply": false,
+  "freshLoginAfterReply": false,
+  "phaseCompleted": false,
+  "autoNewSendRetry": false,
+  "supplementalBudgetMaximum": 1,
+  "supplementalBudgetOccupied": 1,
+  "legacyBudgetsUnchanged": true,
+  "apiSource": "adbb21d0ea19ce8ad8d822430369005be39b4976",
+  "webSource": "ec5ff2e9de501426f3fec9a0dddd6dfb314be4cd",
+  "qaHead": "f50bc939e747b464d6946aabe902ed5c7a0fa241",
+  "qaFiles": [
+    "apps/web/e2e/aidt-v2-s2-supplement.spec.ts",
+    "apps/web/e2e/support/aidt-v2-s2-supplement-preflight.ts",
+    "apps/web/tests/aidt-v2-s2-supplement-preflight.test.ts"
+  ],
+  "qaPatchSha256": "c5c05d716a97c0f417f2846ca8e5a58b77e72ebbebd4e1d09481496c0633fe00",
+  "receiptAtBrowserRead": {
+    "runId": "40539aa6-2732-4661-9665-913013af806d",
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "purpose": "stage",
+    "stageId": 2,
+    "skillVersionId": "skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6",
+    "snapshotHash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+    "preparedAt": "2026-11-16T14:20:46.742Z",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 5
+      }
+    ],
+    "historyRevisions": [],
+    "omissions": [
+      {
+        "kind": "personal-artifacts-not-included"
+      },
+      {
+        "kind": "original-file-bytes-not-read"
+      },
+      {
+        "kind": "teacher-comments-no-source"
+      },
+      {
+        "kind": "lineage-unknown"
+      }
+    ],
+    "truncated": false,
+    "application": {
+      "state": "assembled",
+      "attemptId": "40539aa6-2732-4661-9665-913013af806d:1",
+      "assembledContextHash": "e9527c822d1d11a723ed7676fdc17c5eca5a45de116f04c06c10e4298e73a6f6",
+      "assembledAt": "2026-11-16T14:20:46.862Z",
+      "messageDispatchedAt": null,
+      "checkpointResumedAt": null,
+      "inheritedMessageDispatchAttemptId": null
+    }
+  },
+  "actualModelConsumptionProvenByBrowser": false,
+  "actorRole": "existing-funded-admin-and-project-owner",
+  "ordinaryStudentPaidPermissionProven": false,
+  "humanAcceptanceSigned": false,
+  "independentOwnerAccounting": {
+    "evidence": "../../a1/s2-supplement-20261116/native-failed-accounting.json",
+    "observedAt": "2026-11-16T14:22:01.611Z",
+    "physicalModelRequests": 2,
+    "usageReceipts": 2,
+    "usageOutcomes": [
+      "failed",
+      "failed"
+    ],
+    "recordedTokens": 0,
+    "creditRequestStates": [
+      "pending",
+      "pending"
+    ],
+    "heldHundredths": 8629,
+    "allCreditSettled": false,
+    "costResolved": false,
+    "noNewBrowserSend": true,
+    "namespaceSeparation": {
+      "newApiThread": true,
+      "newRemoteThread": true,
+      "newRemoteRun": true
+    },
+    "messageDispatchObserved": true,
+    "dispatchedAt": "2026-11-16T14:20:48.750Z",
+    "dispatchHashMatchesFrozenBlock": true
+  },
+  "qaFileSha256": {
+    "apps/web/e2e/aidt-v2-s2-supplement.spec.ts": "4a487a016da56a89358fed3eb6b6b44d7c4f301c307880ef86cba8bc57c505da",
+    "apps/web/e2e/support/aidt-v2-s2-supplement-preflight.ts": "2e04d27f018c1118e5d46787ead24421f88dd721afa7c1636ae14cea514acd39",
+    "apps/web/tests/aidt-v2-s2-supplement-preflight.test.ts": "09ad11f735a18d5da3365308b58b53ed507ff1d3d604bb3a101ce54444bff93a"
+  },
+  "independentSourceAudit": "../../a2/s2-supplement-audit-20261116/actual-failed-run-report.json"
+}

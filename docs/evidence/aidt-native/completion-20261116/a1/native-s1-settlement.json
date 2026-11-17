@@ -1,0 +1,23 @@
+{
+  "runId": "17281977-6dc2-4797-a4c2-53953d978908",
+  "status": "succeeded",
+  "physicalRequests": 5,
+  "receipts": [
+    {
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "n": 5,
+      "tokensTotal": "33647"
+    }
+  ],
+  "settlements": [
+    {
+      "state": "settled",
+      "n": 5
+    }
+  ],
+  "allCurrentPayerHoldsReleased": true,
+  "humanInputObserved": true,
+  "skillPinsPresent": true,
+  "bodyRecorded": false
+}

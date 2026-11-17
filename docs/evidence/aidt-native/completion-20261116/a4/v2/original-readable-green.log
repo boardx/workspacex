@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/aidt-stage-output-classification.test.tsx (17 tests) 1064ms
+ ✓ tests/ui/aidt-research-material.test.tsx (8 tests) 221ms
+ ✓ tests/ui/aidt-stage-original-image.test.tsx (2 tests) 243ms
+ ✓ tests/aidt-research-materials.test.ts (11 tests) 26ms
+
+ Test Files  4 passed (4)
+      Tests  38 passed (38)
+   Start at  04:36:11
+   Duration  10.00s (transform 3.32s, setup 262ms, collect 6.07s, tests 1.55s, environment 1.39s, prepare 153ms)

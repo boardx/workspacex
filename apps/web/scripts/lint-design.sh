@@ -4,13 +4,13 @@
 # 立场：**没有脚本的规范条目视为未落地**（UC-0.4 R7）。
 # `uiux-standards.md` §0 的每一条 U1–U8 都必须在这里或 e2e spec 里有对应检查。
 #
-# 用法：./scripts/lint-design.sh [目标目录…]（默认 app components lib）
+# 用法：./scripts/lint-design.sh [目标目录…]（默认 app components lib features）
 # 退出码：0 = 全过；1 = 有违规（逐条打印文件:行号）
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
 TARGETS=("$@")
-[ ${#TARGETS[@]} -eq 0 ] && TARGETS=(app components lib)
+[ ${#TARGETS[@]} -eq 0 ] && TARGETS=(app components lib features)
 
 VIOLATIONS=0
 report() { # report <规则号> <说明> <grep 输出>

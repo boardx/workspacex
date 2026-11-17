@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "kind": "private-isolated-QA-fixture-append-only",
+  "orgId": "org-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+  "agentId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+  "actorId": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+  "stableName": "default-assistant",
+  "oldVersionId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe-v1",
+  "echoDigest": "49b0f07ba859d6b961a5317893450eaedaf9062ae593cf0278a41e5ed3408726",
+  "canonicalDigest": "802cf79cc20cd6861c2aa766d7a7c4b1a9094add3624f523e467dd81c85fe371",
+  "newVersionId": "agent-version-fixture-428d072b-cf41-465b-86f7-6b02fe39136f",
+  "semanticLabel": "fixture-canonical-default-1794833765682",
+  "baseline": {
+    "agentHash": "bff81da1f0c4f0a3b1fe55d8240618e2b3aefa0b168f17fcdd7405dd64935e77",
+    "oldVersionsHash": "58cd6c19b28a86186ab000eef078cc6d11e22e351a00946a84fd184af6830420",
+    "protected": {
+      "agent_runs": {
+        "count": 2,
+        "sha256": "d55f2064caf76596e763f29e1e30dd466e1ad13715d6c3d2e42c7a709bb0701e"
+      },
+      "agent_run_context_snapshots": {
+        "count": 2,
+        "sha256": "85ef14e45342e8ed79925482bb67a5e7610c8b31bea6c5c5393f1784b7dfeda6"
+      },
+      "aidt_run_context_snapshots": {
+        "count": 2,
+        "sha256": "10da6c922d6a4e6499c5c69479e1074742f03ed1b015d9bf3650af903d0d0fde"
+      },
+      "aidt_run_context_applications": {
+        "count": 4,
+        "sha256": "90f2a914e377f2b6ab77e5a518acc8196fc3af39e1e1d7743f64d69da712fea9"
+      },
+      "chat_messages": {
+        "count": 6,
+        "sha256": "79a2c2d890a238437cd066d8650d99c6851d3dd1987fcf0bedba2c4db6b93f5c"
+      },
+      "org_memberships": {
+        "count": 8,
+        "sha256": "10e436aaed42ee23c0ec15c903b0ee6850fefd54f85aba254d71ef9f29b3c7de"
+      },
+      "general_project_members": {
+        "count": 3,
+        "sha256": "5bfec64f33502b39695aa370ec7402356c8f03d0bd266aaf5853aa106db2ee23"
+      },
+      "project_memberships": {
+        "count": 3,
+        "sha256": "e104ad6ccc04e5b7c2cfa44f831541237ea12502b094b452b30dc8b02e732658"
+      },
+      "acl_bindings": {
+        "count": 4,
+        "sha256": "1f79a2f7d37b0ca7156665da3e654296f925ce8e11d18a9defe4a66cd1d8a7e0"
+      },
+      "capability_listings": {
+        "count": 3,
+        "sha256": "11d7978825148ccd1a0e210f1cd637e13c299d6b5667b135ab951ad908c8f2d2"
+      },
+      "org_agents": {
+        "count": 1,
+        "sha256": "697465c4c9cdeadaaf3cb4fa1cf219c9daa630f1a1a53250c655334c91143b9a"
+      },
+      "model_request_starts": {
+        "count": 2,
+        "sha256": "9345eb6b349d331b9f9bd4c2560b619bb51543135431224d6f707c64185b9b7c"
+      },
+      "token_usage_events": {
+        "count": 2,
+        "sha256": "d707e5c5dcca371226af1f0a963aeef109908d56cac2a1c74ea3d7d1155c3999"
+      },
+      "credit_consumption_requests": {
+        "count": 2,
+        "sha256": "c649a82e363ff82c2196d9187eefd8049b5e5938f8af1f8ed93cd44730985ef8"
+      },
+      "wallets": {
+        "count": 1,
+        "sha256": "b992eddb5f228ed33c9bd75c4274d7083a91a8669c3ee4013487f10af598e6dd"
+      }
+    },
+    "externalLedgers": {
+      "/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d"
+    },
+    "apiPid": 280648,
+    "apiStartTicks": 4418475
+  },
+  "executorVerification": "owner-launch-attestation+current-PID-startTicks+health+tenant-DB; proc environ not read",
+  "cwdVerification": "owner-launch-only; direct-cwd-OS-EACCES",
+  "normalPublishApiVerified": false,
+  "modelRequests": 0,
+  "createdAt": "2026-11-16T12:56:05.682Z",
+  "planHash": "93d2404e6e55d0b8e06bdffbc887f8adf7aee145702a3297a12e92d19e00afe4"
+}

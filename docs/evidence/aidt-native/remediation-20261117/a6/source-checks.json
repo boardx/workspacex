@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "scope": "QA only, no browser/model invocation",
+  "checks": [
+    {
+      "command": "pnpm --filter web exec vitest run tests/aidt-v2-plan-review.test.ts tests/aidt-v2-remediation-criteria.test.ts tests/aidt-v2-static-inspection.test.ts tests/aidt-v2-completion-state.test.ts tests/aidt-v2-fresh-journey.test.ts tests/aidt-v2-wire-metadata.test.ts tests/aidt-v2-supplemental-ledger.test.ts",
+      "status": "passed",
+      "files": 7,
+      "tests": 46
+    },
+    {
+      "command": "pnpm --filter web exec next lint --max-warnings 0 --file <changed QA files>",
+      "status": "passed",
+      "warnings": 0
+    },
+    {
+      "command": "pnpm --filter web exec playwright test --config playwright.aidt-v2.config.ts aidt-v2-completion.spec.ts --list",
+      "status": "passed",
+      "collectedTests": 7
+    },
+    {
+      "command": "git diff --check -- <owned QA files>",
+      "status": "passed"
+    }
+  ],
+  "typecheck": {
+    "status": "root-unified-recheck-pending",
+    "priorFailuresPreserved": [
+      "report test fixture image:string versus contract image:''",
+      "plan-review nullable permissionRequestId"
+    ],
+    "bothSourceIssuesFixed": true
+  },
+  "realBrowserRun": false,
+  "realModelRun": false,
+  "humanTeachingAcceptance": "not-performed"
+}

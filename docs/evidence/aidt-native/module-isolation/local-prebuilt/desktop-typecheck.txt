@@ -1,0 +1,4 @@
+
+> @repo/desktop@0.3.0 typecheck /workspace/aidt-module-latest/apps/desktop
+> tsc --noEmit
+

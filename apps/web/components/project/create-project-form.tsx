@@ -21,83 +21,50 @@ import { createProject } from "@/lib/live-projects";
 export const PROJECT_NAME_MAX_LENGTH = 60;
 
 export function CreateProjectForm({
-  cancel,
-  className,
-  autoFocus = true,
+  cancel, className, autoFocus = true, createProjectAction = createProject, createdHref,
+  nameLabel, namePlaceholder, intro, nameLocked = false, submitLabel, failurePrefix,
 }: {
-  /** 取消控件由调用方给（弹窗里是关闭按钮，页面里是回列表的链接）。 */
-  cancel: React.ReactNode;
-  className?: string;
-  autoFocus?: boolean;
+  /** Presentation and creation extension points; the default is always an ordinary project. */
+  cancel: React.ReactNode; className?: string; autoFocus?: boolean;
+  createProjectAction?: (input: Parameters<typeof createProject>[0]) => Promise<{ id: string } | null>;
+  createdHref?: (projectId: string) => string;
+  nameLabel?: string; namePlaceholder?: string; intro?: React.ReactNode;
+  nameLocked?: boolean; submitLabel?: string; failurePrefix?: React.ReactNode;
 }) {
   const { t, locale } = useI18n();
   const router = useRouter();
   const { session } = useSession();
   if (!session) throw new Error("CreateProjectForm requires an authenticated session");
   const orgId = session.currentOrgId;
-
   const [name, setName] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<{ failure: unknown; code: string | null } | null>(null);
   const lock = React.useRef(false);
-
   const trimmed = name.trim();
   const nearLimit = name.length >= PROJECT_NAME_MAX_LENGTH - 15;
   const canSubmit = trimmed !== "" && !busy;
-
   const handleCreate = React.useCallback(async () => {
     if (trimmed === "" || lock.current) return;
-    lock.current = true;
-    setBusy(true);
-    setError(null);
+    lock.current = true; setBusy(true); setError(null);
     try {
-      const out = await createProject({ orgId, name: trimmed, kind: "general", blueprintVersionId: null });
-      router.push(`/projects/${encodeURIComponent(out.id)}?org=${encodeURIComponent(orgId)}`);
+      const out = await createProjectAction({ orgId, name: trimmed, kind: "general", blueprintVersionId: null });
+      // A custom controller may cancel when its owning scope no longer exists.
+      if (!out) return;
+      router.push(createdHref ? createdHref(out.id) : `/projects/${encodeURIComponent(out.id)}?org=${encodeURIComponent(orgId)}`);
     } catch (e) {
       setError({ failure: e, code: e instanceof ApiError ? e.reasonCode : null });
-      setBusy(false);
-      lock.current = false;
+      setBusy(false); lock.current = false;
     }
-  }, [trimmed, orgId, router]);
-
-  return (
-    <form
-      className={className ?? "flex flex-col gap-3"}
-      data-testid="project-new-details"
-      onSubmit={(e) => { e.preventDefault(); void handleCreate(); }}
-    >
-      <label className="flex flex-col gap-1.5">
-        <span className="text-12 text-muted-foreground">{t("projects.name")}</span>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t("projects.namePlaceholder")}
-          aria-label={t("projects.name")}
-          maxLength={PROJECT_NAME_MAX_LENGTH}
-          data-testid="project-new-name"
-          className="h-9 text-12"
-          disabled={busy}
-          autoFocus={autoFocus}
-        />
-      </label>
-      {nearLimit ? (
-        <p className="-mt-1 text-right text-11 text-muted-foreground" data-testid="project-new-name-count" aria-live="polite">
-          {name.length} / {PROJECT_NAME_MAX_LENGTH}
-        </p>
-      ) : null}
-      {error !== null ? (
-        <p role="alert" data-testid="project-new-error" data-reason={error.code ?? undefined} className="text-12 text-destructive">
-          {t("projects.createFailed", { error: describeCreateProjectError(error.failure, locale) })}
-        </p>
-      ) : null}
-      <div className="flex items-center justify-end gap-2">
-        {cancel}
-        <Button type="submit" size="sm" variant="primary" disabled={!canSubmit} data-testid="project-new-create">
-          {busy ? t("projects.creating") : t("projects.create")}
-        </Button>
-      </div>
-    </form>
-  );
+  }, [trimmed, orgId, router, createProjectAction, createdHref]);
+  return <form className={className ?? "flex flex-col gap-3"} data-testid="project-new-details" onSubmit={(e) => { e.preventDefault(); void handleCreate(); }}>
+    {intro}
+    <label className="flex flex-col gap-1.5"><span className="text-12 text-muted-foreground">{nameLabel ?? t("projects.name")}</span>
+      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={namePlaceholder ?? t("projects.namePlaceholder")} aria-label={nameLabel ?? t("projects.name")} maxLength={PROJECT_NAME_MAX_LENGTH} data-testid="project-new-name" className="h-9 text-12" disabled={busy || nameLocked} autoFocus={autoFocus} />
+    </label>
+    {nearLimit && <p className="-mt-1 text-right text-11 text-muted-foreground" data-testid="project-new-name-count" aria-live="polite">{name.length} / {PROJECT_NAME_MAX_LENGTH}</p>}
+    {error !== null && <p role="alert" data-testid="project-new-error" data-reason={error.code ?? undefined} className="text-12 text-destructive">{failurePrefix}{t("projects.createFailed", { error: describeCreateProjectError(error.failure, locale) })}</p>}
+    <div className="flex items-center justify-end gap-2">{cancel}<Button type="submit" size="sm" variant="primary" disabled={!canSubmit} data-testid="project-new-create">{busy ? t("projects.creating") : submitLabel ?? t("projects.create")}</Button></div>
+  </form>;
 }
 
 /** 说人话，不上屏内部码（原因码留在 `data-reason` 上供排障 / e2e 断言）。 */

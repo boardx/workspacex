@@ -1,0 +1,31 @@
+
+Running 1 test using 1 worker
+
+(node:388113) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/aidt-native-draft-zero.spec.ts:80:5 › zero-cost native failure: retry keeps draft B and its file; global member text remains independent (32.4s)
+
+
+  1) e2e/aidt-native-draft-zero.spec.ts:80:5 › zero-cost native failure: retry keeps draft B and its file; global member text remains independent 
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByTestId('aidt-new')
+
+
+       at support/aidt-v2-acceptance.ts:85
+
+      83 | export async function createAidtV2Group(page: Page, scenario: string): Promise<string> {
+      84 |   await page.getByTestId("rail-aidt").click();
+    > 85 |   await page.getByTestId("aidt-new").click();
+         |                                      ^
+      86 |   await page.getByTestId("project-new-name").fill(`V2合成课堂验收·${scenario}·${randomUUID().slice(0, 8)}`);
+      87 |   const created = page.waitForResponse(response => new URL(response.url()).pathname.endsWith("/projects") && response.request().method() === "POST");
+      88 |   await page.getByTestId("project-new-create").click();
+        at createAidtV2Group (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-acceptance.ts:85:38)
+        at /workspace/aidt-module-latest/apps/web/e2e/aidt-native-draft-zero.spec.ts:102:17
+
+    Error Context: ../../../scratch/aidt-real-acceptance-20261117/a4-zero-draft-01/aidt-native-draft-zero-zer-f0f8a-er-text-remains-independent/error-context.md
+
+  1 failed
+    e2e/aidt-native-draft-zero.spec.ts:80:5 › zero-cost native failure: retry keeps draft B and its file; global member text remains independent 

@@ -163,6 +163,17 @@ const fixtureEnv = {
   FULLSTACK_E2E_LEAD_EMAIL: FULLSTACK_E2E.leadEmail,
   FULLSTACK_E2E_LEAD_PASSWORD: FULLSTACK_E2E.leadPassword,
   FULLSTACK_E2E_LEAD_USER_ID: FULLSTACK_E2E.leadUserId,
+  FULLSTACK_E2E_COLLABORATION_LEAD_EMAIL: FULLSTACK_E2E.collaborationLeadEmail,
+  FULLSTACK_E2E_COLLABORATION_ORG_ID: FULLSTACK_E2E.collaborationOrgId,
+  FULLSTACK_E2E_COLLABORATION_PROJECT_ID: FULLSTACK_E2E.collaborationFixtureProjectId,
+  FULLSTACK_E2E_COLLABORATION_LEAD_PASSWORD: FULLSTACK_E2E.collaborationLeadPassword,
+  FULLSTACK_E2E_COLLABORATION_LEAD_USER_ID: FULLSTACK_E2E.collaborationLeadUserId,
+  FULLSTACK_E2E_COLLABORATION_MEMBER_EMAIL: FULLSTACK_E2E.collaborationMemberEmail,
+  FULLSTACK_E2E_COLLABORATION_MEMBER_PASSWORD: FULLSTACK_E2E.collaborationMemberPassword,
+  FULLSTACK_E2E_COLLABORATION_MEMBER_USER_ID: FULLSTACK_E2E.collaborationMemberUserId,
+  FULLSTACK_E2E_COLLABORATION_ADMIN_EMAIL: FULLSTACK_E2E.collaborationAdminEmail,
+  FULLSTACK_E2E_COLLABORATION_ADMIN_PASSWORD: FULLSTACK_E2E.collaborationAdminPassword,
+  FULLSTACK_E2E_COLLABORATION_ADMIN_USER_ID: FULLSTACK_E2E.collaborationAdminUserId,
   // #552：真的持 `security-reviewer` 职能的那位（两职能不合并，I-5/V14）。
   // ⚠ 这三行属于 **`fixtureEnv`**（下发给 seed 脚本与 API 进程），不是 `modelProviderEnv`
   //   之类别的对象 —— 合错对象时 tsc **不报错**，但 seed 读不到，表现成「种子没生效」。
@@ -293,6 +304,9 @@ const modelProviderEnv = {
 
 export default defineConfig({
   testDir: "./e2e",
+  // Real AIDT Agent acceptance owns an external, explicitly opted-in supplier stack.
+  // Keep this exact file out of the deterministic supplier-fixture lane.
+  testIgnore: ["**/aidt-v2-student-journey.spec.ts", "**/aidt-v2-courses.spec.ts", "**/aidt-v2-context-prepared.spec.ts", "**/aidt-v2-completion.spec.ts", "**/aidt-v2-completion-continuation.spec.ts", "**/aidt-v2-deliverables.spec.ts", "**/aidt-v2-s2-supplement.spec.ts", "**/aidt-native-draft-zero.spec.ts", "**/aidt-member-existing-zero.spec.ts"],
   /**
    * #3002 —— **每条 journey 必须有自己的 outputDir**，否则 CI 上取不到失败产物。
    *
@@ -383,6 +397,8 @@ export default defineConfig({
         "agent-directory-entry-point.spec.ts",
         // #4582：项目中枢第三批真栈走查（问卷答卷入证据 / 大脑空态 / AI 权限关来源 / 观察者脱敏）。
         "project-hub-b3-walkthrough.spec.ts",
+        "project-aidt-native.spec.ts",
+        "aidt-member-collaboration.spec.ts",
         "project-invited-list-persistence.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
         "rewrite-coverage-live-smoke.spec.ts",

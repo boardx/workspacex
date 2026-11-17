@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-11-15T04:15:34.601414+00:00",
+  "isolationId": "run-mwhbe6ye-1fbb090d-99e92548555c",
+  "processExitCode": 0,
+  "leasePorts": [
+    20480,
+    21480,
+    22480,
+    23480,
+    24480,
+    25480,
+    26480,
+    27480,
+    28480,
+    29480,
+    30480,
+    31480,
+    19480
+  ],
+  "listeners": [],
+  "ownerMetadataExists": false,
+  "savedPgdataRetained": true,
+  "clean": true,
+  "dataNotDeleted": true
+}

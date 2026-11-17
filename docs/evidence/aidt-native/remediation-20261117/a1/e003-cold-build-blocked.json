@@ -1,0 +1,62 @@
+{
+  "finishedAt": "2026-11-16T21:29:15.586150+00:00",
+  "source": "93b76865a75915229f4f17f62c8597ed3a5f53f9",
+  "imageTag": "localhost/workspacex-aidt-e003-remediation-20261117:93b76865",
+  "project": "wsx-1e261c1b8eacf1988f72-e003",
+  "cliAttempt": 2,
+  "actualColdBuildAttempt": 1,
+  "exitCode": 1,
+  "stopReason": null,
+  "seconds": 72.02,
+  "initialFreeBytes": 7345750016,
+  "finalFreeBytes": 5208506368,
+  "modelRequestsSent": 0,
+  "apiOrWebRestarted": false,
+  "securityGuardChanged": false,
+  "containerCreated": false,
+  "scope": "E003 genuine native session sandbox dependency verification; not a model test",
+  "cliAttempt01": "local read-only HOME buildx cache initialization failed before actual cold build; preserved",
+  "actualFailure": "official Dockerfile analysis-stage hash-locked pip cannot connect to PyPI; Errno 101 Network is unreachable",
+  "buildNetworkFieldInOfficialExpandedCompose": "not declared; Docker default build network",
+  "runtimeNetworkMode": "none",
+  "runtimeReadOnly": true,
+  "runtimeUser": "node",
+  "runtimeCapDrop": [
+    "ALL"
+  ],
+  "runtimeSecurityOpt": [
+    "no-new-privileges:true",
+    "seccomp=./security/docker-seccomp.json"
+  ],
+  "networkOrCertificateBypassUsed": false,
+  "registryCredentialsImported": false,
+  "officialProbeExecuted": false,
+  "pytestCasesExecuted": 0,
+  "casesRemainBlocked": 2,
+  "errorExcerpts": [
+    "#10 6.517 WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f090c296750>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cffi/",
+    "#10 9.091 WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f090a389e50>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cffi/",
+    "#10 14.22 WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f090a38a650>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cffi/",
+    "#10 19.30 WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f090a38ae90>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cffi/",
+    "#10 37.54 WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f090a38b7d0>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cffi/",
+    "#10 40.61 ERROR: Could not find a version that satisfies the requirement cffi==2.1.1 (from versions: none)",
+    "#10 40.61 ERROR: No matching distribution found for cffi==2.1.1",
+    "6.517 WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f090c296750>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cffi/",
+    "9.091 WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f090a389e50>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cffi/",
+    "14.22 WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f090a38a650>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cffi/",
+    "19.30 WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f090a38ae90>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cffi/",
+    "37.54 WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f090a38b7d0>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cffi/",
+    "40.61 ERROR: Could not find a version that satisfies the requirement cffi==2.1.1 (from versions: none)",
+    "40.61 ERROR: No matching distribution found for cffi==2.1.1",
+    "failed to solve: process \"/bin/sh -c PIP_INDEX_URL=\\\"$PYPI_INDEX_URL\\\" pip install --only-binary=:all: --require-hashes       --target /analysis -r /tmp/analysis-requirements.lock  && PIP_INDEX_URL=\\\"$PYPI_INDEX_URL\\\" pip download --only-binary=:all: --require-hashes --no-deps       --platform manylinux_2_28_x86_64 --platform manylinux2014_x86_64       --python-version 311 --implementation cp --abi cp311       --dest /tmp/analysis-amd64 -r /tmp/analysis-requirements.lock\" did not complete successfully: exit code: 1"
+  ],
+  "privateFullLogSha256": "50e5ee728058e6f8ff6bec9c6a0f438c0a96a9e029028b806f9e8d28366c0dac",
+  "ownedRemainingResources": {
+    "containers": [],
+    "volumes": [],
+    "networks": [],
+    "images": []
+  },
+  "globalBuilderCachePruned": false,
+  "partialSharedBuilderCacheNotDeleted": true
+}

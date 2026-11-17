@@ -1,0 +1,15 @@
+{
+  "target": "/workspace/aidt-module-latest/apps/web/.next-aidt-local/cache",
+  "beforeCheck": {
+    "usable": true,
+    "reason": null
+  },
+  "afterCheck": {
+    "usable": true,
+    "reason": null
+  },
+  "receiptUnchanged": true,
+  "pgdataUnchanged": true,
+  "freeGiBBefore": 12.084579467773438,
+  "freeGiBAfter": 14.447673797607422
+}

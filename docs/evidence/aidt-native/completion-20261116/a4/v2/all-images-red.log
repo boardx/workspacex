@@ -1,0 +1,126 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-stage-output-classification.test.tsx (18 tests | 1 failed) 1012ms
+   × requires all three reviewed pictures to decode before printing even one candidate sheet 42ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      <article
+        data-aidt-idea-sheets="true"
+      >
+        <h2>
+          小组点子描述单 · 学生审阅稿
+        </h2>
+        <p>
+          根据学生审阅内容打印；不等于共享保存、投票结果或已验证方案。请在打印对话框中另存为 PDF。
+        </p>
+        <section
+          data-idea-id="one"
+          style="break-inside: avoid;"
+        >
+          <h3>
+            1. 试饮（拟选择，非投票）
+          </h3>
+          <img
+            alt="试饮"
+            src="data:image/png;base64,preview"
+            style="max-width: 100%;"
+            width="480"
+          />
+          <p>
+            先体验。再比较选择。
+          </p>
+          <p>
+            学生分类（本组已确认）：最容易实现的、最有趣的
+          </p>
+          <p>
+            学生分类理由：学生判断：小杯易搭建，也方便一起尝试。
+          </p>
+          <p>
+            本页参考图：未命名（未上传，不是小组已保存附件）
+          </p>
+        </section>
+      </article>,
+      "AIDT 点子描述单-试饮",
+    ]
+
+
+Number of calls: 1
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-stage-output-classification.test.tsx > requires all three reviewed pictures to decode before printing even one candidate sheet
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      <article
+        data-aidt-idea-sheets="true"
+      >
+        <h2>
+          小组点子描述单 · 学生审阅稿
+        </h2>
+        <p>
+          根据学生审阅内容打印；不等于共享保存、投票结果或已验证方案。请在打印对话框中另存为 PDF。
+        </p>
+        <section
+          data-idea-id="one"
+          style="break-inside: avoid;"
+        >
+          <h3>
+            1. 试饮（拟选择，非投票）
+          </h3>
+          <img
+            alt="试饮"
+            src="data:image/png;base64,preview"
+            style="max-width: 100%;"
+            width="480"
+          />
+          <p>
+            先体验。再比较选择。
+          </p>
+          <p>
+            学生分类（本组已确认）：最容易实现的、最有趣的
+          </p>
+          <p>
+            学生分类理由：学生判断：小杯易搭建，也方便一起尝试。
+          </p>
+          <p>
+            本页参考图：未命名（未上传，不是小组已保存附件）
+          </p>
+        </section>
+      </article>,
+      "AIDT 点子描述单-试饮",
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/ui/aidt-stage-output-classification.test.tsx:198:27
+    196|   fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-1"));
+    197|   await waitFor(() => expect(screen.getByTestId("aidt-idea-sheet-print…
+    198|   expect(mocks.print).not.toHaveBeenCalled();
+       |                           ^
+    199|   expect(screen.getByText(/打印未能启动/)).toBeVisible();
+    200| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 17 passed (18)
+   Start at  05:26:43
+   Duration  4.35s (transform 1.61s, setup 91ms, collect 2.45s, tests 1.01s, environment 529ms, prepare 47ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --no-cache tests/ui/aidt-stage-output-classification.test.tsx

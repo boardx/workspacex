@@ -1,0 +1,113 @@
+{
+  "kind": "real-native-local-preview-boundary-and-beforeprint",
+  "webSourceSha": "7235b9cdcfea2774df913035cb3f2109504213ad",
+  "attempt": "attempt-13",
+  "passed": true,
+  "previousFailedAttempt": "attempt-12 retained; QA incorrectly expected embedded image bytes to be stripped at save",
+  "result": {
+    "projectId": "prj-b3edfa69-2d6f-4455-9205-befc105a0e40",
+    "ideaIds": [
+      "draft-1",
+      "draft-2",
+      "draft-3"
+    ],
+    "prints": [
+      {
+        "title": "AIDT 点子描述单-合成点子A：纸面分区牌",
+        "text": "小组点子描述单 · 学生审阅稿\n\n根据学生审阅内容打印；不等于共享保存、投票结果或已验证方案。请在打印对话框中另存为 PDF。\n\n1. 合成点子A：纸面分区牌\n\n在不同取餐口放置纸面分区牌。学生用示意图讨论能否看懂方向。\n\n学生分类（本组已确认）：最容易实现的、最有趣的\n\n学生分类理由：学生看法：容易先做纸面练习，也可能有趣；还不是测试结论。\n\n本页参考图：I1-分区牌.png（未上传，不是小组已保存附件）",
+        "ideaIds": [
+          "draft-1"
+        ],
+        "imagesLoaded": true,
+        "event": "beforeprint",
+        "imageSourceFacts": [
+          {
+            "scheme": "data",
+            "sha256": "f1c043cff87916a5464a2032234230cecefc5056adbf775aab82f8f6b709ac6f"
+          }
+        ]
+      },
+      {
+        "title": "AIDT 点子描述单-合成点子B：同伴口头指路",
+        "text": "小组点子描述单 · 学生审阅稿\n\n根据学生审阅内容打印；不等于共享保存、投票结果或已验证方案。请在打印对话框中另存为 PDF。\n\n2. 合成点子B：同伴口头指路（拟选择，非投票）\n\n由一位同伴说明取餐路线。学生记录其与独自看牌的理解差异。\n\n学生分类（本组已确认）：暂未分类\n\n学生分类理由：尚未填写\n\n本页参考图：I2-同伴指路.png（未上传，不是小组已保存附件）",
+        "ideaIds": [
+          "draft-2"
+        ],
+        "imagesLoaded": true,
+        "event": "beforeprint",
+        "imageSourceFacts": [
+          {
+            "scheme": "data",
+            "sha256": "6ac70a95e4021aea1de7717dea13bffd42a8cac36a41f439339408084fcb9aad"
+          }
+        ]
+      },
+      {
+        "title": "AIDT 点子描述单-合成点子C：号码牌分区",
+        "text": "小组点子描述单 · 学生审阅稿\n\n根据学生审阅内容打印；不等于共享保存、投票结果或已验证方案。请在打印对话框中另存为 PDF。\n\n3. 合成点子C：号码牌分区\n\n取餐前领取不同区域的号码牌。学生讨论号码和区域关系是否清楚。\n\n学生分类（本组已确认）：暂未分类\n\n学生分类理由：尚未填写\n\n本页参考图：I3-号码牌.png（未上传，不是小组已保存附件）",
+        "ideaIds": [
+          "draft-3"
+        ],
+        "imagesLoaded": true,
+        "event": "beforeprint",
+        "imageSourceFacts": [
+          {
+            "scheme": "data",
+            "sha256": "d5b0e3aa529c0481d1dbb3d9f1862451c2c799776b975d7a4759f6025e2660e9"
+          }
+        ]
+      }
+    ],
+    "actualPdfSaved": false,
+    "imagesAreTemporaryLocalFixtures": true,
+    "actualUploadedSharedImages": false,
+    "humanSavePdfStillRequired": true,
+    "savedWithoutLocalBytes": {
+      "projectId": "prj-b3edfa69-2d6f-4455-9205-befc105a0e40",
+      "stageId": 4,
+      "revision": 1,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "reason": "",
+            "ideaClassificationTags": "{\"draft-1\":[\"easy\",\"fun\"]}",
+            "ideaClassificationReasons": "{\"draft-1\":\"学生看法：容易先做纸面练习，也可能有趣；还不是测试结论。\"}",
+            "ideaClassificationConfirmed": "true"
+          },
+          "ideas": [
+            {
+              "id": "draft-1",
+              "title": "合成点子A：纸面分区牌",
+              "description": "在不同取餐口放置纸面分区牌。学生用示意图讨论能否看懂方向。"
+            },
+            {
+              "id": "draft-2",
+              "title": "合成点子B：同伴口头指路",
+              "description": "由一位同伴说明取餐路线。学生记录其与独自看牌的理解差异。"
+            },
+            {
+              "id": "draft-3",
+              "title": "合成点子C：号码牌分区",
+              "description": "取餐前领取不同区域的号码牌。学生讨论号码和区域关系是否清楚。"
+            }
+          ],
+          "selectedIdeaId": "draft-2"
+        }
+      },
+      "sourceStageRevisions": [],
+      "updatedBy": "user-fullstack-lead-ec-3614a47a-ef6245aa8d4e",
+      "updatedAt": "2026-11-16T05:46:26.632Z"
+    },
+    "localPreviewSaveRejected": true,
+    "rejectedPreviewWrites": [],
+    "serverUnchangedAfterPrint": true
+  },
+  "limits": {
+    "actualPdfSaved": false,
+    "humanSavePdfStillRequired": true,
+    "modelRun": false,
+    "actor": "existing-setup-admin; not ordinary student permission proof"
+  },
+  "projection": "Actual test attachment retained in private attempt directory; inline image bytes and private origin URLs omitted from shareable projection"
+}

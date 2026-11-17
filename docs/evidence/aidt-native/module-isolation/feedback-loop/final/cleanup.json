@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-11-15T03:03:09.539657+00:00",
+  "isolationId": "run-mwh8rzxk-113ebfb5-efcbde1cfa80",
+  "composeProject": "wsx-efcbde1cfa80db67ea36",
+  "containers": [],
+  "dockerExit": 0,
+  "ports": [
+    20292,
+    21292,
+    22292,
+    23292,
+    24292,
+    25292,
+    26292,
+    27292,
+    28292,
+    29292,
+    30292,
+    31292,
+    19292
+  ],
+  "listeners": [],
+  "ssExit": 0,
+  "clean": true
+}

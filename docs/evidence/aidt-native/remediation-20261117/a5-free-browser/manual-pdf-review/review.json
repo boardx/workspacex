@@ -1,0 +1,104 @@
+{
+  "kind": "independent-existing-manual-pdf-review",
+  "status": "readable-in-local-pdf-checks-with-scope-notes",
+  "pdf": "/workspace/artifacts/aidt-v2-acceptance/AIDT-V2-人工测试验收手册.pdf",
+  "bytes": 203745,
+  "sha256": "931196e442ebf94ff1704759b6fcd1bb310da2790fbb0cc88df16d4ef7c1313e",
+  "pdfMagic": "%PDF-",
+  "pages": 29,
+  "nonemptyExtractedPages": 29,
+  "H01_H15_present": {
+    "H01": true,
+    "H02": true,
+    "H03": true,
+    "H04": true,
+    "H05": true,
+    "H06": true,
+    "H07": true,
+    "H08": true,
+    "H09": true,
+    "H10": true,
+    "H11": true,
+    "H12": true,
+    "H13": true,
+    "H14": true,
+    "H15": true
+  },
+  "FR19_present": true,
+  "M26_present": true,
+  "historicalQualifierChecks": {
+    "M01–M25 是各自当时版本的历史记录": true,
+    "当前修复见M26": true,
+    "此前旧版真实SUM": true,
+    "不代表用户本次新增授权的次数上限": true,
+    "M19–M25历史身份说明": true,
+    "以下为 M01–M25 历史检查点的问题原文": true
+  },
+  "actualTextSpanFonts": [
+    "DejaVuSans",
+    "Droid-Sans-Fallback"
+  ],
+  "actualTextFontsEmbedded": true,
+  "fontScope": "All fonts used by extracted text spans are embedded TrueType subsets. pdffonts additionally lists an unembedded Base14 Helvetica resource; Helvetica occurs in no extracted visible text span, so this is not a claim that every registered resource is embedded.",
+  "outOfPageTextSpans": [],
+  "bodyCharactersPerPage": [
+    658,
+    500,
+    1123,
+    428,
+    403,
+    1372,
+    219,
+    732,
+    436,
+    587,
+    853,
+    889,
+    971,
+    1807,
+    277,
+    678,
+    596,
+    250,
+    238,
+    212,
+    565,
+    1513,
+    1395,
+    1906,
+    1756,
+    2208,
+    127,
+    690,
+    576
+  ],
+  "minBodyCharacters": 127,
+  "visualSamplePdfPages": [
+    1,
+    10,
+    29
+  ],
+  "visualImagesUsed": [
+    "/workspace/artifacts/aidt-v2-acceptance/qa/remediation-manual-20261117/qa-page-1.png",
+    "/workspace/artifacts/aidt-v2-acceptance/qa/remediation-manual-20261117/qa-page-10.png",
+    "/workspace/artifacts/aidt-v2-acceptance/qa/remediation-manual-20261117/qa-page-29.png"
+  ],
+  "visualFindings": [
+    "Chinese title, instructions and table content visible without tofu or empty rendering on sampled pages.",
+    "Sample result table retains blank writing lines and unchecked boxes; final student/test/course signatures and pilot decision are blank/unselected.",
+    "Cover and sampled result page retain substantial intentional writing/reading space; no entirely blank extracted page found."
+  ],
+  "blankHumanChecks": {
+    "uncheckedPassBoxes": 27,
+    "uncheckedFailBoxes": 27,
+    "selectedCheckmarkPresent": false,
+    "signatureLabelsPresent": true,
+    "signatureAndPilotFieldsRemainBlank": true,
+    "selectedBoxPatternsPresent": false
+  },
+  "limits": [
+    "This checks the existing PDF bytes and existing PDF-page PNGs; no source edit, PDF regeneration, browser screenshot or human approval was performed.",
+    "All pages were checked for extractable nonempty body and out-of-page text bounds; visual review sampled pages 1,10,29, not every page.",
+    "This does not verify user-device or Library-viewer access."
+  ]
+}

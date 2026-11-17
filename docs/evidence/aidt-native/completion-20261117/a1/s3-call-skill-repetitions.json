@@ -1,0 +1,224 @@
+{
+  "observedAt": "2026-11-16T17:41:03.009Z",
+  "runId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+  "callSkillStepRows": 42,
+  "distinctCallSkillIds": 21,
+  "terminalCallStates": {
+    "failed": 1,
+    "succeeded": 20
+  },
+  "calls": [
+    {
+      "toolCallId": "call_8056f1a6e1324ae49d4d77ff",
+      "stepRows": 2,
+      "lastStatus": "failed",
+      "failureCode": "MODEL_CALL_FAILED",
+      "skillValue": "aidt-define",
+      "taskChars": 0,
+      "taskSummarySha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "argsSummarySha": "fcede162fa2140d543f27bf676a270cdcde7a8fdd878d2d7dae71c3cc10ac973"
+    },
+    {
+      "toolCallId": "call_2d79cacc32e2430bbbbda3c5",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_f99ca1020ff24ac3933bcfb1",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_cf5b5756300847a1adb59ca8",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_e65af6ee42f14c618eed67d5",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_69f0ffb8c5cb47d28a70ad3f",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_a1b048aed11b4c7f9add0039",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_b1db5243e6d043fcb953e276",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_59920bdb0594404a944766dc",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_4f19eebaa8744cb2bdaa6f33",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_4b5d5aaadc824055b51357bf",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_9f5324fcd7b74513b7378757",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_a16acf7dc48b40feb821ffc6",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_65ad1fe2ab0d4f6c9b9d20bd",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_5234da7597f14be58597056b",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_205b248911c24cf7b08436b8",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_0e0c9fc567c5423bb1652079",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_1a3a55f24f9d4d99ad8c82b1",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_9be54e75238440b69c019ca8",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_15b06b327f7a4509adee78d4",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    },
+    {
+      "toolCallId": "call_d4ff595ff6e3441ca3925ae3",
+      "stepRows": 2,
+      "lastStatus": "succeeded",
+      "failureCode": null,
+      "skillValue": "aidt-define",
+      "taskChars": 110,
+      "taskSummarySha": "20c3cafc8b2ca5ab2629cc3dbd79db08cdaae9b0f1b8ea9ab2c282868c7275b5",
+      "argsSummarySha": "2f5c0f7cffae9eda0629eff936d42407f744544b2899ce892b739260aca21b40"
+    }
+  ],
+  "rootCauseEstablished": false,
+  "hashesReferToPublicSummariesNotProvenFullArgs": true
+}

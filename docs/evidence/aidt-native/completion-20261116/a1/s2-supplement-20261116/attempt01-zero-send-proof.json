@@ -1,0 +1,39 @@
+{
+  "at": "2026-11-16T14:11:37.199Z",
+  "readOnly": true,
+  "attempt": "S2supplement QA attempt01 before any native wire",
+  "originalThreadsRetained": true,
+  "originalThreadCount": 5,
+  "currentThreadCount": 6,
+  "newThread": {
+    "id": "thr-0a23a022-c27f-43c4-96dc-0f40cd31b9d1",
+    "org_id": "org-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+    "project_id": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084"
+  },
+  "messages": 0,
+  "runs": 0,
+  "mounts": [
+    {
+      "skill_id": "skill-b1447c1f-9333-4082-acc9-19f58744fd68",
+      "version_id": "skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6",
+      "stable_name": "aidt-empathize"
+    }
+  ],
+  "finance": {
+    "total_runs": 2,
+    "active": 0,
+    "physical": 2,
+    "usage": 2,
+    "credit": 2,
+    "unsettled": 0,
+    "holds": "0",
+    "unbounded": "0"
+  },
+  "oldBudgetHashes": {
+    "legacy": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "supplementS1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d"
+  },
+  "oldBudgetsUnchanged": true,
+  "supplementalS2LedgerAbsent": true,
+  "modelRequestsSentByAudit": 0
+}

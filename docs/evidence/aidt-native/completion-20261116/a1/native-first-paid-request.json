@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-16",
+  "kind": "native-first-paid-request-awaiting-tool-choice",
+  "run": {
+    "id": "17281977-6dc2-4797-a4c2-53953d978908",
+    "status": "awaiting_tool_permission",
+    "pendingToolName": "confirm_task_intent",
+    "pendingGrantScope": null
+  },
+  "physicalRequests": 1,
+  "receipts": [
+    {
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "n": 1,
+      "tokensTotal": "6802"
+    }
+  ],
+  "settlements": [
+    {
+      "state": "settled",
+      "n": 1
+    }
+  ],
+  "fullAssistantReplyAcceptance": false,
+  "permissionAutomaticallyChanged": false,
+  "bodyArgumentsOrConfigurationRecorded": false
+}

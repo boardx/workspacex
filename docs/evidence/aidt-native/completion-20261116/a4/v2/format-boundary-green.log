@@ -1,0 +1,18 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/aidt-stage-output-classification.test.tsx (17 tests) 835ms
+ ✓ tests/ui/aidt-research-material.test.tsx (9 tests) 308ms
+ ✓ tests/ui/aidt-discovery-cards.test.tsx (4 tests) 167ms
+ ✓ tests/ui/aidt-stage-original-image.test.tsx (2 tests) 342ms
+   ✓ persists a real file-version reference separately from Chat attachments and previews the exact source 301ms
+ ✓ tests/ui/aidt-discovery-source-picker.test.tsx (3 tests) 135ms
+ ✓ tests/aidt-research-materials.test.ts (11 tests) 30ms
+ ✓ tests/aidt-discovery-evidence.test.ts (5 tests) 7ms
+ ✓ tests/aidt-prototype-formatting-boundary.test.ts (2 tests) 60ms
+
+ Test Files  8 passed (8)
+      Tests  53 passed (53)
+   Start at  04:48:59
+   Duration  10.50s (transform 2.51s, setup 623ms, collect 5.20s, tests 1.88s, environment 1.79s, prepare 242ms)

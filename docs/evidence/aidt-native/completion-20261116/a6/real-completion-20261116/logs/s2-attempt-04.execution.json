@@ -1,0 +1,15 @@
+{
+  "phase": "s2",
+  "sourceSha": "c361ba55bde080b06d390bf98b72c3a130e935e5",
+  "startedAt": "2026-11-16T12:33:15.572Z",
+  "stack": "stack-context-04",
+  "accountRole": "existing-funded-admin-technical",
+  "ordinaryStudentModelPermissionsProven": false,
+  "supplierFixture": false,
+  "serverStartedByTest": false,
+  "retries": 0,
+  "oldLedgerReset": false,
+  "s1SupplementSeparateMaximum": 1,
+  "finishedAt": "2026-11-16T12:33:51.737Z",
+  "exitCode": 1
+}

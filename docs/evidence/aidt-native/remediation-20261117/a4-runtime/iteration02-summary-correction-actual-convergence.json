@@ -1,0 +1,181 @@
+{
+  "observedAt": "2026-11-16T22:19:18.896Z",
+  "audit": {
+    "role": "app_rw",
+    "readOnly": true,
+    "tenantScoped": true,
+    "modelRequestsSent": 0,
+    "methods": [
+      "tenant-scoped SQL SELECT",
+      "owned Python GET run",
+      "owned Python GET persisted state"
+    ],
+    "runtimeFile": "runtime-private.json"
+  },
+  "run": {
+    "id": "3afe33fe-42ce-4db8-9884-70b14253f2ba",
+    "status": "succeeded",
+    "startedAt": "2026-11-16T22:17:20.601Z",
+    "endedAt": "2026-11-16T22:18:09.385Z",
+    "remoteRunId": "d036f5e0-0416-4a2b-b15b-316dbebd0064",
+    "remoteThreadId": "e061bba2-8e30-488f-8861-f262a6166c67"
+  },
+  "journal": {
+    "stepCount": 6,
+    "eventCount": 13,
+    "eventKinds": {
+      "status": 2,
+      "tool_start": 1,
+      "tool_progress": 6,
+      "tool_end": 1,
+      "text_delta": 2,
+      "final_message": 1
+    },
+    "distinctSkillStepCallIds": [
+      "call_572e19e1581848a4957ece9c"
+    ],
+    "skillSteps": [
+      {
+        "seq": 3,
+        "status": "in_progress",
+        "toolCallId": "call_572e19e1581848a4957ece9c",
+        "failureCode": null,
+        "resultPublicSummary": {
+          "present": false,
+          "chars": null,
+          "sha256": null
+        }
+      },
+      {
+        "seq": 4,
+        "status": "succeeded",
+        "toolCallId": "call_572e19e1581848a4957ece9c",
+        "failureCode": null,
+        "resultPublicSummary": {
+          "present": true,
+          "chars": 501,
+          "sha256": "907fd98a2f5cddd39e5f58136c652aa8633f32ab168aff6d37b564f9c422a967"
+        }
+      }
+    ],
+    "toolEvents": [
+      {
+        "seq": 1,
+        "kind": "tool_start",
+        "toolName": "call_skill",
+        "toolCallId": "3afe33fe-42ce-4db8-9884-70b14253f2ba:1:call_572e19e1581848a4957ece9c",
+        "sourceToolCallId": "call_572e19e1581848a4957ece9c",
+        "ok": null,
+        "resultPublicSummary": {
+          "present": false,
+          "chars": null,
+          "sha256": null
+        }
+      },
+      {
+        "seq": 8,
+        "kind": "tool_end",
+        "toolName": "call_skill",
+        "toolCallId": "3afe33fe-42ce-4db8-9884-70b14253f2ba:1:call_572e19e1581848a4957ece9c",
+        "sourceToolCallId": "call_572e19e1581848a4957ece9c",
+        "ok": true,
+        "resultPublicSummary": {
+          "present": true,
+          "chars": 501,
+          "sha256": "907fd98a2f5cddd39e5f58136c652aa8633f32ab168aff6d37b564f9c422a967"
+        }
+      }
+    ]
+  },
+  "persistedState": {
+    "stateRunMatchesRequestedRun": true,
+    "canonicalCurrentStudentTurnFound": true,
+    "totalMessages": 10,
+    "currentTurnMessages": 6,
+    "toolBatchCount": 1,
+    "toolCallCount": 1,
+    "callSkillCount": 1,
+    "toolMessageCount": 1,
+    "skillCalls": [
+      {
+        "toolCallId": "call_572e19e1581848a4957ece9c",
+        "batchIndex": 1,
+        "pairedResults": 1,
+        "status": "success",
+        "content": {
+          "present": true,
+          "chars": 1976,
+          "sha256": "c3cf8eaa998cbe2ea42eae16c296c8d46c10b2ed54e3b66a76d6e7f10050e871"
+        },
+        "hasFeedbackArtifact": true,
+        "taskHashMatches": true,
+        "resultHashMatches": true,
+        "mountedBytesEstablished": false,
+        "mountedBytesHashMatches": null,
+        "outputEqualsFullFocusedResult": true,
+        "artifactSkillContentSha256": "0bbc8709e557c2df9f81621ef896efa938da74ffda73980788986dc550781414",
+        "artifactSkillStableName": "dt-summarize-project",
+        "actualToolMessageName": "call_skill"
+      }
+    ],
+    "latestBatch": {
+      "callCount": 1,
+      "toolNames": [
+        "call_skill"
+      ],
+      "pairedTailResultCount": 1,
+      "singleFeedbackSuccess": true
+    },
+    "finalAnswer": {
+      "present": true,
+      "chars": 1976,
+      "sha256": "c3cf8eaa998cbe2ea42eae16c296c8d46c10b2ed54e3b66a76d6e7f10050e871"
+    },
+    "modelOutput": {
+      "present": true,
+      "chars": 1976,
+      "sha256": "c3cf8eaa998cbe2ea42eae16c296c8d46c10b2ed54e3b66a76d6e7f10050e871"
+    },
+    "modelOutputEqualsLastAnswer": true,
+    "pendingNextNodes": 0,
+    "currentRunOnly": true,
+    "metadataRemoteRunIdMatchesRequestedRun": true,
+    "successfulCallSkillCount": 1
+  },
+  "limitations": [
+    "Journal text is a bounded/redacted public summary, not a full ToolMessage.",
+    "Full hashes derive only from the matching persisted Python state, never from public summary equality.",
+    "GET run does not expose mounted org_skills config on this runtime; absent mounted bytes are unestablished, not a mismatch.",
+    "No inference of model pedagogy, financial settlement or permissions from a successful tool status."
+  ],
+  "proofExtension": {
+    "source": "Offline hash/selector enrichment from this audit own already-captured matching live GET state, compared with A6 exact readonly recovery capture; no fresh GET during enrichment",
+    "rawToolMessageExposed": false,
+    "artifactSkillContentSha256DoesNotEstablishMountedConfigBytes": true
+  },
+  "issuedPackageBodyComparison": {
+    "repositoryPackage": "skills/starter-packs/aidt-project-summary/1.0.2.json",
+    "skillStableName": "dt-summarize-project",
+    "skillBodySha256": "0bbc8709e557c2df9f81621ef896efa938da74ffda73980788986dc550781414",
+    "actualExecutedArtifactSkillContentSha256Matches": true,
+    "separateMountedConfigGetBytesExposed": false
+  },
+  "sameThreadCorrectionTurnComparison": {
+    "actualRunIdMatchesReadonlyRecovery": true,
+    "actualInputMessageIdMatchesAuthorizedCorrection": true,
+    "canonicalCurrentStudentEqualsRecoveryStudentInput": true,
+    "actualCurrentRunOutputEqualsRecoveryAssistantFullSha256": true,
+    "selectedCurrentCoordinatesMatchReceipt": true,
+    "selectedHistoricalCoordinatesMatchReceipt": true,
+    "focusedSkillVersionMatchesReceiptAndActualApiRun": true,
+    "recoverySentNoModelRequests": true,
+    "originalBrowserFailureRetained": true,
+    "canonicalCurrentStudentSha256": "6384a1509b37236453d67c8944a8bfb463d687e3a2e6f995e8498d7b84584693",
+    "canonicalCurrentStudentChars": 312,
+    "referenceMessageId": "wsx-turn:3afe33fe-42ce-4db8-9884-70b14253f2ba:h2",
+    "referenceBlockSha256": "bf01c5e13d16fdff7a32969c3f245805ebcb440f417c8ba45480930bf6570498",
+    "referenceBlockChars": 42439,
+    "priorFailedDraftsNotReclassified": true,
+    "semanticAcceptanceRequiresNewIndependentReview": true
+  }
+}

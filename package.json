@@ -84,6 +84,10 @@
     "e2e:real-model-office:raw": "pnpm --filter web exec playwright test --config playwright.real-model-smoke.config.ts --project=real-model-office-matrix",
     "e2e:real-model-web-artifact-reliability": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash scripts/real-model-smoke.sh web-artifact-reliability",
     "e2e:real-model-web-artifact-reliability:raw": "pnpm --filter web exec playwright test --config playwright.real-model-smoke.config.ts --project=real-model-web-artifact-reliability",
+    "real-model:doctor": "node scripts/real-model-config.mjs",
+    "aidt:real-model:dev": "node scripts/real-model-config.mjs --stack",
+    "e2e:real-model-smoke:safe": "node scripts/real-model-config.mjs --smoke",
+    "test:real-model-config": "node --test scripts/tests/real-model-config.test.mjs",
     "e2e:real-model-smoke": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash scripts/real-model-smoke.sh",
     "e2e:real-model-smoke:raw": "pnpm --filter web exec playwright test --config playwright.real-model-smoke.config.ts --project=real-model-pdf",
     "shots:chat-main": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run shots:chat-main:raw",
@@ -117,7 +121,8 @@
     "lint:ee-boundary": "node .harness/scripts/lint-ee-boundary.mjs",
     "lint:local-zero-egress": "node .harness/scripts/lint-local-zero-egress.mjs",
     "verify:ci-base-other": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:ci-base-other:raw",
-    "verify:ci-base-other:raw": "pnpm run verify:harness:raw && turbo run test --concurrency=1 --log-order=stream --filter='!@repo/api' -- --bail=1"
+    "verify:ci-base-other:raw": "pnpm run verify:harness:raw && turbo run test --concurrency=1 --log-order=stream --filter='!@repo/api' -- --bail=1",
+    "aidt:local": "tsx packages/local-runtime/src/aidt-cli.ts"
   },
   "devDependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

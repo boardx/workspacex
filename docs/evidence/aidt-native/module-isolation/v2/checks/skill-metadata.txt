@@ -1,0 +1,1 @@
+✅ [skill-metadata-source] 10 个构建脚本零手写元数据，19 个 SKILL.md frontmatter 是唯一来源；metadata: 嵌套遗留 5 条（只减不增）

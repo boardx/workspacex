@@ -1,0 +1,6 @@
+
+> agentic-harness-template@ lint:local-zero-egress /workspace/aidt-module-latest
+> node .harness/scripts/lint-local-zero-egress.mjs
+
+本地零出网静态检查：扫描 3 个本地版目录、源码文件 43 个，违规 0 处
+✅ 本地版代码路径没有硬编码外部主机

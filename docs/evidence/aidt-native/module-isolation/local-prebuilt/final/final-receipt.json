@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-11-15T06:56:05.709Z",
+  "check": {
+    "usable": true,
+    "reason": null
+  },
+  "receipt": {
+    "schema": 1,
+    "distDir": ".next-aidt-local",
+    "apiURL": "http://127.0.0.1:24756",
+    "publicEnv": {
+      "NEXT_PUBLIC_API_URL": "http://127.0.0.1:24756",
+      "NEXT_PUBLIC_API_WS_URL": "http://127.0.0.1:24756",
+      "NEXT_PUBLIC_ENABLE_AIDT": "1",
+      "NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT": "1"
+    },
+    "sourceInputHash": "d73767593affcf8c00c1f6a2c1c300d1c552d0722b721526916c285f0dc16a62",
+    "buildId": "7GWG5SqYf3XRXI5e4dCsF",
+    "runtimeArtifactHash": "c6160942ba3c29486c560df6373eda79f5937d0da14ab511a0bbede7e36a7784"
+  }
+}

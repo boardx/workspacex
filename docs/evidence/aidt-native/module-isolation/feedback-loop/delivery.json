@@ -1,0 +1,30 @@
+{
+  "testedCandidate": "db828d5e2fbb6d8c233b4278c2ee50a9b892739b",
+  "evidenceCommit": "4bd06c6860c9c678f955c41d8a157cba2a29f49d",
+  "base": "9458932e466198416b81780da6284ea5f2b39c57",
+  "page": "https://chatgpt.com/space/page_78bc9016074481918252b6ea34bdbbea",
+  "bundle": {
+    "page_id": "page_78bc9016074481918252b6ea34bdbbea",
+    "reference": "library-file:fde1_bGliZmlsZV9NalJCeXpDSUdqV3NYMENKR3FzOGVR_FileDrive_f2550309ede48191b6efb8c3155855a5",
+    "file_name": "AIDT-native-feedback-review-5655bc69a0e749e1a6af514b097b19ba.zip",
+    "mime_type": "application/zip",
+    "byte_size": 1231924,
+    "sha256": "92dd0edf22b61229fb21b82d5294dea16a1a48b4630fb816b3e09a905d169618",
+    "file_access_confirmed": true,
+    "is_image": false,
+    "markdown": "[AIDT 本轮反馈修复源码与验收记录（db828d5e2）](library-file:fde1_bGliZmlsZV9NalJCeXpDSUdqV3NYMENKR3FzOGVR_FileDrive_f2550309ede48191b6efb8c3155855a5)",
+    "inserted": false,
+    "next_step": "Read the Page and use edit_page with its fresh guards to insert markdown."
+  },
+  "runtimeAccessVerified": false,
+  "waitingFor": "User target WorkspaceX test environment or configured local runtime; real-provider acceptance",
+  "validation": {
+    "webTests": 538,
+    "realFullstack": 4,
+    "processExitCode": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "scope": "A+B feedback fixes; C interview recording and voice rooms deferred"
+}

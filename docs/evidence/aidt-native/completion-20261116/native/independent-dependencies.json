@@ -1,0 +1,6 @@
+{
+  "at": "2026-11-16T02:34:26.448797+00:00",
+  "oldLink": "/workspace/aidt-native/node_modules/.pnpm",
+  "reason": "Repeated native builds observed whole shared virtual store missing; detach only completion worktree symlink; preserve original target",
+  "trackedSourceChanged": false
+}

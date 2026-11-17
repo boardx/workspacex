@@ -1,0 +1,39 @@
+{
+  "source": "741bc9f69693667868e88e780ff9a798e95d80ec",
+  "scope": "single synthetic project/thread supplied by A6",
+  "runCount": 1,
+  "runs": [
+    {
+      "run_id": "7c10690f-7833-4d7a-9054-7b09c799c11a",
+      "status": "cancelled",
+      "thread_id": "thr-c3f721d2-daef-4769-9acc-2871ec926f9a",
+      "skill_version_ids": [
+        "skill-version-c48983e7-c01d-4479-a251-d5b43b7cc962"
+      ],
+      "aidt_selector_hash": "daddfadf125c65d9c9988f41fbeb2e576078e41f24cb307b9f6f857c2ffb5950",
+      "selector_hash": "daddfadf125c65d9c9988f41fbeb2e576078e41f24cb307b9f6f857c2ffb5950",
+      "snapshot_hash": "4ebf15742a79c48fdd2a02deacbcc9aedd9d2b2a4a4ff6a3ac94a0b77ffc3e0e",
+      "selector_json": {
+        "purpose": "stage",
+        "stageId": 2,
+        "projectId": "prj-6b81df42-f62e-4962-844d-116a6b33d67a",
+        "schemaVersion": 1,
+        "stageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 1
+          },
+          {
+            "stageId": 2,
+            "revision": 1
+          }
+        ]
+      },
+      "focus_stable_name": "aidt-empathize",
+      "input_human_count": 1,
+      "application_count": 0
+    }
+  ],
+  "rawStudentMaterialRead": false,
+  "providerRequestsSent": 0
+}

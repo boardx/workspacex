@@ -1,0 +1,177 @@
+TAP version 13
+# Subtest: offline structure guard yields coordinates and hashes without credential values
+ok 1 - offline structure guard yields coordinates and hashes without credential values
+  ---
+  duration_ms: 5.654715
+  type: 'test'
+  ...
+# Subtest: rejects dump byte change
+ok 2 - rejects dump byte change
+  ---
+  duration_ms: 1.169182
+  type: 'test'
+  ...
+# Subtest: rejects unsupported dump format
+ok 3 - rejects unsupported dump format
+  ---
+  duration_ms: 0.720741
+  type: 'test'
+  ...
+# Subtest: rejects current legacy budget change
+ok 4 - rejects current legacy budget change
+  ---
+  duration_ms: 0.851296
+  type: 'test'
+  ...
+# Subtest: rejects current supplemental budget change
+ok 5 - rejects current supplemental budget change
+  ---
+  duration_ms: 0.950675
+  type: 'test'
+  ...
+# Subtest: rejects backup budget change
+ok 6 - rejects backup budget change
+  ---
+  duration_ms: 1.611155
+  type: 'test'
+  ...
+# Subtest: rejects original bytes change
+ok 7 - rejects original bytes change
+  ---
+  duration_ms: 0.865077
+  type: 'test'
+  ...
+# Subtest: rejects original MIME absent
+ok 8 - rejects original MIME absent
+  ---
+  duration_ms: 0.838557
+  type: 'test'
+  ...
+# Subtest: rejects unsafe file mode
+ok 9 - rejects unsafe file mode
+  ---
+  duration_ms: 0.748472
+  type: 'test'
+  ...
+# Subtest: rejects unsafe directory mode
+ok 10 - rejects unsafe directory mode
+  ---
+  duration_ms: 0.763294
+  type: 'test'
+  ...
+# Subtest: rejects object symlink
+ok 11 - rejects object symlink
+  ---
+  duration_ms: 0.637496
+  type: 'test'
+  ...
+# Subtest: rejects enabled executor
+ok 12 - rejects enabled executor
+  ---
+  duration_ms: 1.033819
+  type: 'test'
+  ...
+# Subtest: rejects nonzero guard
+ok 13 - rejects nonzero guard
+  ---
+  duration_ms: 1.461771
+  type: 'test'
+  ...
+# Subtest: rejects shared database
+ok 14 - rejects shared database
+  ---
+  duration_ms: 1.290344
+  type: 'test'
+  ...
+# Subtest: rejects missing login
+ok 15 - rejects missing login
+  ---
+  duration_ms: 1.626108
+  type: 'test'
+  ...
+# Subtest: rejects changed group identity
+ok 16 - rejects changed group identity
+  ---
+  duration_ms: 1.304445
+  type: 'test'
+  ...
+# Subtest: rejects pending run
+ok 17 - rejects pending run
+  ---
+  duration_ms: 1.605877
+  type: 'test'
+  ...
+# Subtest: rejects outstanding holds
+ok 18 - rejects outstanding holds
+  ---
+  duration_ms: 1.448881
+  type: 'test'
+  ...
+# Subtest: plan rejects repository and checkpoint-overlapping destination
+ok 19 - plan rejects repository and checkpoint-overlapping destination
+  ---
+  duration_ms: 0.773419
+  type: 'test'
+  ...
+# Subtest: apply requires the exact reviewed plan hash, explicit root authorization and zero guards
+ok 20 - apply requires the exact reviewed plan hash, explicit root authorization and zero guards
+  ---
+  duration_ms: 0.314722
+  type: 'test'
+  ...
+# Subtest: startup gate rejects a receipt that does not attest a verified empty fresh target
+ok 21 - startup gate rejects a receipt that does not attest a verified empty fresh target
+  ---
+  duration_ms: 1.147479
+  type: 'test'
+  ...
+# Subtest: restored target objects are checked independently of the intact backup
+ok 22 - restored target objects are checked independently of the intact backup
+  ---
+  duration_ms: 2.641749
+  type: 'test'
+  ...
+# Subtest: missing restored original
+ok 23 - missing restored original
+  ---
+  duration_ms: 1.909322
+  type: 'test'
+  ...
+# Subtest: changed restored MIME
+ok 24 - changed restored MIME
+  ---
+  duration_ms: 1.746968
+  type: 'test'
+  ...
+# Subtest: restored symlink
+ok 25 - restored symlink
+  ---
+  duration_ms: 1.671675
+  type: 'test'
+  ...
+# Subtest: startup transport must bind pgPort to its own actual reserved PG port
+not ok 26 - startup transport must bind pgPort to its own actual reserved PG port
+  ---
+  duration_ms: 0.506169
+  type: 'test'
+  location: '/workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-restore.test.mjs:31:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-restore.test.mjs:31:764)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..26
+# tests 26
+# suites 0
+# pass 25
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 95.188235

@@ -1,0 +1,52 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-stage-output-classification.test.tsx (17 tests | 1 failed) 830ms
+   × removes a deleted card's source and AI associations while preserving other students' records 19ms
+     → expected '待验证推测' to be undefined
+ ❯ tests/aidt-discovery-evidence.test.ts (5 tests | 1 failed) 10ms
+   × keeps escaped original snapshots inside the actual shared-field serialization limit 3ms
+     → expected 8141 to be less than or equal to 6000
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-discovery-evidence.test.ts > keeps escaped original snapshots inside the actual shared-field serialization limit
+AssertionError: expected 8141 to be less than or equal to 6000
+ ❯ tests/aidt-discovery-evidence.test.ts:33:50
+     31|   mocks.list.mockResolvedValueOnce({ messages: [message("escaped", "hu…
+     32|   const result = await loadAidtDiscoverySources(input);
+     33|   expect(JSON.stringify(result.items[0]).length).toBeLessThanOrEqual(6…
+       |                                                  ^
+     34|   expect(result.items[0]?.truncated).toBe(true);
+     35| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/aidt-stage-output-classification.test.tsx > removes a deleted card's source and AI associations while preserving other students' records
+AssertionError: expected '待验证推测' to be undefined
+
+- Expected:
+undefined
+
++ Received:
+"待验证推测"
+
+ ❯ tests/ui/aidt-stage-output-classification.test.tsx:211:46
+    209|   fireEvent.click(screen.getByRole("button", { name: "移除发现卡1" }));
+    210|   fireEvent.click(screen.getByRole("button", { name: "确认移除" }));
+    211|   expect(snapshot().fields["discoveryAi:a"]).toBeUndefined();
+       |                                              ^
+    212|   expect(snapshot().fields["discoverySource:a"]).toBeUndefined();
+    213|   expect(snapshot().fields["discoveryAi:b"]).toBe("另一卡记录");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 20 passed (22)
+   Start at  04:12:54
+   Duration  5.10s (transform 2.16s, setup 139ms, collect 3.32s, tests 839ms, environment 363ms, prepare 60ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --no-cache tests/aidt-discovery-evidence.test.ts tests/ui/aidt-stage-output-classification.test.tsx

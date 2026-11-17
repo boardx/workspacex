@@ -1,0 +1,70 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/packages/local-runtime
+
+stderr | test/pglite-queue-shutdown.test.ts > drains active SQL before close and rejects waiting work during shutdown
+Promise returned by `expect(actual).rejects.toThrow(expected)` was not awaited. Vitest currently auto-awaits hanging assertions at the end of the test, but this will cause the test to fail in Vitest 3. Please remember to await the assertion.
+    at /workspace/aidt-module-latest/packages/local-runtime/test/pglite-queue-shutdown.test.ts:19:34
+
+ ❯ test/pglite-queue-shutdown.test.ts (1 test | 1 failed) 3686ms
+   × drains active SQL before close and rejects waiting work during shutdown 3679ms
+     → queue.stop is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/pglite-queue-shutdown.test.ts > drains active SQL before close and rejects waiting work during shutdown
+TypeError: queue.stop is not a function
+ ❯ test/pglite-queue-shutdown.test.ts:20:22
+     18|   const waiting = queue.enqueue(2, query("select 2"), () => {});
+     19|   const rejected = expect(waiting).rejects.toThrow(/stopping/);
+     20|   const stop = queue.stop();
+       |                      ^
+     21|   expect(queue.stop()).toBe(stop);
+     22|   await stop;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+AssertionError: promise resolved "66" instead of rejecting
+
+- Expected: 
+[Error: rejected promise]
+
++ Received: 
+66
+
+ ❯ _Assertion.__VITEST_REJECTS__ ../../../aidt-native/node_modules/.pnpm/@vitest+expect@2.1.9/node_modules/@vitest/expect/dist/index.js:1805:21
+ ❯ _Assertion.propertyGetter ../../../aidt-native/node_modules/.pnpm/chai@5.3.3/node_modules/chai/index.js:1557:27
+ ❯ Object.proxyGetter [as get] ../../../aidt-native/node_modules/.pnpm/chai@5.3.3/node_modules/chai/index.js:1645:22
+ ❯ test/pglite-queue-shutdown.test.ts:19:34
+     17|   const active = queue.enqueue(1, query("select pg_sleep(0.02)"), () =…
+     18|   const waiting = queue.enqueue(2, query("select 2"), () => {});
+     19|   const rejected = expect(waiting).rejects.toThrow(/stopping/);
+       |                                  ^
+     20|   const stop = queue.stop();
+     21|   expect(queue.stop()).toBe(stop);
+ ❯ ../../../aidt-native/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+ ❯ runTest ../../../aidt-native/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11
+ ❯ runSuite ../../../aidt-native/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15
+ ❯ runFiles ../../../aidt-native/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5
+ ❯ startTests ../../../aidt-native/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3
+
+This error originated in "test/pglite-queue-shutdown.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "test/pglite-queue-shutdown.test.ts". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+     Errors  1 error
+   Start at  15:37:10
+   Duration  4.06s (transform 70ms, setup 0ms, collect 92ms, tests 3.69s, environment 0ms, prepare 65ms)
+
+undefined
+/workspace/aidt-module-latest/packages/local-runtime:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run test/pglite-queue-shutdown.test.ts

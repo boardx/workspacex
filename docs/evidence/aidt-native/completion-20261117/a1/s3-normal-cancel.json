@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-11-16T17:42:01.432Z",
+  "runId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+  "rootAuthorized": true,
+  "normalActorLogin": true,
+  "beforeGetStatus": 200,
+  "beforeRunStatus": "succeeded",
+  "cancelStatus": null,
+  "cancelResultStatus": null,
+  "afterGetStatus": 200,
+  "afterRunStatus": "succeeded",
+  "newHumanSend": false,
+  "modelRequestsSentByCancelAction": 0,
+  "rolesOrFinancialRowsModifiedByAction": false
+}

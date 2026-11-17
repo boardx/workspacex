@@ -1,0 +1,28 @@
+{
+  "at": "2026-11-16T12:25:29.442Z",
+  "readOnly": true,
+  "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+  "rawRuns": [
+    {
+      "ingestion_run_id": "ingest-aa830094-e868-4e7e-a4bb-3e8112e074e9",
+      "artifact_id": "art-f85cc49a-cab6-42bd-be9d-79fdb945928c",
+      "artifact_version_id": "ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102",
+      "version_number": 1,
+      "version_hash": "5f9cb3a8bd2222eed21c879d41f0065f23d9296b798306cd1084dcbd03673ee9",
+      "created_by": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+      "created_at": "2026-11-16T12:24:13.327Z",
+      "sha256": "b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973",
+      "size_bytes": "529"
+    }
+  ],
+  "s2RunCount": 0,
+  "global": {
+    "total_runs": 1,
+    "active_runs": 0,
+    "physical_requests": 1,
+    "usage_receipts": 1,
+    "unsettled_requests": 0
+  },
+  "oldBudgetSha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "modelRequestsSentByAudit": 0
+}

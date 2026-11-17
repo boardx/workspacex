@@ -1,0 +1,15 @@
+{
+  "stats": {
+    "startTime": "2026-11-15T11:52:51.056Z",
+    "duration": 565.9080000000001,
+    "expected": 0,
+    "skipped": 2,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "realModelScenariosExecuted": 0,
+  "pedagogicalCasesAccepted": 0,
+  "reason": "No configured real-model/Agent target or dedicated credentials in this session; 2 explicitly skipped, never replaced by loopback",
+  "existingControlledLocalRuntime": "stopped",
+  "newRuntimeServicesStarted": false
+}

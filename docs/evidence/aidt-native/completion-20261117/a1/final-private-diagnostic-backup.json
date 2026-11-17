@@ -1,0 +1,197 @@
+{
+  "createdAt": "2026-11-16T18:30:31.727Z",
+  "completedAt": "2026-11-16T18:33:26.175Z",
+  "reusedSingleOriginalDump": true,
+  "mimeValidationScope": "canonical raw MIME may differ from generic FS sidecar; each copied byte and sidecar matches source exactly",
+  "privateCheckpointPath": "/workspace/scratch/aidt-private-diagnostics-20261117/fresh-acceptance-final-20261116T183031727Z",
+  "scope": "owned fresh acceptance stack-01 final diagnostic backup; unresolved S3 credit preserved",
+  "safeZeroOutstandingRestoreEligible": false,
+  "accountingUnresolved": true,
+  "unresolvedRunId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+  "unresolvedRequestId": "47f715ad-fd4d-4bb5-8f1f-48ea8f368e8c",
+  "dumpBytes": 4531159,
+  "dumpSha256": "2ecfd540d57fcdae4af63c6e79b96c9807f86180ce601d14fb32b34f2b5e466c",
+  "customListReadable": true,
+  "criticalDumpTables": {
+    "agent_versions": {
+      "expectedRows": 1,
+      "dumpRows": 1,
+      "matches": true
+    },
+    "agent_runs": {
+      "expectedRows": 7,
+      "dumpRows": 7,
+      "matches": true
+    },
+    "aidt_stage_revisions": {
+      "expectedRows": 26,
+      "dumpRows": 26,
+      "matches": true
+    },
+    "aidt_raw_upload_runs": {
+      "expectedRows": 7,
+      "dumpRows": 7,
+      "matches": true
+    },
+    "aidt_run_context_snapshots": {
+      "expectedRows": 7,
+      "dumpRows": 7,
+      "matches": true
+    },
+    "aidt_run_context_applications": {
+      "expectedRows": 17,
+      "dumpRows": 17,
+      "matches": true
+    },
+    "design_projects": {
+      "expectedRows": 1,
+      "dumpRows": 1,
+      "matches": true
+    },
+    "design_project_prototype_versions": {
+      "expectedRows": 2,
+      "dumpRows": 2,
+      "matches": true
+    },
+    "design_project_chat_messages": {
+      "expectedRows": 4,
+      "dumpRows": 4,
+      "matches": true
+    },
+    "project_member_chat_messages": {
+      "expectedRows": 7,
+      "dumpRows": 7,
+      "matches": true
+    },
+    "model_request_starts": {
+      "expectedRows": 94,
+      "dumpRows": 94,
+      "matches": true
+    },
+    "token_usage_events": {
+      "expectedRows": 94,
+      "dumpRows": 94,
+      "matches": true
+    },
+    "credit_consumption_requests": {
+      "expectedRows": 94,
+      "dumpRows": 94,
+      "matches": true
+    },
+    "credit_wallets": {
+      "expectedRows": 1,
+      "dumpRows": 1,
+      "matches": true
+    }
+  },
+  "stageHeads": [
+    {
+      "orgId": "org-fullstack-20261117-01-7d265647426d",
+      "projectId": "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+      "stageId": 1,
+      "revision": 1,
+      "contentCanonicalSha256": "6fdf95251750d67cb1ad5fa6fa70056363b75b812c8abc0c7409e1586e24d821",
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T17:19:54.309Z"
+    },
+    {
+      "orgId": "org-fullstack-20261117-01-7d265647426d",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 1,
+      "revision": 2,
+      "contentCanonicalSha256": "a026f18ad1d4143c4a678acb88e556b86eb096e561e8c481115bb9819ad36e05",
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T17:22:51.127Z"
+    },
+    {
+      "orgId": "org-fullstack-20261117-01-7d265647426d",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 2,
+      "revision": 4,
+      "contentCanonicalSha256": "9ffc4d0afe880e4d4174da8678e5c01969445facee233a7bd7b1013f554bbf67",
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T17:34:31.051Z"
+    },
+    {
+      "orgId": "org-fullstack-20261117-01-7d265647426d",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 3,
+      "revision": 2,
+      "contentCanonicalSha256": "9371c2e32d9cc96ee1b92af3ccc7e09efc8f46339a07dff4dc4916ba8ad59786",
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T17:41:04.815Z"
+    },
+    {
+      "orgId": "org-fullstack-20261117-01-7d265647426d",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 4,
+      "revision": 4,
+      "contentCanonicalSha256": "29cfb8d92a78edae54e93fe047546c8341db0cccb900b833480e8a0625afefb2",
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T17:49:40.675Z"
+    },
+    {
+      "orgId": "org-fullstack-20261117-01-7d265647426d",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 5,
+      "revision": 4,
+      "contentCanonicalSha256": "4c435720290f19bffc36dc6e3f18cae16d22b5b189d355e42765086bdf4b7365",
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T18:10:07.806Z"
+    },
+    {
+      "orgId": "org-fullstack-20261117-01-7d265647426d",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 6,
+      "revision": 9,
+      "contentCanonicalSha256": "ef290c8d3348c9a05bab044fc89a14cb214015998310693f9d2e6f0fffc45f12",
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T18:28:01.820Z"
+    }
+  ],
+  "groups": [
+    "prj-14d60ead-8ba1-4e12-b966-24e79ce1a1e0",
+    "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "prj-a711e0d4-e1da-4470-9939-12dde5ed8ad4",
+    "prj-b919b4c8-6cf5-4a60-b4b9-f8e9e6b26624"
+  ],
+  "agentVersionCount": 1,
+  "canonicalDefaultVersionPresent": true,
+  "objectStore": {
+    "copiedOrgCount": 1,
+    "copiedFiles": 14,
+    "copiedBytes": 115268,
+    "rawOriginalCount": 7,
+    "allRawBytesHashesAndMimeSidecarsVerified": true
+  },
+  "ledgerHashes": {
+    "legacy": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "supplementS1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+    "supplementS2": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+    "nativeFresh": "6075b11d41d6a2c4989ab7ee7173cb367e7fd67ce5b9e879c0b036a5d61b578c",
+    "designFresh": "76d40fcc66da7148ece5521c3f05d1ebcd3b106dfcf47f3e069bc7a62996ee19",
+    "journeyFresh": "ed1900edbe44e6e166169ce2f249af98fef1815ad5f0f85f7b3a3332c1e5f8af",
+    "designState": "0a3f45d6c77260a78764a6ccfb073e9a9b3688492a262934ba894e58d3fde78a"
+  },
+  "finance": {
+    "active": 0,
+    "physical": 94,
+    "usage": 94,
+    "credit": 94,
+    "unsettled": 1,
+    "heldhundredths": "6346",
+    "remainingheldhundredths": "6346",
+    "unbounded": "0",
+    "reportedKnownTokens": "780085",
+    "unknownUsageCount": 1,
+    "settledCreditCount": 93,
+    "pendingCreditCount": 1
+  },
+  "privateDirectoryMode": "0700",
+  "privateDumpMode": "0600",
+  "uploadedModelConfigCopied": false,
+  "restorationTested": false,
+  "servicesStopped": false,
+  "backupOperatorProviderRequestsSent": 0,
+  "externalRoundPhysicalRequests": 94
+}

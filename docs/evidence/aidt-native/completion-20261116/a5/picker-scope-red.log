@@ -1,0 +1,120 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-prototype-version-picker.test.tsx (17 tests | 3 failed | 14 skipped) 189ms
+   × cancels a null-to-null selection when the host changes version intent, including an A-B-A change 142ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      Object {
+        "createdAt": "2026-11-16",
+        "designId": "d",
+        "designName": "订座原型",
+        "frameCount": 2,
+        "generatedFrameCount": 1,
+        "seq": 2,
+        "source": "model",
+        "summary": "增加座位选择",
+        "versionId": "v",
+      },
+    ]
+
+
+Number of calls: 1
+
+   × cancels a null-to-null selection when the host changes newVersion intent, including an A-B-A change 24ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      Object {
+        "createdAt": "2026-11-16",
+        "designId": "d",
+        "designName": "订座原型",
+        "frameCount": 2,
+        "generatedFrameCount": 1,
+        "seq": 2,
+        "source": "model",
+        "summary": "增加座位选择",
+        "versionId": "v",
+      },
+    ]
+
+
+Number of calls: 1
+
+   × cancels a null-to-null selection when the host changes questionSnapshot intent, including an A-B-A change 22ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      Object {
+        "createdAt": "2026-11-16",
+        "designId": "d",
+        "designName": "订座原型",
+        "frameCount": 2,
+        "generatedFrameCount": 1,
+        "seq": 2,
+        "source": "model",
+        "summary": "增加座位选择",
+        "versionId": "v",
+      },
+    ]
+
+
+Number of calls: 1
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-prototype-version-picker.test.tsx > cancels a null-to-null selection when the host changes version intent, including an A-B-A change
+ FAIL  tests/ui/aidt-prototype-version-picker.test.tsx > cancels a null-to-null selection when the host changes newVersion intent, including an A-B-A change
+ FAIL  tests/ui/aidt-prototype-version-picker.test.tsx > cancels a null-to-null selection when the host changes questionSnapshot intent, including an A-B-A change
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      Object {
+        "createdAt": "2026-11-16",
+        "designId": "d",
+        "designName": "订座原型",
+        "frameCount": 2,
+        "generatedFrameCount": 1,
+        "seq": 2,
+        "source": "model",
+        "summary": "增加座位选择",
+        "versionId": "v",
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/ui/aidt-prototype-version-picker.test.tsx:156:23
+    154|   rerender(<AidtPrototypeVersionPicker projectId="p" value={null} sele…
+    155|   await act(async () => { finish(reference); });
+    156|   expect(changed).not.toHaveBeenCalled(); expect(signal.aborted).toBe(…
+       |                       ^
+    157|   expect(screen.queryByTestId("aidt-prototype-recorded-reference")).no…
+    158|   fireEvent.click(await openVersions()); await waitFor(() => expect(ch…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 14 skipped (17)
+   Start at  04:12:37
+   Duration  1.58s (transform 280ms, setup 79ms, collect 382ms, tests 189ms, environment 527ms, prepare 49ms)

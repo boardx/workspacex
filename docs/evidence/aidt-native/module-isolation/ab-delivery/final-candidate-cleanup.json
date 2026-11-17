@@ -1,0 +1,22 @@
+{
+  "utc": "2026-11-15T00:45:46.379327+00:00",
+  "composeProject": "wsx-2444b5823d53bf93d9c0",
+  "ports": [
+    20690,
+    21690,
+    22690,
+    23690,
+    24690,
+    25690,
+    26690,
+    27690,
+    28690,
+    29690,
+    30690,
+    31690,
+    19690
+  ],
+  "remainingContainers": [],
+  "listenerReadback": "State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess\n",
+  "clean": true
+}

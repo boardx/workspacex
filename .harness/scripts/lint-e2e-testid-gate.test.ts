@@ -9,7 +9,8 @@
  * 这是「门控真的会抓东西」唯一说得过去的证据；只断言"今天判绿"是自证空转。
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   checkTestidGate, run, stripComments, toPattern, looksLikeTestid, extractReferences,
@@ -217,5 +218,23 @@ describe("门控已接进标准验证路径——没有脚本的规范条目视�
   });
   it("verify:harness:raw 真的会跑到它", () => {
     expect(pkg.scripts["verify:harness:raw"]).toContain("lint:e2e-testid-gate");
+  });
+});
+
+describe("feature modules remain production declaration sources", () => {
+  it("resolves a feature-owned anchor and catches its removal with the same spec", () => {
+    const base = mkdtempSync(join(tmpdir(), "wsx-feature-testid-"));
+    try {
+      mkdirSync(join(base, "apps/web/e2e"), { recursive: true });
+      mkdirSync(join(base, "apps/web/features/lesson"), { recursive: true });
+      writeFileSync(join(base, "apps/web/e2e/lesson.spec.ts"), 'page.getByTestId("feature-owned-ready");');
+      const component = join(base, "apps/web/features/lesson/screen.tsx");
+      writeFileSync(component, '<div data-testid="feature-owned-ready" />');
+      expect(run(base)).toMatchObject({ ok: true, checked: 1 });
+      writeFileSync(component, '<div data-testid="feature-owned-renamed" />');
+      const removed = run(base);
+      expect(removed.ok).toBe(false);
+      expect(removed.failures.join("\n")).toContain("feature-owned-ready");
+    } finally { rmSync(base, { recursive: true, force: true }); }
   });
 });

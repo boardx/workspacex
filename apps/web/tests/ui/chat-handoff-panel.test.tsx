@@ -206,3 +206,13 @@ describe("ChatHandoffPanel", () => {
     expect(screen.queryByTestId("handoff-origin-card")).toBeNull();
   });
 });
+
+it("uses the native host teaching empty state when there is no handoff, preserving real handoff priority", async () => {
+  const load = vi.fn(async (): Promise<ThreadHandoffs> => ({ requested: [], origin: null }));
+  const { rerender } = render(<ChatHandoffPanel threadId="t" load={load} fallbackEmptyState={() => <p>本组先想一想</p>} />);
+  await screen.findByText("本组先想一想");
+  const withOrigin = vi.fn(async (): Promise<ThreadHandoffs> => ({ requested: [], origin: { handoff: view({ status: "confirmed", newThreadId: "new" }), evidence: [] } }));
+  rerender(<ChatHandoffPanel threadId="new" load={withOrigin} fallbackEmptyState={() => <p>本组先想一想</p>} />);
+  await screen.findByTestId("handoff-waiting-state");
+  expect(screen.queryByText("本组先想一想")).toBeNull();
+});

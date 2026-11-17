@@ -1,0 +1,53 @@
+{
+  "at": "2026-11-16T21:47:53.231885+00:00",
+  "rootAuthorizedHistoricalAidtCachesOnly": true,
+  "reversibleArchives": [
+    {
+      "at": "2026-11-16T21:47:35.587769+00:00",
+      "dist": "/workspace/aidt-module-latest/apps/web/.next-aidt-context04-refresh",
+      "cacheOnlyDeleted": "/workspace/aidt-module-latest/apps/web/.next-aidt-context04-refresh/cache",
+      "archive": "/tmp/aidt-remediation-cache-archives-20261117/next-aidt-context04-refresh-cache.tgz",
+      "archiveBytes": 433904745,
+      "archiveSha256": "b17dad9b824ef1ae2177001b301f8172c87176c6cf5d6dcb02460687cc0efb9d",
+      "fileCount": 9,
+      "uncompressedBytes": 2564677076,
+      "allArchiveFileSizesAndSha256MatchedSource": true,
+      "preservedManifests": {
+        "BUILD_ID": "bdf1ad8cc7c1b33cdab452039606f97a5fc4f7527fa2c63a5f17e105affba1a5",
+        "build-manifest.json": "3214bc20c4b223ef2d2af29164153ab05dbf389bbc9da6593d74dbda26b82d8f",
+        "prerender-manifest.json": "c3af210227f9cf11718b68aef9c8747ad23fcac61481183a5059ce781bcaf52f",
+        "routes-manifest.json": "60b7f0fe6c9ba760999b4de9604a2381a3d0010e4411e9f62d4b0e8b15362135"
+      },
+      "serverStaticRetained": true,
+      "privateArchiveMode": "0600"
+    },
+    {
+      "at": "2026-11-16T21:47:53.206767+00:00",
+      "dist": "/workspace/aidt-module-latest/apps/web/.next-aidt-real-final",
+      "cacheOnlyDeleted": "/workspace/aidt-module-latest/apps/web/.next-aidt-real-final/cache",
+      "archive": "/tmp/aidt-remediation-cache-archives-20261117/next-aidt-real-final-cache.tgz",
+      "archiveBytes": 447501676,
+      "archiveSha256": "34618cc67f9ae3a59c00ade0ee2ed6025884ed559ac794dc51f0c795643b17ee",
+      "fileCount": 12,
+      "uncompressedBytes": 2926000054,
+      "allArchiveFileSizesAndSha256MatchedSource": true,
+      "preservedManifests": {
+        "BUILD_ID": "fe3dd353ae0eb9ea63ffd059d39ea8640d449f4af30c5222c7eb4500ae076ede",
+        "build-manifest.json": "e98e9c13049ad9a242e8f61a4d0c6b236b9461f31bc85e3da75f00261cd4e4c4",
+        "prerender-manifest.json": "17906289c5ca54dda4366dbae09f50193f94bcb44212d4cfb484c47fbebc0d4b",
+        "routes-manifest.json": "3619f4abcc5388e167061bf0abd555032399ed0be796dae0233b01d5c5247fe8"
+      },
+      "serverStaticRetained": true,
+      "privateArchiveMode": "0600"
+    }
+  ],
+  "freeBytesBefore": 1940865024,
+  "freeBytesAfter": 7431512064,
+  "actualReclaimedBytes": 5490647040,
+  "health": {
+    "web": 200,
+    "api": 200
+  },
+  "currentWebDistUntouched": true,
+  "databaseOrModelStateModified": false
+}

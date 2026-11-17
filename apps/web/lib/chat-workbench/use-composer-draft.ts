@@ -1,6 +1,17 @@
 "use client";
 import * as React from "react";
 export type DraftScope = { orgId: string | null; userId: string | null; projectId: string | null; threadId: string | null };
+const OFFER_EVENT = "workbench:offer-composer-draft";
+export type ComposerOfferResult = "accepted" | "occupied" | "unavailable";
+type ComposerOffer = { key: string; text: string; result: ComposerOfferResult };
+/** User-triggered handoff to a mounted composer; never sends or replaces an existing draft. */
+export function offerComposerDraft(scope: DraftScope, text: string): ComposerOfferResult {
+  const key = keyOf(scope);
+  if (!key || !scope.threadId || !text.trim()) return "unavailable";
+  const detail: ComposerOffer = { key, text, result: "unavailable" };
+  window.dispatchEvent(new CustomEvent<ComposerOffer>(OFFER_EVENT, { detail }));
+  return detail.result;
+}
 function keyOf(scope: DraftScope): string | null {
   return scope.orgId && scope.userId ? `workbench-draft:${JSON.stringify([scope.orgId, scope.userId, scope.projectId, scope.threadId])}` : null;
 }
@@ -38,6 +49,17 @@ export function useComposerDraft(scope: DraftScope) {
   const clear = React.useCallback((revision?: number) => {
     if (revision !== undefined && latest.current.revision !== revision) return;
     setText("");
+  }, [setText]);
+  React.useEffect(() => {
+    function receive(event: Event) {
+      const offer = (event as CustomEvent<ComposerOffer>).detail;
+      if (offer.key !== latest.current.key || offer.result !== "unavailable") return;
+      if (latest.current.text) { offer.result = "occupied"; return; }
+      setText(offer.text);
+      offer.result = "accepted";
+    }
+    window.addEventListener(OFFER_EVENT, receive);
+    return () => window.removeEventListener(OFFER_EVENT, receive);
   }, [setText]);
   return { text: current.text, revision: current.revision, setText, clear };
 }

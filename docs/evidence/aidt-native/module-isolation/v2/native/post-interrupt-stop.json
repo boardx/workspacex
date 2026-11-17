@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-11-15T08:01:19.712855+00:00",
+  "command": "aidt:local stop (same data-dir and owned ports)",
+  "exitCode": 0,
+  "stdout": "\n> agentic-harness-template@ aidt:local /workspace/aidt-module-latest\n> tsx packages/local-runtime/src/aidt-cli.ts \"stop\" \"--data-dir\" \"/workspace/scratch/aidt-local-persistent-acceptance/data\" \"--repo-root\" \"/workspace/aidt-module-latest\" \"--ports\" \"postgres=20020,api=24020,web=25020,sandbox=26020,deepAgent=28020,ollama=27020,asr=29020\"\n\nAIDT is already stopped. Saved data retained.\n",
+  "stderr": "",
+  "dataOwnerExists": false,
+  "outputOwnerExists": false
+}

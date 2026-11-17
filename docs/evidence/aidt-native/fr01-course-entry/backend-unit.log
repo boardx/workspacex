@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+ ✓ tests/aidt-courses/course-unit.test.ts (15 tests) 14ms
+ ✓ tests/aidt-courses/course-repository.test.ts (4 tests) 7ms
+ ✓ tests/aidt-courses/course-controller.test.ts (14 tests) 7ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  04:22:53
+   Duration  2.60s (transform 997ms, setup 0ms, collect 2.20s, tests 28ms, environment 0ms, prepare 104ms)

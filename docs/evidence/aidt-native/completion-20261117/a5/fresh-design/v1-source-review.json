@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "designId": "3cfcddff-456f-400a-ad26-64c3ca20a3e0",
+  "sourceRefs": [
+    {
+      "stageId": 3,
+      "revision": 2
+    },
+    {
+      "stageId": 4,
+      "revision": 4
+    }
+  ],
+  "studentQuestionRevisionBeforePrototype": 2,
+  "studentQuestionOrigin": "manual synthetic fallback after cancelled S5 native run; not S5 Agent success",
+  "prototypeBoundStage5Revision": 3,
+  "frozenStage6Revision": 1,
+  "versionId": "3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47",
+  "prototypeSha256": "8547127735a405a9ff3715ceb1ea3bb4a24300659242a473c74796355e414c09",
+  "frozenSnapshotSha256": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+  "source": "model",
+  "businessPostCount": 1,
+  "physicalRequests": 2,
+  "reportedTokens": 7075,
+  "settledRequests": 2,
+  "accountingEvidence": "../../a1/design-v1-accounting.json",
+  "sourceReview": {
+    "externalScripts": false,
+    "externalImages": false,
+    "staticButtonOnly": true,
+    "notesIncorrectlyDescribeDataGoto": true
+  },
+  "realResearchOrUserTestConducted": false,
+  "usabilityOrLearningQualityVerified": false,
+  "v2Executed": false,
+  "runtimeOrCredentialFilesIncluded": false
+}

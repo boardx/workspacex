@@ -1,0 +1,8 @@
+[aidt-real-facilitation] NOT RUN: 真实模型 e2e 未运行：缺少环境变量 REAL_MODEL_E2E_EMAIL / REAL_MODEL_E2E_PASSWORD。本地请填 <仓库根>/.env.local（模板见 .env.local.example）或跑 pnpm run e2e:real-model-smoke（它会用 fullstack 种子账号）；devapp 请看 .github/workflows/real-model-chat-evidence.yml 头注。⚠ 不会退回回环模型冒充真实模型跑通（issue #2802）。；需要实际配置真实模型/Agent链路后设置 AIDT_REAL_PROVIDER_CONFIGURED=1；这是操作者声明，不是提供方真实性证明
+
+Running 2 tests using 1 worker
+
+  -  1 [real-model-aidt-facilitation] › e2e/real-model-aidt-facilitation.spec.ts:42:7 › AIDT facilitation capture: dominant-member
+  -  2 [real-model-aidt-facilitation] › e2e/real-model-aidt-facilitation.spec.ts:42:7 › AIDT facilitation capture: stalled-team
+
+  2 skipped

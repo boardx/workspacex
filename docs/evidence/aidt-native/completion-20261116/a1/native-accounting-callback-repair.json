@@ -1,0 +1,9 @@
+{
+  "apiOnlyRestart": true,
+  "oldApiOwnershipVerified": true,
+  "databaseWebAndFailedRunPreserved": true,
+  "existingCallbackSetToIsolatedApi": true,
+  "normalIsolatedMigrationExit": 0,
+  "healthReady": true,
+  "elapsedMs": 5042
+}

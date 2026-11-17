@@ -1,0 +1,15 @@
+
+> @repo/local-runtime@0.1.0 test /workspace/aidt-module-latest/packages/local-runtime
+> vitest run "test/aidt-cli-lifecycle.test.ts" "test/aidt-local-lifecycle.test.ts"
+
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/packages/local-runtime
+
+ ✓ test/aidt-local-lifecycle.test.ts (15 tests) 71ms
+ ✓ test/aidt-cli-lifecycle.test.ts (3 tests) 357ms
+
+ Test Files  2 passed (2)
+      Tests  18 passed (18)
+   Start at  03:59:22
+   Duration  1.12s (transform 233ms, setup 0ms, collect 213ms, tests 428ms, environment 0ms, prepare 166ms)
+

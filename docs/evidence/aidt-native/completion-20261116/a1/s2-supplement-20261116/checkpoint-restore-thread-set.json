@@ -1,0 +1,11 @@
+{
+  "at": "2026-11-16T14:03:01.404Z",
+  "normalBrowserClosed": true,
+  "source": "original immutable custom-dump COPY ids compared with target DB READ ONLY ids",
+  "originalThreadCount": 5,
+  "restoredThreadCount": 5,
+  "exactIdAndOrgSetUnchanged": true,
+  "newThreads": 0,
+  "sha256": "6184a66f06b24422805de85b88e38cfdc04736ba99a93981b99735d391c7ea29",
+  "providerRequestsSent": 0
+}

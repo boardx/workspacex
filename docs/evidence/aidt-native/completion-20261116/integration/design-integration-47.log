@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/design-tokens.test.tsx (11 tests) 643ms
+ ✓ tests/ui/project-aidt.test.tsx (16 tests) 782ms
+ ✓ tests/ui/aidt-design-workspace.test.tsx (4 tests) 111ms
+ ✓ tests/ui/design-composer-context-offer.test.tsx (6 tests) 446ms
+ ✓ tests/aidt-design-handoff.test.ts (10 tests) 8ms
+
+ Test Files  5 passed (5)
+      Tests  47 passed (47)
+   Start at  02:20:54
+   Duration  6.24s (transform 2.63s, setup 325ms, collect 6.14s, tests 1.99s, environment 1.75s, prepare 215ms)

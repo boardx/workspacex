@@ -1,0 +1,44 @@
+
+Running 1 test using 1 worker
+
+(node:265956) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/aidt-v2-completion.spec.ts:70:7 › completion S2: same-group saved inputs → actual native dispatch → student revision → new login (1.8s)
+
+
+  1) e2e/aidt-v2-completion.spec.ts:70:7 › completion S2: same-group saved inputs → actual native dispatch → student revision → new login 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -1,7 +1,7 @@
+      Object {
+    -   "content-type": "text/plain",
+    +   "content-type": "text/plain; charset=utf-8",
+        "x-artifact-id": "art-f85cc49a-cab6-42bd-be9d-79fdb945928c",
+        "x-artifact-version-id": "ver-ec61ecb0-47b7-4969-a6d2-7b617a9c8102",
+        "x-content-sha256": "b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973",
+        "x-upload-submitted-at": "2026-11-16T12:24:13.327Z",
+        "x-upload-submitted-by": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+
+       at support/aidt-v2-completion-materials.ts:41
+
+      39 |       expect(response.status).toBe(200); expect(Buffer.from(response.base64, "base64")).toEqual(original);
+      40 |       const hash = createHash("sha256").update(original).digest("hex"); expect(hash).toBe(receipt.sha256); expect(original.length).toBe(Number(receipt.size_bytes));
+    > 41 |       expect(response.headers).toEqual({ "content-type": "text/plain", "x-content-sha256": hash, "x-artifact-id": receipt.artifact_id,
+         |                                ^
+      42 |         "x-artifact-version-id": receipt.artifact_version_id, "x-upload-submitted-by": receipt.created_by, "x-upload-submitted-at": receipt.created_at });
+      43 |       const reference = AidtResearchMaterial.parse({ projectId, runId: receipt.ingestion_run_id, artifactId: receipt.artifact_id, versionId: receipt.artifact_version_id,
+      44 |         name: "SYN-A.txt", mime: response.headers["content-type"]!.split(";")[0], sha256: hash, bytes: original.length, submittedBy: receipt.created_by, submittedAt: receipt.created_at });
+        at addCompletionResearch (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-completion-materials.ts:41:32)
+        at /workspace/aidt-module-latest/apps/web/e2e/aidt-v2-completion.spec.ts:85:30
+
+    Error Context: ../../../scratch/aidt-real-completion-20261116/s2-attempt-02/aidt-v2-completion-complet-5a5a3-tudent-revision-→-new-login/error-context.md
+
+  1 failed
+    e2e/aidt-v2-completion.spec.ts:70:7 › completion S2: same-group saved inputs → actual native dispatch → student revision → new login 
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.aidt-v2.config.ts e2e/aidt-v2-completion.spec.ts --grep completion S2:

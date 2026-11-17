@@ -1,0 +1,48 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-report_history/apps/web
+
+ ✓ tests/ui/aidt-shared-stages.test.tsx > keeps unsaved content distinct and waits for a real server receipt
+ ✓ tests/ui/aidt-shared-stages.test.tsx > recovers all six authorized saved stages into untouched empty forms on re-entry
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does not replace edits made while the initial read is pending, even after text is cleared
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does not overwrite a nonempty local draft on load or refresh; restore is deliberate and cancelable
+ ✓ tests/ui/aidt-shared-stages.test.tsx > preserves edits made while saving without marking the new text saved
+ ✓ tests/ui/aidt-shared-stages.test.tsx > retains local work on uncertain failure and reuses the operation ID for an identical retry
+ ✓ tests/ui/aidt-shared-stages.test.tsx > detects CAS conflict, reads the actual server version and requires deliberate rebase before saving
+ ✓ tests/ui/aidt-shared-stages.test.tsx > treats load failure as failure instead of an empty group and disables writes until a successful retry
+ ✓ tests/ui/aidt-shared-stages.test.tsx > keeps local work and blocks saving if the conflict readback fails
+ ✓ tests/ui/aidt-shared-stages.test.tsx > records only explicit actually saved earlier-stage revisions as provenance
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does not revive a late A read after A to B to A
+ ✓ tests/ui/aidt-shared-stages.test.tsx > ignores an old save receipt across actor ABA and preserves the returning actor's new draft
+ ✓ tests/ui/aidt-shared-stages.test.tsx > retains the same student's current draft across token refresh while reading authorized state again
+ ✓ tests/ui/aidt-shared-stages.test.tsx > can read server content in read-only mode but offers no restore/save/selection mutation
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does no reads or writes while the module is disabled
+ ✓ tests/ui/aidt-shared-stages.test.tsx > refreshes a clean previously saved form to a newer member version
+ ✓ tests/ui/aidt-shared-stages.test.tsx > preserves deliberately cleared content on refresh and token refresh
+ ✓ tests/ui/aidt-shared-stages.test.tsx > keeps discovery cards and source references intact in the shared save request
+ ✓ tests/ui/aidt-shared-stages.test.tsx > releases the old in-flight guard on actor changes, allowing the new actor to save without the stale receipt
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does not relabel a retained old report as using a newer fifth-stage revision after refresh and editing
+ ✓ tests/ui/aidt-shared-stages.test.tsx > freezes a generated report's sources through stage changes and historical append, then refreshes them only when students replace the report with current assembly
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does not infer current saved sources for an unknown initial handwritten report
+ ✓ tests/ui/aidt-shared-stages.test.tsx > retains the manuscript's original sources after conflict review instead of adopting the other writer's new report sources
+ ✓ tests/ui/aidt-shared-stages.test.tsx > restores the actual group report on re-entry without inventing a report from missing stages
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does not overwrite report edits made while loading, including an intentionally cleared report
+ ✓ tests/ui/aidt-shared-stages.test.tsx > saves edited report with the server stage6 draft, preserving unsaved stage6 form locally
+ ✓ tests/ui/aidt-shared-stages.test.tsx > preserves the saved report when saving the normal stage6 form
+ ✓ tests/ui/aidt-shared-stages.test.tsx > uses an empty stage6 container if no stage6 draft exists, never auto-saving its local form with the report
+ ✓ tests/ui/aidt-shared-stages.test.tsx > reuses the exact operation for an uncertain report retry and keeps edits typed during save
+ ✓ tests/ui/aidt-shared-stages.test.tsx > retains a conflicting report, presents the real server version and saves only after explicit review
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does not permit report saving/restoring in read-only or revive old report receipts across actor changes
+ ✓ tests/ui/aidt-shared-stages.test.tsx > rejects local embedded image previews before sending without dropping or relabelling the student's draft
+ ✓ tests/ui/aidt-shared-stages.test.tsx > can explicitly save a deliberately cleared existing stage without treating it as a new untouched empty stage
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does not re-hydrate unchanged saved forms on refresh or manufacture a local stage revision
+ ✓ tests/ui/aidt-shared-stages.test.tsx > retains each step's unsaved source choices when editing sources in another step then returning
+ ✓ tests/ui/aidt-shared-stages.test.tsx > keeps the same student's pending source choices across token refresh
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does not revive the previous actor lifecycle's source choices on A to B to A
+ ✓ tests/ui/aidt-shared-stages.test.tsx > does not leave a stage permanently saving after navigating away during save then returning
+
+ Test Files  1 passed (1)
+      Tests  38 passed (38)
+   Start at  01:46:00
+   Duration  1.29s (transform 162ms, setup 60ms, collect 225ms, tests 488ms, environment 326ms, prepare 31ms)
+

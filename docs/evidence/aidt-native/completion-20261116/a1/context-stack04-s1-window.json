@@ -1,0 +1,70 @@
+{
+  "source": "c361ba55bde080b06d390bf98b72c3a130e935e5",
+  "apiOnlyRestart": true,
+  "oldApiTreeOwnershipRevalidated": true,
+  "sharedProcessGroupNotKilled": true,
+  "PGWebPythonPreserved": true,
+  "newApiHealthy": true,
+  "webHealthy": true,
+  "pythonHealthy": true,
+  "before": {
+    "active": 0,
+    "physical": 0,
+    "usage": 0,
+    "credit_requests": 0
+  },
+  "after": {
+    "active": 0,
+    "physical": 0,
+    "usage": 0,
+    "credit_requests": 0
+  },
+  "payer": {
+    "orgRole": "admin",
+    "testCredits": 20000,
+    "holds": 0,
+    "unbounded": 0
+  },
+  "oldBudgetSha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "supplementalSlotBefore": {
+    "exists": false,
+    "entries": 0
+  },
+  "window": {
+    "authorization": "additional-s1-20261116",
+    "task": "native-S1-only",
+    "allowedSkill": "aidt-understand",
+    "maximumTasks": 1,
+    "payer": "existing-funded-admin",
+    "legacyLedgerUnchanged": true,
+    "supplementalLedger": "/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json",
+    "otherNativeStagesAllowed": false,
+    "designAllowed": false
+  },
+  "autoExecution": {
+    "enabled": true,
+    "launchValue": "1",
+    "paidWindowOpened": true,
+    "paidWindow": {
+      "authorization": "additional-s1-20261116",
+      "task": "native-S1-only",
+      "allowedSkill": "aidt-understand",
+      "maximumTasks": 1,
+      "payer": "existing-funded-admin",
+      "legacyLedgerUnchanged": true,
+      "supplementalLedger": "/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json",
+      "otherNativeStagesAllowed": false,
+      "designAllowed": false
+    },
+    "guards": {
+      "agentRuns": "1",
+      "skillTrialRuns": "0",
+      "attachmentExtraction": "0",
+      "threadTitleModel": "0",
+      "standardScheduler": "0"
+    },
+    "apiPid": 254588,
+    "method": "verified old API descendants stopped leaf-first without shared PGID kill; new owned API launched explicitly agent1 only; health and zero dispatch rechecked"
+  },
+  "providerRequestsSentByA1": 0
+}

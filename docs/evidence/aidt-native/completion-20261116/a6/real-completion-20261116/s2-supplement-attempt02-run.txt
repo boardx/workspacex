@@ -1,0 +1,33 @@
+
+Running 1 test using 1 worker
+
+(node:339000) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[aidt-v2] native request observed · aidt-empathize · budget entry 34df8c67-6f56-46b1-b1d9-9a5804bb9c86
+  ✘  1 e2e/aidt-v2-s2-supplement.spec.ts:23:5 › supplemental S2: new native thread and canonical base preserve the original failed task (6.9s)
+
+
+  1) e2e/aidt-v2-s2-supplement.spec.ts:23:5 › supplemental S2: new native thread and canonical base preserve the original failed task 
+
+    Error: NATIVE_RUN_FAILED_MODEL_CALL_FAILED
+
+       at support/aidt-v2-acceptance.ts:227
+
+      225 |         if (["failed", "cancelled", "paused"].includes(actualRun.status)) {
+      226 |           failureCode = `NATIVE_RUN_${actualRun.status.toUpperCase()}_${actualRun.error ?? "UNKNOWN"}`;
+    > 227 |           throw new Error(failureCode);
+          |                 ^
+      228 |         }
+      229 |         if (actualRun.status === "awaiting_tool_permission") {
+      230 |           if (actualRun.pendingApproval?.toolName !== "confirm_task_intent" || !review?.reviewSyntheticIntent) {
+        at _test.expect.poll.timeout (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-acceptance.ts:227:17)
+        at sendAidtV2NativeTurn (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-acceptance.ts:212:5)
+        at /workspace/aidt-module-latest/apps/web/e2e/aidt-v2-s2-supplement.spec.ts:121:16
+
+    Error Context: ../../../scratch/aidt-real-completion-20261116/s2-supplement-attempt-02/aidt-v2-s2-supplement-supp-895ff-ve-the-original-failed-task/error-context.md
+
+  1 failed
+    e2e/aidt-v2-s2-supplement.spec.ts:23:5 › supplemental S2: new native thread and canonical base preserve the original failed task 
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.aidt-s2-supplement.config.ts --grep supplemental S2:

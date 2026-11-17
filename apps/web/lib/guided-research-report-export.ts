@@ -29,7 +29,7 @@ export async function exportGuidedResearchReport(input: GuidedResearchWordInput,
   const snapshot = structuredClone(input);
   const stem = exportFileStem(snapshot.title, "research-report", await loadRomanize());
   if (format === "pdf") {
-    printResearchPdf(guidedResearchExportDocument(snapshot), stem);
+    await printResearchPdf(guidedResearchExportDocument(snapshot), stem);
     return;
   }
   const blob = await buildGuidedResearchWord(snapshot);

@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+ ✓ tests/logging/all-exceptions-filter-error-log.test.ts (6 tests) 10ms
+ ✓ tests/logging/all-exceptions-filter-headers-sent.test.ts (2 tests) 4ms
+
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+   Start at  05:35:33
+   Duration  1.74s (transform 725ms, setup 0ms, collect 1.52s, tests 14ms, environment 0ms, prepare 60ms)

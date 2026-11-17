@@ -1,0 +1,117 @@
+{
+  "source": "741bc9f69693667868e88e780ff9a798e95d80ec",
+  "scope": "final no-fee context bridge phase",
+  "browserResultReportedByA6": {
+    "passed": 1,
+    "sdkSends": 1,
+    "preparedReceiptHttpAndUi": true,
+    "cancelStatus": 202,
+    "finalRunStatus": "cancelled"
+  },
+  "runId": "7c10690f-7833-4d7a-9054-7b09c799c11a",
+  "actor": {
+    "orgRole": "admin",
+    "projectMemberRole": "owner",
+    "fundedFixture": false,
+    "walletExists": false
+  },
+  "afterBrowser": {
+    "physicalRequests": 0,
+    "usageReceipts": 0,
+    "creditRequests": 0,
+    "walletOutstandingHolds": 0,
+    "walletUnboundedRequests": 0,
+    "activeRuns": 0,
+    "financialLedgerUnchanged": true,
+    "paidBudgetLedgerUnchanged": true
+  },
+  "cleanup": {
+    "ownerExitedNormally": true,
+    "outerExecExitCode": 0,
+    "containersRemaining": 0,
+    "volumesRemaining": 0,
+    "portCount": 13,
+    "allPortsFree": true,
+    "allLeasesReleased": true,
+    "recordedServicePidsAlive": 0,
+    "ports": [
+      {
+        "port": 20825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 21825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 22825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 23825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 24825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 25825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 26825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 27825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 28825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 29825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 30825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 31825,
+        "available": true,
+        "leaseAbsent": true
+      },
+      {
+        "port": 19825,
+        "available": true,
+        "leaseAbsent": true
+      }
+    ],
+    "privateConfigPreserved": true,
+    "privateConfigMode600": true,
+    "extraModelRequestsSent": 0,
+    "baselinePersistentDataTouched": false
+  },
+  "ownerStatusStopped": true,
+  "finalPaidBudgetLedgerHash": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "finalBudgetHashUnchanged": true,
+  "newOomKills": 0,
+  "paidExecutionOpened": false,
+  "realModelConsumptionVerifiedInThisPhase": false,
+  "delivery": "source/local package; acceptance services stopped",
+  "configurationValuesPrinted": false
+}

@@ -1,0 +1,33 @@
+{
+  "at": "2026-11-16T14:36:38.127Z",
+  "privateDiagnosticPath": "/workspace/scratch/aidt-private-diagnostics-20261116/S2-failed-pending-20261116T143336845Z",
+  "dumpSha256": "44dce740c3e27db191bcebd5e92723ad5d221a485c75020a2040fb06fc73d653",
+  "financialTableVerification": {
+    "credit_consumption_requests": {
+      "rows": 4,
+      "selectedFinancialFieldsExactlyMatchLiveSnapshot": true
+    },
+    "credit_wallets": {
+      "rows": 1,
+      "selectedFinancialFieldsExactlyMatchLiveSnapshot": true
+    },
+    "token_usage_events": {
+      "rows": 4,
+      "selectedFinancialFieldsExactlyMatchLiveSnapshot": true
+    },
+    "model_request_starts": {
+      "rows": 4,
+      "selectedFinancialFieldsExactlyMatchLiveSnapshot": true
+    }
+  },
+  "thirdLedgerExact": true,
+  "thirdLedgerSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+  "privateFiles": 21,
+  "privateDirectories": 19,
+  "allModesPrivate": true,
+  "restorationTested": false,
+  "safeZeroOutstandingRestoreEligible": false,
+  "unknownUsageAndPendingHoldsPreserved": true,
+  "originalCheckpointUnmodified": true,
+  "modelRequestsSentByVerification": 0
+}

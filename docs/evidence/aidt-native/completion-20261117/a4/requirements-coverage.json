@@ -1,0 +1,460 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-16T17:40:09Z",
+  "directoryLabel": "completion-20261117",
+  "observedWebSource": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+  "observedWebBuild": "HpTdw6E9Fzu6NgYyCuctM",
+  "inspectedRepositoryHead": "5c2922b83bc3de14ea7ae6fca03391f7a79be10e",
+  "allNineteenPassed": false,
+  "completeJourney": false,
+  "readOnlyReview": true,
+  "newBrowserOrModelRunsByThisReview": 0,
+  "newTestsRunByThisReview": 0,
+  "currentPhaseSnapshot": {
+    "ownerObservedAt": "2026-11-16T17:36:19.727321+00:00",
+    "phases": {
+      "s1": {
+        "runId": "33945939-c856-4b46-ba35-6953c835c588",
+        "status": "succeeded"
+      },
+      "s2": {
+        "runId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d",
+        "status": "succeeded"
+      }
+    },
+    "s3": "in progress per A6; no completed evidence at review",
+    "s4s5s6sumAndNewDesign": "not yet current-round completed evidence"
+  },
+  "humanAcceptanceSigned": false,
+  "scopeLimit": "synthetic technical acceptance; not real interviews, ordinary-student model entitlement, 30-person classroom or production deployment",
+  "requirements": [
+    {
+      "id": "FR01",
+      "name": "课程、小组与成员入口",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "B2",
+        "B2SETUP",
+        "H1"
+      ],
+      "gaps": "新Web未重跑完整课程三场；独立班级名册、教师跨组授权与30人课堂未验。"
+    },
+    {
+      "id": "FR02",
+      "name": "六阶段、当前成果与返回",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "B1",
+        "M1",
+        "M2",
+        "H6",
+        "H7",
+        "QSHARED",
+        "QCONTEXT"
+      ],
+      "gaps": "新轮尚未完成S3–S6/SUM；保存次数不是教学完成率，没有自动锁步或全员共识统计。"
+    },
+    {
+      "id": "FR03",
+      "name": "单一引导师、阶段与已保存上下文",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "M1",
+        "M2",
+        "CONTENT",
+        "ROUND",
+        "QCONTEXT",
+        "B1",
+        "OLDFAIL"
+      ],
+      "gaps": "S1有4问号选项及引号改写偏差；理由缺失追问分支未测，S2内容审阅待补；S3–S6/SUM/新Design未形成当前完整闭环，普通学生模型资金/教学效果未证明。"
+    },
+    {
+      "id": "FR04",
+      "name": "想法、讨论、结论与选择理由",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "M1",
+        "M2",
+        "B2",
+        "H2",
+        "H6",
+        "QSHARED"
+      ],
+      "gaps": "真实多人讨论共识/课堂意义未验；聊天发送、AI回复均不自动成为组结论。"
+    },
+    {
+      "id": "FR05",
+      "name": "原始文字/图片/附件及录音关联",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "M2",
+        "B1",
+        "H3",
+        "H4",
+        "QRAW"
+      ],
+      "gaps": "访谈录音/ASR及语音用户后置；无真人采集/同意流程实测。上传不等于阶段已存/索引READY/研究有效；新轮S6材料链未跑。"
+    },
+    {
+      "id": "FR06",
+      "name": "原证据、学生解释与AI推测分开",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "M1",
+        "M2",
+        "H3",
+        "H2",
+        "QRAW",
+        "CONTENT"
+      ],
+      "gaps": "全部研究材料为明确合成夹具；系统不证明真实访谈发生或洞察有效，真人证据/教学判断未验。"
+    },
+    {
+      "id": "FR07",
+      "name": "候选选择、三份不同图文描述单/PDF",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "H3",
+        "H3LOCAL",
+        "C1",
+        "QPRINT"
+      ],
+      "gaps": "已有拟选择/理由；多人投票及票规未实现。三份描述单实际PDF文件/用户另存与物理打印未有本轮新实证；打印事件不是文件保存。"
+    },
+    {
+      "id": "FR08",
+      "name": "静态原型生成、选择、修改与版本",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "H5",
+        "QITER",
+        "QCONTEXT"
+      ],
+      "gaps": "历史构建需与当前来源锁/新增context接线区分；普通学生模型权限、广泛原型质量/类型和真人测试未验。"
+    },
+    {
+      "id": "FR09",
+      "name": "测试材料、被测版本、反馈与按需新版",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "H4",
+        "H5",
+        "H6",
+        "C3",
+        "QITER"
+      ],
+      "gaps": "独立原件用例不等于反馈→原型→认识变化完整链；未做真人用户测试/录音，新轮新版端到端待验。"
+    },
+    {
+      "id": "FR10",
+      "name": "一组一份可审阅报告、来源与导出",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "H6",
+        "H7",
+        "M2",
+        "QREPORT",
+        "QPDF",
+        "QSUM",
+        "C1"
+      ],
+      "gaps": "本轮六步→真实SUM→学生审阅/保存→报告文件导出未验；教师点评真实授权来源缺失；打印预览不等于已有PDF文件，手册PDF也不算学生报告。"
+    },
+    {
+      "id": "FR11",
+      "name": "线上线下同组共享与人类沟通",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "B1",
+        "B2",
+        "B2SETUP",
+        "H7",
+        "H6",
+        "C2"
+      ],
+      "gaps": "未发成员稿仅同页面会话内存，reload/logout不恢复；30人并发、真实长期离线/撤权竞态、在线/未读/已读、会议/语音/共同光标未验或未做。"
+    },
+    {
+      "id": "FR12",
+      "name": "教师授权进度与点评",
+      "priority": "P1",
+      "status": "not-complete-or-deferred",
+      "evidence": [
+        "QSUM",
+        "H1"
+      ],
+      "gaps": "P1专门教师进度/点评界面和真实授权点评来源未完成；评分已明确后置。"
+    },
+    {
+      "id": "FR13",
+      "name": "学生自主叙事展示",
+      "priority": "P1",
+      "status": "not-complete-or-deferred",
+      "evidence": [
+        "REQ",
+        "QPDF"
+      ],
+      "gaps": "P1专门流程未交付；自动PPT范围待定，不能用通用Office/Markdown代替。"
+    },
+    {
+      "id": "FR14",
+      "name": "打印及3D文件",
+      "priority": "P2",
+      "status": "not-complete-or-deferred",
+      "evidence": [
+        "M2",
+        "M2PDF",
+        "H3",
+        "H4",
+        "QPRINT"
+      ],
+      "gaps": "P2/首版非承诺：3D文件/设备未接，物理打印与操作系统另存对话未验。"
+    },
+    {
+      "id": "FR15",
+      "name": "选题理由、观察/抱怨/猜测反思",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "M1",
+        "CONTENT",
+        "H6"
+      ],
+      "gaps": "CONTENT：本场已有why，缺理由时价值追问分支未验；4问号与偏缺陷前提引号改写待真人审阅，不称严格一问全过。"
+    },
+    {
+      "id": "FR16",
+      "name": "画像前意外发现/暂无与材料关联",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "H2",
+        "H6",
+        "ROUND"
+      ],
+      "gaps": "本轮模型如何处理矛盾/例外/暂无未完成验收；真人研究仍未发生。"
+    },
+    {
+      "id": "FR17",
+      "name": "easy/breakthrough/fun多标签与学生确认",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "H6",
+        "H3LOCAL",
+        "C1"
+      ],
+      "gaps": "多人投票不是现有标签/拟选；当前新轮分类→三份PDF未验，课堂共识未验。"
+    },
+    {
+      "id": "FR18",
+      "name": "先确认验证问题并绑定原型版本",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "H6",
+        "H5",
+        "QITER",
+        "QCONTEXT"
+      ],
+      "gaps": "历史N/M不等于本轮新context+新Design完整验证；静态意向不证明真实时间、付费或效果。"
+    },
+    {
+      "id": "FR19",
+      "name": "认识变化/不足与返回1–5/未决定",
+      "priority": "P0",
+      "status": "partial",
+      "evidence": [
+        "H6",
+        "H7",
+        "H5",
+        "C3"
+      ],
+      "gaps": "本轮S6引导师/返回后再一轮/SUM待验；无真人反馈依据，不用保存次数或新版本数充完成学习轮数。"
+    }
+  ],
+  "sources": {
+    "REQ": {
+      "title": "FR01–19需求正文",
+      "path": "docs/requirements/aidt-v2-full.md",
+      "sha256": "0d04b5203dc1b457f0026131b544f97cbc0e01642edf69646d8e1f9d11f802d0"
+    },
+    "DELTA": {
+      "title": "FR15–19原文摘录",
+      "path": "docs/requirements/aidt-v2-delta.md",
+      "sha256": "259cef093dfbf36a7aacfb003ed691f5b1ea4e8f0859b6e9cf1e3b7e76ac35be"
+    },
+    "B1": {
+      "title": "本轮免费原生草稿/成员单账号浏览器",
+      "path": "docs/evidence/aidt-native/completion-20261117/a4/attempt02-browser-machine.json",
+      "sha256": "09fdab3aabe24c5b6bcbf4a3d56b579bb7dedf491f1bb29a16a7e6fad0c676f1"
+    },
+    "B2": {
+      "title": "本轮双账号/私有组隔离浏览器",
+      "path": "docs/evidence/aidt-native/completion-20261117/a4/member-attempt02-browser-machine.json",
+      "sha256": "67c6aecccee732e5beaeca5669edb990e293dda570de07016741b601d06d5182"
+    },
+    "B2SETUP": {
+      "title": "真实成员配置、首红与同源复验",
+      "path": "docs/evidence/aidt-native/completion-20261117/a4/member-pair-review.md",
+      "sha256": "393e463cba88d76549dd737a15aaef2619a7bf6218a2d4ddff59352d930a94b4"
+    },
+    "M1": {
+      "title": "新轮S1浏览器+真实模型+保存/新登录",
+      "path": "docs/evidence/aidt-native/completion-20261116/a6/fresh-journey-20261117/s1-machine.json",
+      "sha256": "511822301bf096114eed91a1911e66b3916b8b7e274f969367da98217f7644bd"
+    },
+    "M2": {
+      "title": "新轮S2同run续跑+保存/新登录+PDF",
+      "path": "docs/evidence/aidt-native/completion-20261116/a6/fresh-journey-20261117/s2-machine.json",
+      "sha256": "3765b83765b959e044135cd022d51c89e3e2fb74f78d0d2f1852c89da0d0cab7"
+    },
+    "M2PDF": {
+      "title": "学生采纳提纲实际PDF文件",
+      "path": "docs/evidence/aidt-native/completion-20261116/a6/fresh-journey-20261117/student-reviewed-interview-guide.pdf",
+      "sha256": "71313b1172c548d348aba50b0b0d0e41d3d88f694b76804c72c970d0ca1cf427"
+    },
+    "CONTENT": {
+      "title": "本轮教学内容独立审阅",
+      "path": "docs/evidence/aidt-native/completion-20261116/a3/fresh-round-content-review.md",
+      "sha256": "0252a02cc6e3152efcd0f6482685d087f23f927f7f9ecc15a5e7fae6f5ae1ffb"
+    },
+    "ROUND": {
+      "title": "A1新轮实际阶段/计量快照",
+      "path": "docs/evidence/aidt-native/completion-20261117/a1/round-status.json",
+      "sha256": "7443e5af90432bd0959e74eef3b16527e61990d5e1c5366c7514261e8ff48d18"
+    },
+    "H1": {
+      "title": "历史课程三场真实UI与归档/分页/离线索引",
+      "path": "docs/evidence/aidt-native/fr01-course-entry/course-final-index.json",
+      "sha256": "c56f08d7f36a5ae01f36e5a6c6493a09f88a1a2f6407cac5853b791a38539771"
+    },
+    "H2": {
+      "title": "历史V2 found/none与CAS/归档/匿名；整体1红2绿",
+      "path": "docs/evidence/aidt-native/completion-20261116/a6/v2-attempt05-machine.json",
+      "sha256": "7d0f1f99beaca95844a888411a4109310cb727ca8a334cd8fbc8b194b8611b41"
+    },
+    "H3": {
+      "title": "历史真实原件/三图beforeprint",
+      "path": "docs/evidence/aidt-native/completion-20261116/a6/v2-raw-materials-and-print-machine.json",
+      "sha256": "5866ceeff5708ec0629d7653dc72722bc5533956f3414fb762992858c8830ef4"
+    },
+    "H3LOCAL": {
+      "title": "历史本地图保存拒绝与三份打印",
+      "path": "docs/evidence/aidt-native/completion-20261116/a6/v2-local-preview-and-print-machine.json",
+      "sha256": "e5a333e0421d9a11cfcf6a3e0a64ee36c27b5d02237596759bfeb4a5484959cd"
+    },
+    "H4": {
+      "title": "历史S2人工PDF/S6独立TXT+PNG真实两场",
+      "path": "docs/evidence/aidt-native/completion-20261116/a6/real-completion-20261116/free-deliverables-machine.json",
+      "sha256": "ffa89e3db1a8adf0d65c5b48909f4f17134ed65964c1750441e4a3c5a47d4f18"
+    },
+    "H5": {
+      "title": "历史真实Design V1/V2/关系保存",
+      "path": "docs/evidence/aidt-native/completion-20261116/a5/real-design-funded-result.json",
+      "sha256": "47563647dd902c410e751668aa32061ac464f7cc2856a1ec2453bcf8e791ab47"
+    },
+    "H6": {
+      "title": "历史本机原生双cycle/V2/报告/停止清理",
+      "path": "docs/evidence/aidt-native/module-isolation/v2/native-acceptance.md",
+      "sha256": "cc7c26adaf3d31f0d22a28c09c3061f8519942cf559be50fa8505a7adbcbd721"
+    },
+    "H7": {
+      "title": "N08历史范围与来源版本索引",
+      "path": "docs/evidence/aidt-native/completion-20261116/acceptance-baseline-N08.md",
+      "sha256": "b59553be7768341532c6987223d982d1d83931143abce5eab9ff716353fb8da0"
+    },
+    "C1": {
+      "title": "打印受控50项日志",
+      "path": "docs/evidence/aidt-native/completion-20261116/integration/v2-print-50.txt",
+      "sha256": "7861e63ea4f447e2d70b99fc83af6301f55224e3346195cf6071d6383c90f13a"
+    },
+    "C2": {
+      "title": "重试草稿/附件/mention红绿；25与11有重叠",
+      "path": "docs/evidence/aidt-native/zero-cost-followup-20261116/a4/failure-draft-review.md",
+      "sha256": "76ff9daf1a0aff59aec6a864d55d06ec483d1590de1b70b8e55a44fc828839ab"
+    },
+    "C3": {
+      "title": "历史return-only真实PG7项，无模型/浏览器",
+      "path": "docs/evidence/aidt-native/completion-20261116/a2/return-pg-20261116/machine.json",
+      "sha256": "88cfb2b0fd0ee332fabbaf73d69731c40a4c8392acf316ec60cd6848a04921c7"
+    },
+    "LOCAL": {
+      "title": "本机启动/health/stop用户说明",
+      "path": "docs/development/AIDT-LOCAL.md",
+      "sha256": "cc587a4adebd4b9aeb8e1e165f2805ed3a17b026751c5b3a807de26db92a3ad2"
+    },
+    "HEALTH": {
+      "title": "历史本机真实health能力/警告",
+      "path": "docs/evidence/aidt-native/module-isolation/local-prebuilt/final/health-cycle-2.json",
+      "sha256": "a8b259630bb3b619e1193502cedfdc470deff69b2c7faf3c2845ff8545734a42"
+    },
+    "READY": {
+      "title": "本轮真实标准栈健康/构建基线",
+      "path": "docs/evidence/aidt-native/completion-20261117/a1/zero-window-ready.json",
+      "sha256": "3387f42b79cf0b82d23de6c94dcd13e3d59213df6ad3e592b89815c59179a883"
+    },
+    "OLDFAIL": {
+      "title": "旧S2失败、未知用量与pending财务保全",
+      "path": "docs/evidence/aidt-native/completion-20261116/a1/s2-supplement-20261116/post-failure-diagnostic-financial-verification.json",
+      "sha256": "f07dd5fffb896488a343263a84956e97b01b44086c77c9bdb68ba244268e4e47"
+    },
+    "QSHARED": {
+      "title": "共享保存/离线/409/ABA/readonly受控用例",
+      "path": "apps/web/tests/ui/aidt-shared-stages.test.tsx",
+      "sha256": "869a43781b98c0b7f90ddaa19c2151fa67ecbee611f790c3ffa5349518019760"
+    },
+    "QRAW": {
+      "title": "原件核验/失败/来源metadata受控用例",
+      "path": "apps/web/tests/ui/aidt-research-material.test.tsx",
+      "sha256": "284e777f59057510c0afcaa5040ef19a5d2c747f6ffeccdcd5a9379190cc0851"
+    },
+    "QPRINT": {
+      "title": "实际打印clone图片加载/失败/超时受控用例",
+      "path": "apps/web/tests/ui/research-print-images.test.tsx",
+      "sha256": "ebf0548f5c57a3ed1cf04b73f12fcba8f51607f08e71584d7f6713a389a43b1f"
+    },
+    "QREPORT": {
+      "title": "报告历史审阅与导入受控用例",
+      "path": "apps/web/tests/ui/aidt-summary-report.test.tsx",
+      "sha256": "0e88844a81671bd2df4e67d230729fcbcf349b7be952f1978b5c3ff335a72832"
+    },
+    "QCONTEXT": {
+      "title": "保存source selector真实父组件受控用例",
+      "path": "apps/web/tests/ui/aidt-native-context-parent.test.tsx",
+      "sha256": "10eae0a574d961d571dcef69969e98e41d83cc2208470e89663ad44d92837c5e"
+    },
+    "QITER": {
+      "title": "原型新版关系/迟到结果受控用例",
+      "path": "apps/web/tests/ui/aidt-iteration-prototype.test.tsx",
+      "sha256": "fe8a246072fe2fadf3ea1b4bf2c53a3660842e6dc6ff9105ec272d6d8d4b7b82"
+    },
+    "QLOCAL": {
+      "title": "本机CLI生命周期/预构建失败受控用例",
+      "path": "packages/local-runtime/test/aidt-cli-lifecycle.test.ts",
+      "sha256": "22066e2d5ee769a403893af2926d1e21119ed2cf90f052c1bf40278c9b9e6898"
+    },
+    "QPDF": {
+      "title": "报告Markdown下载/打印源码",
+      "path": "apps/web/features/aidt/components/aidt-report-preview.tsx",
+      "sha256": "234d735c650b2415393a25cebdef5eabf29b89e0f215594cec583ecbbb6b35db"
+    },
+    "QSUM": {
+      "title": "SUM来源/缺失点评与不自动保存源码",
+      "path": "apps/web/features/aidt/lib/aidt-summary-context.ts",
+      "sha256": "a1c0f651e7a4a22faac250d01739c69985706b2a36da9d877ad518e1680b6efa"
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "runId": "0bb61ff9-9136-4fc5-8b8c-d98f5dec435f",
+  "assistantMessageId": "15515f93-1a9a-41b5-8254-f75d20a6fc4b",
+  "assistantTextSha256": "5401665d32ddf05806a5a41f2c9e0617db92c206b76420798ffa1dc9c3aaf312",
+  "assistantTextCharacters": 1614,
+  "assistantTextUtf8Bytes": 4146,
+  "criticalCount": 1,
+  "reviewedFullReport": true,
+  "referencesChecked": true,
+  "reviewRole": "independent-teaching-semantic-agent",
+  "classroomAcceptance": false,
+  "modelRequestsSent": 0,
+  "reviewedAt": "2026-11-16T22:09:13.253546+00:00",
+  "disposition": "reject-import-question-revision-provenance",
+  "generatedReportComplete": true,
+  "reviewScope": "Read entire new actual reply, sourceReceipt, packet current-stage source and omissions, all six currentSavedStages, old S6 V4, saved S6 V5/V6 relation, and prior inspected actual V1/V2 HTML/version evidence. No source-pack authorship or model requests.",
+  "criticalFindings": [
+    {
+      "id": "SUM2-C1",
+      "category": "verification-question-revision-provenance",
+      "evidence": "Report section 5 states old question 新同学能否说出纸面分区牌指向哪里 and cites S5 V4. Actual S5 V4 is the next-round question 是否需要进一步解释取餐顺序; frozen S6 old question comes from S5 V3. The next-round question and its distinction from the old frozen question are omitted entirely.",
+      "actualCurrentS5Revision": 4,
+      "actualCurrentS5Question": "合成下一轮问题 AIDT-SUPPLEMENT-NEW-S5：是否需要进一步解释取餐顺序？",
+      "actualFrozenS6Question": "合成验证问题：新同学能否说出纸面分区牌指向哪里？",
+      "actualFrozenS6SourceS5Revision": 3,
+      "finding": "The report misattributes a material verification question to the wrong revision and does not preserve the distinct next-round question. This key traceability error must be corrected before accepting the report as factually reviewed; compact output alone does not make it complete in provenance."
+    }
+  ],
+  "advisories": [
+    {
+      "id": "SUM2-A1",
+      "finding": "S2 wording 请模拟角色讲述具体经历 can imply a performed simulated interview; sources show a preauthored synthetic fixture card, not an independently observed interview interaction. Describe the synthetic material directly."
+    },
+    {
+      "id": "SUM2-A2",
+      "finding": "V2 retains only one synthetic number-to-zone-label example. It has no physical B-zone location or map. State that real window/location identification and efficiency remain unsupported; static does not by itself explain this content limitation."
+    },
+    {
+      "id": "SUM2-A3",
+      "finding": "Broad return2 then return5 is preserved, but exact source chronology is V4 return2, V5 already return5, V6 binds actual V2, V7 saves student baseline report. Existing draft cites V6/V7 for the later decision without making the V5 transition explicit."
+    }
+  ],
+  "positiveBoundaries": [
+    "The text has a complete ending and includes all report sections; the old mid-sentence cutoff is not repeated.",
+    "States all material is synthetic and no real study/testing/teacher comments are established.",
+    "Discloses field excerpts and truncation without claiming full source reading.",
+    "Keeps real V1 and V2 distinct and does not claim interactive function or tested effectiveness.",
+    "Keeps historical return2 and later return5 at broad level and asks students to review before any save."
+  ],
+  "notProven": [
+    "Correct verification-question revision traceability",
+    "Real classroom learning or human course acceptance",
+    "Real user testing or V2 effectiveness",
+    "Approved report import/save/export"
+  ],
+  "originalFailedRunPreserved": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03",
+  "sourcePacketSha256": "18d5f21124d8d3de9133cb1bce356bf38fd6803150e347c62aa3b73da6196ebb"
+}

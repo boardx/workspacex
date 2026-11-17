@@ -1,0 +1,49 @@
+
+> web@0.1.0 test /workspace/scratch/aidt-complete-member_text/apps/web
+> vitest run "tests/ui/project-member-chat.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-member_text/apps/web
+
+ ❯ tests/ui/project-member-chat.test.tsx (27 tests | 2 failed) 601ms
+   × real member chat controller > keeps fresh authorization after an obsolete history request rejects access 57ms
+     → expected <p role="status" …(1)></p> to be null
+   × real member chat controller > keeps fresh authorization after an obsolete topic request rejects access 18ms
+     → expected <p role="status" …(1)></p> to be null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/project-member-chat.test.tsx > real member chat controller > keeps fresh authorization after an obsolete history request rejects access
+ FAIL  tests/ui/project-member-chat.test.tsx > real member chat controller > keeps fresh authorization after an obsolete topic request rejects access
+AssertionError: expected <p role="status" …(1)></p> to be null
+
+- Expected: 
+null
+
++ Received: 
+<p
+  data-testid="project-member-readonly"
+  role="status"
+>
+  正在核对频道访问权限，暂不可发送。
+</p>
+
+ ❯ tests/ui/project-member-chat.test.tsx:38:59
+     36|   expect(screen.queryByTestId("project-member-readonly")).toBeNull();
+     37|   await act(async () => stale.reject({reasonCode:"NOT_FOUND",status:40…
+     38|   expect(screen.queryByTestId("project-member-readonly")).toBeNull();
+       |                                                           ^
+     39|   if (source === "topic") {
+     40|    expect(screen.getByTestId("project-member-history-error")).toHaveTe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 25 passed (27)
+   Start at  01:36:59
+   Duration  1.54s (transform 155ms, setup 80ms, collect 204ms, tests 601ms, environment 354ms, prepare 36ms)
+
+/workspace/scratch/aidt-complete-member_text/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 test: `vitest run "tests/ui/project-member-chat.test.tsx"`
+Exit status 1

@@ -1,0 +1,18 @@
+import { afterEach, test } from 'node:test';
+import { strict as expect } from 'node:assert';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { readLedger, reserveTask, markRequest, finishTask, assertFrozen, assertLaterVersion } from './aidt-design-supplement-ledger.mjs';
+const dirs=[];const file=()=>{const dir=mkdtempSync(join(tmpdir(),'aidt-design-ledger-'));dirs.push(dir);return join(dir,'supplement.json');};
+const task=(phase='v1')=>({phase,projectId:'new-group',designId:'new-design',prompt:'synthetic-only'});
+afterEach(()=>{for(const dir of dirs.splice(0))rmSync(dir,{recursive:true,force:true});});
+test('fresh supplementary ledger is independent and bounded to two tasks',()=>{expect.equal(readLedger(file()).maximumBusinessTasks,2);});
+test('a failed or interrupted reservation is never refunded or automatically retried',()=>{const f=file(),id=reserveTask(f,task());finishTask(f,id,{succeeded:false,errorCode:'HTTP_402'});expect.throws(()=>reserveTask(f,task()),/TASK_ALREADY_RESERVED/);expect.equal(readLedger(f).entries.length,1);});
+test('a request can be marked once only and contains no raw prompt',()=>{const f=file(),id=reserveTask(f,task());markRequest(f,id);expect.throws(()=>markRequest(f,id),/ALREADY_OBSERVED/);expect.equal(readFileSync(f,'utf8').includes('synthetic-only'),false);});
+test('V2 requires actual recorded V1 success in the same group and design',()=>{const f=file();expect.throws(()=>reserveTask(f,task('v2')),/V1_SUCCESS/);const id=reserveTask(f,task());markRequest(f,id);finishTask(f,id,{succeeded:true,versionId:'actual-v1'});expect.throws(()=>reserveTask(f,{...task('v2'),designId:'different'}),/V1_SUCCESS/);});
+test('two successful tasks cannot acquire a third slot',()=>{const f=file(),v1=reserveTask(f,task());markRequest(f,v1);finishTask(f,v1,{succeeded:true});const v2=reserveTask(f,task('v2'));markRequest(f,v2);finishTask(f,v2,{succeeded:true});expect.throws(()=>reserveTask(f,task()),/BUDGET_EXHAUSTED/);});
+test('an existing reservation cannot be finalized twice to conceal a failure',()=>{const f=file(),id=reserveTask(f,task());finishTask(f,id,{succeeded:false});expect.throws(()=>finishTask(f,id,{succeeded:true}),/OUTCOME_ALREADY/);});
+test('a concurrent owner lock fails closed without creating a reservation or retry loop',()=>{const f=file();mkdirSync(`${f}.lock`);expect.throws(()=>reserveTask(f,task()),{code:'EEXIST'});expect.equal(readLedger(f).entries.length,0);});
+test('old question snapshot equality uses exact bytes',()=>{assertFrozen('{"question":"old"}','{"question":"old"}');expect.throws(()=>assertFrozen('{"question":"new"}','{"question":"old"}'),/SNAPSHOT_CHANGED/);});
+test('V2 needs distinct ID, increasing sequence and changed actual prototype bytes',()=>{const v1={id:'v1',seq:1,prototypeSha256:'old'};assertLaterVersion(v1,{id:'v2',seq:2,prototypeSha256:'new'});for(const patch of [{id:'v1'},{seq:1},{prototypeSha256:'old'}])expect.throws(()=>assertLaterVersion(v1,{id:'v2',seq:2,prototypeSha256:'new',...patch}),/NOT_DISTINCT/);});

@@ -1,0 +1,52 @@
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { isAbsolute } from "node:path";
+import { expect, test } from "@playwright/test";
+import * as Design from "@repo/contracts/design-workbench";
+import { aidtV2Api, assertAidtV2Target, loginAidtV2 } from "./support/aidt-v2-acceptance";
+import { inspectAidtStoredHtml } from "./support/aidt-v2-static-inspection";
+const confirmation = "确认按你刚才提出的极简号码→分区方向修改当前V1。本组已另行确认返回第5步；保留原验证问题和旧V1。请现在生成一个新静态版本，示例由小组指定为‘示例2→B分区’，紧邻标‘合成设计内容，非实测’；按钮改为‘先看取餐分区’，保持无交互。页脚‘AIDT-SUPPLEMENT-V2’。只需一页短小HTML，无外部资源或脚本；不是用户实测，不宣称改善有效或验证通过。生成后由小组审阅选择。";
+const hash = (bytes: string | Buffer) => createHash("sha256").update(bytes).digest("hex");
+test("Design V2 explicit student confirmation: one new UI send creates an actual distinct static version", async ({ page }, info) => {
+  test.setTimeout(360_000); assertAidtV2Target();
+  expect(process.env.AIDT_V2_DESIGN_CONFIRMATION_GO).toBe("one-student-confirmation-20261117");
+  const stateFile = process.env.AIDT_DESIGN_STATE!, oldLedger = process.env.AIDT_DESIGN_SUPPLEMENT_LEDGER!, newLedger = process.env.AIDT_V2_DESIGN_CONFIRMATION_LEDGER!;
+  expect(isAbsolute(newLedger)).toBe(true); expect(newLedger).not.toBe(oldLedger); expect(existsSync(newLedger)).toBe(false);
+  const oldBytes = readFileSync(oldLedger), mainBytes = readFileSync(process.env.AIDT_V2_RUN_LEDGER!), journeyBytes = readFileSync(process.env.AIDT_V2_COMPLETION_STATE!);
+  const initialState = JSON.parse(readFileSync(stateFile, "utf8")); expect(initialState.v2).toBeUndefined();
+  const state = initialState; const observed: { text?: string; at: string }[] = [];
+  page.on("request", request => { if (request.method() === "POST" && new URL(request.url()).pathname.endsWith(`/pm-designs/${state.designId}/chat`)) observed.push({ text: request.postDataJSON()?.text, at: new Date().toISOString() }); });
+  await loginAidtV2(page);
+  const list = async () => { const r = await aidtV2Api(page, `/pm-designs/${state.designId}/versions`); expect(r.status).toBe(200); return (r.data as { items: { id: string; seq: number }[] }).items; };
+  const before = await list(); expect(before).toHaveLength(1); expect(before[0]!.id).toBe(state.v1.id);
+  await page.goto(`/aidt/${state.projectId}?step=6&tool=design&resource=${state.designId}`);
+  await expect(page.getByTestId("design-detail-input")).toBeVisible(); await page.getByTestId("design-detail-input").fill(confirmation);
+  expect(observed).toEqual([]);
+  const taskId = randomUUID(), ledger = { schemaVersion: 1, authorization: "one-student-confirmation-20261117", maximumBusinessPosts: 1, taskId, originalPlanningTaskId: "83bab474-093f-4ade-ac98-8ca2d3092a99", projectId: state.projectId, designId: state.designId, promptSha256: hash(confirmation), status: "reserved", businessPosts: 0 };
+  writeFileSync(newLedger, JSON.stringify(ledger, null, 2), { flag: "wx", mode: 0o600 });
+  try {
+    const result = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname.endsWith(`/pm-designs/${state.designId}/chat`), { timeout: 240_000 });
+    await page.getByTestId("design-detail-send").click(); const response = await result;
+    ledger.businessPosts = observed.length; ledger.status = "request-observed"; writeFileSync(newLedger, JSON.stringify(ledger, null, 2), { mode: 0o600 });
+    expect(observed).toHaveLength(1); expect(observed[0]!.text).toBe(confirmation); expect(response.status()).toBe(201);
+    const reply = Design.operations.appendProjectChat.out.parse(await response.json()); expect(reply.reply.source).toBe("model");
+    let added: { id: string; seq: number }[] = [];
+    await expect.poll(async () => { added = (await list()).filter(row => !before.some(old => old.id === row.id)); if (added.length > 1) throw new Error("MORE_THAN_ONE_NEW_VERSION"); return added.length; }, { timeout: 30_000, intervals: [500, 1_000] }).toBe(1);
+    expect(added[0]!.seq).toBe(2);
+    const actual = await aidtV2Api(page, `/pm-designs/${state.designId}/versions/${added[0]!.id}`); expect(actual.status).toBe(200);
+    const version = (actual.data as { version: { id: string; seq: number; source: string; prototype: { type: string; props: { html?: string } }[]; frames: unknown[]; links?: unknown[][] } }).version;
+    expect(version.source).toBe("model"); expect(version.prototype).toHaveLength(1); expect(version.frames).toHaveLength(1); expect(version.prototype[0]!.type).toBe("html");
+    const html = version.prototype[0]!.props.html!, inspection = inspectAidtStoredHtml(html, (version.links ?? []).flat().length);
+    expect(inspection.numberZoneExamplePresent).toBe(true); expect(inspection.scriptedOrLinked).toBe(false); expect(inspection.visible).toContain("合成设计内容，非实测");
+    await expect(page.frameLocator('[data-testid="design-html-page"]').first().getByText(/示例\s*2\s*→\s*B\s*分区/)).toBeVisible();
+    const prototypeSha256 = hash(JSON.stringify(version.prototype)); expect(prototypeSha256).not.toBe(state.v1.prototypeSha256);
+    const oldActual = await aidtV2Api(page, `/pm-designs/${state.designId}/versions/${state.v1.id}`); expect(oldActual.status).toBe(200); expect(hash(JSON.stringify((oldActual.data as { version: { prototype: unknown } }).version.prototype))).toBe(state.v1.prototypeSha256);
+    state.v2 = { id: version.id, seq: version.seq, source: version.source, replySource: reply.reply.source, prototypeSha256, marker: "AIDT-SUPPLEMENT-V2", files: [], generationOrigin: "explicit-student-confirmation" };
+    state.v2Confirmation = { taskId, originalPlanningTaskId: ledger.originalPlanningTaskId, newLedger };
+    const temp = `${stateFile}.${randomUUID()}.tmp`; writeFileSync(temp, JSON.stringify(state, null, 2), { flag: "wx", mode: 0o600 }); renameSync(temp, stateFile);
+    ledger.status = "succeeded"; writeFileSync(newLedger, JSON.stringify({ ...ledger, versionId: version.id, seq: version.seq }, null, 2), { mode: 0o600 });
+    await page.getByTestId("aidt-design-workspace").screenshot({ path: info.outputPath("v2-native.png") });
+    await info.attach("v2-student-confirmation-actual", { contentType: "application/json", body: Buffer.from(JSON.stringify({ taskId, confirmation, observed, reply: reply.reply, version, inspection, originalPlanningTaskRetained: true, newVersionPendingTesting: true, oldV1Unchanged: true }, null, 2)) });
+  } catch (error) { ledger.businessPosts = observed.length; ledger.status = "failed-or-interrupted"; writeFileSync(newLedger, JSON.stringify({ ...ledger, failure: String(error) }, null, 2), { mode: 0o600 }); throw error; }
+  finally { expect(readFileSync(oldLedger)).toEqual(oldBytes); expect(readFileSync(process.env.AIDT_V2_RUN_LEDGER!)).toEqual(mainBytes); expect(readFileSync(process.env.AIDT_V2_COMPLETION_STATE!)).toEqual(journeyBytes); }
+});

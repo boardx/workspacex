@@ -1,0 +1,21 @@
+{
+  "at": "2026-11-16T21:23:34.812125+00:00",
+  "scope": "only this owner fresh Next build disposable cache; root explicit E003 resource GO",
+  "deletedPath": "/workspace/aidt-module-latest/apps/web/.next-aidt-real-model/cache",
+  "freeBytesBefore": 4781772800,
+  "freeBytesAfter": 7346020352,
+  "preservedManifestHashes": {
+    "BUILD_ID": "5685118bfc40aba11cc8eea1819053f582bb23fe363aedc57f236a3906a8c4b3",
+    "build-manifest.json": "9bdadd6d6c86fb02d4e0fe38cdcc2e8c31ad741774408df853ebebcac342e2ce",
+    "prerender-manifest.json": "86819351e227d660edbe7aba0cf250db602bb11c1910affc05311faa6f92f951",
+    "routes-manifest.json": "f649c63095c5d212fe9ba1b4af4fdf63c86ba7e17ff0eff3f2a0ae5555a53027"
+  },
+  "serverStaticDirectoriesPreserved": true,
+  "health": {
+    "web": 200,
+    "api": 200
+  },
+  "webRestartedOrRebuilt": false,
+  "apiChanged": false,
+  "modelRequestsSentByOwner": 0
+}

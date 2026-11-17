@@ -1,0 +1,15 @@
+{
+  "source": "Root unified 82-file regression, not a separately rerun pre-fix test",
+  "log": "/tmp/aidt-v2-final-web-regression.log",
+  "failures": [
+    {
+      "test": "closes and discards a group's creation form on actor or organization change",
+      "observedFailure": "FAIL  tests/ui/aidt-resource-isolation.test.tsx > closes and discards a group's creation form on actor or organization change\nTestingLibraryElementError: Unable to find an element by: [data-testid=\"aidt-project-group\"]"
+    },
+    {
+      "test": "does not restore a previous user's late group list in the same organization",
+      "observedFailure": "FAIL  tests/ui/aidt-resource-isolation.test.tsx > does not restore a previous user's late group list in the same organization\nTestingLibraryElementError: Unable to find an element by: [data-testid=\"aidt-project-current\"]"
+    }
+  ],
+  "diagnosis": "Old live-projects.listProjects fixture did not configure the new real /projects + /collaborators loader. No permission bypass added."
+}

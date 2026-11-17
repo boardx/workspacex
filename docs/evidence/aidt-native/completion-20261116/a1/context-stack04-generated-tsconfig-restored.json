@@ -1,0 +1,11 @@
+{
+  "at": "2026-11-16T12:49:13.629Z",
+  "file": "apps/web/tsconfig.release.json",
+  "generator": "Next.js build auto-added custom dist types include",
+  "removedOnly": ".next-aidt-context04-refresh/types/**/*.ts",
+  "allOriginalIncludesPreserved": true,
+  "builtDistPreserved": true,
+  "newWebNotRestarted": true,
+  "tests": "git diff --check; file diff empty",
+  "modelRequestsSent": 0
+}

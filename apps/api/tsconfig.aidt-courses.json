@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false },
+  "include": [
+    "src/application/aidt-courses/**/*.ts",
+    "src/infrastructure/aidt-courses/**/*.ts",
+    "src/interface/controllers/aidt-courses.controller.ts",
+    "tests/aidt-courses/**/*.ts"
+  ]
+}

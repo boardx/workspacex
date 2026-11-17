@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-16",
+  "subject": "existing-normal-consultant-own-authenticated-wallet",
+  "loginStatus": 200,
+  "walletHttpStatus": 200,
+  "balance": 0,
+  "reservedCredits": 0,
+  "availableBalance": 0,
+  "welcomeGrantStatus": null,
+  "writableFinancialOrRoleChanges": false,
+  "modelRequestsSent": 0,
+  "studentModelFundingAcceptance": "not-established-no-available-own-credit"
+}

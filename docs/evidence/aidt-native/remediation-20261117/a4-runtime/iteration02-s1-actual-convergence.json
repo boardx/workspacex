@@ -1,0 +1,65 @@
+{
+  "observedAt": "2026-11-16T21:02:39.781Z",
+  "audit": {
+    "role": "app_rw",
+    "readOnly": true,
+    "tenantScoped": true,
+    "modelRequestsSent": 0,
+    "methods": [
+      "tenant-scoped SQL SELECT",
+      "owned Python GET run",
+      "owned Python GET persisted state"
+    ],
+    "runtimeFile": "runtime-private.json"
+  },
+  "run": {
+    "id": "3eb56aef-675d-43ef-a239-a066fbb74c75",
+    "status": "succeeded",
+    "startedAt": "2026-11-16T20:50:44.255Z",
+    "endedAt": "2026-11-16T20:50:51.365Z",
+    "remoteRunId": "83ed08c9-dde9-46e5-815b-acd746217a46",
+    "remoteThreadId": "9fb4cef3-d13c-4541-8a82-21c345eeae2b"
+  },
+  "journal": {
+    "stepCount": 4,
+    "eventCount": 63,
+    "eventKinds": {
+      "status": 2,
+      "text_delta": 60,
+      "final_message": 1
+    },
+    "distinctSkillStepCallIds": [],
+    "skillSteps": [],
+    "toolEvents": []
+  },
+  "persistedState": {
+    "stateRunMatchesRequestedRun": true,
+    "canonicalCurrentStudentTurnFound": true,
+    "totalMessages": 4,
+    "currentTurnMessages": 2,
+    "toolBatchCount": 0,
+    "toolCallCount": 0,
+    "callSkillCount": 0,
+    "toolMessageCount": 0,
+    "skillCalls": [],
+    "latestBatch": null,
+    "finalAnswer": {
+      "present": true,
+      "chars": 310,
+      "sha256": "64cb57d9e7b5034fbc17a8b823a91b660135a04588db818de71f40437c39007f"
+    },
+    "modelOutput": {
+      "present": true,
+      "chars": 310,
+      "sha256": "64cb57d9e7b5034fbc17a8b823a91b660135a04588db818de71f40437c39007f"
+    },
+    "modelOutputEqualsLastAnswer": true,
+    "pendingNextNodes": 0
+  },
+  "limitations": [
+    "Journal text is a bounded/redacted public summary, not a full ToolMessage.",
+    "Full hashes derive only from the matching persisted Python state, never from public summary equality.",
+    "GET run does not expose mounted org_skills config on this runtime; absent mounted bytes are unestablished, not a mismatch.",
+    "No inference of model pedagogy, financial settlement or permissions from a successful tool status."
+  ]
+}

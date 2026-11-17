@@ -1,0 +1,63 @@
+{
+  "observedAt": "2026-11-16T21:52:49.663895+00:00",
+  "runId": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03",
+  "scope": "Read-only existing checkpoint, source, logs and own usage-spool metadata; no model or accounting mutation",
+  "output": {
+    "chars": 3688,
+    "sha256": "c7c64e6e31a54f825e4dc7704a4c32e6dd80b8625d139695d17603bb5e3d36b3",
+    "endsInSyntheticLiteral": "frfg",
+    "fullToolMessageEqualsModelOutputAndFinalAI": true,
+    "semanticAcceptance": false,
+    "semanticAcceptanceSource": "Root relayed independent semantic review; original output ends mid-sentence and cannot be imported as complete"
+  },
+  "observedBudgetEvidence": {
+    "processLaunchMaxOutputTokens": 2048,
+    "processLaunchSource": "Environment-owner attestation of actual 93b Python launch and offline serialized SDK payload; not per-request finish status",
+    "completionTokensSequence": [
+      151,
+      2048,
+      361,
+      393
+    ],
+    "focusedRequestId": "c5552855-b576-4278-9293-d4c91182b1c8",
+    "focusedCompletionTokens": 2048,
+    "accountingEvidence": "../a1/iteration02-summary-accounting.json"
+  },
+  "metadataLimits": {
+    "focusedFinishReasonPersisted": false,
+    "outerFinishReason": "tool_calls",
+    "outerFinishReasonIsNotFocusedFinishReason": true,
+    "matchingSpoolPendingCount": 0,
+    "matchingSpoolInflightCount": 0,
+    "providerLengthFinishReasonEstablished": false,
+    "missingReason": "_focused_call joins text only and discards chunk response_metadata and usage; UsageParser persists token totals, not finish_reason"
+  },
+  "applicationClippingReview": {
+    "focusedCall": "tools.py:_focused_call appends every nonempty stream text chunk and joins them, with no length cap",
+    "callSkill": "Only whitespace .strip() before nonempty feedback success artifact",
+    "feedbackTurn": "Returns complete hash-paired ToolMessage text without rewriting it",
+    "applicationCharacterTruncationFound": false
+  },
+  "inputReferenceCheck": {
+    "referenceChars": 42439,
+    "referenceSha256": "a7b1a7bbd0392574c2a03d8c188efd4eea97ab3c0702a81afdd5edb4f146b7c8",
+    "materialCount": 29,
+    "currentMaterials": 6,
+    "historyMaterials": 23,
+    "allCurrentCoordinatesAndUpdatedMetadataMatchSavedReviewPacket": true,
+    "allCurrentExcerptBytesMatchExistingPureFormatter": true,
+    "matchingGlobalProjectionCapChars": 756,
+    "currentAndHistorySelectedCoordinatesMatchSourceReceipt": true,
+    "truncatedTrueIsExpectedSummaryProjectionPolicy": true,
+    "literalFrfgAlreadyInInput": true,
+    "literalFrfgCountInInput": 23,
+    "finalOutputTail64IsNotVerbatimSourceSubstring": true,
+    "historicalFullSourceBytesIndependentlyRebuilt": false
+  },
+  "conclusion": "Focused completion reached the configured 2048 budget and no application text clipping was found: strongly supports an output-budget cutoff. Provider finish_reason=length was not retained and is not established. Hash equality proves faithful delivery of incomplete output, not semantic completeness.",
+  "nextStepBoundary": "Root will authorize one separate compact-summary attempt within the existing 2048 budget. This worker does not invoke, retry, modify tool/harness behavior, or import the failed semantic output.",
+  "futureGap": [
+    "Preserve focused terminal metadata, including metadata on empty-text terminal chunks.",
+    "Represent explicit incomplete results without a success feedback marker, and design a stop path that cannot automatically trigger paid retries. These are follow-up design gaps, not changes applied here."
+  ]
+}

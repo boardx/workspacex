@@ -1,0 +1,88 @@
+{
+  "observedAt": "2026-11-16T18:10:58.939Z",
+  "phase": "design-v2",
+  "windowStart": "2026-11-16T18:08:32.790Z",
+  "readOnly": true,
+  "physical": [
+    {
+      "id": "11dbee4e-1794-4239-ad6c-24a6024c41f4",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "run_id": null,
+      "call_purpose": "auxiliary",
+      "started_at": "2026-11-16T18:10:09.690Z"
+    },
+    {
+      "id": "13d5cc90-9c87-4307-8eae-119d04d1109b",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "run_id": null,
+      "call_purpose": "auxiliary",
+      "started_at": "2026-11-16T18:10:16.139Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "11dbee4e-1794-4239-ad6c-24a6024c41f4",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "2932",
+      "tokens_prompt": "2835",
+      "tokens_completion": "97",
+      "request_started_at": "2026-11-16T18:10:09.690Z",
+      "request_ended_at": "2026-11-16T18:10:16.128Z"
+    },
+    {
+      "id": "13d5cc90-9c87-4307-8eae-119d04d1109b",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "6264",
+      "tokens_prompt": "5537",
+      "tokens_completion": "727",
+      "request_started_at": "2026-11-16T18:10:16.139Z",
+      "request_ended_at": "2026-11-16T18:10:31.137Z"
+    }
+  ],
+  "credit": [
+    {
+      "request_id": "11dbee4e-1794-4239-ad6c-24a6024c41f4",
+      "run_id": null,
+      "state": "settled",
+      "reserved_hundredths": "1384",
+      "debited_hundredths": "294",
+      "settled_at": "2026-11-16T18:10:16.133Z"
+    },
+    {
+      "request_id": "13d5cc90-9c87-4307-8eae-119d04d1109b",
+      "run_id": null,
+      "state": "settled",
+      "reserved_hundredths": "2387",
+      "debited_hundredths": "627",
+      "settled_at": "2026-11-16T18:10:31.142Z"
+    }
+  ],
+  "reportedKnownTokens": 9196,
+  "unknownUsageCount": 0,
+  "pending": [
+    {
+      "request_id": "47f715ad-fd4d-4bb5-8f1f-48ea8f368e8c",
+      "run_id": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+      "state": "pending",
+      "reserved_hundredths": "6346",
+      "debited_hundredths": null,
+      "settled_at": null
+    }
+  ],
+  "wallet": {
+    "owner_id": "user-fullstack-admin-20261117-01-7d265647426d",
+    "balance": "19416.60",
+    "held_hundredths": "6346",
+    "remaining_held_hundredths": "6346",
+    "unbounded_requests": "0"
+  },
+  "total": {
+    "physical": 85,
+    "usage": 85,
+    "credits": 85,
+    "active": 0
+  },
+  "modelRequestsSentByAudit": 0
+}

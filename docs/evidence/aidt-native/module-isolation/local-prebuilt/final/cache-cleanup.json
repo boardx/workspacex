@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-11-15T06:48:06.603Z",
+  "removedOnly": "/workspace/aidt-module-latest/apps/web/.next-aidt-local/cache",
+  "before": {
+    "usable": true,
+    "reason": null
+  },
+  "after": {
+    "usable": true,
+    "reason": null
+  },
+  "receiptBytesUnchanged": true,
+  "protectedRuntimeUntouched": true
+}

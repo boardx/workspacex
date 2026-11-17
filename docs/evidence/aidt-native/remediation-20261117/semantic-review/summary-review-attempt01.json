@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "runId": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03",
+  "assistantMessageId": "57de3ad2-9a3f-406f-8a9c-10ac687b3e07",
+  "assistantTextSha256": "c7c64e6e31a54f825e4dc7704a4c32e6dd80b8625d139695d17603bb5e3d36b3",
+  "assistantTextCharacters": 3688,
+  "assistantTextUtf8Bytes": 7748,
+  "criticalCount": 1,
+  "reviewedFullReport": true,
+  "referencesChecked": true,
+  "reviewRole": "independent-teaching-semantic-agent",
+  "classroomAcceptance": false,
+  "modelRequestsSent": 0,
+  "reviewedAt": "2026-11-16T21:48:29.373299+00:00",
+  "disposition": "reject-import-incomplete-report",
+  "generatedReportComplete": false,
+  "reviewScope": "Entire available assistantText was read without output truncation; checked sourceReceipt, packet current/history scope, all six currentSavedStages, old S6 V4, saved S6 V6 relation, actual V1/V2 HTML and version JSON.",
+  "criticalFindings": [
+    {
+      "id": "SUM-C1",
+      "category": "incomplete-deliverable",
+      "evidence": "证基础“仅学生合成讨论，不是用户研究证据”；验证局限为“只能讨论静态理解，不能证明时间节省或支付意愿”。\n*   **原型 V1**：系统生成的极简静态界面（designId `5e9e0ac2...`，versionId `...frfg",
+      "finding": "The actual stored assistantText ends mid-sentence and inside an unclosed version reference in report section 4. There is no completed report body for testing/reflection and next actions. Input-excerpt disclosure does not disclose this output incompleteness. Do not import/save as a completed research report."
+    }
+  ],
+  "advisories": [
+    {
+      "id": "SUM-A1",
+      "evidence": "由于没有条件开展真实访谈",
+      "finding": "No actual supplied source establishes lack of conditions as the cause. State only that no real interview was conducted."
+    },
+    {
+      "id": "SUM-A2",
+      "evidence": "S6 V5 timeline omits that returnStep is already 5",
+      "finding": "Actual V5 contains returnStep 5; return5 was not first introduced at V6. V4 return2 remains intact, but the version transition should be precise."
+    },
+    {
+      "id": "SUM-A3",
+      "evidence": "S5 V4 described as 后续补充的 question",
+      "finding": "S5 V4 is explicitly a next-round new question, whereas frozen S6 still tests the S5 V3 original question. Avoid merging them into one validated question."
+    }
+  ],
+  "positiveBoundaries": [
+    "Explicitly says all research is synthetic and no real interviews/tests/teacher comments exist.",
+    "Discloses input excerpts, omissions and original-file bytes not read.",
+    "Identifies actual seq1 V1 and seq2 V2, static buttons and synthetic mapping without declaring effectiveness.",
+    "Retains historical return2 and later return5 at broad level, but V5 timeline needs correction."
+  ],
+  "notProven": [
+    "Real classroom learning",
+    "Real user testing",
+    "V2 physical-location task fitness or effectiveness",
+    "Complete report generation or student acceptance"
+  ],
+  "sourcePacketSha256": "32fc93304916c5c1a4b933af1ff289a07abf9b7a16873baca74169f6949d78c9"
+}

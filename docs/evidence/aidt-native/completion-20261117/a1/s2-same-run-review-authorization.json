@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-11-16T17:30:52.708884+00:00",
+  "authorizationBy": "root operator after actual args/code review",
+  "runId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d",
+  "permissionRequestId": "bd2fdb97-4002-4ed4-b821-f259bf9ae449",
+  "toolName": "write_todos",
+  "argsDigest": "6527349a2e55d588593c3b49512a10edfe03610dfcbdee7fe1096f8456819785",
+  "authorizedAction": "A6 normal UI one-time allow, same run, unchanged args",
+  "additionalHumanSendAuthorized": false,
+  "standingGrantAuthorized": false,
+  "approvalPerformedByA1": false,
+  "existingPhysicalBeforeResume": 4,
+  "existingUsageBeforeResume": 4,
+  "existingCreditSettledBeforeResume": 4
+}

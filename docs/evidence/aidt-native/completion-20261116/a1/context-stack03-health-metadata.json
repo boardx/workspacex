@@ -1,0 +1,71 @@
+{
+  "launchSource": "741bc9f69693667868e88e780ff9a798e95d80ec",
+  "phase": "API/Python health and source metadata; Web readiness verified separately",
+  "health": {
+    "api": true,
+    "python": true
+  },
+  "counts": {
+    "runs": 0,
+    "active_runs": 0,
+    "physical_requests": 0,
+    "usage_receipts": 0,
+    "context_snapshots": 0,
+    "context_applications": 0
+  },
+  "schema": {
+    "snapshots": true,
+    "applications": true,
+    "marker": true
+  },
+  "catalog": {
+    "aidt-understand": {
+      "present": true,
+      "enabled": true,
+      "versionPresent": true
+    },
+    "aidt-empathize": {
+      "present": true,
+      "enabled": true,
+      "versionPresent": true
+    },
+    "aidt-define": {
+      "present": true,
+      "enabled": true,
+      "versionPresent": true
+    },
+    "aidt-ideate": {
+      "present": true,
+      "enabled": true,
+      "versionPresent": true
+    },
+    "aidt-prototype": {
+      "present": true,
+      "enabled": true,
+      "versionPresent": true
+    },
+    "aidt-iterate": {
+      "present": true,
+      "enabled": true,
+      "versionPresent": true
+    },
+    "dt-summarize-project": {
+      "present": true,
+      "enabled": true,
+      "versionPresent": true
+    }
+  },
+  "metadataLoginStatus": 200,
+  "catalogStatus": 200,
+  "missingReceiptStatus": 404,
+  "anonymousCourseStatus": 401,
+  "DI": {
+    "nestBooted": true,
+    "acceptancePortPresentInKernel": true,
+    "claimStorePresentInKernel": true,
+    "executionPortPresentInKernel": true
+  },
+  "autoExecutionEnabled": false,
+  "extraProviderRequestsSent": 0,
+  "containsCredentialsOrMaterialBody": false
+}

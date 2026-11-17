@@ -1,4 +1,9 @@
+import { AidtContextErrorCode } from "@repo/contracts/aidt-run-context";
+import { CourseError as AidtCourseErrorCode } from "@repo/contracts/aidt-courses";
 import { MemberCreditQuotaError } from "@repo/contracts/member-credit-quota";
+import { StageError as AidtStageErrorCode, SharedStage as AidtSharedStage } from "@repo/contracts/aidt-stages";
+import { Reason as ProjectMemberChatReason } from "@repo/contracts/project-member-chat";
+import type { SharedStageValue } from "@repo/contracts/aidt-stages";
 import { ErrorCode as AiCatalogErrorCode } from "@repo/contracts/ai-catalog-admin";
 import {TeamBillingHttpException} from "../controllers/team-billing-http-exception";
 import {EnterpriseHttpException,ENTERPRISE_CACHE_CONTROL} from "../controllers/enterprise-http-exception";
@@ -141,10 +146,26 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
  * no matter what an exception carries. Adding a third enum here should be a deliberate act;
  * adding a free string must never be one.
  */
-function permissionReasonOf(exception: HttpException): { reasonCode?: string; currentVersionId?: string; detail?: unknown; remainingTokens?: number; allocated?: number } {
+function permissionReasonOf(exception: HttpException): { reasonCode?: string; currentVersionId?: string; current?: SharedStageValue | null; detail?: unknown; remainingTokens?: number; allocated?: number } {
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const raw = (body as { reasonCode?: unknown }).reasonCode;
+  const aidtContext = AidtContextErrorCode.safeParse(raw);
+  if (aidtContext.success) return { reasonCode: aidtContext.data };
+  const aidtCourse = AidtCourseErrorCode.safeParse(raw);
+  if (aidtCourse.success) return { reasonCode: aidtCourse.data };
+  const aidtStage = AidtStageErrorCode.safeParse(raw);
+  if (aidtStage.success) {
+    // A conflict's current draft is disclosed by the service only after project authorization.
+    // Never forward unvalidated exception properties, SQL/debug data or another error's body.
+    if (exception.getStatus() === HttpStatus.CONFLICT && aidtStage.data === "AIDT_STAGE_REVISION_CONFLICT") {
+      const current = AidtSharedStage.nullable().safeParse((body as { current?: unknown }).current);
+      if (current.success) return { reasonCode: aidtStage.data, current: current.data };
+    }
+    return { reasonCode: aidtStage.data };
+  }
+  const memberChat = ProjectMemberChatReason.safeParse(raw);
+  if (memberChat.success) return { reasonCode: memberChat.data };
   const aiCatalog = AiCatalogErrorCode.safeParse(raw);
   if(aiCatalog.success)return {reasonCode:aiCatalog.data};
   const skillFileEdit = SkillFileEditError.safeParse(raw);

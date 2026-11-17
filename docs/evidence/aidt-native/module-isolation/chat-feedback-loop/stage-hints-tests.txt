@@ -1,0 +1,16 @@
+
+> web@0.1.0 test /workspace/aidt-module-latest/apps/web
+> vitest run "tests/ui/aidt-chat-isolation.test.tsx" "tests/ui/project-aidt-chat.test.tsx" "tests/ui/chat-task-workbench-empty-state.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/aidt-chat-isolation.test.tsx (7 tests) 195ms
+ ✓ tests/ui/project-aidt-chat.test.tsx (15 tests) 282ms
+ ✓ tests/ui/chat-task-workbench-empty-state.test.tsx (2 tests) 155ms
+
+ Test Files  3 passed (3)
+      Tests  24 passed (24)
+   Start at  02:00:13
+   Duration  8.08s (transform 2.94s, setup 552ms, collect 8.81s, tests 632ms, environment 3.01s, prepare 181ms)

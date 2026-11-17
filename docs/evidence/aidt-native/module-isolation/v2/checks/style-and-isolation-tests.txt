@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/lint-design-gate.test.ts (12 tests) 85ms
+ ✓ tests/ui/aidt-stage-journey.test.tsx (10 tests) 412ms
+ ✓ tests/ui/aidt-state-isolation.test.tsx (9 tests) 865ms
+ ✓ tests/tailwind-features.test.ts (1 test) 5943ms
+   ✓ emits the independent AIDT module's responsive panel, visible title and dashboard utilities 5942ms
+
+ Test Files  4 passed (4)
+      Tests  32 passed (32)
+   Start at  07:37:52
+   Duration  7.22s (transform 2.40s, setup 548ms, collect 3.95s, tests 7.31s, environment 1.74s, prepare 341ms)
+

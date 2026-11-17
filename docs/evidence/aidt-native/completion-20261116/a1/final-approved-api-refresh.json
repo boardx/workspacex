@@ -1,0 +1,11 @@
+{
+  "apiOnlyRestart": true,
+  "oldApiOwnershipVerified": true,
+  "activeRunsBefore": 0,
+  "normalMigrationExit": 0,
+  "healthReady": true,
+  "oldWebStillReady": true,
+  "databaseRunsPreserved": true,
+  "modelRequestsSent": 0,
+  "apiSource": "existing approved course/raw/SUM code; unapproved context unchanged"
+}

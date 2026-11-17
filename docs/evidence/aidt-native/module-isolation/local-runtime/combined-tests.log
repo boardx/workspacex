@@ -1,0 +1,32 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/packages/local-runtime
+
+ ✓ test/aidt-local-lifecycle.test.ts (15 tests) 84ms
+ ✓ test/aidt-cli-lifecycle.test.ts (3 tests) 263ms
+ ✓ test/config.test.ts (7 tests) 9ms
+ ✓ test/model-probe-is-deferred.test.ts (9 tests) 4ms
+ ✓ test/startup-failure.test.ts (9 tests) 7ms
+ ✓ test/deferred-readiness.test.ts (7 tests) 3ms
+ ✓ test/no-egress-endpoints.test.ts (3 tests) 5ms
+ ✓ test/supervisor.test.ts (5 tests) 2330ms
+   ✓ 有人盯着的子进程 > 被杀掉之后真的会被拉起来，而且换了一个新进程 558ms
+   ✓ 有人盯着的子进程 > 一直起不来就停手，并给出说人话的说明 605ms
+   ✓ 有人盯着的子进程 > 崩溃现场写进日志——只说「退出了」是不可行动的 604ms
+   ✓ 有人盯着的子进程 > 我们自己停它的时候不当成崩溃，也不去重启 405ms
+ ✓ test/parity.test.ts (5 tests) 168ms
+ ✓ test/deployment-edition-env.test.ts (4 tests) 4ms
+ ✓ test/aidt-config.test.ts (4 tests) 7ms
+ ✓ test/supervisor-policy.test.ts (8 tests) 5ms
+ ✓ test/child-ledger.test.ts (4 tests) 480ms
+   ✓ child ledger > 收掉台账里还活着的孤儿——即使它已经把进程名改成了 next-server 381ms
+ ✓ test/inherited-parity-env.test.ts (4 tests) 83ms
+ ✓ test/billing-child-env.test.ts (3 tests) 81ms
+ ✓ test/ollama-version.test.ts (2 tests) 3ms
+ ✓ test/node-launch.test.ts (2 tests) 3ms
+ ✓ test/seeds.test.ts (3 tests) 3ms
+
+ Test Files  18 passed (18)
+      Tests  97 passed (97)
+   Start at  04:13:50
+   Duration  6.95s (transform 308ms, setup 0ms, collect 549ms, tests 3.54s, environment 3ms, prepare 913ms)
+

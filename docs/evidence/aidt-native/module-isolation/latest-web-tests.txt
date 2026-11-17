@@ -1,0 +1,197 @@
+
+> web@0.1.0 test /workspace/aidt-module-latest/apps/web
+> vitest run "tests/ui/aidt" "tests/ui/project-aidt" "tests/ui/home-aidt" "tests/aidt" "tests/live-aidt" "tests/ui/team-text-conversation.test.tsx" "tests/ui/chat-task-workbench-empty-state.test.tsx" "tests/ui/create-project-dialog.test.tsx" "tests/ui/projects-screen-live.test.tsx" "tests/ui/project-conversations.test.tsx" "tests/ui/project-breadcrumb.test.tsx" "tests/ui/workflow-nav.test.tsx" "tests/ui/copilotkit-v2-composer-recording-send-gate.test.tsx" "tests/ui/copilotkit-v2-composer-accessible-name.test.tsx" "tests/ui/composer-draft-prefill.test.tsx"
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+stderr | tests/ui/team-text-conversation.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+ ✓ tests/ui/projects-screen-live.test.tsx (18 tests) 1463ms
+   ✓ F353/F185 /projects：登录 → 真实扁平列表（无编造字段） > 在项目菜单保存新名称并从服务端刷新卡片 346ms
+ ✓ tests/ui/team-text-conversation.test.tsx (4 tests) 1117ms
+   ✓ TeamTextConversation actual component > delegates plain Enter once, preserves Shift+Enter and IME confirmation, and never sends an empty draft 467ms
+ ✓ tests/ui/aidt-entry-isolation.test.tsx (12 tests) 705ms
+ ✓ tests/ui/aidt-state-isolation.test.tsx (9 tests) 1075ms
+   ✓ clears another actor's drafts and remounts native Chat even when the project ID is unchanged 384ms
+ ✓ tests/ui/project-aidt.test.tsx (12 tests) 1024ms
+ ✓ tests/ui/aidt-resource-isolation.test.tsx (9 tests) 439ms
+stderr | tests/ui/copilotkit-v2-composer-recording-send-gate.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+ ✓ tests/ui/project-conversations.test.tsx (8 tests) 726ms
+   ✓ R4 研究洞察 › 对话 > 分享（R5）：改可见范围 = getThread 取 version → setThreadVisibility → 重拉列表 325ms
+stderr | tests/ui/copilotkit-v2-composer-accessible-name.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-composer-recording-send-gate.test.tsx > composer 录音期的发送闸门（2026-09-10 人类实测） > ① 正在录音（有正文）⇒ 发送按钮禁用，提示先点「停止」
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:103:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-composer-recording-send-gate.test.tsx > composer 录音期的发送闸门（2026-09-10 人类实测） > ① 正在录音时按 Enter 不发送（输入框内容原样留着）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-composer-recording-send-gate.test.tsx > composer 录音期的发送闸门（2026-09-10 人类实测） > ① 连接中 / 正在停止同样禁用发送；停止落定后恢复可发送
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-composer-recording-send-gate.test.tsx > composer 录音期的发送闸门（2026-09-10 人类实测） > ② 「已转录」绿色状态栏 5 秒后自动消失，输入框内容不受影响
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/copilotkit-v2-composer-recording-send-gate.test.tsx (4 tests) 987ms
+   ✓ composer 录音期的发送闸门（2026-09-10 人类实测） > ① 正在录音（有正文）⇒ 发送按钮禁用，提示先点「停止」 534ms
+stderr | tests/ui/copilotkit-v2-composer-accessible-name.test.tsx > v2 composer 的可及名（issue #3022 ②） > ①常态：按可及名「消息内容」取得到 composer，且就是 `copilotkit-v2-input` 本体
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:103:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-composer-accessible-name.test.tsx > v2 composer 的可及名（issue #3022 ②） > ②归档态：placeholder 换了一句话，可及名不跟着变（名字不是 placeholder 顶上来的）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at runNextTicks (node:internal/process/task_queues:64:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-composer-accessible-name.test.tsx > hides document approval and realtime conversation entries while retaining voice input
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15456:13
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/aidt-native/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:10034:25)
+      at fetch (node:internal/deps/undici/undici:10763:25)
+      at fetch (node:internal/deps/undici/undici:15454:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-native/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at runNextTicks (node:internal/process/task_queues:64:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/copilotkit-v2-composer-accessible-name.test.tsx (3 tests) 858ms
+   ✓ v2 composer 的可及名（issue #3022 ②） > ①常态：按可及名「消息内容」取得到 composer，且就是 `copilotkit-v2-input` 本体 401ms
+ ✓ tests/ui/create-project-dialog.test.tsx (4 tests) 429ms
+ ✓ tests/ui/aidt-entry.test.tsx (8 tests) 334ms
+ ✓ tests/ui/aidt-module-compatibility.test.tsx (10 tests) 285ms
+ ✓ tests/ui/project-aidt-chat.test.tsx (6 tests) 175ms
+ ✓ tests/ui/aidt-stage-journey.test.tsx (10 tests) 393ms
+ ✓ tests/ui/aidt-ui-v2.test.tsx (7 tests) 371ms
+ ✓ tests/ui/aidt-ui-v3.test.tsx (5 tests) 480ms
+ ✓ tests/ui/workflow-nav.test.tsx (6 tests) 224ms
+ ✓ tests/ui/aidt-stage-contract.test.tsx (8 tests) 262ms
+ ✓ tests/ui/aidt-ui-v5.test.tsx (4 tests) 220ms
+ ✓ tests/ui/aidt-learning-guide.test.tsx (10 tests) 232ms
+ ✓ tests/ui/chat-task-workbench-empty-state.test.tsx (2 tests) 163ms
+ ✓ tests/ui/aidt-chat-isolation.test.tsx (1 test) 161ms
+ ✓ tests/ui/composer-draft-prefill.test.tsx (2 tests) 29ms
+ ✓ tests/ui/home-aidt-entry.test.tsx (2 tests) 136ms
+ ✓ tests/live-aidt-step-chat.test.ts (8 tests) 12ms
+ ✓ tests/aidt-module-boundary.test.ts (4 tests) 3009ms
+   ✓ keeps production AIDT consumers on explicit public registration adapters 2978ms
+ ✓ tests/aidt-ui-stage-summary.test.ts (8 tests) 5ms
+ ✓ tests/aidt-state-isolation.test.ts (3 tests) 4ms
+ ✓ tests/live-aidt-chat-isolation.test.ts (6 tests) 61ms
+ ✓ tests/aidt-entry-isolation-config.test.ts (10 tests) 4ms
+
+ Test Files  30 passed (30)
+      Tests  203 passed (203)
+   Start at  23:09:00
+   Duration  48.66s (transform 13.18s, setup 4.24s, collect 47.16s, tests 15.38s, environment 20.80s, prepare 2.41s)

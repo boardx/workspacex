@@ -13,7 +13,7 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { arch, platform } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export interface LocalPorts {
   readonly postgres: number;
@@ -114,7 +114,11 @@ export interface LocalSecrets {
   readonly adminPassword: string;
 }
 
+export type LocalProfile = "default" | "aidt";
+
 export interface LocalConfig {
+  /** Teaching features are opt-in; ordinary Local stays on the default profile. */
+  readonly profile: LocalProfile;
   /** Monorepo root (dev) or unpacked bundle root (desktop). Must contain apps/api etc. */
   readonly repoRoot: string;
   /** Per-user writable data dir: database, objects, sessions, models, logs. */
@@ -127,6 +131,7 @@ export interface LocalConfig {
 }
 
 export interface ResolveOptions {
+  readonly profile?: LocalProfile;
   readonly repoRoot: string;
   readonly dataDir: string;
   readonly ports?: Partial<LocalPorts>;
@@ -166,10 +171,13 @@ export function loadOrCreateSecrets(dataDir: string): LocalSecrets {
 }
 
 export function resolveLocalConfig(opts: ResolveOptions): LocalConfig {
+  const profile = opts.profile ?? "default";
+  if (profile !== "default" && profile !== "aidt") throw new Error("unknown Local profile");
   for (const rel of ["apps/api/package.json", "apps/web/package.json", "apps/skill-sandbox/package.json"]) {
     if (!existsSync(join(opts.repoRoot, rel))) throw new Error(`repoRoot ${opts.repoRoot} lacks ${rel}`);
   }
   return {
+    profile,
     repoRoot: opts.repoRoot,
     dataDir: opts.dataDir,
     ports: { ...DEFAULT_PORTS, ...(opts.ports ?? {}) },
@@ -182,6 +190,16 @@ export function resolveLocalConfig(opts: ResolveOptions): LocalConfig {
 
 type Env = Record<string, string>;
 
+/** Both sides come from the same explicit profile. Zeroes also override inherited
+ * ENABLE_* host values, so an ordinary Local launch cannot silently install AIDT. */
+function aidtModuleEnv(c: Pick<LocalConfig, "profile">): { api: Env; web: Env } {
+  const enabled = c.profile === "aidt" ? "1" : "0";
+  return {
+    api: { ENABLE_AIDT_MODULE: enabled, ENABLE_PROJECT_MEMBER_CHAT: enabled },
+    web: { NEXT_PUBLIC_ENABLE_AIDT: enabled, NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: enabled },
+  };
+}
+
 type PathsOf = Pick<LocalConfig, "repoRoot" | "dataDir">;
 
 export const paths = {
@@ -190,6 +208,7 @@ export const paths = {
   sessions: (c: PathsOf) => join(c.dataDir, "sessions.json"),
   models: (c: PathsOf) => join(c.dataDir, "models"),
   logs: (c: PathsOf) => join(c.dataDir, "logs"),
+  usageSpool: (c: PathsOf) => resolve(c.dataDir, "usage-spool"),
   sandboxIn: (c: PathsOf) => join(c.dataDir, "sandbox", "in"),
   sandboxOut: (c: PathsOf) => join(c.dataDir, "sandbox", "out"),
   seedState: (c: PathsOf) => join(c.dataDir, "seed-state.json"),
@@ -300,6 +319,7 @@ export function modelEnv(c: LocalConfig): Env {
 
 export function apiEnv(c: LocalConfig): Env {
   return {
+    ...aidtModuleEnv(c).api,
     ...databaseEnv(c),
     ...modelEnv(c),
     PORT: String(c.ports.api),
@@ -423,6 +443,7 @@ export function deepAgentEnv(c: LocalConfig): Env {
     KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS: "2500",
     DEEP_AGENT_SERVICE_INTERNAL_KEY: c.secrets.deepAgentInternalKey,
     DEEP_AGENT_OTEL_DISABLED: "1",
+    DEEP_AGENT_USAGE_SPOOL_DIR: paths.usageSpool(c),
     PYTHONPATH: join(c.repoRoot, "apps", "deep-agent-service", "src"),
   };
 }
@@ -489,6 +510,9 @@ export function webEnv(c: LocalConfig, env: NodeJS.ProcessEnv = process.env): En
    */
   const cloudUrl = (env.WORKSPACEX_CLOUD_URL ?? "").trim();
   return {
+    ...aidtModuleEnv(c).web,
+    // AIDT dev must not overwrite an existing ordinary Local/production .next cache.
+    ...(c.profile === "aidt" ? { NEXT_DIST_DIR: ".next-aidt-local" } : {}),
     PORT: String(c.ports.web),
     NEXT_PUBLIC_API_URL: api,
     NEXT_PUBLIC_API_WS_URL: api,

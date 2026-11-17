@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-11-15T06:53:27.608888+00:00",
+  "head": "ab4c529551669bbe835de9239adc003682af3073",
+  "status": " M apps/web/e2e/aidt-local-persistence.spec.ts\n M docs/evidence/aidt-native/module-isolation/local-prebuilt/execution.plan.md\n",
+  "files": {
+    "packages/local-runtime/src/config.ts": "806272e4e477267dda5b2ac76174bc063e073852c8e3d0f7358578b35fd0caf0",
+    "packages/local-runtime/src/aidt-cli.ts": "d24804e535322f8f04897b42a3a0119bfff6199807e54c7082ded6e5228878c6",
+    "packages/local-runtime/src/aidt-control.ts": "575aedb9677ac8be14fd4a16fdd24132df1d6446cf870354436c6cddef179433",
+    "packages/local-runtime/src/up.ts": "f8bf76cabdf0e28df80a2cab597657b3cafee8c616e054bb99f41ef8ef75ed92",
+    "packages/local-runtime/src/web-build.ts": "2078773c20595cf2896efb2b489e7fcf9e0d8a1d6fee87387aede76c638f622f",
+    "packages/local-runtime/src/aidt-web-build.ts": "74c0dbd9d386c9fde2e973ba1bfc380a61d555be3e84508cad54d6f1506a6ee9",
+    "apps/web/e2e/aidt-local-persistence.spec.ts": "34d9c22efb12acfe2b536f5c971dc411f87c2c909edd14a2844e41b25a84dbdc",
+    "apps/web/playwright.aidt-local.config.ts": "cc39ca3ec6e42e92c26dfc507e694e28441d9798a6125e25205d934782af82bd"
+  },
+  "mode": "start",
+  "parentNodeEnv": "development",
+  "buildCountThisAttempt": 0,
+  "reusedSuccessfulBuild": true,
+  "originalBuildEvidence": "/workspace/scratch/aidt-local-prebuilt-acceptance/attempt-1/results/native-build.json",
+  "cacheCleanup": "/workspace/scratch/aidt-local-prebuilt-acceptance/attempt-1/cache-cleanup.json",
+  "ownedQuarantineRelease": "/workspace/scratch/aidt-local-prebuilt/released-owned-quarantine.json",
+  "seedOnlyReacquisition": "run-mwhgvwzo-259148c1",
+  "noOldLeaseEnvironmentInjected": true,
+  "dataDir": "/workspace/scratch/aidt-local-persistent-acceptance/data",
+  "trace": false,
+  "fixtureProvider": false,
+  "sourceChangedAfterRun": []
+}

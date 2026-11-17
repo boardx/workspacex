@@ -1,0 +1,22 @@
+{
+  "at": "2026-11-15T15:41:13.541264+00:00",
+  "packages": [
+    {
+      "package": "next",
+      "version": "14.2.15",
+      "lockedIntegrityVerified": true,
+      "checkedFiles": 6363,
+      "missingFilesRestored": 6363,
+      "existingDifferentFilesPreserved": []
+    },
+    {
+      "package": "react",
+      "version": "18.3.1",
+      "lockedIntegrityVerified": true,
+      "checkedFiles": 20,
+      "missingFilesRestored": 20,
+      "existingDifferentFilesPreserved": []
+    }
+  ],
+  "source": "previous official tarballs; exact lock SHA512; only missing files restored; missing-directory cause is unestablished"
+}

@@ -1,0 +1,9 @@
+2026-11-16; executed from /workspace/aidt-module-latest using Node 22 and existing dependencies.
+node --check apps/web/scripts/aidt-design-acceptance.mjs: exit 0
+pnpm exec tsx apps/web/scripts/aidt-design-acceptance.mjs --self-check: exit 0; offline=true, modelRequests=0, contractsReady=true
+node --check apps/web/scripts/aidt-design-bind-existing.mjs: exit 0
+pnpm exec tsx apps/web/scripts/aidt-design-bind-existing.mjs --self-check: exit 0; offline=true, modelRequests=0, contractsReady=true
+pnpm --dir apps/web exec eslint scripts/aidt-design-acceptance.mjs scripts/aidt-design-bind-existing.mjs --max-warnings=0: exit 0
+Note: initial repo-root pnpm exec eslint could not resolve root eslint/bin/eslint.js; rerun via the existing apps/web eslint succeeded. No dependency installation.
+git diff --check -- apps/web/scripts/aidt-design-acceptance.mjs apps/web/scripts/aidt-design-bind-existing.mjs apps/web/scripts/aidt-design-acceptance.md: exit 0
+Portable bind-existing entry was syntax/contract checked offline; actual browser continuation ran the equivalent temporary zero-model helper before extraction. No additional login or live rerun after source extraction.

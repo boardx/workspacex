@@ -1,0 +1,15 @@
+{
+  "at": "2026-11-16T13:43:22.747Z",
+  "priorRecoveryActuallyVerified": true,
+  "priorOwnerCleanupVerified": true,
+  "planFile": "/workspace/scratch/aidt-checkpoint-restore-plans-20261116/restore-03.private.json",
+  "planSha256": "59500507741bccff83fc30c741c8ce6846fa69d7bb7cd651d04a4fb9a6cb62f4",
+  "newDestination": "/workspace/scratch/aidt-real-model-20261116/stack-context-restore-02",
+  "newNonceGenerated": true,
+  "priorDestinationNotReused": true,
+  "applied": false,
+  "resourcesStarted": 0,
+  "modelTasksAuthorized": 0,
+  "legacyLedgerUnchanged": true,
+  "supplementS1LedgerUnchanged": true
+}

@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-16",
+  "configurationSource": "user-uploaded-private-env-file-outside-repository",
+  "loading": "literal-model-allowlist-only",
+  "configurationDoctor": "ready",
+  "attempts": [
+    {
+      "transport": "direct-node-fetch",
+      "outcome": "network_error_before_http_response",
+      "latencyMs": 6047,
+      "errorType": "TypeError"
+    },
+    {
+      "transport": "existing-environment-proxy-via-undici-ProxyAgent",
+      "status": 200,
+      "latencyMs": 3022,
+      "nonemptyContent": true,
+      "usage": { "prompt_tokens": 17, "completion_tokens": 1, "total_tokens": 18 },
+      "maxOutputTokens": 16
+    }
+  ],
+  "promptClass": "synthetic-connectivity-only-no-research-PII",
+  "responseTextRecorded": false,
+  "secretsEndpointModelAndProxyValuesRecorded": false,
+  "agentAcceptance": "not-established-by-connectivity-check",
+  "aidtLocalDefaultChanged": false
+}

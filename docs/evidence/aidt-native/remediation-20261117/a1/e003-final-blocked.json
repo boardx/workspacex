@@ -1,0 +1,188 @@
+{
+  "at": "2026-11-16T22:02:58.877918+00:00",
+  "finalStatus": "blocked: actual official E003 image cannot complete within current build storage floor",
+  "rootFinalStop": "no further E003 builds authorized this round",
+  "actualWorkspaceBytes": 33770192896,
+  "officialProbeExecuted": false,
+  "nativePytestCasesExecuted": 0,
+  "originalTwoSkipsNotConvertedToPassed": true,
+  "progressActuallyEstablished": [
+    "anonymous base image fetch",
+    "restored original Docker client session proxy fingerprint",
+    "strictTLS npm and PyPI installs",
+    "APT public CA readability fixed without weakening TLS",
+    "safe reversible old AIDT build cache archives; actual5.49GB recovered"
+  ],
+  "remainingBlocker": "second disk-floor SIGTERM despite verified5.49GB cache recovery; latestfree1535483904 bytes atstop",
+  "attempts": [
+    {
+      "finishedAt": "2026-11-16T21:25:22.246075+00:00",
+      "source": "93b76865a75915229f4f17f62c8597ed3a5f53f9",
+      "imageTag": "localhost/workspacex-aidt-e003-remediation-20261117:93b76865",
+      "project": "wsx-1e261c1b8eacf1988f72-e003",
+      "attempts": 1,
+      "exitCode": 1,
+      "stopReason": null,
+      "seconds": 2.0,
+      "initialFreeBytes": 7345930240,
+      "finalFreeBytes": 7345922048,
+      "modelRequestsSent": 0,
+      "apiOrWebRestarted": false,
+      "securityGuardChanged": false,
+      "containerCreated": false,
+      "cliAttempt": 1,
+      "logSha256": "509212efafc1d97e338c6793265188f7670ca55d8e34e270d9b7cd7ab9d2bdb3"
+    },
+    {
+      "finishedAt": "2026-11-16T21:29:15.586150+00:00",
+      "source": "93b76865a75915229f4f17f62c8597ed3a5f53f9",
+      "imageTag": "localhost/workspacex-aidt-e003-remediation-20261117:93b76865",
+      "project": "wsx-1e261c1b8eacf1988f72-e003",
+      "cliAttempt": 2,
+      "actualColdBuildAttempt": 1,
+      "exitCode": 1,
+      "stopReason": null,
+      "seconds": 72.02,
+      "initialFreeBytes": 7345750016,
+      "finalFreeBytes": 5208506368,
+      "modelRequestsSent": 0,
+      "apiOrWebRestarted": false,
+      "securityGuardChanged": false,
+      "containerCreated": false,
+      "logSha256": "50e5ee728058e6f8ff6bec9c6a0f438c0a96a9e029028b806f9e8d28366c0dac"
+    },
+    {
+      "finishedAt": "2026-11-16T21:37:07.342517+00:00",
+      "source": "93b76865a75915229f4f17f62c8597ed3a5f53f9",
+      "imageTag": "localhost/workspacex-aidt-e003-remediation-20261117:93b76865",
+      "project": "wsx-1e261c1b8eacf1988f72-e003",
+      "cliAttempt": 3,
+      "actualColdBuildAttempt": 2,
+      "causalRepairAuthorizedByRoot": true,
+      "exitCode": 1,
+      "stopReason": null,
+      "seconds": 4.0,
+      "initialFreeBytes": 5208129536,
+      "finalFreeBytes": 5208039424,
+      "modelRequestsSent": 0,
+      "apiOrWebRestarted": false,
+      "securityGuardChanged": false,
+      "containerCreated": false,
+      "logSha256": "1b919e41aff1d7119c3d7073a3977970f3fee3b9e2ff1d2245275f9b7cc450ca"
+    },
+    {
+      "finishedAt": "2026-11-16T21:40:04.615811+00:00",
+      "source": "93b76865a75915229f4f17f62c8597ed3a5f53f9",
+      "imageTag": "localhost/workspacex-aidt-e003-remediation-20261117:93b76865",
+      "project": "wsx-1e261c1b8eacf1988f72-e003",
+      "cliAttempt": 4,
+      "actualColdBuildAttempt": 3,
+      "priorTrustAdapterSyntaxFailurePreserved": true,
+      "causalRepairAuthorizedByRoot": true,
+      "exitCode": 130,
+      "stopReason": "disk-below-1.5-GiB",
+      "seconds": 18.01,
+      "initialFreeBytes": 5207707648,
+      "finalFreeBytes": 1493233664,
+      "modelRequestsSent": 0,
+      "apiOrWebRestarted": false,
+      "securityGuardChanged": false,
+      "containerCreated": false,
+      "logSha256": "3bd7fb9802026d295fe96c60d710dd8ce406671b19da37812fa201772988526f"
+    },
+    {
+      "finishedAt": "2026-11-16T21:51:06.192769+00:00",
+      "source": "93b76865a75915229f4f17f62c8597ed3a5f53f9",
+      "imageTag": "localhost/workspacex-aidt-e003-remediation-20261117:93b76865",
+      "project": "wsx-1e261c1b8eacf1988f72-e003",
+      "cliAttempt": 5,
+      "actualColdBuildAttempt": 4,
+      "rootSpaceRecoveryResume": true,
+      "priorTrustAdapterSyntaxFailurePreserved": true,
+      "causalRepairAuthorizedByRoot": true,
+      "exitCode": 1,
+      "stopReason": null,
+      "seconds": 6.0,
+      "initialFreeBytes": 7431131136,
+      "finalFreeBytes": 7431008256,
+      "modelRequestsSent": 0,
+      "apiOrWebRestarted": false,
+      "securityGuardChanged": false,
+      "containerCreated": false,
+      "logSha256": "e4b466e3d33927c04262a3e43ebe5e8bde9511575a2807961c8dd3f01f997308"
+    },
+    {
+      "finishedAt": "2026-11-16T21:56:39.710991+00:00",
+      "source": "93b76865a75915229f4f17f62c8597ed3a5f53f9",
+      "imageTag": "localhost/workspacex-aidt-e003-remediation-20261117:93b76865",
+      "project": "wsx-1e261c1b8eacf1988f72-e003",
+      "cliAttempt": 6,
+      "actualColdBuildAttempt": 5,
+      "rootPublicCaReadabilityFix": true,
+      "rootSpaceRecoveryResume": true,
+      "priorTrustAdapterSyntaxFailurePreserved": true,
+      "causalRepairAuthorizedByRoot": true,
+      "exitCode": 130,
+      "stopReason": "disk-below-1.5-GiB",
+      "seconds": 64.03,
+      "initialFreeBytes": 7429779456,
+      "finalFreeBytes": 1535483904,
+      "modelRequestsSent": 0,
+      "apiOrWebRestarted": false,
+      "securityGuardChanged": false,
+      "containerCreated": false,
+      "logSha256": "c420ed14c50b10a6d105f7ef60a83a73cc684084f436e42addf6d5ee59216115"
+    }
+  ],
+  "ownedBuildProcessStates": [
+    {
+      "record": "build-attempt02-started.private.json",
+      "pid": 557382,
+      "state": "absent"
+    },
+    {
+      "record": "build-attempt-started.private.json",
+      "pid": 555228,
+      "state": "absent"
+    },
+    {
+      "record": "build-attempt06-started.private.json",
+      "pid": 582809,
+      "state": "absent"
+    },
+    {
+      "record": "build-attempt04-started.private.json",
+      "pid": 566761,
+      "state": "absent"
+    },
+    {
+      "record": "build-attempt03-started.private.json",
+      "pid": 564366,
+      "state": "absent"
+    },
+    {
+      "record": "build-attempt05-started.private.json",
+      "pid": 579052,
+      "state": "absent"
+    }
+  ],
+  "ownedRemainingResources": {
+    "containers": [],
+    "volumes": [],
+    "networks": [],
+    "images": []
+  },
+  "securityGuardDowngraded": false,
+  "hostNetworkOrDaemonOrDataRootChanged": false,
+  "globalPruneUsed": false,
+  "allFailureLogsAndMarkersRetained": true,
+  "privateBuildDiagnostics": "/workspace/scratch/aidt-remediation-20261117/stack-01/e003",
+  "reversibleCacheArchives": "/tmp/aidt-remediation-cache-archives-20261117",
+  "minimumReproductionPrerequisites": [
+    "More isolated Docker build storage beyond current32GiB capacity, with >=1.5GiB free maintained throughout official image build",
+    "Preserve managed Docker client session proxies; strictTLS CA secret readable toAPT dropped user and never COPY certificate into image layers",
+    "Existing official Dockerfile/context/hash-lockeddeps and network-none/read-only/nodeUID/cap0/NNP/seccomp runtime",
+    "Official session-container.mjs isolation probe must pass before settingWX_NATIVE_SANDBOX_CONTAINER and runningthe2existingScriptedModelpytestcases"
+  ],
+  "modelRequestsSent": 0
+}

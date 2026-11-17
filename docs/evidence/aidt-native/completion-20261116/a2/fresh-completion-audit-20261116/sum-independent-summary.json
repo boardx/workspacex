@@ -1,0 +1,222 @@
+{
+  "kind": "sum-fresh-seed-source-integrity-and-student-correction-audit",
+  "at": "2026-11-16T18:31:59.354Z",
+  "runId": "b8c3ca65-301e-4757-aa9b-032714145225",
+  "status": "succeeded",
+  "modelReportContentAccepted": false,
+  "contentReviewOwner": "A3 fresh-round-content-review.md",
+  "s5CancelledMainChainNotRepaired": true,
+  "ordinaryDeriveScope": true,
+  "restoreAdapterUsed": false,
+  "persistedHumanMatchesA6Original": true,
+  "canonicalHashesMatch": true,
+  "snapshotTruncated": true,
+  "selectedSourceCount": 29,
+  "truncatedSourceCount": 17,
+  "selectedRefsDoNotProveFullMaterialVisibility": true,
+  "visibleContextCueReport": "sum-visible-context-cues.json",
+  "oldAndCurrentReflections": [
+    {
+      "kind": "history",
+      "stageId": 6,
+      "revision": 4,
+      "returnTarget": 2,
+      "questionSourceStageRevision": 3,
+      "reasonHash": "d2278ffc8f084d81d97d87b35e8f08d2fe5f31a66810f656b5d4440c1853f50c",
+      "nextActionHash": "c4a9c292f822aecfaac6677b6c8fe01a5bffdf2e2d2103edf24905da85d77e55",
+      "understandingEvidenceHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+      "excerptBytes": 15,
+      "returnStepFieldVisible": false,
+      "reasonFieldVisible": false
+    },
+    {
+      "kind": "stage",
+      "stageId": 6,
+      "revision": 7,
+      "returnTarget": 5,
+      "questionSourceStageRevision": 3,
+      "reasonHash": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+      "nextActionHash": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+      "understandingEvidenceHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+      "excerptBytes": 7856,
+      "returnStepFieldVisible": true,
+      "reasonFieldVisible": true,
+      "iterationRelationVisible": true
+    }
+  ],
+  "sameRunContinuation": {
+    "originalInterruptionPreserved": true,
+    "newStudentRequestSent": false,
+    "newLedgerReservation": false,
+    "dispatchAttemptId": "b8c3ca65-301e-4757-aa9b-032714145225:1",
+    "resumeAttemptId": "b8c3ca65-301e-4757-aa9b-032714145225:8",
+    "inheritedDispatchAttemptId": "b8c3ca65-301e-4757-aa9b-032714145225:1",
+    "initialReceiptAndFinalFrozenHashMatch": true
+  },
+  "threadCounts": {
+    "runs": "1",
+    "humanmessages": "1",
+    "snapshots": "1"
+  },
+  "savedReportVersions": [
+    {
+      "revision": 7,
+      "contentHashMatches": true,
+      "sourceRefsMatch": true,
+      "updatedByMatches": true,
+      "updatedAtMatches": true,
+      "reportMarkdownHash": "e45e767e7b86a2e24c18c512195f30c83f82cf5fb1fd3829ab770c5df6fbb8d5",
+      "reportSourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 4
+        },
+        {
+          "stageId": 6,
+          "revision": 6
+        }
+      ]
+    },
+    {
+      "revision": 8,
+      "contentHashMatches": true,
+      "sourceRefsMatch": true,
+      "updatedByMatches": true,
+      "updatedAtMatches": true,
+      "reportMarkdownHash": "d8c5a79f55937f3fb57054afeb35fbcea02e4791bd18aee508d532849382e7af",
+      "reportSourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 4
+        },
+        {
+          "stageId": 6,
+          "revision": 6
+        }
+      ]
+    },
+    {
+      "revision": 9,
+      "contentHashMatches": true,
+      "sourceRefsMatch": true,
+      "updatedByMatches": true,
+      "updatedAtMatches": true,
+      "reportMarkdownHash": "9f21c40e065ceea7f2199e7ee6579d591151410dc6117e63b6bc874ec20a8209",
+      "reportSourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 4
+        },
+        {
+          "stageId": 6,
+          "revision": 6
+        }
+      ]
+    }
+  ],
+  "originalV7V8V9ReportRefsUnchanged": true,
+  "draftUnchangedAcrossReportImportAndStudentCorrection": true,
+  "originalV8Export": {
+    "revision": 8,
+    "file": "student-reviewed-full-report.md",
+    "bytes": 8613,
+    "sha256": "ab17e70c701df9d9ee60af4584fe31c3042c488f5f1f3d1e6fd154991def17d6",
+    "exactSavedBodyAndMetadataBytes": true
+  },
+  "studentCorrectedV9Export": {
+    "revision": 9,
+    "file": "student-corrected-final-report.md",
+    "bytes": 11664,
+    "sha256": "8c5c4144aef519e32ee98bb2ea294b58082146fd22847b5beeb7bf7e7e96210d",
+    "exactSavedBodyAndMetadataBytes": true
+  },
+  "studentCorrectionNotAiOutput": true,
+  "studentCorrectionGenerationRequests": [],
+  "physical": 9,
+  "usage": 9,
+  "physicalUsageIdCoverageExact": true,
+  "reportedPortionTokensTotal": 197065,
+  "reportedSucceededUsageRecords": 9,
+  "settledCreditRecords": 9,
+  "pendingCreditRecords": 0,
+  "s3ExistingUnknownPendingNotAssignedToSummary": true,
+  "oldThreeLedgerHashes": [
+    {
+      "ledgerLabel": "native-model-run-ledger.json",
+      "beforeSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "afterSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true
+    },
+    {
+      "ledgerLabel": "additional-s1-ledger.json",
+      "beforeSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "afterSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true
+    },
+    {
+      "ledgerLabel": "additional-s2-ledger.json",
+      "beforeSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "afterSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true
+    }
+  ],
+  "ordinaryStudentModelPermissionProven": false,
+  "modelRequestsSentByAudit": 0,
+  "businessOrFinancialWrites": 0,
+  "allLiveConnectionsClosed": true,
+  "preservedOldAiAndV8": {
+    "originalSelectedAiTextHashMatchesA6OriginalTurn": true,
+    "originalAiTextRetainedInV8": true,
+    "v9PreservesEntireV8ReportAsPrefix": true,
+    "originalV8SavedContentUnchanged": true,
+    "originalChatRowNotReReadAfterV9": true
+  }
+}

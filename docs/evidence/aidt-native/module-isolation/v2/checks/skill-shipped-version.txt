@@ -1,0 +1,1 @@
+✅ [shipped-pack-version] 10 个标准包的发货版本与构建版本逐字一致

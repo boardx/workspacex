@@ -15,6 +15,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 REPO_ROOT="$(pwd)"
+# An opt-in developer lane can retain its own private logs/PIDs instead of
+# sharing /tmp/e2e-* with another acceptance run. Existing callers keep /tmp.
+E2E_WORK_DIR="${REAL_MODEL_E2E_WORK_DIR:-/tmp}"
+mkdir -p "$E2E_WORK_DIR"
 
 # 哪条链路：原生 deep-agent-service，还是 legacy call_skill/run_script。
 # 提到最前面声明——下面「起沙箱之后、种子之前」要按它钉 fixture agent 的 provider，
@@ -33,18 +37,26 @@ real_model_require_credentials "dashscope 真实模型" DASHSCOPE_API_KEY DASHSC
 # 同一套 probe-and-bind 待遇。**刻意不留 `:-8793` 兜底**：兜底会让"没经过隔离外壳"这件事
 # 以并行会话随机撞端口的形态延迟爆炸，而不是当场说清楚。
 SB="$SKILL_SANDBOX_PORT"
-docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" up -d --wait postgres redis minio
+if [ "${REAL_MODEL_E2E_REUSE_IMAGES:-}" = "1" ]; then
+  docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" up -d --wait --no-build --pull never postgres redis minio
+else
+  docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" up -d --wait postgres redis minio
+fi
 # 预装依赖（pptxgenjs / docx / exceljs / pdf-lib）**必须显式给到沙箱**。
 # 2026-09-25 实测：这里漏了 SKILL_SANDBOX_MODULES_DIR，于是十任务 Office 矩阵
 # 连续三轮 0/10——每个脚本都以 `Cannot find module 'pptxgenjs'` 死掉，而这条 stderr
 # 在日志链上被吞了两次，表面症状只是「模型没产出文件」，看起来像产品缺陷。
 # 镜像靠 Dockerfile 的 ENV 给这个值；本地 lane 之前谁都没给。
-bash "${REPO_ROOT}/scripts/local-bundle/prepare-sandbox-modules.sh" >/tmp/e2e-sandbox-modules.log 2>&1 || {
-  echo "沙箱预装依赖准备失败：" >&2; tail -20 /tmp/e2e-sandbox-modules.log >&2; exit 1;
-}
-SANDBOX_MODULES_DIR="${REPO_ROOT}/apps/skill-sandbox/preinstalled/node_modules"
-SKILL_SANDBOX_PORT=$SB SKILL_SANDBOX_MODULES_DIR="$SANDBOX_MODULES_DIR" pnpm --filter @repo/skill-sandbox exec tsx src/main.ts > /tmp/e2e-sandbox.log 2>&1 &
-echo $! > /tmp/e2e-sandbox.pid
+if [ -n "${REAL_MODEL_E2E_SANDBOX_MODULES_DIR:-}" ]; then
+  SANDBOX_MODULES_DIR="$REAL_MODEL_E2E_SANDBOX_MODULES_DIR"
+else
+  bash "${REPO_ROOT}/scripts/local-bundle/prepare-sandbox-modules.sh" >"${E2E_WORK_DIR}/e2e-sandbox-modules.log" 2>&1 || {
+    echo "沙箱预装依赖准备失败：" >&2; tail -20 "${E2E_WORK_DIR}/e2e-sandbox-modules.log" >&2; exit 1;
+  }
+  SANDBOX_MODULES_DIR="${REPO_ROOT}/apps/skill-sandbox/preinstalled/node_modules"
+fi
+SKILL_SANDBOX_PORT=$SB SKILL_SANDBOX_MODULES_DIR="$SANDBOX_MODULES_DIR" pnpm --filter @repo/skill-sandbox exec tsx src/main.ts > "${E2E_WORK_DIR}/e2e-sandbox.log" 2>&1 &
+echo $! > "${E2E_WORK_DIR}/e2e-sandbox.pid"
 # 沙箱**必须真的在监听**才算起来了。原来这里只 `sleep 5` 就往下走：沙箱以 EADDRINUSE
 # 秒死时栈照常"就绪"，技能调用要到很久以后才以别的形态失败（真实模型 lane 上表现为
 # 「模型答不出文件」，看起来像产品缺陷）。宁可在这里红，也不要把它推到下游。
@@ -53,17 +65,23 @@ for _ in $(seq 1 30); do
   # 沙箱没有 /healthz（它的 HTTP 面只有执行端点），所以判据是**真的能建立 TCP 连接**
   # ——那正是 "listening" 的定义，比解析 stdout 更难骗。
   if (exec 3<>/dev/tcp/127.0.0.1/"${SB}") 2>/dev/null; then exec 3<&- 3>&-; SANDBOX_READY=1; break; fi
-  if ! kill -0 "$(cat /tmp/e2e-sandbox.pid)" 2>/dev/null; then break; fi
+  if ! kill -0 "$(cat "${E2E_WORK_DIR}/e2e-sandbox.pid")" 2>/dev/null; then break; fi
   sleep 1
 done
 if [ "$SANDBOX_READY" != "1" ]; then
   echo "✗ 技能沙箱没能在 127.0.0.1:${SB} 起来——日志末尾：" >&2
-  tail -20 /tmp/e2e-sandbox.log >&2 || true
+  tail -20 "${E2E_WORK_DIR}/e2e-sandbox.log" >&2 || true
   exit 1
 fi
 echo "技能沙箱就绪：127.0.0.1:${SB}"
-pnpm --filter web exec tsx e2e/dump-fixture-env.ts > /tmp/e2e-fixture.sh
-source /tmp/e2e-fixture.sh
+if [ -n "${REAL_MODEL_E2E_RESTORE_RECEIPT:-}" ]; then
+  # A receipt is checked against the actual owned restored DB and live port lease.
+  # A bare skip-seed flag is deliberately unsupported.
+  node --import tsx scripts/aidt-checkpoint-bootstrap.mjs --receipt "$REAL_MODEL_E2E_RESTORE_RECEIPT" --emit-fixture > "${E2E_WORK_DIR}/e2e-fixture.sh"
+else
+  pnpm --filter web exec tsx e2e/dump-fixture-env.ts > "${E2E_WORK_DIR}/e2e-fixture.sh"
+fi
+source "${E2E_WORK_DIR}/e2e-fixture.sh"
 # 原生链路时把 fixture agent 钉在 "deep-agent" provider（`DEEP_AGENT_PROVIDER_NAME`）
 # 上，否则即便 deep-agent-service 起来了、RoutingModelCallPort 也不会把 run 路由过去
 # ——2026-09-25 头一轮忘了这一步，服务起了、健康检查过了、但全程零请求（origin log
@@ -83,9 +101,11 @@ echo "AGENT=$FULLSTACK_E2E_AGENT_ID"
 # 而失败原因被丢掉了——起栈日志止于上面那句 `AGENT=`，读日志的人（我自己）
 # 只看到「起栈进程已退出」，查不出为什么。**静默掉的失败等于没有失败信息**。
 # 改成落到文件里，并在失败时把末尾打出来。
-if ! pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts > /tmp/e2e-seed.log 2>&1; then
+if [ -n "${REAL_MODEL_E2E_RESTORE_RECEIPT:-}" ]; then
+  echo "Verified private checkpoint receipt: preserved fixture; reset seed skipped."
+elif ! pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts > "${E2E_WORK_DIR}/e2e-seed.log" 2>&1; then
   echo "✗ 种子失败（fullstack-smoke）——末尾 30 行："
-  tail -30 /tmp/e2e-seed.log
+  tail -30 "${E2E_WORK_DIR}/e2e-seed.log"
   exit 1
 fi
 # ── deep-agent-service（原生链路）──────────────────────────────────────────────
@@ -103,7 +123,7 @@ fi
 DEEP_AGENT_INTERNAL_KEY="${DEEP_AGENT_SERVICE_INTERNAL_KEY:-e2e-internal-key-not-a-secret}"
 DEEP_AGENT_BASE_URL=""
 if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
-  DA_UVICORN="${REPO_ROOT}/apps/deep-agent-service/.venv/bin/uvicorn"
+  DA_UVICORN="${REAL_MODEL_E2E_UVICORN:-${REPO_ROOT}/apps/deep-agent-service/.venv/bin/uvicorn}"
   if [ ! -x "$DA_UVICORN" ]; then
     echo "✗ 要跑原生 deep-agent 链，但 apps/deep-agent-service/.venv 不存在。" >&2
     echo "  装一下：(cd apps/deep-agent-service && uv sync)" >&2
@@ -123,10 +143,12 @@ if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
   # `$!` 从此就是 uvicorn 真正的 pid，一份 kill 杀得干净——这一步之后跑的三轮
   # 矩阵收尾都确认过 `ps aux` 干净。
   ( cd "${REPO_ROOT}/apps/deep-agent-service" && \
-    PYTHONPATH="${REPO_ROOT}/apps/deep-agent-service/src" \
+    PYTHONPATH="${REAL_MODEL_E2E_PYTHON_PRELOAD_DIR:+${REAL_MODEL_E2E_PYTHON_PRELOAD_DIR}:}${REPO_ROOT}/apps/deep-agent-service/src" \
     DEEP_AGENT_CHECKPOINT_DB="$DA_DSN" \
     DATABASE_URI="$DA_DSN" \
     DEEP_AGENT_OTEL_DISABLED=1 \
+    DEEP_AGENT_USAGE_SPOOL_DIR="${REAL_MODEL_E2E_USAGE_SPOOL_DIR:-${E2E_WORK_DIR}/e2e-usage-${COMPOSE_PROJECT_NAME}}" \
+    DEEP_AGENT_USAGE_CALLBACK_BASE_URL="http://127.0.0.1:${WORKSPACEX_API_PORT}" \
     DEEP_AGENT_SERVICE_INTERNAL_KEY="$DEEP_AGENT_INTERNAL_KEY" \
     NATIVE_SESSION_SERVICE_BASE_URL="http://127.0.0.1:${WORKSPACEX_API_PORT}" \
     NATIVE_SESSION_SERVICE_KEY="$DEEP_AGENT_INTERNAL_KEY" \
@@ -134,19 +156,19 @@ if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
     KERNEL_MODEL_API_KEY="$DASHSCOPE_API_KEY" \
     KERNEL_DEEP_AGENT_MODEL_ID="$DASHSCOPE_MODEL" \
     exec "$DA_UVICORN" deep_agent_service.http_app:app \
-      --host 127.0.0.1 --port "$DA_PORT" --workers 1 ) > /tmp/e2e-deep-agent.log 2>&1 &
-  echo $! > /tmp/e2e-deep-agent.pid
+      --host 127.0.0.1 --port "$DA_PORT" --workers 1 ) > "${E2E_WORK_DIR}/e2e-deep-agent.log" 2>&1 &
+  echo $! > "${E2E_WORK_DIR}/e2e-deep-agent.pid"
   # 判据是 /healthz 真的应答——不是「进程还活着」。启动期它会建表、连库、装图，
   # 失败时 uvicorn 会打完 traceback 才退，所以顺带把末尾贴出来。
   DA_READY=0
   for _ in $(seq 1 60); do
     if curl -sf -m 3 "http://127.0.0.1:${DA_PORT}/healthz" >/dev/null 2>&1; then DA_READY=1; break; fi
-    if ! kill -0 "$(cat /tmp/e2e-deep-agent.pid)" 2>/dev/null; then break; fi
+    if ! kill -0 "$(cat "${E2E_WORK_DIR}/e2e-deep-agent.pid")" 2>/dev/null; then break; fi
     sleep 2
   done
   if [ "$DA_READY" != "1" ]; then
     echo "✗ deep-agent-service 没能在 127.0.0.1:${DA_PORT} 起来——日志末尾：" >&2
-    tail -30 /tmp/e2e-deep-agent.log >&2 || true
+    tail -30 "${E2E_WORK_DIR}/e2e-deep-agent.log" >&2 || true
     exit 1
   fi
   DEEP_AGENT_BASE_URL="http://127.0.0.1:${DA_PORT}"
@@ -165,6 +187,7 @@ fi
 # 时间窗口，不必靠多次重试拼凑。
 KERNEL_DEEP_AGENT_TIMEOUT_MS="${KERNEL_DEEP_AGENT_TIMEOUT_MS:-480000}" \
 KERNEL_DEEP_AGENT_BASE_URL="$DEEP_AGENT_BASE_URL" \
+KERNEL_SUBTASK_CALLBACK_BASE_URL="http://127.0.0.1:${WORKSPACEX_API_PORT}" \
 DEEP_AGENT_SERVICE_INTERNAL_KEY="$DEEP_AGENT_INTERNAL_KEY" \
 KERNEL_MODEL_PROVIDER=dashscope \
 KERNEL_MODEL_BASE_URL="$DASHSCOPE_BASE_URL" \
@@ -175,8 +198,8 @@ KERNEL_SKILL_SANDBOX_BASE_URL="http://127.0.0.1:$SB" \
 MODEL_CREDENTIAL_KEY="e2e-key-not-a-secret" \
 KERNEL_ALLOW_TEST_PRINCIPAL=1 \
 PORT=$WORKSPACEX_API_PORT FULLSTACK_E2E_FIXTURE=1 \
-pnpm --filter @repo/api start > /tmp/e2e-api.log 2>&1 &
-echo $! > /tmp/e2e-api.pid
+pnpm --filter @repo/api start > "${E2E_WORK_DIR}/e2e-api.log" 2>&1 &
+echo $! > "${E2E_WORK_DIR}/e2e-api.pid"
 for i in $(seq 1 90); do
   curl -sf "http://127.0.0.1:$WORKSPACEX_API_PORT/healthz" >/dev/null 2>&1 && { echo "API_READY port=$WORKSPACEX_API_PORT sandbox=$SB"; break; }
   sleep 2

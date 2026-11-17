@@ -1,0 +1,164 @@
+{
+  "runtimeCommit": "ab4c529551669bbe835de9239adc003682af3073",
+  "sourceUnchangedAfterRun": true,
+  "actualBuildCount": 1,
+  "buildResult": {
+    "exitCode": 0,
+    "durationMs": 248570,
+    "pgdataBeforeBuild": true,
+    "pgdataAfterBuild": true,
+    "pgdataUnchangedByBuild": true
+  },
+  "consumerTestExitCode": 0,
+  "consumerStats": {
+    "startTime": "2026-11-15T06:53:29.831Z",
+    "duration": 64150.277,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "reporterErrors": [],
+  "completed": true,
+  "cycles": 2,
+  "reusedBuild": true,
+  "parentNodeEnv": "development",
+  "actualWebModes": [
+    "start",
+    "start"
+  ],
+  "cycleReadyMs": [
+    13900,
+    13719
+  ],
+  "projectCreateApiMs": 241,
+  "projectCreateRouteMs": 1144,
+  "devPriorSingleRunRouteMs": 89522,
+  "modelUnavailable": true,
+  "fixtureProvider": false,
+  "dockerRuntime": false,
+  "finalReceiptValid": true,
+  "buildIdPreserved": true,
+  "secretValueReplacements": 0,
+  "dataExcludedFromDelivery": true,
+  "trace": "off",
+  "files": [
+    {
+      "file": "playwright-results.json",
+      "originalSha256": "5f3909f031e6c16692347a330526d2382720b3896ecff5facb478dcb96d13f13",
+      "deliveredSha256": "5f3909f031e6c16692347a330526d2382720b3896ecff5facb478dcb96d13f13"
+    },
+    {
+      "file": "roundtrip.json",
+      "originalSha256": "5d7ccf518c55a106507b3c30eff2f6a224eccb666c8942528d9ac7727b27f6e2",
+      "deliveredSha256": "5d7ccf518c55a106507b3c30eff2f6a224eccb666c8942528d9ac7727b27f6e2"
+    },
+    {
+      "file": "health-cycle-1.json",
+      "originalSha256": "d7d812c6aedd667271e4b0b980f07a95fd1be7b53de1ca7a983562c3f4a38649",
+      "deliveredSha256": "d7d812c6aedd667271e4b0b980f07a95fd1be7b53de1ca7a983562c3f4a38649"
+    },
+    {
+      "file": "health-cycle-2.json",
+      "originalSha256": "a8b259630bb3b619e1193502cedfdc470deff69b2c7faf3c2845ff8545734a42",
+      "deliveredSha256": "a8b259630bb3b619e1193502cedfdc470deff69b2c7faf3c2845ff8545734a42"
+    },
+    {
+      "file": "stop-cycle-1.json",
+      "originalSha256": "4cf0e3dc5de0619478da4e544d134ccbfa232f0057b24f3fc99e2f768cf852c3",
+      "deliveredSha256": "4cf0e3dc5de0619478da4e544d134ccbfa232f0057b24f3fc99e2f768cf852c3"
+    },
+    {
+      "file": "stop-cycle-2.json",
+      "originalSha256": "4cf0e3dc5de0619478da4e544d134ccbfa232f0057b24f3fc99e2f768cf852c3",
+      "deliveredSha256": "4cf0e3dc5de0619478da4e544d134ccbfa232f0057b24f3fc99e2f768cf852c3"
+    },
+    {
+      "file": "doctor.json",
+      "originalSha256": "e96e72ae083d169ed2b02b0d51469182a868ca0ffba332409cec55a36413016f",
+      "deliveredSha256": "e96e72ae083d169ed2b02b0d51469182a868ca0ffba332409cec55a36413016f"
+    },
+    {
+      "file": "native-start-cycle-1.txt",
+      "originalSha256": "07251eb9c7448ea8e21d30dca0c954c5d801891c4eb2e9abda0973b956407076",
+      "deliveredSha256": "07251eb9c7448ea8e21d30dca0c954c5d801891c4eb2e9abda0973b956407076"
+    },
+    {
+      "file": "native-start-cycle-2.txt",
+      "originalSha256": "d13e35e4ceb8106e244b6efb7f1db13527b4e42e50a11b9104043d4aeeae5b7a",
+      "deliveredSha256": "d13e35e4ceb8106e244b6efb7f1db13527b4e42e50a11b9104043d4aeeae5b7a"
+    },
+    {
+      "file": "build-result.json",
+      "originalSha256": "0239de98a3bd310e1e387c5469f5bc3716ac23e95ba16b91f2a7f40d545e0b73",
+      "deliveredSha256": "0239de98a3bd310e1e387c5469f5bc3716ac23e95ba16b91f2a7f40d545e0b73"
+    },
+    {
+      "file": "build.txt",
+      "originalSha256": "add2509c5fa479234fe9d364860937e992e8c72e6434657d9aaa12359b51d788",
+      "deliveredSha256": "add2509c5fa479234fe9d364860937e992e8c72e6434657d9aaa12359b51d788"
+    },
+    {
+      "file": "cache-cleanup.json",
+      "originalSha256": "c832644d1b396b7fdf657a39356648bd643036e0acfa013586b0bab909401e73",
+      "deliveredSha256": "c832644d1b396b7fdf657a39356648bd643036e0acfa013586b0bab909401e73"
+    },
+    {
+      "file": "build-phase-status.json",
+      "originalSha256": "ef772292c77e8d91becac71e05d2f8b28b5ad154824925c02275cf60d08262ae",
+      "deliveredSha256": "ef772292c77e8d91becac71e05d2f8b28b5ad154824925c02275cf60d08262ae"
+    },
+    {
+      "file": "build-phase-health.json",
+      "originalSha256": "ef772292c77e8d91becac71e05d2f8b28b5ad154824925c02275cf60d08262ae",
+      "deliveredSha256": "ef772292c77e8d91becac71e05d2f8b28b5ad154824925c02275cf60d08262ae"
+    },
+    {
+      "file": "final-receipt.json",
+      "originalSha256": "cb69d1a7652a1533cca57bf665e48247e582df5fce819cbb316fd98b99a67ec2",
+      "deliveredSha256": "cb69d1a7652a1533cca57bf665e48247e582df5fce819cbb316fd98b99a67ec2"
+    },
+    {
+      "file": "released-owned-quarantine.json",
+      "originalSha256": "ecdd65e5f88ae5b7d421085138ab7e7167890abca8750e76ef2e5a5a9616da7f",
+      "deliveredSha256": "ecdd65e5f88ae5b7d421085138ab7e7167890abca8750e76ef2e5a5a9616da7f"
+    },
+    {
+      "file": "failed-capacity-playwright.json",
+      "originalSha256": "b87407fa89c73d729873f550c0b971b43c795845c7ec998fe7fe3aaa4cd42328",
+      "deliveredSha256": "b87407fa89c73d729873f550c0b971b43c795845c7ec998fe7fe3aaa4cd42328"
+    },
+    {
+      "file": "failed-port-guard-playwright.json",
+      "originalSha256": "a9d98cdb14e3768b1e9bf5aaf340cbad280d60069b80dac011870f7d0ab26644",
+      "deliveredSha256": "a9d98cdb14e3768b1e9bf5aaf340cbad280d60069b80dac011870f7d0ab26644"
+    },
+    {
+      "file": "failed-capacity-start.txt",
+      "originalSha256": "3884cf243bf1bf16813dfa4ac801e987ef32808405fd535220ba73ba985df200",
+      "deliveredSha256": "c5a944feeb74035c1b74043e1fa6d04a96a1b174a3974e3740464cd67a47ebf9"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "/workspace/scratch/aidt-local-prebuilt-acceptance/attempt-3-reuse/results/native-member-after-restart-375.png",
+      "sha256": "bc9fdb706bfcef3c1d0d4dbdec8104fffde0eb4f50aff825a063dada97355eb9",
+      "delivered": false
+    },
+    {
+      "file": "/workspace/scratch/aidt-local-prebuilt-acceptance/attempt-3-reuse/results/native-member-stored.png",
+      "sha256": "c62983fb634c8a6066cc5d01699547ed96b5038e5d6171ffb0f3dda383208109",
+      "delivered": false
+    },
+    {
+      "file": "/workspace/scratch/aidt-local-prebuilt-acceptance/attempt-3-reuse/results/native-stage-after-restart-375.png",
+      "sha256": "bd49b46eed0ca1f2452e3bab26c72492e6caf3d4ad8b9bbe962b3c871be75598",
+      "delivered": false
+    }
+  ],
+  "limits": [
+    "Existing persistent populated data-dir; this is not a fresh-install startup benchmark.",
+    "Single Linux headless host; no real model, ASR, microphone, classroom load or multi-machine testing.",
+    "No production deploy, public listener, account/data export or model download."
+  ]
+}

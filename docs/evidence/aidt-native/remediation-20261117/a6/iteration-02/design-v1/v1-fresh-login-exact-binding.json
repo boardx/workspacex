@@ -1,0 +1,72 @@
+{
+  "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+  "versionId": "5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr",
+  "saved5": {
+    "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+    "stageId": 5,
+    "revision": 3,
+    "content": {
+      "schemaVersion": 1,
+      "draft": {
+        "fields": {
+          "idea": "合成点子：纸面分区牌",
+          "task": "阅读纸面分区牌，并指出对应的取餐区域。",
+          "type": "静态纸面界面草案，生成前仍须学生确认主问题。",
+          "situation": "新同学在食堂取餐区阅读静态指示；这是合成情境。",
+          "requirements": "一页静态界面，标题、分区提示与一个按钮；不接外部脚本或图片。",
+          "beforeTestBelief": "学生先前猜测：也许能理解，尚无真实测试。",
+          "verificationBasis": "仅学生合成讨论，不是用户研究证据。",
+          "prototypeReference": "{\"seq\":1,\"summary\":\"已按验收标准生成极简教学原型，仅含标题、说明、按钮与页脚，供学生审阅后用于纸面测试。\",\"createdAt\":\"2026-11-16T21:22:59.100Z\",\"source\":\"model\",\"designId\":\"5e9e0ac2-137d-46b6-bbad-7448868b7cad\",\"versionId\":\"5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr\",\"designName\":\"Synthetic static V1-V2 c922af9f\",\"frameCount\":1,\"generatedFrameCount\":1}",
+          "verificationLimits": "只能讨论静态理解，不能证明时间节省或支付意愿。",
+          "reflectionConfirmed": "",
+          "verificationQuestion": "合成验证问题：新同学能否说出纸面分区牌指向哪里？",
+          "verificationQuestionConfirmed": "true",
+          "verificationQuestionConfirmation": "[\"合成验证问题：新同学能否说出纸面分区牌指向哪里？\",\"学生先前猜测：也许能理解，尚无真实测试。\",\"仅学生合成讨论，不是用户研究证据。\",\"只能讨论静态理解，不能证明时间节省或支付意愿。\"]"
+        },
+        "ideas": [],
+        "selectedIdeaId": ""
+      }
+    },
+    "sourceStageRevisions": [
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      }
+    ],
+    "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+    "updatedAt": "2026-11-16T21:23:01.091Z"
+  },
+  "saved6": {
+    "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+    "stageId": 6,
+    "revision": 1,
+    "content": {
+      "schemaVersion": 1,
+      "draft": {
+        "fields": {
+          "version": "Synthetic static V1-V2 c922af9f / v1：已按验收标准生成极简教学原型，仅含标题、说明、按钮与页脚，供学生审阅后用于纸面测试。",
+          "questionSnapshot": "{\"schemaVersion\":1,\"question\":\"合成验证问题：新同学能否说出纸面分区牌指向哪里？\",\"beforeTestBelief\":\"学生先前猜测：也许能理解，尚无真实测试。\",\"verificationBasis\":\"仅学生合成讨论，不是用户研究证据。\",\"verificationLimits\":\"只能讨论静态理解，不能证明时间节省或支付意愿。\",\"prototypeRef\":\"Synthetic static V1-V2 c922af9f / v1：已按验收标准生成极简教学原型，仅含标题、说明、按钮与页脚，供学生审阅后用于纸面测试。\",\"prototypeDesignId\":\"5e9e0ac2-137d-46b6-bbad-7448868b7cad\",\"prototypeVersionId\":\"5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr\",\"sourceStageRevision\":3}",
+          "reflectionConfirmed": ""
+        },
+        "ideas": [],
+        "selectedIdeaId": ""
+      }
+    },
+    "sourceStageRevisions": [
+      {
+        "stageId": 5,
+        "revision": 3
+      }
+    ],
+    "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+    "updatedAt": "2026-11-16T21:23:01.599Z"
+  },
+  "actualPrototypeSha256": "e650d3eb7f480d1ac98f05b9e5cf8be40c623efa71e900b0edd8b36880596245",
+  "modelPosts": [],
+  "freshLoginExactReadback": true,
+  "stateBytesUnchanged": true
+}

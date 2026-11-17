@@ -1,0 +1,115 @@
+
+ RUN  v2.1.9 /workspace/aidt-pr-20261117/apps/api
+
+ ❯ tests/aidt-stages/shared-stage-unit.test.ts (47 tests | 10 failed) 41ms
+   × AIDT shared stage transaction behavior (in-memory ports, not PG evidence) > writes the last PostgreSQL integer revision and rejects another append before storage 7ms
+     → expected [Function] to throw an error
+   × AIDT shared stage transaction behavior (in-memory ports, not PG evidence) > rejects out-of-range history, draft sources and report sources before any storage 1ms
+     → expected [Function] to throw an error
+   × shared stage contract > accepts the PostgreSQL maximum and rejects overflow for source revision 1ms
+     → expected true to be false // Object.is equality
+   × shared stage contract > accepts the PostgreSQL maximum and rejects overflow for saved revision 1ms
+     → expected true to be false // Object.is equality
+   × shared stage contract > accepts the PostgreSQL maximum and rejects overflow for stage summary 0ms
+     → expected true to be false // Object.is equality
+   × shared stage contract > accepts the PostgreSQL maximum and rejects overflow for history cursor 0ms
+     → expected true to be false // Object.is equality
+   × shared stage contract > accepts the PostgreSQL maximum and rejects overflow for next history cursor 0ms
+     → expected true to be false // Object.is equality
+   × shared stage contract > accepts the PostgreSQL maximum and rejects overflow for draft source 0ms
+     → expected true to be false // Object.is equality
+   × shared stage contract > accepts the PostgreSQL maximum and rejects overflow for report source 0ms
+     → expected true to be false // Object.is equality
+   × shared stage contract > reserves one integer revision for save and preserves the initial zero revision 0ms
+     → expected true to be false // Object.is equality
+ ✓ tests/aidt-stages/shared-stage-controller.test.ts (10 tests) 6ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-stages/shared-stage-unit.test.ts > AIDT shared stage transaction behavior (in-memory ports, not PG evidence) > writes the last PostgreSQL integer revision and rejects another append before storage
+AssertionError: expected [Function] to throw an error
+
+- Expected: 
+null
+
++ Received: 
+undefined
+
+ ❯ tests/aidt-stages/shared-stage-unit.test.ts:57:52
+     55|     expect((await f.service.save(actor,input(1,max-1))).stage.revision…
+     56|     const storage=vi.spyOn(f.repo,"inProject");
+     57|     expect(()=>f.service.save(actor,input(1,max))).toThrowError("AIDT_…
+       |                                                    ^
+     58|     expect(storage).not.toHaveBeenCalled();expect(f.records).toHaveLen…
+     59|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+ FAIL  tests/aidt-stages/shared-stage-unit.test.ts > AIDT shared stage transaction behavior (in-memory ports, not PG evidence) > rejects out-of-range history, draft sources and report sources before any storage
+AssertionError: expected [Function] to throw an error
+
+- Expected: 
+null
+
++ Received: 
+undefined
+
+ ❯ tests/aidt-stages/shared-stage-unit.test.ts:62:53
+     60|   it("rejects out-of-range history, draft sources and report sources b…
+     61|     const f=fixture(),storage=vi.spyOn(f.repo,"inProject"),revision=21…
+     62|     expect(()=>f.service.history(actor,1,revision)).toThrowError("AIDT…
+       |                                                     ^
+     63|     expect(()=>f.service.save(actor,{...input(2),sourceStageRevisions:…
+     64|     const report=input(6);report.content.summaryReport={markdown:"学生…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯
+
+ FAIL  tests/aidt-stages/shared-stage-unit.test.ts > shared stage contract > accepts the PostgreSQL maximum and rejects overflow for source revision
+ FAIL  tests/aidt-stages/shared-stage-unit.test.ts > shared stage contract > accepts the PostgreSQL maximum and rejects overflow for saved revision
+ FAIL  tests/aidt-stages/shared-stage-unit.test.ts > shared stage contract > accepts the PostgreSQL maximum and rejects overflow for stage summary
+ FAIL  tests/aidt-stages/shared-stage-unit.test.ts > shared stage contract > accepts the PostgreSQL maximum and rejects overflow for history cursor
+ FAIL  tests/aidt-stages/shared-stage-unit.test.ts > shared stage contract > accepts the PostgreSQL maximum and rejects overflow for next history cursor
+ FAIL  tests/aidt-stages/shared-stage-unit.test.ts > shared stage contract > accepts the PostgreSQL maximum and rejects overflow for draft source
+ FAIL  tests/aidt-stages/shared-stage-unit.test.ts > shared stage contract > accepts the PostgreSQL maximum and rejects overflow for report source
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/aidt-stages/shared-stage-unit.test.ts:87:161
+     85|     ["draft source",(revision:number)=>SaveInput.safeParse({...input(2…
+     86|     ["report source",(revision:number)=>SaveInput.safeParse({...input(…
+     87|   ] as const)("accepts the PostgreSQL maximum and rejects overflow for…
+       |                                                                                                                                                                 ^
+     88|   it("reserves one integer revision for save and preserves the initial…
+     89|     expect(SaveInput.safeParse(input(1,0)).success).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯
+
+ FAIL  tests/aidt-stages/shared-stage-unit.test.ts > shared stage contract > reserves one integer revision for save and preserves the initial zero revision
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/aidt-stages/shared-stage-unit.test.ts:91:62
+     89|     expect(SaveInput.safeParse(input(1,0)).success).toBe(true);
+     90|     expect(SaveInput.safeParse(input(1,2147483646)).success).toBe(true…
+     91|     expect(SaveInput.safeParse(input(1,2147483647)).success).toBe(fals…
+       |                                                              ^
+     92|     expect(SaveInput.safeParse(input(1,2147483648)).success).toBe(fals…
+     93|     expect(StageSummary.safeParse({stageId:1,revision:0,updatedBy:null…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  10 failed | 47 passed (57)
+   Start at  01:30:27
+   Duration  2.79s (transform 1.33s, setup 0ms, collect 2.42s, tests 48ms, environment 0ms, prepare 82ms)
+

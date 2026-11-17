@@ -1,0 +1,40 @@
+{
+  "kind": "A1-owned-pre-send-baseline-projection",
+  "sourcePrivateFileSha256": "62e815ad6210222bc0b7ca49493e8c869f9bbe66b7ac3d361184dffc0f73d6ac",
+  "observedAt": "2026-11-16T17:11:56.823Z",
+  "readOnly": true,
+  "appRole": "app_rw",
+  "orgId": "org-fullstack-20261117-01-7d265647426d",
+  "counts": {
+    "runs": 0,
+    "snapshots": 0,
+    "physical": 0,
+    "usage": 0,
+    "credits": 0,
+    "active": 0
+  },
+  "agent": {
+    "id": "agent-fullstack-20261117-01-7d265647426d",
+    "publishedVersionId": "agent-fullstack-20261117-01-7d265647426d-v1",
+    "instructionDigest": "802cf79cc20cd6861c2aa766d7a7c4b1a9094add3624f523e467dd81c85fe371",
+    "storedDigestMatches": true,
+    "canonicalInstructionsMatch": true,
+    "providerIsNative": true,
+    "modelConfigured": true
+  },
+  "oldBudgetHashes": [
+    {
+      "ledgerLabel": "native-model-run-ledger.json",
+      "sha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae"
+    },
+    {
+      "ledgerLabel": "additional-s1-ledger.json",
+      "sha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d"
+    },
+    {
+      "ledgerLabel": "additional-s2-ledger.json",
+      "sha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f"
+    }
+  ],
+  "modelRequestsSentByAudit": 0
+}

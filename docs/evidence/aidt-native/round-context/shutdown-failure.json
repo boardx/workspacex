@@ -1,0 +1,17 @@
+{
+  "stats": {
+    "startTime": "2026-11-15T15:28:43.078Z",
+    "duration": 319158.361,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "errors": [
+    "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 0\nReceived: 1\n\n  277 |     const result = await cli(\"stop\", 150_000);\n  278 |     expect(result.code).toBe(0);\n> 279 |     expect(await ownerExit).toBe(0);\n      |                             ^\n  280 |     const status = report((await cli(\"status\")).stdout);\n  281 |     expect(status.state).toBe(\"stopped\");\n  282 |     expect((await cli(\"health\")).code).toBe(1);\n    at stop (/workspace/aidt-module-latest/apps/web/e2e/aidt-local-persistence.spec.ts:279:29)\n    at /workspace/aidt-module-latest/apps/web/e2e/aidt-local-persistence.spec.ts:433:5"
+  ],
+  "passedPhase": [
+    "[aidt-native] 2026-11-15T15:33:35.679Z learning-round-survives-native-chat-tools-and-refresh"
+  ],
+  "note": "The saved-round browser regression passed; the full lane failed on the original start owner exiting 1 during stop. No passing claim for this attempt. Private trace, runtime data, native account details and pixel screenshots excluded."
+}

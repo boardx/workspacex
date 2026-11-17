@@ -1,0 +1,66 @@
+{
+  "at": "2026-11-16T05:58:33.472Z",
+  "activeRuns": 0,
+  "health": {
+    "api": true,
+    "oldWeb": true,
+    "newWeb": true,
+    "python": true
+  },
+  "counts": {
+    "runs": 3,
+    "physical_requests": 9,
+    "usage_receipts": 9
+  },
+  "ownership": {
+    "newWeb": {
+      "pid": 168001,
+      "uidOwn": true,
+      "expectedCommand": true,
+      "startTimeMatches": true,
+      "processGroup": 168001
+    },
+    "newLease": {
+      "pid": 143835,
+      "uidOwn": true,
+      "expectedCommand": true,
+      "startTimeMatches": true,
+      "processGroup": 143834
+    },
+    "api": {
+      "pid": 148475,
+      "uidOwn": true,
+      "expectedCommand": true,
+      "startTimeMatches": true,
+      "processGroup": 148475
+    },
+    "python": {
+      "pid": 98643,
+      "uidOwn": true,
+      "expectedCommand": true,
+      "startTimeMatches": true,
+      "processGroup": 98643
+    },
+    "owner": {
+      "pid": 68006,
+      "uidOwn": true,
+      "expectedCommand": true,
+      "startTimeMatches": true,
+      "processGroup": 67937
+    }
+  },
+  "ownDockerContainerCount": 3,
+  "oldPortCount": 13,
+  "newPortCount": 13,
+  "totalDistinctPorts": 26,
+  "modelRequestsSent": 0,
+  "privateConfigExists": true,
+  "oomEvents": {
+    "low": 0,
+    "high": 0,
+    "max": 33568,
+    "oom": 1,
+    "oom_kill": 1,
+    "oom_group_kill": 0
+  }
+}

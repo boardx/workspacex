@@ -1,0 +1,5 @@
+Listing tests:
+  aidt-v2-courses.spec.ts:129:5 › FR01 course A: real UI create and owner links, same-course group isolation, fresh login preserves original saved input
+  aidt-v2-courses.spec.ts:201:5 › FR01 lifecycle: archived existing course group remains readable; new binding is rejected without mutating native members
+  aidt-v2-courses.spec.ts:229:5 › FR01 pagination and failure: real PG cursors have no overlap; native UI distinguishes offline error and explicit retry
+Total: 3 tests in 1 file

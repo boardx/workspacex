@@ -1,0 +1,285 @@
+{
+  "zeroWindow": {
+    "source": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
+    "proofSha256": "8543ca4d8fea00708e2eeb735aa4d09fa995cc7220ecb6ebdc9701bccc6ba6a5"
+  },
+  "actor": {
+    "userId": "user-collab-lead--20261117-s-1e261c1b8eac",
+    "orgId": "org-collaboration--20261117-s-1e261c1b8eac",
+    "orgRole": "admin"
+  },
+  "ordinaryStudentPermissionProven": false,
+  "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+  "threadId": "thr-ba315a41-7195-4141-ba71-7763d4799f13",
+  "transportFailureInjection": "page.route abort before server; no fake response or canonical event",
+  "blockedPaths": [
+    "/api/copilotkit/agent/default/run",
+    "/api/copilotkit/agent/default/run",
+    "/api/copilotkit/agent/default/run"
+  ],
+  "first": {
+    "clientMessageId": "6daac97f-4ec0-49d6-943e-064a0e6f0a96",
+    "threadId": "thr-ba315a41-7195-4141-ba71-7763d4799f13",
+    "attachmentIds": [
+      "att-0eb17e97-16b8-47b6-952c-73baed018da5"
+    ],
+    "selector": {
+      "schemaVersion": 1,
+      "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 1
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 1
+    },
+    "lastUserText": "A：请讨论这份合成材料；这是浏览器网络故障注入，不是模型验收。"
+  },
+  "retried": {
+    "clientMessageId": "6daac97f-4ec0-49d6-943e-064a0e6f0a96",
+    "threadId": "thr-ba315a41-7195-4141-ba71-7763d4799f13",
+    "attachmentIds": [
+      "att-0eb17e97-16b8-47b6-952c-73baed018da5"
+    ],
+    "selector": {
+      "schemaVersion": 1,
+      "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 1
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 1
+    },
+    "lastUserText": "A：请讨论这份合成材料；这是浏览器网络故障注入，不是模型验收。"
+  },
+  "fresh": {
+    "clientMessageId": "b99364e9-29fd-441a-815c-9b183289a5be",
+    "threadId": "thr-ba315a41-7195-4141-ba71-7763d4799f13",
+    "attachmentIds": [
+      "att-c50024c8-a19f-4e68-b813-ef08e7b7651a"
+    ],
+    "selector": {
+      "schemaVersion": 1,
+      "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 1
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 1
+    },
+    "lastUserText": "B：学生明确发送新观察，不替换失败A。"
+  },
+  "wire": [
+    {
+      "selectorCoordinates": {
+        "schemaVersion": 1,
+        "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+        "stageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 1
+          }
+        ],
+        "purpose": "stage",
+        "stageId": 1
+      },
+      "coordinatesOnly": true,
+      "topLevelKeys": [
+        "context",
+        "forwardedProps",
+        "messages",
+        "runId",
+        "state",
+        "threadId",
+        "tools"
+      ],
+      "messages": [
+        {
+          "index": 0,
+          "role": "user",
+          "hasSavedMarker": false,
+          "mentionsMountedSkill": false
+        }
+      ],
+      "context": [
+        {
+          "index": 0,
+          "descriptionIsAidt": false,
+          "descriptionLength": 49,
+          "hasSavedMarker": false
+        }
+      ],
+      "savedMarkerLocations": [
+        {
+          "stageId": 1,
+          "field": "initial",
+          "locations": []
+        }
+      ],
+      "mountedSkillLocations": [],
+      "rawValuesRetained": false
+    },
+    {
+      "selectorCoordinates": {
+        "schemaVersion": 1,
+        "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+        "stageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 1
+          }
+        ],
+        "purpose": "stage",
+        "stageId": 1
+      },
+      "coordinatesOnly": true,
+      "topLevelKeys": [
+        "context",
+        "forwardedProps",
+        "messages",
+        "runId",
+        "state",
+        "threadId",
+        "tools"
+      ],
+      "messages": [
+        {
+          "index": 0,
+          "role": "user",
+          "hasSavedMarker": false,
+          "mentionsMountedSkill": false
+        }
+      ],
+      "context": [
+        {
+          "index": 0,
+          "descriptionIsAidt": false,
+          "descriptionLength": 49,
+          "hasSavedMarker": false
+        }
+      ],
+      "savedMarkerLocations": [
+        {
+          "stageId": 1,
+          "field": "initial",
+          "locations": []
+        }
+      ],
+      "mountedSkillLocations": [],
+      "rawValuesRetained": false
+    },
+    {
+      "selectorCoordinates": {
+        "schemaVersion": 1,
+        "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+        "stageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 1
+          }
+        ],
+        "purpose": "stage",
+        "stageId": 1
+      },
+      "coordinatesOnly": true,
+      "topLevelKeys": [
+        "context",
+        "forwardedProps",
+        "messages",
+        "runId",
+        "state",
+        "threadId",
+        "tools"
+      ],
+      "messages": [
+        {
+          "index": 0,
+          "role": "user",
+          "hasSavedMarker": false,
+          "mentionsMountedSkill": false
+        },
+        {
+          "index": 1,
+          "role": "user",
+          "hasSavedMarker": false,
+          "mentionsMountedSkill": false
+        }
+      ],
+      "context": [
+        {
+          "index": 0,
+          "descriptionIsAidt": false,
+          "descriptionLength": 49,
+          "hasSavedMarker": false
+        }
+      ],
+      "savedMarkerLocations": [
+        {
+          "stageId": 1,
+          "field": "initial",
+          "locations": []
+        }
+      ],
+      "mountedSkillLocations": [],
+      "rawValuesRetained": false
+    }
+  ],
+  "before": {
+    "messages": 0,
+    "canonicalRunIdsFromMessages": []
+  },
+  "after": {
+    "messages": 0,
+    "canonicalRunIdsFromMessages": []
+  },
+  "savedStageRevisionUnchanged": 1,
+  "member": {
+    "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+    "fromStep": 1,
+    "toStep": 2,
+    "root": {
+      "id": "6b1dd414-c56a-4426-9d9b-527b081c2ce9",
+      "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+      "sequence": 1,
+      "authorId": "user-collab-lead--20261117-s-1e261c1b8eac",
+      "clientMessageId": "0a453829-2582-4c08-80b2-d197c309496b",
+      "text": "自动化成员文字验收 5639cc18-a7a4-4928-ae9e-e028d8da31c7：请同组讨论访谈分工；不是实际访谈证据。",
+      "threadRootId": null,
+      "stageReference": null,
+      "createdAt": "2026-11-16T21:09:43.317Z"
+    },
+    "reply": {
+      "id": "4e15db21-4265-487e-be09-0ba0d424594f",
+      "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+      "sequence": 2,
+      "authorId": "user-collab-lead--20261117-s-1e261c1b8eac",
+      "clientMessageId": "49491ad2-e96d-45a7-88f6-7251da61efd7",
+      "text": "自动化话题回复 5639cc18-a7a4-4928-ae9e-e028d8da31c7：只回复此条分工消息；不是 AI 任务。",
+      "threadRootId": "6b1dd414-c56a-4426-9d9b-527b081c2ce9",
+      "stageReference": null,
+      "createdAt": "2026-11-16T21:09:43.473Z"
+    },
+    "uniqueClientMessageCounts": {
+      "root": 1,
+      "reply": 1
+    },
+    "exactRequestReplay": true,
+    "channelDraftRestored": true,
+    "topicDraftRestored": true,
+    "draftPersistenceScope": "same authenticated page session; no reload or browser restart",
+    "generationRequestPaths": []
+  },
+  "nativeBrowserRequestsReachedServer": false,
+  "serverAcceptedRunAudit": "pending independent A1 tenant-scoped read-only SQL; no thread run-list GET exists",
+  "timelineBrowserRetryTested": false,
+  "timelineCoverage": "controlled React regression only",
+  "actualModelOrTeachingSuccessClaimed": false
+}

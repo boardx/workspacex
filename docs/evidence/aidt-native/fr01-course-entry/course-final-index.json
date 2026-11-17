@@ -1,0 +1,25 @@
+{
+  "scope": "AIDT FR01 approved course plan A",
+  "sourceBuildCommit": "4bfb82e268a618d57af25e5596a11ddc04cf38cf",
+  "finalCourseUi": "course-ui-final-02-summary.json",
+  "completeThreeScenarioAttachments": "course-ui-final-02-attachments.json",
+  "preservedRealThreeRed": "course-ui-final-01-summary.json",
+  "realApiOnlyBefore": "course-api-before-filter.json",
+  "realApiOnlyAfter": "course-api-after-filter.json",
+  "unitEvidence": [
+    "filter-red.log",
+    "filter-green.log",
+    "shared-filter-regressions.log",
+    "role-lifecycle-red.log",
+    "role-lifecycle-green.log",
+    "resource-fixture-green.log",
+    "rewrite-red.log",
+    "rewrite-green.log",
+    "rewrite-coverage.log"
+  ],
+  "ledgerUnchanged": true,
+  "observedModelSends": 0,
+  "production": false,
+  "knownGap": "P3 missing createProject provenanceEventId; not fabricated",
+  "classroomValidated": false
+}

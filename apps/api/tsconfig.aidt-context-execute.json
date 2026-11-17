@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/application/agent-run/aidt-context-reference.ts",
+    "src/application/agent-run/reference-dispatch.ts",
+    "src/application/agent-run/execute-run.ts",
+    "src/infrastructure/agent-run/pg-agent-run-repository.ts",
+    "src/infrastructure/agent-run/agent-run-executor.ts",
+    "src/infrastructure/agent-run/deep-agent-model-provider.ts",
+    "src/infrastructure/agent-run/configured-model-provider.ts",
+    "tests/agent-runtime/aidt-context-*.test.ts",
+    "tests/agent-runtime/reference-dispatch.test.ts",
+    "tests/agent-runtime/configured-model-provider-thinking.test.ts"
+  ]
+}

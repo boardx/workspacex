@@ -1,0 +1,28 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-return_context/apps/web
+
+ ❯ tests/aidt-chat-return-context.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-chat-return-context.test.ts [ tests/aidt-chat-return-context.test.ts ]
+Error: Cannot find module '@/features/aidt/lib/aidt-chat-return-context' imported from '/workspace/scratch/aidt-complete-return_context/apps/web/tests/aidt-chat-return-context.test.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/aidt-chat-return-context.test.ts:5:25
+      3| const mocks = vi.hoisted(() => ({ enabled: true, history: vi.fn() }));
+      4| vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModul…
+      5| vi.mock("@/features/aidt/lib/live-aidt-stages", () => ({ listAidtStage…
+       |                         ^
+      6| const input = () => ({ projectId: "p", currentStage: 2, sessionToken: …
+      7| const round = () => ({ projectId: "p", stageId: 6, revision: 3, source…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  01:26:50
+   Duration  672ms (transform 43ms, setup 154ms, collect 0ms, tests 0ms, environment 0ms, prepare 55ms)
+

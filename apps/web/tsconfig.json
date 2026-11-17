@@ -54,7 +54,10 @@
     ".next-billing-cashier/types/**/*.ts",
     ".next-billing-cashier-glue/types/**/*.ts",
     ".next-billing-stripe-glue/types/**/*.ts",
-    ".next-personal-pricing-glue/types/**/*.ts"
+    ".next-personal-pricing-glue/types/**/*.ts",
+    ".next-aidt-local/types/**/*.ts",
+    ".next-aidt-real-model/types/**/*.ts",
+    ".next-aidt-real-final/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

@@ -25,6 +25,13 @@
 # 装载 env 文件（若存在）。只打印路径与是否命中，不打印任何变量值。
 real_model_load_env_file() {
   local repo_root="${1:?real_model_load_env_file 需要仓库根路径}"
+  # The explicit safe wrapper parsed only model fields as data. Do not source
+  # a deployment file here or again inside e2e-up.sh.
+  if [ "${WORKSPACEX_MODEL_ENV_ONLY:-}" = "1" ]; then
+    echo "[real-model-env] 使用安全接线的模型白名单；不 source 部署配置。"
+    real_model_alias_deployment_credentials
+    return 0
+  fi
   local env_file="${WORKSPACEX_ENV_FILE:-${repo_root}/.env.local}"
 
   if [ -f "$env_file" ]; then

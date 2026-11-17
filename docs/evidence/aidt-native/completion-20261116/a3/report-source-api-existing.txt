@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-report_history/apps/api
+
+ ✓ tests/aidt-stages/shared-stage-unit.test.ts > AIDT shared stage transaction behavior (in-memory ports, not PG evidence) > saves one editable stage-six report with actual source history including stage six
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 36 skipped (37)
+   Start at  01:46:50
+   Duration  1.39s (transform 812ms, setup 0ms, collect 1.26s, tests 10ms, environment 0ms, prepare 29ms)
+

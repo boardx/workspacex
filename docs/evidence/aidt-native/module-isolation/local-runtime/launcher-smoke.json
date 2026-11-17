@@ -1,0 +1,22 @@
+{
+  "platform": "linux",
+  "shellSyntax": "passed",
+  "outsideRepoCwd": "/tmp",
+  "results": [
+    {
+      "script": "health",
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "dataDirectoryCreated": false,
+      "stdout": "\n> agentic-harness-template@ aidt:local /workspace/aidt-module-latest\n> pnpm --filter @repo/local-runtime exec tsx src/aidt-cli.ts \"health\" \"--data-dir\" \"/tmp/aidt-launch-smoke-cdj71lyb/never-created\"\n\n{\n  \"state\": \"stopped\"\n}\nundefined\n/workspace/aidt-module-latest/packages/local-runtime:\n\u2009ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL\u2009 Command failed with exit code 1: tsx src/aidt-cli.ts health --data-dir /tmp/aidt-launch-smoke-cdj71lyb/never-created\n\u2009ELIFECYCLE\u2009 Command failed with exit code 1.\n"
+    },
+    {
+      "script": "stop",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "dataDirectoryCreated": false,
+      "stdout": "\n> agentic-harness-template@ aidt:local /workspace/aidt-module-latest\n> pnpm --filter @repo/local-runtime exec tsx src/aidt-cli.ts \"stop\" \"--data-dir\" \"/tmp/aidt-launch-smoke-cdj71lyb/never-created\"\n\nAIDT is already stopped. Saved data retained.\n"
+    }
+  ],
+  "windowsExecuted": false
+}

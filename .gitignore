@@ -35,6 +35,7 @@ dist/
 #   两个都进了库（174 个文件，含 webpack cache 的 .pack.gz）。
 #   一条通配规则顶掉一整类，比一份要人维护的清单可靠。
 .next-*/
+.aidt-local-output-owner.json
 *.tsbuildinfo
 
 # 本地环境与运行时态（派生，不入库）

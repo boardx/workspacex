@@ -1,0 +1,149 @@
+{
+  "source": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
+  "result": {
+    "orgId": "org-collaboration--20261117-s-1e261c1b8eac",
+    "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+    "privateProjectId": "prj-39352b3d-4e4f-4abc-9663-3bcd468dcf65",
+    "authors": [
+      "user-collab-lead--20261117-s-1e261c1b8eac",
+      "user-collab-member--20261117-s-1e261c1b8eac"
+    ],
+    "messages": [
+      {
+        "id": "e112659d-60b4-4da0-9c23-b0cf7b018f81",
+        "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+        "sequence": 1,
+        "authorId": "user-collab-lead--20261117-s-1e261c1b8eac",
+        "clientMessageId": "53f6d021-4e78-4447-a052-56b27556eabd",
+        "text": "双账号验收 30698422-6a38-40b3-8bac-42b163d07538：成员A讨论分工，合成材料非研究结论。",
+        "threadRootId": null,
+        "stageReference": null,
+        "createdAt": "2026-11-16T20:59:03.342Z"
+      },
+      {
+        "id": "dd3da22a-f960-42df-bdba-b2805f03b93f",
+        "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+        "sequence": 2,
+        "authorId": "user-collab-member--20261117-s-1e261c1b8eac",
+        "clientMessageId": "8645dee8-fd5c-43fc-b6dd-5e3ff2b6cf61",
+        "text": "双账号验收 30698422-6a38-40b3-8bac-42b163d07538：成员B提出不同分工。",
+        "threadRootId": null,
+        "stageReference": null,
+        "createdAt": "2026-11-16T20:59:08.335Z"
+      },
+      {
+        "id": "817ad78a-bd41-43f8-a944-cc39f7fe018c",
+        "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+        "sequence": 3,
+        "authorId": "user-collab-member--20261117-s-1e261c1b8eac",
+        "clientMessageId": "e9e8ded0-eb0a-4953-ade4-beb79165e8e9",
+        "text": "双账号验收 30698422-6a38-40b3-8bac-42b163d07538：成员B只回复A这条话题。",
+        "threadRootId": "e112659d-60b4-4da0-9c23-b0cf7b018f81",
+        "stageReference": null,
+        "createdAt": "2026-11-16T20:59:13.353Z"
+      },
+      {
+        "id": "f2a19619-6bc5-4dcc-b115-06dcf727086a",
+        "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+        "sequence": 4,
+        "authorId": "user-collab-lead--20261117-s-1e261c1b8eac",
+        "clientMessageId": "f518ae19-9199-4c7f-b744-d74003b39112",
+        "text": "双账号验收 30698422-6a38-40b3-8bac-42b163d07538：成员A只回复B这条话题。",
+        "threadRootId": "dd3da22a-f960-42df-bdba-b2805f03b93f",
+        "stageReference": null,
+        "createdAt": "2026-11-16T20:59:13.628Z"
+      }
+    ],
+    "actualMemberships": [
+      {
+        "userId": "user-collab-lead--20261117-s-1e261c1b8eac",
+        "displayName": "Collaboration lead",
+        "role": "owner"
+      },
+      {
+        "userId": "user-collab-member--20261117-s-1e261c1b8eac",
+        "displayName": "Collaboration member",
+        "role": "collaborator"
+      }
+    ],
+    "oneRecordPerClientIdForBothReaders": true,
+    "nonmemberDeniedStatuses": [
+      404,
+      404,
+      404
+    ],
+    "ordinaryExistingAccounts": true,
+    "accountsCreated": false,
+    "invitationsCreated": false,
+    "orgRoleOrBalanceChanged": false
+  },
+  "drafts": {
+    "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+    "fromStep": 1,
+    "toStep": 2,
+    "root": {
+      "id": "bde86ea6-2cbc-490d-a795-c878ab3b88a2",
+      "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+      "sequence": 5,
+      "authorId": "user-collab-lead--20261117-s-1e261c1b8eac",
+      "clientMessageId": "af61fc39-e6b9-4e1d-b15e-545c51eb7cf5",
+      "text": "自动化成员文字验收 878863dd-4a4a-4307-b6cd-c4432fa9f097：请同组讨论访谈分工；不是实际访谈证据。",
+      "threadRootId": null,
+      "stageReference": null,
+      "createdAt": "2026-11-16T20:59:14.144Z"
+    },
+    "reply": {
+      "id": "cca02245-2480-4009-b12b-7c2dbda8f459",
+      "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+      "sequence": 6,
+      "authorId": "user-collab-lead--20261117-s-1e261c1b8eac",
+      "clientMessageId": "78934fd9-ff5f-439b-aeef-1f6cddae2b56",
+      "text": "自动化话题回复 878863dd-4a4a-4307-b6cd-c4432fa9f097：只回复此条分工消息；不是 AI 任务。",
+      "threadRootId": "bde86ea6-2cbc-490d-a795-c878ab3b88a2",
+      "stageReference": null,
+      "createdAt": "2026-11-16T20:59:14.311Z"
+    },
+    "uniqueClientMessageCounts": {
+      "root": 1,
+      "reply": 1
+    },
+    "exactRequestReplay": true,
+    "channelDraftRestored": true,
+    "topicDraftRestored": true,
+    "draftPersistenceScope": "same authenticated page session; no reload or browser restart",
+    "generationRequestPaths": []
+  },
+  "phases": [
+    "lead-normal-login",
+    "owner-normal-UI-created-QA-group",
+    "normal-owner-added-existing-collaborator",
+    "owner-only-QA-group-created",
+    "private-QA-owner-and-member-exclusion-authoritatively-read",
+    "existing-member-normal-login",
+    "two-browser-channel-topic-and-isolation-complete"
+  ],
+  "blockedGenerationRequests": [],
+  "setup": "normal existing org admin creates own QA groups and adds the existing org consultant through the product collaborator API",
+  "membershipInitialization": {
+    "performed": true,
+    "scope": "本轮新建合成QA组成员初始化；未修改既有组成员或组织角色",
+    "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+    "actorUserId": "user-collab-lead--20261117-s-1e261c1b8eac",
+    "addedUserId": "user-collab-member--20261117-s-1e261c1b8eac",
+    "role": "collaborator",
+    "transport": "normally authenticated product collaborator API",
+    "status": 201,
+    "receipt": {
+      "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+      "userId": "user-collab-member--20261117-s-1e261c1b8eac",
+      "role": "collaborator",
+      "provenanceEventId": "7d7ae478-2d64-4504-97b7-38d5fb4bc76a"
+    }
+  },
+  "ordinaryStudentCreatesGroupProven": false,
+  "membershipRowsWrittenThroughNormalProductApi": true,
+  "previousSetupEvidenceRetained": false,
+  "providerOrTeachingSuccessClaimed": false,
+  "isolatedFromFundedAdminDeviceSession": true,
+  "independentOwnerModelAudit": "A1 exact collaboration tenant/project audit required; main paid org activity is unrelated"
+}

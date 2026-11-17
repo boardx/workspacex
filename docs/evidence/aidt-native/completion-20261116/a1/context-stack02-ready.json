@@ -1,0 +1,49 @@
+{
+  "ready": true,
+  "phase": "health-only",
+  "source": "696e5da061977eb961c4d9bae4a3a5e9447cccf7",
+  "finalSourceBuild": true,
+  "buildExitCode": 0,
+  "baseURL": "http://127.0.0.1:25320",
+  "apiOrigin": "http://127.0.0.1:24320",
+  "routes": {
+    "/login": {
+      "status": 200,
+      "json": false
+    },
+    "/__fullstack_api/identity/me": {
+      "status": 401,
+      "json": true
+    },
+    "/__fullstack_api/aidt/courses": {
+      "status": 401,
+      "json": true
+    },
+    "/__fullstack_api/agent-runs/00000000-0000-4000-8000-000000000000/aidt-context": {
+      "status": 401,
+      "json": true
+    }
+  },
+  "productionDiff": [],
+  "qaHelperWorkingTreeDiff": [
+    "apps/web/e2e/support/aidt-v2-acceptance.ts",
+    "apps/web/e2e/support/aidt-v2-wire-metadata.ts"
+  ],
+  "autoExecution": {
+    "enabled": false,
+    "launchValue": "0",
+    "method": "explicit launch environment; inherited unchanged by existing runner/e2e-up; kernel env gate; AgentRunExecutor.kick early return; API not replaced",
+    "apiPid": 208535,
+    "source": "696e5da061977eb961c4d9bae4a3a5e9447cccf7",
+    "guards": {
+      "agentRuns": "0",
+      "skillTrialRuns": "0",
+      "attachmentExtraction": "0",
+      "threadTitleModel": "0"
+    },
+    "paidRequestsAuthorized": false
+  },
+  "privateRuntimeMode600": true,
+  "modelAcceptance": "not_run",
+  "providerRequestsSent": 0
+}

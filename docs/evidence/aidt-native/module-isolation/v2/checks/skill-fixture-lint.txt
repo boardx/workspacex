@@ -1,0 +1,1 @@
+✓ global-scope test fixtures：86 个文件全部已声明

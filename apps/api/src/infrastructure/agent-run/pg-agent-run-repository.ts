@@ -1,4 +1,5 @@
 import {CreditRequiredBody} from "@repo/contracts/billing-consumption";
+import type { AidtRunContextSnapshotStore } from "../../application/aidt-run-context/ports";
 import {ownedRunCreditFailure} from "../../application/agent-run/run-credit-failure";
 import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 import { SkillActivityFact } from "@repo/contracts/skill-activity";
@@ -42,13 +43,14 @@ import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import { numberRunCitations, type RunCitation } from "../../application/agent-run/standard-cite";
 import type {
-  AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, HistoryAttachmentMeta,
+  AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, ClaimedAgentRun, HistoryAttachmentMeta,
   PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunFailureReason, RunLifecycleStatus, RunOutputFile,
   RunLocator, RunProjection, ThreadContextState, ThreadHistoryMessage,
   TranscriptContentCipher, TranscriptStep,
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
+  aidt_selector_hash?: string | null;
   runtime_profile: "legacy" | "native-v1";
   pending_permission_request_id?: string | null;
   lease_epoch?: number;
@@ -166,6 +168,7 @@ export class PgAgentRunRepository implements AgentRunStore {
   constructor(
     private readonly db: DatabasePort,
     private readonly cipher: TranscriptContentCipher | null = null,
+    private readonly aidtContexts?: Pick<AidtRunContextSnapshotStore, "readIn">,
   ) {}
 
   claimQueued(orgId: OrgId, limit: number): Promise<readonly ClaimOutcome[]> {
@@ -195,7 +198,7 @@ export class PgAgentRunRepository implements AgentRunStore {
             )
         RETURNING r.id, r.thread_id, r.input_message_id, r.agent_id, r.agent_version_id,
                   r.skill_version_ids, r.model_provider, r.model_id, r.runtime_profile, r.pending_decision,
-                  r.pending_tool_name, r.pending_edited_args, r.checkpoint_resume, r.lease_epoch, r.pending_permission_request_id`,
+                  r.pending_tool_name, r.pending_edited_args, r.checkpoint_resume, r.lease_epoch, r.pending_permission_request_id, r.aidt_selector_hash`,
         [orgId, threads.rows.map(thread=>thread.id), DEFAULT_STALE_RUNNING_THRESHOLD_MS],
       );
       if (claimed.rows.length === 0) return [];
@@ -239,7 +242,13 @@ export class PgAgentRunRepository implements AgentRunStore {
           runs.push({ kind: "unresolvable", runId: row.id, leaseEpoch: row.lease_epoch });
           continue;
         }
-        runs.push({ kind: "executable", run: {
+        let aidtContext: Awaited<ReturnType<AidtRunContextSnapshotStore["readIn"]>> | undefined;
+        if (row.aidt_selector_hash != null) {
+          try { aidtContext = await this.aidtContexts?.readIn(s, orgId, row.id); }
+          catch { runs.push({ kind: "unresolvable", runId: row.id, leaseEpoch: row.lease_epoch }); continue; }
+        }
+        const run: ClaimedAgentRun = {
+          ...(row.aidt_selector_hash == null ? {} : { aidtSelectorHash: row.aidt_selector_hash, ...(aidtContext ? { aidtContext } : {}) }),
           runId: row.id,
           runtimeProfile: row.runtime_profile,
           leaseEpoch: row.lease_epoch,
@@ -284,7 +293,11 @@ export class PgAgentRunRepository implements AgentRunStore {
           ...((row.checkpoint_resume || (row.pending_decision !== null && row.pending_decision !== undefined))
             ? { resumeStepSeqBase: extra.max_step_seq }
             : {}),
-        } });
+        };
+        if (row.aidt_selector_hash != null && (!aidtContext || aidtContext.ref.kind !== "project" || aidtContext.ref.id !== run.projectId)) {
+          runs.push({ kind: "unresolvable", runId: row.id, leaseEpoch: row.lease_epoch }); continue;
+        }
+        runs.push({ kind: "executable", run });
       }
       return runs;
     });

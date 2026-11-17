@@ -1,0 +1,26 @@
+
+> agentic-harness-template@ real-model:doctor /workspace/scratch/aidt-complete-model_config
+> node scripts/real-model-config.mjs "--model-env-file" "/workspace/cn.local.env"
+
+{
+  "configuration": "blocked",
+  "source": {
+    "requested": "explicit_file",
+    "fileStatus": "missing"
+  },
+  "provider": "unresolved",
+  "fields": {
+    "DASHSCOPE_API_KEY": "missing",
+    "DASHSCOPE_BASE_URL": "missing",
+    "DASHSCOPE_MODEL": "missing"
+  },
+  "errors": [
+    {
+      "code": "env_file_missing"
+    }
+  ],
+  "connectivity": "not_checked",
+  "modelAcceptance": "not_run",
+  "localProfileChanged": false
+}
+ ELIFECYCLE  Command failed with exit code 2.

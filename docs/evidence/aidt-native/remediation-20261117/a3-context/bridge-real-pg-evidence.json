@@ -1,0 +1,220 @@
+{
+  "kind": "real-pg-actual-adapter-recording-transport",
+  "supplierCalls": 0,
+  "realSupplierE2E": false,
+  "evidence": [
+    {
+      "name": "CTX-P01/N01/I03",
+      "facts": {
+        "sourceRevisions": [
+          {
+            "stageId": 1,
+            "revision": 1
+          },
+          {
+            "stageId": 2,
+            "revision": 1
+          }
+        ],
+        "snapshotHash": "e26b0151f8460ff123ab138e6447704e5a03f0619439beb3169d0078884c26b5",
+        "actualMessageHash": "5a5eb3744d4b7945e089e895a80d3811641533d9df209ac6d4e1fc5a0d558780",
+        "sourceMarkerInActualSlot": true,
+        "forgedAndPrivateExcluded": true,
+        "humanExact": true,
+        "transportSubmissions": 1,
+        "ownTenantApprovedPackImport": true,
+        "platformLineageClaimed": false
+      }
+    },
+    {
+      "name": "CTX-reject-project",
+      "facts": {
+        "humanRunSnapshotRowsUnchanged": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-reject-org",
+      "facts": {
+        "humanRunSnapshotRowsUnchanged": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-reject-member",
+      "facts": {
+        "humanRunSnapshotRowsUnchanged": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-reject-admin-not-group-member",
+      "facts": {
+        "humanRunSnapshotRowsUnchanged": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-reject-revision",
+      "facts": {
+        "humanRunSnapshotRowsUnchanged": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-reject-stage",
+      "facts": {
+        "humanRunSnapshotRowsUnchanged": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-reject-pin",
+      "facts": {
+        "humanRunSnapshotRowsUnchanged": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-reject-pin-missing",
+      "facts": {
+        "humanRunSnapshotRowsUnchanged": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-reject-archived",
+      "facts": {
+        "humanRunSnapshotRowsUnchanged": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-I01/I02",
+      "facts": {
+        "sameSnapshotReplayed": true,
+        "changedSourceConflict": true,
+        "additionalRows": 0,
+        "modelCalls": 0
+      }
+    },
+    {
+      "name": "CTX-atomic-rollback",
+      "facts": {
+        "actualSnapshotInsertThenAbort": true,
+        "humanRunSnapshotRolledBackTogether": true,
+        "modelCalls": 0,
+        "sharedGrantsOrTriggersChanged": false
+      }
+    },
+    {
+      "name": "CTX-N05",
+      "facts": {
+        "realOwnerRemovalUsecase": true,
+        "oldAcceptanceCannotAuthorizeDispatch": true,
+        "modelCalls": 0
+      }
+    },
+    {
+      "name": "CTX-N05-real-lock-race",
+      "facts": {
+        "actualDeleteObservedBlockedOnAcceptedSourceLock": true,
+        "revocationThenCommitted": true,
+        "freshDispatchDenied": true,
+        "modelCalls": 0,
+        "noSharedGrantMutation": true
+      }
+    },
+    {
+      "name": "CTX-untrusted-same-name",
+      "facts": {
+        "matchingStableNameInsufficient": true,
+        "actualPackageBytesRejected": true,
+        "acceptedRuns": 0,
+        "modelCalls": 0
+      }
+    },
+    {
+      "name": "CTX-snapshot-missing",
+      "facts": {
+        "malformedFixtureInsertedWithoutUpdatingImmutableRows": true,
+        "terminalFailed": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-snapshot-bad-hash",
+      "facts": {
+        "malformedFixtureInsertedWithoutUpdatingImmutableRows": true,
+        "terminalFailed": true,
+        "modelCalls": 0,
+        "transportSubmissions": 0
+      }
+    },
+    {
+      "name": "CTX-R01/R02-PG-layer",
+      "facts": {
+        "acceptedSnapshotHash": "34d06f01ad624c6f95b8b6bee813069513cf89891803c75e9ab9083d1085f25d",
+        "oldRevisionRetainedOnNewRepository": true,
+        "newHumanOrRun": false,
+        "realBrowserResumeTested": false,
+        "modelCalls": 0
+      }
+    },
+    {
+      "name": "CTX-late-original-dispatch-after-actual-resume",
+      "facts": {
+        "oldActualDispatchAttempt": "aidt-context-pg-500c615c-b30c-4e4a-8000-39ce727fa7f1-run-3a0db10d-603a-4518-b17a-304eaf7bf2fe:1",
+        "actualResumeAttempt": "aidt-context-pg-500c615c-b30c-4e4a-8000-39ce727fa7f1-run-3a0db10d-603a-4518-b17a-304eaf7bf2fe:4",
+        "finalReceiptStillResume": true,
+        "inheritedOriginalHash": "3ff414c19c66560ad93704f55989d60d732b2209742960f19a37e3047f687773",
+        "oldSnapshotUsed": true,
+        "remoteThreadUnchanged": true,
+        "resumeCommandWithoutNewInput": true,
+        "actualTransportSubmissions": 2,
+        "realSupplierOrBrowserResumeClaimed": false
+      }
+    },
+    {
+      "name": "CTX-S01",
+      "facts": {
+        "exactSummarySkillVersionId": "skill-version-8a3d76ef-981f-4b66-9dc1-ab937870fd6f",
+        "oldAndCurrentSelectedSourcesPresent": true,
+        "stagePinUnchanged": true,
+        "teacherCommentSourceAbsent": true,
+        "missingStagesExplicit": true,
+        "transportSubmissions": 1
+      }
+    },
+    {
+      "name": "CTX-R03",
+      "facts": {
+        "selectedS5Revision": 2,
+        "currentS5Revision": 3,
+        "oldQuestionAndLegacyPrototypeTextOnly": true,
+        "currentHeadExcludedFromActualModelSlot": true,
+        "sharedDraftsUnchanged": true,
+        "generatedPrototypeOrRealTestClaimed": false
+      }
+    },
+    {
+      "name": "ordinary-chat",
+      "facts": {
+        "aidtPortCalls": 0,
+        "snapshotRows": 0,
+        "applicationRows": 0,
+        "ordinaryTransportStillWorks": true
+      }
+    }
+  ]
+}

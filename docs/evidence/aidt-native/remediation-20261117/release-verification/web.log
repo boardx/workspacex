@@ -1,0 +1,111 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/aidt-shared-stages.test.tsx (38 tests) 522ms
+ ✓ tests/ui/project-aidt-chat.test.tsx (38 tests) 406ms
+ ✓ tests/ui/aidt-stage-output-classification.test.tsx (20 tests) 1127ms
+ ✓ tests/ui/aidt-personal-checkpoints.test.tsx (16 tests) 331ms
+ ✓ tests/ui/aidt-surprise-reflection.test.tsx (24 tests) 266ms
+ ✓ tests/ui/aidt-summary-report.test.tsx (8 tests) 236ms
+ ✓ tests/ui/aidt-prototype-version-picker.test.tsx (17 tests) 519ms
+ ✓ tests/ui/aidt-image-attachment-picker.test.tsx (15 tests) 997ms
+   ✓ does not reuse the previous thread's successful image decode for a new image 403ms
+ ✓ tests/ui/project-aidt.test.tsx (16 tests) 1381ms
+   ✓ native AIDT project workspace > shows six steps with project-safe URLs and no fictional progress 815ms
+ ✓ tests/ui/aidt-resource-isolation.test.tsx (11 tests) 305ms
+ ✓ tests/ui/aidt-entry-isolation.test.tsx (13 tests) 948ms
+   ✓ preserves the ordinary creation contract with the module disabled 591ms
+ ✓ tests/ui/aidt-research-material.test.tsx (9 tests) 220ms
+ ✓ tests/ui/aidt-state-isolation.test.tsx (9 tests) 547ms
+ ✓ tests/ui/aidt-native-context-parent.test.tsx (5 tests) 754ms
+   ✓ UNSAVED S3: reconfirming current cards locally must not mix their new version with the older saved reflection 369ms
+ ✓ tests/ui/aidt-courses-panel.test.tsx (10 tests) 229ms
+ ✓ tests/ui/aidt-entry.test.tsx (14 tests) 261ms
+ ✓ tests/ui/aidt-problem-reflection.test.tsx (11 tests) 207ms
+ ✓ tests/ui/aidt-resource-navigation.test.tsx (18 tests) 258ms
+ ✓ tests/ui/aidt-report-history.test.tsx (11 tests) 233ms
+ ✓ tests/ui/aidt-stage-history.test.tsx (7 tests) 154ms
+ ✓ tests/ui/aidt-round-navigation.test.tsx (9 tests) 162ms
+ ✓ tests/ui/aidt-ui-v3.test.tsx (8 tests) 652ms
+ ✓ tests/ui/aidt-stage-contract.test.tsx (10 tests) 187ms
+ ✓ tests/ui/aidt-ui-v2.test.tsx (8 tests) 291ms
+ ✓ tests/ui/aidt-idea-classification.test.tsx (6 tests) 221ms
+ ✓ tests/ui/aidt-interview-guide-export.test.tsx (5 tests) 649ms
+   ✓ previews original and adopted drafts separately and prints only the exact adopted text in the actual cloned document 332ms
+ ✓ tests/ui/aidt-module-compatibility.test.tsx (10 tests) 188ms
+ ✓ tests/ui/aidt-test-reflection.test.tsx (5 tests) 168ms
+ ✓ tests/ui/aidt-stage-journey.test.tsx (10 tests) 228ms
+ ✓ tests/ui/aidt-run-context-receipt.test.tsx (7 tests) 152ms
+ ✓ tests/ui/aidt-course-entry.test.tsx (8 tests) 172ms
+ ✓ tests/ui/aidt-discovery-cards.test.tsx (4 tests) 211ms
+ ✓ tests/ui/aidt-prototype-binding-integration.test.tsx (2 tests) 182ms
+ ✓ tests/ui/aidt-stage-original-image.test.tsx (2 tests) 291ms
+ ✓ tests/ui/aidt-assistant-panel.test.tsx (3 tests) 109ms
+ ✓ tests/ui/aidt-discovery-source-picker.test.tsx (3 tests) 145ms
+ ✓ tests/ui/aidt-iteration-prototype.test.tsx (2 tests) 199ms
+ ✓ tests/ui/aidt-course-role-lifecycle.test.tsx (3 tests) 89ms
+ ✓ tests/ui/aidt-ui-v5.test.tsx (4 tests) 161ms
+ ✓ tests/ui/aidt-learning-guide.test.tsx (11 tests) 160ms
+ ✓ tests/ui/aidt-shared-report-preview.test.tsx (3 tests) 178ms
+ ✓ tests/ui/aidt-design-workspace.test.tsx (4 tests) 117ms
+ ✓ tests/ui/aidt-stage-testing-materials.test.tsx (2 tests) 200ms
+ ✓ tests/ui/aidt-v2-shared-round.test.tsx (2 tests) 127ms
+ ✓ tests/ui/aidt-chat-isolation.test.tsx (7 tests) 155ms
+ ✓ tests/ui/aidt-feedback-loop.test.tsx (2 tests) 267ms
+ ✓ tests/ui/aidt-verification-question.test.tsx (2 tests) 132ms
+ ✓ tests/ui/home-aidt-entry.test.tsx (2 tests) 76ms
+ ✓ tests/aidt-stage-persistence.test.ts (26 tests) 75ms
+ ✓ tests/live-aidt-step-chat.test.ts (18 tests) 64ms
+ ✓ tests/aidt-v2-wire-metadata.test.ts (27 tests) 22ms
+ ✓ tests/aidt-verification-loop.test.ts (14 tests) 11ms
+ ✓ tests/aidt-chat-return-context.test.ts (8 tests) 9ms
+ ✓ tests/aidt-design-handoff.test.ts (10 tests) 10ms
+ ✓ tests/aidt-research-materials.test.ts (11 tests) 20ms
+ ✓ tests/aidt-v2-remediation-criteria.test.ts (10 tests) 8ms
+ ✓ tests/aidt-chat-shared-context.test.ts (12 tests) 7ms
+ ✓ tests/aidt-v2-completion-state.test.ts (5 tests) 8ms
+ ✓ tests/aidt-prototype-reference.test.ts (8 tests) 9ms
+ ✓ tests/aidt-report-history.test.ts (9 tests) 13ms
+ ✓ tests/aidt-summary-results.test.ts (9 tests) 8ms
+ ✓ tests/aidt-iteration-prototype.test.ts (8 tests) 6ms
+ ✓ tests/aidt-prototype-versions.test.ts (7 tests) 14ms
+ ✓ tests/aidt-chat-saved-context.test.ts (8 tests) 6ms
+ ✓ tests/aidt-module-boundary.test.ts (4 tests) 1671ms
+   ✓ keeps production AIDT consumers on explicit public registration adapters 1653ms
+ ✓ tests/aidt-idea-classification.test.ts (12 tests) 6ms
+ ✓ tests/aidt-v2-s2-supplement-preflight.test.ts (4 tests) 8ms
+ ✓ tests/aidt-ui-stage-summary.test.ts (8 tests) 3ms
+ ✓ tests/live-aidt-chat-isolation.test.ts (6 tests) 58ms
+ ✓ tests/aidt-course-context.test.ts (7 tests) 160ms
+ ✓ tests/aidt-image-attachments.test.ts (7 tests) 7ms
+ ✓ tests/aidt-v2-s2-supplement-ledger.test.ts (4 tests) 163ms
+ ✓ tests/aidt-v2-supplemental-ledger.test.ts (4 tests) 129ms
+ ✓ tests/aidt-discovery-evidence.test.ts (5 tests) 7ms
+ ✓ tests/aidt-prototype-formatting-boundary.test.ts (2 tests) 32ms
+ ✓ tests/aidt-board-return-navigation.test.ts (26 tests) 5ms
+ ✓ tests/aidt-summary-context.test.ts (6 tests) 6ms
+ ✓ tests/aidt-v2-fresh-journey.test.ts (3 tests) 5ms
+ ✓ tests/aidt-v2-remediation-runner.test.ts (4 tests) 120ms
+ ✓ tests/aidt-course-client.test.ts (5 tests) 7ms
+ ✓ tests/aidt-v2-summary-supplement-ledger.test.ts (3 tests) 20ms
+ ✓ tests/aidt-shared-stage-client.test.ts (5 tests) 7ms
+ ✓ tests/aidt-v2-report.test.ts (2 tests) 3ms
+ ✓ tests/e2e-support/aidt-facilitation-cases.test.ts (11 tests) 5ms
+ ✓ tests/aidt-v2-skill-execution-proof.test.ts (2 tests) 2ms
+ ✓ tests/aidt-courses-rewrite.test.ts (5 tests) 5ms
+ ✓ tests/aidt-stage-history-client.test.ts (4 tests) 7ms
+ ✓ tests/aidt-state-isolation.test.ts (3 tests) 2ms
+ ✓ tests/live-aidt-run-context.test.ts (4 tests) 5ms
+ ✓ tests/aidt-project-membership.test.ts (5 tests) 5ms
+ ✓ tests/aidt-idea-readiness.test.ts (4 tests) 2ms
+ ✓ tests/aidt-native-context-selector.test.ts (3 tests) 6ms
+ ✓ tests/aidt-teaching-stage.test.ts (2 tests) 3ms
+ ✓ tests/aidt-v2-static-inspection.test.ts (2 tests) 2ms
+ ✓ tests/aidt-v2-plan-review.test.ts (2 tests) 2ms
+ ✓ tests/aidt-entry-isolation-config.test.ts (10 tests) 5ms
+
+ Test Files  96 passed (96)
+      Tests  818 passed (818)
+   Start at  22:33:05
+   Duration  43.43s (transform 6.05s, setup 6.12s, collect 28.77s, tests 18.53s, environment 21.00s, prepare 3.25s)

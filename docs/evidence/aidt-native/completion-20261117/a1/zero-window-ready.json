@@ -1,0 +1,52 @@
+{
+  "observedAt": "2026-11-16T17:18:55.400Z",
+  "verifiedWhileActualLaunchWasZero": true,
+  "allGuards": {
+    "KERNEL_AGENT_RUN_AUTOSTART": "0",
+    "KERNEL_SKILL_TRIALRUN_AUTOSTART": "0",
+    "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART": "0",
+    "KERNEL_THREAD_TITLE_MODEL_ENABLED": "0",
+    "KERNEL_STANDARD_SCHEDULER": "0"
+  },
+  "apiOwner": {
+    "pid": 382732,
+    "startTicks": "6010974"
+  },
+  "pythonOwner": {
+    "pid": 382665,
+    "startTicks": "6010724"
+  },
+  "webSource": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+  "apiSource": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+  "webBuildId": "HpTdw6E9Fzu6NgYyCuctM",
+  "freshProductionBuild": true,
+  "usesCheckpoint": false,
+  "health": {
+    "apiHealth": {
+      "status": 200,
+      "jsonContentType": true
+    },
+    "webLogin": {
+      "status": 200,
+      "jsonContentType": false
+    },
+    "courseSameOrigin": {
+      "status": 401,
+      "jsonContentType": true
+    }
+  },
+  "orgId": "org-fullstack-20261117-01-7d265647426d",
+  "fundedPrincipalId": "user-fullstack-admin-20261117-01-7d265647426d",
+  "agent": {
+    "id": "agent-fullstack-20261117-01-7d265647426d",
+    "publishedVersionId": "agent-fullstack-20261117-01-7d265647426d-v1",
+    "instructionDigest": "802cf79cc20cd6861c2aa766d7a7c4b1a9094add3624f523e467dd81c85fe371",
+    "storedDigestMatches": true,
+    "canonicalInstructionsMatch": true,
+    "providerIsNative": true,
+    "modelConfigured": true
+  },
+  "modelRequestsSentByOwner": 0,
+  "paidWindowOpened": false,
+  "oldBudgetsUnchanged": true
+}

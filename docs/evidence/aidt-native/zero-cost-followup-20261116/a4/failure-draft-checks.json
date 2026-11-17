@@ -1,0 +1,43 @@
+{
+  "scope": "zero-cost internal retry draft preservation",
+  "controlledBefore": {
+    "failed": 4,
+    "passed": 5
+  },
+  "controlledAfter": {
+    "files": 3,
+    "passed": 22,
+    "exitCode": 0
+  },
+  "eslintExitCode": 0,
+  "diffCheckExitCode": 0,
+  "panelBodyLines": 1952,
+  "files": {
+    "apps/web/components/chat/copilotkit-v2-panel-body.tsx": "f17339f9415fae11cefb914e2ca409e00620b80c84d4867b4415017b39a6e772",
+    "apps/web/components/chat/copilotkit-v2-panel-view.tsx": "b1f423240a7ccea0bd9ef05ad372e1832850ccb1276bda775ab928105e12d0fc",
+    "apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx": "7672c438f266e006ee69df1cd469c61ad1b961b89eac1183c82f1be2a6d2c658"
+  },
+  "externalRequests": 0,
+  "modelRequests": 0,
+  "browserRuns": 0,
+  "fullStackStarts": 0,
+  "pdfEdited": false,
+  "committedByWorker": false,
+  "actualS2RetestPerformed": false,
+  "additionalAttachmentBefore": {
+    "failed": 2,
+    "passed": 9,
+    "assertions": "B pending attachment and mention both lost; original A payload still exact"
+  },
+  "controlledFinal": {
+    "files": 4,
+    "passed": 25,
+    "exitCode": 0
+  },
+  "strongerFollowupHost": {
+    "files": 1,
+    "passed": 11,
+    "exitCode": 0,
+    "newUnsentBThenActuallySentWithOwnAttachments": true
+  }
+}

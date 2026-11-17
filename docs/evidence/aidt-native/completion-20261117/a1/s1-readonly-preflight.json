@@ -1,0 +1,44 @@
+{
+  "observedAt": "2026-11-16T17:22:02.464Z",
+  "readOnly": true,
+  "orgId": "org-fullstack-20261117-01-7d265647426d",
+  "actor": {
+    "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+    "org_role": "admin"
+  },
+  "wallets": [
+    {
+      "owner_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "balance": "20000.00",
+      "held_hundredths": "0",
+      "remaining_held_hundredths": "0",
+      "unbounded_requests": "0"
+    }
+  ],
+  "totals": {
+    "runs": 0,
+    "physical": 0,
+    "usage": 0,
+    "credits": 0,
+    "active": 0
+  },
+  "threads": [],
+  "oldBudgetHashes": [
+    {
+      "path": "/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json",
+      "sha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s1-ledger.json",
+      "sha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true
+    },
+    {
+      "path": "/workspace/scratch/aidt-real-completion-20261116/additional-s2-ledger.json",
+      "sha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true
+    }
+  ],
+  "modelRequestsSentByAudit": 0
+}

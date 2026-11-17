@@ -1,0 +1,4 @@
+Listing tests:
+  aidt-v2-deliverables.spec.ts:34:5 › no-model S2: student manual fallback keeps the original and exports actual adopted-guide PDF bytes
+  aidt-v2-deliverables.spec.ts:90:5 › no-model S6: independent synthetic feedback file uploads, persists, rereads exact bytes and rejects cross-project/nonmember access
+Total: 2 tests in 1 file

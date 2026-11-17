@@ -1,0 +1,39 @@
+{
+  "ready": true,
+  "phase": "health-only",
+  "launchSource": "b8e27049e6fcfd73805844f349c2325368c26385",
+  "finalSourceBuild": false,
+  "pendingFrontendFix": true,
+  "buildExitCode": 0,
+  "baseURL": "http://127.0.0.1:25025",
+  "apiOrigin": "http://127.0.0.1:24025",
+  "routes": {
+    "/login": {
+      "status": 200,
+      "json": false,
+      "expected": true
+    },
+    "/__fullstack_api/identity/me": {
+      "status": 401,
+      "json": true,
+      "expected": true
+    },
+    "/__fullstack_api/aidt/courses": {
+      "status": 401,
+      "json": true,
+      "expected": true
+    },
+    "/__fullstack_api/agent-runs/00000000-0000-4000-8000-000000000000/aidt-context": {
+      "status": 401,
+      "json": true,
+      "expected": true
+    }
+  },
+  "productionDiffSinceLaunchSha": [],
+  "privateRuntimeMode600": true,
+  "agentAutoExecution": false,
+  "modelAcceptance": "not_run",
+  "providerRequestsSent": 0,
+  "offlineDoctorRequestsSent": 0,
+  "sourceMetadataOnly": true
+}

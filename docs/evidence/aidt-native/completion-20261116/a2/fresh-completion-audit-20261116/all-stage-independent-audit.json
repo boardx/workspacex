@@ -1,0 +1,401 @@
+{
+  "kind": "independent-fresh-seed-source-audit-final",
+  "asOf": "2026-11-16T18:33:39.907813+00:00",
+  "orgId": "org-fullstack-20261117-01-7d265647426d",
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "ordinaryDeriveOnly": true,
+  "restoreAdapterUsed": false,
+  "actualAuditedNativeRuns": 7,
+  "actualSourceAuditsPassed": 7,
+  "actualNativeTaskSucceeded": 6,
+  "actualNativeTaskCancelled": 1,
+  "fullSevenTaskNativeChainPassed": false,
+  "mainChainBreak": "S5 native cancelled; student manual fallback does not replace native Agent success",
+  "downstreamNotYetClaimed": false,
+  "rolesObserved": {
+    "organization": "admin",
+    "explicitGeneralGroup": "owner",
+    "ordinaryStudentModelPermissionProven": false
+  },
+  "phases": [
+    {
+      "phase": "S1",
+      "runId": "33945939-c856-4b46-ba35-6953c835c588",
+      "actualNativeTaskStatus": "succeeded",
+      "sourceAuditPassed": true,
+      "focus": "aidt-understand",
+      "selectedSources": [
+        {
+          "kind": "stage",
+          "stageId": 1,
+          "revision": 1,
+          "headWhenAudited": 2
+        }
+      ],
+      "dispatchObservations": 1,
+      "resumeObservations": 0,
+      "physical": 4,
+      "usage": 4,
+      "physicalUsageIdCoverageExact": true,
+      "reportedPortionTokens": 24544,
+      "unknownUsageRecords": 0,
+      "settledCreditRecords": 4,
+      "pendingCreditRecords": 0,
+      "accountingObservedAt": "2026-11-16T17:25:46.451Z",
+      "humanAndStageContentPublishedByAudit": false,
+      "report": "s1-independent-summary.json"
+    },
+    {
+      "phase": "S2",
+      "runId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d",
+      "actualNativeTaskStatus": "succeeded",
+      "sourceAuditPassed": true,
+      "focus": "aidt-empathize",
+      "selectedSources": [
+        {
+          "kind": "stage",
+          "stageId": 2,
+          "revision": 3,
+          "headWhenAudited": 4
+        },
+        {
+          "kind": "stage",
+          "stageId": 1,
+          "revision": 2,
+          "headWhenAudited": 2
+        }
+      ],
+      "dispatchObservations": 1,
+      "resumeObservations": 1,
+      "physical": 6,
+      "usage": 6,
+      "physicalUsageIdCoverageExact": true,
+      "reportedPortionTokens": 40165,
+      "unknownUsageRecords": 0,
+      "settledCreditRecords": 6,
+      "pendingCreditRecords": 0,
+      "accountingObservedAt": "2026-11-16T17:37:41.887Z",
+      "humanAndStageContentPublishedByAudit": false,
+      "report": "s2-independent-summary.json",
+      "originalInterruptionRetainedAndApprovedSameRunResume": true
+    },
+    {
+      "phase": "S3",
+      "runId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+      "actualNativeTaskStatus": "succeeded",
+      "sourceAuditPassed": true,
+      "focus": "aidt-define",
+      "selectedSources": [
+        {
+          "kind": "stage",
+          "stageId": 3,
+          "revision": 1,
+          "headWhenAudited": 2
+        },
+        {
+          "kind": "stage",
+          "stageId": 1,
+          "revision": 2,
+          "headWhenAudited": 2
+        },
+        {
+          "kind": "stage",
+          "stageId": 2,
+          "revision": 4,
+          "headWhenAudited": 4
+        }
+      ],
+      "dispatchObservations": 1,
+      "resumeObservations": 0,
+      "physical": 44,
+      "usage": 44,
+      "physicalUsageIdCoverageExact": true,
+      "reportedPortionTokens": 281610,
+      "unknownUsageRecords": 1,
+      "settledCreditRecords": 43,
+      "pendingCreditRecords": 1,
+      "accountingObservedAt": "2026-11-16T17:43:18.542Z",
+      "humanAndStageContentPublishedByAudit": false,
+      "report": "s3-independent-summary.json",
+      "highPhysicalCountAndDurationIssuePreserved": true
+    },
+    {
+      "phase": "S4",
+      "runId": "f53bc122-fc39-40f5-972a-021467b6190b",
+      "actualNativeTaskStatus": "succeeded",
+      "sourceAuditPassed": true,
+      "focus": "aidt-ideate",
+      "selectedSources": [
+        {
+          "kind": "stage",
+          "stageId": 4,
+          "revision": 2,
+          "headWhenAudited": 3
+        },
+        {
+          "kind": "stage",
+          "stageId": 1,
+          "revision": 2,
+          "headWhenAudited": 2
+        },
+        {
+          "kind": "stage",
+          "stageId": 2,
+          "revision": 4,
+          "headWhenAudited": 4
+        },
+        {
+          "kind": "stage",
+          "stageId": 3,
+          "revision": 2,
+          "headWhenAudited": 2
+        }
+      ],
+      "dispatchObservations": 1,
+      "resumeObservations": 0,
+      "physical": 6,
+      "usage": 6,
+      "physicalUsageIdCoverageExact": true,
+      "reportedPortionTokens": 49174,
+      "unknownUsageRecords": 0,
+      "settledCreditRecords": 6,
+      "pendingCreditRecords": 0,
+      "accountingObservedAt": "2026-11-16T17:48:55.712Z",
+      "humanAndStageContentPublishedByAudit": false,
+      "report": "s4-independent-summary.json"
+    },
+    {
+      "phase": "S5",
+      "runId": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+      "actualNativeTaskStatus": "cancelled",
+      "sourceAuditPassed": true,
+      "focus": "aidt-prototype",
+      "selectedSources": [
+        {
+          "kind": "stage",
+          "stageId": 5,
+          "revision": 1,
+          "headWhenAudited": 2
+        },
+        {
+          "kind": "stage",
+          "stageId": 1,
+          "revision": 2,
+          "headWhenAudited": 2
+        },
+        {
+          "kind": "stage",
+          "stageId": 2,
+          "revision": 4,
+          "headWhenAudited": 4
+        },
+        {
+          "kind": "stage",
+          "stageId": 3,
+          "revision": 2,
+          "headWhenAudited": 2
+        },
+        {
+          "kind": "stage",
+          "stageId": 4,
+          "revision": 4,
+          "headWhenAudited": 4
+        }
+      ],
+      "dispatchObservations": 1,
+      "resumeObservations": 0,
+      "physical": 15,
+      "usage": 15,
+      "physicalUsageIdCoverageExact": true,
+      "reportedPortionTokens": 103507,
+      "unknownUsageRecords": 0,
+      "settledCreditRecords": 15,
+      "pendingCreditRecords": 0,
+      "accountingObservedAt": "2026-11-16T17:56:03.925Z",
+      "humanAndStageContentPublishedByAudit": false,
+      "report": "s5-independent-summary.json",
+      "manualStudentFallbackIsSeparateFromNativeTask": true,
+      "modelTaskPassed": false
+    },
+    {
+      "phase": "S6",
+      "runId": "1010682b-3003-4358-a547-e19b5f01b1af",
+      "actualNativeTaskStatus": "succeeded",
+      "sourceAuditPassed": true,
+      "focus": "aidt-iterate",
+      "selectedSources": [
+        {
+          "kind": "stage",
+          "stageId": 6,
+          "revision": 3,
+          "headWhenAudited": 4
+        },
+        {
+          "kind": "stage",
+          "stageId": 1,
+          "revision": 2,
+          "headWhenAudited": 2
+        },
+        {
+          "kind": "stage",
+          "stageId": 2,
+          "revision": 4,
+          "headWhenAudited": 4
+        },
+        {
+          "kind": "stage",
+          "stageId": 3,
+          "revision": 2,
+          "headWhenAudited": 2
+        },
+        {
+          "kind": "stage",
+          "stageId": 4,
+          "revision": 4,
+          "headWhenAudited": 4
+        },
+        {
+          "kind": "stage",
+          "stageId": 5,
+          "revision": 3,
+          "headWhenAudited": 3
+        }
+      ],
+      "dispatchObservations": 1,
+      "resumeObservations": 1,
+      "physical": 6,
+      "usage": 6,
+      "physicalUsageIdCoverageExact": true,
+      "reportedPortionTokens": 67749,
+      "unknownUsageRecords": 0,
+      "settledCreditRecords": 6,
+      "pendingCreditRecords": 0,
+      "accountingObservedAt": "2026-11-16T18:09:35.116Z",
+      "humanAndStageContentPublishedByAudit": false,
+      "originalInterruptionRetainedAndApprovedSameRunResume": true,
+      "manualS5BridgeDoesNotRepairCancelledMainChain": true,
+      "frozenOldTemplateAndCorrectedStudentRevisionSeparate": true,
+      "report": "s6-independent-summary.json"
+    },
+    {
+      "phase": "SUM",
+      "runId": "b8c3ca65-301e-4757-aa9b-032714145225",
+      "actualNativeTaskStatus": "succeeded",
+      "sourceAuditPassed": true,
+      "modelReportContentAccepted": false,
+      "focus": "dt-summarize-project",
+      "selectedSourceCount": 29,
+      "truncatedSourceCount": 17,
+      "sourceAuditDoesNotProveAllSelectedTextWasVisible": true,
+      "dispatchObservations": 1,
+      "resumeObservations": 1,
+      "physical": 9,
+      "usage": 9,
+      "physicalUsageIdCoverageExact": true,
+      "reportedPortionTokens": 197065,
+      "unknownUsageRecords": 0,
+      "settledCreditRecords": 9,
+      "pendingCreditRecords": 0,
+      "accountingObservedAt": "2026-11-16T18:30:17.061Z",
+      "humanAndStageContentPublishedByAudit": false,
+      "originalInterruptionRetainedAndApprovedSameRunResume": true,
+      "manualS5BridgeDoesNotRepairCancelledMainChain": true,
+      "report": "sum-independent-summary.json"
+    }
+  ],
+  "modelRequestsSentByAudit": 0,
+  "businessOrFinancialWrites": 0,
+  "studentResearchValidityOrTeachingQualityProven": false,
+  "oldThreeLedgerHashesUnchangedAtEveryAudit": true,
+  "sourceAuditScope": "principal/thread/approved-package and exact saved-material/receipt/hash integrity only",
+  "sourceIntegrityPassDoesNotValidatePrototypeBehaviorOrFeedbackApplicability": true,
+  "contentApplicabilityGaps": [
+    {
+      "source": "a3/fresh-round-content-review.md \u2014 S5\u540e\u72ec\u7acbDesign V1\u4e0eS6\u8f93\u5165\u9002\u7528\u6027",
+      "actualFinding": "Actual V1 has no concrete number 2 to region B mapping or navigation handler; version notes and generic synthetic feedback cannot prove that behavior.",
+      "oldFrozenInputsMustRemainUnchanged": true,
+      "studentCorrectionsRequireNewSavedRevision": true,
+      "noHistoricalValidationSuccessImplied": true
+    },
+    {
+      "source": "a3/fresh-round-content-review.md \u2014 actual SUM review",
+      "actualFinding": "AI draft omits V2/current return5/iteration relationship despite those fields being visible, omits truncation disclosure, and old S6V4 reason was not visible due truncation.",
+      "studentV9CorrectionSeparateFromOriginalAi": true,
+      "hashIntegrityPassDoesNotApproveAiReportContent": true
+    }
+  ],
+  "sourceLiveReadingFinished": true,
+  "allLiveConnectionsClosed": true,
+  "sevenAuditedNativeRunsOnlyLastKnownAccounting": {
+    "physical": 90,
+    "usage": 90,
+    "reportedPortionTokens": 763814,
+    "unknownUsageRecords": 1,
+    "overallTokenConsumptionKnown": false,
+    "settledCreditRecords": 89,
+    "pendingCreditRecords": 1,
+    "pendingStage": "S3",
+    "pendingReservedHundredths": "6346",
+    "eachRowIsAsOfItsAuditTimestamp": true,
+    "notAnOrgWideDesignAccountingTotal": true,
+    "notIndependentSupplierBillVerification": true
+  },
+  "orgTotalsAtFinalRead": {
+    "runs": "7",
+    "snapshots": "7",
+    "applications": "17",
+    "physical": "94",
+    "usage": "94",
+    "credits": "94"
+  },
+  "a1FinalAccountingOwnerSource": "docs/evidence/aidt-native/completion-20261117/a1/summary-final-accounting.json",
+  "summaryMaterialVisibility": {
+    "selectedSources": 29,
+    "truncatedSources": 17,
+    "referenceBlockBytes": 61268,
+    "oldS6V4ExcerptBytes": 15,
+    "oldS6V4ReturnStep2Visible": false,
+    "oldS6V4ReasonVisible": false,
+    "actualV2IdVisible": true,
+    "currentS6V7ReturnStep5AndIterationRelationVisible": true,
+    "selectedRefsDoNotMeanFullTextVisible": true
+  },
+  "studentFinalReport": {
+    "beforeAiBaselineRevision": 7,
+    "aiImportedRevision": 8,
+    "studentCorrectionRevision": 9,
+    "reportRefsPreserved": true,
+    "originalV8Retained": true,
+    "v8ExportBytes": 8613,
+    "v9ExportBytes": 11664,
+    "v9Sha256": "8c5c4144aef519e32ee98bb2ea294b58082146fd22847b5beeb7bf7e7e96210d",
+    "studentCorrectionIsNotAiOutput": true,
+    "aiDraftContentAccepted": false,
+    "preservedReportRefs": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      },
+      {
+        "stageId": 5,
+        "revision": 4
+      },
+      {
+        "stageId": 6,
+        "revision": 6
+      }
+    ]
+  }
+}

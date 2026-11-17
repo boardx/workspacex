@@ -1,0 +1,49 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-report_history/apps/web
+
+ ✓ tests/ui/aidt-report-history.test.tsx > requires review and explicit append, retains the newest manual text, and never saves in the background
+ ✓ tests/ui/aidt-report-history.test.tsx > cancels an in-flight request and ignores its late data
+ ✓ tests/ui/aidt-report-history.test.tsx > ignores a late request across A to B to A scopes and aborts pending reads on unmount
+ ✓ tests/ui/aidt-report-history.test.tsx > clears reviewed rows synchronously when scope projectId changes
+ ✓ tests/ui/aidt-report-history.test.tsx > clears reviewed rows synchronously when scope orgId changes
+ ✓ tests/ui/aidt-report-history.test.tsx > clears reviewed rows synchronously when scope userId changes
+ ✓ tests/ui/aidt-report-history.test.tsx > clears reviewed rows synchronously when scope sessionToken changes
+ ✓ tests/ui/aidt-report-history.test.tsx > clears reviewed rows synchronously when scope lifecycleKey changes
+ ✓ tests/ui/aidt-report-history.test.tsx > aborts on unmount and on read-only downgrade, preserving report content
+ ✓ tests/ui/aidt-report-history.test.tsx > clears all rows after access denial, keeps report edits and permits explicit retry
+ ✓ tests/ui/aidt-report-history.test.tsx > does not append beyond the existing report contract length limit
+ ✓ tests/ui/aidt-ui-v2.test.tsx > keeps stage forms explicitly unsaved and copies only student-entered content
+ ✓ tests/ui/aidt-ui-v2.test.tsx > allows choosing one candidate without inventing a vote or enforcing three
+ ✓ tests/ui/aidt-ui-v2.test.tsx > rejects unsupported local reference previews without claiming an upload
+ ✓ tests/ui/aidt-ui-v2.test.tsx > exposes native prototype handoff and real-source research handoff
+ ✓ tests/ui/aidt-ui-v2.test.tsx > preserves report edits when the stage forms change and regenerates only on explicit action
+ ✓ tests/ui/aidt-ui-v2.test.tsx > sends escaped text to native PDF preview and labels copying as unsaved
+ ✓ tests/ui/aidt-ui-v2.test.tsx > report assembly keeps missing evidence and teacher comments as gaps
+ ✓ tests/ui/aidt-ui-v2.test.tsx > keeps the student's report and offers retry paths when browser export cannot start
+ ✓ tests/ui/aidt-ui-v5.test.tsx > requires three complete, distinct named concepts instead of three layouts or empty candidates
+ ✓ tests/ui/aidt-ui-v5.test.tsx > keeps an edited report until students explicitly confirm replacement
+ ✓ tests/ui/aidt-ui-v5.test.tsx > keeps the existing chat mounted when its auxiliary panel is closed
+ ✓ tests/ui/aidt-ui-v5.test.tsx > restores each candidate's rationale after changing the proposed selection
+ ✓ tests/ui/aidt-shared-report-preview.test.tsx > uses only the controller receipt to show saved state and does not confuse exports with shared save
+ ✓ tests/ui/aidt-shared-report-preview.test.tsx > protects report edits through conflict review and requires explicit restore confirmation
+ ✓ tests/ui/aidt-shared-report-preview.test.tsx > keeps failures retryable and blocks writes and restore after read-only downgrade
+ ✓ tests/aidt-report-history.test.ts > collects multiple saved learning revisions, exact source revisions and student decisions without asserting completed rounds
+ ✓ tests/aidt-report-history.test.ts > bounds requests, history and excerpts and explicitly marks truncation
+ ✓ tests/aidt-report-history.test.ts > keeps partial pages and distinguishes failures from truly empty stages
+ ✓ tests/aidt-report-history.test.ts > discards all collected data on authorization failure 401
+ ✓ tests/aidt-report-history.test.ts > discards all collected data on authorization failure 403
+ ✓ tests/aidt-report-history.test.ts > discards all collected data on authorization failure 404
+ ✓ tests/aidt-report-history.test.ts > aborts without waiting for a transport which ignores cancellation and never continues to another stage
+ ✓ tests/aidt-report-history.test.ts > times out non-cooperative requests and stops at the global time budget
+ ✓ tests/aidt-report-history.test.ts > rejects missing scope and already cancelled collection before issuing requests
+ ✓ tests/aidt-stage-history-client.test.ts > uses the existing read-only history endpoint with validated cursor, captured token and abort signal
+ ✓ tests/aidt-stage-history-client.test.ts > rejects invalid input before issuing a request
+ ✓ tests/aidt-stage-history-client.test.ts > rejects malformed, cross-scope, overlapping and non-progressing page readbacks
+ ✓ tests/aidt-stage-history-client.test.ts > preserves HTTP failures instead of presenting an empty history
+
+ Test Files  6 passed (6)
+      Tests  39 passed (39)
+   Start at  01:33:50
+   Duration  6.69s (transform 1.45s, setup 316ms, collect 3.31s, tests 858ms, environment 1.38s, prepare 191ms)
+

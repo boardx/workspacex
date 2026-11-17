@@ -20,7 +20,8 @@
     "lint": "echo 'lint: ok'",
     "up": "tsx src/cli.ts up",
     "doctor": "tsx src/cli.ts doctor",
-    "start": "tsx src/cli.ts up"
+    "start": "tsx src/cli.ts up",
+    "aidt": "tsx src/aidt-cli.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",

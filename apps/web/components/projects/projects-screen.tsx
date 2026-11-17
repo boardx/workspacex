@@ -19,6 +19,8 @@ import { StateShell } from "@/components/state/state-shell";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
+import { isAidtModuleEnabled } from "@/lib/aidt-module-config";
+import { isAidtProject } from "@/lib/project-aidt";
 import { CreateProjectDialog } from "@/components/project/create-project-dialog";
 import {
   projectKindLabel,
@@ -91,7 +93,7 @@ export function ProjectsScreen() {
     setListError(false);
     try {
       const out = await listProjects(org);
-      setProjects([...out]);
+      setProjects(isAidtModuleEnabled() ? out.filter((project) => !isAidtProject(project)) : out);
     } catch {
       setListError(true);
       setProjects(null);

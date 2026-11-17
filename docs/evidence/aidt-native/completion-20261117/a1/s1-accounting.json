@@ -1,0 +1,159 @@
+{
+  "observedAt": "2026-11-16T17:23:27.754Z",
+  "readOnly": true,
+  "run": {
+    "id": "33945939-c856-4b46-ba35-6953c835c588",
+    "org_id": "org-fullstack-20261117-01-7d265647426d",
+    "thread_id": "thr-889c9de9-4008-4228-809b-ea1ddc230f50",
+    "author_id": "user-fullstack-admin-20261117-01-7d265647426d",
+    "status": "succeeded",
+    "failure_reason": null,
+    "agent_version_id": "agent-fullstack-20261117-01-7d265647426d-v1",
+    "skill_version_ids": [
+      "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53"
+    ],
+    "aidt_selector_hash": "21f24aa3d5ba0395e029d81b1b167408349d48d72a993c5a0e53d5323c898374",
+    "remote_run_id": "d140cf95-1fd8-4cec-9788-1e01bdd0d2ed"
+  },
+  "snapshot": {
+    "selectorHash": "21f24aa3d5ba0395e029d81b1b167408349d48d72a993c5a0e53d5323c898374",
+    "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+    "focus": {
+      "title": "理解与提出问题",
+      "skillId": "skill-3f0aa7c0-1f98-42e8-9445-8f983acdb982",
+      "skillVersionId": "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53",
+      "skillStableName": "aidt-understand"
+    },
+    "blockHash": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d"
+  },
+  "applications": [
+    {
+      "seq": "1",
+      "kind": "assembled",
+      "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+      "occurredAt": "2026-11-16T17:22:20.910Z"
+    },
+    {
+      "seq": "2",
+      "kind": "message-dispatch-observed",
+      "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+      "occurredAt": "2026-11-16T17:22:22.835Z",
+      "remoteThreadId": "3af98b76-6942-4ea0-810c-16aa4b6b0c70",
+      "remoteRunId": "d140cf95-1fd8-4cec-9788-1e01bdd0d2ed"
+    }
+  ],
+  "physical": [
+    {
+      "id": "1d9f22ab-054d-4e8f-b208-6ace9b3b29ef",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:22:22.950Z"
+    },
+    {
+      "id": "fa93187a-d455-4100-8315-45fac47d39b9",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:22:28.567Z"
+    },
+    {
+      "id": "6193c352-584b-4b8f-9ace-38f02045ade2",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:22:37.889Z"
+    },
+    {
+      "id": "52ddc737-0e02-4b60-8d5f-680e88c40724",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T17:22:44.523Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "1d9f22ab-054d-4e8f-b208-6ace9b3b29ef",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "9963",
+      "tokens_prompt": "9774",
+      "tokens_completion": "189",
+      "request_started_at": "2026-11-16T17:22:22.950Z",
+      "request_ended_at": "2026-11-16T17:22:28.490Z"
+    },
+    {
+      "id": "fa93187a-d455-4100-8315-45fac47d39b9",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "1585",
+      "tokens_prompt": "1286",
+      "tokens_completion": "299",
+      "request_started_at": "2026-11-16T17:22:28.567Z",
+      "request_ended_at": "2026-11-16T17:22:37.812Z"
+    },
+    {
+      "id": "6193c352-584b-4b8f-9ace-38f02045ade2",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "10581",
+      "tokens_prompt": "10280",
+      "tokens_completion": "301",
+      "request_started_at": "2026-11-16T17:22:37.889Z",
+      "request_ended_at": "2026-11-16T17:22:44.449Z"
+    },
+    {
+      "id": "52ddc737-0e02-4b60-8d5f-680e88c40724",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "2415",
+      "tokens_prompt": "2143",
+      "tokens_completion": "272",
+      "request_started_at": "2026-11-16T17:22:44.523Z",
+      "request_ended_at": "2026-11-16T17:22:49.553Z"
+    }
+  ],
+  "credit": [
+    {
+      "request_id": "1d9f22ab-054d-4e8f-b208-6ace9b3b29ef",
+      "state": "settled",
+      "reserved_hundredths": "4352",
+      "debited_hundredths": "997",
+      "settled_at": "2026-11-16T17:22:28.514Z"
+    },
+    {
+      "request_id": "fa93187a-d455-4100-8315-45fac47d39b9",
+      "state": "settled",
+      "reserved_hundredths": "831",
+      "debited_hundredths": "159",
+      "settled_at": "2026-11-16T17:22:37.833Z"
+    },
+    {
+      "request_id": "6193c352-584b-4b8f-9ace-38f02045ade2",
+      "state": "settled",
+      "reserved_hundredths": "4598",
+      "debited_hundredths": "1059",
+      "settled_at": "2026-11-16T17:22:44.471Z"
+    },
+    {
+      "request_id": "52ddc737-0e02-4b60-8d5f-680e88c40724",
+      "state": "settled",
+      "reserved_hundredths": "1052",
+      "debited_hundredths": "242",
+      "settled_at": "2026-11-16T17:22:49.583Z"
+    }
+  ],
+  "wallet": {
+    "balance": "19975.43",
+    "held_hundredths": "0",
+    "remaining_held_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "counts": {
+    "active": 0,
+    "physical": 4,
+    "usage": 4,
+    "credits": 4,
+    "unsettled": 0
+  },
+  "tokensTotal": 24544,
+  "oldBudgetsUnchanged": true,
+  "auditModelRequests": 0
+}

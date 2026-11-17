@@ -1,0 +1,116 @@
+{
+  "sourceFrozenAt": "2026-11-16T18:41:15.474654+00:00",
+  "freshRound": true,
+  "allPlannedAcceptanceTasksAttempted": true,
+  "allBehaviorPassed": false,
+  "phases": {
+    "s1": {
+      "runId": "33945939-c856-4b46-ba35-6953c835c588",
+      "backendStatus": "succeeded",
+      "physical": 4,
+      "reportedKnownTokens": 24544,
+      "unknownUsageCount": 0,
+      "evidence": "s1-accounting.json"
+    },
+    "s2": {
+      "runId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d",
+      "backendStatus": "succeeded",
+      "physical": 6,
+      "reportedKnownTokens": 40165,
+      "unknownUsageCount": 0,
+      "evidence": "s2-final-accounting.json"
+    },
+    "s3": {
+      "runId": "e607b916-5555-4e12-9b5b-a2c0a90d2b67",
+      "backendStatus": "succeeded",
+      "physical": 44,
+      "reportedKnownTokens": 281610,
+      "unknownUsageCount": 1,
+      "evidence": "s3-final-accounting.json"
+    },
+    "s4": {
+      "runId": "f53bc122-fc39-40f5-972a-021467b6190b",
+      "backendStatus": "succeeded",
+      "physical": 6,
+      "reportedKnownTokens": 49174,
+      "unknownUsageCount": 0,
+      "evidence": "s4-final-accounting.json"
+    },
+    "s5": {
+      "runId": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+      "backendStatus": "cancelled",
+      "physical": 15,
+      "reportedKnownTokens": 103507,
+      "unknownUsageCount": 0,
+      "evidence": "s5-final-accounting.json"
+    },
+    "s6": {
+      "runId": "1010682b-3003-4358-a547-e19b5f01b1af",
+      "backendStatus": "succeeded",
+      "physical": 6,
+      "reportedKnownTokens": 67749,
+      "unknownUsageCount": 0,
+      "evidence": "s6-final-accounting.json"
+    },
+    "summary": {
+      "runId": "b8c3ca65-301e-4757-aa9b-032714145225",
+      "backendStatus": "succeeded",
+      "physical": 9,
+      "reportedKnownTokens": 197065,
+      "unknownUsageCount": 0,
+      "evidence": "summary-final-accounting.json"
+    },
+    "design-v1": {
+      "businessPosts": 1,
+      "generationSource": "model",
+      "nativeVersionAndUIBindingVerifiedByA5": true,
+      "physical": 2,
+      "reportedKnownTokens": 7075,
+      "unknownUsageCount": 0,
+      "evidence": "design-v1-accounting.json"
+    },
+    "design-v2": {
+      "businessPosts": 1,
+      "generationSource": "model",
+      "nativeVersionAndUIBindingVerifiedByA5": true,
+      "physical": 2,
+      "reportedKnownTokens": 9196,
+      "unknownUsageCount": 0,
+      "evidence": "design-v2-accounting.json"
+    }
+  },
+  "reportedSuccessfulPhysicalRequests": 93,
+  "unknownUsageCount": 1,
+  "knownReportedTokens": 780085,
+  "exactTotalTokens": null,
+  "settledCreditRequests": 93,
+  "pendingCreditRequests": [
+    "47f715ad-fd4d-4bb5-8f1f-48ea8f368e8c"
+  ],
+  "lastVerifiedWallet": {
+    "balance": "19219.49",
+    "heldHundredths": "6346",
+    "remainingHeldHundredths": "6346",
+    "unboundedRequests": 0,
+    "source": "fully verified private credit_wallets COPY matches live"
+  },
+  "reportFinalStudentRevision": 9,
+  "reportFinalExportBytes": 11664,
+  "reportFinalExportSha256": "8c5c4144aef519e32ee98bb2ea294b58082146fd22847b5beeb7bf7e7e96210d",
+  "reportOriginalAIQuality": "incomplete history and truncated-scope disclosure; student V9 correction retained separately",
+  "unresolved": [
+    "S3 repeated focused Skill calls and one unknown usage/pending credit",
+    "S5 native cancelled under operator stop rule; continued from explicit student manual input",
+    "Original AI summary did not fully disclose projection limits/history; V9 student correction supplies verified facts",
+    "Real classroom learning impact and ordinary student model funding not validated"
+  ],
+  "oldThreeBudgetFilesUnchanged": true,
+  "oldDiagnosticAndCheckpointUnchanged": true,
+  "resourcesReleased": true,
+  "cleanupEvidence": "final-cleanup.json",
+  "diagnosticBackupVerifiedButNotRestored": true,
+  "zeroOutstandingRecoveryPoint": false,
+  "modelRequestsSentByResourceOwner": 0,
+  "externalAcceptancePhysicalRequests": 94,
+  "rootMinimalProviderCallExcludedFromThisMeter": true
+}

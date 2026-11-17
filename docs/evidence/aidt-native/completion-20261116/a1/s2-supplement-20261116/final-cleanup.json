@@ -1,0 +1,151 @@
+{
+  "at": "2026-11-16T14:40:26.196Z",
+  "ownerNormalExitCode": 0,
+  "ownerExecSession": 97030,
+  "ownerCleanupReceipt": {
+    "at": "2026-11-16T14:39:36.197Z",
+    "cleanupComplete": true,
+    "compose": "wsx-9800356879798db65ee3",
+    "modelRequestsSent": 0
+  },
+  "compose": "wsx-9800356879798db65ee3",
+  "ownContainersRemaining": 0,
+  "ownVolumesRemaining": 0,
+  "ownNetworksRemaining": 0,
+  "ports": [
+    {
+      "port": 20504,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 21504,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 22504,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 23504,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 24111,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 25826,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 26504,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 27504,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 28504,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 29504,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 30504,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 31504,
+      "bindable": true,
+      "leaseReleased": true
+    },
+    {
+      "port": 19504,
+      "bindable": true,
+      "leaseReleased": true
+    }
+  ],
+  "allThirteenPortsAndLeasesReleased": true,
+  "stackAdmissionReleased": true,
+  "processes": {
+    "owner": {
+      "pid": 319571,
+      "state": "absent",
+      "live": false
+    },
+    "stackOwner": {
+      "pid": 320428,
+      "state": "absent",
+      "live": false
+    },
+    "api": {
+      "pid": 341838,
+      "state": "Z",
+      "live": false
+    },
+    "python": {
+      "pid": 320613,
+      "state": "Z",
+      "live": false
+    },
+    "sandbox": {
+      "pid": 320534,
+      "state": "Z",
+      "live": false
+    }
+  },
+  "budgetHashes": {
+    "legacy": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "supplementS1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+    "supplementS2": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f"
+  },
+  "budgetsUnchanged": true,
+  "originalCheckpointDumpHashUnchanged": true,
+  "originalManifestHashUnchanged": true,
+  "originalRuntimeMetadataHashUnchanged": true,
+  "fixtureCredentialMode": "600",
+  "uploadedModelConfigMode": "600",
+  "backupAndOriginalObjectsPreserved": true,
+  "normalLoginAndReadbackVerifiedBeforeTask": true,
+  "ownerExitModelRequestsFieldScope": "restore owner itself only; excludes the browser native run",
+  "restoreOwnerInitiatedModelRequests": 0,
+  "externalBrowserLogicalTasksThisRound": 1,
+  "externalBrowserTaskStatus": "failed",
+  "newPhysicalRequestsThisRound": 2,
+  "newUsageRecordsThisRound": 2,
+  "usageConsumption": "unknown; stored totals0 with null prompt/completion",
+  "newCreditRequestsThisRound": 2,
+  "newCreditState": "pending",
+  "walletHeldHundredthsPreserved": 8629,
+  "walletRemainingHeldHundredthsPreserved": 8629,
+  "noRefundOrManualFinancialMutation": true,
+  "newSupplementS2BudgetUsed": 1,
+  "newNativeThreadsThisRound": 1,
+  "initialCheckpointRestoreTested": true,
+  "postFailureDiagnosticRestorationTested": false,
+  "postFailureDiagnosticSafeZeroOutstandingRestoreEligible": false,
+  "diagnosticDumpHashUnchanged": true,
+  "diagnosticPath": "/workspace/scratch/aidt-private-diagnostics-20261116/S2-failed-pending-20261116T143336845Z",
+  "cgroupMemoryEvents": {
+    "low": 0,
+    "high": 0,
+    "max": 41447,
+    "oom": 1,
+    "oom_kill": 1,
+    "oom_group_kill": 0
+  }
+}

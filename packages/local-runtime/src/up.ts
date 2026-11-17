@@ -33,6 +33,7 @@ import {
 import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
 import { pullModelWithProgress } from "./pull-progress";
 import { probeChatModel, probeEmbeddingModel } from "./model-preflight";
+import { ensurePrivateUsageSpool } from "./usage-spool";
 import { checkWebBuild } from "./web-build";
 import { createBackup, type CreateBackupResult } from "./backup";
 import { superviseManaged, type ServiceHealth, type Supervised } from "./supervisor";
@@ -58,6 +59,8 @@ export interface UpOptions {
   readonly pullModel?: boolean;
   /** Skip the real model round-trip (tests, offline). Default is to probe. */
   readonly probeModels?: boolean;
+  /** Opt out when a caller cannot prove ownership of an alternate Ollama listener. */
+  readonly allowAlternateOllamaRestart?: boolean;
   /**
    * 栈起来之后某个服务的健康状态变了（挂了 / 正在拉起 / 拉不起来）。
    * 带的是**说给用户听的那两句**，不是 exit code——外壳直接显示即可，不用自己拼。
@@ -207,6 +210,9 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       let already = choice.reuse;
       if (choice.port !== c.ports.ollama) {
         if (choice.reuse) {
+          if (opts.allowAlternateOllamaRestart === false) {
+            throw new Error(`Ollama alternate port ${choice.port} is occupied. AIDT will not stop another listener; choose a free --ports ollama=<port>.`);
+          }
           // The alternate port is ours alone: what runs there is an earlier instance of this
           // runtime, possibly started before OLLAMA_CONTEXT_LENGTH / KEEP_ALIVE existed. Restart
           // it so the server settings are the ones this build declares (#3749 B1.1).
@@ -448,6 +454,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     let deepAgentUrl: string | null = null;
     const launch = resolveDeepAgentLaunch(c, opts.bundlePythonDir);
     if (launch) {
+      ensurePrivateUsageSpool(paths.usageSpool(c));
       deepAgentUrl = `http://127.0.0.1:${c.ports.deepAgent}`;
       log(`[deep-agent] python runtime: ${launch.source} (${launch.command})`);
       spawn({
@@ -465,10 +472,14 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     const webMode = opts.webMode ?? "dev";
     const webUrl = `http://127.0.0.1:${c.ports.web}`;
     if (webMode !== "none") {
+      const webProcessEnv: Record<string, string> = {
+        ...webEnv(c),
+        ...(c.profile === "aidt" ? { NODE_ENV: webMode === "start" ? "production" : "development" } : {}),
+      };
       if (webMode === "start") {
         // `next start` 跑的是构建期就把 API 地址内联进去的产物；端口一换，页面照样打开、
         // 一个报错也没有，而每个请求都打向旧地址。见 web-build.ts 的文件头。
-        const check = checkWebBuild(join(c.repoRoot, "apps", "web"), webEnv(c).NEXT_PUBLIC_API_URL!);
+        const check = checkWebBuild(join(c.repoRoot, "apps", "web"), webProcessEnv.NEXT_PUBLIC_API_URL!, webProcessEnv.NEXT_DIST_DIR);
         if (!check.usable) throw new Error(`无法用已构建的 Web 产物启动：\n  ${check.reason ?? ""}`);
       }
       // pnpm does not hoist: `next` lives in apps/web's own node_modules/.bin, not the root's.
@@ -477,7 +488,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         command: process.execPath,
         args: nextLaunch(c.repoRoot, [webMode, "-p", String(c.ports.web), "-H", "127.0.0.1"]).args,
         cwd: join(c.repoRoot, "apps", "web"),
-        env: { ...webEnv(c), ...nodeEnv() },
+        env: { ...webProcessEnv, ...nodeEnv() },
         logDir: paths.logs(c),
       });
       await waitForHttpOrExit(webUrl, { timeoutMs: 300_000 }, managed[managed.length - 1]!);

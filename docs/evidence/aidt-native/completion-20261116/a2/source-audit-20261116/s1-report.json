@@ -1,0 +1,111 @@
+{
+  "kind": "authorized-read-only-real-run-source-audit",
+  "auditedAt": "2026-11-16T12:23:36.966Z",
+  "runId": "68880459-6de1-43a8-a909-0a969f03a7a8",
+  "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+  "threadId": "thr-d29f9cea-fe44-48fc-a99f-375dd4dcc866",
+  "principalUserIdHash": "dbffea12712f3162a002dbf46d217e4453f7a5044786fb842013b2184e02aa85",
+  "runStatus": "succeeded",
+  "currentProjectStatus": "active",
+  "selector": {
+    "schemaVersion": 1,
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 1
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 1
+  },
+  "focus": {
+    "skillId": "skill-812b7f37-9c11-4a2a-970d-855554c32745",
+    "skillVersionId": "skill-version-625a892f-1b6f-42e0-9306-fe2059426b54",
+    "skillStableName": "aidt-understand",
+    "title": "理解与提出问题"
+  },
+  "approvedPackage": {
+    "packId": "aidt-methods",
+    "packVersion": "1.3.0",
+    "packageDigest": "9a3d1e6bdf3ced5860a4f1124edb1be05fb7f952039c9549fbff50eb89ac52ee"
+  },
+  "hashes": {
+    "selector": "43a661b8964e2278767a6d0d30ac01c02785c9719d214aea4ddc537de03ef304",
+    "snapshot": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+    "block": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41"
+  },
+  "canonicalHashesMatch": true,
+  "persistedHumanTextHash": "a967f3f3a0cc9cc9a0361ead9b9155104e9ba0ef398b4bba705bce56d9b4e410",
+  "persistedHumanMatchesExpected": true,
+  "exactSources": [
+    {
+      "kind": "stage",
+      "stageId": 1,
+      "revision": 1,
+      "currentHeadRevision": 2,
+      "selectedIsCurrentHead": false,
+      "sourceStageRevisions": [],
+      "updatedByHash": "dbffea12712f3162a002dbf46d217e4453f7a5044786fb842013b2184e02aa85",
+      "updatedAt": "2026-11-16T12:20:01.776Z",
+      "contentHash": "1af2e5a371467d1e3c99fa515bbc9e4c85ab1ebd0b144de5419f5d6d03e5a569",
+      "excerptHash": "5c54423d592ea92e3822e9948eff7404b467f472f776d3cf797857fe7cfeba44",
+      "excerptUtf8Bytes": 817,
+      "truncated": false,
+      "exactSavedProjectionMatches": true
+    }
+  ],
+  "omissions": [
+    {
+      "kind": "personal-artifacts-not-included"
+    },
+    {
+      "kind": "original-file-bytes-not-read"
+    },
+    {
+      "kind": "teacher-comments-no-source"
+    },
+    {
+      "kind": "lineage-unknown"
+    }
+  ],
+  "truncated": false,
+  "application": {
+    "state": "message-dispatch-observed",
+    "attemptId": "68880459-6de1-43a8-a909-0a969f03a7a8:1",
+    "assembledContextHash": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41",
+    "assembledAt": "2026-11-16T12:20:02.692Z",
+    "messageDispatchedAt": "2026-11-16T12:20:04.526Z",
+    "checkpointResumedAt": null,
+    "inheritedMessageDispatchAttemptId": null
+  },
+  "journal": [
+    {
+      "seq": 1,
+      "kind": "assembled",
+      "attemptId": "68880459-6de1-43a8-a909-0a969f03a7a8:1",
+      "occurredAt": "2026-11-16T12:20:02.692Z",
+      "snapshotHash": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+      "assembledContextHash": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41"
+    },
+    {
+      "seq": 2,
+      "kind": "message-dispatch-observed",
+      "attemptId": "68880459-6de1-43a8-a909-0a969f03a7a8:1",
+      "occurredAt": "2026-11-16T12:20:04.526Z",
+      "snapshotHash": "394131b892da6a6fd8b15460ab62621d653ac2825746aa53ced21ae8c400ed4d",
+      "assembledContextHash": "b06ed80b6433fd4a53db7cae02793a6a2907742066f924cf770a1f44e3f35e41"
+    }
+  ],
+  "dispatchObservationCount": 1,
+  "resumeObservationCount": 0,
+  "serverDispatchObservationMatchesFrozenBlock": true,
+  "independentReceiptProvided": true,
+  "supplierConsumptionProvenByAudit": false,
+  "studentResearchValidityProven": false,
+  "rawStudentTextIncluded": false,
+  "privateConfigurationIncluded": false,
+  "databaseReadOnly": true,
+  "modelRequestsSent": 0,
+  "dataWrites": 0
+}

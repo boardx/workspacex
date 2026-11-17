@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: CN deployment file is read as data; only model fields are selected
+ok 1 - CN deployment file is read as data; only model fields are selected
+  ---
+  duration_ms: 2.446534
+  type: 'test'
+  ...
+# Subtest: missing explicit file is blocked even with complete inherited credentials
+ok 2 - missing explicit file is blocked even with complete inherited credentials
+  ---
+  duration_ms: 0.731495
+  type: 'test'
+  ...
+# Subtest: default missing file may use exported model variables, without claiming connectivity
+ok 3 - default missing file may use exported model variables, without claiming connectivity
+  ---
+  duration_ms: 0.355943
+  type: 'test'
+  ...
+# Subtest: safe smoke requires an actually readable file before starting any real stack
+ok 4 - safe smoke requires an actually readable file before starting any real stack
+  ---
+  duration_ms: 37.267397
+  type: 'test'
+  ...
+# Subtest: explicit DashScope names retain precedence over deployment aliases
+ok 5 - explicit DashScope names retain precedence over deployment aliases
+  ---
+  duration_ms: 0.686188
+  type: 'test'
+  ...
+# Subtest: OpenAI-only deployment configuration is not advertised as supported DashScope smoke
+ok 6 - OpenAI-only deployment configuration is not advertised as supported DashScope smoke
+  ---
+  duration_ms: 0.400189
+  type: 'test'
+  ...
+# Subtest: shell expansions fail with redacted locations; unrelated shell lines never execute
+ok 7 - shell expansions fail with redacted locations; unrelated shell lines never execute
+  ---
+  duration_ms: 41.851603
+  type: 'test'
+  ...
+# Subtest: nonempty placeholder, whitespace and unsafe endpoints fail structural preflight
+ok 8 - nonempty placeholder, whitespace and unsafe endpoints fail structural preflight
+  ---
+  duration_ms: 0.939687
+  type: 'test'
+  ...
+# Subtest: doctor CLI reports field status and never emits key, endpoint, model or arbitrary provider
+ok 9 - doctor CLI reports field status and never emits key, endpoint, model or arbitrary provider
+  ---
+  duration_ms: 69.353332
+  type: 'test'
+  ...
+# Subtest: safe-loaded marker prevents existing shell loader from sourcing CN file again
+ok 10 - safe-loaded marker prevents existing shell loader from sourcing CN file again
+  ---
+  duration_ms: 2.748386
+  type: 'test'
+  ...
+# Subtest: explicit safe smoke reuses isolated lane with model-only file values and preserves failure
+ok 11 - explicit safe smoke reuses isolated lane with model-only file values and preserves failure
+  ---
+  duration_ms: 28.947992
+  type: 'test'
+  ...
+# Subtest: quoted multiline or escaped model assignments are rejected without source echo
+ok 12 - quoted multiline or escaped model assignments are rejected without source echo
+  ---
+  duration_ms: 0.192989
+  type: 'test'
+  ...
+# Subtest: pnpm public entry does not consume model file as its own Node env-file option
+ok 13 - pnpm public entry does not consume model file as its own Node env-file option
+  ---
+  duration_ms: 548.429438
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 830.075264

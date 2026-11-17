@@ -1,0 +1,27 @@
+{
+  "localRender": [
+    {
+      "filename": "AIDT-V2-完整测试报告.pdf",
+      "pages": 14,
+      "bytes": 146078,
+      "sha256": "3ad1a152c81a7889a0c03d9a1ce13411b070ae7962f79658360e86feab52df1d",
+      "emptyPages": [],
+      "embeddedCJK": true,
+      "outOfBoundsCount": 0,
+      "datePresent": true,
+      "humanCasesPresent": null
+    },
+    {
+      "filename": "AIDT-V2-人工测试验收手册.pdf",
+      "pages": 27,
+      "bytes": 196584,
+      "sha256": "896a4deca6e71babfad018fc9497419c826adc6489022a908d1e21c33a9b60fe",
+      "emptyPages": [],
+      "embeddedCJK": true,
+      "outOfBoundsCount": 0,
+      "datePresent": true,
+      "humanCasesPresent": true
+    }
+  ],
+  "savedLibraryReadback": "recorded separately after saving"
+}

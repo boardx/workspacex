@@ -1,0 +1,114 @@
+{
+  "selectorCoordinates": {
+    "schemaVersion": 1,
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 1
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 1
+  },
+  "coordinatesOnly": true,
+  "topLevelKeys": [
+    "context",
+    "forwardedProps",
+    "messages",
+    "runId",
+    "state",
+    "threadId",
+    "tools"
+  ],
+  "messages": [
+    {
+      "index": 0,
+      "role": "user",
+      "hasSavedMarker": false,
+      "mentionsMountedSkill": false
+    }
+  ],
+  "context": [
+    {
+      "index": 0,
+      "descriptionIsAidt": false,
+      "descriptionLength": 49,
+      "hasSavedMarker": false
+    }
+  ],
+  "savedMarkerLocations": [
+    {
+      "stageId": 1,
+      "field": "scene",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "people",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "initial",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "activity",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "sourceDetails",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "whyWorthStudying",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "sourceUncertainty",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "scene",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "people",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "initial",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "activity",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "sourceDetails",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "whyWorthStudying",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "sourceUncertainty",
+      "locations": []
+    }
+  ],
+  "mountedSkillLocations": [],
+  "rawValuesRetained": false
+}

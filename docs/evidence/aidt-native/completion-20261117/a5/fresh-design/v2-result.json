@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "phase": "v2",
+  "startedAt": "2026-11-16T18:10:03.366Z",
+  "completed": false,
+  "modelPostAttempts": 1,
+  "observedBusinessRequests": [
+    {
+      "path": "/pm-designs/3cfcddff-456f-400a-ad26-64c3ca20a3e0/chat",
+      "at": "2026-11-16T18:10:09.685Z"
+    }
+  ],
+  "researchEvidenceVerified": false,
+  "realUserTestConducted": false,
+  "physicalRequests": "pending-stack-owner-audit",
+  "tokens": "pending-stack-owner-audit",
+  "settlement": "pending-stack-owner-audit",
+  "checks": [
+    "NEW_FUNDED_RUNTIME_FIXTURE_READY",
+    "AUTHENTICATED_ACTOR_READY",
+    "API_GET_HTTP_200",
+    "REAL_GROUP_READ_AUTHORIZED",
+    "PHASE_STATE_MATCHES_RUNTIME_GROUP_ACTOR",
+    "API_GET_HTTP_200",
+    "ACTUAL_DESIGN_OWNER_UNCHANGED",
+    "API_GET_HTTP_200",
+    "ACTUAL_PROJECT_DESIGN_LINK_STILL_EXISTS",
+    "BOUND_V1_REQUIRED_AND_NO_V2_RETRY",
+    "API_GET_HTTP_200",
+    "V1_ACTUAL_CONTENT_UNCHANGED",
+    "API_GET_HTTP_200",
+    "A6_S6_CONFIRMED_RETURN2_REQUIRED",
+    "SAVED_ACTUAL_V1_STATIC_REVIEW_AND_SYNTHETIC_CHANGE_INTENT_REQUIRED",
+    "SAVED_STATIC_REVIEW_WITHIN_RELATION_LIMIT",
+    "UI_SHARED_SAVE_HTTP_200",
+    "UI_SHARED_SAVE_HTTP_200",
+    "RETURN5_USES_OLD_FROZEN_QUESTION_NOT_NEW_S5",
+    "S6_USES_OLD_FROZEN_QUESTION_NOT_NEW_S5",
+    "EXPLICIT_ROOT_TASK_WINDOW_REQUIRED",
+    "ONE_BUSINESS_POST_PER_WINDOW",
+    "PROMPT_WITHIN_NATIVE_LIMIT",
+    "API_GET_HTTP_200",
+    "API_POST_HTTP_201",
+    "ACTUAL_REPLY_SOURCE_MODEL",
+    "API_GET_HTTP_200",
+    "EXACTLY_ONE_NEW_NATIVE_VERSION",
+    "API_GET_HTTP_200",
+    "ACTUAL_SINGLE_SCREEN_CONTENT_AND_MARKER",
+    "API_GET_HTTP_200",
+    "V2_ACTUAL_HTML_REQUIRED",
+    "V2_SYNTHETIC_NUMBER_ZONE_MAPPING_VISIBLE"
+  ],
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "designId": "3cfcddff-456f-400a-ad26-64c3ca20a3e0",
+  "savedStaticReview": {
+    "stageId": 6,
+    "revision": 4,
+    "testedVersionId": "3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47",
+    "afterTestBelief": "对真实用户能否理解的认识暂未改变，仍未知。静态检查发现本V1信息不足，没有号码分区映射，按钮无交互；这不是用户行为证据。",
+    "understandingEvidence": "静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+    "unresolvedQuestions": "仍缺真实测试者的理解过程、反例及授权记录。",
+    "nextAction": "先取得同意再收集真实取餐情境。另为后续静态练习拟补一组明确标为合成的号码分区示意，例如设计内容‘示例2→B分区’，不是既有映射或测试发现；仅在小组另行选择返回5并确认后才制作V2。"
+  },
+  "taskId": "e47f0454-239f-42fb-aaf3-c0f824fee4eb",
+  "nativeReply": {
+    "source": "model"
+  },
+  "error": {
+    "phase": "normal-ui-login",
+    "code": "REQUIRED_UI_OR_CONTRACT_CHECK_FAILED",
+    "type": "TimeoutError"
+  },
+  "finishedAt": "2026-11-16T18:11:33.058Z"
+}

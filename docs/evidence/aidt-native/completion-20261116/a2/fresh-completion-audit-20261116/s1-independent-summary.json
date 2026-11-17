@@ -1,0 +1,73 @@
+{
+  "kind": "s1-fresh-seed-independent-audit",
+  "at": "2026-11-16T17:26:14.166Z",
+  "runId": "33945939-c856-4b46-ba35-6953c835c588",
+  "status": "succeeded",
+  "ordinaryDeriveScope": true,
+  "restoreAdapterUsed": false,
+  "actualOrgRole": "admin",
+  "actualGroupRole": "owner",
+  "resolvedRole": "facilitator",
+  "ordinaryStudentModelPermissionProven": false,
+  "canonicalAgentInstructionsHash": "802cf79cc20cd6861c2aa766d7a7c4b1a9094add3624f523e467dd81c85fe371",
+  "exactSources": [
+    {
+      "stageId": 1,
+      "revision": 1,
+      "currentHeadRevision": 2,
+      "exactSavedProjectionMatches": true
+    }
+  ],
+  "exactSavedBeforeAndAfter": [
+    {
+      "stage": "before",
+      "revision": 1,
+      "exactSavedContentMatches": true,
+      "exactSavedSourceRefsMatch": true,
+      "exactUpdatedByMatches": true,
+      "exactUpdatedAtMatches": true
+    },
+    {
+      "stage": "after",
+      "revision": 2,
+      "exactSavedContentMatches": true,
+      "exactSavedSourceRefsMatch": true,
+      "exactUpdatedByMatches": true,
+      "exactUpdatedAtMatches": true
+    }
+  ],
+  "persistedHumanMatchesA6Original": true,
+  "canonicalHashesMatch": true,
+  "dispatchObservations": 1,
+  "resumeObservations": 0,
+  "physical": 4,
+  "usage": 4,
+  "reportedTokensTotal": 24544,
+  "usageAllReportedSucceeded": true,
+  "creditsAllSettled": true,
+  "oldThreeLedgerHashes": [
+    {
+      "ledgerLabel": "native-model-run-ledger.json",
+      "beforeSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "afterSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+      "unchanged": true
+    },
+    {
+      "ledgerLabel": "additional-s1-ledger.json",
+      "beforeSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "afterSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+      "unchanged": true
+    },
+    {
+      "ledgerLabel": "additional-s2-ledger.json",
+      "beforeSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "afterSha256": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+      "unchanged": true
+    }
+  ],
+  "newOrgInitialZeroRunObservationBy": "A1 owner independent read-only baseline, not A2 pre-send live query",
+  "sourceReaderCanonicalizationNote": "Initial QA used insertion-order JSON hashing for saved-stage comparison; changed to the existing contract canonical JSON to compare equal records independent of key order. Product source/snapshot unchanged.",
+  "modelRequestsSentByAudit": 0,
+  "dataWrites": 0,
+  "qualityHumanReviewPending": true
+}

@@ -1,0 +1,16 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+ ✓ tests/chat/aidt-message-acceptance.test.ts (30 tests) 18ms
+ ✓ tests/logging/all-exceptions-filter-error-log.test.ts (6 tests) 10ms
+ ✓ tests/aidt-run-context/agui-selector-unit.test.ts (14 tests) 12ms
+ ✓ tests/aidt-run-context/transport-unit.test.ts (11 tests) 12ms
+ ✓ tests/agent-runtime/agui-sse-heartbeat.test.ts (4 tests) 5ms
+ ✓ tests/logging/all-exceptions-filter-headers-sent.test.ts (2 tests) 5ms
+ ✓ tests/aidt-run-context/approved-pack-unit.test.ts (3 tests) 13ms
+ ✓ tests/aidt-run-context/bridge-selector-unit.test.ts (2 tests) 4ms
+
+ Test Files  8 passed (8)
+      Tests  72 passed (72)
+   Start at  10:26:16
+   Duration  5.19s (transform 1.19s, setup 0ms, collect 4.22s, tests 80ms, environment 1ms, prepare 243ms)

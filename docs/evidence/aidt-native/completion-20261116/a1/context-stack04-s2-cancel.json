@@ -1,0 +1,12 @@
+{
+  "at": "2026-11-16T12:42:51.523Z",
+  "rootAuthorized": true,
+  "runId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+  "cancelStatus": 202,
+  "resultStatus": "cancelled",
+  "normalActorLogin": true,
+  "sourceOfAction": "existing POST /agent-runs/:runId/cancel",
+  "newRunCreated": false,
+  "modelRequestsSentByAction": 0,
+  "configurationOrRolesChanged": false
+}

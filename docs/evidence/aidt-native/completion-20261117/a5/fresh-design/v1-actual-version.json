@@ -1,0 +1,23 @@
+{
+  "id": "3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47",
+  "seq": 1,
+  "source": "model",
+  "summary": "这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。",
+  "frames": [
+    "取餐分区"
+  ],
+  "notes": [
+    "本页为静态纸面分区牌草案，仅展示标题、说明文字与一个查看分区按钮。点击\"查看分区\"按钮通过 data-goto 跳转至后续详情页（当前仅一页）。页面纯静态展示，无加载态或错误态。"
+  ],
+  "createdAt": "2026-11-16T17:57:28.631Z",
+  "prototype": [
+    {
+      "id": "n1",
+      "type": "html",
+      "props": {
+        "html": "<style>\n.page{min-height:100vh;display:flex;flex-direction:column;background:#FFFFFF;color:#1A1A1A;font-family:system-ui,\"PingFang SC\",sans-serif;padding:96px 24px 48px;align-items:center;justify-content:center}\n.draft-wrap{display:flex;flex-direction:column;align-items:center;max-width:480px;width:100%;gap:32px}\n.title{font-size:32px;font-weight:700;line-height:1.5;margin:0;text-align:center;letter-spacing:0.04em}\n.desc{font-size:16px;font-weight:400;line-height:1.6;color:#1A1A1A;margin:0;text-align:center}\n.btn-view{font-size:16px;font-weight:400;line-height:1.5;color:#1A1A1A;background:none;border:1px solid #1A1A1A;border-radius:0;padding:12px 32px;cursor:pointer;font-family:inherit}\n.btn-view:focus-visible{outline:2px solid #1A1A1A;outline-offset:4px}\n.footer-mark{margin-top:auto;padding-top:64px;font-size:10px;font-weight:400;line-height:1.5;color:#999999;font-family:ui-monospace,monospace;letter-spacing:0.08em}\n@media(max-width:480px){.page{padding:64px 20px 32px}.title{font-size:28px}.draft-wrap{gap:24px}}\n</style>\n<div class=\"page\" data-ref=\"r1\">\n<div class=\"draft-wrap\" data-ref=\"r2\">\n<h1 class=\"title\" data-ref=\"r3\">取餐分区</h1>\n<p class=\"desc\" data-ref=\"r4\">请根据号码找到对应的取餐窗口。</p>\n<button type=\"button\" class=\"btn-view\" data-ref=\"r5\">查看分区</button>\n</div>\n<span class=\"footer-mark\" data-ref=\"r6\">AIDT-SUPPLEMENT-V1</span>\n</div>"
+      }
+    }
+  ],
+  "links": []
+}

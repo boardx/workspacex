@@ -1,3 +1,6 @@
+import { AidtContextSelector, AIDT_CONTEXT_LIMITS } from "@repo/contracts/aidt-run-context";
+import { AidtContextError } from "../../application/aidt-run-context/errors";
+import { aidtContextHttpException } from "./aidt-run-context.controller";
 import { requiresAgentSkillPins } from "../../application/chat/agent-skill-scope";
 import { createExecutionJournalRelay } from "./execution-journal-relay";
 import { type ExecutionEvent } from "@repo/contracts/execution-journal";
@@ -255,6 +258,7 @@ interface AguiRunInput {
     readonly toolChoice?: { readonly function?: { readonly name?: string } };
     readonly clientMessageId?: unknown;
     readonly realtimeContext?: unknown;
+    readonly aidtContext?: unknown;
   };
 }
 
@@ -772,20 +776,38 @@ export class CopilotkitAguiController {
       }
     }
 
-    response.writeHead(200, {
-      // DA-17（UX-9 Line D3）实测发现：不带 `charset` 时，Chromium 的 CDP 网络检查层
-      // （Playwright `response.text()`/`response.body()` 走的正是这条路径，不是页面
-      // 自己 `fetch()` + `TextDecoder` 那条）会把这条 SSE 流当非 UTF-8 解码，中文内容
-      // 全部乱码——`copilotkit-agui-state-snapshot.spec.ts` 抓 wire 字节时踩到。页面内
-      // `HttpAgent` 自己读流不受影响（`TextDecoder` 默认按 UTF-8），但显式声明
-      // charset 是 SSE 响应本该做的事（避免任何中间层/工具凭猜测解码），不是单纯为了
-      // 迁就测试。
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    });
+    // Resume inherits the accepted run snapshot. Client context never changes it.
+    let aidtContext: AidtContextSelector | undefined;
+    if (!resumeRequest && body.forwardedProps?.aidtContext !== undefined) {
+      const raw = body.forwardedProps.aidtContext;
+      if (Buffer.byteLength(JSON.stringify(raw), "utf8") > AIDT_CONTEXT_LIMITS.selectorBytes) throw aidtContextHttpException(new AidtContextError("AIDT_CONTEXT_TOO_LARGE"));
+      const parsed = AidtContextSelector.safeParse(raw);
+      if (!parsed.success || !body.forwardedProps.chatThreadId?.trim() || !parseForwardedClientMessageId(body.forwardedProps.clientMessageId)) throw aidtContextHttpException(new AidtContextError("AIDT_CONTEXT_INVALID"));
+      aidtContext = parsed.data;
+    }
+    let sseStarted = false;
+    let stopHeartbeat = (): void => {};
+    const startSse = (): void => {
+      if (sseStarted) return;
+      sseStarted = true;
+      response.writeHead(200, {
+        // DA-17（UX-9 Line D3）实测发现：不带 `charset` 时，Chromium 的 CDP 网络检查层
+        // （Playwright `response.text()`/`response.body()` 走的正是这条路径，不是页面
+        // 自己 `fetch()` + `TextDecoder` 那条）会把这条 SSE 流当非 UTF-8 解码，中文内容
+        // 全部乱码——`copilotkit-agui-state-snapshot.spec.ts` 抓 wire 字节时踩到。页面内
+        // `HttpAgent` 自己读流不受影响（`TextDecoder` 默认按 UTF-8），但显式声明
+        // charset 是 SSE 响应本该做的事（避免任何中间层/工具凭猜测解码），不是单纯为了
+        // 迁就测试。
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      stopHeartbeat = startAguiSseHeartbeat(() => response.write(": heartbeat\n\n"));
+    };
+    if (!aidtContext) startSse();
     const write = (event: AguiEvent): void => {
+      startSse();
       response.write(`data: ${JSON.stringify(event)}\n\n`);
     };
     /**
@@ -800,13 +822,13 @@ export class CopilotkitAguiController {
      *   读、同一个模块**。给同一个事实开第二份副本（塞进事件里）正是本仓的头号病。
      */
     const writeRunError = (code: aguiRunError.AguiRunErrorCode): void => {
+      startSse();
       response.write(`data: ${JSON.stringify({ type: EventType.RUN_ERROR, message: code, code })}\n\n`);
     };
     // issue #2795 -- see `startAguiSseHeartbeat`'s own doc: keeps this connection from ever
     // going idle long enough for an intermediate hop's default timeout (undici's `fetch`
     // bodyTimeout chief among them) to tear it down mid-run. Stopped in `finally` below on
     // every exit path, including the one that re-throws after writing `INTERNAL_ERROR`.
-    const stopHeartbeat = startAguiSseHeartbeat(() => response.write(": heartbeat\n\n"));
 
     // Client-facing correlation ids -- see file head "threadId / runId" section. `HttpAgent`
     // always sends both; the fallback only covers a hand-rolled test/curl client.
@@ -825,7 +847,7 @@ export class CopilotkitAguiController {
     const requestedAttachmentIds = parseForwardedAttachmentIds(body.forwardedProps?.attachmentIds);
     // issue #2321 round 2 -- see `parseForwardedClientMessageId`'s own doc.
     const requestedClientMessageId = parseForwardedClientMessageId(body.forwardedProps?.clientMessageId);
-    const realtimeContext = parseRealtimeContext(body.forwardedProps?.realtimeContext);
+    const realtimeContext = aidtContext ? undefined : parseRealtimeContext(body.forwardedProps?.realtimeContext);
     // DA-19a -- captured by `onThreadResolved` (fires before `onStarted`, see
     // `agui-bridge.ts`'s own doc), but NOT written to the wire there: a real `@ag-ui/client`
     // `HttpAgent` enforces "first event must be RUN_STARTED" (`verify.ts`'s own check, hit
@@ -948,6 +970,7 @@ export class CopilotkitAguiController {
           threadId: requestedChatThreadId !== undefined && requestedChatThreadId !== ""
             ? requestedChatThreadId : null,
           attachmentIds: requestedAttachmentIds,
+          aidtContext,
           onThreadResolved: (threadId) => { resolvedThreadId = threadId; },
           ...sharedCallbacks,
         });
@@ -1039,6 +1062,15 @@ export class CopilotkitAguiController {
         writeRunError("AGENT_RUN_TIMEOUT");
       }
     } catch (e) {
+      if (e instanceof AidtContextError) {
+        if (!sseStarted) throw aidtContextHttpException(e);
+        // Incoming null preserves ordinary SSE. A previously marked AIDT message
+        // must still conflict instead of being reinterpreted as an ordinary run.
+        writeRunError(e.reasonCode === "AIDT_CONTEXT_CONFLICT" ? "IDEMPOTENCY_CONFLICT"
+          : e.reasonCode === "AIDT_CONTEXT_NOT_AVAILABLE" ? "THREAD_NOT_VISIBLE" : "AUTHZ_UNAVAILABLE");
+        response.end();
+        return;
+      }
       if (this.runs.readExecutionEvents) closeExecutionMessage();
         else if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
       if (e instanceof MessageThreadNotVisibleError || e instanceof AgentRunNotVisibleError) {

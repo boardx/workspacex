@@ -1,0 +1,65 @@
+{
+  "kind": "real-browser-health-only-native-acceptance",
+  "sourceSha": "696e5da061977eb961c4d9bae4a3a5e9447cccf7",
+  "attempt": "attempt-01",
+  "status": "failed",
+  "testsPassed": 0,
+  "testsFailed": 1,
+  "durationMs": 8716,
+  "retries": 0,
+  "projectId": "prj-bc02b4d6-f541-4a53-8dd4-777ba67449a2",
+  "threadId": "thr-5ab37fef-e33b-4bdd-bb49-3389c7431d24",
+  "runId": "a346cc6f-039b-4e07-a0b0-835826637a10",
+  "actualChecksBeforeFailure": [
+    "real UI S1/S2 drafts saved",
+    "single actual SDK send with strict exact selector and no automatic material body",
+    "durable human text exact",
+    "run queued and exact one aidt-empathize pin"
+  ],
+  "failure": {
+    "location": "aidt-v2-context-prepared.spec.ts receipt panel assertion",
+    "reason": "queued run has no execution_event, so current host acceptedRun stays null and receipt UI does not mount",
+    "timeoutMs": 5000,
+    "assertionNotRelaxed": true
+  },
+  "notReached": [
+    "independent authorized HTTP receipt GET",
+    "collapsed receipt UI GET/hash checks"
+  ],
+  "cleanup": {
+    "actualCancelApiStatus": 202,
+    "finalStatus": "cancelled",
+    "browserClosed": true,
+    "ownerSqlActiveRuns": 0
+  },
+  "ownerEvidence": [
+    "../a1/context-stack02-prepared-run.json",
+    "../a1/context-stack02-after-browser.json",
+    "../a1/context-stack02-prepared-actor.json"
+  ],
+  "actor": {
+    "orgRole": "admin",
+    "projectRole": "owner",
+    "fundedAdmin": false,
+    "walletExists": false,
+    "studentPaidPermissionClaimed": false
+  },
+  "ownerSql": {
+    "humanCount": 1,
+    "focusSkillCount": 1,
+    "exactSelectorS1V1S2V1": true,
+    "snapshotExists": true,
+    "applicationCount": 0,
+    "physicalRequests": 0,
+    "usage": 0,
+    "creditRequests": 0,
+    "holds": 0,
+    "unbounded": 0,
+    "activeRuns": 0,
+    "financialAndPaidLedgerHashesUnchanged": true
+  },
+  "paidHelperOrLedgerFunctionCalled": false,
+  "supplierExecutionRequested": false,
+  "realAiClaimed": false,
+  "followupTestImprovedWithoutRerun": "Independent HTTP receipt GET now precedes UI assertion; always attach owned-run cancellation result on failure"
+}

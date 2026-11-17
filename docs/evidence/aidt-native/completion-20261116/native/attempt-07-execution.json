@@ -1,0 +1,26 @@
+{
+  "startedAt": "2026-11-16T03:06:08.488578+00:00",
+  "sourceCommit": "7c6bcb99dacaa78d2af79dac3a836cc6b51edc4d",
+  "dirtyStatus": "",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "python3",
+    "/workspace/scratch/aidt-completion-acceptance/native-design-pipeline.py",
+    "07"
+  ],
+  "seed": "aidt-completion-20261116-full-07",
+  "webMode": "start",
+  "reuseBuild": false,
+  "parentNodeEnv": "development",
+  "dataDir": "/workspace/scratch/aidt-local-persistent-acceptance/data",
+  "browserCache": "/tmp/aidt-playwright",
+  "modelFixture": false,
+  "pipeline": "native-two-cycles-then-design-one-cycle-in-one-owned-reservation",
+  "finishedAt": "2026-11-16T03:12:26.589630+00:00",
+  "exitCode": 1,
+  "durationMs": 378064
+}

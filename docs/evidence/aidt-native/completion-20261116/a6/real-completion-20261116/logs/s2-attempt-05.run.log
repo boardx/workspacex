@@ -1,0 +1,39 @@
+
+Running 1 test using 1 worker
+
+(node:274419) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[aidt-v2] native request observed · aidt-empathize · budget entry 18be09ec-afce-4a18-a8d4-88c0889d810a
+  ✘  1 e2e/aidt-v2-completion.spec.ts:70:7 › completion S2: same-group saved inputs → actual native dispatch → student revision → new login (8.6s)
+
+
+  1) e2e/aidt-v2-completion.spec.ts:70:7 › completion S2: same-group saved inputs → actual native dispatch → student revision → new login 
+
+    Error: 不能把猜测或模拟升级为已验证研究
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+       at support/aidt-v2-intent-review.ts:23
+
+      21 |   const visible = [understanding, ...assumptions].join("\n");
+      22 |   expect(/合成|模拟|教学|验收/.test(visible), "必须保留合成课堂范围").toBe(true);
+    > 23 |   expect(/猜测|假设|待验证|未验证|尚未|没有真实|未开展/.test(visible), "不能把猜测或模拟升级为已验证研究").toBe(true);
+         |                                                                         ^
+      24 |   expect(/问题|来源|澄清|追问|报告|材料|设计思维/.test(visible), "仅限当前教学任务理解").toBe(true);
+      25 |   expect(/https?:\/\/|DASHSCOPE|API_KEY|SESSION_TOKEN|请(?:发送邮件|执行脚本|修改权限|新增账户|部署)/i.test(visible), "额外外发、资源/高影响动作须另审，不在此确认").toBe(false);
+      26 |   const stage = Number(new URL(page.url()).searchParams.get("step"));
+        at reviewAidtSyntheticIntent (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-intent-review.ts:23:73)
+        at _test.expect.poll.timeout (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-acceptance.ts:238:32)
+        at sendAidtV2NativeTurn (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-acceptance.ts:212:5)
+        at /workspace/aidt-module-latest/apps/web/e2e/aidt-v2-completion.spec.ts:102:18
+
+    Error Context: ../../../scratch/aidt-real-completion-20261116/s2-attempt-05/aidt-v2-completion-complet-5a5a3-tudent-revision-→-new-login/error-context.md
+
+  1 failed
+    e2e/aidt-v2-completion.spec.ts:70:7 › completion S2: same-group saved inputs → actual native dispatch → student revision → new login 
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.aidt-v2.config.ts e2e/aidt-v2-completion.spec.ts --grep completion S2:

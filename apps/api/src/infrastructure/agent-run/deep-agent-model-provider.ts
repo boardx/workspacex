@@ -1,3 +1,4 @@
+import { verifyReferenceDispatch, revalidateReferenceDispatch, observeReferenceDispatch } from "../../application/agent-run/reference-dispatch";
 import {throwPrivateCreditFailure} from "./private-credit-failure";
 import { deepAgentToolResultSucceeded } from "./deep-agent-command-outcome";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -1265,6 +1266,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       } else {
         decision = { type: input.resume.decision };
       }
+      if (input.referenceDispatchObserver) { verifyReferenceDispatch(input); await revalidateReferenceDispatch(input); }
       const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/runs`, {
         method: "POST",
         body: JSON.stringify({
@@ -1332,6 +1334,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       if (!response.ok || !body.run_id) {
         throw new ModelCallError("MODEL_CALL_FAILED", `deep agent resume failed with HTTP ${response.status}`);
       }
+      await observeReferenceDispatch(input, { kind: "checkpoint-resume-observed", remoteRunId: body.run_id, remoteThreadId: threadId });
       await input.onRemoteRunStarted?.(body.run_id, threadId);
       return body.run_id;
     }
@@ -1367,9 +1370,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       : [{ type: "text", text: input.user } as const, ...images.map(toImagePart)];
     messages.push({ role: "user", content: userContent, id: turnMessageId(turnKey, "user") });
 
-    const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/runs`, {
-      method: "POST",
-      body: JSON.stringify({
+    const serializedBody = JSON.stringify({
         assistant_id: ASSISTANT_ID,
         // 生产无流式的根因（2026-08-23 人类实测报告 → 静态定位）：创建 run 时不带
         // stream_mode，LangGraph 的 join 流（GET /runs/:id/stream）默认只回放 values
@@ -1469,12 +1470,18 @@ export class DeepAgentModelProvider implements ModelCallPort {
               ...this.memoryConfig(input),
           },
         },
-      }),
     });
+    if (input.referenceDispatchObserver) {
+      if (input.checkpointResume) verifyReferenceDispatch(input);
+      else verifyReferenceDispatch(input, (JSON.parse(serializedBody) as { input: { messages: typeof messages } }).input.messages, input.system.trim() !== "" ? 1 : 0);
+      await revalidateReferenceDispatch(input);
+    }
+    const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/runs`, { method: "POST", body: serializedBody });
     const body = (await response.json()) as { run_id?: string };
     if (!response.ok || !body.run_id) {
       throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run submission failed with HTTP ${response.status}`);
     }
+    await observeReferenceDispatch(input, { kind: input.checkpointResume ? "checkpoint-resume-observed" : "message-dispatch-observed", remoteRunId: body.run_id, remoteThreadId: threadId });
     await input.onRemoteRunStarted?.(body.run_id, threadId);
     return body.run_id;
   }

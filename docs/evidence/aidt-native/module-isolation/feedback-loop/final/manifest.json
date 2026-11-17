@@ -1,0 +1,483 @@
+{
+  "processExitCode": 0,
+  "overallStatus": "passed",
+  "source": "db828d5e2fbb6d8c233b4278c2ee50a9b892739b",
+  "base": "9458932e466198416b81780da6284ea5f2b39c57",
+  "stats": {
+    "startTime": "2026-11-15T02:56:15.567Z",
+    "duration": 403953.44,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "reporterErrors": [],
+  "verification": {
+    "strictLayout": true,
+    "observeOnly": null
+  },
+  "holdSeconds": 0,
+  "screenshots": 100,
+  "observations": 61,
+  "screenshotFiles": [
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/01-dashboard-1280.png",
+      "sha256": "4ff7a0e593d4b8707bf0a6be6e6b2dd1a59227831c4204c2aa1a88a1e6f48d0d"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/01-dashboard-375.png",
+      "sha256": "76ebcbe62b88fe82a902694f7c16d90f12c60f04e933d8441b54f24ab335f2a1"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-1-chat-1280.png",
+      "sha256": "b9395265a32d4accedd230992580883599e155ac0cfc25bce59c43a195d74cc5"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-1-chat-375.png",
+      "sha256": "d4596888802c2714ea24b852f911daf191af3cc01f7ec761f8c5103bdae95df4"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-2-chat-1280.png",
+      "sha256": "626e4e0cfb288424853818d8946b4716678d915c81024a8e2fecbd895e618ef4"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-2-chat-375.png",
+      "sha256": "6b7d0f3616162633458ab2d8577e313fbf5b42aec5ac097462d7e2ca2b363750"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-3-chat-1280.png",
+      "sha256": "9d03d56f61182463772cea8c5338bbde46b83b7483d5ff5ebc481cd3e387f03a"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-3-chat-375.png",
+      "sha256": "119a83ef11fc36989ccfd6e59b5fc34dcbad72376a30d8525d01852a004fbfb4"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-4-chat-1280.png",
+      "sha256": "e6f01c000cd7065b383aa0f6b7cc4af33a4f6ec67247ca91d636639ba4d6ce0f"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-4-chat-375.png",
+      "sha256": "41b1a5677be1a53996de6d7da210b309babd401872220d4c310fc7ca46de38fc"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-5-chat-1280.png",
+      "sha256": "dbc1dc025e1beea3c759a17084664a6cdc413eb39beb438e14e85e9541cbd5e4"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-5-chat-375.png",
+      "sha256": "95cee814349b88585f5bbcf2866ba2218d40644116cfaeaee8cdeed631cc60c8"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-6-chat-1280.png",
+      "sha256": "e8949d8c0d472130069633ea29c221734337b1e5e61286cb73525fa7a038e756"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/02-step-6-chat-375.png",
+      "sha256": "88913849e17989091266f06dabc5f4ef5fa3fbaa3dc9a83386232cf858b2a4cb"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-1-outcome-empty-1280.png",
+      "sha256": "73b4c0c78bbe895df2cbe55821889b28b5fd596924b19aa6a45c7d88a60831f6"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-1-outcome-empty-375.png",
+      "sha256": "765de6909f079fc6907ea23b377ef48f7a0a6e6ea3823a7e15ae4aa5bbb757c7"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-2-outcome-empty-1280.png",
+      "sha256": "712ae7779f73fc5402d64b5ca18eedfce0454d5ac54c646454b56bf5c2d973f7"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-2-outcome-empty-375.png",
+      "sha256": "07d5c09f4791aead5cbc2f5328a31c755c163f4f708b90eb8dbaf1aeed5839f4"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-3-outcome-empty-1280.png",
+      "sha256": "5a0376884679a807657e59726ee207ddaac08b4606bc790b7a0d89bde5207415"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-3-outcome-empty-375.png",
+      "sha256": "ec3b683b94f5a57d1df7fc46381df5ae1b6089369d1427fe99f9eebcca58d770"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-4-outcome-empty-1280.png",
+      "sha256": "1c4ead9d84c128c140e36002f79c6dbb27264ca5cd4749d8df094de2c2419bc9"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-4-outcome-empty-375.png",
+      "sha256": "e76541a1718e81352eceaddd777253be750f8776c60b08951e729524b5becbd3"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-5-outcome-empty-1280.png",
+      "sha256": "79c586fb931c1c6b0a355accfeb639c232b70f43f6dce2139d2f48580512ff37"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-5-outcome-empty-375.png",
+      "sha256": "f427001185e173e80d81568ddc38f663b54e8c5c0c64c502dc7fba5722a8c8f1"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-6-outcome-empty-1280.png",
+      "sha256": "7d886448a3a1ebd48eaa3cd30b6d707ddb96295628fc02bbe7d4943a25d95a41"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/03-step-6-outcome-empty-375.png",
+      "sha256": "3c0d69014c9e1ef62763f100da45f05cb2174ca0e3e3505d098ed1e76131959f"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-1-outcome-edited-1280.png",
+      "sha256": "2956bbc5cafa9ee1163775c0021a5366cd5b28128e9e5bfa410d707af2f88867"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-1-outcome-edited-375.png",
+      "sha256": "f9eba526fbbd12bf3b656e64338de4ab7ba5c29ca144fc86cf0a3ef74983ed3f"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-2-outcome-edited-1280.png",
+      "sha256": "3ff1623e9d965852a917b8494ec7361113b238d920716fd0cf995e8cad300765"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-2-outcome-edited-375.png",
+      "sha256": "55e62770504ec158200ed5804cb15c508a5bcdcbd5e71c432200ad92bece9756"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-3-outcome-edited-1280.png",
+      "sha256": "2fd30757e5594f4619a16bd7e4694c9c9f6b1b04ffedc6ace7595c1f69059239"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-3-outcome-edited-375.png",
+      "sha256": "8ca65a2b0424d356505fe1edc83f640e13cc9e4095498ebeb99e15919bb2d6f1"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-4-outcome-edited-1280.png",
+      "sha256": "352f912183e1d1a259bb06348b1d3108443c3c427af13193c283899c477d1086"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-4-outcome-edited-375.png",
+      "sha256": "2f06cd50d6f5187a4226df054ca91b11226a71f7ee1359abcd29bc6b474e1a08"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-5-outcome-edited-1280.png",
+      "sha256": "c5d50d245ea5e333f0ad47fea95c0b7640dfe69a07bc69084e0741bb8c5888a5"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-5-outcome-edited-375.png",
+      "sha256": "7baed649fcc819b3be13a1ef03cfec434f33950dfb9f098a31aca030984b584b"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-6-outcome-edited-1280.png",
+      "sha256": "bdd182ecf774f5fbfbc7c6c204894bbaa1b6a410ae821f948c0cc44b00cec8bc"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/04-step-6-outcome-edited-375.png",
+      "sha256": "ad44c3b68be6292f2fa5ea2076fcf71b1b6cdc4c462cf1c01056b139dbab758f"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-1-outcome-bottom-1280.png",
+      "sha256": "8e935fc6f170985951e1698f1517e15f6feb1da5f624e6192428fedb21bc5761"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-1-outcome-bottom-375.png",
+      "sha256": "fea544d846d1d7301441790d59ae73c7389806e470faaf41ed58ade6eada3466"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-2-outcome-bottom-1280.png",
+      "sha256": "42875345efd8bf19d5a133216757bb1315c17a5524beb85e50741f8c08040c66"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-2-outcome-bottom-375.png",
+      "sha256": "644b2ea3b5cf170ccef910e438738b54d61c6a0817bbcd63fe64e26c4458dca0"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-3-outcome-bottom-1280.png",
+      "sha256": "0a40f56b677943de79aa5d78368e652fa9a3bee2d89ccef63ba2ed6ef0691d8c"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-3-outcome-bottom-375.png",
+      "sha256": "7b5185525d1971afc2be1377a6efee9b9c496edef225e88e294e5728b349209f"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-4-outcome-bottom-1280.png",
+      "sha256": "9d768244132465482a3b2289b7fe72b71f7f5db300ae7fb3d99d653be89e655b"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-4-outcome-bottom-375.png",
+      "sha256": "5219309de7423be752970273207d706776eddf7b8ea6b0c6d6cbc0e0bacea5b3"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-5-outcome-bottom-1280.png",
+      "sha256": "2c3cf303f2e9ea7bdcb64a909c6f6d128c9044ebaf0e3cb5cfba9cdf177e2765"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-5-outcome-bottom-375.png",
+      "sha256": "cd05c6401aa012bf14ac5eeed06b3707c784afd9f9325076e84b39bef60275ae"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-6-outcome-bottom-1280.png",
+      "sha256": "12391f02783b525da92a7c2d2331d9af94735dae65c68c68d78e3d6b94391ade"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/05-step-6-outcome-bottom-375.png",
+      "sha256": "6b6508ee313c709b6043b74b9e4e93d809ec7a7d0edf967357a9d76877e4c50c"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/06-idea-removal-1280.png",
+      "sha256": "606502d2c2b57cef4de476d186be0fdbfa13ac31dba507bdebcf39a9fa7448db"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/06-idea-removal-375.png",
+      "sha256": "55efe3b88c6b459cebd65a56d6c865e8a9a017ac7a8c6ad55c1d15c19691cc9e"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/07-report-start-1280.png",
+      "sha256": "a7ea3dcc1b0fe1c27ca6b295b17c255249a9ab859eb35bbeb827e7c611294945"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/07-report-start-375.png",
+      "sha256": "6e851f423d3a843e133d731de2f8c07fdaa94ddefd01e4dbc7ce1e6efe4d3bb6"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/08-report-editor-1280.png",
+      "sha256": "70ea457a23ff44cb84f1a316b4319a45085951b8401cec06088429b690239fac"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/08-report-editor-375.png",
+      "sha256": "75032488b29de1f1554589154964e9be870f0a1139042181a026d202144e59d6"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/09-team-empty-1280.png",
+      "sha256": "c48c5158a2837f61c1235ccb5880fbe37ba4f9afca9e8cc2a9d13280868c7c55"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/09-team-empty-375.png",
+      "sha256": "9fec03fe112393101ec0e2f7287e016ec8d3a92d2b21d2976957b27426fe5f14"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/10-team-stored-1280.png",
+      "sha256": "add600cb62b5d00b9ac073125bbd9902642d1218727dc4650a64dd7cc98f3f17"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/10-team-stored-375.png",
+      "sha256": "b3495f54bdae30738ccedd1679926494f88d3a59a71724f3f8bd622105c1f859"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/11-team-keyboard-1280.png",
+      "sha256": "8a671ca22292f7400471912d1f2dbbe580d852e3ed86a9e8ba46b4780a196a06"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/11-team-keyboard-375.png",
+      "sha256": "7b70eaec1332526715a761dc59aec2d335eb3a4f6905fc5e959a5f91af4ebd46"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/12-chat-populated-1280.png",
+      "sha256": "9d989510e4099795aae9e7e8cfd23589ad414664fde4e593f4a15dabdebf43ca"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/12-chat-populated-375.png",
+      "sha256": "d693ad16a104388a5c641e74301ab8f1f6f6b686550edc5f354d583b3ac97914"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/aidt-member-collaboration--2af06-idempotency-and-no-AgentRun-seeded/project-human-chat-global-draft-retained.png",
+      "sha256": "62deeecbbb7fa1b517be0c41a821c1a7e89a0e8a82596ecc9a322b90c9af4356"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/aidt-member-collaboration--2af06-idempotency-and-no-AgentRun-seeded/project-human-member-topic-375.png",
+      "sha256": "d32132d03d95585df8e6374d19f4d258656df1095e0f7c3c36935a975114aa4b"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/aidt-member-collaboration--2af06-idempotency-and-no-AgentRun-seeded/project-human-member-topic-real.png",
+      "sha256": "a4a24b3692ba0b16afa6092bcf64e0bcbcb7ae7c1faa238f8297c98be142fb5b"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/aidt-report-editor-1280.png",
+      "sha256": "5da32f8079be1e84c876d2a00f2f6fe5b2dd418b7d9f89c2cb81cc498f02e415"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/aidt-report-editor-375.png",
+      "sha256": "7d372a55a74d75cf34b84a3f37545bbe53929973d6e2127f6e61d696042dfb05"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/aidt-report-real-shared-receipt.png",
+      "sha256": "39451a5f61688a5030ff844e7198c202fc6bef1c596a84201a8424f87f9b6838"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/aidt-shared-stage-conflict-preserves-input.png",
+      "sha256": "ab73ed58d9a55f9144d7aab782987022e6697cdb8a9ea5ac8df8f38be11934b9"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/aidt-shared-stage-real-receipt.png",
+      "sha256": "153ae21769d1c4b82bde9190ff8a0f7a06327af674c7e84fe73268b6210f3f6a"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-dashboard-1280.png",
+      "sha256": "14796583280cb10156d5b9db7a4d451b21cf10c9fad519e7821f8e4e7033be83"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-dashboard-375.png",
+      "sha256": "096b9950b5535300b2202ad0dd6c5888f4b1fc834748c2776fdab779e6e97ca1"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-dashboard-768.png",
+      "sha256": "ee3a6c28a55cb26922118435c4a21bf93919ebb6b8d63f0e445c7d0112276c23"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-group-conflict.png",
+      "sha256": "d6798c867d7d46f9a4d082b0c4f69b556198bfc66b3bbb1d4cb57ae217f36f99"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-group-members.png",
+      "sha256": "67c3958f4125f2ac2662cce3cb8079b8a8835c2afba36e69a61799c12899f794"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-group-mobile.png",
+      "sha256": "8d1a43dc2b3efcfeb278052e59ef5623278b726376a60303be723bb758e406b0"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-group-shared-chat.png",
+      "sha256": "2c3125aad1eb07aa3126527053ed3d0b77fff63348e4b75155da7f72e6b095f1"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-home.png",
+      "sha256": "f9c46514b53e3f412465c11c01f0a49b9131a9ad189296117248677cccb0eb08"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-mobile-ai-with-member-chat.png",
+      "sha256": "56c8c62eaed4043fb2f88d34cd0aec5237e31ed35335abb2fdd5578e3ba2dc27"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-native-chat.png",
+      "sha256": "88e7f04b4497348b250c11375021a61fb3af06496c0edbdfae46d1dc491cdfa1"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-native-project-resources.png",
+      "sha256": "48f4012a01c06efcb9d2dd131508fd43190d1b2179cfb542a69fab69936e49b8"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-personal-checkpoint-receipt.png",
+      "sha256": "ffc4ceec4329db2c17a33dfe23848c0ea4bafea6bce8915f8043dc699a05067f"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-mobile-start.png",
+      "sha256": "bf1f114e3e2096e9ee482b387cacee940d4ac4174cbd19d8590894b9ddb17512"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-recording-panel.png",
+      "sha256": "1d409632ff6b26bb85104a957741361f877cc9676f9b6add2694e6169e1da319"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-1-start.png",
+      "sha256": "a29babf5488b7e51056ec6a46d8e66349c562e21281650c288a932e34f8d3b90"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-2-start.png",
+      "sha256": "2998c0d31109354654931ee8be75090bbf22a7728937cea9aee3ab193d12ce77"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-3-start.png",
+      "sha256": "86fd9a545117d8312775ac7e0ed07b751aadf61fe224074189aee1c2c5281f64"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-4-start.png",
+      "sha256": "b2f0325b271e734abe976cb398ad542baa09c3001ab943f14316a80e1884cb2d"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-5-start.png",
+      "sha256": "0e37e535f72f12d2650e9adb812536469d8ad2f8856d4dd97a03a4bb034d2e77"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-6-start.png",
+      "sha256": "e166435a0ced1ba52bf2d34ac95c7a3bdf8ff9c7dc6b755dbbb46fca33dc1a53"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v2-idea-sheet.png",
+      "sha256": "2aafac08a8e6addb06a6490db31d581e28b16f69d2ae149abe9bece121b1d144"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v2-mobile-sheet.png",
+      "sha256": "596b0bee676875a73b1e921964d28a0d637b3505b29c6b50c4ab2b5a0c709d17"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v2-problem-sheet.png",
+      "sha256": "71575d05363af0a087937df3ea7b7ad618fb8f724b04e464551900919a579e51"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v2-report-preview.png",
+      "sha256": "39a404dbdf72ef7eebede6ee980603cf50a9aa82c3d54befebb6b80e84b2a631"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v3-bridge.png",
+      "sha256": "5dc53a7686557b66f2b889decbc4f599509578c6006cad45e52a14f96f1b6592"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v3-dashboard.png",
+      "sha256": "5992253a48e4584e312f1f74d0341aeed291eb1a0bfa77a93134559b3d4cd421"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v3-mobile.png",
+      "sha256": "bbd61e626bfb1a9daf7dd46e5055eb4fa9d25a5428aa246981d59d7770423c54"
+    },
+    {
+      "path": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v3-outcome.png",
+      "sha256": "233fea7ec34d2b8d656cd260e82697ffcb12d66602e8df57af948c41ff1ef221"
+    }
+  ],
+  "runTerminal": [
+    {
+      "label": "chat-run-terminal",
+      "sendState": "disabled",
+      "persistedAgentText": true
+    }
+  ],
+  "results": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/results.json",
+  "log": "/workspace/scratch/aidt-feedback-loop/mobile-fix/native-e2e-console.log",
+  "sourceCheckpoint": "/workspace/scratch/aidt-feedback-loop/mobile-fix/source-checkpoint.json",
+  "runtime": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/runtime-ready.json",
+  "cleanup": "/workspace/scratch/aidt-feedback-loop/mobile-fix/cleanup.json",
+  "pg": [
+    {
+      "file": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/shared-stage-pg-readback.json",
+      "rows": 9,
+      "modelActivity": {
+        "before": {
+          "runs": 0,
+          "requests": 0
+        },
+        "after": {
+          "runs": 0,
+          "requests": 0
+        }
+      }
+    },
+    {
+      "file": "/workspace/scratch/aidt-feedback-loop/mobile-fix-results/aidt-member-collaboration--2af06-idempotency-and-no-AgentRun-seeded/member-chat-pg-readback.json",
+      "rows": 15,
+      "modelActivity": {
+        "before": {
+          "runs": 0,
+          "requests": 0
+        },
+        "after": {
+          "runs": 0,
+          "requests": 0
+        }
+      }
+    }
+  ],
+  "migrations": [
+    {
+      "file": "/workspace/aidt-module-latest/apps/api/migrations/20261115092900_aidt_stage_revisions.sql",
+      "sha256": "b568ed5aed1328ca92f3d178bd6550131bd8bea9be448197e9a5be5a38314f82"
+    },
+    {
+      "file": "/workspace/aidt-module-latest/apps/api/migrations/20261115093000_project_member_chat.sql",
+      "sha256": "4fd398f8836f480afc86a6881852afc94d42840a41ac7f67cdf12d7ba91fd009"
+    }
+  ],
+  "limits": [
+    "Local deterministic supplier fixture; real model quality and ASR not validated.",
+    "Headless project browser; shared desktop/user external runtime not available.",
+    "Temporary isolated acceptance database is removed; not a persistent group workspace.",
+    "No production deploy, public binding, tunnel or permission changes.",
+    "Real handset keyboard/IME and 30-student class load not validated."
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "kind": "owned-pg-fixture-cleanup-read-only-check",
+  "database": "wsx_aidt_bridge_remediation_20261117",
+  "remaining_fixture_organizations": 0,
+  "remaining_fixture_runs": 0,
+  "remaining_fixture_snapshots": 0,
+  "businessDatabaseAccessed": false,
+  "productionOperations": false,
+  "modelSupplierCalls": 0
+}

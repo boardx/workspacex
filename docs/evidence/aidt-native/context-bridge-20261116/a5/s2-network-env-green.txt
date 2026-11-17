@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: all three caller-supplied trusted CA fields survive byte for byte
+ok 1 - all three caller-supplied trusted CA fields survive byte for byte
+  ---
+  duration_ms: 1.02797
+  type: 'test'
+  ...
+# Subtest: NO_PROXY and no_proxy retain supplied casing, whitespace and explicit empty values without precedence changes
+ok 2 - NO_PROXY and no_proxy retain supplied casing, whitespace and explicit empty values without precedence changes
+  ---
+  duration_ms: 0.185566
+  type: 'test'
+  ...
+# Subtest: absent exclusions keep existing localhost defaults and all proxy spellings remain independently exact
+ok 3 - absent exclusions keep existing localhost defaults and all proxy spellings remain independently exact
+  ---
+  duration_ms: 0.535036
+  type: 'test'
+  ...
+# Subtest: model/deployment data cannot override caller networking, inject CA paths or disable TLS
+ok 4 - model/deployment data cannot override caller networking, inject CA paths or disable TLS
+  ---
+  duration_ms: 0.407356
+  type: 'test'
+  ...
+# Subtest: restore preparation followed by downstream network preparation is idempotent and cannot mutate frozen inputs
+ok 5 - restore preparation followed by downstream network preparation is idempotent and cannot mutate frozen inputs
+  ---
+  duration_ms: 0.191545
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 51.189458

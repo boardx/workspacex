@@ -681,3 +681,16 @@ describe("composer permissions are independent of side-panel resources", () => {
     expect(screen.getByTestId("stub-copilotkit-v2-panel")).toHaveAttribute("data-can-write", "false");
   });
 });
+
+
+describe("native host navigation adapter", () => {
+  it("uses the host route for selection and reads query thread on browser back", async () => {
+    const hostPath = (id: string | null) => `/projects/p1?tab=content&sub=aidt-2&thread=${id ?? ""}`;
+    render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} threadPath={hostPath} threadFromLocation={() => THREAD_A.id} />);
+    await screen.findByTestId(`chat-thread-${THREAD_B.id}`);
+    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`));
+    expect(push).toHaveBeenCalledWith(hostPath(THREAD_B.id));
+    act(() => window.dispatchEvent(new PopStateEvent("popstate")));
+    await waitFor(() => expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "true"));
+  });
+});

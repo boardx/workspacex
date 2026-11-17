@@ -1,0 +1,280 @@
+TAP version 13
+# Subtest: offline structure guard yields coordinates and hashes without credential values
+ok 1 - offline structure guard yields coordinates and hashes without credential values
+  ---
+  duration_ms: 7.184515
+  type: 'test'
+  ...
+# Subtest: rejects dump byte change
+ok 2 - rejects dump byte change
+  ---
+  duration_ms: 1.101116
+  type: 'test'
+  ...
+# Subtest: rejects unsupported dump format
+ok 3 - rejects unsupported dump format
+  ---
+  duration_ms: 0.645475
+  type: 'test'
+  ...
+# Subtest: rejects current legacy budget change
+ok 4 - rejects current legacy budget change
+  ---
+  duration_ms: 0.784553
+  type: 'test'
+  ...
+# Subtest: rejects current supplemental budget change
+ok 5 - rejects current supplemental budget change
+  ---
+  duration_ms: 0.927697
+  type: 'test'
+  ...
+# Subtest: rejects backup budget change
+ok 6 - rejects backup budget change
+  ---
+  duration_ms: 2.332178
+  type: 'test'
+  ...
+# Subtest: rejects original bytes change
+ok 7 - rejects original bytes change
+  ---
+  duration_ms: 0.997502
+  type: 'test'
+  ...
+# Subtest: rejects original MIME absent
+ok 8 - rejects original MIME absent
+  ---
+  duration_ms: 1.215387
+  type: 'test'
+  ...
+# Subtest: rejects unsafe file mode
+ok 9 - rejects unsafe file mode
+  ---
+  duration_ms: 0.98276
+  type: 'test'
+  ...
+# Subtest: rejects unsafe directory mode
+ok 10 - rejects unsafe directory mode
+  ---
+  duration_ms: 1.054247
+  type: 'test'
+  ...
+# Subtest: rejects object symlink
+ok 11 - rejects object symlink
+  ---
+  duration_ms: 1.00321
+  type: 'test'
+  ...
+# Subtest: rejects enabled executor
+ok 12 - rejects enabled executor
+  ---
+  duration_ms: 1.529247
+  type: 'test'
+  ...
+# Subtest: rejects nonzero guard
+ok 13 - rejects nonzero guard
+  ---
+  duration_ms: 1.424851
+  type: 'test'
+  ...
+# Subtest: rejects shared database
+ok 14 - rejects shared database
+  ---
+  duration_ms: 1.486503
+  type: 'test'
+  ...
+# Subtest: rejects missing login
+ok 15 - rejects missing login
+  ---
+  duration_ms: 1.528596
+  type: 'test'
+  ...
+# Subtest: rejects changed group identity
+ok 16 - rejects changed group identity
+  ---
+  duration_ms: 1.746002
+  type: 'test'
+  ...
+# Subtest: rejects pending run
+ok 17 - rejects pending run
+  ---
+  duration_ms: 2.915941
+  type: 'test'
+  ...
+# Subtest: rejects outstanding holds
+ok 18 - rejects outstanding holds
+  ---
+  duration_ms: 1.027897
+  type: 'test'
+  ...
+# Subtest: plan rejects repository and checkpoint-overlapping destination
+ok 19 - plan rejects repository and checkpoint-overlapping destination
+  ---
+  duration_ms: 1.224992
+  type: 'test'
+  ...
+# Subtest: apply requires the exact reviewed plan hash, explicit root authorization and zero guards
+ok 20 - apply requires the exact reviewed plan hash, explicit root authorization and zero guards
+  ---
+  duration_ms: 0.376113
+  type: 'test'
+  ...
+# Subtest: startup gate rejects a receipt that does not attest a verified empty fresh target
+ok 21 - startup gate rejects a receipt that does not attest a verified empty fresh target
+  ---
+  duration_ms: 2.157747
+  type: 'test'
+  ...
+# Subtest: restored target objects are checked independently of the intact backup
+ok 22 - restored target objects are checked independently of the intact backup
+  ---
+  duration_ms: 4.14561
+  type: 'test'
+  ...
+# Subtest: missing restored original
+ok 23 - missing restored original
+  ---
+  duration_ms: 2.513018
+  type: 'test'
+  ...
+# Subtest: changed restored MIME
+ok 24 - changed restored MIME
+  ---
+  duration_ms: 2.577925
+  type: 'test'
+  ...
+# Subtest: restored symlink
+ok 25 - restored symlink
+  ---
+  duration_ms: 2.37344
+  type: 'test'
+  ...
+# Subtest: startup transport must bind pgPort to its own actual reserved PG port
+ok 26 - startup transport must bind pgPort to its own actual reserved PG port
+  ---
+  duration_ms: 0.245287
+  type: 'test'
+  ...
+# Subtest: cancel during listener release must reject before any later Docker up
+ok 27 - cancel during listener release must reject before any later Docker up
+  ---
+  duration_ms: 0.410344
+  type: 'test'
+  ...
+# Subtest: already-cancelled boundary never invokes its resource factory
+ok 28 - already-cancelled boundary never invokes its resource factory
+  ---
+  duration_ms: 0.375462
+  type: 'test'
+  ...
+# Subtest: cancel during ready polling prevents publishing ready metadata
+ok 29 - cancel during ready polling prevents publishing ready metadata
+  ---
+  duration_ms: 1.391581
+  type: 'test'
+  ...
+# Subtest: CN deployment file is read as data; only model fields are selected
+ok 30 - CN deployment file is read as data; only model fields are selected
+  ---
+  duration_ms: 2.123175
+  type: 'test'
+  ...
+# Subtest: missing explicit file is blocked even with complete inherited credentials
+ok 31 - missing explicit file is blocked even with complete inherited credentials
+  ---
+  duration_ms: 0.676942
+  type: 'test'
+  ...
+# Subtest: default missing file may use exported model variables, without claiming connectivity
+ok 32 - default missing file may use exported model variables, without claiming connectivity
+  ---
+  duration_ms: 0.257385
+  type: 'test'
+  ...
+# Subtest: safe smoke requires an actually readable file before starting any real stack
+ok 33 - safe smoke requires an actually readable file before starting any real stack
+  ---
+  duration_ms: 56.449225
+  type: 'test'
+  ...
+# Subtest: explicit DashScope names retain precedence over deployment aliases
+ok 34 - explicit DashScope names retain precedence over deployment aliases
+  ---
+  duration_ms: 0.650373
+  type: 'test'
+  ...
+# Subtest: OpenAI-only deployment configuration is not advertised as supported DashScope smoke
+ok 35 - OpenAI-only deployment configuration is not advertised as supported DashScope smoke
+  ---
+  duration_ms: 0.393618
+  type: 'test'
+  ...
+# Subtest: shell expansions fail with redacted locations; unrelated shell lines never execute
+ok 36 - shell expansions fail with redacted locations; unrelated shell lines never execute
+  ---
+  duration_ms: 30.152876
+  type: 'test'
+  ...
+# Subtest: nonempty placeholder, whitespace and unsafe endpoints fail structural preflight
+ok 37 - nonempty placeholder, whitespace and unsafe endpoints fail structural preflight
+  ---
+  duration_ms: 1.746332
+  type: 'test'
+  ...
+# Subtest: doctor CLI reports field status and never emits key, endpoint, model or arbitrary provider
+ok 38 - doctor CLI reports field status and never emits key, endpoint, model or arbitrary provider
+  ---
+  duration_ms: 49.344715
+  type: 'test'
+  ...
+# Subtest: safe-loaded marker prevents existing shell loader from sourcing CN file again
+ok 39 - safe-loaded marker prevents existing shell loader from sourcing CN file again
+  ---
+  duration_ms: 3.046737
+  type: 'test'
+  ...
+# Subtest: explicit safe smoke reuses isolated lane with model-only file values and preserves failure
+ok 40 - explicit safe smoke reuses isolated lane with model-only file values and preserves failure
+  ---
+  duration_ms: 27.426488
+  type: 'test'
+  ...
+# Subtest: quoted multiline or escaped model assignments are rejected without source echo
+ok 41 - quoted multiline or escaped model assignments are rejected without source echo
+  ---
+  duration_ms: 0.241921
+  type: 'test'
+  ...
+# Subtest: pnpm public entry does not consume model file as its own Node env-file option
+ok 42 - pnpm public entry does not consume model file as its own Node env-file option
+  ---
+  duration_ms: 395.376873
+  type: 'test'
+  ...
+# Subtest: native development stack is an explicit isolated child, with no deployment fields imported
+ok 43 - native development stack is an explicit isolated child, with no deployment fields imported
+  ---
+  duration_ms: 22.196917
+  type: 'test'
+  ...
+# Subtest: incomplete native stack options do not launch any stack
+ok 44 - incomplete native stack options do not launch any stack
+  ---
+  duration_ms: 43.951656
+  type: 'test'
+  ...
+# Subtest: developer proxy preload is explicit and confined to the configured model origin
+ok 45 - developer proxy preload is explicit and confined to the configured model origin
+  ---
+  duration_ms: 2.579819
+  type: 'test'
+  ...
+1..45
+# tests 45
+# suites 0
+# pass 45
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 711.973865

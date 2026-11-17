@@ -1,0 +1,199 @@
+{
+  "scope": "User-approved A+B native usability feedback loop; recording C and voice rooms deferred",
+  "baseline": "c616680c598a",
+  "status": "code-verified-awaiting-runtime-access",
+  "definitionOfDone": [
+    "问题可复现",
+    "修复有反例测试",
+    "当前精确业务版本真实全栈复测",
+    "用户入口可达并能实际操作",
+    "真实模型可用性独立验证"
+  ],
+  "issues": [
+    {
+      "id": "F01",
+      "problem": "重复读取无变化成果误标报告过期",
+      "owner": "aidt_state_isolation",
+      "status": "local-tested-with-native-system-regression",
+      "evidence": "/workspace/scratch/aidt-stage-feedback-green.log"
+    },
+    {
+      "id": "F02",
+      "problem": "切换步骤丢未保存来源选择",
+      "owner": "aidt_state_isolation",
+      "status": "local-tested-with-native-system-regression",
+      "evidence": "/workspace/scratch/aidt-stage-feedback-green.log"
+    },
+    {
+      "id": "F03",
+      "problem": "原生Chat后续导航丢tool/resource",
+      "owner": "aidt_chat_isolation",
+      "status": "local-tested-with-native-system-regression",
+      "evidence": "/tmp/aidt-chat-feedback-final-tests.log"
+    },
+    {
+      "id": "F04",
+      "problem": "学生看不到发送给Agent的已保存正文",
+      "owner": "aidt_chat_isolation",
+      "status": "local-tested-with-native-system-regression",
+      "evidence": "/tmp/aidt-chat-feedback-final-tests.log"
+    },
+    {
+      "id": "F05",
+      "problem": "图片读取或解码故障无可操作重试",
+      "owner": "aidt_chat_isolation",
+      "status": "local-tested-with-native-system-regression",
+      "evidence": "/tmp/aidt-chat-feedback-final-tests.log"
+    },
+    {
+      "id": "F06",
+      "problem": "Esc误关外部工具且忽略IME确认",
+      "owner": "aidt_resource_isolation",
+      "status": "local-tested-with-native-system-regression",
+      "evidence": "member-chat/feedbackloop-2026-11-15.md"
+    },
+    {
+      "id": "F07",
+      "problem": "慢话题请求切组返回后卡住",
+      "owner": "aidt_resource_isolation",
+      "status": "local-tested-with-native-system-regression",
+      "evidence": "member-chat/feedbackloop-2026-11-15.md"
+    },
+    {
+      "id": "F08",
+      "problem": "旧历史响应使新回复数倒退",
+      "owner": "aidt_resource_isolation",
+      "status": "local-tested-with-native-system-regression",
+      "evidence": "member-chat/feedbackloop-2026-11-15.md"
+    },
+    {
+      "id": "F09",
+      "problem": "管理列表旁观者被误当小组成员",
+      "owner": "aidt_entry_isolation",
+      "status": "verified-local-and-native-regression",
+      "evidence": "现有collaborators契约真实成员核查"
+    },
+    {
+      "id": "F10",
+      "problem": "创建过程身份A→B→A旧回调复活",
+      "owner": "aidt_entry_isolation",
+      "status": "verified-local-and-native-regression",
+      "evidence": "原生创建/打tag请求代际隔离"
+    },
+    {
+      "id": "F11",
+      "problem": "共享阶段迁移二次执行失败",
+      "owner": "aidt_backend_isolation",
+      "status": "verified-local-and-native-regression",
+      "evidence": "真实隔离PG重放待完成"
+    },
+    {
+      "id": "F12",
+      "problem": "误点移除立即丢失已填写点子",
+      "owner": "root",
+      "status": "verified-local-and-native-regression",
+      "evidence": "/workspace/scratch/aidt-feedback-root-green.log"
+    },
+    {
+      "id": "F13",
+      "problem": "Dashboard未显示实际共享保存概览",
+      "owner": "aidt_entry_isolation",
+      "status": "verified-local-and-native-regression",
+      "evidence": "与state agent协调canonical shared stage props"
+    },
+    {
+      "id": "F14",
+      "problem": "默认Chat被顶层教学/保存信息挤压",
+      "owner": "aidt_state_isolation",
+      "status": "verified-local-and-native-regression",
+      "evidence": "baseline/02-step-1-chat-375.png; source95d06a53e; final geometry pending"
+    },
+    {
+      "id": "F15",
+      "problem": "保存时切步骤再返回后永久saving禁用",
+      "owner": "aidt_state_isolation",
+      "status": "local-tested-with-native-system-regression",
+      "evidence": "/workspace/scratch/aidt-stage-navigation-save-red.log → aidt-stage-feedback-compact-green.log"
+    },
+    {
+      "id": "F16",
+      "problem": "成果页sticky操作条真实遮挡输入",
+      "owner": "root",
+      "status": "verified-local-and-native-regression",
+      "evidence": "baseline/observations.json + 05-step-1-outcome-bottom-1280.png; final geometry pending"
+    },
+    {
+      "id": "F17",
+      "problem": "手机Dashboard六大卡/重复文案缺明确起点",
+      "owner": "aidt_entry_isolation",
+      "status": "verified-local-and-native-regression",
+      "evidence": "baseline/01-dashboard-375.png; compact6row+first-stage CTA source95d06a53e"
+    },
+    {
+      "id": "F18",
+      "problem": "手机展开教学提示后工具侧AI裁切输入与发送",
+      "owner": "aidt_state_isolation",
+      "status": "verified-local-and-native-regression",
+      "evidence": "accepted-results/native test-failed-1.png; mobile-panel-unit-tests.txt; candidate db828d5e2",
+      "fix": "phone viewport fixed modeless panel, same Chat DOM, scoped Esc/IME, visualViewport resize preserves focus, desktop/fullpage unchanged"
+    }
+  ],
+  "accessBlockers": [
+    {
+      "id": "R01",
+      "problem": "当前没有可调用共享浏览器/受控预览入口",
+      "status": "blocked",
+      "next": "等待用户选择现有测试环境或本机运行；不中断独立修复"
+    },
+    {
+      "id": "R02",
+      "problem": "本实例缺真实模型配置及匹配Agent模型pin的验证",
+      "status": "blocked",
+      "next": "复用既有WorkspaceX配置，不要求在聊天发送密钥，不将loopbackfixture当真实AI"
+    }
+  ],
+  "candidate": "db828d5e2fbb6d8c233b4278c2ee50a9b892739b",
+  "unitRegression": {
+    "webFiles": 56,
+    "webTests": 538,
+    "webTypecheck": "passed",
+    "webLint": "passed",
+    "designLint": "passed",
+    "realFullstack": "4 passed / 0 skipped / 0 unexpected / 0 flaky"
+  },
+  "latestBase": "9458932e466198416b81780da6284ea5f2b39c57",
+  "businessCommit": "5d9c7fb20",
+  "rebaseEvidence": "Old candidate retained in review/aidt-feedback-before-develop-refresh; git diff old..new only upstream chat-agent-skill-context.spec.ts one-line test assertion. Runtime source unchanged.",
+  "verificationAttempts": [
+    {
+      "candidate": "1c5bf9a5736509566fe91735c4b1c7a819b36547",
+      "result": "2 passed / 2 failed",
+      "failedReasons": [
+        "Old Dashboard copy assertion",
+        "Hidden native message copy selected"
+      ],
+      "note": "Retained as failed attempt, not reused as final green."
+    },
+    {
+      "candidate": "7aa8bd162929075b17198d93662d91f686524551",
+      "result": "3 passed / 1 failed",
+      "failedReason": "Immediate helper isVisible race after routed native Chat",
+      "strictAudit": "passed but not overall completion"
+    },
+    {
+      "candidate": "f5d3a0e3e1b4c99a823b8058cd39d28549713a31",
+      "result": "3 passed / 1 failed",
+      "failedReason": "Real mobile nonfull AI panel clipped by expanded teaching header",
+      "strictAudit": "passed with SDK terminal verified, but no overall completion"
+    },
+    {
+      "candidate": "db828d5e2fbb6d8c233b4278c2ee50a9b892739b",
+      "result": "4 passed / 0 skipped / 0 unexpected / 0 flaky",
+      "processExitCode": 0,
+      "strictLayout": true,
+      "observeOnly": null,
+      "holdSeconds": 0
+    }
+  ],
+  "finalEvidence": "final/manifest.json"
+}

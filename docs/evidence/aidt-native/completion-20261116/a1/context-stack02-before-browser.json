@@ -1,0 +1,14 @@
+{
+  "phase": "before-browser",
+  "at": "2026-11-16T10:56:02.770Z",
+  "physicalRequests": 0,
+  "usageReceipts": 0,
+  "creditRequests": 0,
+  "walletOutstandingHolds": 0,
+  "walletUnboundedRequests": 0,
+  "activeRuns": 0,
+  "runStates": [],
+  "financialLedgerHash": "08a1a3f1e989704f07f418d718ba3a6d7be8e15d342e93b8406feb15ddb83db3",
+  "paidBudgetLedgerHash": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "modelRequestsSentByCheck": 0
+}

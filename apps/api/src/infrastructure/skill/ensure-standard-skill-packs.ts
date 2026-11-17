@@ -1,3 +1,4 @@
+import { AIDT_OPT_IN_SKILL_PACKS, isAidtModuleEnabled } from '../aidt/aidt-module';
 import type { DatabasePort } from '../../application/ports/database.port';
 import { importSkillStarterPack } from '../../application/skill-import/import-skill-starter-pack';
 import { PLATFORM_ORG_ID, toOrgId } from '../../domain/org-id';
@@ -18,6 +19,12 @@ export const STANDARD_PLATFORM_PACKS = [
   {packId:'standard-audio',packVersion:'1.1.2'},
   {packId:'maau-diagnostics',packVersion:'2.0.1'},
 ] as const;
+
+/** Resolve optional modules at invocation time, never at import/module-load time. */
+export function enabledPlatformSkillPacks(): readonly { readonly packId: string; readonly packVersion: string }[] {
+  return isAidtModuleEnabled() ? [...AIDT_OPT_IN_SKILL_PACKS, ...STANDARD_PLATFORM_PACKS] : STANDARD_PLATFORM_PACKS;
+}
+
 /**
  * 一个包炸掉，**不许**让后面的包收不到。
  *
@@ -63,12 +70,17 @@ function standardPackRoot(): string {
 export async function ensureStandardSkillPacksSeeded(
   db: DatabasePort,
   actorId: string,
-  packs: readonly { readonly packId: string; readonly packVersion: string }[] = STANDARD_PLATFORM_PACKS,
+  packs: readonly { readonly packId: string; readonly packVersion: string }[] = enabledPlatformSkillPacks(),
 ): Promise<readonly StandardPackSeedOutcome[]> {
+  // An explicit pack list must not bypass the module's deployment opt-in.
+  // Existing rows are deliberately not disabled/deleted when this flag is off.
+  const aidtEnabled = isAidtModuleEnabled();
+  const selected = packs.filter((pack) => !AIDT_OPT_IN_SKILL_PACKS.some(optional => optional.packId === pack.packId) || aidtEnabled);
+  if (selected.length === 0) return [];
   const source = new FileSkillStarterPackSource(standardPackRoot());
   const deps = { identities: new PgIdentityRepository(db), packs: source, imports: new PgSkillStarterImportRepository(db) };
   const reports: StandardPackSeedOutcome[] = [];
-  for (const pack of packs) {
+  for (const pack of selected) {
     try {
       const outcome = await importSkillStarterPack(deps, {
         actorId,

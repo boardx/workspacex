@@ -1,0 +1,46 @@
+{
+  "phase": "completed",
+  "actor": {
+    "userId": "user-collab-lead--20261117-s-1e261c1b8eac",
+    "orgId": "org-collaboration--20261117-s-1e261c1b8eac",
+    "orgRole": "admin"
+  },
+  "projectId": "prj-05443839-c2dc-4f98-b384-4341a6e2578c",
+  "threadId": "thr-ba315a41-7195-4141-ba71-7763d4799f13",
+  "zeroWindow": {
+    "source": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
+    "proofSha256": "8543ca4d8fea00708e2eeb735aa4d09fa995cc7220ecb6ebdc9701bccc6ba6a5"
+  },
+  "blockedPaths": [
+    "/api/copilotkit/agent/default/run",
+    "/api/copilotkit/agent/default/run",
+    "/api/copilotkit/agent/default/run"
+  ],
+  "requestFailures": [
+    {
+      "path": "/api/copilotkit/agent/default/run",
+      "error": "net::ERR_FAILED"
+    },
+    {
+      "path": "/api/copilotkit/agent/default/run",
+      "error": "net::ERR_FAILED"
+    },
+    {
+      "path": "/api/copilotkit/agent/default/run",
+      "error": "net::ERR_FAILED"
+    }
+  ],
+  "canonicalRead": {
+    "status": 200,
+    "messages": 0,
+    "canonicalRunIds": []
+  },
+  "nativeUi": {
+    "error": [],
+    "nativeInput": "",
+    "canonicalReceiptCount": 0
+  },
+  "interceptedSdkRuns": 3,
+  "generationReachedServerClaimed": false,
+  "independentOwnerRunsAndPhysicalAudit": "required separately; browser does not have a thread-run-list API"
+}

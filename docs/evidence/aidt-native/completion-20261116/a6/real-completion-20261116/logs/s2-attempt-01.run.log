@@ -1,0 +1,35 @@
+
+Running 1 test using 1 worker
+
+(node:260824) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/aidt-v2-completion.spec.ts:70:7 › completion S2: same-group saved inputs → actual native dispatch → student revision → new login (2.2s)
+
+
+  1) e2e/aidt-v2-completion.spec.ts:70:7 › completion S2: same-group saved inputs → actual native dispatch → student revision → new login 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 202
+    Received: 201
+
+       at support/aidt-v2-completion-materials.ts:19
+
+      17 |     && new URL(value.url()).pathname === apiPath(files.operations.uploadArtifact.path.replace(":projectId", projectId)));
+      18 |   await control.getByRole("button", { name: "保存原始材料", exact: true }).click();
+    > 19 |   expect((await response).status()).toBe(202);
+         |                                     ^
+      20 |   await expect(control.getByRole("status")).toContainText("原件已保存并回读，已加入草稿");
+      21 | }
+      22 | export async function addCompletionResearch(page: Page, projectId: string) {
+        at upload (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-completion-materials.ts:19:37)
+        at addCompletionResearch (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-completion-materials.ts:23:3)
+        at /workspace/aidt-module-latest/apps/web/e2e/aidt-v2-completion.spec.ts:81:30
+
+    Error Context: ../../../scratch/aidt-real-completion-20261116/s2-attempt-01/aidt-v2-completion-complet-5a5a3-tudent-revision-→-new-login/error-context.md
+
+  1 failed
+    e2e/aidt-v2-completion.spec.ts:70:7 › completion S2: same-group saved inputs → actual native dispatch → student revision → new login 
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.aidt-v2.config.ts e2e/aidt-v2-completion.spec.ts --grep completion S2:

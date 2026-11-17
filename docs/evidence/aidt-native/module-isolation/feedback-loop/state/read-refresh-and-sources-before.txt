@@ -1,0 +1,84 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-shared-stages.test.tsx (31 tests | 2 failed) 636ms
+   × does not re-hydrate unchanged saved forms on refresh or manufacture a local stage revision 17ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      1,
+      Object {
+        "fields": Object {
+          "initial": "服务器问题",
+        },
+        "ideas": Array [],
+        "selectedIdeaId": "",
+      },
+    ]
+
+
+Number of calls: 1
+
+   × retains each step's unsaved source choices when editing sources in another step then returning 17ms
+     → expect(element).toBeChecked()
+
+Received element is not checked:
+  <input
+  data-testid="aidt-shared-source-1"
+  type="checkbox"
+/>
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-shared-stages.test.tsx > does not re-hydrate unchanged saved forms on refresh or manufacture a local stage revision
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      1,
+      Object {
+        "fields": Object {
+          "initial": "服务器问题",
+        },
+        "ideas": Array [],
+        "selectedIdeaId": "",
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/ui/aidt-shared-stages.test.tsx:160:103
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/aidt-shared-stages.test.tsx > retains each step's unsaved source choices when editing sources in another step then returning
+Error: expect(element).toBeChecked()
+
+Received element is not checked:
+  <input
+  data-testid="aidt-shared-source-1"
+  type="checkbox"
+/>
+ ❯ tests/ui/aidt-shared-stages.test.tsx:164:225
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 29 passed (31)
+   Start at  01:44:31
+   Duration  2.79s (transform 363ms, setup 238ms, collect 525ms, tests 636ms, environment 1.10s, prepare 70ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/aidt-shared-stages.test.tsx --maxWorkers=1 --minWorkers=1

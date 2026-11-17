@@ -1,0 +1,14 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/aidt-shared-stages.test.tsx (34 tests) 760ms
+ ✓ tests/ui/project-aidt.test.tsx (15 tests) 972ms
+ ✓ tests/ui/aidt-state-isolation.test.tsx (9 tests) 952ms
+   ✓ clears another actor's drafts and remounts native Chat even when the project ID is unchanged 498ms
+ ✓ tests/ui/aidt-ui-v3.test.tsx (8 tests) 421ms
+
+ Test Files  4 passed (4)
+      Tests  66 passed (66)
+   Start at  02:00:14
+   Duration  13.27s (transform 2.77s, setup 482ms, collect 5.62s, tests 3.10s, environment 2.84s, prepare 257ms)

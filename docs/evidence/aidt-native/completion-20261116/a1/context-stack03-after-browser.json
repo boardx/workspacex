@@ -1,0 +1,21 @@
+{
+  "phase": "after-browser",
+  "at": "2026-11-16T11:22:29.193Z",
+  "physicalRequests": 0,
+  "usageReceipts": 0,
+  "creditRequests": 0,
+  "walletOutstandingHolds": 0,
+  "walletUnboundedRequests": 0,
+  "activeRuns": 0,
+  "runStates": [
+    {
+      "status": "cancelled",
+      "n": 1
+    }
+  ],
+  "financialLedgerHash": "232a75ad00baef1316e1825379a14553182578393e5c697f41a932c0fd2a3b2f",
+  "paidBudgetLedgerHash": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "modelRequestsSentByCheck": 0,
+  "financialLedgerUnchanged": true,
+  "paidBudgetLedgerUnchanged": true
+}

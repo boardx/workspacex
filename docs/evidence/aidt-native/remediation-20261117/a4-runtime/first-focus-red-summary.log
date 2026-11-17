@@ -1,0 +1,35 @@
+                version,
+                _output_mapper,
+                _state_mapper,
+            ):
+                yield o
+            # handle exit
+            if loop.status == "out_of_steps":
+                msg = create_error_message(
+                    message=(
+                        f"Recursion limit of {config['recursion_limit']} reached "
+                        "without hitting a stop condition. You can increase the "
+                        "limit by setting the `recursion_limit` config key."
+                    ),
+                    error_code=ErrorCode.GRAPH_RECURSION_LIMIT,
+                )
+>               raise GraphRecursionError(msg)
+E               langgraph.errors.GraphRecursionError: Recursion limit of 100 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.
+E               For troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT
+
+../../../scratch/aidt-real-model-20261116/python/lib/python3.12/site-packages/langgraph/pregel/main.py:3492: GraphRecursionError
+=============================== warnings summary ===============================
+../../../scratch/aidt-real-model-20261116/python/lib/python3.12/site-packages/anyio/pytest_plugin.py:14
+  /workspace/scratch/aidt-real-model-20261116/python/lib/python3.12/site-packages/anyio/pytest_plugin.py:14: PytestRemovedIn10Warning: _pytest.python.CallSpec2 has been renamed to CallSpec.
+  The CallSpec2 alias will be removed in pytest 10.
+  Update imports to use CallSpec instead.
+  See https://docs.pytest.org/en/stable/deprecations.html#callspec2-renamed
+    from _pytest.python import CallSpec2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_aidt_feedback_turn.py::test_first_authored_feedback_cannot_be_skipped_by_a_direct_answer[False-False]
+FAILED tests/test_aidt_feedback_turn.py::test_first_authored_feedback_cannot_be_skipped_by_a_direct_answer[False-True]
+FAILED tests/test_aidt_feedback_turn.py::test_first_authored_feedback_cannot_be_skipped_by_a_direct_answer[True-False]
+FAILED tests/test_aidt_feedback_turn.py::test_first_authored_feedback_cannot_be_skipped_by_a_direct_answer[True-True]
+4 failed, 41 deselected, 1 warning in 2.40s

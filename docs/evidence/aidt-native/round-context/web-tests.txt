@@ -1,0 +1,69 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/aidt-shared-stages.test.tsx (34 tests) 1129ms
+ ✓ tests/ui/aidt-surprise-reflection.test.tsx (24 tests) 549ms
+ ✓ tests/ui/aidt-personal-checkpoints.test.tsx (16 tests) 722ms
+   ✓ does not save, restore or share a private checkpoint automatically and requires an actual human source 313ms
+ ✓ tests/ui/project-aidt-chat.test.tsx (23 tests) 503ms
+ ✓ tests/ui/aidt-image-attachment-picker.test.tsx (14 tests) 539ms
+ ✓ tests/ui/project-aidt.test.tsx (16 tests) 1415ms
+ ✓ tests/ui/aidt-entry-isolation.test.tsx (13 tests) 658ms
+ ✓ tests/ui/aidt-stage-output-classification.test.tsx (12 tests) 949ms
+   ✓ invalidates confirmation on adding or deleting ideas, and excludes deleted references from active classification 337ms
+ ✓ tests/ui/aidt-resource-isolation.test.tsx (10 tests) 446ms
+ ✓ tests/ui/aidt-entry.test.tsx (14 tests) 448ms
+ ✓ tests/ui/aidt-state-isolation.test.tsx (9 tests) 1301ms
+   ✓ clears another actor's drafts and remounts native Chat even when the project ID is unchanged 335ms
+   ✓ retains the same actor's pending local image read across token refresh 305ms
+ ✓ tests/ui/aidt-problem-reflection.test.tsx (11 tests) 807ms
+   ✓ does not silently accept or rewrite malformed persisted sources 499ms
+ ✓ tests/ui/aidt-stage-history.test.tsx (7 tests) 240ms
+ ✓ tests/ui/aidt-round-navigation.test.tsx (9 tests) 269ms
+ ✓ tests/ui/aidt-resource-navigation.test.tsx (18 tests) 903ms
+ ✓ tests/ui/aidt-ui-v3.test.tsx (8 tests) 610ms
+ ✓ tests/ui/aidt-ui-v2.test.tsx (8 tests) 584ms
+ ✓ tests/ui/aidt-stage-contract.test.tsx (10 tests) 464ms
+ ✓ tests/ui/aidt-test-reflection.test.tsx (5 tests) 408ms
+ ✓ tests/ui/aidt-idea-classification.test.tsx (6 tests) 551ms
+   ✓ starts with student choices empty and supports multiple labels without copying or selecting candidates 381ms
+ ✓ tests/ui/aidt-module-compatibility.test.tsx (10 tests) 280ms
+ ✓ tests/ui/aidt-stage-journey.test.tsx (10 tests) 764ms
+   ✓ keeps step 1 student input, judgment and handoff explicit 375ms
+ ✓ tests/ui/aidt-assistant-panel.test.tsx (3 tests) 246ms
+ ✓ tests/ui/aidt-discovery-cards.test.tsx (4 tests) 370ms
+ ✓ tests/ui/aidt-learning-guide.test.tsx (11 tests) 301ms
+ ✓ tests/ui/aidt-ui-v5.test.tsx (4 tests) 256ms
+ ✓ tests/ui/aidt-shared-report-preview.test.tsx (3 tests) 287ms
+ ✓ tests/ui/aidt-v2-shared-round.test.tsx (2 tests) 132ms
+ ✓ tests/ui/aidt-chat-isolation.test.tsx (7 tests) 260ms
+ ✓ tests/ui/aidt-verification-question.test.tsx (2 tests) 244ms
+ ✓ tests/ui/aidt-feedback-loop.test.tsx (2 tests) 428ms
+   ✓ preserves an edited idea until students explicitly confirm its removal 362ms
+ ✓ tests/ui/home-aidt-entry.test.tsx (2 tests) 124ms
+ ✓ tests/live-aidt-step-chat.test.ts (16 tests) 66ms
+ ✓ tests/aidt-stage-persistence.test.ts (26 tests) 93ms
+ ✓ tests/aidt-chat-saved-context.test.ts (8 tests) 9ms
+ ✓ tests/aidt-verification-loop.test.ts (12 tests) 11ms
+ ✓ tests/aidt-idea-classification.test.ts (12 tests) 9ms
+ ✓ tests/aidt-chat-shared-context.test.ts (10 tests) 11ms
+ ✓ tests/aidt-ui-stage-summary.test.ts (8 tests) 4ms
+ ✓ tests/live-aidt-chat-isolation.test.ts (6 tests) 63ms
+ ✓ tests/aidt-image-attachments.test.ts (6 tests) 10ms
+ ✓ tests/aidt-board-return-navigation.test.ts (26 tests) 5ms
+ ✓ tests/aidt-shared-stage-client.test.ts (5 tests) 10ms
+ ✓ tests/aidt-v2-report.test.ts (2 tests) 5ms
+ ✓ tests/e2e-support/aidt-facilitation-cases.test.ts (11 tests) 15ms
+ ✓ tests/aidt-stage-history-client.test.ts (4 tests) 11ms
+ ✓ tests/aidt-module-boundary.test.ts (4 tests) 3643ms
+   ✓ keeps production AIDT consumers on explicit public registration adapters 3617ms
+ ✓ tests/aidt-state-isolation.test.ts (3 tests) 3ms
+ ✓ tests/aidt-entry-isolation-config.test.ts (10 tests) 3ms
+ ✓ tests/aidt-project-membership.test.ts (5 tests) 8ms
+
+ Test Files  50 passed (50)
+      Tests  501 passed (501)
+   Start at  15:25:27
+   Duration  37.02s (transform 8.66s, setup 7.84s, collect 38.31s, tests 21.17s, environment 29.38s, prepare 3.66s)
+

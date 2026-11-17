@@ -1,0 +1,6 @@
+✗ [copy] apps/api/src/domain/project/readonly-reason.ts:22 redefines contract type `ReadOnlyReason` with a LITERAL
+    What it actually says: "archived" | "org-disabled" | null
+    The contract lives in packages/contracts/src/. Correct form: export type ReadOnlyReason = z.infer<typeof C.ReadOnlyReason>;
+
+❌ 1 violation(s). The contract is the single source -- the same fact in two places always drifts (ADR-020).
+scanned-dirs=apps/web/lib,apps/api/src

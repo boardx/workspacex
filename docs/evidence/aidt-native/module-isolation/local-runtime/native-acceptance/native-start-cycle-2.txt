@@ -1,0 +1,100 @@
+(node:746307) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> agentic-harness-template@ aidt:local /workspace/aidt-module-latest
+> pnpm --filter @repo/local-runtime exec tsx src/aidt-cli.ts "start" "--data-dir" "/workspace/scratch/aidt-local-persistent-acceptance/data" "--repo-root" "/workspace/aidt-module-latest" "--ports" "postgres=20480,api=24480,web=25480,sandbox=26480,deepAgent=28480,ollama=27480,asr=29480"
+
+(node:746332) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:746357) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:746385) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[pglite] database present at /workspace/scratch/aidt-local-persistent-acceptance/data/pgdata
+[pglite] owner phase on 127.0.0.1:20480
+[src/infrastructure/db/migrate-cli.ts] applied 0 migration(s), skipped 468
+[src/infrastructure/db/migrate-cli.ts] (node:746422) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[src/infrastructure/db/migrate-cli.ts] (Use `node --trace-warnings ...` to show where the warning was created)
+[src/infrastructure/db/migrate-cli.ts] (node:746437) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[src/infrastructure/db/migrate-cli.ts] (Use `node --trace-warnings ...` to show where the warning was created)
+[seeds] granted schema/database CREATE to app_rw for the deep-agent service
+[seeds] platform library present: 29 skills, 20 canvas templates
+[scripts/backfill-standard-skill-packs.ts] [backfill-standard-skill-packs] 完成：新导入 0 个，11 个已存在跳过（aidt-methods, standard-web, data-workflows, standard-methods, standard-context, standard-canvas, standard-document, standard-authoring, standard-visual, standard-audio, maau-diagnostics）。
+[scripts/backfill-standard-skill-packs.ts] (node:746458) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[scripts/backfill-standard-skill-packs.ts] (Use `node --trace-warnings ...` to show where the warning was created)
+[scripts/backfill-standard-skill-packs.ts] (node:746469) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[scripts/backfill-standard-skill-packs.ts] (Use `node --trace-warnings ...` to show where the warning was created)
+[scripts/backfill-default-agents.ts] [backfill-default-agents] nothing to create -- every org already has a default agent
+[scripts/backfill-default-agents.ts] (node:746514) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[scripts/backfill-default-agents.ts] (Use `node --trace-warnings ...` to show where the warning was created)
+[scripts/backfill-default-agents.ts] (node:746525) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[scripts/backfill-default-agents.ts] (Use `node --trace-warnings ...` to show where the warning was created)
+[pglite] app phase as app_rw on 127.0.0.1:20480
+[skill-sandbox] (node:746538) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[skill-sandbox] (Use `node --trace-warnings ...` to show where the warning was created)
+[api] (node:746558) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[api] (Use `node --trace-warnings ...` to show where the warning was created)
+[skill-sandbox] [skill-sandbox] SKILL_SANDBOX_MODULES_DIR 未配置：pptxgenjs/docx/exceljs/pdf-lib 都不可用，任何 require 预装库的脚本都会以 MODULE_NOT_FOUND 失败。
+[skill-sandbox] (node:746550) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[skill-sandbox] (Use `node --trace-warnings ...` to show where the warning was created)
+[skill-sandbox] skill-sandbox listening on 127.0.0.1:26480
+[api] {"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+[api] {"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+[api] (node:746570) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[api] (Use `node --trace-warnings ...` to show where the warning was created)
+[api] api listening on 24480
+[api] platform skill catalog self-heal: skipped (KERNEL_PLATFORM_SKILL_SELFHEAL=off)
+[api] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[web] (node:746678) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[web] (Use `node --trace-warnings ...` to show where the warning was created)
+[web] (node:746702) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[web] (Use `node --trace-warnings ...` to show where the warning was created)
+[web]   ▲ Next.js 14.2.15
+[web]   - Local:        http://127.0.0.1:25480
+[web]   - Network:      http://127.0.0.1:25480
+[web]   - Experiments (use with caution):
+[web]     · proxyTimeout
+[web] 
+[web]  ✓ Starting...
+[web]  ✓ Ready in 2.6s
+[web]  ✓ Compiled /middleware in 176ms (115 modules)
+[web]  ○ Compiling /login ...
+[web]  ✓ Compiled /login in 18.9s (1943 modules)
+[web]  GET /login 200 in 2293ms
+[skill-sandbox] 已就绪（没有挡住界面）
+
+AIDT ready: http://127.0.0.1:25480/aidt
+Local account: me@local.workspacex. Get its password using pnpm aidt:local credentials with the same --data-dir.
+Data: /workspace/scratch/aidt-local-persistent-acceptance/data
+Keep this terminal open. In another terminal: pnpm aidt:local health / stop (same --data-dir).
+Capability: skill 沙箱没有预装模块目录：pptx / docx / xlsx / pdf 生成类 skill 会以 MODULE_NOT_FOUND 失败（运行 scripts/local-bundle/prepare-sandbox-modules.sh 后重启）
+Capability: 聊天（本地模型）：本机还没有能回话的模型（没装 Ollama，或模型没下全/装不进内存）。 安装 Ollama 并确保模型下载完整，然后重启本应用；启动日志里有那次验证调用的原话。
+Capability: 工具调用 / Skill 执行：工具循环在 deep-agent-service 里，它需要 Python 运行时。 运行 ./scripts/local-bundle/prepare-python.sh 后重启。
+Capability: 实时转写（录音 / 访谈）：本地转写模型还没下载。 运行 ./scripts/local-bundle/fetch-asr-model.sh 后重启（约 300 MB，纯 CPU）。
+Capability: 在线充值和订阅：本地版不连接外部支付服务，本地模型使用无需在线充值。 如需购买云端额度或订阅，请连接 WorkspaceX 云。
+Capability: 联网检索（web_search）：检索要走公网服务，本地版承诺零出网。 连接 WorkspaceX 云后可用。
+Capability: 图片生成：随包的本地模型不会画图；图片生成是供应商侧能力。 连接 WorkspaceX 云后可用。
+Capability: 浏览器工具：浏览器运行时是一个独立容器，本地版不随包。 连接 WorkspaceX 云后可用。
+Capability: 远程 MCP 调用：远程 MCP 既要出网，也要一个独立的凭据执行数据库角色。 连接 WorkspaceX 云后可用。
+Capability: 文档/图片的供应商视觉抽取：这条通路调的是 DashScope 的原生接口，不是通用的 OpenAI 兼容端点。 聊天里的看图能力仍然走本地模型；批量视觉抽取连接云端后可用。
+Capability: 深度研究（独立服务）：它是一个独立部署的服务，本地版第一版不随包。 连接 WorkspaceX 云后可用。
+Capability: Skill 沙箱隔离等级：本地沙箱是子进程（L0），不是云端那种 network=none 的只读容器。 如实标注即可；不要在本地版运行不信任来源的 skill。
+Capability: 原生会话运行时：原生会话依赖 bubblewrap，只在 Linux 容器里成立。 本地版走 legacy profile + TCP 沙箱，功能等价、隔离更弱。
+[web]  GET /login 200 in 33ms
+[web]  GET /login 200 in 53ms
+[web]  GET /login 200 in 35ms
+[web]  GET /login 200 in 30ms
+[web]  GET /login 200 in 30ms
+[web]  ○ Compiling /home ...
+[web]  ✓ Compiled /home in 8.2s (3513 modules)
+[web]  GET /home 200 in 8892ms
+[web]  ○ Compiling /aidt/[projectId] ...
+[api] {"level":"error","msg":"http exception","traceId":"1278b684-d0f9-423a-a432-e08ac301060c","detail":{"name":"ForbiddenException","message":"NO_PROJECT_ROLE","stack":"ForbiddenException: NO_PROJECT_ROLE\n    at BoardController.resolveProjectRole (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:60:36)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async BoardController.myToday (/workspace/aidt-module-latest/apps/api/src/interface/controllers/board.controller.ts:103:31)"}}
+[api] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"timeout"}}
+[web]  ✓ Compiled /aidt/[projectId] in 39.4s (19601 modules)
+[web] (node:747212) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[web] (Use `node --trace-warnings ...` to show where the warning was created)
+[web]  GET /aidt/prj-612ee8d1-6150-4812-8a9e-b1ff48ed008a?step=1&tool=outcome 200 in 40740ms
+[web]  GET /login 200 in 138ms
+[web] 
+AIDT stopped. Saved data retained at /workspace/scratch/aidt-local-persistent-acceptance/data

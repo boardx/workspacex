@@ -1,0 +1,52 @@
+{
+  "baseline": "7d1abe52b",
+  "approval": "User explicitly approved the context bridge; root authorized A1 implementation after unified init exit0. Pending design frontmatter was not edited.",
+  "tests": {
+    "command": "pnpm --filter @repo/api exec vitest run --config vitest.aidt-acceptance.config.ts",
+    "initial": {
+      "exitCode": 1,
+      "tests": 13,
+      "failed": 11,
+      "passed": 2
+    },
+    "final": {
+      "exitCode": 0,
+      "files": 3,
+      "tests": 43,
+      "newAcceptanceCases": 28,
+      "ordinarySkillCases": 15
+    }
+  },
+  "scopedTypecheck": {
+    "command": "pnpm --filter @repo/api exec tsc --noEmit --project /tmp/aidt-atomic-tsconfig.json",
+    "exitCode": 0,
+    "includes": [
+      "message-command-ports.ts",
+      "message-roundtrip.ts",
+      "pg-chat-message-command-repository.ts",
+      "aidt-message-acceptance.test.ts"
+    ]
+  },
+  "diffCheckExit": 0,
+  "realDatabaseExecutedByA1": false,
+  "realModelCalls": 0,
+  "servicesStarted": 0,
+  "committed": false,
+  "downstream": "A6 owns the distinct real-PG/claim/provider/receipt integration lane.",
+  "conflictCodeFollowup": {
+    "initial": {
+      "exitCode": 1,
+      "failed": 10,
+      "passed": 35
+    },
+    "final": {
+      "exitCode": 0,
+      "files": 3,
+      "tests": 45,
+      "newAcceptanceCases": 30,
+      "ordinarySkillCases": 15
+    },
+    "scopedTypecheckExit": 0,
+    "transport": "fresh with selector HTTP409; dropped selector ordinary SSE RUN_ERROR IDEMPOTENCY_CONFLICT (A3 owns transport verification)"
+  }
+}

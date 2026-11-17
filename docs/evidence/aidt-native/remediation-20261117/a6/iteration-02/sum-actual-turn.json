@@ -1,0 +1,1811 @@
+{
+  "threadId": "thr-3f2efdd3-f75a-41f0-bd53-76acd2638ddc",
+  "skillId": "skill-e4cfdbad-bee9-49a4-ab6e-dc6da0c7c4d0",
+  "runId": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03",
+  "agentId": "agent-fullstack--20261117-s-1e261c1b8eac",
+  "modelProvider": "deep-agent",
+  "modelId": "qwen3.8-max",
+  "agentVersionId": "agent-fullstack--20261117-s-1e261c1b8eac-v1",
+  "skillVersionIds": [
+    "skill-version-72ce0de1-3383-4757-b365-a1201907a2be"
+  ],
+  "sawRunning": true,
+  "studentInput": "请依据本组已选择的六步当前保存稿与历史反思生成研究过程报告草稿；先核对真实可见的材料范围和缺口。全部为合成课堂练习，没有真实访谈、测试或教师点评，不能补造。呈现问题依据、暂无或有证据的意外发现、画像和HMW、学生分类与选择、实际保存的原型版本及待测试状态、验证问题和认识变化，以及历史与当前回溯决定。若材料截断或节选请披露；不要声称完整读过未见材料。不替学生确认或保存。",
+  "assistantMessageId": "57de3ad2-9a3f-406f-8a9c-10ac687b3e07",
+  "assistantText": "# 材料目录、版本与缺口核对\n\n在起草报告前，先向你展示我实际读到的材料范围。所有字段摘录均为节选（`projection: saved-field-excerpts-not-full-source`），并非全文；多处路径被截断或省略，不能声称“已完整读取全部过程”。\n\n## SUM I1：已成功读取的保存材料目录\n\n| 步骤 | 当前/历史修订 | 可见内容摘要 | 截断/缺失说明 |\n|---|---|---|---|\n| **S1 命题** | V2（当前）, V1, history-V2 | 初始问题、重写主题、选题理由（猜测）、关注人群/场景/活动/假设、来源不确定性 | `discussion`, `followupAnswers` 等路径省略 |\n| **S2 访谈/发现** | V4（当前）, V3, V2, V1 | 合成提纲原稿与审阅稿；发现卡1张（模拟角色-A，ID `9c64b03e...`，引自 SYN-A.txt 第01段）；AI推测隔离字段 | `discoveryFile`, `discoveryPhoto`, `researchFile` 等多处引用路径省略或截断 |\n| **S3 画像/HMW** | V2（当前）, V1 | HMW：“如何让新同学理解取餐分区？”；合成画像行为；无意外发现（`surpriseStatus: none`）；证据指向 S2 V4 发现卡 | 未见额外模式或洞察细节 |\n| **S4 点子** | V4（当前）, V3, V2, V1 | 3个合成点子（draft-1 纸面分区牌, draft-2 同伴口头指路, draft-3 号码牌分区）；选中 draft-1；分类标签 easy/fun；入选理由（V4中局部截断） | `criteria`, `ideaClassificationConfirmed`, `ideaFile:draft-*`, `selectionReasons` 等路径省略 |\n| **S5 原型** | V4（当前）, V3, V2, V1 | 验证问题：“新同学能否说出纸面分区牌指向哪里？”；测试前看法：“也许能理解，尚无真实测试”；依据与局限声明；原型引用 designId `5e9e0ac2...`，seq=1，versionId `...frfgkr` | `idea`, `requirements`, `situation`, `task`, `type`, `verificationQuestionConfirmation` 等在部分历史版本中省略 |\n| **S6 测试/反思** | V7（当前）, V6, V5, V4, V3, V2, V1 | V1静态检查记录；返回决定链（见下）；研究文件元数据（SYN-A.png, SYN-TEST-FEEDBACK.txt）；学生自写报告草稿段落 | 大量路径省略（如 `iterationPrototypeRelation.*`, `feedback`, `reflection` 等在V7/V6中被截短） |\n\n## 实际读到的原型版本与返工链\n\n*   **V1**：designId `5e9e0ac2-137d-46b6-bbad-7448868b7cad`，versionId `...v-1794864179102-frfgkr`，seq=1。极简教学原型（标题、说明、按钮、页脚）。\n    *   **静态检查（非真人测试）**：无号码分区映射，按钮无交互。SYN-TEST-FEEDBACK.txt 仅为通用模板，不是本V1实测反馈。\n*   **V2**：designId 同上，versionId `...v-1794865157404-pcrfiz`，seq=2。新增“示例2→B分区”及合成标注，按钮文案改为“先看取餐分区”，页脚更新为V2。按钮仍是静态占位。\n\n## 历史与当前回溯决定链（按保存顺序）\n\n1.  **S6 V1-V3**：记录验证问题快照与测试前看法；判断认识改变状态为 `insufficient`（证据不足），指出没有真人测试。\n2.  **S6 V4**：**选择返回第2步**。理由：“学生自己选择先补充真实研究；不因AI建议先做新版原型。”\n3.  **S6 V5**：记录静态检查证据与未解问题。下一步计划征求同意收集真实经历，并拟补写设计内容。\n4.  **S6 V6-V7（当前）**：**另行选择返回第5步**。理由：“新增合成静态练习回合：沿用第6步V4实际V1静态检查……保留原return2历史。” 行动：制作V2（补“示例2→B分区”示意），但明确“不宣称可跳转或有效”。认识改变状态：`unchanged`（暂未改变，仍保留原猜测）。\n\n## 缺口与不可用材料披露\n\n*   **真实研究**：全部为合成课堂练习材料。没有真实访谈、真实观察、真实用户测试或真人授权记录。\n*   **教师点评**：无来源，缺失。\n*   **个人制品/原始文件字节**：未包含在输入中（`personal-artifacts-not-included`, `original-file-bytes-not-read`）。\n*   **Lineage**：未知（`lineage-unknown`）。\n*   **完整性**：所有JSON均为字段摘录且存在多处路径省略，本报告仅基于可见片段整理，不代表全过程完整记录。\n\n---\n\n# 课程研究报告草稿（待审阅）\n\n> **重要提示**：这是一份基于小组实际保存记录的草稿，供你校正和补充。不要将其视为最终归档。请阅读后告诉我需要修改、增加或保留分歧的地方。\n\n## 1. 最开始怎样想：命题与问题演变\n\n项目最初提出的问题是“如何让新同学理解食堂取餐指示？”。学生在S1 V2中明确记录，该问题来源于“猜测”（`guess`），尚无真人访谈支持。选题理由是“可能影响初来者理解，但范围尚未核实”。\n\n经过审视，学生将宽泛的“改善指示”重写为更聚焦的研究主题：“了解首次到此食堂的新同学在寻找取餐区域时如何理解提示、何处需要澄清。” 学生特别强调，这仍是待研究主题，并未认定指示牌就是问题的成因，困惑是否实际存在、发生在哪里都还不知道。\n\n## 2. 研究与讨论中发生了什么：合成共情与发现\n\n由于没有条件开展真实访谈，小组使用了合成课堂材料进行练习。\n*   **访谈方案**：学生审阅了合成提纲，决定采用“请讲一次具体取餐经历；先听完整经过，再追问看到了什么”的结构，并保留了原稿。学生明确说明这只是模拟提纲，不是用户事实。\n*   **人物发现**：唯一可见的发现卡来自“模拟角色-A”（ID: `9c64b03e...`），其模拟原话为“我先找牌子，再看看自己排在哪儿”，引自合成文件 `SYN-A.txt`。\n*   **画像与HMW**：基于上述合成材料，学生提炼出合成画像行为（先寻找牌子，再核对队列），但严格限制其适用范围，指出“这仅是夹具中的个体情境，不代表真实群体”，并拒绝编造年龄等信息。由此导出的HMW是：“如何让新同学理解取餐分区？” 学生同时保留了“可能只是个体经验”的不同解释。\n*   **意外发现**：S3 V2 明确记录 `surpriseStatus: none`（暂无意外发现），洞察被降级为待验证假设：“区域提示与寻找路线也许有关，当前不能判断原因或普遍程度。”\n\n## 3. 想法生成与选择\n\n在S4中，小组生成了三个合成点子：\n1.  **纸面分区牌**（draft-1）：在不同取餐口放置分区牌，请新同学指出号码对应位置。\n2.  **同伴口头指路**（draft-2）：由熟悉路线的同伴口头说明，记录追问点。\n3.  **号码牌分区**（draft-3）：排队时发放带区域号码的纸牌对照寻找。\n\n**选择与分类**：小组最终选择了 draft-1（纸面分区牌）。可见的分类标签为“easy”和“fun”。入选理由在S4 V4中记录为“先试纸面分区牌，因为能用简短图”（该字段存在局部截断，后续理由未完全读出）。学生注明选择还需真实测试验证。\n\n## 4. 原型制作、测试前看法与验证问题\n\n针对选中的纸面分区牌，小组进入原型阶段（S5）。\n*   **验证问题**：“新同学能否说出纸面分区牌指向哪里？”（S5 V3确认）以及后续补充的“是否需要进一步解释取餐顺序？”（S5 V4）。\n*   **测试前看法**：“也许能理解，尚无真实测试。”\n*   **依据与局限**：学生清晰界定，验证基础“仅学生合成讨论，不是用户研究证据”；验证局限为“只能讨论静态理解，不能证明时间节省或支付意愿”。\n*   **原型 V1**：系统生成的极简静态界面（designId `5e9e0ac2...`，versionId `...frfg",
+  "syntheticInput": true,
+  "stageSavedByAgent": false,
+  "selectorCoordinates": {
+    "schemaVersion": 1,
+    "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      },
+      {
+        "stageId": 5,
+        "revision": 4
+      },
+      {
+        "stageId": 6,
+        "revision": 7
+      }
+    ],
+    "purpose": "summary",
+    "historyRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 1,
+        "revision": 1
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 2,
+        "revision": 3
+      },
+      {
+        "stageId": 2,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 1
+      },
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 3,
+        "revision": 1
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      },
+      {
+        "stageId": 4,
+        "revision": 3
+      },
+      {
+        "stageId": 4,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 1
+      },
+      {
+        "stageId": 5,
+        "revision": 4
+      },
+      {
+        "stageId": 5,
+        "revision": 3
+      },
+      {
+        "stageId": 5,
+        "revision": 2
+      },
+      {
+        "stageId": 5,
+        "revision": 1
+      },
+      {
+        "stageId": 6,
+        "revision": 7
+      },
+      {
+        "stageId": 6,
+        "revision": 6
+      },
+      {
+        "stageId": 6,
+        "revision": 5
+      },
+      {
+        "stageId": 6,
+        "revision": 4
+      },
+      {
+        "stageId": 6,
+        "revision": 3
+      },
+      {
+        "stageId": 6,
+        "revision": 2
+      },
+      {
+        "stageId": 6,
+        "revision": 1
+      }
+    ]
+  },
+  "sourceReceipt": {
+    "runId": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03",
+    "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+    "purpose": "summary",
+    "skillVersionId": "skill-version-72ce0de1-3383-4757-b365-a1201907a2be",
+    "snapshotHash": "125c5218451e86ccd1ce911441d68b6b6ecc0231d919e4ae5e80c74c8360d36a",
+    "preparedAt": "2026-11-16T21:45:27.494Z",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      },
+      {
+        "stageId": 5,
+        "revision": 4
+      },
+      {
+        "stageId": 6,
+        "revision": 7
+      }
+    ],
+    "historyRevisions": [
+      {
+        "stageId": 1,
+        "revision": 1
+      },
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 1
+      },
+      {
+        "stageId": 2,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 3
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 3,
+        "revision": 1
+      },
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 1
+      },
+      {
+        "stageId": 4,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 3
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      },
+      {
+        "stageId": 5,
+        "revision": 1
+      },
+      {
+        "stageId": 5,
+        "revision": 2
+      },
+      {
+        "stageId": 5,
+        "revision": 3
+      },
+      {
+        "stageId": 5,
+        "revision": 4
+      },
+      {
+        "stageId": 6,
+        "revision": 1
+      },
+      {
+        "stageId": 6,
+        "revision": 2
+      },
+      {
+        "stageId": 6,
+        "revision": 3
+      },
+      {
+        "stageId": 6,
+        "revision": 4
+      },
+      {
+        "stageId": 6,
+        "revision": 5
+      },
+      {
+        "stageId": 6,
+        "revision": 6
+      },
+      {
+        "stageId": 6,
+        "revision": 7
+      }
+    ],
+    "omissions": [
+      {
+        "kind": "personal-artifacts-not-included"
+      },
+      {
+        "kind": "original-file-bytes-not-read"
+      },
+      {
+        "kind": "teacher-comments-no-source"
+      },
+      {
+        "kind": "lineage-unknown"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 1,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略2路径；局部截断0路径[]；省略路径[\"draft.fields.discussion\",\"draft.fields.followupAnswers\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 2,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略4路径；局部截断0路径[]；省略路径[\"draft.fields.discoveryFile:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\",\"draft.fields.discoveryPhoto:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\",\"draft.fields.researchFile:23026f97-d75b-4e31-b5ea-a6ae30b99863\",\"draft.fields.researchFile:bddc53e2-44a8-45c9-8fe6-8d24e7578464\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 3,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 4,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略6路径；局部截断1路径[\"draft.fields.reason\"]；省略路径[\"draft.fields.criteria\",\"draft.fields.ideaClassificationConfirmed\",\"draft.fields.ideaFile:draft-1\",\"draft.fields.ideaFile:draft-2\",\"draft.fields.ideaFile:draft-3\",\"draft.selectionReasons.draft-1\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 5,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略1路径；局部截断0路径[]；省略路径[\"draft.fields.verificationQuestionConfirmation\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 7,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 1,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略2路径；局部截断0路径[]；省略路径[\"draft.fields.discussion\",\"draft.fields.followupAnswers\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 1,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 2,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略4路径；局部截断0路径[]；省略路径[\"draft.fields.discoveryFile:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\",\"draft.fields.discoveryPhoto:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\",\"draft.fields.researchFile:23026f97-d75b-4e31-b5ea-a6ae30b99863\",\"draft.fields.researchFile:bddc53e2-44a8-45c9-8fe6-8d24e7578464\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 2,
+        "revision": 3,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略3路径；局部截断1路径[\"draft.fields.discoveryFile:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\"]；省略路径[\"draft.fields.discoveryPhoto:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\",\"draft.fields.researchFile:23026f97-d75b-4e31-b5ea-a6ae30b99863\",\"draft.fields.researchFile:bddc53e2-44a8-45c9-8fe6-8d24e7578464\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 2,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略1路径；局部截断1路径[\"draft.fields.researchFile:23026f97-d75b-4e31-b5ea-a6ae30b99863\"]；省略路径[\"draft.fields.researchFile:bddc53e2-44a8-45c9-8fe6-8d24e7578464\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 2,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 3,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 3,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 4,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略6路径；局部截断1路径[\"draft.fields.reason\"]；省略路径[\"draft.fields.criteria\",\"draft.fields.ideaClassificationConfirmed\",\"draft.fields.ideaFile:draft-1\",\"draft.fields.ideaFile:draft-2\",\"draft.fields.ideaFile:draft-3\",\"draft.selectionReasons.draft-1\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 4,
+        "revision": 3,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略5路径；局部截断0路径[]；省略路径[\"draft.fields.criteria\",\"draft.fields.ideaClassificationConfirmed\",\"draft.fields.ideaFile:draft-1\",\"draft.fields.ideaFile:draft-2\",\"draft.fields.ideaFile:draft-3\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 4,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略2路径；局部截断1路径[\"draft.fields.ideaFile:draft-1\"]；省略路径[\"draft.fields.ideaFile:draft-2\",\"draft.fields.ideaFile:draft-3\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 4,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 5,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略8路径；局部截断0路径[]；省略路径[\"draft.fields.idea\",\"draft.fields.reflectionConfirmed\",\"draft.fields.requirements\",\"draft.fields.situation\",\"draft.fields.task\",\"draft.fields.type\",\"draft.fields.verificationQuestionConfirmation\",\"draft.fields.verificationQuestionConfirmed\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 5,
+        "revision": 3,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略7路径；局部截断0路径[]；省略路径[\"draft.fields.reflectionConfirmed\",\"draft.fields.requirements\",\"draft.fields.situation\",\"draft.fields.task\",\"draft.fields.type\",\"draft.fields.verificationQuestionConfirmation\",\"draft.fields.verificationQuestionConfirmed\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 5,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略1路径；局部截断0路径[]；省略路径[\"draft.fields.verificationQuestionConfirmation\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 5,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略1路径；局部截断0路径[]；省略路径[\"draft.fields.verificationQuestionConfirmation\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 7,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略31路径；局部截断0路径[]；省略路径[\"draft.fields.feedback\",\"draft.fields.iterationFeedbackReference\",\"draft.fields.iterationPrototypeRelation.changeReason\",\"draft.fields.iterationPrototypeRelation.feedbackReference\",\"draft.fields.iterationPrototypeRelation.producedDesignId\",\"draft.fields.iterationPrototypeRelation.producedVersionId\",…（路径清单亦截短；完整原稿见所列精确修订）"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 6,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略18路径；局部截断0路径[]；省略路径[\"draft.fields.feedback\",\"draft.fields.iterationFeedbackReference\",\"draft.fields.iterationPrototypeRelation.changeReason\",\"draft.fields.iterationPrototypeRelation.feedbackReference\",\"draft.fields.iterationPrototypeRelation.producedDesignId\",\"draft.fields.iterationPrototypeRelation.producedVersionId\",…（路径清单亦截短；完整原稿见所列精确修订）"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 5,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略8路径；局部截断0路径[]；省略路径[\"draft.fields.reflection\",\"draft.fields.reflectionConfirmed\",\"draft.fields.researchFile:acb9714e-22b7-4ca3-a2db-fa3d6b5b4fde\",\"draft.fields.researchFile:dd393b20-bace-4f6e-9bdd-60c8d36b22d6\",\"draft.fields.version\",\"draft.selectedIdeaId\",\"sourceStageRevisions.[0].revision\",\"sourceStageRevisions.[0].st…（路径清单亦截短；完整原稿见所列精确修订）"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略9路径；局部截断0路径[]；省略路径[\"draft.fields.nextAction\",\"draft.fields.reflectionConfirmed\",\"draft.fields.researchFile:acb9714e-22b7-4ca3-a2db-fa3d6b5b4fde\",\"draft.fields.researchFile:dd393b20-bace-4f6e-9bdd-60c8d36b22d6\",\"draft.fields.unresolvedQuestions\",\"draft.fields.version\",\"draft.selectedIdeaId\",\"sourceStageRevisions.[0].rev…（路径清单亦截短；完整原稿见所列精确修订）"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 3,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略1路径；局部截断1路径[\"draft.fields.researchFile:acb9714e-22b7-4ca3-a2db-fa3d6b5b4fde\"]；省略路径[\"draft.fields.researchFile:dd393b20-bace-4f6e-9bdd-60c8d36b22d6\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      }
+    ],
+    "truncated": true,
+    "application": {
+      "state": "message-dispatch-observed",
+      "attemptId": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03:1",
+      "assembledContextHash": "a7b1a7bbd0392574c2a03d8c188efd4eea97ab3c0702a81afdd5edb4f146b7c8",
+      "assembledAt": "2026-11-16T21:45:27.757Z",
+      "messageDispatchedAt": "2026-11-16T21:45:27.897Z",
+      "checkpointResumedAt": null,
+      "inheritedMessageDispatchAttemptId": null
+    }
+  },
+  "uiReceipt": {
+    "runId": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03",
+    "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+    "purpose": "summary",
+    "skillVersionId": "skill-version-72ce0de1-3383-4757-b365-a1201907a2be",
+    "snapshotHash": "125c5218451e86ccd1ce911441d68b6b6ecc0231d919e4ae5e80c74c8360d36a",
+    "preparedAt": "2026-11-16T21:45:27.494Z",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      },
+      {
+        "stageId": 5,
+        "revision": 4
+      },
+      {
+        "stageId": 6,
+        "revision": 7
+      }
+    ],
+    "historyRevisions": [
+      {
+        "stageId": 1,
+        "revision": 1
+      },
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 1
+      },
+      {
+        "stageId": 2,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 3
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      },
+      {
+        "stageId": 3,
+        "revision": 1
+      },
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 1
+      },
+      {
+        "stageId": 4,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 3
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      },
+      {
+        "stageId": 5,
+        "revision": 1
+      },
+      {
+        "stageId": 5,
+        "revision": 2
+      },
+      {
+        "stageId": 5,
+        "revision": 3
+      },
+      {
+        "stageId": 5,
+        "revision": 4
+      },
+      {
+        "stageId": 6,
+        "revision": 1
+      },
+      {
+        "stageId": 6,
+        "revision": 2
+      },
+      {
+        "stageId": 6,
+        "revision": 3
+      },
+      {
+        "stageId": 6,
+        "revision": 4
+      },
+      {
+        "stageId": 6,
+        "revision": 5
+      },
+      {
+        "stageId": 6,
+        "revision": 6
+      },
+      {
+        "stageId": 6,
+        "revision": 7
+      }
+    ],
+    "omissions": [
+      {
+        "kind": "personal-artifacts-not-included"
+      },
+      {
+        "kind": "original-file-bytes-not-read"
+      },
+      {
+        "kind": "teacher-comments-no-source"
+      },
+      {
+        "kind": "lineage-unknown"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 1,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略2路径；局部截断0路径[]；省略路径[\"draft.fields.discussion\",\"draft.fields.followupAnswers\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 2,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略4路径；局部截断0路径[]；省略路径[\"draft.fields.discoveryFile:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\",\"draft.fields.discoveryPhoto:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\",\"draft.fields.researchFile:23026f97-d75b-4e31-b5ea-a6ae30b99863\",\"draft.fields.researchFile:bddc53e2-44a8-45c9-8fe6-8d24e7578464\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 3,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 4,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略6路径；局部截断1路径[\"draft.fields.reason\"]；省略路径[\"draft.fields.criteria\",\"draft.fields.ideaClassificationConfirmed\",\"draft.fields.ideaFile:draft-1\",\"draft.fields.ideaFile:draft-2\",\"draft.fields.ideaFile:draft-3\",\"draft.selectionReasons.draft-1\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 5,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略1路径；局部截断0路径[]；省略路径[\"draft.fields.verificationQuestionConfirmation\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 7,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 1,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略2路径；局部截断0路径[]；省略路径[\"draft.fields.discussion\",\"draft.fields.followupAnswers\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 1,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 2,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略4路径；局部截断0路径[]；省略路径[\"draft.fields.discoveryFile:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\",\"draft.fields.discoveryPhoto:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\",\"draft.fields.researchFile:23026f97-d75b-4e31-b5ea-a6ae30b99863\",\"draft.fields.researchFile:bddc53e2-44a8-45c9-8fe6-8d24e7578464\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 2,
+        "revision": 3,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略3路径；局部截断1路径[\"draft.fields.discoveryFile:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\"]；省略路径[\"draft.fields.discoveryPhoto:9c64b03e-d162-4e81-9e49-c8e35fe6ed06\",\"draft.fields.researchFile:23026f97-d75b-4e31-b5ea-a6ae30b99863\",\"draft.fields.researchFile:bddc53e2-44a8-45c9-8fe6-8d24e7578464\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 2,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略1路径；局部截断1路径[\"draft.fields.researchFile:23026f97-d75b-4e31-b5ea-a6ae30b99863\"]；省略路径[\"draft.fields.researchFile:bddc53e2-44a8-45c9-8fe6-8d24e7578464\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 2,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 3,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 3,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 4,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略6路径；局部截断1路径[\"draft.fields.reason\"]；省略路径[\"draft.fields.criteria\",\"draft.fields.ideaClassificationConfirmed\",\"draft.fields.ideaFile:draft-1\",\"draft.fields.ideaFile:draft-2\",\"draft.fields.ideaFile:draft-3\",\"draft.selectionReasons.draft-1\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 4,
+        "revision": 3,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略5路径；局部截断0路径[]；省略路径[\"draft.fields.criteria\",\"draft.fields.ideaClassificationConfirmed\",\"draft.fields.ideaFile:draft-1\",\"draft.fields.ideaFile:draft-2\",\"draft.fields.ideaFile:draft-3\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 4,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略2路径；局部截断1路径[\"draft.fields.ideaFile:draft-1\"]；省略路径[\"draft.fields.ideaFile:draft-2\",\"draft.fields.ideaFile:draft-3\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 4,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 5,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略8路径；局部截断0路径[]；省略路径[\"draft.fields.idea\",\"draft.fields.reflectionConfirmed\",\"draft.fields.requirements\",\"draft.fields.situation\",\"draft.fields.task\",\"draft.fields.type\",\"draft.fields.verificationQuestionConfirmation\",\"draft.fields.verificationQuestionConfirmed\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 5,
+        "revision": 3,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略7路径；局部截断0路径[]；省略路径[\"draft.fields.reflectionConfirmed\",\"draft.fields.requirements\",\"draft.fields.situation\",\"draft.fields.task\",\"draft.fields.type\",\"draft.fields.verificationQuestionConfirmation\",\"draft.fields.verificationQuestionConfirmed\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 5,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略1路径；局部截断0路径[]；省略路径[\"draft.fields.verificationQuestionConfirmation\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 5,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略1路径；局部截断0路径[]；省略路径[\"draft.fields.verificationQuestionConfirmation\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 7,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略31路径；局部截断0路径[]；省略路径[\"draft.fields.feedback\",\"draft.fields.iterationFeedbackReference\",\"draft.fields.iterationPrototypeRelation.changeReason\",\"draft.fields.iterationPrototypeRelation.feedbackReference\",\"draft.fields.iterationPrototypeRelation.producedDesignId\",\"draft.fields.iterationPrototypeRelation.producedVersionId\",…（路径清单亦截短；完整原稿见所列精确修订）"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 6,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略18路径；局部截断0路径[]；省略路径[\"draft.fields.feedback\",\"draft.fields.iterationFeedbackReference\",\"draft.fields.iterationPrototypeRelation.changeReason\",\"draft.fields.iterationPrototypeRelation.feedbackReference\",\"draft.fields.iterationPrototypeRelation.producedDesignId\",\"draft.fields.iterationPrototypeRelation.producedVersionId\",…（路径清单亦截短；完整原稿见所列精确修订）"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 5,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略8路径；局部截断0路径[]；省略路径[\"draft.fields.reflection\",\"draft.fields.reflectionConfirmed\",\"draft.fields.researchFile:acb9714e-22b7-4ca3-a2db-fa3d6b5b4fde\",\"draft.fields.researchFile:dd393b20-bace-4f6e-9bdd-60c8d36b22d6\",\"draft.fields.version\",\"draft.selectedIdeaId\",\"sourceStageRevisions.[0].revision\",\"sourceStageRevisions.[0].st…（路径清单亦截短；完整原稿见所列精确修订）"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 4,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略9路径；局部截断0路径[]；省略路径[\"draft.fields.nextAction\",\"draft.fields.reflectionConfirmed\",\"draft.fields.researchFile:acb9714e-22b7-4ca3-a2db-fa3d6b5b4fde\",\"draft.fields.researchFile:dd393b20-bace-4f6e-9bdd-60c8d36b22d6\",\"draft.fields.unresolvedQuestions\",\"draft.fields.version\",\"draft.selectedIdeaId\",\"sourceStageRevisions.[0].rev…（路径清单亦截短；完整原稿见所列精确修订）"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 3,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略1路径；局部截断1路径[\"draft.fields.researchFile:acb9714e-22b7-4ca3-a2db-fa3d6b5b4fde\"]；省略路径[\"draft.fields.researchFile:dd393b20-bace-4f6e-9bdd-60c8d36b22d6\"]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 2,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      },
+      {
+        "kind": "truncated",
+        "stageId": 6,
+        "revision": 1,
+        "note": "字段摘录非全文；JSON引用展开，数组按原下标；未验证。省略0路径；局部截断0路径[]；省略路径[]；完整原稿见所列精确修订。"
+      }
+    ],
+    "truncated": true,
+    "application": {
+      "state": "message-dispatch-observed",
+      "attemptId": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03:1",
+      "assembledContextHash": "a7b1a7bbd0392574c2a03d8c188efd4eea97ab3c0702a81afdd5edb4f146b7c8",
+      "assembledAt": "2026-11-16T21:45:27.757Z",
+      "messageDispatchedAt": "2026-11-16T21:45:27.897Z",
+      "checkpointResumedAt": null,
+      "inheritedMessageDispatchAttemptId": null
+    }
+  },
+  "mountedSkillVersionId": "skill-version-72ce0de1-3383-4757-b365-a1201907a2be",
+  "wireMetadata": {
+    "selectorCoordinates": {
+      "schemaVersion": 1,
+      "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 4
+        },
+        {
+          "stageId": 6,
+          "revision": 7
+        }
+      ],
+      "purpose": "summary",
+      "historyRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 1,
+          "revision": 1
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 2,
+          "revision": 3
+        },
+        {
+          "stageId": 2,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 1
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 3,
+          "revision": 1
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 4,
+          "revision": 3
+        },
+        {
+          "stageId": 4,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 1
+        },
+        {
+          "stageId": 5,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 3
+        },
+        {
+          "stageId": 5,
+          "revision": 2
+        },
+        {
+          "stageId": 5,
+          "revision": 1
+        },
+        {
+          "stageId": 6,
+          "revision": 7
+        },
+        {
+          "stageId": 6,
+          "revision": 6
+        },
+        {
+          "stageId": 6,
+          "revision": 5
+        },
+        {
+          "stageId": 6,
+          "revision": 4
+        },
+        {
+          "stageId": 6,
+          "revision": 3
+        },
+        {
+          "stageId": 6,
+          "revision": 2
+        },
+        {
+          "stageId": 6,
+          "revision": 1
+        }
+      ]
+    },
+    "coordinatesOnly": true,
+    "topLevelKeys": [
+      "context",
+      "forwardedProps",
+      "messages",
+      "runId",
+      "state",
+      "threadId",
+      "tools"
+    ],
+    "messages": [
+      {
+        "index": 0,
+        "role": "user",
+        "hasSavedMarker": false,
+        "mentionsMountedSkill": false
+      }
+    ],
+    "context": [
+      {
+        "index": 0,
+        "descriptionIsAidt": false,
+        "descriptionLength": 49,
+        "hasSavedMarker": false
+      }
+    ],
+    "savedMarkerLocations": [
+      {
+        "stageId": 1,
+        "field": "focus",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "discussion",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "assumptions",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "rewrittenTheme",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "followupAnswers",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "adoptedGuide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "discoveryAi:9c64b03e-d162-4e81-9e49-c8e35fe6ed06",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "hmw",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "insight",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "decision",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "evidence",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "patterns",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "personaBehavior",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "reason",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "criteria",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "task",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "type",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "situation",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "requirements",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "beforeTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationBasis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationLimits",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationQuestion",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "version",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "feedback",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "nextAction",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "returnReason",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "afterTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "unresolvedQuestions",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "iterationChangeReason",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingEvidence",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "iterationFeedbackReference",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "focus",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "discussion",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "assumptions",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "rewrittenTheme",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "followupAnswers",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "adoptedGuide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "discoveryAi:9c64b03e-d162-4e81-9e49-c8e35fe6ed06",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "hmw",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "insight",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "decision",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "evidence",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "patterns",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "personaBehavior",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "reason",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "criteria",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "task",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "type",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "situation",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "requirements",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "beforeTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationBasis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationLimits",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationQuestion",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "version",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "feedback",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "nextAction",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "returnReason",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "afterTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "unresolvedQuestions",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "iterationChangeReason",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingEvidence",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "iterationFeedbackReference",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "discoveryAi:9c64b03e-d162-4e81-9e49-c8e35fe6ed06",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "insight",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "evidence",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "patterns",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "personaBehavior",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "criteria",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "criteria",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "criteria",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "task",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "type",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "situation",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "requirements",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "beforeTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationBasis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationLimits",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationQuestion",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "task",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "type",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "situation",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "requirements",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "beforeTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationBasis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationLimits",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationQuestion",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "task",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "type",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "situation",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "requirements",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "beforeTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationBasis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationLimits",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationQuestion",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "version",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "feedback",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "nextAction",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "returnReason",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "afterTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "unresolvedQuestions",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "iterationChangeReason",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingEvidence",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "iterationFeedbackReference",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "version",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "feedback",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "nextAction",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "returnReason",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "afterTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "unresolvedQuestions",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingEvidence",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "version",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "feedback",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "nextAction",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "returnReason",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "afterTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "unresolvedQuestions",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingEvidence",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "version",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "afterTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "unresolvedQuestions",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingEvidence",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingChangeStatus",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "version",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "afterTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "unresolvedQuestions",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingEvidence",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingChangeStatus",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "version",
+        "locations": []
+      }
+    ],
+    "mountedSkillLocations": [],
+    "rawValuesRetained": false
+  },
+  "modelActorRole": "funded-admin-technical",
+  "studentPermissionProvenByModelRun": false,
+  "intentChoices": []
+}

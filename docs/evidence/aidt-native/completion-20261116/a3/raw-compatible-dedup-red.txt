@@ -1,0 +1,30 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+ ❯ tests/aidt-files/raw-unit.test.ts (21 tests | 1 failed) 36ms
+   × AIDT raw upload vertical slice (real upload use case, memory I/O ports) > deduplicates repeated compatible content even when an earlier hash hit has different confidentiality 15ms
+     → expected null to match object { artifactId: 'art-4', …(1) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-files/raw-unit.test.ts > AIDT raw upload vertical slice (real upload use case, memory I/O ports) > deduplicates repeated compatible content even when an earlier hash hit has different confidentiality
+AssertionError: expected null to match object { artifactId: 'art-4', …(1) }
+
+- Expected:
+Object {
+  "artifactId": "art-4",
+  "versionNumber": 1,
+}
+
++ Received:
+null
+
+ ❯ tests/aidt-files/raw-unit.test.ts:37:560
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 20 passed (21)
+   Start at  05:26:43
+   Duration  2.32s (transform 1.44s, setup 0ms, collect 2.11s, tests 36ms, environment 0ms, prepare 44ms)

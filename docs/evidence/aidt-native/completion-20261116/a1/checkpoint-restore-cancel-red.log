@@ -1,0 +1,183 @@
+TAP version 13
+# Subtest: offline structure guard yields coordinates and hashes without credential values
+ok 1 - offline structure guard yields coordinates and hashes without credential values
+  ---
+  duration_ms: 7.155531
+  type: 'test'
+  ...
+# Subtest: rejects dump byte change
+ok 2 - rejects dump byte change
+  ---
+  duration_ms: 1.011922
+  type: 'test'
+  ...
+# Subtest: rejects unsupported dump format
+ok 3 - rejects unsupported dump format
+  ---
+  duration_ms: 0.628247
+  type: 'test'
+  ...
+# Subtest: rejects current legacy budget change
+ok 4 - rejects current legacy budget change
+  ---
+  duration_ms: 0.759777
+  type: 'test'
+  ...
+# Subtest: rejects current supplemental budget change
+ok 5 - rejects current supplemental budget change
+  ---
+  duration_ms: 0.975236
+  type: 'test'
+  ...
+# Subtest: rejects backup budget change
+ok 6 - rejects backup budget change
+  ---
+  duration_ms: 1.492404
+  type: 'test'
+  ...
+# Subtest: rejects original bytes change
+ok 7 - rejects original bytes change
+  ---
+  duration_ms: 0.810024
+  type: 'test'
+  ...
+# Subtest: rejects original MIME absent
+ok 8 - rejects original MIME absent
+  ---
+  duration_ms: 0.776724
+  type: 'test'
+  ...
+# Subtest: rejects unsafe file mode
+ok 9 - rejects unsafe file mode
+  ---
+  duration_ms: 0.708209
+  type: 'test'
+  ...
+# Subtest: rejects unsafe directory mode
+ok 10 - rejects unsafe directory mode
+  ---
+  duration_ms: 0.67598
+  type: 'test'
+  ...
+# Subtest: rejects object symlink
+ok 11 - rejects object symlink
+  ---
+  duration_ms: 0.673355
+  type: 'test'
+  ...
+# Subtest: rejects enabled executor
+ok 12 - rejects enabled executor
+  ---
+  duration_ms: 1.031712
+  type: 'test'
+  ...
+# Subtest: rejects nonzero guard
+ok 13 - rejects nonzero guard
+  ---
+  duration_ms: 1.022568
+  type: 'test'
+  ...
+# Subtest: rejects shared database
+ok 14 - rejects shared database
+  ---
+  duration_ms: 1.002788
+  type: 'test'
+  ...
+# Subtest: rejects missing login
+ok 15 - rejects missing login
+  ---
+  duration_ms: 0.975826
+  type: 'test'
+  ...
+# Subtest: rejects changed group identity
+ok 16 - rejects changed group identity
+  ---
+  duration_ms: 1.250114
+  type: 'test'
+  ...
+# Subtest: rejects pending run
+ok 17 - rejects pending run
+  ---
+  duration_ms: 2.334517
+  type: 'test'
+  ...
+# Subtest: rejects outstanding holds
+ok 18 - rejects outstanding holds
+  ---
+  duration_ms: 0.624732
+  type: 'test'
+  ...
+# Subtest: plan rejects repository and checkpoint-overlapping destination
+ok 19 - plan rejects repository and checkpoint-overlapping destination
+  ---
+  duration_ms: 0.770134
+  type: 'test'
+  ...
+# Subtest: apply requires the exact reviewed plan hash, explicit root authorization and zero guards
+ok 20 - apply requires the exact reviewed plan hash, explicit root authorization and zero guards
+  ---
+  duration_ms: 0.369743
+  type: 'test'
+  ...
+# Subtest: startup gate rejects a receipt that does not attest a verified empty fresh target
+ok 21 - startup gate rejects a receipt that does not attest a verified empty fresh target
+  ---
+  duration_ms: 1.512654
+  type: 'test'
+  ...
+# Subtest: restored target objects are checked independently of the intact backup
+ok 22 - restored target objects are checked independently of the intact backup
+  ---
+  duration_ms: 3.226625
+  type: 'test'
+  ...
+# Subtest: missing restored original
+ok 23 - missing restored original
+  ---
+  duration_ms: 1.861636
+  type: 'test'
+  ...
+# Subtest: changed restored MIME
+ok 24 - changed restored MIME
+  ---
+  duration_ms: 1.814525
+  type: 'test'
+  ...
+# Subtest: restored symlink
+ok 25 - restored symlink
+  ---
+  duration_ms: 1.552906
+  type: 'test'
+  ...
+# Subtest: startup transport must bind pgPort to its own actual reserved PG port
+ok 26 - startup transport must bind pgPort to its own actual reserved PG port
+  ---
+  duration_ms: 0.152042
+  type: 'test'
+  ...
+# Subtest: cancel during listener release must reject before any later Docker up
+not ok 27 - cancel during listener release must reject before any later Docker up
+  ---
+  duration_ms: 0.648408
+  type: 'test'
+  location: '/workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-restore.test.mjs:33:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    async TestContext.<anonymous> (file:///workspace/aidt-module-latest/scripts/tests/aidt-checkpoint-restore.test.mjs:33:398)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..27
+# tests 27
+# suites 0
+# pass 26
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 111.037863

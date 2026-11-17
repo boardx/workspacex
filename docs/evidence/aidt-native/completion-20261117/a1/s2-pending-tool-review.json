@@ -1,0 +1,34 @@
+{
+  "observedAt": "2026-11-16T17:30:09.925Z",
+  "runId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d",
+  "toolName": "write_todos",
+  "permissionRequestId": "bd2fdb97-4002-4ed4-b821-f259bf9ae449",
+  "grantScope": null,
+  "fullArgsRecoveredFromSummary": true,
+  "storedArgsDigest": "6527349a2e55d588593c3b49512a10edfe03610dfcbdee7fe1096f8456819785",
+  "recoveredArgsDigest": "6527349a2e55d588593c3b49512a10edfe03610dfcbdee7fe1096f8456819785",
+  "argKeys": [
+    "todos"
+  ],
+  "todos": [
+    {
+      "keys": [
+        "content",
+        "status"
+      ],
+      "status": "completed",
+      "contentChars": 24
+    },
+    {
+      "keys": [
+        "content",
+        "status"
+      ],
+      "status": "completed",
+      "contentChars": 21
+    }
+  ],
+  "sourceRuntimeImplementation": "langchain.agents.middleware.todo._write_todos -> Command(update={todos,messages})",
+  "sideEffectScope": "current native thread task-list and tool-result state only",
+  "approvalPerformed": false
+}

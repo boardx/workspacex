@@ -1,0 +1,40 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/aidt-idea-readiness.test.ts (4 tests | 2 failed) 6ms
+   × does not mark duplicate candidate identifiers ready for individual PDF export 4ms
+     → expected true to be false // Object.is equality
+   × does not mark blank candidate identifiers ready for individual PDF export 1ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-idea-readiness.test.ts > does not mark duplicate candidate identifiers ready for individual PDF export
+ FAIL  tests/aidt-idea-readiness.test.ts > does not mark blank candidate identifiers ready for individual PDF export
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/aidt-idea-readiness.test.ts:24:42
+     22|   const input = ideas();
+     23|   if (kind === "duplicate") input.forEach(item => { item.id = "same-ca…
+     24|   expect(aidtIdeaReadiness(input).ready).toBe(false);
+       |                                          ^
+     25|   expect(input).toHaveLength(3); expect(input[1]!.title).toBe("同伴引…
+     26| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  05:33:05
+   Duration  348ms (transform 35ms, setup 71ms, collect 19ms, tests 6ms, environment 0ms, prepare 43ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --no-cache tests/aidt-idea-readiness.test.ts

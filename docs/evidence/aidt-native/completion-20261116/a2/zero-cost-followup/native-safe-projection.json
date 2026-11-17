@@ -1,0 +1,160 @@
+{
+  "kind": "offline-s2-native-error-checkpoint-projection",
+  "scope": {
+    "localRunId": "40539aa6-2732-4661-9665-913013af806d",
+    "remoteRunId": "e8a86490-dd67-4920-adb7-b7761c60e067",
+    "remoteThreadId": "a82e1859-fb9b-47f5-86c2-25d7ce3d3dc7"
+  },
+  "sourceDumpSha256": "44dce740c3e27db191bcebd5e92723ad5d221a485c75020a2040fb06fc73d653",
+  "privateDecodedSha256": "df622ebd81799bfef2ded987012fdd972dc6aa067e4be8dfcc60e174433e83c8",
+  "decodedTableRowCounts": {
+    "checkpoint_writes": 61,
+    "checkpoints": 38,
+    "wsx_agent_events": 172,
+    "wsx_agent_runs": 3
+  },
+  "targetFacts": [
+    {
+      "table": "checkpoint_writes",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9f9-6ad8-8008-377677815a09",
+      "channel": "__error__",
+      "type": "msgpack",
+      "blobBytes": 41,
+      "blobSha256": "54d0a60c40442f6600b2d0424603df90b22b6b662ef0d7733a842c6fa3a8e10b",
+      "pickleOrArbitraryConstructorsInvoked": false,
+      "parseStatus": "parsed-msgpack-primitives",
+      "errorProjection": {
+        "knownErrorClassMarkers": [
+          "APIConnectionError"
+        ],
+        "tlsCauseMarkerPresent": false,
+        "causeFieldPaths": [],
+        "safeErrnoFields": [],
+        "opaqueExtTypes": [],
+        "boundedPrimitiveInspection": true,
+        "completePrimitiveInspection": true,
+        "rawStringsProjected": false
+      }
+    },
+    {
+      "table": "checkpoints",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9a0-68ba-bfff-21388a08012d",
+      "metadataSha256": "0d75bb3eeca340b1c99a4476a2c5deda3acdbd271d7d97477ccee5c5df9b9952",
+      "metadataContainsActualRemoteRunId": false,
+      "checkpointColumnInspected": false
+    },
+    {
+      "table": "checkpoints",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9a4-6cda-8000-69a4ced871a4",
+      "metadataSha256": "2924478b25cfb87ed92fee2fc51b9d38cc2f998b71fbe4840a72243b0b133ab6",
+      "metadataContainsActualRemoteRunId": false,
+      "checkpointColumnInspected": false
+    },
+    {
+      "table": "checkpoints",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9ae-686b-8001-28266753bc62",
+      "metadataSha256": "9b14a7b5a91d3048e1f59799767e17c4596d4495c847619ea7750b61cce4d9cd",
+      "metadataContainsActualRemoteRunId": false,
+      "checkpointColumnInspected": false
+    },
+    {
+      "table": "checkpoints",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9b2-6449-8002-659128604a64",
+      "metadataSha256": "ac1f50a53bd12d89fb383692d7f73f0f466804befde1ca9d1281bcbe5d264d13",
+      "metadataContainsActualRemoteRunId": false,
+      "checkpointColumnInspected": false
+    },
+    {
+      "table": "checkpoints",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9b6-699b-8003-7cda960debc5",
+      "metadataSha256": "e07ed3721c0f5c465dd767edace899bf2df979d86ead79049db07d1958f77789",
+      "metadataContainsActualRemoteRunId": false,
+      "checkpointColumnInspected": false
+    },
+    {
+      "table": "checkpoints",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9ba-63c3-8004-08c816f8103e",
+      "metadataSha256": "cb6657b34391eefbed265e6994cf8330458247ebb3b2d3fa7ea609e809e64331",
+      "metadataContainsActualRemoteRunId": false,
+      "checkpointColumnInspected": false
+    },
+    {
+      "table": "checkpoints",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9bc-6978-8005-7d89f199026d",
+      "metadataSha256": "940ff2c977b5335f7741c475778ed5858643c2b702743586ae80d09295af1708",
+      "metadataContainsActualRemoteRunId": false,
+      "checkpointColumnInspected": false
+    },
+    {
+      "table": "checkpoints",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9f3-6821-8006-74ca35d5411c",
+      "metadataSha256": "2be81337c6e4fcad891376676e180f9bae428f30aaf78fb3776366b302e8aa2b",
+      "metadataContainsActualRemoteRunId": false,
+      "checkpointColumnInspected": false
+    },
+    {
+      "table": "checkpoints",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9f6-6af1-8007-b61c6d1ec3c4",
+      "metadataSha256": "e005ec880c42bcd0a490b51d30b1ae4da0a4972a96e957610f17a8a5b294fb4a",
+      "metadataContainsActualRemoteRunId": false,
+      "checkpointColumnInspected": false
+    },
+    {
+      "table": "checkpoints",
+      "threadIdMatchesActual": true,
+      "checkpointId": "1f1e1c8e-b9f9-6ad8-8008-377677815a09",
+      "metadataSha256": "faa54f0938ed1a250dcaf2648c4a3901a2c49ecf70e4109f6e7e23cf8c242cdf",
+      "metadataContainsActualRemoteRunId": false,
+      "checkpointColumnInspected": false
+    },
+    {
+      "table": "wsx_agent_runs",
+      "runId": "e8a86490-dd67-4920-adb7-b7761c60e067",
+      "threadMatchesActual": true,
+      "status": "error",
+      "errorSha256": "854f6a8a76afdf2713e0af1d6a915e5b480158e19422906c779a73fd6abfc5df",
+      "errorBytes": 18,
+      "errorProjection": {
+        "knownErrorClassMarkers": [
+          "APIConnectionError"
+        ],
+        "tlsCauseMarkerPresent": false,
+        "causeFieldPaths": [],
+        "safeErrnoFields": [],
+        "opaqueExtTypes": [],
+        "boundedPrimitiveInspection": true,
+        "completePrimitiveInspection": true,
+        "rawStringsProjected": false
+      },
+      "createdAt": "2026-11-16 14:20:48.744589+00",
+      "updatedAt": "2026-11-16 14:20:50.392135+00",
+      "requestColumnInspected": false
+    }
+  ],
+  "directOriginalRunCertificateCauseFound": false,
+  "requestPromptCheckpointBlobColumnsInspected": false,
+  "pickleUnpickleEvalExecUsed": false,
+  "rawPayloadProjected": false,
+  "dbRestored": false,
+  "sqlExecuted": false,
+  "modelRequests": 0,
+  "externalRequests": 0,
+  "financialWrites": 0,
+  "targetRunEventMetadataCounts": {
+    "updates": 8,
+    "metadata": 1
+  },
+  "targetRunErrorEventCount": 0,
+  "nonErrorEventDataColumnsInspected": false,
+  "knownClassMarkersUseWordBoundaries": true
+}

@@ -1,0 +1,90 @@
+{
+  "observedAt": "2026-11-16T20:51:52.630Z",
+  "readOnly": true,
+  "run": {
+    "id": "3eb56aef-675d-43ef-a239-a066fbb74c75",
+    "org_id": "org-fullstack--20261117-s-1e261c1b8eac",
+    "thread_id": "thr-a36e0fc5-8da4-4c1c-9cee-2652a6f016c8",
+    "author_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+    "status": "succeeded",
+    "failure_reason": null,
+    "agent_version_id": "agent-fullstack--20261117-s-1e261c1b8eac-v1",
+    "skill_version_ids": [
+      "skill-version-fc7b65ce-ab13-4810-92c8-8346f137902d"
+    ],
+    "aidt_selector_hash": "6873e1316f2f8fdbc3fbb43e21c7c3fe8a5c0a5a1b74413ae6b27985f8737fb6",
+    "remote_run_id": "83ed08c9-dde9-46e5-815b-acd746217a46"
+  },
+  "snapshot": {
+    "selectorHash": "6873e1316f2f8fdbc3fbb43e21c7c3fe8a5c0a5a1b74413ae6b27985f8737fb6",
+    "snapshotHash": "7cdb1533db6ec7c62c8ae858a22e1da3f3eb242e9c55d0107d65f1d70be82687",
+    "focus": {
+      "title": "理解与提出问题",
+      "skillId": "skill-269284cc-4d39-4cfb-b33c-2fc2b586098d",
+      "skillVersionId": "skill-version-fc7b65ce-ab13-4810-92c8-8346f137902d",
+      "skillStableName": "aidt-understand"
+    },
+    "blockHash": "30fea98479471886eee25061e8c68699fef562771d52e2318f3bcdefb741cc6f"
+  },
+  "applications": [
+    {
+      "seq": "1",
+      "kind": "assembled",
+      "snapshotHash": "7cdb1533db6ec7c62c8ae858a22e1da3f3eb242e9c55d0107d65f1d70be82687",
+      "occurredAt": "2026-11-16T20:50:44.364Z"
+    },
+    {
+      "seq": "2",
+      "kind": "message-dispatch-observed",
+      "snapshotHash": "7cdb1533db6ec7c62c8ae858a22e1da3f3eb242e9c55d0107d65f1d70be82687",
+      "occurredAt": "2026-11-16T20:50:44.478Z",
+      "remoteThreadId": "9fb4cef3-d13c-4541-8a82-21c345eeae2b",
+      "remoteRunId": "83ed08c9-dde9-46e5-815b-acd746217a46"
+    }
+  ],
+  "physical": [
+    {
+      "id": "5b945028-b870-489f-9a43-d3cc9ea6cb86",
+      "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T20:50:44.537Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "5b945028-b870-489f-9a43-d3cc9ea6cb86",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "9954",
+      "tokens_prompt": "9777",
+      "tokens_completion": "177",
+      "request_started_at": "2026-11-16T20:50:44.537Z",
+      "request_ended_at": "2026-11-16T20:50:51.200Z"
+    }
+  ],
+  "credit": [
+    {
+      "request_id": "5b945028-b870-489f-9a43-d3cc9ea6cb86",
+      "state": "settled",
+      "reserved_hundredths": "4352",
+      "debited_hundredths": "996",
+      "settled_at": "2026-11-16T20:50:51.225Z"
+    }
+  ],
+  "wallet": {
+    "balance": "19975.92",
+    "held_hundredths": "0",
+    "remaining_held_hundredths": "0",
+    "unbounded_requests": "0"
+  },
+  "counts": {
+    "active": 0,
+    "physical": 4,
+    "usage": 4,
+    "credits": 4,
+    "unsettled": 0
+  },
+  "tokensTotal": 9954,
+  "oldBudgetsUnchanged": true,
+  "auditModelRequests": 0
+}

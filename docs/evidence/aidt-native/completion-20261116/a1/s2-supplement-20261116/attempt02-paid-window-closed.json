@@ -1,0 +1,112 @@
+{
+  "at": "2026-11-16T14:23:51.719Z",
+  "apiOnlyRestart": true,
+  "oldApiPid": 338221,
+  "newApiPid": 341838,
+  "apiHealthy": true,
+  "webHealthy": true,
+  "pythonHealthy": true,
+  "before": {
+    "active": 0,
+    "physical": 4,
+    "usage": 4,
+    "credit_requests": 4
+  },
+  "after": {
+    "active": 0,
+    "physical": 4,
+    "usage": 4,
+    "credit_requests": 4
+  },
+  "heldHundredths": 8629,
+  "remainingHeldHundredths": 8629,
+  "creditBefore": [
+    {
+      "request_id": "3ecb4523-ebe5-4877-a26f-f593a52985e8",
+      "run_id": "68880459-6de1-43a8-a909-0a969f03a7a8",
+      "state": "settled",
+      "reserved_hundredths": "4338",
+      "debited_hundredths": "1007",
+      "settled_at": "2026-11-16T12:20:12.716Z"
+    },
+    {
+      "request_id": "47734a22-1318-4fae-b522-5cabe3782bd7",
+      "run_id": "40539aa6-2732-4661-9665-913013af806d",
+      "state": "pending",
+      "reserved_hundredths": "3412",
+      "debited_hundredths": null,
+      "settled_at": null
+    },
+    {
+      "request_id": "9aa820e5-a24c-49a7-9c71-90d222cd53d7",
+      "run_id": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+      "state": "settled",
+      "reserved_hundredths": "3336",
+      "debited_hundredths": "823",
+      "settled_at": "2026-11-16T12:38:12.725Z"
+    },
+    {
+      "request_id": "a9fcf2c8-e0ed-4bb1-8347-930d85e63ece",
+      "run_id": "40539aa6-2732-4661-9665-913013af806d",
+      "state": "pending",
+      "reserved_hundredths": "5217",
+      "debited_hundredths": null,
+      "settled_at": null
+    }
+  ],
+  "creditAfter": [
+    {
+      "request_id": "3ecb4523-ebe5-4877-a26f-f593a52985e8",
+      "run_id": "68880459-6de1-43a8-a909-0a969f03a7a8",
+      "state": "settled",
+      "reserved_hundredths": "4338",
+      "debited_hundredths": "1007",
+      "settled_at": "2026-11-16T12:20:12.716Z"
+    },
+    {
+      "request_id": "47734a22-1318-4fae-b522-5cabe3782bd7",
+      "run_id": "40539aa6-2732-4661-9665-913013af806d",
+      "state": "pending",
+      "reserved_hundredths": "3412",
+      "debited_hundredths": null,
+      "settled_at": null
+    },
+    {
+      "request_id": "9aa820e5-a24c-49a7-9c71-90d222cd53d7",
+      "run_id": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+      "state": "settled",
+      "reserved_hundredths": "3336",
+      "debited_hundredths": "823",
+      "settled_at": "2026-11-16T12:38:12.725Z"
+    },
+    {
+      "request_id": "a9fcf2c8-e0ed-4bb1-8347-930d85e63ece",
+      "run_id": "40539aa6-2732-4661-9665-913013af806d",
+      "state": "pending",
+      "reserved_hundredths": "5217",
+      "debited_hundredths": null,
+      "settled_at": null
+    }
+  ],
+  "financialStatePreserved": true,
+  "settlementUnresolved": true,
+  "unbounded": 0,
+  "walletTestCredits": 19981.7,
+  "budgetSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+  "autoExecution": {
+    "enabled": false,
+    "launchValue": "0",
+    "paidWindowOpened": false,
+    "guards": {
+      "agentRuns": "0",
+      "skillTrialRuns": "0",
+      "attachmentExtraction": "0",
+      "threadTitleModel": "0",
+      "standardScheduler": "0"
+    },
+    "apiPid": 341838,
+    "closedAt": "2026-11-16T14:23:51.718Z",
+    "method": "root authorized close; verified direct detached API PID; SIGTERM only own API; restarted explicit agent0; PG/Python/Web preserved; accounting counts unchanged"
+  },
+  "providerRequestsSentByA1": 0
+}

@@ -32,7 +32,7 @@ const SEARCH_THRESHOLD = 8;
  *   服务端 `decideNonWorkshopMemberAccess` 才是判定，403 如实显示。
  * 每次写成功后**重新拉一次列表**，不在本地 append / patch（本仓一贯纪律）。
  */
-export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) {
+export function ProjectCollaboratorsPanel({ projectId, readOnly = false }: { projectId: string; readOnly?: boolean }) {
   const session = useOptionalSession();
   const orgId = session?.session?.currentOrgId ?? null;
   const me = session?.session?.userId ?? null;
@@ -60,7 +60,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
 
   const hasOwner = (members ?? []).some((m) => m.role === "owner");
   const iAmOwner = me !== null && (members ?? []).some((m) => m.userId === me && m.role === "owner");
-  const canManage = members !== undefined && (iAmOwner || !hasOwner);
+  const canManage = !readOnly && members !== undefined && (iAmOwner || !hasOwner);
 
   React.useEffect(() => {
     if (!canManage || !orgId) return;
@@ -72,6 +72,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
   }, [canManage, orgId]);
 
   async function run(action: () => Promise<unknown>) {
+    if (readOnly) return;
     setBusy(true); setActionError(null);
     try {
       await action();

@@ -1,0 +1,3 @@
+Listing tests:
+  aidt-v2-completion.spec.ts:27:5 › completion S1: separately authorized task, student source decision and same-group starting point
+Total: 1 test in 1 file

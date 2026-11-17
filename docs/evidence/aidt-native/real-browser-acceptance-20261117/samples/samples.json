@@ -1,0 +1,30 @@
+{
+  "kind": "actual-product-print-PDFs-from-synthetic-student-input",
+  "method": "actual beforeprint DOM copied to Chromium PDF, not OS Save-As automation",
+  "files": [
+    {
+      "file": "idea-1-actual.pdf",
+      "bytes": 305209,
+      "sha256": "80a6a41ddfc9d2cc9f09d29bae0812be00d46361c8383596572f161814d5791d",
+      "sourceAttachment": "candidate-1-actual-pdf",
+      "synthetic": true,
+      "realInterviewOrTest": false
+    },
+    {
+      "file": "idea-2-actual.pdf",
+      "bytes": 272723,
+      "sha256": "0df05d9a1cb7e4436509aee933881f6be4ed93bf5c7cc0a5208a03ea6e5ea4e7",
+      "sourceAttachment": "candidate-2-actual-pdf",
+      "synthetic": true,
+      "realInterviewOrTest": false
+    },
+    {
+      "file": "idea-3-actual.pdf",
+      "bytes": 262399,
+      "sha256": "5920e339b605a385155d1758f4596175bd37b319cef6ae8e775e522251d72728",
+      "sourceAttachment": "candidate-3-actual-pdf",
+      "synthetic": true,
+      "realInterviewOrTest": false
+    }
+  ]
+}

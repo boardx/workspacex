@@ -1,0 +1,256 @@
+{
+  "kind": "real-browser-health-only-native-acceptance",
+  "productSourceSha": "741bc9f69693667868e88e780ff9a798e95d80ec",
+  "qaSourceSha256": {
+    "apps/web/e2e/aidt-v2-context-prepared.spec.ts": "547d41155296abcddf7e382dbc47984b765f6f10e12db2244bd224fe87407e3b",
+    "apps/web/e2e/support/aidt-v2-acceptance.ts": "563e7cf7446a2def53c492aa0dcf5a2b4c67400e4b38b66f79e17984a47ccb40",
+    "apps/web/e2e/support/aidt-v2-wire-metadata.ts": "fa73aad7c5aef760c8cafd20b1c790062174d8543f2ec79e2d6204e537712f08",
+    "apps/web/tests/aidt-v2-wire-metadata.test.ts": "908eadacfb6a58d68180345101be03e89eeea8a189ac36545a76cf85d93bce3c",
+    "apps/web/playwright.aidt-context-prepared.config.ts": "42f61f16e8dff7652e8857bab849bb5f31cc34f0a8804477ce3b17bba45a8150"
+  },
+  "qaSavedSourceExpectationIncrementUncommittedAtExecution": true,
+  "stack": "context-03",
+  "attempt": "attempt-02",
+  "status": "passed",
+  "testsPassed": 1,
+  "testsFailed": 0,
+  "durationMs": 4722,
+  "exitCode": 0,
+  "retries": 0,
+  "attachments": [
+    {
+      "name": "zero-model-native-prepared-receipt",
+      "value": {
+        "projectId": "prj-6b81df42-f62e-4962-844d-116a6b33d67a",
+        "threadId": "thr-c3f721d2-daef-4769-9acc-2871ec926f9a",
+        "runId": "7c10690f-7833-4d7a-9054-7b09c799c11a",
+        "promptIsSynthetic": true,
+        "humanExact": true,
+        "wire": {
+          "selectorCoordinates": {
+            "schemaVersion": 1,
+            "projectId": "prj-6b81df42-f62e-4962-844d-116a6b33d67a",
+            "stageRevisions": [
+              {
+                "stageId": 1,
+                "revision": 1
+              },
+              {
+                "stageId": 2,
+                "revision": 1
+              }
+            ],
+            "purpose": "stage",
+            "stageId": 2
+          },
+          "coordinatesOnly": true,
+          "topLevelKeys": [
+            "context",
+            "forwardedProps",
+            "messages",
+            "runId",
+            "state",
+            "threadId",
+            "tools"
+          ],
+          "messages": [
+            {
+              "index": 0,
+              "role": "user",
+              "hasSavedMarker": false,
+              "mentionsMountedSkill": false
+            }
+          ],
+          "context": [
+            {
+              "index": 0,
+              "descriptionIsAidt": false,
+              "descriptionLength": 49,
+              "hasSavedMarker": false
+            }
+          ],
+          "savedMarkerLocations": [
+            {
+              "stageId": 1,
+              "field": "initial",
+              "locations": []
+            },
+            {
+              "stageId": 1,
+              "field": "sourceDetails",
+              "locations": []
+            },
+            {
+              "stageId": 1,
+              "field": "whyWorthStudying",
+              "locations": []
+            },
+            {
+              "stageId": 2,
+              "field": "goal",
+              "locations": []
+            },
+            {
+              "stageId": 2,
+              "field": "guide",
+              "locations": []
+            },
+            {
+              "stageId": 2,
+              "field": "interpretation",
+              "locations": []
+            }
+          ],
+          "mountedSkillLocations": [],
+          "rawValuesRetained": false
+        },
+        "receipt": {
+          "runId": "7c10690f-7833-4d7a-9054-7b09c799c11a",
+          "projectId": "prj-6b81df42-f62e-4962-844d-116a6b33d67a",
+          "purpose": "stage",
+          "stageId": 2,
+          "skillVersionId": "skill-version-c48983e7-c01d-4479-a251-d5b43b7cc962",
+          "snapshotHash": "4ebf15742a79c48fdd2a02deacbcc9aedd9d2b2a4a4ff6a3ac94a0b77ffc3e0e",
+          "preparedAt": "2026-11-16T11:21:40.410Z",
+          "stageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 1
+            },
+            {
+              "stageId": 2,
+              "revision": 1
+            }
+          ],
+          "historyRevisions": [],
+          "omissions": [
+            {
+              "kind": "personal-artifacts-not-included"
+            },
+            {
+              "kind": "original-file-bytes-not-read"
+            },
+            {
+              "kind": "teacher-comments-no-source"
+            },
+            {
+              "kind": "lineage-unknown"
+            }
+          ],
+          "truncated": false,
+          "application": {
+            "state": "prepared",
+            "attemptId": null,
+            "assembledContextHash": null,
+            "assembledAt": null,
+            "messageDispatchedAt": null,
+            "checkpointResumedAt": null,
+            "inheritedMessageDispatchAttemptId": null
+          }
+        },
+        "queuedBeforeCancel": true,
+        "cancelled": true,
+        "nativeSendCount": 1,
+        "savedStagesUnchanged": true,
+        "paidLedgerFunctionCalled": false,
+        "supplierExecutionRequested": false,
+        "ownerPhysicalUsageRecheckRequired": true
+      }
+    },
+    {
+      "name": "zero-model-owned-run-cleanup",
+      "value": {
+        "projectId": "prj-6b81df42-f62e-4962-844d-116a6b33d67a",
+        "threadId": "thr-c3f721d2-daef-4769-9acc-2871ec926f9a",
+        "runId": "7c10690f-7833-4d7a-9054-7b09c799c11a",
+        "nativeSent": true,
+        "queuedVerified": true,
+        "serverReceipt": {
+          "runId": "7c10690f-7833-4d7a-9054-7b09c799c11a",
+          "projectId": "prj-6b81df42-f62e-4962-844d-116a6b33d67a",
+          "purpose": "stage",
+          "stageId": 2,
+          "skillVersionId": "skill-version-c48983e7-c01d-4479-a251-d5b43b7cc962",
+          "snapshotHash": "4ebf15742a79c48fdd2a02deacbcc9aedd9d2b2a4a4ff6a3ac94a0b77ffc3e0e",
+          "preparedAt": "2026-11-16T11:21:40.410Z",
+          "stageRevisions": [
+            {
+              "stageId": 1,
+              "revision": 1
+            },
+            {
+              "stageId": 2,
+              "revision": 1
+            }
+          ],
+          "historyRevisions": [],
+          "omissions": [
+            {
+              "kind": "personal-artifacts-not-included"
+            },
+            {
+              "kind": "original-file-bytes-not-read"
+            },
+            {
+              "kind": "teacher-comments-no-source"
+            },
+            {
+              "kind": "lineage-unknown"
+            }
+          ],
+          "truncated": false,
+          "application": {
+            "state": "prepared",
+            "attemptId": null,
+            "assembledContextHash": null,
+            "assembledAt": null,
+            "messageDispatchedAt": null,
+            "checkpointResumedAt": null,
+            "inheritedMessageDispatchAttemptId": null
+          }
+        },
+        "uiReadVerified": true,
+        "cancelAttempted": true,
+        "cancelled": true,
+        "nativeSendCount": 1,
+        "paidLedgerFunctionCalled": false,
+        "supplierExecutionRequested": false,
+        "ownerPhysicalUsageRecheckRequired": true
+      }
+    }
+  ],
+  "ownerIndependentAfterEvidence": [
+    "../a1/context-stack03-after-browser.json",
+    "../a1/context-stack03-prepared-run.json",
+    "../a1/context-stack03-prepared-actor.json"
+  ],
+  "actor": {
+    "orgRole": "admin",
+    "projectRole": "owner",
+    "fundedAdmin": false,
+    "walletExists": false,
+    "studentPaidExecutionPermissionClaimed": false
+  },
+  "ownerConfirmedAfter": {
+    "physicalRequests": 0,
+    "usage": 0,
+    "creditRequests": 0,
+    "holds": 0,
+    "unbounded": 0,
+    "activeRuns": 0,
+    "financialAndPaidLedgerHashesUnchanged": true
+  },
+  "paidLedgerSha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "boundary": {
+    "prepared": true,
+    "assembled": false,
+    "messageDispatch": false,
+    "supplierModelConsumption": false
+  },
+  "previousFailurePreserved": "context-prepared-browser-machine.json (context-02/attempt-01, source696e, receipt UI missing)",
+  "browserClosed": true,
+  "serverExecutorStillDisabled": true,
+  "ownerFinalCleanupEvidence": "../a1/context-stack03-final-receipt.json",
+  "finalStackStopped": true,
+  "all13PortsAndLeaseReleased": true
+}

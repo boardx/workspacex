@@ -44,6 +44,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from hashlib import sha256
 from typing import Awaitable, Callable
 
 from langchain.agents.middleware import (
@@ -58,7 +59,7 @@ from langchain.agents.middleware import (
     ToolRetryMiddleware,
 )
 from langchain.agents.middleware.types import AgentState, hook_config
-from langchain_core.messages import RemoveMessage, ToolMessage
+from langchain_core.messages import AIMessage, RemoveMessage, ToolMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.config import get_config
 from langgraph.errors import GraphBubbleUp
@@ -66,9 +67,13 @@ from langgraph.prebuilt.tool_node import ToolCallRequest
 from typing_extensions import NotRequired
 
 from deepagents import FilesystemMiddleware, RubricMiddleware
-from deepagents.middleware.rubric import RubricState
+from deepagents.middleware.rubric import RUBRIC_GRADER_MESSAGE_SOURCE, RubricState
 from deepagents.backends.protocol import BackendProtocol
 from deep_agent_service.tool_budget import ToolBudgetMiddleware, excluded_tool_names
+from deep_agent_service.tools import (
+    FEEDBACK_TURN_ARTIFACT_KEY, _read_org_skills, call_skill_argument_values,
+    feedback_turn_skill_digest,
+)
 
 # DA-08（#1749，rubric D8②）：单个工具输出超过这个 token 数就驱逐到虚拟文件系统，
 # 正文只留文件引用（实测行为：ToolMessage 被替换为
@@ -1261,6 +1266,115 @@ class PinnedModelMiddleware(AgentMiddleware):
         return await handler(_prepare_pinned_model_request(request))
 
 
+def _first_feedback_request(request: ModelRequest) -> ModelRequest:
+    """Route one authored feedback action through its mounted skill, once.
+
+    This only constrains the existing model tool choice. Tool admission, budget
+    exclusions and HITL still run normally; an attempted call (including an
+    error, denial or pending approval) never acquires a forced retry here.
+    """
+    try:
+        config = get_config()
+    except RuntimeError:
+        return request
+    raw = (config.get("configurable") or {}).get("org_skills")
+    if not isinstance(raw, list) or len(raw) != 1:
+        return request
+    skills = _read_org_skills(config)
+    if len(skills) != 1 or feedback_turn_skill_digest(skills[0]) is None:
+        return request
+    messages = _current_turn_messages(request.messages)
+    start = _latest_human_turn_index(messages)
+    if start is None or not _human_text(messages[start]).strip():
+        return request
+    if _tool_already_called(messages[start + 1:], "call_skill"):
+        return request
+    tools = [tool for tool in request.tools if _tool_name(tool) == "call_skill"]
+    if not tools:
+        return request
+    # The inner classifier cannot replace this with a planning-only tool set.
+    # Inner budget/admission middleware may still remove this existing tool.
+    return request.override(tools=tools, tool_choice="call_skill")
+
+
+def _completed_feedback_message(request: ModelRequest) -> AIMessage | None:
+    """Deliver a successful, explicitly authored feedback turn without re-running it.
+
+    No process/run cache: the actual ToolMessage must be in this student turn,
+    paired with its actual call and still match the currently mounted bytes.
+    This policy ends a feedback action, not a stage or a student decision. It
+    neither mounts skills nor grants access, and never treats failure prose as
+    success. New student turns and mid-run interjections keep their own work.
+    """
+    try:
+        config = get_config()
+    except RuntimeError:
+        return None
+    messages = _current_turn_messages(request.messages)
+    if messages is request.messages:
+        start = _latest_human_turn_index(messages)
+        if start is None:
+            return None
+        messages = messages[start:]
+    batch_index = next((i for i in range(len(messages) - 1, -1, -1)
+                        if getattr(messages[i], "tool_calls", None)), None)
+    if batch_index is None:
+        return None
+    calls = messages[batch_index].tool_calls
+    # A feedback result cannot stand in for the outcomes of a mixed batch.
+    # Conservatively keep the original handler for every multi-call batch,
+    # even when another tool's string result appears to indicate success.
+    if len(calls) != 1 or calls[0].get("name") != "call_skill":
+        return None
+    call = calls[0]
+    tail = messages[batch_index + 1:]
+    results = [m for m in tail if isinstance(m, ToolMessage)]
+    if len(results) != 1:
+        return None
+    message = results[0]
+    if message.tool_call_id != call.get("id") or message.name != "call_skill" or message.status != "success":
+        return None
+    if any(getattr(m, "type", None) == "human" and not (
+        getattr(m, "name", None) == RUBRIC_GRADER_MESSAGE_SOURCE
+        and getattr(m, "additional_kwargs", {}).get("lc_source") == RUBRIC_GRADER_MESSAGE_SOURCE
+    ) for m in tail):
+        return None
+    marker = message.artifact.get(FEEDBACK_TURN_ARTIFACT_KEY) if isinstance(message.artifact, dict) else None
+    if not isinstance(marker, dict) or not isinstance(message.content, str) or not message.content.strip():
+        return None
+    mounted = {s["stable_name"]: s for s in _read_org_skills(config)}
+    skill = mounted.get(marker.get("skill_stable_name"))
+    if skill is None or feedback_turn_skill_digest(skill) != marker.get("skill_content_sha256"):
+        return None
+    if sha256(message.content.encode("utf-8")).hexdigest() != marker.get("result_sha256"):
+        return None
+    # Pair the complete task bytes, never a public truncated argument summary.
+    args = call.get("args") or {}
+    if not isinstance(args, dict):
+        return None
+    stable, task = call_skill_argument_values(args)
+    if stable != skill["stable_name"] or not isinstance(task, str) or sha256(task.encode("utf-8")).hexdigest() != marker.get("task_sha256"):
+        return None
+    return AIMessage(content=message.content)
+
+
+class FeedbackTurnMiddleware(AgentMiddleware):
+    """The focused feedback itself is the reply; wait for the next student action.
+
+    Returning the actual result is deterministic even if an orchestrator would
+    ignore a tool_choice/prompt correction. All non-opt-in requests go through
+    the original handler, including ordinary Chat, file skills and old pins.
+    """
+
+    def wrap_model_call(self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]) -> ModelResponse:
+        reply = _completed_feedback_message(request)
+        return ModelResponse(result=[reply]) if reply is not None else handler(_first_feedback_request(request))
+
+    async def awrap_model_call(self, request: ModelRequest, handler: Callable[[ModelRequest], Awaitable[ModelResponse]]) -> ModelResponse:
+        reply = _completed_feedback_message(request)
+        return ModelResponse(result=[reply]) if reply is not None else await handler(_first_feedback_request(request))
+
+
 def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = None) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
 
@@ -1271,6 +1385,9 @@ def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = 
         # issue #2836：排第一——它的 before_agent 要先把上一轮的远端残留删掉，后面
         # 所有按 messages 判断的中间件（判类、插话、rubric）看到的才是本轮的窗口。
         TurnWindowMiddleware(),
+        # Before model routing/forced tools: an authored feedback action has a
+        # real result now. Preserve it instead of opening a second focused call.
+        FeedbackTurnMiddleware(),
         # 数字人能力（决策 B）：最外层换模型，内层中间件看到的就是钉住的模型。
         PinnedModelMiddleware(),
         TodoListMiddleware(),

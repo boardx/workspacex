@@ -1,0 +1,18 @@
+{
+  "completed": true,
+  "modelPostAttempts": 0,
+  "stage6Revision": 6,
+  "previousReturn2Revision": 4,
+  "currentS5Revision": 4,
+  "questionSnapshotUnchanged": true,
+  "previousReturn2ExactReadback": true,
+  "relation": {
+    "schemaVersion": 1,
+    "questionSnapshot": "{\"schemaVersion\":1,\"question\":\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\",\"beforeTestBelief\":\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\",\"verificationBasis\":\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\",\"verificationLimits\":\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\",\"prototypeRef\":\"Synthetic static V1-V2 89f942e5 / v1：这是一页极简静态纸面分区牌示意，仅含标题、说明、按钮与版本页脚，供教学讨论使用，不代表已验证。\",\"prototypeDesignId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0\",\"prototypeVersionId\":\"3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47\",\"sourceStageRevision\":3}",
+    "producedDesignId": "3cfcddff-456f-400a-ad26-64c3ca20a3e0",
+    "producedVersionId": "3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794852631155-zh7qbn",
+    "feedbackReference": "第6步V4，被审原型 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47。学生保存的静态检查原文：静态检查（非真人测试）：被审V1 3cfcddff-456f-400a-ad26-64c3ca20a3e0-v-1794851848632-498o47 无号码分区映射；按钮无交互。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+    "changeReason": "根据旧版静态检查补“示例2→B分区”的合成设计示意并改按钮文案；按钮仍是静态占位，没有真人反馈或效果验证。"
+  },
+  "reloadedExact": true
+}

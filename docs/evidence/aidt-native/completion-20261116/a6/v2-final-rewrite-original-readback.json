@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "kind": "real-browser-same-origin-existing-original-readback-after-precise-rewrite",
+  "sourceSha": "4bfb82e268a618d57af25e5596a11ddc04cf38cf",
+  "projectId": "prj-598b1fbd-0213-4be4-8099-bf4cd047398c",
+  "previousAttempt": "attempt-12",
+  "reusedSavedReferences": true,
+  "normalOriginalOwnerLogin": true,
+  "stageExactAndUnchanged": true,
+  "checks": [
+    {
+      "name": "SYN-A.png",
+      "status": 200,
+      "runId": "ingest-2ff67122-3549-44ea-a47e-5ae3e2078994",
+      "artifactId": "art-0eca3e61-4425-4aed-a288-2e3756f7ba1e",
+      "versionId": "ver-6938d65b-d917-443e-a53b-0f851f50709e",
+      "sha256": "a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef",
+      "bytes": 27913,
+      "exactOriginalBytes": true,
+      "submittedByMatchesSavedReference": true,
+      "submittedAtMatchesSavedReference": true,
+      "realProvenanceHeadersMatch": true
+    },
+    {
+      "name": "SYN-A.txt",
+      "status": 200,
+      "runId": "ingest-d809b677-6e60-4f81-9a1c-e49c51fa643a",
+      "artifactId": "art-a7813f99-014b-467d-9a99-3b0f6c6a0444",
+      "versionId": "ver-248bc7d1-2672-451b-ac0a-5fb8d6d5fe2a",
+      "sha256": "b6d999efe3d13dcb6566ca3fb63f3e6d24c7869ad92e89bb00ba4cda687bc973",
+      "bytes": 529,
+      "exactOriginalBytes": true,
+      "submittedByMatchesSavedReference": true,
+      "submittedAtMatchesSavedReference": true,
+      "realProvenanceHeadersMatch": true
+    }
+  ],
+  "postLoginWrites": [],
+  "newUploads": 0,
+  "newGroups": 0,
+  "modelRequests": 0,
+  "fixtureDataIsSynthetic": true,
+  "browserPdfSaved": false
+}

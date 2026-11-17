@@ -1,0 +1,24 @@
+{
+  "at": "2026-11-16T13:41:34.732Z",
+  "ownerPid": 307508,
+  "startTicks": 4704334,
+  "normalSignal": "SIGINT",
+  "actualOwnedOwnerVerified": true,
+  "finance": {
+    "active": 0,
+    "physical": 2,
+    "usage": 2,
+    "credit": 2,
+    "unsettled": 0,
+    "holds": "0",
+    "unbounded": "0"
+  },
+  "guards": {
+    "KERNEL_AGENT_RUN_AUTOSTART": "0",
+    "KERNEL_SKILL_TRIALRUN_AUTOSTART": "0",
+    "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART": "0",
+    "KERNEL_THREAD_TITLE_MODEL_ENABLED": "0",
+    "KERNEL_STANDARD_SCHEDULER": "0"
+  },
+  "modelRequestsSent": 0
+}

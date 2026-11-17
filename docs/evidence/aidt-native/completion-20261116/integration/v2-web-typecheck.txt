@@ -1,0 +1,3 @@
+Command: pnpm --filter web exec tsc --noEmit --incremental false
+Exit: 0
+No diagnostics.

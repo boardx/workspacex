@@ -1,0 +1,628 @@
+
+> web@0.1.0 test /workspace/scratch/aidt-complete-member_text/apps/web
+> vitest run "tests/ui/project-member-chat.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-member_text/apps/web
+
+ ❯ tests/ui/project-member-chat.test.tsx (25 tests | 4 failed) 538ms
+   × real member chat controller > does not restore write access from older history after a newer archived observation 59ms
+     → expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <textarea
+  aria-label="发给项目成员"
+  class="block w-full min-w-0 resize-none bg-transparent text-14 focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground"
+  data-testid="project-member-input"
+  id="project-member-draft"
+  maxlength="4000"
+  placeholder="讨论分工、安排与不同意见…"
+  rows="2"
+/>
+   × real member chat controller > does not restore write access from older history after a newer removed observation 23ms
+     → expected <p …(2)></p> to be null
+   × real member chat controller > does not reopen a topic composer when its older writable read follows a newer read-only channel read 77ms
+     → Unable to find an element by: [data-testid="project-member-readonly"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"项目成员文字频道"[39m
+      [33mclass[39m=[32m"flex min-h-0 min-w-0 flex-1 flex-col"[39m
+      [33mdata-project-id[39m=[32m"p"[39m
+      [33mdata-testid[39m=[32m"project-member-conversation"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex shrink-0 items-start justify-between gap-3 border-b border-border-subtle p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-0"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m项目成员 · 文字频道[0m
+          [36m</p>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"mt-1 flex items-center gap-2 text-16 font-medium"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-hash h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"4"[39m
+                [33mx2[39m=[32m"20"[39m
+                [33my1[39m=[32m"9"[39m
+                [33my2[39m=[32m"9"[39m
+              [36m/>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"4"[39m
+                [33mx2[39m=[32m"20"[39m
+                [33my1[39m=[32m"15"[39m
+                [33my2[39m=[32m"15"[39m
+              [36m/>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"10"[39m
+                [33mx2[39m=[32m"8"[39m
+                [33my1[39m=[32m"3"[39m
+                [33my2[39m=[32m"21"[39m
+              [36m/>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"16"[39m
+                [33mx2[39m=[32m"14"[39m
+                [33my1[39m=[32m"3"[39m
+                [33my2[39m=[32m"21"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m小组讨论[0m
+          [36m</h2>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-2 px-4 pt-3 text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<p>[39m
+          [0mAI不会自动加入频道；讨论不会自动成为阶段成果。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"mx-4 mt-3 shrink-0 space-y-2 border-b border-border-subtle pb-3"[39m
+        [33mdata-testid[39m=[32m"project-member-topic-header"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center justify-between"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"flex items-center gap-2 text-14 font-medium"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-messages-square h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m话题[0m
+          [36m</h3>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"project-member-topic-close"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m返回频道[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"正在回复的原消息"[39m
+          [33mclass[39m=[32m"space-y-2 rounded-control bg-secondary p-3"[39m
+          [33mdata-message-id[39m=[32m"10000000-0000-4000-8000-000000000001"[39m
+          [33mdata-testid[39m=[32m"project-member-topic-root"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m正在回复 · [0m
+              [36m<span[39m
+                [33mclass[39m=[32m"font-medium text-foreground"[39m
+              [36m>[39m
+                [0m小组成员[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"project-member-topic-original"[39m
+              [33maria-expanded[39m=[32m"false"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+              [33mdata-testid[39m=[32m"project-member-topic-expand"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m展开原文[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"whitespace-pre-wrap break-words text-13 [overflow-wrap:anywhere] line-clamp-2"[39m
+            [33mdata-testid[39m=[32m"project-member-topic-original"[39m
+            [33mid[39m=[32m"project-member-topic-original"[39m
+          [36m>[39m
+            [0m真实成员的讨论[0m
+          [36m</p>[39m
+        [36m</section>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"本话题的回复"[39m
+        [33maria-live[39m=[32m"polite"[39m
+        [33mclass[39m=[32m"min-h-40 min-w-0 flex-1 space-y-4 overflow-y-auto p-4"[39m
+        [33mdata-testid[39m=[32m"project-member-replies"[39m
+        [33mrole[39m=[32m"log"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex min-h-32 flex-col items-center justify-center gap-2 text-center text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"project-member-empty"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-message-circle h-5 w-5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7.9 20A9 9 0 1 0 4 16.1L2 22Z"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-14"[39m
+          [36m>[39m
+            [0m还没有回复[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<form[39m
+        [33mclass[39m=[32m"shrink-0 space-y-2 border-t border-border-subtle bg-background p-4"[39m
+        [33mdata-testid[39m=[32m"project-member-form"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"block text-12 text-muted-foreground"[39m
+          [33mfor[39m=[32m"project-member-draft"[39m
+        [36m>[39m
+          [0m回复此话题[0m
+        [36m</label>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-2 rounded-container border border-border-subtle bg-card p-3"[39m
+        [36m>[39m
+          [36m<textarea[39m
+            [33maria-label[39m=[32m"回复此话题"[39m
+            [33mclass[39m=[32m"block w-full min-w-0 resize-none bg-transparent text-14 focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground"[39m
+            [33mdata-testid[39m=[32m"project-member-input"[39m
+            [33mid[39m=[32m"project-member-draft"[39m
+            [33mmaxlength[39m=[32m"4000"[39m
+            [33mplaceholder[39m=[32m"围绕这条消息回复…"[39m
+            [33mrows[39m=[32m"2"[39m
+          [36m/>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center justify-between gap-3"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mEnter发送 · Shift+Enter换行[0m
+            [36m</span>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"发送话题回复"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"project-member-send"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-arrow-up h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m5 12 7-7 7 7"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 19V5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</form>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × real member chat controller > keeps a server write denial authoritative over an already pending history read and permits fresh authorization recovery 44ms
+     → expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <button
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"
+  data-testid="project-member-retry-348fdf89-7b04-4163-9a94-55b56550be8a"
+  type="button"
+/>
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/project-member-chat.test.tsx > real member chat controller > does not restore write access from older history after a newer archived observation
+Error: expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <textarea
+  aria-label="发给项目成员"
+  class="block w-full min-w-0 resize-none bg-transparent text-14 focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground"
+  data-testid="project-member-input"
+  id="project-member-draft"
+  maxlength="4000"
+  placeholder="讨论分工、安排与不同意见…"
+  rows="2"
+/>
+ ❯ tests/ui/project-member-chat.test.tsx:36:54
+     34|   expect(screen.getByTestId("project-member-input")).toBeDisabled();
+     35|   await act(async () => history.resolve(page([msg({text:"旧权限请求迟…
+     36|   expect(screen.getByTestId("project-member-input")).toBeDisabled();
+       |                                                      ^
+     37|   expect(screen.getByTestId("project-member-input")).toHaveValue("降权…
+     38|   if (change === "archived") expect(screen.getByTestId("project-member…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/project-member-chat.test.tsx > real member chat controller > does not restore write access from older history after a newer removed observation
+AssertionError: expected <p …(2)></p> to be null
+
+- Expected: 
+null
+
++ Received: 
+<p
+  class="whitespace-pre-wrap break-words rounded-control p-3 text-13 [overflow-wrap:anywhere] border border-border-subtle bg-card text-card-foreground"
+  data-testid="project-member-message-body"
+>
+  旧权限请求迟回的内容
+</p>
+
+ ❯ tests/ui/project-member-chat.test.tsx:39:49
+     37|   expect(screen.getByTestId("project-member-input")).toHaveValue("降权…
+     38|   if (change === "archived") expect(screen.getByTestId("project-member…
+     39|   else expect(screen.queryByText("旧权限请求迟回的内容")).toBeNull();
+       |                                                 ^
+     40|   fireEvent.click(screen.getByTestId("project-member-send"));
+     41|   expect(mocks.post).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/project-member-chat.test.tsx > real member chat controller > does not reopen a topic composer when its older writable read follows a newer read-only channel read
+TestingLibraryElementError: Unable to find an element by: [data-testid="project-member-readonly"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"项目成员文字频道"[39m
+      [33mclass[39m=[32m"flex min-h-0 min-w-0 flex-1 flex-col"[39m
+      [33mdata-project-id[39m=[32m"p"[39m
+      [33mdata-testid[39m=[32m"project-member-conversation"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex shrink-0 items-start justify-between gap-3 border-b border-border-subtle p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-0"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m项目成员 · 文字频道[0m
+          [36m</p>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"mt-1 flex items-center gap-2 text-16 font-medium"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-hash h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"4"[39m
+                [33mx2[39m=[32m"20"[39m
+                [33my1[39m=[32m"9"[39m
+                [33my2[39m=[32m"9"[39m
+              [36m/>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"4"[39m
+                [33mx2[39m=[32m"20"[39m
+                [33my1[39m=[32m"15"[39m
+                [33my2[39m=[32m"15"[39m
+              [36m/>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"10"[39m
+                [33mx2[39m=[32m"8"[39m
+                [33my1[39m=[32m"3"[39m
+                [33my2[39m=[32m"21"[39m
+              [36m/>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"16"[39m
+                [33mx2[39m=[32m"14"[39m
+                [33my1[39m=[32m"3"[39m
+                [33my2[39m=[32m"21"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m小组讨论[0m
+          [36m</h2>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-2 px-4 pt-3 text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<p>[39m
+          [0mAI不会自动加入频道；讨论不会自动成为阶段成果。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"mx-4 mt-3 shrink-0 space-y-2 border-b border-border-subtle pb-3"[39m
+        [33mdata-testid[39m=[32m"project-member-topic-header"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center justify-between"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"flex items-center gap-2 text-14 font-medium"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-messages-square h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m话题[0m
+          [36m</h3>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"project-member-topic-close"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m返回频道[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"正在回复的原消息"[39m
+          [33mclass[39m=[32m"space-y-2 rounded-control bg-secondary p-3"[39m
+          [33mdata-message-id[39m=[32m"10000000-0000-4000-8000-000000000001"[39m
+          [33mdata-testid[39m=[32m"project-member-topic-root"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m正在回复 · [0m
+              [36m<span[39m
+                [33mclass[39m=[32m"font-medium text-foreground"[39m
+              [36m>[39m
+                [0m小组成员[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"project-member-topic-original"[39m
+              [33maria-expanded[39m=[32m"false"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+              [33mdata-testid[39m=[32m"project-member-topic-expand"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m展开原文[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"whitespace-pre-wrap break-words text-13 [overflow-wrap:anywhere] line-clamp-2"[39m
+            [33mdata-testid[39m=[32m"project-member-topic-original"[39m
+            [33mid[39m=[32m"project-member-topic-original"[39m
+          [36m>[39m
+            [0m真实成员的讨论[0m
+          [36m</p>[39m
+        [36m</section>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"本话题的回复"[39m
+        [33maria-live[39m=[32m"polite"[39m
+        [33mclass[39m=[32m"min-h-40 min-w-0 flex-1 space-y-4 overflow-y-auto p-4"[39m
+        [33mdata-testid[39m=[32m"project-member-replies"[39m
+        [33mrole[39m=[32m"log"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex min-h-32 flex-col items-center justify-center gap-2 text-center text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"project-member-empty"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-message-circle h-5 w-5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7.9 20A9 9 0 1 0 4 16.1L2 22Z"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-14"[39m
+          [36m>[39m
+            [0m还没有回复[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<form[39m
+        [33mclass[39m=[32m"shrink-0 space-y-2 border-t border-border-subtle bg-background p-4"[39m
+        [33mdata-testid[39m=[32m"project-member-form"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"block text-12 text-muted-foreground"[39m
+          [33mfor[39m=[32m"project-member-draft"[39m
+        [36m>[39m
+          [0m回复此话题[0m
+        [36m</label>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-2 rounded-container border border-border-subtle bg-card p-3"[39m
+        [36m>[39m
+          [36m<textarea[39m
+            [33maria-label[39m=[32m"回复此话题"[39m
+            [33mclass[39m=[32m"block w-full min-w-0 resize-none bg-transparent text-14 focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground"[39m
+            [33mdata-testid[39m=[32m"project-member-input"[39m
+            [33mid[39m=[32m"project-member-draft"[39m
+            [33mmaxlength[39m=[32m"4000"[39m
+            [33mplaceholder[39m=[32m"围绕这条消息回复…"[39m
+            [33mrows[39m=[32m"2"[39m
+          [36m/>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center justify-between gap-3"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mEnter发送 · Shift+Enter换行[0m
+            [36m</span>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"发送话题回复"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"project-member-send"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-arrow-up h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m5 12 7-7 7 7"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 19V5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</form>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/project-member-chat.test.tsx:54:17
+     52|   await act(async () => replies.resolve(topic()));
+     53|   expect(screen.getByTestId("project-member-topic-root")).toBeVisible(…
+     54|   expect(screen.getByTestId("project-member-readonly")).toHaveTextCont…
+       |                 ^
+     55|   expect(screen.getByTestId("project-member-input")).toBeDisabled();
+     56|   expect(mocks.post).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/project-member-chat.test.tsx > real member chat controller > keeps a server write denial authoritative over an already pending history read and permits fresh authorization recovery
+Error: expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <button
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"
+  data-testid="project-member-retry-348fdf89-7b04-4163-9a94-55b56550be8a"
+  type="button"
+/>
+ ❯ tests/ui/project-member-chat.test.tsx:72:55
+     70|   expect(screen.getByRole("button", {name:"同一请求重试"})).toBeDisabl…
+     71|   await act(async () => history.resolve(page([], {canWrite:true})));
+     72|   expect(screen.getByRole("button", {name:"同一请求重试"})).toBeDisabl…
+       |                                                       ^
+     73|   expect(screen.getByTestId("project-member-input")).toBeDisabled();
+     74|   fireEvent.click(screen.getByRole("button", {name:"同一请求重试"}));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 21 passed (25)
+   Start at  01:29:50
+   Duration  1.48s (transform 132ms, setup 67ms, collect 213ms, tests 538ms, environment 439ms, prepare 34ms)
+
+/workspace/scratch/aidt-complete-member_text/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 test: `vitest run "tests/ui/project-member-chat.test.tsx"`
+Exit status 1

@@ -1,0 +1,45 @@
+{
+  "observedAt": "2026-11-16T22:36:42.886120+00:00",
+  "scope": "Read-only review of report chronology and convergence/semantic proof attribution, not a new test, financial audit or human teaching signoff",
+  "report": "../test-report.md",
+  "reportSha256AtCheck": "87a2b16ef51336bf5619f42e1135bd741d9bf43fce0c1bf4e095f12277afb5ed",
+  "summaryProofCrosscheck": [
+    {
+      "audit": "iteration02-summary-actual-convergence.json",
+      "semanticReview": "../semantic-review/summary-review-attempt01.json",
+      "runId": "5d5c6b78-4375-4d5e-afcf-257bd0f76e03",
+      "fullShaMatches": true,
+      "criticalCount": 1
+    },
+    {
+      "audit": "iteration02-summary-compact-actual-convergence.json",
+      "semanticReview": "../semantic-review/summary-compact-review-attempt01.json",
+      "runId": "0bb61ff9-9136-4fc5-8b8c-d98f5dec435f",
+      "fullShaMatches": true,
+      "criticalCount": 1
+    },
+    {
+      "audit": "iteration02-summary-correction-actual-convergence.json",
+      "semanticReview": "../semantic-review/summary-correction-review-attempt01.json",
+      "runId": "3afe33fe-42ce-4db8-9884-70b14253f2ba",
+      "fullShaMatches": true,
+      "criticalCount": 0
+    }
+  ],
+  "reportChronologyCorrectlyDistinguishes": [
+    "Original output truncated despite matching complete delivery hashes",
+    "Compact first draft complete but source-version attribution failed",
+    "Student clarified saved old/new question versions before a separately authorized model revision",
+    "Corrected model output reviewed independently, then explicitly imported/saved/exported by student UI; not student-authored replacement AI prose",
+    "Original two semantic failures, original QA red and all charge boundaries retained"
+  ],
+  "checkedOtherConvergenceBoundaries": [
+    "Original S1 had zero call_skill; later independent probe does not reclassify original run",
+    "S2-S4 initial call_skill failures were schema validation, not evidence of provider outage",
+    "2048 output budget explanation remains strong inference; focused provider finish_reason was not retained",
+    "Missing GET mounted-config bytes remain null/unestablished"
+  ],
+  "editorialNoteReportedToAuthor": "Use historical timing for original SUM baseline V7 rather than the word current, because final report is saved at V8",
+  "modelRequestsSent": 0,
+  "sourceOrReportModifiedByReviewer": false
+}

@@ -10,6 +10,7 @@ import { GlobalErrorReporter } from "@/components/system/global-error-reporter";
 import { BrowserTitleProvider } from "@/components/system/browser-title";
 import { DisablePageZoom } from "@/components/system/disable-page-zoom";
 import { EditionProvider } from "@/lib/edition";
+import { ProjectMemberChatLauncher } from "@/components/project/project-member-chat-launcher";
 import type { DeploymentEditionValue } from "@repo/contracts/deployment";
 
 /**
@@ -50,6 +51,7 @@ export function Providers(
           <CreditConsumptionNotice />
           <DisablePageZoom />
           <BrowserTitleProvider>{children}</BrowserTitleProvider>
+          <React.Suspense fallback={null}><ProjectMemberChatLauncher /></React.Suspense>
         </SessionProvider>
       </EditionProvider>
     </QueryClientProvider>

@@ -1,0 +1,94 @@
+{
+  "at": "2026-11-16T18:33:51.861Z",
+  "readOnly": true,
+  "privateDiagnosticPath": "/workspace/scratch/aidt-private-diagnostics-20261117/fresh-acceptance-final-20261116T183031727Z",
+  "diagnosticDumpSha256": "2ecfd540d57fcdae4af63c6e79b96c9807f86180ce601d14fb32b34f2b5e466c",
+  "fullFinancialTables": {
+    "credit_consumption_requests": {
+      "rows": 94,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "be71b1f9a8118aa82b194483d843912753877518d8ee6ad776de310d200e14ea"
+    },
+    "credit_wallets": {
+      "rows": 1,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "c30f8dbf3ef16c72384ba1b8fc43499b613783d62078a4b0c9bf0cfecbdda112"
+    },
+    "token_usage_events": {
+      "rows": 94,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "d5b7950510a2743e91a2970a44f02ca44d00ae8510e5cd6e19981af525a01d6b"
+    },
+    "model_request_starts": {
+      "rows": 94,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "e3c4562e0aa02fbe68c86cef3703092fc3ba43133a94a4edeaa78b497371d847"
+    }
+  },
+  "allCopiedObjectsAndMimeFilesMatchLive": true,
+  "copiedObjectFiles": 14,
+  "rawOriginals": 7,
+  "allTrackedJournalAndStateCopiesExact": true,
+  "ledgerHashes": {
+    "legacy": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "supplementS1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+    "supplementS2": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f",
+    "nativeFresh": "6075b11d41d6a2c4989ab7ee7173cb367e7fd67ce5b9e879c0b036a5d61b578c",
+    "designFresh": "76d40fcc66da7148ece5521c3f05d1ebcd3b106dfcf47f3e069bc7a62996ee19",
+    "journeyFresh": "ed1900edbe44e6e166169ce2f249af98fef1815ad5f0f85f7b3a3332c1e5f8af",
+    "designState": "0a3f45d6c77260a78764a6ccfb073e9a9b3688492a262934ba894e58d3fde78a"
+  },
+  "originalCheckpointDumpManifestAndMetadataUnchanged": true,
+  "olderPendingDiagnosticDumpAndManifestUnchanged": true,
+  "restorationTested": false,
+  "safeZeroOutstandingRestoreEligible": false,
+  "pendingAccountingPreserved": true,
+  "fullEvidenceTables": {
+    "aidt_stage_revisions": {
+      "rows": 26,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "9a6c537f60b68f8d24f30aead18d1e233ee9defecac8919603f98f55a083e797"
+    },
+    "agent_versions": {
+      "rows": 1,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "afd8c30f4c16532a215b2d05fc35eb412b2ad045da35cf2f3145a2e68fabe860"
+    },
+    "agent_runs": {
+      "rows": 7,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "7831c80b058707da63d2ce7535bd8ca3e9137a2b18d0b7092e31304f3a463dd0"
+    },
+    "design_project_prototype_versions": {
+      "rows": 2,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "6408a4ec199d5ed34916203aec7c76d421f53ac2248e906e217521b44d540699"
+    }
+  },
+  "preservedReportFiles": [
+    {
+      "file": "sum-selected-ai-draft.md.private",
+      "bytes": 7632,
+      "sha256": "9a4836fae4565ee07e1469c52c0c5a717410cf61dde3efb616a81adb7b36b5ee"
+    },
+    {
+      "file": "student-reviewed-full-report.md.private",
+      "bytes": 8613,
+      "sha256": "ab17e70c701df9d9ee60af4584fe31c3042c488f5f1f3d1e6fd154991def17d6"
+    },
+    {
+      "file": "student-corrected-final-report.md.private",
+      "bytes": 11664,
+      "sha256": "8c5c4144aef519e32ee98bb2ea294b58082146fd22847b5beeb7bf7e7e96210d"
+    },
+    {
+      "file": "student-report-correction.json.private",
+      "bytes": 73803,
+      "sha256": "01db53bdb221b878e77db1b1ec2125f7e990dd36463abef4ddde856f5f928746"
+    }
+  ],
+  "manifestSha256": "1a2195bdf4aff18176d36308d7c46711f9724dea9d51968e2fa1aa8aec301481",
+  "backupOperatorProviderRequestsSent": 0,
+  "externalRoundPhysicalRequests": 94,
+  "verifiedAt": "2026-11-16T18:34:48.793919+00:00"
+}

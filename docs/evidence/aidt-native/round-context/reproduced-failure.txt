@@ -1,0 +1,37 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/project-aidt-chat.test.tsx (20 tests | 1 failed | 19 skipped) 45ms
+   × preserves the saved learning round after the native thread resolves and switches thread 44ms
+     → expected null to be '3' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/project-aidt-chat.test.tsx > preserves the saved learning round after the native thread resolves and switches thread
+AssertionError: expected null to be '3' // Object.is equality
+
+- Expected: 
+"3"
+
++ Received: 
+null
+
+ ❯ tests/ui/project-aidt-chat.test.tsx:222:54
+    220|   await screen.findByTestId("chat-shell");
+    221|   const current = new URL(window.location.href);
+    222|   expect(current.searchParams.get("returnRevision")).toBe("3");
+       |                                                      ^
+    223|   const path = mocks.shell.mock.calls.at(-1)![0].threadPath as (id: st…
+    224|   const next = new URL(path("new-native-thread"), "https://workspace.i…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 19 skipped (20)
+   Start at  15:19:43
+   Duration  5.00s (transform 2.00s, setup 191ms, collect 3.08s, tests 45ms, environment 1.01s, prepare 92ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/project-aidt-chat.test.tsx -t preserves the saved learning round

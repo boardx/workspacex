@@ -1,0 +1,30 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/aidt-v2-completion-state.test.ts (3 tests | 1 failed) 6ms
+   × continues only the explicitly reviewed zero-send S2 failure once, preserving the phase and original seven ledger 3ms
+     → AIDT_COMPLETION_ALREADY_ATTEMPTED_REVIEW_EXISTING_RUN
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-v2-completion-state.test.ts > continues only the explicitly reviewed zero-send S2 failure once, preserving the phase and original seven ledger
+Error: AIDT_COMPLETION_ALREADY_ATTEMPTED_REVIEW_EXISTING_RUN
+ ❯ e2e/support/aidt-v2-completion-state.ts:33:36
+     31|   if (process.env.AIDT_V2_AUTHORIZED_PHASE !== phase) throw new Error(…
+     32|   return mutate(state => {
+     33|     if (state.phases[phase]) throw new Error("AIDT_COMPLETION_ALREADY_…
+       |                                    ^
+     34|     const prior = predecessor[phase];
+     35|     if (prior && (!state.projectId || state.phases[prior]?.status !== …
+ ❯ mutate e2e/support/aidt-v2-completion-state.ts:25:42
+ ❯ Module.beginCompletionPhase e2e/support/aidt-v2-completion-state.ts:32:10
+ ❯ tests/aidt-v2-completion-state.test.ts:38:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  12:26:30
+   Duration  520ms (transform 39ms, setup 99ms, collect 24ms, tests 6ms, environment 0ms, prepare 48ms)
+

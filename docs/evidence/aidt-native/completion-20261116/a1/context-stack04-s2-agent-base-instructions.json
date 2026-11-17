@@ -1,0 +1,16 @@
+{
+  "at": "2026-11-16T12:40:21.654Z",
+  "readOnly": true,
+  "runId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+  "agentVersionId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe-v1",
+  "agentName": "FULLSTACK_AGENT_yr-c7e722d0-fc9ebf5fdbbe",
+  "stableName": "default-assistant",
+  "semanticLabel": "1.0.0",
+  "instructionDigest": "49b0f07ba859d6b961a5317893450eaedaf9062ae593cf0278a41e5ed3408726",
+  "instructionsExactlyMatchPublicEchoFixture": true,
+  "instructionsCharacterCount": 64,
+  "source": "apps/api/scripts/seed-fullstack-smoke.ts:340",
+  "safeInstructionSummary": "Public seed instructs core-loop smoke echo, not a teaching general assistant",
+  "noConfigurationValuesRead": true,
+  "modelRequestsSentByAudit": 0
+}

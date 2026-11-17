@@ -1,0 +1,1933 @@
+[
+  {
+    "label": "step-1-welcome-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 483,
+      "y": 367,
+      "width": 350,
+      "height": 68.75,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 435.75,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-1-chat-empty-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 295,
+      "y": 793,
+      "width": 726,
+      "height": 30,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 823,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-1-outcome-empty-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 722,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 802,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-1-outcome-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 722,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 802,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-2-welcome-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 504,
+      "y": 367,
+      "width": 308,
+      "height": 68.75,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 435.75,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-2-chat-empty-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 295,
+      "y": 793,
+      "width": 726,
+      "height": 30,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 823,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-2-outcome-empty-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 788,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 868,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-2-outcome-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 788,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 868,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-3-welcome-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 466.5,
+      "y": 367,
+      "width": 383,
+      "height": 68.75,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 435.75,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-3-chat-empty-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 295,
+      "y": 793,
+      "width": 726,
+      "height": 30,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 823,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-3-outcome-empty-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 744,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 824,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-3-outcome-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 744,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 824,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-4-welcome-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 480.5,
+      "y": 367,
+      "width": 355,
+      "height": 68.75,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 435.75,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-4-chat-empty-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 295,
+      "y": 793,
+      "width": 726,
+      "height": 30,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 823,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-4-outcome-empty-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 653,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 733,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-4-outcome-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 653,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 733,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "remove-edited-idea-1280",
+    "before": 3,
+    "after": 2,
+    "confirmation": 0
+  },
+  {
+    "label": "step-5-welcome-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 469,
+      "y": 367,
+      "width": 378,
+      "height": 68.75,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 435.75,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-5-chat-empty-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 295,
+      "y": 793,
+      "width": 726,
+      "height": 30,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 823,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-5-outcome-empty-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 821,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 901,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-5-outcome-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 821,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 901,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-6-welcome-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 504,
+      "y": 367,
+      "width": 308,
+      "height": 68.75,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 435.75,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-6-chat-empty-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 295,
+      "y": 793,
+      "width": 726,
+      "height": 30,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 823,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "step-6-outcome-empty-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 600,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 680,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-6-outcome-last-field-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 262,
+      "y": 600,
+      "width": 832,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 680,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "report-editor-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 108,
+      "y": 376,
+      "width": 1140,
+      "height": 384,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 760,
+      "viewportHeight": 900,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "team-input-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 846,
+      "y": 770,
+      "width": 388,
+      "height": 44,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 814,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "team-keyboard-open-1280",
+    "tabs": 1,
+    "active": "global-member-chat-project"
+  },
+  {
+    "label": "team-keyboard-escape-1280",
+    "draftRetained": true,
+    "outsideEscapeRetainsPanel": true,
+    "shiftEnterDoesNotSend": true,
+    "ime": "not tested with a real input method"
+  },
+  {
+    "label": "step-1-welcome-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 44,
+      "y": 356,
+      "width": 287,
+      "height": 85.5,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 441.5,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-1-chat-empty-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 37,
+      "y": 503,
+      "width": 301,
+      "height": 56,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 559,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-1-outcome-empty-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 515,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 595,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-1-outcome-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 515,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 595,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-2-welcome-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 44,
+      "y": 356,
+      "width": 287,
+      "height": 85.5,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 441.5,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-2-chat-empty-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 37,
+      "y": 503,
+      "width": 301,
+      "height": 56,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 559,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-2-outcome-empty-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 526,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 606,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-2-outcome-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 526,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 606,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-3-welcome-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 44,
+      "y": 356,
+      "width": 287,
+      "height": 85.5,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 441.5,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-3-chat-empty-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 37,
+      "y": 503,
+      "width": 301,
+      "height": 56,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 559,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-3-outcome-empty-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 526,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 606,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-3-outcome-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 526,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 606,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-4-welcome-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 44,
+      "y": 356,
+      "width": 287,
+      "height": 85.5,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 441.5,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-4-chat-empty-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 37,
+      "y": 503,
+      "width": 301,
+      "height": 56,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 559,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-4-outcome-empty-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 526,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 606,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-4-outcome-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 526,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 606,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "remove-edited-idea-375",
+    "before": 3,
+    "after": 2,
+    "confirmation": 0
+  },
+  {
+    "label": "step-5-welcome-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 44,
+      "y": 356,
+      "width": 287,
+      "height": 85.5,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 441.5,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-5-chat-empty-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 37,
+      "y": 503,
+      "width": 301,
+      "height": 56,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 559,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-5-outcome-empty-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 526,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 606,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-5-outcome-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 526,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 606,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-6-welcome-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 44,
+      "y": 356,
+      "width": 287,
+      "height": 85.5,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 441.5,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-6-chat-empty-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 37,
+      "y": 503,
+      "width": 301,
+      "height": 56,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 559,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "step-6-outcome-empty-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 526,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 606,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "step-6-outcome-last-field-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 526,
+      "width": 343,
+      "height": 80,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 606,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "report-editor-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 16,
+      "y": 282,
+      "width": 343,
+      "height": 384,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 666,
+      "viewportHeight": 812,
+      "chatHostHeight": 0
+    }
+  },
+  {
+    "label": "team-input-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 30,
+      "y": 618,
+      "width": 315,
+      "height": 44,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 662,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  },
+  {
+    "label": "team-keyboard-open-375",
+    "tabs": 1,
+    "active": "global-member-chat-project"
+  },
+  {
+    "label": "team-keyboard-escape-375",
+    "draftRetained": true,
+    "outsideEscapeRetainsPanel": true,
+    "shiftEnterDoesNotSend": true,
+    "ime": "not tested with a real input method"
+  },
+  {
+    "label": "chat-run-terminal",
+    "sendState": "disabled",
+    "persistedAgentText": true
+  },
+  {
+    "label": "chat-populated-answer-1280",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "state": {
+      "x": 274,
+      "y": 623,
+      "width": 768,
+      "height": 45.5,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 668.5,
+      "viewportHeight": 900,
+      "chatHostHeight": 661
+    }
+  },
+  {
+    "label": "chat-populated-answer-375",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "state": {
+      "x": 28,
+      "y": 352,
+      "width": 319,
+      "height": 68.25,
+      "centerExposed": true,
+      "probes": [
+        {
+          "fraction": 0.25,
+          "exposed": true
+        },
+        {
+          "fraction": 0.5,
+          "exposed": true
+        },
+        {
+          "fraction": 0.75,
+          "exposed": true
+        },
+        {
+          "fraction": 0.95,
+          "exposed": true
+        }
+      ],
+      "bottom": 420.25,
+      "viewportHeight": 812,
+      "chatHostHeight": 509
+    }
+  }
+]

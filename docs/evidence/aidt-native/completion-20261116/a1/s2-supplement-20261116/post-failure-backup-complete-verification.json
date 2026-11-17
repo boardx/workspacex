@@ -1,0 +1,42 @@
+{
+  "at": "2026-11-16T14:38:14.476Z",
+  "readOnly": true,
+  "privateDiagnosticPath": "/workspace/scratch/aidt-private-diagnostics-20261116/S2-failed-pending-20261116T143336845Z",
+  "diagnosticDumpSha256": "44dce740c3e27db191bcebd5e92723ad5d221a485c75020a2040fb06fc73d653",
+  "fullFinancialTables": {
+    "credit_consumption_requests": {
+      "rows": 4,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "909228d94d67753a7e8e4abca233e62e9cf4ab0374ccea4564d4c4912db77cbc"
+    },
+    "credit_wallets": {
+      "rows": 1,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "af575e3bfc206d11a7056b8d789f53b3a333c2e6cbde017b167501e59791aec2"
+    },
+    "token_usage_events": {
+      "rows": 4,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "091613078ace4881aef4cf8b3a0538f5041ddc27c7a789a1a7a7c58687964455"
+    },
+    "model_request_starts": {
+      "rows": 4,
+      "allColumnsAndCellsMatch": true,
+      "fullRowSha256": "5dd6d6758ab38e6e893765f9c9ca3d183f32a2de4e55fad63d4fc973c34378a4"
+    }
+  },
+  "allCopiedObjectsAndMimeFilesMatchLive": true,
+  "copiedObjectFiles": 10,
+  "rawOriginals": 4,
+  "allThreeLedgerCopiesExact": true,
+  "ledgerHashes": {
+    "legacy": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "supplementS1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+    "supplementS2": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f"
+  },
+  "originalCheckpointDumpManifestAndMetadataUnchanged": true,
+  "restorationTested": false,
+  "safeZeroOutstandingRestoreEligible": false,
+  "pendingAccountingPreserved": true,
+  "modelRequestsSent": 0
+}

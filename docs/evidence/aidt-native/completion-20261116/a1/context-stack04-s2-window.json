@@ -1,0 +1,62 @@
+{
+  "at": "2026-11-16T12:23:36.567Z",
+  "source": "c361ba55bde080b06d390bf98b72c3a130e935e5",
+  "apiHealthy": true,
+  "webHealthy": true,
+  "window": {
+    "authorization": "legacy-native-seven-task-s2-20261116",
+    "task": "native-S2-only",
+    "phase": "s2",
+    "allowedSkill": "aidt-empathize",
+    "maximumTasks": 1,
+    "payer": "existing-funded-admin",
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "legacyLedger": "/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json",
+    "legacyLedgerReset": false,
+    "supplementalS1Completed": true,
+    "otherNativeStagesAllowed": false,
+    "designAllowed": false
+  },
+  "autoExecution": {
+    "enabled": true,
+    "launchValue": "1",
+    "paidWindowOpened": true,
+    "paidWindow": {
+      "authorization": "legacy-native-seven-task-s2-20261116",
+      "task": "native-S2-only",
+      "phase": "s2",
+      "allowedSkill": "aidt-empathize",
+      "maximumTasks": 1,
+      "payer": "existing-funded-admin",
+      "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+      "legacyLedger": "/workspace/scratch/aidt-v2-acceptance/native-model-run-ledger.json",
+      "legacyLedgerReset": false,
+      "supplementalS1Completed": true,
+      "otherNativeStagesAllowed": false,
+      "designAllowed": false
+    },
+    "guards": {
+      "agentRuns": "1",
+      "skillTrialRuns": "0",
+      "attachmentExtraction": "0",
+      "threadTitleModel": "0",
+      "standardScheduler": "0"
+    },
+    "apiPid": 254588,
+    "method": "existing owned API remains agent1; prior S1 actual accounting fully settled; root explicitly authorized only S2; no restart and no request by A1",
+    "windowOpenedAt": "2026-11-16T12:23:36.566Z",
+    "previousTaskRunId": "68880459-6de1-43a8-a909-0a969f03a7a8",
+    "previousTaskAccountingSettled": true,
+    "baseline": {
+      "physicalRequests": 1,
+      "usageReceipts": 1,
+      "activeRuns": 0,
+      "unsettledRequests": 0,
+      "holds": 0,
+      "unbounded": 0
+    }
+  },
+  "oldBudgetSha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "previousAccountingEvidence": "context-stack04-s1-accounting.json",
+  "modelRequestsSentByA1": 0
+}

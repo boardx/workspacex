@@ -1,0 +1,70 @@
+{
+  "at": "2026-11-16T14:20:03.580Z",
+  "runtimeFile": "/workspace/scratch/aidt-real-model-20261116/stack-context-restore-02/runtime-private.json",
+  "preflightFile": "/workspace/scratch/aidt-real-model-20261116/stack-context-restore-02/s2-supplement-preflight.json",
+  "apiOwner": {
+    "pid": 338221,
+    "startTicks": "4990840"
+  },
+  "restoreReceiptFile": "/workspace/scratch/aidt-real-model-20261116/stack-context-restore-02/restore-receipt.private.json",
+  "restoreReceiptSha256": "3b36c638ffe1773842f51e188231606774f5b31b1d5f3b6861e8ba397b79a3e3",
+  "sourceWeb": "ec5ff2e9de501426f3fec9a0dddd6dfb314be4cd",
+  "sourceApi": "adbb21d0ea19ce8ad8d822430369005be39b4976",
+  "previousApiSource": "70d815dd689f17f14ffc7614dca4c0a8931ac922",
+  "apiProductionCodeUnchanged": true,
+  "apiProductionDiffPaths": [],
+  "scope": {
+    "authorization": "additional-s2-20261116",
+    "task": "additional-s2-once",
+    "phase": "s2-supplement",
+    "allowedSkill": "aidt-empathize",
+    "maximumTasks": 1,
+    "supplementalLedger": "/workspace/scratch/aidt-real-completion-20261116/additional-s2-ledger.json",
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "otherNativeStagesAllowed": false,
+    "designAllowed": false,
+    "maximumOutputTokens": 2048
+  },
+  "actualRole": {
+    "org_role": "admin",
+    "role": "owner"
+  },
+  "testCreditBalance": 19981.7,
+  "baseline": {
+    "active": 0,
+    "unsettled": 0,
+    "physical": 2,
+    "usage": 2
+  },
+  "oldBudgetSha256": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+  "s1SupplementBudgetSha256": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+  "supplementS2Unused": true,
+  "actualAgentLaunch": "1",
+  "otherGuards": "0",
+  "actualAppRwPreflight": true,
+  "noRestoreGateCalledAfterAgentEnabled": true,
+  "preflight": {
+    "schemaVersion": 1,
+    "kind": "aidt-s2-supplement-readonly-preflight",
+    "observedAt": "2026-11-16T14:20:03.580Z",
+    "orgId": "org-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+    "userId": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "oldRunId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+    "oldRunStatus": "cancelled",
+    "agentId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+    "oldAgentVersionId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe-v1",
+    "publishedAgentVersionId": "agent-version-fixture-428d072b-cf41-465b-86f7-6b02fe39136f",
+    "instructionsSha256": "802cf79cc20cd6861c2aa766d7a7c4b1a9094add3624f523e467dd81c85fe371",
+    "apiOwner": {
+      "pid": 338221,
+      "startTicks": "4990840"
+    },
+    "nativeExecutorEnabled": true,
+    "allowedTask": "additional-s2-once",
+    "activeRuns": 0,
+    "holdsHundredths": 0,
+    "unsettledRequests": 0
+  },
+  "modelRequestsSentByA1": 0
+}

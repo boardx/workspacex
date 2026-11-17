@@ -1,0 +1,213 @@
+{
+  "observedAt": "2026-11-16T18:07:40.618Z",
+  "readOnly": true,
+  "run": {
+    "id": "1010682b-3003-4358-a547-e19b5f01b1af",
+    "org_id": "org-fullstack-20261117-01-7d265647426d",
+    "thread_id": "thr-a2979285-64ee-4ed9-bccb-44c5407c8aa6",
+    "author_id": "user-fullstack-admin-20261117-01-7d265647426d",
+    "status": "succeeded",
+    "failure_reason": null,
+    "agent_version_id": "agent-fullstack-20261117-01-7d265647426d-v1",
+    "skill_version_ids": [
+      "skill-version-073ab515-31fb-4f33-b2d4-907df66aff2d"
+    ],
+    "aidt_selector_hash": "996e572d28e79754a076a08383f843ba757847e8ba05dc2078b46faf60f1f1de",
+    "remote_run_id": "d7765198-5fa7-445d-b2bb-ace2b929073e"
+  },
+  "snapshot": {
+    "selectorHash": "996e572d28e79754a076a08383f843ba757847e8ba05dc2078b46faf60f1f1de",
+    "snapshotHash": "1f891f93f85f1ca924180d8f4d86a11d18649e185dbd8d5b64de57868c8ebe38",
+    "focus": {
+      "title": "测试与迭代",
+      "skillId": "skill-51b77c1a-0bcf-442f-8c10-b4113ca79f61",
+      "skillVersionId": "skill-version-073ab515-31fb-4f33-b2d4-907df66aff2d",
+      "skillStableName": "aidt-iterate"
+    },
+    "blockHash": "e1713774618c2574a5007065c3bf000244de40d876b783a29d6b2b66d3a88700"
+  },
+  "applications": [
+    {
+      "seq": "1",
+      "kind": "assembled",
+      "snapshotHash": "1f891f93f85f1ca924180d8f4d86a11d18649e185dbd8d5b64de57868c8ebe38",
+      "occurredAt": "2026-11-16T18:00:51.501Z"
+    },
+    {
+      "seq": "2",
+      "kind": "message-dispatch-observed",
+      "snapshotHash": "1f891f93f85f1ca924180d8f4d86a11d18649e185dbd8d5b64de57868c8ebe38",
+      "occurredAt": "2026-11-16T18:00:51.580Z",
+      "remoteThreadId": "919f3aae-8f8d-42e1-8591-76f50e0314d3",
+      "remoteRunId": "f27260b2-da22-4c3e-96a2-ce95d7a2d206"
+    },
+    {
+      "seq": "3",
+      "kind": "checkpoint-resume-observed",
+      "snapshotHash": "1f891f93f85f1ca924180d8f4d86a11d18649e185dbd8d5b64de57868c8ebe38",
+      "occurredAt": "2026-11-16T18:06:06.726Z",
+      "remoteThreadId": "919f3aae-8f8d-42e1-8591-76f50e0314d3",
+      "remoteRunId": "d7765198-5fa7-445d-b2bb-ace2b929073e"
+    }
+  ],
+  "physical": [
+    {
+      "id": "f1570145-be52-4111-845d-a67b0f69db23",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T18:00:51.622Z"
+    },
+    {
+      "id": "3d926837-a4e9-4c67-8429-e631513d0bdd",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T18:06:06.809Z"
+    },
+    {
+      "id": "686045f3-4f6d-4f00-9514-bc735865f7bb",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T18:06:11.566Z"
+    },
+    {
+      "id": "33288451-e82d-43df-924c-f954f7227708",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T18:06:15.797Z"
+    },
+    {
+      "id": "58356331-c2ca-430c-8eb2-251ad0a28315",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T18:06:21.658Z"
+    },
+    {
+      "id": "60c37943-8b3d-4578-9520-d637d5879ea3",
+      "user_id": "user-fullstack-admin-20261117-01-7d265647426d",
+      "call_purpose": "primary",
+      "started_at": "2026-11-16T18:06:26.346Z"
+    }
+  ],
+  "usage": [
+    {
+      "id": "f1570145-be52-4111-845d-a67b0f69db23",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "12079",
+      "tokens_prompt": "12003",
+      "tokens_completion": "76",
+      "request_started_at": "2026-11-16T18:00:51.622Z",
+      "request_ended_at": "2026-11-16T18:00:56.388Z"
+    },
+    {
+      "id": "3d926837-a4e9-4c67-8429-e631513d0bdd",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "16719",
+      "tokens_prompt": "16641",
+      "tokens_completion": "78",
+      "request_started_at": "2026-11-16T18:06:06.809Z",
+      "request_ended_at": "2026-11-16T18:06:11.458Z"
+    },
+    {
+      "id": "686045f3-4f6d-4f00-9514-bc735865f7bb",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "16931",
+      "tokens_prompt": "16792",
+      "tokens_completion": "139",
+      "request_started_at": "2026-11-16T18:06:11.566Z",
+      "request_ended_at": "2026-11-16T18:06:15.716Z"
+    },
+    {
+      "id": "33288451-e82d-43df-924c-f954f7227708",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "2079",
+      "tokens_prompt": "1770",
+      "tokens_completion": "309",
+      "request_started_at": "2026-11-16T18:06:15.797Z",
+      "request_ended_at": "2026-11-16T18:06:21.568Z"
+    },
+    {
+      "id": "58356331-c2ca-430c-8eb2-251ad0a28315",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "17401",
+      "tokens_prompt": "17262",
+      "tokens_completion": "139",
+      "request_started_at": "2026-11-16T18:06:21.658Z",
+      "request_ended_at": "2026-11-16T18:06:26.270Z"
+    },
+    {
+      "id": "60c37943-8b3d-4578-9520-d637d5879ea3",
+      "outcome": "succeeded",
+      "total_source": "reported",
+      "tokens_total": "2540",
+      "tokens_prompt": "2210",
+      "tokens_completion": "330",
+      "request_started_at": "2026-11-16T18:06:26.346Z",
+      "request_ended_at": "2026-11-16T18:06:31.691Z"
+    }
+  ],
+  "credit": [
+    {
+      "request_id": "f1570145-be52-4111-845d-a67b0f69db23",
+      "state": "settled",
+      "reserved_hundredths": "4642",
+      "debited_hundredths": "1208",
+      "settled_at": "2026-11-16T18:00:56.410Z"
+    },
+    {
+      "request_id": "3d926837-a4e9-4c67-8429-e631513d0bdd",
+      "state": "settled",
+      "reserved_hundredths": "6520",
+      "debited_hundredths": "1672",
+      "settled_at": "2026-11-16T18:06:11.480Z"
+    },
+    {
+      "request_id": "686045f3-4f6d-4f00-9514-bc735865f7bb",
+      "state": "settled",
+      "reserved_hundredths": "6593",
+      "debited_hundredths": "1694",
+      "settled_at": "2026-11-16T18:06:15.743Z"
+    },
+    {
+      "request_id": "33288451-e82d-43df-924c-f954f7227708",
+      "state": "settled",
+      "reserved_hundredths": "867",
+      "debited_hundredths": "208",
+      "settled_at": "2026-11-16T18:06:21.590Z"
+    },
+    {
+      "request_id": "58356331-c2ca-430c-8eb2-251ad0a28315",
+      "state": "settled",
+      "reserved_hundredths": "6825",
+      "debited_hundredths": "1741",
+      "settled_at": "2026-11-16T18:06:26.298Z"
+    },
+    {
+      "request_id": "60c37943-8b3d-4578-9520-d637d5879ea3",
+      "state": "settled",
+      "reserved_hundredths": "1094",
+      "debited_hundredths": "254",
+      "settled_at": "2026-11-16T18:06:31.711Z"
+    }
+  ],
+  "wallet": {
+    "balance": "19425.81",
+    "held_hundredths": "6346",
+    "remaining_held_hundredths": "6346",
+    "unbounded_requests": "0"
+  },
+  "counts": {
+    "active": 0,
+    "physical": 83,
+    "usage": 83,
+    "credits": 83,
+    "unsettled": 1
+  },
+  "tokensTotal": 67749,
+  "oldBudgetsUnchanged": true,
+  "auditModelRequests": 0
+}

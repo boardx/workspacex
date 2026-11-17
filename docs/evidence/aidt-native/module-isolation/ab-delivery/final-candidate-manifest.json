@@ -1,0 +1,165 @@
+{
+  "testedCommit": "8f31b6fa4d94d74f0228df2367546b2782a06e27",
+  "result": "3 passed",
+  "exitCode": 0,
+  "utc": "2026-11-15T00:45:10.895312+00:00",
+  "stats": {
+    "startTime": "2026-11-15T00:38:07.469Z",
+    "duration": 404909.728,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "screenshots": [
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--2af06-idempotency-and-no-AgentRun-seeded/project-human-chat-global-draft-retained.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--2af06-idempotency-and-no-AgentRun-seeded/project-human-member-topic-real.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--2af06-idempotency-and-no-AgentRun-seeded/project-human-member-topic-375.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/aidt-shared-stage-conflict-preserves-input.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/aidt-report-editor-375.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/aidt-shared-stage-real-receipt.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/aidt-report-real-shared-receipt.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/aidt-report-editor-1280.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-group-conflict.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v2-problem-sheet.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v3-bridge.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-native-project-resources.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-mobile-start.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-dashboard-375.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-recording-panel.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-6-start.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-1-start.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-dashboard-1280.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v2-mobile-sheet.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-personal-checkpoint-receipt.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v3-outcome.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v3-mobile.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-group-mobile.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-5-start.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-home.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-group-shared-chat.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-2-start.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-native-chat.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-4-start.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v3-dashboard.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-group-members.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v2-report-preview.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-ui-v2-idea-sheet.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-teaching-step-3-start.png",
+    "/workspace/scratch/aidt-module-latest/final-candidate-results/project-aidt-native-AIDT-n-c2075--readonly-access-boundaries-seeded/aidt-dashboard-768.png"
+  ],
+  "pgReadback": [
+    {
+      "path": "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--2af06-idempotency-and-no-AgentRun-seeded/member-chat-pg-readback.json",
+      "rows": 15,
+      "modelActivity": {
+        "before": {
+          "runs": 0,
+          "requests": 0
+        },
+        "after": {
+          "runs": 0,
+          "requests": 0
+        }
+      },
+      "geometry": [
+        {
+          "width": 1280,
+          "root": {
+            "x": 833,
+            "y": 348,
+            "width": 414,
+            "height": 76,
+            "hits": [
+              true,
+              true,
+              true
+            ]
+          },
+          "input": {
+            "x": 846,
+            "y": 770,
+            "width": 388,
+            "height": 44,
+            "hits": [
+              true,
+              true,
+              true
+            ]
+          }
+        },
+        {
+          "width": 375,
+          "root": {
+            "x": 17,
+            "y": 300,
+            "width": 341,
+            "height": 76,
+            "hits": [
+              true,
+              true,
+              true
+            ]
+          },
+          "input": {
+            "x": 30,
+            "y": 706,
+            "width": 315,
+            "height": 44,
+            "hits": [
+              true,
+              true,
+              true
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "/workspace/scratch/aidt-module-latest/final-candidate-results/aidt-member-collaboration--b7ea2-d-isolation-remain-explicit-seeded/shared-stage-pg-readback.json",
+      "rows": 9,
+      "modelActivity": {
+        "before": {
+          "runs": 0,
+          "requests": 0
+        },
+        "after": {
+          "runs": 0,
+          "requests": 0
+        }
+      },
+      "geometry": [
+        {
+          "width": 1280,
+          "editor": {
+            "x": 108,
+            "y": 517,
+            "width": 1140,
+            "height": 384,
+            "hits": [
+              true,
+              true,
+              true
+            ]
+          }
+        },
+        {
+          "width": 375,
+          "editor": {
+            "x": 16,
+            "y": 461,
+            "width": 343,
+            "height": 384,
+            "hits": [
+              true,
+              true,
+              true
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "jsonReport": "/workspace/scratch/aidt-module-latest/final-candidate-results/results.json",
+  "sourceCheckpoint": "/workspace/scratch/aidt-module-latest/final-source-checkpoint.json"
+}

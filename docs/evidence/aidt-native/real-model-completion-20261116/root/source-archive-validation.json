@@ -1,0 +1,12 @@
+{
+  "sourceCommit": "087bbc9b1308030720e3fb6f38af0cdf18a8cb7f",
+  "filesChecked": 12309,
+  "archiveIntegrity": "passed",
+  "allManifestHashes": "passed",
+  "requiredAcceptanceEntries": "included",
+  "syntheticFixtures": 11,
+  "forbiddenEntries": [],
+  "sensitiveValueMatches": 0,
+  "privateRuntimeIncluded": false,
+  "publicSyntheticPdfIncluded": true
+}

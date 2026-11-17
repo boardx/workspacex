@@ -1,0 +1,25 @@
+
+> web@0.1.0 test /workspace/aidt-module-latest/apps/web
+> vitest run "tests/aidt-chat-shared-context.test.ts" "tests/aidt-chat-saved-context.test.ts" "tests/live-aidt-step-chat.test.ts" "tests/live-aidt-chat-isolation.test.ts" "tests/aidt-image-attachments.test.ts" "tests/ui/project-aidt-chat.test.tsx" "tests/ui/aidt-image-attachment-picker.test.tsx" "tests/ui/aidt-chat-isolation.test.tsx" "tests/ui/chat-host-navigation.test.tsx" "tests/whiteboard/chat-board-handoff-retry.test.tsx" "tests/ui/aidt-resource-navigation.test.tsx" "tests/ui/aidt-resource-isolation.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/whiteboard/chat-board-handoff-retry.test.tsx (20 tests) 639ms
+ ✓ tests/ui/project-aidt-chat.test.tsx (14 tests) 346ms
+ ✓ tests/ui/aidt-image-attachment-picker.test.tsx (14 tests) 752ms
+ ✓ tests/ui/aidt-resource-isolation.test.tsx (9 tests) 345ms
+ ✓ tests/ui/aidt-resource-navigation.test.tsx (16 tests) 358ms
+ ✓ tests/ui/chat-host-navigation.test.tsx (18 tests) 40ms
+ ✓ tests/aidt-chat-saved-context.test.ts (8 tests) 9ms
+ ✓ tests/ui/aidt-chat-isolation.test.tsx (1 test) 183ms
+ ✓ tests/aidt-chat-shared-context.test.ts (10 tests) 10ms
+ ✓ tests/live-aidt-step-chat.test.ts (8 tests) 10ms
+ ✓ tests/live-aidt-chat-isolation.test.ts (6 tests) 60ms
+ ✓ tests/aidt-image-attachments.test.ts (6 tests) 10ms
+
+ Test Files  12 passed (12)
+      Tests  130 passed (130)
+   Start at  01:46:51
+   Duration  13.43s (transform 5.31s, setup 1.64s, collect 13.44s, tests 2.76s, environment 4.93s, prepare 781ms)

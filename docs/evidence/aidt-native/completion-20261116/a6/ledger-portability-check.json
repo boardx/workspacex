@@ -1,0 +1,26 @@
+{
+  "kind": "non-network-QA-helper-ledger-portability-check",
+  "passed": true,
+  "checks": [
+    "failed/unknown attempt still consumes budget",
+    "fresh child process rejects eighth slot",
+    "same Skill duplicate attempt rejected",
+    "existing atomic lock prevents overwrite",
+    "explicit absolute JSON path outside workspace accepted",
+    "missing/relative/non-JSON/directory rejected",
+    "path normalized"
+  ],
+  "execution": {
+    "script": "/tmp/check-aidt-v2-ledger-portability.mts",
+    "exitCode": 0,
+    "isolatedTemporaryLedgerOnly": true,
+    "actualPaidLedgerOpened": false,
+    "actualPaidLedgerModified": false,
+    "modelRequests": 0
+  },
+  "static": {
+    "eslintExitCode": 0,
+    "strictScopedTypeScriptExitCode": 0
+  },
+  "sourceSha256": "26abbdf0a3bd48030999d1088ba62b4f84c909f461c198d6101377e7773ce7df"
+}

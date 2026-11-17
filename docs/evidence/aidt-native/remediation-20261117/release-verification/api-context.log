@@ -1,0 +1,19 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+ ✓ tests/aidt-run-context/prepare-unit.test.ts (10 tests) 477ms
+ ✓ tests/aidt-run-context/audit-saved-excerpt-unit.test.ts (16 tests) 33ms
+ ✓ tests/aidt-run-context/agui-selector-unit.test.ts (14 tests) 26ms
+ ✓ tests/aidt-run-context/transport-unit.test.ts (11 tests) 16ms
+ ✓ tests/aidt-run-context/store-session.test.ts (4 tests) 6ms
+ ✓ tests/aidt-run-context/approved-pack-unit.test.ts (7 tests) 37ms
+ ✓ tests/aidt-run-context/audit-binding-unit.test.ts (12 tests) 3ms
+ ✓ tests/aidt-run-context/application-receipt-unit.test.ts (4 tests) 3ms
+ ✓ tests/aidt-run-context/return-reflection-unit.test.ts (4 tests) 4ms
+ ✓ tests/aidt-run-context/provider-session.test.ts (2 tests) 4ms
+ ✓ tests/aidt-run-context/bridge-selector-unit.test.ts (2 tests) 4ms
+
+ Test Files  11 passed (11)
+      Tests  86 passed (86)
+   Start at  21:58:55
+   Duration  8.63s (transform 2.37s, setup 0ms, collect 6.11s, tests 613ms, environment 2ms, prepare 589ms)

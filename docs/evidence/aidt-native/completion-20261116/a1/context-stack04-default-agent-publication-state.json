@@ -1,0 +1,13 @@
+{
+  "at": "2026-11-16T12:43:22.527Z",
+  "agentId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+  "publishState": null,
+  "creatorId": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+  "publishedVersionId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe-v1",
+  "draftInstructionsNonempty": false,
+  "toolWhitelistCount": 0,
+  "skillMountsCount": 0,
+  "modelConfigured": true,
+  "toolPolicyCount": 0,
+  "readOnly": true
+}

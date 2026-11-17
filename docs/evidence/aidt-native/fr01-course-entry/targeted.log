@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/aidt-entry-isolation.test.tsx (13 tests) 368ms
+ ✓ tests/ui/aidt-entry.test.tsx (14 tests) 254ms
+ ✓ tests/ui/aidt-course-entry.test.tsx (8 tests) 163ms
+ ✓ tests/aidt-module-boundary.test.ts (4 tests) 2213ms
+   ✓ keeps production AIDT consumers on explicit public registration adapters 2198ms
+ ✓ tests/aidt-course-context.test.ts (6 tests) 160ms
+
+ Test Files  5 passed (5)
+      Tests  45 passed (45)
+   Start at  03:59:26
+   Duration  16.05s (transform 5.05s, setup 604ms, collect 9.29s, tests 3.16s, environment 1.72s, prepare 450ms)

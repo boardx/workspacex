@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "phase": "s1",
+  "browserTestsPassed": 1,
+  "browserExitCode": 0,
+  "actualRunId": "33945939-c856-4b46-ba35-6953c835c588",
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "threadId": "thr-889c9de9-4008-4228-809b-ea1ddc230f50",
+  "mechanicalIntegrationPassed": true,
+  "teachingQuality": "pending-independent-review",
+  "humanAcceptanceSigned": false,
+  "synthetic": true,
+  "ordinaryStudentModelPermissionProven": false,
+  "beforeRevision": 1,
+  "afterRevision": 2,
+  "studentConfirmedSaved": true,
+  "freshLoginExactReadback": true,
+  "agentId": "agent-fullstack-20261117-01-7d265647426d",
+  "agentVersionId": "agent-fullstack-20261117-01-7d265647426d-v1",
+  "exactFocusSkillVersions": [
+    "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53"
+  ],
+  "selector": {
+    "schemaVersion": 1,
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 1
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 1
+  },
+  "sourceReceipt": {
+    "runId": "33945939-c856-4b46-ba35-6953c835c588",
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "purpose": "stage",
+    "stageId": 1,
+    "skillVersionId": "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53",
+    "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+    "preparedAt": "2026-11-16T17:22:20.804Z",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 1
+      }
+    ],
+    "historyRevisions": [],
+    "omissions": [
+      {
+        "kind": "personal-artifacts-not-included"
+      },
+      {
+        "kind": "original-file-bytes-not-read"
+      },
+      {
+        "kind": "teacher-comments-no-source"
+      },
+      {
+        "kind": "lineage-unknown"
+      }
+    ],
+    "truncated": false,
+    "application": {
+      "state": "message-dispatch-observed",
+      "attemptId": "33945939-c856-4b46-ba35-6953c835c588:1",
+      "assembledContextHash": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d",
+      "assembledAt": "2026-11-16T17:22:20.910Z",
+      "messageDispatchedAt": "2026-11-16T17:22:22.835Z",
+      "checkpointResumedAt": null,
+      "inheritedMessageDispatchAttemptId": null
+    }
+  },
+  "uiReceipt": {
+    "runId": "33945939-c856-4b46-ba35-6953c835c588",
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "purpose": "stage",
+    "stageId": 1,
+    "skillVersionId": "skill-version-66e21e8a-d1de-4dac-a5e0-84796f0a7c53",
+    "snapshotHash": "0baeeb185106cfb1c160e05dec21b6883ba7c4162c9f52ae5f64968a3c2cb03b",
+    "preparedAt": "2026-11-16T17:22:20.804Z",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 1
+      }
+    ],
+    "historyRevisions": [],
+    "omissions": [
+      {
+        "kind": "personal-artifacts-not-included"
+      },
+      {
+        "kind": "original-file-bytes-not-read"
+      },
+      {
+        "kind": "teacher-comments-no-source"
+      },
+      {
+        "kind": "lineage-unknown"
+      }
+    ],
+    "truncated": false,
+    "application": {
+      "state": "message-dispatch-observed",
+      "attemptId": "33945939-c856-4b46-ba35-6953c835c588:1",
+      "assembledContextHash": "c952563c0209b836ef73eb730de626782e5f870172a9f20ad6df93aff909864d",
+      "assembledAt": "2026-11-16T17:22:20.910Z",
+      "messageDispatchedAt": "2026-11-16T17:22:22.835Z",
+      "checkpointResumedAt": null,
+      "inheritedMessageDispatchAttemptId": null
+    }
+  },
+  "humanInputSha256": "a967f3f3a0cc9cc9a0361ead9b9155104e9ba0ef398b4bba705bce56d9b4e410",
+  "singleQuestionMarkCount": 4,
+  "actualPhysicalAndSettlement": "pending-independent-owner-audit",
+  "oldThreeJournalsUnchanged": true
+}

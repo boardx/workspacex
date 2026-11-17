@@ -1,0 +1,14 @@
+==> 工作目录: /workspace/aidt-module-latest
+==> 安装依赖: pnpm install
+Scope: all 22 workspace projects
+ ENOENT  ENOENT: no such file or directory, mkdir '/home/agent/.local/share/pnpm'
+
+pnpm: ENOENT: no such file or directory, mkdir '/home/agent/.local/share/pnpm'
+    at async Object.mkdir (node:internal/fs/promises:858:10)
+    at async createNewStoreController (/tmp/aidt-tools/node_modules/pnpm/dist/pnpm.cjs:134000:7)
+    at async recursive (/tmp/aidt-tools/node_modules/pnpm/dist/pnpm.cjs:186042:21)
+    at async installDeps (/tmp/aidt-tools/node_modules/pnpm/dist/pnpm.cjs:186479:11)
+    at async /tmp/aidt-tools/node_modules/pnpm/dist/pnpm.cjs:222910:21
+    at async main (/tmp/aidt-tools/node_modules/pnpm/dist/pnpm.cjs:222869:34)
+    at async runPnpm (/tmp/aidt-tools/node_modules/pnpm/dist/pnpm.cjs:223141:5)
+    at async /tmp/aidt-tools/node_modules/pnpm/dist/pnpm.cjs:223133:7

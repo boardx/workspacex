@@ -26,6 +26,7 @@ import { standardCapabilities as SC, artifactsSteering as AS, errorObservability
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
+import type { AidtStoredContextSnapshot } from "@repo/contracts/aidt-run-context";
 
 /** Derived from the contract's enums, never restated (ADR-020). */
 export type RunFailureCode = z.infer<typeof C.AgentRunError>;
@@ -98,6 +99,9 @@ export interface HistoryAttachmentMeta {
 
 /** One queued run, claimed for execution, carrying its whole acceptance snapshot. */
 export interface ClaimedAgentRun {
+  /** Only accepted AIDT runs have this immutable marker; absence is ordinary/legacy Chat. */
+  readonly aidtSelectorHash?: string | null;
+  readonly aidtContext?: Guarded<AidtStoredContextSnapshot>;
   /** Persisted by the run repository; optional only for legacy in-process callers. */
   readonly runtimeProfile?: "legacy" | "native-v1";
   readonly permissionRequestId?: string;
@@ -986,7 +990,22 @@ export interface ModelResponseSchema {
   readonly policy?: "strict-if-supported";
 }
 
+export type ReferenceDispatchFact = {
+  readonly kind: "message-dispatch-observed" | "checkpoint-resume-observed";
+  readonly contentSha256: string;
+  readonly remoteRunId: string;
+  readonly remoteThreadId: string;
+};
+/** Generic transport observation. This carries no product-specific context or authority. */
+export interface ReferenceDispatchObserver {
+  readonly historyIndex: number;
+  readonly contentSha256: string;
+  readonly maxSerializedMessageBytes?: number;
+  readonly beforeDispatch: () => Promise<void>;
+  readonly onDispatched: (fact: ReferenceDispatchFact) => Promise<void>;
+}
 export interface ModelCallInput {
+  readonly referenceDispatchObserver?: ReferenceDispatchObserver;
   /** Trusted per-HTTP output ceiling. Concrete adapter combines it with the deployment ceiling. */
   readonly outputTokenLimit?: number;
   /** Admission sees the exact serialized provider body in memory, before any paid dispatch.

@@ -1,0 +1,33 @@
+{
+  "at": "2026-11-16T20:49:57.732683+00:00",
+  "iterationId": "iteration-02",
+  "readOnly": true,
+  "newPackVersion": "1.3.2",
+  "newPackDigest": "512e9e2a7a896238202ce4399cea5f99dfc3bc4e2ecef3cd26c4a2d2ea248dc6",
+  "newSevenPinsExact": true,
+  "oldSevenPinsRetainedExact": true,
+  "oldTenHistoricalFilesUnchanged": true,
+  "oldS1SavedRevisionUnchanged": true,
+  "defaultCanonicalAgentV1Unchanged": true,
+  "oldSummaryActualPinReused": true,
+  "cumulativeTotals": {
+    "runs": 1,
+    "physical": 3,
+    "usage": 3,
+    "credits": 3,
+    "active": 0
+  },
+  "cumulativeWallets": [
+    {
+      "owner_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+      "balance": "19985.88",
+      "held_hundredths": "0",
+      "remaining_held_hundredths": "0",
+      "unbounded_requests": "0"
+    }
+  ],
+  "iteration02ModelTasks": 0,
+  "newJournalStateAbsent": true,
+  "oldS1TeachingAcceptance": "not passed; preserved for review",
+  "modelRequestsSentByOwner": 0
+}

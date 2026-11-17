@@ -1,4 +1,5 @@
 import { registerAiCatalogBodyParsers } from "./interface/middleware/ai-catalog-body-parser";
+import { registerAidtStageBodyParser } from "./interface/middleware/aidt-stages-body-parser";
 import {registerRuntimeAdmissionBodyParser} from "./interface/middleware/runtime-admission-body-parser";
 import { TOKEN_USAGE_METER } from "./application/agent-run/ports";
 import { registerBillingRawBodyParser } from "./interface/middleware/billing-raw-body-parser";
@@ -92,7 +93,16 @@ export async function createApp(): Promise<NestExpressApplication> {
   // `credentials: "include"` (registration/verification cookies), so the allowlist must be
   // exact origins (it is) and the credentials flag must be on.
   const corsOrigins = (process.env.KERNEL_CORS_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean);
-  if (corsOrigins.length > 0) app.enableCors({ origin: corsOrigins, credentials: true, maxAge: 600 });
+  if (corsOrigins.length > 0) app.enableCors({
+    origin: corsOrigins, credentials: true, maxAge: 600,
+    // The local supervisor serves Web/API on different loopback ports. Expose only
+    // the authenticated file receipt headers needed to verify the returned bytes;
+    // this retains the existing origin allowlist and all resource authorization.
+    exposedHeaders: [
+      "X-Content-SHA256", "X-Artifact-Id", "X-Artifact-Version-Id",
+      "X-Upload-Submitted-By", "X-Upload-Submitted-At",
+    ],
+  });
   app.use(traceMiddleware);
   // issue #3082 —— 紧跟 traceMiddleware 之后：每个请求（含被 guard 拒掉的）都进 debug recorder。
   app.use(app.get<DebugRequestRecorder>(DEBUG_REQUEST_RECORDER).middleware);
@@ -100,6 +110,7 @@ export async function createApp(): Promise<NestExpressApplication> {
   registerBillingRawBodyParser(app.getHttpAdapter().getInstance());
   registerGuidedResearchBodyParsers(app.getHttpAdapter().getInstance());
   registerAiCatalogBodyParsers(app.getHttpAdapter().getInstance());
+  registerAidtStageBodyParser(app.getHttpAdapter().getInstance());
   // #3249: one bounded multi-file endpoint needs more than Express's default 100 KiB.
   // Register before Nest installs its default parser; other routes retain their limit.
   const skillFileParser = json({ limit: SKILL_FILE_EDIT_BODY_MAX_BYTES });

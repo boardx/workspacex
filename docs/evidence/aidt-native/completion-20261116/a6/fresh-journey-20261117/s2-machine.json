@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "phase": "s2",
+  "firstBrowserStatus": "failed-permission-interruption-retained",
+  "continuationBrowserExitCode": 0,
+  "actualRunId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d",
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "threadId": "thr-0253a74e-fdf9-469e-a303-96ab4cf2fc9b",
+  "mechanicalIntegrationPassed": true,
+  "sameRunContinuation": true,
+  "newStudentRequestSent": false,
+  "newLedgerReservation": false,
+  "decision": "once",
+  "permissionRequestId": "bd2fdb97-4002-4ed4-b821-f259bf9ae449",
+  "beforeRevision": 3,
+  "afterRevision": 4,
+  "freshLoginExactReadback": true,
+  "guidePdf": {
+    "status": "passed",
+    "actualBeforeprint": true,
+    "actualPdfBytes": 146318,
+    "sha256": "71313b1172c548d348aba50b0b0d0e41d3d88f694b76804c72c970d0ca1cf427",
+    "savedRevision": 4,
+    "pdfMethod": "Chromium PDF from copy of actual product print DOM",
+    "nativeSaveDialogAutomated": false,
+    "manualFallback": false
+  },
+  "teachingQuality": "pending-independent-review",
+  "ordinaryStudentModelPermissionProven": false,
+  "humanInputSha256": "51239e8bd35bbc81721c11cd03bda518fa83d629c0682c72f782cd0ba89e6d9b",
+  "sourceReceipt": {
+    "runId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d",
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "purpose": "stage",
+    "stageId": 2,
+    "skillVersionId": "skill-version-bacca6d7-d8e7-42c8-8707-32f60b26d7c4",
+    "snapshotHash": "89c155d9db4e823621ae3e071a3e439cfb998223cc2dff3379ef174a9505e68f",
+    "preparedAt": "2026-11-16T17:27:05.849Z",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 3
+      }
+    ],
+    "historyRevisions": [],
+    "omissions": [
+      {
+        "kind": "personal-artifacts-not-included"
+      },
+      {
+        "kind": "original-file-bytes-not-read"
+      },
+      {
+        "kind": "teacher-comments-no-source"
+      },
+      {
+        "kind": "lineage-unknown"
+      }
+    ],
+    "truncated": false,
+    "application": {
+      "state": "checkpoint-resume-observed",
+      "attemptId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d:8",
+      "assembledContextHash": "41d6f294458f26702de358a68b4eeb0190462e6695c69dc689322f3d1e29c804",
+      "assembledAt": null,
+      "messageDispatchedAt": null,
+      "checkpointResumedAt": "2026-11-16T17:34:18.051Z",
+      "inheritedMessageDispatchAttemptId": "859bab0b-6a0b-4f32-a0c6-458bd3beb43d:1"
+    }
+  },
+  "oldThreeJournalsUnchanged": true,
+  "actualPhysicalAndSettlement": "pending-independent-owner-audit"
+}

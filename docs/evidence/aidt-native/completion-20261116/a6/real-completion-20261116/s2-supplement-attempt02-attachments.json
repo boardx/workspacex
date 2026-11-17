@@ -1,0 +1,371 @@
+{
+  "supplemental-s2-pre-send-facts": {
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "originalRunId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+    "oldThreadId": "thr-a67a019b-2631-411d-9471-8033efab37fd",
+    "newThreadId": "thr-0a23a022-c27f-43c4-96dc-0f40cd31b9d1",
+    "approvedSkillVersionId": "skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6",
+    "preflight": {
+      "schemaVersion": 1,
+      "kind": "aidt-s2-supplement-readonly-preflight",
+      "observedAt": "2026-11-16T14:20:03.580Z",
+      "orgId": "org-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+      "userId": "user-fullstack-admin-yr-c7e722d0-fc9ebf5fdbbe",
+      "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+      "oldRunId": "8a4188ab-7fa9-4b7c-a56f-ec059b0e290e",
+      "oldRunStatus": "cancelled",
+      "agentId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe",
+      "oldAgentVersionId": "agent-fullstack-yr-c7e722d0-fc9ebf5fdbbe-v1",
+      "publishedAgentVersionId": "agent-version-fixture-428d072b-cf41-465b-86f7-6b02fe39136f",
+      "instructionsSha256": "802cf79cc20cd6861c2aa766d7a7c4b1a9094add3624f523e467dd81c85fe371",
+      "apiOwner": {
+        "pid": 338221,
+        "startTicks": "4990840"
+      },
+      "nativeExecutorEnabled": true,
+      "allowedTask": "additional-s2-once",
+      "activeRuns": 0,
+      "holdsHundredths": 0,
+      "unsettledRequests": 0
+    },
+    "reuseProofHash": "c4a8b0afc2acb530577351647666ac9ec51213db935efe21994a6c108094e027",
+    "instructionsDigestSource": "A1 constrained read-only audit, not ordinary API",
+    "graphPublishedVersionId": "agent-version-fixture-428d072b-cf41-465b-86f7-6b02fe39136f",
+    "oldPhase": {
+      "status": "attempting",
+      "startedAt": "2026-11-16T12:24:11.247Z",
+      "continuations": [
+        {
+          "continuedAt": "2026-11-16T12:29:30.891Z",
+          "authorization": "approved-s2-upload-status-201",
+          "proof": "/workspace/aidt-module-latest/docs/evidence/aidt-native/completion-20261116/a1/context-stack04-s2-preflight-upload.json",
+          "oldBudgetSha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+          "priorFailure": "s2-attempt-01: upload returned canonical 201; QA expected 202; zero native reservation/send"
+        },
+        {
+          "continuedAt": "2026-11-16T12:31:49.523Z",
+          "authorization": "approved-s2-upload-status-201",
+          "proof": "/workspace/aidt-module-latest/docs/evidence/aidt-native/completion-20261116/a1/context-stack04-s2-preflight-upload-attempt02.json",
+          "proofSha256": "bccfbad102c1b5115a7cb5ad540f0fff7104fb163d08f9da656ab9af311510e6",
+          "oldBudgetSha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+          "priorFailure": "s2-attempt-02: no native reservation or send; raw MIME charset parameter incorrectly excluded by QA; complete original bytes/hash and five provenance headers passed"
+        },
+        {
+          "continuedAt": "2026-11-16T12:33:18.300Z",
+          "authorization": "approved-s2-upload-status-201",
+          "proof": "/workspace/aidt-module-latest/docs/evidence/aidt-native/completion-20261116/a1/context-stack04-s2-preflight-upload-attempt03.json",
+          "proofSha256": "beaf563780f9b7d92b2f13dd2659e4b2907ff892206859f08db99b641021d368",
+          "oldBudgetSha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+          "priorFailure": "s2-attempt-03: zero native reservation/send; continuation count check incorrectly reentered prepare and attempted to save an unchanged existing S2 draft"
+        },
+        {
+          "continuedAt": "2026-11-16T12:38:04.901Z",
+          "authorization": "approved-s2-upload-status-201",
+          "proof": "/workspace/aidt-module-latest/docs/evidence/aidt-native/completion-20261116/a1/context-stack04-s2-preflight-recovery04.json",
+          "proofSha256": "cf18adfdeb5066a9cea460b2e8d4de1818eea44eaf82eddf1f41edfbf84d2860",
+          "oldBudgetSha256": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+          "priorFailure": "s2-attempt-04: zero native reservation/send; TXT recovered via normal GET+stage PUT and PNG uploaded via UI, S2 materials saved V3; card source disclosure collapsed before QA tried hidden picker"
+        }
+      ]
+    },
+    "checkpointIsolationBrowserFacts": "new normal project thread with zero messages; remote checkpoint requires owner audit"
+  },
+  "native-wire-shape-aidt-empathize": {
+    "selectorCoordinates": {
+      "schemaVersion": 1,
+      "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 5
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 2
+    },
+    "coordinatesOnly": true,
+    "topLevelKeys": [
+      "context",
+      "forwardedProps",
+      "messages",
+      "runId",
+      "state",
+      "threadId",
+      "tools"
+    ],
+    "messages": [
+      {
+        "index": 0,
+        "role": "user",
+        "hasSavedMarker": false,
+        "mentionsMountedSkill": false
+      }
+    ],
+    "context": [
+      {
+        "index": 0,
+        "descriptionIsAidt": false,
+        "descriptionLength": 49,
+        "hasSavedMarker": false
+      }
+    ],
+    "savedMarkerLocations": [
+      {
+        "stageId": 1,
+        "field": "focus",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "discussion",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "assumptions",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "rewrittenTheme",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "followupAnswers",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "adoptedGuide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "discoveryAi:bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "focus",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "discussion",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "assumptions",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "rewrittenTheme",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "followupAnswers",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "adoptedGuide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "discoveryAi:bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26",
+        "locations": []
+      }
+    ],
+    "mountedSkillLocations": [],
+    "rawValuesRetained": false
+  },
+  "native-turn-failure-aidt-empathize": {
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "threadId": "thr-0a23a022-c27f-43c4-96dc-0f40cd31b9d1",
+    "skillName": "aidt-empathize",
+    "reservation": "34df8c67-6f56-46b1-b1d9-9a5804bb9c86",
+    "observedRunId": "40539aa6-2732-4661-9665-913013af806d",
+    "failureCode": "NATIVE_RUN_FAILED_MODEL_CALL_FAILED",
+    "selectorCoordinates": {
+      "schemaVersion": 1,
+      "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 5
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 2
+    },
+    "frozenReceipt": {
+      "runId": "40539aa6-2732-4661-9665-913013af806d",
+      "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+      "purpose": "stage",
+      "stageId": 2,
+      "skillVersionId": "skill-version-f4341571-f25b-4d21-98bf-55f70aca90e6",
+      "snapshotHash": "326557fd5f9b8c5f2d30c8c9bec8c2a820ffbbf8e4c7787f071a8106c723968a",
+      "preparedAt": "2026-11-16T14:20:46.742Z",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 5
+        }
+      ],
+      "historyRevisions": [],
+      "omissions": [
+        {
+          "kind": "personal-artifacts-not-included"
+        },
+        {
+          "kind": "original-file-bytes-not-read"
+        },
+        {
+          "kind": "teacher-comments-no-source"
+        },
+        {
+          "kind": "lineage-unknown"
+        }
+      ],
+      "truncated": false,
+      "application": {
+        "state": "assembled",
+        "attemptId": "40539aa6-2732-4661-9665-913013af806d:1",
+        "assembledContextHash": "e9527c822d1d11a723ed7676fdc17c5eca5a45de116f04c06c10e4298e73a6f6",
+        "assembledAt": "2026-11-16T14:20:46.862Z",
+        "messageDispatchedAt": null,
+        "checkpointResumedAt": null,
+        "inheritedMessageDispatchAttemptId": null
+      }
+    },
+    "automaticNewSendRetry": false,
+    "intentChoices": []
+  }
+}

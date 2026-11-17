@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-16",
+  "nativeSpecCommit": "2b29d5030f1aa303f40a0e352f002b267b3e3a6b",
+  "prerequisiteSpecCommit": "0a8a0f75779a99d226e894381dccb6b8e4022675",
+  "a4OriginalHelperCommit": "d912a7f0285ccc47255119ada182b3170084b5e5",
+  "borrowedHelperCommitNotForRoot": "9c6ab9d71",
+  "a3HistoryCommit": "bd2493736e034fef07255563e89acff5f843260a",
+  "a3SourcePreservationFix": "dee225c76",
+  "checks": [
+    { "command": "pnpm --filter web exec eslint e2e/aidt-local-persistence.spec.ts --max-warnings 0", "exitCode": 0, "evidence": "report-history-eslint.txt" },
+    { "command": "pnpm --filter web exec playwright test --config playwright.aidt-local.config.ts --list", "exitCode": 0, "files": 1, "tests": 1, "evidence": "report-history-discovery.txt", "scopeNote": "Discovery only, no service/browser start, discovery env is not a port lease" },
+    { "command": "TypeScript createProgram with native spec root; getOptionsDiagnostics + getSyntacticDiagnostics(spec) + getSemanticDiagnostics(spec)", "exitCode": 0, "diagnostics": 0, "evidence": "report-history-spec-semantic.txt", "scopeNote": "Narrow native spec scope; root owns full integrated typecheck" },
+    { "command": "git diff --check", "exitCode": 0 },
+    { "command": "node docs/evidence/aidt-native/completion-20261116/a6/testid-scope-audit.mjs", "exitCode": 0, "evidence": "testid-scope-audit.json", "scopeNote": "Read-only diagnostic, not canonical gate pass. A2/A3 host dependencies and root wiring remain necessary." }
+  ],
+  "reportHistoryProtocol": { "pageSize": 5, "maxPagesPerStage": 2, "expectedLearningHeadBeforeAppend": 7, "expectedCursorAfterFirstLearningPage": 3, "expectedLearningRevisionsAcrossTwoPages": [7, 6, 5, 4, 3, 2, 1], "expectedStageTwoGap": true, "expectedReportHeadAfterExplicitSave": 8 },
+  "nativeBuildRun": false,
+  "nativeBrowserRun": false,
+  "modelsCalled": false,
+  "apiInterceptionsAdded": false,
+  "businessFilesModified": false,
+  "pending": "Root integrates and freezes source, then runs standard full native build and browser double-cycle acceptance; no green runtime claim from static/list checks."
+}

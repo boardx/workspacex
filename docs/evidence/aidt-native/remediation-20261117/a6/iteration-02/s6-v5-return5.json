@@ -1,0 +1,36 @@
+{
+  "projectId": "prj-6e591974-4258-4107-8942-357243a00238",
+  "stageId": 6,
+  "revision": 5,
+  "content": {
+    "schemaVersion": 1,
+    "draft": {
+      "fields": {
+        "version": "Synthetic static V1-V2 c922af9f / v1：已按验收标准生成极简教学原型，仅含标题、说明、按钮与页脚，供学生审阅后用于纸面测试。",
+        "feedback": "仅实际保存V1的静态检查，尚未真人测试；通用模板不是本版本反馈。",
+        "nextAction": "先征求同意并收集真实取餐经历；保留旧原型与未解问题。另为后续静态练习拟补或重写‘示例2→B分区’的明确合成设计内容；不是已有实测发现，须小组另选返回5才制作V2。\n本次小组另行选择返回5：补“示例2→B分区”的合成设计示意，按钮仍是静态占位，不宣称可跳转或有效。",
+        "reflection": "学生区分材料适用性：静态检查（非真人测试）：被审V1 5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr；无号码分区映射（可见设计文字无具体号码到分区示例，仅静态内容检查）；按钮无交互（未配置脚本、事件或跳转）。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+        "returnStep": "5",
+        "returnReason": "新增合成静态练习回合：沿用第6步V4实际V1静态检查，不把通用模板当本版实测，保留原return2历史。",
+        "afterTestBelief": "学生审阅决定：暂未改变，仍保留原猜测；合成反馈不能证明实际用户行为。",
+        "questionSnapshot": "{\"schemaVersion\":1,\"question\":\"合成验证问题：新同学能否说出纸面分区牌指向哪里？\",\"beforeTestBelief\":\"学生先前猜测：也许能理解，尚无真实测试。\",\"verificationBasis\":\"仅学生合成讨论，不是用户研究证据。\",\"verificationLimits\":\"只能讨论静态理解，不能证明时间节省或支付意愿。\",\"prototypeRef\":\"Synthetic static V1-V2 c922af9f / v1：已按验收标准生成极简教学原型，仅含标题、说明、按钮与页脚，供学生审阅后用于纸面测试。\",\"prototypeDesignId\":\"5e9e0ac2-137d-46b6-bbad-7448868b7cad\",\"prototypeVersionId\":\"5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr\",\"sourceStageRevision\":3}",
+        "reflectionConfirmed": "true",
+        "unresolvedQuestions": "仍缺真实测试者的理解过程、反例及授权记录。",
+        "understandingEvidence": "静态检查（非真人测试）：被审V1 5e9e0ac2-137d-46b6-bbad-7448868b7cad-v-1794864179102-frfgkr；无号码分区映射（可见设计文字无具体号码到分区示例，仅静态内容检查）；按钮无交互（未配置脚本、事件或跳转）。SYN-TEST-FEEDBACK.txt仅通用合成示例，不是本V1实测，不能将模板F1/F2当本版本反馈；没有真人记录。",
+        "understandingChangeStatus": "unchanged",
+        "researchFile:acb9714e-22b7-4ca3-a2db-fa3d6b5b4fde": "{\"projectId\":\"prj-6e591974-4258-4107-8942-357243a00238\",\"runId\":\"ingest-911e08b6-b59c-420f-83fc-f08f36a786fa\",\"artifactId\":\"art-6303c772-c24a-4771-98c3-698b24821daa\",\"versionId\":\"ver-74d27e8b-00f5-439d-a6b2-d09ec256a88e\",\"name\":\"SYN-A.png\",\"mime\":\"image/png\",\"sha256\":\"a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef\",\"bytes\":27913,\"submittedBy\":\"user-fullstack-admin--20261117-s-1e261c1b8eac\",\"submittedAt\":\"2026-11-16T21:27:54.241Z\"}",
+        "researchFile:dd393b20-bace-4f6e-9bdd-60c8d36b22d6": "{\"projectId\":\"prj-6e591974-4258-4107-8942-357243a00238\",\"runId\":\"ingest-8cd03312-1fa7-46c5-ab5d-45727447dac6\",\"artifactId\":\"art-ea238c5e-0169-478d-a86f-2272529cac5e\",\"versionId\":\"ver-9dac32ae-7654-45ac-a041-70166136c4cc\",\"name\":\"SYN-TEST-FEEDBACK.txt\",\"mime\":\"text/plain\",\"sha256\":\"54fca4c87065afec8b855611280e1ec43d89de231430cac015fb710df6ded757\",\"bytes\":707,\"submittedBy\":\"user-fullstack-admin--20261117-s-1e261c1b8eac\",\"submittedAt\":\"2026-11-16T21:27:54.121Z\"}"
+      },
+      "ideas": [],
+      "selectedIdeaId": ""
+    }
+  },
+  "sourceStageRevisions": [
+    {
+      "stageId": 5,
+      "revision": 3
+    }
+  ],
+  "updatedBy": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+  "updatedAt": "2026-11-16T21:30:56.268Z"
+}

@@ -1,0 +1,33 @@
+
+Running 1 test using 1 worker
+
+(node:421681) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[aidt-v2] native request observed · aidt-prototype · budget entry d5db057f-6f3d-4a88-9c9c-0df251748e66
+  ✘  1 e2e/aidt-v2-completion.spec.ts:75:7 › completion S5: same-group saved inputs → actual native dispatch → student revision → new login (1.4m)
+
+
+  1) e2e/aidt-v2-completion.spec.ts:75:7 › completion S5: same-group saved inputs → actual native dispatch → student revision → new login 
+
+    Error: NATIVE_RUN_CANCELLED_UNKNOWN
+
+       at support/aidt-v2-acceptance.ts:227
+
+      225 |         if (["failed", "cancelled", "paused"].includes(actualRun.status)) {
+      226 |           failureCode = `NATIVE_RUN_${actualRun.status.toUpperCase()}_${actualRun.error ?? "UNKNOWN"}`;
+    > 227 |           throw new Error(failureCode);
+          |                 ^
+      228 |         }
+      229 |         if (actualRun.status === "awaiting_tool_permission") {
+      230 |           if (actualRun.pendingApproval?.toolName !== "confirm_task_intent" || !review?.reviewSyntheticIntent) {
+        at _test.expect.poll.timeout (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-acceptance.ts:227:17)
+        at sendAidtV2NativeTurn (/workspace/aidt-module-latest/apps/web/e2e/support/aidt-v2-acceptance.ts:212:5)
+        at /workspace/aidt-module-latest/apps/web/e2e/aidt-v2-completion.spec.ts:118:18
+
+    Error Context: ../../../scratch/aidt-real-acceptance-20261117/s5-attempt-01/aidt-v2-completion-complet-bc1a1-tudent-revision-→-new-login/error-context.md
+
+  1 failed
+    e2e/aidt-v2-completion.spec.ts:75:7 › completion S5: same-group saved inputs → actual native dispatch → student revision → new login 
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.aidt-v2.config.ts --grep completion S5:

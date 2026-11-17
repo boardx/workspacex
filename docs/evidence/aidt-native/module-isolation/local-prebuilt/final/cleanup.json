@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-11-15T06:57:10.288125+00:00",
+  "isolationId": "run-mwhgvwzo-259148c1-d6fd039cce8d",
+  "processExitCode": 0,
+  "leasePorts": [
+    20756,
+    21756,
+    22756,
+    23756,
+    24756,
+    25756,
+    26756,
+    27756,
+    28756,
+    29756,
+    30756,
+    31756,
+    19756
+  ],
+  "listeners": [],
+  "remainingAdvisoryLeaseDirectories": [],
+  "dataOwnerExists": false,
+  "outputOwnerExists": false,
+  "savedPgdataRetained": true,
+  "clean": true
+}

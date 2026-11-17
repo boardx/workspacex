@@ -1,0 +1,101 @@
+{
+  "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+  "failedRunId": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+  "actualRunStatus": "cancelled",
+  "modelTaskPassed": false,
+  "manualStudentFallback": true,
+  "before": {
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "stageId": 5,
+    "revision": 1,
+    "content": {
+      "schemaVersion": 1,
+      "draft": {
+        "fields": {
+          "idea": "合成点子：纸面分区牌",
+          "task": "阅读纸面分区牌，并指出对应的取餐区域。",
+          "type": "静态纸面界面草案，生成前仍须学生确认主问题。",
+          "situation": "新同学在食堂取餐区阅读静态指示；这是合成情境。",
+          "requirements": "一页静态界面，标题、分区提示与一个按钮；不接外部脚本或图片。",
+          "beforeTestBelief": "学生先前猜测：也许能理解，尚无真实测试。",
+          "verificationBasis": "仅学生合成讨论，不是用户研究证据。",
+          "verificationLimits": "只能讨论静态理解，不能证明时间节省或支付意愿。",
+          "verificationQuestion": "合成验证问题：新同学能否说出纸面分区牌指向哪里？",
+          "verificationQuestionConfirmed": "",
+          "verificationQuestionConfirmation": ""
+        },
+        "ideas": [],
+        "selectedIdeaId": ""
+      }
+    },
+    "sourceStageRevisions": [
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      }
+    ],
+    "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+    "updatedAt": "2026-11-16T17:49:41.979Z"
+  },
+  "after": {
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "stageId": 5,
+    "revision": 2,
+    "content": {
+      "schemaVersion": 1,
+      "draft": {
+        "fields": {
+          "idea": "合成点子：纸面分区牌",
+          "task": "阅读纸面分区牌，并指出对应的取餐区域。",
+          "type": "学生人工确认：一页静态纸面界面草案，用于合成练习。",
+          "situation": "新同学在食堂取餐区阅读静态指示；这是合成情境。",
+          "hypothesis": "本轮引导师因耗时被正常取消。问题、先前看法和原型说明由合成学生人工确认，不等于Agent任务通过或研究结论。",
+          "operations": "先读标题，再沿箭头找到分区并说出方向；静态画面不冒充实际点击功能。",
+          "touchpoints": "标题、分区颜色、箭头和简短指示文案；全部属于拟议静态触点。",
+          "requirements": "一页静态界面，标题、分区提示与一个按钮；不接外部脚本或图片。",
+          "beforeTestBelief": "学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。",
+          "verificationBasis": "仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。",
+          "verificationLimits": "静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。",
+          "verificationQuestion": "合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。",
+          "verificationQuestionConfirmed": "true",
+          "verificationQuestionConfirmation": "[\"合成学生人工确认的问题：新同学能否说出纸面分区牌指向哪里？尚无真实测试。\",\"学生人工先前猜测：也许能理解，尚无真实测试；引导师本轮已停止，这不是其成功输出。\",\"仅本组合成讨论与选中描述单，不能称为真实用户证据。人工继续，不把取消的Agent任务写成成功。\",\"静态草案仅用于讨论指示理解，不能证明实际效率、行为改变或支付意愿。\"]"
+        },
+        "ideas": [],
+        "selectedIdeaId": ""
+      }
+    },
+    "sourceStageRevisions": [
+      {
+        "stageId": 3,
+        "revision": 2
+      },
+      {
+        "stageId": 4,
+        "revision": 4
+      }
+    ],
+    "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+    "updatedAt": "2026-11-16T17:55:01.853Z"
+  },
+  "studentSaved": true,
+  "freshLoginExactReadback": true,
+  "sourceRefs": [
+    {
+      "stageId": 3,
+      "revision": 2
+    },
+    {
+      "stageId": 4,
+      "revision": 4
+    }
+  ],
+  "originalPhasePreserved": "attempting",
+  "newStudentRequestSent": false,
+  "generationRequests": [],
+  "synthetic": true,
+  "ordinaryStudentModelPermissionProven": false
+}

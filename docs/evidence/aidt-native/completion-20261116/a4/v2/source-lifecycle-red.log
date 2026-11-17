@@ -1,0 +1,74 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-discovery-source-picker.test.tsx (3 tests | 1 failed) 151ms
+   × does not revive an old actor's source list on A to B to A transitions 13ms
+     → expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <article
+  class="space-y-1 rounded-md border border-border p-2"
+  data-testid="aidt-discovery-source-option"
+>
+  <p
+    class="whitespace-pre-wrap text-12"
+  >
+    教学夹具原文
+  </p>
+  <p
+    class="break-all text-11 text-muted-foreground"
+  >
+    小组 p · 对话 t · 消息 m · 提交者 student · 2026-11-16T00:00:00Z
+  </p>
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"
+    type="button"
+  >
+    关联这段学生材料
+  </button>
+</article> instead
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-discovery-source-picker.test.tsx > does not revive an old actor's source list on A to B to A transitions
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <article
+  class="space-y-1 rounded-md border border-border p-2"
+  data-testid="aidt-discovery-source-option"
+>
+  <p
+    class="whitespace-pre-wrap text-12"
+  >
+    教学夹具原文
+  </p>
+  <p
+    class="break-all text-11 text-muted-foreground"
+  >
+    小组 p · 对话 t · 消息 m · 提交者 student · 2026-11-16T00:00:00Z
+  </p>
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"
+    type="button"
+  >
+    关联这段学生材料
+  </button>
+</article> instead
+ ❯ tests/ui/aidt-discovery-source-picker.test.tsx:38:68
+     36|   mocks.load.mockImplementationOnce(() => new Promise(() => undefined)…
+     37|   mocks.session = { currentOrgId: "org", userId: "a", sessionToken: "a…
+     38|   expect(screen.queryByTestId("aidt-discovery-source-option")).not.toB…
+       |                                                                    ^
+     39|   await act(async () => oldFinish({ items: [source("B迟到材料")], next…
+     40|   await waitFor(() => expect(screen.queryByText("B迟到材料")).not.toBe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  04:05:13
+   Duration  3.10s (transform 1.35s, setup 78ms, collect 2.02s, tests 151ms, environment 565ms, prepare 49ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --no-cache tests/ui/aidt-discovery-source-picker.test.tsx

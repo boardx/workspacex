@@ -1,0 +1,35 @@
+{
+  "isolationId": "run-mwhgvwzo-259148c1-d6fd039cce8d",
+  "dataDir": "/workspace/scratch/aidt-local-persistent-acceptance/data",
+  "ports": {
+    "postgres": 20756,
+    "api": 24756,
+    "web": 25756,
+    "sandbox": 26756,
+    "deepAgent": 28756,
+    "ollama": 27756,
+    "asr": 29756
+  },
+  "webMode": "start",
+  "reusedBuild": true,
+  "parentNodeEnv": "development",
+  "supplierFixture": false,
+  "docker": false,
+  "prebuild": {
+    "reusedBuild": true,
+    "previousBuildFile": "/workspace/scratch/aidt-local-prebuilt-acceptance/attempt-1/results/native-build.json",
+    "receiptFile": "/workspace/aidt-module-latest/apps/web/.next-aidt-local/aidt-local-build-receipt.json",
+    "buildId": "7GWG5SqYf3XRXI5e4dCsF",
+    "originalBuildDurationMs": 248570
+  },
+  "nativeCycle1ReadyMs": 13900,
+  "projectCreateApiMs": 241,
+  "projectCreateRouteMs": 1144,
+  "projectId": "prj-e0636200-2155-4a58-9bc7-06386665348c",
+  "stageRevision": 1,
+  "nativeCycle2ReadyMs": 13719,
+  "memberMessagesReadBack": 1,
+  "secretsPreserved": true,
+  "nativeStartStopCycles": 2,
+  "completed": true
+}

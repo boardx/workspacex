@@ -1,0 +1,69 @@
+{
+  "sourceBuildCommit": "4bfb82e268a618d57af25e5596a11ddc04cf38cf",
+  "actualBrowserRun": true,
+  "attachments": {
+    "course-real-membership-isolation": {
+      "courseId": "crs-7c706268-a983-4541-9f7a-73a465175435",
+      "groupA": "prj-79003751-1fca-4c46-ac39-a463c67fb880",
+      "groupB": "prj-b1b59280-2312-4d35-a0c4-eed5a18b3dfb",
+      "groupExtra": "prj-aedfaf60-094c-43dd-92db-ff631c5d5359",
+      "realGroupCursorNoOverlap": true,
+      "courseCreateReplay": true,
+      "studentRole": "consultant",
+      "managerRole": "admin",
+      "explicitSyntheticStudentMembership": true,
+      "courseLinkChangedMembers": false,
+      "sameGroupSecondCourse": 409,
+      "studentCreate": 403,
+      "adminNonmemberLink": 404,
+      "studentCrossGroupRead": 404,
+      "savedRevision": 1,
+      "freshLoginRestoredRevision": 1,
+      "modelRequests": 0
+    },
+    "course-real-archive-boundary": {
+      "courseId": "crs-413221e1-c29c-41d6-be9e-7ea526ba69ac",
+      "linked": "prj-ed943f26-9dd8-438c-8707-e32783101769",
+      "unbound": "prj-c003bd9c-d550-4e71-962e-35d5eccb8856",
+      "archivedReadOnly": true,
+      "rejectedNewLink": 403,
+      "preservedRevision": 1,
+      "membersUnchanged": true,
+      "modelRequests": 0
+    },
+    "course-real-pagination-and-network-failure": {
+      "syntheticCourseIds": [
+        "crs-36fcffac-1376-4ea1-9ccb-c2cf5497ce4c",
+        "crs-63fcc477-fc08-4c5b-97a1-920f872b59bd",
+        "crs-9871ef23-63aa-494b-a817-dd84892b91a7",
+        "crs-1148673f-0755-4650-a54f-9f15d8c863ea",
+        "crs-b751f9cb-74af-476e-927e-8573bdb4fcd6",
+        "crs-903f1678-ca89-4320-8e9e-2da68a2f665a",
+        "crs-9fc99a19-cab6-4ffc-b1f9-9622ffd9e811",
+        "crs-3ef92546-2b85-41cb-99e1-14c83d06b31e",
+        "crs-78194035-cbd8-48d3-bd26-7bf85027648a",
+        "crs-28c4ac92-7321-479f-8b14-2317ac15d11c",
+        "crs-7096cfe1-cd29-42ff-a7bb-721ab9afb8f5",
+        "crs-7fc544f8-2822-4017-9596-8de78e4af2f8",
+        "crs-4b498fe7-cb7a-4b8d-8b63-9f68479065c0",
+        "crs-cdd53b2e-90cd-4423-ad1d-a1bed9135553",
+        "crs-2ecf77e2-a7da-4bf1-9d24-c1f231f6e98a",
+        "crs-fdb6294a-b0df-4b68-9c65-34c83ab8a70f",
+        "crs-767d36ab-745c-49c4-822e-03956263689b",
+        "crs-4e6560bc-eadb-47b4-91da-f2c85a8e4cde",
+        "crs-5b1d80d9-5951-4593-afa9-ccd9d373586d",
+        "crs-0d3b4123-ad81-484a-8cdc-7ab0e1e89f11",
+        "crs-edd0daa4-f8c5-446a-a557-9ab7fc667493"
+      ],
+      "serverCursorPageSize": 1,
+      "uiFirstPageSize": 20,
+      "uiNextPageSize": 7,
+      "cursorOverlap": false,
+      "offlineWasRealBrowserNetworkFailure": true,
+      "requestInterceptionOrMock": false,
+      "explicitRetry": true,
+      "invalidLimit": 400,
+      "modelRequests": 0
+    }
+  }
+}

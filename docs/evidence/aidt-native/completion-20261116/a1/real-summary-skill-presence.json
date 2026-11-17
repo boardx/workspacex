@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-16",
+  "source": "authenticated-native-catalog-after-new-optional-pack-bootstrap",
+  "loginStatus": 200,
+  "catalogStatus": 200,
+  "totalItems": 33,
+  "summary": {
+    "platformStableName": "dt-summarize-project",
+    "present": true,
+    "enabled": true,
+    "currentVersionIdPresent": true
+  },
+  "credentialsOrTokenRecorded": false,
+  "teachingAcceptance": "not-established-by-directory"
+}

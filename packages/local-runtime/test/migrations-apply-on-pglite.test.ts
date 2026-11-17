@@ -20,7 +20,7 @@
  * `runMigrations` → `apps/api/src/infrastructure/db/migrate-cli.ts`，就是 `up()` 首次启动
  * 时调用的那一条。不另写一份迁移器：另写的那份会和产线漂移，而漂移正是这类缺陷藏身的地方。
  */
-import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -28,7 +28,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import pgClient from "pg";
 import { DB_NAME, DB_OWNER_ROLE, resolveLocalConfig } from "../src/config";
-import { ensureDatabaseExists, startPgliteServer } from "../src/pglite-server";
+import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "../src/pglite-server";
 import { runMigrations } from "../src/seeds";
 
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
@@ -57,12 +57,13 @@ describe("全新安装的数据库", () => {
     expect(files.length, "迁移目录是空的——判据本身坏了").toBeGreaterThan(100);
 
     const dataDir = mkdtempSync(join(tmpdir(), "wsx-mig-"));
-    const port = await freePort();
-    const c = resolveLocalConfig({ repoRoot: REPO_ROOT, dataDir, ports: { postgres: port } });
-    await ensureDatabaseExists(join(dataDir, "pgdata"));
-    const pg = await startPgliteServer({ dataDir: join(dataDir, "pgdata"), port, username: DB_OWNER_ROLE });
+    let pg: PgliteHandle | undefined;
     const lines: string[] = [];
     try {
+      const port = await freePort();
+      const c = resolveLocalConfig({ repoRoot: REPO_ROOT, dataDir, ports: { postgres: port } });
+      await ensureDatabaseExists(join(dataDir, "pgdata"));
+      pg = await startPgliteServer({ dataDir: join(dataDir, "pgdata"), port, username: DB_OWNER_ROLE });
       await runMigrations(c, (l) => lines.push(l));
       // Community/local mode must still create accounts after billing migrations,
       // with the online accounting epoch dormant. Exercise the actual INSERT trigger.
@@ -82,8 +83,10 @@ describe("全新安装的数据库", () => {
       // 把能拿到的都打出来，免得下一个人又要自己写探针去找是哪一条。
       throw new Error(`迁移在 PGlite 上失败：${String(e)}\n--- 迁移输出 ---\n${lines.join("\n")}`);
     } finally {
-      await pg.stop();
+      try { await pg?.stop(); }
+      finally { rmSync(dataDir, { recursive: true, force: true }); }
     }
+    expect(existsSync(dataDir), "测试创建的数据目录应在停止数据库后删除").toBe(false);
     const applied = lines.find((l) => /applied \d+ migration/.test(l)) ?? "";
     const n = Number(/applied (\d+) migration/.exec(applied)?.[1] ?? "-1");
     expect(n, `应用的迁移数与文件数对不上：${applied}`).toBe(files.length);

@@ -1,0 +1,41 @@
+import * as React from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import { AidtDiscoverySourcePicker } from "@/features/aidt/components/aidt-discovery-source-picker";
+import type { AidtDiscoverySource } from "@/features/aidt/lib/aidt-discovery-evidence";
+const mocks = vi.hoisted(() => ({ load: vi.fn(), session: { currentOrgId: "org", userId: "a", sessionToken: "a-token" } }));
+vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: mocks.session }) }));
+vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => true }));
+vi.mock("@/features/aidt/lib/aidt-discovery-evidence", async original => ({ ...await original<typeof import("@/features/aidt/lib/aidt-discovery-evidence")>(), loadAidtDiscoverySources: mocks.load }));
+vi.mock("@/features/aidt/components/aidt-image-source-thread", () => ({ AidtImageSourceThread: () => null }));
+const source = (text = "教学夹具原文"): AidtDiscoverySource => ({ projectId: "p", threadId: "t", messageId: "m", authorId: "student", createdAt: "2026-11-16T00:00:00Z", text, truncated: false });
+const picker = (onSelect = vi.fn(), readOnly = false) => <AidtDiscoverySourcePicker projectId="p" thread="t" label="发现卡1" readOnly={readOnly} selected={null} onSelect={onSelect} />;
+beforeEach(() => { vi.clearAllMocks(); mocks.session = { currentOrgId: "org", userId: "a", sessionToken: "a-token" }; mocks.load.mockResolvedValue({ items: [source()], nextCursor: null }); });
+it("reads only when requested and associates an explicit human source without editing the quote", async () => {
+  const selected = vi.fn(); render(picker(selected)); expect(mocks.load).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "关联本组已发送的原文" }));
+  expect(await screen.findByTestId("aidt-discovery-source-option")).toHaveTextContent("教学夹具原文");
+  expect(mocks.load).toHaveBeenCalledWith(expect.objectContaining({ projectId: "p", threadId: "t", sessionToken: "a-token" }));
+  fireEvent.click(screen.getByRole("button", { name: "关联这段学生材料" })); expect(selected).toHaveBeenCalledWith(source());
+  expect(screen.queryByTestId("aidt-discovery-source-option")).not.toBeInTheDocument();
+});
+it("keeps a denial distinct from no originals and prevents selection after downgrade", async () => {
+  mocks.load.mockRejectedValueOnce(new Error("403")); const selected = vi.fn(); const view = render(picker(selected));
+  fireEvent.click(screen.getByRole("button", { name: "关联本组已发送的原文" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("未判定为没有原文");
+  fireEvent.click(screen.getByRole("button", { name: "重试原文材料" })); await screen.findByTestId("aidt-discovery-source-option");
+  view.rerender(picker(selected, true));
+  fireEvent.click(screen.getByRole("button", { name: "关联这段学生材料" })); expect(selected).not.toHaveBeenCalled();
+});
+it("does not revive an old actor's source list on A to B to A transitions", async () => {
+  const view = render(picker()); fireEvent.click(screen.getByRole("button", { name: "关联本组已发送的原文" }));
+  await screen.findByTestId("aidt-discovery-source-option");
+  let oldFinish!: (value: { items: AidtDiscoverySource[]; nextCursor: null }) => void;
+  mocks.load.mockImplementationOnce(() => new Promise(resolve => { oldFinish = resolve; }));
+  mocks.session = { currentOrgId: "org", userId: "b", sessionToken: "b-token" }; view.rerender(picker());
+  mocks.load.mockImplementationOnce(() => new Promise(() => undefined));
+  mocks.session = { currentOrgId: "org", userId: "a", sessionToken: "a-token" }; view.rerender(picker());
+  expect(screen.queryByTestId("aidt-discovery-source-option")).not.toBeInTheDocument();
+  await act(async () => oldFinish({ items: [source("B迟到材料")], nextCursor: null }));
+  await waitFor(() => expect(screen.queryByText("B迟到材料")).not.toBeInTheDocument());
+});

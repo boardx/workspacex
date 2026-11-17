@@ -1,0 +1,82 @@
+{
+  "passed": true,
+  "kind": "real-API-only-course-CRUD-and-authorization",
+  "recordedAt": "2026-11-16T05:32:59.017Z",
+  "apiSnapshot": "A1 API-only refresh; Web UI not exercised",
+  "createdSyntheticCourseId": "crs-f862cd50-1c2c-4829-a3c5-4ef97d0e6565",
+  "checks": [
+    {
+      "name": "owner-login",
+      "status": 200
+    },
+    {
+      "name": "owner-actual-identity"
+    },
+    {
+      "name": "owner-select-own-org",
+      "status": 200
+    },
+    {
+      "name": "owner-real-org-role",
+      "status": 200,
+      "orgRole": "admin"
+    },
+    {
+      "name": "real-course-list",
+      "status": 200
+    },
+    {
+      "name": "create-persisted-course",
+      "status": 201
+    },
+    {
+      "name": "server-create-receipt"
+    },
+    {
+      "name": "same-operation-replay",
+      "status": 201
+    },
+    {
+      "name": "same-operation-different-input-conflict",
+      "status": 409
+    },
+    {
+      "name": "unlinked-course-no-invented-groups",
+      "status": 200
+    },
+    {
+      "name": "student-login",
+      "status": 200
+    },
+    {
+      "name": "student-actual-identity"
+    },
+    {
+      "name": "student-select-own-org",
+      "status": 200
+    },
+    {
+      "name": "student-real-org-role",
+      "status": 200,
+      "orgRole": "consultant"
+    },
+    {
+      "name": "ordinary-student-cannot-create",
+      "status": 403
+    },
+    {
+      "name": "course-metadata-not-enrollment",
+      "status": 200
+    },
+    {
+      "name": "nonmember-course-group-read-denied",
+      "status": 404
+    }
+  ],
+  "modelRequests": 0,
+  "organizationRolesChanged": false,
+  "projectMembershipsChanged": false,
+  "production": false,
+  "apiPidAtProbe": 148475,
+  "webSnapshot": "oldWeb25986 not exercised; final newWeb25483 UI acceptance pending"
+}

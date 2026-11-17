@@ -1,0 +1,18 @@
+{
+  "stats": {
+    "startTime": "2026-11-15T15:41:15.613Z",
+    "duration": 357860.08200000005,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": [],
+  "runtimeSourceCommit": "39a35463817175ed02bef0d810fdcb187dc7e841",
+  "actualModelTested": false,
+  "actualGeneratedPrototype": false,
+  "actualResearchCollected": false,
+  "newRegressionPhase": "learning-round-survives-native-chat-tools-and-refresh",
+  "nativeStartStopCycles": 2,
+  "completed": true
+}

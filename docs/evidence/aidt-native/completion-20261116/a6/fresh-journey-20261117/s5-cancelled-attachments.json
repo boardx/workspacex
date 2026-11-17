@@ -1,0 +1,607 @@
+{
+  "s4-student-selection-reason-addendum": {
+    "before": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 4,
+      "revision": 3,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "reason": "",
+            "criteria": "学生先提出比较标准：能否帮助理解、能否做低成本练习；只是合成练习。",
+            "ideaFile:draft-1": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-46c279cd-33e5-4708-bdf0-a52b49858d23\",\"artifactId\":\"art-09dce14e-821c-4f6b-b47b-9d1bd21fad77\",\"versionId\":\"ver-dc3eb866-8c21-41d2-b532-910d7a3966e3\",\"name\":\"I1-分区牌.png\",\"mime\":\"image/png\",\"sha256\":\"ce334fb221a5eb47b03faa490603cda33cfd861c801665557c7201d297b0b2eb\",\"bytes\":29666,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T17:45:50.085Z\"}",
+            "ideaFile:draft-2": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-6d9d9f00-9faa-42a1-96ac-beee552fa413\",\"artifactId\":\"art-8aad0f0c-111d-487a-b818-9c64bed7b030\",\"versionId\":\"ver-71ffeb65-efbd-40e6-8ba6-40fc8dd8cd8f\",\"name\":\"I2-同伴指路.png\",\"mime\":\"image/png\",\"sha256\":\"4fbae0a39036ee362a8168a671a8b1aabdc819cdee00ec9e67d87b22bdd5d238\",\"bytes\":27391,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T17:45:50.215Z\"}",
+            "ideaFile:draft-3": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-060bb688-fd0e-491a-bd9f-8fcc9249b062\",\"artifactId\":\"art-b58a9154-5a0a-40b3-9011-c552da35f5fe\",\"versionId\":\"ver-97c7396c-c9f2-4898-b163-35d4769a81a9\",\"name\":\"I3-号码牌.png\",\"mime\":\"image/png\",\"sha256\":\"12e27b11107b14d6020fbadef9f0d14bb9009578c4be34105961441cb5655124\",\"bytes\":28838,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T17:45:50.336Z\"}",
+            "ideaClassificationTags": "{\"draft-1\":[\"easy\",\"fun\"]}",
+            "ideaClassificationReasons": "{\"draft-1\":\"学生审阅后保留两种分类，未要求类别等量；选择还需真实测试。\"}",
+            "ideaClassificationConfirmed": "true"
+          },
+          "ideas": [
+            {
+              "id": "draft-1",
+              "title": "合成点子：纸面分区牌",
+              "description": "合成纸面方案在不同取餐口放置分区牌。计划请新同学指出号码对应的位置，了解指示是否清楚。",
+              "image": "",
+              "imageName": "I1-分区牌.png"
+            },
+            {
+              "id": "draft-2",
+              "title": "合成点子：同伴口头指路",
+              "description": "合成服务方案由熟悉路线的同伴口头说明方向。计划请新同学复述路线，记录哪里还需要追问。",
+              "image": "",
+              "imageName": "I2-同伴指路.png"
+            },
+            {
+              "id": "draft-3",
+              "title": "合成点子：号码牌分区",
+              "description": "合成号码牌方案在排队时发放带区域号码的纸牌。计划请新同学对照号码寻找取餐区，比较规则是否容易理解。",
+              "image": "",
+              "imageName": "I3-号码牌.png"
+            }
+          ],
+          "selectedIdeaId": "draft-1"
+        }
+      },
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        }
+      ],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T17:46:24.076Z"
+    },
+    "after": {
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageId": 4,
+      "revision": 4,
+      "content": {
+        "schemaVersion": 1,
+        "draft": {
+          "fields": {
+            "reason": "学生补记入选理由：先试纸面分区牌，因为能用简短图文比较提示理解；同伴指路与号码牌方案仍保留，尚无真实证据证明哪一个更好。",
+            "criteria": "学生先提出比较标准：能否帮助理解、能否做低成本练习；只是合成练习。",
+            "ideaFile:draft-1": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-46c279cd-33e5-4708-bdf0-a52b49858d23\",\"artifactId\":\"art-09dce14e-821c-4f6b-b47b-9d1bd21fad77\",\"versionId\":\"ver-dc3eb866-8c21-41d2-b532-910d7a3966e3\",\"name\":\"I1-分区牌.png\",\"mime\":\"image/png\",\"sha256\":\"ce334fb221a5eb47b03faa490603cda33cfd861c801665557c7201d297b0b2eb\",\"bytes\":29666,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T17:45:50.085Z\"}",
+            "ideaFile:draft-2": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-6d9d9f00-9faa-42a1-96ac-beee552fa413\",\"artifactId\":\"art-8aad0f0c-111d-487a-b818-9c64bed7b030\",\"versionId\":\"ver-71ffeb65-efbd-40e6-8ba6-40fc8dd8cd8f\",\"name\":\"I2-同伴指路.png\",\"mime\":\"image/png\",\"sha256\":\"4fbae0a39036ee362a8168a671a8b1aabdc819cdee00ec9e67d87b22bdd5d238\",\"bytes\":27391,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T17:45:50.215Z\"}",
+            "ideaFile:draft-3": "{\"projectId\":\"prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa\",\"runId\":\"ingest-060bb688-fd0e-491a-bd9f-8fcc9249b062\",\"artifactId\":\"art-b58a9154-5a0a-40b3-9011-c552da35f5fe\",\"versionId\":\"ver-97c7396c-c9f2-4898-b163-35d4769a81a9\",\"name\":\"I3-号码牌.png\",\"mime\":\"image/png\",\"sha256\":\"12e27b11107b14d6020fbadef9f0d14bb9009578c4be34105961441cb5655124\",\"bytes\":28838,\"submittedBy\":\"user-fullstack-admin-20261117-01-7d265647426d\",\"submittedAt\":\"2026-11-16T17:45:50.336Z\"}",
+            "ideaClassificationTags": "{\"draft-1\":[\"easy\",\"fun\"]}",
+            "ideaClassificationReasons": "{\"draft-1\":\"学生审阅后保留两种分类，未要求类别等量；选择还需真实测试。\"}",
+            "ideaClassificationConfirmed": "true"
+          },
+          "ideas": [
+            {
+              "id": "draft-1",
+              "title": "合成点子：纸面分区牌",
+              "description": "合成纸面方案在不同取餐口放置分区牌。计划请新同学指出号码对应的位置，了解指示是否清楚。",
+              "image": "",
+              "imageName": "I1-分区牌.png"
+            },
+            {
+              "id": "draft-2",
+              "title": "合成点子：同伴口头指路",
+              "description": "合成服务方案由熟悉路线的同伴口头说明方向。计划请新同学复述路线，记录哪里还需要追问。",
+              "image": "",
+              "imageName": "I2-同伴指路.png"
+            },
+            {
+              "id": "draft-3",
+              "title": "合成点子：号码牌分区",
+              "description": "合成号码牌方案在排队时发放带区域号码的纸牌。计划请新同学对照号码寻找取餐区，比较规则是否容易理解。",
+              "image": "",
+              "imageName": "I3-号码牌.png"
+            }
+          ],
+          "selectedIdeaId": "draft-1",
+          "selectionReasons": {
+            "draft-1": "学生补记入选理由：先试纸面分区牌，因为能用简短图文比较提示理解；同伴指路与号码牌方案仍保留，尚无真实证据证明哪一个更好。"
+          }
+        }
+      },
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        }
+      ],
+      "updatedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+      "updatedAt": "2026-11-16T17:49:40.675Z"
+    },
+    "agentSaved": false,
+    "synthetic": true
+  },
+  "native-wire-shape-aidt-prototype": {
+    "selectorCoordinates": {
+      "schemaVersion": 1,
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 1
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 5
+    },
+    "coordinatesOnly": true,
+    "topLevelKeys": [
+      "context",
+      "forwardedProps",
+      "messages",
+      "runId",
+      "state",
+      "threadId",
+      "tools"
+    ],
+    "messages": [
+      {
+        "index": 0,
+        "role": "user",
+        "hasSavedMarker": false,
+        "mentionsMountedSkill": false
+      }
+    ],
+    "context": [
+      {
+        "index": 0,
+        "descriptionIsAidt": false,
+        "descriptionLength": 49,
+        "hasSavedMarker": false
+      }
+    ],
+    "savedMarkerLocations": [
+      {
+        "stageId": 1,
+        "field": "focus",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "discussion",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "assumptions",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "rewrittenTheme",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "followupAnswers",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "adoptedGuide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "discoveryAi:9e031cd1-3fd0-452e-b87e-329f4ee55e93",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "hmw",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "insight",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "decision",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "evidence",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "patterns",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "personaBehavior",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "reason",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "criteria",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "task",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "type",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "situation",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "requirements",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "beforeTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationBasis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationLimits",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationQuestion",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "focus",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "discussion",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "assumptions",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "rewrittenTheme",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "followupAnswers",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "adoptedGuide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "discoveryAi:9e031cd1-3fd0-452e-b87e-329f4ee55e93",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "hmw",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "insight",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "decision",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "evidence",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "patterns",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "personaBehavior",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "reason",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "criteria",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "task",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "type",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "situation",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "requirements",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "beforeTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationBasis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationLimits",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationQuestion",
+        "locations": []
+      }
+    ],
+    "mountedSkillLocations": [],
+    "rawValuesRetained": false
+  },
+  "native-turn-failure-aidt-prototype": {
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "threadId": "thr-985b99bd-475a-4ae2-8357-30e6f4a712fc",
+    "skillName": "aidt-prototype",
+    "reservation": "d5db057f-6f3d-4a88-9c9c-0df251748e66",
+    "observedRunId": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+    "failureCode": "NATIVE_RUN_CANCELLED_UNKNOWN",
+    "selectorCoordinates": {
+      "schemaVersion": 1,
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 1
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 5
+    },
+    "frozenReceipt": {
+      "runId": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "purpose": "stage",
+      "stageId": 5,
+      "skillVersionId": "skill-version-00823c40-39bd-4cce-9853-c02502296c3c",
+      "snapshotHash": "0b0de5d21a9da18ad08a467df6bdc3d9c1d1990d62aa57f31afc8c3a2e059d45",
+      "preparedAt": "2026-11-16T17:49:42.894Z",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 1
+        }
+      ],
+      "historyRevisions": [],
+      "omissions": [
+        {
+          "kind": "personal-artifacts-not-included"
+        },
+        {
+          "kind": "original-file-bytes-not-read"
+        },
+        {
+          "kind": "teacher-comments-no-source"
+        },
+        {
+          "kind": "lineage-unknown"
+        }
+      ],
+      "truncated": false,
+      "application": {
+        "state": "message-dispatch-observed",
+        "attemptId": "55fa0cc5-a639-4bb9-8242-4d61fb5ba606:1",
+        "assembledContextHash": "c670007b72889881859319497eef1952049417b238582164c7b0d7590e1b2b75",
+        "assembledAt": "2026-11-16T17:49:43.032Z",
+        "messageDispatchedAt": "2026-11-16T17:49:43.137Z",
+        "checkpointResumedAt": null,
+        "inheritedMessageDispatchAttemptId": null
+      }
+    },
+    "automaticNewSendRetry": false,
+    "intentChoices": []
+  }
+}

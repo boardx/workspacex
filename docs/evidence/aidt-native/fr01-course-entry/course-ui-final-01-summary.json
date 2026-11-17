@@ -1,0 +1,37 @@
+{
+  "sourceBuildCommit": "7235b9cdcfea2774df913035cb3f2109504213ad",
+  "kind": "real-course-UI-E2E",
+  "actualBrowserRun": true,
+  "result": "3 failed; do not treat as UI pass",
+  "cases": [
+    {
+      "title": "FR01 course A: real UI create and owner links, same-course group isolation, fresh login preserves original saved input",
+      "status": "failed",
+      "retry": 0,
+      "errorSummary": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m"
+    },
+    {
+      "title": "FR01 lifecycle: archived existing course group remains readable; new binding is rejected without mutating native members",
+      "status": "failed",
+      "retry": 0,
+      "errorSummary": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m"
+    },
+    {
+      "title": "FR01 pagination and failure: real PG cursors have no overlap; native UI distinguishes offline error and explicit retry",
+      "status": "failed",
+      "retry": 0,
+      "errorSummary": "Error: page.evaluate: Error: AIDT_V2_EXPECTED_JSON_404"
+    }
+  ],
+  "rootCause": "Missing same-origin Next course API rewrites; direct API preflight had passed separately",
+  "browserApiStatus": 404,
+  "responseKind": "Next HTML; course UI did not reach API",
+  "retries": 0,
+  "modelLedgerBefore": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "modelLedgerAfter": "a12c648eacd3bf54a22d87c266273af290db6f972328109febc83b29b5c93806",
+  "modelLedgerUnchanged": true,
+  "modelSendRequestsObserved": 0,
+  "knownContractGap": "createProject HTTP201 omits provenanceEventId; reused native UI/helper does not fabricate it",
+  "rawResults": "/workspace/scratch/aidt-v2-acceptance/course-ui-final-01/results.json",
+  "executionRecord": "/workspace/scratch/aidt-v2-acceptance/course-ui-final-01.execution.json"
+}

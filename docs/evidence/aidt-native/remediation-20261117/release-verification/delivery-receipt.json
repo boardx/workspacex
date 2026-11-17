@@ -1,0 +1,55 @@
+{
+  "observedAt": "2026-11-16T22:57:37.781640+00:00",
+  "sourceArchiveCommit": "f1b4f15fd07bc4479a9690494af5471e7be55025",
+  "sourceArchiveSha256": "bb0862f319d3bc1b448eb89f1b5e7dcfec101ec6e3d2ac6ecb5634621312ac46",
+  "deliveryReceiptAddedAfterArchiveBuild": true,
+  "libraryWrites": [
+    {
+      "name": "AIDT-V2-完整测试报告.pdf",
+      "library_file_id": "libfile_fde3_f-8b8d9ee204b08191a5b4cfdcd76337e5_f2550309ede48191b6efb8c3155855a5",
+      "version": 1,
+      "libraryBytes": 204367,
+      "pagesReadBack": 17,
+      "chineseTextReadBack": true,
+      "localIdentityMetadataHelperExit": 0
+    },
+    {
+      "name": "AIDT-V2-人工测试验收手册.pdf",
+      "library_file_id": "libfile_fde3_f-a8b95826bf588191ab5049a8b797c528_f2550309ede48191b6efb8c3155855a5",
+      "version": 9,
+      "libraryBytes": 228736,
+      "pagesReadBack": 29,
+      "chineseTextReadBack": true,
+      "humanSignatureSectionPresentInLibraryReadback": true,
+      "humanBlanksLocallyVerifiedBy": "../a5-free-browser/manual-pdf-review/review.json",
+      "localIdentityMetadataHelperExit": 0
+    },
+    {
+      "name": "AIDT-local-source.zip",
+      "library_file_id": "libfile_fde3_f-870b35a7c80c81919969821a5c7163d8_f2550309ede48191b6efb8c3155855a5",
+      "version": 10,
+      "libraryBytes": 53133814,
+      "validatedArchiveEntries": 12869,
+      "validatedManifestHashes": 12867,
+      "privateProviderValuesAbsent": true,
+      "runtimeDataIncluded": false,
+      "browserScreenshotsIncluded": false,
+      "localIdentityMetadataHelperExit": 0
+    }
+  ],
+  "preparedRouteAttempt": "failed at hosted tools discovery HTTP401 before any prepare/write; owned direct replacements followed in original order with version guards",
+  "backlog": {
+    "pageId": "page_78bc9016074481918252b6ea34bdbbea",
+    "changedBlocks": 2,
+    "pageBlocksBefore": 76,
+    "pageBlocksAfter": 76,
+    "readBackExact": true,
+    "otherApprovalBlocksPreserved": true
+  },
+  "remainingNotPassed": [
+    "2 official sandbox checks blocked by build storage",
+    "human classroom acceptance not performed"
+  ],
+  "productionDeployment": false,
+  "githubPrCi": "not executed; prior external-write restriction preserved"
+}

@@ -1,0 +1,131 @@
+import { isAbsolute } from "node:path";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { expect, test } from "@playwright/test";
+import { chat, skills, wave2Runtime } from "@repo/contracts";
+import { operations } from "@repo/contracts/aidt-stages";
+import { AidtContextSelector, operations as contextOperations } from "@repo/contracts/aidt-run-context";
+import { validateAidtV2Receipt } from "./support/aidt-v2-wire-metadata";
+import { REAL_MODEL_SMOKE } from "./real-model-smoke-fixture";
+import { apiPath } from "./support/real-model-api";
+import { aidtV2Api, assertAidtV2Target, loginAidtV2, readAidtV2Stage, sendAidtV2NativeTurn } from "./support/aidt-v2-acceptance";
+import { readAidtQuestionSnapshot } from "../features/aidt/lib/aidt-verification-loop";
+import { readCompletionState } from "./support/aidt-v2-completion-state";
+import { evaluateAidtSummary } from "./support/aidt-v2-remediation-criteria";
+import { reviewAidtSyntheticIntent } from "./support/aidt-v2-intent-review";
+import { reviewAidtCurrentPlanOnce } from "./support/aidt-v2-plan-review";
+const sha = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
+
+test(process.env.AIDT_V2_SUMMARY_CORRECTION_MODE === "1" ? "student source correction: same new Skill thread → reviewed full revision → save, export and login" : "compact SUM supplement: new approved Skill thread → complete reviewed report → exact save, export and login", async ({ page, browser }, info) => {
+  test.setTimeout(600_000); assertAidtV2Target();
+  const correction = process.env.AIDT_V2_SUMMARY_CORRECTION_MODE === "1";
+  const recoveryFile = process.env.AIDT_V2_SUMMARY_EXISTING_RUN_FILE;
+  const recovering = Boolean(recoveryFile);
+  expect(process.env.AIDT_V2_SUMMARY_SUPPLEMENT_AUTHORIZED).toBe(correction ? "one-student-summary-correction-20261117" : "one-compact-summary-20261117"); expect(process.env.AIDT_V2_SUMMARY_VERSION).toBe("1.0.2");
+  const primaryLedger = process.env.AIDT_V2_RUN_LEDGER!, stateFile = process.env.AIDT_V2_COMPLETION_STATE!;
+  const priorSupplement = process.env.AIDT_V2_PREVIOUS_SUMMARY_LEDGER;
+  const priorSupplementBytes = priorSupplement ? readFileSync(priorSupplement) : null;
+  const ledgerBytes = readFileSync(primaryLedger), stateBytes = readFileSync(stateFile), projectId = readCompletionState().projectId!;
+  const old = (JSON.parse(ledgerBytes.toString()) as { entries: { skill: string; threadId: string; runId: string }[] }).entries.find(row => row.skill === "dt-summarize-project")!;
+  expect(old.runId).toBeTruthy();
+  const proofFile = process.env.AIDT_V2_SUMMARY_SEMANTIC_REVIEW_FILE!; expect(isAbsolute(proofFile)).toBe(true); if (!recovering) expect(existsSync(proofFile)).toBe(false);
+  const extra = process.env.AIDT_V2_SUPPLEMENTAL_SUMMARY_LEDGER!; expect(isAbsolute(extra)).toBe(true); expect(extra).not.toBe(primaryLedger); expect(existsSync(extra)).toBe(recovering);
+  const extraBytes = recovering ? readFileSync(extra) : null;
+  const modelPosts: string[] = []; page.context().on("request", request => { if (request.method() === "POST" && /copilotkit|\/pm-designs\/[^/]+\/(?:chat|variants)/u.test(new URL(request.url()).pathname)) modelPosts.push(new URL(request.url()).pathname); });
+  await loginAidtV2(page);
+  const stages = await Promise.all([1, 2, 3, 4, 5, 6].map(id => readAidtV2Stage(page, projectId, id))), baseline = stages[5]!;
+  expect(baseline.revision).toBe(7); expect(baseline.content.draft.fields.returnStep).toBe("5"); expect(baseline.content.summaryReport?.markdown).toBeTruthy();
+  const history = await aidtV2Api(page, `/projects/${projectId}/aidt/stages/6/revisions?limit=10`); expect(history.status).toBe(200);
+  const oldS6 = operations.history.out.parse(history.data).items.find(row => row.revision === 4)!; expect(oldS6.content.draft.fields.returnStep).toBe("2");
+  const messages = async () => { const r = await aidtV2Api(page, `/chat/threads/${old.threadId}/messages?limit=100`); expect(r.status).toBe(200); return chat.operations.listMessages.out.parse(r.data).messages; };
+  const originalMessages = await messages();
+  let fresh = page;
+  const upgradeProofFile = process.env.AIDT_V2_SUMMARY_UPGRADE_PROOF!;
+  const knownNewThread = existsSync(upgradeProofFile) ? JSON.parse(readFileSync(upgradeProofFile, "utf8")).threadId as string : null;
+  if (correction) expect(knownNewThread, "纠正必须复用已核的同一新版对话").toBeTruthy();
+  if (knownNewThread) {
+    await page.goto(`/aidt/${projectId}?step=6&tool=chat&summary=1&summaryThread=${knownNewThread}`);
+  } else {
+    await page.goto(`/aidt/${projectId}?step=6&tool=chat&summary=1&summaryThread=${old.threadId}`);
+    await expect(page.getByTestId("aidt-step-skill")).toBeVisible();
+    await page.getByRole("button", { name: "使用新版另开本步对话", exact: true }).click();
+    const popup = page.waitForEvent("popup"); await page.getByRole("link", { name: "打开新版对话（新标签页）", exact: true }).click();
+    fresh = await popup; await fresh.waitForURL(url => url.searchParams.get("summaryThread") !== old.threadId && url.searchParams.get("summary") === "1");
+  }
+  await expect(fresh.getByTestId("aidt-step-skill")).toBeVisible();
+  const upgradedThreadId = new URL(fresh.url()).searchParams.get("summaryThread")!;
+  if (process.env.AIDT_V2_SUMMARY_UPGRADE_ONLY === "1") {
+    const mounted = await aidtV2Api(fresh, skills.operations.listThreadDeviations.path.replace(":threadId", upgradedThreadId)); expect(mounted.status).toBe(200);
+    const setup = JSON.parse(readFileSync(process.env.AIDT_V2_SETUP_RESULT!, "utf8"));
+    const pins = skills.operations.listThreadDeviations.out.parse(mounted.data).temporary.filter(row => row.removedAt === null);
+    expect(pins.some(row => row.versionId === setup.pins["dt-summarize-project"])).toBe(true);
+    const empty = await aidtV2Api(fresh, `/chat/threads/${upgradedThreadId}/messages?limit=100`); expect(empty.status).toBe(200); expect(chat.operations.listMessages.out.parse(empty.data).messages).toEqual([]);
+    expect(modelPosts).toEqual([]);
+    const proof = { projectId, oldThreadId: old.threadId, threadId: upgradedThreadId, versionId: setup.pins["dt-summarize-project"], pins, modelRequestsSent: 0, newThreadEmpty: true };
+    writeFileSync(upgradeProofFile, JSON.stringify(proof, null, 2), { flag: "wx", mode: 0o600 });
+    expect(await messages()).toEqual(originalMessages); expect(readFileSync(primaryLedger)).toEqual(ledgerBytes); expect(readFileSync(stateFile)).toEqual(stateBytes);
+    await info.attach("free-new-summary-thread-pin", { contentType: "application/json", body: Buffer.from(JSON.stringify(proof, null, 2)) }); return;
+  }
+  expect(upgradedThreadId, "正常升级入口须复用此前已核的空新版对话").toBe(JSON.parse(readFileSync(upgradeProofFile, "utf8")).threadId);
+  const beforeNew = await aidtV2Api(fresh, `/chat/threads/${upgradedThreadId}/messages?limit=100`); expect(beforeNew.status).toBe(200);
+  const retainedNewMessages = chat.operations.listMessages.out.parse(beforeNew.data).messages;
+
+  await fresh.getByRole("button", { name: "读取报告材料", exact: true }).click();
+  const materials = fresh.getByTestId("aidt-summary-materials"); await materials.locator("summary").first().click();
+  const packet = JSON.parse(await materials.locator("pre").innerText()); expect(packet.missingStages).toEqual([]); expect(packet.teacherComments).toBeNull();
+  await fresh.getByTestId("aidt-summary-offer-request").click();
+  const frozen = readAidtQuestionSnapshot(baseline.content.draft)!;
+  const prompt = correction ? `学生核对已保存材料后请求修订：本轮第6步冻结验证问题卡原文是「${frozen.question}」，其sourceStageRevision为${frozen.sourceStageRevision}，即第5步V${frozen.sourceStageRevision}。当前第5步V${stages[4]!.revision}的verificationQuestion原文是「${stages[4]!.content.draft.fields.verificationQuestion}」。请按当前服务端已选保存原文与版本核对并校正前一稿的来源号：旧题不能写成V4，新题不能倒填旧轮。请给整份完整精简修订稿，保留所有已正确的事实、节选/截断说明、旧回2/新回5、静态待测试和无真人研究的边界；事实和后续建议分开，不替学生确认或保存。这只是学生按已保存字段纠正来源，不是最终报告正文。` : "请基于本组已选择保存的材料给一份完整紧凑的小组研究报告草稿，先覆盖六步与关键学习链，再按需展开细节。包含选题依据、意外发现或暂无、画像/HMW、学生分类与选择、原验证问题与前后认识、实际原型版本和历史/当前回溯。声明已知节选/截断范围与静态原型局限，引用短而具体；不要把材料目录当正文。若预算有限，减少细节而不要只交半篇，必须有完整结尾。所有研究材料是合成课堂练习，没有真实访谈、测试或教师点评；不补造。事实与建议分开，不替学生确认或保存。";
+  const readExisting = async () => {
+    expect(correction).toBe(true);
+    const captured = JSON.parse(readFileSync(recoveryFile!, "utf8"));
+    expect(captured.projectId).toBe(projectId); expect(captured.turn.threadId).toBe(upgradedThreadId);
+    const currentMessages = await aidtV2Api(fresh, `/chat/threads/${upgradedThreadId}/messages?limit=100`); expect(currentMessages.status).toBe(200);
+    const canonical = chat.operations.listMessages.out.parse(currentMessages.data).messages; expect(canonical).toEqual(captured.messages);
+    const input = canonical.find(row => row.authorKind === "human" && row.text === prompt)!; expect(input).toBeTruthy();
+    const reply = canonical.find(row => row.id === captured.turn.assistantMessageId)!; expect(reply.authorKind).toBe("agent"); expect(reply.text).toBe(captured.turn.assistantText); expect(reply.agentRunId).toBe(captured.turn.runId);
+    const slot = JSON.parse(extraBytes!.toString()).entries; expect(slot).toHaveLength(1); expect(slot[0].promptSha256).toBe(sha(prompt)); expect(slot[0].threadId).toBe(upgradedThreadId);
+    const response = await aidtV2Api(fresh, `/agent-runs/${captured.turn.runId}`); expect(response.status).toBe(200); const run = wave2Runtime.operations.getAgentRun.out.parse(response.data);
+    expect(run.status).toBe("succeeded"); expect(run.threadId).toBe(upgradedThreadId); expect(run.resultMessageId).toBe(reply.id); expect(run.inputMessageId).toBe(input.id);
+    const setup = JSON.parse(readFileSync(process.env.AIDT_V2_SETUP_RESULT!, "utf8")), versionId = setup.pins["dt-summarize-project"];
+    expect(run.skillVersionIds).toEqual([versionId]);
+    const selector = AidtContextSelector.parse({ schemaVersion: 1, projectId, purpose: "summary", stageRevisions: packet.currentStages.map((row: {stageId: number; revision: number}) => ({stageId: row.stageId, revision: row.revision})), historyRevisions: packet.historyRevisions });
+    const result = await aidtV2Api(fresh, contextOperations.receipt.path.replace(":runId", run.runId)); expect(result.status).toBe(200);
+    const sourceReceipt = validateAidtV2Receipt(result.data, { selector, runId: run.runId, skillVersionId: versionId, snapshotHash: captured.turn.sourceReceipt.snapshotHash });
+    expect(modelPosts).toEqual([]); expect(stages).toEqual(captured.currentSavedStages);
+    return { ...captured.turn, sourceReceipt, nativeBrowserFailureRetained: true, modelRequestsSentByRecovery: 0 };
+  };
+  try {
+    const turn = recovering ? await readExisting() : await sendAidtV2NativeTurn(fresh, projectId, "dt-summarize-project", prompt, "summaryThread", { reviewSyntheticIntent: runId => reviewAidtSyntheticIntent(fresh, projectId, runId), reviewCurrentPlanOnce: (runId, threadId) => reviewAidtCurrentPlanOnce(fresh, projectId, threadId, runId) });
+    expect(turn.threadId).not.toBe(old.threadId);
+    const input = info.outputPath("compact-summary-pending-independent-review.json"); writeFileSync(input, JSON.stringify({ projectId, turn, packet, currentSavedStages: stages, oldS6, originalFailedRun: old.runId }, null, 2), { flag: "wx", mode: 0o600 });
+    console.info(`[aidt-v2] COMPACT_SUMMARY_INDEPENDENT_REVIEW_INPUT ${input}`);
+    const evaluation = evaluateAidtSummary(turn.assistantText, { truncated: turn.sourceReceipt.truncated, hasV2: true, historicalReturnStep: 2, currentReturnStep: 5 });
+    await info.attach("compact-summary-content-evaluation", { contentType: "application/json", body: Buffer.from(JSON.stringify(evaluation, null, 2)) }); expect(evaluation.failures).toEqual([]);
+    console.info(`[aidt-v2] COMPACT_SUMMARY_SEMANTIC_REVIEW_REQUIRED run=${turn.runId} output=${proofFile}`);
+    await expect.poll(() => existsSync(proofFile), { timeout: 180_000, intervals: [500, 1_000] }).toBe(true);
+    const semantic = JSON.parse(readFileSync(proofFile, "utf8")); expect(semantic).toMatchObject({ runId: turn.runId, assistantMessageId: turn.assistantMessageId, assistantTextSha256: sha(turn.assistantText), criticalCount: 0, reviewedFullReport: true, referencesChecked: true, reviewRole: "independent-teaching-semantic-agent", classroomAcceptance: false, modelRequestsSent: 0 });
+    await fresh.getByTestId("aidt-open-report").click(); await expect(fresh.getByTestId("aidt-report-reload")).toBeEnabled();
+    const report = fresh.getByLabel("小组报告草稿", { exact: true }); await expect(report).toHaveValue(baseline.content.summaryReport!.markdown);
+    await fresh.getByTestId("aidt-summary-import").locator("summary").first().click(); await fresh.getByRole("button", { name: "读取AI总结结果", exact: true }).click();
+    await fresh.getByRole("combobox", { name: "选择要审阅的AI结果", exact: true }).selectOption(`message:${turn.assistantMessageId}`);
+    await expect(fresh.getByTestId("aidt-summary-result-preview")).toHaveText(turn.assistantText);
+    await expect(fresh.getByTestId("aidt-summary-source-review")).toContainText(turn.sourceReceipt.truncated ? "来源已截断" : "回执未标记摘录截断");
+    const apply = fresh.getByTestId("aidt-summary-import-apply"); await expect(apply).toBeDisabled(); expect(await readAidtV2Stage(fresh, projectId, 6)).toEqual(baseline);
+    await fresh.getByRole("checkbox", { name: "我已核对AI草稿、材料缺口与点评来源", exact: true }).check(); await apply.click();
+    const expected = await report.inputValue(); expect(expected.slice(0, baseline.content.summaryReport!.markdown.length)).toBe(baseline.content.summaryReport!.markdown);
+    const marker = "### 所选AI原文（未经软件改写）\n\n"; expect(expected).toContain(marker); expect(expected.slice(expected.indexOf(marker) + marker.length)).toBe(`${turn.assistantText}\n`);
+    const saving = fresh.waitForResponse(r => r.request().method() === "PUT" && new URL(r.url()).pathname === apiPath(`/projects/${projectId}/aidt/stages/6`));
+    await fresh.getByTestId("aidt-report-save").click(); const response = await saving; expect(response.status()).toBe(200);
+    const saved = operations.save.out.parse(await response.json()).stage; expect(saved.content.summaryReport!.markdown).toBe(expected); expect(saved.content.draft).toEqual(baseline.content.draft); expect(saved.content.summaryReport!.sourceStageRevisions).toEqual(baseline.content.summaryReport!.sourceStageRevisions);
+    const download = fresh.waitForEvent("download"); await fresh.getByRole("button", { name: "下载 Markdown 草稿", exact: true }).click(); const output = info.outputPath("student-reviewed-compact-report.md"); await (await download).saveAs(output);
+    const refs = saved.content.summaryReport!.sourceStageRevisions, exportExpected = [expected, "", "## 保存与来源版本", `报告保存版本：${saved.revision}；保存者：${saved.updatedBy}；保存时间：${saved.updatedAt}`, ...refs.map(ref => `- 第 ${ref.stageId} 步：版本 ${ref.revision}`), ""].join("\n");
+    const bytes = readFileSync(output); expect(bytes).toEqual(Buffer.from(exportExpected));
+    expect(await messages()).toEqual(originalMessages);
+    const afterNew = await aidtV2Api(fresh, `/chat/threads/${upgradedThreadId}/messages?limit=100`); expect(afterNew.status).toBe(200);
+    expect(chat.operations.listMessages.out.parse(afterNew.data).messages.slice(0, retainedNewMessages.length)).toEqual(retainedNewMessages);
+    const context = await browser.newContext({ baseURL: REAL_MODEL_SMOKE.baseUrl });
+    try { const check = await context.newPage(); await loginAidtV2(check); await check.goto(`/aidt/${projectId}?step=6&tool=report`); await expect(check.getByTestId("aidt-report-reload")).toBeEnabled(); await expect(check.getByLabel("小组报告草稿", { exact: true })).toHaveValue(expected); expect(await readAidtV2Stage(check, projectId, 6)).toEqual(saved); } finally { await context.close(); }
+    await info.attach(correction ? "student-corrected-summary-reviewed-saved-exported" : "compact-summary-reviewed-saved-exported", { contentType: "application/json", body: Buffer.from(JSON.stringify({ projectId, turn, evaluation, semantic, saved, originalFailedRun: old.runId, originalThreadPreserved: old.threadId, actualMarkdownBytes: bytes.length, markdownSha256: sha(bytes), freshLoginExactReadback: true, primaryLedgerUnchanged: true, primaryJourneyStateUnchanged: true, classroomAcceptance: false }, null, 2)) });
+  } finally { expect(readFileSync(primaryLedger)).toEqual(ledgerBytes); expect(readFileSync(stateFile)).toEqual(stateBytes); if (priorSupplement && priorSupplementBytes) expect(readFileSync(priorSupplement)).toEqual(priorSupplementBytes); if (extraBytes) expect(readFileSync(extra)).toEqual(extraBytes); if (recovering) expect(modelPosts).toEqual([]); }
+});

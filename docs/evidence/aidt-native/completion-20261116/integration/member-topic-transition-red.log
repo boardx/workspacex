@@ -1,0 +1,52 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/project-member-topic-transition.test.tsx (1 test | 1 failed) 117ms
+   × commits a disabled pending topic instead of an editable channel composer while hidden, then preserves both destinations 117ms
+     → expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <textarea
+  aria-label="发给项目成员"
+  class="block w-full min-w-0 resize-none bg-transparent text-14 focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground"
+  data-testid="project-member-input"
+  id="project-member-draft"
+  maxlength="4000"
+  placeholder="讨论分工、安排与不同意见…"
+  rows="2"
+/>
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/project-member-topic-transition.test.tsx > commits a disabled pending topic instead of an editable channel composer while hidden, then preserves both destinations
+Error: expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <textarea
+  aria-label="发给项目成员"
+  class="block w-full min-w-0 resize-none bg-transparent text-14 focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground"
+  data-testid="project-member-input"
+  id="project-member-draft"
+  maxlength="4000"
+  placeholder="讨论分工、安排与不同意见…"
+  rows="2"
+/>
+ ❯ tests/ui/project-member-topic-transition.test.tsx:44:54
+     42|   fireEvent.click(screen.getByTestId(`project-member-topic-${rootId}`)…
+     43|   expect(mocks.replies).not.toHaveBeenCalled();
+     44|   expect(screen.getByTestId("project-member-input")).toBeDisabled();
+       |                                                      ^
+     45|   expect(screen.getByTestId("project-member-input")).toHaveValue("");
+     46|   expect(screen.getByTestId("project-member-readonly")).toHaveTextCont…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  02:48:55
+   Duration  1.23s (transform 137ms, setup 76ms, collect 208ms, tests 117ms, environment 538ms, prepare 44ms)
+
+undefined
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --no-cache tests/ui/project-member-topic-transition.test.tsx

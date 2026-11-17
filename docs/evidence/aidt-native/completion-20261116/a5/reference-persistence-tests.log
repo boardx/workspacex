@@ -1,0 +1,19 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-prototype_link/apps/web
+
+ ✓ tests/ui/aidt-test-reflection.test.tsx (5 tests) 228ms
+ ✓ tests/ui/aidt-prototype-version-picker.test.tsx (13 tests) 403ms
+ ✓ tests/ui/aidt-shared-report-preview.test.tsx (3 tests) 167ms
+ ✓ tests/ui/aidt-feedback-loop.test.tsx (2 tests) 234ms
+ ✓ tests/ui/aidt-verification-question.test.tsx (2 tests) 109ms
+ ✓ tests/aidt-prototype-reference.test.ts (8 tests) 7ms
+ ✓ tests/aidt-verification-loop.test.ts (14 tests) 8ms
+ ✓ tests/aidt-prototype-versions.test.ts (7 tests) 13ms
+ ✓ tests/aidt-ui-stage-summary.test.ts (8 tests) 3ms
+ ✓ tests/aidt-v2-report.test.ts (2 tests) 3ms
+
+ Test Files  10 passed (10)
+      Tests  64 passed (64)
+   Start at  01:47:16
+   Duration  7.09s (transform 2.68s, setup 603ms, collect 7.94s, tests 1.18s, environment 2.10s, prepare 343ms)

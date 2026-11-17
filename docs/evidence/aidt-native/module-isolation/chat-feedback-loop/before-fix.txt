@@ -1,0 +1,343 @@
+
+> web@0.1.0 test /workspace/aidt-module-latest/apps/web
+> vitest run "tests/ui/project-aidt-chat.test.tsx" "tests/ui/aidt-image-attachment-picker.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/ui/aidt-image-attachment-picker.test.tsx (14 tests | 2 failed) 336ms
+   × retries restored image source failures without changing the selected reference 10ms
+     → Unable to find an accessible element with the role "button" and name "重试图片"
+
+Here are the accessible roles:
+
+  status:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+      [33mrole[39m=[32m"status"[39m
+    [36m>[39m
+      [0m图片不可用或无权访问，未替换成其他图片。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × retries a transient image decode failure by revalidating its saved source 6ms
+     → Unable to find an accessible element with the role "button" and name "重试图片"
+
+There are no accessible roles. But there might be some inaccessible roles. If you wish to access them, then set the `hidden` option to `true`. Learn more about this here: https://testing-library.com/docs/dom-testing-library/api-queries#byrole
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+    [36m>[39m
+      [0m图片读取或解码失败，请重新选择或重试。[0m
+    [36m</span>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ tests/ui/project-aidt-chat.test.tsx (14 tests | 2 failed) 1258ms
+   × keeps the active native resource in the canonical Shell's subsequent thread navigation 9ms
+     → expected null to be 'transcript' // Object.is equality
+   × lets students inspect the actual saved shared text referenced by the agent 1003ms
+     → Unable to find a label with the text of: 第1步已保存材料正文
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 flex-col"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"border-b border-border px-4 py-2 text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-step-skill"[39m
+      [36m>[39m
+        [0m本组共享对话 · 教学 Skill：[0m
+        [0m共情[0m
+      [36m</p>[39m
+      [36m<details[39m
+        [33mclass[39m=[32m"border-b border-border px-4 py-2 text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-chat-shared-context"[39m
+      [36m>[39m
+        [36m<summary[39m
+          [33mclass[39m=[32m"cursor-pointer"[39m
+        [36m>[39m
+          [0m小组已保存材料 · [0m
+          [0m1 份[0m
+        [36m</summary>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-2"[39m
+        [36m>[39m
+          [0mAI参考下列服务器版本；保存不等于小组确认或证据核实。本页尚未保存的修改不会自动传入。[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1"[39m
+        [36m>[39m
+          [0m第 [0m
+          [0m1[0m
+          [0m 步 · V[0m
+          [0m2[0m
+          [0m · 已保存，尚未确认[0m
+        [36m</p>[39m
+      [36m</details>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"chat-shell"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 flex-col"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"border-b border-border px-4 py-2 text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-step-skill"[39m
+      [36m>[39m
+        [0m本组共享对话 · 教学 Skill：[0m
+        [0m共情[0m
+      [36m</p>[39m
+      [36m<details[39m
+        [33mclass[39m=[32m"border-b border-border px-4 py-2 text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-chat-shared-context"[39m
+      [36m>[39m
+        [36m<summary[39m
+          [33mclass[39m=[32m"cursor-pointer"[39m
+        [36m>[39m
+          [0m小组已保存材料 · [0m
+          [0m1 份[0m
+        [36m</summary>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-2"[39m
+        [36m>[39m
+          [0mAI参考下列服务器版本；保存不等于小组确认或证据核实。本页尚未保存的修改不会自动传入。[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1"[39m
+        [36m>[39m
+          [0m第 [0m
+          [0m1[0m
+          [0m 步 · V[0m
+          [0m2[0m
+          [0m · 已保存，尚未确认[0m
+        [36m</p>[39m
+      [36m</details>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"chat-shell"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/aidt-image-attachment-picker.test.tsx > retries restored image source failures without changing the selected reference
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "重试图片"
+
+Here are the accessible roles:
+
+  status:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+      [33mrole[39m=[32m"status"[39m
+    [36m>[39m
+      [0m图片不可用或无权访问，未替换成其他图片。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/aidt-image-attachment-picker.test.tsx:107:26
+    105|   render(<AidtImageAttachmentPreview projectId="p" reference={{ attach…
+    106|   expect(await screen.findByText("图片不可用或无权访问，未替换成其他图…
+    107|   fireEvent.click(screen.getByRole("button", { name: "重试图片" }));
+       |                          ^
+    108|   const image = await screen.findByRole("img", { name: "a1.png" }); Ob…
+    109|   expect(mocks.load).toHaveBeenCalledTimes(2); expect(state).toHaveBee…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/aidt-image-attachment-picker.test.tsx > retries a transient image decode failure by revalidating its saved source
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "重试图片"
+
+There are no accessible roles. But there might be some inaccessible roles. If you wish to access them, then set the `hidden` option to `true`. Learn more about this here: https://testing-library.com/docs/dom-testing-library/api-queries#byrole
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+    [36m>[39m
+      [0m图片读取或解码失败，请重新选择或重试。[0m
+    [36m</span>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/aidt-image-attachment-picker.test.tsx:114:26
+    112|   render(<AidtImageAttachmentPreview projectId="p" reference={{ attach…
+    113|   fireEvent.error(await screen.findByRole("img", { name: "a1.png" }));
+    114|   fireEvent.click(screen.getByRole("button", { name: "重试图片" }));
+       |                          ^
+    115|   await screen.findByRole("img", { name: "a1.png" }); expect(mocks.loa…
+    116| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/project-aidt-chat.test.tsx > keeps the active native resource in the canonical Shell's subsequent thread navigation
+AssertionError: expected null to be 'transcript' // Object.is equality
+
+- Expected:
+"transcript"
+
++ Received:
+null
+
+ ❯ tests/ui/project-aidt-chat.test.tsx:149:41
+    147|   const next = new URL(path("t2"), "https://workspace.invalid");
+    148|   expect(next.searchParams.get("step")).toBe("2"); expect(next.searchP…
+    149|   expect(next.searchParams.get("tool")).toBe("transcript"); expect(nex…
+       |                                         ^
+    150| });
+    151| it("lets students inspect the actual saved shared text referenced by t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/project-aidt-chat.test.tsx > lets students inspect the actual saved shared text referenced by the agent
+TestingLibraryElementError: Unable to find a label with the text of: 第1步已保存材料正文
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 flex-col"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"border-b border-border px-4 py-2 text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-step-skill"[39m
+      [36m>[39m
+        [0m本组共享对话 · 教学 Skill：[0m
+        [0m共情[0m
+      [36m</p>[39m
+      [36m<details[39m
+        [33mclass[39m=[32m"border-b border-border px-4 py-2 text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-chat-shared-context"[39m
+      [36m>[39m
+        [36m<summary[39m
+          [33mclass[39m=[32m"cursor-pointer"[39m
+        [36m>[39m
+          [0m小组已保存材料 · [0m
+          [0m1 份[0m
+        [36m</summary>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-2"[39m
+        [36m>[39m
+          [0mAI参考下列服务器版本；保存不等于小组确认或证据核实。本页尚未保存的修改不会自动传入。[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1"[39m
+        [36m>[39m
+          [0m第 [0m
+          [0m1[0m
+          [0m 步 · V[0m
+          [0m2[0m
+          [0m · 已保存，尚未确认[0m
+        [36m</p>[39m
+      [36m</details>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"chat-shell"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 flex-col"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"border-b border-border px-4 py-2 text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-step-skill"[39m
+      [36m>[39m
+        [0m本组共享对话 · 教学 Skill：[0m
+        [0m共情[0m
+      [36m</p>[39m
+      [36m<details[39m
+        [33mclass[39m=[32m"border-b border-border px-4 py-2 text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"aidt-chat-shared-context"[39m
+      [36m>[39m
+        [36m<summary[39m
+          [33mclass[39m=[32m"cursor-pointer"[39m
+        [36m>[39m
+          [0m小组已保存材料 · [0m
+          [0m1 份[0m
+        [36m</summary>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-2"[39m
+        [36m>[39m
+          [0mAI参考下列服务器版本；保存不等于小组确认或证据核实。本页尚未保存的修改不会自动传入。[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1"[39m
+        [36m>[39m
+          [0m第 [0m
+          [0m1[0m
+          [0m 步 · V[0m
+          [0m2[0m
+          [0m · 已保存，尚未确认[0m
+        [36m</p>[39m
+      [36m</details>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"chat-shell"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../../aidt-native/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/project-aidt-chat.test.tsx:155:31
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  2 failed (2)
+      Tests  4 failed | 24 passed (28)
+   Start at  01:44:56
+   Duration  5.52s (transform 2.10s, setup 242ms, collect 5.75s, tests 1.59s, environment 1.52s, prepare 130ms)
+
+/workspace/aidt-module-latest/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 test: `vitest run "tests/ui/project-aidt-chat.test.tsx" "tests/ui/aidt-image-attachment-picker.test.tsx"`
+Exit status 1

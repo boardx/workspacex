@@ -1,0 +1,208 @@
+{
+  "selectorCoordinates": {
+    "schemaVersion": 1,
+    "projectId": "prj-ee3e37a0-997b-41e2-960b-4801dfde2084",
+    "stageRevisions": [
+      {
+        "stageId": 1,
+        "revision": 2
+      },
+      {
+        "stageId": 2,
+        "revision": 4
+      }
+    ],
+    "purpose": "stage",
+    "stageId": 2
+  },
+  "coordinatesOnly": true,
+  "topLevelKeys": [
+    "context",
+    "forwardedProps",
+    "messages",
+    "runId",
+    "state",
+    "threadId",
+    "tools"
+  ],
+  "messages": [
+    {
+      "index": 0,
+      "role": "user",
+      "hasSavedMarker": false,
+      "mentionsMountedSkill": false
+    }
+  ],
+  "context": [
+    {
+      "index": 0,
+      "descriptionIsAidt": false,
+      "descriptionLength": 49,
+      "hasSavedMarker": false
+    }
+  ],
+  "savedMarkerLocations": [
+    {
+      "stageId": 1,
+      "field": "focus",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "scene",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "people",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "initial",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "activity",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "discussion",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "assumptions",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "sourceDetails",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "rewrittenTheme",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "followupAnswers",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "whyWorthStudying",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "sourceUncertainty",
+      "locations": []
+    },
+    {
+      "stageId": 2,
+      "field": "goal",
+      "locations": []
+    },
+    {
+      "stageId": 2,
+      "field": "guide",
+      "locations": []
+    },
+    {
+      "stageId": 2,
+      "field": "interpretation",
+      "locations": []
+    },
+    {
+      "stageId": 2,
+      "field": "discoveryAi:bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "focus",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "scene",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "people",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "initial",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "activity",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "discussion",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "assumptions",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "sourceDetails",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "rewrittenTheme",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "followupAnswers",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "whyWorthStudying",
+      "locations": []
+    },
+    {
+      "stageId": 1,
+      "field": "sourceUncertainty",
+      "locations": []
+    },
+    {
+      "stageId": 2,
+      "field": "goal",
+      "locations": []
+    },
+    {
+      "stageId": 2,
+      "field": "guide",
+      "locations": []
+    },
+    {
+      "stageId": 2,
+      "field": "interpretation",
+      "locations": []
+    },
+    {
+      "stageId": 2,
+      "field": "discoveryAi:bce8f65a-aa1f-4f0e-94c5-02c6e5b0ad26",
+      "locations": []
+    }
+  ],
+  "mountedSkillLocations": [],
+  "rawValuesRetained": false
+}

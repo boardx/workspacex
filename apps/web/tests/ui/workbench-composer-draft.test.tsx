@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
+import { useComposerDraft, offerComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { useRunningReply } from "@/lib/chat-workbench/use-running-reply";
 import { useNotificationCenter } from "@/lib/notifications/use-notification-center";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -94,4 +94,20 @@ it("keeps three running task drafts while background outcomes update without nav
     expect(hook.result.current.draft.text).toBe(`draft ${active}`);
   }
   focus.remove();
+});
+
+it("offers a draft only to the matching mounted composer and never overwrites typed text", () => {
+  const hook = renderHook((props) => useComposerDraft(props), { initialProps: scope });
+  for (const extra of [{ userId: "other" }, { orgId: "other" }, { projectId: "other" }, { threadId: "other" }]) {
+    expect(offerComposerDraft({ ...scope, ...extra }, "foreign")).toBe("unavailable");
+  }
+  let offered = "";
+  act(() => { offered = offerComposerDraft(scope, "student outcome"); });
+  expect(offered).toBe("accepted");
+  expect(hook.result.current.text).toBe("student outcome");
+  expect(offerComposerDraft(scope, "replacement")).toBe("occupied");
+  expect(hook.result.current.text).toBe("student outcome");
+  hook.unmount();
+  expect(offerComposerDraft(scope, "late")).toBe("unavailable");
+  expect(offerComposerDraft({ ...scope, threadId: null }, "text")).toBe("unavailable");
 });

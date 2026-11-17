@@ -1,0 +1,116 @@
+{
+  "observedAt": "2026-11-16T22:38:23.787243+00:00",
+  "scope": "AIDT module release regression; not the whole monorepo or classroom approval",
+  "checks": [
+    {
+      "label": "web",
+      "cwd": "apps/web",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "aidt"
+      ],
+      "exitCode": 0,
+      "passedFiles": 96,
+      "passedTests": 818,
+      "log": "web.log",
+      "originalLogSha256": "b1563e2978602b2a00277017f5a5084f57dfd334f30e046df572855cd815b833",
+      "publicLogSha256": "4fc50512bbe30d73056690daed75d5550a36ab1adcc84de74775a6562cb85e93",
+      "logNormalization": "only final blank lines removed for repository whitespace gate; original test log retained"
+    },
+    {
+      "label": "api-context",
+      "cwd": "apps/api",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.aidt-run-context.config.ts"
+      ],
+      "exitCode": 0,
+      "passedFiles": 11,
+      "passedTests": 86,
+      "log": "api-context.log",
+      "originalLogSha256": "a534e1040827644c92f790eab854db694d425bd9f1af3ea2e65ea6c6a4b216df",
+      "publicLogSha256": "6a99240522196a0db068914b98d5c847a66b638a487e95b12766f1a1aae45872",
+      "logNormalization": "only final blank lines removed for repository whitespace gate; original test log retained"
+    },
+    {
+      "label": "api-isolation",
+      "cwd": ".",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "apps/api/vitest.aidt-isolation.config.ts"
+      ],
+      "exitCode": 0,
+      "passedFiles": 7,
+      "passedTests": 52,
+      "log": "api-isolation.log",
+      "originalLogSha256": "c8df75fbeff1d9bb863145f17ec057573b2806b93772719fc80d7b3f24b54879",
+      "publicLogSha256": "85ca6cc474fe9966967c4bf9436c873d3403b7aac12b2092ac5652144f2effc1",
+      "logNormalization": "only final blank lines removed for repository whitespace gate; original test log retained"
+    },
+    {
+      "label": "api-typecheck",
+      "cwd": "apps/api",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsc",
+        "--noEmit",
+        "--incremental",
+        "false"
+      ],
+      "exitCode": 0,
+      "log": "api-typecheck.log",
+      "exitEvidence": "observed exec exit0",
+      "publicLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "logNormalization": "only final blank lines removed for repository whitespace gate; original test log retained"
+    },
+    {
+      "label": "web-final-recovery-typecheck",
+      "cwd": "apps/web",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsc",
+        "--noEmit",
+        "--incremental",
+        "false"
+      ],
+      "exitCode": 0,
+      "log": "web-final-recovery-typecheck.log",
+      "exitEvidence": "explicit status file0",
+      "publicLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "logNormalization": "only final blank lines removed for repository whitespace gate; original test log retained"
+    }
+  ],
+  "productionSourceMatchesTestedRuntime": {
+    "webProductionUnchangedSince": "0d411edbb",
+    "webChangesOnlyE2eAndUnitTests": true,
+    "wireContractsUnchangedSince": "0d411edbb",
+    "pythonRuntimeUnchangedSince": "93b76865a",
+    "apiSummaryReleaseCommit": "5411f3245"
+  },
+  "otherIndependentEvidence": {
+    "python": "../a4-runtime/first-focus-local-receipt.json",
+    "postgres": "../a3-context/README.md",
+    "browser": "../a6/iteration-02/FINAL-USER-FLOW.md",
+    "memberText": "../a5-free-browser/free-browser-summary.json",
+    "cleanup": "../a1/final-cleanup.json"
+  },
+  "notPassed": [
+    "two official E003 sandbox integration checks: missing completed image due build disk limit"
+  ],
+  "remoteCi": "not run",
+  "productionDeploy": false,
+  "humanAcceptance": "blank, not performed"
+}

@@ -1,0 +1,2 @@
+Command: pnpm --filter web exec eslint features/aidt --ext .ts,.tsx --max-warnings 0
+Exit: 0; no diagnostics

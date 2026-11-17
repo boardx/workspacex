@@ -1,0 +1,9 @@
+
+Running 2 tests using 1 worker
+
+(node:285438) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/aidt-v2-deliverables.spec.ts:34:5 › no-model S2: student manual fallback keeps the original and exports actual adopted-guide PDF bytes (4.2s)
+  ✓  2 e2e/aidt-v2-deliverables.spec.ts:90:5 › no-model S6: independent synthetic feedback file uploads, persists, rereads exact bytes and rejects cross-project/nonmember access (4.8s)
+
+  2 passed (10.1s)

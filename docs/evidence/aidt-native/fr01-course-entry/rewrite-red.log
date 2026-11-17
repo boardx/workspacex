@@ -1,0 +1,36 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ❯ tests/aidt-courses-rewrite.test.ts (3 tests | 2 failed) 20ms
+   × covers every approved course operation without taking over native AIDT pages (prefixed=false) 10ms
+     → expected undefined to be 'http://127.0.0.1:3207/aidt/courses' // Object.is equality
+   × covers every approved course operation without taking over native AIDT pages (prefixed=true) 9ms
+     → expected undefined to be 'http://127.0.0.1:3207/aidt/courses' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-courses-rewrite.test.ts > covers every approved course operation without taking over native AIDT pages (prefixed=false)
+ FAIL  tests/aidt-courses-rewrite.test.ts > covers every approved course operation without taking over native AIDT pages (prefixed=true)
+AssertionError: expected undefined to be 'http://127.0.0.1:3207/aidt/courses' // Object.is equality
+
+- Expected:
+"http://127.0.0.1:3207/aidt/courses"
+
++ Received:
+undefined
+
+ ❯ tests/aidt-courses-rewrite.test.ts:17:31
+     15|     const concrete = operation.path.replace(":courseId", "crs-1").repl…
+     16|     const rule = afterFiles.find((value: Rewrite) => getPathMatch(valu…
+     17|     expect(rule?.destination).toBe(origin + operation.path);
+       |                               ^
+     18|   }
+     19|   const courseRules = afterFiles.filter((rule: Rewrite) => rule.source…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  05:48:11
+   Duration  705ms (transform 115ms, setup 116ms, collect 134ms, tests 20ms, environment 0ms, prepare 83ms)

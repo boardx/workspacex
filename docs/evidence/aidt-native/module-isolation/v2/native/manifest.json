@@ -1,0 +1,204 @@
+{
+  "createdAt": "2026-11-15T08:07:58.563064+00:00",
+  "buildSourceCommit": "b7256029d1e4eaa34031a085e76ff9c53f109ab7",
+  "acceptedTestCommit": "f11304c715eac46588871b3b946a8f61f9e44bce",
+  "sourceDifferencesSinceBuild": [
+    "apps/web/e2e/aidt-local-persistence.spec.ts"
+  ],
+  "buildDurationMs": 234970,
+  "buildId": "gDzjfL7LkpLJdNaBmuN-D",
+  "sourceInputHash": "5f382ca82a69257fd7e2a787b6ef5f1b58bb4cf7afd31ef6c106ec1ba56884cf",
+  "runtimeArtifactHash": "b772d566702c172631d690f500ffc1728f68e6898d0154f70f8578eabdf24d78",
+  "receiptStillUsable": true,
+  "fullRunStats": {
+    "startTime": "2026-11-15T08:03:29.265Z",
+    "duration": 107884.011,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "suiteErrors": [],
+  "nativeCycles": 2,
+  "actualWebMode": "start",
+  "parentNodeEnv": "development",
+  "fixtureModel": false,
+  "actualModelTested": false,
+  "actualGeneratedPrototype": false,
+  "actualResearchCollected": false,
+  "firstWorkspaceRouteMs": 2560,
+  "featureCss": {
+    "heading": {
+      "fontSize": "20px",
+      "clip": "auto",
+      "height": 28
+    },
+    "desktop": {
+      "position": "absolute",
+      "maxWidth": "448px",
+      "width": 448
+    },
+    "mobile": {
+      "position": "fixed",
+      "height": 812,
+      "viewport": 812
+    }
+  },
+  "branches": [
+    {
+      "revision": 1,
+      "status": "unchanged",
+      "returnStep": "1",
+      "newVersion": ""
+    },
+    {
+      "revision": 2,
+      "status": "insufficient",
+      "returnStep": "undecided",
+      "newVersion": ""
+    },
+    {
+      "revision": 3,
+      "status": "insufficient",
+      "returnStep": "2",
+      "newVersion": ""
+    }
+  ],
+  "cleanupClean": true,
+  "filesExcluded": [
+    "private post-login trace (session headers possible)",
+    "all screenshots",
+    "persistent account data-dir and secrets",
+    "downloaded package tarballs"
+  ],
+  "secretScan": {
+    "checkedPrivateValues": 5,
+    "matchingSelectedFiles": []
+  },
+  "files": {
+    "attempts.json": {
+      "bytes": 1097,
+      "sha256": "6738f724bbcc72ea103bf9f971017ee2960f77c768f36896c45b58e19ec1f514"
+    },
+    "build-receipt.json": {
+      "bytes": 525,
+      "sha256": "ad33daa259afeacbf430fb353b9acdbf3ee523b30da506979e8065f3b63f9e02"
+    },
+    "build-result.json": {
+      "bytes": 134,
+      "sha256": "d0f712a041d3033d56d85436178b1e2ad65765a9fd205b5242130fc600516a9c"
+    },
+    "build.txt": {
+      "bytes": 19508,
+      "sha256": "628f099c8349485f7b795b9e1b1cebf6a91d0703b63280407becf654165bb9dd"
+    },
+    "cache-trim.json": {
+      "bytes": 336,
+      "sha256": "a220c3760d6499c875a1fec78bdb9a5338b29edc94d3f17c1ad05bd21714a495"
+    },
+    "cleanup.json": {
+      "bytes": 615,
+      "sha256": "a6bd6889e38a0cb49ba51e7420995cd6001e46323f8053034405ddab592e9545"
+    },
+    "execution.json": {
+      "bytes": 956,
+      "sha256": "5ec0e0261fc8cea3c78f2fe98c0f9173deed6c2d8dbb000d09fb93ce0a9da5a4"
+    },
+    "failed-dependency-build.json": {
+      "bytes": 132,
+      "sha256": "a849fecf4bae29f484c785dbb597658355274d8906ce3d74eadd25248012880f"
+    },
+    "failed-dependency-build.txt": {
+      "bytes": 5455,
+      "sha256": "446588a822d4f45e92bbf08b5e1d27ed550df8cc9c6a54a5a0a41e0028173c86"
+    },
+    "failed-dependency-playwright.json": {
+      "bytes": 6618,
+      "sha256": "ede9da84b125b13667475d2d0b3092024d0777c718207c7f7ccad135bb930e1d"
+    },
+    "final-receipt-check.json": {
+      "bytes": 38,
+      "sha256": "424bfff1d3ec0e2e484f084e3a4b87424a46ff418dce42416c25000561df43ce"
+    },
+    "health-1.json": {
+      "bytes": 9268,
+      "sha256": "6751c8e18ea74495189b5d496ecae9eaed843253c17c5482d6ae33e6d86f137b"
+    },
+    "health-2.json": {
+      "bytes": 9268,
+      "sha256": "add7a1e20278b5de71c85749f6242c9f4b273fc00c5d1fe9a39c0e71d8ac93a9"
+    },
+    "interrupted-execution.json": {
+      "bytes": 808,
+      "sha256": "459b780e7510a35fe90e8855e48b8569df8a21290c805228e0b4fb53016b1a78"
+    },
+    "interrupted-playwright.json": {
+      "bytes": 3521,
+      "sha256": "6349ac27ca07ed9ee6f375ec229cb5cc3d52e2ff407138bc86c00198b4a1541f"
+    },
+    "interrupted-run.txt": {
+      "bytes": 1472,
+      "sha256": "f8956dec010cbb2499539cc1988cc02dcf541afb489f0d3fc7fb43106d95ebe0"
+    },
+    "locator-diagnostic.json": {
+      "bytes": 95,
+      "sha256": "7b0f4af4ce4ea7806cbbadf590ca4fa05e23626aabd69373ec8b5750c18114c7"
+    },
+    "native-start-1.txt": {
+      "bytes": 7877,
+      "sha256": "7b9d124cba3a6d31946e95d07a3fc9563252dd138b18512ee73308bc0de2b35a"
+    },
+    "native-start-2.txt": {
+      "bytes": 7724,
+      "sha256": "519c13f0d74c8395ca28cd78ac2ad5b677830aea9e8937f3a518360892fdd5fb"
+    },
+    "next-file-integrity.json": {
+      "bytes": 67,
+      "sha256": "833d624928d0b37daefbcb27f38fb400f8f55bd6c66e62e70874a9657e0c7696"
+    },
+    "next-repair.json": {
+      "bytes": 786,
+      "sha256": "d97a3b105791c54e2bb48bfea113c7cfe3a6874cf7e36e574cf5d120403223a4"
+    },
+    "persistent-roundtrip.json": {
+      "bytes": 20324,
+      "sha256": "5bd6a8eeb4f82cbb49eefb66ab9e474fe949295ab829d618879384aee0f9a0a6"
+    },
+    "playwright-results.json": {
+      "bytes": 17410,
+      "sha256": "92f6bd9faed0b95ae05a42766d76919bfab3c1a309e7a298d56932f0828421bd"
+    },
+    "post-interrupt-stop.json": {
+      "bytes": 630,
+      "sha256": "fe0890fa6194fe4e8842e6468c950120ec7e276f26d98cef3db2a12500478b73"
+    },
+    "react-repair.json": {
+      "bytes": 294,
+      "sha256": "a819756197dfc7594ab319fffda2b6267d7fd57a4ce285a95492bb6a271075e5"
+    },
+    "released-owned-quarantine.json": {
+      "bytes": 9661,
+      "sha256": "2cdf009d5d00d6bf392aef3a17a13193c037f6406c72e7ad5e80e606c9d085e5"
+    },
+    "run.txt": {
+      "bytes": 8662,
+      "sha256": "c0a9afdf152071344da835b47d4bde6a60d7f570929f6fda66a5f20288aa5464"
+    },
+    "socket-states.json": {
+      "bytes": 61,
+      "sha256": "e5b2fa01641d8b0c6c6f5fb74edcbe7200ab0ec26fa9d12b16413df0d7ef0580"
+    },
+    "source-checkpoint.json": {
+      "bytes": 863,
+      "sha256": "d8b943b6d21bab16b8437947cc80492d2aafe88157aeed9063a6eb6751d8da59"
+    },
+    "stopped-1.json": {
+      "bytes": 461,
+      "sha256": "3c1cd7bac4658477ef5529e8d681d4079eb312c393cbfc85ff3c1575d1d5931d"
+    },
+    "stopped-2.json": {
+      "bytes": 461,
+      "sha256": "3c1cd7bac4658477ef5529e8d681d4079eb312c393cbfc85ff3c1575d1d5931d"
+    }
+  }
+}

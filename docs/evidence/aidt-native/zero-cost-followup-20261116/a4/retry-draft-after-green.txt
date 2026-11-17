@@ -1,0 +1,181 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native banner retry retains the original exact selector/id while a fresh send uses updated selection and verbatim student text
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native banner retry retains the original exact selector/id while a fresh send uses updated selection and verbatim student text
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+[copilotkit-v2] runAgent() threw Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:118:61
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native banner retry retains the original exact selector/id while a fresh send uses updated selection and verbatim student text
+[copilotkit-v2] runAgent() threw Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:118:61
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native banner retry retains the original exact selector/id while a fresh send uses updated selection and verbatim student text
+[copilotkit-v2] runAgent() threw Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:118:61
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:547:9)
+    at processTimers (node:internal/timers:521:7)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > an unready host retains the actual composer draft and never silently dispatches an ordinary run
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > busy host rejects both native send and queue before clearing the draft or making any queue POST
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > observes only the persisted execution run id after dispatch, not the SDK correlation id
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native timeline failure retry also retains the frozen selector and client message id
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > native timeline failure retry also retains the frozen selector and client message id
+[CopilotKit] Error (agent_run_error_event): Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:137:318
+    at /workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:47:24
+    at act (/workspace/aidt-module-latest/node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react.development.js:2512:16)
+    at Proxy.<anonymous> (/workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:46:25)
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:137:271
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3) { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+[copilotkit-v2] agent run failed {
+  code: 'MODEL_CALL_FAILED',
+  context: { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+}
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > queued host acceptance is read from the exact persisted human id without waiting for execution events
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > ordinary native Chat does not add a host acceptance read on send or its SDK start
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > ordinary native banner retry preserves a newer composer draft and the original message id
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > ordinary native banner retry preserves a newer composer draft and the original message id
+[CopilotKit] Error (agent_run_error_event): Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:158:55
+    at /workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:47:24
+    at act (/workspace/aidt-module-latest/node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react.development.js:2512:16)
+    at Proxy.<anonymous> (/workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:46:25)
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:158:8
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3) { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+[copilotkit-v2] agent run failed {
+  code: 'MODEL_CALL_FAILED',
+  context: { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+}
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > ordinary native timeline retry preserves a newer composer draft and the original message id
+[CopilotKit Inspector] Failed to load announcement Error: Failed to load announcement (404)
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11581:15)
+Failed to load runtime info (/api/copilotkit/info): Runtime info request failed with status 404
+[CopilotKit] Error (runtime_info_fetch_failed): Error: Runtime info request failed with status 404
+    at AgentRegistry.fetchRuntimeInfo (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:633:13)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/aidt-module-latest/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-host-run-context.test.tsx > ordinary native timeline retry preserves a newer composer draft and the original message id
+[CopilotKit] Error (agent_run_error_event): Error: MODEL_CALL_FAILED
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:158:55
+    at /workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:47:24
+    at act (/workspace/aidt-module-latest/node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react.development.js:2512:16)
+    at Proxy.<anonymous> (/workspace/aidt-module-latest/node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom@18.3.7_@types+reac_yefaxtrzi2ickl5gaqddui67ne/node_modules/@testing-library/react/dist/act-compat.js:46:25)
+    at /workspace/aidt-module-latest/apps/web/tests/ui/copilotkit-v2-host-run-context.test.tsx:158:8
+    at file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///workspace/aidt-module-latest/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3) { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+[copilotkit-v2] agent run failed {
+  code: 'MODEL_CALL_FAILED',
+  context: { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+}
+
+ ✓ tests/ui/copilotkit-v2-host-run-context.test.tsx (9 tests) 1479ms
+   ✓ native banner retry retains the original exact selector/id while a fresh send uses updated selection and verbatim student text 381ms
+   ✓ observes only the persisted execution run id after dispatch, not the SDK correlation id 577ms
+ ✓ tests/ui/workbench-composer-draft.test.tsx (6 tests) 79ms
+ ✓ tests/ui/aidt-run-context-receipt.test.tsx (7 tests) 146ms
+
+ Test Files  3 passed (3)
+      Tests  22 passed (22)
+   Start at  14:53:51
+   Duration  9.26s (transform 3.04s, setup 185ms, collect 5.81s, tests 1.70s, environment 1.10s, prepare 108ms)
+

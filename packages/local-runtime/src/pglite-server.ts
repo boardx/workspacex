@@ -111,6 +111,8 @@ export async function startPgliteServer(opts: PgliteServerOptions): Promise<Pgli
     async stop() {
       if (stopped) return;
       stopped = true;
+      // Reject queued work, drain active SQL and make late detach callbacks inert.
+      await queue.stop();
       await server.stop();
       await db.close();
     },

@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/scratch/aidt-complete-report_history/apps/web
+
+ ✓ tests/aidt-report-history.test.ts > collects multiple saved learning revisions, exact source revisions and student decisions without asserting completed rounds
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 8 skipped (9)
+   Start at  01:31:47
+   Duration  914ms (transform 224ms, setup 94ms, collect 294ms, tests 10ms, environment 0ms, prepare 66ms)
+

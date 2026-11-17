@@ -1,0 +1,15 @@
+
+> web@0.1.0 test /workspace/aidt-module-latest/apps/web
+> vitest run "tests/ui/aidt-ui-v3.test.tsx" "tests/ui/project-aidt.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/web
+
+ ✓ tests/ui/project-aidt.test.tsx (12 tests) 713ms
+ ✓ tests/ui/aidt-ui-v3.test.tsx (7 tests) 324ms
+
+ Test Files  2 passed (2)
+      Tests  19 passed (19)
+   Start at  01:53:12
+   Duration  8.96s (transform 2.80s, setup 210ms, collect 4.99s, tests 1.04s, environment 1.61s, prepare 136ms)

@@ -27,7 +27,9 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
+import type { ModelCallInput } from "../../src/application/agent-run/ports";
 import {
   ConfiguredModelProvider,
   readBailianExtensionsEnabled,
@@ -249,4 +251,21 @@ describe("#2504 readBailianExtensionsEnabled —— endpoint 维度的判定逻�
   it("带 www. 前缀的真实百炼 host 仍判 true（生产环境两种写法都可能出现）", () => {
     expect(readBailianExtensionsEnabled({}, "https://www.dashscope.aliyuncs.com/compatible-mode/v1")).toBe(true);
   });
+});
+
+// Generic reference transport proof: direct configured providers never claim native dispatch.
+it.each([false, true])("preserves the frozen reference and exact user bytes on configured stream=%s without a native receipt", async streamEnabled => {
+  const content = '[Untrusted reference] {"stage":1,"revision":7}';
+  const beforeDispatch = vi.fn(async () => {}), onDispatched = vi.fn(async () => {});
+  const input: ModelCallInput = { modelProvider: PROVIDER, modelId: ALLOWED_MODEL_ID, system: "Pinned system", user: "  原文\n ", history: [{ role: "user", content }], referenceDispatchObserver: { historyIndex: 0, contentSha256: createHash("sha256").update(content).digest("hex"), beforeDispatch, onDispatched } };
+  const model = provider({ streamEnabled, thinkingDisableModelIds: new Set(), bailianExtensionsEnabled: false });
+  if (streamEnabled) await model.completeStream!(input, async () => {}); else await model.complete(input);
+  expect(lastBody).toMatchObject({ messages: [{ role: "system", content: input.system }, { role: "user", content }, { role: "user", content: input.user }] });
+  expect(beforeDispatch).toHaveBeenCalledOnce(); expect(onDispatched).not.toHaveBeenCalled();
+});
+it("blocks a revoked reference at the configured transport boundary without HTTP or native receipt", async () => {
+  const content = "reference", onDispatched = vi.fn(async () => {});
+  const input: ModelCallInput = { modelProvider: PROVIDER, modelId: ALLOWED_MODEL_ID, system: "system", user: "exact user", history: [{ role: "user", content }], referenceDispatchObserver: { historyIndex: 0, contentSha256: createHash("sha256").update(content).digest("hex"), beforeDispatch: async () => { throw new Error("revoked"); }, onDispatched } };
+  await expect(provider({ streamEnabled: false, thinkingDisableModelIds: new Set(), bailianExtensionsEnabled: false }).complete(input)).rejects.toThrow("revoked");
+  expect(lastBody).toBeNull(); expect(onDispatched).not.toHaveBeenCalled();
 });

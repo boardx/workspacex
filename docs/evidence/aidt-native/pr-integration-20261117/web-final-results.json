@@ -1,0 +1,52 @@
+{
+  "observedAt": "2026-11-17T01:43:44.979976+00:00",
+  "worktree": "/workspace/aidt-pr-20261117",
+  "head": "1a2ec212d38635a60b1337cc4a949ec564c0d7a8",
+  "trackedDiff": [
+    " M .github/workflows/image-release.yml",
+    " M apps/api/tests/aidt-stages/shared-stage-unit.test.ts",
+    " M deploy/aliyun/images/web.Dockerfile",
+    " M packages/contracts/src/aidt-stages.ts",
+    " M packages/contracts/src/project-member-chat.ts",
+    " M packages/contracts/src/skill-entry-points.ts",
+    " M packages/contracts/tests/skill-entry-points.test.ts",
+    " M scripts/registry-images.py",
+    "?? tests/test_registry_aidt_opt_in.py"
+  ],
+  "sourceBlobs": {
+    "packages/contracts/src/aidt-stages.ts": "542447eafeedcfa8d3495dbaee0f1e4fc9630ad0",
+    "packages/contracts/src/project-member-chat.ts": "5a50a95228151e1be6f5db756617c5a16f2e6ae4",
+    "packages/contracts/src/skill-entry-points.ts": "87ed5f55744449ded01d7ac94fa568e55c4b505f",
+    ".github/workflows/image-release.yml": "2dae9ccc7e2ae897545f7ab4c12c60c74382c30b",
+    "deploy/aliyun/images/web.Dockerfile": "470b57e466a71425b171973a2bf50159b51977f2",
+    "scripts/registry-images.py": "ebaf6a666756200c29f19ecd00cac6ec73715b11"
+  },
+  "environment": "source /tmp/aidt-pr-env.sh; WORKSPACEX_WEB_TEST_MAX_WORKERS=2",
+  "checks": [
+    {
+      "name": "final-opt-in-chat",
+      "log": "/tmp/aidt-pr-web-final-opt-in-chat.log",
+      "exitCode": 0,
+      "sha256": "df5d2e977e759e4a46a735a0879bc65d91f8fa94ddbaa49050e0f39cd2f82f25",
+      "summary": [
+        " Test Files  9 passed (9)",
+        "      Tests  99 passed (99)",
+        "   Start at  01:42:36",
+        "   Duration  18.37s (transform 8.72s, setup 924ms, collect 21.02s, tests 7.37s, environment 3.91s, prepare 762ms)"
+      ]
+    }
+  ],
+  "typecheck": {
+    "command": "pnpm exec tsc --noEmit --incremental false",
+    "exitCode": 0,
+    "log": "/tmp/aidt-pr-web-final-typecheck.log",
+    "outputBytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "noSourceEdits": true,
+  "noModelBrowserDockerDeployment": true,
+  "full818and192": "not repeated; see previous receipt for scope and revision bound post-fix supplement",
+  "completedAt": "2026-11-17T01:44:19.350108+00:00",
+  "endHead": "1a2ec212d38635a60b1337cc4a949ec564c0d7a8",
+  "sourceBlobsUnchanged": true
+}

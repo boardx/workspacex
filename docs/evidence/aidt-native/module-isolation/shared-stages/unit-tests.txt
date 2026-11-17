@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /workspace/aidt-module-latest/apps/api
+
+ ✓ tests/aidt-stages/shared-stage-unit.test.ts (37 tests) 39ms
+ ✓ tests/aidt-stages/shared-stage-controller.test.ts (10 tests) 7ms
+
+ Test Files  2 passed (2)
+      Tests  47 passed (47)
+   Start at  00:01:58
+   Duration  2.63s (transform 1.16s, setup 0ms, collect 2.29s, tests 47ms, environment 0ms, prepare 85ms)

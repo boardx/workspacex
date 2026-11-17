@@ -1,0 +1,60 @@
+{
+  "observedAt": "2026-11-16T20:24:08.985Z",
+  "readOnly": true,
+  "groups": [
+    {
+      "orgId": "org-fullstack--20261117-s-1e261c1b8eac",
+      "userIds": [
+        "user-fullstack--20261117-s-1e261c1b8eac",
+        "user-fullstack-admin--20261117-s-1e261c1b8eac"
+      ],
+      "orgMemberships": [
+        {
+          "user_id": "user-fullstack--20261117-s-1e261c1b8eac",
+          "org_role": "consultant"
+        },
+        {
+          "user_id": "user-fullstack-admin--20261117-s-1e261c1b8eac",
+          "org_role": "admin"
+        }
+      ],
+      "general": [],
+      "workshops": [
+        {
+          "user_id": "user-fullstack--20261117-s-1e261c1b8eac",
+          "project_id": "project-fullstack--20261117-s-1e261c1b8eac",
+          "role": "facilitator",
+          "kind": "workshop"
+        }
+      ],
+      "sharedNonA6Projects": [],
+      "collaborationSeedProject": null
+    },
+    {
+      "orgId": "org-collaboration--20261117-s-1e261c1b8eac",
+      "userIds": [
+        "user-collab-lead--20261117-s-1e261c1b8eac",
+        "user-collab-member--20261117-s-1e261c1b8eac"
+      ],
+      "orgMemberships": [
+        {
+          "user_id": "user-collab-lead--20261117-s-1e261c1b8eac",
+          "org_role": "admin"
+        },
+        {
+          "user_id": "user-collab-member--20261117-s-1e261c1b8eac",
+          "org_role": "consultant"
+        }
+      ],
+      "general": [],
+      "workshops": [],
+      "sharedNonA6Projects": [],
+      "collaborationSeedProject": {
+        "id": "project-collaboration--20261117-s-1e261c1b8eac",
+        "kind": "general",
+        "status": "active"
+      }
+    }
+  ],
+  "modelRequestsSentByAudit": 0
+}

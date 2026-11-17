@@ -1,0 +1,3 @@
+Listing tests:
+  aidt-v2-s2-supplement.spec.ts:23:5 › supplemental S2: new native thread and canonical base preserve the original failed task
+Total: 1 test in 1 file

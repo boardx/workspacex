@@ -1,0 +1,10 @@
+
+Running 1 test using 1 worker
+
+(node:417564) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[aidt-v2] native request observed · aidt-ideate · budget entry 6783238b-2658-4296-9ee5-bda245a9762b
+[aidt-v2] durable native run succeeded · aidt-ideate · f53bc122-fc39-40f5-972a-021467b6190b
+  ✓  1 e2e/aidt-v2-completion.spec.ts:75:7 › completion S4: same-group saved inputs → actual native dispatch → student revision → new login (39.0s)
+
+  1 passed (40.5s)

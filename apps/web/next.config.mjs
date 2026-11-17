@@ -208,6 +208,14 @@ const nextConfig = {
     // Browser E2E gates must traverse the real API; the test-only same-origin proxy
     // 跨端口 CORS 配置扩张成产品运行时改动。正式 `/chat` 页面本身不被改写。
     const afterFiles = [
+      // AIDT course registry: only the three approved API resource paths. Native
+      // /aidt and /aidt/:projectId remain frontend workspaces.
+      { source: `${prefix}/aidt/courses`, destination: `${apiOrigin}/aidt/courses` },
+      { source: `${prefix}/aidt/courses/:courseId/groups`, destination: `${apiOrigin}/aidt/courses/:courseId/groups` },
+      { source: `${prefix}/aidt/courses/:courseId/groups/:projectId`, destination: `${apiOrigin}/aidt/courses/:courseId/groups/:projectId` },
+      // Already covered by the ingestion-runs family below; keep the approved raw
+      // byte route explicit for the controller-literal coverage check as well.
+      { source: `${prefix}/ingestion-runs/:ingestionRunId/content`, destination: `${apiOrigin}/ingestion-runs/:ingestionRunId/content` },
       { source: `${prefix}/report-files`, destination: `${apiOrigin}/report-files` },
       { source: `${prefix}/report-files/:path*`, destination: `${apiOrigin}/report-files/:path*` },
       { source: `${prefix}/surveys/:path*`, destination: `${apiOrigin}/surveys/:path*` },

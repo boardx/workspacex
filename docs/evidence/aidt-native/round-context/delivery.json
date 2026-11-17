@@ -1,0 +1,23 @@
+{
+  "libraryFileId": "libfile_fde3_f-870b35a7c80c81919969821a5c7163d8_f2550309ede48191b6efb8c3155855a5",
+  "fileId": "file_00000000529881fd9b793f29d76df090",
+  "version": 3,
+  "filename": "AIDT-local-source.zip",
+  "bytes": 48949322,
+  "path": "/AIDT-local-source.zip",
+  "metadataPersisted": true,
+  "backlogUrl": "https://chatgpt.com/space/page_78bc9016074481918252b6ea34bdbbea",
+  "backlogSequence": 24,
+  "sourceCommit": "00a895a3d3e7fddadc077ee401bccbd7ae89f558",
+  "runtimeCommit": "39a35463817175ed02bef0d810fdcb187dc7e841",
+  "navigationCommit": "f436f1065",
+  "sha256": "8bec578e3cbcd204b6a223c264eec51af21f4628ca3ee4b7efa2862f0b2018b1",
+  "archiveIntegrity": "passed",
+  "webTests": 501,
+  "runtimeTests": 38,
+  "nativeCases": 1,
+  "nativeStartStopCycles": 2,
+  "actualModelTested": false,
+  "productionDeployed": false,
+  "prPublished": false
+}

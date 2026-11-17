@@ -1,0 +1,28 @@
+{
+  "actualBrowser": true,
+  "status": "failed-QA-transport-before-member-send",
+  "durationSeconds": 5.3,
+  "failure": "legacy helper direct API-origin fetch failed, after same canonical path had already succeeded through the normal same-origin transport",
+  "setupCompletedThroughNormalProduct": true,
+  "accountOrOrgRoleChanged": false,
+  "modelRequestsObserved": 0,
+  "firstFailureRetained": true,
+  "ownerZeroAudit": "../a1/a4-member-attempt01-zero-model.json",
+  "evidence": {
+    "existing-member-pair-exit-state": {
+      "orgId": "org-collaboration-20261117-01-7d265647426d",
+      "projectId": "prj-b919b4c8-6cf5-4a60-b4b9-f8e9e6b26624",
+      "privateProjectId": "prj-a711e0d4-e1da-4470-9939-12dde5ed8ad4",
+      "phases": [
+        "lead-normal-login",
+        "owner-normal-UI-created-QA-group",
+        "normal-owner-added-existing-collaborator",
+        "owner-only-QA-group-created",
+        "existing-member-normal-login"
+      ],
+      "blockedGenerationRequests": [],
+      "source": "ff9b73ebefa9b05047e918c2018b6d360f90feb3",
+      "oldFundedActorUsed": false
+    }
+  }
+}

@@ -2,7 +2,10 @@ import {attachmentExtractionPresentation} from "../../application/chat/attachmen
 import { agentSkillScopeForStableName } from "../../domain/agent/skill-scope";
 import { sameRunSkillScope } from "../../application/chat/agent-skill-scope";
 import { PUBLISHED_AGENT_ENABLED, PUBLISHED_AGENT_VERSION_MATCH } from "../agent/published-agent-sql";
-import { QueuedMessageNotReadyError } from "../../application/chat/message-command-ports";
+import { QueuedMessageNotReadyError, prepareAidtMessageSelector, sameAcceptedMessagePayload } from "../../application/chat/message-command-ports";
+import type { AidtContextSelector } from "@repo/contracts/aidt-run-context";
+import type { AidtContextActor, AidtMessageAcceptancePort } from "../../application/aidt-run-context/ports";
+import { AidtContextError } from "../../application/aidt-run-context/errors";
 import type { ArtifactContinuationContext } from "@repo/contracts/artifacts-steering";
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
@@ -25,6 +28,8 @@ interface AcceptedDbRow {
   id: string; thread_id: string; author_id: string; body: string; client_message_id: string;
   skill_scope: "agent_pins" | "general" | null;
   requested_agent_id: string; created_at: Date; agent_run_id: string; status: string;
+  aidt_selector_hash: string | null;
+  attachment_ids?: string[];
 }
 
 function accepted(row: AcceptedDbRow): AcceptedHumanMessage {
@@ -33,6 +38,7 @@ function accepted(row: AcceptedDbRow): AcceptedHumanMessage {
     id: row.id, threadId: row.thread_id, authorId: row.author_id, text: row.body,
     clientMessageId: row.client_message_id, requestedAgentId: row.requested_agent_id,
     createdAt: row.created_at.toISOString(), agentRunId: row.agent_run_id, runStatus: "queued",
+    ...(row.aidt_selector_hash != null ? { aidtSelectorHash: row.aidt_selector_hash, attachmentIds: row.attachment_ids ?? [] } : {}),
   };
 }
 
@@ -43,7 +49,10 @@ async function findAcceptedIn(
 ): Promise<AcceptedHumanMessage | null> {
   const result = await s.query<AcceptedDbRow>(
     `SELECT m.id, m.thread_id, m.author_id, m.body, m.client_message_id::text,
-            m.requested_agent_id, m.created_at, r.id AS agent_run_id, r.status, r.skill_scope
+            m.requested_agent_id, m.created_at, r.id AS agent_run_id, r.status, r.skill_scope,
+            r.aidt_selector_hash,
+            ARRAY(SELECT a.id FROM chat_message_attachments a
+              WHERE a.org_id=m.org_id AND a.message_id=m.id ORDER BY a.id) AS attachment_ids
        FROM chat_messages m JOIN agent_runs r ON r.input_message_id=m.id AND r.org_id=m.org_id
       WHERE m.org_id=$1 AND m.thread_id=$2 AND m.author_id=$3 AND m.client_message_id=$4::uuid`,
     [orgId, input.threadId, input.actorId, input.clientMessageId],
@@ -52,13 +61,37 @@ async function findAcceptedIn(
 }
 
 export class PgChatMessageCommandRepository implements ChatMessageCommandRepository {
-  constructor(private readonly db: DatabasePort,private readonly coreModels?:OrgCoreModelAvailability) {}
+  constructor(private readonly db: DatabasePort,private readonly coreModels?:OrgCoreModelAvailability,
+    private readonly aidtAcceptance?: AidtMessageAcceptancePort) {}
+
+  private aidtActor(orgId: OrgId, input: { projectId: string | null; threadId: string; actorId: string }): AidtContextActor {
+    if (input.projectId === null) throw new AidtContextError("AIDT_CONTEXT_NOT_AVAILABLE");
+    return { orgId, userId: input.actorId, projectId: input.projectId, threadId: input.threadId };
+  }
+
+  private aidtPort(): AidtMessageAcceptancePort {
+    if (!this.aidtAcceptance) throw new AidtContextError("AIDT_CONTEXT_UNAVAILABLE");
+    return this.aidtAcceptance;
+  }
+
+  private async revalidateAcceptedIn(s: TenantSession, orgId: OrgId,
+    input: { projectId: string | null; threadId: string; actorId: string }, row: AcceptedHumanMessage | null) {
+    if (row?.aidtSelectorHash != null) {
+      await this.aidtPort().revalidateAcceptedIn(s, this.aidtActor(orgId, input), {
+        runId: row.agentRunId, selectorHash: row.aidtSelectorHash,
+      });
+    }
+  }
 
   async findAccepted(
     orgId: OrgId,
     input: { projectId: string | null; threadId: string; actorId: string; clientMessageId: string },
   ) {
-    const row = await this.db.withTenant(orgId, (s) => findAcceptedIn(s, orgId, input));
+    const row = await this.db.withTenant(orgId, async s => {
+      const existing = await findAcceptedIn(s, orgId, input);
+      await this.revalidateAcceptedIn(s, orgId, input, existing);
+      return existing;
+    });
     // #594：ref 的 id 只是 Guarded 的描述性元数据（discloseDecided 不查它），
     // 个人线程没有真实 projectId 时用一个恒无绑定行的合成 id，同 resolve-visibility.ts 的先例。
     return guard({ kind: "project", id: input.projectId ?? `personal:${input.actorId}` }, row);
@@ -69,6 +102,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
     input: {
       projectId: string | null; threadId: string; actorId: string; clientMessageId: string; text: string;
       selectedAgentId: string; messageId: string; runId: string; snapshot: PublishedAgentSnapshot;
+      aidtContext?: AidtContextSelector;
       attachmentIds?: readonly string[];
       artifactContinuation?: ArtifactContinuationContext;
       queuedMessageId?: string;
@@ -76,18 +110,48 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       carriedOverFromRunId?: string;
     },
   ) {
+    const aidt = prepareAidtMessageSelector(input.aidtContext);
     const outcome = await this.db.withTenant(orgId, async (s): Promise<AcceptMessageOutcome> => {
       // JSON is an unambiguous composite key and contains no NUL byte (PostgreSQL text rejects NUL).
       const key = JSON.stringify([orgId, input.threadId, input.actorId, input.clientMessageId]);
       await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [key]);
       const replay = await findAcceptedIn(s, orgId, input);
       if (replay) {
-        return replay.text === input.text && replay.requestedAgentId === input.selectedAgentId && sameRunSkillScope(replay.skillScope, input.snapshot.skillScope)
-          ? { kind: "replay", accepted: replay }
-          : { kind: "conflict" };
+        await this.revalidateAcceptedIn(s, orgId, input, replay);
+        if (sameAcceptedMessagePayload(replay, { ...input, aidtSelectorHash: aidt?.hash })
+          && sameRunSkillScope(replay.skillScope, input.snapshot.skillScope)) return { kind: "replay", accepted: replay };
+        if (aidt || replay.aidtSelectorHash != null) throw new AidtContextError("AIDT_CONTEXT_CONFLICT");
+        return { kind: "conflict" };
+      }
+      let runSnapshot = input.snapshot;
+      let prepared: Awaited<ReturnType<AidtMessageAcceptancePort["prepareIn"]>> | undefined;
+      if (aidt) {
+        const actor = this.aidtActor(orgId, input);
+        if (actor.projectId !== aidt.selector.projectId || runSnapshot.skillScope !== "general") {
+          throw new AidtContextError("AIDT_CONTEXT_NOT_AVAILABLE");
+        }
+        // The AIDT port takes project -> organization/member -> thread locks using
+        // THIS session. The thread lock below is then reentrant, never inverted.
+        prepared = await this.aidtPort().prepareIn(s, actor, aidt.selector, {
+          runId: input.runId, inputMessageId: input.messageId,
+          skillVersionIds: runSnapshot.skillVersionIds, skillScope: runSnapshot.skillScope,
+        });
+        if (prepared.selectorHash !== aidt.hash || prepared.snapshot.focus.skillVersionId !== prepared.focusSkillVersionId
+          || !runSnapshot.skillVersionIds.includes(prepared.focusSkillVersionId)) {
+          throw new AidtContextError("AIDT_CONTEXT_SNAPSHOT_MISMATCH");
+        }
+        runSnapshot = { ...runSnapshot, skillVersionIds: [prepared.focusSkillVersionId] };
       }
       // Serialize queue consumption with every normal acceptance on this thread.
-      await s.query(`SELECT id FROM chat_threads WHERE org_id=$1 AND id=$2 FOR UPDATE`, [orgId,input.threadId]);
+      if (aidt) {
+        const locked = await s.query<{ project_id: string | null; archived: boolean }>(
+          `SELECT id,project_id,archived FROM chat_threads WHERE org_id=$1 AND id=$2 FOR UPDATE`, [orgId,input.threadId]);
+        if (locked.rows[0]?.project_id !== input.projectId || locked.rows[0]?.archived !== false) {
+          throw new AidtContextError("AIDT_CONTEXT_NOT_AVAILABLE");
+        }
+      } else {
+        await s.query(`SELECT id FROM chat_threads WHERE org_id=$1 AND id=$2 FOR UPDATE`, [orgId,input.threadId]);
+      }
       if (input.queuedMessageId) {
         const ready = await s.query(`SELECT q.id FROM thread_message_queue q
           WHERE q.org_id=$1 AND q.thread_id=$2 AND q.id=$3::uuid AND q.actor_id=$4
@@ -128,13 +192,18 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       await s.query(
         `INSERT INTO agent_runs
            (id,org_id,thread_id,input_message_id,agent_id,agent_version_id,skill_version_ids,
-            model_provider,model_id,status,skill_scope)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,'queued',$10)`,
-        [input.runId, orgId, input.threadId, input.messageId, input.snapshot.agentId,
-          input.snapshot.agentVersionId, JSON.stringify(input.snapshot.skillVersionIds),
-          core?.selection?(input.snapshot.modelProvider===DEEP_AGENT_PROVIDER_NAME?DEEP_AGENT_PROVIDER_NAME:core.selection.modelProvider):(systemDefault?.provider??input.snapshot.modelProvider),
-          core?.selection?.runtimeModelId??systemDefault?.modelId??input.snapshot.modelId, input.snapshot.skillScope ?? null],
+            model_provider,model_id,status,skill_scope,aidt_selector_hash)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,'queued',$10,$11)`,
+        [input.runId, orgId, input.threadId, input.messageId, runSnapshot.agentId,
+          runSnapshot.agentVersionId, JSON.stringify(runSnapshot.skillVersionIds),
+          core?.selection?(runSnapshot.modelProvider===DEEP_AGENT_PROVIDER_NAME?DEEP_AGENT_PROVIDER_NAME:core.selection.modelProvider):(systemDefault?.provider??runSnapshot.modelProvider),
+          core?.selection?.runtimeModelId??systemDefault?.modelId??runSnapshot.modelId, runSnapshot.skillScope ?? null, aidt?.hash ?? null],
       );
+      if (aidt && prepared) {
+        await this.aidtPort().persistIn(s, this.aidtActor(orgId, input), {
+          runId: input.runId, inputMessageId: input.messageId, selectorHash: aidt.hash, snapshot: prepared.snapshot,
+        });
+      }
       if(core?.selection){
         const binding=core.selection;
         await s.query(`INSERT INTO agent_run_core_model_snapshots(org_id,run_id,selection_version,model_id,model_provider,runtime_model_id,config_revision,private_connection_id,selected_by)
@@ -189,6 +258,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
           requestedAgentId: input.selectedAgentId,
           createdAt: inserted.rows[0]!.created_at.toISOString(),
           agentRunId: input.runId, runStatus: "queued", skillScope: input.snapshot.skillScope ?? null,
+          ...(aidt ? { aidtSelectorHash: aidt.hash, attachmentIds: input.attachmentIds ?? [] } : {}),
         },
       };
     });

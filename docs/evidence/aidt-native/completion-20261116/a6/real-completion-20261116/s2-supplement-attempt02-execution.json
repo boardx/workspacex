@@ -1,0 +1,35 @@
+{
+  "startedAt": "2026-11-16T14:20:41.920Z",
+  "mode": "user-authorized-single-additional-S2",
+  "runtimeStack": "stack-context-restore-02",
+  "apiSource": "adbb21d0ea19ce8ad8d822430369005be39b4976",
+  "webSource": "ec5ff2e9de501426f3fec9a0dddd6dfb314be4cd",
+  "qaHead": "f50bc939e747b464d6946aabe902ed5c7a0fa241",
+  "restoreZeroWindowReceiptSha256": "3b36c638ffe1773842f51e188231606774f5b31b1d5f3b6861e8ba397b79a3e3",
+  "preflightSha256": "78f037ad9e039b3cea6e1ac3d3a8e1b93ea2bc48ff2b990a1f9c679ff71bd4b7",
+  "apiOwner": {
+    "pid": 338221,
+    "startTicks": "4990840"
+  },
+  "canonicalPublishedVersionId": "agent-version-fixture-428d072b-cf41-465b-86f7-6b02fe39136f",
+  "canonicalInstructionDigest": "802cf79cc20cd6861c2aa766d7a7c4b1a9094add3624f523e467dd81c85fe371",
+  "beforeBudgetHashes": {
+    "legacy": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "s1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+    "state": "0aece7e24b07a47420625ddf36645f090763b1bc2e31cc9b88d9d6f4c7b29302"
+  },
+  "maximumNewTasks": 1,
+  "retries": 0,
+  "fixtureSupplier": false,
+  "ordinaryStudentPaidPermissionsProven": false,
+  "restoreGuardReexecutedWithFakeZeroFlags": false,
+  "finishedAt": "2026-11-16T14:20:51.060Z",
+  "afterBudgetHashes": {
+    "legacy": "96ea384f5c3206432ea607d36e16b3439e9cbc17c169433d34c8e838327e9bae",
+    "s1": "6c05de0c89f39165167e7cf64c6429969444757a2a39aab9400e5a318dbb8b9d",
+    "state": "288cbf02899f342e9ef217ef8370a2d90951523ef36684fb3d5ebc46175035f1",
+    "s2": "8ab2796362076a6c210270706e5bfa19ad6b5d829e6aa67b0c3b10d5f0cb2b8f"
+  },
+  "oldBudgetsUnchanged": true,
+  "exitCode": 1
+}

@@ -1,0 +1,33 @@
+{
+  "orgId": "org-collaboration--20261117-s-1e261c1b8eac",
+  "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+  "privateProjectId": "prj-39352b3d-4e4f-4abc-9663-3bcd468dcf65",
+  "phases": [
+    "lead-normal-login",
+    "owner-normal-UI-created-QA-group",
+    "normal-owner-added-existing-collaborator",
+    "owner-only-QA-group-created",
+    "private-QA-owner-and-member-exclusion-authoritatively-read",
+    "existing-member-normal-login",
+    "two-browser-channel-topic-and-isolation-complete"
+  ],
+  "blockedGenerationRequests": [],
+  "source": "0d411edbb902ab123d9ca7cce33b5580e7956bbd",
+  "membershipInitialization": {
+    "performed": true,
+    "scope": "本轮新建合成QA组成员初始化；未修改既有组成员或组织角色",
+    "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+    "actorUserId": "user-collab-lead--20261117-s-1e261c1b8eac",
+    "addedUserId": "user-collab-member--20261117-s-1e261c1b8eac",
+    "role": "collaborator",
+    "transport": "normally authenticated product collaborator API",
+    "status": 201,
+    "receipt": {
+      "projectId": "prj-d15c8f31-d739-4475-a524-a8aeb704e5dc",
+      "userId": "user-collab-member--20261117-s-1e261c1b8eac",
+      "role": "collaborator",
+      "provenanceEventId": "7d7ae478-2d64-4504-97b7-38d5fb4bc76a"
+    }
+  },
+  "oldFundedActorUsed": false
+}

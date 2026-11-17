@@ -1,0 +1,195 @@
+{
+  "ok": true,
+  "platform": "linux",
+  "arch": "x64",
+  "memoryGb": 17.6,
+  "freeDiskGb": 14.5,
+  "ollama": {
+    "found": false,
+    "path": null,
+    "version": null
+  },
+  "python": {
+    "venv": false,
+    "bundled": false
+  },
+  "asrModel": false,
+  "capabilities": [
+    {
+      "id": "chat-model",
+      "label": "聊天（本地模型）",
+      "state": "needs-install",
+      "because": "本机还没有能回话的模型（没装 Ollama，或模型没下全/装不进内存）。",
+      "remedy": "安装 Ollama 并确保模型下载完整，然后重启本应用；启动日志里有那次验证调用的原话。",
+      "envKeys": [],
+      "available": false
+    },
+    {
+      "id": "tools-and-skills",
+      "label": "工具调用 / Skill 执行",
+      "state": "needs-install",
+      "because": "工具循环在 deep-agent-service 里，它需要 Python 运行时。",
+      "remedy": "运行 ./scripts/local-bundle/prepare-python.sh 后重启。",
+      "envKeys": [],
+      "available": false
+    },
+    {
+      "id": "live-transcription",
+      "label": "实时转写（录音 / 访谈）",
+      "state": "needs-install",
+      "because": "本地转写模型还没下载。",
+      "remedy": "运行 ./scripts/local-bundle/fetch-asr-model.sh 后重启（约 300 MB，纯 CPU）。",
+      "envKeys": [],
+      "available": false
+    },
+    {
+      "id": "online-billing",
+      "label": "在线充值和订阅",
+      "state": "unavailable",
+      "because": "本地版不连接外部支付服务，本地模型使用无需在线充值。",
+      "remedy": "如需购买云端额度或订阅，请连接 WorkspaceX 云。",
+      "envKeys": [
+        "BILLING_DEPLOYMENT",
+        "BILLING_CATALOG_MARKET",
+        "BILLING_STRIPE_ENABLED",
+        "BILLING_WECHAT_ENABLED",
+        "WECHAT_PAY_APP_ID",
+        "WECHAT_PAY_MCH_ID",
+        "WECHAT_PAY_API_V3_KEY",
+        "WECHAT_PAY_MCH_SERIAL_NO",
+        "WECHAT_PAY_PRIVATE_KEY",
+        "WECHAT_PAY_PRIVATE_KEY_PATH",
+        "WECHAT_PAY_PLATFORM_PUBLIC_KEY",
+        "WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH",
+        "WECHAT_PAY_PLATFORM_KEY_ID",
+        "WECHAT_PAY_NOTIFY_URL",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_PAYMENT_LINK",
+        "STRIPE_MANAGEMENT_PORTAL",
+        "STRIPE_RETURN_URL",
+        "STRIPE_RETURN_LINK"
+      ],
+      "available": false
+    },
+    {
+      "id": "web-search",
+      "label": "联网检索（web_search）",
+      "state": "unavailable",
+      "because": "检索要走公网服务，本地版承诺零出网。",
+      "remedy": "连接 WorkspaceX 云后可用。",
+      "envKeys": [
+        "KERNEL_GUIDED_SEARCH_URL"
+      ],
+      "available": false
+    },
+    {
+      "id": "image-generation",
+      "label": "图片生成",
+      "state": "unavailable",
+      "because": "随包的本地模型不会画图；图片生成是供应商侧能力。",
+      "remedy": "连接 WorkspaceX 云后可用。",
+      "envKeys": [
+        "KERNEL_IMAGE_PROVIDER",
+        "KERNEL_BAILIAN_IMAGE_BASE_URL",
+        "KERNEL_BAILIAN_IMAGE_MODEL_ID",
+        "KERNEL_BAILIAN_IMAGE_POLL_INTERVAL_MS",
+        "KERNEL_BAILIAN_IMAGE_TIMEOUT_MS",
+        "KERNEL_OPENAI_API_KEY",
+        "KERNEL_OPENAI_ORGANIZATION",
+        "KERNEL_OPENAI_PROJECT",
+        "KERNEL_OPENAI_IMAGE_BASE_URL",
+        "KERNEL_OPENAI_IMAGE_MODEL_ID",
+        "KERNEL_OPENAI_IMAGE_TIMEOUT_MS",
+        "OPENAI_API_KEY",
+        "KERNEL_IMAGE_MAX_BILLABLE_TOKENS"
+      ],
+      "available": false
+    },
+    {
+      "id": "browser-tools",
+      "label": "浏览器工具",
+      "state": "unavailable",
+      "because": "浏览器运行时是一个独立容器，本地版不随包。",
+      "remedy": "连接 WorkspaceX 云后可用。",
+      "envKeys": [
+        "WORKSPACEX_BROWSER_MCP_ENDPOINT"
+      ],
+      "available": false
+    },
+    {
+      "id": "remote-mcp",
+      "label": "远程 MCP 调用",
+      "state": "unavailable",
+      "because": "远程 MCP 既要出网，也要一个独立的凭据执行数据库角色。",
+      "remedy": "连接 WorkspaceX 云后可用。",
+      "envKeys": [
+        "MCP_EXECUTOR_DB_USER",
+        "MCP_EXECUTOR_DB_PASSWORD"
+      ],
+      "available": false
+    },
+    {
+      "id": "vendor-vision-extract",
+      "label": "文档/图片的供应商视觉抽取",
+      "state": "unavailable",
+      "because": "这条通路调的是 DashScope 的原生接口，不是通用的 OpenAI 兼容端点。",
+      "remedy": "聊天里的看图能力仍然走本地模型；批量视觉抽取连接云端后可用。",
+      "envKeys": [
+        "KERNEL_VISION_BASE_URL",
+        "KERNEL_VISION_MODEL_ID",
+        "KERNEL_VISION_TIMEOUT_MS",
+        "KERNEL_VISION_MAX_IMAGE_BYTES",
+        "KERNEL_VISION_MAX_INPUT_TOKENS"
+      ],
+      "available": false
+    },
+    {
+      "id": "deep-research-service",
+      "label": "深度研究（独立服务）",
+      "state": "unavailable",
+      "because": "它是一个独立部署的服务，本地版第一版不随包。",
+      "remedy": "连接 WorkspaceX 云后可用。",
+      "envKeys": [
+        "KERNEL_DEEP_RESEARCH_BASE_URL",
+        "KERNEL_DEEP_RESEARCH_POLL_INTERVAL_MS",
+        "KERNEL_DEEP_RESEARCH_TIMEOUT_MS"
+      ],
+      "available": false
+    },
+    {
+      "id": "skill-sandbox-isolation",
+      "label": "Skill 沙箱隔离等级",
+      "state": "degraded",
+      "because": "本地沙箱是子进程（L0），不是云端那种 network=none 的只读容器。",
+      "remedy": "如实标注即可；不要在本地版运行不信任来源的 skill。",
+      "envKeys": [],
+      "available": false
+    },
+    {
+      "id": "native-sessions",
+      "label": "原生会话运行时",
+      "state": "unavailable",
+      "because": "原生会话依赖 bubblewrap，只在 Linux 容器里成立。",
+      "remedy": "本地版走 legacy profile + TCP 沙箱，功能等价、隔离更弱。",
+      "envKeys": [],
+      "available": false
+    }
+  ],
+  "findings": [
+    "聊天（本地模型）：本机还没有能回话的模型（没装 Ollama，或模型没下全/装不进内存）。 安装 Ollama 并确保模型下载完整，然后重启本应用；启动日志里有那次验证调用的原话。",
+    "工具调用 / Skill 执行：工具循环在 deep-agent-service 里，它需要 Python 运行时。 运行 ./scripts/local-bundle/prepare-python.sh 后重启。",
+    "实时转写（录音 / 访谈）：本地转写模型还没下载。 运行 ./scripts/local-bundle/fetch-asr-model.sh 后重启（约 300 MB，纯 CPU）。",
+    "在线充值和订阅：本地版不连接外部支付服务，本地模型使用无需在线充值。 如需购买云端额度或订阅，请连接 WorkspaceX 云。",
+    "联网检索（web_search）：检索要走公网服务，本地版承诺零出网。 连接 WorkspaceX 云后可用。",
+    "图片生成：随包的本地模型不会画图；图片生成是供应商侧能力。 连接 WorkspaceX 云后可用。",
+    "浏览器工具：浏览器运行时是一个独立容器，本地版不随包。 连接 WorkspaceX 云后可用。",
+    "远程 MCP 调用：远程 MCP 既要出网，也要一个独立的凭据执行数据库角色。 连接 WorkspaceX 云后可用。",
+    "文档/图片的供应商视觉抽取：这条通路调的是 DashScope 的原生接口，不是通用的 OpenAI 兼容端点。 聊天里的看图能力仍然走本地模型；批量视觉抽取连接云端后可用。",
+    "深度研究（独立服务）：它是一个独立部署的服务，本地版第一版不随包。 连接 WorkspaceX 云后可用。",
+    "Skill 沙箱隔离等级：本地沙箱是子进程（L0），不是云端那种 network=none 的只读容器。 如实标注即可；不要在本地版运行不信任来源的 skill。",
+    "原生会话运行时：原生会话依赖 bubblewrap，只在 Linux 容器里成立。 本地版走 legacy profile + TCP 沙箱，功能等价、隔离更弱。"
+  ],
+  "nodeVersion": "22.23.5",
+  "nodeSupported": true
+}

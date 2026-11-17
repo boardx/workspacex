@@ -1,0 +1,1804 @@
+{
+  "kind": "fresh-seed-independent-source-scope-ledger-audit",
+  "at": "2026-11-16T18:30:17.061Z",
+  "orgId": "org-fullstack-20261117-01-7d265647426d",
+  "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+  "orgRole": "admin",
+  "orgStatus": "active",
+  "freshDeriveScopeVerified": true,
+  "restoreAdapterUsed": false,
+  "initialZeroRunBaselineRequired": false,
+  "orgTotals": {
+    "runs": "7",
+    "snapshots": "7",
+    "applications": "17",
+    "physical": "94",
+    "usage": "94",
+    "credits": "94"
+  },
+  "group": {
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "threadId": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+    "projectStatus": "active",
+    "memberRole": "owner",
+    "resolvedProjectRole": "facilitator",
+    "threadArchived": false,
+    "threadCounts": {
+      "runs": "1",
+      "humanmessages": "1",
+      "snapshots": "1"
+    }
+  },
+  "savedSources": [
+    {
+      "stageId": 1,
+      "revision": 1,
+      "contentHash": "1af2e5a371467d1e3c99fa515bbc9e4c85ab1ebd0b144de5419f5d6d03e5a569",
+      "sourceStageRevisions": [],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:22:19.980Z"
+    },
+    {
+      "stageId": 1,
+      "revision": 2,
+      "contentHash": "a026f18ad1d4143c4a678acb88e556b86eb096e561e8c481115bb9819ad36e05",
+      "sourceStageRevisions": [],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:22:51.127Z"
+    },
+    {
+      "stageId": 2,
+      "revision": 1,
+      "contentHash": "3862a4791de57a2ec0062b8a76d7615d00f7e53e1e1b7dc79bd2ebf7714dd35f",
+      "sourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:27:03.492Z"
+    },
+    {
+      "stageId": 2,
+      "revision": 2,
+      "contentHash": "c549eee53847106e9211328ed5da187b3ab57b4a57cbfea9489bc1de7be9a9e1",
+      "sourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:27:03.902Z"
+    },
+    {
+      "stageId": 2,
+      "revision": 3,
+      "contentHash": "7e2533abad39ad490ca24a1b45acd8f6a6ce7bd2fa955a44ea40588d9765773b",
+      "sourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:27:04.582Z"
+    },
+    {
+      "stageId": 2,
+      "revision": 4,
+      "contentHash": "9ffc4d0afe880e4d4174da8678e5c01969445facee233a7bd7b1013f554bbf67",
+      "sourceStageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:34:31.051Z"
+    },
+    {
+      "stageId": 3,
+      "revision": 1,
+      "contentHash": "a64b2854971bfc1a816a839c5300f1f7042d57493d5cdd5fa2568c9e3d5f0676",
+      "sourceStageRevisions": [
+        {
+          "stageId": 2,
+          "revision": 4
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:37:40.683Z"
+    },
+    {
+      "stageId": 3,
+      "revision": 2,
+      "contentHash": "9371c2e32d9cc96ee1b92af3ccc7e09efc8f46339a07dff4dc4916ba8ad59786",
+      "sourceStageRevisions": [
+        {
+          "stageId": 2,
+          "revision": 4
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:41:04.815Z"
+    },
+    {
+      "stageId": 4,
+      "revision": 1,
+      "contentHash": "834c8eb0dab8cb20f6505bbb9f1da840297bfea245a4a5a81d5aadf427651fd7",
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:45:49.915Z"
+    },
+    {
+      "stageId": 4,
+      "revision": 2,
+      "contentHash": "d222ea73b2b5d066e4b640cb200ee176ea5228556ff4e08403b80e6044614131",
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:45:50.464Z"
+    },
+    {
+      "stageId": 4,
+      "revision": 3,
+      "contentHash": "5fa2fbe91d4b63acac3b039f686b329f7f4bb8d7c866024ec831563b5c832270",
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:46:24.076Z"
+    },
+    {
+      "stageId": 4,
+      "revision": 4,
+      "contentHash": "29cfb8d92a78edae54e93fe047546c8341db0cccb900b833480e8a0625afefb2",
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:49:40.675Z"
+    },
+    {
+      "stageId": 5,
+      "revision": 1,
+      "contentHash": "9c750d38def6efe710349713961182e7de251a850c3564e38b8c90d30c66ec1e",
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:49:41.979Z"
+    },
+    {
+      "stageId": 5,
+      "revision": 2,
+      "contentHash": "fe78d78d2389c33e15cdfb8e86060202aa79e0d5e0dc322fc9cb9ef01d4685ad",
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:55:01.853Z"
+    },
+    {
+      "stageId": 5,
+      "revision": 3,
+      "contentHash": "e825a42a3a3dd3cc8ed1fb2104cc6f2d4fc6bdb4afd22bc1a341f27524142da0",
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:57:31.028Z"
+    },
+    {
+      "stageId": 5,
+      "revision": 4,
+      "contentHash": "4c435720290f19bffc36dc6e3f18cae16d22b5b189d355e42765086bdf4b7365",
+      "sourceStageRevisions": [
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T18:10:07.806Z"
+    },
+    {
+      "stageId": 6,
+      "revision": 1,
+      "contentHash": "b8643f2a6c8eefb55379fb3005ffc4f9fb0ab7965986250fadabb56f20ef2b2c",
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T17:57:31.688Z",
+      "questionSnapshot": {
+        "sourceStageRevision": 3,
+        "questionHash": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+        "beforeTestBeliefHash": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+        "prototypeDesignIdHash": "ac0b04288ccedfb17828f63a5c16803eae54c4dcef6d9f6b4e885ec5dd131b8a",
+        "prototypeVersionIdHash": "8939a8b250b42847405e34295d17532907af811b86f7c8369a97e89f2991083a"
+      }
+    },
+    {
+      "stageId": 6,
+      "revision": 2,
+      "contentHash": "67dd343a549f1d60e1b93e1bdeb1ab8fea29f0b4135b20fa873af90e306b830e",
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T18:00:49.444Z",
+      "questionSnapshot": {
+        "sourceStageRevision": 3,
+        "questionHash": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+        "beforeTestBeliefHash": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+        "prototypeDesignIdHash": "ac0b04288ccedfb17828f63a5c16803eae54c4dcef6d9f6b4e885ec5dd131b8a",
+        "prototypeVersionIdHash": "8939a8b250b42847405e34295d17532907af811b86f7c8369a97e89f2991083a"
+      }
+    },
+    {
+      "stageId": 6,
+      "revision": 3,
+      "contentHash": "5b81b723066d45bdc5ac53f2a651724de45f919f3dcf4d78d3a50c0606dbe104",
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T18:00:49.938Z",
+      "questionSnapshot": {
+        "sourceStageRevision": 3,
+        "questionHash": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+        "beforeTestBeliefHash": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+        "prototypeDesignIdHash": "ac0b04288ccedfb17828f63a5c16803eae54c4dcef6d9f6b4e885ec5dd131b8a",
+        "prototypeVersionIdHash": "8939a8b250b42847405e34295d17532907af811b86f7c8369a97e89f2991083a"
+      }
+    },
+    {
+      "stageId": 6,
+      "revision": 4,
+      "contentHash": "3bb329bd8dd347a9d25fe378488955d55280864949ef4d5d67e5d459368e8b0f",
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T18:06:33.396Z",
+      "questionSnapshot": {
+        "sourceStageRevision": 3,
+        "questionHash": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+        "beforeTestBeliefHash": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+        "prototypeDesignIdHash": "ac0b04288ccedfb17828f63a5c16803eae54c4dcef6d9f6b4e885ec5dd131b8a",
+        "prototypeVersionIdHash": "8939a8b250b42847405e34295d17532907af811b86f7c8369a97e89f2991083a"
+      },
+      "confirmedReflection": {
+        "targetStage": 2,
+        "questionSourceStageRevision": 3,
+        "fieldHashes": {
+          "originalQuestion": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+          "beforeTestBelief": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+          "afterTestBelief": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "returnReason": "d2278ffc8f084d81d97d87b35e8f08d2fe5f31a66810f656b5d4440c1853f50c",
+          "nextAction": "c4a9c292f822aecfaac6677b6c8fe01a5bffdf2e2d2103edf24905da85d77e55",
+          "prototypeRef": "72e31b30fc046b99ded87e5bc7c2833cd1ecceeb0b56131ea8c1d440a9cd9fb4",
+          "understandingChangeStatus": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "understandingEvidence": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "unresolvedQuestions": "7fb715bc8682f4f41f95000aaf1000d2afc06353ec5ce9d27e5d98cf7c6d1709"
+        },
+        "trust": "untrusted-student-material",
+        "evidenceVerified": false
+      }
+    },
+    {
+      "stageId": 6,
+      "revision": 5,
+      "contentHash": "28a328ae22d6e990e4f53061ea3b618d69e386dc30bca8d958af5c9bc3c3810f",
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T18:10:07.068Z",
+      "questionSnapshot": {
+        "sourceStageRevision": 3,
+        "questionHash": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+        "beforeTestBeliefHash": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+        "prototypeDesignIdHash": "ac0b04288ccedfb17828f63a5c16803eae54c4dcef6d9f6b4e885ec5dd131b8a",
+        "prototypeVersionIdHash": "8939a8b250b42847405e34295d17532907af811b86f7c8369a97e89f2991083a"
+      },
+      "confirmedReflection": {
+        "targetStage": 5,
+        "questionSourceStageRevision": 3,
+        "fieldHashes": {
+          "originalQuestion": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+          "beforeTestBelief": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+          "afterTestBelief": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "returnReason": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+          "nextAction": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+          "prototypeRef": "72e31b30fc046b99ded87e5bc7c2833cd1ecceeb0b56131ea8c1d440a9cd9fb4",
+          "understandingChangeStatus": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "understandingEvidence": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "unresolvedQuestions": "7fb715bc8682f4f41f95000aaf1000d2afc06353ec5ce9d27e5d98cf7c6d1709"
+        },
+        "trust": "untrusted-student-material",
+        "evidenceVerified": false
+      }
+    },
+    {
+      "stageId": 6,
+      "revision": 6,
+      "contentHash": "9a7c1e66bfb2d9eaa2c9f8cae8c604bc80118358834b9f4f8bdaf0407b14d420",
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T18:14:14.461Z",
+      "questionSnapshot": {
+        "sourceStageRevision": 3,
+        "questionHash": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+        "beforeTestBeliefHash": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+        "prototypeDesignIdHash": "ac0b04288ccedfb17828f63a5c16803eae54c4dcef6d9f6b4e885ec5dd131b8a",
+        "prototypeVersionIdHash": "8939a8b250b42847405e34295d17532907af811b86f7c8369a97e89f2991083a"
+      },
+      "confirmedReflection": {
+        "targetStage": 5,
+        "questionSourceStageRevision": 3,
+        "fieldHashes": {
+          "originalQuestion": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+          "beforeTestBelief": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+          "afterTestBelief": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "returnReason": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+          "nextAction": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+          "prototypeRef": "72e31b30fc046b99ded87e5bc7c2833cd1ecceeb0b56131ea8c1d440a9cd9fb4",
+          "understandingChangeStatus": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "understandingEvidence": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "unresolvedQuestions": "7fb715bc8682f4f41f95000aaf1000d2afc06353ec5ce9d27e5d98cf7c6d1709"
+        },
+        "trust": "untrusted-student-material",
+        "evidenceVerified": false
+      }
+    },
+    {
+      "stageId": 6,
+      "revision": 7,
+      "contentHash": "660036409691517caba14c9b04847c828c20bfde3fd024691a7dfc75acf4270e",
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T18:16:25.526Z",
+      "summaryReport": {
+        "markdownHash": "e45e767e7b86a2e24c18c512195f30c83f82cf5fb1fd3829ab770c5df6fbb8d5",
+        "sourceStageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 2
+          },
+          {
+            "stageId": 2,
+            "revision": 4
+          },
+          {
+            "stageId": 3,
+            "revision": 2
+          },
+          {
+            "stageId": 4,
+            "revision": 4
+          },
+          {
+            "stageId": 5,
+            "revision": 4
+          },
+          {
+            "stageId": 6,
+            "revision": 6
+          }
+        ]
+      },
+      "questionSnapshot": {
+        "sourceStageRevision": 3,
+        "questionHash": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+        "beforeTestBeliefHash": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+        "prototypeDesignIdHash": "ac0b04288ccedfb17828f63a5c16803eae54c4dcef6d9f6b4e885ec5dd131b8a",
+        "prototypeVersionIdHash": "8939a8b250b42847405e34295d17532907af811b86f7c8369a97e89f2991083a"
+      },
+      "confirmedReflection": {
+        "targetStage": 5,
+        "questionSourceStageRevision": 3,
+        "fieldHashes": {
+          "originalQuestion": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+          "beforeTestBelief": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+          "afterTestBelief": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "returnReason": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+          "nextAction": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+          "prototypeRef": "72e31b30fc046b99ded87e5bc7c2833cd1ecceeb0b56131ea8c1d440a9cd9fb4",
+          "understandingChangeStatus": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "understandingEvidence": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "unresolvedQuestions": "7fb715bc8682f4f41f95000aaf1000d2afc06353ec5ce9d27e5d98cf7c6d1709"
+        },
+        "trust": "untrusted-student-material",
+        "evidenceVerified": false
+      }
+    },
+    {
+      "stageId": 6,
+      "revision": 8,
+      "contentHash": "1decc1e83829313f38effd196327abea4a2e0f0b1cc4678d3abad90f8f7ca067",
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T18:22:14.756Z",
+      "summaryReport": {
+        "markdownHash": "d8c5a79f55937f3fb57054afeb35fbcea02e4791bd18aee508d532849382e7af",
+        "sourceStageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 2
+          },
+          {
+            "stageId": 2,
+            "revision": 4
+          },
+          {
+            "stageId": 3,
+            "revision": 2
+          },
+          {
+            "stageId": 4,
+            "revision": 4
+          },
+          {
+            "stageId": 5,
+            "revision": 4
+          },
+          {
+            "stageId": 6,
+            "revision": 6
+          }
+        ]
+      },
+      "questionSnapshot": {
+        "sourceStageRevision": 3,
+        "questionHash": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+        "beforeTestBeliefHash": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+        "prototypeDesignIdHash": "ac0b04288ccedfb17828f63a5c16803eae54c4dcef6d9f6b4e885ec5dd131b8a",
+        "prototypeVersionIdHash": "8939a8b250b42847405e34295d17532907af811b86f7c8369a97e89f2991083a"
+      },
+      "confirmedReflection": {
+        "targetStage": 5,
+        "questionSourceStageRevision": 3,
+        "fieldHashes": {
+          "originalQuestion": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+          "beforeTestBelief": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+          "afterTestBelief": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "returnReason": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+          "nextAction": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+          "prototypeRef": "72e31b30fc046b99ded87e5bc7c2833cd1ecceeb0b56131ea8c1d440a9cd9fb4",
+          "understandingChangeStatus": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "understandingEvidence": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "unresolvedQuestions": "7fb715bc8682f4f41f95000aaf1000d2afc06353ec5ce9d27e5d98cf7c6d1709"
+        },
+        "trust": "untrusted-student-material",
+        "evidenceVerified": false
+      }
+    },
+    {
+      "stageId": 6,
+      "revision": 9,
+      "contentHash": "ef290c8d3348c9a05bab044fc89a14cb214015998310693f9d2e6f0fffc45f12",
+      "sourceStageRevisions": [
+        {
+          "stageId": 5,
+          "revision": 3
+        }
+      ],
+      "updatedByHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668",
+      "updatedAt": "2026-11-16T18:28:01.820Z",
+      "summaryReport": {
+        "markdownHash": "9f21c40e065ceea7f2199e7ee6579d591151410dc6117e63b6bc874ec20a8209",
+        "sourceStageRevisions": [
+          {
+            "stageId": 1,
+            "revision": 2
+          },
+          {
+            "stageId": 2,
+            "revision": 4
+          },
+          {
+            "stageId": 3,
+            "revision": 2
+          },
+          {
+            "stageId": 4,
+            "revision": 4
+          },
+          {
+            "stageId": 5,
+            "revision": 4
+          },
+          {
+            "stageId": 6,
+            "revision": 6
+          }
+        ]
+      },
+      "questionSnapshot": {
+        "sourceStageRevision": 3,
+        "questionHash": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+        "beforeTestBeliefHash": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+        "prototypeDesignIdHash": "ac0b04288ccedfb17828f63a5c16803eae54c4dcef6d9f6b4e885ec5dd131b8a",
+        "prototypeVersionIdHash": "8939a8b250b42847405e34295d17532907af811b86f7c8369a97e89f2991083a"
+      },
+      "confirmedReflection": {
+        "targetStage": 5,
+        "questionSourceStageRevision": 3,
+        "fieldHashes": {
+          "originalQuestion": "e95fd3936018fbb6b7e05b7f84ebc96ccc1fdef7cd76be19b15035f130c5abd0",
+          "beforeTestBelief": "ecb66f2b5a4ff34e751744ff460118128acf2fec2d9e56fc7920c029fa85c505",
+          "afterTestBelief": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+          "returnReason": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+          "nextAction": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+          "prototypeRef": "72e31b30fc046b99ded87e5bc7c2833cd1ecceeb0b56131ea8c1d440a9cd9fb4",
+          "understandingChangeStatus": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+          "understandingEvidence": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+          "unresolvedQuestions": "7fb715bc8682f4f41f95000aaf1000d2afc06353ec5ce9d27e5d98cf7c6d1709"
+        },
+        "trust": "untrusted-student-material",
+        "evidenceVerified": false
+      }
+    }
+  ],
+  "runs": [
+    {
+      "runId": "b8c3ca65-301e-4757-aa9b-032714145225",
+      "status": "succeeded",
+      "agentVersionId": "agent-fullstack-20261117-01-7d265647426d-v1",
+      "instructionDigest": "802cf79cc20cd6861c2aa766d7a7c4b1a9094add3624f523e467dd81c85fe371",
+      "remoteRunIdHash": "bc6ec37c29efc64faa8b377a8121d18db411c1838179f97c5dc5cec314feb576",
+      "physical": [
+        {
+          "id": "8dc16880-1a0d-418d-bbc0-8f37138c7d5f",
+          "execution_attempt_id": "b8c3ca65-301e-4757-aa9b-032714145225:1",
+          "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+          "thread_id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+          "started_at": "2026-11-16T18:16:27.371Z",
+          "occurred_at": "2026-11-16T18:16:27.390Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "3204162b-9d01-4cfc-9c96-3e8039ffbad3",
+          "execution_attempt_id": "b8c3ca65-301e-4757-aa9b-032714145225:1",
+          "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+          "thread_id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+          "started_at": "2026-11-16T18:16:32.300Z",
+          "occurred_at": "2026-11-16T18:16:32.320Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "093227b8-ab66-4b75-b003-bef556afa293",
+          "execution_attempt_id": "b8c3ca65-301e-4757-aa9b-032714145225:1",
+          "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+          "thread_id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+          "started_at": "2026-11-16T18:16:36.172Z",
+          "occurred_at": "2026-11-16T18:16:36.195Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "6ec1eac4-9618-41a0-8d82-8ec988e99e5f",
+          "execution_attempt_id": "b8c3ca65-301e-4757-aa9b-032714145225:1",
+          "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+          "thread_id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+          "started_at": "2026-11-16T18:17:23.890Z",
+          "occurred_at": "2026-11-16T18:17:23.920Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "25489540-0164-4842-9a08-773e16b90aa9",
+          "execution_attempt_id": "b8c3ca65-301e-4757-aa9b-032714145225:8",
+          "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+          "thread_id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+          "started_at": "2026-11-16T18:21:25.154Z",
+          "occurred_at": "2026-11-16T18:21:25.172Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "367fd05a-d08b-4bda-81d3-44a3daabf446",
+          "execution_attempt_id": "b8c3ca65-301e-4757-aa9b-032714145225:8",
+          "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+          "thread_id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+          "started_at": "2026-11-16T18:21:33.588Z",
+          "occurred_at": "2026-11-16T18:21:33.603Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "fe4c9dc8-b189-4f03-bbb3-b945f5fad599",
+          "execution_attempt_id": "b8c3ca65-301e-4757-aa9b-032714145225:8",
+          "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+          "thread_id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+          "started_at": "2026-11-16T18:21:39.184Z",
+          "occurred_at": "2026-11-16T18:21:39.201Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "06d65cda-ce96-49a3-b82c-cd00dd3839a8",
+          "execution_attempt_id": "b8c3ca65-301e-4757-aa9b-032714145225:8",
+          "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+          "thread_id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+          "started_at": "2026-11-16T18:21:44.254Z",
+          "occurred_at": "2026-11-16T18:21:44.274Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "f5a68d96-e089-4460-8413-52b47b79bc97",
+          "execution_attempt_id": "b8c3ca65-301e-4757-aa9b-032714145225:8",
+          "project_id": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+          "thread_id": "thr-5fa16ca8-b6fb-4ce7-960d-c0fd1235fc63",
+          "started_at": "2026-11-16T18:22:08.184Z",
+          "occurred_at": "2026-11-16T18:22:08.202Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        }
+      ],
+      "usage": [
+        {
+          "id": "8dc16880-1a0d-418d-bbc0-8f37138c7d5f",
+          "outcome": "succeeded",
+          "total_source": "reported",
+          "tokens_total": "26051",
+          "tokens_prompt": "26024",
+          "tokens_completion": "27",
+          "occurred_at": "2026-11-16T18:16:32.205Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "3204162b-9d01-4cfc-9c96-3e8039ffbad3",
+          "outcome": "succeeded",
+          "total_source": "reported",
+          "tokens_total": "26246",
+          "tokens_prompt": "26108",
+          "tokens_completion": "138",
+          "occurred_at": "2026-11-16T18:16:36.099Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "093227b8-ab66-4b75-b003-bef556afa293",
+          "outcome": "succeeded",
+          "total_source": "reported",
+          "tokens_total": "3616",
+          "tokens_prompt": "1635",
+          "tokens_completion": "1981",
+          "occurred_at": "2026-11-16T18:17:23.830Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "6ec1eac4-9618-41a0-8d82-8ec988e99e5f",
+          "outcome": "succeeded",
+          "total_source": "reported",
+          "tokens_total": "28313",
+          "tokens_prompt": "28248",
+          "tokens_completion": "65",
+          "occurred_at": "2026-11-16T18:17:28.555Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "25489540-0164-4842-9a08-773e16b90aa9",
+          "outcome": "succeeded",
+          "total_source": "reported",
+          "tokens_total": "33118",
+          "tokens_prompt": "32864",
+          "tokens_completion": "254",
+          "occurred_at": "2026-11-16T18:21:33.543Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "367fd05a-d08b-4bda-81d3-44a3daabf446",
+          "outcome": "succeeded",
+          "total_source": "reported",
+          "tokens_total": "4274",
+          "tokens_prompt": "3959",
+          "tokens_completion": "315",
+          "occurred_at": "2026-11-16T18:21:39.122Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "fe4c9dc8-b189-4f03-bbb3-b945f5fad599",
+          "outcome": "succeeded",
+          "total_source": "reported",
+          "tokens_total": "33506",
+          "tokens_prompt": "33439",
+          "tokens_completion": "67",
+          "occurred_at": "2026-11-16T18:21:44.171Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "06d65cda-ce96-49a3-b82c-cd00dd3839a8",
+          "outcome": "succeeded",
+          "total_source": "reported",
+          "tokens_total": "35417",
+          "tokens_prompt": "33568",
+          "tokens_completion": "1849",
+          "occurred_at": "2026-11-16T18:22:08.135Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "id": "f5a68d96-e089-4460-8413-52b47b79bc97",
+          "outcome": "succeeded",
+          "total_source": "reported",
+          "tokens_total": "6524",
+          "tokens_prompt": "6221",
+          "tokens_completion": "303",
+          "occurred_at": "2026-11-16T18:22:13.783Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        }
+      ],
+      "credits": [
+        {
+          "request_id": "8dc16880-1a0d-418d-bbc0-8f37138c7d5f",
+          "state": "settled",
+          "reserved_hundredths": "9354",
+          "debited_hundredths": "2606",
+          "created_at": "2026-11-16T18:16:27.390Z",
+          "settled_at": "2026-11-16T18:16:32.208Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "request_id": "3204162b-9d01-4cfc-9c96-3e8039ffbad3",
+          "state": "settled",
+          "reserved_hundredths": "9396",
+          "debited_hundredths": "2625",
+          "created_at": "2026-11-16T18:16:32.320Z",
+          "settled_at": "2026-11-16T18:16:36.101Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "request_id": "093227b8-ab66-4b75-b003-bef556afa293",
+          "state": "settled",
+          "reserved_hundredths": "966",
+          "debited_hundredths": "362",
+          "created_at": "2026-11-16T18:16:36.195Z",
+          "settled_at": "2026-11-16T18:17:23.832Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "request_id": "6ec1eac4-9618-41a0-8d82-8ec988e99e5f",
+          "state": "settled",
+          "reserved_hundredths": "10295",
+          "debited_hundredths": "2832",
+          "created_at": "2026-11-16T18:17:23.920Z",
+          "settled_at": "2026-11-16T18:17:28.557Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "request_id": "25489540-0164-4842-9a08-773e16b90aa9",
+          "state": "settled",
+          "reserved_hundredths": "12160",
+          "debited_hundredths": "3312",
+          "created_at": "2026-11-16T18:21:25.172Z",
+          "settled_at": "2026-11-16T18:21:33.544Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "request_id": "367fd05a-d08b-4bda-81d3-44a3daabf446",
+          "state": "settled",
+          "reserved_hundredths": "1764",
+          "debited_hundredths": "428",
+          "created_at": "2026-11-16T18:21:33.603Z",
+          "settled_at": "2026-11-16T18:21:39.124Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "request_id": "fe4c9dc8-b189-4f03-bbb3-b945f5fad599",
+          "state": "settled",
+          "reserved_hundredths": "12428",
+          "debited_hundredths": "3351",
+          "created_at": "2026-11-16T18:21:39.201Z",
+          "settled_at": "2026-11-16T18:21:44.173Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "request_id": "06d65cda-ce96-49a3-b82c-cd00dd3839a8",
+          "state": "settled",
+          "reserved_hundredths": "12489",
+          "debited_hundredths": "3542",
+          "created_at": "2026-11-16T18:21:44.274Z",
+          "settled_at": "2026-11-16T18:22:08.136Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        },
+        {
+          "request_id": "f5a68d96-e089-4460-8413-52b47b79bc97",
+          "state": "settled",
+          "reserved_hundredths": "2734",
+          "debited_hundredths": "653",
+          "created_at": "2026-11-16T18:22:08.202Z",
+          "settled_at": "2026-11-16T18:22:13.784Z",
+          "principalUserIdHash": "57b0cb54bf1157ca69a6a0c77c7dbdeedd9f61d25683c4245668c8113c09b668"
+        }
+      ],
+      "referenceCueAudit": {
+        "structuredReturnStep2AnywhereInVisibleMaterial": false,
+        "oldS6ReturnReasonExactValueAnywhereInVisibleMaterial": false,
+        "snapshotHash": "ed113aa970db6febc5b5a2b2b1a3abf2da8e74523cfa645cb06b0d1d402ae000",
+        "referenceBlockHash": "cfd31857d4968735d35e10438e238ab35377698a64d00420c29af305bd066912",
+        "referenceBlockUtf8Bytes": 61268,
+        "snapshotTruncated": true,
+        "actualV2VersionIdHash": "0e70ab24c9dc0b3ba78968b0301d623f7db94716582b15a050738221e1f25dd1",
+        "actualV2VersionIdAnywhereInVisibleMaterial": true,
+        "requestedOldS6Revision": 4,
+        "selectedSourcesNotEquivalentToFullVisibleFields": true,
+        "stage6MaterialFacts": [
+          {
+            "kind": "stage",
+            "stageId": 6,
+            "revision": 7,
+            "truncated": true,
+            "excerptHash": "5d1fab87e74ca835a18e6a44c8eb6a8ac2309821c9a4b57cdfdae826a6c4cd68",
+            "excerptUtf8Bytes": 7856,
+            "actualV2VersionIdInThisExcerpt": true,
+            "fields": {
+              "returnStep": {
+                "savedFieldExists": true,
+                "savedValueHash": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+                "savedValueUtf8Bytes": 1,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 16,
+                "encodedFieldCharactersTotal": 16,
+                "savedReturnStep": "5"
+              },
+              "returnReason": {
+                "savedFieldExists": true,
+                "savedValueHash": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+                "savedValueUtf8Bytes": 132,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 69,
+                "encodedFieldCharactersTotal": 69
+              },
+              "nextAction": {
+                "savedFieldExists": true,
+                "savedValueHash": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+                "savedValueUtf8Bytes": 402,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 156,
+                "encodedFieldCharactersTotal": 156
+              },
+              "afterTestBelief": {
+                "savedFieldExists": true,
+                "savedValueHash": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+                "savedValueUtf8Bytes": 176,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 80,
+                "encodedFieldCharactersTotal": 80
+              },
+              "understandingChangeStatus": {
+                "savedFieldExists": true,
+                "savedValueHash": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+                "savedValueUtf8Bytes": 9,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 39,
+                "encodedFieldCharactersTotal": 39
+              },
+              "understandingEvidence": {
+                "savedFieldExists": true,
+                "savedValueHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+                "savedValueUtf8Bytes": 274,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 178,
+                "encodedFieldCharactersTotal": 178
+              },
+              "feedback": {
+                "savedFieldExists": true,
+                "savedValueHash": "9911e2f9ae2704d421280a03c68ace8199ac346d1895b0280cc4cf2907f180ce",
+                "savedValueUtf8Bytes": 122,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 61,
+                "encodedFieldCharactersTotal": 61
+              },
+              "reflection": {
+                "savedFieldExists": true,
+                "savedValueHash": "2921022966fbf2d3e6926d66ae9c08271efa386ae1d818c393b4740e9fd564bd",
+                "savedValueUtf8Bytes": 1007,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 443,
+                "encodedFieldCharactersTotal": 443
+              },
+              "newVersion": {
+                "savedFieldExists": false
+              },
+              "newVersionReference": {
+                "savedFieldExists": false
+              },
+              "newPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeReference": {
+                "savedFieldExists": true,
+                "savedValueHash": "16f5b9b224209bdb12a743862c895be17d6f9e30d0b58e4c7aa1e42adf9b4fd2",
+                "savedValueUtf8Bytes": 398,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 388,
+                "encodedFieldCharactersTotal": 388
+              },
+              "iterationPrototypeRelation": {
+                "savedFieldExists": true,
+                "savedValueHash": "c830cf3bbbabdbb3d2ceebe795667b5b952374eee6c14858dc94e1e363051320",
+                "savedValueUtf8Bytes": 1730,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 1185,
+                "encodedFieldCharactersTotal": 1185
+              },
+              "iterationFeedbackReference": {
+                "savedFieldExists": true,
+                "savedValueHash": "d92fba7f2d9461467ebb80e71d69896b48d13e728454aef0f77a892f3492b651",
+                "savedValueUtf8Bytes": 397,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 266,
+                "encodedFieldCharactersTotal": 266
+              },
+              "iterationChangeReason": {
+                "savedFieldExists": true,
+                "savedValueHash": "5e01677e861cfefbe503576e7be15fe0b7739fad3515d030382090b5749da40d",
+                "savedValueUtf8Bytes": 155,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 79,
+                "encodedFieldCharactersTotal": 79
+              },
+              "prototypeReference": {
+                "savedFieldExists": false
+              },
+              "questionSnapshot": {
+                "savedFieldExists": true,
+                "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+                "savedValueUtf8Bytes": 924,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 579,
+                "encodedFieldCharactersTotal": 579
+              }
+            }
+          },
+          {
+            "kind": "history",
+            "stageId": 6,
+            "revision": 7,
+            "truncated": true,
+            "excerptHash": "7ac716d73753bac4cbc6841337d21f280f12d3611d4b03b573cd099c89d79a44",
+            "excerptUtf8Bytes": 1948,
+            "actualV2VersionIdInThisExcerpt": true,
+            "fields": {
+              "returnStep": {
+                "savedFieldExists": true,
+                "savedValueHash": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+                "savedValueUtf8Bytes": 1,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 16,
+                "savedReturnStep": "5"
+              },
+              "returnReason": {
+                "savedFieldExists": true,
+                "savedValueHash": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+                "savedValueUtf8Bytes": 132,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 69
+              },
+              "nextAction": {
+                "savedFieldExists": true,
+                "savedValueHash": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+                "savedValueUtf8Bytes": 402,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 156
+              },
+              "afterTestBelief": {
+                "savedFieldExists": true,
+                "savedValueHash": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+                "savedValueUtf8Bytes": 176,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 80,
+                "encodedFieldCharactersTotal": 80
+              },
+              "understandingChangeStatus": {
+                "savedFieldExists": true,
+                "savedValueHash": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+                "savedValueUtf8Bytes": 9,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 39
+              },
+              "understandingEvidence": {
+                "savedFieldExists": true,
+                "savedValueHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+                "savedValueUtf8Bytes": 274,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 178
+              },
+              "feedback": {
+                "savedFieldExists": true,
+                "savedValueHash": "9911e2f9ae2704d421280a03c68ace8199ac346d1895b0280cc4cf2907f180ce",
+                "savedValueUtf8Bytes": 122,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 61,
+                "encodedFieldCharactersTotal": 61
+              },
+              "reflection": {
+                "savedFieldExists": true,
+                "savedValueHash": "2921022966fbf2d3e6926d66ae9c08271efa386ae1d818c393b4740e9fd564bd",
+                "savedValueUtf8Bytes": 1007,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 443
+              },
+              "newVersion": {
+                "savedFieldExists": false
+              },
+              "newVersionReference": {
+                "savedFieldExists": false
+              },
+              "newPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeReference": {
+                "savedFieldExists": true,
+                "savedValueHash": "16f5b9b224209bdb12a743862c895be17d6f9e30d0b58e4c7aa1e42adf9b4fd2",
+                "savedValueUtf8Bytes": 398,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 388,
+                "encodedFieldCharactersTotal": 388
+              },
+              "iterationPrototypeRelation": {
+                "savedFieldExists": true,
+                "savedValueHash": "c830cf3bbbabdbb3d2ceebe795667b5b952374eee6c14858dc94e1e363051320",
+                "savedValueUtf8Bytes": 1730,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 301,
+                "encodedFieldCharactersTotal": 1185
+              },
+              "iterationFeedbackReference": {
+                "savedFieldExists": true,
+                "savedValueHash": "d92fba7f2d9461467ebb80e71d69896b48d13e728454aef0f77a892f3492b651",
+                "savedValueUtf8Bytes": 397,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 266,
+                "encodedFieldCharactersTotal": 266
+              },
+              "iterationChangeReason": {
+                "savedFieldExists": true,
+                "savedValueHash": "5e01677e861cfefbe503576e7be15fe0b7739fad3515d030382090b5749da40d",
+                "savedValueUtf8Bytes": 155,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 79,
+                "encodedFieldCharactersTotal": 79
+              },
+              "prototypeReference": {
+                "savedFieldExists": false
+              },
+              "questionSnapshot": {
+                "savedFieldExists": true,
+                "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+                "savedValueUtf8Bytes": 924,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 579
+              }
+            }
+          },
+          {
+            "kind": "history",
+            "stageId": 6,
+            "revision": 6,
+            "truncated": true,
+            "excerptHash": "7ac716d73753bac4cbc6841337d21f280f12d3611d4b03b573cd099c89d79a44",
+            "excerptUtf8Bytes": 1948,
+            "actualV2VersionIdInThisExcerpt": true,
+            "fields": {
+              "returnStep": {
+                "savedFieldExists": true,
+                "savedValueHash": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+                "savedValueUtf8Bytes": 1,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 16,
+                "savedReturnStep": "5"
+              },
+              "returnReason": {
+                "savedFieldExists": true,
+                "savedValueHash": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+                "savedValueUtf8Bytes": 132,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 69
+              },
+              "nextAction": {
+                "savedFieldExists": true,
+                "savedValueHash": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+                "savedValueUtf8Bytes": 402,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 156
+              },
+              "afterTestBelief": {
+                "savedFieldExists": true,
+                "savedValueHash": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+                "savedValueUtf8Bytes": 176,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 80,
+                "encodedFieldCharactersTotal": 80
+              },
+              "understandingChangeStatus": {
+                "savedFieldExists": true,
+                "savedValueHash": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+                "savedValueUtf8Bytes": 9,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 39
+              },
+              "understandingEvidence": {
+                "savedFieldExists": true,
+                "savedValueHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+                "savedValueUtf8Bytes": 274,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 178
+              },
+              "feedback": {
+                "savedFieldExists": true,
+                "savedValueHash": "9911e2f9ae2704d421280a03c68ace8199ac346d1895b0280cc4cf2907f180ce",
+                "savedValueUtf8Bytes": 122,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 61,
+                "encodedFieldCharactersTotal": 61
+              },
+              "reflection": {
+                "savedFieldExists": true,
+                "savedValueHash": "2921022966fbf2d3e6926d66ae9c08271efa386ae1d818c393b4740e9fd564bd",
+                "savedValueUtf8Bytes": 1007,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 443
+              },
+              "newVersion": {
+                "savedFieldExists": false
+              },
+              "newVersionReference": {
+                "savedFieldExists": false
+              },
+              "newPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeReference": {
+                "savedFieldExists": true,
+                "savedValueHash": "16f5b9b224209bdb12a743862c895be17d6f9e30d0b58e4c7aa1e42adf9b4fd2",
+                "savedValueUtf8Bytes": 398,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 388,
+                "encodedFieldCharactersTotal": 388
+              },
+              "iterationPrototypeRelation": {
+                "savedFieldExists": true,
+                "savedValueHash": "c830cf3bbbabdbb3d2ceebe795667b5b952374eee6c14858dc94e1e363051320",
+                "savedValueUtf8Bytes": 1730,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 301,
+                "encodedFieldCharactersTotal": 1185
+              },
+              "iterationFeedbackReference": {
+                "savedFieldExists": true,
+                "savedValueHash": "d92fba7f2d9461467ebb80e71d69896b48d13e728454aef0f77a892f3492b651",
+                "savedValueUtf8Bytes": 397,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 266,
+                "encodedFieldCharactersTotal": 266
+              },
+              "iterationChangeReason": {
+                "savedFieldExists": true,
+                "savedValueHash": "5e01677e861cfefbe503576e7be15fe0b7739fad3515d030382090b5749da40d",
+                "savedValueUtf8Bytes": 155,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 79,
+                "encodedFieldCharactersTotal": 79
+              },
+              "prototypeReference": {
+                "savedFieldExists": false
+              },
+              "questionSnapshot": {
+                "savedFieldExists": true,
+                "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+                "savedValueUtf8Bytes": 924,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 579
+              }
+            }
+          },
+          {
+            "kind": "history",
+            "stageId": 6,
+            "revision": 5,
+            "truncated": true,
+            "excerptHash": "45af81cb6c4a01dae2d4edf50ca1e4db99e47185e7c1e0021c17dc14da99d310",
+            "excerptUtf8Bytes": 2544,
+            "actualV2VersionIdInThisExcerpt": false,
+            "fields": {
+              "returnStep": {
+                "savedFieldExists": true,
+                "savedValueHash": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+                "savedValueUtf8Bytes": 1,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 16,
+                "savedReturnStep": "5"
+              },
+              "returnReason": {
+                "savedFieldExists": true,
+                "savedValueHash": "39cd290e6747238b3d15ee1aa271f836382867da6e0e184e9658119378f255de",
+                "savedValueUtf8Bytes": 132,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 69
+              },
+              "nextAction": {
+                "savedFieldExists": true,
+                "savedValueHash": "16349e81aa6975252b87450c61b2fc462d921d82c3a84579ca6db235c0297788",
+                "savedValueUtf8Bytes": 402,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 156,
+                "encodedFieldCharactersTotal": 156
+              },
+              "afterTestBelief": {
+                "savedFieldExists": true,
+                "savedValueHash": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+                "savedValueUtf8Bytes": 176,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 80,
+                "encodedFieldCharactersTotal": 80
+              },
+              "understandingChangeStatus": {
+                "savedFieldExists": true,
+                "savedValueHash": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+                "savedValueUtf8Bytes": 9,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 39
+              },
+              "understandingEvidence": {
+                "savedFieldExists": true,
+                "savedValueHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+                "savedValueUtf8Bytes": 274,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 178
+              },
+              "feedback": {
+                "savedFieldExists": true,
+                "savedValueHash": "9911e2f9ae2704d421280a03c68ace8199ac346d1895b0280cc4cf2907f180ce",
+                "savedValueUtf8Bytes": 122,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 61,
+                "encodedFieldCharactersTotal": 61
+              },
+              "reflection": {
+                "savedFieldExists": true,
+                "savedValueHash": "2921022966fbf2d3e6926d66ae9c08271efa386ae1d818c393b4740e9fd564bd",
+                "savedValueUtf8Bytes": 1007,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 300,
+                "encodedFieldCharactersTotal": 443
+              },
+              "newVersion": {
+                "savedFieldExists": false
+              },
+              "newVersionReference": {
+                "savedFieldExists": false
+              },
+              "newPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeRelation": {
+                "savedFieldExists": false
+              },
+              "iterationFeedbackReference": {
+                "savedFieldExists": false
+              },
+              "iterationChangeReason": {
+                "savedFieldExists": false
+              },
+              "prototypeReference": {
+                "savedFieldExists": false
+              },
+              "questionSnapshot": {
+                "savedFieldExists": true,
+                "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+                "savedValueUtf8Bytes": 924,
+                "fieldStartVisible": true,
+                "entireEncodedFieldVisible": true,
+                "encodedFieldCharactersVisible": 579,
+                "encodedFieldCharactersTotal": 579
+              }
+            }
+          },
+          {
+            "kind": "history",
+            "stageId": 6,
+            "revision": 4,
+            "truncated": true,
+            "excerptHash": "398d8e71290eb2afced3699181966b9a597f25d4044a68ad9f266e45c9b4576e",
+            "excerptUtf8Bytes": 15,
+            "actualV2VersionIdInThisExcerpt": false,
+            "fields": {
+              "returnStep": {
+                "savedFieldExists": true,
+                "savedValueHash": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+                "savedValueUtf8Bytes": 1,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 16,
+                "savedReturnStep": "2"
+              },
+              "returnReason": {
+                "savedFieldExists": true,
+                "savedValueHash": "d2278ffc8f084d81d97d87b35e8f08d2fe5f31a66810f656b5d4440c1853f50c",
+                "savedValueUtf8Bytes": 146,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 67
+              },
+              "nextAction": {
+                "savedFieldExists": true,
+                "savedValueHash": "c4a9c292f822aecfaac6677b6c8fe01a5bffdf2e2d2103edf24905da85d77e55",
+                "savedValueUtf8Bytes": 260,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 105
+              },
+              "afterTestBelief": {
+                "savedFieldExists": true,
+                "savedValueHash": "eb6a2e60c14f4f4736df15d13132acc5ad7cb97496d63f96bf9079e70abdc6df",
+                "savedValueUtf8Bytes": 176,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 80
+              },
+              "understandingChangeStatus": {
+                "savedFieldExists": true,
+                "savedValueHash": "aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c",
+                "savedValueUtf8Bytes": 9,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 39
+              },
+              "understandingEvidence": {
+                "savedFieldExists": true,
+                "savedValueHash": "90b2c042022c3d71461e77da8380b02e99a575055fca39ec10eccfdecbfef2d4",
+                "savedValueUtf8Bytes": 274,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 178
+              },
+              "feedback": {
+                "savedFieldExists": true,
+                "savedValueHash": "9911e2f9ae2704d421280a03c68ace8199ac346d1895b0280cc4cf2907f180ce",
+                "savedValueUtf8Bytes": 122,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 61
+              },
+              "reflection": {
+                "savedFieldExists": true,
+                "savedValueHash": "2921022966fbf2d3e6926d66ae9c08271efa386ae1d818c393b4740e9fd564bd",
+                "savedValueUtf8Bytes": 1007,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 443
+              },
+              "newVersion": {
+                "savedFieldExists": false
+              },
+              "newVersionReference": {
+                "savedFieldExists": false
+              },
+              "newPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeRelation": {
+                "savedFieldExists": false
+              },
+              "iterationFeedbackReference": {
+                "savedFieldExists": false
+              },
+              "iterationChangeReason": {
+                "savedFieldExists": false
+              },
+              "prototypeReference": {
+                "savedFieldExists": false
+              },
+              "questionSnapshot": {
+                "savedFieldExists": true,
+                "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+                "savedValueUtf8Bytes": 924,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 579
+              }
+            }
+          },
+          {
+            "kind": "history",
+            "stageId": 6,
+            "revision": 3,
+            "truncated": true,
+            "excerptHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "excerptUtf8Bytes": 0,
+            "actualV2VersionIdInThisExcerpt": false,
+            "fields": {
+              "returnStep": {
+                "savedFieldExists": false
+              },
+              "returnReason": {
+                "savedFieldExists": false
+              },
+              "nextAction": {
+                "savedFieldExists": false
+              },
+              "afterTestBelief": {
+                "savedFieldExists": true,
+                "savedValueHash": "b841d03c80124fc2e9e5c421789c467ab21cd96143f8a51e9fd4de6fa1fc9538",
+                "savedValueUtf8Bytes": 84,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 48
+              },
+              "understandingChangeStatus": {
+                "savedFieldExists": true,
+                "savedValueHash": "8cd0afb35166df2ffa12898b16bccbdd5d5b730f71fd02bd8d23c19acce4b84c",
+                "savedValueUtf8Bytes": 12,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 42
+              },
+              "understandingEvidence": {
+                "savedFieldExists": true,
+                "savedValueHash": "b63db8a9a916a5ca5985ae04e6ae733932eb6371e6756a2a748cd4ab244263dd",
+                "savedValueUtf8Bytes": 78,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 66
+              },
+              "feedback": {
+                "savedFieldExists": false
+              },
+              "reflection": {
+                "savedFieldExists": false
+              },
+              "newVersion": {
+                "savedFieldExists": false
+              },
+              "newVersionReference": {
+                "savedFieldExists": false
+              },
+              "newPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeRelation": {
+                "savedFieldExists": false
+              },
+              "iterationFeedbackReference": {
+                "savedFieldExists": false
+              },
+              "iterationChangeReason": {
+                "savedFieldExists": false
+              },
+              "prototypeReference": {
+                "savedFieldExists": false
+              },
+              "questionSnapshot": {
+                "savedFieldExists": true,
+                "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+                "savedValueUtf8Bytes": 924,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 579
+              }
+            }
+          },
+          {
+            "kind": "history",
+            "stageId": 6,
+            "revision": 2,
+            "truncated": true,
+            "excerptHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "excerptUtf8Bytes": 0,
+            "actualV2VersionIdInThisExcerpt": false,
+            "fields": {
+              "returnStep": {
+                "savedFieldExists": false
+              },
+              "returnReason": {
+                "savedFieldExists": false
+              },
+              "nextAction": {
+                "savedFieldExists": false
+              },
+              "afterTestBelief": {
+                "savedFieldExists": true,
+                "savedValueHash": "b841d03c80124fc2e9e5c421789c467ab21cd96143f8a51e9fd4de6fa1fc9538",
+                "savedValueUtf8Bytes": 84,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 48
+              },
+              "understandingChangeStatus": {
+                "savedFieldExists": true,
+                "savedValueHash": "8cd0afb35166df2ffa12898b16bccbdd5d5b730f71fd02bd8d23c19acce4b84c",
+                "savedValueUtf8Bytes": 12,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 42
+              },
+              "understandingEvidence": {
+                "savedFieldExists": true,
+                "savedValueHash": "b63db8a9a916a5ca5985ae04e6ae733932eb6371e6756a2a748cd4ab244263dd",
+                "savedValueUtf8Bytes": 78,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 66
+              },
+              "feedback": {
+                "savedFieldExists": false
+              },
+              "reflection": {
+                "savedFieldExists": false
+              },
+              "newVersion": {
+                "savedFieldExists": false
+              },
+              "newVersionReference": {
+                "savedFieldExists": false
+              },
+              "newPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeRelation": {
+                "savedFieldExists": false
+              },
+              "iterationFeedbackReference": {
+                "savedFieldExists": false
+              },
+              "iterationChangeReason": {
+                "savedFieldExists": false
+              },
+              "prototypeReference": {
+                "savedFieldExists": false
+              },
+              "questionSnapshot": {
+                "savedFieldExists": true,
+                "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+                "savedValueUtf8Bytes": 924,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 579
+              }
+            }
+          },
+          {
+            "kind": "history",
+            "stageId": 6,
+            "revision": 1,
+            "truncated": true,
+            "excerptHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "excerptUtf8Bytes": 0,
+            "actualV2VersionIdInThisExcerpt": false,
+            "fields": {
+              "returnStep": {
+                "savedFieldExists": false
+              },
+              "returnReason": {
+                "savedFieldExists": false
+              },
+              "nextAction": {
+                "savedFieldExists": false
+              },
+              "afterTestBelief": {
+                "savedFieldExists": false
+              },
+              "understandingChangeStatus": {
+                "savedFieldExists": false
+              },
+              "understandingEvidence": {
+                "savedFieldExists": false
+              },
+              "feedback": {
+                "savedFieldExists": false
+              },
+              "reflection": {
+                "savedFieldExists": false
+              },
+              "newVersion": {
+                "savedFieldExists": false
+              },
+              "newVersionReference": {
+                "savedFieldExists": false
+              },
+              "newPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeReference": {
+                "savedFieldExists": false
+              },
+              "iterationPrototypeRelation": {
+                "savedFieldExists": false
+              },
+              "iterationFeedbackReference": {
+                "savedFieldExists": false
+              },
+              "iterationChangeReason": {
+                "savedFieldExists": false
+              },
+              "prototypeReference": {
+                "savedFieldExists": false
+              },
+              "questionSnapshot": {
+                "savedFieldExists": true,
+                "savedValueHash": "3ec43152d1844a9b28ea9622ebd3b5920c670c4ce9a9a810dd2723a86bf5b01e",
+                "savedValueUtf8Bytes": 924,
+                "fieldStartVisible": false,
+                "entireEncodedFieldVisible": false,
+                "encodedFieldCharactersVisible": 0,
+                "encodedFieldCharactersTotal": 579
+              }
+            }
+          }
+        ],
+        "rawTextProjected": false
+      },
+      "storedZeroDoesNotProveZeroConsumption": true,
+      "supplierBillIndependentlyVerified": false
+    }
+  ],
+  "rawStudentTextIncluded": false,
+  "privateConfigurationIncluded": false,
+  "databaseReadOnly": true,
+  "modelRequestsSent": 0,
+  "financialWrites": 0,
+  "budgetEnforcementPerformed": false
+}

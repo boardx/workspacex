@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "source": "Actual zero-model browser diagnosis; original V2 result kept separately.",
+  "iterationComponentCount": 1,
+  "actualPickerLabel": "选择迭代产出原型版本",
+  "observedSteps": [
+    "open-picker",
+    "choose-design",
+    "choose-v2",
+    "fill-saved-source",
+    "confirm-relation"
+  ],
+  "failureType": "TimeoutError",
+  "disabledConfirmationObserved": true,
+  "timeoutMs": 12000,
+  "productionCancellationWasCorrect": true,
+  "repeatGenerationPosts": 0,
+  "recovery": "After selecting V2, wait for full recorded version ID, then fill source/reason. Actual continuation passed, saved S6 V6, and browser closed."
+}

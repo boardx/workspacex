@@ -1,0 +1,26 @@
+[
+  {
+    "attempt": 1,
+    "kind": "actual-build",
+    "result": "failed",
+    "reason": "Installed Next and React package directories were empty; Next worker processChild.js absent. No UI acceptance executed. Cause of missing package contents not established.",
+    "buildExitCode": 1,
+    "pgdataUnchanged": true
+  },
+  {
+    "attempt": 2,
+    "kind": "actual-build-and-UI",
+    "result": "interrupted",
+    "buildExitCode": 0,
+    "buildDurationMs": 234970,
+    "reason": "Successful new V2/CSS build. Browser reached S5 then an unbounded exact getByLabel lookup stalled on a populated nested textarea. Coordinator-authorized SIGINT stopped only the owned Playwright runner; canonical stop and cleanup confirmed. UI not accepted in this attempt."
+  },
+  {
+    "attempt": 3,
+    "kind": "reuse-verified-artifact-full-two-cycle",
+    "result": "passed",
+    "rebuilds": 0,
+    "exitCode": 0,
+    "reason": "Same standard seed formally reacquired API24020; receipt verified unchanged. Bounded semantic textbox/combobox locators, real save/report/human text and restart readback all passed."
+  }
+]

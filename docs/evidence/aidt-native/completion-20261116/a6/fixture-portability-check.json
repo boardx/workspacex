@@ -1,0 +1,62 @@
+{
+  "kind": "static-fixture-portability-and-sha256-check",
+  "cwd": "apps/web",
+  "defaultRelativeDirectory": "e2e/fixtures/aidt-v2",
+  "override": "AIDT_V2_FIXTURE_DIR",
+  "manifestEntries": 10,
+  "checks": [
+    {
+      "file": "I1-分区牌.png",
+      "exists": true,
+      "sha256Matches": true
+    },
+    {
+      "file": "I2-同伴指路.png",
+      "exists": true,
+      "sha256Matches": true
+    },
+    {
+      "file": "I3-号码牌.png",
+      "exists": true,
+      "sha256Matches": true
+    },
+    {
+      "file": "README.txt",
+      "exists": true,
+      "sha256Matches": true
+    },
+    {
+      "file": "SYN-A.png",
+      "exists": true,
+      "sha256Matches": true
+    },
+    {
+      "file": "SYN-A.txt",
+      "exists": true,
+      "sha256Matches": true
+    },
+    {
+      "file": "SYN-B.txt",
+      "exists": true,
+      "sha256Matches": true
+    },
+    {
+      "file": "SYN-GROUP-B.txt",
+      "exists": true,
+      "sha256Matches": true
+    },
+    {
+      "file": "SYN-IDEAS.txt",
+      "exists": true,
+      "sha256Matches": true
+    },
+    {
+      "file": "SYN-TEST-FEEDBACK.txt",
+      "exists": true,
+      "sha256Matches": true
+    }
+  ],
+  "passed": true,
+  "browserRun": false,
+  "modelRequests": 0
+}

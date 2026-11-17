@@ -1,0 +1,36 @@
+{
+  "status": {
+    "state": "stopped"
+  },
+  "ports": [
+    {
+      "port": 20480,
+      "free": true
+    },
+    {
+      "port": 24480,
+      "free": true
+    },
+    {
+      "port": 25480,
+      "free": true
+    },
+    {
+      "port": 26480,
+      "free": true
+    },
+    {
+      "port": 28480,
+      "free": true
+    },
+    {
+      "port": 27480,
+      "free": true
+    },
+    {
+      "port": 29480,
+      "free": true
+    }
+  ],
+  "savedDataRetained": true
+}

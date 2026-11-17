@@ -1,0 +1,8 @@
+
+> agentic-harness-template@ lint:e2e-testid-gate /workspace/aidt-module-latest
+> node .harness/scripts/lint-e2e-testid-gate.mjs
+
+❌ [e2e-testid-gate]
+   · apps/web/e2e/support/aidt-v2-completion-materials.ts:135 引用的 `aidt-idea-sheet-print-${index + 1}` 在源码里找不到任何声明——要么 spec 写错了名字，要么这个 testid 被删了而 spec 没跟进；确属「断言它不存在」请加行内标注 `// testid-gate: absent <原因>`
+   （已检查 6482 条引用，豁免 21 条，跳过 48 条）
+ ELIFECYCLE  Command failed with exit code 1.

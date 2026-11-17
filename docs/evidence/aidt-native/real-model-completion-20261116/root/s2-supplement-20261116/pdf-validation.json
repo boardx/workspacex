@@ -1,0 +1,32 @@
+{
+  "pages": 27,
+  "bytes": 191881,
+  "pdfSha256": "697aaab2221ea9a4752fab69a2e1d867312912d56ab47bf61d36eb045771b852",
+  "sourceSha256": "3739fa72d04e092e7aca252a1e22459fa079664728eafd85c89043f1818f6576",
+  "emptyPages": [],
+  "outOfBoundsPages": [],
+  "M24Pages": [
+    24
+  ],
+  "CjkEmbeddedVerifiedByGenerator": true,
+  "humanSectionsUnchangedVerifiedByA4": true,
+  "libraryWriteStatus": "succeeded",
+  "visualReviewPages": [
+    24,
+    27
+  ],
+  "signaturePageBlankVisualCheck": true,
+  "libraryVersion": 6,
+  "libraryStoredBytes": 216872,
+  "remoteReadback": {
+    "version": "6",
+    "numPages": 27,
+    "pagesChecked": [
+      1,
+      24,
+      27
+    ],
+    "allNonempty": true,
+    "warnings": []
+  }
+}

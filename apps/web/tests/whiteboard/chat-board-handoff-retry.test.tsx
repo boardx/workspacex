@@ -146,3 +146,22 @@ it('prepares canonical transport even when a saved editing artifact exists',asyn
  expect(prepare).toHaveBeenCalledTimes(1);
  expect(mocks.insert.mock.calls[0]![0].layout).toMatchObject({artifactId:'canonical',sourceRevision:'artifact-v1:2'});
 });
+
+import { ChatHostNavigationProvider } from '@/lib/chat/chat-host-navigation';
+it('preserves the native Board URL exactly when a host has no custom return path',async()=>{
+ mocks.insert.mockResolvedValue({});await open();
+ fireEvent.click(screen.getByTestId('chat-board-handoff-confirm'));await screen.findByText('已插入目标白板');
+ const request=mocks.insert.mock.calls[0]![0];
+ expect(screen.getByTestId('chat-board-open-inserted')).toHaveAttribute('href',`/studio/board/board?focusArtifact=artifact&focusLayout=${encodeURIComponent(request.layout.layoutHash)}`);
+});
+it('carries only a same-project host return route in the open link and never in the Board mutation',async()=>{
+ mocks.resources.mockResolvedValue({items:[{kind:'whiteboard',id:'board',title:'Group Board'}]});mocks.insert.mockResolvedValue({});
+ const returnHref='/aidt/project?step=3&tool=whiteboard&thread=actual-native-thread';
+ render(<ChatHostNavigationProvider value={{projectId:'project',returnHref}}><ChatDiagramBoardHandoff projectId="project" model={model} artifactId="artifact" orgId="org" sourceRevision="artifact-v1:1"/></ChatHostNavigationProvider>);
+ fireEvent.click(screen.getByTestId('chat-diagram-insert-board'));await waitFor(()=>expect(screen.getByTestId('chat-board-handoff-confirm')).not.toBeDisabled());
+ fireEvent.click(screen.getByTestId('chat-board-handoff-confirm'));await screen.findByText('已插入目标白板');
+ const href=new URL(screen.getByTestId('chat-board-open-inserted').getAttribute('href')!,'https://workspace.invalid');
+ expect(href.searchParams.get('returnTo')).toBe(returnHref);expect(href.searchParams.get('projectId')).toBe('project');
+ expect(href.searchParams.get('focusArtifact')).toBe('artifact');expect(href.searchParams.get('focusLayout')).toBe(mocks.insert.mock.calls[0]![0].layout.layoutHash);
+ expect(mocks.insert.mock.calls[0]![0]).not.toHaveProperty('returnTo');expect(mocks.insert.mock.calls[0]![0]).not.toHaveProperty('returnHref');
+});

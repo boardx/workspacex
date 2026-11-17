@@ -1,0 +1,621 @@
+{
+  "s6-synthetic-test-originals": {
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "savedRevision": 3,
+    "references": [
+      {
+        "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+        "runId": "ingest-f6a7858e-1e68-48e3-b2ab-652fa80260f6",
+        "artifactId": "art-2b87c68d-1274-468c-9f86-7cb9eb92cc32",
+        "versionId": "ver-fa67ae6d-3834-41d2-98b8-b3745fd48cc2",
+        "name": "SYN-TEST-FEEDBACK.txt",
+        "mime": "text/plain",
+        "sha256": "54fca4c87065afec8b855611280e1ec43d89de231430cac015fb710df6ded757",
+        "bytes": 707,
+        "submittedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+        "submittedAt": "2026-11-16T18:00:49.611Z"
+      },
+      {
+        "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+        "runId": "ingest-0a77128c-df4e-4d9a-a5f1-c0760c72f65e",
+        "artifactId": "art-4a63d9a7-f4ba-4e73-b47a-f8b2e11c17e9",
+        "versionId": "ver-8331a8ef-56cc-4d51-bdb7-eeb5e16921b5",
+        "name": "SYN-A.png",
+        "mime": "image/png",
+        "sha256": "a7b7307c46648d7c792738d0cff765091779befefd71330ec36650c194a69bef",
+        "bytes": 27913,
+        "submittedBy": "user-fullstack-admin-20261117-01-7d265647426d",
+        "submittedAt": "2026-11-16T18:00:49.808Z"
+      }
+    ],
+    "synthetic": true,
+    "imageIsSyntheticPreviewNotRealTestPhoto": true,
+    "originalBytesNotAutomaticallySuppliedToAgent": true
+  },
+  "native-wire-shape-aidt-iterate": {
+    "selectorCoordinates": {
+      "schemaVersion": 1,
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 3
+        },
+        {
+          "stageId": 6,
+          "revision": 3
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 6
+    },
+    "coordinatesOnly": true,
+    "topLevelKeys": [
+      "context",
+      "forwardedProps",
+      "messages",
+      "runId",
+      "state",
+      "threadId",
+      "tools"
+    ],
+    "messages": [
+      {
+        "index": 0,
+        "role": "user",
+        "hasSavedMarker": false,
+        "mentionsMountedSkill": false
+      }
+    ],
+    "context": [
+      {
+        "index": 0,
+        "descriptionIsAidt": false,
+        "descriptionLength": 49,
+        "hasSavedMarker": false
+      }
+    ],
+    "savedMarkerLocations": [
+      {
+        "stageId": 1,
+        "field": "focus",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "discussion",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "assumptions",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "rewrittenTheme",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "followupAnswers",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "adoptedGuide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "discoveryAi:9e031cd1-3fd0-452e-b87e-329f4ee55e93",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "hmw",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "insight",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "decision",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "evidence",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "patterns",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "personaBehavior",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "reason",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "criteria",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "task",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "type",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "situation",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "hypothesis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "operations",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "touchpoints",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "requirements",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "beforeTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationBasis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationLimits",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationQuestion",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "version",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "afterTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "unresolvedQuestions",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingEvidence",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingChangeStatus",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "focus",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "scene",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "people",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "initial",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "activity",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "discussion",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "assumptions",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceDetails",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "rewrittenTheme",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "followupAnswers",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "whyWorthStudying",
+        "locations": []
+      },
+      {
+        "stageId": 1,
+        "field": "sourceUncertainty",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "goal",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "guide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "reflection",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "adoptedGuide",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "interpretation",
+        "locations": []
+      },
+      {
+        "stageId": 2,
+        "field": "discoveryAi:9e031cd1-3fd0-452e-b87e-329f4ee55e93",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "hmw",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "insight",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "decision",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "evidence",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "patterns",
+        "locations": []
+      },
+      {
+        "stageId": 3,
+        "field": "personaBehavior",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "reason",
+        "locations": []
+      },
+      {
+        "stageId": 4,
+        "field": "criteria",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "task",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "type",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "situation",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "hypothesis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "operations",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "touchpoints",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "requirements",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "beforeTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationBasis",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationLimits",
+        "locations": []
+      },
+      {
+        "stageId": 5,
+        "field": "verificationQuestion",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "version",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "afterTestBelief",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "unresolvedQuestions",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingEvidence",
+        "locations": []
+      },
+      {
+        "stageId": 6,
+        "field": "understandingChangeStatus",
+        "locations": []
+      }
+    ],
+    "mountedSkillLocations": [],
+    "rawValuesRetained": false
+  },
+  "native-turn-failure-aidt-iterate": {
+    "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+    "threadId": "thr-a2979285-64ee-4ed9-bccb-44c5407c8aa6",
+    "skillName": "aidt-iterate",
+    "reservation": "5b4d3882-435b-4610-b71b-fbc3dec8273b",
+    "observedRunId": "1010682b-3003-4358-a547-e19b5f01b1af",
+    "failureCode": "NATIVE_RUN_REQUIRES_EXPLICIT_STUDENT_REVIEW_NO_AUTOMATIC_PERMISSION",
+    "selectorCoordinates": {
+      "schemaVersion": 1,
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 3
+        },
+        {
+          "stageId": 6,
+          "revision": 3
+        }
+      ],
+      "purpose": "stage",
+      "stageId": 6
+    },
+    "frozenReceipt": {
+      "runId": "1010682b-3003-4358-a547-e19b5f01b1af",
+      "projectId": "prj-69d7fbc2-5dd1-4424-beb2-fc35c45395aa",
+      "purpose": "stage",
+      "stageId": 6,
+      "skillVersionId": "skill-version-073ab515-31fb-4f33-b2d4-907df66aff2d",
+      "snapshotHash": "1f891f93f85f1ca924180d8f4d86a11d18649e185dbd8d5b64de57868c8ebe38",
+      "preparedAt": "2026-11-16T18:00:51.400Z",
+      "stageRevisions": [
+        {
+          "stageId": 1,
+          "revision": 2
+        },
+        {
+          "stageId": 2,
+          "revision": 4
+        },
+        {
+          "stageId": 3,
+          "revision": 2
+        },
+        {
+          "stageId": 4,
+          "revision": 4
+        },
+        {
+          "stageId": 5,
+          "revision": 3
+        },
+        {
+          "stageId": 6,
+          "revision": 3
+        }
+      ],
+      "historyRevisions": [],
+      "omissions": [
+        {
+          "kind": "personal-artifacts-not-included"
+        },
+        {
+          "kind": "original-file-bytes-not-read"
+        },
+        {
+          "kind": "teacher-comments-no-source"
+        },
+        {
+          "kind": "lineage-unknown"
+        }
+      ],
+      "truncated": false,
+      "application": {
+        "state": "message-dispatch-observed",
+        "attemptId": "1010682b-3003-4358-a547-e19b5f01b1af:1",
+        "assembledContextHash": "e1713774618c2574a5007065c3bf000244de40d876b783a29d6b2b66d3a88700",
+        "assembledAt": "2026-11-16T18:00:51.501Z",
+        "messageDispatchedAt": "2026-11-16T18:00:51.580Z",
+        "checkpointResumedAt": null,
+        "inheritedMessageDispatchAttemptId": null
+      }
+    },
+    "automaticNewSendRetry": false,
+    "intentChoices": []
+  }
+}

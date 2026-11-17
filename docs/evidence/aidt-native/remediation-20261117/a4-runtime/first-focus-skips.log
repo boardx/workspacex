@@ -1,0 +1,4 @@
+ss                                                                       [100%]
+=========================== short test summary info ============================
+SKIPPED [2] apps/deep-agent-service/tests/native_sandbox_fixture.py:44: Requires an explicitly owned E003 integration container
+2 skipped in 1.25s

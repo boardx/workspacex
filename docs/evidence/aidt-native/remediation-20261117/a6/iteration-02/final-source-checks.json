@@ -1,0 +1,47 @@
+{
+  "sourceFrozen": true,
+  "files": [
+    {
+      "path": "apps/web/e2e/aidt-v2-summary-compact.spec.ts",
+      "sha256": "4d1dd6fca6de1b0992ddf1bc8e564b6076a32b0089af502c4e54330025ffd7e0"
+    },
+    {
+      "path": "apps/web/e2e/aidt-v2-summary-readonly.spec.ts",
+      "sha256": "ad7fb8413584bc03dbfcf678e6767f6177d1fc9d997135822ec9d5bb2ff1894a"
+    },
+    {
+      "path": "apps/web/e2e/support/aidt-v2-summary-supplement-ledger.ts",
+      "sha256": "24770d26df0af45e1d57abacb9285b6f5331ef1b4c0e0bd92a2ac9785104c352"
+    },
+    {
+      "path": "apps/web/e2e/support/aidt-v2-wire-metadata.ts",
+      "sha256": "9d4e25bbbfd4b5ac3d7f9bb98d8c8a33adc7f67d09d28b3d13ef2f2d55f7a3ec"
+    },
+    {
+      "path": "apps/web/e2e/support/aidt-v2-acceptance.ts",
+      "sha256": "b87fb2f793624db0a945b74a732be0f44877116701b175528248d0421cf375d7"
+    },
+    {
+      "path": "apps/web/tests/aidt-v2-summary-supplement-ledger.test.ts",
+      "sha256": "664db3edfd696ecfd220be1f82450fff80a78b1a142e60d8b38342c44f916b9f"
+    },
+    {
+      "path": "apps/web/tests/aidt-v2-wire-metadata.test.ts",
+      "sha256": "7f2a4184a7613d508b9391ba9fb7a4f507f1bdb28da9d5e17012737c0ec1457d"
+    }
+  ],
+  "checks": {
+    "affectedUnit": "2 files, 30 tests passed",
+    "affectedEslintExit": 0,
+    "fullWebTscIncrementalFalseExit": 0,
+    "fullWebTscLog": "/tmp/aidt-a6-final-recovery-tsc.log",
+    "actualFreeUi": "1 passed (6.4s), same existing run, model POST 0",
+    "originalPaidCorrectionBrowser": "failed; retained, not rerun",
+    "oldSummarySemanticCriticalCounts": [
+      1,
+      1
+    ],
+    "studentCorrectedSummarySemanticCriticalCount": 0
+  },
+  "noModelRequestsAfterActualCorrection": true
+}
