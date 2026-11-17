@@ -1,5 +1,6 @@
 """Safe command-boundary diagnostics; no Docker, credentials or network required."""
 import contextlib
+from hashlib import sha256
 import importlib.util
 import io
 import json
@@ -84,15 +85,81 @@ class DockerFixture:
         raise AssertionError('unexpected command')
 
 
+class BuildkitFixture(DockerFixture):
+    def __init__(self, m, *, failure=None):
+        super().__init__(m, failure=failure)
+        config = json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + 'd' * 64]}}, sort_keys=True).encode()
+        self.config_id = 'sha256:' + sha256(config).hexdigest()
+        value = manifest()
+        value['SchemaV2Manifest']['config'].update(digest=self.config_id, size=len(config))
+        body = json.dumps(value['SchemaV2Manifest'], sort_keys=True, separators=(',', ':')).encode()
+        self.manifest_id = 'sha256:' + sha256(body).hexdigest()
+        value['Descriptor'].update(digest=self.manifest_id, size=len(body))
+        self.remote_manifest = value
+        self.uploaded = False
+        self.local = False
+        self.metadata_path = None
+
+    def __call__(self, args, timeout, progress=None):
+        if args[:3] == ['manifest', 'inspect', '--verbose'] and ':acr-probe-' in args[-1] and self.uploaded:
+            self.calls.append((args, timeout))
+            value = json.loads(json.dumps(self.remote_manifest))
+            if self.failure == 'manifest-mismatch':
+                value['Descriptor']['digest'] = 'sha256:' + 'e' * 64
+            if self.failure == 'config-mismatch':
+                value['SchemaV2Manifest']['config']['digest'] = 'sha256:' + 'e' * 64
+            return 0, json.dumps(value)
+        if args[:2] == ['buildx', 'build']:
+            self.calls.append((args, timeout))
+            self.temp_path = Path(args[-1])
+            assert sorted(p.name for p in self.temp_path.iterdir()) == ['Dockerfile', 'payload']
+            assert (self.temp_path / 'payload').stat().st_size == 32 * 1024 * 1024
+            assert '--platform' in args and args[args.index('--platform') + 1] == 'linux/amd64'
+            assert '--network=none' in args and '--provenance=false' in args and '--progress=plain' in args
+            assert '--output=type=registry,oci-mediatypes=false' in args
+            assert '--load' not in args and '--push' not in args
+            self.metadata_path = Path(args[args.index('--metadata-file') + 1])
+            assert self.metadata_path.parent.stat().st_mode & 0o777 == 0o700
+            assert self.metadata_path.stat().st_mode & 0o777 == 0o600
+            if self.failure == 'buildkit-timeout':
+                raise self.m.DiagnosticError('COMMAND_TIMEOUT')
+            self.uploaded = True
+            self.local = self.failure == 'driver-loaded'
+            value = {'containerimage.config.digest': self.config_id, 'containerimage.digest': self.manifest_id,
+                     'buildx.build.provenance': {'private': SYNTHETIC}, 'buildx.build.ref': SYNTHETIC}
+            if self.failure == 'metadata-digest':
+                value['containerimage.digest'] = SYNTHETIC
+            if self.failure != 'metadata-missing':
+                self.metadata_path.write_text(SYNTHETIC if self.failure == 'metadata-json' else json.dumps(value))
+            return 0, SYNTHETIC
+        if args[:2] == ['image', 'inspect']:
+            self.calls.append((args, timeout))
+            if self.failure == 'preexisting-local' or self.local or self.pulled:
+                return 0, 'sha256:' + 'e' * 64 if self.failure == 'mismatch' and self.pulled else self.config_id
+            return 1, 'No such image: ' + SYNTHETIC
+        if args[:3] == ['image', 'rm', '--force']:
+            self.calls.append((args, timeout))
+            self.local = False
+            return 0, SYNTHETIC
+        if args[0] == 'pull':
+            self.calls.append((args, timeout))
+            assert not self.local
+            assert args[-1] == ENV['REGISTRY_PREFIX'] + '/api@' + self.manifest_id
+            self.pulled = True
+            progress('d' * 12 + ': Pull complete', 0.2)
+            return 0, SYNTHETIC
+        return super().__call__(args, timeout, progress)
+
+
 class DiagnosticTests(unittest.TestCase):
-    def execute(self, *, failure=None, extra=None, tag=TAG, size=32):
+    def execute(self, *, failure=None, extra=None, tag=TAG, size=32, transport='docker'):
         m = module()
-        fixture = DockerFixture(m, failure=failure)
+        fixture = (BuildkitFixture if transport == 'buildkit' else DockerFixture)(m, failure=failure)
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'result.json'
             log = io.StringIO()
             with patch.dict(os.environ, {**ENV, **(extra or {})}, clear=True), patch.object(m, 'command', side_effect=fixture), contextlib.redirect_stdout(log):
-                result = m.diagnose(tag, size, str(output))
+                result = m.diagnose(tag, size, str(output), transport)
             report = json.loads(output.read_text())
             self.assertNotIn(SYNTHETIC, output.read_text() + log.getvalue())
             self.assertEqual(output.stat().st_mode & 0o777, 0o600)
@@ -102,12 +169,59 @@ class DiagnosticTests(unittest.TestCase):
         for options in ({'tag': 'latest'}, {'tag': TAG + '\n'}, {'size': 31}, {'size': True},
                         {'extra': {'REGISTRY_PREFIX': 'https://invalid.invalid/team'}},
                         {'extra': {'REGISTRY_PREFIX': 'registry-vpc.invalid/team'}},
-                        {'extra': {'DOCKER_CONFIG': ''}}, {'extra': {'GITHUB_RUN_ID': '$(id)'}}):
+                        {'extra': {'DOCKER_CONFIG': ''}}, {'extra': {'GITHUB_RUN_ID': '$(id)'}},
+                        {'transport': SYNTHETIC}):
             with self.subTest(options=list(options)):
                 result, report, fixture, _ = self.execute(**options)
                 self.assertEqual(result, 1)
                 self.assertEqual(report['status'], 'failed')
                 self.assertEqual(fixture.calls, [])
+
+    def test_buildkit_registry_export_reads_actual_metadata_and_pulls_exact_manifest_without_daemon_push(self):
+        result, report, fixture, _ = self.execute(transport='buildkit')
+        self.assertEqual(result, 0)
+        self.assertEqual(report['transport'], 'buildkit')
+        self.assertEqual(report['probeTag'], 'acr-probe-123-1-sized-buildkit')
+        self.assertEqual(report['imageIdBefore'], fixture.config_id)
+        self.assertEqual(report['imageIdAfter'], fixture.config_id)
+        self.assertEqual(report['expectedManifestDigest'], fixture.manifest_id)
+        self.assertTrue(report['localTagAndIdAbsentBeforePull'])
+        self.assertEqual(report['buildkitPush']['status'], 'completed')
+        self.assertEqual([timeout for args, timeout in fixture.calls if args[:2] == ['buildx', 'build']], [180])
+        self.assertFalse(any(args[0] in ('push', 'build') or args[:2] == ['image', 'rm'] for args, _ in fixture.calls))
+        self.assertFalse(fixture.metadata_path.exists())
+        before_build = next(i for i, (args, _) in enumerate(fixture.calls) if args[:2] == ['buildx', 'build'])
+        self.assertEqual(fixture.calls[before_build - 1][0][:2], ['image', 'inspect'])
+
+    def test_buildkit_matching_local_driver_output_removed_only_when_present(self):
+        result, report, fixture, _ = self.execute(transport='buildkit', failure='driver-loaded')
+        self.assertEqual(result, 0)
+        removals = [args for args, _ in fixture.calls if args[:2] == ['image', 'rm']]
+        self.assertEqual(len(removals), 1)
+        self.assertEqual(removals[0][-1], ENV['REGISTRY_PREFIX'] + '/api:acr-probe-123-1-sized-buildkit')
+        self.assertTrue(report['localTagAndIdAbsentBeforePull'])
+
+    def test_buildkit_failures_never_fall_back_or_accept_missing_or_mismatched_evidence(self):
+        for failure, code in (('buildkit-timeout', 'BUILDKIT_PUSH_TIMEOUT'),
+                              ('metadata-missing', 'BUILDKIT_METADATA_FILE_INVALID'),
+                              ('metadata-json', 'BUILDKIT_METADATA_INVALID'), ('metadata-digest', 'BUILDKIT_METADATA_INVALID'),
+                              ('manifest-mismatch', 'PROBE_MANIFEST_DIGEST_MISMATCH'),
+                              ('config-mismatch', 'PROBE_CONFIG_DIGEST_MISMATCH'),
+                              ('mismatch', 'PULLED_IMAGE_ID_MISMATCH'), ('preexisting-local', 'LOCAL_IMAGE_NOT_REMOVED')):
+            with self.subTest(failure=failure):
+                result, report, fixture, _ = self.execute(transport='buildkit', failure=failure)
+                self.assertEqual(result, 1)
+                self.assertEqual(report['errorCode'], code)
+                self.assertFalse(any(args[0] in ('push', 'build') for args, _ in fixture.calls))
+                self.assertLessEqual(sum(args[:2] == ['buildx', 'build'] for args, _ in fixture.calls), 1)
+
+    def test_buildkit_keeps_source_and_host_guards_before_cli(self):
+        for name, value in (('GITHUB_SHA', 'main'), ('GITHUB_ACTIONS', ''), ('RUNNER_ENVIRONMENT', 'self-hosted'),
+                            ('GITHUB_EVENT_NAME', 'push'), ('DOCKER_HOST', SYNTHETIC), ('DOCKER_TLS_VERIFY', '1')):
+            result, report, fixture, _ = self.execute(transport='buildkit', extra={name: value})
+            self.assertEqual(result, 1)
+            self.assertEqual(fixture.calls, [])
+            self.assertEqual(report['status'], 'failed')
 
     def test_unmanaged_job_and_docker_endpoint_overrides_refuse_before_cli(self):
         for name, value in (('GITHUB_ACTIONS', ''), ('RUNNER_ENVIRONMENT', 'self-hosted'),

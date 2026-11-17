@@ -157,37 +157,56 @@ class Workflow(unittest.TestCase):
         self.assertIs(inputs['registry_probe_sized']['default'], False)
         self.assertEqual(inputs['registry_probe_existing_tag']['default'], '')
         self.assertEqual(inputs['registry_probe_sized']['type'], 'boolean')
+        self.assertEqual(inputs['registry_probe_transport']['default'], 'docker')
+        self.assertEqual(inputs['registry_probe_transport']['type'], 'choice')
+        self.assertEqual(set(inputs['registry_probe_transport']['options']), {'docker', 'buildkit'})
 
     def test_workflow_call_absent_new_inputs_keep_legacy_producer(self):
         self.assertNotIn('registry_probe_sized', self.workflow['on']['workflow_call']['inputs'])
+        self.assertNotIn('registry_probe_transport', self.workflow['on']['workflow_call']['inputs'])
         self.assertEqual(self.selected({}, 'workflow_call', defaults=False), {'validate', 'build', 'seal'})
-        self.assertEqual(self.selected({'registry_probe_sized': None, 'registry_probe_existing_tag': None}, 'workflow_call', False), {'validate', 'build', 'seal'})
+        self.assertEqual(self.selected({'registry_probe_sized': None, 'registry_probe_existing_tag': None, 'registry_probe_transport': None}, 'workflow_call', False), {'validate', 'build', 'seal'})
 
     def test_legacy_tiny_shared_and_host_modes_remain_distinct(self):
-        self.assertEqual(self.selected({'registry_probe_only': True}), {'registry-probe'})
-        self.assertEqual(self.selected({'shared_images_only': True}), {'shared-images'})
-        for host in ('cn', 'devapp'):
-            self.assertEqual(self.selected({'host_permission_probe': host}), {'host-permission-source', 'host-permissions'})
+        for transport in (None, '', 'docker'):
+            self.assertEqual(self.selected({'registry_probe_transport': transport}), {'validate', 'build', 'seal'})
+            self.assertEqual(self.selected({'registry_probe_only': True, 'registry_probe_transport': transport}), {'registry-probe'})
+            self.assertEqual(self.selected({'shared_images_only': True, 'registry_probe_transport': transport}), {'shared-images'})
+            for host in ('cn', 'devapp'):
+                self.assertEqual(self.selected({'host_permission_probe': host, 'registry_probe_transport': transport}), {'host-permission-source', 'host-permissions'})
 
     def test_new_mode_routes_only_to_diagnostic_even_with_conflicting_inputs(self):
         for probe_only in (False, True):
             for sized, tag in ((True, ''), (False, '123-1'), (True, '123-1')):
                 for shared in (False, True):
                     for host in ('off', 'cn', 'devapp'):
-                        inputs = {'registry_probe_only': probe_only, 'registry_probe_sized': sized, 'registry_probe_existing_tag': tag, 'shared_images_only': shared, 'host_permission_probe': host}
-                        with self.subTest(inputs=inputs):
-                            self.assertEqual(self.selected(inputs), {'registry-upload-diagnostics'})
+                        for transport in ('docker', 'buildkit'):
+                            inputs = {'registry_probe_only': probe_only, 'registry_probe_sized': sized, 'registry_probe_existing_tag': tag, 'shared_images_only': shared, 'host_permission_probe': host, 'registry_probe_transport': transport}
+                            with self.subTest(inputs=inputs):
+                                self.assertEqual(self.selected(inputs), {'registry-upload-diagnostics'})
+
+    def test_nondefault_transport_alone_cannot_fall_into_host_or_producer(self):
+        for transport in ('buildkit', 'auto', 'docker;id'):
+            for other in ({}, {'registry_probe_only': True}, {'shared_images_only': True}, {'host_permission_probe': 'cn'}, {'host_permission_probe': 'devapp'}):
+                inputs = {'registry_probe_transport': transport, **other}
+                with self.subTest(inputs=inputs):
+                    self.assertEqual(self.selected(inputs), {'registry-upload-diagnostics'})
+                    self.assertNotEqual(self.guard_result(inputs).returncode, 0)
 
     def test_new_mode_never_runs_from_non_manual_events(self):
         for event in ('pull_request', 'push', 'merge_group', 'workflow_call'):
             self.assertEqual(self.selected({'registry_probe_sized': True, 'registry_probe_existing_tag': '123-1'}, event), set())
+            self.assertEqual(self.selected({'registry_probe_transport': 'buildkit'}, event), set())
 
     def test_actual_validation_step_accepts_only_explicit_safe_mode(self):
         safe = {'registry_probe_sized': True, 'registry_probe_only': True, 'shared_images_only': False, 'host_permission_probe': 'off', 'registry_probe_existing_tag': '44000938132-90000000000000000001'}
-        self.assertEqual(self.guard_result(safe).returncode, 0)
+        for transport in ('docker', 'buildkit'):
+            self.assertEqual(self.guard_result({**safe, 'registry_probe_transport': transport}).returncode, 0)
         for delta in ({'registry_probe_sized': False}, {'registry_probe_only': False}, {'shared_images_only': True}, {'host_permission_probe': 'cn'}, {'host_permission_probe': 'devapp'}, {'registry_probe_existing_tag': ''}, {'registry_probe_existing_tag': 'latest'}, {'registry_probe_existing_tag': '123-1\n'}, {'registry_probe_existing_tag': '$(id)'}, {'registry_probe_existing_tag': '123-1;true'}):
             with self.subTest(delta=delta):
                 self.assertNotEqual(self.guard_result({**safe, **delta}).returncode, 0)
+        for transport in ('', None, 'auto', 'buildkit;id', 'docker\n'):
+            self.assertNotEqual(self.guard_result({**safe, 'registry_probe_transport': transport}).returncode, 0)
 
     def test_validation_precedes_credentials_and_upload_and_always_cleans(self):
         job = self.jobs['registry-upload-diagnostics']
@@ -216,7 +235,8 @@ class Workflow(unittest.TestCase):
         steps = job['steps']
         upload = next(step for step in steps if 'registry-upload-diagnostics.py' in step.get('run', ''))
         self.assertIn('--payload-mib 32', upload['run'])
-        self.assertEqual(upload['env'], {'EXISTING_TAG': '${{ inputs.registry_probe_existing_tag }}'})
+        self.assertEqual(upload['env'], {'EXISTING_TAG': '${{ inputs.registry_probe_existing_tag }}', 'TRANSPORT': '${{ inputs.registry_probe_transport }}'})
+        self.assertIn('--transport "$TRANSPORT"', upload['run'])
         artifact = next(step for step in steps if step.get('uses', '').startswith('actions/upload-artifact@'))
         self.assertEqual(artifact['if'], 'always()')
         self.assertEqual(artifact['with']['path'], '${{ runner.temp }}/registry-upload-diagnostics.json')

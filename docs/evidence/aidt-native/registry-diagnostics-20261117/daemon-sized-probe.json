@@ -1,0 +1,40 @@
+{
+  "diagnosticCodeRevision": "1d1e131d89996f416b31f0863a570cb82e9817fc",
+  "dockerServerVersion": "28.0.4",
+  "errorCode": "PUSH_TIMEOUT",
+  "existingTag": "44000938132-90000000000000000001",
+  "imageIdBefore": "sha256:c9632f2e471a58bc81cd1a6663ec35c55c96996bedb04c445e187dcf0c403cdf",
+  "kind": "registry-upload-diagnostic-v1",
+  "localTagAndIdAbsentBeforePull": false,
+  "metadata": {
+    "agent": {
+      "descriptors": [],
+      "status": "missing"
+    },
+    "api": {
+      "descriptors": [],
+      "status": "missing"
+    },
+    "postgres": {
+      "descriptors": [],
+      "status": "missing"
+    },
+    "sandbox": {
+      "descriptors": [],
+      "status": "missing"
+    },
+    "web": {
+      "descriptors": [],
+      "status": "missing"
+    }
+  },
+  "payloadBytes": 33554432,
+  "probeTag": "acr-probe-44006165671-1-sized",
+  "pullMayReuseLayerCache": true,
+  "push": {
+    "completedCount": 0,
+    "elapsed": 0.924,
+    "layerCount": 1
+  },
+  "status": "failed"
+}

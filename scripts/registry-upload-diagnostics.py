@@ -208,7 +208,69 @@ def require_local_absent(reference):
     need(status != 0 and re.search(r'(?i)no such image|no such object', raw) is not None, 'LOCAL_IMAGE_NOT_REMOVED')
 
 
-def diagnose(tag, payload_mib, output):
+def remove_if_local(reference, expected_id):
+    """Only remove this probe's exact local image, never a different tag owner."""
+    status, raw = bounded_command(['image', 'inspect', '--format', '{{.Id}}', reference], 30)
+    if status:
+        need(re.search(r'(?i)no such image|no such object', raw) is not None, 'LOCAL_IMAGE_INSPECT_FAILED')
+        return
+    need(raw.strip() == expected_id, 'LOCAL_IMAGE_ID_MISMATCH')
+    require_success(['image', 'rm', '--force', reference], 30, 'LOCAL_REMOVE')
+    require_local_absent(reference)
+
+
+def buildkit_upload(root, reference, report):
+    # No load/export into the daemon is requested. Refuse an existing local tag
+    # before building, and only remove an exact matching image if a driver did load it.
+    require_local_absent(reference)
+    with tempfile.TemporaryDirectory(prefix='registry-buildkit-metadata-') as directory:
+        metadata = Path(directory) / 'result.json'
+        fd = os.open(metadata, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        os.close(fd)
+        started = time.monotonic()
+        report['buildkitPush'] = {'status': 'unknown', 'elapsed': 0.0}
+        emit({'stage': 'buildkit-push', 'status': 'started', 'elapsed': 0.0})
+        try:
+            require_success(['buildx', 'build', '--platform', 'linux/amd64', '--network=none',
+                             '--provenance=false', '--progress=plain', '--metadata-file', str(metadata),
+                             '--output=type=registry,oci-mediatypes=false', '--tag', reference, str(root)], 180, 'BUILDKIT_PUSH')
+            report['buildkitPush']['status'] = 'completed'
+        finally:
+            report['buildkitPush']['elapsed'] = round(time.monotonic() - started, 3)
+        emit({'stage': 'buildkit-push', **report['buildkitPush']})
+        need(not metadata.is_symlink() and metadata.is_file() and 0 < metadata.stat().st_size <= MAX_OUTPUT,
+             'BUILDKIT_METADATA_FILE_INVALID')
+        try:
+            value = json.loads(metadata.read_bytes())
+        except (ValueError, OSError):
+            raise DiagnosticError('BUILDKIT_METADATA_INVALID') from None
+        need(type(value) is dict, 'BUILDKIT_METADATA_INVALID')
+        before, manifest = value.get('containerimage.config.digest'), value.get('containerimage.digest')
+        need(type(before) is str and IMAGE_ID.fullmatch(before) is not None
+             and type(manifest) is str and DIGEST.fullmatch(manifest) is not None, 'BUILDKIT_METADATA_INVALID')
+        # No other metadata field, raw BuildKit output or provenance is copied.
+        report.update(imageIdBefore=before, expectedManifestDigest=manifest)
+        remote = inspect_manifest(reference)
+        report['probeManifest'] = remote
+        need(remote['status'] == 'present', 'PROBE_MANIFEST_READBACK_FAILED')
+        manifests = [row for row in remote['descriptors'] if row['kind'] in ('manifest', 'index')]
+        configs = [row for row in remote['descriptors'] if row['kind'] == 'config']
+        need(len(manifests) == 1 and manifests[0]['kind'] == 'manifest'
+             and manifests[0]['digest'] == manifest, 'PROBE_MANIFEST_DIGEST_MISMATCH')
+        need(len(configs) == 1 and configs[0]['digest'] == before, 'PROBE_CONFIG_DIGEST_MISMATCH')
+        remove_if_local(reference, before)
+        remove_if_local(before, before)
+        require_local_absent(reference)
+        require_local_absent(before)
+        report['localTagAndIdAbsentBeforePull'] = True
+        pull_reference = reference.rsplit(':', 1)[0] + '@' + manifest
+        require_success(['pull', pull_reference], 180, 'PULL', progress_reader('pull', report))
+        after = image_id(pull_reference)
+        report['imageIdAfter'] = after
+        need(after == before, 'PULLED_IMAGE_ID_MISMATCH')
+
+
+def diagnose(tag, payload_mib, output, transport='docker'):
     report = {'kind': 'registry-upload-diagnostic-v1', 'status': 'failed', 'metadata': {},
               'payloadBytes': 0, 'localTagAndIdAbsentBeforePull': False,
               'pullMayReuseLayerCache': True}
@@ -220,6 +282,8 @@ def diagnose(tag, payload_mib, output):
         return 1
     deadline_token = _DEADLINE.set(time.monotonic() + DIAGNOSTIC_SECONDS)
     try:
+        need(transport in ('docker', 'buildkit'), 'TRANSPORT_NOT_ALLOWED')
+        report['transport'] = transport
         need(type(payload_mib) is int and payload_mib == 32, 'PAYLOAD_SIZE_NOT_ALLOWED')
         need(os.environ.get('GITHUB_ACTIONS') == 'true' and os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted'
              and os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch', 'MANAGED_HOSTED_JOB_REQUIRED')
@@ -239,6 +303,8 @@ def diagnose(tag, payload_mib, output):
         run, attempt = os.environ.get('GITHUB_RUN_ID', ''), os.environ.get('GITHUB_RUN_ATTEMPT', '')
         need(re.fullmatch(r'[1-9][0-9]{0,19}', run) is not None and re.fullmatch(r'[1-9][0-9]{0,19}', attempt) is not None, 'RUN_IDENTITY_INVALID')
         probe_tag = 'acr-probe-' + run + '-' + attempt + '-sized'
+        if transport == 'buildkit':
+            probe_tag += '-buildkit'
         reference = prefix + '/api:' + probe_tag
         report.update(existingTag=tag, probeTag=probe_tag)
         version = require_success(['version', '--format', '{{.Server.Version}}'], 15, 'DOCKER_VERSION').strip()
@@ -258,18 +324,21 @@ def diagnose(tag, payload_mib, output):
             report['payloadBytes'] = (root / 'payload').stat().st_size
             need(report['payloadBytes'] == 32 * 1024 * 1024, 'PAYLOAD_GENERATION_FAILED')
             (root / 'Dockerfile').write_text('FROM scratch\nCOPY payload /payload\n')
-            require_success(['build', '--network=none', '--tag', reference, str(root)], 60, 'BUILD')
-            before = image_id(reference)
-            report['imageIdBefore'] = before
-            require_success(['push', reference], 180, 'PUSH', progress_reader('push', report))
-            require_success(['image', 'rm', '--force', reference], 30, 'LOCAL_REMOVE')
-            require_local_absent(reference)
-            require_local_absent(before)
-            report['localTagAndIdAbsentBeforePull'] = True
-            require_success(['pull', reference], 180, 'PULL', progress_reader('pull', report))
-            after = image_id(reference)
-            report['imageIdAfter'] = after
-            need(after == before, 'PULLED_IMAGE_ID_MISMATCH')
+            if transport == 'buildkit':
+                buildkit_upload(root, reference, report)
+            else:
+                require_success(['build', '--network=none', '--tag', reference, str(root)], 60, 'BUILD')
+                before = image_id(reference)
+                report['imageIdBefore'] = before
+                require_success(['push', reference], 180, 'PUSH', progress_reader('push', report))
+                require_success(['image', 'rm', '--force', reference], 30, 'LOCAL_REMOVE')
+                require_local_absent(reference)
+                require_local_absent(before)
+                report['localTagAndIdAbsentBeforePull'] = True
+                require_success(['pull', reference], 180, 'PULL', progress_reader('pull', report))
+                after = image_id(reference)
+                report['imageIdAfter'] = after
+                need(after == before, 'PULLED_IMAGE_ID_MISMATCH')
         report['status'] = 'succeeded'
         result = 0
     except DiagnosticError as error:
@@ -303,12 +372,13 @@ def main(argv=None):
     parser.add_argument('--tag', required=True)
     parser.add_argument('--payload-mib', required=True, type=int)
     parser.add_argument('--output', required=True)
+    parser.add_argument('--transport', choices=('docker', 'buildkit'), default='docker')
     try:
         args = parser.parse_args(argv)
     except DiagnosticError:
         emit({'errorCode': 'ARGUMENTS_INVALID'})
         return 2
-    return diagnose(args.tag, args.payload_mib, args.output)
+    return diagnose(args.tag, args.payload_mib, args.output, args.transport)
 
 
 if __name__ == '__main__':
