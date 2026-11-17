@@ -40,11 +40,16 @@
 # 判决同时打进 job log（`01-verdict.txt` 的同一份内容），读 `get_job_logs` 就能拿到结论，
 # 不必先下载 artifact。写盘的每一个字符串都过 `scrubSecrets`。
 name: real-model-chat-evidence
-run-name: ${{ inputs.evidence_request_id && format('devapp-exact:{0}:{1}', inputs.evidence_attempt, inputs.evidence_request_id) || 'real-model-chat-evidence' }}
+run-name: ${{ inputs.aidt_auth_readonly && 'devapp-aidt-auth-readonly' || (inputs.evidence_request_id && format('devapp-exact:{0}:{1}', inputs.evidence_attempt, inputs.evidence_request_id) || 'real-model-chat-evidence') }}
 
 on:
   workflow_dispatch:
     inputs:
+      aidt_auth_readonly:
+        description: Existing QA login and AIDT GET gates only; disables the PDF/model job
+        type: boolean
+        required: false
+        default: false
       prompt:
         description: "发给 /chat 的那句话（默认就是反复失败的那一句）"
         required: false
@@ -80,6 +85,7 @@ concurrency:
 
 jobs:
   verify:
+    if: ${{ !inputs.aidt_auth_readonly }}
     runs-on: [self-hosted, linux, x64, workspacex]
     permissions:
       contents: read
@@ -163,3 +169,119 @@ jobs:
         run: |
           echo "真实模型用例未通过——逐条结论见上方判决与 artifact real-model-chat-evidence"
           exit 1
+
+  readonly-gates:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.aidt_auth_readonly }}
+    runs-on: [self-hosted, linux, x64, workspacex]
+    permissions:
+      contents: read
+    timeout-minutes: 12
+    env:
+      DEBUG: ''
+      PWDEBUG: ''
+      NEXT_TELEMETRY_DISABLED: '1'
+      COPILOTKIT_TELEMETRY_DISABLED: 'true'
+    steps:
+      - name: Fetch exact source into this attempt's private directory
+        id: private-source
+        env:
+          AIDT_FETCH_TOKEN: ${{ github.token }}
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          set +x
+          umask 077
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ && "$GITHUB_RUN_ID" =~ ^[0-9]+$ && "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$RUNNER_TEMP" == /* && "$RUNNER_TEMP" != *$'\n'* && "$RUNNER_TEMP" != *$'\r'* ]]
+          AIDT_AUTH_ROOT="$RUNNER_TEMP/../wsx-aidt-auth-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          cd "$RUNNER_TEMP"
+          mkdir -- "$AIDT_AUTH_ROOT" || { echo 'PRIVATE_SOURCE_ALREADY_EXISTS'; exit 1; }
+          trap 'status=$?; rm -f -- "$AIDT_AUTH_ROOT/askpass"; if (( status != 0 )); then rm -rf -- "$AIDT_AUTH_ROOT"; fi' EXIT
+          printf '%s\n' "$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT:$GITHUB_SHA" > "$AIDT_AUTH_ROOT/.owner"
+          printf 'owned=true\n' >> "$GITHUB_OUTPUT"
+          printf 'AIDT_AUTH_ROOT=%s\nPLAYWRIGHT_BROWSERS_PATH=%s/browsers\n' "$AIDT_AUTH_ROOT" "$AIDT_AUTH_ROOT" >> "$GITHUB_ENV"
+          mkdir -- "$AIDT_AUTH_ROOT/source"
+          cd "$AIDT_AUTH_ROOT/source"
+          unset GIT_CONFIG GIT_COMMON_DIR GIT_TEMPLATE_DIR GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+          unset GIT_TRACE GIT_TRACE_PACKET GIT_TRACE_PACK_ACCESS GIT_TRACE_PERFORMANCE GIT_TRACE_SETUP GIT_TRACE_SHALLOW GIT_TRACE_CURL GIT_TRACE_CURL_NO_DATA GIT_TRACE2 GIT_TRACE2_EVENT GIT_TRACE2_PERF GIT_CURL_VERBOSE CURL_VERBOSE
+          export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0
+          export GIT_ASKPASS="$AIDT_AUTH_ROOT/askpass"
+          cat > "$GIT_ASKPASS" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' x-access-token ;;
+            *Password*) printf '%s\n' "$AIDT_FETCH_TOKEN" ;;
+            *) exit 1 ;;
+          esac
+          ASKPASS
+          chmod 700 "$GIT_ASKPASS"
+          git -c core.hooksPath=/dev/null init -q --template= . 2>/dev/null || { echo 'SOURCE_INIT_FAILED'; exit 1; }
+          git -c core.hooksPath=/dev/null -c credential.helper= -c http.followRedirects=false fetch -q --depth=1 https://github.com/boardx/workspacex.git "$GITHUB_SHA" 2>/dev/null || { echo 'SOURCE_FETCH_FAILED'; exit 1; }
+          git -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD 2>/dev/null || { echo 'SOURCE_CHECKOUT_FAILED'; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'SOURCE_IDENTITY_MISMATCH'; exit 1; }
+          [[ -f .nvmrc && ! -L .nvmrc && -f package.json && ! -L package.json ]]
+          node_version=$(cat .nvmrc)
+          [[ "$node_version" =~ ^[0-9]+([.][0-9]+){0,2}$ ]] || { echo 'SOURCE_NODE_VERSION_INVALID'; exit 1; }
+          printf 'node-version=%s\n' "$node_version" >> "$GITHUB_OUTPUT"
+          printf 'sourceSha=%s\n' "$GITHUB_SHA"
+      - uses: actions/setup-node@v5
+        with:
+          # v5 joins node-version-file to GITHUB_WORKSPACE; use the validated private file's value.
+          node-version: ${{ steps.private-source.outputs.node-version }}
+          package-manager-cache: false
+      - name: Existing designated QA credentials only
+        # Parse the official fixed QA path as data; no shell sourcing, fallback or secret copy.
+        working-directory: ${{ runner.temp }}
+        run: |
+          cd "$AIDT_AUTH_ROOT/source"
+          node apps/web/e2e/support/devapp-aidt-auth-readonly.mjs --preflight
+      - name: Install the private source's pinned pnpm in the private directory
+        # pnpm/action-setup reads shared GITHUB_WORKSPACE/.npmrc; use an isolated equivalent.
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          cd "$AIDT_AUTH_ROOT/source"
+          pnpm_version=$(node -e 'const p=require("./package.json").packageManager; if(typeof p!=="string" || !/^pnpm@[0-9]+\.[0-9]+\.[0-9]+$/.test(p)) process.exit(1); process.stdout.write(p.slice(5))')
+          : > "$AIDT_AUTH_ROOT/user.npmrc"
+          : > "$AIDT_AUTH_ROOT/global.npmrc"
+          npm install --prefix "$AIDT_AUTH_ROOT/pnpm" --cache "$AIDT_AUTH_ROOT/npm-cache" --userconfig="$AIDT_AUTH_ROOT/user.npmrc" --globalconfig="$AIDT_AUTH_ROOT/global.npmrc" --registry=https://registry.npmjs.org --ignore-scripts --package-lock=false --no-audit --no-fund "pnpm@$pnpm_version"
+          printf '%s\n' "$AIDT_AUTH_ROOT/pnpm/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Install dependencies in the private source
+        working-directory: ${{ runner.temp }}
+        run: |
+          cd "$AIDT_AUTH_ROOT/source"
+          pnpm install --frozen-lockfile --store-dir "$AIDT_AUTH_ROOT/pnpm-store"
+      - name: Guard unit tests (no network or browser)
+        working-directory: ${{ runner.temp }}
+        run: |
+          cd "$AIDT_AUTH_ROOT/source"
+          node --test scripts/tests/devapp-aidt-auth-readonly.test.mjs
+      # Chromium download only; no system package installation.
+      - name: Install Chromium
+        working-directory: ${{ runner.temp }}
+        run: |
+          cd "$AIDT_AUTH_ROOT/source"
+          pnpm --filter web exec playwright install chromium
+      - name: One UI login and read-only route gates
+        # No credential copies, screenshots, traces or persisted storage-state files.
+        working-directory: ${{ runner.temp }}
+        run: |
+          cd "$AIDT_AUTH_ROOT/source"
+          node apps/web/e2e/support/devapp-aidt-auth-readonly.mjs
+      - name: Remove only this attempt's owned private directory
+        if: ${{ always() && steps.private-source.outputs.owned == 'true' }}
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ && "$GITHUB_RUN_ID" =~ ^[0-9]+$ && "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$RUNNER_TEMP" == /* && "$RUNNER_TEMP" != *$'\n'* && "$RUNNER_TEMP" != *$'\r'* ]]
+          AIDT_AUTH_ROOT="$RUNNER_TEMP/../wsx-aidt-auth-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          [[ ! -L "$AIDT_AUTH_ROOT" ]] || exit 1
+          if [[ -d "$AIDT_AUTH_ROOT" ]]; then
+            [[ -f "$AIDT_AUTH_ROOT/.owner" && ! -L "$AIDT_AUTH_ROOT/.owner" ]]
+            [[ "$(cat "$AIDT_AUTH_ROOT/.owner")" == "$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT:$GITHUB_SHA" ]]
+            rm -rf -- "$AIDT_AUTH_ROOT"
+          fi
