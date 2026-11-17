@@ -505,6 +505,10 @@ describe("I-14: no non-pinned pointer exists anywhere in the reference table", (
     //                            version -- only `judgeCitation`/`kernel_version_is_pinned()`
     //                            do that, same as `derived_from` above.
     expect(referrers).toEqual([
+      // Raw AIDT upload receipts identify the uploaded bytes. Their reads scope
+      // the artifact and version to the project and apply artifact visibility.
+      // Downstream citations still go through the pinned reference gate.
+      "aidt_raw_upload_runs",
       "artifact_bindings",
       "artifact_versions",
       "context_packs",
