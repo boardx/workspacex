@@ -13,7 +13,7 @@ const push = vi.hoisted(() => vi.fn());
 const link = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/survey/runtime-client", () => ({ surveyRequest: request }));
 vi.mock("@/lib/live-project-resources", () => ({ linkProjectResource: link }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push }) }));
 
 const rawName = "原始 survey {count}";
 const rawTag = "原标签 {name}";
