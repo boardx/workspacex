@@ -6,7 +6,10 @@ import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 import { InterviewStudioHome } from "@/components/itv/interview-studio-home";
 import { InterviewHistoryCardActions } from "@/components/itv/interview-history-card-actions";
 const api = vi.hoisted(() => ({ history: vi.fn(), experts: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("@/lib/interview-api", async original => ({ ...await original<typeof import("@/lib/interview-api")>(), loadDigitalInterviewHistory: api.history, loadDigitalExperts: api.experts }));
 vi.mock("@/lib/interview-expert-library-api", () => ({ loadCustomInterviewExperts: async () => ({ items: [] }) }));
 function Language() { const { setLocale } = useI18n(); return <><button onClick={() => setLocale("en")}>EN test</button><button onClick={() => setLocale("zh-CN")}>ZH test</button></>; }
