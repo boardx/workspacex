@@ -40,11 +40,16 @@
 # 判决同时打进 job log（`01-verdict.txt` 的同一份内容），读 `get_job_logs` 就能拿到结论，
 # 不必先下载 artifact。写盘的每一个字符串都过 `scrubSecrets`。
 name: real-model-chat-evidence
-run-name: ${{ inputs.evidence_request_id && format('devapp-exact:{0}:{1}', inputs.evidence_attempt, inputs.evidence_request_id) || 'real-model-chat-evidence' }}
+run-name: ${{ inputs.aidt_auth_readonly && 'devapp-aidt-auth-readonly' || (inputs.evidence_request_id && format('devapp-exact:{0}:{1}', inputs.evidence_attempt, inputs.evidence_request_id) || 'real-model-chat-evidence') }}
 
 on:
   workflow_dispatch:
     inputs:
+      aidt_auth_readonly:
+        description: Existing QA login and AIDT GET gates only; disables the PDF/model job
+        type: boolean
+        required: false
+        default: false
       prompt:
         description: "发给 /chat 的那句话（默认就是反复失败的那一句）"
         required: false
@@ -80,6 +85,7 @@ concurrency:
 
 jobs:
   verify:
+    if: ${{ !inputs.aidt_auth_readonly }}
     runs-on: [self-hosted, linux, x64, workspacex]
     permissions:
       contents: read
@@ -163,3 +169,34 @@ jobs:
         run: |
           echo "真实模型用例未通过——逐条结论见上方判决与 artifact real-model-chat-evidence"
           exit 1
+
+  readonly-gates:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.aidt_auth_readonly }}
+    runs-on: [self-hosted, linux, x64, workspacex]
+    permissions:
+      contents: read
+    timeout-minutes: 12
+    env:
+      DEBUG: ''
+      PWDEBUG: ''
+      NEXT_TELEMETRY_DISABLED: '1'
+      COPILOTKIT_TELEMETRY_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Existing designated QA credentials only
+        # Parse the official fixed QA path as data; no shell sourcing, fallback or secret copy.
+        run: node apps/web/e2e/support/devapp-aidt-auth-readonly.mjs --preflight
+      - uses: pnpm/action-setup@v4.4.0
+      - run: pnpm install --frozen-lockfile
+      - name: Guard unit tests (no network or browser)
+        run: node --test scripts/tests/devapp-aidt-auth-readonly.test.mjs
+      # Chromium download only; no system package installation.
+      - run: pnpm --filter web exec playwright install chromium
+      - name: One UI login and read-only route gates
+        # No credential copies, screenshots, traces or persisted storage-state files.
+        run: node apps/web/e2e/support/devapp-aidt-auth-readonly.mjs
