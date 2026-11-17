@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: funds the unique personal actor and removes its wallet in afterAll.
 // @global-scope-fixture table:billing_pricing_epoch: restores the exact prior row or absence in afterAll.
 // Repository calls own one unique model key per run; cleanup removes only that exact global key.
 import {readFileSync} from 'node:fs';
@@ -21,7 +22,12 @@ const tariff={modelProvider:'dashscope',modelId:'qwen3-asr-flash-realtime',unit:
 const principal={orgId:org,userId:'tariff-operator'},user='tariff-user-'+unique;
 beforeAll(async()=>{await ensureDatabase();await migrateOnce();writer=await createFixtureTariffWriter();repo=new PgNativeCreditTariffRepository(db,writer);service=new NativeCreditTariffService(repo,async u=>u==='tariff-operator');await resetOrgs(org,personal,fresh);await seedOrg({orgId:org,projectId:'tariff-project'});await seedOrg({orgId:personal,kind:'personal-local',ownerUserId:user,projectId:'tariff-personal-project'});for(const id of [org,personal])await addOrgMember(id,user,'admin',null);await asOwner(async c=>{previousEpoch=(await c.query<{generation:string|null;activated_at:string|null}>('SELECT generation,activated_at::text AS activated_at FROM billing_pricing_epoch WHERE singleton')).rows[0]??null;await c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton',[generation]);await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,'fixture-operator',$2)",[org,generation]);});});
 afterAll(async()=>{
- try{await asOwner(c=>c.query('DELETE FROM credit_global_native_tariffs WHERE model_provider=$1 AND model_id=$2',[tariff.modelProvider,tariff.modelId]));}
+ try{await asOwner(async c=>{
+  await c.query('DELETE FROM credit_global_native_tariffs WHERE model_provider=$1 AND model_id=$2',[tariff.modelProvider,tariff.modelId]);
+  await c.query("DELETE FROM credit_consumption_requests WHERE user_id=$1 AND org_id=$2",[user,personal]);
+  await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1)",[user]);
+  await c.query("DELETE FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[user]);
+ });}
  finally{try{await writer?.close();}finally{try{await db.close();}finally{try{await resetOrgs(org,personal,fresh);}finally{
   // Undefined means setup never captured the epoch; null means the row was absent.
   // Restore even when assertions or another cleanup operation failed.
@@ -37,6 +43,7 @@ it('denies nonoperators before global read/write and rejects legacy org fields',
  expect(NativeCreditTariff.safeParse({...tariff,orgId:org}).success).toBe(false);
 });
 it('personal and team calls share one global price but retain separate wallets and saved prices',async()=>{
+ await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,1)",[user]));
  await service.upsert(principal,tariff);const store=new PgCreditConsumption(db);
  await seedOrg({orgId:fresh,projectId:'tariff-new-project'});await addOrgMember(fresh,user,'admin',null);await asOwner(c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,'fixture-operator',$2)",[fresh,generation]));
  for(const id of [org,personal,fresh])await db.withTenant(id,s=>store.reserveInSession(s,id,{requestId:'global-tariff-'+id,userId:user,runId:null,modelProvider:tariff.modelProvider,modelId:tariff.modelId,startedAt:new Date().toISOString(),executionAttemptId:null,projectId:null,callPurpose:'native-asr',nativeMaximum:{unit:'millisecond',quantity:4300n}}));
