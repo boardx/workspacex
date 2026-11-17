@@ -16,7 +16,7 @@ This ad-hoc PR carries the requested isolated native teaching module, V2 six-sta
 1. Bound saved/source/history revisions to PostgreSQL integer, and preserve one increment for save expectedRevision. Ten counterexamples fail before the fix and pass afterward.
 2. Rename the new member-chat schema export to `MemberChatReadOnlyReason`, avoiding the existing lifecycle type without changing wire values or relaxing contract-source lint.
 3. Register seven teaching Skill slugs as hidden module-hosted capabilities; preserve ordinary three entry points, historical pinned bytes and candidate scanning.
-4. Add explicit default-off DevApp-only Web release build opt-in; API runtime enablement, schema release and native host admission remain separate. Final release review/test receipt is added once its last counterexample is resolved.
+4. Add explicit default-off DevApp-only Web release build opt-in; API runtime enablement, schema release and native host admission remain separate. Known AIDT tags use a reserved numeric attempt prefix compatible with installed consumers; source CI blocks their CN/US reuse even when enable=false. Registry 34 tests, branch policy 9 and alias checks 5 pass. This is a CI-entry guard, not signed flavor evidence or protection against external/manual legacy retagging. See release-optin.md and independent-source-review.md.
 
 ## Fresh integration validation
 

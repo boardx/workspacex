@@ -17,6 +17,9 @@ SERVICES = hosted.SERVICES
 SHA = re.compile(r'[a-f0-9]{40}')
 TAG = re.compile(r'(?:[a-f0-9]{40}-)?[1-9][0-9]*-[1-9][0-9]*')
 LEGACY_TAG = re.compile(r'[a-f0-9]{40}-[1-9][0-9]*-[1-9][0-9]*')
+# Numeric-only namespace remains compatible with installed short/legacy-tag
+# consumers. It restricts this producer/plan; it is not signed flavor evidence.
+AIDT_ATTEMPT_PREFIX = '9000000000000000000'
 PREFIX = re.compile(r'[a-z0-9][a-z0-9.-]*(?::[0-9]+)?/[a-z0-9]+(?:[._-][a-z0-9]+)*')
 
 def need(ok, code):
@@ -27,15 +30,42 @@ def coordinates(prefix, tag):
     need(isinstance(tag,str) and TAG.fullmatch(tag), 'INVALID_RELEASE_TAG')
     return prefix, tag
 
-def release_tag(source, run, attempt):
+def is_aidt_tag(tag):
+    return bool(isinstance(tag,str) and TAG.fullmatch(tag) and tag.rsplit('-',1)[-1].startswith(AIDT_ATTEMPT_PREFIX))
+
+def release_tag(source, run, attempt, enable_aidt=False):
     need(SHA.fullmatch(source) and re.fullmatch('[1-9][0-9]*',run) and re.fullmatch('[1-9][0-9]*',attempt), 'INVALID_BUILD_IDENTITY')
-    return run+'-'+attempt
+    need(not attempt.startswith(AIDT_ATTEMPT_PREFIX),'RESERVED_AIDT_ATTEMPT')
+    return run+'-'+(AIDT_ATTEMPT_PREFIX if enable_aidt else '')+attempt
 
 def build_source(default, override, build_only):
     need(isinstance(default,str) and SHA.fullmatch(default), 'INVALID_BUILD_SOURCE')
     need(isinstance(override,str) and (not override or SHA.fullmatch(override)), 'INVALID_BUILD_SOURCE')
     need(not override or build_only is True, 'SOURCE_OVERRIDE_REQUIRES_BUILD_ONLY')
     return override or default
+
+def aidt_plan_flag(value, target, existing_tag):
+    need(value in ('true','false'),'INVALID_AIDT_BOOLEAN')
+    enabled=value=='true'
+    need(not is_aidt_tag(existing_tag) or target=='devapp','AIDT_TAG_REQUIRES_DEVAPP')
+    need(not enabled or target=='devapp','AIDT_REQUIRES_DEVAPP')
+    # Existing manifests do not attest build-time module flags. Do not pretend
+    # this input can enable teaching in an already compiled Web image.
+    need(not enabled or not existing_tag,'AIDT_REQUIRES_NEW_TAG')
+    return '1' if enabled else '0'
+
+def aidt_web_build_args(role):
+    release=os.environ.get('AIDT_RELEASE_ENABLED','0')
+    need(release in ('0','1'),'INVALID_AIDT_BUILD_FLAG')
+    need(release=='0' or os.environ.get('TARGET_ENVIRONMENT')=='devapp','AIDT_REQUIRES_DEVAPP')
+    names=('NEXT_PUBLIC_ENABLE_AIDT','NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT')
+    values=[os.environ.get(name,'0') for name in names]
+    need(all(value in ('0','1') for value in values),'INVALID_AIDT_BUILD_FLAG')
+    need(values[0]==values[1],'AIDT_BUILD_FLAGS_MISMATCH')
+    need(values[0]=='0' or role=='web','AIDT_WEB_BUILD_ONLY')
+    need(values[0]=='0' or os.environ.get('TARGET_ENVIRONMENT')=='devapp','AIDT_REQUIRES_DEVAPP')
+    need(role!='web' or values[0]==release,'AIDT_BUILD_FLAGS_MISMATCH')
+    return [arg for name,value in zip(names,values) for arg in ('--build-arg',name+'='+value)] if role=='web' else []
 
 def safe_diagnostics(raw):
     for key,value in os.environ.items():
@@ -111,10 +141,13 @@ def build(role, prefix, tag, output, source):
     coordinates(prefix,tag)
     need(role in SERVICES,'INVALID_SERVICE')
     need(isinstance(source,str) and SHA.fullmatch(source),'INVALID_SOURCE_REVISION')
+    module_args=aidt_web_build_args(role)
+    enabled=os.environ.get('AIDT_RELEASE_ENABLED','0')=='1'
+    need(is_aidt_tag(tag)==enabled,'AIDT_TAG_FLAVOR_MISMATCH')
     need(run(['git','rev-parse','HEAD']).strip()==source,'SOURCE_CHECKOUT_MISMATCH')
     repository,dockerfile,context,bases=SERVICES[role]
     args=['docker','buildx','build','--load','--platform','linux/amd64','--file',dockerfile,'--tag',prefix+'/'+repository+':'+tag,
-          '--label','org.opencontainers.image.revision='+source,'--label','io.boardx.workspacex.release-tag='+tag,'--build-arg','SOURCE_REVISION='+source]
+          '--label','org.opencontainers.image.revision='+source,'--label','io.boardx.workspacex.release-tag='+tag,'--build-arg','SOURCE_REVISION='+source]+module_args
     mapping={'node':'NODE_IMAGE','python':'PYTHON_IMAGE','postgres':'PGVECTOR_IMAGE'}
     for base in bases:
         name=mapping[base];value=os.environ.get(name,'')
@@ -123,7 +156,7 @@ def build(role, prefix, tag, output, source):
     # Package mirrors are shared with the existing producer's default contract.
     for name,key in {'NPM_REGISTRY':'npmRegistry','PYPI_INDEX_URL':'pypiIndexUrl','APT_MIRROR':'aptMirror','AGE_REPOSITORY':'ageRepository'}.items():
         args+=['--build-arg',name+'='+hosted.DEFAULT_SOURCES[key]]
-    expected=release_tag(source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
+    expected=release_tag(source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'],enabled)
     need(tag==expected,'RERUN_ALL_JOBS_REQUIRED')
     probe=subprocess.run(['docker','manifest','inspect',prefix+'/'+repository+':'+tag],capture_output=True,text=True,timeout=60)
     need(probe.returncode!=0,'IMMUTABLE_TAG_ALREADY_EXISTS')
@@ -200,7 +233,8 @@ def main():
         target=expected if requested=='auto' else requested
         need(target in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
         existing=os.environ.get('EXISTING_TAG','')
-        tag=existing or release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
+        aidt=aidt_plan_flag(os.environ.get('ENABLE_AIDT','false'),target,existing)
+        tag=existing or release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'],aidt=='1')
         need(TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
         selected=os.environ.get('BUILD_SERVICE') or 'all'
         need(selected=='all' or selected in SERVICES and os.environ.get('BUILD_ONLY')=='true','PARTIAL_BUILD_REQUIRES_BUILD_ONLY')
@@ -211,7 +245,7 @@ def main():
         runner=['self-hosted','linux','x64',lane[1]]
         with open(os.environ['GITHUB_OUTPUT'],'a') as output:
             values={'source':args.source,'tag':tag,'services':json.dumps(services),'fullset':'true' if selected=='all' else 'false','target':target,'environment':lane[0],
-                    'runner':json.dumps(runner),'build':'false' if existing else 'true','group':lane[2]}
+                    'runner':json.dumps(runner),'build':'false' if existing else 'true','group':lane[2],'aidt_web_enabled':aidt}
             if args.resolve_bases and not existing: values.update(resolve_bases())
             for key,value in values.items(): output.write(key+'='+value+'\n')
         summary=os.environ.get('GITHUB_STEP_SUMMARY')
@@ -219,6 +253,10 @@ def main():
             with open(summary,'a') as output:
                 mode='Reuse existing images (skip build)' if existing else 'Build and publish new images'
                 output.write('## Image release plan\n\nImage tag: `'+tag+'`\n\nEnvironment: `'+target+'`\n\nMode: '+mode+'\n\n')
+                if existing:
+                    output.write('Reused tag: AIDT build-time flags are not attested by this plan.\n\n')
+                else:
+                    output.write('AIDT Web build opt-in: `'+aidt+'` (API runtime flags and schema admission remain separate).\n\n')
                 output.write('Copy the tag above after the build succeeds. Rerunning only deployment keeps the original built tag; it does not create a new image tag.\n')
     elif args.operation=='build': build(args.service,args.prefix,args.tag,args.output,args.source)
     else: write(args.output,aggregate(Path(args.directory),args.source,args.tag,args.prefix))

@@ -16,6 +16,9 @@ COPY apps/web ./apps/web
 COPY tests/fixtures/cn-six-business ./tests/fixtures/cn-six-business
 RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store npm_config_registry="$NPM_REGISTRY" pnpm install --frozen-lockfile --filter web...
 ENV NEXT_PUBLIC_API_URL=/api API_INTERNAL_URL=http://api:3200
+ARG NEXT_PUBLIC_ENABLE_AIDT=0
+ARG NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT=0
+ENV NEXT_PUBLIC_ENABLE_AIDT=${NEXT_PUBLIC_ENABLE_AIDT} NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT=${NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT}
 RUN --network=none pnpm --filter @repo/contracts exec tsc -p tsconfig.release.json \
  && WORKSPACEX_RELEASE_BUILD=1 NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter web build \
  && test -f apps/web/.next/standalone/apps/web/server.js \
