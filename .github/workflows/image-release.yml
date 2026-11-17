@@ -46,6 +46,11 @@ on:
         required: false
         default: false
         type: boolean
+      aidt_configuration_activation:
+        description: Activate the reviewed existing AIDT release configuration only (DevApp, build_only, all, explicit original source)
+        required: false
+        default: false
+        type: boolean
       tag:
         description: Existing immutable image tag (empty builds the selected branch)
         required: false
@@ -57,6 +62,16 @@ on:
 
 permissions:
   contents: read
+
+# One reviewed parent, not a caller-selected image, URL or mutable tag. This
+# optional configuration operation retains the parent's application revision.
+env:
+  AIDT_CONFIG_ACTIVATION: ${{ inputs.aidt_configuration_activation && '1' || '0' }}
+  SOURCE_OVERRIDE: ${{ inputs.source_revision }}
+  BUILD_ONLY: ${{ inputs.build_only }}
+  BUILD_SERVICE: ${{ inputs.service || 'all' }}
+  EXISTING_TAG: ${{ inputs.tag }}
+  REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
 
 jobs:
   plan:
@@ -87,8 +102,6 @@ jobs:
         id: source
         env:
           DEFAULT_SOURCE: ${{ github.sha }}
-          SOURCE_OVERRIDE: ${{ inputs.source_revision }}
-          BUILD_ONLY: ${{ inputs.build_only }}
         run: python3 -B control/scripts/registry-images.py source --default "$DEFAULT_SOURCE"
       - uses: actions/checkout@v5
         with:
@@ -101,9 +114,6 @@ jobs:
         env:
           SOURCE_REVISION: ${{ steps.source.outputs.source }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
-          EXISTING_TAG: ${{ inputs.tag }}
-          BUILD_ONLY: ${{ inputs.build_only }}
-          BUILD_SERVICE: ${{ inputs.service }}
           ENABLE_AIDT: ${{ inputs.enable_aidt }}
           NODE_IMAGE: ${{ vars.WSX_NODE_IMAGE }}
           PYTHON_IMAGE: ${{ vars.WSX_PYTHON_IMAGE }}
@@ -125,7 +135,6 @@ jobs:
     env:
       DOCKER_CONFIG: /tmp/wsx-acr-build-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}
       REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
-      REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
       NODE_IMAGE: ${{ needs.plan.outputs.node_image }}
       PYTHON_IMAGE: ${{ needs.plan.outputs.python_image }}
       PGVECTOR_IMAGE: ${{ needs.plan.outputs.pgvector_image }}
@@ -180,7 +189,6 @@ jobs:
           path: results
       - name: Require complete image set from this attempt
         env:
-          REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
           SOURCE_REVISION: ${{ needs.plan.outputs.source }}
         run: python3 -B scripts/registry-images.py aggregate --source "$SOURCE_REVISION" --directory results --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output release.json
