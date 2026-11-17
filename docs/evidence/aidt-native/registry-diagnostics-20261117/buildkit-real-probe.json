@@ -1,0 +1,66 @@
+{
+  "buildkitPush": {
+    "elapsed": 26.695,
+    "status": "completed"
+  },
+  "diagnosticCodeRevision": "4ea17e141feab4527df2f82f272d5ad4add3753e",
+  "dockerServerVersion": "28.0.4",
+  "existingTag": "44000938132-90000000000000000001",
+  "expectedManifestDigest": "sha256:4a7ef4d4844eb5b1aa669b3f020a53a8c6746bf6433df0ed034dc08c2010c68e",
+  "imageIdAfter": "sha256:d7f5fd0d190f8231551bd06d7da3dfd1fb4ccb13d2ef99ff3ad0a74422778440",
+  "imageIdBefore": "sha256:d7f5fd0d190f8231551bd06d7da3dfd1fb4ccb13d2ef99ff3ad0a74422778440",
+  "kind": "registry-upload-diagnostic-v1",
+  "localTagAndIdAbsentBeforePull": true,
+  "metadata": {
+    "agent": {
+      "descriptors": [],
+      "status": "missing"
+    },
+    "api": {
+      "descriptors": [],
+      "status": "missing"
+    },
+    "postgres": {
+      "descriptors": [],
+      "status": "missing"
+    },
+    "sandbox": {
+      "descriptors": [],
+      "status": "missing"
+    },
+    "web": {
+      "descriptors": [],
+      "status": "missing"
+    }
+  },
+  "payloadBytes": 33554432,
+  "probeManifest": {
+    "descriptors": [
+      {
+        "digest": "sha256:4a7ef4d4844eb5b1aa669b3f020a53a8c6746bf6433df0ed034dc08c2010c68e",
+        "kind": "manifest",
+        "size": 528
+      },
+      {
+        "digest": "sha256:d7f5fd0d190f8231551bd06d7da3dfd1fb4ccb13d2ef99ff3ad0a74422778440",
+        "kind": "config",
+        "size": 438
+      },
+      {
+        "digest": "sha256:4156cfb7589ad5664c123e4e6f39345bbc78d6d8534477f5aaab59135a619aad",
+        "kind": "layer",
+        "size": 33564845
+      }
+    ],
+    "status": "present"
+  },
+  "probeTag": "acr-probe-44008536612-1-sized-buildkit",
+  "pull": {
+    "completedCount": 1,
+    "elapsed": 3.439,
+    "layerCount": 1
+  },
+  "pullMayReuseLayerCache": true,
+  "status": "succeeded",
+  "transport": "buildkit"
+}

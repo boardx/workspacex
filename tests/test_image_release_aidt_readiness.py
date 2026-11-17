@@ -11,7 +11,7 @@ probe = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(probe)
 IDENTIFIER = 'a' * 64
 SOURCE = 'b' * 40
-SECRET = 'SYNTHETIC_PRIVATE_ENV_VALUE_NEVER_EMIT'
+SECRET = 'DUMMY_SYNTHETIC_PRIVATE_ENV_VALUE_NEVER_EMIT'
 
 
 def container(project='workspacex-devapp', service='api', identifier=IDENTIFIER):

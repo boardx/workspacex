@@ -1,0 +1,43 @@
+[
+  {
+    "kind": "image-release-host-permissions-v1",
+    "aidtReadiness": {
+      "api": {
+        "reason": "NO_UNIQUE_API",
+        "status": "UNKNOWN"
+      },
+      "containers": [
+        {
+          "project": "workspacex",
+          "service": "postgres",
+          "sourceRevision": null
+        },
+        {
+          "project": "workspacex",
+          "service": "minio",
+          "sourceRevision": null
+        },
+        {
+          "project": "workspacex",
+          "service": "redis",
+          "sourceRevision": null
+        }
+      ],
+      "status": "READABLE",
+      "truncated": false
+    },
+    "changesMade": false
+  },
+  {
+    "deploymentExecuted": false,
+    "dockerReadable": true,
+    "environment": "devapp",
+    "fixedStatusExit": 0,
+    "kind": "image-release-authorization-verified-v1",
+    "otherEnvironmentDenied": true,
+    "ownEnvironmentAllowed": true,
+    "runnerAccount": "ghrunner",
+    "statusExtraArgumentDenied": true,
+    "uid": 1001
+  }
+]

@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import time
 
 spec = importlib.util.spec_from_file_location('hosted_release', Path(__file__).with_name('hosted-release.py'))
@@ -21,6 +22,7 @@ LEGACY_TAG = re.compile(r'[a-f0-9]{40}-[1-9][0-9]*-[1-9][0-9]*')
 # consumers. It restricts this producer/plan; it is not signed flavor evidence.
 AIDT_ATTEMPT_PREFIX = '9000000000000000000'
 PREFIX = re.compile(r'[a-z0-9][a-z0-9.-]*(?::[0-9]+)?/[a-z0-9]+(?:[._-][a-z0-9]+)*')
+MAX_BUILD_METADATA_BYTES = 2*1024*1024
 
 def need(ok, code):
     if not ok: raise ValueError(code)
@@ -71,9 +73,12 @@ def safe_diagnostics(raw):
     for key,value in os.environ.items():
         if value and len(value)>=4 and (re.search(r'TOKEN|PASSWORD|SECRET|ACCESS_KEY',key) or key=='ACR_USERNAME'):
             raw=raw.replace(value,'[redacted]')
-    raw=re.sub(r'(https?://)[^/\s]*@',r'\1[redacted]@',raw)
+    raw=re.sub(r'(https?://)[^/\s]*@',r'\1[redacted]@',raw,flags=re.I)
     raw=re.sub(r'(?i)(authorization:\s*(?:bearer|basic)\s+)\S+',r'\1[redacted]',raw)
-    raw=re.sub(r'(?i)([?&](?:token|password|secret|access[_-]?key)=)[^&\s]+',r'\1[redacted]',raw)
+    # Registry exporters can return signed URLs with vendor-specific query keys.
+    # Preserve the endpoint/path, but never relay any URL's query string.
+    raw=re.sub(r'https?://[^\s<>"\']+',lambda m:m[0].split('?',1)[0]+'?[redacted]' if '?' in m[0] else m[0],raw,flags=re.I)
+    raw=re.sub(r'(?i)([?&](?:token|password|secret|access[_-]?key|_state|signature|accesskeyid)=)[^&\s]+',r'\1[redacted]',raw)
     return '\n'.join(raw.splitlines()[-100:])[-12000:]
 
 def run(args, timeout=3600, retry_transient=False):
@@ -93,7 +98,7 @@ def run(args, timeout=3600, retry_transient=False):
         print('Transient registry pull transport failure; retry '+str(attempt+2)+'/'+str(attempts),file=sys.stderr)
         time.sleep((2,5)[attempt])
 
-def resolve(docker, prefix, tag, role, pull=True):
+def resolve(docker, prefix, tag, role, pull=True, expected_source=None):
     coordinates(prefix,tag)
     need(role in SERVICES,'INVALID_SERVICE')
     repository=prefix+'/'+SERVICES[role][0]
@@ -107,6 +112,11 @@ def resolve(docker, prefix, tag, role, pull=True):
     labels=value.get('Config',{}).get('Labels',{}) or {}
     source=labels.get('org.opencontainers.image.revision','')
     need(isinstance(source,str) and SHA.fullmatch(source),'IMAGE_SOURCE_MISMATCH')
+    if expected_source is not None:
+        # Fresh producer results must carry both exact labels; historical alias
+        # compatibility remains available only to existing non-producer callers.
+        need(source==expected_source,'IMAGE_SOURCE_MISMATCH')
+        need(labels.get('io.boardx.workspacex.release-tag')==tag,'IMAGE_BUILD_IDENTITY')
     if LEGACY_TAG.fullmatch(tag):
         need(source==tag[:40],'IMAGE_SOURCE_MISMATCH')
     elif 'io.boardx.workspacex.release-tag' in labels:
@@ -137,6 +147,24 @@ def run_release_stage(role, stage, args, timeout):
     print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} completed', flush=True)
 
 
+def buildkit_identity(path):
+    """Read only the bounded identity fields, never publish exporter metadata."""
+    try:
+        need(not path.is_symlink() and path.is_file(), 'BUILD_METADATA_INVALID')
+        with path.open('rb') as stream:
+            raw=stream.read(MAX_BUILD_METADATA_BYTES+1)
+        need(0<len(raw)<=MAX_BUILD_METADATA_BYTES, 'BUILD_METADATA_INVALID')
+        value=json.loads(raw)
+        need(type(value) is dict, 'BUILD_METADATA_INVALID')
+        config=value.get('containerimage.config.digest')
+        manifest=value.get('containerimage.digest')
+        need(type(config) is str and re.fullmatch(r'sha256:[a-f0-9]{64}',config) and
+             type(manifest) is str and re.fullmatch(r'sha256:[a-f0-9]{64}',manifest), 'BUILD_METADATA_INVALID')
+        return config,manifest
+    except (OSError,ValueError,TypeError):
+        raise ValueError('BUILD_METADATA_INVALID') from None
+
+
 def build(role, prefix, tag, output, source):
     coordinates(prefix,tag)
     need(role in SERVICES,'INVALID_SERVICE')
@@ -146,7 +174,7 @@ def build(role, prefix, tag, output, source):
     need(is_aidt_tag(tag)==enabled,'AIDT_TAG_FLAVOR_MISMATCH')
     need(run(['git','rev-parse','HEAD']).strip()==source,'SOURCE_CHECKOUT_MISMATCH')
     repository,dockerfile,context,bases=SERVICES[role]
-    args=['docker','buildx','build','--load','--platform','linux/amd64','--file',dockerfile,'--tag',prefix+'/'+repository+':'+tag,
+    args=['docker','buildx','build','--output=type=registry,oci-mediatypes=false','--provenance=false','--platform','linux/amd64','--file',dockerfile,'--tag',prefix+'/'+repository+':'+tag,
           '--label','org.opencontainers.image.revision='+source,'--label','io.boardx.workspacex.release-tag='+tag,'--build-arg','SOURCE_REVISION='+source]+module_args
     mapping={'node':'NODE_IMAGE','python':'PYTHON_IMAGE','postgres':'PGVECTOR_IMAGE'}
     for base in bases:
@@ -161,9 +189,19 @@ def build(role, prefix, tag, output, source):
     probe=subprocess.run(['docker','manifest','inspect',prefix+'/'+repository+':'+tag],capture_output=True,text=True,timeout=60)
     need(probe.returncode!=0,'IMMUTABLE_TAG_ALREADY_EXISTS')
     need(re.search(r'manifest unknown|no such manifest|MANIFEST_UNKNOWN',probe.stderr,re.I),'TAG_EXISTENCE_UNVERIFIED')
-    run_release_stage(role, 'build', args+['--progress=plain', context], 2400)
-    run_release_stage(role, 'push', ['docker','push',prefix+'/'+repository+':'+tag], 720)
-    write(output,resolve('docker',prefix,tag,role))
+    with tempfile.TemporaryDirectory(prefix='registry-build-metadata-') as directory:
+        metadata=Path(directory)/'result.json'
+        fd=os.open(metadata,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+        os.close(fd)
+        # The existing build budget now bounds the single build+registry export.
+        # No daemon push, fallback or additional upload retry follows it.
+        run_release_stage(role, 'build', args+['--metadata-file',str(metadata),'--progress=plain', context], 2400)
+        config_digest,manifest_digest=buildkit_identity(metadata)
+        row=resolve('docker',prefix,tag,role,expected_source=source)
+        need(row['sourceRevision']==source,'IMAGE_SOURCE_MISMATCH')
+        need(row['imageId']==config_digest,'IMAGE_CONFIG_MISMATCH')
+        need(row['image']==prefix+'/'+repository+'@'+manifest_digest,'IMAGE_MANIFEST_MISMATCH')
+        write(output,row)
 
 def aggregate(directory, source, tag, prefix):
     coordinates(prefix,tag)
