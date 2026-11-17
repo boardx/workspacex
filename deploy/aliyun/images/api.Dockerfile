@@ -24,6 +24,11 @@ RUN --network=none pnpm --filter @repo/contracts exec tsc -p tsconfig.release.js
  && printf typechecked > /api-typecheck.ok
 # Only production dependencies enter the distributed runtime layers.
 FROM sources AS runtime
+ARG ENABLE_AIDT_MODULE=0
+ARG ENABLE_PROJECT_MEMBER_CHAT=0
+RUN case "$ENABLE_AIDT_MODULE" in 0|1) ;; *) exit 1;; esac \
+ && case "$ENABLE_PROJECT_MEMBER_CHAT" in 0|1) ;; *) exit 1;; esac
+ENV ENABLE_AIDT_MODULE=${ENABLE_AIDT_MODULE} ENABLE_PROJECT_MEMBER_CHAT=${ENABLE_PROJECT_MEMBER_CHAT}
 RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store npm_config_registry="$NPM_REGISTRY" pnpm --filter-prod @repo/api... install --prod --frozen-lockfile \
  && node apps/api/scripts/prune-optional-canvas-runtime.mjs /opt/workspacex
 COPY --from=build /api-typecheck.ok /opt/workspacex/.api-typecheck.ok
