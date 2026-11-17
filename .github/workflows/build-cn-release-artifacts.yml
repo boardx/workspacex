@@ -51,6 +51,16 @@ on:
         required: false
         default: false
         type: boolean
+      registry_probe_sized:
+        description: Bounded 32 MiB synthetic upload diagnostic; requires registry_probe_only, no host or application deployment
+        required: false
+        default: false
+        type: boolean
+      registry_probe_existing_tag:
+        description: Existing release tag for read-only manifest metadata during the sized diagnostic
+        required: false
+        default: ''
+        type: string
       release_sha:
         description: Exact 40-hex source commit
         required: true
@@ -85,7 +95,7 @@ concurrency:
 
 jobs:
   host-permission-source:
-    if: github.event_name == 'workflow_dispatch' && inputs.host_permission_probe != '' && inputs.host_permission_probe != 'off'
+    if: github.event_name == 'workflow_dispatch' && !inputs.registry_probe_sized && inputs.registry_probe_existing_tag == '' && inputs.host_permission_probe != '' && inputs.host_permission_probe != 'off'
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     outputs:
@@ -167,7 +177,7 @@ jobs:
           PY
 
   shared-images:
-    if: github.event_name == 'workflow_dispatch' && inputs.shared_images_only && !inputs.registry_probe_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off')
+    if: github.event_name == 'workflow_dispatch' && !inputs.registry_probe_sized && inputs.registry_probe_existing_tag == '' && inputs.shared_images_only && !inputs.registry_probe_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off')
     uses: ./.github/workflows/image-release.yml
     with:
       environment: ${{ github.ref_name == 'main' && 'cn' || 'devapp' }}
@@ -177,7 +187,7 @@ jobs:
     secrets: inherit
 
   registry-probe:
-    if: github.event_name == 'workflow_dispatch' && inputs.registry_probe_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off')
+    if: github.event_name == 'workflow_dispatch' && !inputs.registry_probe_sized && inputs.registry_probe_existing_tag == '' && inputs.registry_probe_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -211,8 +221,56 @@ jobs:
         if: always()
         run: rm -rf -- "$DOCKER_CONFIG"
 
+  registry-upload-diagnostics:
+    if: github.event_name == 'workflow_dispatch' && (inputs.registry_probe_sized || inputs.registry_probe_existing_tag != '')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DOCKER_CONFIG: /tmp/wsx-acr-sized-probe-${{ github.run_id }}-${{ github.run_attempt }}
+      REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
+      REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Refuse conflicting modes before credentials or registry access
+        env:
+          SIZED: ${{ inputs.registry_probe_sized }}
+          PROBE_ONLY: ${{ inputs.registry_probe_only }}
+          SHARED_IMAGES: ${{ inputs.shared_images_only }}
+          HOST_PROBE: ${{ inputs.host_permission_probe }}
+          EXISTING_TAG: ${{ inputs.registry_probe_existing_tag }}
+        run: |
+          python3 -I -B - <<'PY'
+          import importlib.util, os
+          spec = importlib.util.spec_from_file_location('registry', 'scripts/registry-images.py')
+          module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+          assert os.environ['SIZED'] == 'true' and os.environ['PROBE_ONLY'] == 'true', 'REGISTRY_DIAGNOSTIC_MODE_REQUIRED'
+          assert os.environ['SHARED_IMAGES'] == 'false' and os.environ['HOST_PROBE'] in ('', 'off'), 'REGISTRY_DIAGNOSTIC_MODE_CONFLICT'
+          assert module.TAG.fullmatch(os.environ['EXISTING_TAG']), 'REGISTRY_DIAGNOSTIC_TAG_REQUIRED'
+          PY
+      - name: Authenticate without printing credentials
+        env:
+          ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.WSX_ACR_PASSWORD }}
+        run: python3 -B scripts/registry-images.py login
+      - name: Inspect existing manifests and test one bounded synthetic upload
+        env:
+          EXISTING_TAG: ${{ inputs.registry_probe_existing_tag }}
+        run: python3 -I -B scripts/registry-upload-diagnostics.py --tag "$EXISTING_TAG" --payload-mib 32 --output "$RUNNER_TEMP/registry-upload-diagnostics.json"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: registry-upload-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/registry-upload-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Remove registry credentials
+        if: always()
+        run: rm -rf -- "$DOCKER_CONFIG"
+
   validate:
-    if: ${{ !inputs.registry_probe_only && !inputs.shared_images_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off') }}
+    if: ${{ !inputs.registry_probe_sized && inputs.registry_probe_existing_tag == '' && !inputs.registry_probe_only && !inputs.shared_images_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off') }}
     runs-on: ubuntu-24.04
     environment: production-cn-build
     env:

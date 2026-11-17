@@ -1,0 +1,81 @@
+{
+  "scope": "Read-only historical artifact and anonymous public upstream manifest/config metadata; no registry writes, dispatch, host changes or application-layer downloads",
+  "historical": {
+    "runId": 43758477392,
+    "attempt": 1,
+    "artifactId": 14178763675,
+    "artifactSha256": "fda4f0959be14205347c5a2ecc39b866f8eff74297987b115bed7bc73d74b069",
+    "artifactSha256Matched": true,
+    "sourceRevision": "e78e00b8d2d5021d9caed2041fc58f550f2e6250",
+    "tag": "43758477392-1",
+    "registryPrefix": "workspacex-cn-prod-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod",
+    "images": {
+      "postgres": {
+        "repository": "postgres-age",
+        "manifestDigest": "sha256:cb3f6039ceb6fbdf6cacef6e8df05114ffec960f03ac759d0b22ca800fb0a293",
+        "imageId": "sha256:9c4b2dd82d6034fecf22449f3efb8bb5dfecfeb5ac19a62504ec21aba18d8c36"
+      },
+      "api": {
+        "repository": "api",
+        "manifestDigest": "sha256:810cefe4f03c7c7609dff9b820b841242f47b7ea489397705c07292230d6053b",
+        "imageId": "sha256:41d0ad1359adac8e58aa0c275914911df41db70848a78ebb69fee551ecc767e4"
+      },
+      "web": {
+        "repository": "web",
+        "manifestDigest": "sha256:b7ad53066791cd512507de0dcc58bfb6c8a4195a2482ff3bcf69b206c4691ee9",
+        "imageId": "sha256:d72510314476d01e5cf05974ece9a2fcd7a726e09e0c2da1906fa52780c2da10"
+      },
+      "sandbox": {
+        "repository": "skill-sandbox",
+        "manifestDigest": "sha256:8abc3dd86cfec7748d738fb422f05309f314d14a1c0874feceba14635f7ec8c6",
+        "imageId": "sha256:1fd47691377acd71de8ddfb156dffc768550cf8138302c21428573937ae69a5f"
+      },
+      "agent": {
+        "repository": "deep-agent",
+        "manifestDigest": "sha256:740afac3006cdb25a7ef62530e3594a49eb0c8de3790a7de4329ba269844b60f",
+        "imageId": "sha256:0a07d593aa4da9a575f71f41657bbd77c59d0d198492cf611c567ea46fd50a6d"
+      }
+    },
+    "currentRunningBaselineProven": false
+  },
+  "publicBaseMappings": [
+    {
+      "repository": "library/node",
+      "pinnedIndex": "sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+      "amd64Manifest": "sha256:47725aca53d3295ec2d3be8f62726599b3033cc262edc2c7e429909b3ac599fc",
+      "configDigest": "sha256:b774d993885c47eca14db241ba8cc7e5789235142f76e4a2a6a65ec350a1bac0",
+      "layerIndex": 0,
+      "rootfsDiffId": "sha256:1d7b9dd8778ebc4d9bf2f64436dd358640718cb349f5640b33bebaea4ffd62c2",
+      "upstreamCompressedBlobDigest": "sha256:dd051e1b8c92ff101fa3071ab97ea4924885942f15644e01c3dc095764e863e3",
+      "upstreamCompressedBytes": 28247982
+    },
+    {
+      "repository": "pgvector/pgvector",
+      "pinnedIndex": "sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f",
+      "amd64Manifest": "sha256:018b4a92e634c3a5715f613dd43497e3d8028ae051be7ba6fd127bcffb0e7957",
+      "configDigest": "sha256:b0108689bf51bd54d3129130967d4adf7ba58b395a9ff6653aa598b5fe7d7ba3",
+      "layerIndex": 0,
+      "rootfsDiffId": "sha256:1d7b9dd8778ebc4d9bf2f64436dd358640718cb349f5640b33bebaea4ffd62c2",
+      "upstreamCompressedBlobDigest": "sha256:dd051e1b8c92ff101fa3071ab97ea4924885942f15644e01c3dc095764e863e3",
+      "upstreamCompressedBytes": 28247982
+    },
+    {
+      "repository": "library/python",
+      "pinnedIndex": "sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535",
+      "amd64Manifest": "sha256:b701198cb708b68d9413ca67d6311bd97c9389a2c5fe4da0511fc652642366cd",
+      "configDigest": "sha256:896edfbcbf0c29ad15681617a8886cb9871b7f24c5fde4606114c8ee6bfe4c70",
+      "layerIndex": 0,
+      "rootfsDiffId": "sha256:dd57f90311a2567b55ff22eeacff1602fd04ad7566e315957731359eab173b90",
+      "upstreamCompressedBlobDigest": "sha256:37fb86c2a767b88d500c6872195f88078f64765fe0d2f9cc375cc2efbd4c0a41",
+      "upstreamCompressedBytes": 29856132
+    }
+  ],
+  "verification": {
+    "publicManifestAndConfigBytesSha256Checked": true,
+    "personalCredentialsUsed": false,
+    "anonymousPullTokenPrinted": false,
+    "upstreamLayerBodiesDownloaded": false,
+    "proxyOrTlsBypass": false,
+    "upstreamDescriptorsProveAcrBlobDigest": false
+  }
+}

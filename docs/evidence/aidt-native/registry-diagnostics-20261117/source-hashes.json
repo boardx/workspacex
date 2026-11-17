@@ -1,0 +1,6 @@
+{
+  ".github/workflows/build-cn-release-artifacts.yml": "1038cc00eb08521be6d918cc0b3f2e34bc6c024f7ac178fb15d81c80896b5f60",
+  "scripts/registry-upload-diagnostics.py": "4c48a88d44bf0265ba9610134fecf5a03dc666c7e4d0795407b620fbf1d39541",
+  "tests/test_registry_upload_diagnostics.py": "518254cca0847c5978a48c9212f3a25de4e8739ec7c94f6c33673a5dda51dfab",
+  "tests/test_registry_upload_diagnostics_workflow.py": "3a39ccb2b53391faed4660c44e1e64f3ead95e3d8ede61708e9cb82d9bfa56bc"
+}
