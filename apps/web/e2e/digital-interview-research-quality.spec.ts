@@ -545,8 +545,13 @@ test("prototype journey keeps the list shell separate from all six full-screen s
       expect(Math.abs(layout.actionRight - layout.containerRight), `${step} actions align with their content container`).toBeLessThanOrEqual(2);
     }
     if (step === "intake") {
-      const action = await page.getByTestId("itv-markdown-intake").getByRole("button", { name: /下一步：确认分析/u }).boundingBox();
-      expect((action?.y ?? 900) + (action?.height ?? 0), "desktop intake primary action should fit in the first viewport without excess whitespace").toBeLessThan(800);
+      const intake = page.getByTestId("itv-markdown-intake");
+      const action = intake.getByRole("button", { name: /下一步：确认分析/u });
+      const editor = intake.getByRole("textbox");
+      const viewportHeight = await page.evaluate(() => window.innerHeight);
+      await expect(action, "desktop intake primary action should fit entirely in the first viewport").toBeInViewport({ ratio: 1 });
+      const editorHeight = await editor.evaluate((element) => element.getBoundingClientRect().height);
+      expect(editorHeight, "desktop intake editor should use the available vertical space").toBeGreaterThan(viewportHeight / 2);
     }
     await page.screenshot({ path: testInfo.outputPath(`${index + 2}-${step}.png`), fullPage: true });
     if (step === "analysis") await captureRuntimeEvidence(page, testInfo, "analysis-1280.png", true);
