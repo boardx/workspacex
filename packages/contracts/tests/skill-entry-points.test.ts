@@ -89,4 +89,17 @@ describe("skill entry points gate (backlog E6)", () => {
   it("隐藏表每项都有原因", () => {
     for (const h of HIDDEN_PLATFORM_SKILLS) expect(h.note).not.toBe("");
   });
+
+  it("AIDT 六步与报告只登记为模块宿主能力，不进入普通三入口", () => {
+    const aidtSlugs = ["aidt-understand", "aidt-empathize", "aidt-define", "aidt-ideate",
+      "aidt-prototype", "aidt-iterate", "dt-summarize-project"];
+    for (const slug of aidtSlugs) {
+      expect(SKILL_ENTRY_POINTS.flatMap((entry) => entry.skillSlugs)).not.toContain(slug);
+      expect(entryPointOf(slug)).toBe("hidden");
+      const registrations = HIDDEN_PLATFORM_SKILLS.filter((skill) => skill.slug === slug);
+      expect(registrations).toHaveLength(1);
+      expect(registrations[0]?.note).toContain("ENABLE_AIDT_MODULE");
+      expect(registrations[0]?.note).toContain("模块宿主");
+    }
+  });
 });

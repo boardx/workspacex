@@ -65,6 +65,16 @@ export const HIDDEN_PLATFORM_SKILLS: readonly HiddenPlatformSkill[] = [
   { slug: "diagram-and-canvas", reason: "auto-triggered", note: "需要画图 / 画布时自动调用" },
   { slug: "data-visualization", reason: "auto-triggered", note: "分析结果需要图表时自动调用" },
   { slug: "skill-authoring", reason: "admin-area", note: "在「我的 skill」/ 管理区使用" },
+  // AIDT 教学包由 ENABLE_AIDT_MODULE 显式启用，再由模块宿主按阶段挂载；
+  // 不进入普通三入口。这里只登记展示归属，不改变已有安装、权限或线程版本 pin。
+  // 历史/候选包复用同一 stableName，按 slug 登记一次，不排除任何扫描目录。
+  { slug: "aidt-understand", reason: "auto-triggered", note: "供 ENABLE_AIDT_MODULE 启用的 AIDT 模块宿主按阶段挂载" },
+  { slug: "aidt-empathize", reason: "auto-triggered", note: "供 ENABLE_AIDT_MODULE 启用的 AIDT 模块宿主按阶段挂载" },
+  { slug: "aidt-define", reason: "auto-triggered", note: "供 ENABLE_AIDT_MODULE 启用的 AIDT 模块宿主按阶段挂载" },
+  { slug: "aidt-ideate", reason: "auto-triggered", note: "供 ENABLE_AIDT_MODULE 启用的 AIDT 模块宿主按阶段挂载" },
+  { slug: "aidt-prototype", reason: "auto-triggered", note: "供 ENABLE_AIDT_MODULE 启用的 AIDT 模块宿主按阶段挂载" },
+  { slug: "aidt-iterate", reason: "auto-triggered", note: "供 ENABLE_AIDT_MODULE 启用的 AIDT 模块宿主按阶段挂载" },
+  { slug: "dt-summarize-project", reason: "auto-triggered", note: "供 ENABLE_AIDT_MODULE 启用的 AIDT 模块宿主挂载报告任务" },
   // Phase 20 CT01 —— D002 研究线 Work Skill 内容包（`skills/work-research/`，均带
   // `metadata.work`）。这些不是本表管的「三入口」消费级 skill 库条目：它们经
   // Work Stack v2 目录（`/skill?screen=work-catalog`，WS01-05）单独浏览/导入/管理，

@@ -1,0 +1,47 @@
+[
+  {
+    "file": "aidt-pr-init-20261117.log",
+    "bytes": 5330,
+    "sha256": "20abe160669e2b38901c4408f71c6ad7e9cba5e0b3c9fe44dd63ba0766840528"
+  },
+  {
+    "file": "aidt-pr-backend-contracts-final-test.log",
+    "bytes": 8899,
+    "sha256": "90432daff55f1c1786248325979e7d4a3f5614fcc4bd32f69ca0dfea1005cdef"
+  },
+  {
+    "file": "aidt-pr-backend-contracts-final-tsc.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "aidt-pr-backend-contract-source-green.log",
+    "bytes": 146,
+    "sha256": "dd93b6fb2c93b21b9f82981ed4126b8a25fd9176f6be2ea7e907626ee051edc7"
+  },
+  {
+    "file": "aidt-pr-backend-boundary-red.log",
+    "bytes": 6689,
+    "sha256": "4302c885274269b3419fa5fd33e64af276aa6556de7da7d7fe1e34855d2166d4"
+  },
+  {
+    "file": "aidt-pr-backend-boundary-green.log",
+    "bytes": 371,
+    "sha256": "18061c10579d066e32bf4213a507f3ab0481e78fce398cee31eb6ced14909a59"
+  },
+  {
+    "file": "aidt-pr-backend-contracts-test.log",
+    "bytes": 11891,
+    "sha256": "dab57194a37874ea1ce0d371f00d50368f2399b3765c9b2d628670c65272602e"
+  },
+  {
+    "file": "aidt-pr-backend-contract-source-final.log",
+    "bytes": 457,
+    "sha256": "3d3cd3b05507059d90a76cc06314fc7ba930c7de8974e9fc5e91f9a392a732b4"
+  },
+  {
+    "file": "aidt-pr-python-final.log",
+    "bytes": 1433,
+    "sha256": "e883a099c2aa6135b2cf2e4a1a9965b55d220b65ce678cfae7ca659b31d024dd"
+  }
+]

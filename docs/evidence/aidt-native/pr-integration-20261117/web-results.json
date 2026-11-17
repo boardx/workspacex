@@ -1,0 +1,62 @@
+{
+  "worktree": "/workspace/aidt-pr-20261117",
+  "integratedHead": "1a2ec212d38635a60b1337cc4a949ec564c0d7a8",
+  "develop": "4060bcf2017ef5775b762f2135f22042f8a96d19",
+  "schemaBlob": "542447eafeedcfa8d3495dbaee0f1e4fc9630ad0",
+  "checks": [
+    {
+      "label": "aidt",
+      "exitCode": 0,
+      "log": "/tmp/aidt-pr-web-aidt.log",
+      "logSha256": "78d1a3c21af9a15ba236d263725b98f1b04c91309e88645f7a1b9f37ef19be44",
+      "summary": [
+        " Test Files  96 passed (96)",
+        "      Tests  818 passed (818)",
+        "   Start at  01:30:05",
+        "   Duration  39.74s (transform 5.46s, setup 5.70s, collect 26.73s, tests 15.81s, environment 18.50s, prepare 3.31s)"
+      ]
+    },
+    {
+      "label": "shared",
+      "exitCode": 0,
+      "log": "/tmp/aidt-pr-web-shared.log",
+      "logSha256": "0ed35d35cc93bc650027e40ac88b82d71a0608046b6e49ad8ff1822bb8e0f21c",
+      "summary": [
+        " Test Files  21 passed (21)",
+        "      Tests  192 passed (192)",
+        "   Start at  01:30:59",
+        "   Duration  22.26s (transform 4.35s, setup 1.28s, collect 20.96s, tests 8.84s, environment 8.35s, prepare 884ms)"
+      ]
+    },
+    {
+      "label": "post-contract",
+      "exitCode": 0,
+      "log": "/tmp/aidt-pr-web-post-contract.log",
+      "logSha256": "8f07bd1c7af4b24034701e15f0bd13256b275b145e963c9ecd299407004c8ae3",
+      "summary": [
+        " Test Files  7 passed (7)",
+        "      Tests  67 passed (67)",
+        "   Start at  01:31:54",
+        "   Duration  7.29s (transform 3.97s, setup 877ms, collect 7.59s, tests 1.32s, environment 2.75s, prepare 410ms)"
+      ]
+    }
+  ],
+  "typecheck": {
+    "command": "pnpm exec tsc --noEmit --incremental false",
+    "exitCode": 0,
+    "log": "/tmp/aidt-pr-web-typecheck.log",
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "outputBytes": 0
+  },
+  "sourceEditsByReviewer": false,
+  "dependencyRepair": "temporary /tmp/aidt-pr-virtual-store/node_modules/vitest symlink to installed package, no source or lock edit",
+  "initialCollectionFailure": "/tmp/aidt-pr-web-aidt-attempt01.log; exit1; no tests collected",
+  "paidModelCalls": 0,
+  "browserDockerDeployment": "not started",
+  "boundaries": "818 integrated baseline tests preceded the revision bound fix; 7 files/67 tests and Web typecheck run after the fix; do not sum repeated post-fix tests as unique",
+  "finalObservedHead": "1a2ec212d38635a60b1337cc4a949ec564c0d7a8",
+  "finalStatus": [
+    " M apps/api/tests/aidt-stages/shared-stage-unit.test.ts",
+    " M packages/contracts/src/aidt-stages.ts"
+  ]
+}

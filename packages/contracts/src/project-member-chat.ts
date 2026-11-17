@@ -19,8 +19,8 @@ export const ThreadUpdate = z.object({
   rootMessageId: z.string().uuid(), replyCount: z.number().int().nonnegative(),
   lastSequence: Sequence.positive(),
 }).strict();
-export const ReadOnlyReason = z.enum(["archived", "org-disabled", "role"]);
-const Access = { canWrite: z.boolean(), readOnlyReason: ReadOnlyReason.nullable() };
+export const MemberChatReadOnlyReason = z.enum(["archived", "org-disabled", "role"]);
+const Access = { canWrite: z.boolean(), readOnlyReason: MemberChatReadOnlyReason.nullable() };
 const PageInput = z.object({
   projectId: z.string().min(1), beforeSequence: Sequence.optional(),
   afterSequence: Sequence.optional(), limit: z.number().int().min(1).max(100).default(30),

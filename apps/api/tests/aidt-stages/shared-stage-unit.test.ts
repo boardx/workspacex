@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
-import { operations, SaveInput, StageContent, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { operations, SaveInput, SharedStage, SourceStageRevision, StageContent, StageSummary, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { AidtStagesService } from "../../src/application/aidt-stages/service";
 import type { AidtStageRepository, StageActor, StageTransaction } from "../../src/application/aidt-stages/ports";
 import type { IdentityRepository } from "../../src/application/identity/ports";
@@ -48,6 +48,23 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
   it("cross tenant cannot see stage",async()=>{await expect(fixture().service.get({...actor,orgId:toOrgId("org-b")},1)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_NOT_FOUND"});});
   it("validates explicit earlier revision sources, never creates missing material",async()=>{const f=fixture();const v=input(2);v.sourceStageRevisions=[{stageId:1,revision:1}];await expect(f.service.save(actor,v)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_INVALID"});await f.service.save(actor,input());await expect(f.service.save(actor,v)).resolves.toMatchObject({stage:{sourceStageRevisions:v.sourceStageRevisions}});});
   it("history is immutable and paginates descending without overlap",async()=>{const f=fixture();for(let n=0;n<3;n++)await f.service.save(actor,input(1,n));const page=await f.service.history(actor,1,undefined,2);expect(page.items.map(r=>r.revision)).toEqual([3,2]);expect(page.nextBeforeRevision).toBe(2);expect((await f.service.history(actor,1,page.nextBeforeRevision!,2)).items.map(r=>r.revision)).toEqual([1]);});
+  it("writes the last PostgreSQL integer revision and rejects another append before storage",async()=>{
+    const f=fixture(),max=2147483647,prior=input(1,max-2);
+    const stage={projectId:actor.projectId,stageId:1,revision:max-1,content:prior.content,sourceStageRevisions:[],updatedBy:actor.userId,updatedAt:new Date().toISOString()};
+    f.records.push({stage,requestKey:"synthetic-boundary-fixture",operationId:prior.operationId,actor:actor.userId});
+    expect((await f.service.save(actor,input(1,max-1))).stage.revision).toBe(max);
+    const storage=vi.spyOn(f.repo,"inProject");
+    expect(()=>f.service.save(actor,input(1,max))).toThrowError("AIDT_STAGE_INVALID");
+    expect(storage).not.toHaveBeenCalled();expect(f.records).toHaveLength(2);
+  });
+  it("rejects out-of-range history, draft sources and report sources before any storage",()=>{
+    const f=fixture(),storage=vi.spyOn(f.repo,"inProject"),revision=2147483648;
+    expect(()=>f.service.history(actor,1,revision)).toThrowError("AIDT_STAGE_INVALID");
+    expect(()=>f.service.save(actor,{...input(2),sourceStageRevisions:[{stageId:1,revision}]})).toThrowError("AIDT_STAGE_INVALID");
+    const report=input(6);report.content.summaryReport={markdown:"学生报告",sourceStageRevisions:[{stageId:1,revision}]};
+    expect(()=>f.service.save(actor,report)).toThrowError("AIDT_STAGE_INVALID");
+    expect(storage).not.toHaveBeenCalled();expect(f.records).toHaveLength(0);
+  });
   it("accepts an authorized sent project image reference, rejects unverifiable private references",async()=>{const f=fixture();const v=input(4);v.content.draft.ideas=[{id:"i",title:"点子",description:"说明",imageAttachment:{attachmentId:"private-or-other-project",threadId:"plenary",name:"photo.png"}}];await expect(f.service.save(actor,v)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_INVALID"});v.content.draft.ideas[0]!.imageAttachment!.attachmentId="sent-image";expect((await f.service.save(actor,v)).stage.content.draft.ideas[0]!.imageAttachment).toEqual(v.content.draft.ideas[0]!.imageAttachment);});
   it("restores an authorized discovery-card photo reference without changing evidence status",async()=>{const f=fixture();const v=input(2);v.content.draft.discoveryCards=[{id:"p1",participantCode:"P1",headline:"学生概括",headlineKind:"student-summary",context:"待核对",quote:"",sourceRef:"",photoRef:"",photoAttachment:{attachmentId:"sent-image",threadId:"plenary",name:"photo.png"}}];await f.service.save(actor,v);expect((await f.service.get({...actor,userId:"student-b"},2)).stage?.content.draft.discoveryCards).toEqual(v.content.draft.discoveryCards);});
   it.each([{attachmentId:"other-project-image",threadId:"plenary",name:"photo.png"},{attachmentId:"sent-image",threadId:"private-thread",name:"photo.png"},{attachmentId:"sent-image",threadId:"plenary",name:"forged.png"}])("rejects non-shared discovery-card photo reference %o",async photoAttachment=>{const f=fixture();const v=input(2);v.content.draft.discoveryCards=[{id:"p1",participantCode:"P1",headline:"",headlineKind:"quote",context:"",quote:"",sourceRef:"",photoRef:"",photoAttachment}];await expect(f.service.save(actor,v)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_INVALID"});expect(f.records).toHaveLength(0);});
@@ -59,6 +76,23 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
   it("dependency outage is unavailable, never an empty state",async()=>{const f=fixture();f.fail();await expect(f.service.list(actor)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_UNAVAILABLE"});});
 });
 describe("shared stage contract",()=>{
+  it.each([
+    ["source revision",(revision:number)=>SourceStageRevision.safeParse({stageId:1,revision}).success],
+    ["saved revision",(revision:number)=>SharedStage.safeParse({projectId:actor.projectId,stageId:1,revision,content:input().content,sourceStageRevisions:[],updatedBy:actor.userId,updatedAt:"2026-11-17T00:00:00.000Z"}).success],
+    ["stage summary",(revision:number)=>StageSummary.safeParse({stageId:1,revision,updatedBy:null,updatedAt:null}).success],
+    ["history cursor",(beforeRevision:number)=>operations.history.in.safeParse({projectId:actor.projectId,stageId:1,beforeRevision}).success],
+    ["next history cursor",(nextBeforeRevision:number)=>operations.history.out.safeParse({items:[],nextBeforeRevision}).success],
+    ["draft source",(revision:number)=>SaveInput.safeParse({...input(2),sourceStageRevisions:[{stageId:1,revision}]}).success],
+    ["report source",(revision:number)=>SaveInput.safeParse({...input(6),content:{...input(6).content,summaryReport:{markdown:"学生报告",sourceStageRevisions:[{stageId:1,revision}]}}}).success],
+  ] as const)("accepts the PostgreSQL maximum and rejects overflow for %s",(_name,accepts)=>{expect(accepts(2147483647)).toBe(true);expect(accepts(2147483648)).toBe(false);});
+  it("reserves one integer revision for save and preserves the initial zero revision",()=>{
+    expect(SaveInput.safeParse(input(1,0)).success).toBe(true);
+    expect(SaveInput.safeParse(input(1,2147483646)).success).toBe(true);
+    expect(SaveInput.safeParse(input(1,2147483647)).success).toBe(false);
+    expect(SaveInput.safeParse(input(1,2147483648)).success).toBe(false);
+    expect(StageSummary.safeParse({stageId:1,revision:0,updatedBy:null,updatedAt:null}).success).toBe(true);
+    expect(SourceStageRevision.safeParse({stageId:1,revision:0}).success).toBe(false);
+  });
   it("allows incomplete student drafts without stage completion fields",()=>{expect(StageContent.parse({schemaVersion:1,draft:{fields:{},ideas:[],selectedIdeaId:""}})).not.toHaveProperty("confirmed");});
   it.each(["data:image/png;base64,abc","blob:https://test/uuid"])("rejects unuploaded image %s",image=>{const v=input();expect(SaveInput.safeParse({...v,content:{...v.content,draft:{...v.content.draft,ideas:[{id:"i",title:"点子",description:"说明",image}]}}}).success).toBe(false);});
   it("rejects arbitrary image URL until a sent attachment reference is selected",()=>{const v=input();expect(SaveInput.safeParse({...v,content:{...v.content,draft:{...v.content.draft,ideas:[{id:"i",title:"",description:"",image:"https://elsewhere/image.png"}]}}}).success).toBe(false);});

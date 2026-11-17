@@ -1,0 +1,151 @@
+{
+  "headBefore": "1a2ec212d38635a60b1337cc4a949ec564c0d7a8",
+  "statusBefore": "M apps/api/tests/aidt-stages/shared-stage-unit.test.ts\n M packages/contracts/src/aidt-stages.ts",
+  "sourceHashesBefore": {
+    "packages/contracts/src/aidt-stages.ts": "0658791ee7128e7409a22a4aa5f9ed53b2e775a13840a87ee1c7a7f31f43e6ec",
+    "apps/api/tests/aidt-stages/shared-stage-unit.test.ts": "9bad14162b7eee2ae1677c1f4a8a5d8574a9370de788617f0b12dcb8ff4e9790"
+  },
+  "checks": [
+    {
+      "label": "context-execute",
+      "cwd": "/workspace/aidt-pr-20261117/apps/api",
+      "command": [
+        "/tmp/aidt-node/node_modules/node/bin/node",
+        "/tmp/aidt-tools/node_modules/pnpm/bin/pnpm.cjs",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.aidt-context-execute.config.ts",
+        "--bail=1"
+      ],
+      "exitCode": 0,
+      "seconds": 15.691,
+      "log": "/tmp/aidt-pr-api-context-execute.log"
+    },
+    {
+      "label": "run-context",
+      "cwd": "/workspace/aidt-pr-20261117/apps/api",
+      "command": [
+        "/tmp/aidt-node/node_modules/node/bin/node",
+        "/tmp/aidt-tools/node_modules/pnpm/bin/pnpm.cjs",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.aidt-run-context.config.ts",
+        "--bail=1"
+      ],
+      "exitCode": 0,
+      "seconds": 15.16,
+      "log": "/tmp/aidt-pr-api-run-context.log"
+    },
+    {
+      "label": "isolation",
+      "cwd": "/workspace/aidt-pr-20261117",
+      "command": [
+        "/tmp/aidt-node/node_modules/node/bin/node",
+        "/tmp/aidt-tools/node_modules/pnpm/bin/pnpm.cjs",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "apps/api/vitest.aidt-isolation.config.ts",
+        "--bail=1"
+      ],
+      "exitCode": 0,
+      "seconds": 8.852,
+      "log": "/tmp/aidt-pr-api-isolation.log"
+    },
+    {
+      "label": "course-unit",
+      "cwd": "/workspace/aidt-pr-20261117/apps/api",
+      "command": [
+        "/tmp/aidt-node/node_modules/node/bin/node",
+        "/tmp/aidt-tools/node_modules/pnpm/bin/pnpm.cjs",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.aidt-course-unit.config.ts",
+        "--bail=1"
+      ],
+      "exitCode": 0,
+      "seconds": 4.105,
+      "log": "/tmp/aidt-pr-api-course-unit.log"
+    },
+    {
+      "label": "files-unit",
+      "cwd": "/workspace/aidt-pr-20261117/apps/api",
+      "command": [
+        "/tmp/aidt-node/node_modules/node/bin/node",
+        "/tmp/aidt-tools/node_modules/pnpm/bin/pnpm.cjs",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.aidt-files-unit.config.ts",
+        "--bail=1"
+      ],
+      "exitCode": 0,
+      "seconds": 3.509,
+      "log": "/tmp/aidt-pr-api-files-unit.log"
+    },
+    {
+      "label": "acceptance",
+      "cwd": "/workspace/aidt-pr-20261117/apps/api",
+      "command": [
+        "/tmp/aidt-node/node_modules/node/bin/node",
+        "/tmp/aidt-tools/node_modules/pnpm/bin/pnpm.cjs",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.aidt-acceptance.config.ts",
+        "--bail=1"
+      ],
+      "exitCode": 0,
+      "seconds": 3.394,
+      "log": "/tmp/aidt-pr-api-acceptance.log"
+    },
+    {
+      "label": "collaboration-unit",
+      "cwd": "/workspace/aidt-pr-20261117/apps/api",
+      "command": [
+        "/tmp/aidt-node/node_modules/node/bin/node",
+        "/tmp/aidt-tools/node_modules/pnpm/bin/pnpm.cjs",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.aidt-collaboration-unit.config.ts",
+        "--bail=1"
+      ],
+      "exitCode": 0,
+      "seconds": 5.807,
+      "log": "/tmp/aidt-pr-api-collaboration-unit.log"
+    },
+    {
+      "label": "typecheck",
+      "cwd": "/workspace/aidt-pr-20261117/apps/api",
+      "command": [
+        "/tmp/aidt-node/node_modules/node/bin/node",
+        "/tmp/aidt-tools/node_modules/pnpm/bin/pnpm.cjs",
+        "exec",
+        "tsc",
+        "--noEmit",
+        "--incremental",
+        "false"
+      ],
+      "exitCode": 0,
+      "seconds": 49.562,
+      "log": "/tmp/aidt-pr-api-typecheck.log"
+    }
+  ],
+  "headAfter": "1a2ec212d38635a60b1337cc4a949ec564c0d7a8",
+  "statusAfter": "M apps/api/tests/aidt-stages/shared-stage-unit.test.ts\n M packages/contracts/src/aidt-stages.ts",
+  "sourceHashesAfter": {
+    "packages/contracts/src/aidt-stages.ts": "0658791ee7128e7409a22a4aa5f9ed53b2e775a13840a87ee1c7a7f31f43e6ec",
+    "apps/api/tests/aidt-stages/shared-stage-unit.test.ts": "9bad14162b7eee2ae1677c1f4a8a5d8574a9370de788617f0b12dcb8ff4e9790"
+  }
+}
