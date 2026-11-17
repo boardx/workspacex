@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { openFreshEchoAgentThread } from "./support/chat-path-coverage";
 import { planControl } from "@repo/contracts/plan-control";
 
 /**
@@ -27,7 +28,7 @@ import { planControl } from "@repo/contracts/plan-control";
  * 见 `copilotkit-v2-message-actions.tsx` 文件头：反馈要能一直对上同一个 agent，对不上
  * 就不采集）。裸进 `/chat` 时用户还没选，走服务端配置的默认 agent，前端拿不到它的 id。
  * 所以这里显式选中 `CHAT_READ_E2E.agentId`——这既是反馈按钮真实的出现条件，也顺带让
- * 回复来自确定性的 loopback provider（`agentReplyPrefix` 可核对）。
+ * 确定性模型替身在助手回复里回显本轮输入，用于定位要操作的消息。
  */
 
 async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
@@ -52,19 +53,6 @@ async function loginAndOpenChat(page: Page): Promise<void> {
   await page.goto("/chat");
 }
 
-async function selectLoopbackAgent(page: Page): Promise<void> {
-  // issue #2130（TW-P0-2）—— 入口从裸的 `AgentPicker`（`chat-agent-select`）换成
-  // 「选择能力」（`chat-task-workbench-capability-picker`），同一个真实下拉；
-  // 候选项现在共用一个字面量 testid（判据要求），按真实 agent id 精确点中用
-  // `data-agent-id`，见 `chat-task-workbench-capability-picker.tsx` 头注。
-  const trigger = page.getByTestId("chat-task-workbench-capability-picker");
-  await expect(trigger).toBeVisible({ timeout: 20_000 });
-  await trigger.click();
-  await expect(page.getByTestId("chat-agent-select-listbox")).toBeVisible();
-  await page.locator(`[data-testid="chat-task-workbench-capability-card"][data-agent-id="${CHAT_READ_E2E.agentId}"]`).click();
-  await expect(page.getByTestId("chat-agent-select-listbox")).toBeHidden();
-}
-
 test.setTimeout(180_000);
 
 test("CK-P3 逐条消息操作——复制真进剪贴板、评分 POST 真被服务端接受（非 404）、反馈入口按 agent 归因", async ({
@@ -74,8 +62,7 @@ test("CK-P3 逐条消息操作——复制真进剪贴板、评分 POST 真被�
   // 读剪贴板需要显式授权；写入不需要，但断言"真的写进去了"必须能读回来。
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 
-  await loginAndOpenChat(page);
-  await selectLoopbackAgent(page);
+  await openFreshEchoAgentThread(page);
 
   const userText = "issue #2054 消息级操作取证";
   await page.getByTestId("copilotkit-v2-input").fill(userText);
@@ -95,14 +82,13 @@ test("CK-P3 逐条消息操作——复制真进剪贴板、评分 POST 真被�
   await thinkingAppeared;
   await expect(page.getByTestId("run-trace-toggle").last()).toContainText("历时");
 
-  const messages = page.getByTestId("copilotkit-v2-messages");
-  await expect(messages).toContainText(CHAT_READ_E2E.agentReplyPrefix, { timeout: 60_000 });
+  const assistantBubble = page.getByTestId("copilot-assistant-message").filter({ hasText: userText });
+  await expect(assistantBubble).toBeVisible({ timeout: 60_000 });
 
   // 收场后仅运行状态标记消失；持久 trace 保留真实用时。
   await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 30_000 });
 
   // ── 反证① 复制：剪贴板里真的是这条 AI 消息的正文 ────────────────────────────
-  const assistantBubble = page.getByTestId("copilot-assistant-message").last();
   await assistantBubble.hover();
   const copyButton = assistantBubble.getByTestId("chat-message-copy");
   await expect(copyButton).toHaveCount(1, { timeout: 20_000 });
@@ -110,7 +96,7 @@ test("CK-P3 逐条消息操作——复制真进剪贴板、评分 POST 真被�
 
   const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
   expect(clipboardText.trim()).not.toBe("");
-  expect(clipboardText).toContain(CHAT_READ_E2E.agentReplyPrefix);
+  expect(clipboardText).toContain(userText);
 
   // ── 反证② 评分：POST 真发出且服务端真的接受了（不是 404 的假入口）───────────
   const ratingButton = assistantBubble.getByTestId("chat-message-rating-up");

@@ -19,8 +19,13 @@ let db:PgDatabase;const orgs:string[]=[];
 beforeAll(async()=>{await ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());});
 afterAll(async()=>{await db?.close();await resetOrgs(orgs);});
 async function fixture(plan:"ordinary"|"enterprise"="ordinary",tokens:string|null=null,cost="100",rate="3",capability:"image"|"asr"="image"){
- const org=toOrgId("native-ledger-"+randomUUID()),user="native-user",project="project-"+org,thread="thread-"+org,run="run-"+org;
+ const org=toOrgId("native-ledger-"+randomUUID()),user="native-user-"+org,project="project-"+org,thread="thread-"+org,run="run-"+org;
  orgs.push(org);await seedOrg({orgId:org,projectId:project});await addOrgMember(org,user,"consultant",null);
+ // @global-scope-fixture table:credit_wallets: fund the isolated native caller.
+ await asOwner(client=>client.query(
+  "INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES ('user',$1,20000)",
+  [user],
+ ));
  await addChatThread({orgId:org,id:thread,projectId:project,visibilityScope:"plenary",createdBy:user});await seedAgentRun({orgId:org,id:run,threadId:thread,authorId:user});
  const window={start:new Date(Date.now()-60_000).toISOString(),end:new Date(Date.now()+3_600_000).toISOString(),timezone:"Etc/UTC"};
  const unit=capability==="asr"?"millisecond" as const:"image" as const,formalModelId=capability==="asr"?"native-asr":"native-image",runtimeModelId=capability==="asr"?"qwen3-asr-flash":"image-runtime",quantum=capability==="asr"?1000n:2n,maxQuantity=capability==="asr"?2000n:2n;

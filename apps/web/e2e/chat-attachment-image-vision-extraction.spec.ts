@@ -51,7 +51,7 @@ const IMAGE_FILENAME = "chat-read-e2e-vision-p1.png";
 
 async function login(page: Page): Promise<void> {
   await page.goto("/login");
-  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.visionCreditEmail);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/);

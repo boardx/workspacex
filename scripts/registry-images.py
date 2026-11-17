@@ -91,6 +91,22 @@ def resolve(docker, prefix, tag, role, pull=True):
     need(len(set(digests))==1,'IMAGE_DIGEST')
     return {'service':role,'sourceRevision':source,'tag':tag,'image':digests[0],'imageId':value['Id']}
 
+def run_release_stage(role, stage, args, timeout):
+    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} timeout_seconds={timeout}', flush=True)
+    try:
+        run(args, timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        # TimeoutExpired may provide bytes even when the subprocess uses text mode.
+        output = []
+        for chunk in (error.stdout, error.stderr):
+            if chunk:
+                output.append(chunk.decode(errors='replace') if isinstance(chunk, bytes) else chunk)
+        if output:
+            print(safe_diagnostics('\n'.join(output)), file=sys.stderr, flush=True)
+        raise ValueError(f'{stage.upper()}_TIMEOUT_{role.upper()}') from None
+    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} completed', flush=True)
+
+
 def build(role, prefix, tag, output, source):
     coordinates(prefix,tag)
     need(role in SERVICES,'INVALID_SERVICE')
@@ -112,8 +128,8 @@ def build(role, prefix, tag, output, source):
     probe=subprocess.run(['docker','manifest','inspect',prefix+'/'+repository+':'+tag],capture_output=True,text=True,timeout=60)
     need(probe.returncode!=0,'IMMUTABLE_TAG_ALREADY_EXISTS')
     need(re.search(r'manifest unknown|no such manifest|MANIFEST_UNKNOWN',probe.stderr,re.I),'TAG_EXISTENCE_UNVERIFIED')
-    run(args+[context])
-    run(['docker','push',prefix+'/'+repository+':'+tag])
+    run_release_stage(role, 'build', args+['--progress=plain', context], 2400)
+    run_release_stage(role, 'push', ['docker','push',prefix+'/'+repository+':'+tag], 720)
     write(output,resolve('docker',prefix,tag,role))
 
 def aggregate(directory, source, tag, prefix):

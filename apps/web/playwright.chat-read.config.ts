@@ -613,6 +613,12 @@ export default defineConfig({
         // 消息里真的看到这个哨兵（挂载 skill 的 SKILL.md 正文，`buildSystemPrompt`
         // 拼进 `input.system`）时才回显。哨兵/前缀与 loopback-model-provider 用同
         // 一对（`chat-agent-skill-context.spec.ts` 既有），两条轨道断言同一个事实。
+        LOOPBACK_MODEL_RETRIEVAL_ECHO_PREFIX: CHAT_READ_E2E.retrievalEchoPrefix,
+        LOOPBACK_MODEL_L2_SUMMARY_ECHO_PREFIX: CHAT_READ_E2E.l2SummaryEchoPrefix,
+        LOOPBACK_MODEL_L2_FACT_SENTINEL: CHAT_READ_E2E.l2EarlyFactCodeWord,
+        LOOPBACK_MODEL_L2_FACT_ECHO_PREFIX: CHAT_READ_E2E.l2FactEchoPrefix,
+        LOOPBACK_MODEL_TOOL_TRACE_ECHO_PREFIX: CHAT_READ_E2E.toolTraceEchoPrefix,
+        LOOPBACK_MODEL_TOOL_TRACE_SENTINEL: CHAT_READ_E2E.toolTraceHistoricalResultCode,
         LOOPBACK_DEEP_AGENT_SKILL_SENTINEL: CHAT_READ_E2E.mountedSkillSentinel,
         LOOPBACK_DEEP_AGENT_SKILL_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillEchoPrefix,
         /**
@@ -631,6 +637,8 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_MULTI_CANVAS_TRIGGER: CHAT_READ_E2E.deepAgentMultiCanvasTrigger,
         LOOPBACK_DEEP_AGENT_MULTI_CANVAS_COUNT: String(CHAT_READ_E2E.deepAgentMultiCanvasCount),
         LOOPBACK_DEEP_AGENT_MULTI_CANVAS_SUMMARY: CHAT_READ_E2E.deepAgentMultiCanvasSummary,
+        LOOPBACK_MODEL_CANVAS_GUIDANCE_SENTINEL: CHAT_READ_E2E.canvasGuidanceSentinel,
+        LOOPBACK_MODEL_CANVAS_DUAL_SENTINEL: CHAT_READ_E2E.canvasDualSentinel,
         LOOPBACK_DEEP_AGENT_CANVAS_TEMPLATE_KEY: CHAT_READ_E2E.canvasTemplateKey,
         LOOPBACK_DEEP_AGENT_CANVAS_HEADER_FIELD_NAME: CHAT_READ_E2E.canvasHeaderFieldName,
         LOOPBACK_DEEP_AGENT_CANVAS_SECTION_NAME: CHAT_READ_E2E.canvasSectionName,
@@ -696,6 +704,12 @@ export default defineConfig({
         CHAT_E2E_FIXTURE: "1",
         CHAT_E2E_PASSWORD: CHAT_READ_E2E.password,
         CHAT_E2E_EMAIL: CHAT_READ_E2E.email,
+        CHAT_E2E_RECORDING_CONTROLS_EMAIL: CHAT_READ_E2E.recordingControlsEmail,
+        CHAT_E2E_RECORDING_CONTROLS_USER_ID: CHAT_READ_E2E.recordingControlsUserId,
+        CHAT_E2E_VOICE_CREDIT_EMAIL: CHAT_READ_E2E.voiceCreditEmail,
+        CHAT_E2E_VOICE_CREDIT_USER_ID: CHAT_READ_E2E.voiceCreditUserId,
+        CHAT_E2E_VISION_CREDIT_EMAIL: CHAT_READ_E2E.visionCreditEmail,
+        CHAT_E2E_VISION_CREDIT_USER_ID: CHAT_READ_E2E.visionCreditUserId,
         CHAT_E2E_ORG_ID: CHAT_READ_E2E.orgId,
         CHAT_E2E_USER_ID: CHAT_READ_E2E.userId,
         CHAT_E2E_PROJECT_ID: CHAT_READ_E2E.projectId,

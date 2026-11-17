@@ -1,5 +1,11 @@
 export const CHAT_READ_E2E = {
   email: "chat-read-e2e@example.test",
+  recordingControlsEmail: "chat-read-recording-controls-e2e@example.test",
+  recordingControlsUserId: "user-chat-read-recording-controls-e2e",
+  voiceCreditEmail: "chat-read-voice-credit-e2e@example.test",
+  voiceCreditUserId: "user-chat-read-voice-credit-e2e",
+  visionCreditEmail: "chat-read-vision-credit-e2e@example.test",
+  visionCreditUserId: "user-chat-read-vision-credit-e2e",
   password: "Chat-read-E2E-only-405!",
   orgId: "org-chat-read-e2e",
   userId: "user-chat-read-e2e",

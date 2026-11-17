@@ -364,7 +364,7 @@ test("F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快�
   expect(beforeRun.resultMessageId, "这次 run 应该写回了一条回复").toBeTruthy();
   const beforeReply = await messageRow(beforeRun.resultMessageId!);
   await expect(beforeReply).toBeVisible();
-  await expect(beforeReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
+  await expect(beforeReply).toContainText('根据查询结果回答你："不挂 skill：第一条取证消息"');
   await expect(
     beforeReply,
     "#2514 核心验收：用户没挑任何 skill，已启用 skill 的正文也必须进入模型输入（上游在 system prompt 里看到哨兵才回显）",
@@ -475,7 +475,7 @@ test("F155：命中项目内可检索文件的提问带来源标记，未命中�
   const decoyReply = await messageRow(decoyMessageId);
   // 这条回复真的出自确定性上游（带回显前缀）⇒ 闭环穿过了整条链，不是前端合成的。
   await expect(decoyReply).toBeVisible();
-  await expect(decoyReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
+  await expect(decoyReply).toContainText(CHAT_READ_E2E.retrievalDecoyQuery);
   await expect(
     decoyReply,
     "没有命中任何文件时，回复里不该出现检索来源标记——否则下面那条命中断言恒绿、证明不了任何事",
@@ -497,7 +497,7 @@ test("F155：命中项目内可检索文件的提问带来源标记，未命中�
   const groundedMessageId = await sendAndAwaitRun(groundedQuestion);
   const groundedReply = await messageRow(groundedMessageId);
   await expect(groundedReply).toBeVisible();
-  await expect(groundedReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
+  await expect(groundedReply).toContainText(groundedQuestion);
   await expect(
     groundedReply,
     "命中的文件应作为带来源标记的检索上下文进入模型输入（F155：来源标记 chat-attachment）",

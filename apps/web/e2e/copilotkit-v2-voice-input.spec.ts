@@ -25,7 +25,7 @@ test.setTimeout(90_000);
 
 test("DA-19g 真实实测：copilotkit-v2 面板麦克风实时转录进输入框、可编辑、发送后成为消息内容", async ({ page }) => {
   await page.goto("/login");
-  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.voiceCreditEmail);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL(/\/home$/);

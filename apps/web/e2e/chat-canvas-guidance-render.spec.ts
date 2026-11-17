@@ -106,6 +106,10 @@ test("@path:C1 真实 chat 一轮对话后，模型产出的 canvas 围栏真的
     PROOF_TEXT,
   ]);
 
+  // Reopen the persisted reply after the run finishes so the live stream cannot
+  // remount the canvas editor between opening it and clicking Save.
+  await page.reload();
+
   // ── 结构性证明①：围栏真的解析成功、渲染就绪，且走的是真实组织模板（非内置兜底）──
   //
   // ⚠ 真栈 E2E 实测踩出的坑（同 `chat-diagram-save-reopen-roundtrip.spec.ts` 头注那条

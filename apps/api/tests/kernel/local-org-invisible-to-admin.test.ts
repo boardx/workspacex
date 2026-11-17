@@ -102,6 +102,18 @@ describe("no tenant table leaks the local organization to another tenant", () =>
         await expect(asApp(REAL_ORG,c=>c.query(`SELECT * FROM ${table_name}`))).rejects.toMatchObject({code:"42501"});
         continue;
       }
+      if (table_name === "ai_catalog_publications") {
+        // The application may read publication coordinates, but has no SELECT grant
+        // on the owner key or publisher identity.
+        await asApp(REAL_ORG, async c => {
+          const grants = await c.query(
+            `SELECT has_column_privilege('ai_catalog_publications', 'org_id', 'SELECT') AS owner,
+                    has_column_privilege('ai_catalog_publications', 'published_by', 'SELECT') AS publisher`,
+          );
+          expect(grants.rows).toEqual([{ owner: false, publisher: false }]);
+        });
+        continue;
+      }
       // `organizations` keys off `id`; everything else off `org_id`.
       const col = table_name === "organizations" ? "id" : "org_id";
       const n = await asApp(REAL_ORG, (c) =>

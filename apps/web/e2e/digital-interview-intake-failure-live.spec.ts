@@ -6,7 +6,7 @@ import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 test("failed upload and denied microphone preserve Markdown through a saved interview", async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto("/login");
-  await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.interviewIntakeEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/u);

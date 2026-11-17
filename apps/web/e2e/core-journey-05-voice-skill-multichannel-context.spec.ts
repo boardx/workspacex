@@ -34,7 +34,7 @@ function escapeRegExp(literal: string): string {
 
 async function loginAsFacilitator(page: Page): Promise<void> {
   await page.goto("/login");
-  await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.voiceJourneyEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/);

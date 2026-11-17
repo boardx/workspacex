@@ -47,7 +47,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { inspectPptx } from "@repo/skill-sandbox/ooxml";
 import {
   addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -73,6 +73,13 @@ const ACTOR = "u-i1652-pptx";
 
 const PROVIDER = "i1652-loopback";
 const MODEL = "i1652-model";
+// This suite exercises the HTTP model-to-sandbox path with scripted replies.
+// Ordinary chat now resolves the system model at admission, so bind that
+// selector to the local HTTP fixture while keeping the rest of the stack real.
+vi.mock("../../src/infrastructure/agent/pg-default-agent-repository", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../src/infrastructure/agent/pg-default-agent-repository")>(),
+  resolveDeepAgentModel: () => ({ provider: PROVIDER, modelId: MODEL }),
+}));
 const AGENT = "agent-i1652-pptx";
 const AGENT_V1 = "agent-version-i1652-pptx-v1";
 /** 不挂任何 skill 的 agent —— T3 第 ① 格用。 */
@@ -337,6 +344,11 @@ beforeEach(async () => {
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy ?? null);
+  // @global-scope-fixture table:credit_wallets: funds the test payer in the isolated database.
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [ACTOR],
+  ));
   await addProjectMember(ORG, PROJECT, ACTOR, "facilitator", null);
   await addChatThread({
     orgId: ORG, id: THREAD, projectId: PROJECT, visibilityScope: "plenary", createdBy: ACTOR,

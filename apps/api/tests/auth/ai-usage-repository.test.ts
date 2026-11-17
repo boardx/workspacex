@@ -27,9 +27,13 @@ beforeAll(async()=>{await ensureDatabase();await migrateOnce();db=new PgDatabase
 beforeEach(async()=>{
  await resetOrgs(ORG,OTHER);await seedOrg({orgId:ORG,projectId:PROJECT});await seedOrg({orgId:OTHER,projectId:"p-usage-5261-other"});
  for(const org of [ORG,OTHER])for(const user of ["alice","bob"])await addOrgMember(org,user,"consultant",null);
+ // @global-scope-fixture table:credit_wallets: fund isolated reporting fixture accounts.
+ await asOwner(c=>c.query(
+  "INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES ('user','alice',20000),('user','bob',20000) ON CONFLICT (owner_type,owner_id) DO UPDATE SET balance=EXCLUDED.balance",
+ ));
  await asOwner(c=>c.query("INSERT INTO credit_global_native_tariffs(model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES('fixture-asr','actual','millisecond',1000,1,'asr-fixture-v1') ON CONFLICT DO NOTHING"));
- await usage.startRequest(toOrgId(ORG),{requestId:"usage-r1",userId:"alice",runId:null,callPurpose:"auxiliary",executionAttemptId:null,projectId:PROJECT,modelProvider:"p",modelId:"m",startedAt:new Date(now).toISOString()});
- await usage.startRequest(toOrgId(ORG),{requestId:"usage-pending",userId:"alice",runId:"r",executionAttemptId:null,projectId:PROJECT,modelProvider:"p",modelId:"m",startedAt:new Date(now).toISOString()});
+ await usage.startRequest(toOrgId(ORG),{requestId:"usage-r1",userId:"alice",runId:null,callPurpose:"auxiliary",executionAttemptId:null,projectId:PROJECT,modelProvider:"p",modelId:"m",startedAt:new Date(now).toISOString(),maximumTokens:10000});
+ await usage.startRequest(toOrgId(ORG),{requestId:"usage-pending",userId:"alice",runId:"r",executionAttemptId:null,projectId:PROJECT,modelProvider:"p",modelId:"m",startedAt:new Date(now).toISOString(),maximumTokens:10000});
  await recordUsage(toOrgId(ORG),{eventId:"usage-r1",userId:"alice",runId:null,modelProvider:"p",modelId:"m",projectId:PROJECT,
   tokensTotal:15,promptTokens:10,completionTokens:5,outcome:"succeeded",totalSource:"reported",requestStartedAt:new Date(now).toISOString()});
  await recordUsage(toOrgId(ORG),{eventId:"usage-r2",userId:"bob",runId:null,modelProvider:"p",modelId:"m2",projectId:null,
@@ -123,7 +127,7 @@ describe("same ledger reports — isolated PostgreSQL",()=>{
  });
 
  it("non-run local trials keep null Agent identity, append-only starts and tenant scope",async()=>{
-  await usage.startRequest(toOrgId(ORG),{requestId:"local-trial-http",userId:"alice",runId:null,projectId:null,executionAttemptId:null,modelProvider:"ollama-local",modelId:"actual-local",callPurpose:"local-trial",startedAt:new Date(now).toISOString()});
+  await usage.startRequest(toOrgId(ORG),{requestId:"local-trial-http",userId:"alice",runId:null,projectId:null,executionAttemptId:null,modelProvider:"ollama-local",modelId:"actual-local",callPurpose:"local-trial",startedAt:new Date(now).toISOString(),maximumTokens:10000});
   const row=(await asApp(ORG,c=>c.query("SELECT run_id,execution_attempt_id,execution_lease_epoch,subtask_id,call_purpose FROM model_request_starts WHERE id='local-trial-http'"))).rows[0];
   expect(row).toEqual({run_id:null,execution_attempt_id:null,execution_lease_epoch:null,subtask_id:null,call_purpose:"local-trial"});
   expect((await asApp(OTHER,c=>c.query("SELECT id FROM model_request_starts WHERE id='local-trial-http'"))).rows).toEqual([]);

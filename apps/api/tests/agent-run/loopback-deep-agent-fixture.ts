@@ -1,3 +1,5 @@
+import { FILE_CONTEXT_MESSAGE_HEADER_PREFIX, FILE_RETRIEVAL_SOURCE_KINDS } from "../../src/application/agent-run/file-retrieval";
+import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../../src/application/agent-run/tool-trace-context";
 import { multistepPlanMessages } from "../../scripts/loopback-multistep-plan";
 import { LoopbackRunStreamHold } from "../../scripts/loopback-run-stream-hold";
 import { LoopbackRunCancellation } from "../../scripts/loopback-run-cancellation";
@@ -9,6 +11,7 @@ import ts from "typescript";
 import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
 import { PLAN_CONFIRMATION_TOOL_NAME } from "@repo/contracts/plan-control";
 import { buildDeepAgentSkillCatalogBlock } from "../../src/application/agent-run/skill-catalog";
+import { CANVAS_GUIDANCE_HEADER } from "../../src/application/agent-run/canvas-template-guidance";
 
 /**
  * 不起监听端口、不起进程、不起 Docker，直接驱动替身脚本自己的 handler。
@@ -44,9 +47,12 @@ export function fixture(extraEnv: Record<string, string> = {}, fetchImpl?: typeo
       // 字面量（同上面 `DEEP_AGENT_HITL_TOOL_NAME` 那条既有理由：允许分叉就等于允许静默
       // 假绿）。这个 shim 是白名单，新增依赖必须显式列进来——本条正是那个显式动作。
       if (name === "../src/application/agent-run/skill-catalog") return {buildDeepAgentSkillCatalogBlock};
+      if (name === "../src/application/agent-run/canvas-template-guidance") return { CANVAS_GUIDANCE_HEADER };
       // issue #3132（B7）：替身要演计划确认门，工具名同样从契约取，不在替身里抄第二份
       // 字面量——与上面两条同一条理由。这一行就是白名单要求的那个显式动作。
       if (name === "@repo/contracts/plan-control") return {PLAN_CONFIRMATION_TOOL_NAME};
+      if (name === "../src/application/agent-run/file-retrieval") return { FILE_CONTEXT_MESSAGE_HEADER_PREFIX, FILE_RETRIEVAL_SOURCE_KINDS };
+      if (name === "../src/application/agent-run/tool-trace-context") return { TOOL_TRACE_MESSAGE_HEADER_PREFIX };
       throw new Error(`unexpected fixture dependency: ${name}`);
     },
   });

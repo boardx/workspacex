@@ -87,6 +87,11 @@ beforeEach(async () => {
   await resetOrgs(ORG);
   const fixture = await seedOrg({ orgId: ORG, projectId: "proj-wf07-e2e" });
   await addOrgMember(ORG, OWNER, "consultant", fixture.teams.energy!);
+  // @global-scope-fixture table:credit_wallets: fund the isolated workflow owner.
+  await asOwner(client => client.query(
+    "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO UPDATE SET balance = EXCLUDED.balance",
+    [OWNER],
+  ));
   await addOrgMember(ORG, OTHER, "consultant", fixture.teams.energy!);
 });
 
