@@ -7,7 +7,7 @@ import { LiveSurveyLibrary } from "@/components/survey/live/survey-library";
 const request = vi.hoisted(() => vi.fn());
 const push = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/survey/runtime-client", () => ({ surveyRequest: request }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), useSearchParams: () => new URLSearchParams() }));
 
 const survey = (patch = {}) => ({
   id: "survey-1", title: "客户满意度", version: 1, status: "collecting", anonymity: "anonymous",
