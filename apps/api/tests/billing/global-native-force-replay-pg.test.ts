@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: funds and removes the unique replay actor wallet.
 import {readFileSync} from 'node:fs';
 import {randomUUID,createHash} from 'node:crypto';
 import {afterAll,beforeAll,expect,it} from 'vitest';
@@ -20,6 +21,7 @@ const digest=async()=>asOwner(async c=>({price:(await c.query('SELECT quantum::t
 beforeAll(async()=>{
  await ensureDatabase();await migrateOnce();writer=await createFixtureTariffWriter();repo=new PgNativeCreditTariffRepository(db,writer);
  await resetOrgs(org);await seedOrg({orgId:org,projectId:'global-force-workshop'});await addOrgMember(org,user,'admin',null);
+ await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,100)",[user]));
  await repo.upsert('verified-test-maintenance',price);
  await asOwner(c=>c.query("INSERT INTO credit_native_tariffs_legacy(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,$2,$3,'image',1,25,'stale-legacy-price')",[org,price.modelProvider,model]));
  await db.withTenant(org,s=>meter.reserveInSession(s,org,{requestId:model,userId:user,runId:null,executionAttemptId:null,projectId:null,modelProvider:price.modelProvider,modelId:model,startedAt:new Date().toISOString(),callPurpose:'native-image',nativeMaximum:{unit:'image',quantity:1n}}));
@@ -29,7 +31,15 @@ beforeAll(async()=>{
  await db.withTenant(org,s=>meter.reserveInSession(s,org,{requestId:model+'-image',userId:user,runId:null,executionAttemptId:null,projectId:null,modelProvider:'bailian-image',modelId:'qwen-image-3.0',startedAt:new Date().toISOString(),callPurpose:'native-image',nativeMaximum:{unit:'image',quantity:1n}}));
  beforeSnapshot=await digest();
 });
-afterAll(async()=>{await asOwner(c=>c.query('DELETE FROM credit_global_native_tariffs WHERE model_provider=$1 AND model_id=$2',['force-fixture',model]));await writer?.close();await db.close();await resetOrgs(org);});
+afterAll(async()=>{
+ await asOwner(async c=>{
+  await c.query('DELETE FROM credit_global_native_tariffs WHERE model_provider=$1 AND model_id=$2',['force-fixture',model]);
+  await c.query('DELETE FROM credit_consumption_requests WHERE org_id=$1 AND user_id=$2',[org,user]);
+  await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1)",[user]);
+  await c.query("DELETE FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[user]);
+ });
+ await writer?.close();await db.close();await resetOrgs(org);
+});
 // Two independently timed complete passes; this file is registered in the exclusive DDL lane.
 it.each([1,2])('full force replay %s preserves current price/old frozen snapshot and default migration is a no-op',async()=>{
  const cfg=migrationConfig(),forced=await migrate(cfg,{force:true});
