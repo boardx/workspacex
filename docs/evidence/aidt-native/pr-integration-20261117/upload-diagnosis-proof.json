@@ -1,0 +1,303 @@
+{
+  "runId": 44000938132,
+  "controlSha": "50d0633eca9d8744ffdc87126092beef66736bff",
+  "sourceSha": "27b305e607281e54b4cf905269e30e26a35bee9e",
+  "tag": "44000938132-90000000000000000001",
+  "registry": "workspacex-cn-prod-registry.cn-shanghai.cr.aliyuncs.com",
+  "roles": {
+    "api": {
+      "jobId": 133764890499,
+      "url": "https://github.com/boardx/workspacex/actions/runs/44000938132/job/133764890499",
+      "buildSeconds": 64.787,
+      "pushSeconds": 720.11,
+      "runnerRegion": "us-west-2",
+      "preparedLayers": [
+        "d1b7f81c5bbd",
+        "5f70bf18a086",
+        "22538a7e5f67",
+        "1470960fbc12",
+        "a0524d3d13b7",
+        "3ff34e3c3baa",
+        "5e933a3a163b",
+        "89e95e3b961f",
+        "42d658f75726",
+        "b98c52944c75",
+        "4c45fe2ac34f",
+        "44edb48f4d7e",
+        "1ca458808e88",
+        "245498712b53",
+        "ff938dc321fe",
+        "2d4ac10088ce",
+        "5444ac80a4d3",
+        "c3f8ce32f70f",
+        "48dcf185433a",
+        "0e13b71b82a1",
+        "b5561a64a8a5",
+        "c4da131eaaf2",
+        "2d7efcc31ab7",
+        "1d7b9dd8778e"
+      ],
+      "pushedLayers": [
+        "1470960fbc12",
+        "22538a7e5f67",
+        "3ff34e3c3baa",
+        "5e933a3a163b",
+        "42d658f75726",
+        "d1b7f81c5bbd",
+        "4c45fe2ac34f",
+        "1ca458808e88",
+        "245498712b53",
+        "44edb48f4d7e",
+        "2d4ac10088ce",
+        "5444ac80a4d3",
+        "ff938dc321fe",
+        "48dcf185433a",
+        "89e95e3b961f",
+        "c3f8ce32f70f",
+        "b98c52944c75"
+      ],
+      "existingLayers": [
+        "5f70bf18a086",
+        "0e13b71b82a1",
+        "b5561a64a8a5",
+        "c4da131eaaf2",
+        "2d7efcc31ab7"
+      ],
+      "noCompletionSeen": [
+        "a0524d3d13b7",
+        "1d7b9dd8778e"
+      ],
+      "stages": [
+        "2026-11-17T02:11:51.9283616Z IMAGE_RELEASE_STAGE service=api stage=build timeout_seconds=2400",
+        "2026-11-17T02:12:56.7153057Z IMAGE_RELEASE_STAGE service=api stage=build completed",
+        "2026-11-17T02:12:56.7153720Z IMAGE_RELEASE_STAGE service=api stage=push timeout_seconds=720",
+        "2026-11-17T02:24:56.8258924Z REGISTRY_RELEASE_FAILED: PUSH_TIMEOUT_API"
+      ],
+      "proxyDetailsObserved": false,
+      "manifestDigestObserved": false
+    },
+    "agent": {
+      "jobId": 133764890520,
+      "url": "https://github.com/boardx/workspacex/actions/runs/44000938132/job/133764890520",
+      "buildSeconds": 12.484,
+      "pushSeconds": 720.086,
+      "runnerRegion": "us-west-2",
+      "preparedLayers": [
+        "47025b86c6c8",
+        "f19d68504e1f",
+        "d69704fa4a2d",
+        "29b5b0ed920a",
+        "8e8b8bd3fb71",
+        "688ef2053b5d",
+        "961adfab8c07",
+        "cd9a29aa43e0",
+        "dd57f90311a2"
+      ],
+      "pushedLayers": [
+        "29b5b0ed920a",
+        "f19d68504e1f",
+        "d69704fa4a2d",
+        "8e8b8bd3fb71"
+      ],
+      "existingLayers": [
+        "688ef2053b5d",
+        "961adfab8c07",
+        "cd9a29aa43e0"
+      ],
+      "noCompletionSeen": [
+        "47025b86c6c8",
+        "dd57f90311a2"
+      ],
+      "stages": [
+        "2026-11-17T02:11:50.5245258Z IMAGE_RELEASE_STAGE service=agent stage=build timeout_seconds=2400",
+        "2026-11-17T02:12:03.0081164Z IMAGE_RELEASE_STAGE service=agent stage=build completed",
+        "2026-11-17T02:12:03.0082151Z IMAGE_RELEASE_STAGE service=agent stage=push timeout_seconds=720",
+        "2026-11-17T02:24:03.0942675Z REGISTRY_RELEASE_FAILED: PUSH_TIMEOUT_AGENT"
+      ],
+      "proxyDetailsObserved": false,
+      "manifestDigestObserved": false
+    },
+    "postgres": {
+      "jobId": 133764890545,
+      "url": "https://github.com/boardx/workspacex/actions/runs/44000938132/job/133764890545",
+      "buildSeconds": 41.888,
+      "pushSeconds": 720.03,
+      "runnerRegion": "us-east-1",
+      "preparedLayers": [
+        "826549dd7d41",
+        "484258ad3e93",
+        "5d0ddffb8584",
+        "aa603e3da58d",
+        "053741340809",
+        "72bfbad42b41",
+        "cce2e6924802",
+        "5d8ada25060a",
+        "657c7b8eaed7",
+        "840ddbabca99",
+        "cba739691ca2",
+        "5714ee01615b",
+        "964524948c11",
+        "a99434f94571",
+        "ec7a395fc909",
+        "858434dc52d4",
+        "1d7b9dd8778e"
+      ],
+      "pushedLayers": [
+        "826549dd7d41"
+      ],
+      "existingLayers": [
+        "053741340809",
+        "aa603e3da58d",
+        "5d0ddffb8584",
+        "484258ad3e93",
+        "72bfbad42b41",
+        "cce2e6924802",
+        "5d8ada25060a",
+        "657c7b8eaed7",
+        "840ddbabca99",
+        "5714ee01615b",
+        "cba739691ca2",
+        "a99434f94571",
+        "ec7a395fc909",
+        "964524948c11",
+        "858434dc52d4"
+      ],
+      "noCompletionSeen": [
+        "1d7b9dd8778e"
+      ],
+      "stages": [
+        "2026-11-17T02:11:38.2420096Z IMAGE_RELEASE_STAGE service=postgres stage=build timeout_seconds=2400",
+        "2026-11-17T02:12:20.1302265Z IMAGE_RELEASE_STAGE service=postgres stage=build completed",
+        "2026-11-17T02:12:20.1302777Z IMAGE_RELEASE_STAGE service=postgres stage=push timeout_seconds=720",
+        "2026-11-17T02:24:20.1605141Z REGISTRY_RELEASE_FAILED: PUSH_TIMEOUT_POSTGRES"
+      ],
+      "proxyDetailsObserved": false,
+      "manifestDigestObserved": false
+    },
+    "sandbox": {
+      "jobId": 133764890427,
+      "url": "https://github.com/boardx/workspacex/actions/runs/44000938132/job/133764890427",
+      "buildSeconds": 141.403,
+      "pushSeconds": 720.088,
+      "runnerRegion": "us-west-2",
+      "preparedLayers": [
+        "3372c4e90edf",
+        "f60315d7ddd0",
+        "7188d4df0387",
+        "37a6f5315042",
+        "f247663280c1",
+        "88d42c16ad19",
+        "55b931ae0ca4",
+        "b2dbf805bea1",
+        "f45a3e51bdd6",
+        "ea3e909495a9",
+        "d38cb663af19",
+        "9a55250d6a0e",
+        "7d772aae0447",
+        "e39acb2ab4cf",
+        "161a923d4583",
+        "378df527904c",
+        "62e44be91818",
+        "fa837c073291",
+        "91b859de4ce2",
+        "1ee8a9682072",
+        "da3715876420",
+        "7ed6b7994f16",
+        "fe3dd8978d37",
+        "1646a1e27029",
+        "0e13b71b82a1",
+        "b5561a64a8a5",
+        "c4da131eaaf2",
+        "2d7efcc31ab7",
+        "1d7b9dd8778e"
+      ],
+      "pushedLayers": [
+        "7188d4df0387",
+        "3372c4e90edf",
+        "f60315d7ddd0",
+        "f247663280c1",
+        "55b931ae0ca4",
+        "88d42c16ad19",
+        "f45a3e51bdd6",
+        "d38cb663af19",
+        "ea3e909495a9",
+        "9a55250d6a0e",
+        "7d772aae0447",
+        "e39acb2ab4cf",
+        "62e44be91818",
+        "fa837c073291",
+        "161a923d4583",
+        "b2dbf805bea1"
+      ],
+      "existingLayers": [],
+      "noCompletionSeen": [
+        "37a6f5315042",
+        "378df527904c",
+        "91b859de4ce2",
+        "1ee8a9682072",
+        "da3715876420",
+        "7ed6b7994f16",
+        "fe3dd8978d37",
+        "1646a1e27029",
+        "0e13b71b82a1",
+        "b5561a64a8a5",
+        "c4da131eaaf2",
+        "2d7efcc31ab7",
+        "1d7b9dd8778e"
+      ],
+      "stages": [
+        "2026-11-17T02:11:44.7144766Z IMAGE_RELEASE_STAGE service=sandbox stage=build timeout_seconds=2400",
+        "2026-11-17T02:14:06.1170241Z IMAGE_RELEASE_STAGE service=sandbox stage=build completed",
+        "2026-11-17T02:14:06.1171097Z IMAGE_RELEASE_STAGE service=sandbox stage=push timeout_seconds=720",
+        "2026-11-17T02:26:06.2058975Z REGISTRY_RELEASE_FAILED: PUSH_TIMEOUT_SANDBOX"
+      ],
+      "proxyDetailsObserved": false,
+      "manifestDigestObserved": false
+    },
+    "web": {
+      "jobId": 133764890370,
+      "url": "https://github.com/boardx/workspacex/actions/runs/44000938132/job/133764890370",
+      "buildSeconds": 226.072,
+      "pushSeconds": 720.068,
+      "runnerRegion": "us-west-2",
+      "preparedLayers": [
+        "5f70bf18a086",
+        "6ecf7443c6ba",
+        "3fd816806d28",
+        "0a4e6daffe4c",
+        "bbc00942950a",
+        "9601be5adcf3",
+        "0e13b71b82a1",
+        "b5561a64a8a5",
+        "c4da131eaaf2",
+        "2d7efcc31ab7",
+        "1d7b9dd8778e"
+      ],
+      "pushedLayers": [
+        "6ecf7443c6ba",
+        "9601be5adcf3",
+        "0a4e6daffe4c",
+        "3fd816806d28",
+        "bbc00942950a"
+      ],
+      "existingLayers": [
+        "5f70bf18a086",
+        "0e13b71b82a1",
+        "b5561a64a8a5",
+        "c4da131eaaf2",
+        "2d7efcc31ab7"
+      ],
+      "noCompletionSeen": [
+        "1d7b9dd8778e"
+      ],
+      "stages": [
+        "2026-11-17T02:11:44.3530373Z IMAGE_RELEASE_STAGE service=web stage=build timeout_seconds=2400",
+        "2026-11-17T02:15:30.4257955Z IMAGE_RELEASE_STAGE service=web stage=build completed",
+        "2026-11-17T02:15:30.4258620Z IMAGE_RELEASE_STAGE service=web stage=push timeout_seconds=720",
+        "2026-11-17T02:27:30.4933696Z REGISTRY_RELEASE_FAILED: PUSH_TIMEOUT_WEB"
+      ],
+      "proxyDetailsObserved": false,
+      "manifestDigestObserved": false
+    }
+  }
+}

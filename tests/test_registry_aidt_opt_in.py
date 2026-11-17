@@ -129,6 +129,11 @@ class AidtRelease(unittest.TestCase):
                             stdout = SOURCE
                         elif args[:3] == ['docker', 'manifest', 'inspect']:
                             status, stderr = 1, 'manifest unknown'
+                        elif args[:3] == ['docker', 'buildx', 'build']:
+                            Path(args[args.index('--metadata-file') + 1]).write_text(json.dumps({
+                                'containerimage.config.digest': 'sha256:' + 'c' * 64,
+                                'containerimage.digest': 'sha256:' + 'd' * 64,
+                            }))
                         elif args[:3] == ['docker', 'image', 'inspect']:
                             stdout = json.dumps([{'Os': 'linux', 'Architecture': 'amd64',
                                 'Id': 'sha256:' + 'c' * 64, 'RepoDigests': [repository + '@sha256:' + 'd' * 64],
@@ -146,6 +151,10 @@ class AidtRelease(unittest.TestCase):
                     builds = [args for args in commands if args[:3] == ['docker', 'buildx', 'build']]
                     self.assertEqual(len(builds), 1)
                     args = builds[0]
+                    self.assertIn('--output=type=registry,oci-mediatypes=false', args)
+                    self.assertIn('--provenance=false', args)
+                    self.assertNotIn('--load', args)
+                    self.assertFalse(any(command[:2] == ['docker', 'push'] for command in commands))
                     for name in FLAGS:
                         matches = [arg for arg in args if arg.startswith(name + '=')]
                         self.assertEqual(matches, [name + '=' + enabled] if role == 'web' else [])
