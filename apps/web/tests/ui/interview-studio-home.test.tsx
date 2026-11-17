@@ -5,7 +5,7 @@ import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 vi.mock("@/lib/interview-expert-library-api",()=>({loadCustomInterviewExperts:async()=>({items:[]}),createCustomInterviewExpert:vi.fn()}));
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), useSearchParams: () => new URLSearchParams() }));
 
 vi.mock("@/components/session/session-provider", () => ({
   useOptionalSession: () => ({session:{currentOrgId:"org-f02",userId:"user-f02"}}),

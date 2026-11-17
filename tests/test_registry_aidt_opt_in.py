@@ -113,7 +113,7 @@ class AidtRelease(unittest.TestCase):
             self.assertIn('RELEASE_EVENT_NOT_ALLOWED', result.stderr)
             self.assertEqual(values, {})
 
-    def test_build_generates_only_web_flags_and_keeps_other_images_default(self):
+    def test_build_generates_only_admitted_web_and_api_flags(self):
         m = module()
         for role in m.SERVICES:
             for enabled in ('0', '1'):
@@ -137,7 +137,8 @@ class AidtRelease(unittest.TestCase):
                         elif args[:3] == ['docker', 'image', 'inspect']:
                             stdout = json.dumps([{'Os': 'linux', 'Architecture': 'amd64',
                                 'Id': 'sha256:' + 'c' * 64, 'RepoDigests': [repository + '@sha256:' + 'd' * 64],
-                                'Config': {'Labels': {'org.opencontainers.image.revision': SOURCE,
+                                'Config': {'Env': [name + '=' + enabled for name in m.API_AIDT_FLAGS] if role == 'api' else [],
+                                    'Labels': {'org.opencontainers.image.revision': SOURCE,
                                     'io.boardx.workspacex.release-tag': tag}}}])
                         return subprocess.CompletedProcess(args, status, stdout, stderr)
 
@@ -158,7 +159,9 @@ class AidtRelease(unittest.TestCase):
                     for name in FLAGS:
                         matches = [arg for arg in args if arg.startswith(name + '=')]
                         self.assertEqual(matches, [name + '=' + enabled] if role == 'web' else [])
-                    self.assertFalse(any(arg.startswith(('ENABLE_AIDT_MODULE=', 'ENABLE_PROJECT_MEMBER_CHAT=')) for arg in args))
+                    for name in m.API_AIDT_FLAGS:
+                        matches = [arg for arg in args if arg.startswith(name + '=')]
+                        self.assertEqual(matches, [name + '=' + enabled] if role == 'api' else [])
 
     def test_invalid_build_flags_fail_before_git_docker_or_output(self):
         m = module()

@@ -95,7 +95,9 @@ class ProducerFixture:
                               'Architecture': 'arm64' if self.failure == 'architecture' else 'amd64',
                               'Id': 'sha256:' + 'e' * 64 if self.failure == 'config' else CONFIG,
                               'RepoDigests': ['registry.example/team/api@' + ('sha256:' + 'e' * 64 if self.failure == 'manifest' else MANIFEST)],
-                              'Config': {'Labels': labels}}])
+                              'Config': {'Labels': labels, 'Env': [
+                                  'ENABLE_AIDT_MODULE=' + ('1' if self.failure == 'api-flags' else '0'),
+                                  'ENABLE_PROJECT_MEMBER_CHAT=0']}}])
         else:
             raise AssertionError('unexpected process')
         return subprocess.CompletedProcess(args, status, out, error)
@@ -154,6 +156,7 @@ class ExportTests(unittest.TestCase):
     def test_cn_push_timeout_or_unverified_digest_has_no_receipt(self):
         for failure, code in (('push-timeout', 'PUSH_TIMEOUT_API'),
                               ('missing-push-digest', 'IMAGE_PUSH_DIGEST'),
+                              ('api-flags', 'API_IMAGE_FLAGS_MISMATCH'),
                               ('manifest', 'IMAGE_MANIFEST_MISMATCH'),
                               ('config', 'IMAGE_CONFIG_MISMATCH')):
             with self.subTest(failure=failure):
