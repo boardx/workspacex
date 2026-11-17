@@ -193,9 +193,11 @@ def build(role, prefix, tag, output, source):
         metadata=Path(directory)/'result.json'
         fd=os.open(metadata,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
         os.close(fd)
-        # The existing build budget now bounds the single build+registry export.
+        # Bound the single build+registry export to 52 minutes. The existing
+        # 60-minute job leaves 480 nominal seconds shared by setup, readback,
+        # cleanup and artifacts; this is not a separate readback deadline.
         # No daemon push, fallback or additional upload retry follows it.
-        run_release_stage(role, 'build', args+['--metadata-file',str(metadata),'--progress=plain', context], 2400)
+        run_release_stage(role, 'build', args+['--metadata-file',str(metadata),'--progress=plain', context], 3120)
         config_digest,manifest_digest=buildkit_identity(metadata)
         row=resolve('docker',prefix,tag,role,expected_source=source)
         need(row['sourceRevision']==source,'IMAGE_SOURCE_MISMATCH')

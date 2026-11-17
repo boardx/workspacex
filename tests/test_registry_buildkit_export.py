@@ -111,7 +111,7 @@ class ExportTests(unittest.TestCase):
                 self.assertFalse(fixture.metadata.exists())
             return m, fixture, row, error, stdout.getvalue() + stderr.getvalue()
 
-    def test_single_registry_export_keeps_identity_args_and_old_2400_cap_then_pulls_before_receipt(self):
+    def test_single_registry_export_keeps_identity_args_and_3120_cap_then_pulls_before_receipt(self):
         _, fixture, row, error, _ = self.execute()
         self.assertIsNone(error)
         self.assertEqual(row['sourceRevision'], SOURCE)
@@ -121,7 +121,7 @@ class ExportTests(unittest.TestCase):
         builds = [(args, options) for args, options in fixture.calls if args[:3] == ['docker', 'buildx', 'build']]
         self.assertEqual(len(builds), 1)
         args, options = builds[0]
-        self.assertEqual(options['timeout'], 2400)
+        self.assertEqual(options['timeout'], 3120)
         for expected in ('--output=type=registry,oci-mediatypes=false', '--provenance=false', '--progress=plain',
                          'SOURCE_REVISION=' + SOURCE, 'org.opencontainers.image.revision=' + SOURCE,
                          'io.boardx.workspacex.release-tag=123-1', 'NODE_IMAGE=' + ENV['NODE_IMAGE']):
@@ -161,6 +161,10 @@ class ExportTests(unittest.TestCase):
                 self.assertEqual(str(error), code)
                 self.assertEqual(sum(args[:3] == ['docker', 'buildx', 'build'] for args, _ in fixture.calls), 1)
                 self.assertFalse(any(args[:2] == ['docker', 'push'] for args, _ in fixture.calls))
+                exports = [options for args, options in fixture.calls if args[:3] == ['docker', 'buildx', 'build']]
+                self.assertEqual(exports[0]['timeout'], 3120)
+                if failure == 'timeout':
+                    self.assertFalse(any(args[:2] == ['docker', 'pull'] for args, _ in fixture.calls))
                 for private in ('DUMMY_signed_state', 'DUMMY_signed_signature', 'DUMMY_signed_id'):
                     self.assertNotIn(private, logs)
 
