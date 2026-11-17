@@ -16,7 +16,10 @@ const link = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/survey/runtime-client", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/survey/runtime-client")>(), surveyRequest: request }));
 vi.mock("@/lib/live-personal-transcriptions", () => ({ listPersonalTranscriptions: vi.fn().mockResolvedValue([]) }));
 vi.mock("@/lib/live-project-resources", () => ({ linkProjectResource: link }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 let setLocale: (locale: Locale) => void;
 function Driver() { setLocale = useI18n().setLocale; return null; }
 beforeEach(() => { request.mockReset(); link.mockReset(); sessionStorage.clear(); localStorage.clear(); });
