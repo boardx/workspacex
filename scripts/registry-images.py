@@ -149,7 +149,7 @@ def resolve(docker, prefix, tag, role, pull=True, expected_source=None, expected
 def run_release_stage(role, stage, args, timeout):
     print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} timeout_seconds={timeout}', flush=True)
     try:
-        run(args, timeout=timeout)
+        result=run(args, timeout=timeout)
     except subprocess.TimeoutExpired as error:
         # TimeoutExpired may provide bytes even when the subprocess uses text mode.
         output = []
@@ -160,6 +160,7 @@ def run_release_stage(role, stage, args, timeout):
             print(safe_diagnostics('\n'.join(output)), file=sys.stderr, flush=True)
         raise ValueError(f'{stage.upper()}_TIMEOUT_{role.upper()}') from None
     print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} completed', flush=True)
+    return result
 
 
 def buildkit_identity(path):
@@ -189,7 +190,10 @@ def build(role, prefix, tag, output, source):
     need(is_aidt_tag(tag)==enabled,'AIDT_TAG_FLAVOR_MISMATCH')
     need(run(['git','rev-parse','HEAD']).strip()==source,'SOURCE_CHECKOUT_MISMATCH')
     repository,dockerfile,context,bases=SERVICES[role]
-    args=['docker','buildx','build','--output=type=registry,oci-mediatypes=false','--provenance=false','--platform','linux/amd64','--file',dockerfile,'--tag',prefix+'/'+repository+':'+tag,
+    cn=os.environ.get('TARGET_ENVIRONMENT')=='cn'
+    reference=prefix+'/'+repository+':'+tag
+    exporter='--load' if cn else '--output=type=registry,oci-mediatypes=false'
+    args=['docker','buildx','build',exporter,'--provenance=false','--platform','linux/amd64','--file',dockerfile,'--tag',prefix+'/'+repository+':'+tag,
           '--label','org.opencontainers.image.revision='+source,'--label','io.boardx.workspacex.release-tag='+tag,'--build-arg','SOURCE_REVISION='+source]+module_args
     mapping={'node':'NODE_IMAGE','python':'PYTHON_IMAGE','postgres':'PGVECTOR_IMAGE'}
     for base in bases:
@@ -204,6 +208,19 @@ def build(role, prefix, tag, output, source):
     probe=subprocess.run(['docker','manifest','inspect',prefix+'/'+repository+':'+tag],capture_output=True,text=True,timeout=60)
     need(probe.returncode!=0,'IMMUTABLE_TAG_ALREADY_EXISTS')
     need(re.search(r'manifest unknown|no such manifest|MANIFEST_UNKNOWN',probe.stderr,re.I),'TAG_EXISTENCE_UNVERIFIED')
+    if cn:
+        deadline=time.monotonic()+3120
+        run_release_stage(role,'build',args+['--progress=plain',context],2400)
+        config_digest=run(['docker','image','inspect','--format','{{.Id}}',reference],timeout=30).strip()
+        need(re.fullmatch(r'sha256:[a-f0-9]{64}',config_digest),'IMAGE_ID')
+        remaining=int(deadline-time.monotonic())
+        need(remaining>0,f'PUSH_TIMEOUT_{role.upper()}')
+        pushed=run_release_stage(role,'push',['docker','push',reference],remaining)
+        digests=re.findall(r'^'+re.escape(tag)+r': digest: (sha256:[a-f0-9]{64}) size: [0-9]+\s*$',pushed,re.M)
+        need(len(digests)==1,'IMAGE_PUSH_DIGEST')
+        verify_publication(role,prefix,tag,output,source,config_digest,digests[0],enabled)
+        return
+
     with tempfile.TemporaryDirectory(prefix='registry-build-metadata-') as directory:
         metadata=Path(directory)/'result.json'
         fd=os.open(metadata,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
@@ -214,12 +231,17 @@ def build(role, prefix, tag, output, source):
         # No daemon push, fallback or additional upload retry follows it.
         run_release_stage(role, 'build', args+['--metadata-file',str(metadata),'--progress=plain', context], 3120)
         config_digest,manifest_digest=buildkit_identity(metadata)
-        row=resolve('docker',prefix,tag,role,expected_source=source,
-                    expected_api_flags=('1' if enabled else '0') if role=='api' else None)
-        need(row['sourceRevision']==source,'IMAGE_SOURCE_MISMATCH')
-        need(row['imageId']==config_digest,'IMAGE_CONFIG_MISMATCH')
-        need(row['image']==prefix+'/'+repository+'@'+manifest_digest,'IMAGE_MANIFEST_MISMATCH')
-        write(output,row)
+        verify_publication(role,prefix,tag,output,source,config_digest,manifest_digest,enabled)
+
+
+def verify_publication(role,prefix,tag,output,source,config_digest,manifest_digest,enabled):
+    expected_api_flags=('1' if enabled else '0') if role=='api' else None
+    row=resolve('docker',prefix,tag,role,expected_source=source,expected_api_flags=expected_api_flags)
+    repository=SERVICES[role][0]
+    need(row['imageId']==config_digest,'IMAGE_CONFIG_MISMATCH')
+    need(row['image']==prefix+'/'+repository+'@'+manifest_digest,'IMAGE_MANIFEST_MISMATCH')
+    write(output,row)
+
 
 def aggregate(directory, source, tag, prefix):
     coordinates(prefix,tag)
