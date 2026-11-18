@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,6 +55,8 @@ export function FacetTextEditor({
   readonly onSave: FacetSaveFn;
   readonly placeholder?: string;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState(content);
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -94,7 +100,7 @@ export function FacetTextEditor({
   return (
     <div className="mb-4 rounded-lg border border-border p-4" data-testid={`bp-facet-editor-${designFacetKey}`}>
       <div className="mb-2 flex items-center gap-1.5">
-        <h3 className="text-13 font-semibold">内容</h3>
+        <h3 className="text-13 font-semibold">{blueprintI18n("homeConfig.content")}</h3>
         <SaveStatusBadge status={status} />
         <button
           type="button"
@@ -102,21 +108,19 @@ export function FacetTextEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
       <Textarea
         className="min-h-24 w-full text-12"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={() => void handleBlur()}
-        placeholder={placeholder ?? "填写这一项的内容…"}
+        placeholder={placeholder ?? blueprintI18n("blueprintFlow.enterContentForThisItem")}
         data-testid={`bp-facet-content-${designFacetKey}`}
       />
       {error !== null && (
         <p role="alert" className="mt-1 text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>
@@ -124,8 +128,10 @@ export function FacetTextEditor({
 }
 
 function SaveStatusBadge({ status }: { status: "idle" | "saving" | "saved" | "error" }) {
+ const { t: blueprintI18n } = useI18n();
+
   if (status === "idle") return null;
-  const label = status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败";
+  const label = status === "saving" ? canonicalBlueprintCopy("chatInteractions.saving") : status === "saved" ? canonicalBlueprintCopy("canvas.saved") : canonicalBlueprintCopy("profile.saveError");
   return (
     <span
       className={cn(
@@ -134,7 +140,7 @@ function SaveStatusBadge({ status }: { status: "idle" | "saving" | "saved" | "er
       )}
       data-testid="bp-facet-save-status"
     >
-      {label}
+      {localizeBlueprintCopy(blueprintI18n, label)}
     </span>
   );
 }

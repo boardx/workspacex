@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { useSession } from "@/components/session/session-provider";
 import { BlueprintDesignerShell } from "./blueprint-designer-shell";
@@ -47,6 +51,8 @@ import type { FacetSaveFn } from "./facet-content-editor";
  * 真正发布时以后端计算为准，不会因为这里显示错而真的发错版本号。
  */
 export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string | null }) {
+ const { t: blueprintI18n } = useI18n();
+
   const { session } = useSession();
   if (!session) throw new Error("BlueprintDesignerPageLive requires an authenticated session");
   const orgId = session.currentOrgId;
@@ -71,7 +77,7 @@ export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string
       const [rows, facetsOut] = await Promise.all([listBlueprints(org), getBlueprintDesignFacets(id)]);
       const found = rows.find((r) => r.blueprintId === id) ?? null;
       if (found === null) {
-        setError("这个蓝本不在你的组织里，或已被删除");
+        setError(canonicalBlueprintCopy("blueprintFlow.thisBlueprintIsOutsideYourOrganizationOrHasBeenDeleted"));
         setRow(null);
         setFacets(null);
         setCompleteness(null);
@@ -148,18 +154,16 @@ export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string
 
   if (blueprintId === null) {
     return (
-      <p className="p-6 text-12 text-muted-foreground" data-testid="bp-designer-missing-id">
-        缺少要打开的蓝本——请从「项目模板」列表页点「编辑设计」进入。
-      </p>
+      <p className="p-6 text-12 text-muted-foreground" data-testid="bp-designer-missing-id">{blueprintI18n("blueprintFlow.noBlueprintSelectedOpenEditDesignFromTheProjectTemplates")}</p>
     );
   }
 
   if (busy || (row === null && error === null)) {
-    return <p className="p-6 text-12 text-muted-foreground" data-testid="bp-designer-loading">加载中…</p>;
+    return <p className="p-6 text-12 text-muted-foreground" data-testid="bp-designer-loading">{blueprintI18n("brain.loading")}</p>;
   }
 
   if (error !== null || row === null || facets === null || completeness === null) {
-    return <p className="p-6 text-12 text-destructive" data-testid="bp-designer-load-error">{error ?? "加载失败"}</p>;
+    return <p className="p-6 text-12 text-destructive" data-testid="bp-designer-load-error">{localizeBlueprintCopy(blueprintI18n, error ?? blueprintI18n("orgMembers.loadFailed"))}</p>;
   }
 
   const completedKeys = facets.filter((f) => f.content.trim() !== "").map((f) => f.designFacetKey);

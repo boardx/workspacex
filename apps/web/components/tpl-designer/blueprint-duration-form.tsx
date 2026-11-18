@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -71,10 +75,10 @@ export interface BlueprintDurationFormProps {
 }
 
 const TIER_LABEL: Record<AgendaTierKey, string> = {
-  "half-day": "半天",
-  "one-day": "一天",
-  "two-day": "两天（默认）",
-  "three-day": "三天",
+  "half-day": canonicalBlueprintCopy("blueprintFlow.halfDay"),
+  "one-day": canonicalBlueprintCopy("blueprintFlow.oneDay"),
+  "two-day": canonicalBlueprintCopy("blueprintFlow.twoDaysDefault"),
+  "three-day": canonicalBlueprintCopy("blueprintFlow.threeDays"),
 };
 
 /**
@@ -93,15 +97,15 @@ export const TIER_NOTE: Record<AgendaTierKey, string> = {
 };
 
 const FORMAT_LABEL: Record<SessionFormatView, string> = {
-  hybrid: "混合",
-  onsite: "线下",
-  online: "全线上",
+  hybrid: canonicalBlueprintCopy("whiteboard.mixed"),
+  onsite: canonicalBlueprintCopy("blueprintFlow.inPerson"),
+  online: canonicalBlueprintCopy("blueprintFlow.fullyOnline"),
 };
 
 const LANGUAGE_LABEL: Record<SessionLanguageView, string> = {
-  zh: "中文",
+  zh: canonicalBlueprintCopy("blueprintFlow.chinese"),
   en: "English",
-  bilingual: "双语现场",
+  bilingual: canonicalBlueprintCopy("blueprintFlow.bilingualSession"),
 };
 
 export function BlueprintDurationForm({
@@ -117,17 +121,19 @@ export function BlueprintDurationForm({
   onSelectFormat,
   onSelectLanguage,
 }: BlueprintDurationFormProps) {
+ const { t: blueprintI18n } = useI18n();
+
   return (
     <section className="flex flex-col gap-4" data-testid="bp-duration-form">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-14 font-medium">时长档位</h2>
+          <h2 className="text-14 font-medium">{blueprintI18n("blueprintFlow.durationTier")}</h2>
           <span className="text-12 text-muted-foreground" data-testid="bp-duration-agenda-count">
-            {`${agendaSegmentCount} 环节`}
+            {blueprintI18n("blueprintFlow.value1Segments", { value1: String(agendaSegmentCount) })}
           </span>
         </div>
 
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="时长档位">
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={blueprintI18n("blueprintFlow.durationTier")}>
           {AGENDA_TIER_CATALOG.map((row) => (
             <Button
               key={row.tier}
@@ -139,32 +145,30 @@ export function BlueprintDurationForm({
               data-testid={`bp-duration-tier-${row.tier}`}
               className="h-auto flex-col items-start gap-0.5 py-1.5"
             >
-              <span>{`${TIER_LABEL[row.tier]} · ${row.agendaSegmentCount} 环节`}</span>
+              <span>{blueprintI18n("blueprintFlow.value1Value2Segments", { value1: String(localizeBlueprintCopy(blueprintI18n, TIER_LABEL[row.tier])), value2: String(row.agendaSegmentCount) })}</span>
               <span className="text-10 font-normal opacity-80" data-testid={`bp-duration-tier-note-${row.tier}`}>
-                {TIER_NOTE[row.tier]}
+                {localizeBlueprintCopy(blueprintI18n, TIER_NOTE[row.tier])}
               </span>
             </Button>
           ))}
         </div>
 
-        <p className="text-11 text-muted-foreground" data-testid="bp-duration-tier-rule">
-          可选环节自动增删，必留环节只压缩时间。
-        </p>
+        <p className="text-11 text-muted-foreground" data-testid="bp-duration-tier-rule">{blueprintI18n("blueprintFlow.optionalSegmentsAreAddedOrRemovedAutomaticallyRequiredSegmentsOnly")}</p>
 
         {pendingTierChange ? (
           <div
             role="alertdialog"
-            aria-label="确认换档位"
+            aria-label={blueprintI18n("blueprintFlow.confirmTierChange")}
             className="flex flex-col gap-2 rounded-md border border-border bg-panel p-3"
             data-testid="bp-duration-tier-confirm"
           >
             <p className="text-12 font-medium">
-              {`切到「${TIER_LABEL[pendingTierChange.targetTier]}」会移除 ${pendingTierChange.removed.length} 个议程环节`}
+              {blueprintI18n("blueprintFlow.switchingToValue1WillRemoveValue2AgendaSegments", { value1: String(localizeBlueprintCopy(blueprintI18n, TIER_LABEL[pendingTierChange.targetTier])), value2: String(pendingTierChange.removed.length) })}
             </p>
 
             {pendingTierChange.added.length > 0 ? (
               <div data-testid="bp-duration-tier-confirm-added">
-                <p className="text-11 text-muted-foreground">将新增：</p>
+                <p className="text-11 text-muted-foreground">{blueprintI18n("blueprintFlow.willAdd")}</p>
                 <ul className="list-disc pl-4 text-11">
                   {pendingTierChange.added.map((seg) => (
                     <li key={seg.agendaSegmentId} data-testid={`bp-duration-tier-confirm-added-${seg.agendaSegmentId}`}>
@@ -177,7 +181,7 @@ export function BlueprintDurationForm({
 
             {pendingTierChange.removed.length > 0 ? (
               <div data-testid="bp-duration-tier-confirm-removed">
-                <p className="text-11 text-muted-foreground">将移除（切回该档位可恢复）：</p>
+                <p className="text-11 text-muted-foreground">{blueprintI18n("blueprintFlow.willRemoveRestoredWhenSwitchingBack")}</p>
                 <ul className="list-disc pl-4 text-11">
                   {pendingTierChange.removed.map((seg) => (
                     <li
@@ -198,18 +202,14 @@ export function BlueprintDurationForm({
                 variant="primary"
                 onClick={onConfirmTierChange}
                 data-testid="bp-duration-tier-confirm-confirm"
-              >
-                确认切换
-              </Button>
+              >{blueprintI18n("survey.design.confirmType")}</Button>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
                 onClick={onCancelTierChange}
                 data-testid="bp-duration-tier-confirm-cancel"
-              >
-                取消
-              </Button>
+              >{blueprintI18n("aboutMemory.cancel")}</Button>
             </div>
           </div>
         ) : null}
@@ -217,8 +217,8 @@ export function BlueprintDurationForm({
 
       {format === undefined || onSelectFormat === undefined ? null : (
       <div className="flex flex-col gap-2">
-        <h2 className="text-14 font-medium">形式</h2>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="形式">
+        <h2 className="text-14 font-medium">{blueprintI18n("blueprintFlow.format")}</h2>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={blueprintI18n("blueprintFlow.format")}>
           {(Object.keys(FORMAT_LABEL) as SessionFormatView[]).map((f) => (
             <Button
               key={f}
@@ -229,13 +229,11 @@ export function BlueprintDurationForm({
               onClick={() => onSelectFormat(f)}
               data-testid={`bp-format-${f}`}
             >
-              {FORMAT_LABEL[f]}
+              {localizeBlueprintCopy(blueprintI18n, FORMAT_LABEL[f])}
             </Button>
           ))}
         </div>
-        <p className="text-11 text-muted-foreground" data-testid="bp-format-online-note">
-          混合＝线下分组＋远程组员用手机进组；选「全线上」会自动加「破冰」和「举手排队」两个议程环节。
-        </p>
+        <p className="text-11 text-muted-foreground" data-testid="bp-format-online-note">{blueprintI18n("blueprintFlow.hybridCombinesInPersonGroupsWithRemoteMembersJoiningBy")}</p>
 
         {format === "online" ? (
           <div
@@ -243,9 +241,7 @@ export function BlueprintDurationForm({
             data-testid="bp-online-auto-segments"
           >
             {onlineAutoSegments.length === 0 ? (
-              <p className="text-11 text-muted-foreground" data-testid="bp-online-auto-segments-empty">
-                「全线上」自动追加的环节尚未生效。
-              </p>
+              <p className="text-11 text-muted-foreground" data-testid="bp-online-auto-segments-empty">{blueprintI18n("blueprintFlow.theSegmentsAddedByFullyOnlineHaveNotTakenEffect")}</p>
             ) : (
               onlineAutoSegments.map((seg) => (
                 <p
@@ -254,7 +250,7 @@ export function BlueprintDurationForm({
                   data-testid={`bp-online-auto-segment-${seg.agendaSegmentId}`}
                 >
                   <span>{seg.title}</span>
-                  <span className="text-10 text-muted-foreground">来源：形式设置（切回可移除）</span>
+                  <span className="text-10 text-muted-foreground">{blueprintI18n("blueprintFlow.sourceFormatSettingRemovableBySwitchingBack")}</span>
                 </p>
               ))
             )}
@@ -265,8 +261,8 @@ export function BlueprintDurationForm({
 
       {language === undefined || onSelectLanguage === undefined ? null : (
       <div className="flex flex-col gap-2">
-        <h2 className="text-14 font-medium">语言</h2>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="语言">
+        <h2 className="text-14 font-medium">{blueprintI18n("common.language")}</h2>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={blueprintI18n("common.language")}>
           {(Object.keys(LANGUAGE_LABEL) as SessionLanguageView[]).map((l) => (
             <Button
               key={l}
@@ -277,13 +273,11 @@ export function BlueprintDurationForm({
               onClick={() => onSelectLanguage(l)}
               data-testid={`bp-language-${l}`}
             >
-              {LANGUAGE_LABEL[l]}
+              {localizeBlueprintCopy(blueprintI18n, LANGUAGE_LABEL[l])}
             </Button>
           ))}
         </div>
-        <p className={cn("text-11 text-muted-foreground")} data-testid="bp-language-note">
-          语言影响产出物与报告模板的生成语言。
-        </p>
+        <p className={cn("text-11 text-muted-foreground")} data-testid="bp-language-note">{blueprintI18n("blueprintFlow.languageControlsTheGeneratedLanguageOfDeliverablesAndReportTemplates")}</p>
       </div>
       )}
     </section>

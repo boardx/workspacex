@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
@@ -87,6 +91,8 @@ export function GroupingPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<GroupingContentValue>(() => parseGroupingContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -111,10 +117,10 @@ export function GroupingPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -143,13 +149,13 @@ export function GroupingPanelEditor({
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-grouping-sizing">
         <div className="mb-2 flex items-center gap-1.5">
-          <h3 className="text-13 font-semibold">按人数自动落到组数</h3>
+          <h3 className="text-13 font-semibold">{blueprintI18n("blueprintFlow.automaticallyCalculateGroupCountFromParticipantCount")}</h3>
           {status !== "idle" && (
             <span
               className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"}
               data-testid="bp-facet-save-status"
             >
-              {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+              {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("canvas.saved") : blueprintI18n("profile.saveError")}
             </span>
           )}
           <button
@@ -158,47 +164,41 @@ export function GroupingPanelEditor({
             disabled={status === "saving"}
             className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
             data-testid="bp-facet-save-button"
-          >
-            保存
-          </button>
+          >{blueprintI18n("aboutMemory.save")}</button>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
           {SIZING_RULES.map((r) => (
             <div key={r.range} className="rounded-md border border-border p-2.5" data-testid="bp-grouping-sizing-row">
-              <p className="text-12 font-medium">{r.range}</p>
+              <p className="text-12 font-medium">{localizeBlueprintCopy(blueprintI18n, r.range)}</p>
               <p className="text-11 text-muted-foreground">
-                {r.groups} · {r.per}
+                {localizeBlueprintCopy(blueprintI18n, r.groups)} · {localizeBlueprintCopy(blueprintI18n, r.per)}
               </p>
             </div>
           ))}
         </div>
-        <p className="mt-1.5 text-11 text-muted-foreground">{SIZING_NOTE}</p>
+        <p className="mt-1.5 text-11 text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, SIZING_NOTE)}</p>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-grouping-scenarios">
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-13 font-semibold">场景清单（每组认领一个，套用时可增删改）</h3>
-          <span className="rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">最值钱的部分</span>
+          <h3 className="text-13 font-semibold">{blueprintI18n("blueprintFlow.scenariosOnePerGroupEditableWhenApplying")}</h3>
+          <span className="rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">{blueprintI18n("blueprintFlow.theMostValuablePart")}</span>
         </div>
         {value.scenarios.length === 0 ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-grouping-scenarios-empty">
-            还没有场景——点「＋ 场景」新增。
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-grouping-scenarios-empty">{blueprintI18n("blueprintFlow.noScenariosYetSelectScenarioToAddOne")}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
             {value.scenarios.map((s, i) => (
               <li key={i} className="flex flex-col gap-1 p-2.5" data-testid="bp-grouping-scenario-row">
                 <div className="flex items-center gap-1.5">
-                  <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">
-                    第 {i + 1} 组
-                  </span>
+                  <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">{blueprintI18n("blueprintFlow.groupNumber", { number: String(i + 1) })}</span>
                   <Input
                     type="text"
                     className="flex-1 text-12 font-medium"
                     value={s.name}
                     onChange={(e) => updateScenario(i, { name: e.target.value })}
                     onBlur={() => void persist(value)}
-                    placeholder="场景名（如「业主首次评估」）"
+                    placeholder={blueprintI18n("blueprintFlow.scenarioNameEGOwnerSFirstAssessment")}
                     data-testid={`bp-grouping-scenario-name-${i}`}
                   />
                   <button
@@ -206,9 +206,7 @@ export function GroupingPanelEditor({
                     onClick={() => removeScenario(i)}
                     className="shrink-0 rounded-md border border-border px-2 py-1 text-11 text-destructive transition-colors hover:bg-muted"
                     data-testid={`bp-grouping-scenario-remove-${i}`}
-                  >
-                    删除
-                  </button>
+                  >{blueprintI18n("adminLimitPolicy.delete")}</button>
                 </div>
                 <Input
                   type="text"
@@ -216,7 +214,7 @@ export function GroupingPanelEditor({
                   value={s.ask}
                   onChange={(e) => updateScenario(i, { ask: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="这组要回答什么"
+                  placeholder={blueprintI18n("blueprintFlow.whatThisGroupMustAnswer")}
                   data-testid={`bp-grouping-scenario-question-${i}`}
                 />
                 <Input
@@ -225,7 +223,7 @@ export function GroupingPanelEditor({
                   value={s.leadProfile}
                   onChange={(e) => updateScenario(i, { leadProfile: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="组长画像（可选）"
+                  placeholder={blueprintI18n("blueprintFlow.groupLeadProfileOptional")}
                   data-testid={`bp-grouping-scenario-leader-${i}`}
                 />
               </li>
@@ -237,18 +235,16 @@ export function GroupingPanelEditor({
           onClick={addScenario}
           className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-grouping-add-scenario"
-        >
-          ＋ 场景
-        </button>
+        >{blueprintI18n("blueprintFlow.scenario")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-grouping-assign-rules">
-        <h3 className="mb-2 text-13 font-semibold">组长与成员分配（套用时 AI 先给一版，引导师拖拽调整）</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.assignGroupLeadsAndMembersAIProposesAnInitialAllocation")}</h3>
         <ul className="flex flex-col gap-1.5">
           {ASSIGN_RULES.map((r) => (
             <li key={r} className="flex items-start gap-2 text-12 text-muted-foreground" data-testid="bp-grouping-assign-rule">
               <span aria-hidden className="mt-0.5">✓</span>
-              {r}
+              {localizeBlueprintCopy(blueprintI18n, r)}
             </li>
           ))}
         </ul>
@@ -256,7 +252,7 @@ export function GroupingPanelEditor({
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

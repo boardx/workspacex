@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -33,7 +37,7 @@ export type AgentState = (typeof AGENT_STATES)[number];
 const CUSTOM_AGENT_OPTION = "__custom__";
 const AVAILABLE_AGENT_OPTIONS = [
   ...THREAD_AI_TEAM.map((a) => ({ value: a.name, label: `${a.name} · ${a.role}` })),
-  { value: CUSTOM_AGENT_OPTION, label: "自定义…" },
+  { value: CUSTOM_AGENT_OPTION, label: canonicalBlueprintCopy("whiteboard.customSize") },
 ];
 
 const THRESHOLD_HISTORY =
@@ -112,6 +116,8 @@ export function AgentPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<AgentContentValue>(() => parseAgentContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -136,10 +142,10 @@ export function AgentPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -173,7 +179,7 @@ export function AgentPanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("canvas.saved") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -182,19 +188,14 @@ export function AgentPanelEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-agent-list">
-        <h3 className="mb-2 text-13 font-semibold">
-          在场 agent · {value.agents.length}（同一环节最多两个可主动发言，当前 {speakers}）
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.presentAgents")}{value.agents.length}{blueprintI18n("blueprintFlow.atMostTwoMaySpeakProactivelyPerSegmentCurrently")}{speakers}）
         </h3>
         {value.agents.length === 0 ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-agent-empty">
-            还没有 agent——点「＋ agent」新增。
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-agent-empty">{blueprintI18n("blueprintFlow.noAgentsYetSelectAgentToAddOne")}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
             {value.agents.map((a, i) => (
@@ -210,13 +211,13 @@ export function AgentPanelEditor({
                     data-testid={`bp-agent-name-${i}`}
                   />
                   <Select
-                    options={AVAILABLE_AGENT_OPTIONS}
+                    options={AVAILABLE_AGENT_OPTIONS.map((option) => ({ ...option, label: option.value === CUSTOM_AGENT_OPTION ? blueprintI18n("whiteboard.customSize") : option.label }))}
                     value={THREAD_AI_TEAM.some((t) => t.name === a.name) ? a.name : undefined}
                     onValueChange={(v) => {
                       if (v === CUSTOM_AGENT_OPTION) return; // 选“自定义…”：不改名字，让用户手填输入框
                       commitAgent(i, { name: v });
                     }}
-                    placeholder="从已有 agent 选择"
+                    placeholder={blueprintI18n("blueprintFlow.selectAnExistingAgent")}
                     className="h-7 w-36 shrink-0 text-11"
                     data-testid={`bp-agent-pick-${i}`}
                   />
@@ -224,7 +225,7 @@ export function AgentPanelEditor({
                     className="shrink-0"
                     checked={a.canSpeak}
                     onChange={() => commitAgent(i, { canSpeak: !a.canSpeak })}
-                    label="可主动发言"
+                    label={blueprintI18n("blueprintFlow.maySpeakProactively")}
                     data-testid={`bp-agent-canspeak-${i}`}
                   />
                   <div className="flex shrink-0 gap-0.5">
@@ -241,7 +242,7 @@ export function AgentPanelEditor({
                         }
                         data-testid={`bp-agent-state-${i}-${s}`}
                       >
-                        {s}
+                        {localizeBlueprintCopy(blueprintI18n, s)}
                       </button>
                     ))}
                   </div>
@@ -249,7 +250,7 @@ export function AgentPanelEditor({
                     type="button"
                     onClick={() => removeAgent(i)}
                     className="ml-auto shrink-0 rounded border border-border px-1 text-11 text-destructive"
-                    aria-label="删除 agent"
+                    aria-label={blueprintI18n("blueprintFlow.deleteAgent")}
                     data-testid={`bp-agent-remove-${i}`}
                   >
                     ✕
@@ -261,7 +262,7 @@ export function AgentPanelEditor({
                   value={a.does}
                   onChange={(e) => updateAgent(i, { does: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="做什么（如「推进议程、识别重复议题、提议收敛」）"
+                  placeholder={blueprintI18n("blueprintFlow.responsibilitiesEGAdvanceTheAgendaIdentifyRepeatedTopicsPropose")}
                   data-testid={`bp-agent-does-${i}`}
                 />
                 <Input
@@ -270,7 +271,7 @@ export function AgentPanelEditor({
                   value={a.segs}
                   onChange={(e) => updateAgent(i, { segs: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="在场环节（如「全程」或「03 / 04 / 05」）"
+                  placeholder={blueprintI18n("blueprintFlow.participatingSegmentsEGAllOr030405")}
                   data-testid={`bp-agent-segs-${i}`}
                 />
               </li>
@@ -288,26 +289,22 @@ export function AgentPanelEditor({
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-agent-intervention">
-        <h3 className="mb-2 text-13 font-semibold">介入尺度</h3>
-        <label className="flex items-center gap-2 text-12 font-medium">
-          提议收敛的触发阈值：重复
-          <Input
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.interventionLevel")}</h3>
+        <label className="flex items-center gap-2 text-12 font-medium">{blueprintI18n("blueprintFlow.proposeConvergenceAfter")}<Input
             type="number"
             className="w-16 text-12"
             value={value.repeatThreshold}
             onChange={(e) => setValue((v) => ({ ...v, repeatThreshold: Number(e.target.value) || 0 }))}
             onBlur={() => void persist(value)}
             data-testid="bp-agent-threshold"
-          />
-          次
-        </label>
+          />{blueprintI18n("blueprintFlow.repetitions")}</label>
         <div className="mt-2 flex items-start gap-2 rounded-md border border-ai-tint bg-ai-tint p-2.5" data-testid="bp-agent-threshold-history">
           <span aria-hidden className="mt-0.5 shrink-0 text-ai-tint-foreground">
             ✨
           </span>
           <div>
-            <p className="text-11 font-medium text-ai-tint-foreground">阈值史</p>
-            <p className="mt-0.5 text-11 text-muted-foreground">{THRESHOLD_HISTORY}</p>
+            <p className="text-11 font-medium text-ai-tint-foreground">{blueprintI18n("blueprintFlow.thresholdHistory")}</p>
+            <p className="mt-0.5 text-11 text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, THRESHOLD_HISTORY)}</p>
           </div>
         </div>
         <ul className="mt-2 flex flex-col gap-1">
@@ -316,14 +313,14 @@ export function AgentPanelEditor({
               <span aria-hidden className="mt-0.5">
                 ✓
               </span>
-              {r}
+              {localizeBlueprintCopy(blueprintI18n, r)}
             </li>
           ))}
         </ul>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-agent-hardlimits">
-        <h3 className="mb-2 text-13 font-semibold">不可放开的硬约束</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.nonNegotiableConstraints")}</h3>
         <ul className="flex flex-col gap-1.5">
           {HARD_LIMITS.map((h) => (
             <li
@@ -334,7 +331,7 @@ export function AgentPanelEditor({
               <span aria-hidden className="mt-0.5 text-muted-foreground">
                 🔒
               </span>
-              {h}
+              {localizeBlueprintCopy(blueprintI18n, h)}
             </li>
           ))}
         </ul>
@@ -342,7 +339,7 @@ export function AgentPanelEditor({
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

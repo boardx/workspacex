@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
@@ -82,6 +86,8 @@ export function PreTasksPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<PreTaskContentValue>(() => parsePreTaskContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -106,10 +112,10 @@ export function PreTasksPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -141,7 +147,7 @@ export function PreTasksPanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("canvas.saved") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -150,17 +156,13 @@ export function PreTasksPanelEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-hw-list">
-        <h3 className="mb-2 text-13 font-semibold">任务清单</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.tasks")}</h3>
         {value.tasks.length === 0 ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-hw-empty">
-            还没有会前任务——点「＋ 任务」新增。
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-hw-empty">{blueprintI18n("blueprintFlow.noPreSessionTasksYetSelectTaskToAddOne")}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {value.tasks.map((t, i) => (
@@ -172,7 +174,7 @@ export function PreTasksPanelEditor({
                     value={t.title}
                     onChange={(e) => updateTask(i, { title: e.target.value })}
                     onBlur={() => void persist(value)}
-                    placeholder="任务标题（如「带 2 个你亲历的失败案例」）"
+                    placeholder={blueprintI18n("blueprintFlow.taskTitleEGBring2FailuresYouExperienced")}
                     data-testid={`bp-hw-title-${i}`}
                   />
                   <Input
@@ -181,8 +183,8 @@ export function PreTasksPanelEditor({
                     value={t.seg}
                     onChange={(e) => updateTask(i, { seg: e.target.value })}
                     onBlur={() => void persist(value)}
-                    placeholder="挂环节 03"
-                    aria-label="挂到哪个环节（必填）"
+                    placeholder={blueprintI18n("blueprintFlow.attachToSegment03")}
+                    aria-label={blueprintI18n("blueprintFlow.targetSegmentRequired")}
                     data-testid={`bp-hw-seg-${i}`}
                   />
                   <button
@@ -190,9 +192,7 @@ export function PreTasksPanelEditor({
                     onClick={() => removeTask(i)}
                     className="shrink-0 rounded-md border border-border px-2 py-1 text-11 text-destructive transition-colors hover:bg-muted"
                     data-testid={`bp-hw-remove-${i}`}
-                  >
-                    删除
-                  </button>
+                  >{blueprintI18n("adminLimitPolicy.delete")}</button>
                 </div>
                 <div className="mb-1 flex items-center gap-1.5">
                   {PRE_TASK_AUDIENCES.map((a) => (
@@ -207,7 +207,7 @@ export function PreTasksPanelEditor({
                       }
                       data-testid={`bp-hw-audience-${i}-${a}`}
                     >
-                      {a}
+                      {localizeBlueprintCopy(blueprintI18n, a)}
                     </button>
                   ))}
                 </div>
@@ -217,7 +217,7 @@ export function PreTasksPanelEditor({
                   value={t.ifNot}
                   onChange={(e) => updateTask(i, { ifNot: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="不做会怎样（必填——写不出来的任务就该删掉）"
+                  placeholder={blueprintI18n("blueprintFlow.consequenceOfSkippingRequiredRemoveTasksWithoutAClearConsequence")}
                   data-testid={`bp-hw-ifnot-${i}`}
                 />
                 <Input
@@ -226,7 +226,7 @@ export function PreTasksPanelEditor({
                   value={t.due}
                   onChange={(e) => updateTask(i, { due: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="截止（如「开始前 2 天 · 文字/语音均可，AI 会预读并提炼」）"
+                  placeholder={blueprintI18n("blueprintFlow.deadlineEG2DaysBeforeStartTextOrVoice")}
                   data-testid={`bp-hw-due-${i}`}
                 />
               </li>
@@ -238,9 +238,7 @@ export function PreTasksPanelEditor({
           onClick={addTask}
           className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-hw-add"
-        >
-          ＋ 任务
-        </button>
+        >{blueprintI18n("blueprintFlow.task")}</button>
       </div>
 
       <div
@@ -251,14 +249,14 @@ export function PreTasksPanelEditor({
           ✨
         </span>
         <div>
-          <p className="text-11 font-medium text-ai-tint-foreground">催办由 AI 做</p>
-          <p className="mt-0.5 text-11 text-muted-foreground">{REMINDER_RULE}</p>
+          <p className="text-11 font-medium text-ai-tint-foreground">{blueprintI18n("blueprintFlow.aIHandlesReminders")}</p>
+          <p className="mt-0.5 text-11 text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, REMINDER_RULE)}</p>
         </div>
       </div>
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

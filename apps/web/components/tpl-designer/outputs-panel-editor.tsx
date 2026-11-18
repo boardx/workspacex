@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -81,6 +85,8 @@ export function OutputsPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<OutputsContentValue>(() => parseOutputsContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -105,10 +111,10 @@ export function OutputsPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -142,7 +148,7 @@ export function OutputsPanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("canvas.saved") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -151,19 +157,13 @@ export function OutputsPanelEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-out-list">
-        <h3 className="mb-2 text-13 font-semibold">
-          产出清单 · {value.rows.length} 件（{requiredCount} 件必须有，缺了不能结项）
-        </h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.deliverables")}{value.rows.length}{blueprintI18n("blueprintFlow.items3")}{requiredCount}{blueprintI18n("blueprintFlow.requiredMissingItemsBlockClosure")}</h3>
         {value.rows.length === 0 ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-out-empty">
-            还没有产出物——点「＋ 输出物」新增。
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-out-empty">{blueprintI18n("blueprintFlow.noDeliverablesYetSelectDeliverableToAddOne")}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
             {value.rows.map((r, i) => (
@@ -183,21 +183,21 @@ export function OutputsPanelEditor({
                     value={r.name}
                     onChange={(e) => updateRow(i, { name: e.target.value })}
                     onBlur={() => void persist(value)}
-                    placeholder="产出名（如「3 个可推进题目（含依据）」）"
+                    placeholder={blueprintI18n("blueprintFlow.deliverableNameEG3ActionableTopicsWithRationale")}
                     data-testid={`bp-out-name-${i}`}
                   />
                   <Checkbox
                     className="shrink-0"
                     checked={r.required}
                     onChange={() => toggleRequired(i)}
-                    label="必须"
+                    label={blueprintI18n("blueprintFlow.required")}
                     data-testid={`bp-out-required-${i}`}
                   />
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
                     className="shrink-0 rounded border border-border px-1 text-11 text-destructive"
-                    aria-label="删除产出物"
+                    aria-label={blueprintI18n("blueprintFlow.deleteDeliverable")}
                     data-testid={`bp-out-remove-${i}`}
                   >
                     ✕
@@ -210,7 +210,7 @@ export function OutputsPanelEditor({
                     value={r.gen}
                     onChange={(e) => updateRow(i, { gen: e.target.value })}
                     onBlur={() => void persist(value)}
-                    placeholder="生成方式（如「AI 提取 · 人确认」）"
+                    placeholder={blueprintI18n("blueprintFlow.generationMethodEGAIExtractsHumanConfirms")}
                     data-testid={`bp-out-gen-${i}`}
                   />
                   <span aria-hidden className="shrink-0 text-muted-foreground">
@@ -222,7 +222,7 @@ export function OutputsPanelEditor({
                     value={r.to}
                     onChange={(e) => updateRow(i, { to: e.target.value })}
                     onBlur={() => void persist(value)}
-                    placeholder="去向（如「决策台账」）"
+                    placeholder={blueprintI18n("blueprintFlow.destinationEGDecisionRegister")}
                     data-testid={`bp-out-to-${i}`}
                   />
                 </div>
@@ -235,25 +235,23 @@ export function OutputsPanelEditor({
           onClick={addRow}
           className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-out-add"
-        >
-          ＋ 输出物
-        </button>
+        >{blueprintI18n("blueprintFlow.deliverable")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-out-reflow">
-        <h3 className="mb-2 text-13 font-semibold">回流规则</h3>
-        <p className="text-12 leading-relaxed text-muted-foreground">{REFLOW_RULE}</p>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.feedbackRules")}</h3>
+        <p className="text-12 leading-relaxed text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, REFLOW_RULE)}</p>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-out-checks">
-        <h3 className="mb-2 text-13 font-semibold">结项检查</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.closureCheck")}</h3>
         <ul className="flex flex-col gap-1.5">
           {CLOSE_CHECKS.map((c) => (
             <li key={c} className="flex items-start gap-2 text-12" data-testid="bp-out-check">
               <span aria-hidden className="mt-0.5 text-success">
                 ✓
               </span>
-              {c}
+              {localizeBlueprintCopy(blueprintI18n, c)}
             </li>
           ))}
         </ul>
@@ -261,7 +259,7 @@ export function OutputsPanelEditor({
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

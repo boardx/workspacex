@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import type { FacetSaveFn } from "./facet-content-editor";
 import { Input } from "@/components/ui/input";
@@ -76,6 +80,8 @@ export function MaterialsPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<MaterialsContentValue>(() => parseMaterialsContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -100,10 +106,10 @@ export function MaterialsPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -135,7 +141,7 @@ export function MaterialsPanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("canvas.saved") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -144,26 +150,22 @@ export function MaterialsPanelEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-mat-list">
-        <h3 className="mb-2 text-13 font-semibold">物料清单 · {value.rows.length} 件</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.materials")}{value.rows.length}{blueprintI18n("blueprintFlow.items2")}</h3>
         {value.rows.length === 0 ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-mat-empty">
-            还没有物料——点「＋ 物料」新增。
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-mat-empty">{blueprintI18n("blueprintFlow.noMaterialsYetSelectMaterialToAddOne")}</p>
         ) : (
           <div className="overflow-x-auto">
             <Table className="w-full border-collapse text-12" data-testid="bp-mat-table">
               <TableHeader>
                 <TableRow className="border-b border-border text-11 text-muted-foreground">
-                  <TableHead className="py-1.5 pr-2 text-left font-medium">物料</TableHead>
-                  <TableHead className="px-2 py-1.5 text-left font-medium">数量</TableHead>
-                  <TableHead className="px-2 py-1.5 text-left font-medium">用于环节</TableHead>
-                  <TableHead className="px-2 py-1.5 text-left font-medium">谁准备</TableHead>
+                  <TableHead className="py-1.5 pr-2 text-left font-medium">{blueprintI18n("blueprintFlow.material")}</TableHead>
+                  <TableHead className="px-2 py-1.5 text-left font-medium">{blueprintI18n("blueprintFlow.quantity")}</TableHead>
+                  <TableHead className="px-2 py-1.5 text-left font-medium">{blueprintI18n("blueprintFlow.usedInSegment")}</TableHead>
+                  <TableHead className="px-2 py-1.5 text-left font-medium">{blueprintI18n("blueprintFlow.preparedBy")}</TableHead>
                   <TableHead className="px-2 py-1.5" />
                 </TableRow>
               </TableHeader>
@@ -177,7 +179,7 @@ export function MaterialsPanelEditor({
                         value={r.name}
                         onChange={(e) => updateRow(i, { name: e.target.value })}
                         onBlur={() => void persist(value)}
-                        placeholder="便签（4 色，76mm）"
+                        placeholder={blueprintI18n("blueprintFlow.stickyNotes4Colors76mm")}
                         data-testid={`bp-mat-name-${i}`}
                       />
                     </TableCell>
@@ -188,7 +190,7 @@ export function MaterialsPanelEditor({
                         value={r.qty}
                         onChange={(e) => updateRow(i, { qty: e.target.value })}
                         onBlur={() => void persist(value)}
-                        placeholder="16 叠"
+                        placeholder={blueprintI18n("blueprintFlow.16Pads")}
                         data-testid={`bp-mat-qty-${i}`}
                       />
                     </TableCell>
@@ -218,7 +220,7 @@ export function MaterialsPanelEditor({
                             }
                             data-testid={`bp-mat-owner-${i}-${o}`}
                           >
-                            {o}
+                            {localizeBlueprintCopy(blueprintI18n, o)}
                           </button>
                         ))}
                       </div>
@@ -228,7 +230,7 @@ export function MaterialsPanelEditor({
                         type="button"
                         onClick={() => removeRow(i)}
                         className="rounded border border-border px-1 text-11 text-destructive"
-                        aria-label="删除物料"
+                        aria-label={blueprintI18n("blueprintFlow.deleteMaterial")}
                         data-testid={`bp-mat-remove-${i}`}
                       >
                         ✕
@@ -241,21 +243,19 @@ export function MaterialsPanelEditor({
           </div>
         )}
         <p className="mt-2 rounded-md bg-panel px-2.5 py-1.5 text-11 text-muted-foreground" data-testid="bp-mat-footnote">
-          {FOOTNOTE}
+          {localizeBlueprintCopy(blueprintI18n, FOOTNOTE)}
         </p>
         <button
           type="button"
           onClick={addRow}
           className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-mat-add"
-        >
-          ＋ 物料
-        </button>
+        >{blueprintI18n("blueprintFlow.material2")}</button>
       </div>
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>
