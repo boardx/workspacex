@@ -15,6 +15,19 @@ def module():
     return value
 
 class Producer(unittest.TestCase):
+    def test_vpc_publication_preserves_canonical_release_reference(self):
+        m = module()
+        registry = 'example-registry.cn-shanghai.cr.aliyuncs.com'
+        prefix = registry + '/workspacex-prod'
+        transport = m.vpc_registry(registry) + '/workspacex-prod'
+        digest = 'sha256:' + 'a' * 64
+        row = {'image': transport + '/web@' + digest}
+        with patch.object(m, 'publication_row', return_value=row) as verify, patch.object(m, 'write') as write:
+            m.verify_publication('web', transport, '123-1', 'result.json', 'b' * 40,
+                                 digest, digest, False, canonical_prefix=prefix)
+        verify.assert_called_once_with('web', transport, '123-1', 'b' * 40, digest, digest, False)
+        write.assert_called_once_with('result.json', {'image': prefix + '/web@' + digest})
+
     def test_source_comparison_detects_service_and_shared_inputs(self):
         m = module()
         for changed, expected in (

@@ -386,6 +386,13 @@ def build_activation(role,prefix,tag,output,source,parent):
         write(output,row)
 
 
+def vpc_registry(registry):
+    name, separator, domain = registry.partition('.')
+    need(separator and name.endswith('-registry') and domain.endswith('.cr.aliyuncs.com'),
+         'INVALID_ACR_VPC_REGISTRY')
+    return name+'-vpc.'+domain
+
+
 def build(role, prefix, tag, output, source):
     coordinates(prefix,tag)
     need(role in SERVICES,'INVALID_SERVICE')
@@ -399,8 +406,13 @@ def build(role, prefix, tag, output, source):
     if activation:
         build_activation(role,prefix,tag,output,source,parent)
         return
+    canonical_prefix=prefix
+    use_vpc=os.environ.get('USE_ACR_VPC')=='1'
+    if use_vpc:
+        registry, namespace=prefix.split('/',1)
+        prefix=vpc_registry(registry)+'/'+namespace
     repository,dockerfile,context,bases=SERVICES[role]
-    cn=os.environ.get('TARGET_ENVIRONMENT')=='cn'
+    cn=use_vpc or os.environ.get('TARGET_ENVIRONMENT')=='cn'
     reference=prefix+'/'+repository+':'+tag
     exporter='--load' if cn else '--output=type=registry,oci-mediatypes=false'
     args=['docker','buildx','build',exporter,'--provenance=false','--platform','linux/amd64','--file',dockerfile,'--tag',prefix+'/'+repository+':'+tag,
@@ -428,7 +440,7 @@ def build(role, prefix, tag, output, source):
         pushed=run_release_stage(role,'push',['docker','push',reference],remaining)
         digests=re.findall(r'^'+re.escape(tag)+r': digest: (sha256:[a-f0-9]{64}) size: [0-9]+\s*$',pushed,re.M)
         need(len(digests)==1,'IMAGE_PUSH_DIGEST')
-        verify_publication(role,prefix,tag,output,source,config_digest,digests[0],enabled)
+        verify_publication(role,prefix,tag,output,source,config_digest,digests[0],enabled,canonical_prefix=canonical_prefix)
         return
 
     with tempfile.TemporaryDirectory(prefix='registry-build-metadata-') as directory:
@@ -444,8 +456,11 @@ def build(role, prefix, tag, output, source):
         verify_publication(role,prefix,tag,output,source,config_digest,manifest_digest,enabled)
 
 
-def verify_publication(role,prefix,tag,output,source,config_digest,manifest_digest,enabled):
-    write(output,publication_row(role,prefix,tag,source,config_digest,manifest_digest,enabled))
+def verify_publication(role,prefix,tag,output,source,config_digest,manifest_digest,enabled,canonical_prefix=None):
+    row=publication_row(role,prefix,tag,source,config_digest,manifest_digest,enabled)
+    if canonical_prefix and canonical_prefix != prefix:
+        row['image']=canonical_prefix+row['image'][len(prefix):]
+    write(output,row)
 
 
 def publication_row(role,prefix,tag,source,config_digest,manifest_digest,enabled):
@@ -514,6 +529,8 @@ def main():
         need(PREFIX.fullmatch(prefix) and registry==prefix.split('/')[0] and '-vpc.' not in registry,'PUBLIC_REGISTRY_REQUIRED')
         username=os.environ.get('ACR_USERNAME','');password=os.environ.get('ACR_PASSWORD','')
         need(username and password and not any(c in username+password for c in '\r\n\x00'),'ACR_CREDENTIALS_REQUIRED')
+        if os.environ.get('USE_ACR_VPC')=='1':
+            registry=vpc_registry(registry)
         registry_login(registry,username,password)
     elif args.operation=='plan':
         event=os.environ['GITHUB_EVENT_NAME'];branch=os.environ['GITHUB_REF_NAME']
