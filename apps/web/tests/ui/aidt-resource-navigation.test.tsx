@@ -1,19 +1,23 @@
 import * as React from "react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { AidtMaterials } from "@/features/aidt/components/aidt-materials";
 import { AidtBoardReturn } from "@/features/aidt/components/aidt-board-return";
 import { ApiError } from "@/lib/api-client";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), search: "", boardId: "board/1" as string | string[] | undefined }));
+const aidtConfig = vi.hoisted(() => ({ enabled: true }));
+vi.mock("@/features/aidt/lib/aidt-module-config", () => ({
+  isAidtModuleEnabled: () => aidtConfig.enabled,
+}));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(mocks.search), useParams: () => ({ boardId: mocks.boardId }), useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: { currentOrgId: "org", userId: "student", sessionToken: "token" } }) }));
 vi.mock("@/lib/live-project-resources", async (importOriginal) => ({ ...await importOriginal<typeof import("@/lib/live-project-resources")>(), listProjectResources: mocks.list }));
 vi.mock("@/lib/i18n/provider", () => ({ useI18n: () => ({ t: (key: string) => key, locale: "zh-CN" }) }));
 
 const resource = (kind: string, id: string, title: string) => ({ kind, id, title, status: "draft", updatedAt: "2026-11-15T00:00:00Z" });
-beforeEach(() => { vi.clearAllMocks(); vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); mocks.search = ""; mocks.boardId = "board/1"; mocks.list.mockResolvedValue({ items: [] }); });
-afterEach(() => { vi.unstubAllEnvs(); });
+beforeEach(() => { vi.clearAllMocks(); aidtConfig.enabled = true; mocks.search = ""; mocks.boardId = "board/1"; mocks.list.mockResolvedValue({ items: [] }); });
+
 
 it("opens existing Design and personal transcription in the originating stage and chat", async () => {
   mocks.list.mockResolvedValue({ items: [resource("design", "design/1", "被测原型"), resource("personal_transcription", "session/1", "个人笔记")] });
@@ -42,7 +46,7 @@ it("uses the native breadcrumb to return from Board to the same project, stage a
   mocks.search = "projectId=group%2F1&aidtStep=4&aidtThread=thread%2F4&focusArtifact=artifact-1";
   const { rerender } = render(<AidtBoardReturn />);
   expect(screen.getByTestId("project-breadcrumb-back")).toHaveAttribute("href", "/aidt/group%2F1?step=4&tool=whiteboard&resource=board%2F1&thread=thread%2F4");
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "false"); rerender(<AidtBoardReturn />);
+  aidtConfig.enabled = false; rerender(<AidtBoardReturn />);
   expect(screen.queryByTestId("project-breadcrumb-back")).toBeNull();
 });
 

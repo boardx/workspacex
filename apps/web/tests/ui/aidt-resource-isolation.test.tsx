@@ -1,5 +1,5 @@
 import * as React from "react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AidtHome } from "@/features/aidt/entry/home";
 import { AidtProjectWorkspace } from "@/features/aidt/entry/workspace";
@@ -12,6 +12,10 @@ const mocks = vi.hoisted(() => ({
   session: { currentOrgId: "org", userId: "student-a", sessionToken: "token" },
   identity: { orgRole: "admin" },
   search: "", request: vi.fn(), roster: vi.fn(), list: vi.fn(), find: vi.fn(), overview: vi.fn(), materials: vi.fn(), workspace: vi.fn(), membership: vi.fn(), breadcrumb: vi.fn(),
+}));
+const aidtConfig = vi.hoisted(() => ({ enabled: true }));
+vi.mock("@/features/aidt/lib/aidt-module-config", () => ({
+  isAidtModuleEnabled: () => aidtConfig.enabled,
 }));
 vi.mock("@/lib/api-client", async (original) => ({
   ...await original<typeof import("@/lib/api-client")>(), apiRequest: mocks.request,
@@ -30,7 +34,7 @@ vi.mock("@/components/project/project-breadcrumb", () => ({ ProjectBreadcrumb: (
 const project = { id: "group", name: "本组", kind: "general", status: "active", readOnlyReason: null, tags: [AIDT_PROJECT_TAG] };
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (error: unknown) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 beforeEach(() => {
-  vi.clearAllMocks(); vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true");
+  vi.clearAllMocks(); aidtConfig.enabled = true;
   mocks.session = { currentOrgId: "org", userId: "student-a", sessionToken: "token" }; mocks.identity.orgRole = "admin"; mocks.search = "";
   mocks.list.mockResolvedValue([project]); mocks.find.mockResolvedValue(project);
   // Exercise the real member-filtering loader. Organization management alone is not membership.
@@ -48,7 +52,7 @@ beforeEach(() => {
   mocks.membership.mockResolvedValue("owner");
   mocks.materials.mockResolvedValue({ items: [] });
 });
-afterEach(() => { vi.unstubAllEnvs(); });
+
 
 it("closes and discards a group's creation form on actor or organization change", async () => {
   const { rerender } = render(<AidtHome />);
@@ -119,9 +123,9 @@ it("keeps native design/transcription references and states their evidence bound
 });
 
 it("leaves ordinary Board navigation untouched unless AIDT is enabled with an explicit valid context", async () => {
-  mocks.search = "projectId=group&aidtStep=2"; vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "false");
+  mocks.search = "projectId=group&aidtStep=2"; aidtConfig.enabled = false;
   const { rerender } = render(<AidtBoardReturn />); expect(mocks.breadcrumb).not.toHaveBeenCalled();
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true");
+  aidtConfig.enabled = true;
   for (const query of ["projectId=group&step=2", "projectId=group&aidtStep=unknown", "projectId=group&aidtStep=7", "aidtStep=2", "projectId=%20&aidtStep=2"]) {
     mocks.search = query; rerender(<AidtBoardReturn />); expect(screen.queryByTestId("native-board-return")).toBeNull();
   }
