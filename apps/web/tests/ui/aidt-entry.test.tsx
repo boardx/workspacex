@@ -1,4 +1,8 @@
 import * as React from "react";
+const aidtConfig = vi.hoisted(() => ({ enabled: true }));
+vi.mock("@/features/aidt/lib/aidt-module-config", () => ({
+  isAidtModuleEnabled: () => aidtConfig.enabled,
+}));
 vi.mock("@/features/aidt/components/aidt-courses-panel", () => ({ AidtCoursesPanel: () => null }));
 import { beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -20,7 +24,7 @@ vi.mock("@/components/project/project-collaborators-panel", () => ({ ProjectColl
 vi.mock("@/features/aidt/components/project-aidt", () => ({ ProjectAidt: (props: unknown) => { api.workspace(props); return <div data-testid="six-step-workspace" />; } }));
 const special = { id: "p1", name: "食堂设计", kind: "general", status: "active", readOnlyReason: null, tags: [AIDT_PROJECT_TAG] };
 beforeEach(() => {
-  vi.clearAllMocks(); vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); api.role = "lead"; api.list.mockResolvedValue([special, { ...special, id: "ordinary", tags: [] }]);
+  vi.clearAllMocks(); aidtConfig.enabled = true; api.role = "lead"; api.list.mockResolvedValue([special, { ...special, id: "ordinary", tags: [] }]);
   api.find.mockResolvedValue(special); api.overview.mockResolvedValue({ projectId: "p1", name: "食堂设计", status: "active", kind: "general" });
   api.membership.mockResolvedValue("owner"); api.groups.mockResolvedValue([{ project: special, members: [{ userId: "u1", displayName: "学生甲" }] }]);
   api.create.mockResolvedValue({ id: "p1" }); api.tag.mockResolvedValue({ id: "p1", tags: [AIDT_PROJECT_TAG] });
@@ -113,7 +117,7 @@ it("workspace roster dependency failures can retry without masquerading as denie
   fireEvent.click(screen.getByRole("button",{name:"重试"}));expect(await screen.findByTestId("six-step-workspace")).toBeVisible();
 });
 it("does not read the home or workspace when the optional module is disabled", () => {
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT","false");render(<><AidtHome /><AidtProjectWorkspace projectId="p1" /></>);
+  aidtConfig.enabled = false;render(<><AidtHome /><AidtProjectWorkspace projectId="p1" /></>);
   expect(screen.getByTestId("aidt-home-disabled")).toBeVisible();expect(screen.getByTestId("aidt-workspace-disabled")).toBeVisible();
   expect(api.list).not.toHaveBeenCalled();expect(api.find).not.toHaveBeenCalled();expect(api.membership).not.toHaveBeenCalled();
 });
