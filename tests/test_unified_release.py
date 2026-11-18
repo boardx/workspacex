@@ -17,6 +17,21 @@ class Adapter:
  def verify(self,version):self.call('verify_old' if version['tag']=='old' else 'verify_new')
 class Releases(unittest.TestCase):
  def run_release(self,a,root,tag='new'):return m.release(root,tag,a)
+ def test_stage_progress_is_visible_before_each_operation_without_private_output(self):
+  import io
+  from contextlib import redirect_stderr
+  output=io.StringIO()
+  class Observed(Adapter):
+   def backup(self,attempt):
+    self_test.assertIn('stage=backup status=started',output.getvalue())
+    raise RuntimeError('private SQL or credential details')
+  self_test=self
+  with tempfile.TemporaryDirectory() as d,redirect_stderr(output):
+   result=self.run_release(Observed(),Path(d))
+  self.assertEqual(result['status'],'ROLLED_BACK')
+  self.assertIn('stage=backup status=failed',output.getvalue())
+  self.assertIn('stage=rollback status=completed',output.getvalue())
+  self.assertNotIn('private SQL',output.getvalue())
  def test_same_flow_all_environments(self):
   for env in ['devapp','cn','us']:
    with self.subTest(env=env),tempfile.TemporaryDirectory() as d:
