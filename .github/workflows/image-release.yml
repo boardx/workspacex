@@ -210,10 +210,26 @@ jobs:
         run: |
           set -uo pipefail
           result=$(mktemp)
-          trap 'rm -f -- "$result"' EXIT
+          progress_pid=
+          cleanup() {
+            if [ -n "$progress_pid" ]; then kill "$progress_pid" 2>/dev/null || true; fi
+            rm -f -- "$result"
+          }
+          trap cleanup EXIT
+          printf 'DEPLOYMENT_PROGRESS environment=%s tag=%s stage=installed-worker status=started\n' "$TARGET_ENVIRONMENT" "$IMAGE_TAG"
+          (
+            while sleep 15; do
+              printf 'DEPLOYMENT_PROGRESS stage=installed-worker status=running elapsed_seconds=%s\n' "$SECONDS"
+            done
+          ) &
+          progress_pid=$!
           set +e
           sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG" | tee "$result"
           release_status=${PIPESTATUS[0]}
+          kill "$progress_pid" 2>/dev/null || true
+          wait "$progress_pid" 2>/dev/null || true
+          progress_pid=
+          printf 'DEPLOYMENT_PROGRESS stage=installed-worker status=finished exit_code=%s elapsed_seconds=%s\n' "$release_status" "$SECONDS"
           set -e
           python3 - "$result" "$GITHUB_STEP_SUMMARY" <<'PY'
           import json,re,sys

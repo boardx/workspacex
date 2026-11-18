@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Single-host image-only release. Plan by default; no migration or credential handling."""
-import fcntl, signal, stat
+import fcntl, signal, stat, sys
 import argparse, hashlib, io, json, os, pathlib, re, subprocess, tarfile, tempfile, time, urllib.request, uuid
+
+PROGRESS_STARTED=time.monotonic()
+def progress(stage, status='started'):
+    print(f'IMAGE_DEPLOY_STAGE stage={stage} status={status} elapsed_seconds={int(time.monotonic()-PROGRESS_STARTED)}',file=sys.stderr,flush=True)
 
 class Rejected(Exception): pass
 def need(ok, code):
@@ -147,6 +151,7 @@ def resolved_config_hash(d, original, project, service, out):
 
 def release(config_path,manifest_path,output,apply=False,lock_fd=None,commit=None):
     out=pathlib.Path(output); out.mkdir(mode=0o700,parents=False,exist_ok=False)
+    progress('runtime-preflight')
     stage='preflight'; mutated=False; lock=None; previous_signals={}
     def cancelled(*_): raise Rejected('DEPLOYMENT_CANCELLED')
     try:
@@ -216,8 +221,10 @@ def release(config_path,manifest_path,output,apply=False,lock_fd=None,commit=Non
             rollback_file=out/'rollback.json';save(rollback_file,{'services':{s:{'image':ident} for s,ident in old.items()}})
             for sig in (signal.SIGTERM,signal.SIGINT):
                 previous_signals[sig]=signal.getsignal(sig);signal.signal(sig,cancelled)
+        progress('compose-up')
         stage='compose-up'; save(out/'apply-intent.json',{'sourceRevision':m['sourceRevision'],'automaticRetry':False}); mutated=True
         d.run(command+['up','--detach','--no-deps','--pull','never','--no-build',*services],timeout=120)
+        progress('readiness-and-business-probe')
         stage='readiness'
         result=verify_runtime(d,command,services,{s:m['images'][r]['imageId'] for s,r in services.items()},c)
         receipt={'status':'SUCCEEDED','sourceRevision':m['sourceRevision'],'manifestSha256':sha_file(manifest_path),'health':result,'versionEvidence':'actual-running-image-IDs','markerUnchanged':True,'schemaMigrationExecuted':False,'databaseZeroWritesClaimed':False,'automaticRetry':False}
@@ -230,6 +237,7 @@ def release(config_path,manifest_path,output,apply=False,lock_fd=None,commit=Non
             # Reserve the process for recovery even when Actions sends cancellation signals.
             for sig in previous_signals: signal.signal(sig,signal.SIG_IGN)
             try:
+                progress('rollback')
                 recovery=base+['--file',str(rollback_file.resolve())]
                 d.run(recovery+['up','--detach','--no-deps','--pull','never','--no-build',*services],timeout=120)
                 result['rollbackHealth']=verify_runtime(d,recovery,services,old,c)
