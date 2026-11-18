@@ -118,7 +118,7 @@ const EXEMPTIONS = [
     "apps/web/e2e/aidt-local-persistence.spec.ts",
     "apps/web/e2e/aidt-member-existing-zero.spec.ts",
     "apps/web/e2e/aidt-native-draft-zero.spec.ts",
-  ].map((spec) => ({ spec, reason: "AIDT 专项验收需要操作员准备本地隔离栈、持久化目录或专用测试账号。" })),
+  ].map((spec) => ({ spec, reason: "AIDT 专项验收依赖操作员准备的本地隔离栈、持久化目录或专用测试账号，常规 CI 没有这些输入。标准 AIDT 项目及成员协作旅程仍由全栈冒烟执行；本组专项用例须用对应 Playwright 配置显式执行并保留结果。" })),
   ...[
     "apps/web/e2e/aidt-v2-completion-continuation.spec.ts",
     "apps/web/e2e/aidt-v2-completion.spec.ts",
@@ -135,7 +135,7 @@ const EXEMPTIONS = [
     "apps/web/e2e/aidt-v2-summary-compact.spec.ts",
     "apps/web/e2e/aidt-v2-summary-readonly.spec.ts",
     "apps/web/e2e/real-model-aidt-facilitation.spec.ts",
-  ].map((spec) => ({ spec, reason: "AIDT 专项验收需要操作员提供独立验收环境、预置证据或真实模型授权。" })),
+  ].map((spec) => ({ spec, reason: "AIDT 专项验收依赖操作员准备的独立验收环境、前序浏览器产物或真实模型授权，常规 CI 没有这些输入。按各自 Playwright 配置执行并保留证据；标准 AIDT 项目及成员协作旅程仍由全栈冒烟执行。" })),
   {
     spec: "apps/web/e2e/axe-image-alt.spec.ts",
     reason: PROJECT_GRANULARITY_LEGACY("UIUX 基线（无障碍）"),

@@ -5,7 +5,7 @@ test("research persists the confirmed-question pipeline through the real UI, API
   test.setTimeout(180000);
   const researchName = `研究全链路验证 ${randomUUID()}`;
   await page.goto("/login");
-  await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.guidedResearchEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/);

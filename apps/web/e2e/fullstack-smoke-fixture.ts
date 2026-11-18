@@ -40,6 +40,8 @@ export const FULLSTACK_E2E = {
   voiceJourneyUserId: `user-fullstack-voice-journey-${scope}`,
   interviewIntakeEmail: `fullstack-interview-intake-${scope}@example.test`,
   interviewIntakeUserId: `user-fullstack-interview-intake-${scope}`,
+  guidedResearchEmail: `fullstack-guided-research-${scope}@example.test`,
+  guidedResearchUserId: `user-fullstack-guided-research-${scope}`,
   email: `fullstack-${scope}@example.test`,
   password: "Fullstack-E2E-only-387!",
   orgId: `org-fullstack-${scope}`,
