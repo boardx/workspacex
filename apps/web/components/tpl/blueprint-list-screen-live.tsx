@@ -237,9 +237,9 @@ function BlueprintLiveCard({ row, onCopy }: { row: BlueprintRow; onCopy: () => v
       }
       meta={
         <>
-          <span>{blueprintI18n("blueprintFlow.used2")}{row.appliedProjectCount}{blueprintI18n("blueprintFlow.times")}{row.satisfaction === null ? blueprintI18n("blueprintFlow.satisfaction") : blueprintI18n("blueprintFlow.satisfactionValue12", { value1: String(row.satisfaction.toFixed(1)) })}</span>
+          <span>{blueprintI18n("blueprintFlow.usageCount", { count: row.appliedProjectCount })} · {row.satisfaction === null ? blueprintI18n("blueprintFlow.satisfaction") : blueprintI18n("blueprintFlow.satisfactionValue12", { value1: String(row.satisfaction.toFixed(1)) })}</span>
           <span data-testid="tpl-live-card-completion">
-            {row.completeness.done}/{row.completeness.denominator}{blueprintI18n("blueprintFlow.configured")}</span>
+            {blueprintI18n("blueprintFlow.completionCount", { done: row.completeness.done, total: row.completeness.denominator })}</span>
         </>
       }
       actions={
@@ -281,10 +281,10 @@ function BlueprintLiveListRow({ row, onCopy }: { row: BlueprintRow; onCopy: () =
           </Badge>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-3 text-11 text-muted-foreground">
-          <span>{localizeBlueprintCopy(blueprintI18n, DURATION_TIER_LABEL[row.durationTier])} · {row.agendaSegmentCount}{blueprintI18n("blueprintFlow.segment2")}</span>
-          <span>{blueprintI18n("blueprintFlow.used2")}{row.appliedProjectCount}{blueprintI18n("blueprintFlow.repetitions")}</span>
+          <span>{blueprintI18n("blueprintFlow.value1Value2Segments", { value1: localizeBlueprintCopy(blueprintI18n, DURATION_TIER_LABEL[row.durationTier]), value2: row.agendaSegmentCount })}</span>
+          <span>{blueprintI18n("blueprintFlow.usageCount", { count: row.appliedProjectCount })}</span>
           <span>{row.satisfaction === null ? blueprintI18n("blueprintFlow.satisfaction") : blueprintI18n("blueprintFlow.satisfactionValue12", { value1: String(row.satisfaction.toFixed(1)) })}</span>
-          <span data-testid="tpl-live-card-completion">{row.completeness.done}/{row.completeness.denominator}{blueprintI18n("blueprintFlow.configured")}</span>
+          <span data-testid="tpl-live-card-completion">{blueprintI18n("blueprintFlow.completionCount", { done: row.completeness.done, total: row.completeness.denominator })}</span>
         </div>
         <Button size="xs" variant="outline" onClick={onCopy} data-testid="tpl-live-card-copy">
           <Copy aria-hidden className="h-3 w-3" />{blueprintI18n("codeFence.copy")}</Button>

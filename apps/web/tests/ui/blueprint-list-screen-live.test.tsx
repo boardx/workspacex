@@ -10,6 +10,7 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { I18nProvider } from "@/lib/i18n/provider";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 vi.mock("@/components/session/session-provider", () => ({
@@ -80,6 +81,19 @@ describe("BP-05 /tpl/list：登录 → 真实列表（无编造字段）", () =>
     expect(card).toHaveTextContent("2/15 已配");
     // 反证：不得出现 mock 专属字段（tags/draftHint 等）留下的痕迹
     expect(card.textContent ?? "").not.toMatch(/客户共创|内部演练|试跑一场后才能发布/);
+  });
+
+  it("localizes card statistics without changing the saved blueprint name", async () => {
+    render(
+      <I18nProvider initialLocale="en">
+        <BlueprintListScreenLive />
+      </I18nProvider>,
+    );
+    const card = await screen.findByTestId("tpl-live-card-bp-real-1");
+    expect(card).toHaveTextContent("真实蓝本一号");
+    expect(card).toHaveTextContent("0 segments");
+    expect(card).toHaveTextContent("Used 0 times");
+    expect(card).toHaveTextContent("2/15 configured");
   });
 
   it("新建模板（origin=blank）真实调 POST /blueprints，成功后刷新列表", async () => {

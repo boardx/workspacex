@@ -150,7 +150,7 @@ function BlueprintCard({
         <>
           {/* 议程环节数·时长 与 完成度 n/N 是两个独立字段，互不串位 */}
           <span data-testid="tpl-row-agenda">{row.agendaSegments}{blueprintI18n("blueprintFlow.segments")}{row.duration}</span>
-          <span data-testid="tpl-row-used">{blueprintI18n("blueprintFlow.used2")}{row.usedCount}{blueprintI18n("blueprintFlow.repetitions")}</span>
+          <span data-testid="tpl-row-used">{blueprintI18n("blueprintFlow.usageCount", { count: row.usedCount })}</span>
           <span data-testid="tpl-row-satisfaction">
             {row.satisfaction == null
               ? blueprintI18n("blueprintFlow.satisfaction")
@@ -158,7 +158,7 @@ function BlueprintCard({
                 ? blueprintI18n("blueprintFlow.satisfactionValue1Value2Sessions", { value1: String(row.satisfaction.mean.toFixed(1)), value2: String(row.satisfaction.sampleSize) })
                 : blueprintI18n("blueprintFlow.satisfactionInsufficientSampleValue1Sessions", { value1: String(row.satisfaction.sampleSize) })}
           </span>
-          <span data-testid="tpl-row-completion">{row.doneCount}/{total}{blueprintI18n("blueprintFlow.configured")}</span>
+          <span data-testid="tpl-row-completion">{blueprintI18n("blueprintFlow.completionCount", { done: row.doneCount, total: total })}</span>
         </>
       }
       actions={

@@ -4,7 +4,7 @@ Issue: #6305. FIRST owns `/tpl`, `/tpl/list`, `/tpl/designer` and dedicated tpl/
 
 ```mermaid
 flowchart LR
-  A[Bounded route and ownership audit]:::done --> B[Fixed UI source and resources]:::done --> C[Source preservation review]:::reviewed --> D[Normal commits]:::pending --> E[Verification and green PR]:::pending
+  A[Bounded route and ownership audit]:::done --> B[Fixed UI source and resources]:::done --> C[Source preservation review]:::reviewed --> D[Integrate on develop]:::done --> E[Verification and green PR]:::pending
   classDef done fill:#bbf7d0
   classDef reviewed fill:#e9d5ff
   classDef pending fill:#e5e7eb
