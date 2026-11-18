@@ -81,9 +81,9 @@ jobs:
       group: ${{ steps.plan.outputs.target == 'devapp' && 'workspacex-devapp-deploy' || steps.plan.outputs.target == 'us' && 'workspacex-us-production-deploy' || 'workspacex-cn-production-deploy' }}
       fullset: ${{ steps.plan.outputs.fullset }}
       aidt_web_enabled: ${{ steps.plan.outputs.aidt_web_enabled }}
-      node_image: ${{ steps.mirror.outputs.node_image }}
-      python_image: ${{ steps.mirror.outputs.python_image }}
-      pgvector_image: ${{ steps.mirror.outputs.pgvector_image }}
+      node_image: ${{ steps.mirror.outputs.node_image || steps.plan.outputs.node_image }}
+      python_image: ${{ steps.mirror.outputs.python_image || steps.plan.outputs.python_image }}
+      pgvector_image: ${{ steps.mirror.outputs.pgvector_image || steps.plan.outputs.pgvector_image }}
     steps:
       - uses: actions/checkout@v5
         with:
