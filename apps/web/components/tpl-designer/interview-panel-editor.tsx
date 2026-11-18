@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -97,6 +101,8 @@ export function InterviewPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<InterviewContentValue>(() => parseInterviewContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -121,10 +127,10 @@ export function InterviewPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -158,7 +164,7 @@ export function InterviewPanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -167,19 +173,13 @@ export function InterviewPanelEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-itv-plan">
-        <h3 className="mb-2 text-13 font-semibold">
-          预设访谈计划 · {totalQuota} 场（按角色定配额，套用时补具体人名）
-        </h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.interviewPlanHeading", { count: totalQuota })}</h3>
         {value.roles.length === 0 ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-itv-empty">
-            还没有访谈角色——点「＋ 访谈角色」新增。
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-itv-empty">{blueprintI18n("blueprintFlow.noInterviewRolesYetSelectInterviewRoleToAddOne")}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
             {value.roles.map((r, i) => (
@@ -191,7 +191,7 @@ export function InterviewPanelEditor({
                     value={r.role}
                     onChange={(e) => updateRole(i, { role: e.target.value })}
                     onBlur={() => void persist(value)}
-                    placeholder="角色（如「客户方决策人」）"
+                    placeholder={blueprintI18n("blueprintFlow.roleEGClientDecisionMaker")}
                     data-testid={`bp-itv-role-name-${i}`}
                   />
                   <Input
@@ -200,18 +200,16 @@ export function InterviewPanelEditor({
                     value={r.quota}
                     onChange={(e) => updateRole(i, { quota: Number(e.target.value) || 0 })}
                     onBlur={() => void persist(value)}
-                    aria-label="配额场次"
+                    aria-label={blueprintI18n("blueprintFlow.sessionQuota")}
                     data-testid={`bp-itv-role-quota-${i}`}
                   />
-                  <span className="text-11 text-muted-foreground">场</span>
+                  <span className="text-11 text-muted-foreground">{blueprintI18n("blueprintFlow.sessions")}</span>
                   <button
                     type="button"
                     onClick={() => removeRole(i)}
                     className="ml-auto shrink-0 rounded-md border border-border px-2 py-1 text-11 text-destructive transition-colors hover:bg-muted"
                     data-testid={`bp-itv-role-remove-${i}`}
-                  >
-                    删除
-                  </button>
+                  >{blueprintI18n("adminLimitPolicy.delete")}</button>
                 </div>
                 <Input
                   type="text"
@@ -219,7 +217,7 @@ export function InterviewPanelEditor({
                   value={r.ask}
                   onChange={(e) => updateRole(i, { ask: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="要问出什么"
+                  placeholder={blueprintI18n("blueprintFlow.whatToLearn")}
                   data-testid={`bp-itv-role-ask-${i}`}
                 />
                 <Input
@@ -228,7 +226,7 @@ export function InterviewPanelEditor({
                   value={r.guide}
                   onChange={(e) => updateRole(i, { guide: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="提纲（如「JTBD 访谈法」）"
+                  placeholder={blueprintI18n("blueprintFlow.outlineEGJTBDInterviewMethod")}
                   data-testid={`bp-itv-role-guide-${i}`}
                 />
               </li>
@@ -240,20 +238,18 @@ export function InterviewPanelEditor({
           onClick={addRole}
           className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-itv-add"
-        >
-          ＋ 访谈角色
-        </button>
-        <p className="mt-1.5 text-11 italic text-muted-foreground">{VIRTUAL_NOTE}</p>
+        >{blueprintI18n("blueprintFlow.interviewRole")}</button>
+        <p className="mt-1.5 text-11 italic text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, VIRTUAL_NOTE)}</p>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-itv-auth">
-        <h3 className="mb-2 text-13 font-semibold">默认授权设置</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.defaultConsentSettings")}</h3>
         <ul className="flex flex-col gap-1.5">
           <li>
             <Checkbox
               checked={value.auth.recordAndTranscribeByDefault}
               onChange={() => toggleAuth("recordAndTranscribeByDefault")}
-              label="默认请求录音与转录 · 发受访者自助同意链接"
+              label={blueprintI18n("blueprintFlow.requestRecordingAndTranscriptionByDefaultSendParticipantsASelf")}
               data-testid="bp-itv-auth-record"
             />
           </li>
@@ -261,7 +257,7 @@ export function InterviewPanelEditor({
             <Checkbox
               checked={value.auth.requestAiAnalysisByDefault}
               onChange={() => toggleAuth("requestAiAnalysisByDefault")}
-              label="默认请求 AI 分析（建议逐人问）"
+              label={blueprintI18n("blueprintFlow.requestAIAnalysisByDefaultAskEachParticipantIndividually")}
               data-testid="bp-itv-auth-ai"
             />
           </li>
@@ -269,19 +265,19 @@ export function InterviewPanelEditor({
             <span aria-hidden className="mt-0.5">
               ⚠
             </span>
-            {HARD_CONSTRAINT_NOTE}
+            {localizeBlueprintCopy(blueprintI18n, HARD_CONSTRAINT_NOTE)}
           </li>
         </ul>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-itv-evidence">
-        <h3 className="mb-2 text-13 font-semibold">证据规则（写进现场的证据矩阵）</h3>
-        <p className="text-12 leading-relaxed text-muted-foreground">{EVIDENCE_RULES_NOTE}</p>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.evidenceRulesIncludedInTheSessionEvidenceMatrix")}</h3>
+        <p className="text-12 leading-relaxed text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, EVIDENCE_RULES_NOTE)}</p>
       </div>
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

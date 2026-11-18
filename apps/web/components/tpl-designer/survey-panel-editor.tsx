@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -73,6 +77,8 @@ export function SurveyPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<SurveyContentValue>(() => parseSurveyContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -97,10 +103,10 @@ export function SurveyPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -155,7 +161,7 @@ export function SurveyPanelEditor({
             className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"}
             data-testid="bp-facet-save-status"
           >
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -164,15 +170,11 @@ export function SurveyPanelEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
 
       {value.surveys.length === 0 ? (
-        <p className="mb-3 text-11 text-muted-foreground" data-testid="bp-survey-empty">
-          还没有问卷——点「＋ 加一份问卷」新增。
-        </p>
+        <p className="mb-3 text-11 text-muted-foreground" data-testid="bp-survey-empty">{blueprintI18n("blueprintFlow.noSurveysYetSelectAddSurveyToAddOne")}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {value.surveys.map((s, i) => (
@@ -184,7 +186,7 @@ export function SurveyPanelEditor({
                   value={s.name}
                   onChange={(e) => updateSurvey(i, { name: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="问卷名（如「会前预习问卷」）"
+                  placeholder={blueprintI18n("blueprintFlow.surveyNameEGPreSessionPreparationSurvey")}
                   data-testid={`bp-survey-name-${i}`}
                 />
                 <button
@@ -192,9 +194,7 @@ export function SurveyPanelEditor({
                   onClick={() => removeSurvey(i)}
                   className="shrink-0 rounded-md border border-border px-2 py-1 text-11 text-destructive transition-colors hover:bg-muted"
                   data-testid={`bp-survey-remove-${i}`}
-                >
-                  删除
-                </button>
+                >{blueprintI18n("adminLimitPolicy.delete")}</button>
               </div>
               <Input
                 type="text"
@@ -202,7 +202,7 @@ export function SurveyPanelEditor({
                 value={s.timing}
                 onChange={(e) => updateSurvey(i, { timing: e.target.value })}
                 onBlur={() => void persist(value)}
-                placeholder="发放时机（如「开始前 5 天发 · 60% 阻断开始」）"
+                placeholder={blueprintI18n("blueprintFlow.distributionTimingEG5DaysBeforeStartBelow60")}
                 data-testid={`bp-survey-timing-${i}`}
               />
               <Textarea
@@ -210,7 +210,7 @@ export function SurveyPanelEditor({
                 value={s.purpose}
                 onChange={(e) => updateSurvey(i, { purpose: e.target.value })}
                 onBlur={() => void persist(value)}
-                placeholder="用途说明（如「让现场不用花时间对齐背景。8 题、约 6 分钟。」）"
+                placeholder={blueprintI18n("blueprintFlow.purposeEGAlignBackgroundBeforeTheSession8Questions")}
                 data-testid={`bp-survey-purpose-${i}`}
               />
               <ul className="flex flex-col gap-1">
@@ -222,14 +222,14 @@ export function SurveyPanelEditor({
                       value={q}
                       onChange={(e) => updateQuestion(i, qi, e.target.value)}
                       onBlur={() => void persist(value)}
-                      placeholder="占位题目骨架"
+                      placeholder={blueprintI18n("blueprintFlow.placeholderQuestionOutline")}
                       data-testid={`bp-survey-question-${i}-${qi}`}
                     />
                     <button
                       type="button"
                       onClick={() => removeQuestion(i, qi)}
                       className="shrink-0 rounded border border-border px-1 text-11 text-destructive"
-                      aria-label="删除题目"
+                      aria-label={blueprintI18n("survey.design.deleteQuestion")}
                       data-testid={`bp-survey-question-remove-${i}-${qi}`}
                     >
                       ✕
@@ -242,9 +242,7 @@ export function SurveyPanelEditor({
                 onClick={() => addQuestion(i)}
                 className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
                 data-testid={`bp-survey-add-question-${i}`}
-              >
-                ＋ 题目
-              </button>
+              >{blueprintI18n("blueprintFlow.question")}</button>
             </li>
           ))}
         </ul>
@@ -255,13 +253,11 @@ export function SurveyPanelEditor({
         onClick={addSurvey}
         className="mt-3 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
         data-testid="bp-survey-add"
-      >
-        ＋ 加一份问卷 · 或从问卷 Studio 引入
-      </button>
+      >{blueprintI18n("blueprintFlow.addSurveyOrImportFromSurveyStudio")}</button>
 
       {error !== null && (
         <p role="alert" className="mt-2 text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
@@ -34,18 +38,18 @@ const SPACE_PLACEHOLDERS: Record<VenueSpaceField, string> = {
 export const VENUE_FORMATS = [
   {
     key: "hybrid",
-    label: "混合",
-    detail: "线下分组，远程组员用手机进组。每组需一台设备开麦做转录。",
+    label: canonicalBlueprintCopy("blueprintFlow.mixedFormat"),
+    detail: canonicalBlueprintCopy("blueprintFlow.groupsMeetInPersonRemoteMembersJoinByPhoneEach"),
   },
   {
     key: "online",
-    label: "全线上",
-    detail: "自动增「破冰」「举手排队」两环节，打印素材整节自动跳过。",
+    label: canonicalBlueprintCopy("blueprintFlow.fullyOnline"),
+    detail: canonicalBlueprintCopy("blueprintFlow.automaticallyAddsIcebreakerAndRaiseHandQueueSegmentsSkipsPrint"),
   },
   {
     key: "offline",
-    label: "纯线下",
-    detail: "打印素材份数 ×1.2；需准备离线兜底（断网时本地采集队列）。",
+    label: canonicalBlueprintCopy("blueprintFlow.fullyInPerson"),
+    detail: canonicalBlueprintCopy("blueprintFlow.printQuantities12PrepareAnOfflineFallbackWithA"),
   },
 ] as const;
 export type VenueFormatKey = (typeof VENUE_FORMATS)[number]["key"];
@@ -100,6 +104,8 @@ export function VenuePanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<VenueContentValue>(() => parseVenueContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -124,10 +130,10 @@ export function VenuePanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -147,7 +153,7 @@ export function VenuePanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -156,24 +162,22 @@ export function VenuePanelEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-venue-space">
-        <h3 className="mb-2 text-13 font-semibold">空间要求（套用时直接变成待办）</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.spaceRequirementsBecomeTasksWhenApplied")}</h3>
         <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
           {VENUE_SPACE_FIELDS.map((f) => (
             <li key={f} className="flex items-center gap-2 p-2.5" data-testid={`bp-venue-space-row-${f}`}>
-              <span className="w-24 shrink-0 text-12 font-medium">{f}</span>
+              <span className="w-24 shrink-0 text-12 font-medium">{localizeBlueprintCopy(blueprintI18n, f)}</span>
               <Input
                 type="text"
                 className="flex-1 text-11"
                 value={value.space[f] ?? ""}
                 onChange={(e) => updateSpace(f, e.target.value)}
                 onBlur={() => void persist(value)}
-                placeholder={SPACE_PLACEHOLDERS[f]}
+                placeholder={localizeBlueprintCopy(blueprintI18n, SPACE_PLACEHOLDERS[f])}
                 data-testid={`bp-venue-space-${f}`}
               />
             </li>
@@ -182,7 +186,7 @@ export function VenuePanelEditor({
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-venue-formats">
-        <h3 className="mb-2 text-13 font-semibold">形式差异（选一种作为本蓝本默认）</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.formatOptionsChooseTheBlueprintDefault")}</h3>
         <div className="flex flex-col gap-2">
           {VENUE_FORMATS.map((f) => (
             <button
@@ -198,17 +202,17 @@ export function VenuePanelEditor({
               data-testid={`bp-venue-format-${f.key}`}
             >
               <p className="text-12 font-medium">
-                {f.label}
-                {value.format === f.key ? " · 本蓝本默认" : ""}
+                {localizeBlueprintCopy(blueprintI18n, f.label)}
+                {value.format === f.key ? blueprintI18n("blueprintFlow.blueprintDefault") : ""}
               </p>
-              <p className="text-11 text-muted-foreground">{f.detail}</p>
+              <p className="text-11 text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, f.detail)}</p>
             </button>
           ))}
         </div>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-venue-layout">
-        <h3 className="mb-2 text-13 font-semibold">现场布置图（套用时作为一张图发给场地方）</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.venueLayoutSentAsAnImageToTheVenueWhen")}</h3>
         <div className="grid grid-cols-2 gap-2 rounded-md border border-dashed border-border p-3">
           {LAYOUT_GROUPS.map((g) => (
             <div
@@ -216,16 +220,16 @@ export function VenuePanelEditor({
               className="flex h-14 items-center justify-center rounded-full border border-border bg-panel text-11 text-muted-foreground"
               data-testid="bp-venue-layout-group"
             >
-              {g}
+              {localizeBlueprintCopy(blueprintI18n, g)}
             </div>
           ))}
         </div>
-        <p className="mt-1.5 text-11 text-muted-foreground">{LAYOUT_CENTER}</p>
+        <p className="mt-1.5 text-11 text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, LAYOUT_CENTER)}</p>
       </div>
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

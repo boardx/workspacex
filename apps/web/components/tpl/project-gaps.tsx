@@ -1,4 +1,7 @@
 "use client";
+import { localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { CircleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -11,24 +14,24 @@ import { PROJECT_SIDE_UNKNOWNS } from "@/lib/mock/tpl";
  * 依据：requirements/00-project/DERIVED-FROM-CONTRACTS.md
  */
 export function ProjectSideGaps() {
+ const { t: blueprintI18n } = useI18n();
+
   return (
     <section className="flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3" data-testid="tpl-project-gaps">
       <div className="flex items-center gap-2">
         <CircleAlert aria-hidden className="h-4 w-4 text-warning" />
-        <h3 className="text-13 font-semibold">我需要但「项目」域还不存在的概念（不替它编）</h3>
-        <Badge tone="warning" className="ml-auto">高风险交叉</Badge>
+        <h3 className="text-13 font-semibold">{blueprintI18n("blueprintFlow.conceptsNeededHereButNotYetDefinedByTheProject")}</h3>
+        <Badge tone="warning" className="ml-auto">{blueprintI18n("blueprintFlow.highRiskIntersection")}</Badge>
       </div>
-      <p className="text-11 text-muted-foreground">
-        套蓝本建项目是项目唯一出生路径，但项目域需求刚被发现缺失。以下概念本屏被迫用到、却无权威定义 —— sign-off / 契约束需先给答案：
-      </p>
+      <p className="text-11 text-muted-foreground">{blueprintI18n("blueprintFlow.blueprintApplicationIsTheOnlyProjectCreationPathButMissing")}</p>
       <ul className="flex flex-col gap-1.5">
         {PROJECT_SIDE_UNKNOWNS.map((u) => (
           <li key={u.q} className="flex flex-col gap-0.5 rounded-md border border-border bg-card p-2" data-testid="tpl-project-gap">
             <div className="flex items-center gap-2">
-              <span className="text-12 font-medium">{u.q}</span>
-              <Badge tone="outline" className="ml-auto">{u.state}</Badge>
+              <span className="text-12 font-medium">{localizeBlueprintCopy(blueprintI18n, u.q)}</span>
+              <Badge tone="outline" className="ml-auto">{localizeBlueprintCopy(blueprintI18n, u.state)}</Badge>
             </div>
-            <p className="text-10 leading-relaxed text-muted-foreground">{u.note}</p>
+            <p className="text-10 leading-relaxed text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, u.note)}</p>
           </li>
         ))}
       </ul>

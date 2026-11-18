@@ -1,4 +1,8 @@
 "use client";
+import { localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import type { z } from "zod";
 import type { templates } from "@repo/contracts";
@@ -86,6 +90,8 @@ export function BasicOverviewPanel({
   previewError,
   onSetTier,
 }: BasicOverviewPanelProps) {
+ const { t: blueprintI18n } = useI18n();
+
   const [pending, setPending] = React.useState<PendingChange | null>(null);
   // 契约的 AgendaSegmentRef 本来就带 title——直接喂给表单，用户看到的是环节名而不是个数字。
   const pendingForForm: PendingTierChange | null =
@@ -160,16 +166,16 @@ export function BasicOverviewPanel({
   return (
     <div data-testid="bp-basic-overview">
       <p className="mb-3 text-11 text-muted-foreground">
-        {TIER_INTRO}
+        {localizeBlueprintCopy(blueprintI18n, TIER_INTRO)}
         {status !== "idle" && (
           <span className={status === "error" ? "ml-2 text-destructive" : "ml-2"} data-testid="bp-basic-status">
             {status === "checking"
-              ? "预检中…"
+              ? blueprintI18n("blueprintFlow.checking")
               : status === "saving"
-                ? "保存中…"
+                ? blueprintI18n("chatInteractions.saving")
                 : status === "saved"
-                  ? "已保存"
-                  : "切换失败"}
+                  ? blueprintI18n("blueprintFlow.savedNotice")
+                  : blueprintI18n("blueprintFlow.switchFailed")}
           </span>
         )}
       </p>
@@ -190,31 +196,27 @@ export function BasicOverviewPanel({
           onConfirmTierChange={() => void confirm()}
           onCancelTierChange={() => setPending(null)}
         />
-        <p className="mt-2 text-11 leading-relaxed text-muted-foreground">{HALF_SESSION_NOTE}</p>
+        <p className="mt-2 text-11 leading-relaxed text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, HALF_SESSION_NOTE)}</p>
 
         {pending !== null && pending.recoverable.length > 0 && (
-          <p className="mt-2 text-11 text-muted-foreground" data-testid="bp-basic-recoverable">
-            上面「将移除」的 {pending.recoverable.length} 个环节是可恢复的——切回该档位它们会回来，不是永久删除。
-          </p>
+          <p className="mt-2 text-11 text-muted-foreground" data-testid="bp-basic-recoverable">{blueprintI18n("blueprintFlow.the")}{pending.recoverable.length}{blueprintI18n("blueprintFlow.segmentsListedForRemovalAreRecoverableSwitchingBackRestoresThem")}</p>
         )}
 
         {error !== null && (
           <p role="alert" className="mt-2 text-11 text-destructive" data-testid="bp-basic-error">
-            {error}
+            {localizeBlueprintCopy(blueprintI18n, error)}
           </p>
         )}
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-basic-init-preview">
-        <h3 className="mb-2 text-13 font-semibold">套用后会初始化什么（六类 · 服务端派生）</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.whatApplyingInitializesSixTypesDerivedByServer")}</h3>
         {previewError !== null ? (
           <p role="alert" className="text-11 text-destructive" data-testid="bp-basic-preview-error">
-            {previewError}
+            {localizeBlueprintCopy(blueprintI18n, previewError)}
           </p>
         ) : preview === null ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-basic-preview-loading">
-            读取中…
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-basic-preview-loading">{blueprintI18n("adminMemberQuotas.loading")}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
             {INIT_CATEGORIES.map((c) => {
@@ -222,14 +224,12 @@ export function BasicOverviewPanel({
               return (
                 <li key={c} className="flex flex-col gap-0.5 p-2.5" data-testid={`bp-basic-init-category-${c}`}>
                   <div className="flex items-center gap-2">
-                    <span className="rounded border border-border px-1.5 py-0.5 text-11 font-medium">{c}</span>
-                    <span className="text-10 text-muted-foreground">{items.length} 项</span>
+                    <span className="rounded border border-border px-1.5 py-0.5 text-11 font-medium">{localizeBlueprintCopy(blueprintI18n, c)}</span>
+                    <span className="text-10 text-muted-foreground">{items.length}{blueprintI18n("blueprintFlow.items")}</span>
                   </div>
                   {items.length === 0 ? (
                     // 空类也要出现——「这次没有分组」与「我们不初始化分组」必须可分辨。
-                    <p className="text-11 text-muted-foreground" data-testid={`bp-basic-init-empty-${c}`}>
-                      这一类这次不会初始化任何东西（对应的配置项还没填）
-                    </p>
+                    <p className="text-11 text-muted-foreground" data-testid={`bp-basic-init-empty-${c}`}>{blueprintI18n("blueprintFlow.nothingOfThisTypeWillBeInitializedBecauseTheCorresponding")}</p>
                   ) : (
                     <p className="text-11 text-muted-foreground">{items.map((i) => i.label).join("、")}</p>
                   )}
@@ -239,7 +239,7 @@ export function BasicOverviewPanel({
           </ul>
         )}
         <p className="mt-2 rounded-md bg-panel px-2.5 py-1.5 text-11 text-muted-foreground" data-testid="bp-basic-init-footnote">
-          {INIT_FOOTNOTE}
+          {localizeBlueprintCopy(blueprintI18n, INIT_FOOTNOTE)}
         </p>
       </div>
     </div>

@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -94,9 +98,9 @@ export interface BlueprintDesignerShellProps {
  * 在界面上与「后端没返回它」完全同形。
  */
 const ACTION_LABEL: Record<string, string> = {
-  "preview-participant-view": "预览参与者视图",
-  "trial-run": "试跑一场",
-  publish: "发布",
+  "preview-participant-view": canonicalBlueprintCopy("blueprintFlow.previewParticipantView"),
+  "trial-run": canonicalBlueprintCopy("blueprintFlow.runATrialSession"),
+  publish: canonicalBlueprintCopy("blueprintFlow.publish"),
 };
 
 export function BlueprintDesignerShell({
@@ -112,6 +116,8 @@ export function BlueprintDesignerShell({
   onSaveFacet,
   basicOverview,
 }: BlueprintDesignerShellProps) {
+ const { t: blueprintI18n } = useI18n();
+
   const allItems = catalog.groups.flatMap((g) => g.items);
   // 第 16 项用一个不可能与真实 designFacetKey 相撞的哨兵值——它不是 facet，没有
   // 自己的 key；把它塞进 catalog 会让「目录与后端定义表零漂移」那条门控误报。
@@ -124,17 +130,17 @@ export function BlueprintDesignerShell({
   return (
     <section className="flex min-h-0 flex-1 flex-col" data-testid="bp-designer-shell">
       <header className="flex flex-col gap-1.5 border-b border-border px-4 py-3">
-        <h1 className="text-16 font-semibold">{blueprintName} · 蓝本设计</h1>
+        <h1 className="text-16 font-semibold">{blueprintI18n("blueprintFlow.designHeading", { name: blueprintName })}</h1>
 
         <p className="text-12 text-muted-foreground" data-testid="bp-designer-version-bar">
           {versionBar.publishedVersionNumber === null
-            ? "草稿 · 尚未发布"
-            : `v${versionBar.publishedVersionNumber} 已发布`}
+            ? blueprintI18n("blueprintFlow.draftNotPublished")
+            : blueprintI18n("blueprintFlow.vValue1Published", { value1: String(versionBar.publishedVersionNumber) })}
           {" · "}
-          {`用过 ${versionBar.appliedProjectCount} 次`}
+          {blueprintI18n("blueprintFlow.usedValue1Times", { value1: String(versionBar.appliedProjectCount) })}
           {" · "}
           <span className="text-background-foreground">
-            {`改动生成 v${versionBar.nextVersionNumber}，已开过的项目锁在自己的版本上`}
+            {blueprintI18n("blueprintFlow.changesCreateVValue1ExistingProjectsRetainTheirPinnedVersion", { value1: String(versionBar.nextVersionNumber) })}
           </span>
         </p>
 
@@ -148,7 +154,7 @@ export function BlueprintDesignerShell({
               variant={action.id === "publish" ? "primary" : "outline"}
               data-testid={`bp-designer-action-${action.id}`}
             >
-              {ACTION_LABEL[action.id] ?? `未知动作（${action.id}）`}
+              {localizeBlueprintCopy(blueprintI18n, ACTION_LABEL[action.id] ?? blueprintI18n("blueprintFlow.unknownActionValue1", { value1: String(action.id) }))}
               {action.versionNumber === null ? "" : ` v${action.versionNumber}`}
             </Button>
           ))}
@@ -183,13 +189,11 @@ export function BlueprintDesignerShell({
             )}
           >
             <span aria-hidden>◎</span>
-            <span className="flex-1">基本配置</span>
+            <span className="flex-1">{blueprintI18n("blueprintFlow.basicSettings")}</span>
           </button>
 
           {allItems.length === 0 ? (
-            <p className="rounded-md bg-panel px-2.5 py-2 text-12 text-muted-foreground" data-testid="empty">
-              配置项定义表是空的 —— 设计器没有任何可填的格子。这不是「都填完了」。
-            </p>
+            <p className="rounded-md bg-panel px-2.5 py-2 text-12 text-muted-foreground" data-testid="empty">{blueprintI18n("blueprintFlow.theConfigurationCatalogIsEmptyTheDesignerHasNoFields")}</p>
           ) : (
             catalog.groups.map((group) => (
               <div key={group.group} className="flex flex-col gap-0.5">
@@ -197,15 +201,13 @@ export function BlueprintDesignerShell({
                   className="px-1 pt-2 text-11 text-muted-foreground"
                   data-testid={`bp-designer-group-${group.group}`}
                 >
-                  {group.label}
+                  {localizeBlueprintCopy(blueprintI18n, group.label)}
                 </p>
                 {group.items.length === 0 ? (
                   <p
                     className="px-1 text-11 text-muted-foreground"
                     data-testid={`bp-designer-group-empty-${group.group}`}
-                  >
-                    本组暂无配置项
-                  </p>
+                  >{blueprintI18n("blueprintFlow.noConfigurationItemsInThisGroup")}</p>
                 ) : (
                   group.items.map((item) => (
                     <button
@@ -223,8 +225,8 @@ export function BlueprintDesignerShell({
                       )}
                     >
                       <span aria-hidden>{done.has(item.designFacetKey) ? "✓" : "○"}</span>
-                      <span className="flex-1">{item.label}</span>
-                      {item.required ? <span className="text-11 text-destructive">必填</span> : null}
+                      <span className="flex-1">{localizeBlueprintCopy(blueprintI18n, item.label)}</span>
+                      {item.required ? <span className="text-11 text-destructive">{blueprintI18n("blueprintFlow.requiredLabel")}</span> : null}
                     </button>
                   ))
                 )}
@@ -237,12 +239,12 @@ export function BlueprintDesignerShell({
           {selectedKey === BASIC_OVERVIEW_KEY ? (
             <div>
               <div className="mb-3 flex items-center gap-2" data-testid="bp-facet-panel-header">
-                <h2 className="text-16 font-semibold">基本配置</h2>
+                <h2 className="text-16 font-semibold">{blueprintI18n("blueprintFlow.basicSettings")}</h2>
               </div>
               <BasicOverviewPanel {...basicOverview} />
             </div>
           ) : selectedKey === null ? (
-            <p className="text-12 text-muted-foreground">没有可打开的配置项。</p>
+            <p className="text-12 text-muted-foreground">{blueprintI18n("blueprintFlow.noConfigurationItemToOpen")}</p>
           ) : (
             <FacetPanel
               selectedKey={selectedKey}
@@ -282,6 +284,8 @@ function FacetPanel({
   facet: DesignerFacetRow | null;
   onSaveFacet: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const content = facet?.content ?? "";
   // 哨兵 `''`：还没人填过这一项时，`expectedItemRevision` 传空串，同后端约定。
   const itemRevision = facet?.itemRevision ?? "";
@@ -296,15 +300,15 @@ function FacetPanel({
   return (
     <div>
       <div className="mb-3 flex items-center gap-2" data-testid="bp-facet-panel-header">
-        <h2 className="text-16 font-semibold">{item?.label ?? selectedKey}</h2>
-        {item?.required ? <span className="text-11 text-destructive">必填</span> : null}
+        <h2 className="text-16 font-semibold">{localizeBlueprintCopy(blueprintI18n, item?.label ?? selectedKey)}</h2>
+        {item?.required ? <span className="text-11 text-destructive">{blueprintI18n("blueprintFlow.requiredLabel")}</span> : null}
       </div>
       {intro === null ? null : (
         <p
           className="mb-3 rounded-md bg-panel px-2.5 py-1.5 text-12 leading-relaxed text-muted-foreground"
           data-testid={`bp-facet-intro-${selectedKey}`}
         >
-          {intro}
+          {localizeBlueprintCopy(blueprintI18n, intro)}
         </p>
       )}
       <Editor designFacetKey={selectedKey} content={content} itemRevision={itemRevision} onSave={onSaveFacet} />
@@ -319,6 +323,8 @@ function FacetPanel({
  * 「已保存」与「上次保存于」在中文界面上差一个字，用户读到的却是相反的两件事。
  */
 function AutosaveLine({ autosave }: { autosave: DesignerAutosaveView }) {
+ const { t: blueprintI18n } = useI18n();
+
   if (autosave.status === "failed") {
     return (
       <p
@@ -326,19 +332,19 @@ function AutosaveLine({ autosave }: { autosave: DesignerAutosaveView }) {
         className="rounded-md bg-panel px-2.5 py-1.5 text-11 text-destructive"
         data-testid="err-autosave"
       >
-        {`自动保存失败（${autosave.failure ?? "未知原因"}）· 本次改动未保存`}
-        {autosave.lastSavedAt === null ? " · 尚无成功保存" : ` · 上次成功保存 ${autosave.lastSavedAt}`}
-        {" · 内容仍留在本页，可重试"}
+        {blueprintI18n("blueprintFlow.autosaveFailedValue1ChangesWereNotSaved", { value1: String(autosave.failure ?? "未知原因") })}
+        {autosave.lastSavedAt === null ? blueprintI18n("blueprintFlow.noSuccessfulSaveYet") : blueprintI18n("blueprintFlow.lastSavedValue1", { value1: String(autosave.lastSavedAt) })}
+        {blueprintI18n("blueprintFlow.contentRemainsOnThisPageForRetry")}
       </p>
     );
   }
   return (
     <p className="text-11 text-muted-foreground" data-testid="bp-designer-autosave">
       {autosave.status === "saving"
-        ? "正在保存草稿…"
+        ? blueprintI18n("blueprintFlow.savingDraft")
         : autosave.lastSavedAt === null
-          ? "草稿尚未保存过"
-          : `草稿自动保存 · ${autosave.lastSavedAt}`}
+          ? blueprintI18n("blueprintFlow.draftHasNotBeenSavedYet")
+          : blueprintI18n("blueprintFlow.draftAutosavedValue1", { value1: String(autosave.lastSavedAt) })}
     </p>
   );
 }
@@ -353,11 +359,13 @@ function CompletenessRow({
   firstIncompleteRequiredKey: string | null;
   onJump: (key: string) => void;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const hasTarget = firstIncompleteRequiredKey !== null;
   return (
     <div className="flex flex-col gap-1 border-b border-border px-1 pb-2">
       <div className="flex items-center gap-2">
-        <span className="text-12 font-medium">设计配置</span>
+        <span className="text-12 font-medium">{blueprintI18n("blueprintFlow.designSettings")}</span>
         <Button
           size="xs"
           variant="ghost"
@@ -372,13 +380,11 @@ function CompletenessRow({
         <Progress
           value={completeness.done}
           max={Math.max(completeness.denominator, 1)}
-          label={`已放置 ${completeness.done}/${completeness.denominator} 个字段`}
+          label={blueprintI18n("blueprintFlow.value1Value2FieldsPlaced", { value1: String(completeness.done), value2: String(completeness.denominator) })}
         />
       </div>
       {hasTarget ? null : (
-        <p className="px-1 text-11 text-muted-foreground" data-testid="bp-designer-completeness-no-target">
-          无未完成的必填项可跳转（必填清单待人类给出，缺 D-2）
-        </p>
+        <p className="px-1 text-11 text-muted-foreground" data-testid="bp-designer-completeness-no-target">{blueprintI18n("blueprintFlow.noIncompleteRequiredItemToJumpToRequiredListAwaits")}</p>
       )}
     </div>
   );

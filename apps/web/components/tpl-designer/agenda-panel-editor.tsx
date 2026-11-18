@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { GripVertical } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -96,11 +100,11 @@ export interface AgendaContentValue {
   readonly segments: readonly AgendaSegmentDraft[];
 }
 
-const SESSION_LABEL: Record<AgendaSession, string> = { AM: "上午", PM: "下午" };
-const DAY_OPTIONS = Array.from({ length: 7 }, (_, d) => ({ value: String(d + 1), label: `第 ${d + 1} 天` }));
+const SESSION_LABEL: Record<AgendaSession, string> = { AM: canonicalBlueprintCopy("blueprintFlow.morning"), PM: canonicalBlueprintCopy("blueprintFlow.afternoon") };
+const DAY_OPTIONS = Array.from({ length: 7 }, (_, d) => ({ value: String(d + 1), label: canonicalBlueprintCopy("blueprintFlow.dayValue1", { value1: String(d + 1) }) }));
 const SESSION_OPTIONS = [
-  { value: "AM", label: "上午" },
-  { value: "PM", label: "下午" },
+  { value: "AM", label: canonicalBlueprintCopy("blueprintFlow.morning") },
+  { value: "PM", label: canonicalBlueprintCopy("blueprintFlow.afternoon") },
 ] as const;
 
 function padNo(index: number): string {
@@ -171,6 +175,8 @@ export function AgendaPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   // `idsRef.current[i]` 是 `value.segments[i]` 的稳定身份 key，见上面的注释。
   const idsRef = React.useRef<string[]>([]);
   const [value, setValue] = React.useState<AgendaContentValue>(() => {
@@ -221,10 +227,10 @@ export function AgendaPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -427,8 +433,7 @@ export function AgendaPanelEditor({
         key={`h-${group.day}-${group.session}`}
         data-testid={`bp-agenda-group-${group.day}-${group.session}`}
         className="-mb-1.5 text-11 font-semibold text-muted-foreground"
-      >
-        第 {group.day} 天 · {SESSION_LABEL[group.session]}
+      >{blueprintI18n("blueprintFlow.daySession", { day: String(group.day), session: localizeBlueprintCopy(blueprintI18n, SESSION_LABEL[group.session]) })}
       </li>,
     );
     group.indices.forEach((i) => {
@@ -452,7 +457,7 @@ export function AgendaPanelEditor({
           <span
             role="button"
             tabIndex={-1}
-            aria-label={`拖动排序：${seg.title || "环节 " + seg.no}`}
+            aria-label={blueprintI18n("blueprintFlow.dragToReorderValue1", { value1: String(seg.title || blueprintI18n("blueprintFlow.segmentNumber", { number: seg.no })) })}
             aria-hidden={false}
             className="flex h-3.5 w-3.5 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground active:cursor-grabbing"
             data-testid={`bp-agenda-segment-grip-${i}`}
@@ -470,13 +475,13 @@ export function AgendaPanelEditor({
             value={seg.title}
             onChange={(e) => updateSegment(i, { title: e.target.value })}
             onBlur={() => void persist(value)}
-            placeholder="环节名称"
+            placeholder={blueprintI18n("blueprintFlow.segmentName")}
             data-testid={`bp-agenda-segment-title-${i}`}
           />
           <Checkbox
             checked={seg.optional}
             onChange={() => toggleOptional(i)}
-            label="可选"
+            label={blueprintI18n("blueprintFlow.optional")}
             data-testid={`bp-agenda-segment-optional-${i}`}
           />
           <Input
@@ -485,28 +490,28 @@ export function AgendaPanelEditor({
             value={seg.min}
             onChange={(e) => updateSegment(i, { min: Number(e.target.value) || 0 })}
             onBlur={() => void persist(value)}
-            aria-label="时长（分钟）"
+            aria-label={blueprintI18n("blueprintFlow.durationMinutes")}
             data-testid={`bp-agenda-segment-min-${i}`}
           />
-          <span className="text-11 text-muted-foreground">分钟</span>
+          <span className="text-11 text-muted-foreground">{blueprintI18n("blueprintFlow.minutes")}</span>
           <Input
             type="text"
             className="w-40 border-dashed text-11 text-muted-foreground"
             value={seg.boardSkill}
             onChange={(e) => updateSegment(i, { boardSkill: e.target.value })}
             onBlur={() => void persist(value)}
-            placeholder="绑哪个画布 / Skill"
+            placeholder={blueprintI18n("blueprintFlow.canvasSkillBinding")}
             data-testid={`bp-agenda-segment-boardskill-${i}`}
           />
           <Select
-            options={DAY_OPTIONS}
+            options={DAY_OPTIONS.map((option) => ({ ...option, label: localizeBlueprintCopy(blueprintI18n, option.label) }))}
             value={String(seg.day)}
             onValueChange={(v) => updateDaySession(i, { day: Number(v) || 1 })}
             className="h-7 min-w-[5rem] text-11"
             data-testid={`bp-agenda-segment-day-${i}`}
           />
           <Select
-            options={SESSION_OPTIONS}
+            options={SESSION_OPTIONS.map((option) => ({ ...option, label: localizeBlueprintCopy(blueprintI18n, option.label) }))}
             value={seg.session}
             onValueChange={(v) => updateDaySession(i, { session: v === "PM" ? "PM" : "AM" })}
             className="h-7 min-w-[4.5rem] text-11"
@@ -518,7 +523,7 @@ export function AgendaPanelEditor({
               onClick={() => moveSegment(i, -1)}
               disabled={i === 0}
               className="rounded border border-border px-1 text-11 disabled:bg-disabled disabled:text-disabled-foreground"
-              aria-label="上移环节"
+              aria-label={blueprintI18n("blueprintFlow.moveSegmentUp")}
               data-testid={`bp-agenda-segment-up-${i}`}
             >
               ↑
@@ -528,7 +533,7 @@ export function AgendaPanelEditor({
               onClick={() => moveSegment(i, 1)}
               disabled={i === value.segments.length - 1}
               className="rounded border border-border px-1 text-11 disabled:bg-disabled disabled:text-disabled-foreground"
-              aria-label="下移环节"
+              aria-label={blueprintI18n("blueprintFlow.moveSegmentDown")}
               data-testid={`bp-agenda-segment-down-${i}`}
             >
               ↓
@@ -537,7 +542,7 @@ export function AgendaPanelEditor({
               type="button"
               onClick={() => removeSegment(i)}
               className="rounded border border-border px-1 text-11 text-destructive"
-              aria-label="删除环节"
+              aria-label={blueprintI18n("blueprintFlow.deleteSegment")}
               data-testid={`bp-agenda-segment-remove-${i}`}
             >
               ✕
@@ -552,16 +557,14 @@ export function AgendaPanelEditor({
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-agenda-list">
         <div className="mb-2 flex items-center justify-between gap-1.5">
-          <h3 className="text-13 font-semibold">
-            环节合计 {value.segments.length} · {totalMinutes} 分钟
-          </h3>
+          <h3 className="text-13 font-semibold">{blueprintI18n("blueprintFlow.totalSegments")}{value.segments.length} · {totalMinutes}{blueprintI18n("blueprintFlow.minutes")}</h3>
           <div className="flex items-center gap-1.5">
             {status !== "idle" && (
               <span
                 className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"}
                 data-testid="bp-facet-save-status"
               >
-                {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+                {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
               </span>
             )}
             <button
@@ -570,19 +573,13 @@ export function AgendaPanelEditor({
               disabled={status === "saving"}
               className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
               data-testid="bp-facet-save-button"
-            >
-              保存
-            </button>
-            <span className="rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">
-              抓左侧握把拖动：同组内重排，拖到别的分组标题下即可换天/换半场；也可用环节行上的选择器
-            </span>
+            >{blueprintI18n("aboutMemory.save")}</button>
+            <span className="rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">{blueprintI18n("blueprintFlow.dragTheLeftHandleToReorderWithinAGroupOr")}</span>
           </div>
         </div>
 
         {value.segments.length === 0 ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-agenda-empty">
-            还没有环节——点「＋ 环节」新增。没写产出物的环节不能保存——那是闲聊不是环节。
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-agenda-empty">{blueprintI18n("blueprintFlow.noSegmentsYetSelectSegmentToAddOneSegmentsWithout")}</p>
         ) : (
           <ul className="flex flex-col gap-3">{rows}</ul>
         )}
@@ -592,9 +589,7 @@ export function AgendaPanelEditor({
           onClick={addSegment}
           className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-agenda-add-segment"
-        >
-          ＋ 环节
-        </button>
+        >{blueprintI18n("blueprintFlow.segment")}</button>
 
         <div className="mt-3 flex items-start gap-2 rounded-md border border-ai-tint bg-ai-tint p-2.5" data-testid="bp-agenda-ai-rhythm">
           <span aria-hidden className="mt-0.5 shrink-0 text-ai-tint-foreground">
@@ -609,7 +604,7 @@ export function AgendaPanelEditor({
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Check, X, LayoutTemplate, FolderKanban } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
@@ -35,6 +39,8 @@ export function TplApp({
   screen: TplScreen;
   qs: { as?: string; org?: string; projectId?: string };
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [toast, setToast] = React.useState<string | null>(null);
 
   const href = (o: Partial<{ as: string; state: string; screen: string }>) => {
@@ -70,7 +76,7 @@ export function TplApp({
           {screen === "versions" && <VersionsScreen {...common} />}
         </div>
 
-        <TplToast message={toast} onDismiss={() => setToast(null)} />
+        <TplToast message={localizeBlueprintCopy(blueprintI18n, toast)} onDismiss={() => setToast(null)} />
       </div>
     </AppShell>
   );
@@ -79,11 +85,13 @@ export function TplApp({
 /* ── 左栏导航（后台 · 项目蓝本 / 项目 · 筹备 两组）──────────────────────── */
 
 const NAV_GROUPS: { label: string; icon: typeof LayoutTemplate; screens: TplScreen[] }[] = [
-  { label: "后台 · 项目蓝本", icon: LayoutTemplate, screens: ["list", "designer", "versions", "promote"] },
-  { label: "项目 · 筹备", icon: FolderKanban, screens: ["apply", "prep", "workflow"] },
+  { label: canonicalBlueprintCopy("blueprintFlow.adminProjectBlueprints"), icon: LayoutTemplate, screens: ["list", "designer", "versions", "promote"] },
+  { label: canonicalBlueprintCopy("blueprintFlow.projectPreparation2"), icon: FolderKanban, screens: ["apply", "prep", "workflow"] },
 ];
 
 function TplNav({ screen, href }: { screen: TplScreen; href: (o: { screen: string }) => string }) {
+ const { t: blueprintI18n } = useI18n();
+
   return (
     <nav className="flex flex-col gap-4 p-3" data-testid="tpl-nav">
       {NAV_GROUPS.map((g) => {
@@ -91,7 +99,7 @@ function TplNav({ screen, href }: { screen: TplScreen; href: (o: { screen: strin
         return (
           <div key={g.label} className="flex flex-col gap-1">
             <div className="flex items-center gap-1.5 px-1.5 text-10 uppercase tracking-wide text-muted-foreground">
-              <Icon aria-hidden className="h-3 w-3" /> {g.label}
+              <Icon aria-hidden className="h-3 w-3" /> {localizeBlueprintCopy(blueprintI18n, g.label)}
             </div>
             {g.screens.map((s) => (
               <Button
@@ -105,7 +113,7 @@ function TplNav({ screen, href }: { screen: TplScreen; href: (o: { screen: strin
                 data-testid="tpl-nav-item"
               >
                 <a href={s === "designer" ? "/tpl/designer" : href({ screen: s })}>
-                  {TPL_SCREEN_LABEL[s]}
+                  {localizeBlueprintCopy(blueprintI18n, TPL_SCREEN_LABEL[s])}
                   {/*
                     2026-09-22 实测：`tone="outline"` 是 `text-muted-foreground` + `border-border`，
                     落在「选中态那颗 primary 实心按钮」（近黑 #141417）上只有 2.91:1。
@@ -118,7 +126,7 @@ function TplNav({ screen, href }: { screen: TplScreen; href: (o: { screen: strin
                       s === screen && s !== "designer" && "border-primary-foreground/30 text-primary-foreground/80",
                     )}
                   >
-                    {TPL_SCREEN_UC[s]}
+                    {localizeBlueprintCopy(blueprintI18n, TPL_SCREEN_UC[s])}
                   </Badge>
                 </a>
               </Button>
@@ -133,6 +141,8 @@ function TplNav({ screen, href }: { screen: TplScreen; href: (o: { screen: strin
 /* ── 乐观反馈行 ──────────────────────────────────────────────────────── */
 
 export function TplToast({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
+ const { t: blueprintI18n } = useI18n();
+
   React.useEffect(() => {
     if (!message) return;
     const t = setTimeout(onDismiss, 5000);
@@ -147,7 +157,7 @@ export function TplToast({ message, onDismiss }: { message: string | null; onDis
     >
       <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-success" />
       <p className="text-12">{message}</p>
-      <Button size="icon" variant="ghost" onClick={onDismiss} aria-label="关闭提示" data-testid="tpl-toast-close">
+      <Button size="icon" variant="ghost" onClick={onDismiss} aria-label={blueprintI18n("controls.dismissNotification")} data-testid="tpl-toast-close">
         <X aria-hidden className="h-3.5 w-3.5" />
       </Button>
     </div>
@@ -166,26 +176,28 @@ function PreviewControls({
   uiState: UiState;
   qs: { as?: string; org?: string };
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   if (process.env.NODE_ENV === "production") return null;
   const currentAs = qs.as ?? "facilitator";
   return (
     <div className="flex flex-col gap-1.5 border-b border-border-subtle bg-panel-alt px-3 py-2" data-testid="tpl-preview-controls">
       <div className="flex flex-wrap items-center gap-1">
-        <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">屏</span>
+        <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">{blueprintI18n("blueprintFlow.screen")}</span>
         {TPL_SCREENS.map((s) => (
           <Button key={s} asChild size="xs" variant={s === screen ? "primary" : "ghost"} data-testid="tpl-screen-switch">
-            <a href={href({ screen: s })}>{TPL_SCREEN_LABEL[s]}</a>
+            <a href={href({ screen: s })}>{localizeBlueprintCopy(blueprintI18n, TPL_SCREEN_LABEL[s])}</a>
           </Button>
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-1">
-        <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">视角</span>
+        <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">{blueprintI18n("projectWorkbench.view")}</span>
         {ROLE_VIEW.map((r) => (
           <Button key={r} asChild size="xs" variant={currentAs === r ? "primary" : "ghost"} data-testid="tpl-role-switch">
-            <a href={href({ as: r })}>{PROJECT_ROLE_LABEL[r]}</a>
+            <a href={href({ as: r })}>{localizeBlueprintCopy(blueprintI18n, PROJECT_ROLE_LABEL[r])}</a>
           </Button>
         ))}
-        <Badge tone="outline" className={cn("ml-1")}>预览手段 · 真实权限在服务端 RLS</Badge>
+        <Badge tone="outline" className={cn("ml-1")}>{blueprintI18n("blueprintFlow.previewOnlyRealAccessIsEnforcedByServerRLS")}</Badge>
       </div>
       <StatePreviewSwitcher current={uiState} />
     </div>

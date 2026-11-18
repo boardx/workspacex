@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -83,6 +87,8 @@ export function PrintPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<PrintContentValue>(() => parsePrintContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -107,10 +113,10 @@ export function PrintPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -164,7 +170,7 @@ export function PrintPanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -173,17 +179,13 @@ export function PrintPanelEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-print-list">
-        <h3 className="mb-2 text-13 font-semibold">打印件（{value.items.length} 件）</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.printouts")}{value.items.length}{blueprintI18n("blueprintFlow.items4")}</h3>
         {value.items.length === 0 ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-print-empty">
-            还没有打印件——点「＋ 打印件」新增。
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-print-empty">{blueprintI18n("blueprintFlow.noPrintoutsYetSelectPrintoutToAddOne")}</p>
         ) : (
           <div className="flex flex-col gap-2">
             {value.items.map((it, i) => (
@@ -214,14 +216,14 @@ export function PrintPanelEditor({
                       value={it.name}
                       onChange={(e) => updateItem(i, { name: e.target.value })}
                       onBlur={() => void persist(value)}
-                      placeholder="打印件名（如「HMW 画布」）"
+                      placeholder={blueprintI18n("blueprintFlow.printoutNameEGHMWCanvas")}
                       data-testid={`bp-print-name-${i}`}
                     />
                     <Checkbox
                       className="shrink-0"
                       checked={it.ai}
                       onChange={() => commitItem(i, { ai: !it.ai })}
-                      label="AI 生成"
+                      label={blueprintI18n("blueprintFlow.aIGenerated")}
                       data-testid={`bp-print-ai-${i}`}
                     />
                     <Input
@@ -230,15 +232,15 @@ export function PrintPanelEditor({
                       value={it.qty}
                       onChange={(e) => updateItem(i, { qty: e.target.value })}
                       onBlur={() => void persist(value)}
-                      placeholder="4 张 ＋ 2 备"
-                      aria-label="份数"
+                      placeholder={blueprintI18n("blueprintFlow.4Copies2Spares")}
+                      aria-label={blueprintI18n("blueprintFlow.copies")}
                       data-testid={`bp-print-qty-${i}`}
                     />
                     <button
                       type="button"
                       onClick={() => removeItem(i)}
                       className="shrink-0 rounded border border-border px-1 text-11 text-destructive"
-                      aria-label="删除打印件"
+                      aria-label={blueprintI18n("blueprintFlow.deletePrintout")}
                       data-testid={`bp-print-remove-${i}`}
                     >
                       ✕
@@ -249,14 +251,12 @@ export function PrintPanelEditor({
                     value={it.detail}
                     onChange={(e) => updateItem(i, { detail: e.target.value })}
                     onBlur={() => void persist(value)}
-                    placeholder="说明（与哪个画布模板同构、含哪些分区、带组号与二维码等）"
+                    placeholder={blueprintI18n("blueprintFlow.descriptionMatchingCanvasTemplateSectionsGroupNumberQRCodeEtc")}
                     data-testid={`bp-print-detail-${i}`}
                   />
                   <div className="mt-1.5 flex items-center gap-1.5" data-testid={`bp-print-file-${i}`}>
                     {it.fileName === "" ? (
-                      <label className="cursor-pointer rounded-md border border-dashed border-border px-2 py-1 text-11 text-muted-foreground transition-colors hover:bg-muted">
-                        上传打印文件
-                        <Input
+                      <label className="cursor-pointer rounded-md border border-dashed border-border px-2 py-1 text-11 text-muted-foreground transition-colors hover:bg-muted">{blueprintI18n("blueprintFlow.uploadPrintFile")}<Input
                           type="file"
                           accept=".pdf,.png,.jpg,.jpeg"
                           className="hidden"
@@ -269,9 +269,7 @@ export function PrintPanelEditor({
                         <span className="rounded border border-border px-1.5 py-0.5 text-11" data-testid={`bp-print-file-name-${i}`}>
                           📎 {it.fileName}
                         </span>
-                        <label className="cursor-pointer rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted">
-                          更换文件
-                          <Input
+                        <label className="cursor-pointer rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted">{blueprintI18n("blueprintFlow.replaceFile")}<Input
                             type="file"
                             accept=".pdf,.png,.jpg,.jpeg"
                             className="hidden"
@@ -284,9 +282,7 @@ export function PrintPanelEditor({
                           onClick={() => removeFile(i)}
                           className="rounded border border-border px-1.5 py-0.5 text-11 text-destructive"
                           data-testid={`bp-print-file-remove-${i}`}
-                        >
-                          移除
-                        </button>
+                        >{blueprintI18n("chatAttachments.removeAction")}</button>
                       </>
                     )}
                   </div>
@@ -300,19 +296,17 @@ export function PrintPanelEditor({
           onClick={addItem}
           className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-print-add"
-        >
-          ＋ 打印件
-        </button>
+        >{blueprintI18n("blueprintFlow.printout")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-print-ocr">
-        <h3 className="mb-2 text-13 font-semibold">贴完纸怎么进系统（二维码 OCR 回流）</h3>
-        <p className="text-12 leading-relaxed text-muted-foreground">{OCR_NOTE}</p>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.capturePaperWorkInTheSystemQRCodeAndOCR")}</h3>
+        <p className="text-12 leading-relaxed text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, OCR_NOTE)}</p>
       </div>
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

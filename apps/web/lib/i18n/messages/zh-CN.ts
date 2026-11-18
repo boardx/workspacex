@@ -1,3 +1,4 @@
+import { blueprintFlowZhCN } from "../namespaces/blueprint-flow";
 import { englishCleanupZhCN } from "../namespaces/english-cleanup";
 import { aiCatalogAdminZhCN } from "../namespaces/ai-catalog-admin";
 import { orgOverviewRedesignZhCN } from "../namespaces/org-overview-redesign";
@@ -57,6 +58,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...blueprintFlowZhCN,
   ...englishCleanupZhCN,
   ...aiCatalogAdminZhCN,
   ...orgOverviewRedesignZhCN,

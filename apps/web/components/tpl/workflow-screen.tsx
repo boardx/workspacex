@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { ArrowRight, Save, ListTodo, Plus, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,6 +55,8 @@ export function WorkflowScreen({
   previewRole: ProjectRole | null;
   onToast: (m: string) => void;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [data, setData] = React.useState<WorkflowOrchestrationOut | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [errorInfo, setErrorInfo] = React.useState<OrchestrationErrorInfo | null>(null);
@@ -104,20 +110,20 @@ export function WorkflowScreen({
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 p-4" data-testid="tpl-workflow">
       <header className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2">
-          <h1 className="text-20 font-bold tracking-tight">工作流编排</h1>
-          <Badge tone="outline">项目 → 设置</Badge>
+          <h1 className="text-20 font-bold tracking-tight">{blueprintI18n("blueprintFlow.workflowOrchestration")}</h1>
+          <Badge tone="outline">{blueprintI18n("blueprintFlow.projectSettings")}</Badge>
         </div>
-        <p className="text-12 text-muted-foreground">改动只影响这场项目，不会动后台的模板本体。</p>
+        <p className="text-12 text-muted-foreground">{blueprintI18n("blueprintFlow.changesAffectThisProjectOnlyLeavingTheAdminTemplateUnchanged")}</p>
       </header>
 
       <StateShell
         state={effectiveState}
         skeletonRows={6}
-        emptyHint="本项目还没套任何工作流模板。从模板库选一个，或从空白搭议程环节链。"
-        errors={{ projectId: "缺少 projectId：这个屏还没接到真实项目上下文，读不出「读哪个项目的编排」。" }}
-        depFailure={{ what: errorInfo?.reason ?? "编排数据依赖的服务暂时不可用", retry: load }}
-        denial={{ layer: "project", reason: errorInfo?.reason ?? "你在这个项目里没有任何角色" }}
-        successMessage="已另存为组织级工作流模板（横向复制一份投影，不改上游、不需审核）"
+        emptyHint={blueprintI18n("blueprintFlow.noWorkflowTemplateAppliedYetChooseOneFromTheLibrary")}
+        errors={{ projectId: blueprintI18n("blueprintFlow.missingProjectIdThisScreenHasNoRealProjectContextAnd") }}
+        depFailure={{ what: localizeBlueprintCopy(blueprintI18n, errorInfo?.reason ?? blueprintI18n("blueprintFlow.theOrchestrationDataServiceIsUnavailable")), retry: load }}
+        denial={{ layer: "project", reason: localizeBlueprintCopy(blueprintI18n, errorInfo?.reason ?? blueprintI18n("blueprintFlow.youHaveNoRoleInThisProject")) }}
+        successMessage={blueprintI18n("blueprintFlow.savedAsAnOrganizationWorkflowTemplateAnIndependentProjectionWithout")}
       >
         {data !== null && (
           <>
@@ -125,7 +131,7 @@ export function WorkflowScreen({
             <section className="flex flex-col gap-2 rounded-lg border border-border p-4" data-testid="tpl-wf-template">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-13 font-medium">{data.template.name}</span>
-                <Badge tone="primary">已套用</Badge>
+                <Badge tone="primary">{blueprintI18n("blueprintFlow.applied")}</Badge>
                 <Badge tone="outline" data-testid="tpl-wf-source">v{data.template.sourceVersion}</Badge>
               </div>
               {/* 议程环节链 —— 真实数据（getWorkflowOrchestration.segmentChain） */}
@@ -137,9 +143,9 @@ export function WorkflowScreen({
                   </React.Fragment>
                 ))}
               </div>
-              <p className="text-10 text-muted-foreground">套用后你可以在「议程与材料」里改时长、增删环节、换绑模板与 skill。改动只影响这场项目，不会动后台的模板本体。</p>
+              <p className="text-10 text-muted-foreground">{blueprintI18n("blueprintFlow.afterApplyingAdjustDurationsSegmentsTemplateBindingsAndSkillsUnder")}</p>
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => onToast("进项目筹备 → 议程子标签细调")} data-testid="tpl-wf-refine"><ArrowRight aria-hidden className="h-3.5 w-3.5" /> 去议程里细调</Button>
+                <Button size="sm" variant="outline" onClick={() => onToast(canonicalBlueprintCopy("blueprintFlow.openProjectPreparationAgendaSubtabToRefine"))} data-testid="tpl-wf-refine"><ArrowRight aria-hidden className="h-3.5 w-3.5" />{blueprintI18n("blueprintFlow.refineInAgenda")}</Button>
                 <SaveAsOrgTemplateAction
                   // ⚠ `data !== null` 只在 `shouldFetchReal`（含 `projectId !== null`）成立时被
                   //   真实数据填充（见上方 `load()`），所以这里的 `projectId` 一定非空——
@@ -147,11 +153,10 @@ export function WorkflowScreen({
                   //   不是绕过类型检查。
                   projectId={projectId!}
                   testIdPrefix="tpl-wf-saveorg"
-                  onSaved={(out) => onToast(`已另存为组织模板「${out.name}」· id ${out.workflowTemplateId}（产物是工作流模板，不是新蓝本；不需审核）`)}
+                  onSaved={(out) => onToast(canonicalBlueprintCopy("blueprintFlow.savedAsOrganizationTemplateValue1IdValue2AWorkflowTemplate", { value1: String(out.name), value2: String(out.workflowTemplateId) }))}
                   renderTrigger={(open, testId) => (
                     <Button size="sm" variant="outline" onClick={open} data-testid={testId}>
-                      <Save aria-hidden className="h-3.5 w-3.5" /> 另存为组织模板
-                    </Button>
+                      <Save aria-hidden className="h-3.5 w-3.5" />{blueprintI18n("blueprintFlow.saveAsOrganizationTemplate")}</Button>
                   )}
                 />
               </div>
@@ -161,16 +166,16 @@ export function WorkflowScreen({
                 列集从矩阵里实际出现的 roleKey 派生（I-28：不硬编码列集）。 */}
             <section className="flex flex-col gap-2 rounded-lg border border-border p-4" data-testid="tpl-matrix">
               <div className="flex items-center gap-2">
-                <span className="text-13 font-semibold">环节编排 · 每个环节每个角色做什么</span>
-                <Button size="xs" variant="outline" className="ml-auto" onClick={() => onToast("跳到任务模块，看这些格子生成的待办")} data-testid="tpl-matrix-tasks"><ListTodo aria-hidden className="h-3 w-3" /> 看任务</Button>
+                <span className="text-13 font-semibold">{blueprintI18n("blueprintFlow.segmentOrchestrationEachRoleSResponsibilities")}</span>
+                <Button size="xs" variant="outline" className="ml-auto" onClick={() => onToast(canonicalBlueprintCopy("blueprintFlow.openTasksToSeeTheTasksGeneratedFromTheseCells"))} data-testid="tpl-matrix-tasks"><ListTodo aria-hidden className="h-3 w-3" />{blueprintI18n("blueprintFlow.viewTasks")}</Button>
               </div>
-              <p className="text-11 font-medium text-primary">编排一次，三套视图与待办自动生成</p>
+              <p className="text-11 font-medium text-primary">{blueprintI18n("blueprintFlow.configureOnceThreeViewsAndTaskListsAreGeneratedAutomatically")}</p>
               <div className="overflow-x-auto" data-allow-x-scroll="环节×角色矩阵，窄屏允许横向滚动看全">
                 <Table className="w-full min-w-[720px] border-collapse text-11">
                   <TableHeader>
                     <TableRow className="border-b border-border text-left">
-                      <TableHead className="px-2 py-1.5 font-medium">环节</TableHead>
-                      {roleKeys.map((r) => <TableHead key={r} className="px-2 py-1.5 font-medium" data-testid="tpl-matrix-col">{roleLabel(r)}</TableHead>)}
+                      <TableHead className="px-2 py-1.5 font-medium">{blueprintI18n("blueprintFlow.segment2")}</TableHead>
+                      {roleKeys.map((r) => <TableHead key={r} className="px-2 py-1.5 font-medium" data-testid="tpl-matrix-col">{localizeBlueprintCopy(blueprintI18n, roleLabel(r))}</TableHead>)}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -181,8 +186,8 @@ export function WorkflowScreen({
                           {/* ⚠ 没有「绑定」字段（mock 曾有的 "25m · 模板 xxx" 不在契约里，
                               不编造）——这里显示的是契约真有的 addedBy/optional 两个字段。 */}
                           <div className="text-10 text-muted-foreground" data-testid="tpl-matrix-binding">
-                            {seg.addedBy !== null ? `因「${seg.addedBy}」自动加入` : "手动加入"}
-                            {seg.optional ? " · 可选" : ""}
+                            {seg.addedBy !== null ? blueprintI18n("blueprintFlow.addedAutomaticallyByValue1", { value1: String(seg.addedBy) }) : blueprintI18n("blueprintFlow.addedManually")}
+                            {seg.optional ? blueprintI18n("blueprintFlow.optional2") : ""}
                           </div>
                         </TableCell>
                         {roleKeys.map((r) => {
@@ -196,9 +201,9 @@ export function WorkflowScreen({
                                   <span className="rounded-sm bg-panel px-1.5 py-1 text-11" data-testid="tpl-matrix-cell">{cell.content}</span>
                                   {(cell.canvasTemplateId !== null || cell.skillIds.length > 0) && (
                                     <span className="text-9 text-muted-foreground">
-                                      {cell.canvasTemplateId !== null ? "绑画布模板" : ""}
+                                      {cell.canvasTemplateId !== null ? blueprintI18n("blueprintFlow.bindCanvasTemplate") : ""}
                                       {cell.canvasTemplateId !== null && cell.skillIds.length > 0 ? " · " : ""}
-                                      {cell.skillIds.length > 0 ? `${cell.skillIds.length} 个 skill` : ""}
+                                      {cell.skillIds.length > 0 ? blueprintI18n("blueprintFlow.value1Skills", { value1: String(cell.skillIds.length) }) : ""}
                                     </span>
                                   )}
                                 </span>
@@ -211,29 +216,21 @@ export function WorkflowScreen({
                   </TableBody>
                 </Table>
               </div>
-              <p className="rounded-md bg-panel px-2.5 py-1.5 text-10 text-muted-foreground" data-testid="tpl-matrix-rule">
-                每一格都会变成对应角色的一条待办，同步到「任务」里；组长切换环节状态后，三种视角的首屏立刻跟着换。
-              </p>
+              <p className="rounded-md bg-panel px-2.5 py-1.5 text-10 text-muted-foreground" data-testid="tpl-matrix-rule">{blueprintI18n("blueprintFlow.eachCellBecomesATaskForItsRoleSyncedTo")}</p>
             </section>
 
             {/* 7c 模板库 —— 契约缺口：getWorkflowOrchestration 不包含模板库列表，
                 switchWorkflowTemplate 也不在本 issue 范围（#1680）。如实降级为空态说明，
                 不展示编造的目录。 */}
             <section className="flex flex-col gap-2 rounded-lg border border-border p-4" data-testid="tpl-template-library">
-              <span className="text-13 font-semibold">可切换的工作流模板库</span>
-              <SignoffFlag kind="confirmed-missing" title="模板库读取未建模（契约缺口）" testid="tpl-library-gap">
-                `getWorkflowOrchestration` 只回「当前套用的模板 + 编排矩阵」，不包含可切换的模板库列表——
-                `templates` 契约里没有这条读路径。「换模板」（`switchWorkflowTemplate`）与「另存为组织模板」
-                （`saveAsOrgTemplate`）的 controller/infra 由 #1680 补，最终按钮接线收窄回 #1666。
-                这里如实留空，不展示任何虚构的模板卡片。
-              </SignoffFlag>
+              <span className="text-13 font-semibold">{blueprintI18n("blueprintFlow.availableWorkflowTemplates")}</span>
+              <SignoffFlag kind="confirmed-missing" title={blueprintI18n("blueprintFlow.templateLibraryReadPathIsNotModeledContractGap")} testid="tpl-library-gap">{blueprintI18n("blueprintFlow.getWorkflowOrchestrationReturnsOnlyTheCurrentTemplateAndMatrixWithoutA")}</SignoffFlag>
               <Button
                 size="sm" variant="ghost" className="w-fit" disabled
-                title="模板库读取未建模，暂不可用"
+                title={blueprintI18n("blueprintFlow.templateLibraryReadPathIsNotModeledUnavailable")}
                 data-testid="tpl-library-blank"
               >
-                <Plus aria-hidden className="h-3.5 w-3.5" /> 从空白搭
-              </Button>
+                <Plus aria-hidden className="h-3.5 w-3.5" />{blueprintI18n("blueprintFlow.startFromBlank")}</Button>
             </section>
           </>
         )}

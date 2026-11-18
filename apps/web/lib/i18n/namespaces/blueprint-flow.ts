@@ -1,0 +1,51 @@
+import { blueprintFlowPart1ZhCN, blueprintFlowPart1En } from "./blueprint-flow-parts/part-01";
+import { blueprintFlowPart2ZhCN, blueprintFlowPart2En } from "./blueprint-flow-parts/part-02";
+import { blueprintFlowPart3ZhCN, blueprintFlowPart3En } from "./blueprint-flow-parts/part-03";
+import { blueprintFlowPart4ZhCN, blueprintFlowPart4En } from "./blueprint-flow-parts/part-04";
+import { blueprintFlowPart5ZhCN, blueprintFlowPart5En } from "./blueprint-flow-parts/part-05";
+export const blueprintFlowZhCN = {
+  ...blueprintFlowPart1ZhCN,
+  ...blueprintFlowPart2ZhCN,
+  ...blueprintFlowPart3ZhCN,
+  ...blueprintFlowPart4ZhCN,
+  ...blueprintFlowPart5ZhCN,
+  "blueprintFlow.designHeading": "{name} · 蓝本设计",
+  "blueprintFlow.interviewPlanHeading": "预设访谈计划 · {count} 场（按角色定配额，套用时补具体人名）",
+  "blueprintFlow.reportOutlineHeading": "客户交付版 · {count} 章骨架（中英双语）",
+  "blueprintFlow.mixedFormat": "混合",
+  "blueprintFlow.customOptionEllipsis": "自定义…",
+  "blueprintFlow.archiveAction": "归档",
+  "blueprintFlow.requiredLabel": "必填",
+  "blueprintFlow.currentLabel": "当前",
+  "blueprintFlow.confirmArchiveAction": "确认归档",
+  "blueprintFlow.savedNotice": "已保存",
+  "blueprintFlow.memberRole": "组员",
+  "blueprintFlow.draftState": "草稿",
+  "blueprintFlow.archivedState": "已归档",
+  "blueprintFlow.usageCount": "用过 {count} 次",
+  "blueprintFlow.usageCount.one": "用过 {count} 次",
+  "blueprintFlow.completionCount": "{done}/{total} 已配",
+} as const;
+export const blueprintFlowEn: Record<keyof typeof blueprintFlowZhCN, string> = {
+  ...blueprintFlowPart1En,
+  ...blueprintFlowPart2En,
+  ...blueprintFlowPart3En,
+  ...blueprintFlowPart4En,
+  ...blueprintFlowPart5En,
+  "blueprintFlow.designHeading": "{name} · Blueprint design",
+  "blueprintFlow.interviewPlanHeading": "Preset interview plan · {count} sessions (set quotas by role and add names when applying)",
+  "blueprintFlow.reportOutlineHeading": "Client deliverable · {count} chapters (Chinese and English)",
+  "blueprintFlow.mixedFormat": "Mixed",
+  "blueprintFlow.customOptionEllipsis": "Custom…",
+  "blueprintFlow.archiveAction": "Archive",
+  "blueprintFlow.requiredLabel": "Required",
+  "blueprintFlow.currentLabel": "Current",
+  "blueprintFlow.confirmArchiveAction": "Confirm archive",
+  "blueprintFlow.savedNotice": "Saved",
+  "blueprintFlow.memberRole": "Member",
+  "blueprintFlow.draftState": "Draft",
+  "blueprintFlow.archivedState": "Archived",
+  "blueprintFlow.usageCount": "Used {count} times",
+  "blueprintFlow.usageCount.one": "Used {count} time",
+  "blueprintFlow.completionCount": "{done}/{total} configured",
+};

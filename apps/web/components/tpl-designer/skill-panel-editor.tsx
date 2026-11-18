@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -47,7 +51,7 @@ export const GENERIC_NOTE = "其余 4 个为全程可用的通用 skill";
 const CUSTOM_SKILL_OPTION = "__custom__";
 const AVAILABLE_SKILL_OPTIONS = [
   ...SKILLS.map((s) => ({ value: s.name, label: s.name })),
-  { value: CUSTOM_SKILL_OPTION, label: "自定义…" },
+  { value: CUSTOM_SKILL_OPTION, label: canonicalBlueprintCopy("blueprintFlow.customOptionEllipsis") },
 ];
 
 function emptyBinding(): SkillBindingDraft {
@@ -93,6 +97,8 @@ export function SkillPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<SkillContentValue>(() => parseSkillContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -117,10 +123,10 @@ export function SkillPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -154,7 +160,7 @@ export function SkillPanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -163,9 +169,7 @@ export function SkillPanelEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
 
       {degradedList.length > 0 && (
@@ -177,21 +181,14 @@ export function SkillPanelEditor({
             ⚠
           </span>
           <p className="text-11 leading-relaxed text-destructive">
-            {degradedList.length} 个 Skill 已在组织层降级：
-            {degradedList.map((s) => `「${s.name}」`).join("、")}。
-            发布前必须替换或解绑，否则套用时对应环节会缺能力。
-          </p>
+            {degradedList.length}{blueprintI18n("blueprintFlow.skillsHaveBeenDowngradedAtOrganizationLevel")}{degradedList.map((s) => `「${s.name}」`).join("、")}{blueprintI18n("blueprintFlow.replaceOrUnbindThemBeforePublicationOrTheirSegmentsWill")}</p>
         </div>
       )}
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-skill-list">
-        <h3 className="mb-2 text-13 font-semibold">
-          绑定的 Skill · {value.skills.length}（灰色为组织层已降级，需替换）
-        </h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.boundSkills")}{value.skills.length}{blueprintI18n("blueprintFlow.grayIndicatesDowngradedOrganizationAssetsThatNeedReplacement")}</h3>
         {value.skills.length === 0 ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-skill-empty">
-            还没有绑定 Skill——点「＋ 绑定 Skill」新增。
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-skill-empty">{blueprintI18n("blueprintFlow.noBoundSkillsYetSelectBindSkillToAddOne")}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
             {value.skills.map((s, i) => (
@@ -208,7 +205,7 @@ export function SkillPanelEditor({
                     onChange={(e) => updateBinding(i, { seg: e.target.value })}
                     onBlur={() => void persist(value)}
                     placeholder="03"
-                    aria-label="绑在哪个环节"
+                    aria-label={blueprintI18n("blueprintFlow.boundSegment")}
                     data-testid={`bp-skill-seg-${i}`}
                   />
                   <Input
@@ -221,17 +218,17 @@ export function SkillPanelEditor({
                     value={s.name}
                     onChange={(e) => updateBinding(i, { name: e.target.value })}
                     onBlur={() => void persist(value)}
-                    placeholder="Skill 名（如「语音转便签」）"
+                    placeholder={blueprintI18n("blueprintFlow.skillNameEGVoiceToStickyNotes")}
                     data-testid={`bp-skill-name-${i}`}
                   />
                   <Select
-                    options={AVAILABLE_SKILL_OPTIONS}
+                    options={AVAILABLE_SKILL_OPTIONS.map((option) => ({ ...option, label: option.value === CUSTOM_SKILL_OPTION ? blueprintI18n("blueprintFlow.customOptionEllipsis") : option.label }))}
                     value={SKILLS.some((sk) => sk.name === s.name) ? s.name : undefined}
                     onValueChange={(v) => {
                       if (v === CUSTOM_SKILL_OPTION) return; // 选“自定义…”：不改名字，让用户手填输入框
                       commitBinding(i, { name: v });
                     }}
-                    placeholder="从已有 Skill 选择"
+                    placeholder={blueprintI18n("blueprintFlow.selectAnExistingSkill")}
                     className="h-7 w-36 shrink-0 text-11"
                     data-testid={`bp-skill-pick-${i}`}
                   />
@@ -239,15 +236,13 @@ export function SkillPanelEditor({
                     <span
                       className="shrink-0 rounded border border-destructive/40 px-1.5 py-0.5 text-10 text-destructive"
                       data-testid={`bp-skill-degraded-${i}`}
-                    >
-                      已降级 · 待替换
-                    </span>
+                    >{blueprintI18n("blueprintFlow.downgradedReplacementNeeded")}</span>
                   )}
                   <button
                     type="button"
                     onClick={() => removeBinding(i)}
                     className="shrink-0 rounded border border-border px-1 text-11 text-destructive"
-                    aria-label="解绑 Skill"
+                    aria-label={blueprintI18n("blueprintFlow.unbindSkill")}
                     data-testid={`bp-skill-remove-${i}`}
                   >
                     ✕
@@ -259,7 +254,7 @@ export function SkillPanelEditor({
                   value={s.desc}
                   onChange={(e) => updateBinding(i, { desc: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="一句说明（如「说出来即成便签，落到对应分区」）"
+                  placeholder={blueprintI18n("blueprintFlow.shortDescriptionEGSpeechBecomesStickyNotesInThe")}
                   data-testid={`bp-skill-desc-${i}`}
                 />
               </li>
@@ -267,21 +262,19 @@ export function SkillPanelEditor({
           </ul>
         )}
         <p className="mt-2 text-11 text-muted-foreground" data-testid="bp-skill-generic-note">
-          {GENERIC_NOTE}
+          {localizeBlueprintCopy(blueprintI18n, GENERIC_NOTE)}
         </p>
         <button
           type="button"
           onClick={addBinding}
           className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-skill-add"
-        >
-          ＋ 绑定 Skill
-        </button>
+        >{blueprintI18n("blueprintFlow.bindSkill")}</button>
       </div>
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

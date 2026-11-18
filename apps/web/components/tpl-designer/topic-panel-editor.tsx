@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,11 +30,11 @@ const THEME_NOTE = "AI 按这个句式从洞察里生成候选";
 const THEME_RULES = ["必须含时间约束", "必须可证伪", "≤ 30 字", "不写解决方案"] as const;
 
 const BACKGROUND_ELEMENTS = [
-  { element: "为什么现在", hint: "触发这场讨论的事件或截止日", source: "客户输入 / 会前访谈" },
-  { element: "已知结论", hint: "调研已经能确定的 2–3 条", source: "洞察库（自动带入）" },
-  { element: "硬约束", hint: "预算、合规、时间、资质", source: "客户输入" },
-  { element: "要拍板的事", hint: "这一场必须出的决定", source: "引导师填写" },
-  { element: "不讨论的事", hint: "明确移出本场的议题", source: "引导师填写" },
+  { element: "为什么现在", hint: canonicalBlueprintCopy("blueprintFlow.theEventOrDeadlinePromptingThisDiscussion"), source: "客户输入 / 会前访谈" },
+  { element: "已知结论", hint: canonicalBlueprintCopy("blueprintFlow.23FindingsAlreadyEstablishedByResearch"), source: "洞察库（自动带入）" },
+  { element: "硬约束", hint: canonicalBlueprintCopy("blueprintFlow.budgetComplianceTimeQualifications"), source: "客户输入" },
+  { element: "要拍板的事", hint: canonicalBlueprintCopy("blueprintFlow.theDecisionThisSessionMustProduce"), source: "引导师填写" },
+  { element: "不讨论的事", hint: canonicalBlueprintCopy("blueprintFlow.topicsExplicitlyExcludedFromThisSession"), source: "引导师填写" },
 ] as const;
 
 const GEN_RULES = [
@@ -101,6 +105,8 @@ export function TopicPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<TopicContentValue>(() => parseTopicContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -125,10 +131,10 @@ export function TopicPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -148,13 +154,13 @@ export function TopicPanelEditor({
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-topic-statement">
         <div className="mb-2 flex items-center gap-1.5">
-          <h3 className="text-13 font-semibold">主题句式</h3>
+          <h3 className="text-13 font-semibold">{blueprintI18n("blueprintFlow.topicFormat")}</h3>
           {status !== "idle" && (
             <span
               className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"}
               data-testid="bp-facet-save-status"
             >
-              {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+              {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
             </span>
           )}
           <button
@@ -163,16 +169,14 @@ export function TopicPanelEditor({
             disabled={status === "saving"}
             className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
             data-testid="bp-facet-save-button"
-          >
-            保存
-          </button>
+          >{blueprintI18n("aboutMemory.save")}</button>
         </div>
-        <p className="mb-1 text-13 font-medium">{THEME_TEMPLATE}</p>
-        <p className="mb-2 text-11 text-muted-foreground">{THEME_NOTE}</p>
+        <p className="mb-1 text-13 font-medium">{localizeBlueprintCopy(blueprintI18n, THEME_TEMPLATE)}</p>
+        <p className="mb-2 text-11 text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, THEME_NOTE)}</p>
         <div className="mb-2 flex flex-wrap gap-1.5">
           {THEME_RULES.map((r) => (
             <span key={r} className="rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">
-              {r}
+              {localizeBlueprintCopy(blueprintI18n, r)}
             </span>
           ))}
         </div>
@@ -181,22 +185,22 @@ export function TopicPanelEditor({
           value={value.themeStatementText}
           onChange={(e) => updateStatement(e.target.value)}
           onBlur={() => void persist(value)}
-          placeholder="按上面的句式填写这次的主题…"
+          placeholder={blueprintI18n("blueprintFlow.enterThisSessionSTopicUsingTheFormatAbove")}
           data-testid="bp-topic-statement-input"
         />
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-topic-background">
-        <h3 className="mb-2 text-13 font-semibold">背景要素（缺一项就提示引导师补）</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.backgroundDetailsMissingItemsPromptTheFacilitator")}</h3>
         <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
           {BACKGROUND_ELEMENTS.map((b) => {
             const row = value.background.find((r) => r.element === b.element)!;
             return (
               <li key={b.element} className="flex flex-col gap-1 p-2.5" data-testid="bp-topic-bg-row">
                 <div className="flex items-center gap-2">
-                  <span className="w-24 shrink-0 text-12 font-medium">{b.element}</span>
-                  <span className="flex-1 text-11 text-muted-foreground">{b.hint}</span>
-                  <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">{b.source}</span>
+                  <span className="w-24 shrink-0 text-12 font-medium">{localizeBlueprintCopy(blueprintI18n, b.element)}</span>
+                  <span className="flex-1 text-11 text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, b.hint)}</span>
+                  <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, b.source)}</span>
                 </div>
                 <Input
                   type="text"
@@ -204,7 +208,7 @@ export function TopicPanelEditor({
                   value={row.content}
                   onChange={(e) => updateBackground(b.element, { content: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder={`填写"${b.element}"…`}
+                  placeholder={blueprintI18n("blueprintFlow.enterValue1", { value1: String(localizeBlueprintCopy(blueprintI18n, b.element)) })}
                   data-testid={`bp-topic-bg-content-${b.element}`}
                 />
                 <Input
@@ -213,7 +217,7 @@ export function TopicPanelEditor({
                   value={row.citedFrom}
                   onChange={(e) => updateBackground(b.element, { citedFrom: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="挂来源（可选）——未挂来源在参与者视图会标灰"
+                  placeholder={blueprintI18n("blueprintFlow.attachASourceOptionalItemsWithoutSourcesAppearGrayTo")}
                   data-testid={`bp-topic-bg-cited-${b.element}`}
                 />
               </li>
@@ -223,12 +227,12 @@ export function TopicPanelEditor({
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-topic-genrules">
-        <h3 className="mb-2 text-13 font-semibold">生成与校验</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.generationAndValidation")}</h3>
         <ul className="flex flex-col gap-1.5">
           {GEN_RULES.map((r) => (
             <li key={r} className="flex items-start gap-2 text-12 text-muted-foreground" data-testid="bp-topic-genrule">
               <span aria-hidden className="mt-0.5">✨</span>
-              {r}
+              {localizeBlueprintCopy(blueprintI18n, r)}
             </li>
           ))}
         </ul>
@@ -236,7 +240,7 @@ export function TopicPanelEditor({
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>

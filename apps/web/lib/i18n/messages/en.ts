@@ -1,3 +1,4 @@
+import { blueprintFlowEn } from "../namespaces/blueprint-flow";
 import { englishCleanupEn } from "../namespaces/english-cleanup";
 import { aiCatalogAdminEn } from "../namespaces/ai-catalog-admin";
 import { orgOverviewRedesignEn } from "../namespaces/org-overview-redesign";
@@ -58,6 +59,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...blueprintFlowEn,
   ...englishCleanupEn,
   ...englishCleanupEn,
   ...aiCatalogAdminEn,

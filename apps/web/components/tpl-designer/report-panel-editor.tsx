@@ -1,4 +1,8 @@
 "use client";
+import { canonicalBlueprintCopy, localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import * as React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -87,6 +91,8 @@ export function ReportPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
+ const { t: blueprintI18n } = useI18n();
+
   const [value, setValue] = React.useState<ReportContentValue>(() => parseReportContent(content));
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -111,10 +117,10 @@ export function ReportPanelEditor({
       const reasonCode = (e as { reasonCode?: unknown } | null)?.reasonCode;
       setError(
         reasonCode === "VERSION_CHANGED"
-          ? "这一项已被别处改动，你的输入未保存——请刷新页面后重新填写"
+          ? canonicalBlueprintCopy("blueprintFlow.thisItemWasChangedElsewhereYourInputWasNotSaved")
           : e instanceof Error
             ? e.message
-            : "保存失败，请重试",
+            : canonicalBlueprintCopy("blueprintFlow.saveFailedTryAgain"),
       );
     }
   }
@@ -148,7 +154,7 @@ export function ReportPanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -157,17 +163,13 @@ export function ReportPanelEditor({
           disabled={status === "saving"}
           className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-facet-save-button"
-        >
-          保存
-        </button>
+        >{blueprintI18n("aboutMemory.save")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-report-client">
-        <h3 className="mb-2 text-13 font-semibold">客户交付版 · {value.chapters.length} 章骨架（中英双语）</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.reportOutlineHeading", { count: value.chapters.length })}</h3>
         {value.chapters.length === 0 ? (
-          <p className="text-11 text-muted-foreground" data-testid="bp-report-empty">
-            还没有章节——点「＋ 章节」新增。
-          </p>
+          <p className="text-11 text-muted-foreground" data-testid="bp-report-empty">{blueprintI18n("blueprintFlow.noChaptersYetSelectChapterToAddOne")}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
             {value.chapters.map((c, i) => (
@@ -181,7 +183,7 @@ export function ReportPanelEditor({
                   value={c.title}
                   onChange={(e) => updateChapter(i, { title: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="章节标题（如「一页纸结论：3 个题目与推进顺序」）"
+                  placeholder={blueprintI18n("blueprintFlow.chapterTitleEGOnePageConclusion3TopicsAnd")}
                   data-testid={`bp-report-title-${i}`}
                 />
                 <Input
@@ -190,22 +192,22 @@ export function ReportPanelEditor({
                   value={c.by}
                   onChange={(e) => updateChapter(i, { by: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="AI 起草"
-                  aria-label="由谁写"
+                  placeholder={blueprintI18n("blueprintFlow.aIDrafts")}
+                  aria-label={blueprintI18n("blueprintFlow.writtenBy")}
                   data-testid={`bp-report-by-${i}`}
                 />
                 <Checkbox
                   className="shrink-0"
                   checked={c.humanRequired}
                   onChange={() => toggleHumanRequired(i)}
-                  label="必须人写"
+                  label={blueprintI18n("blueprintFlow.humanAuthorRequired")}
                   data-testid={`bp-report-human-${i}`}
                 />
                 <button
                   type="button"
                   onClick={() => removeChapter(i)}
                   className="shrink-0 rounded border border-border px-1 text-11 text-destructive"
-                  aria-label="删除章节"
+                  aria-label={blueprintI18n("research.chapters.delete")}
                   data-testid={`bp-report-remove-${i}`}
                 >
                   ✕
@@ -219,25 +221,23 @@ export function ReportPanelEditor({
           onClick={addChapter}
           className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
           data-testid="bp-report-add"
-        >
-          ＋ 章节
-        </button>
+        >{blueprintI18n("blueprintFlow.chapter")}</button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-report-internal">
-        <h3 className="mb-2 text-13 font-semibold">内部复盘版 · 6 页</h3>
-        <p className="text-12 leading-relaxed text-muted-foreground">{INTERNAL_NOTE}</p>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.internalRetrospective6Pages")}</h3>
+        <p className="text-12 leading-relaxed text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, INTERNAL_NOTE)}</p>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-report-rules">
-        <h3 className="mb-2 text-13 font-semibold">写作硬约束</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.writingConstraints")}</h3>
         <ul className="flex flex-col gap-1.5">
           {WRITING_RULES.map((r) => (
             <li key={r} className="flex items-start gap-2 text-12" data-testid="bp-report-rule">
               <span aria-hidden className="mt-0.5 text-muted-foreground">
                 🔒
               </span>
-              {r}
+              {localizeBlueprintCopy(blueprintI18n, r)}
             </li>
           ))}
         </ul>
@@ -246,15 +246,15 @@ export function ReportPanelEditor({
             ✨
           </span>
           <div>
-            <p className="text-11 font-medium text-ai-tint-foreground">历史数据</p>
-            <p className="mt-0.5 text-11 text-muted-foreground">{HISTORY_NOTE}</p>
+            <p className="text-11 font-medium text-ai-tint-foreground">{blueprintI18n("blueprintFlow.historicalData")}</p>
+            <p className="mt-0.5 text-11 text-muted-foreground">{localizeBlueprintCopy(blueprintI18n, HISTORY_NOTE)}</p>
           </div>
         </div>
       </div>
 
       {error !== null && (
         <p role="alert" className="text-11 text-destructive" data-testid={`bp-facet-error-${designFacetKey}`}>
-          {error}
+          {localizeBlueprintCopy(blueprintI18n, error)}
         </p>
       )}
     </div>
