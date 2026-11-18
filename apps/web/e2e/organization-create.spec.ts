@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { identity as contract } from "@repo/contracts";
+import { identity as contract, project } from "@repo/contracts";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -29,7 +29,7 @@ test("organization menu creates, refreshes, switches, and cancels with stable re
     } else if (url.pathname === "/auth/switch-org") {
       current = route.request().postDataJSON().toOrgId;
       output = { org: { id: current, name: "新建测试组织", kind: "organization", avatarUrl: null } };
-    } else if (url.pathname === "/projects") output = { projects: [] };
+    } else if (url.pathname === "/projects") output = project.operations.listProjects.out.parse([]);
     await route.fulfill({ status: 200, json: output, headers });
   });
   await page.goto("/projects");
