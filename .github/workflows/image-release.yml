@@ -114,7 +114,9 @@ jobs:
   build:
     needs: plan
     if: needs.plan.outputs.build == 'true'
-    runs-on: ubuntu-24.04
+    runs-on:
+      group: workspacex-cn-build
+      labels: workspacex-cn-build
     timeout-minutes: 60
     defaults:
       run:
@@ -126,6 +128,7 @@ jobs:
     env:
       DOCKER_CONFIG: /tmp/wsx-acr-build-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}
       REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
+      USE_ACR_VPC: "1"
       NODE_IMAGE: ${{ needs.plan.outputs.node_image }}
       PYTHON_IMAGE: ${{ needs.plan.outputs.python_image }}
       PGVECTOR_IMAGE: ${{ needs.plan.outputs.pgvector_image }}
@@ -140,7 +143,7 @@ jobs:
           ref: ${{ needs.plan.outputs.source }}
           persist-credentials: false
           path: source
-      - name: Authenticate to ACR public endpoint
+      - name: Authenticate to ACR VPC endpoint
         env:
           ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
           ACR_PASSWORD: ${{ secrets.WSX_ACR_PASSWORD }}
