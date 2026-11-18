@@ -1,5 +1,5 @@
 import * as React from "react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { CreateProjectForm } from "@/components/project/create-project-form";
 import { AidtCreateProjectForm } from "@/features/aidt/components/aidt-create-project-form";
@@ -12,6 +12,10 @@ import AidtProjectPage from "@/app/aidt/[projectId]/page";
 const api = vi.hoisted(() => ({
   list: vi.fn(), create: vi.fn(), find: vi.fn(), tag: vi.fn(), push: vi.fn(), home: vi.fn(), workspace: vi.fn(), loadHome: vi.fn(), loadWorkspace: vi.fn(), search: "",
   session: { userId: "student-a", currentOrgId: "org-a", sessionToken: "token-a" },
+}));
+const aidtConfig = vi.hoisted(() => ({ enabled: true }));
+vi.mock("@/features/aidt/lib/aidt-module-config", () => ({
+  isAidtModuleEnabled: () => aidtConfig.enabled,
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: api.push }), useSearchParams: () => new URLSearchParams(api.search),
@@ -31,12 +35,12 @@ vi.mock("@/lib/live-projects", async importOriginal => ({
 const tagged = { id: "teaching", name: "已有教学项目", kind: "general" as const, status: "active", readOnlyReason: null, tags: ["workspacex:aidt"], collaborators: null };
 const regular = { ...tagged, id: "regular", name: "原有普通项目", tags: [] };
 beforeEach(() => {
-  vi.clearAllMocks(); vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", undefined); localStorage.clear(); api.search = "";
+  vi.clearAllMocks(); aidtConfig.enabled = false; localStorage.clear(); api.search = "";
   api.session = { userId: "student-a", currentOrgId: "org-a", sessionToken: "token-a" };
   api.list.mockResolvedValue([tagged, regular]); api.create.mockResolvedValue({ id: "created" });
   api.find.mockResolvedValue({ ...tagged, id: "created" }); api.tag.mockResolvedValue({ tags: ["workspacex:aidt"] });
 });
-afterEach(() => vi.unstubAllEnvs());
+
 
 it("rejects both disabled routes before importing or mounting teaching workspaces", async () => {
   await expect(AidtPage()).rejects.toThrow("NOT_FOUND");
@@ -45,7 +49,7 @@ it("rejects both disabled routes before importing or mounting teaching workspace
   expect(api.list).not.toHaveBeenCalled(); expect(api.find).not.toHaveBeenCalled();
 });
 it("loads the independent home and group route only when explicitly enabled", async () => {
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true");
+  aidtConfig.enabled = true;
   render(await AidtPage()); render(await AidtProjectPage({ params: { projectId: "group/one" } }));
   expect(screen.getByTestId("enabled-aidt-home")).toBeVisible(); expect(api.workspace).toHaveBeenCalledWith("group/one");
 });
@@ -55,7 +59,7 @@ it("keeps tagged projects in the ordinary list while the module is off", async (
   expect(screen.getByTestId("projects-card-regular-name")).toBeVisible();
 });
 it("separates teaching projects only after the module is enabled", async () => {
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "1"); render(<ProjectsScreen />);
+  aidtConfig.enabled = true; render(<ProjectsScreen />);
   await screen.findByTestId("projects-card-regular-name"); expect(screen.queryByTestId("projects-card-teaching-name")).toBeNull();
 });
 it("keeps a tagged Home card on the ordinary project path while disabled", () => {
@@ -67,7 +71,7 @@ it("does not let disabled aidtStep or unrelated step parameters hijack a Studio 
   api.search = "aidtStep=2&step=3&thread=private";
   const { rerender } = render(<ProjectBreadcrumb projectId="group/one" sub="transcript" />);
   expect(screen.getByTestId("project-breadcrumb-back")).toHaveAttribute("href", "/projects/group%2Fone?tab=research&sub=transcript");
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); api.search = "step=3";
+  aidtConfig.enabled = true; api.search = "step=3";
   rerender(<ProjectBreadcrumb projectId="group/one" sub="transcript" />);
   expect(screen.getByTestId("project-breadcrumb-back")).toHaveAttribute("href", "/projects/group%2Fone?tab=research&sub=transcript");
   api.search = "aidtStep=2&aidtThread=thread-a"; rerender(<ProjectBreadcrumb projectId="group/one" sub="transcript" />);
@@ -86,7 +90,7 @@ it("preserves the ordinary creation contract with the module disabled", async ()
   expect(api.find).not.toHaveBeenCalled(); expect(api.tag).not.toHaveBeenCalled();
 });
 it("does not continue an AIDT metadata chain after its actor changes", async () => {
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); let finish!: (value: { id: string }) => void;
+  aidtConfig.enabled = true; let finish!: (value: { id: string }) => void;
   api.create.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const tree = <AidtCreateProjectForm cancel={<span />} />;
   const { rerender } = render(tree); fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "A组" } }); fireEvent.click(screen.getByTestId("project-new-create"));
@@ -95,7 +99,7 @@ it("does not continue an AIDT metadata chain after its actor changes", async () 
   expect(api.find).not.toHaveBeenCalled(); expect(api.tag).not.toHaveBeenCalled(); expect(api.push).not.toHaveBeenCalled(); expect(screen.getByTestId("project-new-name")).toHaveValue("");
 });
 it("does not retag a project when an unmounted AIDT creation finishes late", async () => {
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); let finish!: (value: { id: string }) => void;
+  aidtConfig.enabled = true; let finish!: (value: { id: string }) => void;
   api.create.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const { unmount } = render(<AidtCreateProjectForm cancel={<span />} />);
   fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "A组" } }); fireEvent.click(screen.getByTestId("project-new-create")); unmount();
@@ -103,7 +107,7 @@ it("does not retag a project when an unmounted AIDT creation finishes late", asy
 });
 
 it("stops before saving AIDT tags when a metadata lookup returns for an old token", async () => {
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); let finish!: (value: typeof tagged) => void;
+  aidtConfig.enabled = true; let finish!: (value: typeof tagged) => void;
   api.find.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const { rerender } = render(<AidtCreateProjectForm cancel={<span />} />);
   fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "A组" } }); fireEvent.click(screen.getByTestId("project-new-create"));
@@ -112,7 +116,7 @@ it("stops before saving AIDT tags when a metadata lookup returns for an old toke
   await act(async () => { finish(tagged); }); expect(api.tag).not.toHaveBeenCalled(); expect(api.push).not.toHaveBeenCalled();
 });
 it("ignores an old tag-save completion after the acting user changes", async () => {
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); let finish!: (value: { tags: string[] }) => void;
+  aidtConfig.enabled = true; let finish!: (value: { tags: string[] }) => void;
   api.tag.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const { rerender } = render(<AidtCreateProjectForm cancel={<span />} />);
   fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "A组" } }); fireEvent.click(screen.getByTestId("project-new-create"));
@@ -123,7 +127,7 @@ it("ignores an old tag-save completion after the acting user changes", async () 
 
 
 it("does not revive an old creation after the actor leaves and returns to the same scope", async () => {
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); let finish!: (value: { id: string }) => void;
+  aidtConfig.enabled = true; let finish!: (value: { id: string }) => void;
   api.create.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const original = { ...api.session }; const { rerender } = render(<AidtCreateProjectForm cancel={<span />} />);
   fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "旧A组请求" } }); fireEvent.click(screen.getByTestId("project-new-create"));
