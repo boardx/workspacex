@@ -174,7 +174,7 @@ export function BasicOverviewPanel({
               : status === "saving"
                 ? blueprintI18n("chatInteractions.saving")
                 : status === "saved"
-                  ? blueprintI18n("canvas.saved")
+                  ? blueprintI18n("blueprintFlow.savedNotice")
                   : blueprintI18n("blueprintFlow.switchFailed")}
           </span>
         )}

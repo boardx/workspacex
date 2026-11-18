@@ -97,7 +97,7 @@ export const TIER_NOTE: Record<AgendaTierKey, string> = {
 };
 
 const FORMAT_LABEL: Record<SessionFormatView, string> = {
-  hybrid: canonicalBlueprintCopy("whiteboard.mixed"),
+  hybrid: canonicalBlueprintCopy("blueprintFlow.mixedFormat"),
   onsite: canonicalBlueprintCopy("blueprintFlow.inPerson"),
   online: canonicalBlueprintCopy("blueprintFlow.fullyOnline"),
 };

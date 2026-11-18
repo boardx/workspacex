@@ -226,7 +226,7 @@ export function BlueprintDesignerShell({
                     >
                       <span aria-hidden>{done.has(item.designFacetKey) ? "✓" : "○"}</span>
                       <span className="flex-1">{localizeBlueprintCopy(blueprintI18n, item.label)}</span>
-                      {item.required ? <span className="text-11 text-destructive">{blueprintI18n("canvas.required")}</span> : null}
+                      {item.required ? <span className="text-11 text-destructive">{blueprintI18n("blueprintFlow.requiredLabel")}</span> : null}
                     </button>
                   ))
                 )}
@@ -301,7 +301,7 @@ function FacetPanel({
     <div>
       <div className="mb-3 flex items-center gap-2" data-testid="bp-facet-panel-header">
         <h2 className="text-16 font-semibold">{localizeBlueprintCopy(blueprintI18n, item?.label ?? selectedKey)}</h2>
-        {item?.required ? <span className="text-11 text-destructive">{blueprintI18n("canvas.required")}</span> : null}
+        {item?.required ? <span className="text-11 text-destructive">{blueprintI18n("blueprintFlow.requiredLabel")}</span> : null}
       </div>
       {intro === null ? null : (
         <p

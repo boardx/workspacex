@@ -131,7 +131,7 @@ function SaveStatusBadge({ status }: { status: "idle" | "saving" | "saved" | "er
  const { t: blueprintI18n } = useI18n();
 
   if (status === "idle") return null;
-  const label = status === "saving" ? canonicalBlueprintCopy("chatInteractions.saving") : status === "saved" ? canonicalBlueprintCopy("canvas.saved") : canonicalBlueprintCopy("profile.saveError");
+  const label = status === "saving" ? canonicalBlueprintCopy("chatInteractions.saving") : status === "saved" ? canonicalBlueprintCopy("blueprintFlow.savedNotice") : canonicalBlueprintCopy("profile.saveError");
   return (
     <span
       className={cn(

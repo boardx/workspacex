@@ -53,7 +53,7 @@ function PanelHeader({ item }: { item: ConfigItem }) {
   return (
     <div className="mb-3 flex items-center gap-2" data-testid="tpl-panel-header">
       <h2 className="text-16 font-semibold">{localizeBlueprintCopy(blueprintI18n, item.label)}</h2>
-      {item.required && <Badge tone="outline">{blueprintI18n("canvas.required")}</Badge>}
+      {item.required && <Badge tone="outline">{blueprintI18n("blueprintFlow.requiredLabel")}</Badge>}
       <Badge tone={item.done ? "primary" : "neutral"} className="ml-auto">{item.done ? blueprintI18n("blueprintFlow.configured") : blueprintI18n("blueprintFlow.notConfigured")}{item.count ? ` · ${item.count}` : ""}</Badge>
     </div>
   );
@@ -99,7 +99,7 @@ export function BasicOverviewPanel({ item }: { item: ConfigItem }) {
         </div>
         <div className="mt-2 flex items-center gap-2">
           <Button size="xs" variant="ghost" data-testid="tpl-tier-add"><Plus aria-hidden className="h-3.5 w-3.5" />{blueprintI18n("blueprintFlow.tier")}</Button>
-          <span className="text-11" data-testid="tpl-agenda-count">{blueprintI18n("canvas.current")}<b>{localizeBlueprintCopy(blueprintI18n, TIER_LABEL[tier])}</b>{blueprintI18n("blueprintFlow.agendaSegments")}<b>{agendaCount}</b>{blueprintI18n("blueprintFlow.items6")}{format === "online" && <span className="text-muted-foreground">{blueprintI18n("blueprintFlow.including")}{ONLINE_EXTRA_SEGMENTS.map((title) => localizeBlueprintCopy(blueprintI18n, title)).join("、")}）</span>}</span>
+          <span className="text-11" data-testid="tpl-agenda-count">{blueprintI18n("blueprintFlow.currentLabel")}<b>{localizeBlueprintCopy(blueprintI18n, TIER_LABEL[tier])}</b>{blueprintI18n("blueprintFlow.agendaSegments")}<b>{agendaCount}</b>{blueprintI18n("blueprintFlow.items6")}{format === "online" && <span className="text-muted-foreground">{blueprintI18n("blueprintFlow.including")}{ONLINE_EXTRA_SEGMENTS.map((title) => localizeBlueprintCopy(blueprintI18n, title)).join("、")}）</span>}</span>
         </div>
         <p className="mt-2 text-11 leading-relaxed text-muted-foreground">{blueprintI18n("blueprintFlow.tiersUseHalfDaySessionsEachLastsAbout33")}</p>
       </Section>

@@ -51,7 +51,7 @@ export const GENERIC_NOTE = "其余 4 个为全程可用的通用 skill";
 const CUSTOM_SKILL_OPTION = "__custom__";
 const AVAILABLE_SKILL_OPTIONS = [
   ...SKILLS.map((s) => ({ value: s.name, label: s.name })),
-  { value: CUSTOM_SKILL_OPTION, label: canonicalBlueprintCopy("whiteboard.customSize") },
+  { value: CUSTOM_SKILL_OPTION, label: canonicalBlueprintCopy("blueprintFlow.customOptionEllipsis") },
 ];
 
 function emptyBinding(): SkillBindingDraft {
@@ -160,7 +160,7 @@ export function SkillPanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("canvas.saved") : blueprintI18n("profile.saveError")}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -222,7 +222,7 @@ export function SkillPanelEditor({
                     data-testid={`bp-skill-name-${i}`}
                   />
                   <Select
-                    options={AVAILABLE_SKILL_OPTIONS.map((option) => ({ ...option, label: option.value === CUSTOM_SKILL_OPTION ? blueprintI18n("whiteboard.customSize") : option.label }))}
+                    options={AVAILABLE_SKILL_OPTIONS.map((option) => ({ ...option, label: option.value === CUSTOM_SKILL_OPTION ? blueprintI18n("blueprintFlow.customOptionEllipsis") : option.label }))}
                     value={SKILLS.some((sk) => sk.name === s.name) ? s.name : undefined}
                     onValueChange={(v) => {
                       if (v === CUSTOM_SKILL_OPTION) return; // 选“自定义…”：不改名字，让用户手填输入框

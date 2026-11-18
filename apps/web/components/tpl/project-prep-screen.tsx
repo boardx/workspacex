@@ -171,7 +171,7 @@ function GroupRow({ g, canWrite, onToast }: { g: ProjectGroup; canWrite: boolean
         <div className="flex flex-col gap-1.5 border-t border-border p-2.5">
           <p className="text-11"><span className="text-muted-foreground">{blueprintI18n("blueprintFlow.scenarioWhatThisGroupExplores")}</span>{g.scenario}</p>
           <div className="flex items-center gap-1.5">
-            <span className="text-11 text-muted-foreground">{blueprintI18n("canvas.member")}{g.memberCount}{blueprintI18n("blueprintFlow.people")}</span>
+            <span className="text-11 text-muted-foreground">{blueprintI18n("blueprintFlow.memberRole")}{g.memberCount}{blueprintI18n("blueprintFlow.people")}</span>
             <Button size="xs" variant="outline" disabled={!canWrite} onClick={() => onToast(canonicalBlueprintCopy("blueprintFlow.addPeopleToValue1", { value1: String(g.name) }))} data-testid="tpl-group-addmember"><UserPlus aria-hidden className="h-3 w-3" />{blueprintI18n("blueprintFlow.addPerson")}</Button>
             <Button size="xs" variant="outline" disabled={!canWrite} onClick={() => onToast(canonicalBlueprintCopy("blueprintFlow.changeValue1SLead", { value1: String(g.name) }))} data-testid="tpl-group-changelead"><Repeat aria-hidden className="h-3 w-3" />{blueprintI18n("blueprintFlow.changeLead")}</Button>
           </div>

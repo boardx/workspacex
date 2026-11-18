@@ -37,7 +37,7 @@ export type AgentState = (typeof AGENT_STATES)[number];
 const CUSTOM_AGENT_OPTION = "__custom__";
 const AVAILABLE_AGENT_OPTIONS = [
   ...THREAD_AI_TEAM.map((a) => ({ value: a.name, label: `${a.name} · ${a.role}` })),
-  { value: CUSTOM_AGENT_OPTION, label: canonicalBlueprintCopy("whiteboard.customSize") },
+  { value: CUSTOM_AGENT_OPTION, label: canonicalBlueprintCopy("blueprintFlow.customOptionEllipsis") },
 ];
 
 const THRESHOLD_HISTORY =
@@ -179,7 +179,7 @@ export function AgentPanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("canvas.saved") : blueprintI18n("profile.saveError")}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
@@ -211,7 +211,7 @@ export function AgentPanelEditor({
                     data-testid={`bp-agent-name-${i}`}
                   />
                   <Select
-                    options={AVAILABLE_AGENT_OPTIONS.map((option) => ({ ...option, label: option.value === CUSTOM_AGENT_OPTION ? blueprintI18n("whiteboard.customSize") : option.label }))}
+                    options={AVAILABLE_AGENT_OPTIONS.map((option) => ({ ...option, label: option.value === CUSTOM_AGENT_OPTION ? blueprintI18n("blueprintFlow.customOptionEllipsis") : option.label }))}
                     value={THREAD_AI_TEAM.some((t) => t.name === a.name) ? a.name : undefined}
                     onValueChange={(v) => {
                       if (v === CUSTOM_AGENT_OPTION) return; // 选“自定义…”：不改名字，让用户手填输入框

@@ -150,7 +150,7 @@ function MaintainerInbox({ canMerge, onToast }: { canMerge: boolean; onToast: (m
         onClose={() => setMerging(null)}
         impact={
           <div className="flex flex-col gap-1">
-            <p>{blueprintI18n("blueprintFlow.acceptedChangesEnterTheBlueprintS")}<b>{blueprintI18n("canvas.draft2")}</b>{blueprintI18n("blueprintFlow.draftWithoutChangingTheCurrentVersionPublicationStillRequiresCompleted")}</p>
+            <p>{blueprintI18n("blueprintFlow.acceptedChangesEnterTheBlueprintS")}<b>{blueprintI18n("blueprintFlow.draftState")}</b>{blueprintI18n("blueprintFlow.draftWithoutChangingTheCurrentVersionPublicationStillRequiresCompleted")}</p>
             <p className="text-muted-foreground">{blueprintI18n("blueprintFlow.eachMergedFieldCanTraceItsSourceProjectAuthorTime")}</p>
           </div>
         }

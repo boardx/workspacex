@@ -55,7 +55,7 @@ export function VersionsScreen({
                 <span className="text-13 font-semibold">v{v.versionNumber}</span>
                 {v.state === "published"
                   ? <Badge tone="primary">{blueprintI18n("blueprintFlow.publishedCurrent")}</Badge>
-                  : <Badge tone="neutral">{blueprintI18n("canvas.archived")}</Badge>}
+                  : <Badge tone="neutral">{blueprintI18n("blueprintFlow.archivedState")}</Badge>}
                 {v.rolledBackFrom && <Badge tone="outline">{blueprintI18n("blueprintFlow.rolledBackFromV")}{v.rolledBackFrom}</Badge>}
                 {v.usedByActiveProjects > 0 && <Badge tone="warning" data-testid="tpl-version-locked"><Lock aria-hidden className="h-2.5 w-2.5" /> {v.usedByActiveProjects}{blueprintI18n("blueprintFlow.activeProjectsPinned")}</Badge>}
               </div>

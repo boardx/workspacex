@@ -143,7 +143,7 @@ function ConfigDirectory({
                   >
                     <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", i.done ? "bg-success" : "bg-muted-foreground/40")} />
                     <span className="flex-1 truncate">{localizeBlueprintCopy(blueprintI18n, i.label)}</span>
-                    {i.required && <Badge tone="outline" data-testid="tpl-required-tag">{blueprintI18n("canvas.required")}</Badge>}
+                    {i.required && <Badge tone="outline" data-testid="tpl-required-tag">{blueprintI18n("blueprintFlow.requiredLabel")}</Badge>}
                     {i.count && <span className="font-mono text-10 text-muted-foreground">{i.count}</span>}
                   </button>
                 </li>

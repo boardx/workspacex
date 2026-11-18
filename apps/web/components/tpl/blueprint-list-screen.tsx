@@ -53,7 +53,7 @@ export function BlueprintListScreen({
         <div>
           <h1 className="text-20 font-bold tracking-tight">{blueprintI18n("adminNavigation.item.blueprint")}</h1>
           <p className="text-12 text-muted-foreground" data-testid="tpl-list-stats">
-            {BLUEPRINT_STATS.total}{blueprintI18n("blueprintFlow.items5")}{BLUEPRINT_STATS.published}{blueprintI18n("blueprintFlow.published")}{BLUEPRINT_STATS.draft}{blueprintI18n("canvas.draft2")}</p>
+            {BLUEPRINT_STATS.total}{blueprintI18n("blueprintFlow.items5")}{BLUEPRINT_STATS.published}{blueprintI18n("blueprintFlow.published")}{BLUEPRINT_STATS.draft}{blueprintI18n("blueprintFlow.draftState")}</p>
         </div>
         <Button size="sm" variant="primary" onClick={() => onToast(canonicalBlueprintCopy("blueprintFlow.threeWaysToCreateABlueprintBlankExistingBlueprintOr"))} data-testid="tpl-new-blueprint">
           <Sparkles aria-hidden className="h-3.5 w-3.5" />{blueprintI18n("blueprintFlow.newTemplate")}</Button>
@@ -105,7 +105,7 @@ export function BlueprintListScreen({
         open={!!pending}
         tone="destructive"
         title={pending?.action === "delete" ? blueprintI18n("blueprintFlow.deleteBlueprintValue1", { value1: String(pending?.row.name) }) : blueprintI18n("blueprintFlow.archiveBlueprintValue1", { value1: String(pending?.row.name) })}
-        confirmLabel={pending?.action === "delete" ? blueprintI18n("chatEntry.confirmDelete") : blueprintI18n("canvas.confirmArchive")}
+        confirmLabel={pending?.action === "delete" ? blueprintI18n("chatEntry.confirmDelete") : blueprintI18n("blueprintFlow.confirmArchiveAction")}
         requireReason
         onConfirm={() => { onToast(`${pending?.action === "delete" ? "已删除" : "已归档"}：${pending?.row.name}`); setPending(null); }}
         onClose={() => setPending(null)}
@@ -140,7 +140,7 @@ function BlueprintCard({
       badges={
         <>
           {isDraft
-            ? <Badge tone="neutral" data-testid="tpl-row-state">{blueprintI18n("canvas.draft2")}</Badge>
+            ? <Badge tone="neutral" data-testid="tpl-row-state">{blueprintI18n("blueprintFlow.draftState")}</Badge>
             : <Badge tone="primary" data-testid="tpl-row-state">{blueprintI18n("blueprintFlow.publishedV")}{row.version}</Badge>}
           {row.visibility === "team-only" && <Badge tone="outline" data-testid="tpl-row-visibility">{blueprintI18n("blueprintFlow.only")}{row.team}</Badge>}
         </>
@@ -172,7 +172,7 @@ function BlueprintCard({
           <Button size="sm" variant="outline" onClick={() => onToast(canonicalBlueprintCopy("blueprintFlow.copiedValue1IntoAnIndependentBlueprintDraft", { value1: String(row.name) }))} data-testid="tpl-row-copy"><Copy aria-hidden className="h-3 w-3" />{blueprintI18n("codeFence.copy")}</Button>
           {/* 引用计数门控：被套用过 → [归档]；从未套用 → [删除]（O-18①）*/}
           {row.appliedByProject
-            ? <Button size="sm" variant="outline" onClick={() => onDanger("archive")} data-testid="tpl-row-archive"><Archive aria-hidden className="h-3 w-3" />{blueprintI18n("canvas.archive")}</Button>
+            ? <Button size="sm" variant="outline" onClick={() => onDanger("archive")} data-testid="tpl-row-archive"><Archive aria-hidden className="h-3 w-3" />{blueprintI18n("blueprintFlow.archiveAction")}</Button>
             : <Button size="sm" variant="ghost" className="text-destructive transition-colors duration-fast hover:bg-destructive/10" onClick={() => onDanger("delete")} data-testid="tpl-row-delete"><Trash2 aria-hidden className="h-3 w-3" />{blueprintI18n("adminLimitPolicy.delete")}</Button>}
         </>
       }

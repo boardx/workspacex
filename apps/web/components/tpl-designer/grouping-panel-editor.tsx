@@ -155,7 +155,7 @@ export function GroupingPanelEditor({
               className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"}
               data-testid="bp-facet-save-status"
             >
-              {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("canvas.saved") : blueprintI18n("profile.saveError")}
+              {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
             </span>
           )}
           <button

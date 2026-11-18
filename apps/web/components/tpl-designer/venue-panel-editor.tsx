@@ -38,7 +38,7 @@ const SPACE_PLACEHOLDERS: Record<VenueSpaceField, string> = {
 export const VENUE_FORMATS = [
   {
     key: "hybrid",
-    label: canonicalBlueprintCopy("whiteboard.mixed"),
+    label: canonicalBlueprintCopy("blueprintFlow.mixedFormat"),
     detail: canonicalBlueprintCopy("blueprintFlow.groupsMeetInPersonRemoteMembersJoinByPhoneEach"),
   },
   {
@@ -153,7 +153,7 @@ export function VenuePanelEditor({
       <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
-            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("canvas.saved") : blueprintI18n("profile.saveError")}
+            {status === "saving" ? blueprintI18n("chatInteractions.saving") : status === "saved" ? blueprintI18n("blueprintFlow.savedNotice") : blueprintI18n("profile.saveError")}
           </span>
         )}
         <button
