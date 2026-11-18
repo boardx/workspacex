@@ -130,7 +130,7 @@ export function BlueprintDesignerShell({
   return (
     <section className="flex min-h-0 flex-1 flex-col" data-testid="bp-designer-shell">
       <header className="flex flex-col gap-1.5 border-b border-border px-4 py-3">
-        <h1 className="text-16 font-semibold">{blueprintName}{blueprintI18n("blueprintFlow.blueprintDesign")}</h1>
+        <h1 className="text-16 font-semibold">{blueprintI18n("blueprintFlow.designHeading", { name: blueprintName })}</h1>
 
         <p className="text-12 text-muted-foreground" data-testid="bp-designer-version-bar">
           {versionBar.publishedVersionNumber === null

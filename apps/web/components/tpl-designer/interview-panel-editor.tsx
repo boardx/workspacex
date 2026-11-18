@@ -177,7 +177,7 @@ export function InterviewPanelEditor({
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-itv-plan">
-        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.presetInterviewPlan")}{totalQuota}{blueprintI18n("blueprintFlow.sessionsQuotasByRoleFillInNamesWhenApplying")}</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.interviewPlanHeading", { count: totalQuota })}</h3>
         {value.roles.length === 0 ? (
           <p className="text-11 text-muted-foreground" data-testid="bp-itv-empty">{blueprintI18n("blueprintFlow.noInterviewRolesYetSelectInterviewRoleToAddOne")}</p>
         ) : (

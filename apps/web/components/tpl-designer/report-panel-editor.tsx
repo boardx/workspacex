@@ -167,7 +167,7 @@ export function ReportPanelEditor({
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-report-client">
-        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.clientDeliverable")}{value.chapters.length}{blueprintI18n("blueprintFlow.chapterOutlineChineseAndEnglish")}</h3>
+        <h3 className="mb-2 text-13 font-semibold">{blueprintI18n("blueprintFlow.reportOutlineHeading", { count: value.chapters.length })}</h3>
         {value.chapters.length === 0 ? (
           <p className="text-11 text-muted-foreground" data-testid="bp-report-empty">{blueprintI18n("blueprintFlow.noChaptersYetSelectChapterToAddOne")}</p>
         ) : (
