@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import threading
 
 spec = importlib.util.spec_from_file_location('hosted_release', Path(__file__).with_name('hosted-release.py'))
 hosted = importlib.util.module_from_spec(spec)
@@ -146,17 +147,29 @@ def resolve(docker, prefix, tag, role, pull=True, expected_source=None, expected
 
 def run_release_stage(role, stage, args, timeout):
     print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} timeout_seconds={timeout}', flush=True)
-    try:
-        result=run(args, timeout=timeout)
-    except subprocess.TimeoutExpired as error:
-        # TimeoutExpired may provide bytes even when the subprocess uses text mode.
-        output = []
-        for chunk in (error.stdout, error.stderr):
-            if chunk:
-                output.append(chunk.decode(errors='replace') if isinstance(chunk, bytes) else chunk)
-        if output:
-            print(safe_diagnostics('\n'.join(output)), file=sys.stderr, flush=True)
-        raise ValueError(f'{stage.upper()}_TIMEOUT_{role.upper()}') from None
+    started = time.monotonic()
+    # Read continuously so BuildKit progress reaches Actions before completion.
+    output = []
+    with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          text=True, errors='replace', bufsize=1) as process:
+        def relay():
+            for line in process.stdout:
+                output.append(line)
+                print(safe_diagnostics(line), flush=True)
+        reader = threading.Thread(target=relay, daemon=True)
+        reader.start()
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            reader.join(timeout=5)
+            print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} timeout elapsed_seconds={time.monotonic()-started:.1f}', flush=True)
+            raise ValueError(f'{stage.upper()}_TIMEOUT_{role.upper()}') from None
+        reader.join(timeout=5)
+        need(process.returncode == 0, 'COMMAND_FAILED_'+Path(args[0]).name.upper())
+    result = ''.join(output)
+    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} elapsed_seconds={time.monotonic()-started:.1f}', flush=True)
     print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} completed', flush=True)
     return result
 
