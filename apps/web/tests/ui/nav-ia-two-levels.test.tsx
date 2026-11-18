@@ -70,9 +70,9 @@ describe("§1 一级只留原型圈定的项，五项降为「后台」的二级
     expect(secondLevelKeysOf(NAV_SEGMENTS, "admin").length).toBeGreaterThan(0);
   });
 
-  it("一级「编排」组里只有「项目」—— 蓝本不再与它并列（原型 COLUMN 1）", () => {
+  it("一级「编排」组包含 AIDT 和项目", () => {
     const orchestration = NAV_SEGMENTS.find((s) => s.label === "编排");
-    expect(orchestration?.items.map((i) => i.key)).toEqual(["projects"]);
+    expect(orchestration?.items.map((i) => i.key)).toEqual(["aidt", "projects"]);
   });
 
   it("一级「治理」组里只有「组织后台」「平台后台」—— 技能/智能体/成员/资产不再与它并列", () => {
