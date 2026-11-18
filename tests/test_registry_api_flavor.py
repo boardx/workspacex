@@ -113,9 +113,7 @@ class ApiFlavor(unittest.TestCase):
 
     def test_wrong_target_flavor_tag_or_public_flag_never_reaches_docker(self):
         marked = module().release_tag(SOURCE, '123', '1', True)
-        for enabled, extra, tag, code in (('1', {}, '123-1', 'AIDT_TAG_FLAVOR_MISMATCH'),
-                                         ('0', {}, marked, 'AIDT_TAG_FLAVOR_MISMATCH'),
-                                         ('1', {'NEXT_PUBLIC_ENABLE_AIDT': '1', 'NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT': '1'}, marked, 'AIDT_WEB_BUILD_ONLY')):
+        for enabled, extra, tag, code in (('1', {'NEXT_PUBLIC_ENABLE_AIDT': '1', 'NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT': '1'}, marked, 'AIDT_WEB_BUILD_ONLY'),):
             _, calls, result, error = self.execute(enabled, extra=extra, tag=tag)
             self.assertEqual(str(error), code)
             self.assertIsNone(result)

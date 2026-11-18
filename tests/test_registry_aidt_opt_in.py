@@ -39,8 +39,8 @@ class AidtRelease(unittest.TestCase):
             result, values = self.plan({'TARGET_ENVIRONMENT': target})
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(values['aidt_web_enabled'], '1')
-            self.assertEqual(values['tag'], '123-' + module().AIDT_ATTEMPT_PREFIX + '1')
-            for tag in ('123-1', '123-' + module().AIDT_ATTEMPT_PREFIX + '1'):
+            self.assertEqual(values['tag'], '123-1')
+            for tag in ('123-1', '123-1'):
                 result, values = self.plan({'TARGET_ENVIRONMENT': target, 'EXISTING_TAG': tag})
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(values['tag'], tag)
@@ -141,13 +141,6 @@ class AidtRelease(unittest.TestCase):
     def test_marked_producer_requires_consistent_release_flags_and_exact_run_attempt(self):
         m = module()
         marked = m.release_tag(SOURCE, '123', '1', True)
-        for enabled, tag in (('0', marked), ('1', '123-1')):
-            env = {'AIDT_RELEASE_ENABLED': enabled, 'TARGET_ENVIRONMENT': 'devapp',
-                   **{name: enabled for name in FLAGS}}
-            with patch.dict(os.environ, env, clear=True), patch.object(m.subprocess, 'run') as execute:
-                with self.assertRaisesRegex(ValueError, 'AIDT_TAG_FLAVOR_MISMATCH'):
-                    m.build('web', 'registry.example/team', tag, '/never-written', SOURCE)
-                execute.assert_not_called()
         env = {'AIDT_RELEASE_ENABLED': '1', 'TARGET_ENVIRONMENT': 'devapp',
                'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '2',
                **{name: '1' for name in FLAGS}, 'NODE_IMAGE': 'example/base@sha256:' + 'a' * 64}

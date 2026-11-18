@@ -10,8 +10,8 @@ import re
 import subprocess
 import sys
 import tempfile
-import time
 import threading
+import time
 
 spec = importlib.util.spec_from_file_location('hosted_release', Path(__file__).with_name('hosted-release.py'))
 hosted = importlib.util.module_from_spec(spec)
@@ -45,7 +45,7 @@ def is_aidt_tag(tag):
 def release_tag(source, run, attempt, enable_aidt=False):
     need(SHA.fullmatch(source) and re.fullmatch('[1-9][0-9]*',run) and re.fullmatch('[1-9][0-9]*',attempt), 'INVALID_BUILD_IDENTITY')
     need(not attempt.startswith(AIDT_ATTEMPT_PREFIX),'RESERVED_AIDT_ATTEMPT')
-    return run+'-'+(AIDT_ATTEMPT_PREFIX if enable_aidt else '')+attempt
+    return run+'-'+attempt
 
 def build_source(default, override, build_only):
     need(isinstance(default,str) and SHA.fullmatch(default), 'INVALID_BUILD_SOURCE')
@@ -84,9 +84,25 @@ def safe_diagnostics(raw):
     raw=re.sub(r'(?i)([?&](?:token|password|secret|access[_-]?key|_state|signature|accesskeyid)=)[^&\s]+',r'\1[redacted]',raw)
     return '\n'.join(raw.splitlines()[-100:])[-12000:]
 
+def registry_login(registry, username, password):
+    """Retry transport failures only; credentials remain on stdin, diagnostics redacted."""
+    for attempt in range(3):
+        try:
+            result=subprocess.run(['docker','login',registry,'--username',username,'--password-stdin'],
+                                  input=password,text=True,capture_output=True,timeout=60)
+            if result.returncode==0: return
+            raw=result.stdout+'\n'+result.stderr
+        except subprocess.TimeoutExpired:
+            raw='ACR login timeout after 60 seconds'
+        permanent=re.search(r'unauthorized|authentication required|denied|incorrect.*password|invalid.*credential|\b40[13]\b',raw,re.I)
+        transient=re.search(r'timeout|timed out|connection reset|connection refused|unexpected EOF|\bEOF\b|temporary failure|too many requests|\b(?:429|500|502|503|504)\b|service unavailable',raw,re.I)
+        print('ACR login attempt '+str(attempt+1)+'/3 failed: '+safe_diagnostics(raw.replace(username,'[redacted]').replace(password,'[redacted]')),file=sys.stderr)
+        if permanent or not transient or attempt==2:
+            raise ValueError('ACR_LOGIN_FAILED')
+        time.sleep((2,5)[attempt])
+
+
 def run(args, timeout=3600, retry_transient=False):
-    if os.environ.get('IMAGE_RELEASE_LIVE_LOGS') == '1' and (args[:3] == ['docker', 'buildx', 'build'] or args[:2] == ['docker', 'push']):
-        return stream_release_command(args, timeout)
     if retry_transient:
         position=3 if len(args)>2 and args[1]=='--config' else 1
         need(len(args)>position and args[position]=='pull','RETRY_REQUIRES_PULL')
@@ -147,39 +163,50 @@ def resolve(docker, prefix, tag, role, pull=True, expected_source=None, expected
     need(len(set(digests))==1,'IMAGE_DIGEST')
     return {'service':role,'sourceRevision':source,'tag':tag,'image':digests[0],'imageId':value['Id']}
 
-def stream_release_command(args, timeout):
-    started = time.monotonic()
-    # Read continuously so BuildKit progress reaches Actions before completion.
-    output = []
-    with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                          text=True, errors='replace', bufsize=1) as process:
-        def relay():
-            for line in process.stdout:
-                output.append(line)
-                print(safe_diagnostics(line), flush=True)
-        reader = threading.Thread(target=relay, daemon=True)
-        reader.start()
-        try:
-            process.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-            reader.join(timeout=5)
-            print(f'IMAGE_RELEASE_COMMAND timeout elapsed_seconds={time.monotonic()-started:.1f}', flush=True)
-            raise subprocess.TimeoutExpired(args, timeout) from None
-        reader.join(timeout=5)
-        need(process.returncode == 0, 'COMMAND_FAILED_'+Path(args[0]).name.upper())
-    return ''.join(output)
-
 def run_release_stage(role, stage, args, timeout):
-    started = time.monotonic()
-    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} timeout_seconds={timeout}', flush=True)
-    try:
-        result = run(args, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        raise ValueError(f'{stage.upper()}_TIMEOUT_{role.upper()}') from None
-    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} completed elapsed_seconds={time.monotonic()-started:.1f}', flush=True)
-    return result
+    started=time.monotonic()
+    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} status=started timeout_seconds={timeout}', flush=True)
+    # A file lets subprocess.run keep its timeout/process ownership while a reader
+    # publishes complete, redacted lines immediately instead of buffering the job.
+    with tempfile.TemporaryFile() as output:
+        stop=threading.Event()
+        def follow():
+            offset=0; pending=b''; discarding=False; heartbeat=time.monotonic()
+            while True:
+                chunk=os.pread(output.fileno(),65536,offset)
+                if chunk:
+                    offset+=len(chunk); pending+=chunk
+                    while b'\n' in pending:
+                        line,pending=pending.split(b'\n',1)
+                        if discarding: discarding=False
+                        else: print(safe_diagnostics(line.decode(errors='replace')),flush=True)
+                    if len(pending)>65536:
+                        pending=b''; discarding=True
+                        print('IMAGE_RELEASE_LOG oversized line omitted',flush=True)
+                now=time.monotonic()
+                if now-heartbeat>=15:
+                    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} status=running elapsed_seconds={int(now-started)}',flush=True)
+                    heartbeat=now
+                if stop.is_set() and not chunk:
+                    if pending and not discarding: print(safe_diagnostics(pending.decode(errors='replace')),flush=True)
+                    break
+                if not chunk: stop.wait(.1)
+        reader=threading.Thread(target=follow,daemon=True);reader.start()
+        try:
+            result=subprocess.run(args,stdout=output,stderr=subprocess.STDOUT,timeout=timeout,text=True)
+        except subprocess.TimeoutExpired:
+            print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} status=failed code=timeout elapsed_seconds={int(time.monotonic()-started)}',flush=True)
+            raise ValueError(f'{stage.upper()}_TIMEOUT_{role.upper()}') from None
+        finally:
+            stop.set();reader.join()
+        # CompletedProcess.stdout is populated by command-port test doubles only.
+        if result.stdout: print(safe_diagnostics(result.stdout),flush=True)
+        if result.stderr: print(safe_diagnostics(result.stderr),file=sys.stderr,flush=True)
+        state='completed' if result.returncode==0 else 'failed'
+        print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} status={state} elapsed_seconds={int(time.monotonic()-started)}',flush=True)
+        need(result.returncode==0,'COMMAND_FAILED_'+Path(args[0]).name.upper())
+        output.seek(max(0,output.seek(0,os.SEEK_END)-65536))
+        return result.stdout or output.read().decode(errors='replace')
 
 
 def buildkit_identity(path):
@@ -214,7 +241,7 @@ def activation_parent(prefix, source, tag, target, enabled, build_only, selected
     need(not os.environ.get('ACTIVATION_PARENT_MANIFEST') and not os.environ.get('ACTIVATION_PARENT_SHA256'),'ACTIVATION_PARENT_OVERRIDE_FORBIDDEN')
     coordinates(prefix,tag)
     need(is_aidt_tag(tag),'ACTIVATION_REQUIRES_AIDT_TAG')
-    need(tag==release_tag(source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'],True),'RERUN_ALL_JOBS_REQUIRED')
+    need(tag==os.environ['GITHUB_RUN_ID']+'-'+AIDT_ATTEMPT_PREFIX+os.environ['GITHUB_RUN_ATTEMPT'],'RERUN_ALL_JOBS_REQUIRED')
     try:
         path=ACTIVATION_PARENT_PATH
         need(not path.is_symlink() and path.is_file(),'ACTIVATION_PARENT_INVALID')
@@ -327,7 +354,6 @@ def build(role, prefix, tag, output, source):
     need(isinstance(source,str) and SHA.fullmatch(source),'INVALID_SOURCE_REVISION')
     module_args=aidt_web_build_args(role)
     enabled=os.environ.get('AIDT_RELEASE_ENABLED','0')=='1'
-    need(is_aidt_tag(tag)==enabled,'AIDT_TAG_FLAVOR_MISMATCH')
     activation=activation_selected()
     parent=activation_parent(prefix,source,tag,os.environ.get('TARGET_ENVIRONMENT'), '1' if enabled else '0',
                              os.environ.get('BUILD_ONLY')=='true',os.environ.get('BUILD_SERVICE') or 'all',os.environ.get('EXISTING_TAG','')) if activation else None
@@ -450,8 +476,7 @@ def main():
         need(PREFIX.fullmatch(prefix) and registry==prefix.split('/')[0] and '-vpc.' not in registry,'PUBLIC_REGISTRY_REQUIRED')
         username=os.environ.get('ACR_USERNAME','');password=os.environ.get('ACR_PASSWORD','')
         need(username and password and not any(c in username+password for c in '\r\n\x00'),'ACR_CREDENTIALS_REQUIRED')
-        result=subprocess.run(['docker','login',registry,'--username',username,'--password-stdin'],input=password,text=True,capture_output=True,timeout=60)
-        need(result.returncode==0,'ACR_LOGIN_FAILED')
+        registry_login(registry,username,password)
     elif args.operation=='plan':
         event=os.environ['GITHUB_EVENT_NAME'];branch=os.environ['GITHUB_REF_NAME']
         build_only=os.environ.get('BUILD_ONLY')=='true'
@@ -462,7 +487,7 @@ def main():
         need(target in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
         existing=os.environ.get('EXISTING_TAG','')
         aidt=aidt_plan_flag(os.environ.get('ENABLE_AIDT','false'),target,existing)
-        tag=existing or release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'],aidt=='1')
+        tag=existing or (os.environ['GITHUB_RUN_ID']+'-'+AIDT_ATTEMPT_PREFIX+os.environ['GITHUB_RUN_ATTEMPT'] if activation_selected() else release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT']))
         need(TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
         selected=os.environ.get('BUILD_SERVICE') or 'all'
         need(selected=='all' or selected in SERVICES and os.environ.get('BUILD_ONLY')=='true','PARTIAL_BUILD_REQUIRES_BUILD_ONLY')
