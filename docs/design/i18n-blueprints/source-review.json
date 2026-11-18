@@ -1,0 +1,19 @@
+{
+  "source-review.json": {
+    "files": 39,
+    "resourceBindings": 729,
+    "issues": []
+  },
+  "preserve-review.json": {
+    "files": 30,
+    "identityAttributes": 660,
+    "effectDependencyArrays": 26,
+    "issues": []
+  },
+  "domain-review.json": {
+    "parserSerializerBodies": 26,
+    "apiCallsUnchanged": 7,
+    "pureResourceModules": 6,
+    "issues": []
+  }
+}
