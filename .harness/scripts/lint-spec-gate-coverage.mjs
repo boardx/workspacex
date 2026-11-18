@@ -113,6 +113,29 @@ const PROJECT_GRANULARITY_LEGACY = (owner) =>
   "在那之前它红了没人会发现——这一句是这条豁免的真实代价，不是免责声明。";
 
 const EXEMPTIONS = [
+  ...[
+    "apps/web/e2e/aidt-feedback-loop-audit.spec.ts",
+    "apps/web/e2e/aidt-local-persistence.spec.ts",
+    "apps/web/e2e/aidt-member-existing-zero.spec.ts",
+    "apps/web/e2e/aidt-native-draft-zero.spec.ts",
+  ].map((spec) => ({ spec, reason: "AIDT 专项验收需要操作员准备本地隔离栈、持久化目录或专用测试账号。" })),
+  ...[
+    "apps/web/e2e/aidt-v2-completion-continuation.spec.ts",
+    "apps/web/e2e/aidt-v2-completion.spec.ts",
+    "apps/web/e2e/aidt-v2-context-prepared.spec.ts",
+    "apps/web/e2e/aidt-v2-courses.spec.ts",
+    "apps/web/e2e/aidt-v2-deliverables.spec.ts",
+    "apps/web/e2e/aidt-v2-design-confirmation.spec.ts",
+    "apps/web/e2e/aidt-v2-design-readonly.spec.ts",
+    "apps/web/e2e/aidt-v2-first-focus-probe.spec.ts",
+    "apps/web/e2e/aidt-v2-prototype-reentry.spec.ts",
+    "apps/web/e2e/aidt-v2-remediation-setup.spec.ts",
+    "apps/web/e2e/aidt-v2-s2-supplement.spec.ts",
+    "apps/web/e2e/aidt-v2-student-journey.spec.ts",
+    "apps/web/e2e/aidt-v2-summary-compact.spec.ts",
+    "apps/web/e2e/aidt-v2-summary-readonly.spec.ts",
+    "apps/web/e2e/real-model-aidt-facilitation.spec.ts",
+  ].map((spec) => ({ spec, reason: "AIDT 专项验收需要操作员提供独立验收环境、预置证据或真实模型授权。" })),
   {
     spec: "apps/web/e2e/axe-image-alt.spec.ts",
     reason: PROJECT_GRANULARITY_LEGACY("UIUX 基线（无障碍）"),
