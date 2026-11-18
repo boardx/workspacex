@@ -16,12 +16,16 @@ auth="$scratch/auth.json"
 printf '%s' "$ACR_PASSWORD" | skopeo login --authfile "$auth" --username "$ACR_USERNAME" --password-stdin "$REGISTRY"
 vpc="${REGISTRY%%.*}-vpc.${REGISTRY#*.}"
 
-for key in node_image python_image pgvector_image; do
-  name=${key^^}
+while read -r key name <&3; do
   source=${!name:-}
   [[ -n $source ]] || continue
   [[ $source =~ ^[a-z0-9][a-zA-Z0-9.:/_-]*@(sha256:[a-f0-9]{64})$ ]]
   digest=${BASH_REMATCH[1]}
+  source_repository=${source%@*}
+  # Skopeo requires a tag or a digest. Strip a tag only from the last path component.
+  if [[ ${source_repository##*/} == *:* ]]; then
+    source_repository=${source_repository%:*}
+  fi
   repository="$namespace/build-base-${key%_image}"
   target="$REGISTRY/$repository"
   manifest="$scratch/manifest.json"
@@ -29,9 +33,13 @@ for key in node_image python_image pgvector_image; do
   if ! skopeo inspect --authfile "$auth" --raw "docker://$target@$digest" > "$manifest"; then
     printf 'Mirroring %s at %s\n' "$key" "$digest"
     skopeo copy --authfile "$auth" --retry-times 2 --all --preserve-digests \
-      "docker://$source" "docker://$target:${digest/:/-}"
+      "docker://$source_repository@$digest" "docker://$target:${digest/:/-}"
     skopeo inspect --authfile "$auth" --raw "docker://$target@$digest" > "$manifest"
   fi
   [[ sha256:$(sha256sum "$manifest" | cut -d' ' -f1) == "$digest" ]]
   printf '%s=%s/%s@%s\n' "$key" "$vpc" "$repository" "$digest" >> "$GITHUB_OUTPUT"
-done
+done 3<<'BASE_IMAGES'
+node_image NODE_IMAGE
+python_image PYTHON_IMAGE
+pgvector_image PGVECTOR_IMAGE
+BASE_IMAGES
