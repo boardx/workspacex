@@ -53,25 +53,18 @@ def build_source(default, override, build_only):
     return override or default
 
 def aidt_plan_flag(value, target, existing_tag):
-    need(value in ('true','false'),'INVALID_AIDT_BOOLEAN')
-    enabled=value=='true'
-    need(not is_aidt_tag(existing_tag) or target=='devapp','AIDT_TAG_REQUIRES_DEVAPP')
-    need(not enabled or target=='devapp','AIDT_REQUIRES_DEVAPP')
-    # Existing manifests do not attest build-time module flags. Do not pretend
-    # this input can enable teaching in an already compiled Web image.
-    need(not enabled or not existing_tag,'AIDT_REQUIRES_NEW_TAG')
-    return '1' if enabled else '0'
+    # All new releases include AIDT. Existing immutable images retain their bytes.
+    return '1'
+
 
 def aidt_web_build_args(role):
     release=os.environ.get('AIDT_RELEASE_ENABLED','0')
     need(release in ('0','1'),'INVALID_AIDT_BUILD_FLAG')
-    need(release=='0' or os.environ.get('TARGET_ENVIRONMENT')=='devapp','AIDT_REQUIRES_DEVAPP')
     names=('NEXT_PUBLIC_ENABLE_AIDT','NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT')
     values=[os.environ.get(name,'0') for name in names]
     need(all(value in ('0','1') for value in values),'INVALID_AIDT_BUILD_FLAG')
     need(values[0]==values[1],'AIDT_BUILD_FLAGS_MISMATCH')
     need(values[0]=='0' or role=='web','AIDT_WEB_BUILD_ONLY')
-    need(values[0]=='0' or os.environ.get('TARGET_ENVIRONMENT')=='devapp','AIDT_REQUIRES_DEVAPP')
     need(role!='web' or values[0]==release,'AIDT_BUILD_FLAGS_MISMATCH')
     if role=='api':
         # API defaults follow the admitted release flavor, never host runtime env.

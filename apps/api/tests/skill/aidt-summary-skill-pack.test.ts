@@ -20,8 +20,8 @@ it("ships a real source-identical summary task in a separate immutable verified 
   expect(stages.skills).toHaveLength(6); expect(stages.skills.some((s:{stableName:string})=>s.stableName==="dt-summarize-project")).toBe(false);
   expect(createHash("sha256").update(readFileSync(new URL("skills/starter-packs/aidt-methods/1.3.0.json",root))).digest("hex")).toBe("43bd0807885fb9a47d2c4dc56c5403969d2be7fda665b10d83a34a99409d40af");
 });
-it("is opt-in only and keeps ordinary module startup unchanged", () => {
-  vi.stubEnv("ENABLE_AIDT_MODULE","0"); expect(enabledPlatformSkillPacks()).toEqual(STANDARD_PLATFORM_PACKS);
+it("includes the summary pack by default without changing ordinary packs", () => {
+  vi.stubEnv("ENABLE_AIDT_MODULE","0"); expect(enabledPlatformSkillPacks()).toContainEqual(AIDT_SUMMARY_SKILL_PACK);
   expect(STANDARD_PLATFORM_PACKS).not.toContainEqual(AIDT_SUMMARY_SKILL_PACK);
   vi.stubEnv("ENABLE_AIDT_MODULE","1"); expect(enabledPlatformSkillPacks()).toContainEqual(AIDT_SUMMARY_SKILL_PACK);
 });

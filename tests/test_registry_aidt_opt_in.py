@@ -34,41 +34,17 @@ class AidtRelease(unittest.TestCase):
             values = dict(line.split('=', 1) for line in output.read_text().splitlines()) if output.exists() else {}
             return result, values
 
-    def test_defaults_off_and_devapp_explicit_opt_in(self):
+    def test_all_environments_default_on_and_allow_immutable_reuse(self):
         for target in ('devapp', 'cn', 'us'):
             result, values = self.plan({'TARGET_ENVIRONMENT': target})
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(values['aidt_web_enabled'], '0')
-        for branch, target in (('develop', 'auto'), ('feature/aidt', 'devapp'), ('main', 'devapp')):
-            result, values = self.plan({'ENABLE_AIDT': 'true', 'GITHUB_REF_NAME': branch,
-                                        'TARGET_ENVIRONMENT': target})
-            self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(values['aidt_web_enabled'], '1')
-            self.assertEqual(values['target'], 'devapp')
             self.assertEqual(values['tag'], '123-' + module().AIDT_ATTEMPT_PREFIX + '1')
-
-    def test_reserved_tags_cannot_promote_to_production_with_opt_in_off(self):
-        m = module()
-        for tag in ('123-' + m.AIDT_ATTEMPT_PREFIX + '1', SOURCE + '-123-' + m.AIDT_ATTEMPT_PREFIX + '1'):
-            for target in ('cn', 'us'):
-                for value in ('false', 'true'):
-                    for build_only in ('false', 'true'):
-                        result, values = self.plan({'EXISTING_TAG': tag, 'TARGET_ENVIRONMENT': target,
-                                                    'ENABLE_AIDT': value, 'BUILD_ONLY': build_only})
-                        self.assertNotEqual(result.returncode, 0)
-                        self.assertIn('AIDT_TAG_REQUIRES_DEVAPP', result.stderr)
-                        self.assertEqual(values, {})
-            result, values = self.plan({'EXISTING_TAG': tag, 'ENABLE_AIDT': 'false'})
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(values['tag'], tag)
-            self.assertEqual(values['build'], 'false')
-        # The namespace belongs to the final attempt component, never the run ID.
-        for target in ('cn', 'us'):
-            result, values = self.plan({'EXISTING_TAG': m.AIDT_ATTEMPT_PREFIX + '1-2', 'TARGET_ENVIRONMENT': target})
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(values['build'], 'false')
-        with self.assertRaisesRegex(ValueError, 'RESERVED_AIDT_ATTEMPT'):
-            m.release_tag(SOURCE, '123', m.AIDT_ATTEMPT_PREFIX + '1')
+            for tag in ('123-1', '123-' + module().AIDT_ATTEMPT_PREFIX + '1'):
+                result, values = self.plan({'TARGET_ENVIRONMENT': target, 'EXISTING_TAG': tag})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(values['tag'], tag)
+                self.assertEqual(values['build'], 'false')
 
     def test_normal_alias_of_marked_image_fails_existing_release_label_binding(self):
         m = module()
@@ -81,29 +57,11 @@ class AidtRelease(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'IMAGE_BUILD_IDENTITY'):
                 m.resolve('docker', 'registry.example/team', '123-1', 'web', False)
 
-    def test_rejects_non_devapp_after_target_resolution(self):
-        for branch, target in (('develop', 'cn'), ('develop', 'us'), ('main', 'auto'), ('main-us', 'auto')):
-            for build_only in ('true', 'false'):
-                result, values = self.plan({'ENABLE_AIDT': 'true', 'TARGET_ENVIRONMENT': target,
-                                            'GITHUB_REF_NAME': branch, 'BUILD_ONLY': build_only})
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn('AIDT_REQUIRES_DEVAPP', result.stderr)
-                self.assertEqual(values, {})
-
-    def test_invalid_boolean_and_unattested_reuse_reject_before_any_outputs(self):
-        for value in ('', '1', '0', 'True', 'FALSE', 'true\n', 'yes', '$(id)'):
+    def test_obsolete_opt_in_input_no_longer_hides_aidt(self):
+        for value in ('', 'false', 'true', '0', '1'):
             result, values = self.plan({'ENABLE_AIDT': value})
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn('INVALID_AIDT_BOOLEAN', result.stderr)
-            self.assertEqual(values, {})
-        for build_only in ('true', 'false'):
-            result, values = self.plan({'ENABLE_AIDT': 'true', 'EXISTING_TAG': '123-1', 'BUILD_ONLY': build_only})
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn('AIDT_REQUIRES_NEW_TAG', result.stderr)
-            self.assertEqual(values, {})
-        result, values = self.plan({'ENABLE_AIDT': 'false', 'EXISTING_TAG': '123-1'})
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(values['build'], 'false')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(values['aidt_web_enabled'], '1')
 
     def test_opt_in_does_not_admit_automatic_events_or_tag_refs(self):
         for extra in ({'GITHUB_EVENT_NAME': 'push'}, {'GITHUB_EVENT_NAME': 'pull_request'},
@@ -168,8 +126,6 @@ class AidtRelease(unittest.TestCase):
         cases = [({'NEXT_PUBLIC_ENABLE_AIDT': value}, 'INVALID_AIDT_BUILD_FLAG')
                  for value in ('true', '', '2', '1\n', '$(id)')]
         cases += [({FLAGS[0]: '1', FLAGS[1]: '0'}, 'AIDT_BUILD_FLAGS_MISMATCH')]
-        for target in ('cn', 'us', ''):
-            cases.append(({**{name: '1' for name in FLAGS}, 'TARGET_ENVIRONMENT': target}, 'AIDT_REQUIRES_DEVAPP'))
         for extra, code in cases:
             with self.subTest(extra=extra), patch.dict(os.environ, extra, clear=True), patch.object(m.subprocess, 'run') as execute:
                 with self.assertRaisesRegex(ValueError, code):
@@ -199,17 +155,19 @@ class AidtRelease(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'RERUN_ALL_JOBS_REQUIRED'):
                 m.build('web', 'registry.example/team', marked, '/never-written', SOURCE)
             execute.assert_not_called()
-        for role in ('api', 'web'):
-            with patch.dict(os.environ, {'AIDT_RELEASE_ENABLED': '1', 'TARGET_ENVIRONMENT': 'cn'}, clear=True), patch.object(m.subprocess, 'run') as execute:
-                with self.assertRaisesRegex(ValueError, 'AIDT_REQUIRES_DEVAPP'):
-                    m.build(role, 'registry.example/team', marked, '/never-written', SOURCE)
-                execute.assert_not_called()
+    def test_enabled_build_flags_are_available_in_every_environment(self):
+        m = module()
+        for target in ('devapp', 'cn', 'us'):
+            with patch.dict(os.environ, {'AIDT_RELEASE_ENABLED': '1', 'TARGET_ENVIRONMENT': target,
+                    **{name: '1' for name in FLAGS}}, clear=True):
+                self.assertEqual(m.aidt_web_build_args('web'), [arg for name in FLAGS for arg in ('--build-arg', name + '=1')])
 
-    def test_workflow_and_dockerfile_preserve_default_off_handoff(self):
+    def test_workflow_removes_opt_in_inputs_and_images_enable_aidt_by_default(self):
         workflow = (ROOT / '.github/workflows/image-release.yml').read_text()
-        self.assertEqual(workflow.count('      enable_aidt:\n'), 2)
-        self.assertEqual(workflow.count('        type: boolean\n        default: false'), 1)
-        self.assertIn('ENABLE_AIDT: ${{ inputs.enable_aidt }}', workflow)
+        self.assertNotIn('enable_aidt:', workflow)
+        self.assertNotIn('aidt_configuration_activation:', workflow)
+        self.assertNotIn('inputs.enable_aidt', workflow)
+        self.assertNotIn('inputs.aidt_configuration_activation', workflow)
         self.assertIn('aidt_web_enabled: ${{ steps.plan.outputs.aidt_web_enabled }}', workflow)
         self.assertIn('AIDT_RELEASE_ENABLED: ${{ needs.plan.outputs.aidt_web_enabled }}', workflow)
         for name in FLAGS:
@@ -218,7 +176,7 @@ class AidtRelease(unittest.TestCase):
         dockerfile = (ROOT / 'deploy/aliyun/images/web.Dockerfile').read_text()
         builder, runtime = dockerfile.split('FROM ${NODE_IMAGE} AS runtime')
         for name in FLAGS:
-            self.assertIn('ARG ' + name + '=0', builder)
+            self.assertIn('ARG ' + name + '=1', builder)
             self.assertLess(builder.index(name + '=${' + name + '}'), builder.index('pnpm --filter web build'))
             self.assertNotIn(name, runtime)
 

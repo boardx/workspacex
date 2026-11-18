@@ -17,11 +17,11 @@ it("revalidates resource associations on token rotation and permission transitio
   expect(aidtResourceScope(identity, "group", "design", "resource", false)).not.toBe(base);
   expect(aidtResourceScope({ ...identity, userId: "other" }, "group", "design", "resource", true)).not.toBe(base);
 });
-it("keeps AIDT classification independent of its opt-in routing and leaves ordinary projects unchanged", () => {
+it("keeps AIDT classification independent of legacy flags and leaves ordinary projects unchanged", () => {
   const aidt = { id: "group/1", kind: "general", tags: [AIDT_PROJECT_TAG] };
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "false");
   expect(isAidtProject(aidt)).toBe(true);
-  expect(projectWorkspaceHref(aidt)).toBe("/projects/group%2F1");
+  expect(projectWorkspaceHref(aidt)).toBe("/aidt/group%2F1");
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true");
   expect(projectWorkspaceHref(aidt)).toBe("/aidt/group%2F1");
   expect(projectWorkspaceHref({ ...aidt, tags: [] })).toBe("/projects/group%2F1");

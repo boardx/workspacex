@@ -27,35 +27,25 @@ beforeEach(() => {
 });
 afterEach(() => { vi.unstubAllEnvs(); });
 
-describe('optional AIDT bootstrap boundary (mock importer, no DB)', () => {
-  it.each([undefined, '', '0', 'false', 'TRUE', 'yes', ' true ', 'enabled'])('stays off for non-explicit value %j', value => {
-    expect(parseAidtModuleEnabled(value)).toBe(false);
+describe('default AIDT bootstrap boundary (mock importer, no DB)', () => {
+  it.each([undefined, '', '0', 'false', 'TRUE', 'yes', ' true ', 'enabled'])('is available with legacy value %j', value => {
+    expect(parseAidtModuleEnabled(value)).toBe(true);
   });
   it.each(['1', 'true'])('accepts explicit opt-in %j', value => {
     expect(parseAidtModuleEnabled(value)).toBe(true);
   });
-  it('keeps AIDT outside the ordinary platform pack list and default startup imports', async () => {
-    expect(STANDARD_PLATFORM_PACKS.some(pack => AIDT_OPT_IN_SKILL_PACKS.some(optional => String(pack.packId) === optional.packId))).toBe(false);
-    const reports = await ensureStandardSkillPacksSeeded(noDatabase, 'unit-platform-actor');
-    expect(reports.map(report => report.packId)).toEqual(STANDARD_PLATFORM_PACKS.map(pack => pack.packId));
-    expect(importer.mock.calls.map(([, input]) => input.packId)).toEqual(STANDARD_PLATFORM_PACKS.map(pack => pack.packId));
+  it('includes AIDT at default startup even with an old disabled environment flag', async () => {
+    for (const value of [undefined, '0', 'false', '1']) {
+      vi.stubEnv('ENABLE_AIDT_MODULE', value);
+      expect(enabledPlatformSkillPacks()).toEqual([...AIDT_OPT_IN_SKILL_PACKS, ...STANDARD_PLATFORM_PACKS]);
+    }
+    const reports = await ensureStandardSkillPacksSeeded(noDatabase, 'actor');
+    expect(reports.map(report => report.packId)).toEqual([...AIDT_OPT_IN_SKILL_PACKS, ...STANDARD_PLATFORM_PACKS].map(pack => pack.packId));
     expect(noDatabase.withTenant).not.toHaveBeenCalled();
-    expect(noDatabase.withoutTenant).not.toHaveBeenCalled();
   });
-  it('does not let an explicit bootstrap list bypass a disabled module', async () => {
-    expect(await ensureStandardSkillPacksSeeded(noDatabase, 'actor', AIDT_OPT_IN_SKILL_PACKS)).toEqual([]);
-    expect(importer).not.toHaveBeenCalled();
-    const ordinary = STANDARD_PLATFORM_PACKS[0];
-    const reports = await ensureStandardSkillPacksSeeded(noDatabase, 'actor', [...AIDT_OPT_IN_SKILL_PACKS, ordinary]);
-    expect(reports.map(report => report.packId)).toEqual([ordinary.packId]);
-    expect(importer).toHaveBeenCalledOnce();
-  });
-  it('resolves the opt-in per invocation and preserves the ordinary import order', () => {
-    expect(enabledPlatformSkillPacks()).toEqual(STANDARD_PLATFORM_PACKS);
-    vi.stubEnv('ENABLE_AIDT_MODULE', '1');
-    expect(enabledPlatformSkillPacks()).toEqual([...AIDT_OPT_IN_SKILL_PACKS, ...STANDARD_PLATFORM_PACKS]);
-    vi.stubEnv('ENABLE_AIDT_MODULE', '0');
-    expect(enabledPlatformSkillPacks()).toEqual(STANDARD_PLATFORM_PACKS);
+  it('imports an explicit AIDT list without deployment opt-in', async () => {
+    const reports = await ensureStandardSkillPacksSeeded(noDatabase, 'actor', AIDT_OPT_IN_SKILL_PACKS);
+    expect(reports.map(report => report.packId)).toEqual(AIDT_OPT_IN_SKILL_PACKS.map(pack => pack.packId));
   });
   it('uses the canonical platform importer and the same stable replay identity when enabled', async () => {
     vi.stubEnv('ENABLE_AIDT_MODULE', 'true');
@@ -76,14 +66,5 @@ describe('optional AIDT bootstrap boundary (mock importer, no DB)', () => {
     expect(reports[1]).toMatchObject({ ...AIDT_SUMMARY_SKILL_PACK, ok: true });
     expect(reports.slice(AIDT_OPT_IN_SKILL_PACKS.length).map(report => report.packId)).toEqual(STANDARD_PLATFORM_PACKS.map(pack => pack.packId));
     expect(reports.slice(1).every(report => report.ok)).toBe(true);
-  });
-  it('turning off stops future bootstrap without deleting prior content', async () => {
-    vi.stubEnv('ENABLE_AIDT_MODULE', '1');
-    await ensureStandardSkillPacksSeeded(noDatabase, 'actor', [AIDT_PLATFORM_SKILL_PACK]);
-    vi.stubEnv('ENABLE_AIDT_MODULE', 'false');
-    expect(await ensureStandardSkillPacksSeeded(noDatabase, 'actor', AIDT_OPT_IN_SKILL_PACKS)).toEqual([]);
-    expect(importer).toHaveBeenCalledOnce();
-    expect(noDatabase.withTenant).not.toHaveBeenCalled();
-    expect(noDatabase.withoutTenant).not.toHaveBeenCalled();
   });
 });

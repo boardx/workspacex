@@ -16,9 +16,6 @@ on:
       build_only:
         type: boolean
         default: true
-      enable_aidt:
-        type: boolean
-        default: false
       source_revision:
         type: string
         default: ''
@@ -41,16 +38,6 @@ on:
         required: false
         default: false
         type: boolean
-      enable_aidt:
-        description: Build AIDT and member chat Web UI plus API defaults (DevApp only; requires a new tag)
-        required: false
-        default: false
-        type: boolean
-      aidt_configuration_activation:
-        description: Activate the reviewed existing AIDT release configuration only (DevApp, build_only, all, explicit original source)
-        required: false
-        default: false
-        type: boolean
       tag:
         description: Existing immutable image tag (empty builds the selected branch)
         required: false
@@ -63,10 +50,7 @@ on:
 permissions:
   contents: read
 
-# One reviewed parent, not a caller-selected image, URL or mutable tag. This
-# optional configuration operation retains the parent's application revision.
 env:
-  AIDT_CONFIG_ACTIVATION: ${{ inputs.aidt_configuration_activation && '1' || '0' }}
   SOURCE_OVERRIDE: ${{ inputs.source_revision }}
   BUILD_ONLY: ${{ inputs.build_only }}
   BUILD_SERVICE: ${{ inputs.service || 'all' }}
@@ -114,7 +98,6 @@ jobs:
         env:
           SOURCE_REVISION: ${{ steps.source.outputs.source }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
-          ENABLE_AIDT: ${{ inputs.enable_aidt }}
           NODE_IMAGE: ${{ vars.WSX_NODE_IMAGE }}
           PYTHON_IMAGE: ${{ vars.WSX_PYTHON_IMAGE }}
           PGVECTOR_IMAGE: ${{ vars.WSX_POSTGRES_IMAGE }}

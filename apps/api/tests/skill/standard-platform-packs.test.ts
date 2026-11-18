@@ -12,13 +12,13 @@ import { expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { ensureDatabase, migrateOnce, asApp, seedOrg, addOrgMember, resetOrgs } from '../support/db';
 import { ensurePlatformSkillCatalogSeeded } from '../../src/infrastructure/skill/ensure-platform-skill-catalog';
-import { STANDARD_PLATFORM_PACKS } from '../../src/infrastructure/skill/ensure-standard-skill-packs';
+import { enabledPlatformSkillPacks } from '../../src/infrastructure/skill/ensure-standard-skill-packs';
 import { PLATFORM_ORG_ID } from '../../src/domain/org-id';
 it('publishes shipped complete workflow packages through the existing importer and replays without duplicate versions',async()=>{
   ensureDatabase();await migrateOnce();
   const first=await ensurePlatformSkillCatalogSeeded();expect(first.ok).toBe(true);
   if(!first.ok)throw first.error;
-  expect(first.report.standardPacks.map(p=>p.packId)).toEqual(STANDARD_PLATFORM_PACKS.map(p=>p.packId));
+  expect(first.report.standardPacks.map(p=>p.packId)).toEqual(enabledPlatformSkillPacks().map(p=>p.packId));
   const rows=await asApp(PLATFORM_ORG_ID,c=>c.query(`SELECT s.stable_name,v.id,count(f.path)::int AS files
     FROM skills s JOIN skill_versions v ON v.skill_id=s.id AND v.org_id=s.org_id
     JOIN skill_version_files f ON f.version_id=v.id AND f.org_id=v.org_id
@@ -76,7 +76,7 @@ it('ships standard-web 1.1.2 content: the platform org actually receives the 543
   if (!seeded.ok) throw seeded.error;
 
   // 九个包逐个成功——升级 standard-web 没有把别的包带下水。
-  expect(seeded.report.standardPacks.map(p => p.packId)).toEqual(STANDARD_PLATFORM_PACKS.map(p => p.packId));
+  expect(seeded.report.standardPacks.map(p => p.packId)).toEqual(enabledPlatformSkillPacks().map(p => p.packId));
   expect(seeded.report.standardPacks.filter(p => !p.ok)).toEqual([]);
 
   const rows = await asApp(PLATFORM_ORG_ID, c => c.query<{ semantic_label: string; bytes: number }>(

@@ -20,7 +20,7 @@ export const STANDARD_PLATFORM_PACKS = [
   {packId:'maau-diagnostics',packVersion:'2.0.1'},
 ] as const;
 
-/** Resolve optional modules at invocation time, never at import/module-load time. */
+/** Include shipped AIDT packs alongside the existing platform catalog. */
 export function enabledPlatformSkillPacks(): readonly { readonly packId: string; readonly packVersion: string }[] {
   return isAidtModuleEnabled() ? [...AIDT_OPT_IN_SKILL_PACKS, ...STANDARD_PLATFORM_PACKS] : STANDARD_PLATFORM_PACKS;
 }
@@ -72,8 +72,6 @@ export async function ensureStandardSkillPacksSeeded(
   actorId: string,
   packs: readonly { readonly packId: string; readonly packVersion: string }[] = enabledPlatformSkillPacks(),
 ): Promise<readonly StandardPackSeedOutcome[]> {
-  // An explicit pack list must not bypass the module's deployment opt-in.
-  // Existing rows are deliberately not disabled/deleted when this flag is off.
   const aidtEnabled = isAidtModuleEnabled();
   const selected = packs.filter((pack) => !AIDT_OPT_IN_SKILL_PACKS.some(optional => optional.packId === pack.packId) || aidtEnabled);
   if (selected.length === 0) return [];

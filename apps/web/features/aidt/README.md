@@ -11,17 +11,13 @@ AIDT lives inside WorkspaceX. It has separate routes, UI state, teaching metadat
 
 Shared Chat/recording/Design code must not import this module. The architecture test scans imports, re-exports, dynamic imports, relative paths and facade bypasses. Global member text communication remains a shared capability, outside AIDT, consuming its own authorized API rather than importing teaching internals.
 
-## Opt-in
+## Availability
 
-Both switches are off by default. For an isolated development/preview environment:
+AIDT entries, routes and API skill-pack bootstrap are enabled by default in every environment. Legacy `NEXT_PUBLIC_ENABLE_AIDT` and `ENABLE_AIDT_MODULE` values no longer hide the module. Release dispatch has no AIDT opt-in or configuration-activation input; new images include the module without an extra selection. Existing immutable images must be replaced by a new build to receive this behavior.
 
-- Build Web with `NEXT_PUBLIC_ENABLE_AIDT=1`. It is a Next public build-time switch: changing only a running server environment does not update an already-built client.
-- Start API with `ENABLE_AIDT_MODULE=1` to permit the existing verified AIDT skill-pack bootstrap. Restart the process after a configuration change.
-- Member communication has an independent default-off pair: build Web with `NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT=1`, start API with `ENABLE_PROJECT_MEMBER_CHAT=1`. The persistent launcher lives below SessionProvider, so it is available across authenticated pages and preserves unsubmitted drafts across navigation.
+Existing login, organization and project permissions remain authoritative. AIDT classification still uses project tags; ordinary Studio `step` parameters do not become teaching context. Returning to AIDT requires explicit `aidtStep` and project context. Verified skill-pack imports retain their stable idempotency keys, content-conflict handling and independent failure isolation.
 
-Disabled Web routes call `notFound()` before dynamically loading teaching UI. Navigation and ordinary project lists keep their original destinations; historical tagged projects remain accessible through the ordinary Project route. Ordinary Studio `step` parameters are not interpreted as teaching context; returning to AIDT requires explicit `aidtStep` and project context.
-
-The API switch stops future automatic imports; it does not delete existing skill rows, revoke capabilities, or change user content. When enabled, the pack still uses the existing platform catalog. A course-only publication scope needs separate design review. Neither flag is an authorization check.
+Member communication retains its independent runtime controls; release images include its existing build/runtime defaults.
 
 ## State and services
 

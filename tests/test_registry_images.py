@@ -136,7 +136,7 @@ class Producer(unittest.TestCase):
                     result=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/registry-images.py'),'plan','--source','b'*40],env=env,capture_output=True,text=True)
                     self.assertEqual(result.returncode,0,result.stderr)
                     values=dict(line.split('=',1) for line in output.read_text().splitlines())
-                    self.assertEqual(values['build'],'true');self.assertEqual(values['tag'],'123-1')
+                    self.assertEqual(values['build'],'true');self.assertEqual(values['tag'],'123-90000000000000000001')
 
     def test_cn_manual_branch_build_freezes_source_and_creates_unique_tag(self):
         import os, subprocess, sys
@@ -150,7 +150,7 @@ class Producer(unittest.TestCase):
                     self.assertEqual(result.returncode,0,result.stderr)
                     values=dict(line.split('=',1) for line in output.read_text().splitlines())
                     self.assertEqual(values['source'],'b'*40)
-                    self.assertEqual(values['tag'],'123-2')
+                    self.assertEqual(values['tag'],'123-90000000000000000002')
                     self.assertEqual(values['build'],'true')
                     self.assertEqual(values['target'],'cn')
                     self.assertEqual(values['fullset'],'true')
