@@ -4,7 +4,7 @@
 No per-tag approvals; fixed host config contains commands, paths and environment identity.
 The only user inputs are environment and immutable tag. Never invoke via a checkout sudo.
 """
-import argparse,contextlib,fcntl,importlib.util,json,os,re,signal,subprocess,sys,time,uuid
+import argparse,contextlib,fcntl,importlib.util,json,os,re,signal,subprocess,sys,time,uuid,threading
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 
@@ -115,7 +115,10 @@ def main():
   command=['/usr/bin/systemd-run','--wait','--collect','--quiet','--unit='+unit,'--property=RuntimeMaxSec=1800',
    '--property=TimeoutStopSec=180','--property=KillMode=mixed','--property=RuntimeDirectory='+unit,'--property=RuntimeDirectoryMode=0700',
    '/usr/bin/python3','-I','-B',str(Path(__file__).resolve()),args.environment,args.tag,'--execute']
-  completed=subprocess.run(command,env={'PATH':'/usr/bin:/bin'})
+  stop=threading.Event()
+  relay=threading.Thread(target=consumer.relay_progress,args=(unit,stop),daemon=True);relay.start()
+  try:completed=subprocess.run(command,env={'PATH':'/usr/bin:/bin'})
+  finally:stop.set();relay.join(timeout=12)
   rows=process.run(['/usr/bin/journalctl','--boot','--unit='+unit,'--output=cat','--no-pager','--lines=20'],timeout=10)
   for line in reversed(rows.stdout.decode().splitlines()):
    try:result=json.loads(line)

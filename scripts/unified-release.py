@@ -4,8 +4,12 @@
 Callers hold the canonical environment lock throughout release/recovery. State and
 rendered Compose files contain secrets and live under a root-private release root.
 """
-import json,os,re,tempfile,uuid
+import json,os,re,tempfile,uuid,sys,time
 from pathlib import Path
+
+PROGRESS_STARTED=time.monotonic()
+def progress(stage, status='started'):
+ print(f'IMAGE_DEPLOY_STAGE stage={stage} status={status} elapsed_seconds={int(time.monotonic()-PROGRESS_STARTED)}',file=sys.stderr,flush=True)
 
 def atomic(path,value):
  path=Path(path);fd,name=tempfile.mkstemp(dir=path.parent,prefix='.release-')
@@ -52,11 +56,14 @@ def release(root,tag,adapter):
  attempt=root/'log'/('release-'+uuid.uuid4().hex);attempt.mkdir(mode=0o700)
  stage='prepare';mutated=False;published=False;database='UNCHANGED';baseline=None
  context={'attempt':str(attempt),'tag':tag};candidate=None
- def record():atomic(active,{**context,'stage':stage,'database':database,'baseline':baseline,'candidate':candidate})
+ def record():
+  progress(stage)
+  atomic(active,{**context,'stage':stage,'database':database,'baseline':baseline,'candidate':candidate})
  try:
+  progress('prepare')
   candidate=adapter.prepare(tag,attempt)
-  stage='baseline';baseline=adapter.baseline(attempt)
-  stage='plan';plan=adapter.plan(candidate,attempt)
+  stage='baseline';progress(stage);baseline=adapter.baseline(attempt)
+  stage='plan';progress(stage);plan=adapter.plan(candidate,attempt)
   if plan.get('status') not in ('PENDING','COMPLETE'):raise ValueError('MIGRATION_PLAN_FAILED')
   record()
   if plan['status']=='PENDING':
@@ -76,8 +83,10 @@ def release(root,tag,adapter):
   published=True
   atomic(root/'previous/release.json',baseline);atomic(root/'current/release.json',candidate)
   result={**context,'status':'SUCCEEDED','stage':'complete','database':database,'verification':'runtime-readiness'}
+  progress('complete','completed')
   atomic(attempt/'result.json',result);active.unlink();return result
  except Exception as error:
+  progress(stage,'failed')
   code=str(error)
   result={**context,'status':'FAILED','stage':stage,'database':database,'code':code if re.fullmatch(r'[A-Z][A-Z0-9_]{1,100}',code) else 'RELEASE_OPERATION_FAILED'}
   # os.replace may have succeeded even when its following directory fsync fails.
@@ -85,7 +94,9 @@ def release(root,tag,adapter):
   if published or stage=='publish':result['status']='RECOVERY_REQUIRED'
   elif mutated and baseline is not None:
    try:
+    progress('rollback')
     adapter.start(baseline);adapter.verify(baseline);result['status']='ROLLED_BACK'
+    progress('rollback','completed')
    except Exception:result['status']='RECOVERY_REQUIRED'
   atomic(attempt/'result.json',result)
   if result['status']!='RECOVERY_REQUIRED' and database!='RECONCILE_REQUIRED' and active.exists():active.unlink()
