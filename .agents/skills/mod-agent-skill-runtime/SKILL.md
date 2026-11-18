@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-18（#6715）：AIDT 已改为全环境默认可见并自动引导技能包；旧 Web/API 模块开关不再隐藏它，发布工作流不再提供 opt-in 或历史配置激活选项。入口可见性不替代原有组织/项目鉴权，复用旧 immutable tag 也不会更新旧镜像代码。
 - 2026-11-17：教学反馈的回合收敛应由新不可变 Skill 包显式选择反馈模式，不能凭 stable name 或学生文本赋权，也不能全局禁止普通 Skill 后续工作。仅真实非空成功 ToolMessage、对应 call ID、完整 task 与当前 mounted Skill 字节匹配后返回实际 focused 结果；失败、未知、撤回、改版或新学生输入不沿用。TS 的授权参考在 `hN` history 中、位于 `:user` 之前；仅取最新 user 会漏掉快照，需经真实 InjectedState 读取本轮已有材料，并保持 user/assistant 参考等级，不提升为 system 权限。离线故障模型与真实 PG checkpoint 补验通过不等于供应商模型质量、请求次数及延迟已验收，真实模型复验仍待。证据见 [AIDT 反馈回合修复与红绿边界](../../../docs/evidence/aidt-native/remediation-20261117/a4-runtime/README.md)。
 - 2026-11-12（#6553）：平台及组织目录显示 Work Skill 用途时，先读取作者的版本说明或同范围声明契约的职责；旧版内置包缺说明时从 SKILL.md 用途生成显示文案。按可信 Work Skill 稳定编号映射，避免把同名的自定义 Skill 当成内置 Skill。
 - 2026-11-06：图片工具归档了结果，不代表显式图片 Agent 也归档；后者曾直接返回百炼临时 URL。模型适配器应校验真实像素、持久化并回读，再经既有 RunOutputFile/消息附件写回，执行器不能在脚本处理后丢掉 provider 文件。下载/归档失败不重试收费生成；历史 URL 与 CN 发布后刷新验收另计（issue #6319）。

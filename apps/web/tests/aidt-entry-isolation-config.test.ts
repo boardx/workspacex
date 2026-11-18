@@ -2,15 +2,15 @@ import { afterEach, expect, it, vi } from "vitest";
 import { isAidtModuleEnabled, parseAidtModuleEnabled } from "@/lib/aidt-module-config";
 
 afterEach(() => vi.unstubAllEnvs());
-it.each([undefined, "", "false", "0", "TRUE", " true ", "enabled"])("keeps the module disabled for %s", value => {
-  expect(parseAidtModuleEnabled(value)).toBe(false);
+it.each([undefined, "", "false", "0", "TRUE", " true ", "enabled"])("keeps AIDT available for %s", value => {
+  expect(parseAidtModuleEnabled(value)).toBe(true);
 });
-it.each(["1", "true"])("allows an explicit %s build-time opt-in", value => {
+it.each(["1", "true"])("remains available with legacy flag %s", value => {
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", value);
   expect(isAidtModuleEnabled()).toBe(true);
 });
-it("does not infer Web access from a backend flag", () => {
+it("does not require either deployment flag", () => {
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", undefined);
   vi.stubEnv("ENABLE_AIDT_MODULE", "true");
-  expect(isAidtModuleEnabled()).toBe(false);
+  expect(isAidtModuleEnabled()).toBe(true);
 });

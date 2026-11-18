@@ -113,9 +113,7 @@ class ApiFlavor(unittest.TestCase):
 
     def test_wrong_target_flavor_tag_or_public_flag_never_reaches_docker(self):
         marked = module().release_tag(SOURCE, '123', '1', True)
-        for enabled, extra, tag, code in (('1', {'TARGET_ENVIRONMENT': 'cn'}, marked, 'AIDT_REQUIRES_DEVAPP'),
-                                         ('1', {'TARGET_ENVIRONMENT': 'us'}, marked, 'AIDT_REQUIRES_DEVAPP'),
-                                         ('1', {}, '123-1', 'AIDT_TAG_FLAVOR_MISMATCH'),
+        for enabled, extra, tag, code in (('1', {}, '123-1', 'AIDT_TAG_FLAVOR_MISMATCH'),
                                          ('0', {}, marked, 'AIDT_TAG_FLAVOR_MISMATCH'),
                                          ('1', {'NEXT_PUBLIC_ENABLE_AIDT': '1', 'NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT': '1'}, marked, 'AIDT_WEB_BUILD_ONLY')):
             _, calls, result, error = self.execute(enabled, extra=extra, tag=tag)
@@ -137,7 +135,7 @@ class ApiFlavor(unittest.TestCase):
     def test_dockerfile_runtime_defaults_and_actual_boolean_validation_shell(self):
         body = (ROOT / 'deploy/aliyun/images/api.Dockerfile').read_text().split('FROM sources AS runtime\n', 1)[1]
         for name in module().API_AIDT_FLAGS:
-            self.assertIn('ARG ' + name + '=0', body)
+            self.assertIn('ARG ' + name + '=1', body)
             self.assertIn(name + '=${' + name + '}', body)
         start = body.index('RUN case ')
         end = body.index('\nENV ENABLE_AIDT_MODULE=', start)

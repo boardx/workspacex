@@ -24,8 +24,8 @@ RUN --network=none pnpm --filter @repo/contracts exec tsc -p tsconfig.release.js
  && printf typechecked > /api-typecheck.ok
 # Only production dependencies enter the distributed runtime layers.
 FROM sources AS runtime
-ARG ENABLE_AIDT_MODULE=0
-ARG ENABLE_PROJECT_MEMBER_CHAT=0
+ARG ENABLE_AIDT_MODULE=1
+ARG ENABLE_PROJECT_MEMBER_CHAT=1
 RUN case "$ENABLE_AIDT_MODULE" in 0|1) ;; *) exit 1;; esac \
  && case "$ENABLE_PROJECT_MEMBER_CHAT" in 0|1) ;; *) exit 1;; esac
 ENV ENABLE_AIDT_MODULE=${ENABLE_AIDT_MODULE} ENABLE_PROJECT_MEMBER_CHAT=${ENABLE_PROJECT_MEMBER_CHAT}

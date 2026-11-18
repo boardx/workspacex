@@ -45,13 +45,13 @@ it.each([undefined, "true"])("keeps ordinary general/workshop cards and URLs whe
   }
 });
 
-it("keeps an AIDT-tagged project's ordinary entry and card when the module is disabled", () => {
+it("routes an AIDT-tagged project to AIDT even with a legacy disabled flag", () => {
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "false");
   const project: HomeProject = { id: "research/group", name: "已存在的研究小组", kind: "general", tags: ["workspacex:aidt"], collaborators: null };
   render(<I18nProvider initialLocale="zh-CN"><ProjectCard project={project} /></I18nProvider>);
-  expect(screen.getByTestId(`home-recent-project-${project.id}`)).toHaveAttribute("href", "/projects/research%2Fgroup");
+  expect(screen.getByTestId(`home-recent-project-${project.id}`)).toHaveAttribute("href", "/aidt/research%2Fgroup");
   expect(screen.getByText(project.name)).toBeVisible();
-  expect(screen.queryByText("AIDT", { exact: true })).toBeNull();
+  expect(screen.getByText("AIDT", { exact: true })).toBeTruthy();
 });
 
 it.each([undefined, "true"])("does not reinterpret a normal Studio step query as an AIDT return when AIDT=%s", (flag) => {
@@ -61,14 +61,14 @@ it.each([undefined, "true"])("does not reinterpret a normal Studio step query as
   expect(screen.getByTestId("project-breadcrumb-back")).toHaveAttribute("href", "/projects/ordinary%2Fproject?tab=research&sub=transcript");
 });
 
-it("keeps a stale AIDT return query in the ordinary project when the module is disabled", () => {
+it("preserves explicit AIDT return context regardless of legacy flags", () => {
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "false");
   route.search = "aidtStep=2&aidtThread=teaching-thread";
   render(<I18nProvider initialLocale="zh-CN"><ProjectBreadcrumb projectId="ordinary/project" sub="design" /></I18nProvider>);
-  expect(screen.getByTestId("project-breadcrumb-back")).toHaveAttribute("href", "/projects/ordinary%2Fproject?tab=research&sub=design");
+  expect(screen.getByTestId("project-breadcrumb-back")).toHaveAttribute("href", "/aidt/ordinary%2Fproject?step=2&tool=design&thread=teaching-thread");
 });
 
-it("preserves non-AIDT navigation and role visibility across the opt-in", async () => {
+it("preserves non-AIDT navigation and role visibility across legacy flags", async () => {
   const navigation = async (flag: string) => {
     vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", flag);
     vi.resetModules();
@@ -77,10 +77,18 @@ it("preserves non-AIDT navigation and role visibility across the opt-in", async 
   };
   const disabled = await navigation("false"), enabled = await navigation("true");
   const entries = (segments: typeof disabled) => segments.flatMap((segment) => segment.items).map(({ key, label, href, children, ucRefs }) => ({ key, label, href, children, ucRefs }));
-  expect(entries(disabled).some((entry) => entry.key === "aidt")).toBe(false);
+  expect(entries(disabled).some((entry) => entry.key === "aidt")).toBe(true);
   expect(entries(enabled).filter((entry) => entry.key === "aidt")).toEqual([expect.objectContaining({ href: "/aidt" })]);
-  expect(entries(enabled).filter((entry) => entry.key !== "aidt")).toEqual(entries(disabled));
+  expect(entries(enabled)).toEqual(entries(disabled));
   expect(entries(disabled).some((entry) => entry.key === "chat")).toBe(true);
   expect(entries(disabled).some((entry) => entry.key === "projects")).toBe(true);
   expect(entries(disabled).some((entry) => entry.key === "admin" || entry.key === "platform-admin")).toBe(false);
+});
+
+it.each(["member", "consultant", "lead", "admin", null])("shows the AIDT entry to organization role %s without deployment flags", async (orgRole) => {
+  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", undefined);
+  vi.resetModules();
+  const { navSegmentsForViewer } = await import("@/lib/navigation");
+  const entries = navSegmentsForViewer({ orgName: "organization", orgRole, platformOperator: false }).flatMap(segment => segment.items);
+  expect(entries.find(entry => entry.key === "aidt")?.href).toBe("/aidt");
 });

@@ -14,8 +14,8 @@ it("dependency failures and malformed rosters stay errors", async () => {
   mocks.request.mockResolvedValueOnce({ members: [] , simulatedOwner: true }); await expect(readAidtProjectMembership("p", "me", "t")).rejects.toThrow();
 });
 it("rejects duplicate membership identity rather than selecting a preferred role", async () => { mocks.request.mockResolvedValue({ members: [{ userId: "me", displayName: "", role: "owner" },{userId:"me",displayName:"",role:"collaborator"}] }); await expect(readAidtProjectMembership("p", "me", "t")).rejects.toThrow("AIDT_MEMBERSHIP_INCONSISTENT"); });
-it("disabled, missing identity and cancelled reads make no request", async () => {
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "false"); await expect(readAidtProjectMembership("p","me","t")).rejects.toThrow();
+it("missing identity and cancelled reads make no request even with legacy flags", async () => {
+  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "false");
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); await expect(readAidtProjectMembership("p","","t")).rejects.toThrow();
   const controller=new AbortController();controller.abort();await expect(readAidtProjectMembership("p","me","t",controller.signal)).rejects.toThrow();expect(mocks.request).not.toHaveBeenCalled();
 });
