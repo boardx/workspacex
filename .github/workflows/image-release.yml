@@ -19,6 +19,9 @@ on:
       source_revision:
         type: string
         default: ''
+      baseline_revision:
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       environment:
@@ -28,11 +31,10 @@ on:
         type: choice
         options: [auto, devapp, cn, us]
       service:
-        description: Diagnostic service selector (requires build_only)
+        description: "Build services (requires build_only for a subset). Enter auto with a baseline SHA, all, or a comma-separated list to add: api, web, agent, sandbox, postgres"
         required: false
         default: all
-        type: choice
-        options: [all, api, web, agent, sandbox, postgres]
+        type: string
       build_only:
         description: Build selected branch without deployment
         required: false
@@ -46,6 +48,10 @@ on:
         description: Optional exact diagnostic source SHA (run from develop with build_only)
         required: false
         type: string
+      baseline_revision:
+        description: Exact baseline SHA for automatic source comparison (requires build_only)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -53,6 +59,7 @@ permissions:
 env:
   SOURCE_OVERRIDE: ${{ inputs.source_revision }}
   BUILD_ONLY: ${{ inputs.build_only }}
+  BUILD_BASELINE: ${{ inputs.baseline_revision }}
   BUILD_SERVICE: ${{ inputs.service || 'all' }}
   EXISTING_TAG: ${{ inputs.tag }}
   REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
@@ -92,6 +99,7 @@ jobs:
           ref: ${{ steps.source.outputs.source }}
           persist-credentials: false
           path: source
+          fetch-depth: ${{ inputs.baseline_revision != '' && '0' || '1' }}
       - name: Resolve immutable tag and environment
         id: plan
         working-directory: source
