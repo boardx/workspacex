@@ -71,7 +71,18 @@ class Producer(unittest.TestCase):
         self.assertIn('ref: ${{ needs.plan.outputs.source }}',workflow)
         self.assertIn('SOURCE_REVISION: ${{ steps.source.outputs.source }}',workflow)
         self.assertIn('SOURCE_REVISION: ${{ needs.plan.outputs.source }}',workflow)
-        self.assertIn('../control/scripts/registry-images.py build --source "$SOURCE_REVISION"',workflow)
+        build_job=workflow.split('\n  build:\n',1)[1].split('\n  manifest:',1)[0]
+        self.assertIn(
+            "RELEASE_SCRIPT: ${{ needs.plan.outputs.source == github.sha && "
+            "'scripts/registry-images.py' || '../control/scripts/registry-images.py' }}",
+            build_job,
+        )
+        self.assertIn("path: ${{ needs.plan.outputs.source == github.sha && 'source' || 'control' }}",build_job)
+        self.assertIn(
+            'if: needs.plan.outputs.source != github.sha',
+            build_job,
+        )
+        self.assertIn('python3 -B "$RELEASE_SCRIPT" build --source "$SOURCE_REVISION"',build_job)
         self.assertIn('source_revision: ${{ inputs.release_sha }}',(ROOT/'.github/workflows/build-cn-release-artifacts.yml').read_text())
 
     def test_unique_tag_uses_run_and_attempt(self):
