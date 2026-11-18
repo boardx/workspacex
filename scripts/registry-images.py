@@ -85,7 +85,7 @@ def safe_diagnostics(raw):
     return '\n'.join(raw.splitlines()[-100:])[-12000:]
 
 def run(args, timeout=3600, retry_transient=False):
-    if args[:3] == ['docker', 'buildx', 'build'] or args[:2] == ['docker', 'push']:
+    if os.environ.get('IMAGE_RELEASE_LIVE_LOGS') == '1' and (args[:3] == ['docker', 'buildx', 'build'] or args[:2] == ['docker', 'push']):
         return stream_release_command(args, timeout)
     if retry_transient:
         position=3 if len(args)>2 and args[1]=='--config' else 1

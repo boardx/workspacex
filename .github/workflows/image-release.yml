@@ -139,6 +139,7 @@ jobs:
         run: python3 -B ../control/scripts/registry-images.py login
       - name: Build and publish service
         env:
+          IMAGE_RELEASE_LIVE_LOGS: "1"
           SERVICE: ${{ matrix.service }}
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
           SOURCE_REVISION: ${{ needs.plan.outputs.source }}
