@@ -81,9 +81,9 @@ jobs:
       group: ${{ steps.plan.outputs.target == 'devapp' && 'workspacex-devapp-deploy' || steps.plan.outputs.target == 'us' && 'workspacex-us-production-deploy' || 'workspacex-cn-production-deploy' }}
       fullset: ${{ steps.plan.outputs.fullset }}
       aidt_web_enabled: ${{ steps.plan.outputs.aidt_web_enabled }}
-      node_image: ${{ steps.plan.outputs.node_image }}
-      python_image: ${{ steps.plan.outputs.python_image }}
-      pgvector_image: ${{ steps.plan.outputs.pgvector_image }}
+      node_image: ${{ steps.mirror.outputs.node_image }}
+      python_image: ${{ steps.mirror.outputs.python_image }}
+      pgvector_image: ${{ steps.mirror.outputs.pgvector_image }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -110,6 +110,20 @@ jobs:
           PYTHON_IMAGE: ${{ vars.WSX_PYTHON_IMAGE }}
           PGVECTOR_IMAGE: ${{ vars.WSX_POSTGRES_IMAGE }}
         run: python3 -B ../control/scripts/registry-images.py plan --source "$SOURCE_REVISION" --resolve-bases
+
+      - name: Mirror pinned build bases to Shanghai ACR
+        id: mirror
+        if: >-
+          steps.plan.outputs.build == 'true' &&
+          contains(fromJSON('["develop","main","main-us"]'), github.ref_name)
+        env:
+          NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
+          PYTHON_IMAGE: ${{ steps.plan.outputs.python_image }}
+          PGVECTOR_IMAGE: ${{ steps.plan.outputs.pgvector_image }}
+          ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.WSX_ACR_PASSWORD }}
+          REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
+        run: bash control/scripts/mirror-release-bases.sh
 
   build:
     needs: plan
