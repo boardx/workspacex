@@ -85,6 +85,8 @@ def safe_diagnostics(raw):
     return '\n'.join(raw.splitlines()[-100:])[-12000:]
 
 def run(args, timeout=3600, retry_transient=False):
+    if args[:3] == ['docker', 'buildx', 'build'] or args[:2] == ['docker', 'push']:
+        return stream_release_command(args, timeout)
     if retry_transient:
         position=3 if len(args)>2 and args[1]=='--config' else 1
         need(len(args)>position and args[position]=='pull','RETRY_REQUIRES_PULL')
@@ -145,8 +147,7 @@ def resolve(docker, prefix, tag, role, pull=True, expected_source=None, expected
     need(len(set(digests))==1,'IMAGE_DIGEST')
     return {'service':role,'sourceRevision':source,'tag':tag,'image':digests[0],'imageId':value['Id']}
 
-def run_release_stage(role, stage, args, timeout):
-    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} timeout_seconds={timeout}', flush=True)
+def stream_release_command(args, timeout):
     started = time.monotonic()
     # Read continuously so BuildKit progress reaches Actions before completion.
     output = []
@@ -164,13 +165,20 @@ def run_release_stage(role, stage, args, timeout):
             process.kill()
             process.wait()
             reader.join(timeout=5)
-            print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} timeout elapsed_seconds={time.monotonic()-started:.1f}', flush=True)
-            raise ValueError(f'{stage.upper()}_TIMEOUT_{role.upper()}') from None
+            print(f'IMAGE_RELEASE_COMMAND timeout elapsed_seconds={time.monotonic()-started:.1f}', flush=True)
+            raise subprocess.TimeoutExpired(args, timeout) from None
         reader.join(timeout=5)
         need(process.returncode == 0, 'COMMAND_FAILED_'+Path(args[0]).name.upper())
-    result = ''.join(output)
-    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} elapsed_seconds={time.monotonic()-started:.1f}', flush=True)
-    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} completed', flush=True)
+    return ''.join(output)
+
+def run_release_stage(role, stage, args, timeout):
+    started = time.monotonic()
+    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} timeout_seconds={timeout}', flush=True)
+    try:
+        result = run(args, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise ValueError(f'{stage.upper()}_TIMEOUT_{role.upper()}') from None
+    print(f'IMAGE_RELEASE_STAGE service={role} stage={stage} completed elapsed_seconds={time.monotonic()-started:.1f}', flush=True)
     return result
 
 
