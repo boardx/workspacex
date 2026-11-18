@@ -47,6 +47,44 @@ def release_tag(source, run, attempt, enable_aidt=False):
     need(not attempt.startswith(AIDT_ATTEMPT_PREFIX),'RESERVED_AIDT_ATTEMPT')
     return run+'-'+attempt
 
+def select_build_services(selection, build_only, existing_tag):
+    if selection.strip() == 'all':
+        return list(SERVICES)
+    requested = [item.strip() for item in selection.split(',')]
+    need(all(item in SERVICES for item in requested), 'INVALID_BUILD_SERVICE')
+    need(len(requested) == len(set(requested)), 'DUPLICATE_BUILD_SERVICE')
+    need(not existing_tag, 'BUILD_SERVICE_WITH_EXISTING_TAG')
+    need(build_only or len(requested) == len(SERVICES), 'PARTIAL_BUILD_REQUIRES_BUILD_ONLY')
+    return [role for role in SERVICES if role in requested]
+
+
+def changed_build_services(baseline, source):
+    need(SHA.fullmatch(baseline), 'INVALID_BUILD_BASELINE')
+    # Compare complete trees so merges, deletions and non-linear history work.
+    changed = run(['git', 'diff', '--no-renames', '--name-only', '-z', baseline, source, '--']).split('\0')
+    changed = {path for path in changed if path}
+    shared = ('package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.json',
+              'patches', 'packages', 'shared', 'skills/localizations', '.dockerignore')
+    inputs = {
+        'web': (*shared, 'apps/web', 'tests/fixtures/cn-six-business'),
+        'api': (*shared, 'apps/api', 'apps/local-asr-gateway', 'apps/skill-sandbox',
+                'apps/deep-agent-service/langgraph.json', 'skills/starter-packs',
+                'requirements/work-stack-v2/workflows', 'deploy/aliyun/images/api.tsconfig.json'),
+    }
+
+    def touches(path, roots):
+        return any(path == root or path.startswith(root + '/') for root in roots)
+
+    if any(touches(path, ('scripts/registry-images.py', 'scripts/hosted-release.py',
+                          '.github/workflows/image-release.yml')) for path in changed):
+        return list(SERVICES)
+    return [
+        role for role, (_, dockerfile, context, _) in SERVICES.items()
+        if any(touches(path, (*inputs.get(role, (context,)), dockerfile, dockerfile + '.dockerignore'))
+               for path in changed)
+    ]
+
+
 def build_source(default, override, build_only):
     need(isinstance(default,str) and SHA.fullmatch(default), 'INVALID_BUILD_SOURCE')
     need(isinstance(override,str) and (not override or SHA.fullmatch(override)), 'INVALID_BUILD_SOURCE')
@@ -490,8 +528,15 @@ def main():
         tag=existing or (os.environ['GITHUB_RUN_ID']+'-'+AIDT_ATTEMPT_PREFIX+os.environ['GITHUB_RUN_ATTEMPT'] if activation_selected() else release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT']))
         need(TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
         selected=os.environ.get('BUILD_SERVICE') or 'all'
-        need(selected=='all' or selected in SERVICES and os.environ.get('BUILD_ONLY')=='true','PARTIAL_BUILD_REQUIRES_BUILD_ONLY')
-        services=list(SERVICES) if selected=='all' else [selected]
+        services=[] if selected == 'auto' else select_build_services(selected,build_only,existing)
+        baseline=os.environ.get('BUILD_BASELINE','')
+        need(selected != 'auto' or baseline,'AUTO_BUILD_BASELINE_REQUIRED')
+        detected=None
+        if baseline:
+            need(build_only and not existing and not activation_selected(),'BUILD_BASELINE_REQUIRES_BUILD_ONLY')
+            detected=changed_build_services(baseline,args.source)
+            services=[role for role in SERVICES if role in detected or
+                      (selected != 'auto' and role in services)]
         activation=activation_selected()
         if activation:
             activation_parent(os.environ.get('REGISTRY_PREFIX',''),args.source,tag,target,aidt,build_only,selected,existing)
@@ -500,15 +545,19 @@ def main():
               'us':('production-us','workspacex-us-production','workspacex-us-production-deploy')}[target]
         runner=['self-hosted','linux','x64',lane[1]]
         with open(os.environ['GITHUB_OUTPUT'],'a') as output:
-            values={'source':args.source,'tag':tag,'services':json.dumps(services),'fullset':'true' if selected=='all' else 'false','target':target,'environment':lane[0],
-                    'runner':json.dumps(runner),'build':'false' if existing else 'true','group':lane[2],'aidt_web_enabled':aidt}
-            if args.resolve_bases and not existing and not activation: values.update(resolve_bases())
+            values={'source':args.source,'tag':tag,'services':json.dumps(services),'fullset':'true' if len(services)==len(SERVICES) else 'false','target':target,'environment':lane[0],
+                    'runner':json.dumps(runner),'build':'true' if services and not existing else 'false','group':lane[2],'aidt_web_enabled':aidt}
+            if args.resolve_bases and services and not existing and not activation: values.update(resolve_bases())
             for key,value in values.items(): output.write(key+'='+value+'\n')
         summary=os.environ.get('GITHUB_STEP_SUMMARY')
         if summary:
             with open(summary,'a') as output:
-                mode='Reuse existing images (skip build)' if existing else 'Build and publish new images'
+                mode='Reuse existing images (skip build)' if existing else ('Build and publish new images' if services else 'No changed build inputs')
                 output.write('## Image release plan\n\nImage tag: `'+tag+'`\n\nEnvironment: `'+target+'`\n\nMode: '+mode+'\n\n')
+                if detected is not None:
+                    output.write('Comparison baseline: `'+baseline+'`\n\nDetected services: '+(', '.join(detected) or 'none')+'\n\n')
+                if not existing:
+                    output.write('Services: '+', '.join(services)+'\n\n')
                 if existing:
                     output.write('Reused tag: AIDT build-time flags are not attested by this plan.\n\n')
                 else:

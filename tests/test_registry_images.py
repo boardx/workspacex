@@ -15,6 +15,27 @@ def module():
     return value
 
 class Producer(unittest.TestCase):
+    def test_source_comparison_detects_service_and_shared_inputs(self):
+        m = module()
+        for changed, expected in (
+            ('apps/web/components/banner.tsx', ['web']),
+            ('apps/skill-sandbox/src/main.ts', ['api', 'sandbox']),
+            ('packages/contracts/index.ts', ['api', 'web']),
+            ('scripts/registry-images.py', list(m.SERVICES)),
+            ('docs/example.md', []),
+        ):
+            with self.subTest(changed=changed), patch.object(m, 'run', return_value=changed + chr(0)):
+                self.assertEqual(m.changed_build_services('a' * 40, 'b' * 40), expected)
+
+    def test_manual_service_selection_validates_service_list(self):
+        m = module()
+        self.assertEqual(m.select_build_services('web, api', True, ''), ['api', 'web'])
+        for selection in ('web,web', 'web,', 'web,unknown'):
+            with self.assertRaises(ValueError):
+                m.select_build_services(selection, True, '')
+        with self.assertRaisesRegex(ValueError, 'PARTIAL_BUILD_REQUIRES_BUILD_ONLY'):
+            m.select_build_services('web,api', False, '')
+
     def test_baseline_source_requires_exact_sha_and_build_only(self):
         m=module()
         self.assertEqual(m.build_source('a'*40,'',False),'a'*40)
