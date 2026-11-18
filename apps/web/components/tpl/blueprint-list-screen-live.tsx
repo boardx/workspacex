@@ -1,4 +1,8 @@
 "use client";
+import { localizeBlueprintCopy } from "@/lib/i18n/blueprint-copy";
+
+import { useI18n } from "@/lib/i18n/provider";
+
 import { ResourceCard } from "@/components/ui/resource-card";
 import * as React from "react";
 import Link from "next/link";
@@ -44,6 +48,8 @@ import {
 type BlueprintViewMode = "card" | "list";
 
 export function BlueprintListScreenLive() {
+ const { t: blueprintI18n } = useI18n();
+
   const { session } = useSession();
   if (!session) throw new Error("BlueprintListScreenLive requires an authenticated session");
   const orgId = session.currentOrgId;
@@ -106,7 +112,7 @@ export function BlueprintListScreenLive() {
     try {
       await createBlueprint({
         orgId,
-        name: `${source.name} 副本`,
+        name: blueprintI18n("blueprintFlow.copyName", { name: source.name }),
         origin: "copy",
         sourceId: source.blueprintId,
       });
@@ -120,23 +126,23 @@ export function BlueprintListScreenLive() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4" data-testid="tpl-live-screen">
       <header className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-20 font-bold tracking-tight">项目模板</h1>
+          <h1 className="text-20 font-bold tracking-tight">{blueprintI18n("adminNavigation.item.blueprint")}</h1>
           <p className="text-12 text-muted-foreground" data-testid="tpl-live-stats">
-            {rows === null ? (listBusy ? "加载中…" : "—") : `${rows.length} 个`}
+            {rows === null ? (listBusy ? blueprintI18n("brain.loading") : "—") : blueprintI18n("blueprintFlow.value1Items", { value1: String(rows.length) })}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <div
             className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
             role="group"
-            aria-label="视图切换"
+            aria-label={blueprintI18n("projects.viewSwitch")}
             data-testid="admin-blueprint-view-toggle"
           >
             <Button
               size="xs"
               variant={viewMode === "card" ? "primary" : "ghost"}
               aria-pressed={viewMode === "card"}
-              aria-label="卡片视图"
+              aria-label={blueprintI18n("projects.cardView")}
               data-testid="admin-blueprint-view-toggle-card"
               onClick={() => setViewMode("card")}
             >
@@ -146,7 +152,7 @@ export function BlueprintListScreenLive() {
               size="xs"
               variant={viewMode === "list" ? "primary" : "ghost"}
               aria-pressed={viewMode === "list"}
-              aria-label="列表视图"
+              aria-label={blueprintI18n("chatKnowledge.list")}
               data-testid="admin-blueprint-view-toggle-list"
               onClick={() => setViewMode("list")}
             >
@@ -154,53 +160,48 @@ export function BlueprintListScreenLive() {
             </Button>
           </div>
           <Button size="sm" variant="outline" data-testid="tpl-live-refresh" onClick={() => refresh(orgId)} disabled={listBusy}>
-            {listBusy ? "加载中…" : "刷新"}
+            {listBusy ? blueprintI18n("brain.loading") : blueprintI18n("adminCommon.refresh")}
           </Button>
           <Button size="sm" variant="primary" data-testid="tpl-live-new" onClick={() => { setCreating(true); setCreateError(null); }}>
-            <Sparkles aria-hidden className="h-3.5 w-3.5" /> 新建模板
-          </Button>
+            <Sparkles aria-hidden className="h-3.5 w-3.5" />{blueprintI18n("blueprintFlow.newTemplate")}</Button>
         </div>
       </header>
 
       {creating && (
         <Card data-testid="tpl-live-create-form">
           <CardContent className="flex flex-col gap-2 p-3">
-            <Label htmlFor="tpl-live-new-name">从空白开始 · 模板名称</Label>
+            <Label htmlFor="tpl-live-new-name">{blueprintI18n("blueprintFlow.startFromBlankTemplateName")}</Label>
             <div className="flex items-center gap-2">
               <Input
                 id="tpl-live-new-name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="例如：客户共创工作坊"
+                placeholder={blueprintI18n("blueprintFlow.eGClientCoCreationWorkshop")}
                 data-testid="tpl-live-new-name"
               />
               <Button size="sm" variant="primary" onClick={() => void submitCreate()} disabled={createBusy} data-testid="tpl-live-create-submit">
-                {createBusy ? "创建中…" : "创建"}
+                {createBusy ? blueprintI18n("itv.create.pending") : blueprintI18n("projects.create")}
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setCreating(false); setCreateError(null); }} disabled={createBusy}>
-                取消
-              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setCreating(false); setCreateError(null); }} disabled={createBusy}>{blueprintI18n("aboutMemory.cancel")}</Button>
             </div>
             {createError !== null && (
-              <p className="text-11 text-destructive" data-testid="tpl-live-create-error">{createError}</p>
+              <p className="text-11 text-destructive" data-testid="tpl-live-create-error">{localizeBlueprintCopy(blueprintI18n, createError)}</p>
             )}
           </CardContent>
         </Card>
       )}
 
       {listError !== null && (
-        <p className="text-12 text-destructive" data-testid="tpl-live-list-error">{listError}</p>
+        <p className="text-12 text-destructive" data-testid="tpl-live-list-error">{localizeBlueprintCopy(blueprintI18n, listError)}</p>
       )}
 
       <div data-testid="admin-blueprint-view-container">
         {rows === null ? (
           <div className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground" data-testid="tpl-live-empty">
-            {listBusy ? "加载中…" : listError !== null ? "加载失败" : "还没有任何模板"}
+            {listBusy ? blueprintI18n("brain.loading") : listError !== null ? blueprintI18n("orgMembers.loadFailed") : blueprintI18n("blueprintFlow.noTemplatesYet")}
           </div>
         ) : rows.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground" data-testid="tpl-live-empty">
-            当前组织还没有项目模板。点右上角「新建模板」从空白开始。
-          </div>
+          <div className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground" data-testid="tpl-live-empty">{blueprintI18n("blueprintFlow.thisOrganizationHasNoProjectTemplatesSelectNewTemplateIn")}</div>
         ) : viewMode === "card" ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="tpl-live-grid">
             {rows.map((row) => (
@@ -220,24 +221,25 @@ export function BlueprintListScreenLive() {
 }
 
 function BlueprintLiveCard({ row, onCopy }: { row: BlueprintRow; onCopy: () => void }) {
+ const { t: blueprintI18n } = useI18n();
+
   return (
     <ResourceCard
       testId={`tpl-live-card-${row.blueprintId}`}
       title={row.name}
       titleTestId="tpl-live-card-name"
-      subtitle={`${DURATION_TIER_LABEL[row.durationTier]} · ${row.agendaSegmentCount} 环节`}
+      subtitle={blueprintI18n("blueprintFlow.value1Value2Segments", { value1: String(localizeBlueprintCopy(blueprintI18n, DURATION_TIER_LABEL[row.durationTier])), value2: String(row.agendaSegmentCount) })}
       badges={
         <Badge tone={row.state === "published" ? "primary" : "outline"} data-testid="tpl-live-card-state">
-          {BLUEPRINT_STATE_LABEL[row.state]}
+          {localizeBlueprintCopy(blueprintI18n, BLUEPRINT_STATE_LABEL[row.state])}
           {row.state === "published" ? ` v${row.versionNumber}` : ""}
         </Badge>
       }
       meta={
         <>
-          <span>用过 {row.appliedProjectCount} 次 · {row.satisfaction === null ? "满意度 —" : `满意度 ${row.satisfaction.toFixed(1)}`}</span>
+          <span>{blueprintI18n("blueprintFlow.used2")}{row.appliedProjectCount}{blueprintI18n("blueprintFlow.times")}{row.satisfaction === null ? blueprintI18n("blueprintFlow.satisfaction") : blueprintI18n("blueprintFlow.satisfactionValue12", { value1: String(row.satisfaction.toFixed(1)) })}</span>
           <span data-testid="tpl-live-card-completion">
-            {row.completeness.done}/{row.completeness.denominator} 已配
-          </span>
+            {row.completeness.done}/{row.completeness.denominator}{blueprintI18n("blueprintFlow.configured")}</span>
         </>
       }
       actions={
@@ -245,8 +247,7 @@ function BlueprintLiveCard({ row, onCopy }: { row: BlueprintRow; onCopy: () => v
           {/* BP-06：designer 页面已能按 blueprintId 读真实数据，链接不再是死指针。 */}
           <Button size="sm" variant="outline" asChild data-testid="tpl-live-card-edit">
             <Link href={`/tpl/designer?blueprintId=${encodeURIComponent(row.blueprintId)}`}>
-              <Pencil aria-hidden className="h-3 w-3" /> 编辑设计
-            </Link>
+              <Pencil aria-hidden className="h-3 w-3" />{blueprintI18n("blueprintFlow.editDesign")}</Link>
           </Button>
           {/* ⚠ 不受 `availableActions` 门控：那个字段管的是契约里独立的
               `copyBlueprint`（`POST /blueprints/:id/copy`，未实现）这个动作，
@@ -255,8 +256,7 @@ function BlueprintLiveCard({ row, onCopy }: { row: BlueprintRow; onCopy: () => v
               （同类历史：#991 T9 也记过一次「同一件事两个入口」），本屏用现成能跑的
               那条，不等未实现的 `copyBlueprint` 落地。 */}
           <Button size="sm" variant="outline" onClick={onCopy} data-testid="tpl-live-card-copy">
-            <Copy aria-hidden className="h-3 w-3" /> 复制
-          </Button>
+            <Copy aria-hidden className="h-3 w-3" />{blueprintI18n("codeFence.copy")}</Button>
           {/* availableActions 由服务端派生（BP-01 头注：前端不得自行决定能不能删/归档）。
               archive/delete/rollback 三项对应的端点还没实现，BP-01 至今恒返回空数组，
               这不是本屏漏画。 */}
@@ -268,25 +268,26 @@ function BlueprintLiveCard({ row, onCopy }: { row: BlueprintRow; onCopy: () => v
 
 /** 列表视图行——与卡片同一份字段，仅布局从网格换成单列横排（人类原话：「卡片也可以切换为列表」）。 */
 function BlueprintLiveListRow({ row, onCopy }: { row: BlueprintRow; onCopy: () => void }) {
+ const { t: blueprintI18n } = useI18n();
+
   return (
     <Card data-testid={`tpl-live-list-row-${row.blueprintId}`}>
       <CardContent className="flex flex-wrap items-center gap-3 p-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <span className="truncate text-14 font-semibold" data-testid="tpl-live-card-name">{row.name}</span>
           <Badge tone={row.state === "published" ? "primary" : "outline"} data-testid="tpl-live-card-state">
-            {BLUEPRINT_STATE_LABEL[row.state]}
+            {localizeBlueprintCopy(blueprintI18n, BLUEPRINT_STATE_LABEL[row.state])}
             {row.state === "published" ? ` v${row.versionNumber}` : ""}
           </Badge>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-3 text-11 text-muted-foreground">
-          <span>{DURATION_TIER_LABEL[row.durationTier]} · {row.agendaSegmentCount} 环节</span>
-          <span>用过 {row.appliedProjectCount} 次</span>
-          <span>{row.satisfaction === null ? "满意度 —" : `满意度 ${row.satisfaction.toFixed(1)}`}</span>
-          <span data-testid="tpl-live-card-completion">{row.completeness.done}/{row.completeness.denominator} 已配</span>
+          <span>{localizeBlueprintCopy(blueprintI18n, DURATION_TIER_LABEL[row.durationTier])} · {row.agendaSegmentCount}{blueprintI18n("blueprintFlow.segment2")}</span>
+          <span>{blueprintI18n("blueprintFlow.used2")}{row.appliedProjectCount}{blueprintI18n("blueprintFlow.repetitions")}</span>
+          <span>{row.satisfaction === null ? blueprintI18n("blueprintFlow.satisfaction") : blueprintI18n("blueprintFlow.satisfactionValue12", { value1: String(row.satisfaction.toFixed(1)) })}</span>
+          <span data-testid="tpl-live-card-completion">{row.completeness.done}/{row.completeness.denominator}{blueprintI18n("blueprintFlow.configured")}</span>
         </div>
         <Button size="xs" variant="outline" onClick={onCopy} data-testid="tpl-live-card-copy">
-          <Copy aria-hidden className="h-3 w-3" /> 复制
-        </Button>
+          <Copy aria-hidden className="h-3 w-3" />{blueprintI18n("codeFence.copy")}</Button>
       </CardContent>
     </Card>
   );
