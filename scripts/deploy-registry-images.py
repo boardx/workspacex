@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import threading
 import urllib.parse
 import urllib.request
 import uuid
@@ -79,6 +80,24 @@ def ecs_docker_config(policy, docker, host, runtime_directory):
             raise ValueError('ECS_ACR_LOGIN_FAILED') from None
         yield Path(directory)
 
+PROGRESS_STARTED=time.monotonic()
+def progress(stage, status='started'):
+    print(f'IMAGE_DEPLOY_STAGE stage={stage} status={status} elapsed_seconds={int(time.monotonic()-PROGRESS_STARTED)}',file=sys.stderr,flush=True)
+
+def relay_progress(unit, stop):
+    # Relay only fixed progress records, never raw root worker output or credentials.
+    seen=set()
+    while not stop.is_set():
+        try:
+            result=subprocess.run(['/usr/bin/journalctl','--unit='+unit,'--output=cat','--no-pager','--lines=200'],
+                                  capture_output=True,text=True,timeout=10,env={'PATH':'/usr/bin:/bin'})
+            for line in result.stdout.splitlines():
+                if re.fullmatch(r'IMAGE_DEPLOY_STAGE stage=[a-z-]+ status=[a-z-]+ elapsed_seconds=[0-9]+',line) and line not in seen:
+                    seen.add(line);print(line,file=sys.stderr,flush=True)
+        except (OSError,subprocess.TimeoutExpired): pass
+        stop.wait(2)
+
+
 def trusted(path, directory=False, private=False):
     path=Path(path)
     registry.need(path.is_absolute(),'ABSOLUTE_PATH_REQUIRED')
@@ -115,6 +134,7 @@ def admission_command(config,environment):
 def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
     registry.need(environment in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
     registry.need(registry.TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
+    progress('policy-validation')
     config_path=trusted(config_root/(environment+'.json'),private=True)
     config=json.loads(config_path.read_bytes())
     registry.need(config['environment']==environment,'ENVIRONMENT_POLICY_MISMATCH')
@@ -124,6 +144,7 @@ def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
         registry.need('dockerConfig' not in config,'AMBIGUOUS_REGISTRY_AUTH')
         runtime=trusted(os.environ.get('RUNTIME_DIRECTORY',''),directory=True,private=True)
         registry.need(runtime.parent==Path('/run') and runtime.name.startswith('wsx-image-'),'SYSTEMD_RUNTIME_DIRECTORY_REQUIRED')
+        progress('registry-authentication')
         with ecs_docker_config(config['ecsAuth'],docker,config['registryPrefix'].split('/')[0],runtime) as docker_config:
             return deploy_config(environment,tag,config,docker,docker_config)
     docker_config=trusted(config['dockerConfig'],directory=True,private=True)
@@ -198,6 +219,7 @@ def schema_release(environment,tag,config,manifest,schema_plan,attempt,state,loc
     atomic(pending,{'tag':tag,'attempt':str(attempt),'route':'schema-preparation',
                     'requestSha256':engine.sha_file(request_file),'previous':previous,'automaticRetry':False})
     try:
+        progress('backup-migrate-and-verify')
         schema_handoff.invoke([policy['writer']['path']],request_file,result_file,remaining(),lock)
         trusted(result_file,private=True)
         result=schema_handoff.read_receipt(result_file);schema_handoff.verify_receipt(request,result)
@@ -269,6 +291,7 @@ def deploy_config(environment,tag,config,docker,docker_config):
         # Establish source using the two schema-bearing images first. CN/US
         # must not download Web/Sandbox/Postgres only to reject known schema drift.
         early=('api',) if environment in ('cn','us') else registry.SERVICES
+        progress('pull-schema-images')
         images={role:registry.resolve([docker,'--config',str(docker_config)],config['registryPrefix'],tag,role) for role in early}
         sources=[image.get('sourceRevision') for image in images.values()]
         registry.need(all(isinstance(source,str) and registry.SHA.fullmatch(source) for source in sources) and len(set(sources))==1,'IMAGE_SOURCE_MISMATCH')
@@ -282,6 +305,7 @@ def deploy_config(environment,tag,config,docker,docker_config):
                     if 'agent' not in images:
                         images['agent']=registry.resolve([docker,'--config',str(docker_config)],config['registryPrefix'],tag,'agent')
                     registry.need(images['agent'].get('sourceRevision')==source,'IMAGE_SOURCE_MISMATCH')
+                progress('schema-preflight')
                 schema_plan=schema_preflight(environment,tag,source,baseline,images,attempt,docker,roles)
                 atomic(attempt/'schema-plan.json',schema_plan)
                 if schema_plan['route']!='image-only':
@@ -307,6 +331,7 @@ def deploy_config(environment,tag,config,docker,docker_config):
                 {'kind':'registry-images-v1','sourceRevision':source,'tag':tag,'platform':'linux/amd64','images':images},
                 schema_plan,attempt,state,lock,pending,current)
         if admission:
+            progress('host-backup-and-admission')
             # Fixed host adapter retains CN preactivation/backup/compatibility admission.
             with tempfile.TemporaryFile() as diagnostic:
                 checked=subprocess.run([*admission,tag],stdout=subprocess.DEVNULL,stderr=diagnostic,timeout=120,
@@ -327,6 +352,7 @@ def deploy_config(environment,tag,config,docker,docker_config):
         atomic(pending,{'tag':tag,'attempt':str(attempt),'previous':current})
         def commit(override):
             atomic(current_path,{'tag':tag,'sourceRevision':source,'path':str(override.resolve()),'sha256':engine.sha_file(override)})
+        progress('activate-and-verify')
         result=engine.release(effective_file,manifest_file,attempt/'deployment',True,lock_fd=lock,commit=commit)
         if result['status']=='ROLLED_BACK':
             # Recovery used immutable IDs, which can change the Compose config hash.
@@ -372,7 +398,14 @@ def main():
                  '--property=RuntimeMaxSec=900','--property=TimeoutStopSec=360','--property=KillMode=mixed',
                  '--property=RuntimeDirectory='+unit,'--property=RuntimeDirectoryMode=0700','--property=RuntimeDirectoryPreserve=no',
                  '/usr/bin/python3','-I','-B',str(Path(__file__).resolve()),args.environment,args.tag,'--execute']
-        completed=subprocess.run(command,env={'PATH':'/usr/bin:/bin'},check=False)
+        progress('worker-dispatch')
+        stop=threading.Event()
+        relay=threading.Thread(target=relay_progress,args=(unit,stop),daemon=True);relay.start()
+        try:
+            completed=subprocess.run(command,env={'PATH':'/usr/bin:/bin'},check=False)
+        finally:
+            stop.set();relay.join(timeout=12)
+        progress('worker-finished','completed' if completed.returncode==0 else 'failed')
         report_worker_result(unit)
         return completed.returncode
     result=deploy(args.environment,args.tag)

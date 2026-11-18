@@ -203,3 +203,7 @@ the retention planner selected a matching old image for deletion in a fixture.
 Keep the configured backup image by matching its ID, tag or repository digest
 before selecting candidates. The retention regression covers all three forms.
 Confirm the actual backup succeeds before retrying a rolled-back deployment.
+
+### ACR login diagnostics and release progress (#6718)
+
+A matrix service can fail ACR login while sibling services authenticate successfully. Preserve redacted Docker failure details; do not classify every login failure as bad credentials. Retry only bounded transport/temporary-server failures; never retry unauthorized/denied errors. New normal releases use run-attempt tags regardless of AIDT availability; legacy long tags remain accepted. Build/push logs stream complete redacted lines with stage elapsed time. Installed deployment workers emit fixed progress records; their root wrapper relays only those records from journald, never raw privileged output. Updating repository scripts does not update an already-installed host consumer: deploy the reviewed consumer bundle through its existing installation path before claiming detailed host stages are live.
