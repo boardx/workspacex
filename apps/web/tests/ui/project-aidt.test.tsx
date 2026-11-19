@@ -137,6 +137,18 @@ it("keeps the default native Chat clear of duplicate assistant and structured-sa
   expect(screen.getByTestId("aidt-assistant-panel")).toBeVisible(); expect(screen.queryByRole("button", { name: "AI 引导师" })).toBeNull(); expect(screen.queryByTestId("aidt-shared-stage")).toBeNull(); expect(screen.queryByTestId("aidt-shared-unavailable")).toBeNull();
   const tools = screen.getByTestId("aidt-tools"); expect(tools).toContainElement(screen.getByTestId("aidt-personal-checkpoints")); expect(tools).not.toHaveAttribute("open"); expect(screen.getByTestId("aidt-open-output")).toHaveAttribute("href", "/aidt/p1?step=1&tool=outcome");
 });
+it("widens the reference shelf without remounting the stage chat", async () => {
+  render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
+  const chat = await screen.findByTestId("native-chat");
+  const handle = screen.getByRole("separator", { name: "调整引用与产物宽度" });
+  expect(handle).toHaveAttribute("aria-valuenow", "320");
+  fireEvent.keyDown(handle, { key: "ArrowLeft" });
+  expect(handle).toHaveAttribute("aria-valuenow", "352");
+  fireEvent.click(screen.getByRole("button", { name: "关闭成果" }));
+  expect(screen.getByRole("button", { name: "引用与产物" })).toHaveAttribute("aria-expanded", "false");
+  expect(screen.getByTestId("native-chat")).toBe(chat);
+});
+
 it("keeps failed shared reads visible and actionable on Chat without restoring the full save toolbar", async () => {
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); const client = await import("@/features/aidt/lib/live-aidt-stages"); const read = vi.spyOn(client, "readAidtStage").mockRejectedValue(new Error("offline"));
   try {
