@@ -261,11 +261,12 @@ it.each(["/aidt/other?step=2&returnRevision=3", "/aidt/p?step=3&returnRevision=3
   const path = mocks.shell.mock.calls.at(-1)![0].threadPath as (id: string | null) => string;
   expect(new URL(path("new-thread"), "https://workspace.invalid").searchParams.has("returnRevision")).toBe(false);
 });
-it("retains the learning round on recoverable native Chat errors", async () => {
-  window.history.replaceState(null, "", "/aidt/p?step=2&returnRevision=3");
+it("retains the learning round when choosing a different conversation after a recoverable error", async () => {
+  window.history.replaceState(null, "", "/aidt/p?step=2&thread=failed-thread&returnRevision=3");
   mocks.resolve.mockRejectedValue(new Error("暂不可用"));
-  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} />);
+  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread="failed-thread" />);
   await screen.findByRole("alert");
+  expect(screen.getByRole("link", { name: "选择本步对话" })).toHaveAttribute("href", "/aidt/p?step=2&returnRevision=3");
   expect(screen.getByRole("link", { name: "打开本步任务" })).toHaveAttribute("href", "/aidt/p?step=2&tool=outcome&returnRevision=3");
 });
 

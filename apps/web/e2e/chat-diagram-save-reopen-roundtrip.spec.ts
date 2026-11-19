@@ -213,12 +213,11 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
   // 软重读追新过，按钮这次理应存在——仍用 `loadAllMessagePages` 而不是裸
   // `.click()`，翻页过程中偶发的瞬时 detach 由它的重试外壳吃掉。
   await loadAllMessagePages(page);
-  // 挂载即读回的换挂已经完成——现在再去抓 `diagram2` 拿到的是换挂后稳定的实例。
-  await mountReadback;
+  // 读回响应先于 React 提交，画布仍可能在下一帧换挂。
+  expect((await mountReadback).status()).toBe(200);
 
   // ── 重开同一消息的最大化 ⇒ 保存版初始化 + 读回提示条 ──────────────────
   const diagram2 = page.locator('[data-testid="chat-diagram-fabric"][data-diagram-type="mindmap"]').last();
-  await diagram2.scrollIntoViewIfNeeded();
   await expect(diagram2).toHaveAttribute("data-ready", "true", { timeout: 60_000 });
   const sourceResponse = page.waitForResponse((r) =>
     r.request().method() === "GET" && /\/artifacts\/[^/]+\/source/.test(r.url()));
