@@ -53,7 +53,7 @@ function Receipt({ projectId, runId, sessionToken, expected }: AidtRunContextRec
   }, [open, revision, projectId, runId, sessionToken, expectedPurpose, expectedStageId]);
   const receipt = state.receipt;
   return <details className="border-b border-border px-4 py-2 text-12 text-muted-foreground" data-testid="aidt-run-context-receipt" onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary className="cursor-pointer rounded-control transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">本轮材料 · {receipt ? LABEL[receipt.application.state] : state.phase === "error" ? "读取失败" : "查看使用情况"}</summary>
+    <summary className="cursor-pointer rounded-control transition-colors hover:text-background-foreground focus-visible:ring-2 focus-visible:ring-ring">本轮材料 · {receipt ? LABEL[receipt.application.state] : state.phase === "error" ? "读取失败" : "查看使用情况"}</summary>
     <div className="mt-2 space-y-2" aria-live="polite">
       {state.phase === "loading" && <p data-testid="aidt-run-context-receipt-loading">正在核对本轮回执…</p>}
       {state.phase === "error" && <p role="alert">本轮材料回执读取失败。请确认仍有小组访问权限后重试，当前状态尚未确认。</p>}
@@ -68,7 +68,7 @@ function Receipt({ projectId, runId, sessionToken, expected }: AidtRunContextRec
         {receipt.truncated && <p>本轮只使用了部分摘录，原始保存版本仍保留。</p>}
         {receipt.omissions.some(item => item.kind === "missing" || item.kind === "not-selected") && <p>部分步骤尚无保存稿或未被选择，不以缺失项补造内容。</p>}
         <p>个人检查点、原文件字节和教师点评未自动纳入。</p>
-        <details><summary className="cursor-pointer transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">来源核对信息</summary><dl className="mt-1 space-y-1 break-all"><div><dt>快照校验值</dt><dd>{receipt.snapshotHash}</dd></div><div><dt>准备时间</dt><dd>{receipt.preparedAt}</dd></div>{receipt.application.assembledContextHash && <div><dt>组装校验值</dt><dd>{receipt.application.assembledContextHash}</dd></div>}</dl></details>
+        <details><summary className="cursor-pointer transition-colors hover:text-background-foreground focus-visible:ring-2 focus-visible:ring-ring">来源核对信息</summary><dl className="mt-1 space-y-1 break-all"><div><dt>快照校验值</dt><dd>{receipt.snapshotHash}</dd></div><div><dt>准备时间</dt><dd>{receipt.preparedAt}</dd></div>{receipt.application.assembledContextHash && <div><dt>组装校验值</dt><dd>{receipt.application.assembledContextHash}</dd></div>}</dl></details>
       </>}
       <Button size="sm" variant="outline" disabled={state.phase === "loading"} onClick={() => refresh()}>刷新回执</Button>
     </div>
