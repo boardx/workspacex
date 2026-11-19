@@ -17,7 +17,7 @@ test("interview locale preserves the real private-profile, canonical six-step an
   const rawGoal = "# 原始研究需求\n\n## 研究目标\n核对最近一次任务的具体经过和相反案例，保留客户原文。";
   await page.goto("/login");
   await page.getByTestId("language-switcher").selectOption("en");
-  await page.getByTestId("login-email").fill(F.email);
+  await page.getByTestId("login-email").fill(F.i18nInterviewEmail);
   await page.getByTestId("login-password").fill(F.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/);
@@ -125,7 +125,8 @@ test("interview locale preserves the real private-profile, canonical six-step an
   await expect.poll(async () => (await readSource()).documents.find(document => document.step === "experts")?.markdown).toContain(`#expert-${custom.expertId}`);
   await capture("interview-experts-en", true);
   await page.getByRole("button", { name: "Confirm experts and generate questions", exact: true }).click();
-  // Expert confirmation also confirms the generated outline and starts execution.
+  await expect(page).toHaveURL(/\/outline$/);
+  await page.getByRole("button", { name: "Confirm questions and start interviews", exact: true }).click();
   // Edit through the real revision action; confirmed source must remain read-only.
   await expect(page).toHaveURL(/\/runs$/);
   await expect(page.getByRole("button", { name: "Generate report", exact: true })).toBeEnabled();
