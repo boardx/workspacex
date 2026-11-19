@@ -19,7 +19,7 @@ test("research locale preserves the real intake, plan, saved report and history 
   });
   await page.goto("/login");
   await page.getByTestId("language-switcher").selectOption("en");
-  await page.getByTestId("login-email").fill(F.email);
+  await page.getByTestId("login-email").fill(F.i18nResearchEmail);
   await page.getByTestId("login-password").fill(F.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/);
