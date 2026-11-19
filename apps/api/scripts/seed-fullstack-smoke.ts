@@ -37,6 +37,7 @@ const isolatedCreditActors = [
   { userId: required("FULLSTACK_E2E_I18N_INTERVIEW_USER_ID"), email: required("FULLSTACK_E2E_I18N_INTERVIEW_EMAIL"), name: "Fullstack i18n interview" },
   { userId: required("FULLSTACK_E2E_I18N_RECORDING_USER_ID"), email: required("FULLSTACK_E2E_I18N_RECORDING_EMAIL"), name: "Fullstack i18n recording" },
   { userId: required("FULLSTACK_E2E_I18N_RESEARCH_USER_ID"), email: required("FULLSTACK_E2E_I18N_RESEARCH_EMAIL"), name: "Fullstack i18n research" },
+  { userId: required("FULLSTACK_E2E_I18N_RESEARCH_QUERY_USER_ID"), email: required("FULLSTACK_E2E_I18N_RESEARCH_QUERY_EMAIL"), name: "Fullstack i18n research query" },
   { userId: required("FULLSTACK_E2E_INTERVIEW_INTAKE_USER_ID"), email: required("FULLSTACK_E2E_INTERVIEW_INTAKE_EMAIL"), name: "Fullstack interview intake" },
 ];
 const orgId = required("FULLSTACK_E2E_ORG_ID");
