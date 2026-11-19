@@ -15,6 +15,7 @@ export const AIDT_CONTEXT_PACK_RELEASES = [
   {packId:"aidt-project-summary",packVersion:"1.0.1"},
   {packId:"aidt-project-summary",packVersion:"1.0.2"},
   {packId:"aidt-project-summary",packVersion:"1.0.3"},
+  {packId:"aidt-project-summary",packVersion:"1.0.4"},
 ] as const;
 const fail=():never=>{throw new AidtContextError("AIDT_CONTEXT_NOT_AVAILABLE");};
 function manifestDigest(files: readonly {path:string;mediaType:string;digest:string;contentBase64:string}[]): string {

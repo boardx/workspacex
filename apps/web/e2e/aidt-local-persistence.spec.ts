@@ -155,7 +155,7 @@ async function rejectedReturnKeepsChat(page: Page, projectId: string, revision: 
 async function openOutcome(page: Page, projectId: string, stage: number) {
   phase(`opening-stage-${stage}`);
   await page.goto(`/aidt/${projectId}?step=${stage}&tool=outcome`);
-  await expect(page.getByTestId("aidt-stage-fields")).toHaveAttribute("data-stage", String(stage));
+  await expect(page.getByTestId("aidt-stage-fields")).toHaveAttribute("data-stage", String(stage), { timeout: 30_000 });
   await expect(page.getByTestId("aidt-shared-status")).not.toContainText("正在读取");
   await expect(page.getByTestId("aidt-shared-load-error")).toHaveCount(0);
   phase(`stage-${stage}-ready`);
@@ -659,7 +659,7 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     expect(saved.data.stage.content.draft.fields).toMatchObject({ problemReflectionConfirmed: "true", problemSources: '["guess"]' });
     evidence.stageRevision = saved.data.stage.revision;
     await page.goto(`/aidt/${projectId}?step=2`);
-    const shelf = page.getByRole("complementary", { name: "小组成果" });
+    const shelf = page.getByRole("complementary", { name: "依赖与产物" });
     await expect(shelf).toBeVisible();
     await shelf.getByRole("button", { name: /工作坊主题命题.*V1/ }).click();
     await expect(shelf.getByRole("region", { name: "成果预览" })).toContainText(statement);

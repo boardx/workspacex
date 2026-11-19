@@ -53,8 +53,8 @@ it("keeps both earlier summary releases and authoring bytes immutable and reprod
 });
 it("requests a complete bounded report before expansion without deleting uncertainty or merging frozen questions",()=>{
   const source=readFileSync(AIDT_SUMMARY_SOURCE,"utf8");
-  expect(AIDT_SUMMARY_SKILL_PACK).toEqual({packId:"aidt-project-summary",packVersion:"1.0.3"});
-  for(const rule of ["先交一份完整紧凑报告","约800–1000中文字","先覆盖全部章节与关键学习链","再按学生请求逐节展开","默认紧凑草稿可按以下八项组织","学生可改名、合并或重排章节","不将八章设为软件/课程必填模板","自检实质内容覆盖，不检查固定章节数量","不在正文复制长UUID或整个来源目录","完整资源引用由实际来源附录保留","不捏造附录","每个句子完整","问题不同按旧冻结问题分别叙述，不混题","当前验证问题不能覆盖旧题","旧回2→新回5","尚未开展测试及下一步计划","报告正文必须披露","不得自行写确认字段","不得以短引用推断版本继承关系"])expect(source).toContain(rule);
+  expect(AIDT_SUMMARY_SKILL_PACK).toEqual({packId:"aidt-project-summary",packVersion:"1.0.4"});
+  for(const rule of ["先交一份完整紧凑报告","约1200–1800中文字","本轮未选的方案保留为备选","待开展的测试使用计划时态","隐藏内部字段名","先覆盖全部章节与关键学习链","再按学生请求逐节展开","默认紧凑草稿可按以下八项组织","学生可改名、合并或重排章节","不将八章设为软件/课程必填模板","自检实质内容覆盖，不检查固定章节数量","不在正文复制长UUID或整个来源目录","完整资源引用由实际来源附录保留","不捏造附录","每个句子完整","问题不同按旧冻结问题分别叙述，不混题","当前验证问题不能覆盖旧题","旧回2→新回5","尚未开展测试及下一步计划","报告正文必须披露","不得自行写确认字段","不得以短引用推断版本继承关系"])expect(source).toContain(rule);
   expect(source).not.toContain("先给目录/草稿");
   expect(source).not.toContain("先交部分草稿并列待补项");
   expect(source).not.toContain("正文按八个短章组织");

@@ -281,6 +281,7 @@ test("same-run SUM plan continuation: review current scratch todos once, preserv
   await page.getByTestId("aidt-open-report").click();
   await page.waitForURL(url => url.searchParams.get("tool") === "report" && url.searchParams.get("summaryThread") === entry.threadId);
   await expect(page.getByTestId("aidt-report-reload")).toBeEnabled();
+  await page.getByRole("button", { name: "编辑报告", exact: true }).click();
   const report = page.getByLabel("小组报告草稿", { exact: true }); await expect(report).toHaveValue(manual);
   await page.getByTestId("aidt-summary-import").locator("summary").first().click();
   await page.getByRole("button", { name: "读取AI总结结果", exact: true }).click();

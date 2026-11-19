@@ -45,7 +45,6 @@ export function AidtArtifactShelf({ stages, stageId, projectId, sessionToken, ph
       </div>
       <p className="whitespace-pre-wrap break-words text-13">{aidtUiStageSummary(preview.stageId, preview.content.draft) || "已保存空草稿"}</p>
       {preview.sourceStageRevisions.length > 0 && <p className="text-12 text-muted-foreground">引用：{preview.sourceStageRevisions.map(s => `第 ${s.stageId} 步 V${s.revision}`).join("、")}</p>}
-      {preview.content.summaryReport && <details className="text-12"><summary className="cursor-pointer font-medium">查看已保存报告</summary><p className="mt-2 whitespace-pre-wrap break-words">{preview.content.summaryReport.markdown}</p></details>}
       {materials.length > 0 && <section className="space-y-2" aria-label="关联原始材料">
         <h4 className="text-12 font-medium">关联原始材料</h4>
         {materials.map(({ key, material }) => <div key={key}>
@@ -63,7 +62,8 @@ export function AidtArtifactShelf({ stages, stageId, projectId, sessionToken, ph
         {historyOpen && <AidtStageHistory projectId={projectId} stageId={preview.stageId} sessionToken={sessionToken} currentRevision={preview.revision} />}
       </details>
     </section>}
-    {list("本步", entries.filter(stage => stage.stageId === stageId))}
-    {list("其他阶段", entries.filter(stage => stage.stageId !== stageId))}
+    {list("本步产物", entries.filter(stage => stage.stageId === stageId))}
+    {stageId > 1 && list("前序依赖", entries.filter(stage => stage.stageId < stageId))}
+    {entries.some(stage => stage.stageId > stageId) && list("后续阶段产物", entries.filter(stage => stage.stageId > stageId))}
   </div>;
 }

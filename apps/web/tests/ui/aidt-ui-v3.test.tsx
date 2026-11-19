@@ -2,6 +2,7 @@ import * as React from "react";
 import { SharedStage } from "@repo/contracts/aidt-stages";
 import { beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { AidtReportPreview } from "@/features/aidt/components/aidt-report-preview";
 import { AidtMaterials } from "@/features/aidt/components/aidt-materials";
 import { AidtStageBridge } from "@/features/aidt/components/aidt-stage-bridge";
 import { AidtStageOutput } from "@/features/aidt/components/aidt-stage-output";
@@ -82,4 +83,14 @@ it("gives a real unsaved empty group a clear first-step action without inferring
   expect(screen.getByRole("link",{name:"从第1步开始"})).toHaveAttribute("href","/aidt/g?step=1");
   rerender(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={emptyAidtUiDrafts()} shared={{phase:"loading",stages:{}}} />);
   expect(screen.queryByTestId("aidt-first-start")).toBeNull();expect(screen.queryByText("尚未保存成果")).toBeNull();
+});
+
+it("opens the report as formatted reading content and exposes the original only in edit mode", () => {
+  const report = "# 长租成本研究\n\n**当前证据不足**\n\n| 指标 | 状态 |\n| --- | --- |\n| 误判率 | 待测 |";
+  render(<AidtReportPreview drafts={emptyAidtUiDrafts()} text={report} sourceRevision={1} revision={1} onChange={vi.fn()} regenerate={vi.fn()} readOnly={false} initialPreview />);
+  expect(screen.getByRole("heading", { name: "长租成本研究" })).toBeVisible();
+  expect(screen.getByRole("table")).toHaveTextContent("误判率");
+  expect(screen.queryByLabelText("小组报告草稿")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "编辑报告" }));
+  expect(screen.getByLabelText("小组报告草稿")).toHaveValue(report);
 });
