@@ -30,8 +30,6 @@ async function selectStage(page: Page, stage: number) {
     if ((await picker.getAttribute("open")) === null) await picker.locator("summary").first().click();
     await page.getByTestId(`aidt-stage-mobile-${stage}`).click();
   }
-  await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
-  await page.getByRole("link", { name: "返回本步对话", exact: true }).click();
 }
 async function openAssistant(page: Page, expectedChatError = false) {
   const panel = page.getByTestId("aidt-assistant-panel");
@@ -103,9 +101,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
     await page.screenshot({ path: test.info().outputPath(`aidt-dashboard-${width}.png`), fullPage: true });
   }
   await page.getByTestId("aidt-step-1").click();
-  await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
-  await expect(page.getByRole("region", { name: "当前学习任务" })).toContainText("先写原始命题");
-  await page.getByRole("link", { name: "返回本步对话", exact: true }).click();
+  await expect(page.getByTestId("aidt-stage-output")).toHaveCount(0);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
   await openGuidance(page);
   await expect(page.getByTestId("aidt-learning-start")).toContainText("本组先想一想");
@@ -113,7 +109,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   await page.screenshot({ path: test.info().outputPath("aidt-teaching-step-1-start.png"), fullPage: true });
   await page.getByTestId("aidt-open-output").click();
   await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
-  await expect(page.getByTestId("aidt-assistant-panel")).not.toBeVisible();
+  await expect(page.getByTestId("aidt-assistant-panel")).toBeVisible();
   await page.setViewportSize({ width: 375, height: 900 });
   await expect(page.getByLabel("初始问题", { exact: true })).toBeVisible();
   await openAssistant(page);

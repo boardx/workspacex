@@ -39,7 +39,7 @@ export function AidtDashboard({ href, drafts, shared }: { href: (step: number) =
           <div className="min-w-0 flex-1"><h2 className="text-14 font-medium">{step.title}</h2><p className="mt-1 hidden text-12 leading-relaxed text-muted-foreground sm:block">{step.summary}</p><p className="mt-1 text-11 leading-relaxed text-muted-foreground"><span className="sm:hidden">{AIDT_OUTPUTS[step.id]!.title}{stageState(step.id) ? " · " : ""}</span>{stageState(step.id) && <span data-testid={`aidt-stage-save-${step.id}`}>{stageState(step.id)}</span>}</p></div>
           <span className="self-center text-13 text-muted-foreground sm:hidden" aria-hidden>→</span>
         </div>
-        <div className="mt-auto hidden items-center justify-between gap-2 border-t border-border pt-3 text-11 text-muted-foreground sm:flex"><span>成果 · {AIDT_OUTPUTS[step.id]!.title}</span><span>打开任务 →</span></div>
+        <div className="mt-auto hidden items-center justify-between gap-2 border-t border-border pt-3 text-11 text-muted-foreground sm:flex"><span>成果 · {AIDT_OUTPUTS[step.id]!.title}</span><span>进入对话 →</span></div>
       </Link>)}
     </div>
     {shared ? <p className="text-11 text-muted-foreground">保存版本不代表阶段完成或全员确认，可随时返回修订。</p> : drafts && <p className="text-12 text-muted-foreground">以上仅为本页填写概览，不代表小组进度或阶段确认。小组已保存成果需读取后核对。</p>}

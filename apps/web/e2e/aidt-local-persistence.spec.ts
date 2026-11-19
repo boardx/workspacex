@@ -625,20 +625,22 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     evidence.projectId = projectId;
     const statement = `真实本地保存 ${randomUUID()}：研究学生取餐时的等待体验。`;
     await page.getByTestId("aidt-step-1").click();
+    await expect(page.getByTestId("aidt-native-chat")).toBeVisible();
+    await expect(page.getByTestId("aidt-stage-output")).toHaveCount(0);
     await page.getByTestId("aidt-open-output").click();
     await page.setViewportSize({ width: 1280, height: 900 });
-    const heading = page.getByTestId("aidt-workspace").locator(":scope > header h1");
+    const heading = page.getByTestId("aidt-workspace").getByRole("heading", { level: 1 });
     await expect(heading).toHaveCSS("font-size", "20px");
     await expect(heading).toHaveCSS("clip", "auto");
     expect((await heading.boundingBox())!.height).toBeGreaterThan(20);
     const headingCss = await heading.evaluate(node => ({ fontSize: getComputedStyle(node).fontSize, clip: getComputedStyle(node).clip, height: node.getBoundingClientRect().height }));
-    await page.getByRole("button", { name: "AI 引导师", exact: true }).click();
     const assistant = page.getByTestId("aidt-assistant-panel");
-    await expect(assistant).toHaveCSS("position", "absolute");
-    await expect(assistant).toHaveCSS("max-width", "448px");
-    expect((await assistant.boundingBox())!.width).toBeLessThanOrEqual(448);
+    await expect(assistant).toBeVisible();
+    await expect(assistant).toHaveCSS("position", "static");
+    await expect(page.getByTestId("aidt-tool-panel")).toBeVisible();
     const desktopCss = await assistant.evaluate(node => ({ position: getComputedStyle(node).position, maxWidth: getComputedStyle(node).maxWidth, width: node.getBoundingClientRect().width }));
     await page.setViewportSize({ width: 375, height: 812 });
+    await page.getByRole("button", { name: "AI 引导师", exact: true }).click();
     await expect(assistant).toHaveCSS("position", "fixed");
     await expect(assistant).toBeInViewport({ ratio: 0.99 });
     evidence.featureCss = { heading: headingCss, desktop: desktopCss, mobile: await assistant.evaluate(node => ({ position: getComputedStyle(node).position, height: node.getBoundingClientRect().height, viewport: innerHeight })) };
@@ -656,6 +658,14 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     expect(Object.values(saved.data.stage.content.draft.fields)).toContain(statement);
     expect(saved.data.stage.content.draft.fields).toMatchObject({ problemReflectionConfirmed: "true", problemSources: '["guess"]' });
     evidence.stageRevision = saved.data.stage.revision;
+    await page.goto(`/aidt/${projectId}?step=2`);
+    const shelf = page.getByRole("complementary", { name: "小组成果" });
+    await expect(shelf).toBeVisible();
+    await shelf.getByRole("button", { name: /工作坊主题命题.*V1/ }).click();
+    await expect(shelf.getByRole("region", { name: "成果预览" })).toContainText(statement);
+    await expect(page.getByTestId("aidt-native-chat")).toBeVisible();
+    await expect(page).toHaveURL(/[?&]step=2(?:&|$)/);
+
     const generationRequests: string[] = [];
     const watchGeneration = (request: Request) => {
       if (request.method() === "POST" && (/\/agent\/[^/]+\/run$/.test(new URL(request.url()).pathname) || /\/pm-designs\/[^/]+\/chat$/.test(new URL(request.url()).pathname))) generationRequests.push(new URL(request.url()).pathname);
