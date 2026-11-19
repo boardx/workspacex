@@ -11,16 +11,8 @@
  *    「写进了 PostgreSQL」和「写进了 React state」。
  * ② **跳转落到的是那个真项目**。建成后停在 `/projects/<id>`，而那个 id 是响应体
  *    回来的、库里真实存在的行——不是前端编的。
- * ③ **权限是服务端说了算**。同一个界面动作换成非 `lead`（种子里的 consultant），
- *    必须在界面上看到 `ORG_ROLE_INSUFFICIENT`。
- *
- * ## ⚠ 反证：为什么第 ③ 条不是装饰
- *
- * 少了它，第 ①② 条在一个**根本不校验组织角色**的后端上照样全绿 —— 那时这个文件验的是
- * 「能建项目」，不是「只有 lead 能建项目」。而 U-4 那条裁决（admin 也不能建）正是
- * 「管理员不是超级用户」在本束的落点，抹掉了不会有任何红色告诉你。
- * 同理，第 ① 条先断言这个名字在列表里**不存在**：没有那一步，「列表里有它」就分不清
- * 是我建出来的，还是种子本来就有的（`capability-mutate-smoke.spec.ts` 在 #619 踩过这个）。
+ * ③ **组织普通成员也能创建项目**。顾问通过同一向导提交，服务端返回 201，
+ *    刷新列表后仍能看到项目。API 权限测试另行验证非成员被拒且不落库。
  *
  * ## 反证
  *
@@ -28,10 +20,6 @@
  * 但那个项目从来没进过库，刷新之后列表里没有它。与
  * `canvas-template-create-smoke.spec.ts` / `skill-create-smoke.spec.ts` 同一套做法，
  * 且**常驻**（不靠环境变量，因此不会在生产代码里留一条「假装建成」的路径）。
- *
- * 另外实测过一次一次性反证（2026-08-12，记在 issue #976）：把 `handleCreate` 里的
- * `createProject(...)` 换成直接跳转，前两条用例双双变红（一条红在收不到 201，
- * 一条红在界面上没有 `ORG_ROLE_INSUFFICIENT`）—— 那份改动没有留在代码里。
  *
  * ⚠ 单独成文件而不是并进 `fullstack-smoke.spec.ts`：那个文件的每一条 `page.goto`
  *   都被 `.harness/scripts/fullstack-smoke.test.ts` 按**出现次数**钉死（#387 的反空转手段），
@@ -123,24 +111,27 @@ test("org lead creates a project through the wizard, and PostgreSQL keeps it acr
   expect(failures).toEqual([]);
 });
 
-test("a non-lead walking the same wizard is refused by the server, and the refusal is shown", async ({ page }) => {
-  // 种子里的这一位是 `consultant`，不是 `lead`——见 fixture 里为什么不复用/不升权。
+test("an organization consultant can create and reopen a project through the same wizard", async ({ page }) => {
+  const name = `${FULLSTACK_E2E.createdProjectName}_CONSULTANT`;
   await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
+  await page.goto("/projects");
+  await expect(page.getByText(name, { exact: true })).toHaveCount(0);
 
   await page.goto("/project/new");
-  await page.getByTestId("project-new-name").fill(`${FULLSTACK_E2E.createdProjectName}_DENIED`);
-  await page.getByTestId("project-new-create").click();
+  await page.getByTestId("project-new-name").fill(name);
+  const [response] = await Promise.all([
+    page.waitForResponse((result) =>
+      new URL(result.url()).pathname.replace(/^\/__fullstack_api/, "") === "/projects"
+      && result.request().method() === "POST"),
+    page.getByTestId("project-new-create").click(),
+  ]);
+  expect(response.status()).toBe(201);
+  const { id } = await response.json() as { id: string };
+  expect(id).toBeTruthy();
+  await expect(page).toHaveURL(new RegExp(`/projects/${id}(?:[/?]|$)`));
 
-  // 界面上如实显示服务端的拒绝（中文文案；原因码落在 data-reason 上），而不是静默失败或假装建成了。
-  await expect(page.getByTestId("project-new-error")).toHaveAttribute("data-reason", "ORG_ROLE_INSUFFICIENT");
-  // 没有跳转：项目并没有建成。
-  await expect(page).toHaveURL(/\/project\/new$/);
-  // 按钮恢复可点——被拒绝的人不该被界面永久锁死。
-  await expect(page.getByTestId("project-new-create")).toBeEnabled();
-
-  // 而且库里真的没有这一行：拒绝是服务端拒绝，不只是界面上的一句话。
   await page.goto("/projects");
-  await expect(page.getByText(`${FULLSTACK_E2E.createdProjectName}_DENIED`)).toHaveCount(0);
+  await expect(page.getByTestId(`projects-card-${id}-name`)).toHaveText(name);
 });
 
 test("counterproof: with the create request stubbed out in the browser, the project does not survive a reload", async ({ page }) => {
