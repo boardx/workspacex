@@ -424,7 +424,17 @@ def build(role, prefix, tag, output, source):
         args+=['--build-arg',name+'='+value]
     # Package mirrors are shared with the existing producer's default contract.
     for name,key in {'NPM_REGISTRY':'npmRegistry','PYPI_INDEX_URL':'pypiIndexUrl','APT_MIRROR':'aptMirror','AGE_REPOSITORY':'ageRepository'}.items():
-        args+=['--build-arg',name+'='+hosted.DEFAULT_SOURCES[key]]
+        value=hosted.DEFAULT_SOURCES[key]
+        if cn and role=='agent' and name=='PYPI_INDEX_URL':
+            value=os.environ.get('WSX_CN_PYPI_INDEX_URL') or value
+            need(re.fullmatch(r'https://[a-zA-Z0-9.-]+(?::[0-9]+)?/[a-zA-Z0-9._/-]*',value),'INVALID_CN_PYPI_INDEX')
+        args+=['--build-arg',name+'='+value]
+    cache_repository=os.environ.get('WSX_CN_AGENT_CACHE_REPOSITORY','')
+    if cn and role=='agent' and cache_repository:
+        need(re.fullmatch(r'[a-z0-9]+(?:[._-][a-z0-9]+)*',cache_repository),'INVALID_AGENT_CACHE_REPOSITORY')
+        cache_ref=prefix+'/'+cache_repository+':buildkit-linux-amd64'
+        args+=['--cache-from','type=registry,ref='+cache_ref,
+               '--cache-to','type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true,ref='+cache_ref]
     expected=release_tag(source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'],enabled)
     need(tag==expected,'RERUN_ALL_JOBS_REQUIRED')
     probe=subprocess.run(['docker','manifest','inspect',prefix+'/'+repository+':'+tag],capture_output=True,text=True,timeout=60)

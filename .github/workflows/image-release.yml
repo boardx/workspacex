@@ -166,6 +166,8 @@ jobs:
         run: python3 -B "$RELEASE_SCRIPT" login
       - name: Build and publish service
         env:
+          WSX_CN_PYPI_INDEX_URL: ${{ vars.WSX_CN_PYPI_INDEX_URL }}
+          WSX_CN_AGENT_CACHE_REPOSITORY: ${{ vars.WSX_CN_AGENT_CACHE_REPOSITORY }}
           SERVICE: ${{ matrix.service }}
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
           SOURCE_REVISION: ${{ needs.plan.outputs.source }}
@@ -173,7 +175,14 @@ jobs:
           AIDT_RELEASE_ENABLED: ${{ needs.plan.outputs.aidt_web_enabled }}
           NEXT_PUBLIC_ENABLE_AIDT: ${{ matrix.service == 'web' && needs.plan.outputs.aidt_web_enabled || '0' }}
           NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: ${{ matrix.service == 'web' && needs.plan.outputs.aidt_web_enabled || '0' }}
-        run: python3 -B "$RELEASE_SCRIPT" build --source "$SOURCE_REVISION" --service "$SERVICE" --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output "result/$SERVICE.json"
+        run: |
+          if [[ "$SERVICE" == agent && -n "$WSX_CN_AGENT_CACHE_REPOSITORY" ]]; then
+            export BUILDX_BUILDER="wsx-agent-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            # Builder state is isolated for the job. Registry cache survives runner changes.
+            trap 'docker buildx rm "$BUILDX_BUILDER" || true' EXIT
+            docker buildx create --name "$BUILDX_BUILDER" --driver docker-container
+          fi
+          python3 -B "$RELEASE_SCRIPT" build --source "$SOURCE_REVISION" --service "$SERVICE" --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output "result/$SERVICE.json"
       - uses: actions/upload-artifact@v6
         with:
           name: release-image-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}
