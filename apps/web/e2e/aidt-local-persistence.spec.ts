@@ -624,8 +624,9 @@ test("native local start/save/stop/restart preserves AIDT and human text without
     const projectId = new URL(page.url()).pathname.split("/").pop()!;
     evidence.projectId = projectId;
     const statement = `真实本地保存 ${randomUUID()}：研究学生取餐时的等待体验。`;
+    await expect(page.getByTestId("aidt-first-start")).toBeVisible({ timeout: 30_000 });
     await page.getByTestId("aidt-step-1").click();
-    await expect(page.getByTestId("aidt-native-chat")).toBeVisible();
+    await expect(page.getByTestId("aidt-native-chat")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("aidt-stage-output")).toHaveCount(0);
     await page.getByTestId("aidt-open-output").click();
     await page.setViewportSize({ width: 1280, height: 900 });
