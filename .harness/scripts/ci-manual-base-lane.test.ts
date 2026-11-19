@@ -28,16 +28,11 @@ describe('explicit manual base validation avoids unrelated runners without false
   expect(build).toContain('...playwrightArgs');expect(build).not.toContain("'--workers=2'");expect(build).not.toContain("'--grep'");expect(step.run).toContain('--workers=2');expect(step.run).toContain('--grep');expect(step.run).toContain('--max-failures=1');expect(build).toContain('600000');
   expect(step.env.WSX_CHAT_REFRESH_DIAGNOSTICS).toBe('1');expect(step.env.WSX_CHAT_REFRESH_PRODUCTION_WEB).toBe('1');
  });
- it('manual skipped jobs cannot overwrite automatic required check display names',()=>{
-  const display=(name:string,event:string,lane:string,shard=1)=>String(w.jobs[name].name??name).replace(/\$\{\{([^}]+)\}\}/g,(_:string,expression:string)=>{
-   const code=expression.replaceAll('github.event_name',JSON.stringify(event)).replaceAll('inputs.verification_lane',JSON.stringify(lane)).replaceAll('matrix.shard',String(shard));
-   return String(Function('"use strict";return ('+code+')')());
-  });
-  for(const name of Object.keys(w.jobs).filter(name=>typeof w.jobs[name].name==='string'&&w.jobs[name].name.includes('diagnostic-skipped-'))){
-   const expected=name+(['base-api-shards','web-test-shards','chat-test-shards'].includes(name)?' (1)':'');
-   for(const event of ['pull_request','push','merge_group'])for(const lane of ['all','base','chat-refresh'])expect(display(name,event,lane)).toBe(expected);
-   for(const lane of ['all','base'])expect(display(name,'workflow_dispatch',lane)).toBe(expected);
-   expect(display(name,'workflow_dispatch','chat-refresh')).toBe('diagnostic-skipped-'+expected);
+ it('uses stable job names even when GitHub skips their conditions',()=>{
+  const shards=['base-api-shards','web-test-shards','chat-test-shards'];
+  for(const name of Object.keys(w.jobs)){
+   const expected=shards.includes(name)?name+' (${{ matrix.shard }})':name;
+   expect(w.jobs[name].name??name).toBe(expected);
   }
  });
  it('cannot reduce automatic PR, push or merge-group coverage through a manual-only selector',()=>{

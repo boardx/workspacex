@@ -52,7 +52,7 @@ env:
 
 jobs:
   doc-smoke-scope:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-doc-smoke-scope' || 'doc-smoke-scope' }}
+    name: doc-smoke-scope
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled()))
     runs-on: ubuntu-latest
     permissions: { contents: read }
@@ -112,7 +112,7 @@ jobs:
   #   两项差距都是刻意的范围收窄，不是遗漏——本次只做"把已经在跑、已经全绿的
   #   两段拆成并行 job"这一件事。
   base-compile:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-compile' || 'base-compile' }}
+    name: base-compile
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh')
     runs-on: ubuntu-latest
     steps:
@@ -149,7 +149,7 @@ jobs:
   # ruleset 等价设置）——这一步是账号级配置变更，agent 不会代为执行，见本
   # PR 描述。没有这一步，本 job 仍然只是"CI 报红"，不是"物理挡住合并"。
   board-smoke:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-board-smoke' || 'board-smoke' }}
+    name: board-smoke
     timeout-minutes: 30
     needs:
       - freeze-source
@@ -220,7 +220,7 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   directory-smoke:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-directory-smoke' || 'directory-smoke' }}
+    name: directory-smoke
     timeout-minutes: 30
     needs:
       - freeze-source
@@ -291,7 +291,7 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   fullstack-smoke:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-fullstack-smoke' || 'fullstack-smoke' }}
+    name: fullstack-smoke
     needs:
       - freeze-source
       - doc-smoke-scope
@@ -399,7 +399,7 @@ jobs:
   # Full regression shares the sole smoke producer above; core retains the complete base suite.
   # Public journey commands each create and clean their own database isolation scope.
   base-api-plan:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-plan' || 'base-api-plan' }}
+    name: base-api-plan
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
       - freeze-source
@@ -433,7 +433,7 @@ jobs:
           if-no-files-found: error
 
   base-api-shards:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-shards' || 'base-api-shards' }} (${{ matrix.shard }})
+    name: base-api-shards (${{ matrix.shard }})
     needs:
       - freeze-source
       - base-api-plan
@@ -486,7 +486,7 @@ jobs:
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down -v
 
   base-api-exclusive:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-exclusive' || 'base-api-exclusive' }}
+    name: base-api-exclusive
     needs:
       - freeze-source
       - base-api-plan
@@ -535,7 +535,7 @@ jobs:
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down -v
 
   web-test-plan:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-web-test-plan' || 'web-test-plan' }}
+    name: web-test-plan
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     outputs:
       count: ${{ steps.plan.outputs.count }}
@@ -566,7 +566,7 @@ jobs:
           if-no-files-found: error
 
   web-test-shards:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-web-test-shards' || 'web-test-shards' }} (${{ matrix.shard }})
+    name: web-test-shards (${{ matrix.shard }})
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
       - freeze-source
@@ -604,7 +604,7 @@ jobs:
           if-no-files-found: error
 
   chat-test-plan:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-test-plan' || 'chat-test-plan' }}
+    name: chat-test-plan
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     outputs:
       count: ${{ steps.plan.outputs.count }}
@@ -635,7 +635,7 @@ jobs:
           if-no-files-found: error
 
   chat-test-shards:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-test-shards' || 'chat-test-shards' }} (${{ matrix.shard }})
+    name: chat-test-shards (${{ matrix.shard }})
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base') && needs.chat-test-plan.result == 'success') && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
       - freeze-source
@@ -689,7 +689,7 @@ jobs:
           if-no-files-found: warn
 
   base-package-tests:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-package-tests' || 'base-package-tests' }}
+    name: base-package-tests
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
       - freeze-source
@@ -763,7 +763,7 @@ jobs:
           if-no-files-found: error
 
   base-control-plane:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-control-plane' || 'base-control-plane' }}
+    name: base-control-plane
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))))
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -788,7 +788,7 @@ jobs:
       - freeze-source
 
   full-regression-core:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-full-regression-core' || 'full-regression-core' }}
+    name: full-regression-core
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))))
     needs:
       - freeze-source
@@ -859,7 +859,7 @@ jobs:
           if-no-files-found: error
 
   chat-read:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-read' || 'chat-read' }}
+    name: chat-read
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
       - freeze-source
@@ -885,7 +885,7 @@ jobs:
         run: node .harness/scripts/ci-parallel-evidence.mjs bundle chat "$RUNNER_TEMP/chat-evidence"
 
   self-service-profile:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-self-service-profile' || 'self-service-profile' }}
+    name: self-service-profile
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs:
       - freeze-source
@@ -941,7 +941,7 @@ jobs:
 
   # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
   e2e-full:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-e2e-full' || 'e2e-full' }}
+    name: e2e-full
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')))
     needs:
       - freeze-source
@@ -982,7 +982,7 @@ jobs:
   # Optional evidence lanes keep separate dispatch switches and are not aggregate dependencies.
   # chat-path-coverage is the path-coverage matrix lane; chat-task-workbench is an opt-in scorecard.
   chat-path-coverage:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-path-coverage' || 'chat-path-coverage' }}
+    name: chat-path-coverage
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')))
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -1032,7 +1032,7 @@ jobs:
       - freeze-source
 
   chat-task-workbench:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-task-workbench' || 'chat-task-workbench' }}
+    name: chat-task-workbench
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -1080,7 +1080,7 @@ jobs:
       - freeze-source
 
   targeted-ui-unit:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-targeted-ui-unit' || 'targeted-ui-unit' }}
+    name: targeted-ui-unit
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode == 'targeted-ui'))
     needs:
       - freeze-source
@@ -1110,7 +1110,7 @@ jobs:
           if-no-files-found: error
 
   targeted-ui-browser:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-targeted-ui-browser' || 'targeted-ui-browser' }}
+    name: targeted-ui-browser
     if: (github.event_name != 'schedule' || needs.freeze-source.outputs.run_full == 'true') && ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode == 'targeted-ui'))
     needs:
       - freeze-source
