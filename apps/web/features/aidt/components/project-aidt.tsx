@@ -211,7 +211,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
     const target = new URL(link.href);
     const current = new URL(window.location.href);
     if (target.origin !== current.origin || target.pathname !== current.pathname || target.hash) return;
-    if (target.searchParams.get("step") === current.searchParams.get("step")) {
+    if (!link.hasAttribute("data-aidt-reset-thread") && target.searchParams.get("step") === current.searchParams.get("step")) {
       for (const key of ["thread", ...(target.searchParams.has("summary") ? ["summaryThread"] : [])]) {
         const value = current.searchParams.get(key);
         if (value && !target.searchParams.has(key)) target.searchParams.set(key, value);

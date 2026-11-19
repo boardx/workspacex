@@ -266,7 +266,9 @@ it("retains the learning round when choosing a different conversation after a re
   mocks.resolve.mockRejectedValue(new Error("暂不可用"));
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread="failed-thread" />);
   await screen.findByRole("alert");
-  expect(screen.getByRole("link", { name: "选择本步对话" })).toHaveAttribute("href", "/aidt/p?step=2&returnRevision=3");
+  const recovery = screen.getByRole("link", { name: "选择本步对话" });
+  expect(recovery).toHaveAttribute("href", "/aidt/p?step=2&returnRevision=3");
+  expect(recovery).toHaveAttribute("data-aidt-reset-thread");
   expect(screen.getByRole("link", { name: "打开本步任务" })).toHaveAttribute("href", "/aidt/p?step=2&tool=outcome&returnRevision=3");
 });
 
