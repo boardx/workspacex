@@ -220,7 +220,7 @@ test("research query confirmation locale preserves the single real creation requ
   };
   await page.goto("/login");
   await page.getByTestId("language-switcher").selectOption("en");
-  await page.getByTestId("login-email").fill(F.email);
+  await page.getByTestId("login-email").fill(F.i18nResearchQueryEmail);
   await page.getByTestId("login-password").fill(F.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/);
