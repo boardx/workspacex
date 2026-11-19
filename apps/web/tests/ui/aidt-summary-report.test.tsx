@@ -51,6 +51,19 @@ it("keeps reports unchanged through listing and selection, requires review, and 
   expect(change).toHaveBeenCalledOnce(); expect(change.mock.calls[0]![0]).toMatch(/^读取时继续修改的人工报告\n\n## AI报告草稿/); expect(change.mock.calls[0]![0]).toContain("run-real-id");
   expect(screen.getByText(/请修改、核对来源后主动保存/)).toBeInTheDocument();
 });
+it("uses the reviewed result as standalone report text without importing diagnostics", async () => {
+  const change = vi.fn();
+  render(<AidtSummaryImport scope={scope} threadId="sum" value="原表单汇总" onChange={change} readOnly={false} />);
+  fireEvent.click(screen.getByRole("button", { name: "读取AI总结结果" }));
+  fireEvent.change(await screen.findByLabelText("选择要审阅的AI结果"), { target: { value: "message:ai" } });
+  const preview = await screen.findByTestId("aidt-summary-result-preview");
+  const replace = screen.getByTestId("aidt-summary-import-replace");
+  expect(replace).toBeDisabled();
+  fireEvent.click(screen.getByRole("checkbox", { name: "我已核对AI草稿、材料缺口与点评来源" }));
+  fireEvent.click(replace);
+  expect(change).toHaveBeenCalledOnce();
+  expect(change).toHaveBeenCalledWith(preview.textContent?.trim());
+});
 it("clears old choices on scope loss and ignores an old result which arrives after cancellation",async()=>{
   let finish!:(value:unknown)=>void; mocks.source.mockReturnValueOnce(new Promise(resolve=>{finish=resolve;}));
   const change=vi.fn();const view=render(<AidtSummaryImport scope={scope} threadId="sum" value="保留稿" onChange={change} readOnly={false}/>);
