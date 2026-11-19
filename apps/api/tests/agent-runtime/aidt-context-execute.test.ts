@@ -32,6 +32,21 @@ it("the real executor delivers one frozen reference alongside exact human input 
   expect(seen[0]?.referenceDispatchObserver?.historyIndex).toBe(seen[0]!.history!.length - 1);
   expect(contexts.append).toHaveBeenCalledWith(org, "run", expect.objectContaining({ kind: "assembled" }));
 });
+it("routes a greeting through the pinned stage skill and describes the stage input and output", async () => {
+  const run = { ...frozenFixture(), inputText: "你好" };
+  const runs = store(run);
+  const complete = vi.fn(async (_input: ModelCallInput) => ({ text: "stage answer" }));
+  const contexts = { resolve: vi.fn(async () => frozenStoredFixture()), revalidate: vi.fn(async () => {}), append: vi.fn(async () => {}) };
+  await executeQueuedRuns({ ...deps(runs.port, { complete }), aidtContexts: contexts }, { orgId: org });
+  expect(runs.failed()).toBeNull();
+  expect(complete).toHaveBeenCalledOnce();
+  const input = complete.mock.calls[0]![0];
+  expect(input.user).toBe("你好");
+  expect(input.system).toContain("「理解问题」Skill");
+  expect(input.system).toContain("用户只打招呼时");
+  expect(input.system).toContain("Ask the student; do not invent evidence.");
+  expect(input.skills?.map(skill => skill.versionId)).toEqual(["skill-v1"]);
+});
 it.each(["snapshot", "port", "revoked"])("fails before any model call when the expected %s is unavailable", async kind => {
   const original = frozenFixture(), run = kind === "snapshot" ? { ...original, aidtContext: undefined } : original;
   const runs = store(run), complete = vi.fn(async () => ({ text: "must not be called" }));

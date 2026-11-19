@@ -512,7 +512,8 @@ async function executeClaimed(
   const executionAttemptId = `${run.runId}:${stepSeqBase}`;
   /* ── step: context_built ── */
   const contextStartedAt = deps.clock.now();
-  const readOnlyIntroduction = run.inputAttachments.length === 0 && isReadOnlyRoleIntroduction(run.inputText);
+  const isAidtTurn = run.aidtSelectorHash != null;
+  const readOnlyIntroduction = !isAidtTurn && run.inputAttachments.length === 0 && isReadOnlyRoleIntroduction(run.inputText);
   const contextInput = sha256(
     JSON.stringify([run.agentVersionId, run.skillVersionIds, run.inputMessageId]),
   );
@@ -542,7 +543,7 @@ async function executeClaimed(
   try {
     assertFrozenAgentSkillScope(run);
     const skills = await deps.runs.readPinnedSkills(orgId, run.skillVersionIds);
-    if (skills.length !== run.skillVersionIds.length) {
+    if (skills.length !== run.skillVersionIds.length || (isAidtTurn && skills.length !== 1)) {
       // Fail closed. A run that quietly proceeds with two of its three pinned Skills has
       // produced an answer from a configuration nobody ever approved.
       throw new ModelCallError(
@@ -597,7 +598,7 @@ async function executeClaimed(
     // listed canvas-ish skill (maau-canvas, diagram-and-canvas) sent the 4B on a 4-5 minute
     // call_skill detour before the fence (eval lane 2026-09-20: persona 351 s, first chunk at 74 s).
     const canvasRequested = (deps.canvasTemplates?.mode ?? "all") === "matched" && !!canvasGuidance;
-    const catalogSkills = systemPromptMode !== "deep-agent-catalog" ? skills
+    const catalogSkills = isAidtTurn || systemPromptMode !== "deep-agent-catalog" ? skills
       : canvasRequested && catalogCfg.mode === "matched" ? []
       : selectCatalogSkills(skills, { mode: catalogCfg.mode, text: run.inputText, max: catalogCfg.max });
     const catalogHint = systemPromptMode === "deep-agent-catalog" && catalogCfg.mode === "matched" && catalogSkills.length === 0 && skills.length > 0 && !canvasRequested ? buildSkillCatalogHint(skills.length) : null;
@@ -613,13 +614,16 @@ async function executeClaimed(
     // 一个就 4 333 字符），而模型在 4/5 的画布里一次工具都没调——剩下那 1/5 调了也只是绕路：
     // 它把画布委托给 skill，skill 回了 markdown 表格，围栏没了。
     excludedTools = canvasRequested || readOnlyIntroduction ? ["*"] : undefined;
-    system = buildSystemPrompt(catalogHint ? `${run.instructions}\n\n${catalogHint}` : run.instructions, catalogSkills, canvasGuidance, systemPromptMode, {
+    const instructions = isAidtTurn
+      ? `你是 AIDT 本阶段的「${skills[0]?.name}」Skill。每轮只按这个 Skill 的规则引导，不介绍通用助手能力。用户只打招呼时，说明本阶段身份，举一个可提供的输入例子，说明会帮助形成什么产物，并邀请用户开始。前序产物仅作为本阶段的参考，不负责代做其他阶段。\n\n${systemPromptMode === "full" ? "" : skills[0]?.content ?? ""}`
+      : catalogHint ? `${run.instructions}\n\n${catalogHint}` : run.instructions;
+    system = buildSystemPrompt(instructions, catalogSkills, canvasGuidance, systemPromptMode, {
       // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
       // only when the message asks for a diagram (#3749 B1.2)
       visualization: (deps.canvasTemplates?.mode ?? "all") === "all" || mentionsDiagramIntent(run.inputText),
       remember: !canvasRequested && !readOnlyIntroduction,
     });
-    system = `${await appendRoleCapabilityContext(system, deps, orgId, run)}\n\n${professionalOutputGuidance(contextStartedAt)}`;
+    system = `${isAidtTurn ? system : await appendRoleCapabilityContext(system, deps, orgId, run)}\n\n${professionalOutputGuidance(contextStartedAt)}`;
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。
      *

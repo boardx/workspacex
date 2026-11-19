@@ -1,6 +1,8 @@
 "use client";
 
 /** Shared canonical composer surface. Controllers keep all transport, voice, permission and queue state. */
+import { useContext } from "react";
+
 import { useI18n } from "@/lib/i18n/provider";
 import { ChatComposerCurrentStatus } from "./chat-composer-current-status";
 import { QueuedMessagesPanel } from "@/components/chat/workbench/queued-messages-panel";
@@ -10,6 +12,7 @@ import { Loader2, ArrowUp, Paperclip, PenLine, Square } from "lucide-react";
 import { ComposerVoiceControl } from "@/components/chat/chat-composer-voice-control";
 import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button";
 import { appendTranscript } from "@/lib/use-asr-draft";
+import { FocusedSkillNameContext } from "./copilotkit-v2-agent-identity";
 import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { ChatComposerAttachmentStrip } from "@/components/chat/chat-composer-attachments";
@@ -19,6 +22,7 @@ import type { CopilotKitV2PanelViewProps } from "@/components/chat/copilotkit-v2
 export type NativeChatComposerProps = Pick<CopilotKitV2PanelViewProps, "EMPTY_INPUT_REASON" | "actingAgentId" | "agent" | "agentOptions" | "archived" | "attach" | "attachDisabled" | "attachOpen" | "canWrite" | "cancellation" | "composerInputRef" | "composerMirrorRef" | "emptySendHint" | "flashEmptySendHint" | "initialChatThreadId" | "inputDraft" | "interjectPending" | "micDevices" | "onComposerScroll" | "onSelectAgent" | "onSkillMentionMounted" | "orgId" | "recomputeMention" | "runIsRunning" | "selectedAgentId" | "send" | "sendDisabled" | "sendDisabledReason" | "sendWhileRunning" | "serverQueue" | "sessionToken" | "setAttachOpen" | "setEmptySendHint" | "setError" | "setInputDraft" | "setMountedSkillsCount" | "setSkillOpenRequest" | "setSkillTrigger" | "skillMention" | "skillOpenRequest" | "skillTrigger" | "speech" | "threadId" | "voice">;
 
 export function NativeChatComposer({EMPTY_INPUT_REASON, actingAgentId, agent, agentOptions, archived, attach, attachDisabled, attachOpen, canWrite, cancellation, composerInputRef, composerMirrorRef, emptySendHint, flashEmptySendHint, initialChatThreadId, inputDraft, interjectPending, micDevices, onComposerScroll, onSelectAgent, onSkillMentionMounted, orgId, recomputeMention, runIsRunning, selectedAgentId, send, sendDisabled, sendDisabledReason, sendWhileRunning, serverQueue, sessionToken, setAttachOpen, setEmptySendHint, setError, setInputDraft, setMountedSkillsCount, setSkillOpenRequest, setSkillTrigger, skillMention, skillOpenRequest, skillTrigger, speech, threadId, voice}: NativeChatComposerProps): JSX.Element {
+  const focusedSkill = useContext(FocusedSkillNameContext);
 const {t}=useI18n();
 return (<div
           className={[
@@ -168,6 +172,7 @@ return (<div
                 {/* issue #2130（TW-P0-5②「/技能」入口）—— 触发 `ChatSkillMountPanel` 的候选浮层；
                     新对话还没有线程时如实禁用（`data-placeholder-reason`），不渲染一个
                     "看起来能挂、提交必然 404"的假入口。输入框里敲 `/` 同样能打开。 */}
+                {focusedSkill ? <span className="text-12 text-muted-foreground">{focusedSkill}</span> : <>
                 <span data-testid="chat-task-workbench-composer-mention-skill">
                   <ComposerIconButton
                     label={t("chatComposer.skills")}
@@ -226,6 +231,7 @@ return (<div
                     onMountsChange={setMountedSkillsCount}
                   />
                 ) : null}
+                </>}
               </div>
               {/* 右：语音分段胶囊（唯一麦克风入口，设备菜单在它右侧箭头）+ 发送 / 停止。 */}
               <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-3">

@@ -22,6 +22,8 @@ export const GENERIC_ASSISTANT_NAME = translate("zh-CN", "chatInteractions.aiAss
  * 这条助手回合自己是否已经画了身份行。回合内的行内提示（如「没有转交」）在回合没画身份行时
  * （正文被收走、只剩提示）自带一行，画了就不重复。默认 true：脱离回合渲染时不自作主张加身份行。
  */
+export const FocusedSkillNameContext = React.createContext<string | null>(null);
+
 export const AssistantIdentityDrawnContext = React.createContext<boolean>(true);
 
 export function AgentIdentityRow({
@@ -43,18 +45,19 @@ export function AgentIdentityRow({
 }): JSX.Element | null {
   const { t, locale } = useI18n();
   const host = React.useContext(InterruptRenderContext);
+  const focusedSkill = React.useContext(FocusedSkillNameContext);
   const run = useAgentRunView(runId, host.bearer, fetchRun);
   const agentId = run?.agentId ?? selectedAgentId;
   const map = useAgentDirectoryMap(Boolean(agentId), fetchDirectory);
   // run 还没读回来时先不画，避免「AI 助手 → 数字人」闪一下。
-  if (runId && run === undefined) return null;
+  if (!focusedSkill && runId && run === undefined) return null;
   const card = agentId ? map.get(agentId) : undefined;
   // 目录还没读回来时先不画，避免「通用助手 → 数字人」闪一下。
-  if (agentId && !card && map.size === 0) return null;
+  if (!focusedSkill && agentId && !card && map.size === 0) return null;
   // uiux-r2 #5：普通线程（没选数字人 / 数字人没有插画头像）也要有作者身份，用通用助手身份。
-  const name = card ? agentDisplayName(card, locale) : t("chatInteractions.aiAssistant");
-  const initials = card?.initials ?? "AI";
-  const avatarKey = card?.avatar?.key ?? null;
+  const name = focusedSkill ?? (card ? agentDisplayName(card, locale) : t("chatInteractions.aiAssistant"));
+  const initials = focusedSkill ? "AI" : card?.initials ?? "AI";
+  const avatarKey = focusedSkill ? null : card?.avatar?.key ?? null;
   return (
     <div data-testid="chat-v2-agent-identity" className="mb-0.5 flex items-center gap-2">
       <Avatar
