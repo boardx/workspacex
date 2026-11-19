@@ -18,7 +18,11 @@ it("loads six real saved stage revisions and learning history, preserves V2 refl
   expect(result.currentStages.map(row => row.revision)).toEqual([1,2,3,4,5,6]);
   expect(result.currentStages[0]!.markdown).toContain("学生的价值反思"); expect(result.currentStages[4]!.markdown).toContain("本轮确切问题");
   expect(result.historyRevisions).toEqual([{stageId:6,revision:1}]); expect(result.historyMarkdown).toContain("先补访谈"); expect(result.teacherComments).toBeNull();
-  expect(aidtSummaryRequest(result)).toContain("dt-summarize-project"); expect(aidtSummaryRequest(result)).toContain("教师点评尚无授权来源");
+  const request = aidtSummaryRequest(result);
+  expect(request).toContain("请生成本组研究过程报告的学生审阅稿");
+  expect(request).toContain("第1步 V1、第2步 V2、第3步 V3、第4步 V4、第5步 V5、第6步 V6");
+  expect(request).toContain("教师点评尚无授权来源");
+  expect(request).toContain("等待学生选择导入，不自动保存");
   for (const call of mocks.read.mock.calls) expect([call[0],call[2],call[3]]).toEqual(["p","token",signal]);
   expect(mocks.history).toHaveBeenCalledWith(scope, signal);
 });
