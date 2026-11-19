@@ -432,10 +432,14 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   const createdSurveyId = new URL(page.url()).pathname.split("/")[3];
 
   await expect(page.getByLabel("问卷名称")).toHaveValue(TEMPLATE_TITLE);
-  await expect(page.getByText("题目目录 · 8")).toBeVisible();
-  await expect(page.getByText("1. 会议名称", { exact: true })).toBeVisible();
-  await expect(page.getByText("2. 会议日期", { exact: true })).toBeVisible();
-  await expect(page.getByText("8. 下次会议最值得改进的地方是什么？", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "题目大纲", exact: true }).click();
+  const outline = page.getByRole("dialog", { name: "题目大纲" });
+  await expect(outline.getByText("题目目录 · 8")).toBeVisible();
+  await expect(outline.getByText("1. 会议名称", { exact: true })).toBeVisible();
+  await expect(outline.getByText("2. 会议日期", { exact: true })).toBeVisible();
+  await expect(outline.getByText("8. 下次会议最值得改进的地方是什么？", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(outline).toBeHidden();
   await page.screenshot({path:testInfo.outputPath("survey-designer-desktop.png"),fullPage:true});
 
   await expect(page.getByRole('heading',{name:'AI 智能生成问卷'})).toHaveCount(0);
@@ -587,7 +591,9 @@ test('新建弹窗可从真实模板创建并在刷新后保留名称',async({pa
   await creation.getByRole('button',{name:'下一步'}).click();
   await expect(page.getByLabel('问卷名称')).toHaveValue('模板弹窗创建验证');
   await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\/design$/);
-  await expect(page.getByText('题目目录 · 8')).toBeVisible();await page.reload();
+  await page.getByRole("button", { name: "题目大纲", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "题目大纲" }).getByText("题目目录 · 8")).toBeVisible();
+  await page.reload();
   await expect(page.getByLabel('问卷名称')).toHaveValue('模板弹窗创建验证');
 });
 
