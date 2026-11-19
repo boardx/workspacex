@@ -20,7 +20,7 @@ describe("V2 shipped guidance requirements", () => {
   it("FR16 places a source-linked surprise or honest none before persona", () => {
     const text = source("aidt-define");
     expect(text.indexOf("在画像之前")).toBeLessThan(text.indexOf("学生先按模板综合填写用户画像"));
-    for (const rule of ["暂无意外发现", "具体发现卡／原材料位置", "不强迫编造反转故事", "选择暂无可继续画像", "不强制补访", "教师", "不新增必须提交的独立用户问题卡"]) expect(text).toContain(rule);
+    for (const rule of ["暂无意外发现", "具体发现卡／原材料位置", "不强迫编造反转故事", "即可继续画像", "不强制补访", "教师", "不新增必须提交的独立用户问题卡"]) expect(text).toContain(rule);
   });
   it("FR17 keeps student multi-label categories separate from votes and distinct idea counts", () => {
     const text = source("aidt-ideate");

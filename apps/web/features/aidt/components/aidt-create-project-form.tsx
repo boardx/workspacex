@@ -3,7 +3,7 @@ import * as React from "react";
 import { CreateProjectForm } from "@/components/project/create-project-form";
 import { useSession } from "@/components/session/session-provider";
 import { isAidtModuleEnabled } from "@/features/aidt/lib/aidt-module-config";
-import { AIDT_PROJECT_TAG, AIDT_PROJECT_LABEL, aidtHref } from "@/features/aidt/lib/project-aidt";
+import { AIDT_PROJECT_TAG, aidtHref } from "@/features/aidt/lib/project-aidt";
 import { createProject, findProject, updateProjectTags } from "@/lib/live-projects";
 
 /** Module-local profile orchestration; the shared form only owns native form controls. */
@@ -38,5 +38,5 @@ export function AidtCreateProjectForm({ cancel }: { cancel: React.ReactNode }) {
   }, [scope, generation, savedProject, session]);
   if (!isAidtModuleEnabled()) return <section role="status" data-testid="aidt-create-disabled"><p>教学模块尚未启用。</p>{cancel}</section>;
   if (!session?.userId || !session.currentOrgId || !session.sessionToken) return <section role="status" data-testid="aidt-create-identity-required"><p>请先登录并选择组织。</p>{cancel}</section>;
-  return <CreateProjectForm key={scope} cancel={cancel} createProjectAction={create} createdHref={aidtHref} nameLabel="小组名与研究挑战" namePlaceholder="例如：第三组 · 校园午餐体验" intro={<p className="text-13 font-medium">{AIDT_PROJECT_LABEL}</p>} nameLocked={savedProject !== null} submitLabel={savedProject ? "重试保存 AIDT 类型" : undefined} failurePrefix={savedProject ? "项目已创建，AIDT 类型尚未保存；再次提交只会重试保存类型，不会重复建项目。" : undefined} />;
+  return <CreateProjectForm key={scope} className="flex flex-col gap-5 [&_input]:h-12 [&_input]:rounded-xl [&_input]:text-16 [&_button]:h-11 [&_button]:rounded-full [&_button]:px-5" cancel={cancel} createProjectAction={create} createdHref={aidtHref} nameLabel="小组名称" namePlaceholder="例如：第三组" nameLocked={savedProject !== null} submitLabel={savedProject ? "重试完成创建" : "创建小组"} failurePrefix={savedProject ? "小组已创建，类型保存尚未完成；重试不会重复创建。" : undefined} />;
 }

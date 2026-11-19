@@ -11,6 +11,7 @@ export const AIDT_CONTEXT_PACK_RELEASES = [
   {packId:"aidt-methods",packVersion:"1.2.0"}, {packId:"aidt-methods",packVersion:"1.3.0"},
   {packId:"aidt-methods",packVersion:"1.3.1"},
   {packId:"aidt-methods",packVersion:"1.3.2"},
+  {packId:"aidt-methods",packVersion:"1.4.0"},
   {packId:"aidt-project-summary",packVersion:"1.0.0"},
   {packId:"aidt-project-summary",packVersion:"1.0.1"},
   {packId:"aidt-project-summary",packVersion:"1.0.2"},
