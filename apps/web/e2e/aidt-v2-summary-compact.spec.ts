@@ -106,6 +106,7 @@ test(process.env.AIDT_V2_SUMMARY_CORRECTION_MODE === "1" ? "student source corre
     await expect.poll(() => existsSync(proofFile), { timeout: 180_000, intervals: [500, 1_000] }).toBe(true);
     const semantic = JSON.parse(readFileSync(proofFile, "utf8")); expect(semantic).toMatchObject({ runId: turn.runId, assistantMessageId: turn.assistantMessageId, assistantTextSha256: sha(turn.assistantText), criticalCount: 0, reviewedFullReport: true, referencesChecked: true, reviewRole: "independent-teaching-semantic-agent", classroomAcceptance: false, modelRequestsSent: 0 });
     await fresh.getByTestId("aidt-open-report").click(); await expect(fresh.getByTestId("aidt-report-reload")).toBeEnabled();
+    await fresh.getByRole("button", { name: "编辑报告", exact: true }).click();
     const report = fresh.getByLabel("小组报告草稿", { exact: true }); await expect(report).toHaveValue(baseline.content.summaryReport!.markdown);
     await fresh.getByTestId("aidt-summary-import").locator("summary").first().click(); await fresh.getByRole("button", { name: "读取AI总结结果", exact: true }).click();
     await fresh.getByRole("combobox", { name: "选择要审阅的AI结果", exact: true }).selectOption(`message:${turn.assistantMessageId}`);

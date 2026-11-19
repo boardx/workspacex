@@ -574,6 +574,7 @@ test("FR10: real summary Skill reads saved sources, student reviews/imports, rep
   await page.getByTestId("aidt-open-report").click();
   await page.waitForURL(url => url.searchParams.get("tool") === "report" && url.searchParams.get("summaryThread") === turn.threadId);
   await expect(page.getByTestId("aidt-report-reload")).toBeEnabled();
+  await page.getByRole("button", { name: "编辑报告", exact: true }).click();
   const report = page.getByLabel("小组报告草稿", { exact: true });
   await expect(report).toHaveValue(manual);
   await page.getByTestId("aidt-summary-import").locator("summary").click();
