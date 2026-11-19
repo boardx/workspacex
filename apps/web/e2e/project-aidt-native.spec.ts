@@ -30,6 +30,8 @@ async function selectStage(page: Page, stage: number) {
     if ((await picker.getAttribute("open")) === null) await picker.locator("summary").first().click();
     await page.getByTestId(`aidt-stage-mobile-${stage}`).click();
   }
+  await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
+  await page.getByRole("link", { name: "返回本步对话", exact: true }).click();
 }
 async function openAssistant(page: Page, expectedChatError = false) {
   const panel = page.getByTestId("aidt-assistant-panel");
@@ -101,8 +103,10 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
     await page.screenshot({ path: test.info().outputPath(`aidt-dashboard-${width}.png`), fullPage: true });
   }
   await page.getByTestId("aidt-step-1").click();
+  await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
+  await expect(page.getByRole("region", { name: "当前学习任务" })).toContainText("先写原始命题");
+  await page.getByRole("link", { name: "返回本步对话", exact: true }).click();
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
-  await expect(page.getByTestId("aidt-stage-output")).toHaveCount(0);
   await openGuidance(page);
   await expect(page.getByTestId("aidt-learning-start")).toContainText("本组先想一想");
   await expect(page.getByText("调研市场并产出带来源的报告", { exact: true })).toHaveCount(0);
@@ -172,7 +176,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   await page.getByRole("button", { name: "审阅并发送到本步聊天", exact: true }).click();
   await expect(page.getByTestId("aidt-tool-panel").getByRole("status")).toContainText("未覆盖");
   await page.screenshot({ path: test.info().outputPath("aidt-ui-v3-outcome.png"), fullPage: true });
-  await page.getByRole("link", { name: "六步 Dashboard", exact: false }).click();
+  await page.getByRole("link", { name: "六步研究", exact: false }).click();
   await expect(page.getByTestId("aidt-step-1")).toContainText("本页有未保存内容");
   await expect(page.getByTestId("aidt-materials")).toContainText("当前没有已关联资料");
   await page.screenshot({ path: test.info().outputPath("aidt-ui-v3-dashboard.png"), fullPage: true });
