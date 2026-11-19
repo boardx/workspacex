@@ -83,6 +83,7 @@ jobs:
       aidt_web_enabled: ${{ steps.plan.outputs.aidt_web_enabled }}
       node_image: ${{ steps.mirror.outputs.node_image || steps.plan.outputs.node_image }}
       python_image: ${{ steps.mirror.outputs.python_image || steps.plan.outputs.python_image }}
+      uv_image: ${{ steps.mirror.outputs.uv_image || steps.plan.outputs.uv_image }}
       pgvector_image: ${{ steps.mirror.outputs.pgvector_image || steps.plan.outputs.pgvector_image }}
     steps:
       - uses: actions/checkout@v5
@@ -119,6 +120,7 @@ jobs:
         env:
           NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
           PYTHON_IMAGE: ${{ steps.plan.outputs.python_image }}
+          UV_IMAGE: ${{ steps.plan.outputs.uv_image }}
           PGVECTOR_IMAGE: ${{ steps.plan.outputs.pgvector_image }}
           ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
           ACR_PASSWORD: ${{ secrets.WSX_ACR_PASSWORD }}
@@ -146,6 +148,7 @@ jobs:
       USE_ACR_VPC: "1"
       NODE_IMAGE: ${{ needs.plan.outputs.node_image }}
       PYTHON_IMAGE: ${{ needs.plan.outputs.python_image }}
+      UV_IMAGE: ${{ needs.plan.outputs.uv_image }}
       PGVECTOR_IMAGE: ${{ needs.plan.outputs.pgvector_image }}
     steps:
       - uses: actions/checkout@v5
