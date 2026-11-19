@@ -24,7 +24,7 @@ test("recording locale preserves real capture, final persistence, edits and hist
   });
   await page.goto("/login");
   await page.getByTestId("language-switcher").selectOption("en");
-  await page.getByTestId("login-email").fill(F.email);
+  await page.getByTestId("login-email").fill(F.i18nRecordingEmail);
   await page.getByTestId("login-password").fill(F.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/);
@@ -147,7 +147,7 @@ test("recording locale preserves real capture, final persistence, edits and hist
 
 test("recording project previews retain routing and edited controls in both locales", async ({ page, context }) => {
   test.setTimeout(120_000);
-  await page.goto("/login"); await page.getByTestId("language-switcher").selectOption("en"); await page.getByTestId("login-email").fill(F.email); await page.getByTestId("login-password").fill(F.password); await page.getByTestId("login-submit").click(); await expect(page).toHaveURL(/\/home$/);
+  await page.goto("/login"); await page.getByTestId("language-switcher").selectOption("en"); await page.getByTestId("login-email").fill(F.i18nRecordingEmail); await page.getByTestId("login-password").fill(F.password); await page.getByTestId("login-submit").click(); await expect(page).toHaveURL(/\/home$/);
   const localePage = await context.newPage(); await localePage.goto("/rec");
   const change = async (locale: "en" | "zh-CN") => { await setShellLocale(localePage, locale); };
   for (const screen of ["prep", "process", "verify", "live", "assign", "annotate", "retention"] as const) {
