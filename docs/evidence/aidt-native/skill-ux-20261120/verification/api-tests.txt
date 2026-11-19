@@ -1,0 +1,16 @@
+
+ RUN  v2.1.9 /tmp/aidt-skill-ux-20261120
+
+ ✓ apps/api/tests/skill/aidt-teaching-boundary-candidates.test.ts (12 tests) 36ms
+ ✓ apps/api/tests/skill/aidt-summary-skill-pack.test.ts (5 tests) 68ms
+ ✓ apps/api/tests/skill/aidt-v2-skill-guidance.test.ts (12 tests) 29ms
+ ✓ apps/api/tests/skill/aidt-backend-import-replay-isolation.test.ts (3 tests) 18ms
+ ✓ apps/api/tests/skill/aidt-backend-isolation.test.ts (14 tests) 7ms
+ ✓ apps/api/tests/skill/aidt-summary-import.test.ts (3 tests) 10ms
+ ✓ apps/api/tests/skill/aidt-skill-pack.test.ts (1 test) 6ms
+
+ Test Files  7 passed (7)
+      Tests  50 passed (50)
+   Start at  17:35:37
+   Duration  5.55s (transform 1.10s, setup 0ms, collect 4.45s, tests 175ms, environment 1ms, prepare 244ms)
+

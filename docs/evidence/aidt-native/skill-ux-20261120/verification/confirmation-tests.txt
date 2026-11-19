@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /tmp/aidt-skill-ux-20261120/apps/web
+
+ ✓ tests/ui/aidt-round-completion.test.tsx (7 tests) 190ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  17:40:41
+   Duration  1.48s (transform 235ms, setup 79ms, collect 318ms, tests 190ms, environment 549ms, prepare 43ms)
+
