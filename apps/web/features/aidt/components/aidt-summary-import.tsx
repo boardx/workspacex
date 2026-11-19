@@ -31,7 +31,7 @@ function Importer({ scope, threadId, value, readOnly, onChange }: { scope: AidtR
   const sourceLines = result ? aidtSummarySourceReviewLines(result.sourceReview) : [];
   return <details className="space-y-3 rounded-lg border border-border p-3 text-12" data-testid="aidt-summary-import">
     <summary className="cursor-pointer font-medium">选择AI总结结果带入报告</summary>
-    <p className="mt-2 text-muted-foreground">只读取本组已挂总结Skill的对话。选择消息或产物后先审阅，再主动追加；保留原文，不自动保存。个人草稿产物在你导入并保存报告后会成为本组报告内容。</p>
+    <p className="mt-2 text-muted-foreground">只读取本组已挂总结Skill的对话。核对来源和正文后，可将所选结果用作报告正文，或追加为附录。采用正文会替换当前草稿，须另行保存。个人草稿产物在你导入并保存报告后会成为本组报告内容。</p>
     {!threadId && <p>先打开报告引导师完成总结，再返回此处。</p>}
     <Button type="button" size="sm" variant="outline" disabled={!threadId || busy} onClick={() => void read()}>读取AI总结结果</Button>
     {busy && <Button type="button" size="sm" variant="outline" onClick={() => { request.current?.abort(); setBusy(false); setStatus("已取消读取，报告保留。"); }}>取消读取AI结果</Button>}
@@ -45,7 +45,12 @@ function Importer({ scope, threadId, value, readOnly, onChange }: { scope: AidtR
           <p className="text-muted-foreground">{sourceLines.at(-1)}</p>
         </>}
       </section>
-      <pre data-testid="aidt-summary-result-preview" className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-3 font-sans">{result.markdown}</pre><p>来源消息：{result.choice.messageId} · 运行：{result.choice.runId}{result.immutableRevision ? ` · ${result.immutableRevision}` : ""}</p><label className="flex gap-2"><input type="checkbox" disabled={readOnly} checked={reviewed} onChange={event => setReviewed(event.currentTarget.checked)} />我已核对AI草稿、材料缺口与点评来源</label><Button size="sm" disabled={readOnly || busy || !reviewed || value.length + appendix.length > 100000} onClick={() => { onChange(value + appendix); setResult(null); setReviewed(false); setStatus("已将所选AI草稿追加到编辑区，原文保留。请修改、核对来源后主动保存；导入不代表文件导出成功。"); }} data-testid="aidt-summary-import-apply">追加所选AI草稿到报告</Button>{value.length + appendix.length > 100000 && <p role="alert">追加后超过报告长度限制，请先精简当前稿。未更改正文。</p>}
+      <pre data-testid="aidt-summary-result-preview" className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-3 font-sans">{result.markdown}</pre><p>来源消息：{result.choice.messageId} · 运行：{result.choice.runId}{result.immutableRevision ? ` · ${result.immutableRevision}` : ""}</p><label className="flex gap-2"><input type="checkbox" disabled={readOnly} checked={reviewed} onChange={event => setReviewed(event.currentTarget.checked)} />我已核对AI草稿、材料缺口与点评来源</label><Button size="sm" disabled={readOnly || busy || !reviewed || value.length + appendix.length > 100000} onClick={() => { onChange(value + appendix); setResult(null); setReviewed(false); setStatus("已将所选AI草稿追加到编辑区，原文保留。请修改、核对来源后主动保存；导入不代表文件导出成功。"); }} data-testid="aidt-summary-import-apply">追加所选AI草稿到报告</Button> <Button size="sm" variant="outline" disabled={readOnly || busy || !reviewed || !result.markdown.trim() || result.markdown.trim().length > 100000} onClick={() => {
+        onChange(result.markdown.trim());
+        setResult(null);
+        setReviewed(false);
+        setStatus("已用所选报告替换当前草稿。请核对正文后保存到小组。");
+      }} data-testid="aidt-summary-import-replace">替换当前草稿为报告正文</Button>{value.length + appendix.length > 100000 && <p role="alert">追加后超过报告长度限制，请先精简当前稿。未更改正文。</p>}
     </>}
     {status && <p role="status">{status}</p>}
   </details>;
