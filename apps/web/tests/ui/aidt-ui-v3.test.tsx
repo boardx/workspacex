@@ -67,7 +67,7 @@ it("uses saved group revisions after re-entry without equating saving with compl
   expect(screen.getByTestId("aidt-stage-save-1")).toHaveTextContent("小组已保存 · V3 · 本页有修改");
   expect(screen.getByTestId("aidt-stage-save-2")).toHaveTextContent("尚未保存成果");
   expect(screen.getByRole("link", { name: "继续第1步 · 理解与提出问题" })).toHaveAttribute("href", "/aidt/g?step=1");
-  expect(screen.getByTestId("aidt-step-2")).toHaveTextContent("打开任务");
+  expect(screen.getByTestId("aidt-step-2")).toHaveTextContent("进入对话");
   expect(screen.getByText(/保存版本不代表阶段完成或全员确认/)).toBeVisible();
   expect(screen.queryByText(/刷新后重置/)).toBeNull();
 });

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-export function AidtAssistantPanel({ open, fullPage, onClose, children }: { open: boolean; fullPage: boolean; onClose: () => void; children: React.ReactNode }) {
+export function AidtAssistantPanel({ open, fullPage, docked = false, onClose, children }: { open: boolean; fullPage: boolean; docked?: boolean; onClose: () => void; children: React.ReactNode }) {
   const panel = React.useRef<HTMLElement>(null), closeButton = React.useRef<HTMLButtonElement>(null);
   const [viewport, setViewport] = React.useState<{ top: number; left: number; height: number; width: number } | null>(null);
   React.useEffect(() => {
@@ -26,8 +26,8 @@ export function AidtAssistantPanel({ open, fullPage, onClose, children }: { open
     return () => { window.removeEventListener("resize", resize); visualViewport?.removeEventListener("resize", resize); visualViewport?.removeEventListener("scroll", resize); };
   }, [open, fullPage]);
   const visibleViewport = open && !fullPage ? viewport : null;
-  return <aside ref={panel} hidden={!fullPage && !open} role={fullPage ? undefined : "dialog"} aria-modal={fullPage ? undefined : false} aria-label="AI 引导师" data-testid="aidt-assistant-panel" style={visibleViewport ? { top: visibleViewport.top, left: visibleViewport.left, width: visibleViewport.width, height: visibleViewport.height, bottom: "auto", right: "auto" } : undefined} className={fullPage ? "flex min-h-0 min-w-0 flex-1 flex-col" : `${open ? "flex" : "hidden"} fixed inset-0 z-40 w-full max-w-none flex-col border-l border-border bg-background shadow-xl md:absolute md:inset-y-0 md:left-auto md:right-0 md:max-w-md`}>
-    {!fullPage && <header className="flex shrink-0 items-center justify-between border-b border-border p-3"><h2 className="text-14 font-semibold">AI 引导师</h2><Button ref={closeButton} size="sm" variant="ghost" onClick={onClose}>关闭 AI 引导师</Button></header>}
+  return <aside ref={panel} hidden={!fullPage && !open && !docked} role={!fullPage && open ? "dialog" : undefined} aria-modal={!fullPage && open ? false : undefined} aria-label="AI 引导师" data-testid="aidt-assistant-panel" style={visibleViewport ? { top: visibleViewport.top, left: visibleViewport.left, width: visibleViewport.width, height: visibleViewport.height, bottom: "auto", right: "auto" } : undefined} className={fullPage ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-sm" : `${open ? "flex" : "hidden"} ${docked ? "xl:static xl:flex xl:max-w-none xl:flex-1 xl:rounded-2xl xl:border xl:border-border-subtle xl:shadow-sm" : ""} fixed inset-0 z-40 w-full max-w-none flex-col border-l border-border bg-background shadow-xl md:absolute md:inset-y-0 md:left-auto md:right-0 md:max-w-md`}>
+    {!fullPage && <header className={`flex shrink-0 items-center justify-between border-b border-border p-3 ${docked ? "xl:hidden" : ""}`}><h2 className="text-14 font-semibold">AI 引导师</h2><Button ref={closeButton} size="sm" variant="ghost" onClick={onClose}>关闭 AI 引导师</Button></header>}
     <div className="flex min-h-0 flex-1 flex-col" data-testid="aidt-chat-host">{children}</div>
   </aside>;
 }

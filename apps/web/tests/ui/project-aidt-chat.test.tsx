@@ -40,6 +40,7 @@ it("ignores a late response from the previous stage", async () => {
   let first!: (v: AidtStepChat) => void;
   mocks.resolve.mockImplementationOnce(() => new Promise((resolve) => { first = resolve; })).mockResolvedValue({ threadId: "t2", skillName: "共情用户", versionId: "v2" });
   const { rerender } = render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread={null} />);
+  window.history.replaceState(null, "", "/aidt/p?step=2");
   rerender(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} />);
   await screen.findByTestId("chat-shell");
   await act(async () => { first({ threadId: "t1", skillName: "理解问题", versionId: "v1" }); });
@@ -210,6 +211,7 @@ it("ignores a late upgrade response after moving to another group", async () => 
   mocks.createLatest.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   const { rerender } = render(<ProjectAidtChat projectId="first" step={AIDT_STEPS[0]} thread="first" />);
   await screen.findByTestId("chat-shell"); fireEvent.click(screen.getByRole("button", { name: "使用新版另开本步对话" }));
+  window.history.replaceState(null, "", "/aidt/second?step=1");
   rerender(<ProjectAidtChat projectId="second" step={AIDT_STEPS[0]} thread="second" />);
   await waitFor(() => expect(mocks.shell).toHaveBeenLastCalledWith(expect.objectContaining({ initialThreadId: "second" })));
   expect(mocks.createLatest.mock.calls[0]![0].signal.aborted).toBe(true);
@@ -235,13 +237,27 @@ it("preserves the saved learning round after the native thread resolves and swit
   expect(next.searchParams.get("resource")).toBe("saved-material");
 });
 
+it("does not rewrite the workspace URL when its native thread is already selected", async () => {
+  const location = "/aidt/p?step=2&tool=context&thread=resolved&returnRevision=3";
+  window.history.replaceState(null, "", location);
+  mocks.resolve.mockResolvedValue({ threadId: "resolved", skillName: "共情", versionId: "v1" });
+  const replaceState = vi.spyOn(window.history, "replaceState");
+  try {
+    render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread="resolved" />);
+    await screen.findByTestId("chat-shell");
+    expect(replaceState).not.toHaveBeenCalled();
+    expect(window.location.pathname + window.location.search).toBe(location);
+  } finally {
+    replaceState.mockRestore();
+  }
+});
+
 it.each(["/aidt/other?step=2&returnRevision=3", "/aidt/p?step=3&returnRevision=3"])("does not carry a learning round from a foreign project or stage: %s", async (location) => {
   window.history.replaceState(null, "", location);
   mocks.resolve.mockResolvedValue({ threadId: "stage-two", skillName: "共情", versionId: "v1" });
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread={null} />);
   await screen.findByTestId("chat-shell");
-  expect(new URL(window.location.href).searchParams.has("returnRevision")).toBe(false);
-  window.history.replaceState(null, "", location);
+  expect(window.location.pathname + window.location.search).toBe(location);
   const path = mocks.shell.mock.calls.at(-1)![0].threadPath as (id: string | null) => string;
   expect(new URL(path("new-thread"), "https://workspace.invalid").searchParams.has("returnRevision")).toBe(false);
 });
@@ -250,8 +266,10 @@ it("retains the learning round when choosing a different conversation after a re
   mocks.resolve.mockRejectedValue(new Error("暂不可用"));
   render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[1]} thread="failed-thread" />);
   await screen.findByRole("alert");
-  expect(screen.getByRole("link", { name: "选择本步对话" })).toHaveAttribute("href", "/aidt/p?step=2&returnRevision=3");
-  expect(screen.getByRole("link", { name: "打开本步任务" })).toHaveAttribute("href", "/aidt/p?step=2&tool=outcome");
+  const recovery = screen.getByRole("link", { name: "选择本步对话" });
+  expect(recovery).toHaveAttribute("href", "/aidt/p?step=2&returnRevision=3");
+  expect(recovery).toHaveAttribute("data-aidt-reset-thread");
+  expect(screen.getByRole("link", { name: "打开本步任务" })).toHaveAttribute("href", "/aidt/p?step=2&tool=outcome&returnRevision=3");
 });
 
 const returnedLearning = { status: "ready", items: [{ kind: "aidt-return-reflection", projectId: "p", stageNumber: 6, revision: 3, targetStage: 2, questionSourceStageRevision: 2, fields: { originalQuestion: "原问题", beforeTestBelief: "前认识", afterTestBelief: "后认识", returnReason: "补访谈", nextAction: "询问学生" }, truncated: true, reviewStatus: "editor-confirmed", evidenceStatus: "not-verified", trust: "untrusted-student-material" }], issues: [] };

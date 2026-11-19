@@ -66,7 +66,6 @@ for (const scenario of selected.length ? selected : [null]) {
       await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
       projectId = new URL(page.url()).pathname.split("/").pop()!;
       await page.getByTestId(`aidt-step-${scenario.stage}`).click();
-      await page.getByRole("link", { name: "返回本步对话", exact: true }).click();
       await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
       await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBeTruthy();
       threadId = new URL(page.url()).searchParams.get("thread")!;
