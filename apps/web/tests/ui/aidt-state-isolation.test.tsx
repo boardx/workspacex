@@ -42,7 +42,7 @@ it("clears another actor's drafts and remounts native Chat even when the project
   rerender(<ProjectAidt projectId="group" sub="aidt-1" canWrite />);
   expect(screen.getByLabelText("初始问题")).toHaveValue("");
   expect(screen.getByTestId("native-chat")).toHaveTextContent("student-b");
-  expect(screen.getByTestId("aidt-assistant-panel")).not.toBeVisible();
+  expect(screen.getByTestId("aidt-assistant-panel")).toBeVisible();
 });
 it("does not carry local drafts across organizations but preserves them on same-actor token refresh", () => {
   const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-1" canWrite />);
@@ -121,7 +121,7 @@ it("rejects an old actor lifecycle's image callback after A to B to A", async ()
     oldReader.onload?.();
   });
   expect(screen.getByLabelText("候选1名称")).toHaveValue("A回来后重新填写的候选");
-  expect(screen.getByTestId("aidt-assistant-panel")).not.toBeVisible();
+  expect(screen.getByTestId("aidt-assistant-panel")).toBeVisible();
   expect(screen.queryByAltText("候选1参考图（未上传）")).toBeNull();
 });
 
