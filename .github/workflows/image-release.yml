@@ -185,7 +185,8 @@ jobs:
           python3 -B "$RELEASE_SCRIPT" build --source "$SOURCE_REVISION" --service "$SERVICE" --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output "result/$SERVICE.json"
       - uses: actions/upload-artifact@v6
         with:
-          name: release-image-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}
+          name: release-image-${{ needs.plan.outputs.tag }}-${{ matrix.service }}
+          overwrite: true
           path: source/result/*.json
           if-no-files-found: error
           retention-days: 30
@@ -203,10 +204,10 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          pattern: release-image-${{ github.run_id }}-${{ github.run_attempt }}-*
+          pattern: release-image-${{ needs.plan.outputs.tag }}-*
           merge-multiple: true
           path: results
-      - name: Require complete image set from this attempt
+      - name: Require complete image set for the planned tag
         env:
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
           SOURCE_REVISION: ${{ needs.plan.outputs.source }}

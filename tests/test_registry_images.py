@@ -16,7 +16,7 @@ def module():
     return value
 
 class Producer(unittest.TestCase):
-    def test_cn_agent_build_uses_configured_index_and_vpc_cache(self):
+    def test_retried_cn_agent_build_uses_planned_tag_and_vpc_cache(self):
         m = module()
         source = 'b' * 40
         prefix = 'example-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod'
@@ -27,7 +27,7 @@ class Producer(unittest.TestCase):
             'WSX_CN_PYPI_INDEX_URL': 'https://pypi.example.com/simple/',
             'WSX_CN_AGENT_CACHE_REPOSITORY': 'agent-cache',
             'GITHUB_RUN_ID': '123',
-            'GITHUB_RUN_ATTEMPT': '1',
+            'GITHUB_RUN_ATTEMPT': '3',
         }
         tag = m.release_tag(source, '123', '1')
         with patch.dict(os.environ, env, clear=True), \
@@ -44,6 +44,29 @@ class Producer(unittest.TestCase):
         self.assertIn('PYPI_INDEX_URL=https://pypi.example.com/simple/', args)
         self.assertEqual(args[args.index('--cache-from') + 1], 'type=registry,ref=' + cache)
         self.assertTrue(args[args.index('--cache-to') + 1].endswith(',ref=' + cache))
+
+    def test_retry_recovers_existing_image_without_building_or_pushing(self):
+        m = module()
+        source = 'b' * 40
+        prefix = 'example-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod'
+        image = prefix + '/agent@sha256:' + 'c' * 64
+        receipt = {'service': 'agent', 'tag': '123-1', 'sourceRevision': source,
+                   'image': image, 'imageId': 'sha256:' + 'd' * 64}
+        env = {'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '2',
+               'PYTHON_IMAGE': 'python@sha256:' + 'a' * 64}
+        with patch.dict(os.environ, env, clear=True), \
+             patch.object(m, 'run', return_value=source), \
+             patch.object(m.subprocess, 'run') as probe, \
+             patch.object(m, 'resolve', return_value=receipt) as resolve, \
+             patch.object(m, 'run_release_stage') as stage, \
+             patch.object(m, 'write') as write:
+            probe.return_value.returncode = 0
+            m.build('agent', prefix, '123-1', 'result.json', source)
+
+        resolve.assert_called_once_with('docker', prefix, '123-1', 'agent',
+                                        expected_source=source, expected_api_flags=None)
+        write.assert_called_once_with('result.json', receipt)
+        stage.assert_not_called()
 
     def test_vpc_publication_preserves_canonical_release_reference(self):
         m = module()
