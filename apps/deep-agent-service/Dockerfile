@@ -1,22 +1,24 @@
 ARG PYTHON_IMAGE=python:3.11-slim
 FROM ${PYTHON_IMAGE}
 ARG PYPI_INDEX_URL=https://pypi.org/simple
-ARG SOURCE_REVISION
-LABEL org.opencontainers.image.revision="${SOURCE_REVISION}"
 COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /bin/
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock langgraph.json ./
-COPY src ./src
+COPY pyproject.toml uv.lock ./
 
 # Export exact versions and hashes from the reviewed lock without its origin-bound
 # artifact URLs, then let the configured PEP 503 index serve matching artifacts.
-RUN uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file /tmp/requirements.lock \
+RUN --mount=type=cache,id=workspacex-agent-uv,target=/root/.cache/uv \
+    uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file /tmp/requirements.lock \
  && uv venv --python /usr/local/bin/python /app/.venv \
- && uv pip install --python /app/.venv/bin/python --require-hashes --no-cache \
+ && uv pip install --python /app/.venv/bin/python --require-hashes --link-mode copy \
       --default-index "$PYPI_INDEX_URL" -r /tmp/requirements.lock \
  && rm -f /tmp/requirements.lock
+COPY langgraph.json ./
+COPY src ./src
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision="${SOURCE_REVISION}"
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/src"
 

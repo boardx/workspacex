@@ -1,6 +1,7 @@
 """Producer identity tests; registry calls use a command-boundary fixture."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -15,6 +16,35 @@ def module():
     return value
 
 class Producer(unittest.TestCase):
+    def test_cn_agent_build_uses_configured_index_and_vpc_cache(self):
+        m = module()
+        source = 'b' * 40
+        prefix = 'example-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod'
+        cache = 'example-registry-vpc.cn-shanghai.cr.aliyuncs.com/workspacex-prod/agent-cache:buildkit-linux-amd64'
+        env = {
+            'USE_ACR_VPC': '1',
+            'PYTHON_IMAGE': 'python@sha256:' + 'a' * 64,
+            'WSX_CN_PYPI_INDEX_URL': 'https://pypi.example.com/simple/',
+            'WSX_CN_AGENT_CACHE_REPOSITORY': 'agent-cache',
+            'GITHUB_RUN_ID': '123',
+            'GITHUB_RUN_ATTEMPT': '1',
+        }
+        tag = m.release_tag(source, '123', '1')
+        with patch.dict(os.environ, env, clear=True), \
+             patch.object(m, 'run', side_effect=[source, 'sha256:' + 'a' * 64]), \
+             patch.object(m.subprocess, 'run') as probe, \
+             patch.object(m, 'run_release_stage') as stage, \
+             patch.object(m, 'verify_publication'):
+            probe.return_value.returncode = 1
+            probe.return_value.stderr = 'manifest unknown'
+            stage.side_effect = ['', f'{tag}: digest: sha256:{"a" * 64} size: 123\n']
+            m.build('agent', prefix, tag, 'result.json', source)
+
+        args = stage.call_args_list[0].args[2]
+        self.assertIn('PYPI_INDEX_URL=https://pypi.example.com/simple/', args)
+        self.assertEqual(args[args.index('--cache-from') + 1], 'type=registry,ref=' + cache)
+        self.assertTrue(args[args.index('--cache-to') + 1].endswith(',ref=' + cache))
+
     def test_vpc_publication_preserves_canonical_release_reference(self):
         m = module()
         registry = 'example-registry.cn-shanghai.cr.aliyuncs.com'
