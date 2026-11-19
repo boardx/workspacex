@@ -16,9 +16,18 @@ export function AidtDashboard({ href, drafts, shared }: { href: (step: number) =
     return local && aidtUiStageSummary(stageId, local) ? "本页有未保存内容" : "尚未保存成果";
   }
   const firstStart = shared?.phase === "ready" && Object.keys(shared.stages).length === 0 && !AIDT_STEPS.some((step) => drafts?.[step.id] && aidtUiStageSummary(step.id, drafts[step.id]!));
+  const editedStage = AIDT_STEPS.find(({ id }) => {
+    const draft = drafts?.[id], saved = shared?.stages[id];
+    return draft && (saved
+      ? aidtSharedDraftSignature(draft) !== aidtSharedDraftSignature(saved.content.draft)
+      : Boolean(aidtUiStageSummary(id, draft)));
+  });
+  const nextTask = shared?.phase === "ready"
+    ? editedStage ?? AIDT_STEPS.find(({ id }) => !shared.stages[id]) ?? AIDT_STEPS[5]
+    : null;
   return <section className="flex flex-col gap-3" aria-label="AIDT 设计思维" data-testid="aidt-dashboard">
     <header className="mb-1 space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">本组六步研究</h1>{firstStart && <Button asChild variant="primary"><Link href={href(1)} data-testid="aidt-first-start">从第1步开始</Link></Button>}</div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">本组六步研究</h1>{nextTask && <Button asChild variant="primary"><Link href={href(nextTask.id)} data-testid={firstStart ? "aidt-first-start" : "aidt-continue-task"}>{firstStart ? "从第1步开始" : `继续第${nextTask.id}步 · ${nextTask.title}`}</Link></Button>}</div>
       <p className="text-12 leading-relaxed text-muted-foreground sm:text-13">先思考，再与 AI 协同；用证据推进，由小组做决定。</p>
     </header>
     {shared?.phase === "loading" && <p role="status" className="text-12 text-muted-foreground" data-testid="aidt-dashboard-loading">正在读取小组已保存的成果…</p>}
@@ -30,7 +39,7 @@ export function AidtDashboard({ href, drafts, shared }: { href: (step: number) =
           <div className="min-w-0 flex-1"><h2 className="text-14 font-medium">{step.title}</h2><p className="mt-1 hidden text-12 leading-relaxed text-muted-foreground sm:block">{step.summary}</p><p className="mt-1 text-11 leading-relaxed text-muted-foreground"><span className="sm:hidden">{AIDT_OUTPUTS[step.id]!.title}{stageState(step.id) ? " · " : ""}</span>{stageState(step.id) && <span data-testid={`aidt-stage-save-${step.id}`}>{stageState(step.id)}</span>}</p></div>
           <span className="self-center text-13 text-muted-foreground sm:hidden" aria-hidden>→</span>
         </div>
-        <div className="mt-auto hidden items-center justify-between gap-2 border-t border-border pt-3 text-11 text-muted-foreground sm:flex"><span>成果 · {AIDT_OUTPUTS[step.id]!.title}</span><span>进入对话 →</span></div>
+        <div className="mt-auto hidden items-center justify-between gap-2 border-t border-border pt-3 text-11 text-muted-foreground sm:flex"><span>成果 · {AIDT_OUTPUTS[step.id]!.title}</span><span>打开任务 →</span></div>
       </Link>)}
     </div>
     {shared ? <p className="text-11 text-muted-foreground">保存版本不代表阶段完成或全员确认，可随时返回修订。</p> : drafts && <p className="text-12 text-muted-foreground">以上仅为本页填写概览，不代表小组进度或阶段确认。小组已保存成果需读取后核对。</p>}
