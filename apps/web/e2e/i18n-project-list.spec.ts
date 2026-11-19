@@ -96,24 +96,21 @@ test("project list locale preserves real creation, tags and archive/restore stat
   await expect(page.getByTestId(`${prefix}-status`)).toHaveText("进行中");
   expect(errors).toEqual([]);
 });
-test("a consultant creation attempt is refused by the real API with localized recoverable feedback", async ({ page }) => {
-  const denied = `${name}_denied`;
+test("a consultant can create and reopen a project from the localized list", async ({ page }) => {
+  const projectName = `${name}_member`;
   await login(page, F.email, F.password);
-  expect((await openList(page)).some((item) => item.name === denied)).toBe(false);
+  expect((await openList(page)).some((item) => item.name === projectName)).toBe(false);
+  await page.setViewportSize({ width: 375, height: 900 });
   await page.getByTestId("projects-new").click();
-  await page.getByTestId("project-new-name").fill(denied);
+  await page.getByTestId("project-new-name").fill(projectName);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   const [response] = await Promise.all([
     page.waitForResponse((r) => pathOf(r.url()) === "/projects" && r.request().method() === "POST"),
     page.getByTestId("project-new-create").click(),
   ]);
-  expect(response.status()).toBe(403);
-  await expect(page.getByTestId("project-new-error")).toHaveAttribute("data-reason", "ORG_ROLE_INSUFFICIENT");
-  await expect(page.getByTestId("project-new-error")).toContainText("Your role in the current organization cannot create projects");
-  await expect(page.getByTestId("project-new-name")).toHaveValue(denied);
-  await expect(page.getByTestId("project-new-create")).toBeEnabled();
-  await page.setViewportSize({ width: 375, height: 900 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: test.info().outputPath("project-create-denied-en-375.png") });
-  await page.getByRole("button", { name: "Close", exact: true }).click();
-  expect((await openList(page)).some((item) => item.name === denied)).toBe(false);
+  expect(response.status()).toBe(201);
+  const created = parseCreatedProject(await response.json());
+  await expect(page).toHaveURL(new RegExp(`/projects/${created.id}(?:[/?]|$)`));
+  expect((await openList(page)).find((item) => item.id === created.id)?.name).toBe(projectName);
+  await expect(page.getByTestId(`projects-card-${created.id}-name`)).toHaveText(projectName);
 });
