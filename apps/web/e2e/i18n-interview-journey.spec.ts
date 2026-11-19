@@ -125,7 +125,8 @@ test("interview locale preserves the real private-profile, canonical six-step an
   await expect.poll(async () => (await readSource()).documents.find(document => document.step === "experts")?.markdown).toContain(`#expert-${custom.expertId}`);
   await capture("interview-experts-en", true);
   await page.getByRole("button", { name: "Confirm experts and generate questions", exact: true }).click();
-  // Expert confirmation also confirms the generated outline and starts execution.
+  await expect(page).toHaveURL(/\/outline$/);
+  await page.getByRole("button", { name: "Confirm questions and start interviews", exact: true }).click();
   // Edit through the real revision action; confirmed source must remain read-only.
   await expect(page).toHaveURL(/\/runs$/);
   await expect(page.getByRole("button", { name: "Generate report", exact: true })).toBeEnabled();
