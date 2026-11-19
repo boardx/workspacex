@@ -107,7 +107,7 @@ it("offers formative outcome checks without pretending group confirmation or gra
 it("lets people choose an iteration destination within the same group", async () => {
   render(<ProjectAidt projectId="group-a" sub="aidt-6" canWrite />);
   await screen.findByTestId("native-chat");
-  const link = screen.getByText("回到 2. 共情用户");
+  const link = screen.getByTestId("aidt-stage-desktop-2");
   expect(link).toHaveAttribute("href", "/aidt/group-a?step=2");
 });
 
@@ -140,6 +140,8 @@ it("keeps the default native Chat clear of duplicate assistant and structured-sa
 it("widens the reference shelf without remounting the stage chat", async () => {
   render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
   const chat = await screen.findByTestId("native-chat");
+  expect(screen.getByRole("button", { name: "引用与产物" })).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(screen.getByRole("button", { name: "引用与产物" }));
   const handle = screen.getByRole("separator", { name: "调整引用与产物宽度" });
   expect(handle).toHaveAttribute("aria-valuenow", "320");
   fireEvent.keyDown(handle, { key: "ArrowLeft" });
@@ -176,4 +178,14 @@ it("keeps the saved learning round across tools and native resources but clears 
   expect(screen.getByRole("link", { name: "关闭工具，回到对话" }).getAttribute("href")).toContain("returnRevision=3");
   await waitFor(() => expect(mocks.chat).toHaveBeenLastCalledWith(expect.objectContaining({ returnRevision: "3" })));
   expect(screen.getByTestId("aidt-stage-desktop-4").getAttribute("href")).not.toContain("returnRevision");
+});
+
+it("starts with conversation space instead of a workflow wall or open reference drawer", async () => {
+  render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); await screen.findByTestId("native-chat");
+  expect(screen.queryByText("本步目标与学习提示")).toBeNull();
+  expect(screen.queryByLabelText("当前学习任务")).toBeNull();
+  expect(screen.getByRole("button", {name:"引用与产物"})).toHaveAttribute("aria-expanded","false");
+  expect(document.getElementById("aidt-artifact-shelf")).toHaveAttribute("hidden");
+  expect(screen.getAllByTestId("aidt-open-output")).toHaveLength(1);
+  expect(screen.getByTestId("aidt-tools")).not.toHaveAttribute("open");
 });

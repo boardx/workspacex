@@ -1,0 +1,7 @@
+{
+  "width": 390,
+  "height": 844,
+  "overflow": false,
+  "fields": 1,
+  "note": "Real React component DOM under mocked synthetic data, no API/model/native-workspace acceptance"
+}

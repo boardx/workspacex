@@ -1,0 +1,43 @@
+{
+  "baseline": "8ee7de2bcc7f26b472f8432d3e45e6b659d73477",
+  "webAidt": {
+    "files": 99,
+    "passed": 849,
+    "temporaryCaptureTestRemoved": true
+  },
+  "confirmationFinal": {
+    "passed": 8,
+    "includedInFinalWebRun": true
+  },
+  "apiPacks": {
+    "files": 7,
+    "passed": 50
+  },
+  "approvedContext": {
+    "passed": 10
+  },
+  "webTypecheck": "passed",
+  "apiTypecheck": "passed",
+  "webLint": "passed",
+  "apiLint": "passed",
+  "immutablePackCheck": "passed",
+  "agentForwardProbes": {
+    "stages": 6,
+    "cases": 60,
+    "review": "all raw responses inspected; no evidence synthesis, automatic decisions or false save claims observed",
+    "notNativeProviderE2E": true
+  },
+  "nativeProviderE2E": "not run in this revision",
+  "classroomUsabilityScore": "not measured",
+  "deployment": "not performed",
+  "ideaSheetFollowup": {
+    "counterexampleRun": "2 failed / 24 passed before fix",
+    "targetedFinal": "36 passed",
+    "cases": [
+      "unfinished-extra-kept",
+      "unreadable-extra-student-exclusion",
+      "same-name-extra-student-exclusion",
+      "incomplete-prototype-choice-blocked"
+    ]
+  }
+}

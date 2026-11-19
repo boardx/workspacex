@@ -9,7 +9,7 @@ import { printResearchPdf, preparePrintImages } from "@/lib/research-report-expo
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
 import { AidtStageFields } from "@/features/aidt/components/aidt-stage-fields";
-import { aidtIdeaSentenceCount, aidtIdeaReadiness } from "@/features/aidt/lib/aidt-idea-readiness";
+import { aidtIdeaSentenceCount, aidtIdeaReadiness, aidtCompleteIdeas } from "@/features/aidt/lib/aidt-idea-readiness";
 import { aidtIdeaSheets, buildAidtIdeaSheetsDocument } from "../lib/aidt-idea-sheets";
 import { AidtIdeaSheetPreview } from "./aidt-idea-sheet-preview";
 import { AidtActivityNav } from "@/features/aidt/components/aidt-activity-nav";
@@ -47,6 +47,7 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
   const [status, setStatus] = React.useState("");
   const [pendingRemoval, setPendingRemoval] = React.useState<string | null>(null);
   const [distinctReviewed, setDistinctReviewed] = React.useState(false);
+  const [excludedSheetIds, setExcludedSheetIds] = React.useState<string[]>([]);
   const [printing, setPrinting] = React.useState(false);
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const identity = useOptionalSession()?.session;
@@ -66,8 +67,11 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
   const localMaterials = aidtResearchMaterialsFromFields(draft.fields, projectId).map(item => item.material);
   const imageKey = (item: AidtIdeaDraft) => JSON.stringify([imageScope, item.imageAttachment, rawImage(item)]);
   const imageReady = (item: AidtIdeaDraft) => (!item.imageAttachment && !rawImage(item)) || (printImages[item.id]?.key === imageKey(item) && Boolean(printImages[item.id]?.src) && !printImages[item.id]?.failed);
-  const readiness = aidtIdeaReadiness(draft.ideas, item => !!rawImage(item));
-  const printMaterialKey = JSON.stringify([distinctReviewed, draft.ideas.map(item => [item.id, imageKey(item), printImages[item.id]])]);
+  const completeIdeas = aidtCompleteIdeas(draft.ideas, item => !!rawImage(item));
+  const selectedSheets = completeIdeas.filter(item => !excludedSheetIds.includes(item.id));
+  const readiness = aidtIdeaReadiness(selectedSheets, item => !!rawImage(item));
+  const showSheetChoice = completeIdeas.length > 3 || completeIdeas.some(item => excludedSheetIds.includes(item.id));
+  const printMaterialKey = JSON.stringify([distinctReviewed, excludedSheetIds, draft.ideas.map(item => [item.id, imageKey(item), printImages[item.id]])]);
   const printMaterials = React.useRef({ key: printMaterialKey, generation: 0 });
   if (printMaterials.current.key !== printMaterialKey) printMaterials.current = { key: printMaterialKey, generation: printMaterials.current.generation + 1 };
   const prototypeReadiness = getAidtPrototypeGenerationReadiness(draft);
@@ -98,7 +102,7 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
     reader.readAsDataURL(file);
   }
   const resolvedImages = Object.fromEntries(draft.ideas.filter(imageReady).map(item => [item.id, printImages[item.id]?.src ?? ""]));
-  const sheets = readiness.ready && distinctReviewed && draft.ideas.every(imageReady) ? aidtIdeaSheets(draft, resolvedImages, undefined, projectId) : [];
+  const sheets = readiness.ready && distinctReviewed && selectedSheets.every(imageReady) ? aidtIdeaSheets(draft, resolvedImages, selectedSheets.map(item => item.id), projectId) : [];
   async function printIdeas(id?: string) {
     if (!sheets.length) { setStatus("请先完成至少三个不同点子的图文与两三句说明，等待图片读取成功，并核对概念差异。"); return; }
     setPrinting(true);
@@ -122,6 +126,7 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
     {step.id === 2 && <AidtActivityNav currentId="draft" items={[{ id: "draft", label: "访谈计划", href: toolHref("outcome") }, { id: "sources", label: "研究材料", href: toolHref("sources") }]} />}
     {step.id === 4 && <div className="space-y-3" data-testid="aidt-idea-cards">
       {draft.ideas.map((item, index) => <article key={item.id} className={`space-y-3 rounded-xl border p-3 ${draft.selectedIdeaId === item.id ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
+        {showSheetChoice && completeIdeas.some(complete => complete.id === item.id) && <label className="flex items-center gap-2 text-12"><input type="checkbox" aria-label={`候选${index + 1}用于本次描述单`} checked={!excludedSheetIds.includes(item.id)} disabled={readOnly || printing} onChange={event => { const checked = event.currentTarget.checked; setExcludedSheetIds(ids => checked ? ids.filter(id => id !== item.id) : [...ids.filter(id => id !== item.id), item.id]); setDistinctReviewed(false); }} />用于本次描述单预览</label>}
         <div className="flex items-center justify-between gap-2"><span className="text-12 font-medium">候选 {index + 1}</span><Button variant="ghost" size="xs" disabled={readOnly} onClick={() => item.title.trim() || item.description.trim() || item.image || item.imageAttachment || draft.selectedIdeaId === item.id ? setPendingRemoval(item.id) : removeIdea(item.id)}>移除候选 {index + 1}</Button></div>
         {pendingRemoval === item.id && <div role="alert" className="space-y-2 rounded-lg border border-border p-3 text-12"><p>移除后，本页未保存的内容将丢失；已保存的历史版本不会删除。</p><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setPendingRemoval(null)}>保留候选</Button><Button size="sm" variant="outline" disabled={readOnly} onClick={() => removeIdea(item.id)}>确认移除候选</Button></div></div>}
         <label className="block text-12">点子名称<input className="mt-1 w-full rounded-md border border-border bg-background p-2 text-13" aria-label={`候选${index + 1}名称`} value={item.title} maxLength={120} disabled={readOnly} onChange={(e) => idea(item.id, { title: e.currentTarget.value })} placeholder="给这个方向起一个容易讨论的名字" /></label>
@@ -132,7 +137,7 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
         <label className="block text-12">两三句核心说明<textarea aria-label={`候选${index + 1}核心说明`} className="mt-1 min-h-24 w-full rounded-md border border-border bg-background p-2 text-13" value={item.description} maxLength={2000} disabled={readOnly} onChange={(e) => idea(item.id, { description: e.currentTarget.value })} placeholder="为谁解决什么问题？主要做法是什么？为什么值得尝试？" /><span className="mt-1 block text-11 text-muted-foreground">当前 {aidtIdeaSentenceCount(item.description)} 句；请用2–3句话说明做法、作用与待验证之处。</span></label>
         <label className="flex items-center gap-2 text-12"><input type="radio" name={`aidt-idea-${projectId}`} checked={draft.selectedIdeaId === item.id} disabled={readOnly} onChange={() => { if (!readOnly) update((old) => ({ ...old, selectionReasons: old.selectedIdeaId ? { ...old.selectionReasons, [old.selectedIdeaId]: old.fields.reason ?? "" } : old.selectionReasons, unboundReason: !old.selectedIdeaId ? old.fields.reason || old.unboundReason : old.unboundReason, fields: { ...old.fields, reason: old.selectionReasons?.[item.id] ?? "" }, selectedIdeaId: item.id })); }} />拟选择候选 {index + 1}（不是投票）</label>
       </article>)}
-      <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={readOnly || draft.ideas.length >= 8} onClick={() => { if (!readOnly) { setDistinctReviewed(false); update((old) => invalidateAidtIdeaClassification({ ...old, ideas: [...old.ideas, { id: `draft-${crypto.randomUUID()}`, title: "", description: "" }] })); } }}>添加候选</Button><Button variant="outline" size="sm" disabled={printing || !readiness.ready || !distinctReviewed || !draft.ideas.every(imageReady)} data-testid="aidt-idea-sheets-open" onClick={() => setPreviewOpen(value => !value)}>{previewOpen ? "收起描述单预览" : "描述单 PDF 预览"}</Button></div><p className="text-11 text-muted-foreground">至少三个不同点子；每份名称、图像与2–3句话齐备后可预览。当前图文齐备 {readiness.complete} / {draft.ideas.length}。本地参考图仅在本页；可选原始图片或已发送的聊天附件；关联后再保存到小组。</p>
+      <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={readOnly || draft.ideas.length >= 8} onClick={() => { if (!readOnly) { setDistinctReviewed(false); update((old) => invalidateAidtIdeaClassification({ ...old, ideas: [...old.ideas, { id: `draft-${crypto.randomUUID()}`, title: "", description: "" }] })); } }}>添加候选</Button><Button variant="outline" size="sm" disabled={printing || !readiness.ready || !distinctReviewed || !selectedSheets.every(imageReady)} data-testid="aidt-idea-sheets-open" onClick={() => setPreviewOpen(value => !value)}>{previewOpen ? "收起描述单预览" : "描述单 PDF 预览"}</Button></div><p className="text-11 text-muted-foreground">至少三个不同点子；预览仅包含名称、图像与2–3句话齐备的描述单，其余脑暴草稿保留。候选较多时，可勾选本次预览；未勾选的候选不会出现在本次PDF。当前图文齐备 {readiness.complete} / {draft.ideas.length}。本地参考图仅在本页；可选原始图片或已发送的聊天附件；关联后再保存到小组。</p>
       <label className="flex items-start gap-2 text-12"><input type="checkbox" checked={distinctReviewed} disabled={readOnly} onChange={(event) => setDistinctReviewed(event.currentTarget.checked)} />本组已比较：这些是不同点子，说明讲清做什么及如何帮助用户。</label>
     </div>}
     {step.id === 4 && previewOpen && (sheets.length ? <AidtIdeaSheetPreview sheets={sheets} printing={printing} onPrint={(id) => void printIdeas(id)} /> : <p role="status" className="text-12 text-muted-foreground">图文或审阅状态已变化，请重新核对后预览。</p>)}

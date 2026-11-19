@@ -1,0 +1,4 @@
+
+> @repo/api@0.0.0 typecheck /tmp/aidt-skill-ux-20261120/apps/api
+> tsc --noEmit
+

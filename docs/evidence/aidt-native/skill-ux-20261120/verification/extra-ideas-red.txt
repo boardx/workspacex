@@ -1,0 +1,66 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /tmp/aidt-skill-ux-20261120/apps/web
+
+ ❯ tests/ui/aidt-stage-output-classification.test.tsx (21 tests | 1 failed) 1052ms
+   × previews and prints the three completed sheets while retaining an unfinished fourth idea 184ms
+     → expect(element).toBeEnabled()
+
+Received element is not enabled:
+  <button
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+  data-testid="aidt-idea-sheets-open"
+  disabled=""
+/>
+ ❯ tests/aidt-idea-readiness.test.ts (5 tests | 1 failed) 6ms
+   × keeps extra unfinished brainstorm notes without blocking three complete sheets 4ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/aidt-idea-readiness.test.ts > keeps extra unfinished brainstorm notes without blocking three complete sheets
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/aidt-idea-readiness.test.ts:30:42
+     28| it("keeps extra unfinished brainstorm notes without blocking three com…
+     29|   const input = [...ideas(), { id: "later", title: "以后再讨论", descr…
+     30|   expect(aidtIdeaReadiness(input).ready).toBe(true);
+       |                                          ^
+     31|   expect(aidtIdeaReadiness(input).complete).toBe(3);
+     32|   expect(input[3]!.description).toBe("粗略草稿");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/aidt-stage-output-classification.test.tsx > previews and prints the three completed sheets while retaining an unfinished fourth idea
+Error: expect(element).toBeEnabled()
+
+Received element is not enabled:
+  <button
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+  data-testid="aidt-idea-sheets-open"
+  disabled=""
+/>
+ ❯ tests/ui/aidt-stage-output-classification.test.tsx:37:62
+     35|   render(<Stage initial={draft} />);
+     36|   fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ …
+     37|   expect(screen.getByRole("button", { name: "描述单 PDF 预览" })).toBe…
+       |                                                              ^
+     38|   fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览"…
+     39|   expect(screen.getAllByTestId("aidt-idea-sheet")).toHaveLength(3);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 24 passed (26)
+   Start at  17:51:15
+   Duration  4.76s (transform 1.81s, setup 134ms, collect 2.68s, tests 1.06s, environment 508ms, prepare 70ms)
+
+undefined
+/tmp/aidt-skill-ux-20261120/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/aidt-idea-readiness.test.ts tests/ui/aidt-stage-output-classification.test.tsx --maxWorkers=1 --minWorkers=1

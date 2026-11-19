@@ -127,3 +127,18 @@ it("loads one authorized membership projection without per-group roster probes o
   expect(api.groups).toHaveBeenCalledTimes(1);expect(api.membership).not.toHaveBeenCalled();
   rerender(<AidtHome />);expect(api.groups).toHaveBeenCalledTimes(1);
 });
+
+it("creates a group with one name field and postpones the research topic", async () => {
+  render(<AidtHome />); await screen.findByTestId("aidt-project-p1");
+  const courses = screen.getByTestId("aidt-course-disclosure") as HTMLDetailsElement;
+  expect(courses.open).toBe(false);
+  fireEvent.click(screen.getByTestId("aidt-new"));
+  expect(screen.getByRole("dialog")).toHaveTextContent("研究主题稍后一起讨论");
+  expect(screen.getAllByRole("textbox")).toHaveLength(1);
+  expect(screen.getByRole("textbox", { name: "小组名称" })).toHaveAttribute("placeholder", "例如：第三组");
+  expect(screen.getByRole("button", { name: "创建小组" })).toBeDisabled();
+  fireEvent.change(screen.getByRole("textbox", { name: "小组名称" }), { target: { value: "第三组" } });
+  fireEvent.click(screen.getByRole("button", { name: "创建小组" }));
+  await waitFor(() => expect(api.push).toHaveBeenCalledWith("/aidt/p1"));
+  expect(api.create).toHaveBeenCalledWith({orgId:"o1",name:"第三组",kind:"general",blueprintVersionId:null});
+});
