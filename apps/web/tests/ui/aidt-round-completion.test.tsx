@@ -92,3 +92,11 @@ it.each([4, 5])("requires the student's file review before confirming stage %i a
   expect(button).toBeDisabled();
   expect(save).not.toHaveBeenCalled();
 });
+
+it("keeps unfinished brainstorming but requires the chosen prototype idea to have a complete sheet", () => {
+  const draft = confirmAidtIdeaClassification({ fields: {}, ideas: [...[1, 2, 3].map(id => ({ id: String(id), title: `点子${id}`, description: "说明做法。说明怎样帮助用户。", image: "data:image/png;base64,YQ==" })), { id: "later", title: "未完成的第四个点子", description: "待讨论" }], selectedIdeaId: "1" });
+  expect(aidtRoundMissingOutput(4, draft)).toBeNull();
+  expect(aidtRoundMissingOutput(4, { ...draft, selectedIdeaId: "later" })).not.toBeNull();
+  const withDuplicate = { ...draft, ideas: [...draft.ideas.slice(0, 3), { ...draft.ideas[0]!, id: "later" }] };
+  expect(aidtRoundMissingOutput(4, withDuplicate)).toBeNull();
+});

@@ -15,7 +15,7 @@ Direct user request, based on `develop` **8ee7de2bcc7f26b472f8432d3e45e6b659d734
 
 The ten rounds are actual prompt edits and structural/counterexample checks, **not ten provider-model, browser, classroom or production acceptance rounds**. Sixty independent agent probes exercise the final instructions with raw student requests; these are separate from the WorkspaceX runtime and supplier model. The probes retain missing evidence and student choice, but cannot establish behavior of a deployed model.
 
-Local regression: 100 Web AIDT test files / 843 tests passed; 7 API pack/isolation files / 50 tests passed; exact context release verification / 10 tests passed. The confirmation interaction has explicit success, failure, edit invalidation, read-only and content/source/group binding coverage. These are DOM/unit/service-double checks; no fresh live multi-user or classroom E2E is claimed.
+Local regression: 99 Web AIDT test files / 849 tests passed; 7 API pack/isolation files / 50 tests passed; exact context release verification / 10 tests passed. The confirmation interaction has explicit success, failure, edit invalidation, read-only and content/source/group binding coverage. These are DOM/unit/service-double checks; no fresh live multi-user or classroom E2E is claimed.
 
 UI screenshots are controlled local renders of the actual React components using synthetic data, not a live authenticated full-stack session. See [UIUX review](uiux-review.md). No claim of a validated 9/10 usability score is made.
 
@@ -36,3 +36,9 @@ pnpm --filter @repo/api lint
 ```
 
 Launch through the repository's normal local stack, open `/aidt`, create a group, enter a step and open **本步成果**. Review required outputs, confirm and save, inspect the server version, then continue. Preserve normal membership checks. For an existing thread, explicitly select the new package through the existing version-update action; do not infer its mounted version from its stable name.
+
+## Integration follow-up: retain extra brainstorming without blocking three sheets
+
+The original full-run receipt contained a temporary screenshot-capture test that was removed after capture. The final reproducible run is 99 files / 849 passed; the final confirmation suite has 8 tests included in that total. Historical logs are retained separately, not added together.
+
+Two red counterexamples showed an unfinished fourth idea blocked three complete PDFs. The final preview builds only complete sheets and, when more than three complete candidates exist, lets the student select the current preview set. Unreadable-image or same-name candidates can be excluded without deleting their notes. At least three distinct, readable sheets remain required; changing the selected set resets review and invalidates an in-flight old print. The chosen prototype idea must have a complete sheet. The student confirms that the PDF files and the chosen idea sheet can actually be viewed; neither a print request nor this declaration is an automatic file-authenticity certificate. This is temporary print selection, not shared voting or a new service contract.

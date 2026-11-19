@@ -1,8 +1,8 @@
-import type { AidtUiStageDraft, AidtDiscoveryCardDraft } from "./aidt-ui-drafts";
+import type { AidtUiStageDraft, AidtDiscoveryCardDraft, AidtIdeaDraft } from "./aidt-ui-drafts";
 import { isProblemReflectionConfirmed } from "./aidt-problem-reflection";
 import { isAidtSurpriseConfirmed } from "./aidt-surprise-reflection";
 import { readAidtIdeaClassification } from "./aidt-idea-classification";
-import { aidtIdeaReadiness } from "./aidt-idea-readiness";
+import { aidtIdeaReadiness, aidtCompleteIdeas } from "./aidt-idea-readiness";
 import { isAidtReflectionConfirmed, isVerificationQuestionConfirmed } from "./aidt-verification-loop";
 import { parseAidtResearchMaterial, researchMaterialKey, isAidtResearchImage } from "./aidt-research-material-reference";
 import { readAidtPrototypeReference } from "./aidt-prototype-reference";
@@ -15,7 +15,13 @@ export function aidtRoundMissingOutput(stageId: number, draft: AidtUiStageDraft,
   if (stageId === 1 && (!has("rewrittenTheme") || !isProblemReflectionConfirmed(draft))) return "先核对重写主题与选题反思。";
   if (stageId === 2 && (!has("adoptedGuide") || !draft.discoveryCards?.length || draft.discoveryCards.some(card => !card.participantCode.trim() || !card.headline.trim() || !card.context.trim() || !card.sourceRef.trim()))) return "先核对采纳后的访谈清单与带来源的人物发现卡。";
   if (stageId === 3 && (!has("hmw") || !["personaAge", "personaInterests", "personaLifestyle", "personaBehavior"].some(key => draft.fields[key]?.trim()) || !isAidtSurpriseConfirmed(draft, context?.cards, context?.cardsRevision))) return "先核对意外发现或暂无、画像与选定HMW。";
-  if (stageId === 4 && (!aidtIdeaReadiness(draft.ideas, idea => { const material = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]); return Boolean(material && material.projectId === context?.projectId && isAidtResearchImage(material)); }).ready || !draft.ideas.some(idea => idea.id === draft.selectedIdeaId) || !readAidtIdeaClassification(draft).confirmed)) return "先核对三个不同点子的图文、学生分类与原型选择。";
+  if (stageId === 4) {
+    const hasOriginalImage = (idea: AidtIdeaDraft) => { const material = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]); return Boolean(material && material.projectId === context?.projectId && isAidtResearchImage(material)); };
+    const readiness = aidtIdeaReadiness(draft.ideas, hasOriginalImage);
+    if (readiness.distinctNames < 3 || !readiness.identifiersValid) return "先完善至少三个不同点子的图文。";
+    if (!aidtCompleteIdeas(draft.ideas, hasOriginalImage).some(idea => idea.id === draft.selectedIdeaId)) return "请从完整描述单中选择本轮进入原型的点子。";
+    if (!readAidtIdeaClassification(draft).confirmed) return "先核对并确认本组点子分类。";
+  }
   if (stageId === 5 && (!isVerificationQuestionConfirmed(draft) || !has("beforeTestBelief", "verificationBasis", "verificationLimits") || (!has("version") && !readAidtPrototypeReference(draft)))) return "先核对验证问题、先前看法与原型版本。";
   if (stageId === 6 && !isAidtReflectionConfirmed(draft)) return "先核对本轮认识变化与下一轮行动。";
   return null;

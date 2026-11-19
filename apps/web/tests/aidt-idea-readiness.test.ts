@@ -24,3 +24,10 @@ it.each(["duplicate", "blank"])("does not mark %s candidate identifiers ready fo
   expect(aidtIdeaReadiness(input).ready).toBe(false);
   expect(input).toHaveLength(3); expect(input[1]!.title).toBe("同伴引导");
 });
+
+it("keeps extra unfinished brainstorm notes without blocking three complete sheets", () => {
+  const input = [...ideas(), { id: "later", title: "以后再讨论", description: "粗略草稿" }];
+  expect(aidtIdeaReadiness(input).ready).toBe(true);
+  expect(aidtIdeaReadiness(input).complete).toBe(3);
+  expect(input[3]!.description).toBe("粗略草稿");
+});

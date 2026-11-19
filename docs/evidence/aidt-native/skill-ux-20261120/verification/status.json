@@ -1,12 +1,13 @@
 {
   "baseline": "8ee7de2bcc7f26b472f8432d3e45e6b659d73477",
   "webAidt": {
-    "files": 100,
-    "passed": 843
+    "files": 99,
+    "passed": 849,
+    "temporaryCaptureTestRemoved": true
   },
   "confirmationFinal": {
-    "passed": 7,
-    "additionalCasesSinceFullWebRun": 2
+    "passed": 8,
+    "includedInFinalWebRun": true
   },
   "apiPacks": {
     "files": 7,
@@ -28,5 +29,15 @@
   },
   "nativeProviderE2E": "not run in this revision",
   "classroomUsabilityScore": "not measured",
-  "deployment": "not performed"
+  "deployment": "not performed",
+  "ideaSheetFollowup": {
+    "counterexampleRun": "2 failed / 24 passed before fix",
+    "targetedFinal": "36 passed",
+    "cases": [
+      "unfinished-extra-kept",
+      "unreadable-extra-student-exclusion",
+      "same-name-extra-student-exclusion",
+      "incomplete-prototype-choice-blocked"
+    ]
+  }
 }
