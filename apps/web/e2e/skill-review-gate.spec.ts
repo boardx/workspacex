@@ -106,28 +106,32 @@ async function assertTeamOnlySkillSeeded(page: Page, name: string) {
   await expect(page.getByTestId("skill-catalog-list")).toContainText(name);
 }
 
-/** 打开某一行的契约详情（门禁面板在里面）。 */
+async function readCatalogSkills(page: Page) {
+  const catalog = await page.request.get(
+    `${API}/skills?orgId=${encodeURIComponent(FULLSTACK_E2E.orgId)}&entry=library`,
+    { headers: await authHeaders(page) },
+  );
+  expect(catalog.status()).toBe(200);
+  const { items } = await catalog.json() as {
+    items: { skillId: string; name: string; status: string }[];
+  };
+  return items;
+}
+
+/** 打开指定技能的详情，避免从包含其他技能的父节点选中第一张卡片。 */
 async function openGatePanelOf(page: Page, name: string) {
-  const row = page
-    .getByTestId("skill-catalog-list")
-    .locator("div")
-    .filter({ hasText: name })
-    .first();
-  await row.getByTestId("skill-catalog-detail").first().click();
+  const item = (await readCatalogSkills(page)).find(skill => skill.name === name);
+  if (!item) throw new Error(`目录缺少技能：${name}`);
+  await page.getByTestId(`skill-catalog-row-${item.skillId}`).click();
   await expect(page.getByTestId("skill-detail-panel")).toBeVisible();
   await expect(page.getByTestId("skill-gate-panel")).toBeVisible();
 }
 
-/** 该行**此刻在库里**的状态：先刷新，再从服务端读回来的那一行上取。 */
+/** 刷新后通过真实目录 API 读取指定技能的持久化状态。 */
 async function statusAfterReload(page: Page, name: string) {
   await page.reload();
   await openCatalog(page);
-  const row = page
-    .getByTestId("skill-catalog-list")
-    .locator("div")
-    .filter({ hasText: name })
-    .first();
-  return row;
+  return (await readCatalogSkills(page)).find(item => item.name === name)?.status;
 }
 
 const NAME = FULLSTACK_E2E.reviewedSkillName;
@@ -149,7 +153,10 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
 
     // 种出来的只能是**草稿** —— 契约禁止 `POST /skills/:id/enable`，本条走的种子路径
     // 与产品创建路径同形，结构上也造不出别的状态。少了这条，实现可以被换成绕开双门禁。
-    await expect(page.getByTestId("skill-catalog-list")).toContainText("草稿");
+    const drafts = await readCatalogSkills(page);
+    for (const name of [NAME, DRAFT_ONLY]) {
+      expect(drafts.find(item => item.name === name)?.status).toBe("草稿");
+    }
 
     await openGatePanelOf(page, NAME);
 
@@ -172,8 +179,7 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
     await expect(page.getByTestId("skill-gate-notice")).toContainText("待审核");
 
     /* ⚠ 刷新后仍是「待审核」= 它写进了库，不是写进了 React state。 */
-    const row = await statusAfterReload(page, NAME);
-    await expect(row).toContainText("待审核");
+    expect(await statusAfterReload(page, NAME)).toBe("待审核");
 
     expect(failures).toEqual([]);
   });
@@ -197,9 +203,7 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
     await expect(error).toContainText("SELF_REVIEW_FORBIDDEN");
     await expect(error).toContainText("403");
 
-    const row = await statusAfterReload(page, NAME);
-    await expect(row).toContainText("待审核");
-    await expect(row).not.toContainText("已启用");
+    expect(await statusAfterReload(page, NAME)).toBe("待审核");
   });
 
   /* ── ③ 反证 A-2：安全评审人批 skill ─────────────────────────────────── */
@@ -221,9 +225,7 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
     await expect(error).toContainText("REVIEWER_FUNCTION_MISMATCH");
     await expect(error).toContainText("403");
 
-    const row = await statusAfterReload(page, NAME);
-    await expect(row).toContainText("待审核");
-    await expect(row).not.toContainText("已启用");
+    expect(await statusAfterReload(page, NAME)).toBe("待审核");
   });
 
   /* ── ④ 第二位方法论审核人批准 ⇒ 已启用 ──────────────────────────────── */
@@ -254,8 +256,7 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
     await expect(page.getByTestId("skill-gate-notice")).toContainText("skill-review-");
 
     // 🔴 反证 B 的红点就在这一句。
-    const row = await statusAfterReload(page, NAME);
-    await expect(row).toContainText("已启用");
+    expect(await statusAfterReload(page, NAME)).toBe("已启用");
   });
 
   /* ── ⑤ 提交人在会话里挂上**自己建的**那一个（不是种子那个）────────────── */
@@ -275,16 +276,9 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
     /* 先从目录里拿到两个 skillId —— 名字是我们的，id 是服务端分配的。 */
     await openCatalog(page);
     const headers = await authHeaders(page);
-    const catalog = await page.request.get(
-      `${API}/skills?orgId=${encodeURIComponent(FULLSTACK_E2E.orgId)}&entry=library`,
-      { headers },
-    );
-    expect(catalog.status()).toBe(200);
-    const listed = (await catalog.json()) as {
-      items: { skillId: string; name: string; status: string }[];
-    };
-    const approved = listed.items.find((i) => i.name === NAME);
-    const draftOnly = listed.items.find((i) => i.name === DRAFT_ONLY);
+    const listed = await readCatalogSkills(page);
+    const approved = listed.find((i) => i.name === NAME);
+    const draftOnly = listed.find((i) => i.name === DRAFT_ONLY);
     expect(approved, `目录里应有 ${NAME}`).toBeDefined();
     expect(draftOnly, `目录里应有 ${DRAFT_ONLY}`).toBeDefined();
     // 反证自身的自检：一个是已启用、一个仍是草稿，两者确实不同。
@@ -356,7 +350,7 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
  * ```
  *
  * 预期：前四条用例里「批准 ⇒ 界面显示已启用」照常绿（HTTP 201、`skill-gate-notice`
- * 含「已启用」），**第 ④ 条红在 `statusAfterReload` 之后那句 `toContainText("已启用")`**，
+ * 含「已启用」），**第 ④ 条红在 `statusAfterReload` 之后那句 `toBe("已启用")`**，
  * 第 ⑤ 条随之红在 `SKILL_NOT_ENABLED`（库里那一行还是「待审核」）。
  * 若红在更早的地方，**先怀疑反证本身**：那说明这一刀砍到的不是落库那一步。
  */
