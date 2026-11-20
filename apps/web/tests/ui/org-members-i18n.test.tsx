@@ -18,6 +18,16 @@ function json(body: unknown, status = 200) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("organization member and invitation localization", () => {
+  it("shows the signed-in administrator's role without a role picker", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ members: [
+      { userId: "self", displayName: "Current admin", email: "self@example.test", orgRole: "admin", joinedAt: "2026-01-03", status: "active" },
+      { userId: "peer", displayName: "Other member", email: "peer@example.test", orgRole: "consultant", joinedAt: "2026-01-03", status: "active" },
+    ] })));
+    bilingual(<MembersTab orgId="org-self" isAdmin currentUserId="self" />);
+    expect(await screen.findByTestId("org-admin-member-self")).toHaveTextContent("Admin");
+    expect(screen.queryByTestId("org-admin-member-self-org-role")).not.toBeInTheDocument();
+    expect(screen.getByTestId("org-admin-member-peer-org-role")).toBeInTheDocument();
+  });
   it("switches member roles without changing names or refetching membership", async () => {
     const fetch = vi.fn().mockResolvedValue(json({ members: [
       { userId: "u-original", displayName: "管理员 {name} · 林可", email: "lin@example.test", orgRole: "consultant", teamId: null, joinedAt: "2026-01-03", status: "active" },

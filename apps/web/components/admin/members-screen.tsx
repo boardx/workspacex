@@ -10,23 +10,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { UsageMonitorTab } from "./usage-monitor-tab";
 import { LimitPolicyTab } from "./limit-policy-tab";
 import { MemberQuotaTab } from "./member-quota-tab";
-import { MemberInvitesPanel } from "./member-invites-panel";
-import { AdminBoundaryLive } from "./admin-boundary-live";
 import type { UiState } from "@/lib/ui-state";
 
 /** 三个并列 tab —— 原型（`WorkspaceX Standalone.html` 偏移 15851070/298/527）证实是
  * 同一屏三按钮，不是三个独立左栏菜单项，因此不新增 `AdminModuleKey`。 */
 type MembersTabKey = "quota" | "usage" | "policy";
 
-/*
- * lint-no-backend-badge:backed-by-children —— 这块屏的真实请求全在同目录子组件里：
- * `member-quota-tab`（配额三卡与成员行）、`usage-monitor-tab`（四窗口聚合 + 限额事件）、
- * `limit-rules-live`（限额规则 CRUD）、`admin-boundary-live`（个人层计数与访问留痕）、
- * `member-invites-panel`（F11 起：名册 + 待处理邀请，真栈）。屏文件自己只剩布局。
- *
- * ⚠ 这不是「把门关掉」：`lint-no-backend-badge.mjs` 读到这行标记后**会去验证**它——
- * 至少一个同目录子组件确实有后端调用才放行。子组件全变回 mock 的那天，这行标记救不了它。
- */
+/* lint-no-backend-badge:backed-by-children — quota, usage and policy tabs read live data. */
 export function MembersScreen({ state }: { state: UiState }) {
   const { t } = useI18n();
   const [tab, setTab] = React.useState<MembersTabKey>("quota");
@@ -81,13 +71,6 @@ export function MembersScreen({ state }: { state: UiState }) {
 
       <TabsContent value="quota" data-testid="admin-members-tabpanel-quota">
       <div className="flex flex-col gap-5">
-        {/* 2026-08-11（菜单去重复查）：与「组织成员」（/org-admin/members，真实后端）
-            的关系，同 canvas-template-screen.tsx / blueprint-screen.tsx 的「打开 X」链接
-            是同一套模式——本屏只做配额与「管理员看不到什么」，成员/邀请的完整读写
-            （批准、拒绝、撤销双人复核等）仍只在那一屏，不在这里重做一遍状态机
-            （F11 起下面的 `MemberInvitesPanel` 已经是真栈，但只做摘要 + 重发）。
-            ⚠ 链接此前误指向 `/org-admin/preview`（原型/mock 版本，2026-09-03 后已停用）——
-            这是本轮顺手修的第二处 mock 痕迹。 */}
         <Card>
           <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
             <p className="text-12 text-muted-foreground">
@@ -109,27 +92,9 @@ export function MembersScreen({ state }: { state: UiState }) {
             根因不在前端，是全仓此前零 token 计量落库（见 F159 的迁移）。 */}
         <MemberQuotaTab />
 
-        {/* F11：名册 + 待处理邀请，真栈（`listOrgMembers`/`listOrgInvites`/`resendOrgInvite`，
-            与 `/org-admin/invites`、`/org-admin/members` 同一组真实端点）。 */}
-        <MemberInvitesPanel />
-
-        {/* 管理员权力边界（D-18 / UC-17.5）—— F163 起接**既有**真端点
-            （GET /identity/personal-layer/summary + GET /admin-access-log/mine，
-            两条都是 F06 已 passing 的，此前前端一直没接、读的是 mock）。 */}
-        <AdminBoundaryLive />
-
       </div>
       </TabsContent>
       </Tabs>
-
-      {/* F10 的 [邀请成员] 弹层已搬进 `MemberInvitesPanel`（真栈，F11）。
-          ⚠ 这里此前还有两块死代码：「单独提额」弹层（`quotaOf`/`openQuota`，从未被任何
-          东西调用——真实的提额入口已经是上面 `MemberQuotaTab` 每行的 [调整] 按钮，F160
-          接线时把 `openQuota` 遗留在文件里没删）与「我的访问记录」抽屉（`accessOpen`，
-          同样没有任何按钮把它设为 true——真实的边界信息已经是 `AdminBoundaryLive`，
-          F163 接线时同样只加了新组件、没删旧抽屉）。两块渲染的都是 `lib/mock/admin.ts`
-          的假数据，但从未被用户看到过；删掉而不是保留是因为「反正显示不出来」本身
-          就是死代码的定义，留着只会让下一个人以为它还在被使用。 */}
     </AdminScreen>
   );
 }

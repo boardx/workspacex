@@ -40,7 +40,7 @@ export async function setOrgMemberRole(
   deps: SetOrgMemberRoleDeps,
   input: SetOrgMemberRoleInput,
 ): Promise<SetOrgMemberRoleOutput> {
-  if (input.actorOrgRole !== "admin") throw new OrgAdminError("PROJECT_ROLE_INSUFFICIENT");
+  if (input.actorOrgRole !== "admin" || input.actorId === input.userId) throw new OrgAdminError("PROJECT_ROLE_INSUFFICIENT");
 
   const result = await deps.repo.changeRole(input.orgId, input.userId, input.orgRole);
   if (!result.ok) {
@@ -58,8 +58,7 @@ export async function setOrgMemberRole(
         userId: input.userId,
         from: result.previousOrgRole,
         to: input.orgRole,
-        // 同一个人改自己的角色也留痕——「自降」是放权，审计要能看出是谁放的。
-        self: input.actorId === input.userId,
+        self: false,
       },
     });
   }

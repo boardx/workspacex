@@ -121,7 +121,7 @@ export function OrgMembersScreen() {
   const isAdmin = identity?.orgRole === "admin";
   return (
     <OrgAdminShell active="org-members" icon={UserCog} title={t("orgMembers.members")}>
-      {orgId ? <MembersTab orgId={orgId} isAdmin={isAdmin} /> : <LoadingSkeleton rows={3} />}
+      {orgId ? <MembersTab orgId={orgId} isAdmin={isAdmin} currentUserId={session?.userId ?? null} /> : <LoadingSkeleton rows={3} />}
     </OrgAdminShell>
   );
 }
@@ -281,10 +281,12 @@ function OrgRolePicker({
 }
 
 /** 导出供测试直接渲染，不必连 `useSession` 一起 mock 出整个 `OrgAdminScreen`。 */
-export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
-  return <MembersTabContent key={orgId} orgId={orgId} isAdmin={isAdmin} />;
+type MembersTabProps = { orgId: string; isAdmin: boolean; currentUserId?: string | null };
+
+export function MembersTab(props: MembersTabProps) {
+  return <MembersTabContent key={props.orgId} {...props} />;
 }
-function MembersTabContent({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
+function MembersTabContent({ orgId, isAdmin, currentUserId }: MembersTabProps) {
   const { t, locale } = useI18n();
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<unknown>(null);
@@ -398,8 +400,7 @@ function MembersTabContent({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
                 <span className="truncate text-10 text-muted-foreground">{m.email}</span>
               </div>
               </div>
-              {/* member-role-management delta：admin 看到的是可改的下拉，其他人看到只读徽章。 */}
-              {isAdmin ? (
+              {isAdmin && m.userId !== currentUserId ? (
                 <OrgRolePicker orgId={orgId} userId={m.userId} current={m.orgRole} onChanged={handleOrgRoleChanged} />
               ) : (
                 <Badge tone={m.orgRole === "admin" ? "danger" : "neutral"} className="ml-1">
