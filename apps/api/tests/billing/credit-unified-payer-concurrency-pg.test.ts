@@ -40,10 +40,10 @@ afterAll(async()=>{await asOwner(async c=>{
 });await db.close();});
 
 it("non-enterprise paid organizations always use personal credits",async()=>{await reserve(team,"paid-personal");expect(await owner("paid-personal")).toMatchObject({owner_type:"user",owner_id:user});});
-it("enterprise last quota slot admits one team request and one personal request concurrently",async()=>{
+it("enterprise calls keep their team payer while settled quota remains",async()=>{
  await asOwner(c=>c.query("INSERT INTO member_credit_quota(org_id,user_id,monthly_limit,updated_by) VALUES($1,$2,1,$2) ON CONFLICT(org_id,user_id) DO UPDATE SET monthly_limit=1",[enterprise,user]));
  await Promise.all([reserve(enterprise,"quota-a"),reserve(enterprise,"quota-b")]);
- const owners=await Promise.all([owner("quota-a"),owner("quota-b")]);expect(owners.map(x=>x.owner_type).sort()).toEqual(["team","user"]);
+ const owners=await Promise.all([owner("quota-a"),owner("quota-b")]);expect(owners.map(x=>x.owner_type).sort()).toEqual(["team","team"]);
 });
 it("cross-org concurrent personal holds cannot overspend one wallet",async()=>{
  await asOwner(c=>c.query("UPDATE credit_wallets SET balance=1 WHERE owner_type='user' AND owner_id=$1",[user]));

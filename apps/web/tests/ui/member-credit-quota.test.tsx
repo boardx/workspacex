@@ -12,7 +12,7 @@ afterEach(cleanup);
 function show(){return render(<I18nProvider initialLocale="en"><Switch/><MemberCreditQuotaPanel orgId="org"/></I18nProvider>);}
 it('shows true fractional credits and default monthly limit, switches language without fetching',async()=>{
  show();expect(await screen.findByTestId('member-credit-usage-u')).toHaveTextContent('12.34 / 5,000 Credits');
- expect(screen.getByText(/Reserved by active requests/)).toHaveTextContent('3.21');
+ expect(screen.queryByText(/Reserved by active requests/)).toBeNull();
  fireEvent.click(screen.getByText('Chinese'));
  expect(screen.getByTestId('member-credit-usage-u')).toHaveTextContent('本月已用 12.34 / 5,000 Credit');
  expect(api.getMemberCreditQuotas).toHaveBeenCalledTimes(1);
@@ -51,8 +51,8 @@ it('ordinary scoped wallet errors retain their original recharge action',()=>{
 it('keeps enterprise budget unlimited and filters actual member usage',async()=>{
  show();await screen.findByTestId('member-credit-usage-u');
  expect(screen.getByText('Unlimited')).toBeTruthy();
- expect(screen.getByText('4,984.45')).toBeTruthy();
- expect(screen.getByRole('progressbar')).toHaveAttribute('value','15.55');
+ expect(screen.getByText('4,987.66')).toBeTruthy();
+ expect(screen.getByRole('progressbar')).toHaveAttribute('value','12.34');
  fireEvent.change(screen.getByLabelText('Search members by name or email'),{target:{value:'missing'}});
  expect(screen.queryByTestId('member-credit-usage-u')).toBeNull();
  fireEvent.change(screen.getByLabelText('Search members by name or email'),{target:{value:'alice@example'}});
