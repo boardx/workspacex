@@ -85,6 +85,7 @@ jobs:
       python_image: ${{ steps.mirror.outputs.python_image || steps.plan.outputs.python_image }}
       uv_image: ${{ steps.mirror.outputs.uv_image || steps.plan.outputs.uv_image }}
       pgvector_image: ${{ steps.mirror.outputs.pgvector_image || steps.plan.outputs.pgvector_image }}
+      buildkit_image: ${{ steps.mirror.outputs.buildkit_image }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -122,6 +123,7 @@ jobs:
           PYTHON_IMAGE: ${{ steps.plan.outputs.python_image }}
           UV_IMAGE: ${{ steps.plan.outputs.uv_image }}
           PGVECTOR_IMAGE: ${{ steps.plan.outputs.pgvector_image }}
+          MIRROR_BUILDKIT: ${{ contains(fromJSON(steps.plan.outputs.services), 'sandbox') || (contains(fromJSON(steps.plan.outputs.services), 'agent') && vars.WSX_CN_AGENT_CACHE_REPOSITORY != '') }}
           ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
           ACR_PASSWORD: ${{ secrets.WSX_ACR_PASSWORD }}
           REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
@@ -150,6 +152,7 @@ jobs:
       PYTHON_IMAGE: ${{ needs.plan.outputs.python_image }}
       UV_IMAGE: ${{ needs.plan.outputs.uv_image }}
       PGVECTOR_IMAGE: ${{ needs.plan.outputs.pgvector_image }}
+      BUILDKIT_IMAGE: ${{ needs.plan.outputs.buildkit_image }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -180,10 +183,11 @@ jobs:
           NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: ${{ matrix.service == 'web' && needs.plan.outputs.aidt_web_enabled || '0' }}
         run: |
           if [[ "$SERVICE" == sandbox || ( "$SERVICE" == agent && -n "$WSX_CN_AGENT_CACHE_REPOSITORY" ) ]]; then
+            [[ "$BUILDKIT_IMAGE" =~ ^[a-z0-9-]+-registry-vpc\.[a-z0-9-]+\.cr\.aliyuncs\.com/[a-z0-9_-]+/build-base-buildkit@sha256:[a-f0-9]{64}$ ]] || { echo "Pinned ACR BuildKit image is missing or invalid"; exit 1; }
             export BUILDX_BUILDER="wsx-$SERVICE-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             # Builder state is isolated for the job. Registry cache survives runner changes.
             trap 'docker buildx rm "$BUILDX_BUILDER" || true' EXIT
-            docker buildx create --name "$BUILDX_BUILDER" --driver docker-container
+            docker buildx create --name "$BUILDX_BUILDER" --driver docker-container --driver-opt "image=$BUILDKIT_IMAGE"
           fi
           python3 -B "$RELEASE_SCRIPT" build --source "$SOURCE_REVISION" --service "$SERVICE" --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output "result/$SERVICE.json"
       - uses: actions/upload-artifact@v6
