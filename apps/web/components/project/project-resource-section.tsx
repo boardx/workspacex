@@ -1,4 +1,5 @@
 "use client";
+import { cn } from "@/lib/utils";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import type { Locale } from "@/lib/i18n/locale";
@@ -166,12 +167,14 @@ export function describeProjectResourceFailure(e: unknown, locale: Locale = "zh-
   return describeFailure(e, locale);
 }
 
-export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkOpen = false, embedded = false, onChanged, resourceHref, transformCreateHref }: {
+export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkOpen = false, embedded = false, contained = false, onChanged, resourceHref, transformCreateHref }: {
   projectId: string; kind: ProjectResearchSub; canWrite: boolean;
   /** 挂载即展开「关联已有」面板（通用项目「内容」tab 顶部的「关联已有 ▾」选了这一类）。 */
   initialLinkOpen?: boolean;
   /** The parent content toolbar owns creation and linking when embedded. */
   embedded?: boolean;
+  /** A narrow host Inspector keeps resource cards in one readable column. */
+  contained?: boolean;
   /** 挂上 / 移出成功后回调（「内容」tab 据此刷新各类计数）。 */
   onChanged?: () => void;
   resourceHref?: (kind: ProjectResourceKind, id: string) => string;
@@ -282,7 +285,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   const Icon = meta.icon;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-4 sm:p-6" data-testid="project-resources" data-kind={meta.resourceKind}>
+    <div className={cn("mx-auto flex w-full max-w-5xl flex-col gap-3", contained ? "min-w-0" : "p-4 sm:p-6")} data-testid="project-resources" data-kind={meta.resourceKind}>
       {!embedded && <div className="flex flex-wrap items-center gap-2">
         <SectionTitle meta={t(meta.meta)} className="mb-0">{label}</SectionTitle>
         <span className="flex-1" />
@@ -364,7 +367,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
           </p>
         </Card>
       ) : (
-        <ResourceGrid as="ul" data-testid="project-resources-list">
+        <ResourceGrid as="ul" className={contained ? "sm:grid-cols-1 lg:grid-cols-1" : undefined} data-testid="project-resources-list">
           {items.map((it) => (
             <li key={it.id}>
               <ProjectContentCard

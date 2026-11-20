@@ -5,13 +5,14 @@ import { AidtDesignWorkspace } from "@/features/aidt/components/aidt-design-work
 const mock = vi.hoisted(() => ({ enabled: true, load: vi.fn() }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mock.enabled }));
 vi.mock("@/features/aidt/lib/aidt-design-handoff", () => ({ loadAidtDesignHandoff: mock.load }));
-vi.mock("@/components/design-loop/detail-screen", () => ({ DesignDetailScreen: ({ composerContextOffer, sendBlockedReason, autoStart }: { composerContextOffer?: { text: string }; sendBlockedReason?: string; autoStart?: boolean }) => <div data-testid="native-props" data-autostart={String(autoStart)}><span>{composerContextOffer?.text}</span>{sendBlockedReason && <span data-testid="native-blocked">{sendBlockedReason}</span>}</div> }));
+vi.mock("@/components/design-loop/detail-screen", () => ({ DesignDetailScreen: ({ composerContextOffer, sendBlockedReason, autoStart, contained }: { composerContextOffer?: { text: string }; sendBlockedReason?: string; autoStart?: boolean; contained?: boolean }) => <div data-testid="native-props" data-autostart={String(autoStart)} data-contained={String(contained)}><span>{composerContextOffer?.text}</span>{sendBlockedReason && <span data-testid="native-blocked">{sendBlockedReason}</span>}</div> }));
 const result = (text = "已保存旧轮问题") => ({ offer: { id: text, label: "来源", text }, sources: [{ stageId: 5, revision: 3 }], warnings: [] });
 const props = { projectId: "design", teachingProjectId: "class", stageId: 6, lifecycleKey: "org/student", sessionToken: "token" };
 beforeEach(() => { vi.clearAllMocks(); mock.enabled = true; mock.load.mockResolvedValue(result()); });
 it("hands the offer to the real native host prop after a saved-context read, explicitly disabling autostart", async () => {
   render(<AidtDesignWorkspace {...props} returnRevision="7" />);
   expect(await screen.findByText("已保存旧轮问题")).toBeVisible();
+  expect(screen.getByTestId("native-props")).toHaveAttribute("data-contained", "true");
   expect(screen.getByTestId("native-props")).toHaveAttribute("data-autostart", "false");
   expect(screen.queryByTestId("native-blocked")).not.toBeInTheDocument();
   expect(mock.load).toHaveBeenCalledWith(expect.objectContaining({ projectId: "class", stageId: 6, roundRevision: 7, sessionToken: "token" }));

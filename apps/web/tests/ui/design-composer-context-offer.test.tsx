@@ -75,3 +75,47 @@ it("blocks independent variant generation, annotation model sends and missing-pa
   expect(posts()).toHaveLength(0);
   expect(request.mock.calls.filter(([, options]) => options?.method && options.method !== "GET")).toHaveLength(0);
 });
+
+it("uses the contained vertical workbench without dropping a native draft or changing model consent", async () => {
+  const view = render(<DesignDetailScreen projectId="p1" composerContextOffer={offer} />);
+  await screen.findByTestId("design-detail");
+  expect(screen.getByTestId("design-detail")).not.toHaveAttribute("data-contained");
+  const input = screen.getByTestId("design-detail-input");
+  fireEvent.change(input,{target:{value:"学生在窄栏审阅后的静态原型说明"}});
+  view.rerender(<DesignDetailScreen contained projectId="p1" composerContextOffer={offer} />);
+  expect(screen.getByTestId("design-detail")).toHaveAttribute("data-contained","true");
+  expect(screen.getByTestId("design-detail-input")).toBe(input);
+  expect(input).toHaveValue("学生在窄栏审阅后的静态原型说明");expect(posts()).toHaveLength(0);
+  fireEvent.click(screen.getByTestId("design-detail-send"));
+  await waitFor(()=>expect(posts()).toHaveLength(1));
+  expect(posts()[0]).toEqual(["/pm-designs/p1/chat",expect.objectContaining({body:expect.objectContaining({text:"学生在窄栏审阅后的静态原型说明"})})]);
+});
+
+it("keeps the native canvas available in a narrow host and makes layers an explicit reversible action", async () => {
+  const generated = { ...project, frames: ["首页"], prototype: [{ type: "text", id: "t", props: { content: "已有原型内容" } }] };
+  request.mockImplementation(async (path: string) => {
+    if (path === "/pm-designs") return { items: [generated] };
+    if (path === "/pm-designs/p1/comments") return { items: [] };
+    throw new Error(`Unexpected mutation: ${path}`);
+  });
+  const view = render(<DesignDetailScreen projectId="p1" />);
+  await screen.findByTestId("design-detail");
+  const side = screen.getByTestId("design-detail-side");
+  const toggle = screen.getByTestId("design-detail-side-toggle");
+  expect(side).toHaveClass("md:static", "md:flex");
+  expect(toggle).toHaveClass("md:hidden");
+  view.rerender(<DesignDetailScreen contained projectId="p1" />);
+  expect(side).not.toHaveClass("md:static");
+  expect(side).not.toHaveClass("md:flex");
+  expect(side).toHaveClass("absolute", "hidden");
+  expect(toggle).not.toHaveClass("md:hidden");
+  expect(toggle).toHaveAttribute("aria-pressed", "false");
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-pressed", "true");
+  expect(side).toHaveClass("absolute", "flex");
+  expect(side).not.toHaveClass("hidden");
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-pressed", "false");
+  expect(side).toHaveClass("hidden");
+  expect(posts()).toHaveLength(0);
+});

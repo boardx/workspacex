@@ -129,6 +129,7 @@ type Load =
 export function DesignDetailScreen({
   projectId,
   autoStart = false,
+  contained = false,
   composerContextOffer,
   sendBlockedReason,
   onBack,
@@ -136,6 +137,8 @@ export function DesignDetailScreen({
   onNextDesign,
 }: {
   projectId: string;
+  /** Render the existing workbench vertically when hosted in a narrow Inspector. */
+  contained?: boolean;
   composerContextOffer?: DesignComposerContextOffer;
   /** Host-side readiness only; existing service permissions still apply. */
   sendBlockedReason?: string;
@@ -880,9 +883,9 @@ export function DesignDetailScreen({
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-background text-background-foreground" data-testid="design-detail">
+    <div className={cn("flex h-dvh flex-col bg-background text-background-foreground", contained && "min-w-0")} data-testid="design-detail" data-contained={contained ? "true" : undefined}>
       {/* 顶部条 */}
-      <header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+      <header className={cn("flex items-center gap-3 border-b border-border px-4 py-2.5", contained && "flex-wrap")}>
         <Button variant="ghost" size="sm" onClick={onBack} data-testid="design-detail-back">
           <ArrowLeft aria-hidden className="h-4 w-4" /> 工作台
         </Button>
@@ -890,7 +893,7 @@ export function DesignDetailScreen({
           * 迭代 24：375 档下「返回 + 面包屑 + 三个动作」放不下，整个页面因此横向滚动 49px。
           * 面包屑里唯一的新信息是项目名，而项目名在窄屏上本来就会被截断——先让它退场。
           */}
-        <span className="hidden min-w-0 truncate text-12 text-muted-foreground sm:inline">工作台 / <span className="text-background-foreground">{project.name}</span></span>
+        <span className={cn("hidden min-w-0 truncate text-12 text-muted-foreground", !contained && "sm:inline")}>工作台 / <span className="text-background-foreground">{project.name}</span></span>
         {project.linkedFeedbackId !== null && <LinkBadge text="源自反馈" testid="design-detail-linked" />}
         <div className="ml-auto flex items-center gap-2">
           {/* 迭代 8：导出菜单——设计文档 / 原型 JSON / 当前页 PNG / 复制 */}
@@ -926,9 +929,9 @@ export function DesignDetailScreen({
       {/* B6.5（U8）：md 以下两栏改为上下堆叠——对话面板在上、限高 40dvh 自身滚动，画布/说明占剩余高度。
           取舍：不折叠成抽屉（对话是这一屏唯一的修改入口，藏起来等于把功能藏起来）；不并排缩窄
           （360px 对话 + 260px 手机画布在 375/768 下装不下，实测 375 文档溢出 90px）。md 及以上不变。 */}
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <div className={cn("flex min-h-0 flex-1 flex-col", !contained && "md:flex-row")}>
         {/* 左：对话面板 360px（md+）；md 以下全宽、限高 */}
-        <div className="flex max-h-[40dvh] shrink-0 flex-col border-b border-border bg-panel md:max-h-none md:w-[360px] md:border-b-0 md:border-r">
+        <div className={cn("flex max-h-[40dvh] shrink-0 flex-col border-b border-border bg-panel", contained ? "min-w-0" : "md:max-h-none md:w-[360px] md:border-b-0 md:border-r")}>
           <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-12 font-medium">
             {/*
               * 迭代 25：原文是「设计协作」——一个不说明这里能做什么的词。第一次进来的人
@@ -1094,6 +1097,7 @@ export function DesignDetailScreen({
           {tab === "canvas" ? (
             <div className="flex min-h-0 flex-1 flex-col" data-testid="design-detail-canvas">
               <CanvasToolbar
+                contained={contained}
                 project={project} preview={preview} frame={frame} setFrame={setFrame}
                 canvasMode={canvasMode} setCanvasMode={setCanvasMode} viewMode={viewMode} setViewMode={setViewMode}
                 setBackStack={setBackStack} setSelectedId={setSelectedId} sideOpen={sideOpen} setSideOpen={setSideOpen}
@@ -1322,6 +1326,7 @@ export function DesignDetailScreen({
                   )}
                 </div>
                 <DetailSidePanel
+                  contained={contained}
                   historyOpen={historyOpen} codeOpen={codeOpen} preview={preview} canvasMode={canvasMode} focus={focus} sideOpen={sideOpen}
                   project={project} frame={frame} setFrame={setFrame} selectedId={selectedId} setSelectedId={setSelectedId}
                   runNodeOps={runNodeOps} comments={comments} sending={sending} send={send} setLoad={setLoad}

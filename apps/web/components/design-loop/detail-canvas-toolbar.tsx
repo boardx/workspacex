@@ -19,9 +19,10 @@ export function CanvasToolbar({
   project, preview, frame, setFrame, canvasMode, setCanvasMode, viewMode, setViewMode, setBackStack, setSelectedId,
   sideOpen, setSideOpen, renamePage, addPage, duplicatePage, removePage, pageCount, comments, undoLast, undoing, redo,
   redoStack, askVariants, sending, variants, variantScreen, historyOpen, setHistoryOpen, setPreview, appearance, codeOpen, setCodeOpen, onPresent,
-  onOpenAppearance, onOpenSpec, onOpenExport, onPush, onImportThread, deviceControls,
+  onOpenAppearance, onOpenSpec, onOpenExport, onPush, onImportThread, deviceControls, contained = false,
 }: {
   readonly project: DesignProject;
+  readonly contained?: boolean;
   readonly preview: PrototypeVersion | null;
   readonly frame: number;
   readonly setFrame: Setter<number>;
@@ -158,7 +159,8 @@ export function CanvasToolbar({
           data-testid="design-detail-side-toggle"
           title="图层与属性"
           className={cn(
-            "inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast md:hidden",
+            "inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast",
+            !contained && "md:hidden",
             sideOpen ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
           )}
         >

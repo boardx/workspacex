@@ -40,6 +40,6 @@ function ScopedWorkspace({ projectId, teachingProjectId, stageId, sessionToken, 
       {state?.handoff?.warnings.map(warning => <p key={warning} className="text-muted-foreground">{warning}</p>)}
       <Button type="button" size="sm" variant="outline" onClick={() => { setState(null); setRetry(value => value + 1); }}>重新读取已保存制作说明</Button>
     </div>
-    <DesignDetailScreen projectId={projectId} autoStart={false} composerContextOffer={state?.handoff?.offer} sendBlockedReason={blocked} onBack={onBack} onNextDesign={onNextDesign} />
+    <DesignDetailScreen contained projectId={projectId} autoStart={false} composerContextOffer={state?.handoff?.offer} sendBlockedReason={blocked} onBack={onBack} onNextDesign={onNextDesign} />
   </div>;
 }
