@@ -540,6 +540,7 @@ def resolve_bases():
     if uv:
         need(re.fullmatch(r'ghcr\.io/astral-sh/uv:[a-zA-Z0-9._-]+@sha256:[a-f0-9]{64}',uv[1]),'INVALID_PINNED_UV_IMAGE')
         values['uv_image']=uv[1]
+    values['buildkit_repository']=SERVICES['sandbox'][0]
     return values
 
 def write(path, value):
