@@ -431,8 +431,6 @@ def build(role, prefix, tag, output, source):
         if cn and role=='agent' and name=='PYPI_INDEX_URL':
             value=os.environ.get('WSX_CN_PYPI_INDEX_URL') or value
             need(re.fullmatch(r'https://[a-zA-Z0-9.-]+(?::[0-9]+)?/[a-zA-Z0-9._/-]*',value),'INVALID_CN_PYPI_INDEX')
-        if use_vpc and role=='sandbox' and name=='APT_MIRROR':
-            value='https://mirrors.aliyun.com'
         args+=['--build-arg',name+'='+value]
     cache_repository=os.environ.get('WSX_CN_AGENT_CACHE_REPOSITORY','')
     if cn and role=='agent' and cache_repository:
