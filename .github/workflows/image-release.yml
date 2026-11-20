@@ -115,9 +115,7 @@ jobs:
 
       - name: Mirror pinned build bases to Shanghai ACR
         id: mirror
-        if: >-
-          steps.plan.outputs.build == 'true' &&
-          contains(fromJSON('["develop","main","main-us"]'), github.ref_name)
+        if: steps.plan.outputs.build == 'true'
         env:
           NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
           PYTHON_IMAGE: ${{ steps.plan.outputs.python_image }}
