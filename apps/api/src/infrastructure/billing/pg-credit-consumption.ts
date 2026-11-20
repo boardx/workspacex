@@ -51,6 +51,7 @@ export class PgCreditConsumption {
   };
   let wallet:Awaited<ReturnType<typeof loadWallet>>|undefined;
   if(p.ownerType==="team"){
+   await assertMemberCreditQuota(s,orgId,input.userId);
    let eligibility:Awaited<ReturnType<typeof prepareTeamCreditAdmission>>;
    try{eligibility=await prepareTeamCreditAdmission(s,orgId,at);}catch{throw this.error(p,"team_license_accounting_unavailable");}
    if(eligibility.decision==="unavailable")throw this.error(p,"team_license_accounting_unavailable");
@@ -83,14 +84,7 @@ export class PgCreditConsumption {
   if(reserved>limit)throw this.error(p,"credit_request_bound_unrepresentable");
   const hasTokenBound=extended.maximumTokens!=null||admission?.maximum_tokens!=null;
   const hasCreditBound=(native!==undefined||hasTokenBound)&&(!extended.tokenBoundRequired||hasTokenBound);
-  if(p.ownerType==="team"){
-   try { reserved=await assertMemberCreditQuota(s,orgId,input.userId,reserved,hasCreditBound); }
-   catch(error){
-    if(!(error instanceof CreditConsumptionError)||error.code!=="credit_required"||error.reason!=="member_monthly_limit")throw error;
-    p={ownerType:"user",ownerId:input.userId};
-    await grantDuePersonalTerms(s,p.ownerId);wallet=await loadWallet(p);
-   }
-  }
+  if(p.ownerType==="team")reserved=0n;
   if(p.ownerType==="user"){
    const available=creditHundredths(wallet.balance)-BigInt(wallet.remaining_held_hundredths);
    if(BigInt(wallet.unbounded_requests)>0n||available<=0n||(hasCreditBound&&reserved>available))throw this.error(p,"insufficient_credit","credit_required");
