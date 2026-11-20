@@ -82,7 +82,7 @@ it('rejects a batch below settled usage without changing other members',async()=
  const updates=[{userId:guest,monthlyLimit:10},{userId:user,monthlyLimit:0}];
  await expect(repo.setCreditQuotas(org,updates,user)).rejects.toBeInstanceOf(MemberCreditQuotaBelowUsage);
  expect((await repo.readCreditQuotas(org)).members.find(member=>member.userId===guest)?.monthlyLimit).toBe(42);
- await expect(repo.setCreditQuotas(org,[updates[0]!,{userId:user,monthlyLimit:2}],user)).resolves.toEqual({updated:2});
+ await expect(repo.setCreditQuotas(org,[updates[0]!,{userId:user,monthlyLimit:1}],user)).resolves.toEqual({updated:2});
  const members=(await repo.readCreditQuotas(org)).members;
  expect(members.find(member=>member.userId===guest)?.monthlyLimit).toBe(10);
  expect(members.find(member=>member.userId===user)?.monthlyLimit).toBe(1);
