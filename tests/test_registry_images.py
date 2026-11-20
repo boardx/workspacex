@@ -88,6 +88,62 @@ class Producer(unittest.TestCase):
                 self.assertEqual(stage.call_count, 1)
                 write.assert_not_called()
 
+    def test_configured_cn_python_index_applies_to_sandbox_without_changing_other_builds(self):
+        configured = 'https://pypi.example.com/simple/'
+        cases = (
+            ('sandbox', '1', 'devapp', configured, configured),
+            ('sandbox', '0', 'cn', configured, configured),
+            ('sandbox', '0', 'devapp', configured, 'https://pypi.org/simple'),
+            ('sandbox', '1', 'devapp', '', 'https://pypi.org/simple'),
+            ('agent', '1', 'devapp', configured, configured),
+            ('api', '1', 'devapp', configured, 'https://pypi.org/simple'),
+            ('web', '1', 'devapp', configured, 'https://pypi.org/simple'),
+            ('postgres', '1', 'devapp', configured, 'https://pypi.org/simple'),
+        )
+        for role, vpc, target, index, expected in cases:
+            with self.subTest(role=role, vpc=vpc, target=target, index=index):
+                m = module()
+                source = 'b' * 40
+                env = {'USE_ACR_VPC': vpc, 'TARGET_ENVIRONMENT': target,
+                       'WSX_CN_PYPI_INDEX_URL': index,
+                       'NODE_IMAGE': 'node@sha256:' + 'a' * 64,
+                       'PYTHON_IMAGE': 'python@sha256:' + 'a' * 64,
+                       'PGVECTOR_IMAGE': 'postgres@sha256:' + 'a' * 64,
+                       'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '1'}
+                with patch.dict(os.environ, env, clear=True), \
+                     patch.object(m, 'run', return_value=source), \
+                     patch.object(m.subprocess, 'run') as probe, \
+                     patch.object(m, 'run_release_stage', side_effect=RuntimeError('capture-build')) as stage, \
+                     patch.object(m, 'write') as write:
+                    probe.return_value.returncode = 1
+                    probe.return_value.stderr = 'manifest unknown'
+                    with self.assertRaisesRegex(RuntimeError, 'capture-build'):
+                        m.build(role, 'example-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod',
+                                '123-1', 'result.json', source)
+                args = stage.call_args.args[2]
+                self.assertEqual([arg for arg in args if arg.startswith('PYPI_INDEX_URL=')],
+                                 ['PYPI_INDEX_URL=' + expected])
+                write.assert_not_called()
+
+    def test_cn_sandbox_rejects_unsafe_configured_python_index_before_build(self):
+        for index in ('http://pypi.example.com/simple/', 'https://user:secret@pypi.example.com/simple/',
+                      'https://pypi.example.com/simple/?token=secret', 'https://pypi.example.com/;echo'):
+            with self.subTest(index=index):
+                m = module()
+                source = 'b' * 40
+                env = {'USE_ACR_VPC': '1', 'WSX_CN_PYPI_INDEX_URL': index,
+                       'NODE_IMAGE': 'node@sha256:' + 'a' * 64,
+                       'PYTHON_IMAGE': 'python@sha256:' + 'a' * 64}
+                with patch.dict(os.environ, env, clear=True), \
+                     patch.object(m, 'run', return_value=source), \
+                     patch.object(m, 'run_release_stage') as stage, \
+                     patch.object(m, 'write') as write:
+                    with self.assertRaisesRegex(ValueError, 'INVALID_CN_PYPI_INDEX'):
+                        m.build('sandbox', 'example-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod',
+                                '123-1', 'result.json', source)
+                stage.assert_not_called()
+                write.assert_not_called()
+
     def test_retry_recovers_existing_image_without_building_or_pushing(self):
         m = module()
         source = 'b' * 40
