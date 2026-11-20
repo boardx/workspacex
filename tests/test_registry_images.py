@@ -365,4 +365,34 @@ class Producer(unittest.TestCase):
         for prefix in ('https://registry.example/team','registry.example/team/../../bad','registry.example/team\n'):
             with self.assertRaises(ValueError): m.coordinates(prefix,'a'*40+'-123-2')
 
+    def test_shanghai_sandbox_build_uses_registry_cache(self):
+        m = module()
+        source = 'b' * 40
+        registry = 'example-registry.cn-shanghai.cr.aliyuncs.com'
+        prefix = registry + '/workspacex-prod'
+        repository = m.SERVICES['sandbox'][0]
+        cache = m.vpc_registry(registry) + '/workspacex-prod/' + repository + ':buildkit-cache-linux-amd64'
+        env = {
+            'USE_ACR_VPC': '1',
+            'NODE_IMAGE': 'node@sha256:' + 'a' * 64,
+            'PYTHON_IMAGE': 'python@sha256:' + 'c' * 64,
+            'GITHUB_RUN_ID': '123',
+            'GITHUB_RUN_ATTEMPT': '1',
+        }
+        tag = m.release_tag(source, '123', '1')
+        with patch.dict(os.environ, env, clear=True), \
+             patch.object(m, 'run', side_effect=[source, 'sha256:' + 'a' * 64]), \
+             patch.object(m.subprocess, 'run') as probe, \
+             patch.object(m, 'run_release_stage') as stage, \
+             patch.object(m, 'verify_publication'):
+            probe.return_value.returncode = 1
+            probe.return_value.stderr = 'manifest unknown'
+            stage.side_effect = ['', f'{tag}: digest: sha256:{"a" * 64} size: 123\n']
+            m.build('sandbox', prefix, tag, 'result.json', source)
+
+        args = stage.call_args_list[0].args[2]
+        self.assertEqual(args[args.index('--cache-from') + 1], 'type=registry,ref=' + cache)
+        self.assertTrue(args[args.index('--cache-to') + 1].endswith(',ref=' + cache))
+        self.assertIn(prefix.replace(registry, m.vpc_registry(registry)) + '/' + repository + ':' + tag, args)
+
 if __name__=='__main__': unittest.main()

@@ -440,6 +440,11 @@ def build(role, prefix, tag, output, source):
     if cn and role=='agent' and cache_repository:
         need(re.fullmatch(r'[a-z0-9]+(?:[._-][a-z0-9]+)*',cache_repository),'INVALID_AGENT_CACHE_REPOSITORY')
         cache_ref=prefix+'/'+cache_repository+':buildkit-linux-amd64'
+    elif use_vpc and role=='sandbox':
+        cache_ref=prefix+'/'+repository+':buildkit-cache-linux-amd64'
+    else:
+        cache_ref=None
+    if cache_ref:
         args+=['--cache-from','type=registry,ref='+cache_ref,
                '--cache-to','type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true,ref='+cache_ref]
     run_id, _, planned_attempt = tag.rpartition('-')
