@@ -385,7 +385,7 @@ class Producer(unittest.TestCase):
                                          ('provisioned-sandbox', 'docker-container', True)):
             with self.subTest(builder=builder, driver=driver):
                 values = {**env, 'BUILDX_BUILDER': builder}
-                responses = [source] + ([driver] if builder else []) + ['sha256:' + 'a' * 64]
+                responses = [source] + ([f'Name: {builder}\nDriver: {driver}\n'] if builder else []) + ['sha256:' + 'a' * 64]
                 with patch.dict(os.environ, values, clear=True), \
                      patch.object(m, 'run', side_effect=responses) as run, \
                      patch.object(m.subprocess, 'run') as probe, \
@@ -405,7 +405,7 @@ class Producer(unittest.TestCase):
                     self.assertNotIn('--cache-to', args)
                 self.assertIn(prefix.replace(registry, m.vpc_registry(registry)) + '/' + repository + ':' + tag, args)
                 if builder:
-                    run.assert_any_call(['docker', 'buildx', 'inspect', '--format', '{{.Driver}}'], timeout=60)
+                    run.assert_any_call(['docker', 'buildx', 'inspect'], timeout=60)
                 else:
                     self.assertFalse(any(call.args[0][:3] == ['docker', 'buildx', 'inspect']
                                          for call in run.call_args_list))
