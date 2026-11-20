@@ -16,6 +16,14 @@ auth="$scratch/auth.json"
 printf '%s' "$ACR_PASSWORD" | skopeo login --authfile "$auth" --username "$ACR_USERNAME" --password-stdin "$REGISTRY"
 vpc="${REGISTRY%%.*}-vpc.${REGISTRY#*.}"
 
+if [[ ${MIRROR_BUILDKIT:-false} == true ]]; then
+  buildkit_source=docker.io/moby/buildkit:buildx-stable-1
+  buildkit_digest=$(skopeo inspect --raw "docker://$buildkit_source" | sha256sum | cut -d' ' -f1)
+  BUILDKIT_IMAGE="$buildkit_source@sha256:$buildkit_digest"
+else
+  BUILDKIT_IMAGE=
+fi
+
 while read -r key name <&3; do
   source=${!name:-}
   [[ -n $source ]] || continue
@@ -43,4 +51,5 @@ node_image NODE_IMAGE
 python_image PYTHON_IMAGE
 uv_image UV_IMAGE
 pgvector_image PGVECTOR_IMAGE
+buildkit_image BUILDKIT_IMAGE
 BASE_IMAGES
