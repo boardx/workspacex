@@ -1,0 +1,17 @@
+{
+  "baseline": "53d6763beabac123651c3fa36a8e2baf33097204",
+  "webComponentAndLibraryTests": {
+    "files": 102,
+    "passed": 893,
+    "command": "pnpm --filter web exec vitest run tests/aidt tests/project-aidt tests/ui/aidt tests/ui/project-aidt tests/ui/chat-task-inspector tests/ui/copilotkit-v2-shell --exclude '**/*capture.test.tsx'"
+  },
+  "webTypecheck": "passed",
+  "webLintAndDesignLint": "passed",
+  "init": "passed",
+  "nativeBrowserE2E": {
+    "status": "startup-blocked",
+    "testsExecuted": 0,
+    "lastBlocker": "MinIO test container exited before browser execution; session-only BuildKit CA mount solved the earlier AGE TLS fetch blocker. Temporary compose transport override restored."
+  },
+  "visualEvidence": "actual components, synthetic fixtures; not authenticated native-model acceptance"
+}

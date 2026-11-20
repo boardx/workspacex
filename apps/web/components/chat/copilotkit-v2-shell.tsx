@@ -213,6 +213,8 @@ const THREAD_GROUP_MESSAGES: Record<string, MessageKey | undefined> = {
   "置顶": "chatEntry.pinned", "今天": "chatEntry.today", "本周": "chatEntry.thisWeek", "更早": "chatEntry.earlier",
 };
 
+import type { ChatHostPanel } from "./chat-host-panel";
+
 export function CopilotKitV2Shell({
   initialThreadId,
   projectId = null,
@@ -221,6 +223,7 @@ export function CopilotKitV2Shell({
   projectReturnHref,
   singleConversation = false,
   emptyState,
+  hostPanel,
 }: {
   initialThreadId: string | null;
   projectId?: string | null;
@@ -231,6 +234,7 @@ export function CopilotKitV2Shell({
   /** Hosts with their own conversation navigation (e.g. AIDT steps). */
   singleConversation?: boolean;
   emptyState?: (setDraft: (text: string) => void) => React.ReactNode;
+  hostPanel?: ChatHostPanel;
 }): JSX.Element {
   const { locale, t } = useI18n();
   const router = useRouter();
@@ -1447,6 +1451,7 @@ export function CopilotKitV2Shell({
           的只读预览弹窗；`ChatTaskInspector` 内部把它原样转给 `ChatArtifactsPanel`
           的 `onOpen`，不在这一层重新实现点击逻辑。 */}
       <ChatTaskInspector
+        hostPanel={hostPanel}
         onRunStarted={handleExternalRunStarted}
         projectId={projectId}
         canEditArtifacts={canWriteThread && canGeneratePersona}

@@ -18,9 +18,9 @@ beforeEach(() => { vi.clearAllMocks(); mocks.list.mockResolvedValue({ items: [] 
 it("shows page draft activity without calling it shared completion", () => {
   const drafts = emptyAidtUiDrafts(); drafts[1]!.fields.initial = "研究排队";
   render(<AidtDashboard href={(id) => `/aidt/g?step=${id}`} drafts={drafts} />);
-  expect(screen.getByTestId("aidt-step-1")).toHaveTextContent("本页草稿 · 1 项已填写");
-  expect(screen.getByTestId("aidt-step-2")).toHaveTextContent("本页尚未填写");
-  expect(screen.getByText(/不代表小组进度或阶段确认/)).toBeVisible();
+  expect(screen.getByTestId("aidt-step-1")).toHaveTextContent("本页有未保存内容");
+  expect(screen.queryByTestId("aidt-stage-save-2")).toBeNull();
+  expect(screen.queryByText(/已完成/)).toBeNull();
 });
 it("carries student-authored earlier context with missing-history limits and a group-safe return", () => {
   const drafts = emptyAidtUiDrafts(); drafts[1]!.fields.focus = "只研究午休排队";
@@ -53,7 +53,7 @@ it("reports an occupied native composer and keeps the outcome available", () => 
   const drafts = emptyAidtUiDrafts(); drafts[1]!.fields.initial = "我们自己的观察";
   const handoff = vi.fn().mockReturnValue("occupied");
   render(<AidtStageOutput projectId="g" step={AIDT_STEPS[0]!} draft={drafts[1]!} update={vi.fn()} readOnly={false} toolHref={() => ""} toChat={handoff} />);
-  fireEvent.click(screen.getByRole("button", { name: "审阅并发送到本步聊天" }));
+  fireEvent.click(screen.getByRole("button", { name: "带入对话草稿" }));
   expect(handoff).toHaveBeenCalledWith(expect.stringContaining("我们自己的观察"));
   expect(screen.getByText(/聊天输入框已有未发送内容，未覆盖/)).toBeVisible();
   expect(screen.getByLabelText("初始问题")).toHaveValue("我们自己的观察");
@@ -64,12 +64,12 @@ it("uses saved group revisions after re-entry without equating saving with compl
   const stage=SharedStage.parse({projectId:"g",stageId:1,revision:3,content:{schemaVersion:1,draft:structuredClone(drafts[1]!)},sourceStageRevisions:[],updatedBy:"student",updatedAt:"2026-11-15T00:00:00.000Z"});
   drafts[1]!.fields.scene="本页新增场景";
   render(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={drafts} shared={{phase:"ready",stages:{1:stage}}} />);
-  expect(screen.getByRole("heading",{level:1,name:"本组六步研究"})).toBeVisible();
-  expect(screen.getByTestId("aidt-stage-save-1")).toHaveTextContent("小组已保存 · V3 · 本页有修改");
-  expect(screen.getByTestId("aidt-stage-save-2")).toHaveTextContent("尚未保存成果");
-  expect(screen.getByRole("link", { name: "继续第1步 · 理解与提出问题" })).toHaveAttribute("href", "/aidt/g?step=1");
-  expect(screen.getByTestId("aidt-step-2")).toHaveTextContent("进入对话");
-  expect(screen.getByText(/保存版本不代表阶段完成或全员确认/)).toBeVisible();
+  expect(screen.getByRole("heading",{level:1,name:"六步，探索新的可能。"})).toBeVisible();
+  expect(screen.getByTestId("aidt-stage-save-1")).toHaveTextContent("已保存 · V3 · 有修改");
+  expect(screen.queryByTestId("aidt-stage-save-2")).toBeNull();
+  expect(screen.getByRole("link", { name: "继续第1步" })).toHaveAttribute("href", "/aidt/g?step=1");
+  expect(screen.getByTestId("aidt-step-2")).toHaveAttribute("href", "/aidt/g?step=2");
+  expect(screen.queryByText(/已完成|全员确认/)).toBeNull();
   expect(screen.queryByText(/刷新后重置/)).toBeNull();
 });
 it("a failed group status read stays an error and never labels stages unsaved", () => {
@@ -94,3 +94,17 @@ it("opens the report as formatted reading content and exposes the original only 
   fireEvent.click(screen.getByRole("button", { name: "编辑报告" }));
   expect(screen.getByLabelText("小组报告草稿")).toHaveValue(report);
 });
+
+ it("starts an empty problem sheet with one input and reveals context after the student writes", async () => {
+  const { AidtStageFields } = await import("@/features/aidt/components/aidt-stage-fields");
+  const draft = emptyAidtUiDrafts()[1]!;
+  const change = vi.fn(), changeDraft = vi.fn();
+  const view = render(<AidtStageFields stageNumber={1} draft={draft} onChange={change} onDraftChange={changeDraft} />);
+  expect(screen.getAllByRole("textbox")).toHaveLength(1);
+  expect(screen.getByLabelText("初始问题")).toBeVisible();
+  expect(screen.queryByTestId("aidt-problem-reflection")).toBeNull();
+  view.rerender(<AidtStageFields stageNumber={1} draft={{...draft,fields:{initial:"改善午餐排队体验"}}} onChange={change} onDraftChange={changeDraft} />);
+  expect(screen.getByTestId("aidt-problem-reflection")).toBeVisible();
+  expect(screen.getAllByRole("textbox").length).toBeGreaterThan(1);
+  expect(change).not.toHaveBeenCalled(); expect(changeDraft).not.toHaveBeenCalled();
+ });

@@ -37,7 +37,7 @@ it("keeps unsaved content distinct and waits for a real server receipt", async (
   const request = mocks.save.mock.calls[0]![0] as AidtSaveStageInput;
   expect(request.expectedRevision).toBe(0); expect(request.content.draft.fields.initial).toBe("本页学生问题");
   await act(async () => pending.resolve({ stage: { ...saved(), content: request.content }, replayed: false }));
-  expect(screen.getByTestId("aidt-shared-receipt")).toHaveTextContent("服务器已回执 V1"); expect(screen.getByTestId("aidt-shared-status")).toHaveTextContent("保存不代表小组确认或阶段完成");
+  expect(screen.getByTestId("aidt-shared-receipt")).toHaveTextContent("已保存到小组 · V1"); expect(screen.getByTestId("aidt-shared-status")).not.toHaveTextContent("已完成"); openDetails(); expect(screen.getByTestId("aidt-shared-details")).toHaveTextContent("保存不代表小组确认或阶段完成");
 });
 it("recovers all six authorized saved stages into untouched empty forms on re-entry", async () => {
   mocks.read.mockImplementation(async (_project, id: number) => ({ stage: id === 1 || id === 2 ? saved(`保存的第${id}步`, 2, id) : null }));

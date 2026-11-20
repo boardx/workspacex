@@ -26,7 +26,7 @@ vi.mock("@/features/aidt/lib/aidt-project-membership", () => ({ readAidtProjectM
 vi.mock("@/lib/live-projects", () => ({ listProjects: mocks.list, findProject: mocks.find, getProjectOverview: mocks.overview }));
 vi.mock("@/lib/live-project-resources", () => ({ listProjectResources: mocks.materials, PROJECT_RESOURCE_KIND_LABEL_ZH: { design: "设计", personal_transcription: "个人转录" } }));
 vi.mock("@/components/project/project-resource-section", () => ({ projectResourceHref: (_kind: string, id: string) => `/source/${encodeURIComponent(id)}`, describeProjectResourceFailure: () => "资料读取失败，访问资格需重新核对" }));
-vi.mock("@/components/project/project-collaborators-panel", () => ({ ProjectCollaboratorsPanel: () => <div data-testid="native-roster" /> }));
+vi.mock("@/components/project/project-collaborators-panel", () => ({ ProjectCollaboratorsPanel: (props: { readOnly: boolean }) => <div data-testid="native-roster" data-readonly={String(props.readOnly)} /> }));
 vi.mock("@/features/aidt/components/project-aidt", () => ({ ProjectAidt: (props: unknown) => { mocks.workspace(props); return <div data-testid="native-aidt-workspace" />; } }));
 vi.mock("@/components/project/create-project-form", () => ({ CreateProjectForm: () => <input aria-label="创建表单草稿" defaultValue="" /> }));
 vi.mock("@/components/project/project-breadcrumb", () => ({ ProjectBreadcrumb: (props: unknown) => { mocks.breadcrumb(props); return <nav data-testid="native-board-return" />; } }));
@@ -152,4 +152,35 @@ it("does not turn organization-admin visibility into actual group membership", a
   await screen.findByTestId("aidt-home-empty");
   expect(screen.queryByTestId("aidt-project-group")).toBeNull();
   expect(mocks.roster).toHaveBeenCalledWith("/projects/group/collaborators", expect.objectContaining({ sessionToken: "token", signal: expect.any(AbortSignal) }));
+});
+
+
+it("opens members in a focused settings dialog and removes it immediately when the actor changes", async () => {
+  const { rerender } = render(<AidtProjectWorkspace projectId="group" />);
+  await screen.findByTestId("native-aidt-workspace");
+  expect(screen.queryByTestId("native-roster")).toBeNull();
+  const trigger = screen.getByTestId("aidt-project-settings");
+  fireEvent.click(trigger);
+  expect(await screen.findByRole("dialog", { name: "小组设置" })).toBeVisible();
+  expect(screen.getByTestId("native-roster")).toHaveAttribute("data-readonly", "false");
+  fireEvent.click(screen.getByTestId("dialog-close"));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(trigger).toHaveFocus());
+  fireEvent.click(trigger);
+  await screen.findByTestId("native-roster");
+  mocks.session = { ...mocks.session, userId: "student-b" };
+  rerender(<AidtProjectWorkspace projectId="group" />);
+  expect(screen.queryByTestId("native-roster")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await screen.findByTestId("native-aidt-workspace");
+  expect(screen.queryByTestId("native-roster")).toBeNull();
+});
+
+it("keeps archived group members viewable in settings with the native panel read-only", async () => {
+  mocks.find.mockResolvedValue({ ...project, status: "archived", readOnlyReason: "archived" });
+  mocks.overview.mockResolvedValue({ projectId: "group", name: "本组", status: "archived", kind: "general" });
+  render(<AidtProjectWorkspace projectId="group" />);
+  await screen.findByTestId("native-aidt-workspace");
+  fireEvent.click(screen.getByTestId("aidt-project-settings"));
+  expect(await screen.findByTestId("native-roster")).toHaveAttribute("data-readonly", "true");
 });

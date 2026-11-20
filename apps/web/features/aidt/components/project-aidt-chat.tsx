@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChatHostPanel } from "@/components/chat/chat-host-panel";
 import { createPortal } from "react-dom";
 import { FocusedSkillNameContext } from "@/components/chat/copilotkit-v2-agent-identity";
 import * as React from "react";
@@ -11,6 +12,7 @@ import { HostRunContextProvider, type HostRunObservation } from "@/lib/chat/host
 import { aidtStageContextSelector } from "../lib/aidt-native-context-selector";
 import { AidtRunContextReceipt } from "./aidt-run-context-receipt";
 import { ChatHostNavigationProvider } from "@/lib/chat/chat-host-navigation";
+import { ChatTaskInspector } from "@/components/chat/chat-task-inspector";
 import { CopilotKitV2Shell } from "@/components/chat/copilotkit-v2-shell";
 import { CopilotKitV2Providers } from "@/app/chat/copilotkit-v2/copilotkit-v2-providers";
 import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
@@ -55,12 +57,12 @@ function currentStageQuery(projectId: string, stageId: number): URLSearchParams 
   return window.location.pathname === `/aidt/${encodeURIComponent(projectId)}` && query.get("step") === String(stageId) ? query : new URLSearchParams();
 }
 type AidtChatProps = {
-  referencePanel?: HTMLDivElement | null; taskHref?: string; purpose?: "report"; projectId: string; step: AidtStep; thread: string | null; returnRevision?: string | null; savedContextRefs?: readonly AidtSavedContextReference[]; sharedContextRefs?: readonly AidtSharedContextReference[]; sharedContextReady?: boolean; onResolvedThread?: (threadId: string) => void };
+  hostPanel?: ChatHostPanel; referencePanel?: HTMLDivElement | null; taskHref?: string; purpose?: "report"; projectId: string; step: AidtStep; thread: string | null; returnRevision?: string | null; savedContextRefs?: readonly AidtSavedContextReference[]; sharedContextRefs?: readonly AidtSharedContextReference[]; sharedContextReady?: boolean; onResolvedThread?: (threadId: string) => void };
 export function ProjectAidtChat(props: AidtChatProps) {
   if (!isAidtModuleEnabled()) return <p role="status" data-testid="aidt-chat-disabled" className="p-4 text-13 text-muted-foreground">教学模块未启用。</p>;
   return <EnabledAidtChat {...props} />;
 }
-function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContextRefs = [], sharedContextRefs = [], sharedContextReady = true, onResolvedThread, purpose, taskHref, referencePanel }: AidtChatProps) {
+function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContextRefs = [], sharedContextRefs = [], sharedContextReady = true, onResolvedThread, purpose, taskHref, referencePanel, hostPanel }: AidtChatProps) {
   const { session } = useSession();
   const scope = JSON.stringify([session?.currentOrgId, session?.userId, session?.sessionToken, projectId, step.id, thread, purpose]);
   const lifecycle = React.useRef({ scope, generation: 0 });
@@ -149,8 +151,9 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
   }, [projectId, step.id, purpose]);
   const fromLocation = React.useCallback(() => new URLSearchParams(window.location.search).get(purpose === "report" ? "summaryThread" : "thread"), [purpose]);
   const current = state?.scope === requestScope ? state : null;
-  if (!current) return <p role="status" className="p-4">正在准备本步对话与 Skill…</p>;
-  if (current.error || !current.value) return <div role="alert" className="p-4" data-testid="aidt-chat-error"><p>{current.error}</p>{current.choices && <ul className="my-3 space-y-2">{current.choices.map((choice) => <li key={choice.id}><a className="text-primary underline" href={path(choice.id)}>{choice.title} · 继续这条对话</a></li>)}</ul>}<Button variant="outline" onClick={() => setRetry((n) => n + 1)}>重试</Button><a className="ml-3 text-primary underline" href={taskHref ?? aidtHref(projectId, step.id, { tool: "outcome", returnRevision: currentStageQuery(projectId, step.id).get("returnRevision") })}>{purpose === "report" ? "返回小组报告" : "打开本步任务"}</a>{thread && !current.choices && <a className="ml-3 text-primary underline" href={path(null)} data-aidt-reset-thread>选择本步对话</a>}</div>;
+  const fallback = (content: React.ReactNode) => hostPanel ? <div className="flex h-full min-h-0"><div className="min-w-0 flex-1">{content}</div><ChatTaskInspector hostPanel={hostPanel} projectId={projectId} threadId={null} hasSelection={false} artifacts={null} materials={null} loading={false} artifactsError={null} materialsError={null} onRetry={() => setRetry(value => value + 1)} pendingMaterialsCount={0} planTodos={null} isRunning={false} runPhaseLabel={null} runStartedAt={null} /></div> : content;
+  if (!current) return fallback(<p role="status" className="p-4">正在准备本步对话与 Skill…</p>);
+  if (current.error || !current.value) return fallback(<div role="alert" className="p-4" data-testid="aidt-chat-error"><p>{current.error}</p>{current.choices && <ul className="my-3 space-y-2">{current.choices.map((choice) => <li key={choice.id}><a className="text-primary underline" href={path(choice.id)}>{choice.title} · 继续这条对话</a></li>)}</ul>}<Button variant="outline" onClick={() => setRetry((n) => n + 1)}>重试</Button><a className="ml-3 text-primary underline" href={taskHref ?? aidtHref(projectId, step.id, { tool: "outcome", returnRevision: currentStageQuery(projectId, step.id).get("returnRevision") })}>{purpose === "report" ? "返回小组报告" : "打开本步任务"}</a>{thread && !current.choices && <a className="ml-3 text-primary underline" href={path(null)} data-aidt-reset-thread>选择本步对话</a>}</div>);
   const references = <>
     {purpose !== "report" && savedContextRefs.length > 0 && <details className="border-b border-border px-4 py-2 text-12 text-muted-foreground" data-testid="aidt-chat-saved-context"><summary className="cursor-pointer">参考已保存成果 · {savedContext.status === "loading" ? "读取中" : `${savedContext.items.length} 份`}</summary><p className="mt-2">页面仅展示成功回读的已选来源；保存与定版不代表全组确认或真实证据。个人成果在此供核对，本次服务器上下文不自动读取个人成果正文。</p>{savedContext.items.map((item) => <p key={`${item.threadId}:${item.artifactId}`} className="mt-1">第 {item.stageNumber} 步 · {item.title} · {item.mode === "draft" ? "个人保存稿，仅供页面核对" : "已保存，尚未确认"}{item.truncated ? " · 内容已截断" : ""}</p>)}{savedContext.issues.length > 0 && <div role="status" className="mt-2"><p>{savedContext.issues.length} 份来源未用于 AI：可能未授权、版本已变更，或个人草稿尚未主动分享。未把读取失败当作没有成果。</p><Button size="sm" variant="outline" onClick={() => setContextRetry((value) => value + 1)}>重新读取材料</Button></div>}</details>}
     {purpose !== "report" && sharedContextRefs.length > 0 && <details className="border-b border-border px-4 py-2 text-12 text-muted-foreground" data-testid="aidt-chat-shared-context"><summary className="cursor-pointer">小组已保存材料 · {sharedContext.status === "loading" ? "读取中" : `${sharedContext.items.length} 份`}</summary><p className="mt-2">本次选择下列服务器版本，实际采用情况以运行来源回执为准；保存不等于小组确认或证据核实。本页尚未保存的修改不会自动传入。</p>{sharedContext.items.map((item) => <details key={item.stageNumber} className="mt-2 rounded-md border border-border p-2"><summary className="cursor-pointer">第 {item.stageNumber} 步 · V{item.revision} · 已保存，尚未确认{item.truncated ? " · 内容已截断" : ""}</summary><pre aria-label={`第${item.stageNumber}步已保存内容摘要`} className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-sans text-12">{aidtSharedContextPreview(item)}</pre><p className="mt-2 text-11">以上是已保存内容摘要，可能省略选择理由、报告等字段。下方为页面读取的已保存文本预览；引用材料与学生解释仍需核对。</p><details className="mt-2"><summary className="cursor-pointer">查看页面回读的已保存文本</summary><pre aria-label={`第${item.stageNumber}步页面回读的已保存文本`} className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-sans text-12">{item.draftText}</pre>{item.truncated && <p className="mt-1 text-11">这是页面预览的截断片段；实际运行截断情况见来源回执。</p>}</details></details>)}{sharedContext.issues.length > 0 && <div role="status" className="mt-2"><p>{sharedContext.issues.length} 份页面预览未读取：可能读取失败、无权限或未找到精确版本。实际采用情况见本轮材料回执。</p><Button size="sm" variant="outline" onClick={() => setContextRetry((value) => value + 1)}>重新读取小组材料</Button></div>}</details>}
@@ -162,8 +165,8 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
     {current.value.latestVersionId && current.value.latestVersionId !== current.value.versionId && session?.currentOrgId && session.userId && session.sessionToken && <AidtSkillUpdate key={JSON.stringify([requestScope, current.value.versionId, current.value.latestVersionId])} projectId={projectId} step={step} current={current.value} identity={{ orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken }} threadHref={path} purpose={purpose} />}
     {purpose !== "report" && !sharedContextReady && <p role="status" className="border-b border-border px-4 py-2 text-12 text-muted-foreground" data-testid="aidt-chat-context-pending">小组保存版本尚未就绪。请完成材料读取或重试后发送，草稿已保留。</p>}
     {purpose === "report" && session?.currentOrgId && session.userId && session.sessionToken && <AidtSummaryChatContext scope={{ projectId, orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken, lifecycleKey: requestScope }} threadId={current.value.threadId} onSelectorChange={selectSummary} />}
-    {referencePanel ? createPortal(references, referencePanel) : references}
-    <FocusedSkillNameContext.Provider value={current.value.skillName}><CopilotKitV2Shell key={current.value.threadId} initialThreadId={current.value.threadId} projectId={projectId} singleConversation threadPath={path} threadFromLocation={fromLocation} projectReturnHref={aidtHref(projectId)} emptyState={() => purpose === "report" ? <div className="p-6 text-13 text-muted-foreground" data-testid="aidt-summary-empty">先读取本组报告材料，再审阅并发送生成请求；这里仍使用现有Chat输入框。</div> : <AidtChatEmptyState step={step} />} /></FocusedSkillNameContext.Provider>
+    {referencePanel ? createPortal(references, referencePanel) : hostPanel ? null : references}
+    <FocusedSkillNameContext.Provider value={current.value.skillName}><CopilotKitV2Shell hostPanel={hostPanel} key={current.value.threadId} initialThreadId={current.value.threadId} projectId={projectId} singleConversation threadPath={path} threadFromLocation={fromLocation} projectReturnHref={aidtHref(projectId)} emptyState={() => purpose === "report" ? <div className="p-6 text-13 text-muted-foreground" data-testid="aidt-summary-empty">先读取本组报告材料，再审阅并发送生成请求；这里仍使用现有Chat输入框。</div> : <AidtChatEmptyState step={step} />} /></FocusedSkillNameContext.Provider>
     </div>
   </CopilotKitV2Providers></CopilotKitV2AgentSelectionProvider></ChatHostNavigationProvider></HostRunContextProvider>;
 }

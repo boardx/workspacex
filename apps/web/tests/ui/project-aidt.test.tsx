@@ -12,7 +12,7 @@ vi.mock("next/dynamic", () => ({ default: (load: () => Promise<{ default: React.
   return function Dynamic(props: any) { return <React.Suspense fallback={<p>加载中</p>}><Lazy {...props} /></React.Suspense>; };
 } }));
 vi.mock("@/lib/live-project-resources", () => ({ listProjectResources: mocks.list }));
-vi.mock("@/features/aidt/components/project-aidt-chat", () => ({ ProjectAidtChat: (props: any) => { mocks.chat(props); return <div data-testid="native-chat" />; } }));
+vi.mock("@/features/aidt/components/project-aidt-chat", () => ({ ProjectAidtChat: (props: any) => { mocks.chat(props); return <div data-testid="native-chat">{props.hostPanel?.open && props.hostPanel.content}</div>; } }));
 vi.mock("@/components/rec/transcription-history", () => ({ TranscriptionHistory: (props: any) => { mocks.rec(props); return <div data-testid="native-rec" />; } }));
 vi.mock("@/components/design-loop/detail-screen", () => ({ DesignDetailScreen: (props: any) => { mocks.design(props); return <div data-testid="native-design" />; } }));
 vi.mock("@/features/aidt/components/aidt-design-workspace", () => ({ AidtDesignWorkspace: (props: any) => { mocks.design(props); return <div data-testid="native-design" />; } }));
@@ -46,7 +46,7 @@ describe("native AIDT project workspace", () => {
     expect(mocks.rec).toHaveBeenCalledWith(expect.objectContaining({ projectId: "p1", uiState: "default" }));
     await screen.findByTestId("native-chat");
     expect(screen.getByTestId("aidt-tool-panel")).toBeVisible();
-    expect(screen.getByRole("link", { name: "关闭工具，回到对话" }).getAttribute("href")).toContain("tool=chat");
+    expect(mocks.chat.mock.calls.at(-1)![0].hostPanel.open).toBe(true);
     rerender(<ProjectAidt projectId="p1" sub="aidt-2" canWrite={false} />);
     expect(screen.queryByTestId("native-rec")).toBeNull();
     expect(screen.getByTestId("aidt-readonly")).toBeVisible();
@@ -97,11 +97,10 @@ it("keeps a named keyboard-focusable six-step navigation without a duplicate ret
   expect(screen.queryByRole("link", { name: "返回本步对话" })).toBeNull();
 });
 
-it("offers formative outcome checks without pretending group confirmation or grading is saved", () => {
+it("keeps the dashboard focused on six steps without the self-review accordion", () => {
   render(<AidtDashboard href={(id) => aidtHref("p1", id)} />);
-  const review = screen.getByTestId("aidt-self-review");
-  expect(review).toHaveTextContent("不是自动完成判定");
-  expect(review).toHaveTextContent("教师评分尚未提供");
+  expect(screen.queryByTestId("aidt-self-review")).toBeNull();
+  expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(6);
   expect(screen.queryByRole("checkbox")).toBeNull();
 });
 it("lets people choose an iteration destination within the same group", async () => {
@@ -132,35 +131,38 @@ it("the student UI does not surface simulated interviews or deep research as fir
   expect(screen.queryByRole("link", { name: "AI 模拟访谈" })).toBeNull();
   expect(mocks.resources).not.toHaveBeenCalled();
 });
-it("keeps the default native Chat clear of duplicate assistant and structured-save rows while preserving advanced access", async () => {
+it("uses one closed native Inspector host instead of a second assistant or tool wall", async () => {
   render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); await screen.findByTestId("native-chat");
-  expect(screen.getByTestId("aidt-assistant-panel")).toBeVisible(); expect(screen.queryByRole("button", { name: "AI 引导师" })).toBeNull(); expect(screen.queryByTestId("aidt-shared-stage")).toBeNull(); expect(screen.queryByTestId("aidt-shared-unavailable")).toBeNull();
-  const tools = screen.getByTestId("aidt-tools"); expect(tools).toContainElement(screen.getByTestId("aidt-personal-checkpoints")); expect(tools).not.toHaveAttribute("open"); expect(screen.getByTestId("aidt-open-output")).toHaveAttribute("href", "/aidt/p1?step=1&tool=outcome");
+  expect(screen.getByTestId("aidt-assistant-panel")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "AI 引导师" })).toBeNull();
+  expect(screen.queryByTestId("aidt-shared-stage")).toBeNull();
+  expect(screen.queryByTestId("aidt-tools")).toBeNull();
+  expect(document.getElementById("aidt-artifact-shelf")).toBeNull();
+  expect(mocks.chat.mock.calls.at(-1)![0].hostPanel).toEqual(expect.objectContaining({ title: "成果", open: false }));
 });
-it("widens the reference shelf without remounting the stage chat", async () => {
-  render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
+it("keeps the same Chat mounted while outcomes open and close in its native host panel", async () => {
+  const view = render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
   const chat = await screen.findByTestId("native-chat");
-  expect(screen.getByRole("button", { name: "引用与产物" })).toHaveAttribute("aria-expanded", "false");
-  fireEvent.click(screen.getByRole("button", { name: "引用与产物" }));
-  const handle = screen.getByRole("separator", { name: "调整引用与产物宽度" });
-  expect(handle).toHaveAttribute("aria-valuenow", "320");
-  fireEvent.keyDown(handle, { key: "ArrowLeft" });
-  expect(handle).toHaveAttribute("aria-valuenow", "352");
-  fireEvent.click(screen.getByRole("button", { name: "关闭成果" }));
-  expect(screen.getByRole("button", { name: "引用与产物" })).toHaveAttribute("aria-expanded", "false");
+  mocks.search = "tool=outcome"; view.rerender(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
+  await screen.findByTestId("aidt-stage-output");
   expect(screen.getByTestId("native-chat")).toBe(chat);
+  expect(screen.getByTestId("aidt-tools")).toHaveTextContent("更多工具");
+  expect(screen.queryByTestId("aidt-personal-checkpoints")).toBeNull();
+  mocks.search = ""; view.rerender(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
+  expect(screen.getByTestId("native-chat")).toBe(chat);
+  expect(screen.queryByTestId("aidt-stage-output")).toBeNull();
 });
 
 it("keeps failed shared reads visible and actionable on Chat without restoring the full save toolbar", async () => {
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); const client = await import("@/features/aidt/lib/live-aidt-stages"); const read = vi.spyOn(client, "readAidtStage").mockRejectedValue(new Error("offline"));
   try {
-    mocks.search = "thread=real-thread"; render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); const alert = await screen.findByTestId("aidt-shared-chat-alert"); expect(alert).toHaveAttribute("role", "alert"); expect(alert).toHaveTextContent("读取失败"); expect(screen.getByRole("link", { name: "进入成果核对" })).toHaveAttribute("href", "/aidt/p1?step=1&tool=outcome&thread=real-thread"); expect(screen.getByTestId("aidt-open-output")).toHaveTextContent("读取失败"); expect(screen.queryByTestId("aidt-shared-stage")).toBeNull(); expect(screen.getByRole("button", { name: "重试读取" })).toBeVisible();
+    mocks.search = "thread=real-thread"; render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); const alert = await screen.findByTestId("aidt-shared-chat-alert"); expect(alert).toHaveAttribute("role", "alert"); expect(alert).toHaveTextContent("读取失败"); expect(screen.getByRole("link", { name: "进入成果核对" })).toHaveAttribute("href", "/aidt/p1?step=1&tool=outcome&thread=real-thread"); expect(screen.queryByTestId("aidt-shared-stage")).toBeNull(); expect(screen.getByRole("button", { name: "重试读取" })).toBeVisible();
   } finally { read.mockRestore(); vi.unstubAllEnvs(); }
 });
 it("retains the complete save and restore controls where the student edits stage outcomes", async () => {
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); const client = await import("@/features/aidt/lib/live-aidt-stages"); const read = vi.spyOn(client, "readAidtStage").mockResolvedValue({ stage: null });
   try {
-    mocks.search = "tool=outcome"; render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); await waitFor(() => expect(screen.getByTestId("aidt-shared-status")).toHaveTextContent("尚未保存")); expect(screen.getByTestId("aidt-shared-stage")).toBeVisible(); expect(screen.getByTestId("aidt-shared-save")).toBeVisible(); expect(screen.getByRole("button", { name: "AI 引导师" })).toBeVisible(); expect(screen.getByLabelText("初始问题")).toBeVisible();
+    mocks.search = "tool=outcome"; render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); await waitFor(() => expect(screen.getByTestId("aidt-shared-status")).toHaveTextContent("尚未保存")); expect(screen.getByTestId("aidt-shared-stage")).toBeVisible(); expect(screen.getByTestId("aidt-shared-save")).toBeVisible(); expect(screen.getByTestId("native-chat")).toBeVisible(); expect(screen.getByLabelText("初始问题")).toBeVisible();
   } finally { read.mockRestore(); vi.unstubAllEnvs(); }
 });
 
@@ -175,17 +177,33 @@ it("keeps the saved learning round across tools and native resources but clears 
     expect(target.searchParams.get("aidtStep")).toBe("3");
   }
   expect(new URL(props.resourceHref("personal_transcription", "s1"), "https://workspace.invalid").searchParams.get("returnRevision")).toBe("3");
-  expect(screen.getByRole("link", { name: "关闭工具，回到对话" }).getAttribute("href")).toContain("returnRevision=3");
+  expect(mocks.chat.mock.calls.at(-1)![0].returnRevision).toBe("3");
   await waitFor(() => expect(mocks.chat).toHaveBeenLastCalledWith(expect.objectContaining({ returnRevision: "3" })));
   expect(screen.getByTestId("aidt-stage-desktop-4").getAttribute("href")).not.toContain("returnRevision");
 });
 
-it("starts with conversation space instead of a workflow wall or open reference drawer", async () => {
+it("starts with conversation space instead of a workflow wall or a second reference drawer", async () => {
   render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); await screen.findByTestId("native-chat");
   expect(screen.queryByText("本步目标与学习提示")).toBeNull();
   expect(screen.queryByLabelText("当前学习任务")).toBeNull();
-  expect(screen.getByRole("button", {name:"引用与产物"})).toHaveAttribute("aria-expanded","false");
-  expect(document.getElementById("aidt-artifact-shelf")).toHaveAttribute("hidden");
-  expect(screen.getAllByTestId("aidt-open-output")).toHaveLength(1);
-  expect(screen.getByTestId("aidt-tools")).not.toHaveAttribute("open");
+  expect(document.getElementById("aidt-artifact-shelf")).toBeNull();
+  expect(screen.queryByTestId("aidt-tool-panel")).toBeNull();
+  expect(mocks.chat.mock.calls.at(-1)![0].hostPanel.open).toBe(false);
+});
+
+it("closes the native tools menu when workspace navigation commits before the menu's bubble handler", async () => {
+  const original = window.location.href;
+  window.history.replaceState(null, "", "/aidt/p1?step=1&tool=outcome&thread=t1");
+  mocks.search = "step=1&tool=outcome&thread=t1";
+  try {
+    render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
+    const chat = await screen.findByTestId("native-chat");
+    fireEvent.pointerDown(screen.getByTestId("aidt-tools"), { button: 0, ctrlKey: false });
+    const board = await screen.findByRole("menuitem", { name: "白板" });
+    fireEvent.click(board);
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(new URL(window.location.href).searchParams.get("tool")).toBe("whiteboard");
+    expect(new URL(window.location.href).searchParams.get("thread")).toBe("t1");
+    expect(screen.getByTestId("native-chat")).toBe(chat);
+  } finally { window.history.replaceState(null, "", original); }
 });
