@@ -48,6 +48,41 @@ class Producer(unittest.TestCase):
         self.assertEqual(args[args.index('--cache-from') + 1], 'type=registry,ref=' + cache)
         self.assertTrue(args[args.index('--cache-to') + 1].endswith(',ref=' + cache))
 
+    def test_sandbox_apt_mirror_is_scoped_to_cn_build_transport(self):
+        cases = (
+            ('sandbox', '1', 'devapp', 'https://mirrors.aliyun.com'),
+            ('sandbox', '0', 'cn', 'https://mirrors.aliyun.com'),
+            ('sandbox', '0', 'devapp', 'https://deb.debian.org'),
+            ('api', '1', 'devapp', 'https://deb.debian.org'),
+            ('web', '1', 'devapp', 'https://deb.debian.org'),
+            ('agent', '1', 'devapp', 'https://deb.debian.org'),
+            ('postgres', '1', 'devapp', 'https://deb.debian.org'),
+        )
+        for role, vpc, target, mirror in cases:
+            with self.subTest(role=role, vpc=vpc, target=target):
+                m = module()
+                source = 'b' * 40
+                env = {'USE_ACR_VPC': vpc, 'TARGET_ENVIRONMENT': target,
+                       'NODE_IMAGE': 'node@sha256:' + 'a' * 64,
+                       'PYTHON_IMAGE': 'python@sha256:' + 'a' * 64,
+                       'PGVECTOR_IMAGE': 'postgres@sha256:' + 'a' * 64,
+                       'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '1'}
+                with patch.dict(os.environ, env, clear=True), \
+                     patch.object(m, 'run', return_value=source), \
+                     patch.object(m.subprocess, 'run') as probe, \
+                     patch.object(m, 'run_release_stage', side_effect=RuntimeError('capture-build')) as stage, \
+                     patch.object(m, 'write') as write:
+                    probe.return_value.returncode = 1
+                    probe.return_value.stderr = 'manifest unknown'
+                    with self.assertRaisesRegex(RuntimeError, 'capture-build'):
+                        m.build(role, 'example-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod',
+                                '123-1', 'result.json', source)
+                args = stage.call_args.args[2]
+                self.assertEqual([arg for arg in args if arg.startswith('APT_MIRROR=')],
+                                 ['APT_MIRROR=' + mirror])
+                self.assertEqual(stage.call_count, 1)
+                write.assert_not_called()
+
     def test_retry_recovers_existing_image_without_building_or_pushing(self):
         m = module()
         source = 'b' * 40
