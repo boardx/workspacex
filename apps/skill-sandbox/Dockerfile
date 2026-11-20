@@ -20,7 +20,7 @@ ARG PYTHON_IMAGE=python:3.11-slim
 ARG PYPI_INDEX_URL=https://pypi.org/simple
 ARG NPM_REGISTRY=https://registry.npmjs.org
 ARG APT_MIRROR=https://deb.debian.org
-FROM ${NODE_IMAGE} AS build
+FROM ${NODE_IMAGE} AS build-dependencies
 ARG NPM_REGISTRY
 RUN node -e "require('node:fs').writeFileSync('/tmp/ca-certificates.crt', require('node:tls').rootCertificates.join('\\n') + '\\n')"
 WORKDIR /build
@@ -30,6 +30,7 @@ COPY package.json package-lock.json ./
 #   为了编译一个三文件的服务把整个 monorepo 拷进镜像不值得，所以这里全部用
 #   命令行旗标表达，与 apps/skill-sandbox/tsconfig.json 的对应项保持一致。
 RUN npm_config_registry="$NPM_REGISTRY" npm ci
+FROM build-dependencies AS build
 COPY src ./src
 RUN ./node_modules/.bin/tsc src/*.ts src/session/*.ts \
       --types node --module NodeNext --moduleResolution NodeNext \
@@ -55,10 +56,10 @@ COPY analysis/font-LICENSE /font/LICENSE
 COPY analysis/AnalysisSans.NOTICE /font/NOTICE
 
 # ---------- 运行阶段 ----------
-FROM ${NODE_IMAGE}
+FROM ${NODE_IMAGE} AS runtime-dependencies
 ARG NPM_REGISTRY
 ARG APT_MIRROR
-COPY --from=build /tmp/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build-dependencies /tmp/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # pptxgenjs **预装**进镜像。skill 原文写着「preinstalled — do not run `npm install`
 # first」；而且 `network: none` 下容器根本出不了网，装不了包 —— 两件事自洽
@@ -152,9 +153,6 @@ RUN OPENBLAS_NUM_THREADS=1 python3 -c "import numpy, pandas, matplotlib, seaborn
 COPY security/generate-seccomp.py ./security/generate-seccomp.py
 RUN python3 security/generate-seccomp.py
 
-COPY --from=build /build/dist ./dist
-COPY src/generated ./dist/generated
-
 # W08: offline OCR, exact Debian Bookworm engine/language versions; no runtime download.
 RUN sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
@@ -162,9 +160,6 @@ RUN sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/
  && dpkg-query -W tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim > /opt/sandbox/ocr-versions.txt \
  && sha256sum /usr/share/tesseract-ocr/5/tessdata/eng.traineddata /usr/share/tesseract-ocr/5/tessdata/chi_sim.traineddata > /opt/sandbox/ocr-model-hashes.txt \
  && rm -rf /var/lib/apt/lists/*
-COPY scripts/ocr-document.py /usr/local/lib/workspacex/ocr-document.py
-COPY scripts/structure-document.py /usr/local/lib/workspacex/structure-document.py
-COPY scripts/document-structure-limits.json /usr/local/lib/workspacex/document-structure-limits.json
 
 # W14: maintained offline audio decoding, fixed Bookworm package; no runtime installs.
 RUN sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
@@ -181,6 +176,14 @@ RUN sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/
 RUN mkdir -p /run/sessions && chown node:node /run/sessions
 # Resolve only package-library alternatives at build time; never mount /etc.
 RUN python3 -c "from pathlib import Path; links=[p for name in ('libblas.so.3','liblapack.so.3') for p in Path('/usr/lib').glob('*/'+name) if p.is_symlink()]; [(p.unlink(), p.symlink_to(target)) for p,target in [(p,p.resolve(strict=True)) for p in links] if str(target).startswith('/usr/')]"
+# Application files come after all package installs so app-only changes can
+# reuse the dependency layers on any runner that imports the registry cache.
+FROM runtime-dependencies AS runtime
+COPY --from=build /build/dist ./dist
+COPY src/generated ./dist/generated
+COPY scripts/ocr-document.py /usr/local/lib/workspacex/ocr-document.py
+COPY scripts/structure-document.py /usr/local/lib/workspacex/structure-document.py
+COPY scripts/document-structure-limits.json /usr/local/lib/workspacex/document-structure-limits.json
 COPY scripts/decode-audio.py /usr/local/lib/workspacex/decode-audio.py
 
 ARG SOURCE_REVISION
