@@ -16,14 +16,16 @@ def module():
     return value
 
 class Producer(unittest.TestCase):
-    def test_retried_cn_agent_build_uses_planned_tag_and_vpc_cache(self):
+    def test_retried_cn_agent_build_uses_planned_tag_configured_index_vpc_uv_and_cache(self):
         m = module()
         source = 'b' * 40
         prefix = 'example-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod'
         cache = 'example-registry-vpc.cn-shanghai.cr.aliyuncs.com/workspacex-prod/agent-cache:buildkit-linux-amd64'
+        uv_image = 'example-registry-vpc.cn-shanghai.cr.aliyuncs.com/workspacex-prod/build-base-uv@sha256:' + 'c' * 64
         env = {
             'USE_ACR_VPC': '1',
             'PYTHON_IMAGE': 'python@sha256:' + 'a' * 64,
+            'UV_IMAGE': uv_image,
             'WSX_CN_PYPI_INDEX_URL': 'https://pypi.example.com/simple/',
             'WSX_CN_AGENT_CACHE_REPOSITORY': 'agent-cache',
             'GITHUB_RUN_ID': '123',
@@ -42,6 +44,7 @@ class Producer(unittest.TestCase):
 
         args = stage.call_args_list[0].args[2]
         self.assertIn('PYPI_INDEX_URL=https://pypi.example.com/simple/', args)
+        self.assertIn('UV_IMAGE=' + uv_image, args)
         self.assertEqual(args[args.index('--cache-from') + 1], 'type=registry,ref=' + cache)
         self.assertTrue(args[args.index('--cache-to') + 1].endswith(',ref=' + cache))
 

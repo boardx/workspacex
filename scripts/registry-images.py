@@ -422,6 +422,9 @@ def build(role, prefix, tag, output, source):
         name=mapping[base];value=os.environ.get(name,'')
         need(re.fullmatch(r'[a-z0-9][a-zA-Z0-9.:/_-]*@sha256:[a-f0-9]{64}',value),'MISSING_PINNED_'+name)
         args+=['--build-arg',name+'='+value]
+    if role=='agent' and (uv_image:=os.environ.get('UV_IMAGE')):
+        need(re.fullmatch(r'[a-z0-9][a-zA-Z0-9.:/_-]*@sha256:[a-f0-9]{64}',uv_image),'INVALID_PINNED_UV_IMAGE')
+        args+=['--build-arg','UV_IMAGE='+uv_image]
     # Package mirrors are shared with the existing producer's default contract.
     for name,key in {'NPM_REGISTRY':'npmRegistry','PYPI_INDEX_URL':'pypiIndexUrl','APT_MIRROR':'aptMirror','AGE_REPOSITORY':'ageRepository'}.items():
         value=hosted.DEFAULT_SOURCES[key]
@@ -523,6 +526,11 @@ def resolve_bases():
             value=default+'@'+digest[1]
         need(re.fullmatch(r'[a-z0-9][a-zA-Z0-9.:/_-]*@sha256:[a-f0-9]{64}',value),'INVALID_PINNED_BASE')
         values[name.lower()]=value
+    # Older diagnostic source revisions still hardcode the uv image.
+    uv = re.search(r'^ARG UV_IMAGE=(\S+)$',Path('apps/deep-agent-service/Dockerfile').read_text(),re.M)
+    if uv:
+        need(re.fullmatch(r'ghcr\.io/astral-sh/uv:[a-zA-Z0-9._-]+@sha256:[a-f0-9]{64}',uv[1]),'INVALID_PINNED_UV_IMAGE')
+        values['uv_image']=uv[1]
     return values
 
 def write(path, value):

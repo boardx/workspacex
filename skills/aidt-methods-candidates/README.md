@@ -1,5 +1,9 @@
 # Teaching boundary remediation: methods 1.3.2 / summary 1.0.1
 
+## Current student interaction revision: methods 1.4.0
+
+The current methods package adds progressive input prompts, continuation from existing materials, actionable draft revision, explicit student review and truthful saved-output handoffs across all six stages. Ten sequential source iterations per Skill and their verification boundaries are recorded in [the interaction review](../../docs/evidence/aidt-native/skill-ux-20261120/README.md). Summary remains 1.0.4. Old releases and existing conversation pins are preserved; source/DOM checks and independent agent probes do not establish deployed supplier-model or classroom acceptance. The earlier sections below remain historical release notes.
+
 These immutable source candidates address observed behavior in [the fresh-round review](../../docs/evidence/aidt-native/completion-20261116/a3/fresh-round-content-review.md), using the existing [V2 requirements](../../docs/requirements/aidt-v2-full.md). Source readiness and deterministic package checks do not establish model compliance or human teaching approval.
 
 | Observed problem | Change in the new package | Verification required |

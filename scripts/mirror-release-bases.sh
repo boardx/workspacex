@@ -41,5 +41,6 @@ while read -r key name <&3; do
 done 3<<'BASE_IMAGES'
 node_image NODE_IMAGE
 python_image PYTHON_IMAGE
+uv_image UV_IMAGE
 pgvector_image PGVECTOR_IMAGE
 BASE_IMAGES

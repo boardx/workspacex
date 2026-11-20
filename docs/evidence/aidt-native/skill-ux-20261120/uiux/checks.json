@@ -1,0 +1,40 @@
+[
+  {
+    "name": "eslint",
+    "command": [
+      "pnpm",
+      "--filter",
+      "web",
+      "exec",
+      "eslint",
+      "features/aidt/components/aidt-create-project-form.tsx",
+      "features/aidt/components/aidt-home.tsx",
+      "features/aidt/components/aidt-course-entry.tsx",
+      "features/aidt/components/project-aidt.tsx",
+      "tests/ui/aidt-entry.test.tsx",
+      "tests/ui/project-aidt.test.tsx"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "design-lint",
+    "command": [
+      "pnpm",
+      "--filter",
+      "web",
+      "exec",
+      "bash",
+      "scripts/lint-design.sh"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "diff-check",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exitCode": 0
+  }
+]

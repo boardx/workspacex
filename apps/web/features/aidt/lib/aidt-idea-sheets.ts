@@ -1,12 +1,13 @@
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
 import { aidtIdeaClassificationFor } from "./aidt-idea-classification";
-import { aidtIdeaReadiness } from "./aidt-idea-readiness";
+import { aidtIdeaReadiness, aidtCompleteIdeas } from "./aidt-idea-readiness";
 import { aidtResearchMaterialLabel, isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey } from "./aidt-research-material-reference";
 
 export function aidtIdeaSheets(draft: AidtUiStageDraft, resolvedImages: Readonly<Record<string, string>>, ids?: readonly string[], projectId?: string) {
   const materialFor = (id: string) => { const reference = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", id)]); return reference && (!projectId || reference.projectId === projectId) && isAidtResearchImage(reference) ? reference : null; };
-  if (!aidtIdeaReadiness(draft.ideas, idea => !!materialFor(idea.id)).ready) throw new Error("AIDT_IDEA_SHEETS_INCOMPLETE");
-  return draft.ideas.filter(idea => !ids || ids.includes(idea.id)).map((idea, index) => {
+  const selected = draft.ideas.filter(idea => !ids || ids.includes(idea.id));
+  if (!aidtIdeaReadiness(selected, idea => !!materialFor(idea.id)).ready) throw new Error("AIDT_IDEA_SHEETS_INCOMPLETE");
+  return aidtCompleteIdeas(selected, idea => !!materialFor(idea.id)).map((idea, index) => {
     const material = materialFor(idea.id);
     const imageSrc = material || idea.imageAttachment ? resolvedImages[idea.id] : idea.image;
     if (!imageSrc) throw new Error("AIDT_IDEA_IMAGE_UNAVAILABLE");

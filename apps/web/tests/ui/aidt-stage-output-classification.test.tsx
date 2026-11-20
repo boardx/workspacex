@@ -30,6 +30,34 @@ function Stage({ initial = seed(), readOnly = false, changed = () => undefined, 
 }
 const snapshot = (): AidtUiStageDraft => JSON.parse(screen.getByTestId("snapshot").textContent!);
 
+it("previews and prints the three completed sheets while retaining an unfinished fourth idea", async () => {
+  const draft = seed(); draft.ideas.push({ id: "later", title: "保留的脑暴草稿", description: "以后继续讨论" });
+  render(<Stage initial={draft} />);
+  fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ }));
+  expect(screen.getByRole("button", { name: "描述单 PDF 预览" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
+  expect(screen.getAllByTestId("aidt-idea-sheet")).toHaveLength(3);
+  fireEvent.click(screen.getByRole("button", { name: "合并打印描述单 PDF" }));
+  await waitFor(() => expect(mocks.print).toHaveBeenCalledOnce());
+  expect((mocks.print.mock.calls[0]![0] as HTMLElement).querySelectorAll("section")).toHaveLength(3);
+  expect(snapshot().ideas[3]!.title).toBe("保留的脑暴草稿");
+});
+
+it.each(["unreadable", "same-name"])("lets students exclude an extra %s candidate from this PDF without deleting its draft", async kind => {
+  const draft = seed();
+  draft.ideas.push({ id: "extra", title: kind === "same-name" ? draft.ideas[0]!.title : "图片待读候选", description: "保留这个做法。以后再继续讨论。", ...(kind === "unreadable" ? { imageAttachment: { attachmentId: "unread", threadId: "group-thread", name: "未能读取.png" } } : { image: "data:image/png;base64,preview" }) });
+  render(<Stage initial={draft} />);
+  fireEvent.click(screen.getByLabelText("候选4用于本次描述单"));
+  fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ }));
+  expect(screen.getByRole("button", { name: "描述单 PDF 预览" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
+  expect(screen.getAllByTestId("aidt-idea-sheet")).toHaveLength(3);
+  fireEvent.click(screen.getByRole("button", { name: "合并打印描述单 PDF" }));
+  await waitFor(() => expect(mocks.print).toHaveBeenCalledOnce());
+  expect(snapshot().ideas).toHaveLength(4);
+  expect((mocks.print.mock.calls[0]![0] as HTMLElement).querySelector('[data-idea-id="extra"]')).toBeNull();
+});
+
 it("mounts classification after the original editors, preserves it when changing selection, and keeps selection reasons separate", () => {
   render(<Stage />);
   expect(screen.getByTestId("aidt-idea-cards").compareDocumentPosition(screen.getByTestId("aidt-idea-classification")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

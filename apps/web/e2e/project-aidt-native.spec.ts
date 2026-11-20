@@ -3,7 +3,9 @@ import { dirname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { chat, skills as skillContracts } from "@repo/contracts";
+import { AidtContextSelector } from "@repo/contracts/aidt-run-context";
 import { isAidtModuleEnabled } from "@/lib/aidt-module-config";
+import { isProjectMemberChatEnabled } from "@/lib/project-member-chat-config";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { sendViaWorkbench, type PersistedMessage } from "./chat-v2-send";
 
@@ -50,15 +52,18 @@ async function openAssistant(page: Page, expectedChatError = false) {
   })).toBe(true);
 }
 async function openGuidance(page: Page) {
-  const close = page.getByRole("button", { name: "关闭 AI 引导师", exact: true });
-  if (await close.isVisible()) await close.click();
-  const details = page.getByTestId("aidt-learning-start").locator("xpath=ancestor::details[1]");
-  if ((await details.getAttribute("open")) === null) await details.locator("summary").first().click();
-  await expect(page.getByTestId("aidt-learning-start")).toBeVisible();
+  const scaffold = page.getByTestId("aidt-input-scaffold");
+  if (!(await scaffold.isVisible())) {
+    await page.getByText("不知道怎么开始？", { exact: true }).click();
+  }
+  await expect(scaffold).toBeVisible();
+}
+async function openStageTools(page: Page) {
+  const tools = page.getByTestId("aidt-tools");
+  if ((await tools.getAttribute("open")) === null) await tools.locator(":scope > summary").click();
 }
 async function openPersonalCheckpoints(page: Page) {
-  const tools = page.getByTestId("aidt-tools");
-  if (await tools.count() && (await tools.getAttribute("open")) === null) await tools.locator(":scope > summary").click();
+  if (await page.getByTestId("aidt-tools").count()) await openStageTools(page);
   const advanced = page.getByTestId("aidt-personal-checkpoints").locator("xpath=ancestor::details[1]");
   if ((await advanced.getAttribute("open")) === null) await advanced.locator(":scope > summary").click();
   const details = page.getByTestId("aidt-checkpoint-details");
@@ -81,10 +86,6 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   const savedProject = projectList.data.find((it: { id: string }) => it.id === projectId);
   expect(savedProject.kind).toBe("general");
   expect(savedProject.tags).toContain("workspacex:aidt");
-  await page.goto("/home");
-  await expect(page.getByTestId(`home-recent-project-${projectId}`)).toBeVisible();
-  await page.getByTestId(`home-recent-project-${projectId}`).click();
-  await expect(page).toHaveURL(new RegExp(`/aidt/${projectId}$`));
   await expect(page.getByTestId("aidt-dashboard")).toBeVisible();
   const base = `/aidt/${projectId}?`;
   await page.goto("/projects");
@@ -93,6 +94,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   await page.getByTestId("rail-aidt").click();
   await page.screenshot({ path: test.info().outputPath("aidt-home.png"), fullPage: true });
   await page.getByTestId(`aidt-project-${projectId}`).click();
+  await expect(page).toHaveURL(new RegExp(`/aidt/${projectId}$`));
   await expect(page.getByTestId("aidt-dashboard")).toBeVisible();
   for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -104,7 +106,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   await expect(page.getByTestId("aidt-stage-output")).toHaveCount(0);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
   await openGuidance(page);
-  await expect(page.getByTestId("aidt-learning-start")).toContainText("本组先想一想");
+  await expect(page.getByTestId("aidt-input-scaffold")).toContainText("原始命题");
   await expect(page.getByText("调研市场并产出带来源的报告", { exact: true })).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("aidt-teaching-step-1-start.png"), fullPage: true });
   await page.getByTestId("aidt-open-output").click();
@@ -125,22 +127,24 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   })).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath("aidt-teaching-mobile-start.png"), fullPage: true });
-  // The human conversation remains usable above the mobile AI panel.
-  await page.getByTestId("global-member-chat-open").click();
-  await expect(page.getByTestId("project-member-input")).toBeInViewport({ ratio: 0.8 });
-  await page.getByTestId("project-member-input").fill("与AI草稿分开的成员讨论草稿");
-  expect(await page.getByTestId("project-member-input").evaluate((node) => {
-    const rect = node.getBoundingClientRect();
-    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-    return hit === node || node.contains(hit);
-  })).toBe(true);
-  await page.screenshot({ path: test.info().outputPath("aidt-mobile-ai-with-member-chat.png"), fullPage: true });
-  await page.keyboard.press("Escape");
-  await expect(page.getByTestId("global-member-chat-panel")).not.toBeVisible();
-  await expect(page.getByTestId("aidt-assistant-panel")).toBeVisible();
-  await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue("尚未发送的移动端对话草稿");
+  if (isProjectMemberChatEnabled()) {
+    // The human conversation remains usable above the mobile AI panel.
+    await page.getByTestId("global-member-chat-open").click();
+    await expect(page.getByTestId("project-member-input")).toBeInViewport({ ratio: 0.8 });
+    await page.getByTestId("project-member-input").fill("与AI草稿分开的成员讨论草稿");
+    expect(await page.getByTestId("project-member-input").evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return hit === node || node.contains(hit);
+    })).toBe(true);
+    await page.screenshot({ path: test.info().outputPath("aidt-mobile-ai-with-member-chat.png"), fullPage: true });
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("global-member-chat-panel")).not.toBeVisible();
+    await expect(page.getByTestId("aidt-assistant-panel")).toBeVisible();
+    await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue("尚未发送的移动端对话草稿");
+  }
   await page.getByRole("button", { name: "关闭 AI 引导师", exact: true }).click();
-  await expect(page.getByTestId("aidt-learning-start")).toBeVisible();
+  await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
   await expect(page.getByLabel("初始问题", { exact: true })).toBeVisible();
   await openAssistant(page);
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue("尚未发送的移动端对话草稿");
@@ -148,10 +152,9 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   await page.getByRole("button", { name: "关闭 AI 引导师", exact: true }).click();
   await page.setViewportSize({ width: 1280, height: 900 });
   // Editing and offering a form do not send messages or save a checkpoint.
-  await expect(page.getByTestId("aidt-open-output")).toHaveAttribute("href", /thread=/);
-  const draftThreadId = new URL(page.url()).searchParams.get("thread")!;
-  await page.getByTestId("aidt-open-output").click();
   await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
+  const draftThreadId = new URL(page.url()).searchParams.get("thread")!;
+  expect(draftThreadId).toBeTruthy();
   await page.getByLabel("初始问题", { exact: true }).fill("本页草稿：改善校园午餐排队");
   await page.screenshot({ path: test.info().outputPath("aidt-ui-v2-problem-sheet.png"), fullPage: true });
   const beforeDraftSent = await api(page, `/chat/threads/${draftThreadId}/messages?limit=100`);
@@ -170,7 +173,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   expect(afterOffer.data.messages).toHaveLength(0); // preparing a draft never sends it
   await page.getByTestId("aidt-open-output").click();
   await page.getByRole("button", { name: "审阅并发送到本步聊天", exact: true }).click();
-  await expect(page.getByTestId("aidt-tool-panel").getByRole("status")).toContainText("未覆盖");
+  await expect(page.getByTestId("aidt-tool-panel").getByRole("status").filter({ hasText: "未覆盖" })).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("aidt-ui-v3-outcome.png"), fullPage: true });
   await page.getByRole("link", { name: "六步研究", exact: false }).click();
   await expect(page.getByTestId("aidt-step-1")).toContainText("本页有未保存内容");
@@ -180,7 +183,8 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   const prompt = "我们先讨论学校食堂排队的问题，研究午休时间较短的学生。请先问我一个澄清问题，不要替小组做决定。";
   await openAssistant(page);
   const wire = await sendViaWorkbench(page, prompt);
-  expect(JSON.stringify(wire.postDataJSON().context)).toContain("AIDT");
+  const selector = AidtContextSelector.parse(wire.postDataJSON().forwardedProps?.aidtContext);
+  expect(selector).toMatchObject({ projectId, purpose: "stage", stageId: 1 });
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBeTruthy();
   const threadId = new URL(page.url()).searchParams.get("thread")!;
   // This fullstack lane uses its explicit same-origin API prefix; the chat-read
@@ -240,6 +244,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).not.toBe(threadId);
   await openGuidance(page);
   await page.screenshot({ path: test.info().outputPath("aidt-teaching-step-2-start.png"), fullPage: true });
+  await openStageTools(page);
   await page.getByRole("link", { name: "阶段交接", exact: true }).click();
   await expect(page.getByTestId("aidt-stage-bridge")).toContainText("工作坊主题命题");
   await page.getByTestId("aidt-stage-bridge").locator("summary").click();
@@ -262,15 +267,15 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   expect(firstMounts.data.temporary).toContainEqual(expect.objectContaining({ skillId: understandSkill.skillId, removedAt: null }));
   expect(secondMounts.data.temporary).toContainEqual(expect.objectContaining({ skillId: empathySkill.skillId, removedAt: null }));
   const stageThreads = new Set([threadId, empathyThreadId]);
-  for (const [number, title, stableName] of [[3, "综合与定义", "aidt-define"], [4, "创意探索", "aidt-ideate"], [5, "制作原型", "aidt-prototype"], [6, "测试与迭代", "aidt-iterate"]] as const) {
+  for (const [number, stableName] of [[3, "aidt-define"], [4, "aidt-ideate"], [5, "aidt-prototype"], [6, "aidt-iterate"]] as const) {
+    const skill = catalog.find((it: { platformStableName: string }) => it.platformStableName === stableName);
     await selectStage(page, number);
     await openAssistant(page);
-    await expect(page.getByTestId("aidt-step-skill")).toContainText(title);
+    await expect(page.getByTestId("aidt-step-skill")).toHaveText(skill.name);
     const currentThread = new URL(page.url()).searchParams.get("thread")!;
     expect(currentThread).toBeTruthy();
     expect(stageThreads.has(currentThread)).toBe(false);
     stageThreads.add(currentThread);
-    const skill = catalog.find((it: { platformStableName: string }) => it.platformStableName === stableName);
     const mounted = await api(page, `/threads/${currentThread}/skill-deviations?projectId=${projectId}`);
     expect(mounted.data.temporary).toContainEqual(expect.objectContaining({ skillId: skill.skillId, removedAt: null }));
     await expect(page.getByTestId("copilotkit-v2-thread-sidebar")).toHaveCount(0);
@@ -295,8 +300,10 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
 
   }
   expect(stageThreads.size).toBe(6);
-  await page.getByTestId("aidt-open-report").click();
+  await page.getByRole("button", { name: "引用与产物", exact: true }).click();
+  await page.getByRole("link", { name: "展开报告", exact: true }).click();
   await expect(page.getByTestId("aidt-report-preview")).toBeVisible();
+  await page.getByRole("button", { name: "编辑报告", exact: true }).click();
   const reportEditor = page.getByLabel("小组报告草稿", { exact: true });
   await expect(reportEditor).toHaveValue(/本页草稿：改善校园午餐排队/);
   await expect(reportEditor).toHaveValue(/错峰取餐界面/);
@@ -330,7 +337,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   await selectStage(page, 2);
   await openAssistant(page);
   await expect(page.getByTestId("aidt-step-skill")).toContainText("共情用户");
-  await page.getByText("资料与工具", { exact: true }).click();
+  await openStageTools(page);
   await page.getByRole("link", { name: "个人录音笔记", exact: true }).click();
   await expect(page.getByTestId("rec-history-page")).toBeVisible();
   await expect(page.getByTestId("aidt-native-chat")).toBeAttached();
@@ -354,13 +361,11 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   // Round10: actual two-person group collaboration, with a separate browser/session.
   const memberAdded = await api(page, `/projects/${projectId}/collaborators`, "POST", { projectId, userId: FULLSTACK_E2E.memberUserId, role: "collaborator" });
   expect(memberAdded.status, JSON.stringify(memberAdded.data)).toBeLessThan(300);
-  await page.goto(`${base}step=1`);
-  await openAssistant(page);
-  await expect(page.getByTestId("aidt-step-skill")).toContainText("理解与提出问题");
-  await page.getByText("本组成员与可见范围", { exact: true }).click();
-  await expect(page.getByTestId(`project-collaborator-${FULLSTACK_E2E.memberUserId}`)).toBeVisible();
+  await page.goto(`/aidt/${projectId}`);
+  const groupMembers = page.getByTestId("aidt-group-members");
+  await groupMembers.locator("summary").click();
+  await expect(groupMembers.getByTestId(`project-collaborator-${FULLSTACK_E2E.memberUserId}`)).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("aidt-group-members.png"), fullPage: true });
-  await page.getByText("本组成员与可见范围", { exact: true }).click();
   const secondContext = await browser.newContext({ baseURL: new URL(page.url()).origin, locale: "zh-CN" });
   try {
     const second = await secondContext.newPage();

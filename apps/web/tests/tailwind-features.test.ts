@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
-it("emits the independent AIDT module's responsive panel, visible title and dashboard utilities", () => {
+it("emits the independent AIDT module's responsive panel, workspace shelf and dashboard utilities", () => {
   const root = fileURLToPath(new URL("..", import.meta.url));
   const directory = mkdtempSync(join(tmpdir(), "aidt-feature-css-"));
   try {
@@ -20,7 +20,7 @@ it("emits the independent AIDT module's responsive panel, visible title and dash
     const css = readFileSync(output, "utf8");
     expect(css).toContain(".md\\:absolute{position:absolute}");
     expect(css).toContain(".md\\:max-w-md{max-width:28rem}");
-    expect(css).toContain(".md\\:not-sr-only");
+    expect(css).toContain(".xl\\:w-\\[var\\(--aidt-shelf-width\\)\\]{width:var(--aidt-shelf-width)}");
     expect(css).toContain(".sm\\:min-h-40{min-height:10rem}");
   } finally { rmSync(directory, { recursive: true, force: true }); }
 }, 40_000);

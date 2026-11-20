@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-20：阶段 Skill 的“学生先做”原则需补可操作的空白开场、按已有材料续接、单项修订及显式成果确认；固定包升级必须保留旧字节与旧线程 pin，并追加可信上下文坐标。指令检查、独立 agent 作答与真实原生模型验收分别留证，不能相互替代（[六步交互修订](../../../docs/evidence/aidt-native/skill-ux-20261120/README.md)；关联 PR #6767）。
 - 2026-11-18（#6715）：AIDT 已改为全环境默认可见并自动引导技能包；旧 Web/API 模块开关不再隐藏它，发布工作流不再提供 opt-in 或历史配置激活选项。入口可见性不替代原有组织/项目鉴权，复用旧 immutable tag 也不会更新旧镜像代码。
 - 2026-11-17：教学反馈的回合收敛应由新不可变 Skill 包显式选择反馈模式，不能凭 stable name 或学生文本赋权，也不能全局禁止普通 Skill 后续工作。仅真实非空成功 ToolMessage、对应 call ID、完整 task 与当前 mounted Skill 字节匹配后返回实际 focused 结果；失败、未知、撤回、改版或新学生输入不沿用。TS 的授权参考在 `hN` history 中、位于 `:user` 之前；仅取最新 user 会漏掉快照，需经真实 InjectedState 读取本轮已有材料，并保持 user/assistant 参考等级，不提升为 system 权限。离线故障模型与真实 PG checkpoint 补验通过不等于供应商模型质量、请求次数及延迟已验收，真实模型复验仍待。证据见 [AIDT 反馈回合修复与红绿边界](../../../docs/evidence/aidt-native/remediation-20261117/a4-runtime/README.md)。
 - 2026-11-12（#6553）：平台及组织目录显示 Work Skill 用途时，先读取作者的版本说明或同范围声明契约的职责；旧版内置包缺说明时从 SKILL.md 用途生成显示文案。按可信 Work Skill 稳定编号映射，避免把同名的自定义 Skill 当成内置 Skill。
