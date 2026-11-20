@@ -428,6 +428,10 @@ def build(role, prefix, tag, output, source):
     # Package mirrors are shared with the existing producer's default contract.
     for name,key in {'NPM_REGISTRY':'npmRegistry','PYPI_INDEX_URL':'pypiIndexUrl','APT_MIRROR':'aptMirror','AGE_REPOSITORY':'ageRepository'}.items():
         value=hosted.DEFAULT_SOURCES[key]
+        # The Shanghai Sandbox cold build must use the regional Debian mirror.
+        # Keep Dockerfile package pins and APT signature verification unchanged.
+        if cn and role=='sandbox' and name=='APT_MIRROR':
+            value='https://mirrors.aliyun.com'
         if cn and role=='agent' and name=='PYPI_INDEX_URL':
             value=os.environ.get('WSX_CN_PYPI_INDEX_URL') or value
             need(re.fullmatch(r'https://[a-zA-Z0-9.-]+(?::[0-9]+)?/[a-zA-Z0-9._/-]*',value),'INVALID_CN_PYPI_INDEX')
