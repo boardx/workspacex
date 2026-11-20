@@ -7,7 +7,7 @@
  * 三个 tab 都挂在同一个 `MembersScreen` 上，而不是新增了三条 `ADMIN_NAV` 路由。
  *
  * ## 断言选的是「会错的那几件」
- *   ① 默认打开是「成员配额」——已有的 `admin-members-list` 断言集不该因为加了 tab 而失效。
+ *   ① 默认打开是「成员配额」——默认面板保留成员管理入口。
  *   ② 切到「用量监控」：面板挂在同一屏上、与成员配额互斥。
  *      ⚠ F161 起这块屏读真库，原先「矩阵与 mock 逐格对应」的断言已随那份 mock 退役，
  *      它的行为断言移到 `admin-usage-monitor-live.test.tsx`（见下方该 describe 的长注）。
@@ -17,12 +17,19 @@
  *   ④ 反证：`ADMIN_NAV`「组织」组没有因为这次改动多出 `usage`/`limits` 之类的新左栏项——
  *      证实信息架构落点选的是「同一屏 tab」而不是「新左栏菜单项」。
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent, cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { MembersScreen } from "@/components/admin/members-screen";
 import { ADMIN_NAV } from "@/lib/mock/admin";
 import { TASK_TYPE_GRADING } from "@/lib/mock/admin-limits";
+
+vi.mock("@/components/admin/member-invites-panel", () => ({
+  MemberInvitesPanel: () => <div data-testid="quota-invites-sentinel" />,
+}));
+vi.mock("@/components/admin/admin-boundary-live", () => ({
+  AdminBoundaryLive: () => <div data-testid="quota-audit-sentinel" />,
+}));
 
 afterEach(() => cleanup());
 
@@ -34,7 +41,9 @@ describe("①默认态：成员配额仍是默认打开的 tab", () => {
   it("不切 tab 就能看到成员配额面板（不因加 tab 而回退）", () => {
     renderScreen();
     expect(screen.getByTestId("admin-members-tabpanel-quota")).toBeInTheDocument();
-    expect(screen.getByTestId("admin-members-tabpanel-quota")).toHaveTextContent("尚未选择组织。");
+    expect(within(screen.getByTestId("admin-members-tabpanel-quota")).getByTestId("admin-members-open-org-admin")).toBeInTheDocument();
+    expect(screen.queryByTestId("quota-invites-sentinel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("quota-audit-sentinel")).not.toBeInTheDocument();
     // 另两个 tab 面板还没挂载/未激活时不应该抢先出现同名 testid 冲突
     expect(screen.getByTestId("admin-members-tab-quota")).toHaveAttribute("data-state", "active");
   });
@@ -59,7 +68,7 @@ describe("②用量监控 tab：挂在同一屏上，切换与成员配额互斥
     expect(within(screen.getByTestId("admin-members-tabpanel-usage")).getByTestId("admin-usage-tab"))
       .toBeInTheDocument();
     // 反证：成员配额 tab 的内容这时不在 DOM 里（Radix Tabs 默认不 forceMount 非激活面板）
-    expect(screen.queryByTestId("admin-members-list")).toBeNull();
+    expect(screen.queryByTestId("admin-members-open-org-admin")).toBeNull();
   });
 });
 

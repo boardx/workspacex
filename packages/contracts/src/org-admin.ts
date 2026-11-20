@@ -803,8 +803,7 @@ export const operations = {
    *   ——那会读作「成员行的通用补丁」，下一个人会往里塞 `teamId`，两件事又混成一件。
    * ⚠ `previousOrgRole` 回传：界面 toast 要说「顾问 → 项目负责人」，审计也要有前值。
    *   改成同一个角色不是错误——幂等重放返回 `previousOrgRole === orgRole`。
-   * ⚠ 允许改**自己**（含自降）：唯一的硬阻断是 `LAST_ADMIN`（见该码注释）。自降不是
-   *   越权，是放权；把它禁掉会逼「唯一 admin 想退位」的人先邀一个新 admin 再让对方移除自己。
+   * 管理员只能修改其他成员的角色。尝试修改自己的角色会得到 `PROJECT_ROLE_INSUFFICIENT`。
    * ⚠ 提升为 `admin` **不走**邀请路径那套双人复核（O-28 ⑥）——这是一处记录在案的裁定
    *   缺口，见 `KNOWN_CONTRACT_GAPS.OA13`，需要人类签核确认，而不是 agent 在这里替人选边。
    *

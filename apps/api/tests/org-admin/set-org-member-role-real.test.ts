@@ -14,7 +14,7 @@
  * ⚠ 每一条被拒的断言都同时验证**库里没变**：只断言抛异常，一个「先写后判」的实现照样能过。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { PgOrgMemberRepository } from "../../src/infrastructure/auth/pg-org-member-repository";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { OrgAdminManagementController } from "../../src/interface/controllers/org-admin-management.controller";
@@ -127,26 +127,23 @@ describe("setOrgMemberRole —— 写路径", () => {
     expect(await roleOf(OUTSIDER, OTHER_ORG)).toBe("admin");
   });
 
-  it("降掉最后一名 admin（自降）→ 409 LAST_ADMIN，库里没变", async () => {
+  it("唯一管理员试图修改自己的角色时拒绝写入", async () => {
     await expect(
       controller.setMemberRole(ORG, ADMIN, { orgId: ORG, userId: ADMIN, orgRole: "consultant" } as never, principal(ADMIN)),
-    ).rejects.toMatchObject(new ConflictException({ reasonCode: "LAST_ADMIN" }));
+    ).rejects.toMatchObject(new ForbiddenException({ reasonCode: "PROJECT_ROLE_INSUFFICIENT" }));
     expect(await roleOf(ADMIN)).toBe("admin");
     expect(provenance.append).not.toHaveBeenCalled();
   });
 
-  it("先把另一个人提成 admin，再自降 → 通过，审计标 self: true", async () => {
+  it("已有其他管理员时也拒绝自改，且不追加审计", async () => {
     await controller.setMemberRole(ORG, MEMBER, body("admin"), principal(ADMIN));
     expect(await roleOf(MEMBER)).toBe("admin");
 
-    const out = await controller.setMemberRole(
+    await expect(controller.setMemberRole(
       ORG, ADMIN, { orgId: ORG, userId: ADMIN, orgRole: "consultant" } as never, principal(ADMIN),
-    );
-    expect(out).toEqual({ userId: ADMIN, orgRole: "consultant", previousOrgRole: "admin" });
-    expect(await roleOf(ADMIN)).toBe("consultant");
-    expect(vi.mocked(provenance.append).mock.calls[1]?.[0]).toMatchObject({
-      detail: { from: "admin", to: "consultant", self: true },
-    });
+    )).rejects.toMatchObject(new ForbiddenException({ reasonCode: "PROJECT_ROLE_INSUFFICIENT" }));
+    expect(await roleOf(ADMIN)).toBe("admin");
+    expect(provenance.append).toHaveBeenCalledTimes(1);
   });
 
   it("两名 admin 并发互相降级 → 恰好一个成功，组织不会剩零 admin", async () => {
