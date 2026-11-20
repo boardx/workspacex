@@ -461,8 +461,10 @@ def build(role, prefix, tag, output, source):
         return
     need(re.search(r'manifest unknown|no such manifest|MANIFEST_UNKNOWN',probe.stderr,re.I),'TAG_EXISTENCE_UNVERIFIED')
     if cn:
-        deadline=time.monotonic()+3120
-        run_release_stage(role,'build',args+['--progress=plain',context],2400)
+        prewarm = role == 'sandbox' and os.environ.get('BUILD_ONLY') == 'true' and os.environ.get('BUILD_SERVICE') == 'sandbox'
+        build_timeout = 5400 if prewarm else 2400
+        deadline=time.monotonic()+build_timeout+720
+        run_release_stage(role,'build',args+['--progress=plain',context],build_timeout)
         config_digest=run(['docker','image','inspect','--format','{{.Id}}',reference],timeout=30).strip()
         need(re.fullmatch(r'sha256:[a-f0-9]{64}',config_digest),'IMAGE_ID')
         remaining=int(deadline-time.monotonic())

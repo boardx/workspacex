@@ -135,7 +135,7 @@ jobs:
     runs-on:
       group: workspacex-cn-build
       labels: workspacex-cn-build
-    timeout-minutes: 60
+    timeout-minutes: ${{ inputs.build_only && inputs.service == 'sandbox' && matrix.service == 'sandbox' && 110 || 60 }}
     defaults:
       run:
         working-directory: source
