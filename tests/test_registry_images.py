@@ -48,7 +48,8 @@ class Producer(unittest.TestCase):
         self.assertEqual(args[args.index('--cache-from') + 1], 'type=registry,ref=' + cache)
         self.assertTrue(args[args.index('--cache-to') + 1].endswith(',ref=' + cache))
 
-    def test_sandbox_apt_mirror_is_scoped_to_cn_build_transport(self):
+    def test_regional_dependency_mirrors_are_scoped_to_cn_build_transport(self):
+        regional_pypi = 'https://mirrors.example.com/pypi/simple/'
         cases = (
             ('sandbox', '1', 'devapp', 'https://mirrors.aliyun.com'),
             ('sandbox', '0', 'cn', 'https://mirrors.aliyun.com'),
@@ -63,6 +64,7 @@ class Producer(unittest.TestCase):
                 m = module()
                 source = 'b' * 40
                 env = {'USE_ACR_VPC': vpc, 'TARGET_ENVIRONMENT': target,
+                       'WSX_CN_PYPI_INDEX_URL': regional_pypi,
                        'NODE_IMAGE': 'node@sha256:' + 'a' * 64,
                        'PYTHON_IMAGE': 'python@sha256:' + 'a' * 64,
                        'PGVECTOR_IMAGE': 'postgres@sha256:' + 'a' * 64,
@@ -80,6 +82,9 @@ class Producer(unittest.TestCase):
                 args = stage.call_args.args[2]
                 self.assertEqual([arg for arg in args if arg.startswith('APT_MIRROR=')],
                                  ['APT_MIRROR=' + mirror])
+                pypi = regional_pypi if (vpc == '1' or target == 'cn') and role in ('agent', 'sandbox') else 'https://pypi.org/simple'
+                self.assertEqual([arg for arg in args if arg.startswith('PYPI_INDEX_URL=')],
+                                 ['PYPI_INDEX_URL=' + pypi])
                 self.assertEqual(stage.call_count, 1)
                 write.assert_not_called()
 

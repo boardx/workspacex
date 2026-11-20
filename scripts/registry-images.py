@@ -432,7 +432,7 @@ def build(role, prefix, tag, output, source):
         # Keep Dockerfile package pins and APT signature verification unchanged.
         if cn and role=='sandbox' and name=='APT_MIRROR':
             value='https://mirrors.aliyun.com'
-        if cn and role=='agent' and name=='PYPI_INDEX_URL':
+        if cn and role in ('agent','sandbox') and name=='PYPI_INDEX_URL':
             value=os.environ.get('WSX_CN_PYPI_INDEX_URL') or value
             need(re.fullmatch(r'https://[a-zA-Z0-9.-]+(?::[0-9]+)?/[a-zA-Z0-9._/-]*',value),'INVALID_CN_PYPI_INDEX')
         args+=['--build-arg',name+'='+value]
