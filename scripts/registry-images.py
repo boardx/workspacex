@@ -438,10 +438,18 @@ def build(role, prefix, tag, output, source):
         cache_ref=prefix+'/'+cache_repository+':buildkit-linux-amd64'
         args+=['--cache-from','type=registry,ref='+cache_ref,
                '--cache-to','type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true,ref='+cache_ref]
-    expected=release_tag(source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'],enabled)
-    need(tag==expected,'RERUN_ALL_JOBS_REQUIRED')
+    run_id, _, planned_attempt = tag.rpartition('-')
+    current_attempt = os.environ['GITHUB_RUN_ATTEMPT']
+    need(run_id==os.environ['GITHUB_RUN_ID'] and not is_aidt_tag(tag)
+         and 0<int(planned_attempt)<=int(current_attempt),'INVALID_PLANNED_BUILD_TAG')
     probe=subprocess.run(['docker','manifest','inspect',prefix+'/'+repository+':'+tag],capture_output=True,text=True,timeout=60)
-    need(probe.returncode!=0,'IMMUTABLE_TAG_ALREADY_EXISTS')
+    if probe.returncode==0:
+        need(int(planned_attempt)<int(current_attempt),'IMMUTABLE_TAG_ALREADY_EXISTS')
+        api_flags=('1' if enabled else '0') if role=='api' else None
+        row=resolve('docker',prefix,tag,role,expected_source=source,expected_api_flags=api_flags)
+        row['image']=canonical_prefix+row['image'][len(prefix):]
+        write(output,row)
+        return
     need(re.search(r'manifest unknown|no such manifest|MANIFEST_UNKNOWN',probe.stderr,re.I),'TAG_EXISTENCE_UNVERIFIED')
     if cn:
         deadline=time.monotonic()+3120

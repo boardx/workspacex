@@ -138,14 +138,14 @@ class AidtRelease(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(m.aidt_web_build_args('web'), [arg for name in FLAGS for arg in ('--build-arg', name + '=0')])
 
-    def test_marked_producer_requires_consistent_release_flags_and_exact_run_attempt(self):
+    def test_marked_producer_rejects_a_tag_from_a_future_attempt(self):
         m = module()
-        marked = m.release_tag(SOURCE, '123', '1', True)
+        marked = m.release_tag(SOURCE, '123', '3', True)
         env = {'AIDT_RELEASE_ENABLED': '1', 'TARGET_ENVIRONMENT': 'devapp',
                'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '2',
                **{name: '1' for name in FLAGS}, 'NODE_IMAGE': 'example/base@sha256:' + 'a' * 64}
         with patch.dict(os.environ, env, clear=True), patch.object(m, 'run', return_value=SOURCE), patch.object(m.subprocess, 'run') as execute:
-            with self.assertRaisesRegex(ValueError, 'RERUN_ALL_JOBS_REQUIRED'):
+            with self.assertRaisesRegex(ValueError, 'INVALID_PLANNED_BUILD_TAG'):
                 m.build('web', 'registry.example/team', marked, '/never-written', SOURCE)
             execute.assert_not_called()
     def test_enabled_build_flags_are_available_in_every_environment(self):
