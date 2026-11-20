@@ -367,7 +367,21 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   const listed = await api(page, `/projects/${projectId}/resources`);
   expect(listed.data.items).toContainEqual(expect.objectContaining({ id: resourceId, kind: "personal_transcription" }));
   await page.goto(`${base}step=2&tool=transcript`);
-  await expect(page.getByText("AIDT self reflection", { exact: true }).first()).toBeVisible();
+  const linkedTranscript = page.getByTestId(`project-resource-${resourceId}`);
+  await expect(linkedTranscript).toBeVisible();
+  await expect(linkedTranscript).toHaveText("AIDT self reflection");
+  // A visible Inspector must keep native resources readable inside its actual width,
+  // even on a wide desktop viewport. Viewport-based three-column grids crushed titles.
+  const resourceList = page.getByTestId("project-resources-list");
+  expect(await resourceList.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+  const titleBox = await linkedTranscript.boundingBox();
+  const listBox = await resourceList.boundingBox();
+  expect(await linkedTranscript.evaluate(node => ({
+    horizontalClipped: node.scrollWidth > node.clientWidth,
+    verticalClipped: node.scrollHeight > node.clientHeight,
+  }))).toEqual({ horizontalClipped: false, verticalClipped: false });
+  expect(titleBox!.x).toBeGreaterThanOrEqual(listBox!.x);
+  expect(titleBox!.x + titleBox!.width).toBeLessThanOrEqual(listBox!.x + listBox!.width + 1);
   await page.screenshot({ path: test.info().outputPath("aidt-native-project-resources.png"), fullPage: true });
   // Show failed reads as failures: browser transport fault, actual API data above remained real.
   await page.route(`**/projects/${projectId}/resources`, (route) => route.abort());

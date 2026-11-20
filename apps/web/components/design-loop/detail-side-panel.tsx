@@ -26,8 +26,9 @@ type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 
 export function DetailSidePanel({
   historyOpen, codeOpen, preview, canvasMode, focus, sideOpen, project, frame, setFrame, selectedId, setSelectedId,
-  runNodeOps, comments, sending, send, setLoad, frameLinks, setPageLinks, setPreview,
+  runNodeOps, comments, sending, send, setLoad, frameLinks, setPageLinks, setPreview, contained = false,
 }: {
+  readonly contained?: boolean;
   readonly historyOpen: boolean;
   readonly codeOpen: boolean;
   readonly preview: PrototypeVersion | null;
@@ -67,7 +68,8 @@ export function DetailSidePanel({
          */
         <div
           className={cn(
-            "absolute inset-y-0 right-0 z-10 w-64 max-w-[85%] shrink-0 flex-col border-l border-border bg-card/95 md:static md:flex md:max-w-none md:bg-card/40",
+            "absolute inset-y-0 right-0 z-10 w-64 max-w-[85%] shrink-0 flex-col border-l border-border bg-card/95",
+            !contained && "md:static md:flex md:max-w-none md:bg-card/40",
             sideOpen ? "flex" : "hidden",
           )}
           data-testid="design-detail-side"

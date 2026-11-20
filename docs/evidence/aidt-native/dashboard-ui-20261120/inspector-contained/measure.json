@@ -1,0 +1,136 @@
+[
+  {
+    "kind": "resources-before",
+    "pane": {
+      "width": 316,
+      "x": 964,
+      "right": 1280,
+      "clientWidth": 316,
+      "scrollWidth": 316,
+      "display": "flex"
+    },
+    "title": {
+      "width": 0,
+      "x": 1069,
+      "right": 1069,
+      "clientWidth": 0,
+      "scrollWidth": 10,
+      "display": "flow-root"
+    },
+    "canvas": null,
+    "side": null,
+    "right": null,
+    "send": null
+  },
+  {
+    "kind": "resources-after",
+    "pane": {
+      "width": 316,
+      "x": 964,
+      "right": 1280,
+      "clientWidth": 316,
+      "scrollWidth": 316,
+      "display": "flex"
+    },
+    "title": {
+      "width": 111.46875,
+      "x": 1045,
+      "right": 1156.46875,
+      "clientWidth": 111,
+      "scrollWidth": 111,
+      "display": "flow-root"
+    },
+    "canvas": null,
+    "side": null,
+    "right": null,
+    "send": null
+  },
+  {
+    "kind": "design-before",
+    "pane": {
+      "width": 316,
+      "x": 964,
+      "right": 1280,
+      "clientWidth": 316,
+      "scrollWidth": 316,
+      "display": "flex"
+    },
+    "title": null,
+    "canvas": {
+      "width": 0,
+      "x": 1340,
+      "right": 1340,
+      "clientWidth": 0,
+      "scrollWidth": 256,
+      "display": "flex"
+    },
+    "side": {
+      "width": 256,
+      "x": 1340,
+      "right": 1596,
+      "clientWidth": 255,
+      "scrollWidth": 255,
+      "display": "flex"
+    },
+    "right": {
+      "width": 0,
+      "x": 1340,
+      "right": 1340,
+      "clientWidth": 0,
+      "scrollWidth": 256,
+      "display": "flex"
+    },
+    "send": {
+      "width": 32,
+      "x": 1295,
+      "right": 1327,
+      "clientWidth": 32,
+      "scrollWidth": 32,
+      "display": "flex"
+    }
+  },
+  {
+    "kind": "design",
+    "pane": {
+      "width": 316,
+      "x": 964,
+      "right": 1280,
+      "clientWidth": 316,
+      "scrollWidth": 316,
+      "display": "flex"
+    },
+    "title": null,
+    "canvas": {
+      "width": 284,
+      "x": 980,
+      "right": 1264,
+      "clientWidth": 284,
+      "scrollWidth": 284,
+      "display": "flex"
+    },
+    "side": {
+      "width": 0,
+      "x": 0,
+      "right": 0,
+      "clientWidth": 0,
+      "scrollWidth": 0,
+      "display": "none"
+    },
+    "right": {
+      "width": 284,
+      "x": 980,
+      "right": 1264,
+      "clientWidth": 284,
+      "scrollWidth": 284,
+      "display": "flex"
+    },
+    "send": {
+      "width": 32,
+      "x": 1220,
+      "right": 1252,
+      "clientWidth": 32,
+      "scrollWidth": 32,
+      "display": "flex"
+    }
+  }
+]

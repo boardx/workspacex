@@ -1,0 +1,362 @@
+[
+  {
+    "kind": 1,
+    "width": 375,
+    "expanded": false,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 1,
+    "width": 375,
+    "expanded": true,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 2,
+    "width": 375,
+    "expanded": false,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 2,
+    "width": 375,
+    "expanded": true,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 3,
+    "width": 375,
+    "expanded": false,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 3,
+    "width": 375,
+    "expanded": true,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 4,
+    "width": 375,
+    "expanded": false,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 4,
+    "width": 375,
+    "expanded": true,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 5,
+    "width": 375,
+    "expanded": false,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 5,
+    "width": 375,
+    "expanded": true,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 6,
+    "width": 375,
+    "expanded": false,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 6,
+    "width": 375,
+    "expanded": true,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": "design",
+    "width": 375,
+    "expanded": false,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": "design",
+    "width": 375,
+    "expanded": true,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": "resources-before",
+    "width": 375,
+    "expanded": false,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": "resources-before",
+    "width": 375,
+    "expanded": true,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": "resources-after",
+    "width": 375,
+    "expanded": false,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": "resources-after",
+    "width": 375,
+    "expanded": true,
+    "viewport": 375,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 375,
+    "wide": []
+  },
+  {
+    "kind": 1,
+    "width": 1280,
+    "expanded": false,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 1,
+    "width": 1280,
+    "expanded": true,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 2,
+    "width": 1280,
+    "expanded": false,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 2,
+    "width": 1280,
+    "expanded": true,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 3,
+    "width": 1280,
+    "expanded": false,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 3,
+    "width": 1280,
+    "expanded": true,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 4,
+    "width": 1280,
+    "expanded": false,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 4,
+    "width": 1280,
+    "expanded": true,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 5,
+    "width": 1280,
+    "expanded": false,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 5,
+    "width": 1280,
+    "expanded": true,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 6,
+    "width": 1280,
+    "expanded": false,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": 6,
+    "width": 1280,
+    "expanded": true,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": "design",
+    "width": 1280,
+    "expanded": false,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": "design",
+    "width": 1280,
+    "expanded": true,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": "resources-before",
+    "width": 1280,
+    "expanded": false,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": "resources-before",
+    "width": 1280,
+    "expanded": true,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": "resources-after",
+    "width": 1280,
+    "expanded": false,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  },
+  {
+    "kind": "resources-after",
+    "width": 1280,
+    "expanded": true,
+    "viewport": 1280,
+    "paneWidth": 316,
+    "paneScroll": 316,
+    "docWidth": 1280,
+    "wide": []
+  }
+]

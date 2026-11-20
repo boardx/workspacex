@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
+import { ProjectResourceSection } from "@/components/project/project-resource-section";
 import { TabResearch } from "@/components/project/tab-research";
 
 function json(body: unknown, status = 200): Response {
@@ -175,4 +176,21 @@ describe("B2-S2 研究洞察 › 项目资源子页", () => {
     expect(screen.queryByText("completed")).toBeNull();
   });
 
+});
+
+it("keeps contained resources readable in one column while ordinary projects retain their responsive grid", async () => {
+  window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok");
+  const fetchMock = stubFetch(url => url.pathname === "/projects/p1/resources" ? json(RESOURCES) : json({},500));
+  try {
+    const view = render(<ProjectResourceSection projectId="p1" kind="transcript" canWrite={false} contained />);
+    const card = await screen.findByTestId("project-resource-t1");
+    expect(card).toHaveTextContent("周会录音");expect(card).toHaveAttribute("href","/rec?session=t1&projectId=p1");
+    const grid = screen.getByTestId("project-resources-list");
+    expect(grid).toHaveClass("sm:grid-cols-1","lg:grid-cols-1");
+    expect(screen.queryByTestId("project-resources-link-open")).toBeNull();
+    view.rerender(<ProjectResourceSection projectId="p1" kind="transcript" canWrite={false} />);
+    expect(grid).toHaveClass("sm:grid-cols-2","lg:grid-cols-3");
+    expect(screen.getByTestId("project-resource-t1")).toBe(card);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally {vi.unstubAllGlobals();}
 });

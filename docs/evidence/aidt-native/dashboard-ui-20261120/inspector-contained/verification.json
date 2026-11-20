@@ -1,0 +1,39 @@
+{
+  "baseline": "0c159f3aed242ef502cae1033374225052c7ecaa",
+  "componentAndLibraryTests": {
+    "files": 104,
+    "passed": 914,
+    "command": "pnpm --filter web exec vitest run tests/aidt tests/project-aidt tests/ui/aidt tests/ui/project-aidt tests/ui/chat-task-inspector tests/ui/copilotkit-v2-shell tests/ui/project-resource-section.test.tsx tests/ui/design-composer-context-offer.test.tsx --exclude '**/*capture.test.tsx'"
+  },
+  "webTypecheck": "passed",
+  "webLintAndDesignLint": "passed",
+  "nativeBrowserE2E": {
+    "status": "passed",
+    "passed": 1,
+    "caseSeconds": 27.2,
+    "totalSeconds": 262,
+    "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded project-aidt-native.spec.ts --workers=1 --max-failures=1",
+    "services": "real isolated Postgres/Redis/MinIO/API/production-mode Next; seeded accounts; loopback deterministic model",
+    "memberTextChatPlugin": "not enabled in this invocation; separate enabled invocation tracked in PR",
+    "temporaryLocalInfrastructure": "BuildKit CA secret with TLS verification; ephemeral MinIO tmpfs; one-worker Next compiler topology; both tracked config files restored byte-for-byte",
+    "notClaimed": [
+      "real provider model",
+      "microphone or real ASR",
+      "Dev deployed runtime",
+      "classroom acceptance"
+    ]
+  },
+  "visualEvidence": {
+    "scenarioCount": 36,
+    "boundary": "actual components SSR with synthetic ready data, including nonempty Design frames/prototype; separate native-* images come from authenticated isolated backend E2E"
+  },
+  "sourceSha256": {
+    "apps/web/components/design-loop/detail-canvas-toolbar.tsx": "0ac35bf8a11aca05544f44f661275f4bf709376389d5bdff4df4377bbf789e84",
+    "apps/web/components/design-loop/detail-screen.tsx": "33e04b9cc0423d8c0ed739746ecd2e10d834d64beb30a9312e99cb10a5908d05",
+    "apps/web/components/design-loop/detail-side-panel.tsx": "9ecc6a1a98004e220f54589494935fd1a87e24626b923486379cdd15731143c7",
+    "apps/web/components/project/project-resource-section.tsx": "23626fca0531564fdb365caf1aaf988d670bd4cd7677f317a32c5c1dc0f5de98",
+    "apps/web/features/aidt/components/aidt-design-workspace.tsx": "d69205cf2b25bf86a3e628ffe6bde5a64c7237cdffe7bd2d9241fa5d769a4f71",
+    "apps/web/features/aidt/components/project-aidt.tsx": "4ef5a7f3ca7d5cdb0630174ed3f5921d6496ad06876ad51340851eede35f6bad",
+    "apps/web/e2e/project-aidt-native.spec.ts": "ae61b1220f135596b3140c742ac06d4bf5ca5d62a9b1816b284210e6d02a034f"
+  }
+}
