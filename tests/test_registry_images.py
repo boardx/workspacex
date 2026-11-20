@@ -435,6 +435,8 @@ class Producer(unittest.TestCase):
         cache = m.vpc_registry(registry) + '/workspacex-prod/' + repository + ':buildkit-cache-linux-amd64'
         env = {
             'USE_ACR_VPC': '1',
+            'BUILD_ONLY': 'true',
+            'BUILD_SERVICE': 'sandbox',
             'NODE_IMAGE': 'node@sha256:' + 'a' * 64,
             'PYTHON_IMAGE': 'python@sha256:' + 'c' * 64,
             'GITHUB_RUN_ID': '123',
@@ -451,6 +453,7 @@ class Producer(unittest.TestCase):
             stage.side_effect = ['', f'{tag}: digest: sha256:{"a" * 64} size: 123\n']
             m.build('sandbox', prefix, tag, 'result.json', source)
 
+        self.assertEqual(stage.call_args_list[0].args[3], 5400)
         args = stage.call_args_list[0].args[2]
         self.assertEqual(args[args.index('--cache-from') + 1], 'type=registry,ref=' + cache)
         self.assertTrue(args[args.index('--cache-to') + 1].endswith(',ref=' + cache))
