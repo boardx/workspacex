@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -50,13 +51,18 @@ esac
                 f"node_image=test-registry-vpc.cn-shanghai.cr.aliyuncs.com/images/build-base-node@{digest}\n",
             )
 
-    def test_buildkit_is_copied_and_emitted_by_digest(self):
+    def test_buildkit_copies_only_the_official_linux_amd64_manifest_by_digest(self):
         script = Path(__file__).resolve().parents[1] / "scripts/mirror-release-bases.sh"
         manifest = b'{"schemaVersion":2}'
         digest = "sha256:" + hashlib.sha256(manifest).hexdigest()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "manifest").write_bytes(manifest)
+            (root / 'index').write_text(json.dumps({'schemaVersion': 2, 'manifests': [
+                {'platform': {'os': 'linux', 'architecture': 'arm64'}, 'digest': 'sha256:' + 'b' * 64},
+                {'platform': {'os': 'linux', 'architecture': 'amd64'}, 'digest': digest},
+                {'platform': {'os': 'unknown', 'architecture': 'unknown'}, 'digest': 'sha256:' + 'c' * 64},
+            ]}))
             skopeo = root / "skopeo"
             skopeo.write_text("""#!/usr/bin/env bash
 set -eu
@@ -64,7 +70,7 @@ case "$1" in
   login) cat >/dev/null ;;
   inspect)
     if [[ ${@: -1} == docker://docker.io/moby/buildkit:buildx-stable-1 ]]; then
-      cat "$PROBE_DIR/manifest"
+      cat "$PROBE_DIR/index"
     else
       cat "$PROBE_DIR/copied"
     fi
@@ -119,4 +125,26 @@ esac
                 result = subprocess.run(['bash', str(script)], env=env, capture_output=True, text=True, timeout=10)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertFalse((root / 'called').exists())
+                self.assertFalse((root / 'output').exists())
+
+    def test_invalid_or_ambiguous_platform_index_stops_before_copy(self):
+        script = Path(__file__).resolve().parents[1] / 'scripts/mirror-release-bases.sh'
+        row = {'platform': {'os': 'linux', 'architecture': 'amd64'}, 'digest': 'sha256:' + 'a' * 64}
+        for manifests in ([], [row, row], [{**row, 'digest': 'not-a-digest'}]):
+            with self.subTest(manifests=manifests), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'index').write_text(json.dumps({'schemaVersion': 2, 'manifests': manifests}))
+                skopeo = root / 'skopeo'
+                skopeo.write_text('#!/bin/sh\ncase "$1" in\nlogin) cat >/dev/null ;;\n'
+                                  'inspect) cat "$PROBE_DIR/index" ;;\ncopy) touch "$PROBE_DIR/copied" ;;\nesac\n')
+                skopeo.chmod(0o700)
+                registry = 'test-registry.cn-shanghai.cr.aliyuncs.com'
+                env = {**os.environ, 'PATH': f"{root}:{os.environ['PATH']}", 'PROBE_DIR': directory,
+                       'REGISTRY': registry, 'REGISTRY_PREFIX': registry + '/images',
+                       'MIRROR_BUILDKIT': 'true', 'BUILDKIT_REPOSITORY': 'skill-sandbox',
+                       'ACR_USERNAME': 'fixture', 'ACR_PASSWORD': 'fixture',
+                       'GITHUB_OUTPUT': str(root / 'output')}
+                result = subprocess.run(['bash', str(script)], env=env, capture_output=True, text=True, timeout=10)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse((root / 'copied').exists())
                 self.assertFalse((root / 'output').exists())

@@ -21,8 +21,24 @@ vpc="${REGISTRY%%.*}-vpc.${REGISTRY#*.}"
 
 if [[ ${MIRROR_BUILDKIT:-false} == true ]]; then
   buildkit_source=docker.io/moby/buildkit:buildx-stable-1
-  buildkit_digest=$(skopeo inspect --raw "docker://$buildkit_source" | sha256sum | cut -d' ' -f1)
-  BUILDKIT_IMAGE="$buildkit_source@sha256:$buildkit_digest"
+  # Release builds target linux/amd64; avoid copying all architectures and
+  # attestations from the official index into the application repository.
+  buildkit_digest=$(skopeo inspect --raw "docker://$buildkit_source" | python3 -c '
+import hashlib,json,re,sys
+raw=sys.stdin.buffer.read(2*1024*1024+1)
+if len(raw)>2*1024*1024: raise SystemExit("BuildKit index is too large")
+index=json.loads(raw)
+manifests=index.get("manifests",[]) if isinstance(index,dict) else []
+matches=[row for row in manifests if isinstance(row,dict) and
+         isinstance(row.get("platform"),dict) and
+         row["platform"].get("os")=="linux" and row["platform"].get("architecture")=="amd64"]
+if len(matches)!=1 or not re.fullmatch(r"sha256:[a-f0-9]{64}",str(matches[0].get("digest",""))):
+    raise SystemExit("Official BuildKit index must identify exactly one linux/amd64 digest")
+digest=matches[0]["digest"]
+print("Resolved official BuildKit linux/amd64 "+digest+" from index sha256:"+hashlib.sha256(raw).hexdigest(),file=sys.stderr)
+print(digest)
+')
+  BUILDKIT_IMAGE="$buildkit_source@$buildkit_digest"
 else
   BUILDKIT_IMAGE=
 fi
