@@ -2,6 +2,7 @@
 import importlib.util
 import json
 import os
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -365,7 +366,7 @@ class Producer(unittest.TestCase):
         for prefix in ('https://registry.example/team','registry.example/team/../../bad','registry.example/team\n'):
             with self.assertRaises(ValueError): m.coordinates(prefix,'a'*40+'-123-2')
 
-    def test_shanghai_sandbox_build_uses_registry_cache(self):
+    def test_shanghai_sandbox_registry_cache_requires_a_provisioned_capable_builder(self):
         m = module()
         source = 'b' * 40
         registry = 'example-registry.cn-shanghai.cr.aliyuncs.com'
@@ -380,19 +381,69 @@ class Producer(unittest.TestCase):
             'GITHUB_RUN_ATTEMPT': '1',
         }
         tag = m.release_tag(source, '123', '1')
-        with patch.dict(os.environ, env, clear=True), \
-             patch.object(m, 'run', side_effect=[source, 'sha256:' + 'a' * 64]), \
-             patch.object(m.subprocess, 'run') as probe, \
-             patch.object(m, 'run_release_stage') as stage, \
-             patch.object(m, 'verify_publication'):
-            probe.return_value.returncode = 1
-            probe.return_value.stderr = 'manifest unknown'
-            stage.side_effect = ['', f'{tag}: digest: sha256:{"a" * 64} size: 123\n']
-            m.build('sandbox', prefix, tag, 'result.json', source)
+        for builder, driver, enabled in (('', '', False), ('default', 'docker', False),
+                                         ('provisioned-sandbox', 'docker-container', True)):
+            with self.subTest(builder=builder, driver=driver):
+                values = {**env, 'BUILDX_BUILDER': builder}
+                responses = [source] + ([driver] if builder else []) + ['sha256:' + 'a' * 64]
+                with patch.dict(os.environ, values, clear=True), \
+                     patch.object(m, 'run', side_effect=responses) as run, \
+                     patch.object(m.subprocess, 'run') as probe, \
+                     patch.object(m, 'run_release_stage') as stage, \
+                     patch.object(m, 'verify_publication'):
+                    probe.return_value.returncode = 1
+                    probe.return_value.stderr = 'manifest unknown'
+                    stage.side_effect = ['', f'{tag}: digest: sha256:{"a" * 64} size: 123\n']
+                    m.build('sandbox', prefix, tag, 'result.json', source)
 
-        args = stage.call_args_list[0].args[2]
-        self.assertEqual(args[args.index('--cache-from') + 1], 'type=registry,ref=' + cache)
-        self.assertTrue(args[args.index('--cache-to') + 1].endswith(',ref=' + cache))
-        self.assertIn(prefix.replace(registry, m.vpc_registry(registry)) + '/' + repository + ':' + tag, args)
+                args = stage.call_args_list[0].args[2]
+                if enabled:
+                    self.assertEqual(args[args.index('--cache-from') + 1], 'type=registry,ref=' + cache)
+                    self.assertTrue(args[args.index('--cache-to') + 1].endswith(',ref=' + cache))
+                else:
+                    self.assertNotIn('--cache-from', args)
+                    self.assertNotIn('--cache-to', args)
+                self.assertIn(prefix.replace(registry, m.vpc_registry(registry)) + '/' + repository + ':' + tag, args)
+                if builder:
+                    run.assert_any_call(['docker', 'buildx', 'inspect', '--format', '{{.Driver}}'], timeout=60)
+                else:
+                    self.assertFalse(any(call.args[0][:3] == ['docker', 'buildx', 'inspect']
+                                         for call in run.call_args_list))
+
+    def test_release_shell_preserves_sandbox_builder_without_bootstrapping_docker_hub(self):
+        workflow = (ROOT / '.github/workflows/image-release.yml').read_text()
+        step = workflow.split('      - name: Build and publish service\n', 1)[1]
+        block = step.split('        run: |\n', 1)[1].split('      - uses:', 1)[0]
+        script = '\n'.join(line[10:] for line in block.splitlines())
+        for service, cache, builder, creates in (('sandbox', '', '', False),
+                                                ('sandbox', '', 'provisioned', False),
+                                                ('agent', 'agent-cache', '', True),
+                                                ('agent', '', '', False),
+                                                ('web', 'agent-cache', '', False)):
+            with self.subTest(service=service, cache=cache, builder=builder), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                producer = root / 'producer.py'
+                producer.write_text('import json,os\nfrom pathlib import Path\n'
+                                    'Path(os.environ["TRACE_PRODUCER"]).write_text(json.dumps('
+                                    '{"builder":os.environ.get("BUILDX_BUILDER","")}))\n')
+                docker = root / 'docker'
+                docker.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$TRACE_DOCKER"\n')
+                docker.chmod(0o700)
+                env = {'PATH': str(root) + os.pathsep + os.environ.get('PATH', ''),
+                       'SERVICE': service, 'WSX_CN_AGENT_CACHE_REPOSITORY': cache,
+                       'BUILDX_BUILDER': builder, 'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '1',
+                       'RELEASE_SCRIPT': str(producer), 'SOURCE_REVISION': 'b' * 40,
+                       'REGISTRY_PREFIX': 'example/team', 'IMAGE_TAG': '123-1',
+                       'TRACE_PRODUCER': str(root / 'producer.json'), 'TRACE_DOCKER': str(root / 'docker.txt')}
+                result = subprocess.run(['bash', '-e', '-c', script], env=env, capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                observed = json.loads((root / 'producer.json').read_text())
+                self.assertEqual(observed['builder'], 'wsx-agent-123-1' if creates else builder)
+                if creates:
+                    self.assertEqual((root / 'docker.txt').read_text().splitlines(),
+                                     ['buildx create --name wsx-agent-123-1 --driver docker-container',
+                                      'buildx rm wsx-agent-123-1'])
+                else:
+                    self.assertFalse((root / 'docker.txt').exists())
 
 if __name__=='__main__': unittest.main()

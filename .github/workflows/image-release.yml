@@ -179,7 +179,9 @@ jobs:
           NEXT_PUBLIC_ENABLE_AIDT: ${{ matrix.service == 'web' && needs.plan.outputs.aidt_web_enabled || '0' }}
           NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: ${{ matrix.service == 'web' && needs.plan.outputs.aidt_web_enabled || '0' }}
         run: |
-          if [[ "$SERVICE" == sandbox || ( "$SERVICE" == agent && -n "$WSX_CN_AGENT_CACHE_REPOSITORY" ) ]]; then
+          # Sandbox uses the installed builder; creating one here pulls from Docker Hub.
+          # A provisioned docker-container builder may still opt into registry caching.
+          if [[ "$SERVICE" == agent && -n "$WSX_CN_AGENT_CACHE_REPOSITORY" ]]; then
             export BUILDX_BUILDER="wsx-$SERVICE-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             # Builder state is isolated for the job. Registry cache survives runner changes.
             trap 'docker buildx rm "$BUILDX_BUILDER" || true' EXIT

@@ -440,7 +440,8 @@ def build(role, prefix, tag, output, source):
     if cn and role=='agent' and cache_repository:
         need(re.fullmatch(r'[a-z0-9]+(?:[._-][a-z0-9]+)*',cache_repository),'INVALID_AGENT_CACHE_REPOSITORY')
         cache_ref=prefix+'/'+cache_repository+':buildkit-linux-amd64'
-    elif use_vpc and role=='sandbox':
+    elif (use_vpc and role=='sandbox' and os.environ.get('BUILDX_BUILDER') and
+          run(['docker','buildx','inspect','--format','{{.Driver}}'],timeout=60).strip()=='docker-container'):
         cache_ref=prefix+'/'+repository+':buildkit-cache-linux-amd64'
     else:
         cache_ref=None
