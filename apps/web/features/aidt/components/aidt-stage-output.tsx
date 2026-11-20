@@ -121,7 +121,7 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
     finally { setPrinting(false); }
   }
   return <section className="space-y-4" data-testid="aidt-stage-output">
-    <div><p className="text-11 text-muted-foreground">本页草稿</p><h3 className="mt-1 text-20 font-semibold">{output.title}</h3></div>
+    <div><h3 className="text-20 font-semibold tracking-tight">{output.title}</h3></div>
     <details className="text-12 text-muted-foreground" data-testid="aidt-output-help"><summary className="cursor-pointer">填写与保存说明</summary><p className="mt-2">{output.hint}</p><p className="mt-1">本栏是可编辑草稿，未保存修改刷新或离开页面后会丢失。使用上方“保存到小组”并核对服务器回执，才会写入共享成果。带入聊天并发送只保存对话，不自动保存这里的表单。</p></details>
     {step.id === 2 && <AidtActivityNav currentId="draft" items={[{ id: "draft", label: "访谈计划", href: toolHref("outcome") }, { id: "sources", label: "研究材料", href: toolHref("sources") }]} />}
     {step.id === 4 && <div className="space-y-3" data-testid="aidt-idea-cards">
@@ -150,9 +150,9 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
     {(step.id === 5 || step.id === 6) && identity?.currentOrgId && identity.userId && identity.sessionToken && <AidtPrototypeVersionPicker projectId={projectId} selectionScope={JSON.stringify([draft.fields.version ?? "", draft.fields.questionSnapshot ?? ""])} value={readAidtPrototypeReference(draft)} readOnly={readOnly} onChange={(reference) => { if (!readOnly) update((old) => updateAidtPrototypeReference(old, reference)); }} />}
     {step.id === 5 && <div className="space-y-2">{prototypeReadiness.ready ? <Button asChild variant="outline" className="w-full"><Link href={toolHref("design")}>打开原生 Design Workbench</Link></Button> : <><Button variant="outline" className="w-full" disabled>打开原生 Design Workbench</Button><p role="status" className="text-12 text-muted-foreground">{prototypeReadiness.reason}</p></>}</div>}
     {step.id === 2 && <Button asChild variant="outline" className="w-full"><Link href={toolHref("sources")}>查看与关联真实研究资料</Link></Button>}
-    <div className="space-y-2 border-t border-border bg-background py-3" data-testid="aidt-stage-output-actions">{toChat && <Button className="w-full sm:w-auto" disabled={readOnly} onClick={() => {
+    <div className="space-y-2 border-t border-border bg-background py-3" data-testid="aidt-stage-output-actions">{toChat && <Button variant="outline" className="w-full sm:w-auto" disabled={readOnly} onClick={() => {
       const result = toChat(aidtUiStageMarkdown(step.id, draft, availableCards, availableCardsRevision));
-      setStatus(result === "accepted" ? "已带入聊天输入框。审阅并发送后保存本组对话；表单共享请使用上方保存按钮。" : result === "occupied" ? "聊天输入框已有未发送内容，未覆盖。请先处理原草稿，或使用复制。" : "本步聊天尚未就绪，请稍后重试；本栏草稿仍保留。");
-    }}>审阅并发送到本步聊天</Button>}<div className="flex flex-wrap gap-2"><Button variant="ghost" size="sm" onClick={() => void copy()}>复制本步成果到聊天</Button>{step.id === 6 && <Button asChild variant="outline" size="sm"><Link href={aidtHref(projectId, 6, { tool: "report" })}>预览小组报告</Link></Button>}</div><p role="status" aria-live="polite" className="text-12 text-muted-foreground">{status}</p></div>
+      setStatus(result === "accepted" ? "已放入对话输入框，请检查后发送。成果需另外保存到小组。" : result === "occupied" ? "聊天输入框已有未发送内容，未覆盖。请先处理原草稿，或使用复制。" : "本步聊天尚未就绪，请稍后重试；本栏草稿仍保留。");
+    }}>带入对话草稿</Button>}<div className="flex flex-wrap gap-2"><Button variant="ghost" size="sm" onClick={() => void copy()}>复制内容</Button>{step.id === 6 && <Button asChild variant="outline" size="sm"><Link href={aidtHref(projectId, 6, { tool: "report" })}>预览小组报告</Link></Button>}</div><p role="status" aria-live="polite" className="text-12 text-muted-foreground">{status}</p></div>
   </section>;
 }

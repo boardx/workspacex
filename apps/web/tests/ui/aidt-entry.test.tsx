@@ -71,7 +71,7 @@ it("opens archived AIDT projects as readonly while retaining the native project 
   await screen.findByTestId("six-step-workspace");
   expect(api.workspace).toHaveBeenLastCalledWith(expect.objectContaining({ projectId: "p1", sub: "aidt", canWrite: false }));
   expect(screen.queryByTestId("native-group-roster")).toBeNull();
-  fireEvent.click(screen.getByText("本组成员与可见范围"));
+  fireEvent.click(screen.getByTestId("aidt-project-settings"));
   expect(await screen.findByTestId("native-group-roster")).toHaveAttribute("data-readonly", "true");
 });
 

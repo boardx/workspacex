@@ -1,0 +1,38 @@
+[
+  {
+    "kind": "chat",
+    "width": 375,
+    "viewport": 375,
+    "documentWidth": 375,
+    "overflow": false,
+    "image": "sidebar-chat-375.png",
+    "evidence": "Actual AIDT workspace, form, Inspector and tokens, synthetic Chat surface/data; component visual capture, not backend acceptance"
+  },
+  {
+    "kind": "chat",
+    "width": 1280,
+    "viewport": 1280,
+    "documentWidth": 1280,
+    "overflow": false,
+    "image": "sidebar-chat-1280.png",
+    "evidence": "Actual AIDT workspace, form, Inspector and tokens, synthetic Chat surface/data; component visual capture, not backend acceptance"
+  },
+  {
+    "kind": "outcome",
+    "width": 375,
+    "viewport": 375,
+    "documentWidth": 375,
+    "overflow": false,
+    "image": "sidebar-outcome-375.png",
+    "evidence": "Actual AIDT workspace, form, Inspector and tokens, synthetic Chat surface/data; component visual capture, not backend acceptance"
+  },
+  {
+    "kind": "outcome",
+    "width": 1280,
+    "viewport": 1280,
+    "documentWidth": 1280,
+    "overflow": false,
+    "image": "sidebar-outcome-1280.png",
+    "evidence": "Actual AIDT workspace, form, Inspector and tokens, synthetic Chat surface/data; component visual capture, not backend acceptance"
+  }
+]

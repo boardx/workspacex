@@ -10,9 +10,9 @@ vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(m
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: mocks.session }) }));
 vi.mock("next/dynamic", () => ({ default: (loader: () => Promise<unknown>) => {
   const source = loader.toString();
-  return function DynamicStub() {
+  return function DynamicStub(props: any) {
     const [mountedActor] = React.useState(() => mocks.session?.userId);
-    return source.includes("detail-screen") || source.includes("aidt-design-workspace") ? <div data-testid="native-design">{mountedActor}</div> : source.includes("transcription-history") ? <div data-testid="native-rec" /> : <div data-testid="native-chat">{mountedActor}</div>;
+    return source.includes("detail-screen") || source.includes("aidt-design-workspace") ? <div data-testid="native-design">{mountedActor}</div> : source.includes("transcription-history") ? <div data-testid="native-rec" /> : <div data-testid="native-chat">{mountedActor}{props.hostPanel?.open && props.hostPanel.content}</div>;
   };
 } }));
 vi.mock("@/lib/live-project-resources", () => ({ listProjectResources: mocks.list }));
@@ -36,7 +36,6 @@ afterEach(() => vi.unstubAllGlobals());
 it("clears another actor's drafts and remounts native Chat even when the project ID is unchanged", () => {
   const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-1" canWrite />);
   fireEvent.change(screen.getByLabelText("初始问题"), { target: { value: "A组员自己的初稿" } });
-  fireEvent.click(screen.getByRole("button", { name: "AI 引导师" }));
   expect(screen.getByTestId("native-chat")).toHaveTextContent("student-a");
   mocks.session = { ...mocks.session!, userId: "student-b" };
   rerender(<ProjectAidt projectId="group" sub="aidt-1" canWrite />);
@@ -109,7 +108,6 @@ it("rejects an old actor lifecycle's image callback after A to B to A", async ()
   const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-4" canWrite />);
   fireEvent.change(screen.getByLabelText("候选1参考图"), { target: { files: [new File(["old actor file"], "old-a.png", { type: "image/png" })] } });
   expect(mocks.readers).toHaveLength(1);
-  fireEvent.click(screen.getByRole("button", { name: "AI 引导师" }));
   mocks.session = { ...actorA, userId: "student-b" };
   rerender(<ProjectAidt projectId="group" sub="aidt-4" canWrite />);
   mocks.session = { ...actorA };

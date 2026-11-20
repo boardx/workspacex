@@ -3,7 +3,8 @@ import { renderChatPhase } from "@/lib/chat-runtime-display";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import type { chatInspectorZhCN } from "@/lib/i18n/namespaces/chat-inspector";
-import { ListChecks, FolderOpen, Package, Settings2, Users, Brain, PanelRightClose, PanelRightOpen } from "lucide-react";
+import type { ChatHostPanel } from "./chat-host-panel";
+import { NotebookPen, ListChecks, FolderOpen, Package, Settings2, Users, Brain, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { PanelResizeHandle } from "@/components/shell/panel-resize-handle";
 import { PANEL_WIDTH_DEFAULT, readPanelWidth, writePanelWidth } from "@/lib/chat-workbench/panel-width";
 import { cn } from "@/lib/utils";
@@ -99,6 +100,7 @@ function desktopSnapshot(): boolean { return false; }
  */
 
 export interface ChatTaskInspectorProps {
+  readonly hostPanel?: ChatHostPanel;
   readonly hasSelection: boolean;
   readonly threadId: string | null;
   readonly projectId?: string | null;
@@ -174,7 +176,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const { t } = useI18n();
   const mobile = React.useSyncExternalStore(subscribeViewport, mobileSnapshot, desktopSnapshot);
   const {
-    hasSelection, threadId, artifacts, materials, loading,
+    hasSelection, threadId, artifacts, materials, loading, hostPanel,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
     uploadingMaterialsCount = 0,
     planTodos, isRunning, runPhaseLabel, runPhaseLabelOwned, runStartedAt, roster,
@@ -294,7 +296,29 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 单测钉住,是给未来"折叠时页签角标要不要标红点"一类需求留的信号,不在这里
    * 驱动展开态。
    */
-  const collapsed = override !== "expanded";
+  const hostPanelRef = React.useRef(hostPanel); hostPanelRef.current = hostPanel;
+  const dismissHostForNative = React.useCallback(() => { if (hostPanelRef.current?.open) hostPanelRef.current.onOpenChange(false); }, []);
+  const hostTrigger = React.useRef<HTMLButtonElement>(null);
+  const hostMobileTrigger = React.useRef<HTMLButtonElement>(null);
+  const inspectorRef = React.useRef<HTMLElement>(null);
+  const hostPanelId = React.useId();
+  const hostOpen = hostPanel?.open === true;
+  const collapsed = !hostOpen && override !== "expanded";
+  const hostMobileOpen = mobile && Boolean(hostPanel) && !collapsed;
+  React.useEffect(() => {
+    if (!hostMobileOpen) return;
+    const trigger = hostMobileTrigger.current;
+    inspectorRef.current?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    return () => { if (trigger?.isConnected) trigger.focus({ preventScroll: true }); };
+  }, [hostMobileOpen, hostPanel?.scope]);
+  const closeInspector = () => {
+    setOverride("collapsed");
+    if (hostOpen) hostPanel?.onOpenChange(false);
+    if (hostPanel) (mobile ? hostMobileTrigger : hostTrigger).current?.focus();
+  };
+  // A returning workspace cannot revive another stage's native tab or expansion.
+  const hostScope = hostPanel?.scope;
+  React.useEffect(() => { if (hostScope) { setOverride("collapsed"); setActiveTab("materials"); } }, [hostScope]);
   /*
    * R11 —— 执行过程里的工具结果也能被送进右栏（人类原话里的「浏览网页」）。
    * 走 window 事件而不是 Context，理由同 `lib/shell-panel-events.ts` 文件头注：
@@ -303,17 +327,19 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 那等于没生效（这一晚已经因为「做了但看不见」返工过一次）。
    */
   React.useEffect(() => onOpenInRightPanel((doc) => {
+    dismissHostForNative();
     openInPanelTab({ kind: "result", ...doc });
     setActiveTab("artifacts");
     setOverride("expanded");
-  }), [openInPanelTab]);
+  }), [openInPanelTab, dismissHostForNative]);
 
   /* E4 —— 文件（上传的材料 / 生成的产出物）走同一条页签，不另起一排。 */
   React.useEffect(() => onOpenFileInRightPanel((doc) => {
+    dismissHostForNative();
     openInPanelTab({ kind: "file", ...doc });
     setActiveTab("artifacts");
     setOverride("expanded");
-  }), [openInPanelTab]);
+  }), [openInPanelTab, dismissHostForNative]);
 
 
 
@@ -339,10 +365,11 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const reloadKnowledge = knowledge.reload;
 
   const selectTab = React.useCallback((tab: InspectorTab) => {
+    dismissHostForNative();
     setActiveTab(tab);
     setOverride("expanded");
     if (tab === "memory") reloadKnowledge();
-  }, [reloadKnowledge]);
+  }, [reloadKnowledge, dismissHostForNative]);
 
   // 回答下「已记下 N 条 · 查看」→ 切到「记忆」页签并展开右栏（见 `lib/knowledge-graph-events.ts`）。
   React.useEffect(() => {
@@ -421,7 +448,9 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
 
   const inspector = (
     <aside
+      ref={inspectorRef}
       {...dragHandlers}
+      onKeyDown={event => { if (hostPanel && event.key === "Escape" && !event.defaultPrevented && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) { event.preventDefault(); closeInspector(); } }}
       style={sizable ? { width: `${String(width)}px` } : undefined}
       className={cn(
         "relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt",
@@ -429,7 +458,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
       )}
       data-testid="chat-task-workbench-inspector"
       data-collapsed={collapsed ? "true" : "false"}
-      data-active-tab={activeTab}
+      data-active-tab={hostOpen ? "host" : activeTab}
       data-drop-active={dropActive ? "true" : "false"}
       aria-label={t("chatInspector.label")}
     >
@@ -457,10 +486,17 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
           collapsed ? "flex-col gap-1 py-2" : "flex-row justify-center gap-1 px-2 py-2.5",
         )}
       >
+        {hostPanel && <button ref={hostTrigger} type="button" role="tab"
+          id={`${hostPanelId}-tab`} aria-controls={`${hostPanelId}-panel`} aria-selected={hostOpen}
+          aria-label={hostPanel.title} title={hostPanel.title} data-testid="chat-task-workbench-host-open"
+          onClick={() => { setOverride("collapsed"); hostPanel.onOpenChange(true); }}
+          className={cn("flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", collapsed ? "w-8" : "px-2", hostOpen ? "bg-muted text-card-foreground" : "text-muted-foreground")}>
+          <NotebookPen aria-hidden className="h-4 w-4" />
+        </button>}
         {visibleTabs.map((tab) => {
           const { labelKey, Icon } = TAB_META[tab];
           const label = t(labelKey);
-          const selected = tab === activeTab && !collapsed;
+          const selected = tab === activeTab && !collapsed && !hostOpen;
           return (
             <button
               key={tab}
@@ -477,7 +513,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               aria-label={label}
               title={label}
               data-testid={`chat-task-workbench-inspector-tab-${tab}`}
-              onClick={() => selectTab(tab)}
+              onClick={() => { if (hostOpen) hostPanel?.onOpenChange(false); selectTab(tab); }}
               className={cn(
                 "relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast",
                 // 2026-09-03 人类反馈（真栈截图）「右边的 tab，样式不对」—— 原来是
@@ -514,7 +550,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             aria-expanded
             title={t("chatInspector.collapse")}
             data-testid="chat-task-workbench-inspector-collapse"
-            onClick={() => setOverride("collapsed")}
+            onClick={closeInspector}
             className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40"
           >
             <PanelRightClose aria-hidden className="h-4 w-4" />
@@ -539,10 +575,12 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
       ) : (
         <div
           role="tabpanel"
-          aria-label={t(TAB_META[activeTab].labelKey)}
+          aria-label={hostOpen ? hostPanel?.title : t(TAB_META[activeTab].labelKey)}
+          id={hostOpen ? `${hostPanelId}-panel` : undefined}
+          aria-labelledby={hostOpen ? `${hostPanelId}-tab` : undefined}
           className="flex min-h-0 flex-1 flex-col overflow-y-auto"
         >
-          {activeTab === "materials" ? (
+          {hostOpen ? hostPanel?.content : activeTab === "materials" ? (
             <ChatMaterialsPanel
               hasSelection={hasSelection}
               threadId={threadId}
@@ -626,8 +664,18 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     </aside>
   );
   if (!mobile) return inspector;
+  // Host workspaces share the Inspector content without a document-level Escape
+  // interceptor: the independent member-chat plugin must keep its own keyboard focus.
+  if (hostPanel) return <>
+    <button ref={hostMobileTrigger} type="button" data-testid="chat-task-workbench-mobile-open" aria-label={t("chatInspector.openMobile")}
+      aria-expanded={!collapsed} onClick={() => { setOverride("collapsed"); hostPanel.onOpenChange(true); }}
+      className="flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-container text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <PanelRightOpen aria-hidden className="h-4 w-4" />
+    </button>
+    {!collapsed && <div role="dialog" aria-modal={false} aria-label={t("chatInspector.mobileTitle")} className="fixed inset-y-0 right-0 z-30 flex h-dvh max-h-dvh w-[min(92vw,24rem)] min-w-0 flex-col border-l border-border-subtle bg-panel-alt shadow-lg">{inspector}</div>}
+  </>;
   return (
-    <Dialog open={!collapsed} onOpenChange={(open) => setOverride(open ? "expanded" : "collapsed")}>
+    <Dialog open={!collapsed} onOpenChange={(open) => { if (open) setOverride("expanded"); else closeInspector(); }}>
       <DialogTrigger asChild>
         <button
           type="button"

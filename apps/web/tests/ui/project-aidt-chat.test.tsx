@@ -365,3 +365,12 @@ it("clears the old run receipt only on an actual new attempt and rejects a late 
  const second=mocks.turn.mock.calls.at(-1)![0];await act(async()=>second.context.started("next-client"));expect(screen.queryByTestId("observed-run-receipt")).toBeNull();await act(async()=>{first.context.accepted({runId:"late-previous",threadId:"native",clientMessageId:"previous-client"});first.context.accepted({runId:"late-restored",threadId:"native",clientMessageId:null});});expect(screen.queryByTestId("observed-run-receipt")).toBeNull();
  await act(async()=>second.context.accepted({runId:"next-canonical-run",threadId:"native",clientMessageId:"next-client"}));expect(screen.getByTestId("observed-run-receipt")).toHaveTextContent("next-canonical-run");
 });
+
+it("keeps manual stage tools available through the same Inspector when Chat preparation fails", async () => {
+  mocks.resolve.mockRejectedValue(new Error("对话暂时不可用"));
+  render(<ProjectAidtChat projectId="p" step={AIDT_STEPS[0]} thread={null} hostPanel={{scope:"p:1",title:"成果",open:true,onOpenChange:()=>{},content:<label>仍可编辑的成果<input aria-label="manual outcome" /></label>}} />);
+  expect(await screen.findByTestId("aidt-chat-error")).toHaveTextContent("对话暂时不可用");
+  const input = screen.getByLabelText("manual outcome");fireEvent.change(input,{target:{value:"保留学生手填内容"}});
+  expect(input).toHaveValue("保留学生手填内容");
+  expect(screen.getAllByTestId("chat-task-workbench-inspector")).toHaveLength(1);
+});

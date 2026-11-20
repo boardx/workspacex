@@ -1,0 +1,62 @@
+[
+  {
+    "kind": "dashboard",
+    "width": 375,
+    "viewport": 375,
+    "documentWidth": 375,
+    "overflow": false,
+    "cards": 6,
+    "image": "dashboard-375.png",
+    "evidence": "Actual React components and compiled WorkspaceX tokens, synthetic data; static visual capture, not backend acceptance"
+  },
+  {
+    "kind": "dashboard",
+    "width": 768,
+    "viewport": 768,
+    "documentWidth": 768,
+    "overflow": false,
+    "cards": 6,
+    "image": "dashboard-768.png",
+    "evidence": "Actual React components and compiled WorkspaceX tokens, synthetic data; static visual capture, not backend acceptance"
+  },
+  {
+    "kind": "dashboard",
+    "width": 1280,
+    "viewport": 1280,
+    "documentWidth": 1280,
+    "overflow": false,
+    "cards": 6,
+    "image": "dashboard-1280.png",
+    "evidence": "Actual React components and compiled WorkspaceX tokens, synthetic data; static visual capture, not backend acceptance"
+  },
+  {
+    "kind": "settings",
+    "width": 375,
+    "viewport": 375,
+    "documentWidth": 375,
+    "overflow": false,
+    "cards": 6,
+    "image": "settings-375.png",
+    "evidence": "Actual React components and compiled WorkspaceX tokens, synthetic data; static visual capture, not backend acceptance"
+  },
+  {
+    "kind": "settings",
+    "width": 768,
+    "viewport": 768,
+    "documentWidth": 768,
+    "overflow": false,
+    "cards": 6,
+    "image": "settings-768.png",
+    "evidence": "Actual React components and compiled WorkspaceX tokens, synthetic data; static visual capture, not backend acceptance"
+  },
+  {
+    "kind": "settings",
+    "width": 1280,
+    "viewport": 1280,
+    "documentWidth": 1280,
+    "overflow": false,
+    "cards": 6,
+    "image": "settings-1280.png",
+    "evidence": "Actual React components and compiled WorkspaceX tokens, synthetic data; static visual capture, not backend acceptance"
+  }
+]

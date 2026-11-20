@@ -15,7 +15,7 @@ function Stage({ id = 1 }: { id?: number }) {
 it("keeps stage forms explicitly unsaved and copies only student-entered content", async () => {
   render(<Stage />);
   fireEvent.change(screen.getByLabelText("初始问题"), { target: { value: "午餐排队太久" } });
-  fireEvent.click(screen.getByRole("button", { name: "复制本步成果到聊天" }));
+  fireEvent.click(screen.getByRole("button", { name: "复制内容" }));
   expect(await screen.findByText(/发送成功后才会保存到本组/)).toBeVisible();
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("午餐排队太久"));
   fireEvent.click(screen.getByText("填写与保存说明"));
