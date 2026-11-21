@@ -265,7 +265,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const id = ({ 2: 'aidt-stage-output', 3: 'aidt-definition-editor', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
     if (!id) fail('ENTITY_FORM_EXPECTATION_MISSING');
     await expect(page.getByTestId(id)).toBeVisible();
-    if (stage === 2) await expect(page.getByRole('textbox', { name: '学生提纲原稿', exact: true })).toBeEditable();
+    if (stage === 2) await expect(page.getByRole('region', { name: '本次访谈产物', exact: true })).toBeVisible();
     if (stage === 6) await expect(page.getByTestId(id).getByRole('textbox', { name: '测试任务与追问', exact: true })).toBeEditable();
   };
   const follow = async (name, { resource = false } = {}) => {
