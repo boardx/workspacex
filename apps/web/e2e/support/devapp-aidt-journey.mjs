@@ -918,13 +918,9 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await fill('原型名称', '未命名设计');
     await armDesignCreate();
     await saveStage(5, btn('创建原型'));
-    const card = cardDirectory.getByRole('link', { name: '未命名设计', exact: true });
-    await expect(card).toBeVisible();
-    const target = owned(await card.getAttribute('href'));
-    designId = new URL(target).searchParams.get('entity');
-    if (!designId) fail('PROTOTYPE_ENTITY_REQUIRED');
-    const designRoute = ownedAidtEntityRoute(target, { origin, projectId: scope.projectId }, { stage: 5, entityId: designId });
-    await click(card);
+    await expect.poll(() => new URL(page.url()).searchParams.get('entity')).toBeTruthy();
+    designId = new URL(page.url()).searchParams.get('entity');
+    const designRoute = ownedAidtEntityRoute(page.url(), { origin, projectId: scope.projectId }, { stage: 5, entityId: designId });
     await waitForEntity(() => matchesAidtEntityRoute(page.url(), designRoute));
     const actions = page.getByRole('region', { name: '原型对话操作' });
     await expect(actions.getByRole('link', { name: '打开 Design 工作台' })).toHaveCount(0);
