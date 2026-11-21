@@ -55,8 +55,14 @@ export function projectInterviewSkillDraft(draft: Draft, entityId: string, turn:
   const current = record.data, data = readInterviewChatDraft(turn.assistant);
   const userText = turn.user.trim();
   if (!userText) return null;
-  const openingHasQuestion = /[？?]|(?:请|能否|怎样|如何|什么|哪[一件次个]|什么时候|回忆|描述)/u.test(userText);
-  const captureOpening = !!data?.questions && openingHasQuestion && !current.original && !current.consent && !current.guideConfirmed && userText.length <= 1000;
+  // Save student-authored questions even when the Skill first asks to clarify the interview context.
+  const openingHasQuestion = userText.split(/\n+/u).some(line => {
+    const text = line.trim();
+    if (text.length < 4 || /^(?:你好|您好|在吗|hello|hi)[呀啊吗？?!！,.，。\s]*$/iu.test(text)) return false;
+    if (/(?:帮我|代我|替我|如何|怎么)(?:来)?(?:生成|编写|设计|改写|优化|导出|保存)(?:访谈)?(?:问题|提纲|清单)|(?:如何|怎么)使用(?:这个)?(?:工具|系统|技能)|(?:how do i use|help me (?:write|generate|edit))/iu.test(text)) return false;
+    return /[？?]|(?:能否|怎样|如何|什么|哪[一件次个]|什么时候|请(?:回想|回忆|描述|介绍|说说))/u.test(text);
+  });
+  const captureOpening = openingHasQuestion && !current.original && !current.consent && !current.guideConfirmed && userText.length <= 1000;
   const guide = !current.guideConfirmed && (Boolean(current.original) || captureOpening) && data?.questions;
   const adopted = guide ? guide.join("\n") : current.adopted;
   const goal = guide && data.goal ? data.goal : current.goal;
