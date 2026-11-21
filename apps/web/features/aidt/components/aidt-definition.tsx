@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  AIDT_DEFINITION_EVIDENCE_LIMIT, AIDT_DEFINITION_ITEM_LIMIT, AIDT_PRIMARY_SURPRISE_ID, addAidtDefinitionEntity, addAidtDefinitionSurprise, aidtDefinitionCards,
+  AIDT_DEFINITION_EVIDENCE_LIMIT, AIDT_DEFINITION_ITEM_LIMIT, AIDT_PRIMARY_SURPRISE_ID, addAidtDefinitionEntity, addAidtDefinitionSurprise, aidtDefinitionCardNameKey, aidtDefinitionCards,
   chooseAidtDefinitionHmw, confirmedAidtDefinitionSurprises, invalidateAidtDefinitionSurpriseLinks, isAidtDefinitionHmwReady,
   isAidtDefinitionPersonaReady, isAidtDefinitionSurpriseReady, readAidtDefinition,
   readAidtDefinitionEntities, readAidtDefinitionEvidenceRevision, readAidtDefinitionSelection,
@@ -130,7 +130,6 @@ function LegacyDefinitionDirectory(props: DirectoryProps) {
 }
 
 const kindLabels = { surprise: "意外发现", persona: "用户画像", hmw: "HMW" } as const;
-const nameKey = (id: string) => "definitionCardName:" + id;
 
 function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...props }: DirectoryProps) {
   const { draft, update, readOnly } = props;
@@ -139,7 +138,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...p
   const interviewCards = evidence.cards.filter(card => interviewIds.has(card.id));
   const { personas, hmws, surprises, invalid } = readAidtDefinition(draft.fields);
   const [editing, setEditing] = React.useState<{ id: string; name: string } | null>(null);
-  const [creating, setCreating] = React.useState<{ kind: "persona" | "hmw"; cardIds: string[]; revision?: number } | null>(null);
+  const [creating, setCreating] = React.useState<{ kind: "persona" | "hmw"; name: string; cardIds: string[]; personaIds: string[]; revision?: number } | null>(null);
   const [removing, setRemoving] = React.useState<string | null>(null);
   const [showArchived, setShowArchived] = React.useState(false);
   const active = [
@@ -149,10 +148,11 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...p
   ];
   const canEdit = !readOnly && !invalid;
   const canAdd = canEdit && !evidence.unavailable && evidence.ready;
-  const title = (id: string, fallback: string) => draft.fields[nameKey(id)] || fallback;
+  const confirmedPersonas = personas.filter(item => item.confirmed && !item.archived);
+  const title = (id: string, fallback: string) => draft.fields[aidtDefinitionCardNameKey(id)] || fallback;
   const save = (change: (old: AidtUiStageDraft) => AidtUiStageDraft) => { update(change); requestSave?.(); };
   const openAllowed = (id: string) => savedDraft ? Boolean(aidtDefinitionEntityKind(savedDraft, id)) : !requestSave;
-  const add = (kind: "persona" | "hmw") => setCreating({ kind, cardIds: [], revision: evidence.revision });
+  const add = (kind: "persona" | "hmw") => setCreating({ kind, name: "", cardIds: [], personaIds: [], revision: evidence.revision });
   const archive = (id: string) => {
     save(old => {
       const definition = readAidtDefinition(old.fields);
@@ -172,7 +172,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...p
       {!hasAidtPrimarySurpriseEntity(draft) && <Button type="button" disabled={!canEdit} onClick={() => save(enableAidtPrimarySurpriseEntity)}>{draft.fields.surpriseConfirmed === "true" ? "开启意外发现对话" : "新建意外发现"}</Button>}
       {draft.fields.surpriseStatus === "found" && <Button type="button" variant="outline" disabled={!canAdd || surprises.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => save(old => addAidtDefinitionSurprise(old, crypto.randomUUID()))}>新建补充发现</Button>}
       <Button type="button" variant="outline" disabled={!canAdd || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("persona")}>新建画像</Button>
-      <Button type="button" variant="outline" disabled={!canAdd || !personas.some(item => item.confirmed && !item.archived) || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("hmw")}>新建 HMW</Button>
+      <Button type="button" variant="outline" disabled={!canAdd || !confirmedPersonas.length || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("hmw")}>新建 HMW</Button>
       {active.some(item => item.archived) && <Button type="button" variant="ghost" onClick={() => setShowArchived(value => !value)}>{showArchived ? "返回产物" : "查看已移除"}</Button>}
     </div>
     {!evidence.ready && !evidence.unavailable && <p className="text-13 text-muted-foreground">先在意外发现的 Chat 中记录并确认发现或「暂无」。</p>}
@@ -206,9 +206,19 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...p
           if (!canAdd || creating.revision !== evidence.revision || (creating.cardIds.length && !evidence.revision)) return;
           const id = crypto.randomUUID();
           const source = evidence.revision ? { revision: evidence.revision, cardIds: creating.cardIds, available: new Set(interviewCards.map(card => card.id)) } : undefined;
-          save(old => addAidtDefinitionEntity(old, creating.kind, id, source));
+          save(old => addAidtDefinitionEntity(old, creating.kind, id, { source, name: creating.name, personaIds: creating.personaIds }));
           setCreating(null);
         }}>
+          <Input aria-label="卡片名称" placeholder="卡片名称（可选）" value={creating.name} maxLength={80} onChange={event => setCreating({ ...creating, name: event.target.value })} />
+          {creating.kind === "hmw" && <fieldset className="space-y-2 text-13">
+            <legend className="font-medium">来源画像</legend>
+            {confirmedPersonas.map(persona => <label key={persona.id} className="flex items-center gap-2">
+              <input type="checkbox" checked={creating.personaIds.includes(persona.id)} onChange={event => setCreating({
+                ...creating, personaIds: toggleId(creating.personaIds, persona.id, event.target.checked),
+              })} />
+              {persona.name}
+            </label>)}
+          </fieldset>}
           <DefinitionEvidence projectId={props.projectId} {...evidence} cards={interviewCards} selected={creating.cardIds} disabled={!canAdd} onChange={cardIds => setCreating({ ...creating, cardIds })} groupByInterview />
           {creating.revision !== evidence.revision && <p role="status" className="text-13">访谈版本已更新，请重新打开并选择。</p>}
           <Button type="submit" disabled={!canAdd || creating.revision !== evidence.revision}>创建{creating.kind === "persona" ? "画像" : "HMW"}</Button>
@@ -221,8 +231,8 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...p
           event.preventDefault();
           const value = editing.name.trim();
           if (!value) return;
-          save(old => aidtDefinitionEntityKind(old, editing.id) && (Object.hasOwn(old.fields, nameKey(editing.id)) || Object.keys(old.fields).length < 95)
-            ? { ...old, fields: { ...old.fields, [nameKey(editing.id)]: value } } : old);
+          save(old => aidtDefinitionEntityKind(old, editing.id) && (Object.hasOwn(old.fields, aidtDefinitionCardNameKey(editing.id)) || Object.keys(old.fields).length < 95)
+            ? { ...old, fields: { ...old.fields, [aidtDefinitionCardNameKey(editing.id)]: value } } : old);
           setEditing(null);
         }}>
           <Input aria-label="卡片名称" value={editing.name} maxLength={80} onChange={event => setEditing({ ...editing, name: event.target.value })} />

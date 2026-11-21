@@ -931,9 +931,14 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
     const selectedInterviews = state.interviews.slice(0, 2);
     const expectedCards = selectedInterviews.map(item => item.target.entityId);
-    const createDefinition = async (kind, openLabel, createLabel) => {
+    const createDefinition = async (kind, openLabel, createLabel, name, personaSource) => {
       await selectCreationType(openLabel);
       const dialog = page.getByRole('dialog', { name: openLabel, exact: true });
+      await fill('卡片名称', name, dialog);
+      if (personaSource) {
+        await dialog.getByRole('group', { name: '来源画像', exact: true })
+          .getByRole('checkbox', { name: personaSource.name, exact: true }).check();
+      }
       for (const interview of selectedInterviews) {
         const option = dialog.getByRole('checkbox', { name: new RegExp('^' + interview.code + '(?:\\s|$)') });
         await expect(option).toHaveCount(1);
@@ -944,6 +949,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       const record = JSON.parse(stage.content.draft.fields[`definition${kind}:${entityId}`]);
       await output(target);
       expect(record.cardIds).toEqual(expectedCards);
+      expect(stage.content.draft.fields[`definitionCardName:${entityId}`]).toBe(name);
+      if (personaSource) expect(record.personaIds).toEqual([personaSource.id]);
       const sourceRevision = Number(stage.content.draft.fields.definitionEvidenceRevision);
       expect(sourceRevision).toBeGreaterThan(0);
       expect(stage.sourceStageRevisions).toContainEqual({ stageId: 2, revision: sourceRevision });
@@ -972,35 +979,31 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       expect(sources.every(row => row.revision === sourceRevision)).toBe(true);
       expect([...new Set(sources.map(row => row.entityId))].sort()).toEqual([...expectedCards].sort());
     };
-    const persona = await createDefinition('Persona', '新建画像', '创建画像');
+    const persona = await createDefinition('Persona', '新建画像', '创建画像', personaName);
     const input = text(`我们的合成画像名为「${personaName}」。情境是午休点单，行为是比较等待时间，需求是了解等待信息；仅适用本测试夹具。请依据本画像选中的两个访谈发现整理画像草稿。`);
     if (!await feedback(3, input)) fail('S3_PERSONA_TEACHING_REPLY_REQUIRED');
     await assertDefinitionTeachingSources(persona);
     await confirmDefinition(persona.entityId); personaHref = page.url();
+    const personaRecord = JSON.parse((await savedStage(3)).content.draft.fields[`definitionPersona:${persona.entityId}`]);
     evidence(3).inputs.push({ name: '画像草稿', content: input, format: '原生 Chat 学生消息', source: { entityId: persona.entityId, sourceRevision: persona.sourceRevision } });
     evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with two selected discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
 
     await follow('返回产物列表');
-    const confirmHmw = async topic => {
-      const hmw = await createDefinition('Hmw', '新建 HMW', '创建HMW');
+    const confirmHmw = async (topic, name) => {
+      const hmw = await createDefinition('Hmw', '新建 HMW', '创建HMW', name, personaRecord);
       if (!await feedback(3, topic)) fail('S3_HMW_TEACHING_REPLY_REQUIRED');
       await assertDefinitionTeachingSources(hmw);
-      await click(btn('核对草稿和来源', definitionActions));
-      const personaGroup = definitionActions.getByRole('group', { name: '关联已确认画像', exact: true });
-      const personaChoice = personaGroup.getByRole('checkbox');
-      await expect(personaChoice).toHaveCount(1);
-      if (!(await personaChoice.isChecked())) await personaChoice.check();
       await confirmDefinition(hmw.entityId);
       const stage = await savedStage(3);
       const record = JSON.parse(stage.content.draft.fields[`definitionHmw:${hmw.entityId}`]);
-      expect(record).toMatchObject({ confirmed: true, cardIds: expectedCards });
+      expect(record).toMatchObject({ confirmed: true, cardIds: expectedCards, personaIds: [personaRecord.id] });
       expect(record.text.trim()).not.toBe('');
       evidence(3).inputs.push({ name: 'HMW 草稿', content: topic, format: '原生 Chat 学生消息', source: { entityId: hmw.entityId, sourceRevision: hmw.sourceRevision } });
       return { ...hmw, text: record.text };
     };
-    const hmw = await confirmHmw(text(`小组拟定：我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？对应已确认画像「${personaName}」。请保留这是合成证据和待核实的范围。`));
+    const hmw = await confirmHmw(text(`小组拟定：我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？对应已确认画像「${personaName}」。请保留这是合成证据和待核实的范围。`), "QA赶课方向");
     await follow('返回产物列表');
-    const alternative = await confirmHmw(text(`小组另拟一个方向：我们如何帮助时间充裕的学生比较不同饮品口味，找到愿意尝试的选择？对应已确认画像「${personaName}」，范围待核实。`));
+    const alternative = await confirmHmw(text(`小组另拟一个方向：我们如何帮助时间充裕的学生比较不同饮品口味，找到愿意尝试的选择？对应已确认画像「${personaName}」，范围待核实。`), "QA闲暇方向");
     expect(alternative.entityId).not.toBe(hmw.entityId);
     expect(alternative.text).not.toBe(hmw.text);
     await output(hmw.target);

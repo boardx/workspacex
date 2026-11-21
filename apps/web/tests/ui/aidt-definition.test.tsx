@@ -165,6 +165,8 @@ it("selects multiple confirmed interview discoveries as frozen evidence when cre
   for (const [openLabel, createLabel] of [["新建画像", "创建画像"], ["新建 HMW", "创建HMW"]] as const) {
     fireEvent.click(screen.getByRole("button", { name: openLabel }));
     const dialog = within(screen.getByRole("dialog"));
+    fireEvent.change(dialog.getByRole("textbox", { name: "卡片名称" }), { target: { value: createLabel } });
+    if (createLabel === "创建HMW") fireEvent.click(within(dialog.getByRole("group", { name: "来源画像" })).getByRole("checkbox", { name: "p1" }));
     expect(dialog.queryByText("U02")).not.toBeInTheDocument();
     expect(dialog.queryByText(orphaned.headline)).not.toBeInTheDocument();
     fireEvent.click(dialog.getByRole("checkbox", { name: "U01 · 阿岚 · 难以比较口味" }));
@@ -173,6 +175,8 @@ it("selects multiple confirmed interview discoveries as frozen evidence when cre
   }
   const definition = readAidtDefinition(result.fields);
   expect(definition.personas.at(-1)?.cardIds).toEqual([interviewId, secondId]);
-  expect(definition.hmws[0]?.cardIds).toEqual([interviewId, secondId]);
+  expect(definition.hmws[0]).toMatchObject({ cardIds: [interviewId, secondId], personaIds: ["p1"], text: "", confirmed: false });
+  expect(result.fields[`definitionCardName:${definition.hmws[0]!.id}`]).toBe("创建HMW");
+  expect(definition.personas.at(-1)?.name).toBe("创建画像");
   expect(readAidtDefinitionEvidenceRevision(result.fields)).toBe(2);
 });
