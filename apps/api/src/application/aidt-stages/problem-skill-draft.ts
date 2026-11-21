@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { isAidtGreetingText, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { isAidtGreetingText, isAidtProblemControlText, type SharedStageValue } from "@repo/contracts/aidt-stages";
 
 type Draft = SharedStageValue["content"]["draft"];
 const sections: Record<string, string> = {
@@ -30,7 +30,7 @@ export function problemSkillFields(answer: string): Record<string, string> {
     if (!line.trim() && current && fields[current]) { current = undefined; continue; }
     if (current && line.trim()) fields[current] = [fields[current], line.trim()].filter(Boolean).join("\n").slice(0, 650);
   }
-  if (fields.initial && isAidtGreetingText(fields.initial)) delete fields.initial;
+  for (const [key,value] of Object.entries(fields)) if (isAidtProblemControlText(value)) delete fields[key];
   if (fields.problemSources) {
     const codes: Record<string, string> = { "亲自观察":"observation", "听到抱怨":"complaint", "我们的猜测":"guess" };
     const labels = fields.problemSources.split(/[、，,；;]/).map(value => value.trim());
@@ -60,12 +60,12 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   if (output.initial) {
     const existing = previous.initial?.trim();
     // Students' first framing stays intact. A later reformulation has its own field.
-    if ((existing && !isAidtGreetingText(existing)) ||
+    if ((existing && !isAidtProblemControlText(existing)) ||
         (!turn.user.includes(output.initial) && turn.verifiedInitial !== output.initial)) delete output.initial;
   }
-  if (!output.initial && (!previous.initial?.trim() || isAidtGreetingText(previous.initial.trim()))) {
+  if (!output.initial && (!previous.initial?.trim() || isAidtProblemControlText(previous.initial.trim()))) {
     const initial = studentProblemStatement(turn.user);
-    if (!initial) return null;
+    if (!initial || isAidtProblemControlText(initial)) return null;
     output.initial = initial;
   }
   const {directionsText,selectedText,...patch}=output;

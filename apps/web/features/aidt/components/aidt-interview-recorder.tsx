@@ -61,6 +61,7 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
   const url = React.useRef<string | null>(null);
   const mounted = React.useRef(false);
   const [phase, setPhase] = React.useState<"idle" | "starting" | "recording" | "stopping" | "saving">("idle");
+  const [recordedSeconds, setRecordedSeconds] = React.useState(0);
   const [preview, setPreview] = React.useState<Preview | null>(null);
   const [asrSelected, setAsrSelected] = React.useState(false);
   const [message, setMessage] = React.useState("");
@@ -118,6 +119,7 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
       abort: new AbortController(), frames: [], samples: 0, startedAt: "", transcripts: [], asrFailed: false, stopping: false,
     };
     active.current = attempt;
+    setRecordedSeconds(0);
     setPhase("starting");
     setMessage("");
     try {
@@ -130,7 +132,10 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
         const buffered = frame.slice(0, MAX_SAMPLES - attempt.samples);
         if (buffered.length) {
           attempt.frames.push(buffered);
+          const previousSeconds = Math.floor(attempt.samples / TARGET_SAMPLE_RATE);
           attempt.samples += buffered.length;
+          const seconds = Math.floor(attempt.samples / TARGET_SAMPLE_RATE);
+          if (seconds !== previousSeconds) setRecordedSeconds(seconds);
           attempt.listener?.(buffered);
         }
         if (attempt.samples >= MAX_SAMPLES) void stop();
@@ -189,11 +194,19 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
     }
   }
 
-  return <div className="space-y-2 rounded-lg border border-border p-3" aria-label="当前受访者录音">
+  return <section className="min-w-0 space-y-3 rounded-lg border border-border bg-card p-3" aria-label="当前受访者录音">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h5 className="text-14 font-semibold">访谈录音 · {participantCode}</h5>
+      {phase === "recording" && <span role="timer" aria-label="已录制时长" className="text-13 tabular-nums">{timestamp(recordedSeconds * 1000)}</span>}
+    </div>
     {asrAllowed && <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={asrSelected} disabled={disabled || phase !== "idle" || !!preview} onChange={event => setAsrSelected(event.currentTarget.checked)} />本次录音同时请求实时转写</label>}
     <div className="flex flex-wrap gap-2">
-      <Button type="button" size="sm" variant="outline" disabled={disabled || phase !== "idle" || !!preview} onClick={() => void start()}>开始录音</Button>
-      {phase === "recording" && <Button type="button" size="sm" onClick={() => void stop()}>停止录音</Button>}
+      {!preview && <Button type="button" size="sm"
+        disabled={disabled && phase === "idle"}
+        aria-disabled={phase === "starting" || phase === "stopping"}
+        onClick={() => { if (phase === "recording") void stop(); else if (phase === "idle") void start(); }}>
+        {phase === "recording" || phase === "stopping" ? "停止录音" : "开始录音"}
+      </Button>}
       {preview && <Button type="button" size="sm" disabled={disabled || phase !== "idle"} onClick={() => void save()}>{preview.receipt ? "重试录音回读" : "保存本次录音原件"}</Button>}
       {preview && <Button type="button" size="sm" variant="ghost" disabled={phase !== "idle"} onClick={() => { clear(); setPreview(null); setMessage(""); }}>舍弃本页录音</Button>}
     </div>
@@ -207,5 +220,5 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
       {!!preview.draftTranscript && <p className="whitespace-pre-wrap text-12">自动转写摘录（时间为浏览器收到文本时的录音位置，需人工校对）{"\n"}{preview.draftTranscript}</p>}
     </>}
     {message && <p role="status" className="text-12">{message}</p>}
-  </div>;
+  </section>;
 }

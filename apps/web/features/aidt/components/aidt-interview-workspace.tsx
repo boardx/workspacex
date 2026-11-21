@@ -44,6 +44,7 @@ function readProblemDraft(draft: AidtUiStageDraft, id?: string): AidtUiStageDraf
 
 async function confirmedTopic(stage: AidtSharedStage | null, problemEntityId?: string): Promise<Topic | null> {
   if (!stage) return null;
+  problemEntityId ??= stage.content.draft.fields.problemHandoffEntity || undefined;
   const draft = readProblemDraft(stage.content.draft, problemEntityId);
   if (!draft) return null;
   const { fields } = draft;
