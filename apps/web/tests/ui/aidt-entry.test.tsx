@@ -84,9 +84,9 @@ it("does not offer profile creation to a member without the existing tag-save pe
 });
 
 it("describes the real project boundary as one learning group rather than a fake internal groupId", async () => {
+  api.groups.mockResolvedValue([]);
   render(<AidtHome />);
-  await screen.findByTestId("aidt-project-p1");
-  expect(screen.getByText(/每个小组一个学习空间/)).toBeVisible();
+  expect(await screen.findByTestId("aidt-home-empty")).toHaveTextContent("请为每个学习小组分别创建空间，再添加组员。");
   expect(screen.getByRole("button", { name: "新建小组空间" })).toBeVisible();
 });
 
