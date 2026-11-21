@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { StageDraft } from "@repo/contracts/aidt-stages";
 import { aidtUiStageSummary, emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import {
-  aidtInterviewDirectory, aidtInterviewMaterialKey, archiveAidtInterview, confirmAidtInterviewFinding,
+  areAidtInterviewsComplete, aidtInterviewDirectory, aidtInterviewMaterialKey, archiveAidtInterview, confirmAidtInterviewFinding,
   confirmedAidtInterviewCards, readAidtInterviewAudio, readAidtInterviews, writeAidtInterview, writeAidtInterviewAudio, writeAidtInterviewFinding,
   writeAidtInterviewMaterial, writeAidtInterviewTranscript, type AidtInterview,
 } from "@/features/aidt/lib/aidt-interviews";
@@ -57,6 +57,9 @@ describe("AIDT interview entity snapshots", () => {
     expect(archived.discoveryCards).toEqual(snapshot.discoveryCards);
     expect(archived.fields[sourceKey]).toBe(material);
     expect(confirmedAidtInterviewCards(snapshot)).toHaveLength(1);
+    expect(areAidtInterviewsComplete(snapshot, "group-A")).toBe(false);
+    expect(areAidtInterviewsComplete(archiveAidtInterview(snapshot, pending.id), "group-A")).toBe(true);
+    expect(areAidtInterviewsComplete(archived, "group-A")).toBe(false);
     expect(aidtInterviewDirectory(archived)).toMatchObject([{ id: student.id, archived: true }, { id: pending.id, archived: false }]);
   });
 });

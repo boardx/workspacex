@@ -12,7 +12,7 @@ export type AidtSummaryContext = {
   missingStages: number[]; failedStages: number[]; historyRevisions: {stageId:number;revision:number}[]; historyMarkdown: string; historyTruncated: boolean;
 };
 function clip(value: string, limit: number) { const text = value.slice(0, limit); return /[\uD800-\uDBFF]$/.test(text) ? text.slice(0, -1) : text; }
-export async function loadAidtSummaryContext(scope: AidtReportHistoryScope, signal: AbortSignal): Promise<AidtSummaryContext> {
+export async function loadAidtSummaryContext(scope: AidtReportHistoryScope, signal: AbortSignal, reportEntityId?: string): Promise<AidtSummaryContext> {
   const check = () => { if (signal.aborted) throw new Error("AIDT_CONTEXT_CHANGED"); };
   check();
   const current = await Promise.all([1, 2, 3, 4, 5, 6].map(async stageId => {
@@ -30,7 +30,9 @@ export async function loadAidtSummaryContext(scope: AidtReportHistoryScope, sign
   const learning = history.stages.find(stage => stage.stageId === 6)!.entries.map(row => `第6步 V${row.revision}\n${row.excerpt}`).join("\n\n");
   const historyText = `${learning}\n\n${allHistory}`;
   const reportStage = current.find(row => row.stageId === 6)?.stage;
-  const report = reportStage?.content.summaryReport;
+  const report = reportEntityId && reportEntityId !== "group-report"
+    ? reportStage?.content.reports?.[reportEntityId]
+    : reportStage?.content.summaryReport;
   return {
     projectId: scope.projectId, readAt: new Date().toISOString(), trust: "untrusted-student-material", teacherComments: null,
     currentStages: current.flatMap(row => {
@@ -46,7 +48,7 @@ export async function loadAidtSummaryContext(scope: AidtReportHistoryScope, sign
   };
 }
 export function aidtSummaryRequest(context: AidtSummaryContext): string {
-  return ["请生成本组研究过程报告的学生审阅稿。", AIDT_REPORT_GUIDANCE,
+  return ["请生成本组研究过程报告的学生审阅稿，以 Markdown 标题「# 小组研究报告」开始。", AIDT_REPORT_GUIDANCE,
     `材料读取时间：${context.readAt}；已读取来源：${context.currentStages.map(row => `第${row.stageId}步 V${row.revision}`).join("、") || "无"}。`,
     `尚无保存记录：${context.missingStages.join("、") || "未发现"}；读取失败：${context.failedStages.join("、") || "无"}。`,
     "请依据本次服务器按所选精确保存版本组装的参考材料组织报告，明确缺失/截断；existingSavedReport仅是学生现有工作稿，其中自述点评不是已授权教师点评来源。教师点评尚无授权来源。不要宣称生成了PDF/Word文件、研究已验证或全组已确认。输出完成后等待学生选择导入，不自动保存。",

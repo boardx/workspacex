@@ -27,7 +27,6 @@ import { KnowledgePanel } from "@/components/chat/knowledge/knowledge-panel";
 import { TurnMemoryLine } from "@/components/chat/knowledge/turn-memory-line";
 import { OPEN_CLAIM_SOURCES_EVENT, takePendingClaimSources } from "@/lib/knowledge-graph-events";
 import {
-  KG_RELATED_QUERY_DEGRADED_ZH,
   KG_RELATION_LABEL_ZH,
   RETRIEVAL_CHANNEL_LABEL_ZH,
   graphPathText,
@@ -83,7 +82,7 @@ function localMonthDay(iso: string): string {
 
 describe("AnswerKnowledgeFooter：引用 chip", () => {
   it("chip 按 recalled 名次编号，只画 recalled 里的条目；长句截断但 title 保留全文", () => {
-    render(<AnswerKnowledgeFooter recalled={[DECIDE, TODO]} recallDegraded={false} onOpenSource={() => {}} />);
+    render(<AnswerKnowledgeFooter recalled={[DECIDE, TODO]} onOpenSource={() => {}} />);
     const chips = screen.getByTestId("kg-citation-chips");
     expect(within(chips).getAllByRole("button")).toHaveLength(2);
     const first = screen.getByTestId("kg-citation-c-decide");
@@ -96,7 +95,7 @@ describe("AnswerKnowledgeFooter：引用 chip", () => {
   });
 
   it("「AI 记下的」只挂在 pending 那条，「有矛盾」只挂在 conflict 那条（文案来自契约）", () => {
-    render(<AnswerKnowledgeFooter recalled={[DECIDE, TODO, RISK]} recallDegraded={false} onOpenSource={() => {}} />);
+    render(<AnswerKnowledgeFooter recalled={[DECIDE, TODO, RISK]} onOpenSource={() => {}} />);
     expect(screen.getByTestId("kg-citation-pending-c-todo")).toHaveTextContent(KG_TRI_STATE_LABEL_ZH.pending);
     expect(screen.getByTestId("kg-citation-conflict-c-risk")).toHaveTextContent(KG_TRI_STATE_LABEL_ZH.conflict);
     expect(screen.queryByTestId("kg-citation-pending-c-decide")).not.toBeInTheDocument();
@@ -106,7 +105,7 @@ describe("AnswerKnowledgeFooter：引用 chip", () => {
 
   it("长期记忆的一条标「来自你 {M/D} 的对话」（本地时区）；本会话的不标；没有时间时说「来自你的长期记忆」", () => {
     const noDate = mem({ claimId: "p-nodate", scope: "personal", saidAt: null });
-    render(<AnswerKnowledgeFooter recalled={[PERSONAL, DECIDE, noDate]} recallDegraded={false} onOpenSource={() => {}} />);
+    render(<AnswerKnowledgeFooter recalled={[PERSONAL, DECIDE, noDate]} onOpenSource={() => {}} />);
     expect(screen.getByTestId("kg-from-personal-p-custa")).toHaveTextContent(`来自你 ${localMonthDay(PERSONAL.saidAt!)} 的对话`);
     expect(screen.queryByTestId("kg-from-personal-c-decide")).not.toBeInTheDocument();
     expect(screen.getByTestId("kg-from-personal-p-nodate")).toHaveTextContent("来自你的长期记忆");
@@ -117,7 +116,7 @@ describe("AnswerKnowledgeFooter：引用 chip 标类型（issue #4343）", () =>
   it("每个 chip 标出类型：目标 / 偏好 / 决定；title 仍是原文（不混进类型字）", () => {
     const goal = mem({ claimId: "p-goal", statement: "我的目标是探索未来教育", kind: "goal", scope: "personal", channels: ["claim"] });
     const pref = mem({ claimId: "p-pref", statement: "我更喜欢简洁的回答", kind: "preference", scope: "personal", channels: ["claim"] });
-    render(<AnswerKnowledgeFooter recalled={[goal, pref, { ...DECIDE, kind: "decision" }]} recallDegraded={false} onOpenSource={() => {}} />);
+    render(<AnswerKnowledgeFooter recalled={[goal, pref, { ...DECIDE, kind: "decision" }]} onOpenSource={() => {}} />);
     expect(screen.getByTestId("kg-cite-kind-p-goal")).toHaveTextContent("目标");
     expect(screen.getByTestId("kg-cite-kind-p-pref")).toHaveTextContent("偏好");
     expect(screen.getByTestId("kg-cite-kind-c-decide")).toHaveTextContent("决定");
@@ -131,7 +130,7 @@ describe("AnswerKnowledgeFooter：引用 chip 标类型（issue #4343）", () =>
 
 describe("AnswerKnowledgeFooter：为什么用到它", () => {
   it("展开后逐条显示通道用词、召回理由、关系路径（关系用短标签），不显示分数", () => {
-    render(<AnswerKnowledgeFooter recalled={[DECIDE, TODO, PERSONAL]} recallDegraded={false} onOpenSource={() => {}} />);
+    render(<AnswerKnowledgeFooter recalled={[DECIDE, TODO, PERSONAL]} onOpenSource={() => {}} />);
     expect(screen.queryByTestId("kg-why-recall-body")).not.toBeInTheDocument();
     const toggle = screen.getByTestId("kg-why-recall-toggle");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -173,29 +172,6 @@ describe("AnswerKnowledgeFooter：为什么用到它", () => {
   });
 });
 
-describe("AnswerKnowledgeFooter：查不全提示只看 recallDegraded", () => {
-  it("recallDegraded=true 时显示固定说法", () => {
-    render(<AnswerKnowledgeFooter recalled={[TODO]} recallDegraded degradedChannels={["graph"]} onOpenSource={() => {}} />);
-    expect(screen.getByTestId("kg-channel-unavailable")).toHaveTextContent(KG_RELATED_QUERY_DEGRADED_ZH);
-  });
-
-  it("recallDegraded=false：哪怕没有一条走「相似」（向量未部署），也不提示", () => {
-    const ftsOnly = [mem({ claimId: "c-a", channels: ["fts"] }), mem({ claimId: "c-b", channels: ["graph"] })];
-    render(<AnswerKnowledgeFooter recalled={ftsOnly} recallDegraded={false} onOpenSource={() => {}} />);
-    expect(screen.queryByTestId("kg-channel-unavailable")).not.toBeInTheDocument();
-    expect(screen.getByTestId("kg-answer-footer").textContent).not.toContain("没能查全");
-  });
-
-  it("recalled 为空但 recallDegraded=true：只画那一行提示，不画空 chip 区；两者都没有时整块不渲染", () => {
-    const { container, rerender } = render(<AnswerKnowledgeFooter recalled={[]} recallDegraded onOpenSource={() => {}} />);
-    expect(screen.getByTestId("kg-channel-unavailable")).toBeInTheDocument();
-    expect(screen.queryByTestId("kg-citation-chips")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("kg-why-recall-toggle")).not.toBeInTheDocument();
-    rerender(<AnswerKnowledgeFooter recalled={[]} recallDegraded={false} onOpenSource={() => {}} />);
-    expect(container).toBeEmptyDOMElement();
-  });
-});
-
 /* ── 点 chip → 来源抽屉 ──────────────────────────────────────────── */
 
 const SOURCES: ClaimSources = knowledgeGraph.getClaimSources.out.parse({
@@ -225,7 +201,7 @@ describe("点引用 chip：打开那一条的来源抽屉", () => {
     const listener = (e: Event): void => { heard.push(String((e as CustomEvent<unknown>).detail)); };
     window.addEventListener(OPEN_CLAIM_SOURCES_EVENT, listener);
     try {
-      render(<AnswerKnowledgeFooter recalled={[DECIDE, PERSONAL]} recallDegraded={false} />);
+      render(<AnswerKnowledgeFooter recalled={[DECIDE, PERSONAL]} />);
       fireEvent.click(screen.getByTestId("kg-citation-p-custa"));
       expect(heard).toEqual(["p-custa"]);
     } finally {
@@ -237,7 +213,7 @@ describe("点引用 chip：打开那一条的来源抽屉", () => {
     const loadSources = vi.fn(() => Promise.resolve(SOURCES));
     render(
       <>
-        <AnswerKnowledgeFooter recalled={[PERSONAL]} recallDegraded={false} />
+        <AnswerKnowledgeFooter recalled={[PERSONAL]} />
         <KnowledgePanel status="ready" data={knowledge()} loadSources={loadSources} />
       </>,
     );
@@ -250,7 +226,7 @@ describe("点引用 chip：打开那一条的来源抽屉", () => {
 
   it("点击时面板还没挂载（记忆页签没打开）：面板挂载时接住这一次，且只接一次", async () => {
     const loadSources = vi.fn(() => Promise.resolve(SOURCES));
-    render(<AnswerKnowledgeFooter recalled={[PERSONAL]} recallDegraded={false} />);
+    render(<AnswerKnowledgeFooter recalled={[PERSONAL]} />);
     fireEvent.click(screen.getByTestId("kg-citation-p-custa"));
 
     const first = render(<KnowledgePanel status="ready" data={knowledge()} loadSources={loadSources} />);
@@ -315,10 +291,11 @@ describe("TurnMemoryLine：回答下的引用 + 已记下", () => {
     expect(screen.queryByTestId("kg-turn-captured")).not.toBeInTheDocument();
   });
 
-  it("recallDegraded=true 而 recalled 为空：照样画那一行提示", async () => {
-    stubTurn(json(turn({ recallDegraded: true, degradedChannels: ["graph"] })));
+  it("旧消息即使记录召回故障，仍正常渲染可用引用并且不显示警告", async () => {
+    stubTurn(json(turn({ recalled: [PERSONAL], recallDegraded: true, degradedChannels: ["vector"] })));
     render(<TurnMemoryLine threadId={THREAD} messageId="msg-7" />);
-    expect(await screen.findByTestId("kg-channel-unavailable")).toHaveTextContent(KG_RELATED_QUERY_DEGRADED_ZH);
+    expect(await screen.findByTestId("kg-answer-footer")).toBeVisible();
+    expect(screen.queryByTestId("kg-channel-unavailable")).toBeNull();
   });
 
   it("recalled 与 captured 都空：什么都不渲染", async () => {
@@ -336,15 +313,4 @@ describe("TurnMemoryLine：回答下的引用 + 已记下", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(container).toBeEmptyDOMElement();
   });
-});
-
-it("向量故障提示相似查询，不误报关联查询", () => {
-  render(<AnswerKnowledgeFooter recalled={[]} recallDegraded degradedChannels={["vector"]} />);
-  expect(screen.getByTestId("kg-channel-unavailable")).toHaveTextContent("相似查询暂不可用");
-  expect(screen.getByTestId("kg-channel-unavailable")).not.toHaveTextContent("关联查询暂不可用");
-});
-
-it("旧记录未保存通道时只显示通用降级提示", () => {
-  render(<AnswerKnowledgeFooter recalled={[]} recallDegraded />);
-  expect(screen.getByTestId("kg-channel-unavailable")).toHaveTextContent("这次没能查全你的记忆，回答可能不完整");
 });

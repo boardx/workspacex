@@ -192,12 +192,12 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
     orgId: OrgId, userId: string, query: string, candidateIds: readonly string[] | Promise<readonly string[]>, limit: number, accounting?: RetrievalAccountingContext,
   ): Promise<readonly VectorHit[] | null> {
     if (this.embeddings === null) return null;
-    if (limit < 1 || (Array.isArray(candidateIds) && candidateIds.length === 0)) return [];
+    if (limit < 1) return [];
+    const claimIds = await candidateIds;
+    if (claimIds.length === 0) return [];
     if(accounting?.orgId!==String(orgId))throw new Error("retrieval_accounting_tenant_mismatch");
     const model = { model: this.embeddings.model, modelVersion: this.embeddings.modelVersion };
-    // 嵌入问题与读候选集并行（候选集还在读时就开始嵌入）。
-    const [claimIds, q] = await Promise.all([candidateIds, this.embeddings.embed(query,accounting)]);
-    if (claimIds.length === 0) return [];
+    const q = await this.embeddings.embed(query,accounting);
     // pgvector 的文本输入格式就是 JSON 数组的写法。
     const vec = JSON.stringify(q);
     return this.db.withTenant(orgId, async (s) => {

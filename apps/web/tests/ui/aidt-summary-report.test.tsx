@@ -132,3 +132,12 @@ it("does not relabel old report refs or modify the saved stage draft when a revi
   expect(saved.content.summaryReport?.sourceStageRevisions).toEqual([{stageId:5,revision:1}]);
   expect(saved.sourceStageRevisions).toEqual(original.sourceStageRevisions);expect(saved.content.draft).toEqual(original.content.draft);
 });
+
+it("automatically loads the current report entity's materials in compact native Chat", async () => {
+  const selected = vi.fn();
+  render(<AidtSummaryChatContext compact reportEntityId="group-report" scope={scope} threadId="sum" onSelectorChange={selected} />);
+  await waitFor(() => expect(selected).toHaveBeenLastCalledWith(expect.objectContaining({ purpose: "summary", projectId: "p" })));
+  expect(mocks.load).toHaveBeenCalledWith(scope, expect.any(AbortSignal), "group-report");
+  expect(screen.queryByRole("button", { name: "读取报告材料" })).toBeNull();
+  expect(screen.getByRole("button", { name: "起草报告" })).toBeEnabled();
+});

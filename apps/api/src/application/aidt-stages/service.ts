@@ -4,7 +4,7 @@ import { authorize } from "../identity/authorize";
 import { discloseDecided, isDisclosed, type Guarded } from "../security/permission-filter";
 import { AidtStageError } from "../../domain/aidt-stages/errors";
 import type { AidtStageRepository, StageActor, StageTransaction } from "./ports";
-import { aidtEntityThreadId, aidtSavedEntityTitle } from "./entity-thread";
+import { aidtEntityThreadId, aidtSavedEntityTitle, isAidtPrototypeEntityArchived } from "./entity-thread";
 import type { PermissionDecision } from "../../domain/identity/permission-decision";
 function unwrap<T>(value:Guarded<T>,decision:PermissionDecision):T { const out=discloseDecided(value,decision); if(!isDisclosed(out)) throw new AidtStageError("AIDT_STAGE_NOT_FOUND"); return out.payload; }
 /** Stable key for normalized contract values; key order cannot break retry identity. */
@@ -42,8 +42,10 @@ export class AidtStagesService {
       const design = stageId === 5 && tx.projectResources
         ? unwrap(await tx.projectResources(), decision)?.find(resource => resource.kind === "design" && resource.id === entityId && resource.status !== "archived")
         : undefined;
+      const saved = unwrap(await tx.current(stageId), decision);
+      if (stageId === 5 && isAidtPrototypeEntityArchived(saved, entityId)) throw new AidtStageError("AIDT_STAGE_NOT_FOUND");
       const title = design ? design.title.trim().slice(0, 200) || "原型"
-        : aidtSavedEntityTitle(unwrap(await tx.current(stageId), decision), entityId, purpose);
+        : aidtSavedEntityTitle(saved, entityId, purpose);
       if (title === null) throw new AidtStageError("AIDT_STAGE_NOT_FOUND");
       const threadId = aidtEntityThreadId(actor, stageId, entityId, purpose);
       return unwrap(await tx.ensureEntityThread(threadId, title), decision);

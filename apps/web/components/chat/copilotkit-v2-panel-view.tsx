@@ -48,7 +48,7 @@ import { ChatHostToolPermission } from "@/components/chat/chat-host-tool-permiss
 import type { CopilotKitV2PanelViewProps } from "./copilotkit-v2-panel-body";
 
 /** Presentation only. The stable controller owns every session, hook and callback. */
-export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps): JSX.Element {
+export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps & { conversationControls?: React.ReactNode }): JSX.Element {
   const {
     EMPTY_INPUT_REASON,
     RECORDING_SEND_REASON,
@@ -473,6 +473,7 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps): JSX.El
             {renderChatDisplayText(personaFailure, locale)}
           </span>
         ) : null}
+        {props.conversationControls}
         {/* chat-parity-attachments (issue #2022) -- composer 附件区：就地报错横幅 + 预览条，
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}

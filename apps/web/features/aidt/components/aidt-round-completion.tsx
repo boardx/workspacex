@@ -10,7 +10,7 @@ import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundPayload, aidtRoundDigest, aidtRou
 /** Explicit student review + the normal CAS save. A failed save never enables Continue. */
 export function AidtRoundCompletion({ projectId, step, draft, controller: c, readOnly, onConfirm, nextHref }: {
   projectId: string; step: AidtStep; draft: AidtUiStageDraft;
-  controller: ReturnType<typeof useAidtSharedStages>; readOnly: boolean; onConfirm: (record: string) => void; nextHref: string;
+  controller: ReturnType<typeof useAidtSharedStages>; readOnly: boolean; onConfirm: (record: string) => void; nextHref: string | null;
 }) {
   const payload = aidtRoundPayload(projectId, step.id, draft, c.sourceStageRevisions);
   const [hash, setHash] = React.useState<{ payload: string; digest?: string; failed?: boolean } | null>(null);
@@ -40,7 +40,7 @@ export function AidtRoundCompletion({ projectId, step, draft, controller: c, rea
     <p role="status" className="text-12 text-muted-foreground">{missing ?? (complete ? "已记录编辑者核对；仍可返回修订，不代表全员同意或研究已验证。" : confirmed ? "确认记录尚未保存；保存成功后继续。" : "核对本轮产出与缺口后确认。修改内容或来源后需重新确认。")}</p>
     {filesRequired && !complete && <label className="flex items-start gap-2 text-12"><input type="checkbox" checked={filesChecked} disabled={readOnly || c.write.phase === "saving"} onChange={event => { setFileReview({ payload, checked: event.currentTarget.checked }); if (!event.currentTarget.checked && confirmed) onConfirm(""); }} />{step.id === 4 ? "我已核对至少三份不同点子的PDF，并能查看入选点子的描述单" : "我已打开并核对实际用于测试的原型版本"}（学生核对）</label>}
     {hash?.payload === payload && hash.failed && <p role="alert" className="text-12">暂时无法核对本轮内容。<Button variant="ghost" size="sm" onClick={() => setRetry(value => value + 1)}>重试核对</Button></p>}
-    {complete ? <Button asChild size="sm"><Link href={nextHref}>{step.id === 6 ? "整理小组报告" : `继续第${step.id + 1}步`}</Link></Button> : <Button size="sm" disabled={readOnly || Boolean(missing) || !record || !filesChecked || !c.canSave || c.write.phase === "saving"} onClick={() => {
+    {complete ? nextHref && <Button asChild size="sm" variant="primary"><Link href={nextHref}>{step.id === 6 ? "整理小组报告" : `继续第${step.id + 1}步`}</Link></Button> : <Button size="sm" disabled={readOnly || Boolean(missing) || !record || !filesChecked || !c.canSave || c.write.phase === "saving"} onClick={() => {
       if (readOnly || missing || !record || !filesChecked || !c.canSave) return;
       if (confirmed) void c.saveCurrent();
       else { pending.current = payload; onConfirm(record); }

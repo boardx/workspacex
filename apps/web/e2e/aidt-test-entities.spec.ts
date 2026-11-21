@@ -148,22 +148,29 @@ test("AIDT testing entities bind an immutable Design and isolate parallel native
     outcome.searchParams.set("tool", "outcome");
     await b!.goto(outcome.toString());
     const detail = b!.getByTestId("aidt-test-group-detail");
-    await expect(detail).toContainText(prototype.versionId);
-    await detail.getByRole("combobox", { name: "测试方式" }).selectOption("survey");
-    await detail.getByRole("combobox", { name: "关联项目问卷" }).selectOption(survey.id);
-    await detail.getByRole("textbox", { name: "原件位置（时间点、答卷或批次）" }).fill(survey.submissionId);
-    await detail.getByRole("textbox", { name: "原话或问卷原始回答" }).fill("能分辨");
-    await expect(detail.getByRole("textbox", { name: "现场观察到的行为" })).toHaveValue("");
-    await b!.getByTestId("aidt-shared-save").click();
-    await expect(b!.getByTestId("aidt-shared-receipt")).toBeVisible();
+    await expect(detail).toBeVisible();
+    await expect(detail.getByRole("textbox")).toHaveCount(0);
+    await expect(detail.getByRole("combobox")).toHaveCount(0);
+    await b!.getByText("关联测试材料", { exact: true }).click();
+    const sources = b!.getByTestId("aidt-test-group-sources");
+    await sources.getByRole("combobox", { name: "测试方式" }).selectOption("survey");
+    await sources.getByRole("combobox", { name: "关联项目问卷" }).selectOption(survey.id);
+    await b!.getByRole("button", { name: "保存关联材料" }).click();
+    await expect(detail.getByRole("link", { name: "打开关联资料" })).toBeAttached();
+    await expect.poll(async () => {
+      const { stage } = stageOperations.get.out.parse(await api(page, `/projects/${projectId}/aidt/stages/6`));
+      return readAidtTestGroups(stage!.content.draft.fields).find(group => group.name === "B 非高峰问卷")?.source?.id;
+    }).toBe(survey.id);
     await b!.reload();
-    await expect(detail.getByRole("textbox", { name: "原话或问卷原始回答" })).toHaveValue("能分辨");
+    await detail.getByText("原型版本与来源", { exact: true }).click();
+    await expect(detail).toContainText(prototype.versionId);
+    await expect(detail.getByRole("link", { name: "打开关联资料" })).toBeVisible();
     await expect.poll(() => routeThread(b!)).toBe(threadB);
     const { stage } = stageOperations.get.out.parse(await api(page, `/projects/${projectId}/aidt/stages/6`));
     const records = readAidtTestGroups(stage!.content.draft.fields).sort((first, second) => first.name.localeCompare(second.name));
     expect(records).toMatchObject([
       { name: "A 赶课访谈", method: "interview", said: "", stage5Revision: prototype.revision, versionId: prototype.versionId },
-      { name: "B 非高峰问卷", method: "survey", said: "能分辨", did: "", source: { id: survey.id, kind: "survey" }, sourceLocation: survey.submissionId, stage5Revision: prototype.revision, versionId: prototype.versionId },
+      { name: "B 非高峰问卷", method: "survey", said: "", did: "", source: { id: survey.id, kind: "survey" }, stage5Revision: prototype.revision, versionId: prototype.versionId },
     ]);
     await b!.screenshot({ path: info.outputPath("aidt-survey-test-group.png"), fullPage: true });
   } finally { await Promise.all(tabs.map(tab => tab.close())); }

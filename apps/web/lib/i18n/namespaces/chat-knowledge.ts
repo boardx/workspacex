@@ -4,8 +4,6 @@ import { sharedFromPersonalLabelZh, KG_OBJECT_KIND_LABEL_ZH, KG_VISIBILITY_LABEL
 export const chatKnowledgeZhCN = {
   "chatKnowledge.turn.undone": "已撤销这一轮的记录",
   "chatKnowledge.recall.why": "为什么用到它",
-  "chatKnowledge.recall.degraded": "这次没能查全你的记忆{detail}，回答可能不完整",
-  "chatKnowledge.recall.degradedDetail": "（{channels}查询暂不可用）",
   "chatKnowledge.recall.project": "来自项目记忆",
   "chatKnowledge.citation.basis": "依据你的",
   "chatKnowledge.citation.basisDated": "依据你 {date} 的",
@@ -270,8 +268,6 @@ export const chatKnowledgeZhCN = {
 export const chatKnowledgeEn: Record<keyof typeof chatKnowledgeZhCN, string> = {
   "chatKnowledge.turn.undone": "Undid this turn's saved memories",
   "chatKnowledge.recall.why": "Why it was used",
-  "chatKnowledge.recall.degraded": "Could not search all your memories{detail}. The answer may be incomplete.",
-  "chatKnowledge.recall.degradedDetail": " ({channels} search is unavailable)",
   "chatKnowledge.recall.project": "From project memory",
   "chatKnowledge.recall.shared": "{name} shared from personal memory",
   "chatKnowledge.recall.sharedAnonymous": "Shared from personal memory by a project member",

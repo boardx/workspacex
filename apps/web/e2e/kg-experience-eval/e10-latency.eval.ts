@@ -1,5 +1,5 @@
 /**
- * E10 不卡顿（06-UX R4 / R3-8）：开启记忆前后，发消息到首字的时间差 ≤ 100ms；图或向量故障时对话照常，只多一行说明。
+ * E10 不卡顿（06-UX R4 / R3-8）：开启记忆前后，发消息到首字的时间差 ≤ 100ms；图或向量故障时对话照常，不显示额外警告。
  *
  * - c1 首字时间：同一条栈、同样的问题，交替各问 5 次，取中位数之差。
  *   「开启记忆」= 主用户在一个记了 7 条事的对话里问（每轮都要召回、走图、把记忆交给模型）；
@@ -7,7 +7,7 @@
  *   产品没有「关掉记忆」的开关，所以这是能在真栈里量到的最接近「开启前后」的一对；两边的差就是记忆这一段的开销。
  *   「首字」= 按下回车到回答那一行出现第一个字（浏览器里看到的，不是接口时间）。
  * - c2 图路故障：在库里把图路查询函数挪开（真的让它不可用），问一个会走图的问题：回答照常出来、答得上，
- *   回答下方多且只多一行「这次没能查全你的记忆…」。之后把函数挪回来。
+ *   回答下方没有记忆通道警告。之后把函数挪回来。
  */
 import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
@@ -71,9 +71,9 @@ test("[E10.c1] 发消息到首字：有记忆比没有记忆慢不超过 100ms�
   expect(l.onMedian - l.offMedian).toBeLessThanOrEqual(100);
 });
 
-test("[E10.c2] 图路故障：回答照常出来、答得上，只多一行「这次没能查全你的记忆」", async ({}, testInfo) => {
+test("[E10.c2] 图路故障：回答照常出来、答得上，不显示记忆通道警告", async ({}, testInfo) => {
   await attach(testInfo, j, ["graph-down"], { graphDown: j.seen.graphDown ?? null });
   const g = seen<{ answer: string; degradedLines: number }>(j, "graphDown");
   expect(g.answer).toContain("陈静");
-  expect(g.degradedLines).toBe(1);
+  expect(g.degradedLines).toBe(0);
 });
