@@ -78,6 +78,7 @@ it("admits only one concurrent request against one Credit and settles it once",a
 it("keeps balance and gross reservation read models distinct while capacity is held", async () => {
   await asApp(personal, c => c.query("UPDATE credit_wallets SET balance=1 WHERE owner_type='user' AND owner_id=$1", [user]));
   await reserve(personal, "estimate");
-  expect((await balance(personal)).wallet).toMatchObject({balance: 1, availableBalance: 1, reservedCredits: 1});
+  expect((await balance(personal)).wallet).toMatchObject({balance: 1, availableBalance: 0, reservedCredits: 1});
   await settle(personal, "estimate", 0);
+  expect((await balance(personal)).wallet).toMatchObject({balance: 1, availableBalance: 1, reservedCredits: 0});
 });
