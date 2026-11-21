@@ -109,7 +109,7 @@ test('catalog permission does not authorize capability mutations or change safet
     const { guard, bind } = owned(); bind();
     assert.equal(request(guard, method, '/api/capabilities?orgId=qa-org&kind=agent', { orgId: 'qa-org', kind: 'agent', op: 'add' }).allow, false);
     assert.equal(guard.summary().allowedWrites, 1); assert.equal(guard.summary().roleWritesAllowed, 0); assert.equal(guard.summary().deletesAllowed, 0);
-    assert.equal(guard.summary().modelRequestsAllowed, 1); assert.equal(guard.summary().teachingRequestsAllowed, 39);
+    assert.equal(guard.summary().modelRequestsAllowed, 1); assert.equal(guard.summary().teachingRequestsAllowed, 40);
   }
 });
 test('allowed read evidence uses detached closed category counts with no request data', () => {

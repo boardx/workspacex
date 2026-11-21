@@ -71,7 +71,7 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
 }
 
 // Two S1 turns, one optional independent S1 fixture, thirty S2 turns, four later stages.
-export const TEACHING_TURN_LIMIT = 39;
+export const TEACHING_TURN_LIMIT = 40;
 // Nine additional interviews each save a guide, consent, a transcript and the confirmed finding.
 const WRITE_LIMIT = 128 + 9 * 15;
 
@@ -339,7 +339,14 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         if (!definitionKind) throw new ProbeFailure('TEACHING_DEFINITION_ENTITY_UNVERIFIED');
       }
       const summary = scope.selector.purpose === 'summary';
-      const key = summary ? 'group-report' : synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? `finding:${scope.selector.entityId}` : guideRevision ? revisionKey : scope.stageId === 2 ? guideKey : definitionKind ? 'definition:' + definitionKind : scope.stageId;
+      let testMethod;
+      if (scope.stageId === 6 && !summary && scope.selector.entityId) {
+        let group;
+        try { group = JSON.parse(stageStates.get(6)?.content?.draft?.fields['testGroup:' + scope.selector.entityId]); } catch { /* Not a saved test group. */ }
+        if (group?.id !== scope.selector.entityId || group.archived || !['interview', 'survey'].includes(group.method)) throw new ProbeFailure('TEACHING_TEST_ENTITY_UNVERIFIED');
+        testMethod = group.method;
+      }
+      const key = summary ? 'group-report' : testMethod ? 'test:' + testMethod : synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? `finding:${scope.selector.entityId}` : guideRevision ? revisionKey : scope.stageId === 2 ? guideKey : definitionKind ? 'definition:' + definitionKind : scope.stageId;
       const interviews = [...teachingLedger.keys()].filter(id => typeof id === 'string' && id.startsWith('interview:'));
       if (scope.stageId === 2 && (!scope.selector.entityId || (!finding && !guideRevision && interviews.length >= 10))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       if (finding) {

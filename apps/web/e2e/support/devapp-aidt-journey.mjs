@@ -437,7 +437,15 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     lastEntityRoute = target;
     return href;
   };
-  const captureCardCreation = async (stage, kind, submit, { reopen = false } = {}) => {
+  const capturedDialogs = new Set();
+  const captureCardCreation = async (stage, kind, submit, { reopen = false, example = kind } = {}) => {
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    const tag = dialog.getByRole('textbox', { name: '添加标签', exact: true });
+    await tag.fill('QA课堂'); await tag.press('Enter');
+    await expect(dialog.getByText('QA课堂', { exact: true })).toBeVisible();
+    const screenshotName = '0' + stage + '-create-' + example;
+    if (!capturedDialogs.has(example)) await capture(screenshotName + '-dialog', stage, 'card-dialog');
     const before = await savedStage(stage);
     armCardCreate(stage);
     const [response] = await Promise.all([
@@ -450,6 +458,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const target = ownedAidtEntityRoute(page.url(), { origin, projectId: scope.projectId }, { stage });
     const threadId = new URL(target.href).searchParams.get('thread');
     await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+    if (!capturedDialogs.has(example)) {
+      await capture(screenshotName + '-chat', stage);
+      capturedDialogs.add(example);
+    }
     const saved = await savedStage(stage);
     assertSavedCardCreation(before, saved, target, kind);
     await follow(stage === 1 ? '返回问题列表' : stage === 2 ? '返回访谈列表' : '返回产物列表');
@@ -748,7 +760,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(topic).toBeVisible();
       if (await topic.locator('..').getAttribute('open') === null) await topic.click();
       await expect(topic.locator('..')).toContainText(confirmedProblem.rewrittenTheme);
-      await click(btn('新建访谈')); await captureCardCreation(2, 'interview', () => click(btn('创建访谈')));
+      await click(btn('新建访谈')); await fill('受访者姓名或化名', `QA受访者 ${code}`, page.getByRole('dialog')); await captureCardCreation(2, 'interview', () => click(btn('创建访谈')));
       const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
       assertAidtS2Topic(JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]), confirmedProblem);
       await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
@@ -923,18 +935,26 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(panel.getByRole('textbox')).toHaveCount(0);
       return { panel, draft: stage.content.draft };
     };
-    const { target: surprise } = await captureCardCreation(3, 'surprise', () => click(btn('新建意外发现')), { reopen: true });
+    const createDefinition = async (kind, label, launch, title, sourceLabel, sourceName) => {
+      await click(btn(launch));
+      const dialog = page.getByRole('dialog', { name: '新建' + label });
+      await fill('卡片名称', title, dialog);
+      const source = dialog.getByRole('group', { name: sourceLabel, exact: true }).getByRole('checkbox', { name: sourceName });
+      await source.check();
+      return captureCardCreation(3, kind, () => click(btn('创建' + label, dialog)), { reopen: true });
+    };
+    const { target: surprise } = await createDefinition('surprise', '意外发现', '新建意外发现', 'QA意外发现', '来源访谈', /U01/);
     const noSurprise = await confirmDefinition(surprise, '我们重新读了合成材料，暂无与原先想法冲突的证据。请如实记录「暂无意外发现」。');
     await expect(noSurprise.panel).toContainText('暂无');
     await follow('返回产物列表');
-    const { target: persona } = await captureCardCreation(3, 'persona', () => click(btn('新建画像')), { reopen: true });
+    const { target: persona } = await createDefinition('persona', '画像', '新建画像', personaName, '来源访谈', /U01/);
     const personaProjection = await confirmDefinition(persona, `${context} 我们将画像命名为「${personaName}」。午休赶课的学生先看队列，希望了解等待时间。只有合成记录，不能推广到真实人群。请整理为画像并引用这张发现卡。`);
     const personaRecord = JSON.parse(personaProjection.draft.fields['definitionPersona:' + persona.entityId]);
     if (!personaRecord.confirmed || !personaRecord.cardIds.includes(source.target.entityId)) fail('PERSONA_FINDING_LINK_UNVERIFIED');
     personaHref = persona.href;
     await expect(personaProjection.panel).toContainText(personaRecord.name);
     await follow('返回产物列表');
-    const { target: hmw } = await captureCardCreation(3, 'hmw', () => click(btn('新建 HMW')), { reopen: true });
+    const { target: hmw } = await createDefinition('hmw', 'HMW', '新建 HMW', 'QA研究方向', '来源画像', personaRecord.name);
     const hmwProjection = await confirmDefinition(hmw, `${context} 关联已确认画像「${personaRecord.name}」（记录 ${persona.entityId}）。我们如何帮助不同时间情境中的学生理解等待信息，并保留自主选择？请整理这个方向，标注现有依据只是合成记录。`);
     const hmwRecord = JSON.parse(hmwProjection.draft.fields['definitionHmw:' + hmw.entityId]);
     if (!hmwRecord.confirmed || !hmwRecord.personaIds.includes(persona.entityId) || !hmwRecord.cardIds.includes(source.target.entityId)) fail('HMW_REFERENCE_UNVERIFIED');
@@ -1002,6 +1022,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await click(btn('新建原型'));
     const dialog = page.getByRole('dialog', { name: '新建原型' });
     await fill('原型名称', '未命名设计', dialog);
+    const chosenIdeas = dialog.getByRole('group', { name: '来源点子', exact: true });
+    await expect(chosenIdeas.getByRole('checkbox', { checked: true }).first()).toBeVisible();
     const { target: designRoute } = await captureCardCreation(5, 'prototype', async () => {
       await armDesignCreate(); await click(btn('创建原型', dialog));
     }, { reopen: true });
@@ -1009,7 +1031,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const entityHref = designRoute.href;
     await output(designRoute);
     const nativeActions = page.getByRole('region', { name: '原型对话操作' });
-    await saveStage(5, btn('采用入选点子', nativeActions));
+
     const prototypePrompt = text(`我们打算为入选点子制作静态队列提示界面。验证问题是「${question}」。我们原以为学生看完预计等待时间就知道先查看信息再决定排队，但只有合成情境支持这个猜想。设计说明：静态页面、校园午休、查看提示并选择是否排队；依次看队列、预计等待和操作选项。只能观察理解，不能判断真实等待、付费或偏好。请整理这份原型制作说明和验证问题。`);
     if (!await feedback(5, prototypePrompt)) fail('PROTOTYPE_TEACHING_REPLY_REQUIRED');
     await saveStage(5, btn('确认原型草稿', nativeActions));
@@ -1043,28 +1065,39 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   state.s6 = await check('s6-test-reflection', 6, async () => {
     if (!state.s5 || !step6Href) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
-    await page.goto(owned(step6Href)); await fill('测试名称', `QA合成测试 ${unique}`); const { target: testTarget } = await captureCardCreation(6, 'test', () => click(btn('新建测试草稿')), { reopen: true });
-    await output(testTarget);
-    const detail = page.getByTestId('aidt-test-group-detail');
-    await expect(detail.getByRole('textbox')).toHaveCount(0);
-    const actions = page.getByTestId('aidt-test-chat-confirmation');
-    await disclosure('关联测试材料');
-    const syntheticTestRecord = text('QA记录第1段。合成页面按查看等待信息、理解选择、决定是否排队的顺序展示。未进行真实用户测试。');
-    await uploaded('本组原始材料', `qa-${unique}-test.txt`, Buffer.from(syntheticTestRecord), 'text/plain');
-    await saveStage(6, btn('保存关联材料', actions));
-    const prompt = text(`这次测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的 QA记录第1段，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
-    if (!await feedback(6, prompt)) fail('TEST_TEACHING_REPLY_REQUIRED');
-    const proof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.status === 'passed');
-    await saveStage(6, btn('确认并保存测试成果', actions));
-    await page.reload();
-    await output(testTarget);
-    const fields = (await savedStage(6)).content.draft.fields;
-    const testRecord = JSON.parse(fields['testGroup:' + testTarget.entityId]);
-    if (!proof || testRecord.confirmedFromMessageId !== proof.assistantMessageId || !testRecord.task?.trim() || !testRecord.reflection?.trim() ||
-        fields.reflectionConfirmed !== 'true' || fields.understandingChangeStatus !== 'insufficient' || fields.returnStep !== '2') fail('TEST_NATIVE_ROUND_UNVERIFIED');
-    await expect(detail).toContainText(testRecord.task);
-    await expect(detail).toContainText(testRecord.reflection);
-    await shot('06-native-test-plan-and-material', 6);
+    for (const [method, label] of [['interview', '线下访谈'], ['survey', '问卷']]) {
+      await page.goto(owned(step6Href)); await click(btn('新建测试草稿'));
+      const dialog = page.getByRole('dialog', { name: '新建测试' });
+      await fill('测试名称', `QA合成${label} ${unique}`, dialog);
+      await expect(dialog).toContainText('原型');
+      const { target: testTarget } = await captureCardCreation(6, 'test', () => click(btn('创建测试', dialog)), { reopen: true, example: method + '-test' });
+      await output(testTarget);
+      const detail = page.getByTestId('aidt-test-group-detail');
+      await expect(detail.getByRole('textbox')).toHaveCount(0);
+      const actions = page.getByTestId('aidt-test-chat-confirmation');
+      await disclosure('关联测试材料');
+      const methodField = actions.getByRole('combobox', { name: '测试方式', exact: true });
+      if (await methodField.inputValue() !== method) await methodField.selectOption(method);
+      const syntheticTestRecord = text(`${label}合成材料第1段。合成页面按查看等待信息、理解选择、决定是否排队的顺序展示。未进行真实用户测试。`);
+      await uploaded('本组原始材料', `qa-${unique}-${method}.txt`, Buffer.from(syntheticTestRecord), 'text/plain');
+      await saveStage(6, btn('保存关联材料', actions));
+      const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的${label}合成材料第1段，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
+      if (!await feedback(6, prompt)) fail('TEST_TEACHING_REPLY_REQUIRED');
+      const proof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.status === 'passed');
+      await saveStage(6, btn('确认并保存测试成果', actions));
+      await page.reload();
+      await output(testTarget);
+      const fields = (await savedStage(6)).content.draft.fields;
+      const testRecord = JSON.parse(fields['testGroup:' + testTarget.entityId]);
+      if (testRecord.method !== method || testRecord.designId !== designId || !testRecord.versionId || !proof || testRecord.confirmedFromMessageId !== proof.assistantMessageId || !testRecord.task?.trim() || !testRecord.reflection?.trim() ||
+          fields.reflectionConfirmed !== 'true' || fields.understandingChangeStatus !== 'insufficient' || fields.returnStep !== '2') fail('TEST_NATIVE_ROUND_UNVERIFIED');
+      await expect(detail).toContainText(testRecord.task);
+      await expect(detail).toContainText(testRecord.reflection);
+      evidence(6).outputs.push({ name: label, entityId: testTarget.entityId, threadId: new URL(testTarget.href).searchParams.get('thread'), designId, versionId: testRecord.versionId, method });
+      await shot('06-native-' + method + '-plan-and-material', 6);
+    }
+    const tested = evidence(6).outputs.filter(item => item.designId === designId);
+    if (tested.length !== 2 || tested[0].entityId === tested[1].entityId || tested[0].threadId === tested[1].threadId || tested[0].versionId !== tested[1].versionId) fail('TEST_GROUP_ISOLATION_UNVERIFIED');
     await shot('06-reflection-insufficient-return-empathy', 6); await completed(6); await page.goto(owned(step6Href));
     report.insufficientEvidenceAndReturnWithoutNewPrototypeVerified = true;
   }, '06-reflection');
@@ -1096,7 +1129,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect(page.getByRole('article', { name: '已确认报告正文', exact: true })).toContainText(SYNTHETIC);
     const sources = page.getByRole('list', { name: '确认版本来源', exact: true }); await expect(sources).toBeVisible();
     for (let stage = 1; stage <= 6; stage++) {
-      const selectedRevision = await revision(stage);
+      const selectedRevision = proof.sourceRevisions.find(item => item.stageId === stage)?.revision;
+      if (!selectedRevision) fail('REPORT_SOURCE_REVISION_MISSING');
       await expect(sources.getByText(new RegExp('第\\s*' + stage + '\\s*步.*V' + selectedRevision + '(?:\\D|$)'))).toBeVisible();
     }
     const [download] = await Promise.all([page.waitForEvent('download'), click(page.getByRole('button', { name: /^下载 V\d+ Markdown$/ }))]);
