@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ownedAidtProblemRoute, matchesAidtProblemRoute, openAidtProblemOutcome, assertSavedAidtProblemInput, requireAcceptedS1Feedback } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 import { ownedAidtEntityRoute, matchesAidtEntityRoute, openAidtEntityOutcome, assertSavedAidtHmwSource, verifyAidtFrozenBacklink } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
-import { interviewCodePattern, savedAidtInterviewRoute, requireConfirmedInterviewHandoff } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+import { interviewCodePattern, savedAidtInterviewRoute, hasInterviewPrerequisite, hasPendingProblemReview } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const origin = 'https://devapp.boardx.us';
 const projectId = 'prj-navigation-fixture';
@@ -243,13 +243,12 @@ test('all ten interview codes have exact suffix boundaries without admitting ext
   for (const invalid of ['U00', 'U11', 'U010', 'U1', 'u01', ' U01', 'U01 ', null]) assert.throws(() => interviewCodePattern(invalid), /INTERVIEW_CODE_UNEXPECTED/);
 });
 
-test('ten-entry isolation cannot confirm or execute after failed upstream teaching/handoff', () => {
-  for (const state of [{ s1: false, s2: false }, { s1: false, s2: true }, { s1: true, s2: false }, { s1: 1, s2: true }]) {
-    let executed = false;
-    assert.throws(() => { requireConfirmedInterviewHandoff(state); executed = true; }, /S2_CONFIRMED_HANDOFF_REQUIRED/);
-    assert.equal(executed, false);
+test('only S1 acceptance or an explicitly confirmed synthetic prerequisite opens the ten chats', () => {
+  for (const value of [undefined, false, 1, 'true']) {
+    assert.equal(hasInterviewPrerequisite({ s1: value, syntheticHandoff: value }), false);
   }
-  assert.doesNotThrow(() => requireConfirmedInterviewHandoff({ s1: true, s2: true }));
+  assert.equal(hasInterviewPrerequisite({ s1: true }), true);
+  assert.equal(hasInterviewPrerequisite({ s1: false, syntheticHandoff: true }), true);
 });
 
 test('each interview target comes from its exact saved code and ID, never the current URL', () => {
@@ -271,4 +270,14 @@ test('storage-only frozen interviews still require actual historical navigation 
     link: { getAttribute: async () => href, click: async () => { clicked = true; current = href; } }, waitForRoute: async check => assert.equal(check(), true),
     assertVersion: async () => { viewed = true; }, assertMaterial: async () => { material = true; } });
   assert.equal(clicked && viewed, true); assert.equal(material, false);
+});
+
+test('only the pending S1 intent receipt for this synthetic problem permits a manual prerequisite', () => {
+  const href = 'https://devapp.boardx.us/aidt/prj-owned?step=1&entity=problem&thread=thr_current';
+  const receipt = { stageId: 1, projectId: 'prj-owned', threadId: 'thr_current', knownConfirmTaskIntent: true, toolName: 'confirm_task_intent' };
+  assert.equal(hasPendingProblemReview([{ receipt }], href, 'prj-owned'), true);
+  for (const patch of [{ stageId: 2 }, { projectId: 'prj-other' }, { threadId: 'thr_other' }, { knownConfirmTaskIntent: false }, { toolName: 'other' }]) {
+    assert.equal(hasPendingProblemReview([{ receipt: { ...receipt, ...patch } }], href, 'prj-owned'), false);
+  }
+  assert.equal(hasPendingProblemReview([], href, 'prj-owned'), false);
 });

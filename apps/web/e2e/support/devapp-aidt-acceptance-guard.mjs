@@ -1,7 +1,7 @@
 /** Live Dev acceptance: this is a bounded test-data writer, not the read-only probe. */
 import { ORIGIN, ProbeFailure, validLoginBody } from './devapp-aidt-auth-readonly.mjs';
 import { createHash } from 'node:crypto';
-import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun } from './devapp-aidt-chat-evidence.mjs';
+import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, matchesInterviewProjection } from './devapp-aidt-chat-evidence.mjs';
 
 export const SHA = /^[a-f0-9]{40}$/;
 export const TAG = /^[0-9]+-[0-9]+$/;
@@ -70,6 +70,11 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
   }
 }
 
+// Five other stages, ten independent guides, one material-backed finding.
+export const TEACHING_TURN_LIMIT = 16;
+// Additional guides re-open the scoped thread, mount its skill and save the confirmed guide.
+const WRITE_LIMIT = 128 + 9 * 3;
+
 export function createAcceptanceGuard(identity, now = Date.now) {
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
   let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0, ordinaryVerified = false, projectCreateUntil = null, projectCourseTag;
@@ -92,7 +97,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     const path = target.pathname;
     if (body !== undefined && Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_BODY) return stop('REQUEST_BODY_BOUND');
     if (projectId && target.searchParams.has('projectId') && target.searchParams.get('projectId') !== projectId) return stop('FOREIGN_PROJECT_REFERENCE');
-    if (allowedWrites >= 128 && method !== 'GET') return stop('WRITE_COUNT_BOUND');
+    if (allowedWrites >= WRITE_LIMIT && method !== 'GET') return stop('WRITE_COUNT_BOUND');
     if (method === 'POST' && path === '/api/auth/login' && !target.search) {
       if (!loginArmed || actor || loginCount !== 0 || !object(body) || Object.keys(body).sort().join(',') !== 'email,password' || !body.email || !body.password) return stop('LOGIN_REJECTED');
       loginCount++; return { allow: true, kind: 'login' };
@@ -144,7 +149,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     if (!projectId) return stop('OWNED_PROJECT_REQUIRED');
     if (method === 'POST' && path === '/api/copilotkit/agent/default/run') {
       const entries = [...teachingLedger.values()].filter(entry => entry.wire === null && entry.until >= now());
-      if (teachingStopped || teachingRequests >= 6 || entries.length !== 1) return stop('TEACHING_SEND_NOT_ARMED');
+      if (teachingStopped || teachingRequests >= TEACHING_TURN_LIMIT || entries.length !== 1) return stop('TEACHING_SEND_NOT_ARMED');
       const entry = entries[0];
       try { entry.wire = validateTeachingWire({ url, method, body }, entry.scope); } catch (error) { return stop(error.code ?? 'TEACHING_WIRE_REJECTED'); }
       teachingRequests++; return { allow: true, kind: 'teaching-turn', stageId: entry.scope.stageId, threadId: entry.scope.threadId };
@@ -175,7 +180,15 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     const stage = new RegExp(`^/api/projects/${projectId}/aidt/stages/([1-6])$`).exec(path);
     if (method === 'PUT' && stage && object(body) && object(body.content) && object(body.content.draft)) {
       const n = Number(stage[1]);
-      if (!arm || arm.stage !== n || arm.remaining < 1 || now() > arm.until) return stop('STAGE_SAVE_NOT_ARMED');
+      if (!arm || arm.stage !== n || arm.remaining < 1 || now() > arm.until) {
+        const saved = stageStates.get(n);
+        const entry = [...teachingLedger.values()].at(-1);
+        if (n !== 2 || !entry?.wire || !saved || entry.projections >= 2 || now() > entry.projectionUntil
+          || body.expectedRevision !== saved.revision || JSON.stringify(body.sourceStageRevisions) !== JSON.stringify(saved.sourceStageRevisions)
+          || !matchesInterviewProjection(saved.content, body.content, entry.scope)) return stop('STAGE_SAVE_NOT_ARMED');
+        entry.projections++; allowedWrites++;
+        return { allow: true, kind: 'save-stage', stageId: n };
+      }
       const before = snapshots.get(n) ?? new Set();
       let next;
       try { next = confirmations(body.content); } catch (error) { return stop(error.code ?? 'CONFIRMATION_REJECTED'); }
@@ -282,13 +295,25 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     armTeachingSend: scope => {
       validateTeachingScope(scope);
       const coordinates = threadCoordinates.get(scope.threadId), pins = threadPins.get(scope.threadId) ?? [];
-      if (teachingStopped || !ordinaryVerified || scope.projectId !== projectId || scope.actorId !== actor || teachingLedger.has(scope.stageId) || teachingRequests >= 6
+      const finding = scope.interviewFinding === true;
+      const guideKey = `interview:${scope.selector.entityId}`;
+      const key = finding ? 'interview-finding' : scope.stageId === 2 ? guideKey : scope.stageId;
+      const interviews = [...teachingLedger.keys()].filter(id => typeof id === 'string' && id.startsWith('interview:'));
+      if (scope.stageId === 2 && (!scope.selector.entityId || (!finding && interviews.length >= 10))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
+      if (finding) {
+        let record;
+        try { record = JSON.parse(stageStates.get(2)?.content.draft.fields[`interviewRecord:${scope.selector.entityId}`]); } catch { /* Missing or corrupt saved guide. */ }
+        if (scope.stageId !== 2 || record?.id !== scope.selector.entityId || record.code !== 'U01' || !record.guideConfirmed
+          || teachingLedger.get(guideKey)?.scope.threadId !== scope.threadId || !teachingLedger.get(guideKey)?.accepted) throw new ProbeFailure('TEACHING_FINDING_SCOPE_NOT_VERIFIED');
+      }
+      if (teachingStopped || !ordinaryVerified || scope.projectId !== projectId || scope.actorId !== actor || teachingLedger.has(key) || teachingRequests >= TEACHING_TURN_LIMIT
         || !coordinates || coordinates.purpose !== 'stage' || coordinates.stageId !== scope.stageId || coordinates.entityId !== scope.selector.entityId
         || !threadFacts.get(scope.threadId)?.writable || !pins.some(pin => pin.skillId === scope.skillId && pin.versionId === scope.skillVersionId)
         || skillCatalog.get(scope.skillId)?.stableName !== identity.teachingSkillNames?.[scope.stageId - 1]
         || scope.selector.stageRevisions.some(ref => stageStates.get(ref.stageId)?.revision !== ref.revision)
         || JSON.stringify(scope.knownMessages) !== JSON.stringify(messageSnapshots.get(scope.threadId))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
-      teachingLedger.set(scope.stageId, { scope, wire: null, accepted: null, until: now() + 15000 });
+      arm = null;
+      teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000, projections: 0, projectionUntil: now() + 210000 });
     },
 
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },
@@ -320,7 +345,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       projectId = candidate;
     },
     identity: () => ({ actor, org, candidate, projectId, ordinaryVerified }),
-    summary: () => ({ readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: 6, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
+    summary: () => ({ readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: TEACHING_TURN_LIMIT, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
   };
 }
 
