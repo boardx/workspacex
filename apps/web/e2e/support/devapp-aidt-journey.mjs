@@ -370,7 +370,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await page.getByTestId('aidt-field-rewrittenTheme').fill(text('探索校园午休饮品选择中的情境差异，不预设解决方案。'));
     await saveStage(1);
     report.s1Navigation.operation = 'native-teaching-feedback';
-    await requireAcceptedS1Feedback(() => feedback(1));
+    const clarification = text('我们先把这个看法标为猜测，暂时没有亲眼观察或听到抱怨。为了判断是否值得研究，你会先问我们哪个问题？请直接问一个开放问题。');
+    await requireAcceptedS1Feedback(() => feedback(1, clarification));
     report.s1Navigation.teachingCheckpointAccepted = true;
     await observeInputs(1);
     report.s1Navigation.operation = 'confirm-round-and-persist';
