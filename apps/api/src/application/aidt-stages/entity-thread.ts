@@ -78,7 +78,8 @@ export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string
   const read = (prefix: string, keys: readonly string[]) => list(readObject(fields[prefix + entityId]), keys);
   switch (stage.stageId) {
     case 1:
-      return { entityId, fields: read("problemDraft:", ["initial", "rewrittenTheme", "reason", "problemReflectionConfirmed"]) };
+      return { entityId, fields: read("problemDraft:", ["initial", "rewrittenTheme", "reason", "whyWorthStudying", "sourceDetails", "problemSources",
+        "known", "sourceUncertainty", "focus", "problemDirections", "problemDirectionId", "nextAction", "problemReflectionConfirmed"]) };
     case 2: {
       const card = discoveryCards?.find(item => item.id === entityId);
       return { entityId, fields: read("interviewRecord:", ["code", "topic", "goal", "original", "adopted", "guideConfirmed"]),
