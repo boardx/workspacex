@@ -43,6 +43,7 @@ export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: s
       if (fields["interviewArchived:" + entityId] === "true") return null;
       return titleFor(fields, "interviewRecord:", entityId, "code", "访谈");
     case 3:
+      if (entityId === "primary-surprise" && fields.definitionPrimaryEntity === "true") return "意外发现";
       return titleFor(fields, "definitionPersona:", entityId, "name", "用户画像")
         ?? titleFor(fields, "definitionHmw:", entityId, "text", "HMW");
     case 4: {

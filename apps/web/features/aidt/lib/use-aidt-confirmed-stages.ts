@@ -3,7 +3,7 @@
 import * as React from "react";
 import type { AidtSharedStage } from "./live-aidt-stages";
 import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload, aidtRoundMissingOutput } from "./aidt-round-completion";
-import { readAidtProblemHandoffDraft } from "./aidt-problem-entities";
+import { listAidtProblems, readAidtProblemEntityDraft, readAidtProblemHandoffDraft } from "./aidt-problem-entities";
 import { aidtInterviewFindingReady, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviews } from "./aidt-interviews";
 import { readAidtDefinition, readAidtDefinitionSelection } from "./aidt-definition";
 import { readAidtIdeaHandoff } from "./aidt-idea-handoff";
@@ -15,9 +15,21 @@ const EMPTY: ReadonlySet<number> = new Set();
 
 export async function aidtStageHasConfirmation(stage: AidtSharedStage, stages?: Readonly<Record<number, AidtSharedStage>>): Promise<boolean> {
   const saved = stage.content.draft;
+  if (stage.stageId === 1 && readAidtProblemHandoffDraft(saved) !== undefined) {
+    const active = listAidtProblems(saved).filter(problem => !problem.archived);
+    if (!active.length || !readAidtProblemHandoffDraft(saved)) return false;
+    const confirmations = await Promise.all(active.map(async problem => {
+      const draft = readAidtProblemEntityDraft(saved, problem.id);
+      if (aidtRoundMissingOutput(1, draft) !== null) return false;
+      const digest = await aidtRoundDigest(aidtRoundPayload(stage.projectId, 1, draft, stage.sourceStageRevisions));
+      return draft.fields[AIDT_ROUND_COMPLETION_FIELD] === aidtRoundConfirmation(stage.projectId, 1, digest, false);
+    }));
+    return confirmations.every(Boolean);
+  }
   if (stage.stageId === 2 && Object.keys(saved.fields).some(key => key.startsWith("interviewRecord:"))) {
-    return readAidtInterviews(saved.fields).some(interview => !isAidtInterviewArchived(saved.fields, interview.id)
-      && isAidtInterviewConfirmed(saved.fields, interview.id) && aidtInterviewFindingReady(saved, interview, stage.projectId));
+    const active = readAidtInterviews(saved.fields).filter(interview => !isAidtInterviewArchived(saved.fields, interview.id));
+    return active.length > 0 && active.every(interview => isAidtInterviewConfirmed(saved.fields, interview.id)
+      && aidtInterviewFindingReady(saved, interview, stage.projectId));
   }
   if (stage.stageId === 3) {
     const definition = readAidtDefinition(saved.fields);
