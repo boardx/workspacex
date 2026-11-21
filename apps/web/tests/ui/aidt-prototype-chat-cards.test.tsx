@@ -57,7 +57,8 @@ it("requires every active prototype to have a matching persisted confirmation an
   const complete = confirmAidtPrototypeEntityHandoff(updateAidtPrototypeEntityDraft(incomplete, "B", () => makeReady("B")), "B");
   expect(aidtAllActivePrototypeEntitiesConfirmed(complete)).toBe(true);
   const archived = archiveAidtPrototypeCard(complete, "B");
-  expect(aidtAllActivePrototypeEntitiesConfirmed(archived)).toBe(true);
+  expect(aidtAllActivePrototypeEntitiesConfirmed(archived)).toBe(false);
+  expect(aidtAllActivePrototypeEntitiesConfirmed(confirmAidtPrototypeEntityHandoff(archived, "A"))).toBe(true);
   expect(readAidtPrototypeEntityDraft(archived, "B")?.fields.verificationQuestion).toBe("能否区分口味？");
 });
 

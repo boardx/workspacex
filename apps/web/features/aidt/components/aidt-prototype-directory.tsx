@@ -88,7 +88,13 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
         }
         const resource = pending.current;
         if (!resource.linked) {
-          await linkProjectResource({ projectId, kind: "design", resourceId: resource.id });
+          try {
+            await linkProjectResource({ projectId, kind: "design", resourceId: resource.id });
+          } catch (error) {
+            if (!mounted.current) return;
+            const linked = await listProjectResources(projectId);
+            if (!linked.items.some(item => item.kind === "design" && item.id === resource.id)) throw error;
+          }
           if (!mounted.current) return;
           resource.linked = true;
         }

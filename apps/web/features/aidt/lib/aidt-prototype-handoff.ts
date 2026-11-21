@@ -54,6 +54,7 @@ export function resolveAidtPrototypeInputIdeas(selection: AidtPrototypeInputSele
 }
 
 export function aidtPrototypePreparationError(draft: AidtUiStageDraft): string | null {
+  if (draft.fields.prototypeArchived === "true") return "此原型已归档。";
   const readiness = getAidtPrototypeGenerationReadiness(draft);
   if (!readiness.ready) return readiness.reason;
   if (!["beforeTestBelief", "verificationBasis", "verificationLimits"].every(field => draft.fields[field]?.trim())) return "请写下先前看法、已有依据或尚无证据，以及静态原型能验证的范围。";
@@ -173,16 +174,15 @@ export function archiveAidtPrototypeCard(draft: AidtUiStageDraft, id: string) {
   if (!validPrototypeEntity(id)) return draft;
   const next = updateAidtPrototypeEntityDraft(draft, id, previous => ({ ...previous, fields: { ...previous.fields, prototypeArchived: "true" } }));
   if (draft.fields.prototypeHandoffEntity !== id) return next;
-  const replacement = listAidtConfirmedPrototypeEntities(next)[0];
-  return { ...next, fields: { ...next.fields, prototypeHandoffEntity: replacement?.id ?? "" } };
+  return { ...next, fields: { ...next.fields, prototypeHandoffEntity: "" } };
 }
 
 export function aidtAllActivePrototypeEntitiesConfirmed(draft: AidtUiStageDraft) {
-  const active = Object.keys(draft.fields).filter(key => key.startsWith(entityPrefix)).flatMap(key => {
-    const candidate = readAidtPrototypeEntityDraft(draft, key.slice(entityPrefix.length));
-    return candidate && candidate.fields.prototypeArchived !== "true" ? [candidate] : [];
-  });
-  return active.length > 0 && active.every(isAidtPrototypeHandoffConfirmed) && Boolean(readAidtConfirmedPrototypeHandoff(draft));
+  const active = Object.keys(draft.fields).filter(key => key.startsWith(entityPrefix))
+    .map(key => readAidtPrototypeEntityDraft(draft, key.slice(entityPrefix.length)))
+    .filter(candidate => candidate?.fields.prototypeArchived !== "true");
+  return active.length > 0 && active.every(candidate => candidate && isAidtPrototypeHandoffConfirmed(candidate))
+    && Boolean(readAidtConfirmedPrototypeHandoff(draft));
 }
 
 const proposalFields = {

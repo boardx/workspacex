@@ -138,8 +138,8 @@ function PrototypeArtifact({ draft, designId, projectId, ideaRevision, workflow,
   const reference = readAidtPrototypeReference(draft);
   const confirmed = isAidtPrototypeHandoffConfirmed(draft);
   const proposal = readAidtSavedPrototypeDiscussion(draft);
-  const selected = readAidtConfirmedPrototypeHandoff(stageDraft)?.id === designId;
-  const ready = Boolean(workflow.matchesServer && workflow.savedPrototype && selected && aidtAllActivePrototypeEntitiesConfirmed(stageDraft));
+  const selected = readAidtConfirmedPrototypeHandoff(stageDraft);
+  const ready = workflow.matchesServer && workflow.savedPrototype && selected && aidtAllActivePrototypeEntitiesConfirmed(stageDraft);
   const canOpen = !aidtPrototypePreparationError(draft) && !!readAidtPrototypeInputSelection(draft) && workflow.matchesServer;
   return <section data-testid="aidt-prototype-entity-output" aria-label="当前原型产物" className="space-y-4">
     <div className="flex items-center justify-between gap-2"><h3 className="text-16 font-semibold">原型产物</h3><span className="text-12 text-muted-foreground">{confirmed && workflow.matchesServer ? "已确认" : "未完成"}</span></div>
@@ -150,7 +150,7 @@ function PrototypeArtifact({ draft, designId, projectId, ideaRevision, workflow,
     })}
     {reference && <p className="text-13" data-testid="aidt-prototype-recorded-reference">{aidtPrototypeVersionLabel(reference)}</p>}
     {canOpen && <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design", ideaRevision)}>打开 Design 工作台</Link></Button>}
-    {ready && <Button asChild variant="primary"><Link href={`${aidtHref(projectId, 6)}&${new URLSearchParams({ prototypeRevision: String(workflow.savedPrototype!.revision), prototypeEntity: designId })}`}>进入测试与迭代</Link></Button>}
+    {ready && <Button asChild variant="primary"><Link href={`${aidtHref(projectId, 6)}&${new URLSearchParams({ prototypeRevision: String(workflow.savedPrototype!.revision), prototypeEntity: selected.id })}`}>进入测试与迭代</Link></Button>}
   </section>;
 }
 
@@ -198,10 +198,10 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
     {ready && workflow.matchesServer && <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design", props.ideaRevision)}>打开 Design 工作台</Link></Button>}
     {ready && <AidtPrototypeVersionPicker projectId={projectId} designEntityId={designId} value={readAidtPrototypeReference(draft)}
       onChange={reference => { if (!reference || reference.designId === designId) saveEntity(current => updateAidtPrototypeReference(current, reference)); }} />}
-    {!confirmed && Boolean(confirmAidtPrototypeHandoff(draft)) && <Button type="button" variant="primary" onClick={() => {
+    {Boolean(confirmAidtPrototypeHandoff(draft)) && (!confirmed || readAidtConfirmedPrototypeHandoff(stageDraft)?.id !== designId) && <Button type="button" variant="primary" onClick={() => {
       update(previous => confirmAidtPrototypeEntityHandoff(previous, designId));
       requestSave();
-    }}>确认本原型</Button>}
+    }}>{confirmed ? "选为测试原型" : "确认本原型"}</Button>}
     {confirmed && workflow.matchesServer && !aidtAllActivePrototypeEntitiesConfirmed(stageDraft) && <p role="status">该原型已确认。还有其他原型待确认。</p>}
   </section>;
 }
