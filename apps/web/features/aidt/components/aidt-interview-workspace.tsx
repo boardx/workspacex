@@ -9,6 +9,7 @@ import { AidtInterviewCards } from "./aidt-interview-cards";
 import { Plus } from "lucide-react";
 import { AidtInterviewRecorder } from "./aidt-interview-recorder";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
+import { AidtInterviewOutput } from "./aidt-interview-output";
 import { AidtResearchMaterialControl, AidtResearchMaterialPreview } from "./aidt-research-material";
 import { listAidtStageHistory, readAidtStage, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload } from "../lib/aidt-round-completion";
@@ -147,7 +148,7 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
 
   return <section className="space-y-4" aria-label="访谈工作区">
     {entityId && !interview ? <p role="status">找不到此访谈。请返回访谈列表查找其最新状态。</p> : interview
-      ? <InterviewDetail surface={surface} compact={Boolean(entityId)} key={interview.id} {...{ interview, draft, update, projectId, topic, toChat }} readOnly={readOnly || isAidtInterviewArchived(draft.fields, interview.id)} onBack={entityId ? undefined : back} />
+      ? entityId && surface === "legacy" ? <AidtInterviewOutput entityId={entityId} draft={draft} projectId={projectId} /> : <InterviewDetail surface={surface} compact={Boolean(entityId)} key={interview.id} {...{ interview, draft, update, projectId, topic, toChat }} readOnly={readOnly || isAidtInterviewArchived(draft.fields, interview.id)} onBack={entityId ? undefined : back} />
       : <>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-16 font-semibold" ref={listFocus} tabIndex={-1}>访谈列表</h4>

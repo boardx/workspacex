@@ -207,11 +207,13 @@ it("does not mark an entity complete if the confirmation save fails", async () =
   expect(persisted).not.toHaveBeenCalled();
 });
 
-it("keeps the selected entity completion when another candidate is added, but rejects selected edits and archival", async () => {
+it("reopens the stage when a pending candidate is added and rejects selected edits and archival", async () => {
   const saved = await confirmedProblem();
-  saved.content.draft = StageDraft.parse(addAidtProblem(saved.content.draft, problemB, "另一候选"));
   const view = render(<Dashboard stages={{ 1: saved }} />);
   expect(await screen.findByText("已完成 · V1")).toBeVisible();
+  const withPendingProblem = { ...saved, content: { ...saved.content, draft: StageDraft.parse(addAidtProblem(saved.content.draft, problemB, "另一候选")) } };
+  view.rerender(<Dashboard stages={{ 1: withPendingProblem }} />);
+  expect(await screen.findByText("已保存草稿 · V1")).toBeVisible();
   const local = matchingDrafts({ 1: saved });
   local[1] = updateAidtProblemEntity(local[1]!, problemA, current => ({ ...current, fields: { ...current.fields, rewrittenTheme: "修改后的研究方向" } }));
   view.rerender(<Dashboard stages={{ 1: saved }} drafts={local} />);
@@ -256,7 +258,7 @@ it("changes the selected problem only after the other entity is explicitly confi
   const view = render(<RoundAndDashboard initial={initial} entityId={problemA} onSaved={persisted} />);
   await waitFor(() => expect(screen.getByRole("button", { name: "确认本轮成果并保存" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "确认本轮成果并保存" }));
-  expect(await screen.findByText("已完成 · V2")).toBeVisible();
+  expect(await screen.findByText("已保存草稿 · V2")).toBeVisible();
   view.rerender(<RoundAndDashboard initial={initial} entityId={problemB} onSaved={persisted} />);
   await waitFor(() => expect(screen.getByRole("button", { name: "确认本轮成果并保存" })).toBeEnabled());
   expect((persisted.mock.calls[0]![0] as AidtSharedStage).content.draft.fields.problemHandoffEntity).toBe(problemA);

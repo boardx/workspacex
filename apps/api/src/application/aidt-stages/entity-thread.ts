@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { AIDT_ENTITY_THREAD_PREFIX, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { readAidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
 import type { StageActor } from "./ports";
 
 export function aidtEntityThreadId(actor: StageActor, stageId: number, entityId: string, purpose: "stage" | "report") {
@@ -26,6 +27,10 @@ function titleFor(fields: Record<string, string>, key: string, id: string, name:
   return typeof title === "string" && title.trim() ? title.trim().slice(0, 200) : fallback;
 }
 
+export function isAidtPrototypeEntityArchived(stage: SharedStageValue | null, entityId: string) {
+  return readObject(stage?.content.draft.fields["prototypeEntity:" + entityId])?.prototypeArchived === "true";
+}
+
 export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: string, purpose: "stage" | "report"): string | null {
   if (purpose === "report") {
     if (entityId === "group-report") return "小组研究报告";
@@ -43,8 +48,10 @@ export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: s
       if (fields["interviewArchived:" + entityId] === "true") return null;
       return titleFor(fields, "interviewRecord:", entityId, "code", "访谈");
     case 3:
+      if (entityId === "primary-surprise" && fields.definitionPrimaryEntity === "true") return "意外发现";
       return titleFor(fields, "definitionPersona:", entityId, "name", "用户画像")
-        ?? titleFor(fields, "definitionHmw:", entityId, "text", "HMW");
+        ?? titleFor(fields, "definitionHmw:", entityId, "text", "HMW")
+        ?? titleFor(fields, "definitionSurprise:", entityId, "observation", "意外发现");
     case 4: {
       if (/^draft-[123]$/.test(entityId)) return null;
       let archived: unknown;
@@ -78,20 +85,34 @@ export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string
         finding: card ? { headline: card.headline, headlineKind: card.headlineKind, context: card.context } : undefined };
     }
     case 3:
-      return { entityId, persona: read("definitionPersona:", ["name", "situation", "behavior", "need", "limits", "confirmed"]),
-        hmw: read("definitionHmw:", ["text", "rationale", "confirmed"]) };
+      if (entityId === "primary-surprise") {
+        return { entityId, kind: "surprise", fields: list(fields, [
+          "surpriseStatus", "priorBelief", "surprisingFinding", "surpriseInterpretation",
+        ]) };
+      }
+      if (Object.hasOwn(fields, "definitionPersona:" + entityId)) {
+        return { entityId, kind: "persona", fields: read("definitionPersona:", ["name", "situation", "behavior", "need", "limits", "confirmed"]) };
+      }
+      if (Object.hasOwn(fields, "definitionHmw:" + entityId)) {
+        return { entityId, kind: "hmw", fields: read("definitionHmw:", ["text", "rationale", "confirmed"]) };
+      }
+      return { entityId, kind: "surprise", fields: read("definitionSurprise:", ["priorBelief", "observation", "interpretation", "unknowns", "confirmed"]) };
     case 4: {
       const idea = ideas.find(item => item.id === entityId);
       return { entityId, idea: idea ? { title: idea.title, description: idea.description } : undefined };
     }
-    case 5: {
-      const prototype = readObject(fields["prototypeEntity:" + entityId]);
-      const content = prototype?.fields;
-      return { entityId, fields: list(content && typeof content === "object" ? content as Record<string, unknown> : null,
-        ["verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits", "designBrief", "version"]) };
+    case 5:
+      return { entityId, fields: read("prototypeEntity:", [
+        "verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits", "designBrief", "version",
+      ]) };
+    case 6: {
+      const group = readObject(fields["testGroup:" + entityId]);
+      const question = readAidtQuestionSnapshot(stage.content.draft);
+      const matched = question && group?.stage5Revision === question.sourceStageRevision
+        && group.designId === question.prototypeDesignId && group.versionId === question.prototypeVersionId;
+      return { entityId, fields: list(group, ["name", "task", "situation", "method", "reflection", "interpretation", "decision", "decisionReason"]),
+        question: matched ? question : undefined };
     }
-    case 6:
-      return { entityId, fields: read("testGroup:", ["name", "task", "situation", "method", "reflection", "interpretation", "decision", "decisionReason"]) };
     default:
       return { entityId };
   }

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { sendViaWorkbench } from "./chat-v2-send";
 
 function routeId(page: Page, key: string) {
   return new URL(page.url()).searchParams.get(key);
@@ -25,17 +26,23 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   const composer = page.getByTestId("copilotkit-v2-input");
   await expect(composer).toHaveCount(0);
   await expect(directory.getByRole("button", { name: "新建画像" })).toBeDisabled();
-  await directory.getByRole("radio", { name: "暂无意外发现" }).check();
-  await directory.getByRole("button", { name: "确认暂无意外发现" }).click();
-  await directory.getByRole("button", { name: "新建画像" }).click();
-  await directory.getByRole("button", { name: "新建画像" }).click();
-  const personas = directory.getByRole("link", { name: "未命名画像" });
+  await directory.getByRole("button", { name: "新建意外发现" }).click();
+  await directory.getByRole("link", { name: "打开意外发现对话" }).click();
+  await expect(composer).toBeVisible();
+  await sendViaWorkbench(page, "暂无意外发现");
+  const artifact = page.getByRole("region", { name: "对话产物确认" });
+  await artifact.getByRole("button", { name: "确认当前产物" }).click();
+  await expect(artifact).toContainText("已确认");
+  await page.getByRole("link", { name: "返回产物列表" }).click();
+  const newPersona = directory.getByRole("button", { name: "新建画像" });
+  const personas = directory.getByRole("link", { name: "打开用户画像对话" });
+  await newPersona.click();
+  await expect(personas).toHaveCount(1);
+  await newPersona.click();
   await expect(personas).toHaveCount(2);
   const first = (await personas.nth(0).getAttribute("href"))!;
   const second = (await personas.nth(1).getAttribute("href"))!;
   expect(first).not.toBe(second);
-  await page.getByTestId("aidt-shared-save").click();
-  await expect(page.getByTestId("aidt-shared-status")).toContainText("小组已保存");
   await personas.nth(0).click();
   await expect(composer).toBeVisible();
   await expect.poll(() => routeId(page, "thread")).toBeTruthy();

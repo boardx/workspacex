@@ -23,6 +23,8 @@ const Interview = z.object({
   goal: z.string().max(250),
   original: z.string().max(1000),
   adopted: z.string().max(1000),
+  guideProposalMessageId: z.string().min(1).max(256).optional(),
+  guideConfirmedAfterMessageId: z.string().min(1).max(256).optional(),
   guideConfirmed: z.boolean(),
   consent: z.object({ observedAt: z.string().datetime(), notes: z.boolean(), photos: z.boolean(), audio: z.boolean().default(false), capture: z.boolean().optional(), asr: z.boolean().optional() }).nullable(),
 });
@@ -205,6 +207,13 @@ export function archiveAidtInterview(draft: AidtUiStageDraft, id: string) {
 
 export function confirmedAidtInterviewCards(draft: AidtUiStageDraft) {
   return (draft.discoveryCards ?? []).filter(card => isAidtInterviewConfirmed(draft.fields, card.id) && !isAidtInterviewArchived(draft.fields, card.id));
+}
+
+export function areAidtInterviewsComplete(draft: AidtUiStageDraft, projectId: string) {
+  const active = readAidtInterviews(draft.fields).filter(interview => !isAidtInterviewArchived(draft.fields, interview.id));
+  const activeCount = Object.keys(draft.fields).filter(key => key.startsWith(prefix) && !isAidtInterviewArchived(draft.fields, key.slice(prefix.length))).length;
+  return active.length > 0 && active.length === activeCount && active.every(interview =>
+    isAidtInterviewConfirmed(draft.fields, interview.id) && aidtInterviewFindingReady(draft, interview, projectId));
 }
 
 export function aidtInterviewHandoffReady(draft: AidtUiStageDraft) {

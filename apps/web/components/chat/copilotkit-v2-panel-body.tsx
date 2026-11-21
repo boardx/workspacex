@@ -1941,11 +1941,11 @@ export type CopilotKitV2PanelViewProps = ReturnType<typeof useCopilotKitV2PanelC
 export function CopilotKitV2PanelBody(props: Parameters<typeof useCopilotKitV2PanelController>[0]): JSX.Element {
   const view = useCopilotKitV2PanelController(props);
   const conversation = React.useContext(ChatHostConversationContext);
-  const actions = conversation?.render(view.projectedMessages, view.historyLoading, view.agent.isRunning);
-  const streamSlots = conversation && !conversation.target && view.projectedMessages.length > 0
-    ? { ...view.streamSlots, tail: <>{view.streamSlots.tail}{actions}</> } : view.streamSlots;
+  const contribution = conversation?.render(view.projectedMessages, view.historyLoading, view.agent.isRunning);
+  const timeline = conversation?.target === null && view.projectedMessages.length > 0;
+  const streamSlots = timeline ? { ...view.streamSlots, tail: <>{view.streamSlots.tail}{contribution}</> } : view.streamSlots;
   return <>
-    <CopilotKitV2PanelView {...view} streamSlots={streamSlots} />
-    {conversation?.target && createPortal(actions, conversation.target)}
+    <CopilotKitV2PanelView {...view} streamSlots={streamSlots} conversationControls={timeline || conversation?.target ? undefined : contribution} />
+    {conversation?.target && createPortal(contribution, conversation.target)}
   </>;
 }

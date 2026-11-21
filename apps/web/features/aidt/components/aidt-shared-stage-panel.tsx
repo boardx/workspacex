@@ -5,8 +5,8 @@ import { RefreshCw } from "lucide-react";
 import { aidtUiStageSummary } from "../lib/aidt-ui-drafts";
 import type { useAidtSharedStages } from "../lib/use-aidt-shared-stages";
 
-export function AidtSharedStagePanel({ controller: c, stageNumber, readOnly, entityPreview }: {
-  controller: ReturnType<typeof useAidtSharedStages>; stageNumber: number; readOnly: boolean; entityPreview?: string;
+export function AidtSharedStagePanel({ controller: c, stageNumber, readOnly, entityPreview, showSave = true }: {
+  controller: ReturnType<typeof useAidtSharedStages>; stageNumber: number; readOnly: boolean; entityPreview?: string; showSave?: boolean;
 }) {
   const [replace, setReplace] = React.useState(false);
   if (!c.available) return <p className="border-b px-4 py-2 text-12 text-muted-foreground" data-testid="aidt-shared-unavailable">登录后可读取和保存本组成果。</p>;
@@ -14,7 +14,7 @@ export function AidtSharedStagePanel({ controller: c, stageNumber, readOnly, ent
   return <section className="shrink-0 border-b border-border px-4 py-2 text-12" aria-label="本步小组保存" data-testid="aidt-shared-stage">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <p role="status" data-testid="aidt-shared-status">{loading ? "正在读取小组成果…" : c.read?.phase === "error" ? "小组成果读取失败" : c.matchesServer ? `小组已保存 · V${c.server?.revision}` : c.server ? `服务器 V${c.server.revision} · 本页有未保存内容` : "本组尚未保存本步"}</p>
-      <div className="flex items-center gap-2"><Button size="icon" variant="ghost" aria-label="刷新成果" onClick={c.reload} disabled={loading || c.write.phase === "saving"} data-testid="aidt-shared-reload"><RefreshCw aria-hidden className="h-4 w-4" /></Button>{!readOnly && <Button size="sm" variant={stageNumber === 1 ? "outline" : "primary"} onClick={() => void c.saveCurrent()} disabled={!c.canSave || c.matchesServer} data-testid="aidt-shared-save">{c.write.phase === "saving" ? "正在保存…" : stageNumber === 1 ? "保存小组草稿" : "保存到小组"}</Button>}</div>
+      <div className="flex items-center gap-2"><Button size="icon" variant="ghost" aria-label="刷新成果" onClick={c.reload} disabled={loading || c.write.phase === "saving"} data-testid="aidt-shared-reload"><RefreshCw aria-hidden className="h-4 w-4" /></Button>{!readOnly && showSave && <Button size="sm" variant={stageNumber === 1 ? "outline" : "primary"} onClick={() => void c.saveCurrent()} disabled={!c.canSave || c.matchesServer} data-testid="aidt-shared-save">{c.write.phase === "saving" ? "正在保存…" : stageNumber === 1 ? "保存小组草稿" : "保存到小组"}</Button>}</div>
     </div>
     {c.read?.phase === "error" && <p role="alert" className="mt-2" data-testid="aidt-shared-load-error">{c.read.error}</p>}
     {c.write.phase === "error" && <p role="alert" className="mt-2" data-testid="aidt-shared-save-error">{c.write.error}</p>}

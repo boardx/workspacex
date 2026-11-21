@@ -74,3 +74,22 @@ it("keeps an unknown range explicit after receipt service failure and rejects a 
   mocks.receipt.mockImplementationOnce(async()=>{controller.abort(); throw new Error("cancelled");});
   await expect(readAidtSummaryChoice(scope,"sum",list.choices[0]!,controller.signal)).rejects.toThrow("CONTEXT_CHANGED");
 });
+
+it("isolates automatic summary drafts to the owned report thread and exact reply", async () => {
+  const { readAidtChatReportDraft } = await import("@/features/aidt/lib/aidt-summary-results");
+  const signal = new AbortController().signal;
+  await expect(readAidtChatReportDraft(scope, "other-report", "sibling-thread", "ai", signal)).rejects.toThrow("THREAD_MISMATCH");
+  expect(mocks.messages).not.toHaveBeenCalled();
+  await expect(readAidtChatReportDraft(scope, "group-report", "sum", "other-message", signal)).resolves.toBeNull();
+  expect(mocks.source).not.toHaveBeenCalled();
+  await expect(readAidtChatReportDraft(scope, "group-report", "sum", "ai", signal)).resolves.toMatchObject({ markdown: "实际产物正文" });
+});
+
+it("does not turn a teaching question into an automatic report preview", async () => {
+  const { isAidtReportDraft, readAidtChatReportDraft } = await import("@/features/aidt/lib/aidt-summary-results");
+  expect(isAidtReportDraft("这次报告有哪些心得？")).toBe(false);
+  expect(isAidtReportDraft("# 小组报告")).toBe(false);
+  expect(isAidtReportDraft("# 小组报告\n已核对的证据。")).toBe(true);
+  mocks.artifacts.mockResolvedValueOnce({ items: [] });
+  await expect(readAidtChatReportDraft(scope, "group-report", "sum", "ai", new AbortController().signal)).resolves.toBeNull();
+});
