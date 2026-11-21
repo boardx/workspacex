@@ -1,4 +1,4 @@
-import { WelcomeCreditGrant, WELCOME_CREDITS, WELCOME_CREDIT_VALIDITY_DAYS, WELCOME_CREDIT_PROGRAM } from "@repo/contracts/billing-pricing";
+import { WelcomeCreditGrant, WELCOME_CREDIT_PROGRAM } from "@repo/contracts/billing-pricing";
 import type { TenantSession } from "../../application/ports/database.port";
 import { BILLING_ACCOUNTING_GENERATION } from "../../domain/billing/billing-generation";
 import { creditDecimal } from "../../application/billing/credit-consumption";
@@ -21,9 +21,9 @@ export async function readWelcomeCreditGrant(s:TenantSession,userId:string,at:Da
     if(epoch.eligible)throw Error("welcome_grant_missing");
     return WelcomeCreditGrant.parse({status:"none",grant:null});
   }
-  if(row.plan_ref!==WELCOME_CREDIT_PROGRAM||BigInt(row.granted_hundredths)!==BigInt(WELCOME_CREDITS)*100n||
-    row.period_end.getTime()-row.period_start.getTime()!==WELCOME_CREDIT_VALIDITY_DAYS*86400000)throw Error("welcome_grant_snapshot_mismatch");
+  const granted = BigInt(row.granted_hundredths);
+  if(row.plan_ref!==WELCOME_CREDIT_PROGRAM || granted % 100n !== 0n)throw Error("welcome_grant_snapshot_mismatch");
   const expired=row.expired_at!==null||row.period_end<=at;
-  return WelcomeCreditGrant.parse({status:expired?"expired":"granted",grant:{credits:WELCOME_CREDITS,
+  return WelcomeCreditGrant.parse({status:expired?"expired":"granted",grant:{credits:Number(granted / 100n),
     remainingCredits:expired?0:Number(creditDecimal(BigInt(row.remaining_hundredths))),grantedAt:row.period_start.toISOString(),expiresAt:row.period_end.toISOString()}});
 }

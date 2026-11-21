@@ -74,6 +74,7 @@ export const ADMIN_NAV_TESTID: Record<AdminModuleKey, string> = {
   "feedback-drafts": "admin-nav-feedback-drafts",
   inbox: "admin-nav-inbox",
   "design-workbench": "admin-nav-design-workbench",
+  configuration: "admin-nav-configuration",
 };
 
 /** 契约六值各自**期望**出现在左栏的项键。 */

@@ -9,7 +9,7 @@ export type AdminModuleKey =
   // D9（PROP-OPS-INSTANCE-TELEMETRY-001）：实例管理员的「上报设置」
   | "telemetry"
   // UC-17.8 研发闭环（反馈→设计→排期）：反馈草稿 / 运营收件箱 / PM 设计工作台
-  | "feedback-drafts" | "inbox" | "design-workbench"
+  | "feedback-drafts" | "inbox" | "design-workbench" | "configuration"
   // F132：画布模板与项目蓝本。它们本来就是 `AssetKind` 六值中的两个，
   // 左栏却只画了四个 —— 人类那句「为什么在管理后台看不到项目蓝本」问的正是这个。
   // ⚠ 键取原型 `AN_META` 的键（`canvasadmin`），**不是**契约码也不是视图码：
@@ -188,6 +188,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { key: "feedback-drafts", label: adminNavigationZhCN["adminNavigation.item.feedback-drafts"], href: "/platform-admin/feedback-drafts", ucRefs: ["17-gov/uc-17-8"] },
       { key: "inbox", label: adminNavigationZhCN["adminNavigation.item.inbox"], href: "/platform-admin/inbox", ucRefs: ["17-gov/uc-17-8"] },
       { key: "design-workbench", label: adminNavigationZhCN["adminNavigation.item.design-workbench"], href: "/platform-admin/design-workbench", ucRefs: ["17-gov/uc-17-8"] },
+      { key: "configuration", label: adminNavigationZhCN["adminNavigation.item.configuration"], href: "/platform-admin/configuration", ucRefs: [] },
     ],
   },
   {

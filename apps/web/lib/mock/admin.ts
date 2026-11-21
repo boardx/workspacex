@@ -571,6 +571,7 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   // 生产左栏的来源是 `live-admin-nav-counts.ts`，那里没接的项一律「—」。
   platform: () => 0,
   organizations: () => 0,
+  configuration: () => 0,
   "model-tests": () => 0, // Fixture only; live navigation leaves unavailable counts as “—”.
   // 「运营状态」是运维自查工具（测试邮件……），不是一份清单，没有一个有意义的
   // 「条目数」。⚠ 这里**不能**照抄「组织管理」项的抛错语义——`admin-nav-count-unavailable

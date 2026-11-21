@@ -57,6 +57,7 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   "feedback-drafts": FileEdit,
   inbox: Inbox,
   "design-workbench": PencilRuler,
+  configuration: Settings,
 };
 
 /**

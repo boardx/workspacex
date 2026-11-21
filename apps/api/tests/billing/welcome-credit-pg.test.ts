@@ -35,10 +35,13 @@ afterAll(async()=>{
     await c.query("UPDATE billing_pricing_epoch SET generation=NULL,activated_at=NULL WHERE singleton=true");
   });await resetOrgsOwnedBy(users);await db.close();
 });
-async function account(suffix:string,createdAt?:Date){
+async function account(suffix:string,createdAt?:Date,market?:"cn"|"us"){
   const userId=`${prefix}-${suffix}`,org=toOrgId(userId);users.push(userId);
   await seedOrg({orgId:org,kind:"personal-local",ownerUserId:userId,projectId:`${org}-project`});
-  await asApp(org,c=>c.query("INSERT INTO credentials(user_id,email,display_name,password_hash,created_at) VALUES($1,$2,$3,$4,COALESCE($5,now()))",[userId,`${userId}@welcome.test`,suffix,hash,createdAt??null]));
+  await asApp(org,async c=>{
+    if(market) await c.query("SELECT set_config('app.billing_market',$1,true)",[market]);
+    await c.query("INSERT INTO credentials(user_id,email,display_name,password_hash,created_at) VALUES($1,$2,$3,$4,COALESCE($5,now()))",[userId,`${userId}@welcome.test`,suffix,hash,createdAt??null]);
+  });
   await asApp(org,c=>c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin')",[userId,org]));
   const wallet=()=>new PgBillingWalletRepository(db).wallet({orgId:org,ownerType:"user",ownerId:userId});
   const periods=()=>asApp(org,async c=>(await c.query("SELECT * FROM credit_subscription_periods p JOIN credit_wallets w USING(wallet_id) WHERE w.owner_type='user' AND w.owner_id=$1",[userId])).rows);
@@ -154,4 +157,24 @@ it("replays the generated migration without resetting activation or paying exist
     expect((await c.query("SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton=true")).rows[0]).toEqual(epoch);
   }finally{await c.query("ROLLBACK");}});
   expect((await f.wallet()).wallet).toEqual(before);expect(await f.periods()).toHaveLength(1);
+});
+
+it("applies updated welcome policy only to new accounts in the selected market", async () => {
+  const old = await account("market-historical", undefined, "us");
+  await asOwner(c => c.query("UPDATE welcome_credit_market_settings SET credits=1200,validity_days=45 WHERE market='us'"));
+  try {
+    const us = await account("market-new-us", undefined, "us");
+    const cn = await account("market-new-cn", undefined, "cn");
+    const read = (entry: Awaited<ReturnType<typeof account>>) =>
+      db.withTenant(entry.org, s => readWelcomeCreditGrant(s, entry.userId));
+    const usGrant = (await read(us)).grant;
+    expect(usGrant?.credits).toBe(1200);
+    expect(Date.parse(usGrant!.expiresAt) - Date.parse(usGrant!.grantedAt)).toBe(45 * 86400000);
+    expect((await read(cn)).grant?.credits).toBe(1000);
+    const oldGrant = (await read(old)).grant;
+    expect(oldGrant?.credits).toBe(1000);
+    expect(Date.parse(oldGrant!.expiresAt) - Date.parse(oldGrant!.grantedAt)).toBe(30 * 86400000);
+  } finally {
+    await asOwner(c => c.query("UPDATE welcome_credit_market_settings SET credits=1000,validity_days=30 WHERE market='us'"));
+  }
 });

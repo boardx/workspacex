@@ -363,6 +363,16 @@ export const ProjectAiSettings = z
 export const PROJECT_TAG_MAX_LENGTH = 40;
 export const ProjectTag = z.string().trim().min(1).max(PROJECT_TAG_MAX_LENGTH);
 export const PROJECT_TAGS_MAX = 20;
+const AIDT_COURSE_TAG_PREFIX = "课程：";
+export const AIDT_COURSE_TAG_MAX = PROJECT_TAG_MAX_LENGTH - AIDT_COURSE_TAG_PREFIX.length;
+export const AidtCourseTag = z.string().trim().min(1).max(AIDT_COURSE_TAG_MAX).regex(/^[^\p{Cc}]+$/u);
+export function encodeAidtCourseTag(label: string): string {
+  return AIDT_COURSE_TAG_PREFIX + AidtCourseTag.parse(label);
+}
+export function readAidtCourseTags(tags: readonly string[]): string[] {
+  return tags.filter(tag => tag.startsWith(AIDT_COURSE_TAG_PREFIX))
+    .map(tag => tag.slice(AIDT_COURSE_TAG_PREFIX.length)).filter(label => AidtCourseTag.safeParse(label).success);
+}
 
 /**
  * 议程环节实例（Q-2① 裁 A：**建独立表** `agenda_segments`，挂 `workshops`）。
@@ -503,6 +513,7 @@ export const operations = {
         blueprintVersionId: z.string().nullable(),
         /** Creation-only fixed AIDT initialization; only general + null blueprint is supported. */
         profile: ProjectCreationProfile.optional(),
+        courseTag: AidtCourseTag.optional(),
       })
       .strict(),
     out: z
