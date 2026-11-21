@@ -102,3 +102,52 @@ describe("shared stage contract",()=>{
   it("limits report text and rejects duplicate or more than six source stages",()=>{const v=input(6);v.content.summaryReport={markdown:"x".repeat(100001),sourceStageRevisions:[]};expect(SaveInput.safeParse(v).success).toBe(false);v.content.summaryReport={markdown:"报告",sourceStageRevisions:[{stageId:1,revision:1},{stageId:1,revision:2}]};expect(SaveInput.safeParse(v).success).toBe(false);v.content.summaryReport.sourceStageRevisions=Array.from({length:7},(_,i)=>({stageId:(i%6)+1,revision:1}));expect(SaveInput.safeParse(v).success).toBe(false);});
   it("caps history pagination to 100",()=>{expect(operations.history.in.safeParse({projectId:actor.projectId,stageId:1,limit:101}).success).toBe(false);});
 });
+
+describe("AIDT report entity receipts", () => {
+  it("isolates report drafts and freezes one exact revision per confirmation", async () => {
+    const { service } = fixture();
+    await service.save(actor, input());
+    const stageSix = input(6);
+    await service.save(actor, stageSix);
+    const sourceStageRevisions = [{ stageId: 1, revision: 1 }];
+    const reportA = { markdown: "# 小组报告 A", sourceStageRevisions };
+    const reportB = { markdown: "# 小组报告 B", sourceStageRevisions };
+    const saveReport = (reportEntityId: string, expectedRevision: number, summaryReport: NonNullable<SaveStageInput["content"]["summaryReport"]>) =>
+      service.save(actor, { ...stageSix, operationId: randomUUID(), reportEntityId, expectedRevision, content: { ...stageSix.content, summaryReport } });
+
+    await expect(saveReport("report-a", 1, { ...reportA, confirmedAtRevision: 2 })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    await saveReport("report-a", 1, reportA);
+    await saveReport("report-b", 2, reportB);
+    await expect(saveReport("report-a", 3, { ...reportB, confirmedAtRevision: 4 })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    const confirmedA = { ...reportA, confirmedAtRevision: 4 };
+    await expect(saveReport("report-a", 3, confirmedA)).resolves.toMatchObject({
+      stage: { revision: 4, content: { reports: { "report-a": confirmedA, "report-b": reportB } } },
+    });
+
+    const learningContent = draftForStageSix();
+    const nextLearning = await service.save(actor, { ...input(6, 4), content: learningContent });
+    expect(nextLearning.stage.content.reports).toEqual({ "report-a": confirmedA, "report-b": reportB });
+    const editedA = { ...reportA, markdown: "# A 的后续草稿" };
+    const saved = await service.save(actor, {
+      ...input(6, 5), reportEntityId: "report-a", content: { ...learningContent, summaryReport: editedA },
+    });
+    expect(saved.stage.content.reports).toEqual({ "report-a": editedA, "report-b": reportB });
+    expect(saved.stage.content.summaryReport).toBeUndefined();
+    const history = await service.history({ ...actor, userId: "student-b" }, 6, 5, 1);
+    expect(history.items[0]?.content.reports?.["report-a"]).toEqual(confirmedA);
+    expect(history.items[0]?.content.reports?.["report-b"]).toEqual(reportB);
+  });
+
+  it("rejects report-only writes that simultaneously change a learning draft", async () => {
+    const { service } = fixture();
+    await service.save(actor, input(6));
+    await expect(service.save(actor, {
+      ...input(6, 1),
+      reportEntityId: "new-report",
+      content: { ...draftForStageSix(), summaryReport: { markdown: "# Report", sourceStageRevisions: [] } },
+    })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+  });
+});
+function draftForStageSix(): SaveStageInput["content"] {
+  return { schemaVersion: 1, draft: { fields: { reflection: "迭代反馈" }, ideas: [], selectedIdeaId: "" } };
+}
