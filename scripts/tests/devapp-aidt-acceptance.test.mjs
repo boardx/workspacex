@@ -32,13 +32,17 @@ test('identity requires explicit deployed SHA/tag and positive run identity', ()
   }
 });
 test('interview UI labels match spaces and newlines without template-string escape loss', () => {
-  for (const code of ['U01', 'U02']) {
+  for (const code of ['U01', 'U02', 'U03', 'U10']) {
     assert.equal(interviewCodePattern(code).test(`${code} 合成受访者`), true);
     assert.equal(interviewCodePattern(code).test(`${code}\n发现卡已核对`), true);
     assert.equal(interviewCodePattern(code).test(`${code}3 unexpected code`), false);
     assert.equal(interviewCodePattern(code).test(`${code}s swallowed escape`), false);
   }
-  assert.throws(() => interviewCodePattern('U03'), /INTERVIEW_CODE_UNEXPECTED/);
+  assert.equal(interviewCodePattern('U03').test('U10 合成受访者'), false);
+  assert.equal(interviewCodePattern('U10').test('U100 合成受访者'), false);
+  for (const code of ['U00', 'U11', 'U03.*', ' U10', undefined]) {
+    assert.throws(() => interviewCodePattern(code), /INTERVIEW_CODE_UNEXPECTED/);
+  }
 });
 test('credential-bearing lane is manual develop only in the official repository', () => {
   const context = { GITHUB_REPOSITORY: 'boardx/workspacex', GITHUB_REF: 'refs/heads/develop', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_SHA: source };

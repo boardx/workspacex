@@ -144,9 +144,8 @@ export async function verifyAidtFrozenBacklink({ page, link, scope, stage, revis
 
 
 export function interviewCodePattern(code) {
-  if (code === 'U01') return /^U01(?:\s|$)/;
-  if (code === 'U02') return /^U02(?:\s|$)/;
-  fail('INTERVIEW_CODE_UNEXPECTED');
+  if (typeof code !== 'string' || !/^U(?:0[1-9]|10)$/.test(code)) fail('INTERVIEW_CODE_UNEXPECTED');
+  return new RegExp(`^${code}(?:\\s|$)`);
 }
 
 // A small, valid, run-specific schematic fixture. It is not a generated prototype or person photo.
