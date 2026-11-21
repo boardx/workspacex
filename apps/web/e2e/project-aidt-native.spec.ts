@@ -255,11 +255,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   const mobileSend = page.getByTestId("copilotkit-v2-send");
   await expect(mobileSend).toBeEnabled();
   await expect(mobileSend).toBeInViewport({ ratio: 0.8 });
-  expect(await mobileSend.evaluate((node) => {
-    const rect = node.getBoundingClientRect();
-    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-    return hit === node || node.contains(hit);
-  })).toBe(true);
+  await mobileSend.click({ trial: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath("aidt-teaching-mobile-start.png"), fullPage: true });
   if (isProjectMemberChatEnabled()) {

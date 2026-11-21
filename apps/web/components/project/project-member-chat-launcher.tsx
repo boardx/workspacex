@@ -31,6 +31,7 @@ function AuthenticatedLauncher() {
 function Launcher({ orgId, sessionToken }: { orgId: string; sessionToken: string }) {
   const pathname = usePathname(), search = useSearchParams();
   const routeProject = memberChatProjectFromLocation(pathname, search);
+  const aidtStep = pathname.startsWith("/aidt/") && search.has("step");
   const [open, setOpen] = React.useState(false);
   const [projectId, chooseProject] = React.useState<string | null>(null);
   const [retry, setRetry] = React.useState(0);
@@ -65,7 +66,7 @@ function Launcher({ orgId, sessionToken }: { orgId: string; sessionToken: string
     return () => document.removeEventListener("keydown", escape);
   }, [open, close]);
   return <>
-    <Button ref={trigger} type="button" variant="outline" size="sm" className="fixed bottom-20 right-4 z-40 gap-2 rounded-full bg-card shadow-md md:bottom-4" aria-controls="project-member-chat-panel" aria-expanded={open} data-testid="global-member-chat-open" onClick={() => { if (open) close(); else { if (!projectId && routeProject) chooseProject(routeProject); setOpen(true); } }}><MessageCircle aria-hidden className="h-4 w-4" />小组讨论</Button>
+    <Button ref={trigger} type="button" variant="outline" size="sm" className={`fixed right-4 z-40 gap-2 rounded-full bg-card shadow-md md:bottom-4 ${aidtStep ? "bottom-2" : "bottom-20"}`} aria-controls="project-member-chat-panel" aria-expanded={open} data-testid="global-member-chat-open" onClick={() => { if (open) close(); else { if (!projectId && routeProject) chooseProject(routeProject); setOpen(true); } }}><MessageCircle aria-hidden className="h-4 w-4" />小组讨论</Button>
     <aside ref={panel} id="project-member-chat-panel" hidden={!open} role="dialog" aria-modal={false} aria-labelledby="project-member-chat-title" data-testid="global-member-chat-panel" className={`${open ? "flex" : "hidden"} fixed bottom-20 right-0 top-4 z-40 w-full max-w-md flex-col overflow-hidden rounded-l-xl border border-border bg-card shadow-xl md:bottom-4 md:right-4 md:top-16 md:rounded-xl`}>
       <header className="shrink-0 space-y-2 border-b border-border p-3">
         <div className="flex items-center justify-between gap-3"><h2 id="project-member-chat-title" className="text-14 font-semibold">成员文字讨论</h2><Button type="button" size="icon" variant="ghost" aria-label="关闭小组讨论" data-testid="global-member-chat-close" onClick={close}><X aria-hidden className="h-4 w-4" /></Button></div>

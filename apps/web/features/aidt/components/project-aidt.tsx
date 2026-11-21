@@ -13,6 +13,7 @@ import { useAidtPersonalCheckpoints, aidtCheckpointKey } from "../lib/use-aidt-p
 import type { AidtPersonalStageCheckpoint, AidtPersonalStageScope } from "../lib/aidt-stage-persistence";
 import type { AidtSavedContextReference } from "../lib/aidt-chat-saved-context";
 import { isAidtModuleEnabled } from "../lib/aidt-module-config";
+import { isProjectMemberChatEnabled } from "@/lib/project-member-chat-config";
 import { emptyAidtUiDrafts, aidtUiReportMarkdown, aidtUiStageSummary, type AidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { aidtDraftScope, aidtResourceScope, hasAidtIdentity } from "@/features/aidt/lib/aidt-state-scope";
 import { AidtStageJourney, type AidtReviewCheckpoint } from "@/features/aidt/components/aidt-stage-journey";
@@ -545,7 +546,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
       <details className="text-12"><summary className="cursor-pointer text-muted-foreground">个人保存记录</summary><AidtPersonalCheckpointPanel key={personal.key} stageNumber={step.id} controller={personal} readOnly={!canWrite} onShare={sharePersonalCheckpoint} sharedCheckpointKey={savedContextRefs[0] ? JSON.stringify([savedContextRefs[0].artifactId, savedContextRefs[0].expectedImmutableRevision]) : undefined} /></details>
     </div>}
   </>;
-  return <section className="flex min-h-0 flex-1 flex-col" data-testid="aidt-workspace" onClickCapture={navigateWorkspace}>
+  return <section className={`flex min-h-0 flex-1 flex-col ${isProjectMemberChatEnabled() ? "pb-12 md:pb-0" : ""}`} data-testid="aidt-workspace" onClickCapture={navigateWorkspace}>
     <div className={problemStep || activeEntityId ? "flex min-h-0 flex-1 flex-col" : "flex min-h-0 flex-1 flex-col xl:flex-row xl:gap-3 xl:p-3"}>
       <div className={problemStep || activeEntityId ? "flex shrink-0 items-center gap-2 border-b border-border-subtle px-4 py-2 lg:px-6" : "shrink-0 px-3 xl:w-44 xl:px-0"}>
         <Link href={activeEntityId ? directoryHref : aidtHref(projectId)} className="inline-flex shrink-0 items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ArrowLeft aria-hidden className="h-3.5 w-3.5" />{activeInterview ? "返回访谈列表" : activeEntityId ? problemStep ? "返回问题列表" : "返回产物列表" : "项目总览"}</Link>

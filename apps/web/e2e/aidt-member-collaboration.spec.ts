@@ -9,7 +9,6 @@ import * as stages from "@repo/contracts/aidt-stages";
 import * as memberChat from "@repo/contracts/project-member-chat";
 import { isAidtModuleEnabled } from "@/lib/aidt-module-config";
 import { aidtRoundDigest, aidtRoundConfirmation, aidtRoundPayload } from "@/features/aidt/lib/aidt-round-completion";
-import { readAidtProblemEntityDraft } from "@/features/aidt/lib/aidt-problem-entities";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 const enabled = (value: string | undefined) => value === "1" || value === "true";
@@ -130,29 +129,44 @@ test("shared AIDT legacy aggregate stages: two members persist revisions, stale 
     await member.evaluate(() => localStorage.clear());
     await login(member, "member");
     expect(stages.operations.get.out.parse((await request(member, path)).data).stage).toEqual(secondSaved.stage);
-    // The API fixtures above deliberately use the original aggregate shape.
-    // The current default entry is an entity directory; its explicit early-stage
-    // compatibility view still owns this aggregate CAS/local-draft regression.
-    await page.goto(`/aidt/${projectId}?step=1&tool=outcome&history=1`);
-    await member.goto(`/aidt/${projectId}?step=1&tool=outcome&history=1`);
-    await expect(page.getByRole("textbox", { name: "初始问题", exact: true })).toHaveValue("组员修订：聚焦午休较短的学生。仍需访谈。");
-    await expect(member.getByRole("textbox", { name: "初始问题", exact: true })).toHaveValue("组员修订：聚焦午休较短的学生。仍需访谈。");
+    const outcomeUrl = `/aidt/${projectId}?step=1&tool=outcome&history=1`;
+    const expectOutcome = async (actor: Page, text: string, revision: number) => {
+      const outcome = actor.getByTestId("aidt-stage-output");
+      await expect(outcome).toContainText(text);
+      await expect(outcome).toContainText(`草稿 · V${revision}`);
+      await expect(outcome.getByRole("textbox")).toHaveCount(0);
+    };
+    await page.goto(outcomeUrl);
+    await member.goto(outcomeUrl);
+    const secondText = "组员修订：聚焦午休较短的学生。仍需访谈。";
+    await expectOutcome(page, secondText, 2);
+    await expectOutcome(member, secondText, 2);
+
+    // Aggregate edits from existing integrations may still contend with each
+    // other. Exercise the real CAS while the browser shows the read-only result.
     const localText = "本页保留：先验证午休短的情境，不把推测写成结论。";
-    await page.getByRole("textbox", { name: "初始问题", exact: true }).fill(localText);
-    await member.getByRole("textbox", { name: "初始问题", exact: true }).fill("成员新修订：先访谈最近一次取餐经历。");
-    await member.getByTestId("aidt-shared-save").click();
-    await expect(member.getByTestId("aidt-shared-receipt")).toHaveText("已保存到小组 · V3");
-    await page.getByTestId("aidt-shared-save").click();
-    await expect(page.getByTestId("aidt-shared-conflict")).toBeVisible();
-    await expect(page.getByRole("textbox", { name: "初始问题", exact: true })).toHaveValue(localText);
-    await expect(page.getByTestId("aidt-shared-use-server-base")).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath("aidt-shared-stage-conflict-preserves-input.png"), fullPage: true });
-    await page.getByTestId("aidt-shared-use-server-base").click();
-    await page.getByTestId("aidt-shared-save").click();
-    await expect(page.getByTestId("aidt-shared-receipt")).toHaveText("已保存到小组 · V4");
+    const memberText = "成员新修订：先访谈最近一次取餐经历。";
+    const pending = { ...initial, operationId: randomUUID(), expectedRevision: 2, content: draft(localText) };
+    const third = await request(member, path, "PUT", { ...pending, operationId: randomUUID(), content: draft(memberText) });
+    expect(third.status).toBe(200);
+    const thirdStage = stages.operations.save.out.parse(third.data).stage;
+    expect(thirdStage).toMatchObject({ revision: 3, updatedBy: FULLSTACK_E2E.collaborationMemberUserId, content: draft(memberText) });
+    const staleThird = await request(page, path, "PUT", pending);
+    expect(staleThird.status).toBe(409);
+    expect(JSON.stringify(staleThird.data)).toContain("AIDT_STAGE_REVISION_CONFLICT");
+    expect(stages.operations.get.out.parse((await request(page, path)).data).stage).toEqual(thirdStage);
+    await page.reload();
+    await expectOutcome(page, memberText, 3);
+    const fourth = await request(page, path, "PUT", { ...pending, operationId: randomUUID(), expectedRevision: thirdStage.revision });
+    expect(fourth.status).toBe(200);
     await member.reload();
-    await expect(member.getByRole("textbox", { name: "初始问题", exact: true })).toHaveValue(localText);
-    await page.screenshot({ path: test.info().outputPath("aidt-shared-stage-real-receipt.png"), fullPage: true });
+    await expectOutcome(member, localText, 4);
+    const disclosure = member.getByTestId("aidt-history-disclosure");
+    await disclosure.locator("summary").first().click();
+    const prior = disclosure.getByTestId("aidt-history-revision").filter({ has: member.getByTestId("aidt-history-content-2") });
+    await prior.locator("summary").first().click();
+    await expect(prior.getByTestId("aidt-history-content-2")).toContainText(secondText);
+    await member.screenshot({ path: test.info().outputPath("aidt-shared-stage-real-receipt.png"), fullPage: true });
     const stage6Path = `/projects/${projectId}/aidt/stages/6`;
     const stage6Input = { projectId, stageId: 6, operationId: randomUUID(), expectedRevision: 0, content: draft("学生测试反思：尚未开展真实测试。"), sourceStageRevisions: [] };
     expect((await request(page, stage6Path, "PUT", stage6Input)).status).toBe(200);
@@ -387,28 +401,31 @@ test("named AIDT problem: two fixture members share normal directory edits acros
   const path = `/projects/${projectId}/aidt/stages/1`;
   const directoryUrl = `/aidt/${projectId}?step=1`;
   const title = "本组自拟问题 " + randomUUID().slice(0, 8);
-  const firstText = "学生初稿：了解午间取餐的选择情境；尚未访谈。";
-  const memberText = "组员修订：先了解最近一次午间取餐经历，不把原因当作事实。";
-  const save = async (actor: Page) => {
-    const button = actor.getByTestId("aidt-shared-save");
-    await expect(button).toBeEnabled();
+  const leadTitle = "本组改名：午间取餐";
+  const memberTitle = "组员改名：最近一次午间取餐经历";
+  const writeStage = (actor: Page) => actor.waitForResponse(value =>
+    value.request().method() === "PUT" && new URL(value.url()).pathname.endsWith(path));
+  const rename = async (actor: Page, original: string, name: string) => {
+    await actor.goto(directoryUrl);
+    await actor.getByRole("button", { name: `编辑问题 ${original}`, exact: true }).click();
+    const dialog = actor.getByRole("dialog", { name: "编辑问题" });
+    await dialog.getByLabel("问题名称", { exact: true }).fill(name);
     const [response] = await Promise.all([
-      actor.waitForResponse(value => value.request().method() === "PUT" && new URL(value.url()).pathname.endsWith(path)),
-      button.click(),
+      writeStage(actor),
+      dialog.getByRole("button", { name: "保存修改", exact: true }).click(),
     ]);
     expect(response.status()).toBe(200);
+    await expect(dialog).toHaveCount(0);
     return stages.operations.save.out.parse(await response.json()).stage;
   };
-  const openSavedProblem = async (actor: Page) => {
+  const openSavedProblem = async (actor: Page, name: string) => {
     await actor.goto(directoryUrl);
-    const link = actor.getByTestId("aidt-problem-directory").getByRole("link", { name: title, exact: true });
-    await expect(link).toBeVisible();
-    await link.click();
+    await actor.getByTestId("aidt-problem-directory").getByRole("link", { name, exact: true }).click();
     await expect(actor.getByTestId("copilotkit-v2-input")).toBeVisible();
-    await actor.getByTestId("chat-task-workbench-inspector-tab-artifacts").click();
-    await expect(actor.getByRole("textbox", { name: "初始问题", exact: true })).toBeEditable();
-    expect(new URL(actor.url()).searchParams.has("history")).toBe(false);
-    return new URL(actor.url()).searchParams.get("entity")!;
+    await expect.poll(() => new URL(actor.url()).searchParams.get("thread")).toBeTruthy();
+    const location = new URL(actor.url());
+    expect(location.searchParams.has("history")).toBe(false);
+    return { entityId: location.searchParams.get("entity"), threadId: location.searchParams.get("thread") };
   };
   try {
     await page.goto(directoryUrl);
@@ -416,47 +433,41 @@ test("named AIDT problem: two fixture members share normal directory edits acros
     const dialog = page.getByRole("dialog", { name: "新建问题" });
     await dialog.getByLabel("问题名称", { exact: true }).fill(title);
     const [createdResponse] = await Promise.all([
-      page.waitForResponse(value => value.request().method() === "PUT" && new URL(value.url()).pathname.endsWith(path)),
+      writeStage(page),
       dialog.getByRole("button", { name: "创建问题" }).click(),
     ]);
     expect(createdResponse.status()).toBe(200);
     const created = stages.operations.save.out.parse(await createdResponse.json()).stage;
     await expect(dialog).toHaveCount(0);
     expect(created).toMatchObject({ revision: 1, updatedBy: FULLSTACK_E2E.collaborationLeadUserId });
-    const entityId = await openSavedProblem(page);
-    expect(entityId).toMatch(/^[0-9a-f-]{36}$/);
-    await page.getByRole("textbox", { name: "初始问题", exact: true }).fill(firstText);
-    const first = await save(page);
+    const identity = await openSavedProblem(page, title);
+    expect(identity.entityId).toMatch(/^[0-9a-f-]{36}$/);
+    const first = await rename(page, title, leadTitle);
     expect(first).toMatchObject({ revision: 2, updatedBy: FULLSTACK_E2E.collaborationLeadUserId });
-    expect(readAidtProblemEntityDraft(first.content.draft, entityId).fields.initial).toBe(firstText);
-    expect(first.content.draft.fields.initial).toBeUndefined();
     const member = await memberContext.newPage();
     await login(member, "member");
-    expect(await openSavedProblem(member)).toBe(entityId);
-    await expect(member.getByRole("textbox", { name: "初始问题", exact: true })).toHaveValue(firstText);
+    expect(await openSavedProblem(member, leadTitle)).toEqual(identity);
     expect(stages.operations.get.out.parse((await request(member, path)).data).stage).toEqual(first);
-    await member.getByRole("textbox", { name: "初始问题", exact: true }).fill(memberText);
-    const revised = await save(member);
+    const revised = await rename(member, leadTitle, memberTitle);
     expect(revised).toMatchObject({ revision: 3, updatedBy: FULLSTACK_E2E.collaborationMemberUserId });
-    expect(readAidtProblemEntityDraft(revised.content.draft, entityId).fields.initial).toBe(memberText);
     await member.reload();
-    await expect(member.getByRole("textbox", { name: "初始问题", exact: true })).toHaveValue(memberText);
-    await expect(member.getByTestId("aidt-shared-status")).toHaveText("小组已保存 · V3");
-    await page.reload();
-    await expect(page.getByRole("textbox", { name: "初始问题", exact: true })).toHaveValue(memberText);
-    await expect(page.getByTestId("aidt-shared-status")).toHaveText("小组已保存 · V3");
+    await expect(member.getByTestId("aidt-problem-directory").getByRole("link", { name: memberTitle, exact: true })).toBeVisible();
+    expect(await openSavedProblem(page, memberTitle)).toEqual(identity);
+    await page.getByTestId("chat-task-workbench-inspector-tab-artifacts").click();
+    const outcome = page.getByTestId("aidt-stage-output");
+    await expect(outcome).toContainText("尚无工作坊问题草稿");
+    await expect(outcome.getByRole("textbox")).toHaveCount(0);
     expect(stages.operations.get.out.parse((await request(page, path)).data).stage).toEqual(revised);
     await memberContext.clearCookies();
     await member.evaluate(() => localStorage.clear());
     await login(member, "member");
-    expect(await openSavedProblem(member)).toBe(entityId);
-    await expect(member.getByRole("textbox", { name: "初始问题", exact: true })).toHaveValue(memberText);
+    expect(await openSavedProblem(member, memberTitle)).toEqual(identity);
     const persisted = await audit(client => client.query("SELECT revision,updated_by,content FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 AND stage_id=1 ORDER BY revision", [FULLSTACK_E2E.collaborationOrgId, projectId]));
     expect(persisted.rows).toHaveLength(3);
     expect(persisted.rows[2]).toMatchObject({ revision: 3, updated_by: FULLSTACK_E2E.collaborationMemberUserId, content: revised.content });
     expect(await modelActivity(projectId)).toEqual(before);
     await page.screenshot({ path: test.info().outputPath("aidt-named-problem-member-revision.png"), fullPage: true });
-    await test.info().attach("named-problem-two-member-persistence", { body: JSON.stringify({ projectId, entityId, fixtureScope: "isolated existing lead/member; no ordinary Dev homepage claim", persisted: persisted.rows, modelActivityBefore: before }, null, 2), contentType: "application/json" });
+    await test.info().attach("named-problem-two-member-persistence", { body: JSON.stringify({ projectId, ...identity, fixtureScope: "isolated existing lead/member", persisted: persisted.rows, modelActivityBefore: before }, null, 2), contentType: "application/json" });
   } finally { await memberContext.close(); }
 });
 
