@@ -61,7 +61,7 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect(inspector.getByRole("textbox", { name: "学生提纲原稿" })).toHaveCount(0);
   await expect(page.getByTestId("aidt-chat-welcome")).toContainText("你准备问这位受访者哪些问题");
   await page.screenshot({ path: test.info().outputPath("interview-chat-start.png") });
-  await expect(inspector.getByLabel("受访者代号", { exact: true })).toHaveValue("U01");
+  await expect(inspector.getByRole("heading", { name: /^U01 ·/ })).toBeVisible();
   await expect(inspector.getByLabel("访谈 / 观察提纲", { exact: true })).toHaveCount(0);
   await page.getByTestId("chat-task-workbench-inspector-collapse").click();
   await expect(inspector).toHaveCount(0);
@@ -73,6 +73,8 @@ test("ten interviews bind to ten native conversations and reopening never copies
     entityId: ids[0], stageId: 2, stageRevisions: [{ stageId: 2, revision: 1 }],
   });
   await expect(page.getByText(message, { exact: true }).first()).toBeVisible();
+  await expect(inspector).toBeVisible();
+  await expect(inspector.getByRole("textbox")).toHaveCount(0);
 
   const bearer = await bearerOf(page);
   const headers = { Authorization: "Bearer " + bearer };
@@ -140,8 +142,7 @@ test("ten interviews bind to ten native conversations and reopening never copies
   const question = "你上一次选新品时，哪一条信息影响了决定？";
   await page.getByLabel("保留要问的问题，每行一题").fill(question);
   await page.getByRole("button", { name: "确认这份问题清单" }).click();
-  await page.getByTestId("aidt-shared-save").click();
-  await expect(page.getByTestId("aidt-shared-status")).toContainText("小组已保存");
+  await expect(page.getByRole("status").filter({ hasText: "问题清单已确认" })).toBeVisible();
   await page.reload();
   await expect(page.getByText(question, { exact: true }).first()).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("interview-chat-confirmed.png") });

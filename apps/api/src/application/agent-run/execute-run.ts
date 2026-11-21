@@ -1,3 +1,5 @@
+import { AIDT_ENTITY_THREAD_PREFIX } from "@repo/contracts/aidt-stages";
+import { aidtEntityArtifactInstructions } from "../aidt-run-context/entity-artifact-instructions";
 import {ownedRunCreditFailure} from "./run-credit-failure";
 import { assembleAidtRunReference } from "./aidt-context-reference";
 import type { AidtRunContextExecutionPort } from "../aidt-run-context/ports";
@@ -615,7 +617,7 @@ async function executeClaimed(
     // 它把画布委托给 skill，skill 回了 markdown 表格，围栏没了。
     excludedTools = canvasRequested || readOnlyIntroduction ? ["*"] : undefined;
     const instructions = isAidtTurn
-      ? `你是 AIDT 本阶段的「${skills[0]?.name}」Skill。每轮只按这个 Skill 的规则引导，不介绍通用助手能力。用户只打招呼时，说明本阶段身份，举一个可提供的输入例子，说明会帮助形成什么产物，并邀请用户开始。前序产物仅作为本阶段的参考，不负责代做其他阶段。\n\n${systemPromptMode === "full" ? "" : skills[0]?.content ?? ""}`
+      ? `你是 AIDT 本阶段的「${skills[0]?.name}」Skill。每轮只按这个 Skill 的规则引导，不介绍通用助手能力。用户只打招呼时，说明本阶段身份，举一个可提供的输入例子，说明会帮助形成什么产物，并邀请用户开始。前序产物仅作为本阶段的参考，不负责代做其他阶段。\n\n${systemPromptMode === "full" ? "" : skills[0]?.content ?? ""}${run.threadId.startsWith(AIDT_ENTITY_THREAD_PREFIX) ? aidtEntityArtifactInstructions(skills[0]?.stableName ?? "") : ""}`
       : catalogHint ? `${run.instructions}\n\n${catalogHint}` : run.instructions;
     system = buildSystemPrompt(instructions, catalogSkills, canvasGuidance, systemPromptMode, {
       // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
