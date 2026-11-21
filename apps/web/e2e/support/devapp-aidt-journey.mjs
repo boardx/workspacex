@@ -1032,10 +1032,35 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     await expect.poll(async () => (await reverse.read())?.candidates.length, { timeout: 30000 }).toBe(5);
     const exactReverse = report.teachingEvidence.find(row => row.threadId === reverse.threadId && row.prompt === reversePrompt && row.status === 'passed');
     if (!exactReverse || !/逆向|翻转|反转|反过来/u.test(exactReverse.assistantText)) fail('S4_REVERSE_METHOD_NOT_OBSERVED');
-    const output = page.getByTestId('aidt-brainstorm-output');
-    await expect(output).toBeVisible();
-    await expect(output.getByRole('listitem')).toHaveCount(5);
+    const brainstormOutput = page.getByTestId('aidt-brainstorm-output');
+    await expect(brainstormOutput).toBeVisible();
+    await expect(brainstormOutput.getByRole('listitem')).toHaveCount(5);
     const selectedIds = (await reverse.read()).candidates.slice(0, 2);
+    const reverseHref = owned(page.url());
+    const candidates = (await savedStage(4)).content.draft.ideas;
+    for (const [index, id] of selectedIds.entries()) {
+      const idea = candidates.find(record => record.id === id);
+      if (!idea?.title || !idea.description) fail('S4_SELECTED_CANDIDATE_DESCRIPTION_REQUIRED');
+      await page.goto(frozenUrl.href);
+      const link = page.getByRole('link', { name: '打开「' + idea.title + '」对话', exact: true });
+      const route = ownedAidtEntityRoute(await link.getAttribute('href'), { origin, projectId: scope.projectId }, { stage: 4, entityId: id });
+      await click(link);
+      await page.waitForURL(url => matchesAidtEntityRoute(url.href, route) && url.searchParams.get('thread')?.startsWith('thr_aidt_'));
+      const review = page.getByRole('region', { name: '点子确认' });
+      await expect(review.getByRole('textbox', { name: '点子描述草稿' })).toHaveValue(idea.description);
+      await disclosure('添加描述单配图');
+      const image = schematicPng(unique, index + 1);
+      await uploaded('点子配图', `qa-${unique}-idea-${index + 1}.png`, image, 'image/png');
+      await reviewAndSave(4, btn('确认点子产物', review));
+      await output(route);
+      const artifact = page.getByTestId('aidt-idea-output');
+      await expect(artifact.getByRole('textbox')).toHaveCount(0);
+      await expect(artifact).toContainText(idea.description);
+      await printOutput(4, 'idea-description-' + (index + 1), btn('导出描述单 PDF', artifact),
+        [idea.title, idea.description, chosenHmw.text], [createHash('sha256').update(image).digest('hex')]);
+    }
+    await page.goto(reverseHref);
+    await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(reverse.threadId);
     const compare = page.getByRole('region', { name: '筛选点子' });
     await click(compare.getByText('筛选点子 · 已选 0', { exact: true }));
     await compare.getByRole('checkbox').nth(0).check();
@@ -1047,9 +1072,9 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     const frozenHandoff = owned(await compare.getByRole('link', { name: '进入原型制作' }).getAttribute('href'));
     if (String(stage4.revision) !== new URL(frozenHandoff).searchParams.get('ideaRevision')) fail('S4_BRAINSTORM_HANDOFF_REVISION_MISMATCH');
     await page.reload();
-    await expect(output.getByRole('listitem')).toHaveCount(5);
+    await expect(brainstormOutput.getByRole('listitem')).toHaveCount(5);
     await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(reverse.threadId);
-    await expect(output.getByRole('heading', { name: /入选 2/ })).toBeVisible();
+    await expect(brainstormOutput.getByRole('heading', { name: /入选 2/ })).toBeVisible();
     await shot('04-brainstorm-five-to-two', 4);
     await completed(4);
     await page.goto(frozenHandoff);
