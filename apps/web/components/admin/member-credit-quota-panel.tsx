@@ -33,7 +33,8 @@ export function MemberCreditQuotaPanel({orgId}:{orgId:string}){
  React.useEffect(()=>{setEditing(null);setBatchOpen(false);void load();},[load]);
  const fmt=(n:number)=>n.toLocaleString(locale,{maximumFractionDigits:2});
  const parseLimit=(value:string)=>MemberMonthlyCreditLimit.safeParse(value.trim()===''?NaN:Number(value));
- const minimum=(member:Member)=>Math.ceil(member.usedCredits);
+ const committed=(member:Member)=>(Math.round(member.usedCredits*100)+Math.round(member.heldCredits*100))/100;
+ const minimum=(member:Member)=>Math.ceil(committed(member));
  const conflicts=previewLimit===null?[]:(data?.members??[]).filter(member=>minimum(member)>previewLimit);
  const updates=previewLimit===null?[]:(data?.members??[]).flatMap(member=>{
   if(minimum(member)<=previewLimit)return [{userId:member.userId,monthlyLimit:previewLimit}];
@@ -83,7 +84,7 @@ export function MemberCreditQuotaPanel({orgId}:{orgId:string}){
    <p className="text-12 text-muted-foreground">{t('adminMemberQuotas.creditUnavailable')}</p>
   </CardContent>
  </Card>;
- const filteredMembers=data.members.filter(m=>`${m.displayName} ${m.email}`.toLowerCase().includes(query.toLowerCase())).filter(m=>status==='all'||(status==='exhausted' ? m.usedCredits>=m.monthlyLimit : m.usedCredits<m.monthlyLimit));
+ const filteredMembers=data.members.filter(m=>`${m.displayName} ${m.email}`.toLowerCase().includes(query.toLowerCase())).filter(m=>status==='all'||(status==='exhausted' ? committed(m)>=m.monthlyLimit : committed(m)<m.monthlyLimit));
  const pages=Math.max(1,Math.ceil(filteredMembers.length/10));
  const currentPage=Math.min(page,pages);
  const visibleMembers=filteredMembers.slice((currentPage-1)*10,currentPage*10);
@@ -101,7 +102,7 @@ export function MemberCreditQuotaPanel({orgId}:{orgId:string}){
   </div>
   <div className="flex flex-wrap gap-3"><input className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-14" aria-label={t('orgControlsRedesign.searchMembers')} placeholder={t('orgControlsRedesign.searchMembers')} value={query} onChange={e=>setQuery(e.target.value)} /><select className="rounded-md border border-input bg-background px-3 py-2 text-14" aria-label={t('orgControlsRedesign.status')} value={status} onChange={e=>setStatus(e.target.value)}><option value="all">{t('orgControlsRedesign.all')}</option><option value="available">{t('orgControlsRedesign.available')}</option><option value="exhausted">{t('orgControlsRedesign.exhausted')}</option></select></div>
   <div className="overflow-x-auto rounded-lg border border-border"><table className="w-full min-w-max text-left text-13"><thead className="bg-muted text-muted-foreground"><tr>{(['members','used','remaining','status','actions'] as const).map(k=><th key={k} className="px-4 py-3 font-medium">{t(`orgControlsRedesign.${k}`)}</th>)}</tr></thead><tbody>{visibleMembers.map(m=>{
-   const remaining=Math.max(0,m.monthlyLimit-m.usedCredits);
+   const remaining=Math.max(0,m.monthlyLimit-committed(m));
    return <tr key={m.userId} className="border-t border-border"><td className="px-4 py-4"><p className="font-medium">{m.displayName}</p><p className="text-12 text-muted-foreground">{m.email}</p></td><td className="px-4 py-4"><span data-testid={`member-credit-usage-${m.userId}`}>{t('adminMemberQuotas.creditUsage',{used:fmt(m.usedCredits),limit:fmt(m.monthlyLimit)})}</span><progress className="mt-2 block h-2 w-full accent-primary" max={Math.max(1,m.monthlyLimit)} value={Math.min(m.monthlyLimit,m.usedCredits)} aria-label={t('orgControlsRedesign.used')} /></td><td className="px-4 py-4">{fmt(remaining)}</td><td className="px-4 py-4">{t(remaining>0?'orgControlsRedesign.available':'orgControlsRedesign.exhausted')}</td><td className="px-4 py-4"><Button size="xs" variant="outline" onClick={()=>{setEditing(m);setDraft(String(m.monthlyLimit));setError(null);setInvalid(false);}} data-testid={`member-credit-adjust-${m.userId}`}>{t('adminMemberQuotas.adjust')}</Button></td></tr>;
   })}{filteredMembers.length===0&&<tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{t('orgControlsRedesign.noMatches')}</td></tr>}</tbody></table></div>
   {pages>1&&<div className="flex flex-wrap items-center justify-end gap-3 text-13"><span>{t('orgControlsRedesign.page',{page:currentPage,total:pages})}</span><Button size="sm" variant="outline" disabled={currentPage===1} onClick={()=>setPage(currentPage-1)}>{t('orgControlsRedesign.previous')}</Button><Button size="sm" variant="outline" disabled={currentPage===pages} onClick={()=>setPage(currentPage+1)}>{t('orgControlsRedesign.next')}</Button></div>}

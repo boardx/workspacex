@@ -93,6 +93,11 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
     names: ["WORKSPACEX_CREDIT_RECEIPT_DIR"],
   },
   {
+    status: "default-ok",
+    reason: "The API uses the existing Credit tariff at 100% when no environment rate is configured.",
+    names: ["WORKSPACEX_CREDIT_RATE_BPS"],
+  },
+  {
     status: "unavailable-locally",
     reason: "微信充值和 Stripe 订阅需要外部支付服务及商户凭据，本地版零出网且不配置这些凭据。" +
       "缺失时 billing/config 返回空渠道，购买入口隐藏；本地模型使用不需要在线支付。",

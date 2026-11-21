@@ -116,7 +116,7 @@ export class BailianVisionExtractor implements AttachmentVisionPort {
       modelProvider:provider,modelId,callPurpose:"auxiliary",startedAt,
       maximumTokens:this.config.maximumInputTokens===undefined?null:this.config.maximumInputTokens+4096});
     const dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
-    let body:GenerationResponse={},outcome:"succeeded"|"failed"="failed";
+    let body:GenerationResponse={},authenticationRejected=false,outcome:"succeeded"|"failed"="failed";
     try {
       let response:Response;
       try {
@@ -126,16 +126,20 @@ export class BailianVisionExtractor implements AttachmentVisionPort {
           signal:AbortSignal.timeout(timeoutMs),
         });
       } catch { return fail("visionTransport"); }
-      body=(await response.json().catch(()=>({}))) as GenerationResponse;
-      if(!response.ok)return fail(classifyHttpFailure(response.status,body));
+      body=((await response.json().catch(()=>null)) ?? {}) as GenerationResponse;
+      if(!response.ok){
+        authenticationRejected=response.status===401||response.status===403;
+        return fail(classifyHttpFailure(response.status,body));
+      }
       const text=readReplyText(body);if(text.trim()==="")return fail("visionRejected");
       outcome="succeeded";
       return {ok:true,modelId,markdown:composeVisionMarkdown({modelId,reply:parseVisionReply(text)})};
     } finally {
       const count=(value:unknown)=>typeof value==="number"&&Number.isSafeInteger(value)&&value>=0?value:null;
-      const prompt=count(body.usage?.input_tokens),completion=count(body.usage?.output_tokens);
+      const prompt=authenticationRejected?null:count(body.usage?.input_tokens);
+      const completion=authenticationRejected?null:count(body.usage?.output_tokens);
       const reported=count(body.usage?.total_tokens);
-      const total=reported??(prompt!==null&&completion!==null&&Number.isSafeInteger(prompt+completion)?prompt+completion:null);
+      const total=authenticationRejected?0:reported??(prompt!==null&&completion!==null&&Number.isSafeInteger(prompt+completion)?prompt+completion:null);
       await this.usage.record(subject.orgId,{eventId:requestId,userId:subject.userId,runId:null,modelProvider:provider,modelId,
         callPurpose:"auxiliary",projectId:null,requestStartedAt:startedAt,requestEndedAt:new Date().toISOString(),
         tokensTotal:total??0,totalSource:total===null?"unknown":"reported",promptTokens:prompt,completionTokens:completion,outcome});

@@ -2,28 +2,29 @@ import {createHash} from "node:crypto";
 import type {TenantSession} from "../../application/ports/database.port";
 import type {TokenUsageRecord} from "../../application/agent-run/ports";
 import type {OrgId} from "../../domain/org-id";
-import {CreditConsumptionError, creditDecimal, creditHundredths, creditFacts, tokenCreditHundredths} from "../../application/billing/credit-consumption";
+import {CreditConsumptionError, creditDecimal, creditHundredths, creditFacts, creditRateBps, ratedCreditHundredths, tokenCreditHundredths} from "../../application/billing/credit-consumption";
 import {normalizeCreditPeriods, allocateCreditDebit} from "./pg-credit-periods";
 
 type Receipt = {tokens: number; source: string; native: TokenUsageRecord["nativeUsage"] | null; prompt: number | null; completion: number | null; outcome: string};
 type Request = {request_id: string; user_id: string; wallet_id: string; model_provider: string; model_id: string; run_id: string | null;
   reserved_hundredths: string; native_unit: string | null; native_quantum: string | null; native_rate: string | null; tariff_version: string;
-  state: string; usage_facts: Receipt | null; debited_hundredths: string | null};
+  start_facts: {creditRateBps?: number}; state: string; usage_facts: Receipt | null; debited_hundredths: string | null};
 type Wallet = {wallet_id: string; balance: string; owner_type: "user" | "team"; owner_id: string};
 const limit = 214748364700n;
 function debitFor(row: Request, usage: TokenUsageRecord): bigint | null {
-  if (usage.totalSource === "reported") return tokenCreditHundredths(usage.tokensTotal);
+  const bps = creditRateBps(row.start_facts?.creditRateBps);
+  if (usage.totalSource === "reported") return tokenCreditHundredths(usage.tokensTotal, bps);
   if (row.native_unit) {
     const n = usage.nativeUsage;
     if (n && n.unit !== row.native_unit) throw new Error("credit_native_unit_mismatch");
     if (n?.source === "reported" && n.quantity !== null) {
       if (n.quantity < 0n) throw new Error("credit_native_quantity_invalid");
       const q = BigInt(row.native_quantum!), r = BigInt(row.native_rate!);
-      return (n.quantity * r + q - 1n) / q;
+      return ratedCreditHundredths(n.quantity * r, q, bps);
     }
     return null;
   }
-  return usage.totalSource !== "unknown" && usage.totalSource !== "not-applicable" && !usage.nativeUsage ? tokenCreditHundredths(usage.tokensTotal) : null;
+  return usage.totalSource !== "unknown" && usage.totalSource !== "not-applicable" && !usage.nativeUsage ? tokenCreditHundredths(usage.tokensTotal, bps) : null;
 }
 function quantity(receipt: Receipt): bigint | null {
   if (receipt.source === "reported") return BigInt(receipt.tokens);

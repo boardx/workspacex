@@ -9,9 +9,24 @@ export class CreditConsumptionError extends Error {
   }
 }
 /** Exact integer hundredths: never use binary floating arithmetic to calculate a debit. */
-export function tokenCreditHundredths(tokens: number): bigint {
+export const DEFAULT_CREDIT_RATE_BPS = 10_000;
+
+export function creditRateBps(value: unknown = DEFAULT_CREDIT_RATE_BPS): number {
+  if (typeof value === "string" && /^[1-9]\d{0,6}$/.test(value)) value = Number(value);
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > 1_000_000) {
+    throw new Error("invalid_credit_rate_bps");
+  }
+  return value;
+}
+
+export function ratedCreditHundredths(numerator: bigint, denominator: bigint, bps: number): bigint {
+  const divisor = denominator * BigInt(DEFAULT_CREDIT_RATE_BPS);
+  return (numerator * BigInt(bps) + divisor - 1n) / divisor;
+}
+
+export function tokenCreditHundredths(tokens: number, bps = DEFAULT_CREDIT_RATE_BPS): bigint {
   if (!Number.isSafeInteger(tokens) || tokens < 0) throw new Error("invalid_credit_token_quantity");
-  return (BigInt(tokens) + 9n) / 10n;
+  return ratedCreditHundredths(BigInt(tokens), 10n, bps);
 }
 export function creditDecimal(hundredths: bigint): string {
   const sign = hundredths < 0n ? "-" : "", magnitude = hundredths < 0n ? -hundredths : hundredths;
