@@ -10,6 +10,7 @@ import { createAidtTestGroup, isAidtTestGroupConfirmed, readAidtTestGroups, upda
 import { readAidtTestPrototypeStage, type AidtReadPrototypeEntity } from "./aidt-test-prototype-source";
 import { resolveAidtPrototypeVersion } from "../lib/aidt-prototype-versions";
 import { aidtHref } from "../lib/project-aidt";
+import { isAidtPrototypeHandoffConfirmed } from "../lib/aidt-prototype-handoff";
 import { createAidtQuestionSnapshot } from "../lib/aidt-verification-loop";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 
@@ -73,11 +74,11 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
         stage5 = await readAidtTestPrototypeStage(projectId, exactRevision, sessionToken, controller.signal);
       }
       const source = stage5 && (id ? readPrototypeEntity?.(stage5, id) : stage5);
-      if (!source) throw new Error("source");
+      if (!source || (id && !isAidtPrototypeHandoffConfirmed(source))) throw new Error("source");
       const binding = createAidtQuestionSnapshot(source, exactRevision);
       const group = binding.ok ? createAidtTestGroup(binding.snapshot, crypto.randomUUID(), id) : null;
       if (!group || !binding.ok) throw new Error("binding");
-      await resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, group.designId, group.versionId);
+      await resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, group.designId, group.versionId, "linked-reader");
       if (controller.signal.aborted) return;
       update(current => {
         const next = updateAidtTestGroup(current, { ...group, name: name.trim() });

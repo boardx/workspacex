@@ -11,7 +11,7 @@ const transcriptRecord = z.object({ sourceKey: z.string(), locator: z.string().m
 const definitionRecord = z.object({ id: entityId, confirmed: z.boolean(), archived: z.boolean(), cardIds: z.array(z.string()) });
 const personaRecord = definitionRecord.extend({ name: z.string().trim().max(220) });
 const hmwRecord = definitionRecord.extend({ text: z.string().trim().max(220) });
-const testGroupRecord = z.object({ schemaVersion: z.literal(1), id: uuid, name: z.string().trim().max(80), stage5Revision: z.number().int().positive() });
+const testGroupRecord = z.object({ schemaVersion: z.literal(1), id: uuid, name: z.string().trim().max(80), stage5Revision: z.number().int().positive(), prototypeEntity: entityId.optional() });
 const clock = /^(?:(?:\d{1,2}):)?[0-5]?\d:[0-5]\d$/u;
 
 function read<T>(schema: z.ZodType<T>, raw: string | undefined): T | undefined {
@@ -85,7 +85,15 @@ export function aidtReportSourceLinks(stage: AidtSharedStage): { id: string; tit
     }
     if (stage.stageId === 6 && key.startsWith("testGroup:")) {
       const record = read(testGroupRecord, value);
-      if (record && key === `testGroup:${record.id}`) add(record.id, record.name || "测试组");
+      if (record && key === `testGroup:${record.id}`) {
+        const title = record.name || "测试组";
+        add(record.id, title);
+        if (record.prototypeEntity) {
+          const linkId = `${record.id}:prototype`;
+          links.set(linkId, { id: linkId, title: `${title} · 被测原型 V${record.stage5Revision}`,
+            href: sourceHref({ ...stage, stageId: 5, revision: record.stage5Revision }, record.prototypeEntity) });
+        }
+      }
     }
   }
   return [...links.values()].filter(link => link !== null);
