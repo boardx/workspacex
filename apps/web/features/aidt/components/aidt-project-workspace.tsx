@@ -7,7 +7,8 @@ import { ArrowLeft } from "lucide-react";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
 import { findProject, getProjectOverview, type ProjectListItem, type ProjectOverview } from "@/lib/live-projects";
-import { isAidtProject } from "@/features/aidt/lib/project-aidt";
+import { aidtStep, isAidtProject } from "@/features/aidt/lib/project-aidt";
+import { AidtEntityHistory } from "./aidt-entity-history";
 import { AidtEntityId } from "@repo/contracts/aidt-stages";
 import { AidtProjectSettings } from "./aidt-project-settings";
 import { isAidtModuleEnabled } from "@/features/aidt/lib/aidt-module-config";
@@ -54,6 +55,14 @@ export function AidtProjectWorkspace({ projectId }: { projectId: string }) {
     return <p role="alert">产物链接无效。</p>;
   }
   if (!enabled) return <section role="status" data-testid="aidt-workspace-disabled">教学模块尚未启用。</section>;
+  const revisionParam = search.get("entityRevision");
+  if (revisionParam !== null && current?.error === null && isAidtProject(current.project) && bearer) {
+    const selectedStep = aidtStep(step ? `aidt-${step}` : null);
+    const revision = /^\d{1,10}$/.test(revisionParam) ? Number(revisionParam) : 0;
+    if (!entity.success || !selectedStep || revision < 1 || revision > 2147483647) return <p role="alert">产物版本链接无效。</p>;
+    return <AidtEntityHistory key={JSON.stringify([key, selectedStep.id, entity.data, revision])}
+      projectId={projectId} step={selectedStep} entityId={entity.data} revision={revision} token={bearer} timestamp={search.get("timestamp")} />;
+  }
   return <div className="flex h-full min-h-0 flex-col" data-testid="aidt-project-workspace">
     {!step && <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border/60 px-4 py-3 sm:px-8">
       <div className="flex min-w-0 items-center gap-3">

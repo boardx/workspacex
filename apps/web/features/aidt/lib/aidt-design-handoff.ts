@@ -1,3 +1,4 @@
+import { StageDraft } from "@repo/contracts/aidt-stages";
 import { DESIGN_TEXT_MAX_CHARS } from "@repo/contracts/design-workbench";
 import { ApiError } from "@/lib/api-client";
 import type { AidtSharedStage } from "./live-aidt-stages";
@@ -51,7 +52,7 @@ export async function loadAidtDesignHandoff(input: AidtDesignHandoffInput): Prom
   const projectPrototype = (stage: AidtSharedStage | null) => {
     if (!stage || !entityId) return stage;
     const draft = readAidtPrototypeEntityDraft(stage.content.draft, entityId);
-    if (draft) return { ...stage, content: { ...stage.content, draft } };
+    if (draft) return { ...stage, content: { ...stage.content, draft: StageDraft.parse(draft) } };
     return !useFrozenRound && input.prototypeEntityId ? null : stage;
   };
   if (!useFrozenRound) {

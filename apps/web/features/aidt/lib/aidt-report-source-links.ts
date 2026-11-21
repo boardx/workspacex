@@ -52,6 +52,10 @@ export function aidtReportSourceLinks(stage: AidtSharedStage): { id: string; tit
     links.set(id, links.has(id) ? null : { id, title, href: sourceHref(stage, id, locator) });
   };
   for (const [key, value] of Object.entries(fields)) {
+    if (stage.stageId === 1 && key.startsWith("problemEntity:")) {
+      const record = read(z.object({ id: uuid, title: z.string().trim().min(1).max(120) }), value);
+      if (record && key === `problemEntity:${record.id}`) add(record.id, record.title);
+    }
     if (stage.stageId === 2 && key.startsWith("interviewRecord:")) {
       const record = read(interviewRecord, value);
       if (!record || key !== `interviewRecord:${record.id}`) continue;

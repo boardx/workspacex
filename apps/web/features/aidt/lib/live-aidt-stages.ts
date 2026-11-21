@@ -36,3 +36,13 @@ export async function listAidtStageHistory(projectId: string, stageId: number, s
     || (result.nextBeforeRevision !== null && result.nextBeforeRevision !== result.items.at(-1)?.revision)) throw new Error("AIDT_STAGE_HISTORY_INVALID");
   return result;
 }
+
+export async function readAidtStageRevision(projectId: string, stageId: number, revision: number, sessionToken: string, signal?: AbortSignal) {
+  operations.revision.in.parse({ projectId, stageId, revision });
+  const url = path(projectId, stageId) + "/revision/" + revision;
+  const { stage } = operations.revision.out.parse(await apiRequest<unknown>(url, { method: "GET", sessionToken, signal }));
+  if (stage && (stage.projectId !== projectId || stage.stageId !== stageId || stage.revision !== revision)) {
+    throw new Error("AIDT_STAGE_SCOPE_MISMATCH");
+  }
+  return stage;
+}

@@ -80,13 +80,33 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
     const stageId = selector.purpose === "stage" ? selector.stageId : 6;
     const purpose = selector.purpose === "stage" ? "stage" : "report";
     if (!selector.entityId || aidtEntityThreadId(actor, stageId, selector.entityId, purpose) !== actor.threadId) return unavailable();
-    if (selector.purpose === "stage" && (selector.stageRevisions.length || selector.returnRevision !== undefined)) return unavailable();
+    if (selector.purpose === "stage" && (selector.stageRevisions.length > 0 && !selector.sourceEntityId || selector.returnRevision !== undefined)) return unavailable();
   } else if (selector.entityId) return unavailable();
 
   return this.timed(session,async s=>{
    const scope=await this.accessIn(s,actor,true),focus=await this.focusIn(s,actor,selector,run.skillVersionIds,scope.db);
    const heads=new Map((await scope.stages.list(actor)).items.map(row=>[row.stageId,row.revision]));const loaded:LoadedAidtContextSource[]=[];
-   for(const ref of selector.stageRevisions)loaded.push({kind:"stage",stage:await this.exact(scope.stages,actor,ref.stageId,ref.revision)});
+   for (const ref of selector.stageRevisions) {
+     const stage = await this.exact(scope.stages, actor, ref.stageId, ref.revision);
+     if (selector.purpose !== "stage" || !selector.sourceEntityId) {
+       loaded.push({ kind: "stage", stage });
+       continue;
+     }
+     const interview = (await scope.stages.get(actor, 2)).stage;
+     const provenance = interview?.content.draft.fields["interviewRecord:" + selector.entityId];
+     const savedProblem = stage.content.draft.fields["problemDraft:" + selector.sourceEntityId];
+     if (!provenance || !savedProblem) return unavailable();
+     let interviewRecord: { id?: string; topicRevision?: number; problemEntityId?: string };
+     let problemFields: Record<string, string>;
+     try {
+       interviewRecord = JSON.parse(provenance);
+       problemFields = JSON.parse(savedProblem);
+     } catch { return unavailable(); }
+     if (interviewRecord?.id !== selector.entityId || interviewRecord.topicRevision !== ref.revision
+       || interviewRecord.problemEntityId !== selector.sourceEntityId || !problemFields?.roundCompletion
+       || !problemFields.rewrittenTheme?.trim()) return unavailable();
+     loaded.push({ kind: "stage", stage, payload: { draft: { fields: problemFields }, entityId: selector.sourceEntityId } });
+   }
    const reflection=await this.checkReturn(scope.stages,actor,selector);if(reflection)loaded.push({kind:"return",stage:reflection.row,payload:reflection.payload});
    if(selector.purpose==="summary")for(const ref of selector.historyRevisions)loaded.push({kind:"history",stage:await this.exact(scope.stages,actor,ref.stageId,ref.revision)});
    const entitySources = selector.entityId && selector.purpose === "summary"
