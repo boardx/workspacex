@@ -134,13 +134,85 @@ export function assertProvisionedOrdinaryQa(expected, loginIdentity, status, me)
   return true;
 }
 
+/** Receipts come only from the helper's canonical owned-human/run/pin observation. */
+export function pendingTeachingReviewReceipt(receipt, scope, currentUrl, pin) {
+  const keys = ['projectId','stageId','threadId','runId','inputMessageId','permissionRequestId','toolName','knownConfirmTaskIntent','argumentFields','argumentShapeKnown'];
+  const validId = value => typeof value === 'string' && /^[A-Za-z0-9._:-]{1,256}$/.test(value);
+  if (!receipt || Object.keys(receipt).length !== keys.length || !keys.every(key => Object.hasOwn(receipt, key))
+    || receipt.projectId !== scope.projectId || receipt.stageId !== scope.stageId || receipt.threadId !== scope.threadId
+    || ![receipt.runId,receipt.inputMessageId].every(validId) || receipt.permissionRequestId !== null && !validId(receipt.permissionRequestId)
+    || !['confirm_task_intent','other'].includes(receipt.toolName) || receipt.knownConfirmTaskIntent !== (receipt.toolName === 'confirm_task_intent')
+    || typeof receipt.argumentShapeKnown !== 'boolean' || !Array.isArray(receipt.argumentFields) || receipt.argumentFields.length > 3
+    || new Set(receipt.argumentFields.map(field => field?.name)).size !== receipt.argumentFields.length
+    || receipt.argumentFields.some(field => !field || Object.keys(field).length !== 2 || !['requestId','understanding','assumptions'].includes(field.name) || !['string','array-of-strings','other'].includes(field.type))) throw new ProbeFailure('TOOL_REVIEW_RECEIPT_INVALID');
+  let url; try { url = new URL(currentUrl); } catch { throw new ProbeFailure('TOOL_REVIEW_SCOPE_UNVERIFIED'); }
+  if (scope.origin !== ORIGIN || url.origin !== ORIGIN || url.username || url.password || url.pathname !== `/aidt/${scope.projectId}`
+    || url.searchParams.getAll('step').length !== 1 || url.searchParams.get('step') !== String(scope.stageId)
+    || url.searchParams.getAll('thread').length !== 1 || url.searchParams.get('thread') !== scope.threadId
+    || url.searchParams.getAll('entity').length !== (scope.selector.entityId === undefined ? 0 : 1)
+    || (url.searchParams.get('entity') ?? undefined) !== scope.selector.entityId
+    || !pin || pin.skillId !== scope.skillId || pin.skillVersionId !== scope.skillVersionId) throw new ProbeFailure('TOOL_REVIEW_SCOPE_UNVERIFIED');
+  return { projectId: receipt.projectId, stageId: receipt.stageId, threadId: receipt.threadId, runId: receipt.runId,
+    inputMessageId: receipt.inputMessageId, permissionRequestId: receipt.permissionRequestId, toolName: receipt.toolName,
+    knownConfirmTaskIntent: receipt.knownConfirmTaskIntent, argumentFields: receipt.argumentFields.map(field => ({ name: field.name, type: field.type })), argumentShapeKnown: receipt.argumentShapeKnown };
+}
+
+/** Open only this native approval surface. Never decide, edit, resume or send. */
+export async function observePendingTeachingReview({ page, capture }) {
+  let dialogObserved = false;
+  const blocked = code => ({ status: 'not-captured', code, dialogObserved, captured: false, domRequestIdentityVerified: false });
+  try {
+    const native = page.getByTestId('aidt-project-workspace').getByTestId('restored-run-approval');
+    if (await native.count() > 1) return blocked('TOOL_REVIEW_NATIVE_SURFACE_NOT_UNIQUE');
+    await native.waitFor({ state: 'visible', timeout: 5000 });
+    if (await native.count() !== 1) return blocked('TOOL_REVIEW_NATIVE_SURFACE_NOT_UNIQUE');
+    const dialog = page.getByTestId('chat-tool-permission-dialog');
+    if (await dialog.count() > 1) return blocked('TOOL_REVIEW_DIALOG_NOT_UNIQUE');
+    if (await dialog.count() === 0 || !await dialog.isVisible()) {
+      const open = native.getByRole('button', { name: /^(?:打开待确认请求|继续补充信息|打开工具审批|Open pending request|Continue adding details|Open tool approval)$/ });
+      if (await open.count() !== 1 || !await open.isVisible() || !await open.isEnabled()) return blocked('TOOL_REVIEW_OPEN_UNAVAILABLE');
+      await open.click();
+    }
+    await dialog.waitFor({ state: 'visible', timeout: 5000 });
+    if (await dialog.count() !== 1) return blocked('TOOL_REVIEW_DIALOG_NOT_UNIQUE');
+    dialogObserved = true;
+    await capture();
+    return { status: 'captured', code: null, dialogObserved, captured: true, domRequestIdentityVerified: false };
+  } catch { return blocked('TOOL_REVIEW_CAPTURE_UNAVAILABLE'); }
+}
+
+/** Keep the upstream owned-run diagnostic beside, never inside, the safe receipt. */
+export function recordTeachingEvent(event, scope, pendingReviews, assertSafe, emit) {
+  assertSafe(JSON.stringify(event));
+  let matched = false;
+  if (event?.event === 'teaching-tool-review-required') {
+    const keys = ['event','runId','threadId','stageId','toolName','approvalVisible','dialogOpened'];
+    // This event has no argument values. Refuse unexpected fields rather than log them.
+    if (Object.keys(event).length !== keys.length || !keys.every(key => Object.hasOwn(event, key))
+      || event.toolName !== null && (typeof event.toolName !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/.test(event.toolName))
+      || ![true,false,null].includes(event.approvalVisible) || ![true,false,null].includes(event.dialogOpened)
+      || event.dialogOpened === true && event.approvalVisible === false) return false;
+    const entry = pendingReviews.find(item => item.receipt?.projectId === scope.projectId
+      && item.receipt.stageId === scope.stageId && item.receipt.threadId === scope.threadId
+      && item.receipt.runId === event.runId && event.stageId === scope.stageId && event.threadId === scope.threadId);
+    if (entry) {
+      entry.observedToolName = event.toolName;
+      entry.approvalVisible = event.approvalVisible;
+      entry.dialogOpened = event.dialogOpened;
+      matched = true;
+    }
+  }
+  emit(event);
+  return matched;
+}
+
 export async function main() {
   // These variables can expose Playwright fill arguments; remove before importing its API.
   for (const key of ['DEBUG', 'PWDEBUG', 'NODE_DEBUG', 'NODE_DEBUG_NATIVE', 'NODE_OPTIONS']) delete process.env[key];
   const report = { kind: 'devapp-aidt-ui-acceptance-v1', target: ORIGIN, passed: false, syntheticData: true,
     classroomValidated: false, realModelVerified: false, crossUserIsolationVerified: false,
     controlSource: null, deployedRuntime: null, deploymentLockHeld: false, runtimeRechecks: 0,
-    checkpoints: [], screenshots: [], scope: 'writes and screenshots: new owned QA project only',
+    checkpoints: [], screenshots: [], pendingTeachingReviews: [], scope: 'writes and screenshots: new owned QA project only',
     authorizedMetadataReads: 'Native clients also read the QA-authorized identity, course/project/Skill/Agent catalogs and Design list in memory. Closed read-category counters count guard decisions; bounded metadata HTTP statuses come only from observed responses. No raw lists, URLs, queries, headers, bodies or unrelated projects are exported.',
     designRequestLimit: 'At most one normal UI Design chat request; default page count is decided by the existing service, not capped to one page.' };
   let browser, context, page, output, identity, guard, credentials, provisionedIdentity, timer, stage = 'preflight';
@@ -265,13 +337,21 @@ export async function main() {
       if (JSON.stringify(observed) !== JSON.stringify(report.deployedRuntime)) { guard.fail('RUNTIME_CHANGED_DURING_ACCEPTANCE'); throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE'); }
       report.runtimeRechecks++;
     };
-    const capture = async (name, expectedStage, region = 'workspace') => {
+    let pendingReviewCapture = null;
+    const capture = async (name, expectedStage, region = 'workspace', pendingReceipt) => {
       if (!/^[a-z0-9][a-z0-9-]{0,85}$/.test(name)) throw new ProbeFailure('SCREENSHOT_NAME_INVALID');
-      if (region === 'workspace') assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
+      if (region === 'workspace' || region === 'owned-tool-review') assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
       else { const url = new URL(page.url()); if (url.origin !== ORIGIN || url.pathname !== '/aidt' || !['home-create-actions', 'create-dialog'].includes(region)) throw new ProbeFailure('SCREENSHOT_SCOPE_REJECTED'); }
+      if (region === 'owned-tool-review') {
+        if (!pendingReviewCapture || pendingReviewCapture.receipt !== pendingReceipt || pendingReceipt.stageId !== expectedStage) throw new ProbeFailure('TOOL_REVIEW_SCOPE_UNVERIFIED');
+        const { scope } = pendingReviewCapture;
+        pendingTeachingReviewReceipt(pendingReceipt, scope, page.url(), guard.teachingPin(scope.stageId, scope.threadId, scope.selector.entityId));
+        if (await page.getByTestId('aidt-project-workspace').getByTestId('restored-run-approval').count() !== 1 || await page.getByTestId('chat-tool-permission-dialog').count() !== 1) throw new ProbeFailure('TOOL_REVIEW_DIALOG_NOT_UNIQUE');
+      }
       recheckRuntime();
-      const workspace = region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') });
+      const workspace = region === 'owned-tool-review' ? page.getByTestId('chat-tool-permission-dialog') : region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') });
       await workspace.waitFor({ state: 'visible' });
+      // Workspace captures dismiss unrelated overlays; owned review evidence must keep its modal open.
       if (region === 'workspace') await page.keyboard.press('Escape');
       const visibleText = await workspace.evaluate(root => {
         const visible = node => node instanceof HTMLElement && node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
@@ -286,7 +366,7 @@ export async function main() {
       }, visibleText);
       if (sensitive) throw new ProbeFailure('SCREENSHOT_SENSITIVE_CONTENT');
       const bytes = await workspace.screenshot({ type: 'png', animations: 'disabled' });
-      const dimensions = await verifyPng(browser, bytes, region === 'workspace' ? 200 : 24), filename = `${name}.png`;
+      const dimensions = await verifyPng(browser, bytes, ['workspace','owned-tool-review'].includes(region) ? 200 : 24), filename = `${name}.png`;
       writeFileSync(resolve(output.out, filename), bytes, { flag: 'wx', mode: 0o600 });
       report.screenshots.push({ filename, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), ...dimensions, stage: expectedStage ?? null, region });
     };
@@ -418,7 +498,22 @@ export async function main() {
         await api(page, 'GET', `/api/threads/${encodeURIComponent(threadId)}/skill-deviations?projectId=${encodeURIComponent(projectId)}`);
         const pin = guard.teachingPin(stageId, threadId, entityId ?? undefined); if (!pin) throw new ProbeFailure('TEACHING_SKILL_PIN_UNVERIFIED');
         const scope = { origin: ORIGIN, projectId, stageId, threadId, actorId: guard.identity().actor, prompt, selector, ...pin, timeoutMs: 180000 };
-        const proof = await sendTeachingFeedback({ page, expect, scope, read: path => api(page, 'GET', path), armSend: current => guard.armTeachingSend(current), onEvent: event => console.log(JSON.stringify({ ...event, owner: 'root/aidt_ui_first_acceptance' })) });
+        const proof = await sendTeachingFeedback({ page, expect, scope, read: path => api(page, 'GET', path), armSend: current => guard.armTeachingSend(current),
+          onEvent: event => recordTeachingEvent(event, scope, report.pendingTeachingReviews,
+            text => sensitiveEvidence.assertSafe(text), value => console.log(JSON.stringify({ ...value, owner: 'root/aidt_ui_first_acceptance' }))),
+          onPendingReview: async receipt => {
+            const entry = { stageId, capture: { status: 'not-captured', code: 'TOOL_REVIEW_SCOPE_UNVERIFIED', dialogObserved: false, captured: false, domRequestIdentityVerified: false } };
+            if (report.pendingTeachingReviews.length >= 6) return;
+            report.pendingTeachingReviews.push(entry);
+            try {
+              const safeReceipt = pendingTeachingReviewReceipt(receipt, scope, page.url(), guard.teachingPin(stageId, threadId, entityId ?? undefined));
+              sensitiveEvidence.assertSafe(JSON.stringify(safeReceipt));
+              entry.receipt = safeReceipt;
+              pendingReviewCapture = { receipt: safeReceipt, scope };
+              entry.capture = await observePendingTeachingReview({ page, capture: () => capture(`${String(stageId).padStart(2,'0')}-owned-tool-review`, stageId, 'owned-tool-review', safeReceipt) });
+            } catch { /* A diagnostic failure must not replace the real tool-review checkpoint. */ }
+            finally { pendingReviewCapture = null; }
+          } });
         sensitiveEvidence.assertSafe(proof.assistantText);
         report.teachingEvidence.push({ ...proof, status: 'passed', prompt, source: identity.source, tag: identity.tag });
         await capture(`${String(stageId).padStart(2,'0')}-native-teaching-chat`, stageId);

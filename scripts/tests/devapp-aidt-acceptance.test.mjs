@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, chmodSync, r
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
-import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
+import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
@@ -38,7 +38,7 @@ test('interview UI labels match spaces and newlines without template-string esca
     assert.equal(interviewCodePattern(code).test(`${code}3 unexpected code`), false);
     assert.equal(interviewCodePattern(code).test(`${code}s swallowed escape`), false);
   }
-  assert.throws(() => interviewCodePattern('U03'), /INTERVIEW_CODE_UNEXPECTED/);
+  for (const code of ['U11','U010','invalid']) assert.throws(() => interviewCodePattern(code), /INTERVIEW_CODE_UNEXPECTED/);
 });
 test('credential-bearing lane is manual develop only in the official repository', () => {
   const context = { GITHUB_REPOSITORY: 'boardx/workspacex', GITHUB_REF: 'refs/heads/develop', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_SHA: source };
@@ -410,4 +410,134 @@ test('provisioned student must independently UI-login as the same new consultant
   assert.throws(() => assertProvisionedOrdinaryQa({ ...setup, userId: setup.adminUserId }, current, 200, me), /QA_IDENTITY_UI_BINDING_MISMATCH/);
   assert.throws(() => assertProvisionedOrdinaryQa(setup, { ...current, org: 'different-org' }, 200, me), /QA_IDENTITY_UI_BINDING_MISMATCH/);
   assert.throws(() => assertProvisionedOrdinaryQa(setup, current, 403, me), /QA_IDENTITY_UI_BINDING_MISMATCH/);
+});
+
+const reviewScope = () => ({ origin: 'https://devapp.boardx.us', projectId: project, stageId: 1, threadId: 'thr_aidt_fixture', skillId: 'skill-fixture', skillVersionId: 'version-fixture', selector: { entityId: '11111111-1111-4111-8111-111111111111' } });
+const reviewReceipt = () => ({ projectId: project, stageId: 1, threadId: 'thr_aidt_fixture', runId: 'run-fixture', inputMessageId: 'message-fixture', permissionRequestId: 'request-fixture', toolName: 'confirm_task_intent', knownConfirmTaskIntent: true, argumentFields: [{ name: 'requestId', type: 'string' }, { name: 'understanding', type: 'string' }, { name: 'assumptions', type: 'array-of-strings' }], argumentShapeKnown: true });
+const reviewUrl = () => `https://devapp.boardx.us/aidt/${project}?step=1&thread=thr_aidt_fixture&entity=11111111-1111-4111-8111-111111111111&tool=outcome`;
+const reviewPin = () => ({ skillId: 'skill-fixture', skillVersionId: 'version-fixture' });
+
+test('pending review receipt is restricted to the actual owned route and mounted teaching pin', () => {
+  const value = pendingTeachingReviewReceipt(reviewReceipt(), reviewScope(), reviewUrl(), reviewPin());
+  assert.deepEqual(value, reviewReceipt());
+  assert.notEqual(value.argumentFields, reviewReceipt().argumentFields);
+  for (const url of [reviewUrl().replace(project, 'prj-foreign'), reviewUrl().replace('step=1','step=2'), reviewUrl().replace('thr_aidt_fixture','thr_foreign'), reviewUrl().replace('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222'), `${reviewUrl()}&thread=thr_foreign`, reviewUrl().replace('devapp.boardx.us','example.invalid')]) {
+    assert.throws(() => pendingTeachingReviewReceipt(reviewReceipt(), reviewScope(), url, reviewPin()), /TOOL_REVIEW_SCOPE_UNVERIFIED/);
+  }
+  for (const pin of [null, { skillId: 'foreign', skillVersionId: 'version-fixture' }, { skillId: 'skill-fixture', skillVersionId: 'stale' }]) assert.throws(() => pendingTeachingReviewReceipt(reviewReceipt(), reviewScope(), reviewUrl(), pin), /TOOL_REVIEW_SCOPE_UNVERIFIED/);
+});
+
+test('receipt projection refuses secret-bearing extra fields and unknown argument names or types', () => {
+  const changes = [r => { r.argsSummary = 'synthetic-sensitive-marker'; }, r => { r.argumentFields[0].value = 'synthetic-sensitive-marker'; }, r => { r.argumentFields[0].name = 'unrecognized'; }, r => { r.argumentFields[0].type = 'raw-value'; }, r => { r.argumentFields.push(r.argumentFields[0]); }, r => { r.toolName = 'unknown-tool'; }, r => { r.knownConfirmTaskIntent = false; }, r => { r.projectId = 'foreign'; }];
+  for (const change of changes) { const r = reviewReceipt(); change(r); assert.throws(() => pendingTeachingReviewReceipt(r, reviewScope(), reviewUrl(), reviewPin()), /TOOL_REVIEW_RECEIPT_INVALID/); }
+});
+
+test('unknown tool/shape is observable as other, never interpreted as permission to act', () => {
+  const r = { ...reviewReceipt(), toolName: 'other', knownConfirmTaskIntent: false, argumentFields: [], argumentShapeKnown: false, permissionRequestId: null };
+  assert.deepEqual(pendingTeachingReviewReceipt(r, reviewScope(), reviewUrl(), reviewPin()), r);
+});
+
+function reviewPage({ nativeCount = 1, dialogCount = 0, openCount = 1, nativeVisible = true, delayedNative = false, openVisible = true, openEnabled = true, captureError } = {}) {
+  const events = []; let visible = dialogCount === 1;
+  const dialog = { count: async () => dialogCount, isVisible: async () => visible, waitFor: async () => { if (!visible) throw new Error('DIALOG_UNAVAILABLE'); } };
+  const open = { count: async () => openCount, isVisible: async () => openVisible, isEnabled: async () => openEnabled, click: async () => { events.push('read-only-open'); dialogCount = 1; visible = true; } };
+  const native = { count: async () => nativeCount, waitFor: async () => { if (!nativeVisible) throw new Error('NATIVE_UNAVAILABLE'); if (delayedNative) nativeCount = 1; }, getByRole: (role, options) => { assert.equal(role, 'button'); assert.equal(options.name.test('打开待确认请求'), true); assert.equal(options.name.test('批准并继续'), false); assert.equal(options.name.test('拒绝'), false); return open; } };
+  const workspace = { getByTestId: id => { assert.equal(id, 'restored-run-approval'); return native; } };
+  const page = { getByTestId: id => { if (id === 'aidt-project-workspace') return workspace; assert.equal(id, 'chat-tool-permission-dialog'); return dialog; }, keyboard: { press: async () => { throw new Error('ESCAPE_MUST_NOT_BE_PRESSED'); } } };
+  return { page, events, capture: async () => { events.push('capture-owned-dialog'); if (captureError) throw captureError; } };
+}
+
+test('owned native review opens once and captures only the approval dialog without deciding', async () => {
+  const f = reviewPage();
+  const observed = await observePendingTeachingReview(f);
+  assert.deepEqual(f.events, ['read-only-open','capture-owned-dialog']);
+  assert.deepEqual(observed, { status: 'captured', code: null, dialogObserved: true, captured: true, domRequestIdentityVerified: false });
+});
+
+test('already visible unique native dialog is captured without another open click or Escape', async () => {
+  const f = reviewPage({ dialogCount: 1 });
+  assert.equal((await observePendingTeachingReview(f)).captured, true);
+  assert.deepEqual(f.events, ['capture-owned-dialog']);
+});
+
+test('pending native surface may mount after the already observed server status', async () => {
+  const f = reviewPage({ nativeCount: 0, delayedNative: true });
+  assert.equal((await observePendingTeachingReview(f)).captured, true);
+  assert.deepEqual(f.events, ['read-only-open','capture-owned-dialog']);
+});
+
+for (const [name, options] of [
+  ['missing native owner', { nativeCount: 0 }], ['multiple native owners', { nativeCount: 2 }],
+  ['multiple dialogs', { dialogCount: 2 }], ['multiple open triggers', { openCount: 2 }],
+  ['missing trigger', { openCount: 0 }], ['hidden trigger', { openVisible: false }],
+  ['disabled trigger', { openEnabled: false }], ['native surface not ready', { nativeVisible: false }],
+]) test(`pending review capture refuses ${name}`, async () => {
+  const f = reviewPage(options), observed = await observePendingTeachingReview(f);
+  assert.equal(observed.status, 'not-captured'); assert.equal(observed.captured, false);
+  assert.deepEqual(f.events, []);
+});
+
+test('privacy scan failure remains a fixed diagnostic without exporting sensitive exception text', async () => {
+  const secret = 'fake-private-marker', privacy = sensitiveEvidenceGuard(); privacy.remember(secret);
+  const f = reviewPage({ dialogCount: 1 });
+  f.capture = async () => privacy.assertSafe(secret);
+  const observed = await observePendingTeachingReview(f);
+  assert.equal(observed.captured, false); assert.equal(observed.code, 'TOOL_REVIEW_CAPTURE_UNAVAILABLE');
+  assert.equal(JSON.stringify(observed).includes(secret), false);
+  assert.equal(JSON.stringify(observed).includes('SCREENSHOT_SENSITIVE_CONTENT'), false);
+});
+
+const toolReviewEvent = () => ({ event: 'teaching-tool-review-required', runId: 'run-fixture', threadId: 'thr_aidt_fixture', stageId: 1, toolName: 'confirm_task_intent', approvalVisible: true, dialogOpened: true });
+
+test('owned tool diagnostic is privacy checked first and projected beside its unchanged receipt', () => {
+  const entry = { receipt: reviewReceipt(), capture: { captured: true } }, before = JSON.stringify(entry.receipt), calls = [];
+  assert.equal(recordTeachingEvent(toolReviewEvent(), reviewScope(), [entry], value => { assert.equal(typeof value, 'string'); calls.push('privacy'); }, value => { calls.push('console'); assert.deepEqual(value, toolReviewEvent()); }), true);
+  assert.deepEqual(calls, ['privacy','console']);
+  assert.equal(JSON.stringify(entry.receipt), before);
+  assert.equal(entry.observedToolName, 'confirm_task_intent'); assert.equal(entry.approvalVisible, true); assert.equal(entry.dialogOpened, true);
+});
+
+test('tool diagnostics cannot bind another run, thread, stage, project or absent receipt', () => {
+  for (const change of [e => { e.runId = 'foreign'; }, e => { e.threadId = 'foreign'; }, e => { e.stageId = 2; }]) {
+    const event = toolReviewEvent(); change(event); const entry = { receipt: reviewReceipt() }, before = JSON.stringify(entry), logged = [];
+    assert.equal(recordTeachingEvent(event, reviewScope(), [entry], () => {}, value => logged.push(value)), false);
+    assert.equal(JSON.stringify(entry), before); assert.equal(logged.length, 1);
+  }
+  for (const receipt of [undefined, { ...reviewReceipt(), projectId: 'foreign' }, { ...reviewReceipt(), threadId: 'foreign' }, { ...reviewReceipt(), stageId: 2 }]) {
+    const entry = { receipt }, before = JSON.stringify(entry);
+    assert.equal(recordTeachingEvent(toolReviewEvent(), reviewScope(), [entry], () => {}, () => {}), false);
+    assert.equal(JSON.stringify(entry), before);
+  }
+});
+
+test('a sensitive owned tool event is neither recorded nor emitted', () => {
+  const privacy = sensitiveEvidenceGuard(); privacy.remember('private-fixture');
+  const entry = { receipt: reviewReceipt() }, before = JSON.stringify(entry), event = { ...toolReviewEvent(), toolName: 'private-fixture' }; let emitted = false;
+  assert.throws(() => recordTeachingEvent(event, reviewScope(), [entry], text => privacy.assertSafe(text), () => { emitted = true; }), /SCREENSHOT_SENSITIVE_CONTENT/);
+  assert.equal(JSON.stringify(entry), before); assert.equal(emitted, false);
+});
+
+test('tool event projection refuses raw fields, non-ASCII/long names and invalid flags before console', () => {
+  for (const change of [e => { e.argsSummary = 'must-not-be-exported'; }, e => { e.toolName = '非ASCII'; }, e => { e.toolName = 'x'.repeat(129); }, e => { e.approvalVisible = 'true'; }, e => { e.dialogOpened = true; e.approvalVisible = false; }]) {
+    const event = toolReviewEvent(); change(event); const entry = { receipt: reviewReceipt() }, before = JSON.stringify(entry); let emitted = false;
+    assert.equal(recordTeachingEvent(event, reviewScope(), [entry], () => {}, () => { emitted = true; }), false);
+    assert.equal(JSON.stringify(entry), before); assert.equal(emitted, false);
+  }
+});
+
+test('a null or unknown valid tool name remains observation only; ordinary events still emit', () => {
+  for (const toolName of [null, 'unrecognized.tool']) {
+    const entry = { receipt: { ...reviewReceipt(), toolName: 'other', knownConfirmTaskIntent: false } };
+    assert.equal(recordTeachingEvent({ ...toolReviewEvent(), toolName }, reviewScope(), [entry], () => {}, () => {}), true);
+    assert.equal(entry.observedToolName, toolName); assert.equal(entry.receipt.toolName, 'other'); assert.equal('approved' in entry, false);
+  }
+  const events = [], entry = { receipt: reviewReceipt() }, before = JSON.stringify(entry);
+  assert.equal(recordTeachingEvent({ event: 'send-started', stageId: 1 }, reviewScope(), [entry], () => {}, event => events.push(event)), false);
+  assert.equal(JSON.stringify(entry), before); assert.deepEqual(events, [{ event: 'send-started', stageId: 1 }]);
+});
+
+test('unreadable approval visibility remains null rather than claiming it was hidden', () => {
+  const entry = { receipt: reviewReceipt() };
+  assert.equal(recordTeachingEvent({ ...toolReviewEvent(), approvalVisible: null, dialogOpened: null }, reviewScope(), [entry], () => {}, () => {}), true);
+  assert.equal(entry.approvalVisible, null); assert.equal(entry.dialogOpened, null);
 });

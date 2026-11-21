@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ownedAidtProblemRoute, matchesAidtProblemRoute, openAidtProblemOutcome, assertSavedAidtProblemInput, requireAcceptedS1Feedback } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+import { ownedAidtEntityRoute, matchesAidtEntityRoute, openAidtEntityOutcome, assertSavedAidtHmwSource, verifyAidtFrozenBacklink } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+import { interviewCodePattern, savedAidtInterviewRoute, requireConfirmedInterviewHandoff } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const origin = 'https://devapp.boardx.us';
 const projectId = 'prj-navigation-fixture';
@@ -174,4 +176,99 @@ test('an unexpected thrown teaching error is preserved without replacement or re
   const original = new Error('ORIGINAL_TEACHING_ERROR'); let calls = 0;
   await assert.rejects(requireAcceptedS1Feedback(async () => { calls++; throw original; }), error => error === original);
   assert.equal(calls, 1);
+});
+
+for (const stage of [2, 3, 6]) test(`stage ${stage} waits for exact entity and actual detail before outcome`, async () => {
+  const target = ownedAidtEntityRoute(`${origin}/aidt/${projectId}?step=${stage}&entity=${entityId}`, scope, { stage });
+  let current = `${origin}/aidt/${projectId}?step=${stage}`, activated = false;
+  const events = [];
+  await openAidtEntityOutcome({ target, page: { url: () => current, goto: async href => { events.push('outcome'); current = href; } },
+    activate: async () => { activated = true; events.push('clicked-native'); },
+    waitForRoute: async predicate => { if (!predicate() && activated) { events.push('wait-delayed-next'); current = target.href; } assert.equal(predicate(), true); },
+    assertDetail: async () => { events.push('actual-entity-chat'); }, assertReady: async () => { events.push('actual-entity-form'); } });
+  assert.deepEqual(events, ['clicked-native', 'wait-delayed-next', 'actual-entity-chat', 'outcome', 'actual-entity-form']);
+  assert.equal(matchesAidtEntityRoute(current, target, 'outcome'), true);
+});
+
+test('same-path directory, wrong stage/entity and missing entity form cannot pass', async () => {
+  const target = ownedAidtEntityRoute(href.replace('step=1', 'step=3'), scope, { stage: 3 });
+  for (const bad of [directory.replace('step=1', 'step=3'), target.href.replace('step=3', 'step=2'), target.href.replace(entityId, otherEntity)]) {
+    let opened = false;
+    await assert.rejects(openAidtEntityOutcome({ target, page: { url: () => bad, goto: async () => { opened = true; } }, activate: async () => {}, waitForRoute: async () => {}, assertDetail: async () => {}, assertReady: async () => {} }), /ENTITY_NAVIGATION_UNVERIFIED/);
+    assert.equal(opened, false);
+  }
+  let current = target.href;
+  await assert.rejects(openAidtEntityOutcome({ target, page: { url: () => current, goto: async href => { current = href; } }, waitForRoute: async check => assert.equal(check(), true), assertReady: async () => { throw Error('ACTUAL_FORM_MISSING'); } }), /ACTUAL_FORM_MISSING/);
+});
+
+test('report requires exact same-project group-report and summary before opening preview', async () => {
+  const url = `${origin}/aidt/${projectId}?step=6&summary=1&entity=group-report`;
+  const target = ownedAidtEntityRoute(url, scope, { stage: 6, report: true, entityId: 'group-report' });
+  for (const bad of [url.replace('&entity=group-report', ''), url.replace(projectId, 'prj-other'), url.replace('group-report', entityId), url.replace('summary=1', 'summary=0')]) {
+    assert.throws(() => ownedAidtEntityRoute(bad, scope, { stage: 6, report: true, entityId: 'group-report' }), /ENTITY_ROUTE_INVALID/);
+  }
+  let current = url;
+  await openAidtEntityOutcome({ target, tool: 'report', page: { url: () => current, goto: async href => { current = href; } }, waitForRoute: async check => assert.equal(check(), true), assertReady: async () => {} });
+  assert.equal(matchesAidtEntityRoute(current, target, 'report'), true);
+});
+
+test('HMW prerequisite requires actual saved exact id/text/revision, not transient button visibility', () => {
+  const expected = { id: 'hmw-fixture', text: '合成HMW', revision: 7 };
+  const saved = source => ({ revision: 4, content: { draft: { fields: source === null ? {} : { ideaHmwSource: JSON.stringify(source) } } } });
+  assert.equal(assertSavedAidtHmwSource(saved(expected), expected), true);
+  for (const bad of [null, { ...expected, id: 'other' }, { ...expected, revision: 8 }, { ...expected, text: 'another' }]) assert.throws(() => assertSavedAidtHmwSource(saved(bad), expected), /HMW_SOURCE_NOT_SAVED/);
+});
+
+test('frozen source must be clicked and expose exact historical version and actual material', async () => {
+  const href = `${origin}/aidt/${projectId}?step=2&entity=${entityId}&entityRevision=7&sourceId=original-fixture`;
+  let current = directory; const events = [];
+  const target = await verifyAidtFrozenBacklink({ scope, stage: 2, revision: 7, page: { url: () => current },
+    link: { getAttribute: async () => href, click: async () => { events.push('actual-click'); current = href; } },
+    waitForRoute: async check => assert.equal(check(), true), assertVersion: async () => { events.push('frozen-view'); }, assertMaterial: async () => { events.push('actual-original-preview'); } });
+  assert.equal(target.revision, 7); assert.deepEqual(events, ['actual-click', 'frozen-view', 'actual-original-preview']);
+  assert.equal(matchesAidtEntityRoute(href.replace('original-fixture', 'other-material'), target), false);
+  assert.throws(() => ownedAidtEntityRoute(href + '&sourceId=other-material', scope, { stage: 2, revision: 7 }), /ENTITY_ROUTE_INVALID/);
+  for (const url of [href.replace('entityRevision=7', 'entityRevision=8'), href.replace(projectId, 'prj-other')]) await assert.rejects(verifyAidtFrozenBacklink({ scope, stage: 2, revision: 7, page: {}, link: { getAttribute: async () => url } }), /ENTITY_ROUTE_INVALID/);
+  await assert.rejects(verifyAidtFrozenBacklink({ scope, stage: 2, revision: 7, page: { url: () => current }, link: { getAttribute: async () => href, click: async () => {} }, waitForRoute: async check => assert.equal(check(), true), assertVersion: async () => {}, assertMaterial: async () => { throw Error('ORIGINAL_NOT_AVAILABLE'); } }), /ORIGINAL_NOT_AVAILABLE/);
+  const noMaterial = href.replace('&sourceId=original-fixture', ''); current = noMaterial;
+  await assert.rejects(verifyAidtFrozenBacklink({ scope, stage: 2, revision: 7, page: { url: () => current }, link: { getAttribute: async () => noMaterial, click: async () => {} }, waitForRoute: async check => assert.equal(check(), true), assertVersion: async () => {}, assertMaterial: async () => {} }), /FROZEN_MATERIAL_EXPECTATION_MISSING/);
+});
+
+test('all ten interview codes have exact suffix boundaries without admitting extra codes', () => {
+  for (let n = 1; n <= 10; n++) {
+    const code = `U${String(n).padStart(2, '0')}`, match = interviewCodePattern(code);
+    for (const label of [code, `${code} 提纲草稿`, `${code}\n发现卡已核对`]) assert.equal(match.test(label), true);
+    for (const label of [`${code}0`, `${code}x`, `X${code}`]) assert.equal(match.test(label), false);
+  }
+  for (const invalid of ['U00', 'U11', 'U010', 'U1', 'u01', ' U01', 'U01 ', null]) assert.throws(() => interviewCodePattern(invalid), /INTERVIEW_CODE_UNEXPECTED/);
+});
+
+test('ten-entry isolation cannot confirm or execute after failed upstream teaching/handoff', () => {
+  for (const state of [{ s1: false, s2: false }, { s1: false, s2: true }, { s1: true, s2: false }, { s1: 1, s2: true }]) {
+    let executed = false;
+    assert.throws(() => { requireConfirmedInterviewHandoff(state); executed = true; }, /S2_CONFIRMED_HANDOFF_REQUIRED/);
+    assert.equal(executed, false);
+  }
+  assert.doesNotThrow(() => requireConfirmedInterviewHandoff({ s1: true, s2: true }));
+});
+
+test('each interview target comes from its exact saved code and ID, never the current URL', () => {
+  for (let n = 1; n <= 10; n++) {
+    const code = `U${String(n).padStart(2, '0')}`, id = `${String(n).padStart(8, '0')}-1111-4111-8111-111111111111`;
+    const record = { id, code }, stage = { revision: n, content: { draft: { fields: { [`interviewRecord:${id}`]: JSON.stringify(record) } } } };
+    const target = savedAidtInterviewRoute(stage, code, directory.replace('step=1', 'step=2'), scope);
+    assert.equal(target.entityId, id); assert.equal(target.stage, 2);
+    assert.throws(() => savedAidtInterviewRoute(stage, code === 'U10' ? 'U01' : 'U10', directory.replace('step=1', 'step=2'), scope), /SAVED_INTERVIEW_ENTITY_UNVERIFIED/);
+  }
+  const fields = { [`interviewRecord:${entityId}`]: JSON.stringify({ id: entityId, code: 'U01' }), [`interviewRecord:${otherEntity}`]: JSON.stringify({ id: otherEntity, code: 'U01' }) };
+  assert.throws(() => savedAidtInterviewRoute({ revision: 1, content: { draft: { fields } } }, 'U01', directory.replace('step=1', 'step=2'), scope), /SAVED_INTERVIEW_ENTITY_UNVERIFIED/);
+});
+
+test('storage-only frozen interviews still require actual historical navigation but never fabricate a material proof', async () => {
+  const href = `${origin}/aidt/${projectId}?step=2&entity=${entityId}&entityRevision=7`;
+  let current = directory, clicked = false, viewed = false, material = false;
+  await verifyAidtFrozenBacklink({ scope, stage: 2, revision: 7, materialRequired: false, page: { url: () => current },
+    link: { getAttribute: async () => href, click: async () => { clicked = true; current = href; } }, waitForRoute: async check => assert.equal(check(), true),
+    assertVersion: async () => { viewed = true; }, assertMaterial: async () => { material = true; } });
+  assert.equal(clicked && viewed, true); assert.equal(material, false);
 });
