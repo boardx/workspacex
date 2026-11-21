@@ -3,10 +3,10 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { isAidtInterviewArchived, readAidtInterviews, writeAidtInterview, type AidtInterview } from "../lib/aidt-interviews";
-type InterviewChatTurn = { id: string; role: string; content?: unknown };
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import { AidtInterviewWorkspace } from "./aidt-interview-workspace";
 
+type InterviewChatTurn = { id: string; role: string; content?: unknown };
 type Update = (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 
 function GuideDecision({ interview, update }: { interview: AidtInterview; update: Update }) {
@@ -42,13 +42,12 @@ export function AidtInterviewConversation({ projectId, interview, draft, message
 }) {
   React.useEffect(() => {
     if (loading || running) return;
-    const last = messages.at(-1);
+    const last = messages.findLast(message => message.role === "assistant" || message.role === "user");
     if (last?.role === "assistant" && last.id) onSettled(last.id);
   }, [loading, running, messages, onSettled]);
   if (loading || running || (!interview.original && !interview.adopted && !interview.consent)) return null;
   return <section data-testid="aidt-interview-chat-actions" aria-label="本次访谈的对话操作" className="mx-auto w-full max-w-3xl space-y-3 px-4 py-2">
     <GuideDecision key={JSON.stringify([interview.id, interview.adopted])} interview={interview} update={update} />
     {interview.consent?.notes && <AidtInterviewWorkspace projectId={projectId} entityId={interview.id} draft={draft} update={update} readOnly={false} surface="finding" />}
-
   </section>;
 }

@@ -29,11 +29,13 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
   const pathname = new URL(page.url()).pathname;
   const ids = Array.from({ length: 10 }, () => randomUUID());
-  const fields = Object.fromEntries(ids.map((id, index) => ["interviewRecord:" + id, JSON.stringify({
-    version: 1, id, code: "U" + (index + 1).toString().padStart(2, "0"),
-    topicRevision: null, topic: "", goal: "", original: "", adopted: "", guideConfirmed: false,
-    consent: null,
-  })]));
+  const fields = Object.fromEntries(ids.map((id, index) => {
+    const code = "U" + (index + 1).toString().padStart(2, "0");
+    return ["interviewRecord:" + id, JSON.stringify({
+      version: 1, id, code, topicRevision: null, topic: "", goal: "", original: "",
+      adopted: index ? code + " 的测试清单" : "", guideConfirmed: false, consent: null,
+    })];
+  }));
   const saved = await page.evaluate(async ({ path, fields, operationId }) => {
     const response = await fetch("/__fullstack_api/projects/" + path.split("/").pop() + "/aidt/stages/2", {
       method: "PUT",
@@ -61,7 +63,8 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect(inspector.getByRole("textbox", { name: "学生提纲原稿" })).toHaveCount(0);
   await expect(page.getByTestId("aidt-chat-welcome")).toContainText("你准备问这位受访者哪些问题");
   await page.screenshot({ path: test.info().outputPath("interview-chat-start.png") });
-  await expect(inspector.getByLabel("受访者代号", { exact: true })).toHaveValue("U01");
+  await expect(inspector.getByTestId("aidt-interview-output")).toContainText("U01 · 访谈产物");
+  await expect(inspector.locator("input, textarea, select")).toHaveCount(0);
   await expect(inspector.getByLabel("访谈 / 观察提纲", { exact: true })).toHaveCount(0);
   await page.getByTestId("chat-task-workbench-inspector-collapse").click();
   await expect(inspector).toHaveCount(0);
@@ -89,8 +92,10 @@ test("ten interviews bind to ten native conversations and reopening never copies
   expect(AidtContextReceipt.parse(await receipt.json()).stageRevisions).toEqual([{ stageId: 2, revision: 1 }]);
 
   const threads = [first];
-  for (const url of urls.slice(1)) {
-    threads.push(await openInterview(page, url));
+  for (const [index, url] of urls.slice(1).entries()) {
+    threads.push(await openInterview(page, url + "&tool=outcome"));
+    const code = "U" + (index + 2).toString().padStart(2, "0");
+    await expect(page.getByTestId("aidt-interview-question-list")).toContainText(code + " 的测试清单");
     await expect(page.getByText(message, { exact: true })).toHaveCount(0);
   }
   expect(new Set(threads).size).toBe(10);
@@ -102,13 +107,14 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await page.getByRole("link", { name: /返回访谈列表/ }).click();
   await expect(composer(page)).toHaveCount(0);
 
-  const versionsSaved = await page.evaluate(async ({ pathname, fields, firstId, ids }) => {
+  const versionsSaved = await page.evaluate(async ({ pathname, firstId, ids }) => {
     const endpoint = "/__fullstack_api/projects/" + pathname.split("/").pop() + "/aidt/stages/";
     const headers = { "content-type": "application/json", authorization: "Bearer " + localStorage.getItem("wsx.sessionToken") };
-    const original = JSON.parse(fields["interviewRecord:" + firstId]!);
-    const nextFields = { ...fields, ["interviewRecord:" + firstId]: JSON.stringify({ ...original, code: "U01 最新标题" }) };
+    const head = await (await fetch(endpoint + "2", { headers })).json();
+    const original = JSON.parse(head.stage.content.draft.fields["interviewRecord:" + firstId]);
+    const nextFields = { ...head.stage.content.draft.fields, ["interviewRecord:" + firstId]: JSON.stringify({ ...original, code: "U01 最新标题", original: "你怎样选新品？", adopted: "上次看了什么？" }) };
     const next = await fetch(endpoint + "2", { method: "PUT", headers, body: JSON.stringify({
-      operationId: ids[0], expectedRevision: 1, sourceStageRevisions: [],
+      operationId: ids[0], expectedRevision: head.stage.revision, sourceStageRevisions: [],
       content: { schemaVersion: 1, draft: { fields: nextFields, ideas: [], selectedIdeaId: "" } },
     }) });
     const saveReport = (expectedRevision: number, confirmedAtRevision?: number) => fetch(endpoint + "6", {
@@ -121,7 +127,7 @@ test("ten interviews bind to ten native conversations and reopening never copies
     const draft = await saveReport(0);
     const confirmed = await saveReport(1, 2);
     return [next.status, draft.status, confirmed.status];
-  }, { pathname, fields, firstId: ids[0]!, ids: [randomUUID(), randomUUID(), randomUUID()] });
+  }, { pathname, firstId: ids[0]!, ids: [randomUUID(), randomUUID(), randomUUID()] });
   expect(versionsSaved).toEqual([200, 200, 200]);
   await page.goto(pathname + "?step=6&summary=1&entity=group-report&tool=report");
   const reports = page.getByTestId("aidt-report-versions");
@@ -131,17 +137,17 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await reports.getByRole("link", { name: "U01 · V1" }).click();
   await expect(page.getByTestId("aidt-entity-history")).toBeVisible();
   await expect(page).toHaveURL(new RegExp("entity=" + ids[0] + ".*entityRevision=1"));
-  await expect(page.getByLabel("受访者代号", { exact: true })).toHaveValue("U01");
+  await expect(page.getByTestId("aidt-interview-output")).toContainText("U01 · 访谈产物");
 
   await page.goto(urls[0]! + "&tool=outcome");
-  const picker = page.getByLabel("从对话选取问题");
-  await expect(picker).toBeVisible();
-  await picker.selectOption({ label: "小组 · " + message });
+  const actions = page.getByTestId("aidt-interview-chat-actions");
+  await expect(actions).toBeVisible();
+  await actions.getByRole("button", { name: "编辑这道问题" }).click();
   const question = "你上一次选新品时，哪一条信息影响了决定？";
-  await page.getByLabel("保留要问的问题，每行一题").fill(question);
-  await page.getByRole("button", { name: "确认这份问题清单" }).click();
-  await page.getByTestId("aidt-shared-save").click();
-  await expect(page.getByTestId("aidt-shared-status")).toContainText("小组已保存");
+  await actions.getByLabel("修改问题").fill(question);
+  await actions.getByRole("button", { name: "确认这份问题清单" }).click();
+  await expect(page.getByTestId("aidt-interview-save-state")).toHaveText("已保存");
+  await expect(page.getByTestId("aidt-interview-question-list")).toContainText(question);
   await page.reload();
   await expect(page.getByText(question, { exact: true }).first()).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("interview-chat-confirmed.png") });

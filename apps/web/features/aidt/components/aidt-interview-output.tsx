@@ -16,10 +16,10 @@ export function AidtInterviewOutput({ projectId, entityId, draft }: { projectId:
   if (!interview) return <p role="status">找不到此访谈的产物。</p>;
   const finding = getAidtInterviewFinding(draft, interview);
   const transcript = readAidtInterviewTranscript(draft.fields, entityId);
-  const confirmed = isAidtInterviewConfirmed(draft.fields, entityId);
+  const confirmed = Boolean(interview.consent?.notes) && isAidtInterviewConfirmed(draft.fields, entityId);
   const material = readAidtInterviewMaterials(draft.fields, entityId, projectId).find(item => item.key === transcript?.sourceKey);
-  const hasFinding = !!(finding.headline || finding.context || finding.quote || draft.fields["interviewInterpretation:" + entityId]);
-  const fields = [["标题来源", finding.headlineKind === "quote" ? "受访者原话" : "学生概括"], ["一句发现", finding.headline], ["具体情况", finding.context], ["受访者原话", finding.quote], ["学生的解释", draft.fields["interviewInterpretation:" + entityId]], ["材料定位", material ? [material.reference.name, transcript?.locator].filter(Boolean).join(" · ") : ""], ["授权照片", finding.photoRef]];
+  const hasFinding = interview.consent?.notes && !!(finding.headline || finding.context || finding.quote || draft.fields["interviewInterpretation:" + entityId]);
+  const fields = [["标题来源", finding.headlineKind === "quote" ? "受访者原话" : "学生概括"], ["一句发现", finding.headline], ["具体情况", finding.context], ["受访者原话", finding.quote], ["学生的解释", draft.fields["interviewInterpretation:" + entityId]], ["材料定位", material ? [material.reference.name, transcript?.locator].filter(Boolean).join(" · ") : ""], ["授权照片", interview.consent?.photos ? finding.photoRef : ""]];
   return <section aria-label="本次访谈产物" data-testid="aidt-interview-output" className="space-y-5">
     <h3 className="text-16 font-semibold">{interview.code} · 访谈产物</h3>
     <section data-testid="aidt-interview-question-list" className="space-y-2"><h4 className="font-medium">访谈问题清单</h4>
