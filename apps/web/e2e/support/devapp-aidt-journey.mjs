@@ -584,13 +584,24 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await page.reload(); await output(interview.target);
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(interview.threadId);
       await expect(page.getByTestId('aidt-interview-output')).toContainText(interview.code);
+      const timeline = page.getByTestId('copilotkit-v2-messages');
+      const proof = report.teachingEvidence.find(row => row.threadId === interview.threadId && row.stageId === 2 && row.status === 'passed');
+      if (!proof?.inputMessageId || !proof.assistantMessageId) fail('INTERVIEW_CHAT_HISTORY_UNVERIFIED');
+      await expect(timeline.getByTestId('chat-user-message-text').filter({ hasText: proof.prompt })).toBeVisible();
+      const messageActions = timeline.getByTestId('chat-message-copy');
+      await expect.poll(() => messageActions.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-message-id'))))
+        .toContain(proof.assistantMessageId);
+      for (const sibling of report.teachingEvidence.filter(row => row.stageId === 2 && row.status === 'passed' && row.threadId !== interview.threadId)) {
+        await expect(timeline.getByTestId('chat-user-message-text').filter({ hasText: sibling.prompt })).toHaveCount(0);
+        await expect(timeline.locator(`[data-message-id="${sibling.assistantMessageId}"]`)).toHaveCount(0);
+      }
       const inspector = await readOnlyInterviewOutput();
       await expect(inspector.getByTestId('aidt-interview-question-list')).toContainText(interview.adopted);
       for (const other of state.interviews.filter(other => other !== interview)) {
         await expect(inspector).not.toContainText(other.adopted);
       }
       expect(new URL(page.url()).searchParams.get('entity')).toBe(new URL(interview.href).searchParams.get('entity'));
-      observed.push({ code: interview.code, stableThread: true, confirmedGuide: true, exportedPdf: true, rightInspector: true, directoryReentry: true, refresh: true });
+      observed.push({ code: interview.code, stableThread: true, savedStudentMessage: true, savedAssistantMessage: true, noSiblingMessages: true, confirmedGuide: true, exportedPdf: true, rightInspector: true, directoryReentry: true, refresh: true });
     }
     report.independentEntityThreadsVerified = true;
   }, '02-independent-chat');
