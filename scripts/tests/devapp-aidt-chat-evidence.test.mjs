@@ -1,3 +1,4 @@
+import { matchesInterviewProjection } from '../../apps/web/e2e/support/devapp-aidt-chat-evidence.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateTeachingWire, identifyOwnedTeachingRun, validateTeachingEvidence, sendTeachingFeedback } from '../../apps/web/e2e/support/devapp-aidt-chat-evidence.mjs';
@@ -263,5 +264,40 @@ test('visibility or diagnostic-event failure does not mask the original tool-rev
     const h = pendingHarness({ eventCallback });
     await assert.rejects(h.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED');
     assert.equal(h.events.some(event => event.event === 'durable-run-succeeded'), false);
+  }
+});
+
+test('only the current interview draft may advance alongside its bound native reply', () => {
+  const scope = { stageId: 2, selector: { entityId: 'entity-a' }, prompt: 'QA synthetic student draft' };
+  const key = 'interviewRecord:entity-a';
+  const record = { id: 'entity-a', code: 'U01', original: '', goal: '', adopted: '', guideConfirmed: false, consent: null };
+  const old = { schemaVersion: 1, draft: { fields: { [key]: JSON.stringify(record), sibling: 'unchanged' }, discoveryCards: [] } };
+  const next = structuredClone(old);
+  const revised = { ...record, original: scope.prompt, adopted: '请描述刚才的顺序？', draftTurnId: 'assistant-1' };
+  next.draft.fields[key] = JSON.stringify(revised);
+  next.draft.fields['interviewConfirmed:entity-a'] = '';
+  assert.equal(matchesInterviewProjection(old, next, scope, 'assistant-1'), true);
+  assert.equal(matchesInterviewProjection(old, next, scope, 'other-assistant'), false);
+  for (const patch of [{ original: 'not the submitted draft' }, { guideConfirmed: true }, { consent: { notes: true } }, { id: 'sibling' }]) {
+    const changed = structuredClone(next); changed.draft.fields[key] = JSON.stringify({ ...revised, ...patch });
+    assert.equal(matchesInterviewProjection(old, changed, scope, 'assistant-1'), false);
+  }
+  const other = structuredClone(next); other.draft.fields.sibling = 'different';
+  assert.equal(matchesInterviewProjection(old, other, scope), false);
+  other.draft.fields.sibling = 'unchanged'; other.draft.discoveryCards.push({ id: 'another' });
+  assert.equal(matchesInterviewProjection(old, other, scope), false);
+});
+test('finding projection preserves evidence references and rejects AI confirmation or another interview', () => {
+  const scope = { stageId: 2, selector: { entityId: 'a' }, interviewFinding: true };
+  const record = { id: 'a', code: 'U01', original: 'student', adopted:'question', guideConfirmed: true, draftTurnId:'guide-reply' };
+  const old = { schemaVersion: 1, draft: { fields: { 'interviewRecord:a':JSON.stringify(record) }, discoveryCards:[] } };
+  const next = structuredClone(old);
+  next.draft.fields['interviewRecord:a'] = JSON.stringify({ ...record, draftTurnId:'finding-reply' });
+  next.draft.fields['interviewInterpretation:a'] = 'tentative';
+  next.draft.discoveryCards.push({ id:'a', participantCode:'U01', headlineKind:'student-summary', headline:'summary', context:'setting', quote:'excerpt', sourceRef:'', photoRef:'' });
+  assert.equal(matchesInterviewProjection(old, next, scope, 'finding-reply'), true);
+  for (const patch of [{sourceRef:'made-up'}, {photoRef:'private'}, {participantCode:'U02'}, {headlineKind:'unattributed'}]) {
+    const changed=structuredClone(next); Object.assign(changed.draft.discoveryCards[0],patch);
+    assert.equal(matchesInterviewProjection(old, changed, scope, 'finding-reply'), false);
   }
 });
