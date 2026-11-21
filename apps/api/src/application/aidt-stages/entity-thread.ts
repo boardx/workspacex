@@ -1,3 +1,4 @@
+import { AIDT_BRAINSTORM_METHODS, readAidtBrainstorm, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { createHash } from "node:crypto";
 import { AIDT_ENTITY_THREAD_PREFIX, aidtInterviewTitle, isAidtProblemControlText, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { readAidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
@@ -58,6 +59,8 @@ export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: s
         ?? titleFor(fields, "definitionHmw:", entityId, "text", "HMW")
         ?? titleFor(fields, "definitionSurprise:", entityId, "observation", "意外发现");
     case 4: {
+      const session = readAidtBrainstorm(fields, entityId);
+      if (session) return `头脑风暴 · ${AIDT_BRAINSTORM_METHODS[session.method]}`;
       if (/^draft-[123]$/.test(entityId)) return null;
       let archived: unknown;
       try { archived = JSON.parse(fields.ideaArchivedIds || "[]"); } catch { return null; }
@@ -106,8 +109,14 @@ export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string
       }
       return { entityId, kind: "surprise", fields: read("definitionSurprise:", ["priorBelief", "observation", "interpretation", "unknowns", "confirmed"]) };
     case 4: {
+      const session = readAidtBrainstorm(fields, entityId);
+      if (session) return { entityId, brainstorm: {
+        hmw: session.source, method: AIDT_BRAINSTORM_METHODS[session.method], targetCount: session.count,
+        generatedCount: session.candidates.length,
+      }, existingCandidateTitles: ideas.filter(idea => session.candidates.includes(idea.id)).map(idea => idea.title) };
       const idea = ideas.find(item => item.id === entityId);
-      return { entityId, idea: idea ? { title: idea.title, description: idea.description } : undefined };
+      const owner = readAidtBrainstorms(fields).find(record => record.candidates.includes(entityId));
+      return { entityId, idea: idea ? { title: idea.title, description: idea.description } : undefined, hmw: owner?.source };
     }
     case 5:
       return { entityId, fields: read("prototypeEntity:", [

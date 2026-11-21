@@ -25,6 +25,8 @@ import { AidtInterviewWorkspace } from "./aidt-interview-workspace";
 import { AidtDefinitionChatArtifact, AidtDefinitionDirectory, AidtDefinitionOutput } from "./aidt-definition";
 import { AidtIdeaConversation } from "./aidt-idea-conversation";
 import { AidtIdeaOutput } from "./aidt-idea-output";
+import { readAidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
+import { AidtBrainstormConversation, AidtBrainstormDirectory, AidtBrainstormOutput } from "./aidt-brainstorm";
 import { AidtIdeaDirectory } from "./aidt-idea-directory";
 import { AidtPrototypeDirectory } from "./aidt-prototype-directory";
 import { AidtTestConversation, AidtTestGroupOutput } from "./aidt-test-conversation";
@@ -393,6 +395,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const directoryHref = directoryContext.size ? directoryUrl + "&" + directoryContext : directoryUrl;
   const entityHref = (id: string) => directoryHref + "&entity=" + encodeURIComponent(id);
   const currentStage = shared.stages[step.id];
+  const activeBrainstorm = step.id === 4 && activeEntityId && currentStage
+    ? readAidtBrainstorm(currentStage.content.draft.fields, activeEntityId) : null;
   const activeProblem = problemStep && activeEntityId && currentStage
     ? listAidtProblems(currentStage.content.draft).find(item => item.id === activeEntityId && !item.archived) : undefined;
   const entityHeading = activeInterview ? aidtInterviewTitle(activeInterview.code, activeInterview.displayName) : activeProblem?.title ?? projectName;
@@ -473,6 +477,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
 
             </>
           : step.id === 4 ? <>
+              <AidtBrainstormDirectory definition={hmwStage} draft={savedDraft ?? draft} readOnly={!canWrite}
+                href={entityHref} onOpen={openCreated} saveDraft={shared.saveDraft} />
               <AidtIdeaDirectory draft={draft} saved={savedDraft} href={entityHref} onCreated={openCreated} update={update} readOnly={!canWrite} saveDraft={shared.saveDraft} />
               {save}
             </>
@@ -500,7 +506,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const toolContent = <div className="space-y-4 p-4" data-testid="aidt-tool-panel">
     {tool === "outcome" && !problemStep && !activeEntityId && <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite} />}
         {(tool === "sources" || tool === "transcript" || tool === "record") && <AidtEvidenceGuide />}
-        {tool === "outcome" && step.id === 6 && activeEntityId ? <AidtTestGroupOutput projectId={projectId} draft={currentUi.drafts[6]!} savedDraft={shared.stages[6]?.content.draft} activeEntityId={activeEntityId} readPrototypeEntity={readAidtPrototypeEntityDraft} proposal={testProposal?.scope === threadResolutionScope ? testProposal.proposal : null} /> : tool === "outcome" && step.id === 3 && activeEntityId ? <AidtDefinitionOutput {...definitionProps} entityId={activeEntityId} /> : tool === "outcome" && step.id === 4 && activeEntityId ? <AidtIdeaOutput projectId={projectId} entityId={activeEntityId} draft={currentUi.drafts[4]!} savedDraft={shared.stages[4]?.content.draft} savedRevision={shared.stages[4]?.revision} /> : tool === "outcome" ? <>
+        {tool === "outcome" && step.id === 6 && activeEntityId ? <AidtTestGroupOutput projectId={projectId} draft={currentUi.drafts[6]!} savedDraft={shared.stages[6]?.content.draft} activeEntityId={activeEntityId} readPrototypeEntity={readAidtPrototypeEntityDraft} proposal={testProposal?.scope === threadResolutionScope ? testProposal.proposal : null} /> : tool === "outcome" && step.id === 3 && activeEntityId ? <AidtDefinitionOutput {...definitionProps} entityId={activeEntityId} /> : tool === "outcome" && activeBrainstorm && currentStage ? <AidtBrainstormOutput projectId={projectId} session={activeBrainstorm} draft={currentStage.content.draft} /> : tool === "outcome" && step.id === 4 && activeEntityId ? <AidtIdeaOutput projectId={projectId} entityId={activeEntityId} draft={currentUi.drafts[4]!} savedDraft={shared.stages[4]?.content.draft} savedRevision={shared.stages[4]?.revision} /> : tool === "outcome" ? <>
           {prototypeEntityId ? <AidtPrototypeEntityOutput key={prototypeEntityId} projectId={projectId} designId={prototypeEntityId} ideaRevision={ideaRevision} stageDraft={prototypeDraft} update={mutate => updateStage(5, mutate)} workflow={prototypeWorkflow} presentationOnly={Boolean(activeEntityId)} readOnly={!canWrite} /> : <>
           {problemStep ? <AidtProblemWorkspace draft={problemDraft} revision={savedProblemStage?.revision} confirmed={Boolean(problemDraft.fields.roundCompletion && problemDraft.fields.problemReflectionConfirmed === "true")} /> : <AidtStageOutput key={`${uiScope}:${step.id}:${activeEntityId ?? ""}`} entityId={step.id === 2 ? activeEntityId : undefined} ideaEntityId={step.id === 4 ? activeEntityId : undefined} ideaHandoff={step.id === 4 ? ideaHandoff : undefined} activeTestEntityId={step.id === 6 ? activeEntityId : undefined} readTestPrototypeEntity={readAidtPrototypeEntityDraft} projectId={projectId} thread={checkpointThread} step={step} draft={currentUi.drafts[step.id]!} availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision} discoveryCardFields={shared.stages[2]?.content.draft.fields} activeDefinitionEntityId={step.id === 3 ? activeEntityId : null} previousPrototype={shared.stages[5]?.content.draft} previousPrototypeRevision={shared.stages[5]?.revision} update={(mutate) => updateStage(step.id, mutate)} readOnly={!canWrite} toolHref={(key) => href(key as Tool)} toChat={toChat} />}
           {(!activeEntityId && !problemStep) && <AidtRoundCompletion key={shared.writeKey} projectId={projectId} step={step} draft={currentUi.drafts[step.id]!} controller={shared} readOnly={!canWrite} onConfirm={record => updateStage(step.id, old => ({ ...old, fields: { ...old.fields, roundCompletion: record } }))} nextHref={activeEntityId ? nextStageHref : nextStep ? aidtHref(projectId, nextStep.id) : reportHref} />}
@@ -588,6 +594,12 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                       previous?.scope === threadResolutionScope && previous.proposal?.messageId === proposal?.messageId
                         ? previous : { scope: threadResolutionScope, proposal })} />
                   {advance}
+                </>,
+              } : activeBrainstorm && currentStage ? {
+                render: (messages, loading, running) => <>
+                  <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
+                  <AidtBrainstormConversation key={activeBrainstorm.id} session={activeBrainstorm} draft={currentStage.content.draft}
+                    messages={messages} loading={loading} running={running} readOnly={!canWrite} saveDraft={shared.saveDraft} nextHref={nextStageHref ?? undefined} />
                 </>,
               } : step.id === 4 && activeEntityId ? {
                 render: (messages, loading, running) => <>

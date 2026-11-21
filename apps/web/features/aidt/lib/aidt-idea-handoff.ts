@@ -3,6 +3,7 @@ import { IdeaHmwSource, readIdeaHmwSource } from "@repo/contracts/aidt-stages";
 import { AIDT_IDEA_CLASSIFICATION_FIELDS, readAidtIdeaClassification } from "./aidt-idea-classification";
 import { aidtIdeaReadiness } from "./aidt-idea-readiness";
 import { isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey } from "./aidt-research-material-reference";
+import { readAidtBrainstormSelection } from "./aidt-brainstorm";
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
 
 const ideaIds = z.array(z.string().min(1).max(256)).min(1).max(8)
@@ -44,6 +45,8 @@ export function canConfirmAidtIdeaSheets(draft: AidtUiStageDraft, ids: string[],
 }
 
 export function readAidtIdeaHandoff(draft: AidtUiStageDraft, projectId: string) {
+  const brainstorm = readAidtBrainstormSelection(draft);
+  if (brainstorm) return { hmw: brainstorm.session.source, sheetIds: [], selectedIds: brainstorm.selectedIds, ideas: brainstorm.ideas };
   const hmw = readAidtIdeaHmwSource(draft);
   const sheetIds = readAidtIdeaSheetIds(draft);
   const selectedIds = readAidtIdeaHandoffIds(draft);
@@ -53,7 +56,7 @@ export function readAidtIdeaHandoff(draft: AidtUiStageDraft, projectId: string) 
 
 export function invalidateAidtIdeaSheets(draft: AidtUiStageDraft): AidtUiStageDraft {
   if (!draft.fields.ideaSheetIds && !draft.fields.ideaHandoffIds) return draft;
-  return { ...draft, fields: { ...draft.fields, ideaSheetIds: "", ideaHandoffIds: "" } };
+  return { ...draft, fields: { ...draft.fields, ideaSheetIds: "", ideaHandoffIds: "", ideaBrainstormHandoff: "" } };
 }
 
 export function readAidtIdeaDirectory(draft: AidtUiStageDraft) {

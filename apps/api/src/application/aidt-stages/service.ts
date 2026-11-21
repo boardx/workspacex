@@ -1,3 +1,4 @@
+import { AIDT_BRAINSTORM_PREFIX, AIDT_BRAINSTORM_SELECTION_FIELD, isAidtConfirmedHmwSource, readAidtBrainstorm, readAidtBrainstormSelection, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { randomUUID } from "node:crypto";
 import { operations, SaveInput, isStageRequestTooLarge, readIdeaHmwSource, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { authorize } from "../identity/authorize";
@@ -76,6 +77,29 @@ export class AidtStagesService {
       const current=unwrap(await tx.current(input.stageId),d);
       if((current?.revision??0)!==input.expectedRevision) throw new AidtStageError("AIDT_STAGE_REVISION_CONFLICT",current);
       for(const source of input.sourceStageRevisions) if(!await tx.hasRevision(source.stageId,source.revision)) throw new AidtStageError("AIDT_STAGE_INVALID");
+      if (input.stageId === 4) {
+        const { fields, ideas } = input.content.draft;
+        const sessions = readAidtBrainstorms(fields);
+        const prior = current?.content.draft.fields ?? {};
+        const candidateIds = sessions.flatMap(session => session.candidates);
+        if (Object.keys(fields).filter(key => key.startsWith(AIDT_BRAINSTORM_PREFIX)).length !== sessions.length
+          || Object.keys(prior).some(key => key.startsWith(AIDT_BRAINSTORM_PREFIX) && !fields[key])
+          || new Set(candidateIds).size !== candidateIds.length
+          || candidateIds.some(id => !ideas.some(idea => idea.id === id))
+          || fields[AIDT_BRAINSTORM_SELECTION_FIELD] && !readAidtBrainstormSelection(input.content.draft)) throw new AidtStageError("AIDT_STAGE_INVALID");
+        for (const session of sessions) {
+          const existing = readAidtBrainstorm(prior, session.id);
+          if (existing) {
+            if (stageRequestKey(existing.source) !== stageRequestKey(session.source)
+              || existing.method !== session.method || existing.count !== session.count
+              || !existing.candidates.every((id, index) => session.candidates[index] === id)) throw new AidtStageError("AIDT_STAGE_INVALID");
+          } else {
+            if (!tx.revision) throw new AidtStageError("AIDT_STAGE_UNAVAILABLE");
+            const source = unwrap(await tx.revision(3, session.source.revision), d);
+            if (source?.projectId !== actor.projectId || !isAidtConfirmedHmwSource(source, session.source)) throw new AidtStageError("AIDT_STAGE_INVALID");
+          }
+        }
+      }
       const rawHmw = input.stageId === 4 ? input.content.draft.fields.ideaHmwSource : undefined;
       if (rawHmw) {
         const hmw = readIdeaHmwSource(rawHmw);
@@ -83,7 +107,8 @@ export class AidtStagesService {
         if (!tx.revision) throw new AidtStageError("AIDT_STAGE_UNAVAILABLE");
         const source = unwrap(await tx.revision(3, hmw.revision), d);
         if (!source || source.projectId !== actor.projectId || source.stageId !== 3 || source.revision !== hmw.revision ||
-          source.content.draft.fields.definitionHmwId !== hmw.id || source.content.draft.fields.hmw?.trim() !== hmw.text) {
+          !isAidtConfirmedHmwSource(source, hmw) &&
+          (source.content.draft.fields.definitionHmwId !== hmw.id || source.content.draft.fields.hmw?.trim() !== hmw.text)) {
           throw new AidtStageError("AIDT_STAGE_INVALID");
         }
       }

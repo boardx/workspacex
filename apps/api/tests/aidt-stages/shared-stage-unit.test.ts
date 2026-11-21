@@ -118,6 +118,39 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
     const saved = await f.service.save(actor, ideate);
     expect(saved.stage.sourceStageRevisions).toEqual([{ stageId: 3, revision: 1 }]);
   });
+  it("pins a chosen confirmed HMW to an independently scoped brainstorming session", async () => {
+    const f = fixture();
+    const definition = input(3);
+    definition.content.draft.fields = {
+      definitionHmwId: "one", hmw: "当前选中的 HMW",
+      "definitionHmw:two": JSON.stringify({ id: "two", text: "另一个确认的 HMW", confirmed: true, archived: false }),
+    };
+    await f.service.save(actor, definition);
+    const ideate = input(4);
+    const id = "brainstorm-a";
+    const source = { id: "two", revision: 1, text: "另一个确认的 HMW" };
+    const key = "ideaBrainstorm:" + id;
+    const session = { id, source, method: "reverse", count: 5, candidates: [] };
+    ideate.content.draft.fields[key] = JSON.stringify({ ...session, source: { ...source, text: "篡改原文" } });
+    await expect(f.service.save(actor, ideate)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    ideate.content.draft.fields[key] = JSON.stringify(session);
+    const { stage } = await f.service.save(actor, ideate);
+    const first = await f.service.entityThread(actor, { stageId: 4, entityId: id, purpose: "stage" });
+    const peer = await f.service.entityThread({ ...actor, userId: "student-b" }, { stageId: 4, entityId: id, purpose: "stage" });
+    expect(first).toEqual(peer);
+    expect(aidtSavedEntityContext(stage, id)).toMatchObject({ entityId: id, brainstorm: { method: "逆向思考", hmw: source } });
+    const changed = input(4, 1);
+    changed.content.draft.fields[key] = JSON.stringify({ ...session, method: "free" });
+    await expect(f.service.save(actor, changed)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    const selected = input(4, 1);
+    selected.sourceStageRevisions = [{ stageId: 3, revision: 1 }];
+    selected.content.draft.fields[key] = JSON.stringify({ ...session, candidates: ["idea-a"] });
+    selected.content.draft.fields.ideaHmwSource = JSON.stringify(source);
+    selected.content.draft.fields.ideaHandoffIds = JSON.stringify(["idea-a"]);
+    selected.content.draft.fields.ideaBrainstormHandoff = JSON.stringify({ sessionId: id, ids: ["idea-a"] });
+    selected.content.draft.ideas = [{ id: "idea-a", title: "价格标牌", description: "分别列出价格及样式。" }];
+    await expect(f.service.save(actor, selected)).resolves.toMatchObject({ stage: { revision: 2 } });
+  });
   it("history is immutable and paginates descending without overlap",async()=>{const f=fixture();for(let n=0;n<3;n++)await f.service.save(actor,input(1,n));const page=await f.service.history(actor,1,undefined,2);expect(page.items.map(r=>r.revision)).toEqual([3,2]);expect(page.nextBeforeRevision).toBe(2);expect((await f.service.history(actor,1,page.nextBeforeRevision!,2)).items.map(r=>r.revision)).toEqual([1]);});
   it("writes the last PostgreSQL integer revision and rejects another append before storage",async()=>{
     const f=fixture(),max=2147483647,prior=input(1,max-2);

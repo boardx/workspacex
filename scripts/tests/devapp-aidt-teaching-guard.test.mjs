@@ -17,8 +17,8 @@ function fixture() {
   guard.observe(catalog, 200, { items: identity.teachingSkillNames.map((platformStableName, index) => ({ platformStableName, skillId: `skill-${index+1}`, currentVersionId: `pin-${index+1}`, status: '已启用' })) });
   return guard;
 }
-function teaching(guard, stageId = 1, suffix = stageId) {
-  const threadId = `thr_qa-${suffix}`, entityId = `entity-${suffix}`;
+function teaching(guard, stageId = 1, suffix = stageId, entityId = `entity-${suffix}`) {
+  const threadId = `thr_qa-${suffix}`;
   const created = request(guard, 'PUT', `/api/projects/${project}/aidt/stages/${stageId}/entities/${entityId}/thread`, { purpose: 'stage' });
   guard.observe(created, 200, { threadId });
   guard.observe(request(guard, 'GET', `/api/chat/threads/${threadId}`), 200, { thread: { id: threadId, projectId: project, archived: false }, capabilities: ['composer.send'] });
@@ -87,7 +87,7 @@ test('the interview lane permits ten independently bound interviews, denying rep
     assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
   }
   assert.equal(guard.summary().teachingRequests, 15);
-  assert.equal(guard.summary().teachingRequestsAllowed, 37);
+  assert.equal(guard.summary().teachingRequestsAllowed, 39);
 });
 
 test('per-interview revision and finding each require the preceding bound turn and student confirmation', () => {
@@ -163,4 +163,27 @@ test('a verified S1 pending receipt unlocks one separate QA problem only and nev
   assert.throws(() => guard.armTeachingSend({ ...original.scope, syntheticProblemFixture:true }), /SYNTHETIC_PREREQUISITE_NOT_BOUND/);
   assert.doesNotThrow(() => guard.armTeachingSend(synthetic));
   assert.throws(() => guard.armTeachingSend(synthetic), /TEACHING_SCOPE_NOT_VERIFIED/);
+});
+
+test('a recorded Stage4 teaching send authorizes only one append for its exact brainstorm record', () => {
+  const make = () => {
+    const guard = fixture(), id = 'brainstorm-1234', { scope, wire } = teaching(guard, 4, 'brainstorm-1234', id);
+    const path = `/api/projects/${project}/aidt/stages/4`, key = `ideaBrainstorm:${id}`;
+    const record = { id, source: { id: 'hmw', revision: 1, text: '问题' }, method: 'reverse', count: 5, candidates: [] };
+    const prior = { fields: { [key]: JSON.stringify(record) }, ideas: [], selectedIdeaId: '' };
+    guard.observe(request(guard, 'GET', path), 200, { stage: { projectId: project, stageId: 4, revision: 2, content: { draft: prior }, sourceStageRevisions: [] } });
+    const idea = { id: id + '-output-0', title: '候选一', description: '保留学生建议。' };
+    const body = { expectedRevision: 2, content: { draft: { fields: { [key]: JSON.stringify({ ...record, candidates: [idea.id] }) }, ideas: [idea], selectedIdeaId: '' } }, sourceStageRevisions: [] };
+    return { guard, scope, wire, path, body };
+  };
+  const accepted = make();
+  accepted.guard.armTeachingSend(accepted.scope);
+  assert.equal(request(accepted.guard, 'POST', '/api/copilotkit/agent/default/run', accepted.wire).allow, true);
+  assert.equal(request(accepted.guard, 'PUT', accepted.path, accepted.body).allow, true);
+  assert.equal(request(accepted.guard, 'PUT', accepted.path, accepted.body).code, 'STAGE_SAVE_NOT_ARMED');
+  const unrelated = make();
+  unrelated.guard.armTeachingSend(unrelated.scope);
+  assert.equal(request(unrelated.guard, 'POST', '/api/copilotkit/agent/default/run', unrelated.wire).allow, true);
+  unrelated.body.content.draft.fields.ideaHandoffIds = '["foreign"]';
+  assert.equal(request(unrelated.guard, 'PUT', unrelated.path, unrelated.body).code, 'STAGE_SAVE_NOT_ARMED');
 });

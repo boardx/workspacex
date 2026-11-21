@@ -11,7 +11,7 @@ export const REQUIRED_CHECKS = Object.freeze([
   's2-ten-card-chats', 's2-interview-handoff',
   ...Array.from({ length: 10 }, (_, index) => `s2-interview-u${String(index + 1).padStart(2, '0')}`),
   's2-distinct-threads', 's2-card-management', 's3-definition-hmw-handoff',
-  's4-three-distinct-descriptions', 's5-prototype-question-version',
+  's4-three-distinct-descriptions', 's4-brainstorm-five-to-two', 's5-prototype-question-version',
   's6-test-reflection', 'report-confirmed-source-export',
   'six-stage-completion', 'anonymous-access-boundary',
 ]);
@@ -1003,6 +1003,79 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     report.descriptionPdfIndependentGlyphValidation = 'pending artifact download';
   }, '04-ideas');
 
+  await check('s4-brainstorm-five-to-two', 4, async () => {
+    if (!state.s3 || !step4Href) fail('S3_CONFIRMED_HANDOFF_REQUIRED');
+    const stage3 = await savedStage(3);
+    const frozenUrl = new URL(owned(step4Href));
+    if (String(stage3.revision) !== frozenUrl.searchParams.get('hmwRevision')) fail('SELECTED_HMW_UNVERIFIED');
+    const hmws = Object.entries(stage3.content.draft.fields).flatMap(([key, value]) => {
+      if (!key.startsWith('definitionHmw:')) return [];
+      try { const hmw = JSON.parse(value); return hmw?.confirmed && !hmw.archived ? [hmw] : []; }
+      catch { return []; }
+    });
+    if (hmws.length < 2) fail('S4_TWO_CONFIRMED_HMWS_REQUIRED');
+    const chosenHmw = hmws.find(item => item.id !== stage3.content.draft.fields.definitionHmwId);
+    if (!chosenHmw) fail('S4_TWO_CONFIRMED_HMWS_REQUIRED');
+    const methodSessions = new Set();
+    const start = async (method, target) => {
+      await page.goto(frozenUrl.href);
+      const directory = page.getByRole('region', { name: '头脑风暴', exact: true });
+      const hmw = directory.getByRole('combobox', { name: 'HMW', exact: true });
+      await expect.poll(() => hmw.locator('option').count()).toBeGreaterThanOrEqual(3);
+      await hmw.selectOption(chosenHmw.id);
+      await directory.getByRole('combobox', { name: '发散方法' }).selectOption(method);
+      await directory.getByRole('spinbutton', { name: '希望探索的点子数' }).fill(String(target));
+      await saveStage(4, btn('开始头脑风暴', directory));
+      await expect.poll(() => new URL(page.url()).searchParams.get('entity')).toMatch(/^brainstorm-/);
+      const entity = new URL(page.url()).searchParams.get('entity');
+      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
+      const threadId = new URL(page.url()).searchParams.get('thread');
+      if (methodSessions.has(threadId)) fail('S4_BRAINSTORM_THREAD_NOT_INDEPENDENT');
+      methodSessions.add(threadId);
+      const key = 'ideaBrainstorm:' + entity;
+      const read = async () => JSON.parse((await savedStage(4)).content.draft.fields[key] ?? 'null');
+      const session = await read();
+      if (session?.source?.id !== chosenHmw.id || session.source?.text !== chosenHmw.text || session.source?.revision !== stage3.revision
+        || session.method !== method || session.count !== target) fail('S4_BRAINSTORM_SOURCE_UNVERIFIED');
+      return { entity, threadId, read };
+    };
+    const reverse = await start('reverse', 5);
+    const reversePrompt = text('我想到在排队入口放纸牌显示等待时间。请用场次选定的方法先对比怎样会让体验变糟及如何翻转，再和我一起补到本场目标数量。只做概念草稿。');
+    if (!await feedback(4, reversePrompt)) fail('S4_REVERSE_NATIVE_FEEDBACK_REQUIRED');
+    await expect.poll(async () => (await reverse.read())?.candidates.length, { timeout: 30000 }).toBe(5);
+    const exactReverse = report.teachingEvidence.find(row => row.threadId === reverse.threadId && row.prompt === reversePrompt && row.status === 'passed');
+    if (!exactReverse || !/逆向|翻转|反转|反过来/u.test(exactReverse.assistantText)) fail('S4_REVERSE_METHOD_NOT_OBSERVED');
+    const output = page.getByTestId('aidt-brainstorm-output');
+    await expect(output).toBeVisible();
+    await expect(output.getByRole('listitem')).toHaveCount(5);
+    const selectedIds = (await reverse.read()).candidates.slice(0, 2);
+    const compare = page.getByRole('region', { name: '筛选点子' });
+    await click(compare.getByText('筛选点子 · 已选 0', { exact: true }));
+    await compare.getByRole('checkbox').nth(0).check();
+    await compare.getByRole('checkbox').nth(1).check();
+    await expect(compare.getByText('筛选点子 · 已选 2', { exact: true })).toBeVisible();
+    await reviewAndSave(4, btn('确认入选点子', compare));
+    await expect.poll(async () => JSON.parse((await savedStage(4)).content.draft.fields.ideaHandoffIds || '[]'), { timeout: 30000 }).toEqual(selectedIds);
+    const stage4 = await savedStage(4);
+    const frozenHandoff = owned(await compare.getByRole('link', { name: '进入原型制作' }).getAttribute('href'));
+    if (String(stage4.revision) !== new URL(frozenHandoff).searchParams.get('ideaRevision')) fail('S4_BRAINSTORM_HANDOFF_REVISION_MISMATCH');
+    await page.reload();
+    await expect(output.getByRole('listitem')).toHaveCount(5);
+    await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(reverse.threadId);
+    await expect(output.getByRole('heading', { name: /入选 2/ })).toBeVisible();
+    await shot('04-brainstorm-five-to-two', 4);
+    const second = await start('scamper', 1);
+    const secondPrompt = text('我的初步办法是发一张纸卡。请按当前场次的方法选择一个具体步骤延展这个点子，说明你用了哪一步。');
+    if (!await feedback(4, secondPrompt)) fail('S4_SCAMPER_NATIVE_FEEDBACK_REQUIRED');
+    await expect.poll(async () => (await second.read())?.candidates.length, { timeout: 30000 }).toBe(1);
+    const exactScamper = report.teachingEvidence.find(row => row.threadId === second.threadId && row.prompt === secondPrompt && row.status === 'passed');
+    if (!exactScamper || !/SCAMPER|替代|组合|调整|改变|移除/u.test(exactScamper.assistantText)) fail('S4_SCAMPER_METHOD_NOT_OBSERVED');
+    await page.goto(frozenHandoff);
+    await expect(page.getByTestId('aidt-step-entity-directory')).toBeVisible();
+    if (state.s4) step5Href = frozenHandoff;
+    report.brainstormHandoff = { hmwId: chosenHmw.id, hmwRevision: stage3.revision, stage4Revision: stage4.revision, sameSessionAfterReload: true, retained: 5, selected: 2, selectedIds, methodThreadCount: 2, methods: ['reverse', 'scamper'] };
+  }, '04-brainstorm');
+
   state.s5 = await check('s5-prototype-question-version', 5, async () => {
     if (!state.s4 || !step5Href) { await go(5); fail('S4_CONFIRMED_HANDOFF_REQUIRED'); }
     if (typeof armDesignGeneration !== 'function' || typeof armDesignCreate !== 'function') fail('BOUNDED_DESIGN_GENERATION_GUARD_REQUIRED');
@@ -1016,7 +1089,9 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     designId = designRoute.entityId;
     const entityHref = designRoute.href;
     await output(designRoute);
-    await click(page.getByRole('button', { name: /^采用第 4 步 V\d+ 的 \d+ 个点子$/ }));
+    const adopted = page.getByRole('button', { name: /^采用第 4 步 V\d+ 的 \d+ 个点子$/ });
+    if (report.brainstormHandoff) await expect(adopted).toHaveText(`采用第 4 步 V${report.brainstormHandoff.stage4Revision} 的 ${report.brainstormHandoff.selected} 个点子`);
+    await click(adopted);
     await fill('通过这次制作原型，你最想知道什么？', '学生能理解提示吗？');
     await disclosure('补充先前看法与验证范围');
     await fill('测试前，你们怎么想？', text('目前不确定，预计静态图只能检查理解。'));

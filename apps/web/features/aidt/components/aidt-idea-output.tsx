@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { Button } from "@/components/ui/button";
 import { preparePrintImages, printResearchPdf } from "@/lib/research-report-export";
 import { aidtIdeaClassificationFor } from "../lib/aidt-idea-classification";
@@ -21,7 +22,7 @@ export function AidtIdeaOutput({ projectId, entityId, draft, savedDraft, savedRe
   const proposal = getAidtIdeaChatProposal(draft, entityId);
   const reference = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", entityId)]);
   const material = reference?.projectId === projectId && isAidtResearchImage(reference) ? reference : null;
-  const hmw = readAidtIdeaHmwSource(draft);
+  const hmw = readAidtBrainstorms(draft.fields).find(session => session.candidates.includes(entityId))?.source ?? readAidtIdeaHmwSource(draft);
   const key = JSON.stringify([projectId, entityId, item?.title, item?.description, item?.imageAttachment, material, savedRevision, currentConfirmed]);
   const [image, setImage] = React.useState<{ key: string; image: AidtImageAttachmentState } | null>(null);
   const [status, setStatus] = React.useState<{ key: string; text: string } | null>(null);

@@ -1,3 +1,4 @@
+import { AIDT_BRAINSTORM_METHODS, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import type { AidtUiField, AidtUiStageDraft } from "./aidt-ui-drafts";
 import { listAidtProblems, readAidtProblemEntityDraft } from "./aidt-problem-entities";
 import { formatAidtProblemReflectionMarkdown } from "./aidt-problem-reflection";
@@ -60,6 +61,7 @@ export function aidtEntityReportLines(stage: number, draft: AidtUiStageDraft, de
   if (stage === 4) {
     const hmw = readAidtIdeaHmwSource(draft), sheets = readAidtIdeaSheetIds(draft), chosen = readAidtIdeaHandoffIds(draft);
     return [
+      ...readAidtBrainstorms(draft.fields).map(session => `头脑风暴 ${session.id}：${AIDT_BRAINSTORM_METHODS[session.method]} · ${session.candidates.length} 个候选；HMW ${session.source.id} · 第 3 步 V${session.source.revision}：${session.source.text}`),
       ...(hmw ? [`本轮 HMW 来源：第 3 步 V${hmw.revision}；${hmw.id}`, `本轮 HMW：${hmw.text}`] : []),
       ...(sheets.length ? [`描述单记录：${sheets.join("、")}；完整性、学生确认及实际 PDF 请核对原回执。`] : []),
       ...(chosen.length ? [`进入原型的学生选择（非投票统计）：${chosen.map(id => draft.ideas.find(idea => idea.id === id)?.title || `引用 ${id} 待核对`).join("、")}`] : []),
