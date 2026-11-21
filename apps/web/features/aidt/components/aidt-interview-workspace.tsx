@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
+import { AidtInterviewRecorder } from "./aidt-interview-recorder";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
 import { AidtResearchMaterialControl, AidtResearchMaterialPreview } from "./aidt-research-material";
 import { listAidtStageHistory, readAidtStage, type AidtSharedStage } from "../lib/live-aidt-stages";
@@ -13,27 +15,50 @@ import { researchMaterialKey } from "../lib/aidt-research-material-reference";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import {
   aidtInterviewFindingReady, aidtInterviewMaterialKey, archiveAidtInterview, confirmAidtInterviewFinding,
-  getAidtInterviewFinding, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviewMaterials,
+  getAidtInterviewFinding, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviewAudio, readAidtInterviewMaterials,
   readAidtInterviewTranscript, readAidtInterviews, setAidtInterviewPhoto, writeAidtInterview, writeAidtInterviewFinding,
-  writeAidtInterviewMaterial, writeAidtInterviewTranscript, type AidtInterview,
+  writeAidtInterviewAudio, writeAidtInterviewMaterial, writeAidtInterviewTranscript, type AidtInterview,
 } from "../lib/aidt-interviews";
 
 type UpdateDraft = (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
-type Topic = { revision: number | null; text: string; reflection?: string };
+type Topic = { revision: number | null; text: string; reflection?: string; problemEntityId?: string };
 const inputClass = "mt-1 w-full rounded-md border border-border bg-background p-2 text-13";
 const blankTopic: Topic = { revision: null, text: "" };
 
-async function confirmedTopic(stage: AidtSharedStage | null): Promise<Topic | null> {
+const problemEntry = z.object({ id: z.string().uuid(), archived: z.boolean() });
+const problemFields = z.record(z.string());
+
+function readProblemDraft(draft: AidtUiStageDraft, id?: string): AidtUiStageDraft | null {
+  if (!id) return draft;
+  try {
+    const entity = problemEntry.parse(JSON.parse(draft.fields["problemEntity:" + id] ?? "null"));
+    if (entity.id !== id || entity.archived) return null;
+    const fields = problemFields.parse(JSON.parse(draft.fields["problemDraft:" + id] ?? "null"));
+    return { fields, ideas: [], selectedIdeaId: "" };
+  } catch { return null; }
+}
+
+async function confirmedTopic(stage: AidtSharedStage | null, problemEntityId?: string): Promise<Topic | null> {
   if (!stage) return null;
-  const { fields } = stage.content.draft;
+  const draft = readProblemDraft(stage.content.draft, problemEntityId);
+  if (!draft) return null;
+  const { fields } = draft;
   const record = fields[AIDT_ROUND_COMPLETION_FIELD];
   if (!record || !fields.rewrittenTheme?.trim()) return null;
-  const digest = await aidtRoundDigest(aidtRoundPayload(stage.projectId, 1, stage.content.draft, stage.sourceStageRevisions));
+  const digest = await aidtRoundDigest(aidtRoundPayload(stage.projectId, 1, draft, stage.sourceStageRevisions));
   return record === aidtRoundConfirmation(stage.projectId, 1, digest)
-    ? { revision: stage.revision, text: fields.rewrittenTheme, reflection: formatAidtProblemReflectionMarkdown(stage.content.draft).slice(1).join("\n") }
+    ? { revision: stage.revision, text: fields.rewrittenTheme, reflection: formatAidtProblemReflectionMarkdown(draft).slice(1).join("\n"), problemEntityId }
     : null;
 }
 
+async function readExactTopic(projectId: string, token: string, revision: number, signal: AbortSignal, id?: string) {
+  if (!Number.isInteger(revision) || revision < 1 || revision > 2147483647) return null;
+  const { stage } = await readAidtStage(projectId, 1, token, signal);
+  if (stage?.revision === revision) return confirmedTopic(stage, id);
+  if (!stage || stage.revision < revision || revision === 2147483647) return null;
+  const { items } = await listAidtStageHistory(projectId, 1, token, { beforeRevision: revision + 1, limit: 1 }, signal);
+  return confirmedTopic(items[0]?.revision === revision ? items[0] : null, id);
+}
 
 function InterviewField({ label, value, maxLength, disabled, onChange, rows = 1 }: {
   label: string; value: string; maxLength: number; disabled: boolean;
@@ -44,9 +69,10 @@ function InterviewField({ label, value, maxLength, disabled, onChange, rows = 1 
     : <input className={inputClass} maxLength={maxLength} disabled={disabled} value={value} onChange={event => onChange(event.currentTarget.value)} />}</label>;
 }
 
-export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate }: {
+export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate, problemEntityId, problemRevision }: {
   projectId: string; draft: AidtUiStageDraft; update: UpdateDraft; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
+  problemEntityId?: string; problemRevision?: number;
   entityId?: string | null; onOpen?: (id: string) => void; onCreate?: (id: string) => void;
 }) {
   const token = useOptionalSession()?.session?.sessionToken;
@@ -61,6 +87,16 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
     if (!token) return;
     const controller = new AbortController();
     async function load(sessionToken: string) {
+      if (problemEntityId !== undefined || problemRevision !== undefined) {
+        const exact = problemEntityId && problemRevision !== undefined
+          ? await readExactTopic(projectId, sessionToken, problemRevision, controller.signal, problemEntityId)
+          : null;
+        if (!controller.signal.aborted) {
+          if (exact) setTopic(exact);
+          else setTopicError(true);
+        }
+        return;
+      }
       const { stage } = await readAidtStage(projectId, 1, sessionToken, controller.signal);
       if (!stage) return;
       let latest = await confirmedTopic(stage);
@@ -75,11 +111,13 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
     }
     void load(token).catch(() => { if (!controller.signal.aborted) setTopicError(true); });
     return () => controller.abort();
-  }, [projectId, token, attempt]);
+  }, [projectId, token, attempt, problemEntityId, problemRevision]);
 
   const records = readAidtInterviews(draft.fields);
   const interview = records.find(record => record.id === (entityId === undefined ? selected : entityId));
-  const canAdd = !readOnly && topic.revision !== null && Object.keys(draft.fields).length < 90;
+  const explicit = problemEntityId !== undefined || problemRevision !== undefined;
+  const validTopic = !explicit || (topic.problemEntityId === problemEntityId && topic.revision === problemRevision);
+  const canAdd = !readOnly && validTopic && topic.revision !== null && Object.keys(draft.fields).length < 90;
   const add = () => {
     if (!canAdd) return;
     let number = 1;
@@ -90,6 +128,7 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
       id: crypto.randomUUID(),
       code: `U${String(number).padStart(2, "0")}`,
       topicRevision: topic.revision,
+      ...(topic.problemEntityId ? { problemEntityId: topic.problemEntityId } : {}),
       topic: topic.text.slice(0, 650),
       goal: "", original: "", adopted: "", guideConfirmed: false, consent: null,
     };
@@ -133,21 +172,23 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
   const [pinned, setPinned] = React.useState<Topic | null>(null);
   React.useEffect(() => {
     const revision = interview.topicRevision;
-    if (!token || !revision || topic.revision === revision || revision >= 2147483647) return;
+    if (!token || !revision || (topic.revision === revision && topic.problemEntityId === interview.problemEntityId)) return;
     const controller = new AbortController();
-    void listAidtStageHistory(projectId, 1, token, { beforeRevision: revision + 1, limit: 1 }, controller.signal)
-      .then(({ items }) => confirmedTopic(items[0]?.revision === revision ? items[0] : null))
+    void readExactTopic(projectId, token, revision, controller.signal, interview.problemEntityId)
       .then(result => { if (result && !controller.signal.aborted) setPinned(result); })
       .catch(() => { if (!controller.signal.aborted) setPinned(null); });
     return () => controller.abort();
-  }, [projectId, token, interview.topicRevision, topic.revision]);
-  const exactTopic = topic.revision === interview.topicRevision ? topic : pinned?.revision === interview.topicRevision ? pinned : null;
+  }, [projectId, token, interview.topicRevision, interview.problemEntityId, topic.revision, topic.problemEntityId]);
+  const matchesTopic = (candidate: Topic | null) => candidate?.revision === interview.topicRevision && candidate?.problemEntityId === interview.problemEntityId;
+  const exactTopic = matchesTopic(topic) ? topic : matchesTopic(pinned) ? pinned : null;
   const topicText = exactTopic?.text ?? interview.topic;
   const [newCode, setNewCode] = React.useState(code);
   const [status, setStatus] = React.useState("");
   const [archiving, setArchiving] = React.useState(false);
   const [notes, setNotes] = React.useState(interview.consent?.notes ?? false);
   const [audio, setAudio] = React.useState(interview.consent?.audio ?? false);
+  const [capture, setCapture] = React.useState(interview.consent?.capture ?? false);
+  const [asr, setAsr] = React.useState(interview.consent?.asr ?? false);
   const [photos, setPhotos] = React.useState(interview.consent?.photos ?? false);
   const heading = React.useRef<HTMLHeadingElement>(null);
   React.useEffect(() => { heading.current?.focus(); }, []);
@@ -192,7 +233,7 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
       <summary className="cursor-pointer">查看第 1 步同版本的问题反思</summary>
       <p className="mt-2 whitespace-pre-wrap">{exactTopic.reflection}</p>
     </details>}
-    {topic.revision !== null && topic.revision !== interview.topicRevision && <Button type="button" size="sm" variant="outline" disabled={readOnly} onClick={() =>
+    {topic.revision !== null && topic.problemEntityId === interview.problemEntityId && topic.revision !== interview.topicRevision && <Button type="button" size="sm" variant="outline" disabled={readOnly} onClick={() =>
       record({ topicRevision: topic.revision, topic: topic.text.slice(0, 650), guideConfirmed: false })
     }>改用第 1 步 V{topic.revision} 并重新核对提纲</Button>}
     <section className="space-y-3 border-t border-border pt-3" aria-label="访谈提纲">
@@ -213,9 +254,20 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
       <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={notes} disabled={readOnly} onChange={event => setNotes(event.currentTarget.checked)} />已获授权共享文字记录</label>
       <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={photos} disabled={readOnly} onChange={event => setPhotos(event.currentTarget.checked)} />已获授权共享照片</label>
       <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio} disabled={readOnly} onChange={event => setAudio(event.currentTarget.checked)} />已获授权共享原始录音</label>
-      <Button type="button" size="sm" variant="outline" disabled={readOnly || (audio === (interview.consent?.audio ?? false) && notes === (interview.consent?.notes ?? false) && photos === (interview.consent?.photos ?? false))} onClick={() =>
-        record({ consent: notes || photos || audio ? { observedAt: new Date().toISOString(), notes, photos, audio } : null })
+      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio && capture} disabled={readOnly || !audio} onChange={event => setCapture(event.currentTarget.checked)} />已获授权在此录音</label>
+      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio && capture && asr} disabled={readOnly || !audio || !capture} onChange={event => setAsr(event.currentTarget.checked)} />已获授权使用在线转写服务</label>
+      <Button type="button" size="sm" variant="outline" disabled={readOnly || ((audio && capture && asr) === (interview.consent?.asr ?? false) && (audio && capture) === (interview.consent?.capture ?? false) && audio === (interview.consent?.audio ?? false) && notes === (interview.consent?.notes ?? false) && photos === (interview.consent?.photos ?? false))} onClick={() =>
+        record({ consent: notes || photos || audio ? { observedAt: new Date().toISOString(), notes, photos, audio, capture: audio && capture, asr: audio && capture && asr } : null })
       }>更新授权记录</Button>
+      {interview.consent?.audio && interview.consent.capture && token && <AidtInterviewRecorder
+        key={JSON.stringify([projectId, token, id, interview.consent.observedAt, readOnly])}
+        projectId={projectId} participantCode={code} sessionToken={token}
+        disabled={readOnly || Object.keys(draft.fields).length >= 95} asrAllowed={!!interview.consent.asr}
+        onAttached={({ source, ...metadata }) => {
+          const key = aidtInterviewMaterialKey(id, encodeURIComponent(source.runId));
+          update(old => writeAidtInterviewAudio(old, id, key, source, metadata));
+        }}
+      />}
       {interview.consent && !!allowedKinds.length && <AidtResearchMaterialControl
         projectId={projectId} label={`${code}研究原件`} readOnly={readOnly || Object.keys(draft.fields).length >= 95}
         allowedKinds={allowedKinds}
@@ -226,10 +278,24 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
           update(old => writeAidtInterviewMaterial(old, id, key, JSON.stringify(reference)));
         }}
       />}
-      {materials.filter(item => isAllowed(item.reference.mime)).map(({ key, reference }) => <div key={key} className="space-y-2">
-        <AidtResearchMaterialPreview projectId={projectId} reference={reference} quote={key === transcript.sourceKey ? finding.quote : undefined} />
-        <Button type="button" size="xs" variant="ghost" disabled={readOnly} onClick={() => update(old => writeAidtInterviewMaterial(old, id, key, ""))}>移除此访谈的材料关联</Button>
-      </div>)}
+      {materials.filter(item => isAllowed(item.reference.mime)).map(({ key, reference }) => {
+        const recorded = readAidtInterviewAudio(draft.fields, key);
+        return <div key={key} className="space-y-2">
+          {recorded && <p className="text-12 text-muted-foreground">
+            录音 ${new Date(recorded.startedAt).toLocaleString()} · ${Math.round(recorded.durationMs / 1000)} 秒
+          </p>}
+          <AidtResearchMaterialPreview projectId={projectId} reference={reference} quote={key === transcript.sourceKey ? finding.quote : undefined} />
+          {recorded?.draftTranscript && interview.consent?.asr && <details className="text-12">
+            <summary className="cursor-pointer">查看自动转写摘录</summary>
+            <p className="mt-2 whitespace-pre-wrap">{recorded.draftTranscript}</p>
+            <p className="text-muted-foreground">时间标记为浏览器收到文字时的录音位置，请对照原件校对。</p>
+            <Button type="button" size="xs" variant="outline" disabled={!editableEvidence || !!transcript.text.trim()} onClick={() => {
+              update(old => writeAidtInterviewTranscript(old, id, { sourceKey: key, locator: "", text: recorded.draftTranscript, checked: false }));
+            }}>带入待校对摘录</Button>
+          </details>}
+          <Button type="button" size="xs" variant="ghost" disabled={readOnly} onClick={() => update(old => writeAidtInterviewMaterial(old, id, key, ""))}>移除此访谈的材料关联</Button>
+        </div>;
+      })}
       {interview.consent?.notes && <>
         <label className="block text-12">转写原件<select className={inputClass} value={transcript.sourceKey} disabled={!editableEvidence} onChange={event => {
           const sourceKey = event.currentTarget.value;

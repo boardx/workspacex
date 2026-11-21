@@ -1,6 +1,7 @@
 import { listAidtProblems } from "./aidt-problem-entities";
 import { aidtDefinitionSummary } from "./aidt-definition";
 import { countAidtPrototypeEntityDrafts } from "./aidt-prototype-handoff";
+import { countAidtInterviewRecords } from "./aidt-interviews";
 import { formatAidtProblemReflectionMarkdown } from "./aidt-problem-reflection";
 import { formatAidtSurpriseMarkdown } from "./aidt-surprise-reflection";
 import { aidtIdeaClassificationLines } from "./aidt-idea-classification";
@@ -102,6 +103,8 @@ export function aidtUiStageSummary(stageNumber: number, draft: AidtUiStageDraft)
     const problems = listAidtProblems(draft);
     if (problems.length) lines.push(`本组问题记录：${problems.length} 个。`);
   }
+  const interviewCount = stageNumber === 2 ? countAidtInterviewRecords(draft) : 0;
+  if (interviewCount > 0) lines.push(`访谈记录：${interviewCount} 份`);
   if (stageNumber === 2 && draft.discoveryCards?.length) lines.push(...discoveryCardLines(draft.discoveryCards, draft.fields));
   if (stageNumber === 2) lines.push(...aidtResearchMaterialsFromFields(draft.fields).filter(item => item.key.startsWith("researchFile:")).map(item => `已关联研究原件（待学生核实）：${aidtResearchMaterialLabel(item.material)}`));
   if (stageNumber === 4) for (const [index, idea] of draft.ideas.entries()) {
