@@ -7,8 +7,8 @@ import { listAidtProblems, readAidtProblemEntityDraft, readAidtProblemHandoffDra
 import { areAidtInterviewsComplete } from "./aidt-interviews";
 import { allAidtDefinitionEntitiesConfirmed } from "./aidt-definition-chat";
 import { readAidtDefinition, readAidtDefinitionSelection } from "./aidt-definition";
-import { allAidtIdeasConfirmed } from "./aidt-idea-chat";
-import { readAidtIdeaDirectory, readAidtIdeaHandoff } from "./aidt-idea-handoff";
+import { allAidtIdeasConfirmed, hasAidtIdeaChatConfirmations } from "./aidt-idea-chat";
+import { readAidtIdeaHandoff } from "./aidt-idea-handoff";
 import { aidtAllActivePrototypeEntitiesConfirmed } from "./aidt-prototype-handoff";
 import { isAidtReflectionConfirmed } from "./aidt-verification-loop";
 import { aidtTestGroupsComplete } from "./aidt-test-groups";
@@ -41,7 +41,7 @@ export async function aidtStageHasConfirmation(stage: AidtSharedStage, stages?: 
   }
   if (stage.stageId === 4 && ["ideaHmwSource", "ideaSheetIds", "ideaHandoffIds"].some(key => Object.hasOwn(saved.fields, key))) {
     const handoff = readAidtIdeaHandoff(saved, stage.projectId);
-    return Boolean(handoff && (!readAidtIdeaDirectory(saved).length || allAidtIdeasConfirmed(saved)));
+    return Boolean(handoff && (!hasAidtIdeaChatConfirmations(saved) || allAidtIdeasConfirmed(saved)));
   }
   if (stage.stageId === 5 && Object.keys(saved.fields).some(key => key.startsWith("prototypeEntity:") || key === "prototypeHandoffEntity")) {
     return aidtAllActivePrototypeEntitiesConfirmed(saved);
