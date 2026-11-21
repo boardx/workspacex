@@ -1183,7 +1183,7 @@ ${JSON.stringify(studentInputs)}`);
         armSurvey(testTarget.entityId);
         await collectNativeSurvey({ page, expect, actions, saveSource, fixture: survey, receipt: surveyReceipt, createSurveyParticipant });
       } else await saveSource(() => uploaded('本组原始材料', `qa-${unique}-${method}.txt`, Buffer.from(syntheticTestRecord), 'text/plain'));
-      const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的${method === 'survey' ? '原生问卷答卷，自报原话为「' + survey.answer + '」' : '线下访谈合成材料第1段'}，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
+      const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的${method === 'survey' ? '原生问卷答卷，自报原话为「' + survey.answer + '」，没有独立行为观察，请保留行为字段为空' : '线下访谈合成材料第1段'}，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
       if (!await feedback(6, prompt)) fail('TEST_TEACHING_REPLY_REQUIRED');
       const proof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.prompt === prompt && item.status === 'passed');
       await saveStage(6, btn('确认并保存测试成果', actions), { confirmation: true });

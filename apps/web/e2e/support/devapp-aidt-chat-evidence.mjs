@@ -189,7 +189,7 @@ export function validateTeachingEvidence({ messages, run, receipt }, scope, wire
   const sourceEntities = receipt.entityReferences ?? [];
   if (!Array.isArray(sourceEntities) || sourceEntities.length > 256 || sourceEntities.some(ref => !object(ref)
     || Object.keys(ref).sort().join(',') !== 'entityId,revision,stageId' || !Number.isInteger(ref.stageId)
-    || ref.stageId < 1 || ref.stageId > 6 || !Number.isSafeInteger(ref.revision) || ref.revision < 1 || !ENTITY.test(ref.entityId ?? ''))
+    || ref.stageId < 1 || ref.stageId > 6 || !Number.isSafeInteger(ref.revision) || ref.revision < 1 || typeof ref.entityId !== 'string' || !ENTITY.test(ref.entityId))
     || new Set(sourceEntities.map(ref => [ref.stageId,ref.entityId,ref.revision].join(':'))).size !== sourceEntities.length) fail('TEACHING_ENTITY_REFERENCES_INVALID');
   return { stageId: scope.stageId, threadId: scope.threadId, sourceEntities, runId: run.runId, inputMessageId: accepted.inputMessageId, assistantMessageId: replies[0].id, skillId: scope.skillId, skillVersionId: scope.skillVersionId, agentVersionId: id(run.agentVersionId) ? run.agentVersionId : null, modelProvider: typeof run.modelProvider === 'string' && /^[A-Za-z0-9_.:-]{1,160}$/.test(run.modelProvider) ? run.modelProvider : null, modelId: typeof run.modelId === 'string' && /^[A-Za-z0-9_./:-]{1,200}$/.test(run.modelId) ? run.modelId : null, sourceRevisions: chosen.stageRevisions, snapshotHash: receipt.snapshotHash, assembledContextHash: application.assembledContextHash, studentTextSha256: sha(scope.prompt), assistantTextSha256: sha(replies[0].text), assistantText: replies[0].text, providerIndependentlyVerified: false, teachingQualityAccepted: false };
 }
