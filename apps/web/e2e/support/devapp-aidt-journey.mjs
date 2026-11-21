@@ -152,6 +152,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect.poll(async () => { const saved = await savedStage(stage); return saved.revision > beforeRevision && hasExactSavedInput(saved.content, next); }, { timeout: 30000 }).toBe(true);
     await page.reload();
     if (stage === 4) await disclosure('分类与描述单');
+    if (stage === 2) {
+      await expect(page.getByTestId('aidt-stage-output')).toBeVisible();
+      await expandInterviewSection('编辑提纲');
+    }
     await expect(field).toHaveValue(next);
     const after = await field.inputValue(), afterRevision = await revision(stage);
     if (after !== next) fail('ITERATION_INPUT_NOT_RETAINED');
@@ -188,7 +192,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   };
   const expandInterviewSection = async name => {
     const entry = page.locator('summary').filter({ hasText: name }).first();
-    if (await entry.isVisible() && !await entry.evaluate(node => node.parentElement.open)) await entry.click();
+    if (await entry.isVisible()) await disclosure(name);
   };
   const output = async () => {
     const url = new URL(page.url()); url.searchParams.set('tool', 'outcome');
@@ -329,6 +333,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await fill('学生采纳清单', text('请说说选择时的想法。')); await saveStage(2);
       await iterate(2, page.getByRole('textbox', { name: '学生采纳清单', exact: true }), '访谈问题清单', text('请描述最近一次具体选择的经过：你看了什么，怎样决定，什么地方让你犹豫？'));
       if (index === 1) await feedback(2);
+      await expandInterviewSection('编辑提纲');
       await persistConfirmed(2, btn('确认此人的问题清单'));
       await printOutput(2, `interview-guide-${code}`, page.getByTestId('aidt-interview-guide-print'), ['访谈问题清单', SYNTHETIC, '最近一次具体选择']);
       await expandInterviewSection('访谈材料与授权');
@@ -396,7 +401,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await page.goto(owned(interview.href)); await output();
       if (!state.s2 || !/^U0[12]$/.test(interview.code)) {
         await expandInterviewSection('编辑提纲');
-      await fill('想了解什么', interviewGoal(interview.code)); await saveStage(2);
+        await fill('想了解什么', interviewGoal(interview.code)); await saveStage(2);
       }
       await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
