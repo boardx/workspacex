@@ -478,7 +478,7 @@ for (const [name, options] of [
 });
 
 test('privacy scan failure remains a fixed diagnostic without exporting sensitive exception text', async () => {
-  const secret = 'synthetic-private-marker', privacy = sensitiveEvidenceGuard(); privacy.remember(secret);
+  const secret = 'fake-private-marker', privacy = sensitiveEvidenceGuard(); privacy.remember(secret);
   const f = reviewPage({ dialogCount: 1 });
   f.capture = async () => privacy.assertSafe(secret);
   const observed = await observePendingTeachingReview(f);
