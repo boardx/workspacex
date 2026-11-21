@@ -206,6 +206,13 @@ export function confirmedAidtInterviewCards(draft: AidtUiStageDraft) {
   return (draft.discoveryCards ?? []).filter(card => isAidtInterviewConfirmed(draft.fields, card.id) && !isAidtInterviewArchived(draft.fields, card.id));
 }
 
+export function areAidtInterviewsComplete(draft: AidtUiStageDraft, projectId: string) {
+  const active = readAidtInterviews(draft.fields).filter(interview => !isAidtInterviewArchived(draft.fields, interview.id));
+  const activeCount = Object.keys(draft.fields).filter(key => key.startsWith(prefix) && !isAidtInterviewArchived(draft.fields, key.slice(prefix.length))).length;
+  return active.length > 0 && active.length === activeCount && active.every(interview =>
+    isAidtInterviewConfirmed(draft.fields, interview.id) && aidtInterviewFindingReady(draft, interview, projectId));
+}
+
 export function aidtInterviewHandoffReady(draft: AidtUiStageDraft) {
   const interviews = readAidtInterviews(draft.fields);
   if (!interviews.length) return null;
