@@ -136,7 +136,8 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
     let active = true;
     const cancellation = new AbortController();
     setState(null);
-    void resolveAidtStepChat({ orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken, projectId, step, thread: entityId ? null : thread, ...(entityId ? { entityId } : {}), ...(purpose ? { purpose } : {}), signal: cancellation.signal }).then((value) => {
+    const existingOnly = currentStageQuery(projectId, step.id, entityId).get("history") === "1";
+    void resolveAidtStepChat({ orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken, projectId, step, thread: entityId ? null : thread, existingOnly, ...(entityId ? { entityId } : {}), ...(purpose ? { purpose } : {}), signal: cancellation.signal }).then((value) => {
       if (!active || lifecycle.current.generation !== generation || lifecycle.current.scope !== scope) return;
       const query = currentStageQuery(projectId, step.id, entityId);
       const threadParameter = purpose === "report" ? "summaryThread" : "thread";
