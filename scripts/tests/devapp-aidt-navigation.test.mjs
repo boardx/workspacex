@@ -495,7 +495,7 @@ const creationProjectId = 'qa-project';
 const creationFixtures = [
   [1, 'problem', 'problemEntity:'], [2, 'interview', 'interviewRecord:'],
   [3, 'surprise', 'definitionSurprise:'], [3, 'persona', 'definitionPersona:'],
-  [3, 'hmw', 'definitionHmw:'], [4, 'idea'], [5, 'prototype', 'prototypeEntity:'],
+  [3, 'hmw', 'definitionHmw:'], [4, 'idea'], [4, 'brainstorm', 'ideaBrainstorm:'], [5, 'prototype', 'prototypeEntity:'],
   [6, 'test', 'testGroup:'],
 ];
 for (const [stage, kind, prefix] of creationFixtures) {
