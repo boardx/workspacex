@@ -1,10 +1,12 @@
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
+import { readAidtIdeaHmwSource } from "./aidt-idea-handoff";
 import { aidtIdeaClassificationFor } from "./aidt-idea-classification";
 import { aidtIdeaReadiness, aidtCompleteIdeas } from "./aidt-idea-readiness";
 import { aidtResearchMaterialLabel, isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey } from "./aidt-research-material-reference";
 
 export function aidtIdeaSheets(draft: AidtUiStageDraft, resolvedImages: Readonly<Record<string, string>>, ids?: readonly string[], projectId?: string) {
   const materialFor = (id: string) => { const reference = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", id)]); return reference && (!projectId || reference.projectId === projectId) && isAidtResearchImage(reference) ? reference : null; };
+  const hmw = readAidtIdeaHmwSource(draft);
   const selected = draft.ideas.filter(idea => !ids || ids.includes(idea.id));
   if (!aidtIdeaReadiness(selected, idea => !!materialFor(idea.id)).ready) throw new Error("AIDT_IDEA_SHEETS_INCOMPLETE");
   return aidtCompleteIdeas(selected, idea => !!materialFor(idea.id)).map((idea, index) => {
@@ -13,6 +15,7 @@ export function aidtIdeaSheets(draft: AidtUiStageDraft, resolvedImages: Readonly
     if (!imageSrc) throw new Error("AIDT_IDEA_IMAGE_UNAVAILABLE");
     const classification = aidtIdeaClassificationFor(draft, idea.id);
     return { id: idea.id, number: index + 1, title: idea.title, description: idea.description, imageSrc,
+      hmw: hmw ? `HMW · 第 3 步 V${hmw.revision}：${hmw.text}` : null,
       proposed: draft.selectedIdeaId === idea.id,
       categories: `学生分类（${classification.confirmed ? "本组已确认" : "尚未确认"}）：${classification.labels.join("、") || "暂未分类"}`,
       categoryReason: `学生分类理由：${classification.reason.trim() || "尚未填写"}`,
@@ -31,7 +34,7 @@ export function buildAidtIdeaSheetsDocument(sheets: readonly AidtIdeaSheet[]): H
     const section = document.createElement("section"); section.dataset.ideaId = sheet.id; section.style.breakInside = "avoid"; if (index) section.style.breakBefore = "page";
     const title = document.createElement("h3"); title.textContent = `${sheet.number}. ${sheet.title}${sheet.proposed ? "（拟选择，非投票）" : ""}`; section.append(title);
     const image = document.createElement("img"); image.src = sheet.imageSrc; image.alt = sheet.title; image.width = 480; image.style.maxWidth = "100%"; section.append(image);
-    for (const text of [sheet.description, sheet.categories, sheet.categoryReason, sheet.source]) { const p = document.createElement("p"); p.textContent = text; section.append(p); }
+    for (const text of [sheet.description, sheet.categories, sheet.categoryReason, sheet.hmw, sheet.source]) { if (!text) continue; const p = document.createElement("p"); p.textContent = text; section.append(p); }
     article.append(section);
   }
   return article;
