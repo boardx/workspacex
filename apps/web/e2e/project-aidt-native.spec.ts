@@ -1,3 +1,4 @@
+import { problemDiscussion, problemInitial, problemRevision } from "../../api/scripts/loopback-aidt-problem";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -76,6 +77,15 @@ async function closeTools(page: Page) {
   await expect(page.getByTestId("aidt-tool-panel")).toHaveCount(0);
 }
 async function openOutcome(page: Page) {
+  if (new URL(page.url()).searchParams.has("entity")) {
+    if (!await page.getByTestId("aidt-stage-output").isVisible()) {
+      const mobile = page.getByTestId("chat-task-workbench-mobile-open");
+      if (await mobile.isVisible()) await mobile.click();
+      await page.getByRole("tab", { name: "产物" }).click();
+    }
+    await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
+    return;
+  }
   if (!(await page.getByTestId("aidt-open-output").isVisible())) {
     const mobile = page.getByTestId("chat-task-workbench-mobile-open");
     if (await mobile.isVisible()) await mobile.click();
@@ -236,7 +246,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
   await expect(page.getByTestId("aidt-assistant-panel")).toBeVisible();
   await page.setViewportSize({ width: 375, height: 900 });
-  await expect(page.getByTestId("aidt-field-initial")).toBeVisible();
+  await expect(page.getByTestId("aidt-stage-output").getByRole("textbox")).toHaveCount(0);
   await openAssistant(page);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
   await page.getByTestId("copilotkit-v2-input").fill("尚未发送的移动端对话草稿");
@@ -268,40 +278,19 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   }
   await openOutcome(page);
   await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
-  await expect(page.getByTestId("aidt-field-initial")).toBeVisible();
+  await expect(page.getByTestId("aidt-stage-output").getByRole("textbox")).toHaveCount(0);
   await openAssistant(page);
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue("尚未发送的移动端对话草稿");
   await page.getByTestId("copilotkit-v2-input").fill("");
   await openOutcome(page);
   await page.setViewportSize({ width: 1280, height: 900 });
-  // Editing and offering a form do not send messages or save a checkpoint.
-  await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
+  // Reviewing a projection neither sends a message nor changes the group stage.
+  await expect(page.getByTestId("aidt-stage-output")).toContainText("尚无工作坊问题草稿");
   const draftThreadId = new URL(page.url()).searchParams.get("thread")!;
   expect(draftThreadId).toBeTruthy();
-  await page.getByTestId("aidt-field-initial").fill("本页草稿：改善校园午餐排队");
-  await page.screenshot({ path: test.info().outputPath("aidt-ui-v2-problem-sheet.png"), fullPage: true });
   const beforeDraftSent = await api(page, `/chat/threads/${draftThreadId}/messages?limit=100`);
   expect(beforeDraftSent.data.messages).toHaveLength(0);
-  await page.setViewportSize({ width: 375, height: 900 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: test.info().outputPath("aidt-ui-v2-mobile-sheet.png"), fullPage: true });
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await closeTools(page);
-  await openOutcome(page);
-  await expect(page.getByTestId("aidt-field-initial")).toHaveValue("本页草稿：改善校园午餐排队");
-  await page.getByRole("button", { name: "用 AI 追问", exact: true }).click();
-  await expect(page.getByTestId("aidt-tool-panel")).toBeVisible();
-  await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue(/本页草稿：改善校园午餐排队/);
-  const afterOffer = await api(page, `/chat/threads/${draftThreadId}/messages?limit=100`);
-  expect(afterOffer.data.messages).toHaveLength(0); // preparing a draft never sends it
-  await openOutcome(page);
-  await page.getByRole("button", { name: "用 AI 追问", exact: true }).click();
-  await expect(page.getByTestId("aidt-tool-panel").getByRole("status").filter({ hasText: "未覆盖" })).toBeVisible();
-  await page.screenshot({ path: test.info().outputPath("aidt-ui-v3-outcome.png"), fullPage: true });
   await page.getByRole("link", { name: "项目总览", exact: true }).click();
-  // The normal entity was already saved, so later aggregate edits are a
-  // modified saved draft, rather than a never-saved stage.
-  await expect(page.getByTestId("aidt-stage-save-1")).toContainText("有修改");
   await expect(page.getByTestId("aidt-stage-save-1")).toHaveAttribute("data-completed", "false");
   await expect(page.getByTestId("aidt-materials")).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("aidt-ui-v3-dashboard.png"), fullPage: true });
@@ -333,10 +322,8 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   const sourceMessage = messagesBeforeCheckpoint.data.messages.find((message: PersistedMessage & { id: string }) => message.authorKind === "human" && message.text === prompt);
   expect(sourceMessage?.id).toBeTruthy();
   await openOutcome(page);
-  const review = page.getByTestId("aidt-problem-conversation");
-  await review.locator("summary").click();
-  await expect(review.getByText(prompt, { exact: true })).toBeVisible();
-  await expect(review.getByText("AI 引导师", { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId("aidt-stage-output")).not.toContainText("本步对话记录");
+  await expect(page.getByTestId("aidt-stage-output").getByRole("textbox")).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("aidt-step-1-chat-and-problem.png"), fullPage: true });
   await openPersonalCheckpoints(page);
   await page.getByTestId("aidt-checkpoint-reload").click();
@@ -359,7 +346,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await page.reload();
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
   await openOutcome(page);
-  await expect(page.getByTestId("aidt-field-initial")).toHaveValue("");
+  await expect(page.getByTestId("aidt-stage-output").getByRole("textbox")).toHaveCount(0);
   await openPersonalCheckpoints(page);
   const restoredCheckpointDetails = page.getByTestId("aidt-checkpoint-details");
   // Resolving the authenticated thread deliberately remounts scope-bound UI.
@@ -372,7 +359,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await page.getByTestId("aidt-checkpoint-restore").click();
   await expect(page.getByTestId("aidt-checkpoint-restore-notice")).toContainText("尚未同步给小组");
   await openOutcome(page);
-  await expect(page.getByTestId("aidt-field-initial")).toHaveValue("本页草稿：改善校园午餐排队");
+  await expect(page.getByTestId("aidt-stage-output")).not.toContainText("本页草稿：改善校园午餐排队");
   await closeTools(page);
   await selectHistoryStage(page, 2);
   await openAssistant(page);
@@ -383,7 +370,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await openMaterials(page);
   await expect(page.getByTestId("aidt-stage-bridge")).toContainText("工作坊主题命题");
   await page.getByTestId("aidt-stage-bridge").locator("summary").click();
-  await expect(page.getByTestId("aidt-stage-bridge")).toContainText("本页草稿：改善校园午餐排队");
+  await expect(page.getByTestId("aidt-stage-bridge")).not.toContainText("本页草稿：改善校园午餐排队");
   await page.screenshot({ path: test.info().outputPath("aidt-ui-v3-bridge.png"), fullPage: true });
   await page.setViewportSize({ width: 375, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -644,32 +631,35 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   await expect(page.getByText("来自对话的首条回答")).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("aidt-first-answer.png"), fullPage: true });
 
-  const initial = "我们想了解大学生在校园食堂买奶茶的体验。";
-  const request = await sendViaWorkbench(page, initial);
-  expect(AidtContextSelector.parse(request.postDataJSON().forwardedProps?.aidtContext)).toMatchObject({ projectId, stageId: 1, entityId: problemId });
+  const initial = problemInitial;
+  const confirmed = problemRevision;
+  const runInChat = async (text: string) => {
+    const request = await sendViaWorkbench(page, text);
+    expect(AidtContextSelector.parse(request.postDataJSON().forwardedProps?.aidtContext)).toMatchObject({ projectId, stageId: 1, entityId: problemId });
+    await expect.poll(async () => {
+      const reply = await api(page, `/chat/threads/${problemThread}/messages?limit=100`);
+      const rows: PersistedMessage[] = reply.data.messages;
+      const human = rows.find(row => row.authorKind === "human" && row.text === text);
+      return Boolean(human?.agentRunId && rows.some(row => row.authorKind === "agent" && row.agentRunId === human.agentRunId));
+    }, { timeout: 60_000 }).toBe(true);
+  };
+  await runInChat("你好");
   await openOutcome(page);
-  await page.getByRole("button", { name: "用作初始问题" }).click();
-  await expect(page.getByTestId("aidt-field-initial")).toHaveValue(initial);
-  await page.getByTestId("aidt-problem-reflection-why").fill("了解买奶茶是否占用午休时间");
-  await page.getByTestId("aidt-problem-source-observation").check();
-  await page.getByTestId("aidt-problem-reflection-details").fill("两位同学看菜单后离开");
-  await page.getByTestId("aidt-problem-reflection-uncertainty").fill("离开的原因仍待核实");
-  await page.getByTestId("aidt-problem-reflection-confirm").click();
-
-  await page.getByText("添加候选方向", { exact: true }).click();
-  const candidate = page.getByRole("textbox", { name: "候选方向" });
-  for (const title of ["菜单选择", "排队取餐"]) {
-    await candidate.fill(title);
-    await page.getByRole("button", { name: "添加方向" }).click();
-  }
-  const confirmed = "午休时间有限的学生在校园食堂是怎样决定是否买奶茶新品的？";
-  await page.getByTestId("aidt-field-rewrittenTheme").fill(confirmed);
-  const confirmation = page.getByRole("button", { name: "确认本轮成果并保存" });
-  await expect(confirmation).toBeDisabled();
-  await page.getByRole("radio", { name: "排队取餐" }).check();
-  await page.getByRole("radio", { name: "菜单选择" }).check();
-  await expect(page.getByRole("radio", { name: "排队取餐" })).not.toBeChecked();
-
+  const output = page.getByTestId("aidt-stage-output");
+  await expect(output).not.toContainText("你好");
+  await expect(output.getByRole("textbox")).toHaveCount(0);
+  await runInChat(initial);
+  await expect(output).toContainText(initial, { timeout: 30_000 });
+  await expect(output).toContainText("草稿");
+  await runInChat(problemDiscussion);
+  await expect(output).toContainText(confirmed, { timeout: 30_000 });
+  await expect(output).toContainText("两位同学看菜单后离开");
+  await expect(output.getByRole("button")).toHaveCount(0);
+  await page.reload();
+  await expect(output).toContainText(confirmed);
+  await page.getByRole("tab", { name: "产物" }).click();
+  await expect(output).toContainText(confirmed);
+  const confirmation = page.getByTestId("aidt-round-completion").getByRole("button", { name: "确认本轮成果并保存" });
   await confirmation.click();
   const next = page.getByRole("link", { name: "继续第2步" });
   await expect(next).toBeVisible();
@@ -678,7 +668,7 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   const stage1Fields = stored.data.stage.content.draft.fields;
   expect(stage1Fields.problemHandoffEntity).toBe(problemId);
   expect(JSON.parse(stage1Fields["problemDraft:" + problemId])).toMatchObject({
-    initial, rewrittenTheme: confirmed, focus: "菜单选择", problemReflectionConfirmed: "true",
+    initial, rewrittenTheme: confirmed, problemReflectionConfirmed: "true",
     sourceUncertainty: "离开的原因仍待核实",
   });
   await page.screenshot({ path: test.info().outputPath("aidt-first-confirmed.png"), fullPage: true });

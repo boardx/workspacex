@@ -301,3 +301,22 @@ test('finding projection preserves evidence references and rejects AI confirmati
     assert.equal(matchesInterviewProjection(old, changed, scope, 'finding-reply'), false);
   }
 });
+
+test('S1 draft projection is restricted to the exact successful turn and current unconfirmed problem', async () => {
+  const { matchesProblemProjection } = await import('../../apps/web/e2e/support/devapp-aidt-chat-evidence.mjs');
+  const entity = 'p-one', key = 'problemDraft:' + entity;
+  const scope = { stageId: 1, selector: { entityId: entity } };
+  const proof = { assistantMessageId: 'answer-2', inputMessageId: 'input-2' };
+  const before = { schemaVersion: 1, draft: { fields: { ['problemEntity:' + entity]: JSON.stringify({ id: entity, archived: false }), other: 'untouched' } } };
+  const after = structuredClone(before);
+  const output = { initial: '校园午休', draftTurnId: 'answer-2', sourceDetails: '学生记录' };
+  after.draft.fields[key] = JSON.stringify(output);
+  assert.equal(matchesProblemProjection(before, after, scope, proof), true);
+  for (const patch of [{ draftTurnId: 'foreign' }, { problemReflectionConfirmed: 'true' }, { roundCompletion: 'yes' }, { foreign: 'extra' }]) {
+    after.draft.fields[key] = JSON.stringify({ ...output, ...patch });
+    assert.equal(matchesProblemProjection(before, after, scope, proof), false);
+  }
+  after.draft.fields[key] = JSON.stringify(output);
+  after.draft.fields.other = 'changed';
+  assert.equal(matchesProblemProjection(before, after, scope, proof), false);
+});

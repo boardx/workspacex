@@ -60,8 +60,7 @@ export function AidtEntityHistory({ projectId, entityId, step, revision, token, 
             <p className="text-12 text-muted-foreground">已保存的历史版本。</p>
             {timestamp && <p className="text-12">来源定位 {timestamp}</p>}
             {step.id === 1
-              ? <AidtProblemWorkspace draft={readAidtProblemEntityDraft(draft, entityId)} readOnly manualEdit={false}
-                  confirmRevision={revision} update={() => undefined} ask={() => "unavailable"} conversationRef={() => undefined} />
+              ? <AidtProblemWorkspace draft={readAidtProblemEntityDraft(draft, entityId)} revision={revision} confirmed={Boolean(readAidtProblemEntityDraft(draft, entityId).fields.roundCompletion)} />
               : step.id === 2
               ? <AidtInterviewOutput projectId={projectId} entityId={entityId} draft={draft} frozenSourceId={sourceId} />
               : step.id === 5

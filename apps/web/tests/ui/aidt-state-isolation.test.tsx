@@ -12,7 +12,7 @@ vi.mock("next/dynamic", () => ({ default: (loader: () => Promise<unknown>) => {
   const source = loader.toString();
   return function DynamicStub(props: any) {
     const [mountedActor] = React.useState(() => mocks.session?.userId);
-    return source.includes("detail-screen") || source.includes("aidt-design-workspace") ? <div data-testid="native-design">{mountedActor}</div> : source.includes("transcription-history") ? <div data-testid="native-rec" /> : <div data-testid="native-chat">{mountedActor}{props.hostPanel?.open && props.hostPanel.content}</div>;
+    return source.includes("detail-screen") || source.includes("aidt-design-workspace") ? <div data-testid="native-design">{mountedActor}</div> : source.includes("transcription-history") ? <div data-testid="native-rec" /> : <div data-testid="native-chat">{mountedActor}<input aria-label="Chat 草稿" />{props.hostPanel?.open && props.hostPanel.content}</div>;
   };
 } }));
 vi.mock("@/lib/live-project-resources", () => ({ listProjectResources: mocks.list }));
@@ -35,23 +35,23 @@ afterEach(() => vi.unstubAllGlobals());
 
 it("clears another actor's drafts and remounts native Chat even when the project ID is unchanged", () => {
   const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-1" canWrite />);
-  fireEvent.change(screen.getByLabelText("初始问题"), { target: { value: "A组员自己的初稿" } });
+  fireEvent.change(screen.getByLabelText("Chat 草稿"), { target: { value: "A组员自己的初稿" } });
   expect(screen.getByTestId("native-chat")).toHaveTextContent("student-a");
   mocks.session = { ...mocks.session!, userId: "student-b" };
   rerender(<ProjectAidt projectId="group" sub="aidt-1" canWrite />);
-  expect(screen.getByLabelText("初始问题")).toHaveValue("");
+  expect(screen.getByLabelText("Chat 草稿")).toHaveValue("");
   expect(screen.getByTestId("native-chat")).toHaveTextContent("student-b");
   expect(screen.getByTestId("aidt-assistant-panel")).toBeVisible();
 });
 it("does not carry local drafts across organizations but preserves them on same-actor token refresh", () => {
   const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-1" canWrite />);
-  fireEvent.change(screen.getByLabelText("初始问题"), { target: { value: "同一学生的未发送草稿" } });
+  fireEvent.change(screen.getByLabelText("Chat 草稿"), { target: { value: "同一学生的未发送草稿" } });
   mocks.session = { ...mocks.session!, sessionToken: "refreshed-token" };
   rerender(<ProjectAidt projectId="group" sub="aidt-1" canWrite />);
-  expect(screen.getByLabelText("初始问题")).toHaveValue("同一学生的未发送草稿");
+  expect(screen.getByLabelText("Chat 草稿")).toHaveValue("同一学生的未发送草稿");
   mocks.session = { ...mocks.session!, currentOrgId: "org-b" };
   rerender(<ProjectAidt projectId="group" sub="aidt-1" canWrite />);
-  expect(screen.getByLabelText("初始问题")).toHaveValue("");
+  expect(screen.getByLabelText("Chat 草稿")).toHaveValue("");
 });
 it("rechecks resource access for a new actor before mounting the native editor", async () => {
   mocks.search = "history=1&tool=design&resource=design-a";

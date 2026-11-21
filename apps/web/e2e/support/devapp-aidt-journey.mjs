@@ -351,7 +351,11 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   report.s1Navigation = { operation: 'not-started', entityOutcomeObserved: false, savedInitialObserved: false, reentrySavedInitialObserved: false, teachingCheckpointAccepted: false };
   const openProblem = async link => openAidtProblemOutcome({ page, route: problemRoute, link,
     scope: { origin, projectId: scope.projectId }, waitForRoute: predicate => expect.poll(predicate, { timeout: 30000 }).toBe(true),
-    assertReady: async () => { await expect(page.getByTestId('aidt-field-initial')).toBeEditable(); } });
+    assertReady: async () => {
+      const panel = page.getByRole('region', { name: '工作坊问题产物' });
+      await expect(panel).toBeVisible();
+      await expect(panel.locator('input,textarea,select,button,[contenteditable="true"]')).toHaveCount(0);
+    } });
   const problemName = `QA合成选题 ${unique}`;
   const personaName = `QA合成画像 ${unique}`;
   const question = '合成情境中，学生能否从静态队列示意中理解先看等待时间再决定的顺序？';
@@ -364,18 +368,26 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   await check('s1-draft-not-complete', undefined, async () => {
     report.s1Navigation.operation = 'create-problem';
-    await go(1); await fill('问题名称', problemName); await click(btn('新建问题')); await saveStage(1);
+    await go(1); await click(btn('新建问题')); await fill('问题名称', problemName); await saveStage(1, btn('创建问题'));
     const link = page.getByRole('link', { name: problemName, exact: true });
     await expect(link).toBeVisible();
     report.s1Navigation.operation = 'open-problem-outcome';
     problemRoute = await openProblem(link); report.s1Navigation.entityOutcomeObserved = true;
-    await page.getByTestId('aidt-field-initial').fill(text('想了解校园午休时选择饮品的犹豫。'));
-    report.s1Navigation.operation = 'save-and-revise-initial';
-    await saveStage(1);
-    await iterate(1, page.getByTestId('aidt-field-initial'), '原始命题', problemInitial);
-    assertSavedAidtProblemInput(await savedStage(1), problemRoute.entityId, problemInitial);
-    report.s1Navigation.savedInitialObserved = true;
+    await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
     problemHref = page.url();
+    report.s1Navigation.operation = 'native-teaching-feedback';
+    await requireAcceptedS1Feedback(() => feedback(1, problemInitial));
+    const first = report.teachingEvidence.find(row => row.stageId === 1 && row.status === 'passed' && row.prompt === problemInitial);
+    if (!first?.assistantMessageId) fail('S1_INITIAL_TEACHING_RECEIPT_REQUIRED');
+    await expect.poll(async () => {
+      const saved = await savedStage(1);
+      const fields = JSON.parse(saved?.content?.draft?.fields?.[`problemDraft:${problemRoute.entityId}`] ?? '{}');
+      return fields.draftTurnId === first.assistantMessageId && !!fields.initial?.trim() && !fields.roundCompletion;
+    }, { timeout: 30000 }).toBe(true);
+    const savedInitial = JSON.parse((await savedStage(1)).content.draft.fields[`problemDraft:${problemRoute.entityId}`]).initial;
+    await expect(page.getByTestId('aidt-stage-output')).toContainText(savedInitial);
+    evidence(1).inputs.push({ name: '学生初始命题', content: problemInitial, format: '原生 Chat 学生消息', source: { entityId: problemRoute.entityId, inputMessageId: first.inputMessageId, runId: first.runId } });
+    report.s1Navigation.savedInitialObserved = true;
     report.s1Navigation.operation = 'verify-draft-not-complete';
     await go(); await expect(page.getByTestId('aidt-stage-save-1')).not.toHaveAttribute('data-completed', 'true');
     await expect(page.getByTestId('aidt-stage-save-1')).toContainText('草稿');
@@ -385,25 +397,26 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   state.s1 = await check('s1-confirmed-reentry', 1, async () => {
     if (!problemDraftReady || !problemRoute || !problemHref) fail('S1_SAVED_DRAFT_REQUIRED');
     report.s1Navigation.operation = 'reenter-saved-problem-outcome';
-    assertSavedAidtProblemInput(await savedStage(1), problemRoute.entityId, problemInitial);
+    const previous = await savedStage(1);
+    const original = JSON.parse(previous.content.draft.fields[`problemDraft:${problemRoute.entityId}`]);
     await openProblem();
-    await expect(page.getByTestId('aidt-field-initial')).toHaveValue(problemInitial);
+    await expect(page.getByTestId('aidt-stage-output')).toContainText(original.initial);
     report.s1Navigation.reentrySavedInitialObserved = true;
-    report.s1Navigation.operation = 'confirm-problem-reflection';
-    await page.getByTestId('aidt-problem-reflection-why').fill(text('练习把宽泛命题缩小成可研究的范围。'));
-    await page.getByTestId('aidt-problem-source-guess').check();
-    await page.getByTestId('aidt-problem-reflection-details').fill(text('仅为本次QA自拟情境，没有真实受访者或课堂证据。'));
-    await page.getByTestId('aidt-problem-reflection-uncertainty').fill('是否存在这种犹豫、由何引起仍未知。');
-    await persistConfirmed(1, page.getByTestId('aidt-problem-reflection-confirm'));
-    await disclosure('人群、场景与小组讨论');
-    for (const [id, value] of Object.entries({ people: '合成场景中的校园学生；不代表已验证人群', scene: '校园午休的饮品选择，区分赶课与闲暇', activity: '先了解等待信息，再决定是否排队', discussion: text('本组自拟拆解：不确定犹豫来自口味、队列还是时间情境；先了解具体经过，不预设App方案。'), focus: '本轮优先研究时间情境与选择信息，其他方向保留。' })) await page.getByTestId(`aidt-field-${id}`).fill(value);
-    await page.getByTestId('aidt-field-rewrittenTheme').fill(text('探索校园午休饮品选择中的情境差异，不预设解决方案。'));
-    await saveStage(1);
     report.s1Navigation.operation = 'native-teaching-feedback';
-    const clarification = text('我们先把这个看法标为猜测，暂时没有亲眼观察或听到抱怨。为了判断是否值得研究，你会先问我们哪个问题？请直接问一个开放问题。');
+    const clarification = text('我们想知道时间压力怎样影响午休的饮品选择，因为犹豫会影响用餐和上课时间。这只是小组猜测，还没有真实观察或访谈。我们选定赶课的学生，想了解他们如何决定是否排队。我们重写的研究问题是：赶课的学生在午休时如何决定是否排队买饮品？下一步想访谈两位学生，核对是否真的存在犹豫。请根据我们刚才的讨论更新工作坊问题草稿，保留未知。');
     await requireAcceptedS1Feedback(() => feedback(1, clarification));
     report.s1Navigation.teachingCheckpointAccepted = true;
-    await observeInputs(1);
+    const last = report.teachingEvidence.find(row => row.stageId === 1 && row.status === 'passed' && row.prompt === clarification);
+    if (!last?.assistantMessageId) fail('S1_REVISED_TEACHING_RECEIPT_REQUIRED');
+    await expect.poll(async () => {
+      const stage = await savedStage(1);
+      const raw = JSON.parse(stage?.content?.draft?.fields?.[`problemDraft:${problemRoute.entityId}`] ?? '{}');
+      return stage.revision > previous.revision && raw.draftTurnId === last.assistantMessageId && !!raw.rewrittenTheme && !raw.roundCompletion;
+    }, { timeout: 30000 }).toBe(true);
+    const revised = await savedStage(1);
+    const proposed = JSON.parse(revised.content.draft.fields[`problemDraft:${problemRoute.entityId}`]);
+    await expect(page.getByTestId('aidt-stage-output')).toContainText(proposed.rewrittenTheme);
+    evidence(1).iterations.push({ action: '学生在原生 Chat 补充理由和来源并改写命题', before: original.initial, after: proposed.rewrittenTheme, before_revision: previous.revision, after_revision: revised.revision, entityId: problemRoute.entityId, inputMessageId: last.inputMessageId, assistantMessageId: last.assistantMessageId });
     report.s1Navigation.operation = 'confirm-round-and-persist';
     await reviewAndSave(1, btn('确认本轮成果并保存'));
     // This one existing round control auto-saves; do not race it with a second CAS click.
@@ -415,7 +428,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await completed(1); await page.reload();
     await expect(page.getByTestId('aidt-stage-save-1')).toHaveAttribute('data-completed', 'true');
     await page.goto(owned(problemHref)); await expect(page.getByTestId('aidt-stage-output')).toContainText('方向已确认');
-    await expect(page.getByTestId('aidt-stage-output')).toContainText('探索校园午休饮品选择中的情境差异');
+    await expect(page.getByTestId('aidt-stage-output')).toContainText(proposed.rewrittenTheme);
     report.s1Navigation.operation = 'completed';
   }, '01-problem-reentry');
 

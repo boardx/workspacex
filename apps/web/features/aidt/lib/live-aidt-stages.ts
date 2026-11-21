@@ -46,3 +46,11 @@ export async function readAidtStageRevision(projectId: string, stageId: number, 
   }
   return stage;
 }
+
+
+/** Replay only server-verified teaching turns for the named entity, without sending Chat messages. */
+export async function reconcileAidtEntity(projectId: string, stageId: number, entityId: string, sessionToken: string, signal?: AbortSignal) {
+  await apiRequest<unknown>(path(projectId, stageId) + "/entities/" + encodeURIComponent(entityId) + "/reconcile", {
+    method: "POST", sessionToken, signal,
+  });
+}

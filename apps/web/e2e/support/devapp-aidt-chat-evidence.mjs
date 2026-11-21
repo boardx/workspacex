@@ -45,6 +45,27 @@ export function matchesInterviewProjection(previous, next, scope, assistantId) {
   return same(fixed(card), old ? fixed(old) : { id: entity, participantCode: before.code, sourceRef: '', photoRef: '' });
 }
 
+// A verified S1 assistant may update only the working fields of its own problem entity.
+export function matchesProblemProjection(previous, next, scope, proof) {
+  const entity = scope.selector?.entityId, key = `problemDraft:${entity}`;
+  if (scope.stageId !== 1 || !id(entity) || !object(previous?.draft?.fields) || !object(next?.draft?.fields)) return false;
+  const omit = (value, keys) => Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
+  const same = (a, b) => canonical(a) === canonical(b);
+  if (!same(omit(previous, ['draft']), omit(next, ['draft'])) || !same(omit(previous.draft, ['fields']), omit(next.draft, ['fields']))
+    || !same(omit(previous.draft.fields, [key]), omit(next.draft.fields, [key]))) return false;
+  let old, draft, entry;
+  try {
+    entry = JSON.parse(previous.draft.fields[`problemEntity:${entity}`]);
+    old = JSON.parse(previous.draft.fields[key] ?? '{}'); draft = JSON.parse(next.draft.fields[key]);
+  } catch { return false; }
+  if (entry?.id !== entity || entry.archived !== false || !object(old) || !object(draft) || !id(proof.assistantMessageId)
+    || draft.draftTurnId !== proof.assistantMessageId || draft.roundCompletion || draft.problemReflectionConfirmed === 'true') return false;
+  const fields = ['initial', 'initialChatMessageId', 'whyWorthStudying', 'sourceDetails', 'problemSources', 'sourceUncertainty', 'known', 'nextAction',
+    'rewrittenTheme', 'focus', 'people', 'activity', 'scene', 'discussion', 'followupAnswers', 'assumptions', 'problemDirections', 'problemDirectionId', 'draftTurnId'];
+  return same(omit(old, fields), omit(draft, fields)) && fields.every(key => draft[key] === undefined || typeof draft[key] === 'string' && draft[key].length <= 6000)
+    && (!draft.initialChatMessageId || draft.initialChatMessageId === old.initialChatMessageId || draft.initialChatMessageId === proof.inputMessageId);
+}
+
 const refs = value => {
   if (!Array.isArray(value) || value.length > 6 || value.some(row => !object(row) || Object.keys(row).sort().join(',') !== 'revision,stageId' || !Number.isInteger(row.stageId) || row.stageId < 1 || row.stageId > 6 || !Number.isSafeInteger(row.revision) || row.revision < 1) || new Set(value.map(row => row.stageId)).size !== value.length) fail('TEACHING_SOURCE_REFERENCES_INVALID');
   return [...value].sort((a, b) => a.stageId - b.stageId);
@@ -199,9 +220,11 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
         const next = stagesAfter[index];
         if (canonical(previous) === canonical(next)) return true;
         const a = previous.stage, b = next.stage;
-        return index === 1 && a?.stageId === 2 && b?.stageId === 2 && a.projectId === current.projectId && b.projectId === current.projectId
-          && b.revision > a.revision && canonical(a.sourceStageRevisions) === canonical(b.sourceStageRevisions)
-          && matchesInterviewProjection(a.content, b.content, current, proof.assistantMessageId);
+        if ((index !== 0 && index !== 1) || a?.stageId !== index + 1 || b?.stageId !== index + 1
+          || a.projectId !== current.projectId || b.projectId !== current.projectId || b.revision <= a.revision
+          || canonical(a.sourceStageRevisions) !== canonical(b.sourceStageRevisions)) return false;
+        return index === 0 ? matchesProblemProjection(a.content, b.content, current, proof)
+          : matchesInterviewProjection(a.content, b.content, current, proof.assistantMessageId);
       });
       if (!allowed) fail('TEACHING_STAGE_CHANGED_DURING_RUN');
     }

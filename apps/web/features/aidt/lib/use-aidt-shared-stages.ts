@@ -144,6 +144,27 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   React.useEffect(() => () => { if (inFlight.current?.key === reportKey) { inFlight.current.controller.abort(); inFlight.current = null; } }, [reportKey]);
 
   function reload() { if (latest.current.key === key && !inFlight.current) setReloadCount(value => value + 1); }
+  const currentSnapshot = React.useRef(currentRead);
+  currentSnapshot.current = currentRead;
+  const stageRefresh = React.useRef<AbortController | null>(null);
+  React.useEffect(() => () => stageRefresh.current?.abort(), [writeKey]);
+  async function refreshCurrentStage() {
+    if (!scope || !stageId || latest.current.writeKey !== writeKey) return;
+    stageRefresh.current?.abort();
+    const controller = new AbortController();
+    stageRefresh.current = controller;
+    try {
+      const { stage } = await readAidtStage(scope.projectId, stageId, scope.sessionToken, controller.signal);
+      if (controller.signal.aborted || latest.current.writeKey !== writeKey || !stage || stage.projectId !== scope.projectId || stage.stageId !== stageId) return;
+      const previous = currentSnapshot.current?.stages[stageId];
+      if (previous && previous.revision >= stage.revision) return;
+      const local = latest.current.drafts[stageId];
+      if (local && (previous ? aidtSharedDraftSignature(local) === aidtSharedDraftSignature(previous.content.draft) : !aidtUiStageSummary(stageId, local))) latest.current.onHydrate(stageId, clone(stage.content.draft));
+      setRead(old => old?.key === key && (old.stages[stageId]?.revision ?? 0) < stage.revision ? { ...old, stages: { ...old.stages, [stageId]: stage } } : old);
+    } catch {
+      if (!controller.signal.aborted && latest.current.writeKey === writeKey) reload();
+    }
+  }
   function setStageSources(values: Source[]) {
     if (!stageId) return;
     setSources(previous => ({ key: editKey, stages: { ...(previous?.key === editKey ? previous.stages : {}), [stageId]: values } }));
@@ -296,5 +317,5 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const report: AidtSharedReportController = { available, loading: available && (!currentRead || currentRead.phase === "loading"), saving: currentReportWrite.phase === "saving", canSave: reportCanSave, serverRevision: serverReport ? reportServer!.revision : null, serverMarkdown: serverReport?.markdown ?? null, savedAt: serverReport ? reportServer!.updatedAt : null, savedBy: serverReport ? reportServer!.updatedBy : null, matchesServer: reportMatchesServer, sourceStageRevisions: clone(serverReport?.sourceStageRevisions ?? []), conflict: currentReportWrite.phase === "conflict", needsBaseReview: reportNeedsBaseReview, error: currentReportWrite.error ?? null, loadError: currentRead?.phase === "error" ? currentRead.error ?? "读取失败" : null, availableSources: availableReportRefs, selectedSources: reportRefs,
     chooseSources: (sources) => { if (latest.current.key === key && latest.current.canWrite) setReportSourceChoice({ key: editKey, sources }); },
     confirmedAtRevision: serverReport?.confirmedAtRevision, canConfirm: reportCanConfirm, confirm: () => writeReport(true), save: () => writeReport(false), reload, restore: restoreReport, reviewBase: reviewReportBase };
-  return { key, writeKey, available, read: currentRead, write: currentWrite, stages, server, sourceStageRevisions, questionRevision, lockedSourceStage, expectedRevision, needsBaseReview, canSave, matchesServer, reload, chooseSource, reviewServerBase, restoreServer, saveCurrent, saveDraft, report };
+  return { key, writeKey, available, read: currentRead, write: currentWrite, stages, server, sourceStageRevisions, questionRevision, lockedSourceStage, expectedRevision, needsBaseReview, canSave, matchesServer, reload, refreshCurrentStage, chooseSource, reviewServerBase, restoreServer, saveCurrent, saveDraft, report };
 }

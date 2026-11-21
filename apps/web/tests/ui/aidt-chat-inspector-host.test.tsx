@@ -15,9 +15,9 @@ const base: ChatTaskInspectorProps = {
   hasSelection:true,threadId:"t-1",projectId:"group-a",artifacts:null,materials:null,loading:false,
   artifactsError:null,materialsError:null,onRetry:()=>{},pendingMaterialsCount:0,planTodos:null,isRunning:false,runPhaseLabel:null,runStartedAt:null,
 };
-function Workspace({ members = false, scope = "a" }: {members?:boolean;scope?:string}) {
+function Workspace({ members = false, scope = "a", placement }: {members?:boolean;scope?:string;placement?:"artifacts"}) {
   const [open,setOpen] = React.useState(false);
-  return <><textarea aria-label="chat draft" defaultValue="保留聊天输入" /><ChatTaskInspector {...base} showKnowledge hostPanel={{scope,title:"成果与资料",open,onOpenChange:setOpen,content:<div data-testid="learning-form"><label>本组问题<input defaultValue={`问题 ${scope}`} /></label></div>}} />{members&&<ProjectMemberChatLauncher />}</>;
+  return <><textarea aria-label="chat draft" defaultValue="保留聊天输入" /><ChatTaskInspector {...base} showKnowledge hostPanel={{scope,placement,title:"成果与资料",open,onOpenChange:setOpen,content:<div data-testid="learning-form"><label>本组问题<input defaultValue={`问题 ${scope}`} /></label></div>}} />{members&&<ProjectMemberChatLauncher />}</>;
 }
 beforeEach(() => {
   mocks.mobile=false;mocks.request.mockResolvedValue([{id:"group-a",name:"小组 A",kind:"general",status:"active",readOnlyReason:null,tags:[]}]);
@@ -37,6 +37,17 @@ it("shares one resizable Inspector and keeps Chat input mounted across tools, na
   fireEvent.click(screen.getByTestId("chat-task-workbench-inspector-collapse"));
   expect(screen.getByTestId("chat-task-workbench-host-open")).toHaveFocus();
   expect(screen.getByLabelText("chat draft")).toBe(input);expect(input).toHaveValue("保留聊天输入");
+});
+it("keeps the current entity output selected until the user explicitly returns to the artifact list", () => {
+  render(<Workspace placement="artifacts" />);
+  const tab = screen.getByRole("tab", { name: "产物" });
+  fireEvent.click(tab);
+  expect(screen.getByTestId("learning-form")).toBeVisible();
+  fireEvent.click(tab);
+  expect(screen.getByTestId("learning-form")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: /产物列表/ }));
+  expect(screen.queryByTestId("learning-form")).toBeNull();
+  expect(tab).toHaveAttribute("aria-selected", "true");
 });
 it.each(["result","file","knowledge"] as const)("hands an open learning panel back to native %s events",async kind=>{
   render(<Workspace />);fireEvent.click(screen.getByTestId("chat-task-workbench-host-open"));
