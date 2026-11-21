@@ -10,19 +10,21 @@ import type { AidtSharedReportController } from "@/features/aidt/lib/use-aidt-sh
 import { useOptionalSession } from "@/components/session/session-provider";
 import { AidtReportHistory } from "./aidt-report-history";
 import type { AidtReportHistoryScope } from "../lib/aidt-report-history";
+import { AidtReportVersions } from "./aidt-report-versions";
 import { AidtSummaryImport } from "./aidt-summary-import";
 
-export function AidtReportPreview({ drafts, text, sourceRevision, revision, onChange, regenerate, readOnly, toChat, shared, discoveryCardsRevision, historyScope, onOpenSummary, summaryThread, initialPreview = false }: {
+export function AidtReportPreview({ drafts, text, sourceRevision, revision, onChange, regenerate, readOnly, toChat, shared, discoveryCardsRevision, historyScope, onOpenSummary, summaryThread, reportEntityId, initialPreview = false }: {
   drafts: AidtUiDrafts; discoveryCardsRevision?: number; text: string | null; sourceRevision: number; revision: number;
   onChange: (text: string) => void; regenerate: () => void; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
   shared?: AidtSharedReportController;
   historyScope?: AidtReportHistoryScope;
-  onOpenSummary?: () => void; summaryThread?: string | null; initialPreview?: boolean;
+  onOpenSummary?: () => void; summaryThread?: string | null; reportEntityId?: string; initialPreview?: boolean;
 }) {
   const [status, setStatus] = React.useState("");
   const [confirmReplace, setConfirmReplace] = React.useState(false);
   const [preview, setPreview] = React.useState(initialPreview);
+  const [reviewRevision, setReviewRevision] = React.useState<number | null>(null);
   const [confirmRestore, setConfirmRestore] = React.useState(false);
   const [printing, setPrinting] = React.useState(false);
   const session = useOptionalSession()?.session;
@@ -58,11 +60,40 @@ export function AidtReportPreview({ drafts, text, sourceRevision, revision, onCh
     finally { if (url) { const requestedUrl = url; setTimeout(() => URL.revokeObjectURL(requestedUrl), 1000); } }
   }
   return <section className="mx-auto w-full max-w-4xl space-y-4" data-testid="aidt-report-preview">
-    <div><span className="rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground" data-testid="aidt-report-save-state">{shared ? shared.saving ? "正在保存小组报告…" : shared.matchesServer ? "小组报告已保存" : "报告编辑尚未保存" : "UI 预览 · 未保存"}</span></div>
-    <div className="sticky top-0 z-10 flex flex-wrap gap-2 border-b border-border-subtle bg-card py-2"><Button size="sm" variant={preview ? "outline" : "primary"} onClick={() => setPreview(false)}>编辑报告</Button><Button size="sm" variant={preview ? "primary" : "outline"} onClick={() => setPreview(true)}>阅读预览</Button><Button size="sm" variant="ghost" disabled={readOnly} onClick={() => text === null ? regenerate() : setConfirmReplace(true)}>从成果重新整理</Button>{shared && <Button size="sm" disabled={readOnly || !shared.canSave || shared.saving} data-testid="aidt-report-save" onClick={() => void shared.save()}>{shared.saving ? "正在保存…" : "保存小组报告"}</Button>}<div className="flex flex-wrap gap-2 sm:ml-auto" data-testid="aidt-report-export-actions"><Button size="sm" variant="outline" onClick={download}>下载 Markdown 草稿</Button><Button size="sm" variant="outline" disabled={printing} onClick={() => void print()}>PDF 打印预览</Button></div></div>
+    <div><span className="rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground" data-testid="aidt-report-save-state">{shared ? shared.saving ? "正在保存小组报告…" : shared.matchesServer ? shared.confirmedAtRevision ? `小组报告已确认 · V${shared.confirmedAtRevision}` : "小组报告已保存 · 待确认" : "报告编辑尚未保存" : "UI 预览 · 未保存"}</span></div>
+    <div className="sticky top-0 z-10 flex flex-wrap gap-2 border-b border-border-subtle bg-card py-2"><Button size="sm" variant={preview ? "outline" : "primary"} onClick={() => setPreview(false)}>编辑报告</Button><Button size="sm" variant={preview ? "primary" : "outline"} onClick={() => setPreview(true)}>阅读预览</Button><Button size="sm" variant="ghost" disabled={readOnly} onClick={() => text === null ? regenerate() : setConfirmReplace(true)}>从成果重新整理</Button>{shared && <Button size="sm" disabled={readOnly || !shared.canSave || shared.saving} data-testid="aidt-report-save" onClick={() => void shared.save()}>{shared.saving ? "正在保存…" : "保存小组报告"}</Button>}{reportEntityId === undefined && <div className="flex flex-wrap gap-2 sm:ml-auto" data-testid="aidt-report-export-actions"><Button size="sm" variant="outline" onClick={download}>下载 Markdown 草稿</Button><Button size="sm" variant="outline" disabled={printing} onClick={() => void print()}>PDF 打印预览</Button></div>}</div>
+    {preview && shared?.confirm && shared.matchesServer && shared.confirmedAtRevision === undefined && <div className="space-y-2">
+      <Button size="sm" disabled={readOnly || !shared.canConfirm} onClick={() => setReviewRevision(shared.serverRevision)}>确认审阅此版本</Button>
+      {reviewRevision !== null && reviewRevision === shared.serverRevision && <div role="alert" className="space-y-2">
+        <p>确认后冻结当前正文和来源版本。后续修改可另存新版本。</p>
+        <Button size="sm" disabled={readOnly || !shared.canConfirm} onClick={() => { setReviewRevision(null); void shared.confirm?.(); }}>确认小组报告</Button>
+        <Button size="sm" variant="ghost" onClick={() => setReviewRevision(null)}>继续审阅</Button>
+      </div>}
+    </div>}
+    {historyScope && shared && <AidtReportVersions scope={historyScope} confirmedRevision={shared.confirmedAtRevision} reportEntityId={reportEntityId} />}
     {confirmReplace && <div role="alert" className="rounded-lg border border-border p-4" data-testid="aidt-report-replace-confirm"><p className="text-13">重新整理会替换当前报告，包括你的人工修改。</p><div className="mt-3 flex gap-2"><Button size="sm" disabled={readOnly} onClick={() => { regenerate(); setConfirmReplace(false); }}>确认替换</Button><Button size="sm" variant="outline" onClick={() => setConfirmReplace(false)}>保留当前报告</Button></div></div>}
     {preview ? <article aria-label="小组报告阅读预览" className="chat-markdown rounded-xl border border-border bg-card p-4 text-14 leading-relaxed sm:p-6"><MarkdownProse text={value} /></article> : <textarea aria-label="小组报告草稿" className="min-h-[max(24rem,52dvh)] w-full rounded-xl border border-border bg-background p-3 text-13 leading-relaxed" value={value} maxLength={100000} disabled={readOnly} onChange={(e) => onChange(e.currentTarget.value)} />}
     <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">取材范围与缺失项</summary><p className="mt-2">{shared ? "从本页已读取的阶段成果与学生当前编辑整理，未保存的阶段修改不自动成为已保存来源。报告按小组保存，原始材料仍由各原生模块授权读取。" : historyScope ? "主体整理本页填写的草稿，历史需主动读取、审阅并加入；读取本身不保存报告。" : "只整理本页填写的草稿，尚未读取全组历史或保存。"}原始证据、教师点评和版本关系缺失时保留缺口。</p></details>
+    {shared?.chooseSources && Boolean(shared.availableSources?.length) && <details className="space-y-2 rounded-lg border border-border p-3 text-12">
+      <summary className="cursor-pointer font-medium">选择报告引用的阶段版本</summary>
+      <p className="text-muted-foreground">只有选中的服务器版本会写入来源回执。如上游有更新，请核对报告正文后再切换。</p>
+      {shared.availableSources?.map(available => {
+        const selected = shared.selectedSources ?? [];
+        const current = selected.find(ref => ref.stageId === available.stageId);
+        return <label key={available.stageId} className="flex gap-2">
+          <span>第 {available.stageId} 步</span>
+          <select disabled={readOnly || shared.saving || shared.loading} value={current?.revision ?? ""} onChange={event => {
+            const revision = Number(event.currentTarget.value);
+            const others = selected.filter(ref => ref.stageId !== available.stageId);
+            shared.chooseSources?.((revision ? [...others, { stageId: available.stageId, revision }] : others).sort((a, b) => a.stageId - b.stageId));
+          }} className="rounded border border-border bg-background">
+            <option value="">不引用</option>
+            {current && current.revision !== available.revision && <option value={current.revision}>V{current.revision}（已选历史版本）</option>}
+            <option value={available.revision}>V{available.revision}（当前保存版本）</option>
+          </select>
+        </label>;
+      })}
+    </details>}
     {historyScope && <AidtReportHistory scope={historyScope} value={value} onChange={onChange} readOnly={readOnly} />}
     {onOpenSummary && <div className="space-y-2 text-12"><Button type="button" size="sm" disabled={readOnly} onClick={onOpenSummary} data-testid="aidt-open-summary-chat">打开报告引导师</Button></div>}
     {historyScope && onOpenSummary && <AidtSummaryImport scope={historyScope} threadId={summaryThread ?? null} value={value} onChange={onChange} readOnly={readOnly} />}

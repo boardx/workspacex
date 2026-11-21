@@ -71,8 +71,43 @@ export class AidtStagesService {
 
       for(const idea of input.content.draft.ideas) if(idea.imageAttachment && !await tx.hasImageAttachment(idea.imageAttachment)) throw new AidtStageError("AIDT_STAGE_INVALID");
       for(const card of input.content.draft.discoveryCards??[]) if(card.photoAttachment && !await tx.hasImageAttachment(card.photoAttachment)) throw new AidtStageError("AIDT_STAGE_INVALID");
-      for(const source of input.content.summaryReport?.sourceStageRevisions??[]) if(!await tx.hasRevision(source.stageId,source.revision)) throw new AidtStageError("AIDT_STAGE_INVALID");
-      const stage:SharedStageValue=unwrap(await tx.append(input,key),d); return {stage,replayed:false};
+      const report = input.content.summaryReport;
+      for (const source of report?.sourceStageRevisions ?? []) {
+        if (!await tx.hasRevision(source.stageId, source.revision)) throw new AidtStageError("AIDT_STAGE_INVALID");
+      }
+      if (report?.confirmedAtRevision !== undefined) {
+        const previousReport = input.reportEntityId
+          ? current?.content.reports?.[input.reportEntityId]
+          : current?.content.summaryReport;
+        const carriedForward = stageRequestKey(report) === stageRequestKey(previousReport);
+        const explicitlyConfirmed = Boolean(
+          previousReport
+          && report.markdown.trim()
+          && previousReport.confirmedAtRevision === undefined
+          && report.confirmedAtRevision === input.expectedRevision + 1
+          && report.markdown === previousReport.markdown
+          && stageRequestKey(report.sourceStageRevisions) === stageRequestKey(previousReport.sourceStageRevisions)
+          && stageRequestKey(input.content.draft) === stageRequestKey(current?.content.draft)
+          && stageRequestKey(input.sourceStageRevisions) === stageRequestKey(current?.sourceStageRevisions),
+        );
+        if (!carriedForward && !explicitlyConfirmed) throw new AidtStageError("AIDT_STAGE_INVALID");
+      }
+      const previousReports = current?.content.reports;
+      if (input.reportEntityId && (
+        stageRequestKey(input.content.draft) !== stageRequestKey(current?.content.draft ?? { fields: {}, ideas: [], selectedIdeaId: "" })
+        || stageRequestKey(input.sourceStageRevisions) !== stageRequestKey(current?.sourceStageRevisions ?? [])
+      )) throw new AidtStageError("AIDT_STAGE_INVALID");
+      const content = input.reportEntityId && report ? {
+        schemaVersion: input.content.schemaVersion,
+        draft: input.content.draft,
+        ...(current?.content.summaryReport ? { summaryReport: current.content.summaryReport } : {}),
+        reports: { ...previousReports, [input.reportEntityId]: report },
+      } : {
+        ...input.content,
+        ...(previousReports ? { reports: previousReports } : {}),
+      };
+      const stage: SharedStageValue = unwrap(await tx.append({ ...input, content }, key), d);
+      return { stage, replayed: false };
     });
   }
 }

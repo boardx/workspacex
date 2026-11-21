@@ -32,16 +32,31 @@ export function readIdeaHmwSource(value?: string): z.infer<typeof IdeaHmwSource>
   }
 }
 
-export const SummaryReport = z.object({ markdown: z.string().max(100000), sourceStageRevisions: z.array(SourceStageRevision).max(6).refine((refs) => new Set(refs.map((r) => r.stageId)).size === refs.length, "Use one source revision per stage") }).strict();
-export const StageContent = z.object({ schemaVersion: z.literal(1), draft: StageDraft, summaryReport: SummaryReport.optional() }).strict();
+export const SummaryReport = z.object({
+  markdown: z.string().max(100000),
+  sourceStageRevisions: z.array(SourceStageRevision).max(6).refine(
+    (refs) => new Set(refs.map((r) => r.stageId)).size === refs.length,
+    "Use one source revision per stage",
+  ),
+  confirmedAtRevision: revision.positive().optional(),
+}).strict();
+const ReportEntityId = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/)
+  .refine(id => !Object.prototype.hasOwnProperty.call(Object.prototype, id));
+export const StageContent = z.object({
+  schemaVersion: z.literal(1),
+  draft: StageDraft,
+  summaryReport: SummaryReport.optional(),
+  reports: z.record(ReportEntityId, SummaryReport).optional(),
+}).strict();
 export const SharedStage = z.object({ projectId: z.string().min(1), stageId: StageId, revision: revision.positive(), content: StageContent, sourceStageRevisions: z.array(SourceStageRevision), updatedBy: z.string().min(1), updatedAt: z.string().datetime() });
 export const StageSummary = z.object({ stageId: StageId, revision: revision.nonnegative(), updatedBy: z.string().nullable(), updatedAt: z.string().datetime().nullable() });
 export const StageError = z.enum(["AIDT_STAGE_NOT_FOUND", "AIDT_STAGE_READONLY", "AIDT_STAGE_REVISION_CONFLICT", "AIDT_STAGE_OPERATION_CONFLICT", "AIDT_STAGE_INVALID", "AIDT_STAGE_TOO_LARGE", "AIDT_STAGE_UNAVAILABLE"]);
 const location = z.object({ projectId: z.string().min(1), stageId: StageId });
 // Saving appends expectedRevision + 1, so the base must leave room for that new row.
-export const SaveInput = location.extend({ operationId: z.string().uuid(), expectedRevision: revision.nonnegative().max(maxStageRevision - 1), content: StageContent, sourceStageRevisions: z.array(SourceStageRevision).max(5) }).strict().superRefine((v,ctx) => {
+export const SaveInput = location.extend({ operationId: z.string().uuid(), expectedRevision: revision.nonnegative().max(maxStageRevision - 1), content: StageContent, sourceStageRevisions: z.array(SourceStageRevision).max(5), reportEntityId: ReportEntityId.optional() }).strict().superRefine((v,ctx) => {
   if (new Set(v.sourceStageRevisions.map((r)=>r.stageId)).size !== v.sourceStageRevisions.length || v.sourceStageRevisions.some((r)=>r.stageId >= v.stageId)) ctx.addIssue({code:"custom",path:["sourceStageRevisions"],message:"Use distinct earlier stages"});
   if (v.content.summaryReport && v.stageId !== 6) ctx.addIssue({code:"custom",path:["content","summaryReport"],message:"Summary report belongs to stage six"});
+  if (v.content.reports !== undefined || (v.reportEntityId !== undefined && (v.stageId !== 6 || !v.content.summaryReport))) ctx.addIssue({code:"custom",path:["reportEntityId"],message:"Send a single report entity update"});
   if (isStageRequestTooLarge(v)) ctx.addIssue({code:"custom",message:"Stage request too large"});
 });
 export const operations = {

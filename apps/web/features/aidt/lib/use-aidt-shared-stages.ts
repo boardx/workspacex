@@ -17,27 +17,35 @@ type WriteState = { key: string; phase: "idle" | "saving" | "saved" | "error" | 
 export type AidtSharedReportController = {
   available: boolean; loading: boolean; saving: boolean; canSave: boolean;
   serverRevision: number | null; serverMarkdown: string | null; savedAt: string | null; savedBy: string | null;
+  confirmedAtRevision?: number; canConfirm?: boolean; confirm?: () => Promise<void>;
   matchesServer: boolean; conflict: boolean; needsBaseReview: boolean; error: string | null; loadError: string | null;
+  availableSources?: Source[]; selectedSources?: Source[]; chooseSources?: (sources: Source[]) => void;
   sourceStageRevisions?: NonNullable<AidtSharedStage["content"]["summaryReport"]>["sourceStageRevisions"];
   save: () => Promise<void>; reload: () => void; restore: () => void; reviewBase: () => void;
 };
 export function aidtSharedDraftSignature(value: AidtUiStageDraft): string {
   return JSON.stringify(value, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 }
+function readGroupReport(stage: AidtSharedStage | undefined, entityId?: string) {
+  return entityId ? stage?.content.reports?.[entityId] : stage?.content.summaryReport;
+}
+function aidtReportSignature(report: AidtSharedStage["content"]["summaryReport"]) {
+  return JSON.stringify(report && [report.markdown, report.sourceStageRevisions, report.confirmedAtRevision]);
+}
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 /** Server working drafts, never a completion/confirmation flag. Reads never replace an edited form. */
-export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, drafts, canWrite, onHydrate, reportText = null, onHydrateReport }: {
+export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, drafts, canWrite, onHydrate, reportText = null, onHydrateReport, reportEntityId }: {
   enabled: boolean; scope: Scope | null; lifecycleKey: string; stageId: number | null;
   drafts: AidtUiDrafts; canWrite: boolean; onHydrate: (stageId: number, draft: AidtUiStageDraft) => void;
-  reportText?: string | null; onHydrateReport?: (markdown: string) => void;
+  reportText?: string | null; onHydrateReport?: (markdown: string) => void; reportEntityId?: string;
 }) {
-  const actorScope = JSON.stringify([enabled, scope, lifecycleKey, canWrite]);
+  const actorScope = JSON.stringify([enabled, scope, lifecycleKey, canWrite, reportEntityId]);
   const lifecycle = React.useRef({ actorScope, generation: 0 });
   if (lifecycle.current.actorScope !== actorScope) lifecycle.current = { actorScope, generation: lifecycle.current.generation + 1 };
   const key = JSON.stringify([actorScope, lifecycle.current.generation]);
   const writeKey = JSON.stringify([key, stageId]);
   const reportKey = JSON.stringify([key, "summary-report"]);
-  const editScope = JSON.stringify([lifecycleKey, scope?.projectId, scope?.orgId, scope?.userId]);
+  const editScope = JSON.stringify([lifecycleKey, scope?.projectId, scope?.orgId, scope?.userId, reportEntityId]);
   const editLifecycle = React.useRef({ scope: editScope, generation: 0 });
   if (editLifecycle.current.scope !== editScope) editLifecycle.current = { scope: editScope, generation: editLifecycle.current.generation + 1 };
   const editKey = JSON.stringify([editScope, editLifecycle.current.generation]);
@@ -54,6 +62,7 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const [reportWrite, setReportWrite] = React.useState<WriteState | null>(null);
   const [reloadCount, setReloadCount] = React.useState(0);
   const [baseChoice, setBaseChoice] = React.useState<{ key: string; revision: number } | null>(null);
+  const [reportSourceChoice, setReportSourceChoice] = React.useState<{ key: string; sources: Source[] } | null>(null);
   const [reportBase, setReportBase] = React.useState<{ key: string; revision: number } | null>(null);
   const [sources, setSources] = React.useState<{ key: string; stages: Record<number, Source[]> } | null>(null);
   const attempt = React.useRef<{ key: string; signature: string; operationId: string } | null>(null);
@@ -116,8 +125,8 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
         const cleanServerProjection = current && previous && aidtSharedDraftSignature(current) === aidtSharedDraftSignature(previous.content.draft);
         if (current && unchanged && (untouchedEmpty || cleanServerProjection) && aidtSharedDraftSignature(current) !== aidtSharedDraftSignature(item.content.draft)) latest.current.onHydrate(item.stageId, clone(item.content.draft));
       }
-      const report = loaded[6]?.content.summaryReport;
-      const previousReport = previousStages[6]?.content.summaryReport;
+      const report = readGroupReport(loaded[6], reportEntityId);
+      const previousReport = readGroupReport(previousStages[6], reportEntityId);
       if (report && latest.current.reportText === originalReport && report.markdown !== latest.current.reportText && (originalReport === null || originalReport === previousReport?.markdown)) latest.current.onHydrateReport?.(report.markdown);
     }).catch(() => { if (active && latest.current.key === key) setRead(old => ({ key, phase: "error", stages: old?.key === key ? old.stages : {}, error: "小组成果读取失败。本页内容仍保留，请重试。" })); });
     return () => { active = false; cancellation.abort(); };
@@ -154,7 +163,9 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   }
   async function saveCurrent() {
     if (latest.current.writeKey !== writeKey || !latest.current.canWrite || !canSave || !scope || !stageId || !draft || inFlight.current) return;
-    const content = { ...(server?.content ?? { schemaVersion: 1 as const }), draft: clone(draft) }, refs = clone(sourceStageRevisions);
+    const legacyReport = server?.content.summaryReport;
+    const content = { schemaVersion: 1 as const, draft: clone(draft), ...(legacyReport ? { summaryReport: legacyReport } : {}) };
+    const refs = clone(sourceStageRevisions);
     const requestSignature = JSON.stringify([scope.projectId, stageId, expectedRevision, signature, refs, server?.content.summaryReport]);
     if (attempt.current?.key !== writeKey || attempt.current.signature !== requestSignature) attempt.current = { key: writeKey, signature: requestSignature, operationId: crypto.randomUUID() };
     const controller = new AbortController(); inFlight.current = { key: writeKey, controller };
@@ -181,7 +192,7 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
       } else setWrite({ key: writeKey, phase: "error", error: "尚未确认保存成功。本页内容保留，可重试；图片请使用已上传材料引用。", signature });
     } finally { if (inFlight.current?.controller === controller) inFlight.current = null; }
   }
-  const reportServer = stages[6], serverReport = reportServer?.content.summaryReport;
+  const reportServer = stages[6], serverReport = readGroupReport(reportServer, reportEntityId);
   const discoveryCardsRevision = stages[2] && aidtSharedDraftSignature(stages[2].content.draft) === aidtSharedDraftSignature(drafts[2]!) ? stages[2].revision : undefined;
   const assembledReport = aidtUiReportMarkdown(drafts, { discoveryCardsRevision });
   const reportMarkdown = reportText ?? assembledReport;
@@ -197,29 +208,50 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
     key: editKey, markdown: reportText,
     refs: clone(previousReportSources ? reportText === assembledReport ? matchedReportRefs : previousReportSources.refs : []),
   };
-  const reportRefs = clone(reportSources.current?.key === editKey ? reportSources.current.refs : []);
-  const reportMatchesServer = Boolean(serverReport && serverReport.markdown === reportMarkdown);
+  const reportRefs = clone(reportSourceChoice?.key === editKey
+    ? reportSourceChoice.sources
+    : reportSources.current?.key === editKey ? reportSources.current.refs : []);
+  const availableReportRefs = Object.values(stages).map(({ stageId, revision }) => ({ stageId, revision })).sort((a, b) => a.stageId - b.stageId);
+  const sameRefs = (left: Source[], right: Source[]) =>
+    left.length === right.length && left.every(ref => right.some(item => item.stageId === ref.stageId && item.revision === ref.revision));
+  const reportMatchesServer = Boolean(serverReport && serverReport.markdown === reportMarkdown && sameRefs(serverReport.sourceStageRevisions, reportRefs));
   const reportNeedsBaseReview = currentReportWrite.phase === "conflict" && reportBase?.key !== reportKey;
   const reportCanSave = available && canWrite && stageId === 6 && currentRead?.phase === "ready" && currentReportWrite.phase !== "saving" && currentWrite.phase !== "saving" && !reportNeedsBaseReview && reportMarkdown.trim().length > 0 && !reportMatchesServer;
   function restoreReport() {
     if (latest.current.key !== key || !latest.current.canWrite || !serverReport) return;
+    setReportSourceChoice(null);
     latest.current.onHydrateReport?.(serverReport.markdown);
     setReportBase({ key: reportKey, revision: reportServer!.revision });
   }
   function reviewReportBase() { if (latest.current.key === key && latest.current.canWrite && currentRead?.phase === "ready") setReportBase({ key: reportKey, revision: reportServer?.revision ?? 0 }); }
-  async function saveReport() {
-    if (latest.current.key !== key || !latest.current.canWrite || !reportCanSave || !scope || inFlight.current) return;
+  const reportCanConfirm = available && canWrite && stageId === 6 && currentRead?.phase === "ready"
+    && currentReportWrite.phase !== "saving" && currentWrite.phase !== "saving"
+    && !reportNeedsBaseReview && reportMatchesServer && Boolean(reportMarkdown.trim())
+    && serverReport?.confirmedAtRevision === undefined;
+  async function writeReport(confirming: boolean) {
+    if (latest.current.key !== key || !latest.current.canWrite || !(confirming ? reportCanConfirm : reportCanSave) || !scope || inFlight.current) return;
     const expectedRevision = reportBase?.key === reportKey ? reportBase.revision : reportServer?.revision ?? 0;
-    const content = { schemaVersion: 1 as const, draft: clone(reportServer?.content.draft ?? emptyAidtUiDrafts()[6]!), summaryReport: { markdown: reportMarkdown, sourceStageRevisions: reportRefs } };
+    const content = {
+      schemaVersion: 1 as const,
+      draft: clone(reportServer?.content.draft ?? (reportEntityId ? { fields: {}, ideas: [], selectedIdeaId: "" } : emptyAidtUiDrafts()[6]!)),
+      summaryReport: {
+        markdown: reportMarkdown,
+        sourceStageRevisions: confirming && serverReport ? clone(serverReport.sourceStageRevisions) : reportRefs,
+        ...(confirming ? { confirmedAtRevision: expectedRevision + 1 } : {}),
+      },
+    };
     const refs = clone(reportServer?.sourceStageRevisions ?? []);
     const signature = JSON.stringify([expectedRevision, content, refs]);
     if (reportAttempt.current?.key !== reportKey || reportAttempt.current.signature !== signature) reportAttempt.current = { key: reportKey, signature, operationId: crypto.randomUUID() };
     const controller = new AbortController(); inFlight.current = { key: reportKey, controller };
     setReportWrite({ key: reportKey, phase: "saving", signature: reportMarkdown });
     try {
-      const result = await saveAidtStage({ projectId: scope.projectId, stageId: 6, expectedRevision, operationId: reportAttempt.current.operationId, content: StageContent.parse(content), sourceStageRevisions: refs }, scope.sessionToken, controller.signal);
+      const result = await saveAidtStage({ projectId: scope.projectId, stageId: 6, expectedRevision, operationId: reportAttempt.current.operationId, content: StageContent.parse(content), sourceStageRevisions: refs, ...(reportEntityId ? { reportEntityId } : {}) }, scope.sessionToken, controller.signal);
       if (latest.current.key !== key || !latest.current.canWrite || controller.signal.aborted) return;
-      if (result.stage.projectId !== scope.projectId || result.stage.stageId !== 6 || !result.stage.content.summaryReport) throw new Error("report save not confirmed");
+      if (result.stage.projectId !== scope.projectId || result.stage.stageId !== 6
+        || aidtReportSignature(readGroupReport(result.stage, reportEntityId)) !== aidtReportSignature(content.summaryReport)) {
+        throw new Error("report save not confirmed");
+      }
       setRead(old => ({ key, phase: "ready", stages: { ...(old?.key === key ? old.stages : {}), 6: result.stage } }));
       setReportWrite({ key: reportKey, phase: "saved", stage: result.stage, signature: reportMarkdown });
       setReportBase({ key: reportKey, revision: result.stage.revision });
@@ -240,6 +272,8 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
       } else setReportWrite({ key: reportKey, phase: "error", error: "报告保存未确认。本页编辑保留，可重试；不会自动覆盖小组报告。", signature: reportMarkdown });
     } finally { if (inFlight.current?.controller === controller) inFlight.current = null; }
   }
-  const report: AidtSharedReportController = { available, loading: available && (!currentRead || currentRead.phase === "loading"), saving: currentReportWrite.phase === "saving", canSave: reportCanSave, serverRevision: serverReport ? reportServer!.revision : null, serverMarkdown: serverReport?.markdown ?? null, savedAt: serverReport ? reportServer!.updatedAt : null, savedBy: serverReport ? reportServer!.updatedBy : null, matchesServer: reportMatchesServer, sourceStageRevisions: clone(serverReport?.sourceStageRevisions ?? []), conflict: currentReportWrite.phase === "conflict", needsBaseReview: reportNeedsBaseReview, error: currentReportWrite.error ?? null, loadError: currentRead?.phase === "error" ? currentRead.error ?? "读取失败" : null, save: saveReport, reload, restore: restoreReport, reviewBase: reviewReportBase };
+  const report: AidtSharedReportController = { available, loading: available && (!currentRead || currentRead.phase === "loading"), saving: currentReportWrite.phase === "saving", canSave: reportCanSave, serverRevision: serverReport ? reportServer!.revision : null, serverMarkdown: serverReport?.markdown ?? null, savedAt: serverReport ? reportServer!.updatedAt : null, savedBy: serverReport ? reportServer!.updatedBy : null, matchesServer: reportMatchesServer, sourceStageRevisions: clone(serverReport?.sourceStageRevisions ?? []), conflict: currentReportWrite.phase === "conflict", needsBaseReview: reportNeedsBaseReview, error: currentReportWrite.error ?? null, loadError: currentRead?.phase === "error" ? currentRead.error ?? "读取失败" : null, availableSources: availableReportRefs, selectedSources: reportRefs,
+    chooseSources: (sources) => { if (latest.current.key === key && latest.current.canWrite) setReportSourceChoice({ key: editKey, sources }); },
+    confirmedAtRevision: serverReport?.confirmedAtRevision, canConfirm: reportCanConfirm, confirm: () => writeReport(true), save: () => writeReport(false), reload, restore: restoreReport, reviewBase: reviewReportBase };
   return { key, writeKey, available, read: currentRead, write: currentWrite, stages, server, sourceStageRevisions, questionRevision, lockedSourceStage, expectedRevision, needsBaseReview, canSave, matchesServer, reload, chooseSource, reviewServerBase, restoreServer, saveCurrent, report };
 }
