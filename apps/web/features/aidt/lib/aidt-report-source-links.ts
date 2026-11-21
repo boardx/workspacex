@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AidtSharedStage } from "./live-aidt-stages";
 import { parseAidtPrototypeReference } from "./aidt-prototype-reference";
 import { parseAidtResearchMaterial } from "./aidt-research-material-reference";
+import { readAidtIdeaDirectory } from "./aidt-idea-handoff";
 
 const entityId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/u);
 const uuid = z.string().uuid();
@@ -41,7 +42,7 @@ export function aidtReportSourceLinks(stage: AidtSharedStage): { id: string; tit
   if (stage.stageId === 4) {
     const counts = new Map<string, number>();
     for (const idea of ideas) counts.set(idea.id, (counts.get(idea.id) ?? 0) + 1);
-    return ideas.flatMap(idea => uuid.safeParse(idea.id).success && counts.get(idea.id) === 1
+    return readAidtIdeaDirectory(stage.content.draft).flatMap(idea => entityId.safeParse(idea.id).success && counts.get(idea.id) === 1
       ? [{ id: idea.id, title: idea.title.trim() || "未命名点子", href: sourceHref(stage, idea.id) }]
       : []);
   }
