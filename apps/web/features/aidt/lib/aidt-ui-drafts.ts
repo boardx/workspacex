@@ -1,3 +1,4 @@
+import { aidtDefinitionSummary } from "./aidt-definition";
 import { countAidtInterviewRecords } from "./aidt-interviews";
 import { formatAidtProblemReflectionMarkdown } from "./aidt-problem-reflection";
 import { formatAidtSurpriseMarkdown } from "./aidt-surprise-reflection";
@@ -89,6 +90,7 @@ export function aidtUiStageMarkdown(stageNumber: number, draft: AidtUiStageDraft
     lines.push("### 人物发现卡", ...(draft.discoveryCards?.length ? discoveryCardLines(draft.discoveryCards, draft.fields) : ["尚未记录受访者发现卡；不得以模拟人物补齐。"]), "");
   }
   if (stageNumber === 4) for (const [index, idea] of draft.ideas.entries()) { const original = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]); lines.push(`### 候选 ${index + 1}：${idea.title.trim() || "待命名"}${draft.selectedIdeaId === idea.id ? "（拟选择）" : ""}`, idea.description.trim() || "核心说明待补充。", original ? `原始图片：${aidtResearchMaterialLabel(original)}（当前访问及研究有效性待核对）` : idea.imageAttachment ? `已关联图片：${idea.imageAttachment.name}；对话 ${idea.imageAttachment.threadId}；附件 ${idea.imageAttachment.attachmentId}（可访问性须由原服务核对，不是研究证据）` : idea.imageName ? `参考图：${idea.imageName}（仅本页预览，原图请通过原始材料入口上传）` : "图像待补充。", ""); }
+  if (stageNumber === 3) lines.push(...aidtDefinitionSummary(draft.fields));
   lines.push(...aidtV2StageLines(stageNumber, draft, cards, cardsRevision));
   return lines.join("\n");
 }
@@ -104,6 +106,7 @@ export function aidtUiStageSummary(stageNumber: number, draft: AidtUiStageDraft)
     const original = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]);
     lines.push(`候选 ${index + 1}${draft.selectedIdeaId === idea.id ? "（拟选，非投票）" : ""}：${idea.title || "待命名"}`, idea.description, original ? `原始图片：${aidtResearchMaterialLabel(original)}（待核对）` : idea.imageAttachment ? `图片引用：${idea.imageAttachment.name} · 对话 ${idea.imageAttachment.threadId} · 附件 ${idea.imageAttachment.attachmentId}` : idea.imageName ? `参考图：${idea.imageName}（仅本页）` : "参考图尚缺");
   }
+  if (stageNumber === 3) lines.push(...aidtDefinitionSummary(draft.fields));
   if (hasAidtV2Data(stageNumber, draft)) lines.push(...aidtV2StageLines(stageNumber, draft));
   return lines.filter(Boolean).join("\n");
 }
