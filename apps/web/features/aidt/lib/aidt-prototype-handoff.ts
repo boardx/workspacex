@@ -126,6 +126,14 @@ export function aidtPrototypeEntityDraftTooLarge(stageDraft: AidtUiStageDraft, i
   return (stageDraft.fields[entityPrefix + id]?.length ?? 0) > 6000;
 }
 
+export function countAidtPrototypeEntityDrafts(stageDraft: AidtUiStageDraft) {
+  return Object.keys(stageDraft.fields).filter(key => {
+    if (!key.startsWith(entityPrefix)) return false;
+    const draft = readAidtPrototypeEntityDraft(stageDraft, key.slice(entityPrefix.length));
+    return draft && Object.values(draft.fields).some(value => value.trim());
+  }).length;
+}
+
 export function listAidtConfirmedPrototypeEntities(stageDraft: AidtUiStageDraft) {
   return Object.keys(stageDraft.fields).flatMap(key => {
     if (!key.startsWith(entityPrefix)) return [];

@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { loadAidtDesignHandoff } from "@/features/aidt/lib/aidt-design-handoff";
 import { confirmAidtVerificationQuestion, createAidtQuestionSnapshot } from "@/features/aidt/lib/aidt-verification-loop";
-import { emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
+import { aidtUiStageSummary, emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { ApiError } from "@/lib/api-client";
 import { pinAidtPrototypeInputs, updateAidtPrototypeEntityDraft, confirmAidtPrototypeHandoff, listAidtConfirmedPrototypeEntities } from "@/features/aidt/lib/aidt-prototype-handoff";
@@ -132,4 +132,14 @@ it("confirms only the selected Design's real version and invalidates handoff if 
   expect(listAidtConfirmedPrototypeEntities(updateAidtPrototypeEntityDraft(base, "design-B", draft => ({ ...draft, fields: { task: "另一个实体" } }))).map(value => value.id)).toEqual(["design-A"]);
   const edited = updateAidtPrototypeEntityDraft(base, "design-A", draft => ({ ...draft, fields: { ...draft.fields, task: "修改测试任务" } }));
   expect(listAidtConfirmedPrototypeEntities(edited)).toEqual([]);
+});
+
+it("gives an entity-only draft the shared stage summary needed for its first save", () => {
+  const draft = updateAidtPrototypeEntityDraft(emptyAidtUiDrafts()[5]!, "new-design", previous => ({
+    ...previous,
+    fields: { verificationQuestion: "尚未公开的验证问题" },
+  }));
+  const summary = aidtUiStageSummary(5, draft);
+  expect(summary).toContain("1 个");
+  expect(summary).not.toContain("尚未公开的验证问题");
 });
