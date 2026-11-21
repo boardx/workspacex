@@ -416,6 +416,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(inspector.getByLabel('保留要问的问题，每行一题')).toHaveValue(initial);
       await fill('保留要问的问题，每行一题', adopted, inspector);
       await persistConfirmed(2, btn('确认这份问题清单', inspector));
+      const canonical = JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]);
+      if (canonical.code !== code || canonical.original !== initial || canonical.adopted !== adopted || canonical.guideConfirmed !== true) fail('INTERVIEW_CHAT_GUIDE_NOT_SAVED');
       await expect(inspector.getByText(adopted, { exact: true })).toBeVisible();
       await printOutput(2, `interview-guide-${code}`, page.getByTestId('aidt-interview-guide-print'), ['访谈问题清单', code, SYNTHETIC, '最近一次具体选择']);
       await disclosure('访谈材料与授权');
