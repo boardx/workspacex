@@ -289,6 +289,21 @@ test('new creation requires the strict atomic profile and short-lived ordinary U
   }
 });
 
+test('course-tag creation allows only the label bound to this ordinary QA run', () => {
+  const courseTag = 'QA课程 456-1';
+  for (const supplied of [courseTag, '课程 A', undefined]) {
+    const guard = createAcceptanceGuard(identity()); guard.armLogin();
+    const login = request(guard, 'POST', '/api/auth/login', { email: syntheticLoginValue, password: syntheticLoginValue });
+    guard.observe(login, 200, { userId: 'qa-user', orgs: ['qa-org'], sessionToken: 'synthetic-token', expiresAt: '2099-01-01T00:00:00Z' });
+    guard.verifyOrdinaryIdentity(200, { org: { id: 'qa-org' }, orgRole: 'consultant' });
+    assert.throws(() => guard.armProjectCreate('课程 A'), /PROJECT_CREATE_COURSE_TAG_REJECTED/);
+    guard.armProjectCreate(courseTag);
+    const body = { orgId: 'qa-org', name: identity().projectName, kind: 'general', blueprintVersionId: null, profile: 'aidt' };
+    if (supplied !== undefined) body.courseTag = supplied;
+    assert.equal(request(guard, 'POST', '/api/projects', body).allow, supplied === courseTag);
+  }
+});
+
 test('entry diagnostic allows only login and reads, even if identity is consultant', () => {
   for (const [method, path, body] of [
     ['POST', '/api/projects', { profile: 'aidt' }],

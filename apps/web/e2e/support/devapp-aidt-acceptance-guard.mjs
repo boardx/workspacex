@@ -72,7 +72,7 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
 
 export function createAcceptanceGuard(identity, now = Date.now) {
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
-  let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0, ordinaryVerified = false, projectCreateUntil = null;
+  let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0, ordinaryVerified = false, projectCreateUntil = null, projectCourseTag;
   const threadCoordinates = new Map(), threadFacts = new Map(), threadPins = new Map(), messageSnapshots = new Map(), stageStates = new Map(), skillCatalog = new Map(), teachingLedger = new Map(), ownedRuns = new Set();
   let teachingRequests = 0, suggestionsBlocked = 0, teachingStopped = false;
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
@@ -138,7 +138,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     }
     if (method === 'DELETE' || !['POST', 'PUT', 'PATCH'].includes(method) || /\/(?:members|collaborators|roles|permissions|courses|admin|config|policies|archive|restore)(?:\/|$)/.test(path)) return stop('FORBIDDEN_MUTATION');
     if (method === 'POST' && path === '/api/projects' && !projectId && !candidate) {
-      if (!ordinaryVerified || !projectCreateUntil || now() > projectCreateUntil || createCount !== 0 || !object(body) || Object.keys(body).sort().join(',') !== 'blueprintVersionId,kind,name,orgId,profile' || body.orgId !== org || body.kind !== 'general' || body.blueprintVersionId !== null || body.profile !== 'aidt' || body.name !== identity.projectName) return stop('PROJECT_CREATE_REJECTED');
+      if (!ordinaryVerified || !projectCreateUntil || now() > projectCreateUntil || createCount !== 0 || !object(body) || Object.keys(body).sort().join(',') !== (projectCourseTag === undefined ? 'blueprintVersionId,kind,name,orgId,profile' : 'blueprintVersionId,courseTag,kind,name,orgId,profile') || body.courseTag !== projectCourseTag || body.orgId !== org || body.kind !== 'general' || body.blueprintVersionId !== null || body.profile !== 'aidt' || body.name !== identity.projectName) return stop('PROJECT_CREATE_REJECTED');
       projectCreateUntil = null; createCount++; allowedWrites++; return { allow: true, kind: 'create-project' };
     }
     if (!projectId) return stop('OWNED_PROJECT_REQUIRED');
@@ -313,7 +313,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       ordinaryVerified = true;
       return { orgRole: 'consultant', organizationMatched: true, administrator: false, lead: false };
     },
-    armProjectCreate: () => { if (identity.entryDiagnosticOnly || !ordinaryVerified || candidate || projectId || createCount) throw new ProbeFailure('PROJECT_CREATE_ARM_REJECTED'); projectCreateUntil = now() + 15000; },
+    armProjectCreate: (courseTag) => { if (courseTag !== undefined && courseTag !== `QA课程 ${identity.run}-${identity.attempt}`) throw new ProbeFailure('PROJECT_CREATE_COURSE_TAG_REJECTED'); if (identity.entryDiagnosticOnly || !ordinaryVerified || candidate || projectId || createCount) throw new ProbeFailure('PROJECT_CREATE_ARM_REJECTED'); projectCreateUntil = now() + 15000; projectCourseTag = courseTag; },
     armStageSave: (stage, confirmation = false) => { if (!projectId || !Number.isInteger(stage) || stage < 1 || stage > 6) throw new ProbeFailure('CONFIRMATION_ARM_REJECTED'); arm = { stage, confirmation, remaining: 2, until: now() + 15000 }; },
     bindOwnedProject: (overview, members) => {
       if (!candidate || projectId || overview?.projectId !== candidate || overview.name !== identity.projectName || !Array.isArray(members) || !members.some(item => item.userId === actor && item.role === 'owner')) throw new ProbeFailure('PROJECT_OWNERSHIP_UNVERIFIED');
