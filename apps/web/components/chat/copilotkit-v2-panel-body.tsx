@@ -1447,7 +1447,7 @@ function useCopilotKitV2PanelController({
   const streamSlots = useChatStreamSlots();
   const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning && !streamSlots.lead && !streamSlots.tail && !streamSlots.emptyState;
   const { messagesContainerRef, messagesContentRef, isAtBottom, handleMessagesScroll,
-    handleUserScrollIntent, scrollMessagesToBottom, prefersReducedMotion } = useTimelineScroll(projectedMessages, !isEmptyThread);
+    handleUserScrollIntent, scrollMessagesToBottom, prefersReducedMotion } = useTimelineScroll(projectedMessages, projectedMessages.length > 0 || agent.isRunning);
 
   const sendIsBlocked = !canWrite || archived || runIsRunning || attach.hasUploading;
 
@@ -1942,7 +1942,7 @@ export function CopilotKitV2PanelBody(props: Parameters<typeof useCopilotKitV2Pa
   const view = useCopilotKitV2PanelController(props);
   const conversation = React.useContext(ChatHostConversationContext);
   const contribution = conversation?.render(view.projectedMessages, view.historyLoading, view.agent.isRunning);
-  const timeline = conversation?.target === null && view.projectedMessages.length > 0;
+  const timeline = conversation?.target === null;
   const streamSlots = timeline ? { ...view.streamSlots, tail: <>{view.streamSlots.tail}{contribution}</> } : view.streamSlots;
   return <>
     <CopilotKitV2PanelView {...view} streamSlots={streamSlots} conversationControls={timeline || conversation?.target ? undefined : contribution} />
