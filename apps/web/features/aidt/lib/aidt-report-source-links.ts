@@ -1,4 +1,5 @@
 import { aidtEntitySourceHref } from "@repo/contracts/aidt-stages";
+import { aidtBrainstormTitle, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { z } from "zod";
 import type { AidtSharedStage } from "./live-aidt-stages";
 import { parseAidtPrototypeReference } from "./aidt-prototype-reference";
@@ -40,9 +41,12 @@ export function aidtReportSourceLinks(stage: AidtSharedStage): { id: string; tit
   if (stage.stageId === 4) {
     const counts = new Map<string, number>();
     for (const idea of ideas) counts.set(idea.id, (counts.get(idea.id) ?? 0) + 1);
-    return readAidtIdeaDirectory(stage.content.draft).flatMap(idea => entityId.safeParse(idea.id).success && counts.get(idea.id) === 1
-      ? [{ id: idea.id, title: idea.title.trim() || "未命名点子", href: sourceHref(stage, idea.id) }]
-      : []);
+    return [
+      ...readAidtBrainstorms(fields).map(session => ({ id: session.id, title: aidtBrainstormTitle(session), href: sourceHref(stage, session.id) })),
+      ...readAidtIdeaDirectory(stage.content.draft).flatMap(idea => entityId.safeParse(idea.id).success && counts.get(idea.id) === 1
+        ? [{ id: idea.id, title: idea.title.trim() || "未命名点子", href: sourceHref(stage, idea.id) }]
+        : []),
+    ];
   }
 
   const links = new Map<string, { id: string; title: string; href: string } | null>();

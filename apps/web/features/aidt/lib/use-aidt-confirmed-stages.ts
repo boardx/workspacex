@@ -8,6 +8,7 @@ import { areAidtInterviewsComplete } from "./aidt-interviews";
 import { allAidtDefinitionEntitiesConfirmed } from "./aidt-definition-chat";
 import { readAidtDefinition, readAidtDefinitionSelection } from "./aidt-definition";
 import { allAidtIdeasConfirmed, hasAidtIdeaChatConfirmations } from "./aidt-idea-chat";
+import { readAidtBrainstormSelection } from "./aidt-brainstorm";
 import { readAidtIdeaHandoff } from "./aidt-idea-handoff";
 import { aidtAllActivePrototypeEntitiesConfirmed } from "./aidt-prototype-handoff";
 import { isAidtReflectionConfirmed } from "./aidt-verification-loop";
@@ -40,6 +41,7 @@ export async function aidtStageHasConfirmation(stage: AidtSharedStage, stages?: 
     }
   }
   if (stage.stageId === 4 && ["ideaHmwSource", "ideaSheetIds", "ideaHandoffIds"].some(key => Object.hasOwn(saved.fields, key))) {
+    if (readAidtBrainstormSelection(saved)) return true;
     const handoff = readAidtIdeaHandoff(saved, stage.projectId);
     return Boolean(handoff && (!hasAidtIdeaChatConfirmations(saved) || allAidtIdeasConfirmed(saved)));
   }

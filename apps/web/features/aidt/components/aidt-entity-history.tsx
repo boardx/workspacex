@@ -3,6 +3,8 @@
 import { AIDT_LEGACY_PROBLEM, isAidtLegacyProblem } from "@repo/contracts/aidt-stages";
 import * as React from "react";
 import Link from "next/link";
+import { readAidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
+import { AidtBrainstormOutput } from "./aidt-brainstorm";
 import { AidtProblemWorkspace } from "./aidt-problem-workspace";
 import { AidtInterviewOutput } from "./aidt-interview-output";
 import { AidtTestGroupOutput } from "./aidt-test-conversation";
@@ -41,11 +43,12 @@ export function AidtEntityHistory({ projectId, entityId, step, revision, token, 
   const draft = stage?.content.draft;
   const fields = draft?.fields ?? {};
   const legacy = step.id === 1 && entityId === AIDT_LEGACY_PROBLEM && isAidtLegacyProblem(fields);
+  const brainstorm = step.id === 4 ? readAidtBrainstorm(fields, entityId) : null;
   const belongs = draft && (
     legacy || (step.id === 1 && listAidtProblems(draft).some(row => row.id === entityId))
     || (step.id === 2 && readAidtInterviews(fields).some(row => row.id === entityId))
     || (step.id === 3 && readAidtDefinitionEntities(fields).some(row => row.id === entityId))
-    || (step.id === 4 && readAidtIdeaDirectory(draft).some(row => row.id === entityId))
+    || (step.id === 4 && (brainstorm || readAidtIdeaDirectory(draft).some(row => row.id === entityId)))
     || (step.id === 5 && readAidtPrototypeEntityDraft(draft, entityId))
     || (step.id === 6 && readAidtTestGroups(fields).some(row => row.id === entityId))
   );
@@ -66,6 +69,8 @@ export function AidtEntityHistory({ projectId, entityId, step, revision, token, 
               ? <AidtProblemWorkspace draft={legacy ? draft : readAidtProblemEntityDraft(draft, entityId)} revision={revision} confirmed={Boolean(readAidtProblemEntityDraft(draft, entityId).fields.roundCompletion)} />
               : step.id === 2
               ? <AidtInterviewOutput projectId={projectId} entityId={entityId} draft={draft} frozenSourceId={sourceId} />
+              : brainstorm
+              ? <AidtBrainstormOutput projectId={projectId} session={brainstorm} draft={draft} />
               : step.id === 5
               ? <AidtPrototypeEntityOutput projectId={projectId} designId={entityId} stageDraft={draft}
                   update={() => undefined} workflow={{ matchesServer: false }} readOnly />

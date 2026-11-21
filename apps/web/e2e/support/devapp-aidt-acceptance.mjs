@@ -486,7 +486,9 @@ export async function main() {
       const problemRevision = !syntheticProblemFixture && stageId === 1 && report.teachingEvidence.some(item => item.status === 'passed' && item.stageId === 1);
       const interviewGuideRevision = stageId === 2 && !interviewFinding && report.teachingEvidence.some(item => item.status === 'passed' && item.interviewCode === interviewCode);
       const codeSuffix = interviewCode && interviewCode !== 'U01' ? `-${interviewCode.toLowerCase()}` : '';
-      const suffix = syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : codeSuffix + (interviewFinding ? '-finding' : interviewGuideRevision ? '-revision' : '');
+      const entity = new URL(page.url()).searchParams.get('entity');
+      const brainstormSuffix = stageId === 4 && /^brainstorm-[a-zA-Z0-9-]{1,100}$/.test(entity ?? '') ? `-brainstorm-${entity.slice(-12)}` : '';
+      const suffix = brainstormSuffix || (syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : codeSuffix + (interviewFinding ? '-finding' : interviewGuideRevision ? '-revision' : ''));
       const name = `teaching-chat-stage-${stageId}${suffix}`;
       let isolatedKnownS1Review = false;
       const accepted = await checkpoint(name, async () => {

@@ -1,3 +1,4 @@
+import { AIDT_BRAINSTORM_PREFIX, AIDT_BRAINSTORM_SELECTION_FIELD, readAidtBrainstorm, readAidtBrainstormSelection, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { randomUUID } from "node:crypto";
 import { operations, SaveInput, isStageRequestTooLarge, isAidtConfirmedHmwSource, readIdeaHmwSource, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { authorize } from "../identity/authorize";
@@ -88,6 +89,25 @@ export class AidtStagesService {
           definitions.set(revision, source);
           return source;
         };
+        const sessions = readAidtBrainstorms(fields);
+        const prior = current?.content.draft.fields ?? {};
+        const candidateIds = sessions.flatMap(session => session.candidates);
+        if (Object.keys(fields).filter(key => key.startsWith(AIDT_BRAINSTORM_PREFIX)).length !== sessions.length
+          || Object.keys(prior).some(key => key.startsWith(AIDT_BRAINSTORM_PREFIX) && !fields[key])
+          || new Set(candidateIds).size !== candidateIds.length
+          || candidateIds.some(id => !ideas.some(idea => idea.id === id))
+          || fields[AIDT_BRAINSTORM_SELECTION_FIELD] && !readAidtBrainstormSelection(input.content.draft)) throw new AidtStageError("AIDT_STAGE_INVALID");
+        for (const session of sessions) {
+          const existing = readAidtBrainstorm(prior, session.id);
+          if (existing) {
+            if (stageRequestKey(existing.source) !== stageRequestKey(session.source)
+              || existing.method !== session.method || existing.count !== session.count
+              || !existing.candidates.every((id, index) => session.candidates[index] === id)) throw new AidtStageError("AIDT_STAGE_INVALID");
+          } else {
+            const definition = await getDefinition(session.source.revision);
+            if (!isAidtConfirmedHmwSource(definition, session.source)) throw new AidtStageError("AIDT_STAGE_INVALID");
+          }
+        }
         const ideaIds = new Set(ideas.map(idea => idea.id));
         for (const [key, value] of Object.entries(fields)) {
           if (!key.startsWith("ideaHmwSource:")) continue;
