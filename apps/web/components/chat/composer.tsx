@@ -1,6 +1,7 @@
 "use client";
+import { chatComposerAction, chatComposerInput, chatComposerSurface } from "@/components/chat/chat-composer-style";
 import * as React from "react";
-import { SlidersHorizontal, SendHorizontal } from "lucide-react";
+import { SlidersHorizontal, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,19 +39,18 @@ export function Composer({ invalid }: { invalid?: boolean }) {
           更多设置 {settingsOpen ? "▾" : "▸"}
         </Button>
       </div>
-      <div className="flex items-end gap-2">
+      <div className={`flex items-end gap-2 p-2 ${chatComposerSurface}`}>
         <Textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="向 AI 团队提问，或 @ 某个 agent 指定它回答"
-          rows={2}
+          rows={1}
           data-testid="chat-composer-input"
           aria-invalid={invalid || undefined}
-          className="flex-1"
+          className={`flex-1 ${chatComposerInput}`}
         />
-        <Button size="md" variant="primary" data-testid="chat-composer-send" disabled={invalid}>
-          <SendHorizontal aria-hidden className="h-4 w-4" />
-          发送
+        <Button size="icon" variant="primary" className={chatComposerAction} aria-label="发送" data-testid="chat-composer-send" disabled={invalid}>
+          <ArrowUp aria-hidden className="h-4 w-4" />
         </Button>
       </div>
     </div>

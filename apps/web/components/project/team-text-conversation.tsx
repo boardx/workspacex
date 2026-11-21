@@ -1,4 +1,5 @@
 "use client";
+import { chatComposerAction, chatComposerInput, chatComposerSurface } from "@/components/chat/chat-composer-style";
 import * as React from "react";
 import { isMemberChatComposing } from "@/lib/project-member-chat-input";
 import { ArrowUp, Copy, Hash, MessageCircle, MessagesSquare, PanelRightClose } from "lucide-react";
@@ -73,9 +74,9 @@ export function TeamTextConversation({ channel, channels, messages, draft, compa
     </aside>}
     <form className="space-y-2" data-testid="team-text-form" hidden={!!focusedMessage} onSubmit={(e) => { e.preventDefault(); if (!readOnly && draft.trim()) sendMessage(); }}>
       <label htmlFor="wx-member-input" className="block text-12 text-muted-foreground">发给「{channel.title}」的成员</label>
-      <div className="space-y-3 rounded-container border border-border-subtle bg-card p-3">
-        <textarea id="wx-member-input" aria-label="发给频道成员" data-testid="team-text-input" className="block w-full min-w-0 resize-none bg-transparent text-14 focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground" rows={2} maxLength={4000} value={draft} disabled={inputUnavailable} placeholder="和组员讨论下一步…" onChange={(e) => onDraftChange(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !isMemberChatComposing(e.nativeEvent)) { e.preventDefault(); if (!readOnly && draft.trim()) sendMessage(); } }} />
-        <div className="flex items-center justify-between gap-3"><span className="text-12 text-muted-foreground">Enter 发送 · Shift+Enter 换行</span><Button type="button" size="icon" variant="primary" id="wx-member-send" aria-label="预览发送给频道成员" data-global="send-message" data-testid="team-text-send" disabled={inputUnavailable || !draft.trim()} onClick={sendMessage}><ArrowUp aria-hidden className="h-4 w-4" /></Button></div>
+      <div className={`flex items-end gap-2 p-2 ${chatComposerSurface}`}>
+        <textarea id="wx-member-input" aria-label="发给频道成员" data-testid="team-text-input" className={`block flex-1 disabled:text-disabled-foreground ${chatComposerInput} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`} rows={1} maxLength={4000} value={draft} disabled={inputUnavailable} placeholder="和组员讨论下一步…" onChange={(e) => onDraftChange(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !isMemberChatComposing(e.nativeEvent)) { e.preventDefault(); if (!readOnly && draft.trim()) sendMessage(); } }} />
+        <Button type="button" size="icon" variant="primary" className={chatComposerAction} id="wx-member-send" aria-label="预览发送给频道成员" data-global="send-message" data-testid="team-text-send" disabled={inputUnavailable || !draft.trim()} onClick={sendMessage}><ArrowUp aria-hidden className="h-4 w-4" /></Button>
       </div>
     </form>
   </section>;

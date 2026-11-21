@@ -1,4 +1,5 @@
 "use client";
+import { chatComposerAction, chatComposerInput, chatComposerSurface } from "@/components/chat/chat-composer-style";
 import * as React from "react";
 import { Check, Pause, Send, AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -142,15 +143,16 @@ export function InterjectionComposer({
         </p>
       )}
 
-      <div className="flex items-end gap-2">
-        <div className="flex flex-1 flex-col gap-1">
+      <div className={`flex items-end gap-2 p-2 ${chatComposerSurface}`}>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <Label htmlFor="interject-input" className="sr-only">给正在执行的 agent 插话</Label>
           <Textarea
             id="interject-input"
             data-testid="interjection-input"
             placeholder="例如：第二页标题改成「华北下滑归因分析」"
             value={value}
-            rows={2}
+            rows={1}
+            className={chatComposerInput}
             disabled={!canInterject}
             aria-invalid={failure !== null || undefined}
             onChange={(e) => setValue(e.target.value)}
@@ -163,10 +165,10 @@ export function InterjectionComposer({
           />
         </div>
         <Button
-          variant="primary" data-testid="interjection-send"
+          variant="primary" size="icon" aria-label="插话" className={chatComposerAction} data-testid="interjection-send"
           disabled={!value.trim() || pending || !canInterject} onClick={() => void send()}
         >
-          <Send aria-hidden className="h-4 w-4" /> 插话
+          <Send aria-hidden className="h-4 w-4" />
         </Button>
       </div>
       <p className="text-10 text-muted-foreground">⌘/Ctrl + Enter 发送 · 运行中输入框保持可交互（非 disabled）</p>

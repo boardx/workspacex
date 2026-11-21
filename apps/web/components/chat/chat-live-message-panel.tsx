@@ -1,9 +1,10 @@
 "use client";
 
+import { chatComposerAction, chatComposerInput, chatComposerSurface } from "@/components/chat/chat-composer-style";
 import * as React from "react";
 import {AgentRunCreditFailure} from "@/components/chat/agent-run-credit-failure";
 import {
-  ArrowDown, Bot, Check, Copy, Loader2, Mic, MoreHorizontal, Paperclip, RefreshCw, Send, UserRound, Wrench,
+  ArrowDown, Bot, Check, Copy, Loader2, Mic, MoreHorizontal, Paperclip, RefreshCw, ArrowUp, Square, UserRound, Wrench,
 } from "lucide-react";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 // VZ-01 → live panel（coord 裁 ①+续刀）：活体 AI 消息渲染从 CopilotKit 的 Markdown
@@ -1702,7 +1703,7 @@ export function ChatLiveMessagePanel({
           （对标 Codex，拖到消息列表区域也生效），这里只保留附件预览条本身。
           border 不再随 dragActive 变化——高亮反馈交给面板级的 ChatFullSurfaceDropOverlay。
         */}
-        <div className="relative rounded-container border border-input bg-card p-2 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+        <div className={`relative p-2 ${chatComposerSurface}`}>
           {archived ? null : <ChatAttachmentList ctl={attach} disabled={submitting} />}
           <Textarea
             ref={composerRef}
@@ -1718,7 +1719,8 @@ export function ChatLiveMessagePanel({
             onKeyDown={handleComposerKeyDown}
             onKeyUp={(event) => recomputeMentions(event.currentTarget.value, event.currentTarget.selectionStart)}
             onClick={(event) => recomputeMentions(event.currentTarget.value, event.currentTarget.selectionStart)}
-            className="min-h-16 resize-none border-0 bg-transparent px-2.5 py-2 shadow-none focus-visible:ring-0"
+            rows={1}
+            className={chatComposerInput}
           />
           {/*
             `@` 引用本线程已上传过的文件——纯前端下拉，选中即把文件名插进正文
@@ -1802,12 +1804,8 @@ export function ChatLiveMessagePanel({
               <Button
                 type="button"
                 size="icon"
-                variant={canStopSpeech ? "destructive" : "outline"}
-                // 人类反馈（devapp 实测）：麦克风按钮录音中整体闪烁（`animate-pulse` 让
-                // 按钮本体+图标反复淡入淡出）体验差。录音态已经靠实心红底
-                // （`variant="destructive"`）+ 下方 `chat-mic-listening` 那颗小红点
-                // 表达"正在录音"，按钮本身不需要再动——去掉闪烁，按钮保持稳定的实心红。
-                className="rounded-full"
+                variant={canStopSpeech ? "primary" : "outline"}
+                className={chatComposerAction}
                 data-testid="chat-mic-button"
                 data-mic-status={speech.status}
                 aria-pressed={speech.listening}
@@ -1835,13 +1833,13 @@ export function ChatLiveMessagePanel({
                 {speechBusy ? (
                   <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Mic aria-hidden className="h-3.5 w-3.5" />
+                  canStopSpeech ? <Square aria-hidden className="h-3 w-3 fill-current" /> : <Mic aria-hidden className="h-4 w-4" />
                 )}
               </Button>
               <Button
                 type="button"
                 size="icon"
-                className="rounded-full"
+                className={chatComposerAction}
                 data-testid="chat-message-submit"
                 aria-label={submitting ? "发送中" : "发送并排队"}
                 title={
@@ -1852,7 +1850,7 @@ export function ChatLiveMessagePanel({
                 disabled={archived || submitting || attach.hasUploading || text.trim() === "" || selectedAgentId === ""}
                 onClick={() => void submit()}
               >
-                <Send aria-hidden className="h-3.5 w-3.5" />
+                <ArrowUp aria-hidden className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -1863,37 +1861,37 @@ export function ChatLiveMessagePanel({
             `tests/ui/chat-read-screen.test.tsx`/`e2e/chat-read.spec.ts` 两处依赖这段文案的
             断言随本次改动一并删除（不是改文案，是这条提示整个不再存在）。
           */}
+          {speech.connecting ? (
+            // #726 real-upstream 补丁——真实上游握手（麦克风权限弹窗 + WS 连接）不是 0 秒，
+            // 这段等待期界面必须说话，不能沉默（devapp 实测反馈「点了反应半天」正是这段空窗）。
+            <p className="mt-2 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="chat-mic-connecting">
+              <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+              {speech.reconnecting ? "连接暂时中断，正在尝试重连。已识别文字保留。" : "正在连接语音识别……"}
+            </p>
+          ) : null}
+          {speech.listening ? (
+            // #726 —— 转录进行中的可见反馈："正在听"，不是静默录音。文字实时通过
+            // `onTranscript` 写回 `text`（见上面 `updateDraft` 的调用），这里只是状态提示。
+            <p className="mt-2 flex items-center gap-1.5 text-11 text-primary" data-testid="chat-mic-listening">
+              <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+              正在听 · 实时转录
+            </p>
+          ) : null}
+          {speech.stopping ? (
+            // 同上：`handle.stop()` 要等上游确认收尾（最多 15 秒，见
+            // `configured-realtime-asr-provider.ts` 的 `FINISH_GRACE_MS`），这段时间界面
+            // 必须说"正在停止"，不能让按钮变灰之后界面就没有任何进一步的反馈了。
+            <p className="mt-2 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="chat-mic-stopping">
+              <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+              正在停止……等待最后一段转录落定。
+            </p>
+          ) : null}
+          {speech.error !== null ? (
+            <p className="mt-2 text-11 text-destructive" data-testid="chat-mic-error">
+              {speech.error}
+            </p>
+          ) : null}
         </div>
-        {speech.connecting ? (
-          // #726 real-upstream 补丁——真实上游握手（麦克风权限弹窗 + WS 连接）不是 0 秒，
-          // 这段等待期界面必须说话，不能沉默（devapp 实测反馈「点了反应半天」正是这段空窗）。
-          <p className="mt-2 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="chat-mic-connecting">
-            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-            {speech.reconnecting ? "连接暂时中断，正在尝试重连。已识别文字保留。" : "正在连接语音识别……"}
-          </p>
-        ) : null}
-        {speech.listening ? (
-          // #726 —— 转录进行中的可见反馈："正在听"，不是静默录音。文字实时通过
-          // `onTranscript` 写回 `text`（见上面 `updateDraft` 的调用），这里只是状态提示。
-          <p className="mt-2 flex items-center gap-1.5 text-11 text-destructive" data-testid="chat-mic-listening">
-            <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" />
-            正在听……实时转录中，说完点击麦克风按钮停止，确认无误后再手动发送。
-          </p>
-        ) : null}
-        {speech.stopping ? (
-          // 同上：`handle.stop()` 要等上游确认收尾（最多 15 秒，见
-          // `configured-realtime-asr-provider.ts` 的 `FINISH_GRACE_MS`），这段时间界面
-          // 必须说"正在停止"，不能让按钮变灰之后界面就没有任何进一步的反馈了。
-          <p className="mt-2 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="chat-mic-stopping">
-            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-            正在停止……等待最后一段转录落定。
-          </p>
-        ) : null}
-        {speech.error !== null ? (
-          <p className="mt-2 text-11 text-destructive" data-testid="chat-mic-error">
-            {speech.error}
-          </p>
-        ) : null}
         {/*
           2026-08-19 人类实测反馈（#1589）：`消息已持久化，AgentRun 已排队。` 这一行 +
           composer 上方的 `AgentRunStatus`（`正在执行`/…）读起来是同一件事说了两遍——
