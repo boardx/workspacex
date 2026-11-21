@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { AIDT_ENTITY_THREAD_PREFIX, aidtInterviewTitle, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { readAidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
+import { checkedInterviewExcerpt } from "./interview-skill-draft";
 import type { StageActor } from "./ports";
 
 export function aidtEntityThreadId(actor: StageActor, stageId: number, entityId: string, purpose: "stage" | "report") {
@@ -87,6 +88,7 @@ export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string
     case 2: {
       const card = discoveryCards?.find(item => item.id === entityId);
       return { entityId, fields: read("interviewRecord:", ["code", "topic", "goal", "original", "adopted", "guideConfirmed"]),
+        checkedExcerpt: checkedInterviewExcerpt(fields, entityId, stage.projectId),
         finding: card ? { headline: card.headline, headlineKind: card.headlineKind, context: card.context } : undefined };
     }
     case 3:
