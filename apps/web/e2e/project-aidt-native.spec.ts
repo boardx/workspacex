@@ -30,7 +30,7 @@ async function createProblem(page: Page, title: string) {
   await dialog.getByRole("textbox", { name: "问题名称", exact: true }).fill(title);
   await dialog.getByRole("button", { name: "创建问题", exact: true }).click();
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
-  await page.getByRole("link", { name: "返回产物列表" }).click();
+  await page.getByRole("link", { name: "返回问题列表" }).click();
   const card = page.getByRole("link", { name: title, exact: true });
   await expect(card).toBeVisible();
   return card;

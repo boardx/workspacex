@@ -126,8 +126,8 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
   const canAdd = !readOnly && validTopic && topic.revision !== null && Object.keys(draft.fields).length < 90;
   const [creating, setCreating] = React.useState(false);
   const createId = React.useRef("");
-  const add = async (details: InterviewDetails) => {
-    if (!canAdd) return false;
+  const add = (details: InterviewDetails) => {
+    if (!canAdd) return Promise.resolve(false);
     const id = createId.current;
     const record: AidtInterview = {
       version: 1, ...details,
@@ -148,7 +148,6 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
     if (onCreate) return onCreate(id, change);
     update(change);
     if (entityId === undefined) setSelected(id);
-    return true;
   };
   const back = () => {
     setSelected(null);

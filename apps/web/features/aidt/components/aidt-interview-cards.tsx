@@ -25,8 +25,8 @@ export function InterviewCardEditor({ record, knownTags, close, save }: { record
     setBusy(true);
     setFailed(false);
     try {
-      const saved = await save({ displayName: name.trim(), tags: [...commitDraft(tags, draftTag, interviewTagsLimit)] });
-      if (saved === false) setFailed(true);
+      const saved = save({ displayName: name.trim(), tags: [...commitDraft(tags, draftTag, interviewTagsLimit)] });
+      if (saved && !await saved) setFailed(true);
       else close();
     } catch { setFailed(true); } finally { setBusy(false); }
   };
