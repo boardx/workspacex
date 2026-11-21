@@ -8,6 +8,7 @@ export interface ChatHostPanel {
   readonly title: string;
   readonly placement?: "artifacts";
   readonly materialsContent?: ReactNode;
+  readonly savedArtifactTitle?: string;
   readonly open: boolean;
   readonly content: ReactNode;
   readonly onOpenChange: (open: boolean) => void;

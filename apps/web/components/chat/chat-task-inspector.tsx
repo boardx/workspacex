@@ -596,7 +596,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         >
           {hostOpen ? <>
             {hostInArtifacts && <button type="button" className="self-start px-4 pt-3 text-12 text-muted-foreground transition-colors hover:text-panel-alt-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => {
-              hostPanel.onOpenChange(false);
+              setArtifactListMode(true);
               selectTab("artifacts");
             }}>‹ 产物列表</button>}
             {hostPanel?.content}
@@ -653,6 +653,10 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
                   onCountChange={setVersionsCount}
                 />
               ) : null}
+              hostArtifact={hasSelection && hostInArtifacts && hostPanel.savedArtifactTitle ? {
+                title: hostPanel.savedArtifactTitle,
+                onOpen: () => hostPanel.onOpenChange(true),
+              } : undefined}
               versionsCount={threadId ? versionsCount : 0}
               onRefresh={() => { onRetry(); setVersionsReload((v) => v + 1); }}
             />

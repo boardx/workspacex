@@ -151,6 +151,18 @@ export function getAidtInterviewFinding(draft: AidtUiStageDraft, interview: Aidt
   };
 }
 
+export function hasAidtInterviewFinding(draft: AidtUiStageDraft, interview: AidtInterview) {
+  const finding = getAidtInterviewFinding(draft, interview);
+  return Boolean(interview.consent?.notes && (finding.headline || finding.context || finding.quote || draft.fields["interviewInterpretation:" + interview.id]));
+}
+
+export function savedAidtInterviewArtifactTitle(draft: AidtUiStageDraft | undefined, id: string | undefined) {
+  if (!draft || !id || isAidtInterviewArchived(draft.fields, id)) return undefined;
+  const interview = readAidtInterviews(draft.fields).find(item => item.id === id);
+  return interview && (interview.adopted.trim() || hasAidtInterviewFinding(draft, interview))
+    ? `${interview.code} · 访谈产物` : undefined;
+}
+
 export function writeAidtInterviewFinding(draft: AidtUiStageDraft, interview: AidtInterview, patch: Partial<AidtDiscoveryCardDraft>) {
   const card = { ...getAidtInterviewFinding(draft, interview), ...patch, id: interview.id, participantCode: interview.code };
   return {
