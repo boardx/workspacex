@@ -588,12 +588,18 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       const proof = report.teachingEvidence.find(row => row.threadId === interview.threadId && row.stageId === 2 && row.status === 'passed');
       if (!proof?.inputMessageId || !proof.assistantMessageId) fail('INTERVIEW_CHAT_HISTORY_UNVERIFIED');
       await expect(timeline.getByTestId('chat-user-message-text').filter({ hasText: proof.prompt })).toBeVisible();
-      const messageActions = timeline.getByTestId('chat-message-copy');
-      await expect.poll(() => messageActions.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-message-id'))))
-        .toContain(proof.assistantMessageId);
+      const messages = await api(`/api/chat/threads/${encodeURIComponent(interview.threadId)}/messages?limit=100`);
+      const records = Array.isArray(messages.data) ? messages.data : messages.data?.messages;
+      if (messages.status !== 200 || !Array.isArray(records) || messages.data?.nextCursor) fail('INTERVIEW_CHAT_HISTORY_UNVERIFIED');
+      const ownReply = records.find(row => row.id === proof.assistantMessageId && row.authorKind === 'agent' && row.agentRunId === proof.runId);
+      if (ownReply?.text !== proof.assistantText || !records.some(row => row.id === proof.inputMessageId && row.text === proof.prompt)) fail('INTERVIEW_CHAT_HISTORY_UNVERIFIED');
+      // Markdown punctuation is absent from the rendered bubble. Use a text fragment plus the durable identity above.
+      const fragment = (ownReply.text.match(/[\p{Script=Han}]{4,}|[a-zA-Z]{5,}/gu) ?? []).sort((a,b) => b.length-a.length)[0];
+      if (!fragment) fail('INTERVIEW_REPLY_TEXT_NOT_VISIBLE');
+      await expect(timeline.getByTestId('copilot-assistant-message').filter({ hasText: fragment.slice(0, 35) }).first()).toBeVisible();
       for (const sibling of report.teachingEvidence.filter(row => row.stageId === 2 && row.status === 'passed' && row.threadId !== interview.threadId)) {
         await expect(timeline.getByTestId('chat-user-message-text').filter({ hasText: sibling.prompt })).toHaveCount(0);
-        await expect(timeline.locator(`[data-message-id="${sibling.assistantMessageId}"]`)).toHaveCount(0);
+        if (records.some(row => row.id === sibling.inputMessageId || row.id === sibling.assistantMessageId)) fail('SIBLING_INTERVIEW_MESSAGE_VISIBLE');
       }
       const inspector = await readOnlyInterviewOutput();
       await expect(inspector.getByTestId('aidt-interview-question-list')).toContainText(interview.adopted);
