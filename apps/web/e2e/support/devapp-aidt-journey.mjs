@@ -461,7 +461,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(page.getByRole('status').filter({ hasText: '访谈已完成' })).toBeVisible();
       evidence(2).inputs.push({ name: `${code} 初稿与改写`, content: [initial, adopted, finding].join('\n'), format: 'native Chat' });
       evidence(2).outputs.push({ name: `${code}人物发现卡`, format: 'native finding card; synthetic text', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}` });
-      state.interviews.push({ href: page.url(), target, code, adopted, quote, materialName });
+      state.interviews.push({ href: page.url(), target, code, adopted, quote, materialName, storageOnly: false });
     }
     await page.goto(interviewDirectory);
     await expect(page.getByRole('button', { name: /^U01 .*发现卡已核对/ })).toBeVisible();
