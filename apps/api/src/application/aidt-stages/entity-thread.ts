@@ -27,12 +27,15 @@ function titleFor(fields: Record<string, string>, key: string, id: string, name:
 }
 
 export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: string, purpose: "stage" | "report"): string | null {
+  if (purpose === "report") {
+    if (entityId === "group-report") return "小组研究报告";
+    return stage?.stageId === 6 && stage.content.reports && Object.hasOwn(stage.content.reports, entityId)
+      ? "小组研究报告"
+      : null;
+  }
   if (!stage) return null;
   const { draft } = stage.content;
   const { fields } = draft;
-  if (purpose === "report") {
-    return stage.stageId === 6 && entityId === "group-report" ? "小组研究报告" : null;
-  }
   switch (stage.stageId) {
     case 1:
       return titleFor(fields, "problemEntity:", entityId, "title", "理解与提出问题");
