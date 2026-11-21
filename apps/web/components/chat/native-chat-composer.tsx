@@ -4,7 +4,7 @@
 import { useContext } from "react";
 
 import { useI18n } from "@/lib/i18n/provider";
-import { ChatComposerCurrentStatus } from "./chat-composer-current-status";
+import { ComposerStatusBar } from "./chat-composer-status-bar";
 import { QueuedMessagesPanel } from "@/components/chat/workbench/queued-messages-panel";
 import { QueueNextTurnAction } from "@/components/chat/workbench/queue-next-turn-action";
 import { ChildCancellationNotice } from "@/components/chat/workbench/child-cancellation-notice";
@@ -23,7 +23,8 @@ export type NativeChatComposerProps = Pick<CopilotKitV2PanelViewProps, "EMPTY_IN
 
 export function NativeChatComposer({EMPTY_INPUT_REASON, actingAgentId, agent, agentOptions, archived, attach, attachDisabled, attachOpen, canWrite, cancellation, composerInputRef, composerMirrorRef, emptySendHint, flashEmptySendHint, initialChatThreadId, inputDraft, interjectPending, micDevices, onComposerScroll, onSelectAgent, onSkillMentionMounted, orgId, recomputeMention, runIsRunning, selectedAgentId, send, sendDisabled, sendDisabledReason, sendWhileRunning, serverQueue, sessionToken, setAttachOpen, setEmptySendHint, setError, setInputDraft, setMountedSkillsCount, setSkillOpenRequest, setSkillTrigger, skillMention, skillOpenRequest, skillTrigger, speech, threadId, voice}: NativeChatComposerProps): JSX.Element {
   const focusedSkill = useContext(FocusedSkillNameContext);
-const {t}=useI18n();
+  const { t } = useI18n();
+  const dictating = speech.listening || speech.connecting;
 return (<div
           className={[
             "flex min-w-0 flex-col rounded-container border shadow-lg transition-colors duration-fast",
@@ -78,7 +79,7 @@ return (<div
               textarea 仍是真实值的唯一载体（e2e 读的是 `inputValue()`），镜像只是颜色。
             */}
             <div className="relative">
-              {speech.listening || speech.connecting ? (() => {
+              {dictating ? (() => {
                 const dark = appendTranscript(speech.baseText, speech.committedText);
                 const full = appendTranscript(dark, speech.partialText);
                 return (
@@ -114,15 +115,17 @@ return (<div
                   // 外层卡片常驻边框 + 光标承载；`ring-0` 同时满足 `lint-design.sh`
                   // U7b（`outline-none` 须与 `focus-visible:ring-*` 同行）的机械判据。
                   "block w-full min-w-0 resize-none overflow-y-auto rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground",
-                  speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
+                  dictating ? "text-transparent caret-transparent" : "text-card-foreground",
                 ].join(" ")}
                 disabled={archived}
                 placeholder={
                   archived
                     ? t("chatComposer.archived")
-                    : runIsRunning
-                      ? t("chatComposer.runningPlaceholder")
-                      : t("chatComposer.placeholder")
+                    : dictating
+                      ? ""
+                      : runIsRunning
+                        ? t("chatComposer.runningPlaceholder")
+                        : t("chatComposer.placeholder")
                 }
                 value={inputDraft}
                 // 录音期镜像层跟着输入框滚（否则透明文字滚了、可见文字不动）。
@@ -234,7 +237,7 @@ return (<div
                 </>}
               </div>
               {/* 右：语音分段胶囊（唯一麦克风入口，设备菜单在它右侧箭头）+ 发送 / 停止。 */}
-              <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-3">
+              <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-3">
                 {/* Temporarily hidden:
                 <ChatRealtimeVoiceEntry
                   disabled={!canWrite || archived || agent.isRunning || sessionToken === null}
@@ -265,7 +268,15 @@ return (<div
                   onSelectDevice={micDevices.select}
                   autoPause={voice.autoPause}
                   onAutoPauseChange={voice.setAutoPause}
-                  deviceMenuRequest={voice.deviceMenuRequest}
+                  inline={{
+                    pause: voice.pause,
+                    discard: voice.discard,
+                    undo: voice.undo,
+                    silenceHint: voice.silenceHint,
+                    transcribedChars: voice.transcribedChars,
+                    error: speech.error,
+                    errorReason: speech.errorReason,
+                  }}
                 />
                 <QueueNextTurnAction visible={runIsRunning && inputDraft.trim().length > 0} disabled={sendDisabled || interjectPending} onQueue={() => void sendWhileRunning({ forceQueue: true })} />
                 {(runIsRunning || cancellation.requested) && canWrite && !archived && inputDraft.trim() === "" ? (
@@ -304,7 +315,15 @@ return (<div
               </div>
             </div>
           </div>
-          <ChatComposerCurrentStatus voice={voice} speech={speech} hasUploading={attach.hasUploading} archived={archived} />
+          {attach.hasUploading && !archived ? (
+            <ComposerStatusBar
+              tone="neutral"
+              testId="chat-task-workbench-composer-uploading"
+              icon={<Loader2 className="h-4 w-4 animate-spin" />}
+              title={t("chatComposer.uploading")}
+              description={t("chatComposer.uploadingHint")}
+            />
+          ) : null}
           <ChildCancellationNotice text={cancellation.childNotice} />
           <QueuedMessagesPanel {...serverQueue} canWrite={canWrite} />
         </div>);

@@ -121,15 +121,14 @@ it("updates recording chrome while preserving the ongoing voice controller and s
   voice.phase = "listening";
   mount();
   await screen.findByTestId("chat-diagram-fabric-probe");
-  expect(screen.getByText("Listening 00:07")).toBeTruthy();
-  const stop = screen.getByTestId("chat-task-workbench-composer-recording-confirm");
+  expect(screen.getByTestId("chat-task-workbench-composer-recording-timer").textContent).toBe("00:07");
+  const stop = screen.getByRole("button", { name: "Stop voice input" });
   const input = screen.getByTestId("copilotkit-v2-input");
   fireEvent.change(input, { target: { value: "尚未结束的语音内容" } });
   const send = screen.getByTestId("copilotkit-v2-send");
   expect(send.hasAttribute("disabled")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "switch language" }));
-  expect(screen.getByTestId("chat-task-workbench-composer-recording-confirm")).toBe(stop);
-  expect(stop.textContent).toContain("停止");
+  expect(screen.getByRole("button", { name: "停止语音输入" })).toBe(stop);
   expect(screen.getByTestId("copilotkit-v2-input")).toBe(input);
   expect(send.hasAttribute("disabled")).toBe(true);
   expect(voice.start).not.toHaveBeenCalled();
@@ -140,17 +139,21 @@ it("updates recording chrome while preserving the ongoing voice controller and s
 it.each([
   ["connecting", "Connecting to speech recognition"],
   ["stopping", "Stopping recording"],
-  ["paused", "Paused 00:07"],
+  ["paused", "Recording paused"],
   ["done", "Transcribed 4 characters"],
   ["error", "Speech recognition is temporarily unavailable"],
 ] as const)("localizes the actual canonical %s recording state", async (phase, title) => {
   voice.phase = phase;
   mount();
   await screen.findByTestId("chat-diagram-fabric-probe");
-  expect(screen.getByText(title)).toBeTruthy();
+  if (phase === "error") {
+    expect(screen.getByTestId("chat-mic-error").textContent).toContain(title);
+  } else {
+    expect(screen.getByText(title)).toBeTruthy();
+  }
 });
 
-it("offers a non-destructive stop from both controls and Escape during recovery", async () => {
+it("stops without discarding from the toolbar or Escape during recovery", async () => {
   voice.phase = "connecting";
   recovery.active = true;
   mount();
@@ -159,8 +162,7 @@ it("offers a non-destructive stop from both controls and Escape during recovery"
   const mic = screen.getByTestId("chat-task-workbench-composer-mic");
   expect(mic.hasAttribute("disabled")).toBe(false);
   fireEvent.click(mic);
-  fireEvent.click(screen.getByTestId("chat-task-workbench-composer-recording-confirm"));
   fireEvent.keyDown(document, { key: "Escape" });
-  expect(voice.finish).toHaveBeenCalledTimes(3);
+  expect(voice.finish).toHaveBeenCalledTimes(2);
   expect(voice.discard).not.toHaveBeenCalled();
 });
