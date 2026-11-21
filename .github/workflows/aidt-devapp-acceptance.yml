@@ -143,7 +143,8 @@ jobs:
     if: ${{ inputs.live_dev && github.ref == 'refs/heads/develop' }}
     needs: controls
     runs-on: [self-hosted, linux, x64, workspacex]
-    timeout-minutes: 65
+    # Nine additional entity-scoped teaching turns allow three minutes each.
+    timeout-minutes: 92
     env:
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}

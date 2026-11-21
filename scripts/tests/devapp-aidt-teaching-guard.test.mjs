@@ -86,5 +86,21 @@ test('the interview lane permits ten independently bound interviews, denying rep
     guard.armTeachingSend(scope);
     assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
   }
-  assert.equal(guard.summary().teachingRequests, guard.summary().teachingRequestsAllowed);
+  assert.equal(guard.summary().teachingRequests, 15);
+  assert.equal(guard.summary().teachingRequestsAllowed, 16);
+});
+
+test('a second turn is reserved for the first interview with its own accepted guide and saved confirmation', () => {
+  const guard = fixture(), { scope, wire } = teaching(guard,2);
+  assert.throws(() => guard.armTeachingSend({ ...scope, interviewFinding: true }), /TEACHING_FINDING_SCOPE_NOT_VERIFIED/);
+  guard.armTeachingSend(scope);
+  request(guard,'POST','/api/copilotkit/agent/default/run',wire);
+  const row = { id:'owned-human', authorKind:'human', authorId:scope.actorId, text:scope.prompt, clientMessageId:'client-2', agentRunId:'actual-owned-run' };
+  guard.observe(request(guard,'GET',`/api/chat/threads/${scope.threadId}/messages?limit=100`),200,{ messages:[row], nextCursor:null });
+  const record = { id:scope.selector.entityId, code:'U01', guideConfirmed:true };
+  const finding = { ...scope, interviewFinding:true, knownMessages:[row] };
+  assert.throws(() => guard.armTeachingSend(finding), /TEACHING_FINDING_SCOPE_NOT_VERIFIED/);
+  guard.observe(request(guard,'GET',`/api/projects/${project}/aidt/stages/2`),200,{ stage:{ projectId:project, stageId:2, revision:2, content:{ draft:{ fields:{ [`interviewRecord:${record.id}`]:JSON.stringify(record) } } } } });
+  assert.doesNotThrow(() => guard.armTeachingSend(finding));
+  assert.throws(() => guard.armTeachingSend(finding), /TEACHING_SCOPE_NOT_VERIFIED/);
 });

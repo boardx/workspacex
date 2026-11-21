@@ -70,8 +70,10 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
   }
 }
 
-// One turn per stage outside interviews, one per distinct interview inside S2.
-export const TEACHING_TURN_LIMIT = 15;
+// Five other stages, ten independent guides, one material-backed finding.
+export const TEACHING_TURN_LIMIT = 16;
+// Additional guides re-open the scoped thread, mount its skill and save the confirmed guide.
+const WRITE_LIMIT = 128 + 9 * 3;
 
 export function createAcceptanceGuard(identity, now = Date.now) {
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
@@ -95,7 +97,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     const path = target.pathname;
     if (body !== undefined && Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_BODY) return stop('REQUEST_BODY_BOUND');
     if (projectId && target.searchParams.has('projectId') && target.searchParams.get('projectId') !== projectId) return stop('FOREIGN_PROJECT_REFERENCE');
-    if (allowedWrites >= 128 && method !== 'GET') return stop('WRITE_COUNT_BOUND');
+    if (allowedWrites >= WRITE_LIMIT && method !== 'GET') return stop('WRITE_COUNT_BOUND');
     if (method === 'POST' && path === '/api/auth/login' && !target.search) {
       if (!loginArmed || actor || loginCount !== 0 || !object(body) || Object.keys(body).sort().join(',') !== 'email,password' || !body.email || !body.password) return stop('LOGIN_REJECTED');
       loginCount++; return { allow: true, kind: 'login' };
@@ -285,9 +287,17 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     armTeachingSend: scope => {
       validateTeachingScope(scope);
       const coordinates = threadCoordinates.get(scope.threadId), pins = threadPins.get(scope.threadId) ?? [];
-      const key = scope.stageId === 2 ? `interview:${scope.selector.entityId}` : scope.stageId;
-      const interviews = [...teachingLedger.values()].filter(entry => entry.scope.stageId === 2);
-      if (scope.stageId === 2 && (!scope.selector.entityId || interviews.length >= 10)) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
+      const finding = scope.interviewFinding === true;
+      const guideKey = `interview:${scope.selector.entityId}`;
+      const key = finding ? 'interview-finding' : scope.stageId === 2 ? guideKey : scope.stageId;
+      const interviews = [...teachingLedger.keys()].filter(id => typeof id === 'string' && id.startsWith('interview:'));
+      if (scope.stageId === 2 && (!scope.selector.entityId || (!finding && interviews.length >= 10))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
+      if (finding) {
+        let record;
+        try { record = JSON.parse(stageStates.get(2)?.content.draft.fields[`interviewRecord:${scope.selector.entityId}`]); } catch { /* Missing or corrupt saved guide. */ }
+        if (scope.stageId !== 2 || record?.id !== scope.selector.entityId || record.code !== 'U01' || !record.guideConfirmed
+          || teachingLedger.get(guideKey)?.scope.threadId !== scope.threadId || !teachingLedger.get(guideKey)?.accepted) throw new ProbeFailure('TEACHING_FINDING_SCOPE_NOT_VERIFIED');
+      }
       if (teachingStopped || !ordinaryVerified || scope.projectId !== projectId || scope.actorId !== actor || teachingLedger.has(key) || teachingRequests >= TEACHING_TURN_LIMIT
         || !coordinates || coordinates.purpose !== 'stage' || coordinates.stageId !== scope.stageId || coordinates.entityId !== scope.selector.entityId
         || !threadFacts.get(scope.threadId)?.writable || !pins.some(pin => pin.skillId === scope.skillId && pin.versionId === scope.skillVersionId)
