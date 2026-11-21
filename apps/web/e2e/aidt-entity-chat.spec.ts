@@ -57,13 +57,17 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await page.goto(urls[0]! + "&tool=outcome");
   const inspector = page.getByTestId("aidt-tool-panel");
   await expect(inspector).toBeVisible();
+  await expect(inspector.getByRole("heading", { name: "访谈问题清单" })).toBeVisible();
+  await expect(inspector.getByRole("textbox", { name: "学生提纲原稿" })).toHaveCount(0);
+  await expect(page.getByTestId("aidt-chat-welcome")).toContainText("你准备问这位受访者哪些问题");
+  await page.screenshot({ path: test.info().outputPath("interview-chat-start.png") });
   await expect(inspector.getByLabel("受访者代号", { exact: true })).toHaveValue("U01");
   await expect(inspector.getByLabel("访谈 / 观察提纲", { exact: true })).toHaveCount(0);
   await page.getByTestId("chat-task-workbench-inspector-collapse").click();
   await expect(inspector).toHaveCount(0);
   await expect.poll(() => new URL(page.url()).searchParams.get("entity")).toBe(ids[0]);
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(first);
-  const message = "这条 U01 专用记录不应出现在其他受访者的会话里。";
+  const message = "请回忆最近一次挑选新品的经历。当时你看了哪些信息？";
   const run = await sendViaWorkbench(page, message);
   expect(AidtContextSelector.parse(run.postDataJSON().forwardedProps?.aidtContext)).toMatchObject({
     entityId: ids[0], stageId: 2, stageRevisions: [{ stageId: 2, revision: 1 }],
@@ -95,7 +99,7 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await page.reload();
   await expect(composer(page)).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(first);
-  await page.getByRole("link", { name: /返回产物列表/ }).click();
+  await page.getByRole("link", { name: /返回访谈列表/ }).click();
   await expect(composer(page)).toHaveCount(0);
 
   const versionsSaved = await page.evaluate(async ({ pathname, fields, firstId, ids }) => {
@@ -129,4 +133,18 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect(page).toHaveURL(new RegExp("entity=" + ids[0] + ".*entityRevision=1"));
   await expect(page.getByLabel("受访者代号", { exact: true })).toHaveValue("U01");
 
+  await page.goto(urls[0]! + "&tool=outcome");
+  const picker = page.getByLabel("从对话选取问题");
+  await expect(picker).toBeVisible();
+  await picker.selectOption({ label: "小组 · " + message });
+  const question = "你上一次选新品时，哪一条信息影响了决定？";
+  await page.getByLabel("保留要问的问题，每行一题").fill(question);
+  await page.getByRole("button", { name: "确认这份问题清单" }).click();
+  await page.getByTestId("aidt-shared-save").click();
+  await expect(page.getByTestId("aidt-shared-status")).toContainText("小组已保存");
+  await page.reload();
+  await expect(page.getByText(question, { exact: true }).first()).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("interview-chat-confirmed.png") });
+  await openInterview(page, urls[1]! + "&tool=outcome");
+  await expect(page.getByText(question, { exact: true })).toHaveCount(0);
 });

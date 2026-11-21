@@ -186,6 +186,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect.poll(() => new URL(page.url()).pathname).toBe(root);
     return href;
   };
+  const expandInterviewSection = async name => {
+    const entry = page.locator('summary').filter({ hasText: name }).first();
+    if (await entry.isVisible() && !await entry.evaluate(node => node.parentElement.open)) await entry.click();
+  };
   const output = async () => {
     const url = new URL(page.url()); url.searchParams.set('tool', 'outcome');
     await page.goto(owned(url.href), { waitUntil: 'domcontentloaded' });
@@ -319,6 +323,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await page.goto(owned(directory.href)); await click(btn('新建访谈')); await saveStage(2);
       const code = `U0${index}`; await click(page.getByRole('button', { name: interviewCodePattern(code) }));
       await output();
+      await expandInterviewSection('编辑提纲');
       await fill('想了解什么', text(`核对${code}所代表的合成情境差异。`));
       await fill('学生提纲原稿', '请回忆最近一次做选择的经过？');
       await fill('学生采纳清单', text('请说说选择时的想法。')); await saveStage(2);
@@ -326,6 +331,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       if (index === 1) await feedback(2);
       await persistConfirmed(2, btn('确认此人的问题清单'));
       await printOutput(2, `interview-guide-${code}`, page.getByTestId('aidt-interview-guide-print'), ['访谈问题清单', SYNTHETIC, '最近一次具体选择']);
+      await expandInterviewSection('访谈材料与授权');
       await page.getByLabel('已获授权共享文字记录', { exact: true }).check(); await click(btn('更新授权记录'));
       const quote = `QA-${code}：我在合成情境${index}中先看队列，再决定是否等待。`;
       await uploaded(`${code}研究原件`, `qa-${unique}-${code}.txt`, Buffer.from(`${SYNTHETIC}。run=${unique}\n第1段 ${quote}\n`), 'text/plain');
@@ -333,6 +339,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(select.locator('option')).toHaveCount(2); await select.selectOption({ index: 1 });
       await fill('定位（如 01:42 或第 3 段）', '第1段'); await fill('校对后的摘录', quote);
       await page.getByLabel('已对照原始材料校对', { exact: true }).check();
+      await expandInterviewSection('整理访谈发现');
       await page.getByRole('combobox', { name: '标题来源', exact: true }).selectOption('student-summary');
       await fill('一句发现', text(`${code}的合成记录关注等待时间。`));
       await fill('学生记录的可观察情况', text('测试夹具仅包含文字情境，不代表实际观察。'));
@@ -388,7 +395,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     for (const interview of state.interviews) {
       await page.goto(owned(interview.href)); await output();
       if (!state.s2 || !/^U0[12]$/.test(interview.code)) {
-        await fill('想了解什么', interviewGoal(interview.code)); await saveStage(2);
+        await expandInterviewSection('编辑提纲');
+      await fill('想了解什么', interviewGoal(interview.code)); await saveStage(2);
       }
       await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
@@ -402,6 +410,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds.get(interview.code));
       await page.reload(); await output();
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds.get(interview.code));
+      await expandInterviewSection('访谈设置与研究问题');
+      await expandInterviewSection('编辑提纲');
       await expect(page.getByLabel('受访者代号', { exact: true })).toHaveValue(interview.code);
       await expect(page.getByRole('textbox', { name: '想了解什么', exact: true })).toHaveValue(interviewGoal(interview.code));
       expect(new URL(page.url()).searchParams.get('entity')).toBe(new URL(interview.href).searchParams.get('entity'));
