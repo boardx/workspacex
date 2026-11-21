@@ -514,9 +514,10 @@ export async function main() {
       const suffix = syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : codeSuffix + (interviewFinding ? '-finding' : interviewGuideRevision ? '-revision' : '');
       const definitionTurn = stageId === 3 ? report.teachingEvidence.filter(item => item.stageId === 3 && item.status === 'passed').length : 0;
       const summary = stageId === 6 && new URL(page.url()).searchParams.get('summary') === '1';
+      const brainstormTurn = stageId === 4 && report.teachingEvidence.some(item => item.stageId === 4 && item.status === 'passed') ? '-reverse' : '';
       const testTurn = !summary && stageId === 6 && report.teachingEvidence.some(item => item.stageId === 6 && item.status === 'passed') ? '-survey' : '';
       const threadParam = summary ? 'summaryThread' : 'thread';
-      const name = summary ? 'teaching-chat-final-report' : `teaching-chat-stage-${stageId}${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}`;
+      const name = summary ? 'teaching-chat-final-report' : `teaching-chat-stage-${stageId}${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`;
       let isolatedKnownS1Review = false;
       const accepted = await checkpoint(name, async () => {
         if (guard.teachingStopped()) throw new ProbeFailure('TEACHING_PREVIOUS_OUTCOME_UNRESOLVED');
@@ -575,7 +576,7 @@ export async function main() {
         sensitiveEvidence.assertSafe(proof.assistantText);
         guard.completeTeaching(proof);
         report.teachingEvidence.push({ ...proof, projectId, entityId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
-        await capture(summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}`, stageId);
+        await capture(summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`, stageId);
       });
       if (!accepted) {
         if (!isolatedKnownS1Review) guard.stopTeaching();
@@ -614,7 +615,7 @@ export async function main() {
       registerFixture: fixture => guard.registerFixture(fixture), armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
-    report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, 'teaching-chat-final-report', 'teaching-chat-stage-3-2', 'teaching-chat-stage-3-3', 'teaching-chat-stage-6-survey', ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
+    report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, 'teaching-chat-final-report', 'teaching-chat-stage-3-2', 'teaching-chat-stage-3-3', 'teaching-chat-stage-3-4', 'teaching-chat-stage-4-reverse', 'teaching-chat-stage-6-survey', ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
     report.passed = !guard.fatal() && report.requiredChecks.every(name => report.checkpoints.some(item => item.name === name && item.status === 'passed'));
     // UI/runtime checks and exported PDF bytes are complete here; final glyph
     // acceptance is performed independently on the retained artifacts.

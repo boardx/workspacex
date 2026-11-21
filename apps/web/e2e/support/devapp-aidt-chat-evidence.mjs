@@ -2,6 +2,35 @@
 import { createHash } from 'node:crypto';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 
+export const ENTITY = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+export function brainstormRecord(stage, id) {
+  if (!/^brainstorm-[a-zA-Z0-9-]{1,100}$/.test(id ?? '')) return null;
+  try {
+    const record = JSON.parse(stage?.content?.draft?.fields?.[`ideaBrainstorm:${id}`] ?? 'null');
+    return record?.id === id && record.source?.id && Array.isArray(record.candidates) ? record : null;
+  } catch { return null; }
+}
+export function validBrainstormProjection(before, body, id) {
+  const prior = brainstormRecord(before, id), next = brainstormRecord(body, id);
+  if (!prior || !next || before.revision !== body.expectedRevision || !Number.isInteger(prior.count)
+    || next.candidates.length <= prior.candidates.length || next.candidates.length > prior.count
+    || new Set(next.candidates).size !== next.candidates.length
+    || !prior.candidates.every((candidate, index) => next.candidates[index] === candidate)) return false;
+  const candidateIds = next.candidates.slice(prior.candidates.length);
+  const oldDraft = before.content.draft, newDraft = body.content.draft;
+  if (!Array.isArray(newDraft.ideas) || newDraft.ideas.length !== oldDraft.ideas.length + candidateIds.length
+    || !oldDraft.ideas.every((idea, index) => canonical(idea) === canonical(newDraft.ideas[index]))
+    || !newDraft.ideas.slice(oldDraft.ideas.length).every((item, index) => object(item)
+      && item.id === candidateIds[index] && ENTITY.test(item.id) && item.id.startsWith(id + '-')
+      && typeof item.title === 'string' && typeof item.description === 'string')) return false;
+  const { candidates: _oldCandidates, ...samePrior } = prior;
+  const { candidates: _newCandidates, ...sameNext } = next;
+  return canonical(samePrior) === canonical(sameNext)
+    && canonical(before.sourceStageRevisions) === canonical(body.sourceStageRevisions)
+    && canonical(oldDraft) === canonical({ ...newDraft, ideas: oldDraft.ideas,
+      fields: { ...newDraft.fields, [`ideaBrainstorm:${id}`]: oldDraft.fields[`ideaBrainstorm:${id}`] } });
+}
+
 const SEND_PATH = '/api/copilotkit/agent/default/run';
 const HEX = /^[a-f0-9]{64}$/;
 const fail = code => { throw new ProbeFailure(code); };
@@ -232,6 +261,11 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
         const next = stagesAfter[index];
         if (canonical(previous) === canonical(next)) return true;
         const a = previous.stage, b = next.stage;
+        if (index === 3 && current.stageId === 4 && a?.stageId === 4 && b?.stageId === 4 &&
+            a.projectId === current.projectId && b.projectId === current.projectId && b.revision > a.revision &&
+            canonical(a.sourceStageRevisions) === canonical(b.sourceStageRevisions)) {
+          return validBrainstormProjection(a, { expectedRevision: a.revision, content: b.content, sourceStageRevisions: b.sourceStageRevisions }, current.selector.entityId);
+        }
         if ((index !== 0 && index !== 1) || a?.stageId !== index + 1 || b?.stageId !== index + 1
           || a.projectId !== current.projectId || b.projectId !== current.projectId || b.revision <= a.revision
           || canonical(a.sourceStageRevisions) !== canonical(b.sourceStageRevisions)) return false;

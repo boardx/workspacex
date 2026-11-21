@@ -1,13 +1,13 @@
 /** Live Dev acceptance: this is a bounded test-data writer, not the read-only probe. */
 import { ORIGIN, ProbeFailure, validLoginBody } from './devapp-aidt-auth-readonly.mjs';
 import { createHash } from 'node:crypto';
-import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun } from './devapp-aidt-chat-evidence.mjs';
+import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, brainstormRecord, validBrainstormProjection, ENTITY } from './devapp-aidt-chat-evidence.mjs';
 
 export const SHA = /^[a-f0-9]{40}$/;
 export const TAG = /^[0-9]+-[0-9]+$/;
 const UUID = '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
 export const PROJECT = new RegExp(`^prj-${UUID}$`);
-export const ENTITY = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+export { ENTITY };
 const MAX_BODY = 1048576;
 const ROOTS = new Set(['fields', 'ideas', 'selectedIdeaId', 'discoveryCards', 'selectionReasons', 'unboundReason']);
 const HOME_IMAGES = new Set(['/aidt/design-thinking-school.png', '/aidt/workshop-materials.png']);
@@ -41,6 +41,7 @@ export function assertRuntimeProof(proof, identity) {
 }
 
 function object(value) { return value && typeof value === 'object' && !Array.isArray(value); }
+
 function confirmations(value, path = '', out = new Set(), depth = 0) {
   if (depth > 20) throw new ProbeFailure('BODY_NESTING_BOUND');
   if (typeof value === 'string' && /^[\[{]/.test(value.trim()) && value.length <= MAX_BODY) {
@@ -71,7 +72,7 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
 }
 
 // Two S1 turns, one optional independent S1 fixture, thirty S2 turns, four later stages.
-export const TEACHING_TURN_LIMIT = 40;
+export const TEACHING_TURN_LIMIT = 42;
 // Nine additional interviews each save a guide, consent, a transcript and the confirmed finding.
 const WRITE_LIMIT = 128 + 9 * 15;
 
@@ -192,13 +193,17 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     const stage = new RegExp(`^/api/projects/${projectId}/aidt/stages/([1-6])$`).exec(path);
     if (method === 'PUT' && stage && object(body) && object(body.content) && object(body.content.draft)) {
       const n = Number(stage[1]);
-      if (!arm || arm.stage !== n || arm.remaining < 1 || now() > arm.until) return stop('STAGE_SAVE_NOT_ARMED');
+      const explicitlyArmed = arm && arm.stage === n && arm.remaining > 0 && now() <= arm.until;
+      const projection = n === 4 && [...teachingLedger.values()].find(entry => entry.wire && !entry.projected
+        && entry.brainstormUntil >= now() && validBrainstormProjection(stageStates.get(4), body, entry.scope.selector.entityId));
+      if (!explicitlyArmed && !projection) return stop('STAGE_SAVE_NOT_ARMED');
       const before = snapshots.get(n) ?? new Set();
       let next;
       try { next = confirmations(body.content); } catch (error) { return stop(error.code ?? 'CONFIRMATION_REJECTED'); }
       const changes = [...next].some(entry => !before.has(entry));
-      if (changes && !arm.confirmation) return stop('CONFIRMATION_NOT_ARMED');
-      arm.remaining--;
+      if (changes && (!explicitlyArmed || !arm.confirmation)) return stop('CONFIRMATION_NOT_ARMED');
+      if (projection) projection.projected = true;
+      else arm.remaining--;
       if (Object.keys(body.content.draft).some(key => !ROOTS.has(key))) return stop('DRAFT_SCHEMA_REJECTED');
       allowedWrites++; return { allow: true, kind: 'save-stage', stageId: n };
     }
@@ -351,6 +356,11 @@ export function createAcceptanceGuard(identity, now = Date.now) {
           try { record = JSON.parse(raw); } catch { throw new ProbeFailure('TEACHING_DEFINITION_ENTITY_UNVERIFIED'); }
           if (record.id === id && !record.archived) definitionKind = kind;
         }
+        if (definitionKind === 'hmw') {
+          const earlier = [...teachingLedger.keys()].filter(key => typeof key === 'string' && key.startsWith('definition:hmw:'));
+          if (earlier.length >= 2) throw new ProbeFailure('TEACHING_DEFINITION_ENTITY_UNVERIFIED');
+          definitionKind += ':' + id;
+        }
         if (!definitionKind) throw new ProbeFailure('TEACHING_DEFINITION_ENTITY_UNVERIFIED');
       }
       const summary = scope.selector.purpose === 'summary';
@@ -361,7 +371,10 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         if (group?.id !== scope.selector.entityId || group.archived || !['interview', 'survey'].includes(group.method)) throw new ProbeFailure('TEACHING_TEST_ENTITY_UNVERIFIED');
         testMethod = group.method;
       }
-      const key = summary ? 'group-report' : testMethod ? 'test:' + testMethod : synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? `finding:${scope.selector.entityId}` : guideRevision ? revisionKey : scope.stageId === 2 ? guideKey : definitionKind ? 'definition:' + definitionKind : scope.stageId;
+      const brainstorming = scope.stageId === 4 ? brainstormRecord(stageStates.get(4), scope.selector.entityId) : null;
+      if (brainstorming && (brainstorming.method === 'reverse' ? brainstorming.count !== 5
+        : brainstorming.method === 'scamper' ? brainstorming.count !== 1 : true)) throw new ProbeFailure('TEACHING_BRAINSTORM_SCOPE_NOT_VERIFIED');
+      const key = brainstorming ? 'brainstorm:' + brainstorming.method : summary ? 'group-report' : testMethod ? 'test:' + testMethod : synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? `finding:${scope.selector.entityId}` : guideRevision ? revisionKey : scope.stageId === 2 ? guideKey : definitionKind ? 'definition:' + definitionKind : scope.stageId;
       const interviews = [...teachingLedger.keys()].filter(id => typeof id === 'string' && id.startsWith('interview:'));
       if (scope.stageId === 2 && (!scope.selector.entityId || (!finding && !guideRevision && interviews.length >= 10))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       if (finding) {
@@ -377,7 +390,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         || scope.selector.stageRevisions.some(ref => stageStates.get(ref.stageId)?.revision !== ref.revision)
         || JSON.stringify(scope.knownMessages) !== JSON.stringify(messageSnapshots.get(scope.threadId))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       arm = null;
-      teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000 });
+      teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000, ...(brainstorming ? { brainstormUntil: now() + 180000 } : {}) });
     },
 
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },
