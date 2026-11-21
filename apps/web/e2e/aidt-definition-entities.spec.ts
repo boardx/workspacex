@@ -34,6 +34,8 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   await expect(directory).toBeVisible();
   const composer = page.getByTestId("copilotkit-v2-input");
   await expect(composer).toHaveCount(0);
+  const newCard = directory.getByTestId("aidt-new-entity-card");
+  await newCard.click();
   await expect(directory.getByRole("button", { name: "新建画像" })).toBeDisabled();
   await directory.getByRole("button", { name: "新建意外发现" }).click();
   const dialog = page.getByRole("dialog");
@@ -47,6 +49,7 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   await page.getByRole("link", { name: "返回产物列表" }).click();
   const newPersona = directory.getByRole("button", { name: "新建画像" });
   const personas = directory.getByRole("link", { name: "打开用户画像对话" });
+  await newCard.click();
   await newPersona.click();
   await dialog.getByLabel("卡片名称").fill("访谈画像 " + randomUUID().slice(0, 5));
   await dialog.getByRole("checkbox", { name: /U01/ }).check();
@@ -54,6 +57,7 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   await expect.poll(() => routeId(page, "thread")).toMatch(/^thr_aidt_/);
   await page.getByRole("link", { name: "返回产物列表" }).click();
   await expect(personas).toHaveCount(1);
+  await newCard.click();
   await newPersona.click();
   await dialog.getByLabel("卡片名称").fill("访谈画像 " + randomUUID().slice(0, 5));
   await dialog.getByRole("checkbox", { name: /U01/ }).check();

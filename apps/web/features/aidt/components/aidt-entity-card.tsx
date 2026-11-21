@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,15 @@ type CardTags = {
   saveTags: (id: string, tags: readonly string[]) => Promise<boolean>;
 };
 const CardTagsContext = React.createContext<CardTags | null>(null);
+
+export const AidtNewEntityCardButton = React.forwardRef<HTMLButtonElement, Pick<React.ComponentProps<typeof Button>, "disabled" | "onClick" | "aria-expanded" | "aria-controls">>(
+  function AidtNewEntityCardButton(props, ref) {
+    return <Button ref={ref} type="button" variant="primary" {...props} data-testid="aidt-new-entity-card">
+      <Plus className="size-4" aria-hidden />新建卡片
+    </Button>;
+  },
+);
+
 
 export function AidtEntityCardDirectory({ draft, readOnly, saveDraft, children }: {
   draft: AidtUiStageDraft;

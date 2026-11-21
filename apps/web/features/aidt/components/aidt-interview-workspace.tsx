@@ -5,9 +5,9 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
+import { AidtNewEntityCardButton } from "./aidt-entity-card";
 import { aggregateTags } from "@/lib/tag-utils";
 import { AidtInterviewCards, InterviewCardEditor, type InterviewDetails } from "./aidt-interview-cards";
-import { Plus } from "lucide-react";
 import { AidtInterviewRecorder } from "./aidt-interview-recorder";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
 import { AidtInterviewOutput } from "./aidt-interview-output";
@@ -160,7 +160,7 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
       : <>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-16 font-semibold" ref={listFocus} tabIndex={-1}>访谈列表</h4>
-          <Button type="button" size="sm" variant="primary" disabled={!canAdd} onClick={() => { createId.current = crypto.randomUUID(); setCreating(true); }}><Plus aria-hidden="true" />新建访谈</Button>
+          <AidtNewEntityCardButton disabled={!canAdd} onClick={() => { createId.current = crypto.randomUUID(); setCreating(true); }} />
         </div>
         {topic.revision && <details className="text-12"><summary className="cursor-pointer">已确认研究问题 · 第 1 步 V{topic.revision}</summary><p className="mt-2 whitespace-pre-wrap">{topic.text}</p></details>}
         {!topic.revision && !topicError && <p className="text-12 text-muted-foreground">确认并保存第 1 步的研究问题后可新建访谈。</p>}

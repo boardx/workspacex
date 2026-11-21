@@ -49,9 +49,8 @@ it("pins the test version and preserves its Chat identity through rename and del
       update={update} previousPrototype={newer} previousPrototypeRevision={7} prototypeRevision="4" prototypeEntity="design-a" readPrototypeEntity={readPrototypeEntity} />;
   }
   render(<Host />);
-  fireEvent.click(screen.getByRole("button", { name: "新建测试草稿" }));
   fireEvent.change(screen.getByRole("textbox", { name: "测试名称" }), { target: { value: "午休组" } });
-  fireEvent.click(screen.getByRole("button", { name: "创建测试" }));
+  fireEvent.click(screen.getByRole("button", { name: "新建测试草稿" }));
   await screen.findByRole("heading", { name: "午休组" });
   expect(mock.history).toHaveBeenCalledWith("project", 5, "session", { beforeRevision: 5, limit: 1 }, expect.any(AbortSignal));
   expect(readPrototypeEntity).toHaveBeenCalledWith(old, "design-a");

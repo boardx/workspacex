@@ -206,7 +206,8 @@ test("directory creation saves named problems, findings, ideas and native Design
       draft.fields.ideaHandoffIds = JSON.stringify(draft.ideas.map(idea => idea.id));
     });
     await page.goto(directory);
-    await page.getByRole("button", { name: "新建" + kind, exact: true }).click();
+    await page.getByTestId("aidt-new-entity-card").click();
+    if (step === 3) await page.getByRole("button", { name: "新建" + kind, exact: true }).click();
     {
       const dialog = page.getByRole("dialog");
       await dialog.getByRole("textbox", { name: /名称/ }).fill(title);

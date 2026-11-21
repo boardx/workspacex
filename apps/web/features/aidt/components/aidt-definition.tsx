@@ -2,7 +2,7 @@
 
 import { AidtCardSources, useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
-import { AidtEntityCard } from "./aidt-entity-card";
+import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -141,6 +141,8 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
   const [editing, setEditing] = React.useState<{ id: string; name: string } | null>(null);
   const [removing, setRemoving] = React.useState<string | null>(null);
   const [showArchived, setShowArchived] = React.useState(false);
+  const [choosingKind, setChoosingKind] = React.useState(false);
+  const kindOptionsId = React.useId();
   const active = [
     ...(hasAidtPrimarySurpriseEntity(draft) || draft.fields.surpriseConfirmed === "true" ? [{ id: AIDT_PRIMARY_SURPRISE_ID, title: "意外发现", kind: "surprise" as const, archived: false }] : []),
     ...surprises.map(item => ({ id: item.id, title: item.observation.trim() || "未命名发现", kind: "surprise" as const, archived: item.archived })),
@@ -215,11 +217,16 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
 
   return <section className="space-y-4" aria-label="综合与定义产物" data-testid="aidt-definition-directory">
     <div className="flex flex-wrap gap-2">
-      {!hasAidtPrimarySurpriseEntity(draft) && <Button type="button" disabled={!canEdit} onClick={() => start("primary")}>{draft.fields.surpriseConfirmed === "true" ? "开启意外发现对话" : "新建意外发现"}</Button>}
-      {draft.fields.surpriseStatus === "found" && <Button type="button" variant="outline" disabled={!canAdd || surprises.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => start("surprise")}>新建补充发现</Button>}
-      <Button type="button" variant="outline" disabled={!canAdd || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => start("persona")}>新建画像</Button>
-      <Button type="button" variant="outline" disabled={!canAdd || !personas.some(item => item.confirmed && !item.archived) || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => start("hmw")}>新建 HMW</Button>
+      {!readOnly && <AidtNewEntityCardButton disabled={!canEdit} aria-expanded={choosingKind} aria-controls={kindOptionsId} onClick={() => setChoosingKind(value => !value)} />}
       {active.some(item => item.archived) && <Button type="button" variant="ghost" onClick={() => setShowArchived(value => !value)}>{showArchived ? "返回产物" : "查看已移除"}</Button>}
+    </div>
+    <div id={kindOptionsId} role="group" aria-label="选择卡片类型" hidden={!choosingKind}>
+      <div className="flex flex-wrap gap-2">
+        {!hasAidtPrimarySurpriseEntity(draft) && <Button type="button" disabled={!canEdit} onClick={() => { setChoosingKind(false); start("primary"); }}>{draft.fields.surpriseConfirmed === "true" ? "开启意外发现对话" : "新建意外发现"}</Button>}
+        {draft.fields.surpriseStatus === "found" && <Button type="button" variant="outline" disabled={!canAdd || surprises.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("surprise"); }}>新建补充发现</Button>}
+        <Button type="button" variant="outline" disabled={!canAdd || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("persona"); }}>新建画像</Button>
+        <Button type="button" variant="outline" disabled={!canAdd || !personas.some(item => item.confirmed && !item.archived) || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("hmw"); }}>新建 HMW</Button>
+      </div>
     </div>
     {kindToCreate && <Dialog open onOpenChange={open => { if (!open && !creating) setKind(null); }}><DialogContent>
       <DialogTitle>新建{labels[kindToCreate]}</DialogTitle><DialogDescription>保存后将打开这张卡的对话。</DialogDescription>
