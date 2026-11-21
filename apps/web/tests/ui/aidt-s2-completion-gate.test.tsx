@@ -67,12 +67,12 @@ async function actualParent(draft: AidtUiStageDraft, complete: boolean) {
   overview.unmount();
   mocks.search = "step=2";
   render(<ProjectAidt projectId={projectId} sub="aidt-2" canWrite />);
-  await screen.findByRole("region", { name: "访谈工作区", exact: true });
+  await screen.findByRole("region", { name: /^访谈工作区$/ });
   await waitFor(() => expect(screen.getByTestId("aidt-shared-status")).toHaveTextContent("小组已保存"));
   await act(async () => { await Promise.resolve(); });
   if (complete) expect(await screen.findByTestId("aidt-stage-next")).toHaveAttribute("href", "/aidt/p?step=3");
   else expect(screen.queryByTestId("aidt-stage-next")).not.toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: "带入综合与定义", exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /^带入综合与定义$/ })).not.toBeInTheDocument();
 }
 it("G1/E1 among ten active interviews: internal handoff is true, real parent has no next and dashboard is not complete", async () => {
   const draft = interviews(1, 1); expect(aidtInterviewHandoffReady(draft)).toBe(true); expect(areAidtInterviewsComplete(draft, projectId)).toBe(false); await actualParent(draft, false);
