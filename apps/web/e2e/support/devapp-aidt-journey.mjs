@@ -354,8 +354,19 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     // This storage and navigation check remains meaningful if upstream teaching fails.
     // The full journey still requires the independent confirmed S1→S2 handoff check.
     if (!state.s2) {
-      await go(2);
-      interviewDirectory = owned(page.url());
+      if (!step2Href) {
+        if (!problemDraftReady || !problemHref) fail('SYNTHETIC_PROBLEM_REQUIRED_FOR_INTERVIEWS');
+        // A human QA confirmation enables storage testing under normal application rules.
+        // It deliberately leaves all failed teaching and handoff checkpoints failed.
+        await openProblem();
+        await reviewAndSave(1, btn('确认本轮成果并保存'));
+        await expect(page.getByTestId('aidt-round-completion')).toContainText('本轮成果已确认并保存', { timeout: 30000 });
+        step2Href = owned(await page.getByRole('link', { name: '继续第2步', exact: true }).getAttribute('href'));
+      }
+      const directory = new URL(step2Href);
+      directory.searchParams.delete('entity');
+      directory.searchParams.delete('tool');
+      interviewDirectory = owned(directory.href);
       state.interviews = [];
     }
     for (let index = state.interviews.length + 1; index <= 10; index++) {
