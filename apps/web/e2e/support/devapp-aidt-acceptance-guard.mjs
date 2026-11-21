@@ -9,6 +9,13 @@ export const PROJECT = new RegExp(`^prj-${UUID}$`);
 export const ENTITY = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const MAX_BODY = 1048576;
 const ROOTS = new Set(['fields', 'ideas', 'selectedIdeaId', 'discoveryCards', 'selectionReasons', 'unboundReason']);
+const HOME_IMAGES = new Set(['/aidt/design-thinking-school.png', '/aidt/workshop-materials.png']);
+export function approvedHomeImage(target) {
+  if (HOME_IMAGES.has(target.pathname)) return !target.search;
+  return target.pathname === '/_next/image' && [...target.searchParams.keys()].sort().join(',') === 'q,url,w'
+    && HOME_IMAGES.has(target.searchParams.get('url')) && target.searchParams.get('q') === '75'
+    && ['128','256','384','640','750','828','1080','1200','1920'].includes(target.searchParams.get('w'));
+}
 
 export function assertAcceptanceWorkflow(env) {
   if (env.GITHUB_REPOSITORY !== 'boardx/workspacex' || env.GITHUB_REF !== 'refs/heads/develop' || env.GITHUB_EVENT_NAME !== 'workflow_dispatch' || !SHA.test(env.GITHUB_SHA ?? '')) throw new ProbeFailure('MANUAL_DEVELOP_WORKFLOW_REQUIRED');
@@ -17,7 +24,7 @@ export function assertAcceptanceWorkflow(env) {
 export function acceptanceIdentity(env) {
   const { EXPECTED_SOURCE_SHA: source, EXPECTED_RELEASE_TAG: tag, GITHUB_RUN_ID: run, GITHUB_RUN_ATTEMPT: attempt } = env;
   if (!SHA.test(source ?? '') || !TAG.test(tag ?? '') || !/^[1-9][0-9]*$/.test(run ?? '') || !/^[1-9][0-9]*$/.test(attempt ?? '')) throw new ProbeFailure('ACCEPTANCE_IDENTITY_INVALID');
-  return { source, tag, run, attempt, projectName: `AIDT QA synthetic ${run}-${attempt}` };
+  return { source, tag, run, attempt, entryDiagnosticOnly: env.AIDT_ENTRY_DIAGNOSTIC_ONLY === 'true', projectName: `AIDT QA synthetic ${run}-${attempt}` };
 }
 
 export function assertRuntimeProof(proof, identity) {
@@ -64,7 +71,7 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
 
 export function createAcceptanceGuard(identity, now = Date.now) {
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
-  let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0;
+  let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0, ordinaryVerified = false, projectCreateUntil = null;
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
   let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null, modelRequestedScreens = null;
   const stop = code => { fatal ??= code; return { allow: false, kind: 'rejected', code }; };
@@ -84,8 +91,9 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       loginCount++; return { allow: true, kind: 'login' };
     }
     if (!actor && method !== 'GET') return stop('AUTHENTICATION_REQUIRED');
+    if (identity.entryDiagnosticOnly && method !== 'GET') return stop('ENTRY_DIAGNOSTIC_READONLY');
     if (method === 'GET') {
-      const publicPage = path === '/login' || path === '/aidt' || path === '/favicon.ico' || path.startsWith('/_next/static/');
+      const publicPage = path === '/login' || path === '/aidt' || path === '/favicon.ico' || path.startsWith('/_next/static/') || approvedHomeImage(target);
       const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/projects' && target.searchParams.get('orgId') === org) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
       const ownedRead = (projectId || candidate) && (path === `/aidt/${projectId ?? candidate}` || path.startsWith(`/api/projects/${projectId ?? candidate}/`));
       const ownedChat = [...threads].some(id => path === `/api/chat/threads/${encodeURIComponent(id)}` || path.startsWith(`/api/chat/threads/${encodeURIComponent(id)}/`)
@@ -108,8 +116,8 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     }
     if (method === 'DELETE' || !['POST', 'PUT', 'PATCH'].includes(method) || /\/(?:members|collaborators|roles|permissions|courses|admin|config|policies|archive|restore)(?:\/|$)/.test(path)) return stop('FORBIDDEN_MUTATION');
     if (method === 'POST' && path === '/api/projects' && !projectId && !candidate) {
-      if (createCount !== 0 || !object(body) || Object.keys(body).sort().join(',') !== 'blueprintVersionId,kind,name,orgId' || body.orgId !== org || body.kind !== 'general' || body.blueprintVersionId !== null || body.name !== identity.projectName) return stop('PROJECT_CREATE_REJECTED');
-      createCount++; allowedWrites++; return { allow: true, kind: 'create-project' };
+      if (!ordinaryVerified || !projectCreateUntil || now() > projectCreateUntil || createCount !== 0 || !object(body) || Object.keys(body).sort().join(',') !== 'blueprintVersionId,kind,name,orgId,profile' || body.orgId !== org || body.kind !== 'general' || body.blueprintVersionId !== null || body.profile !== 'aidt' || body.name !== identity.projectName) return stop('PROJECT_CREATE_REJECTED');
+      projectCreateUntil = null; createCount++; allowedWrites++; return { allow: true, kind: 'create-project' };
     }
     if (!projectId) return stop('OWNED_PROJECT_REQUIRED');
     try { checkReferences(body, projectId, threads, resources); } catch (error) { return stop(error.code ?? 'REFERENCE_REJECTED'); }
@@ -133,9 +141,6 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         || !Array.isArray(meta.files) || meta.files.length !== 1 || JSON.stringify(meta.files[0]) !== JSON.stringify({ filename: file.filename, sizeBytes: file.sizeBytes, sha256: file.sha256 })
         || file.filename !== uploadArm.filename || file.sha256 !== uploadArm.sha256 || file.sizeBytes !== uploadArm.sizeBytes || file.mime !== uploadArm.mime) return stop('UPLOAD_NOT_ARMED');
       const fixture = uploadArm; uploadArm = null; allowedWrites++; return { allow: true, kind: 'upload', fixture };
-    }
-    if (method === 'PATCH' && path === `/api/projects/${projectId}/tags` && object(body) && Object.keys(body).sort().join(',') === 'projectId,tags' && body.projectId === projectId && Array.isArray(body.tags) && body.tags.length === 1 && body.tags[0] === 'workspacex:aidt') {
-      allowedWrites++; return { allow: true, kind: 'aidt-tag' };
     }
     const stage = new RegExp(`^/api/projects/${projectId}/aidt/stages/([1-6])$`).exec(path);
     if (method === 'PUT' && stage && object(body) && object(body.content) && object(body.content.draft)) {
@@ -217,13 +222,23 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       resources.add(version);
     },
     armLogin: () => { loginArmed = true; },
+    readIdentityRole: (status, identityResponse) => {
+      if (!actor || status !== 200 || identityResponse?.org?.id !== org || !['consultant', 'lead', 'admin', 'compliance'].includes(identityResponse.orgRole)) throw new ProbeFailure('IDENTITY_ROLE_UNVERIFIED');
+      return { orgRole: identityResponse.orgRole, organizationMatched: true, ordinaryConsultant: identityResponse.orgRole === 'consultant' };
+    },
+    verifyOrdinaryIdentity: (status, identityResponse) => {
+      if (!actor || status !== 200 || identityResponse?.org?.id !== org || identityResponse.orgRole !== 'consultant') throw new ProbeFailure('ORDINARY_QA_CONSULTANT_REQUIRED');
+      ordinaryVerified = true;
+      return { orgRole: 'consultant', organizationMatched: true, administrator: false, lead: false };
+    },
+    armProjectCreate: () => { if (identity.entryDiagnosticOnly || !ordinaryVerified || candidate || projectId || createCount) throw new ProbeFailure('PROJECT_CREATE_ARM_REJECTED'); projectCreateUntil = now() + 15000; },
     armStageSave: (stage, confirmation = false) => { if (!projectId || !Number.isInteger(stage) || stage < 1 || stage > 6) throw new ProbeFailure('CONFIRMATION_ARM_REJECTED'); arm = { stage, confirmation, remaining: 2, until: now() + 15000 }; },
     bindOwnedProject: (overview, members) => {
       if (!candidate || projectId || overview?.projectId !== candidate || overview.name !== identity.projectName || !Array.isArray(members) || !members.some(item => item.userId === actor && item.role === 'owner')) throw new ProbeFailure('PROJECT_OWNERSHIP_UNVERIFIED');
       projectId = candidate;
     },
-    identity: () => ({ actor, org, candidate, projectId }),
-    summary: () => ({ loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
+    identity: () => ({ actor, org, candidate, projectId, ordinaryVerified }),
+    summary: () => ({ ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
   };
 }
 

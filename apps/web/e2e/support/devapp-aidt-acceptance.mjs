@@ -61,7 +61,7 @@ async function api(page, method, path, body) {
   }, { method, path, body });
 }
 
-async function verifyPng(browser, bytes) {
+export async function verifyPng(browser, bytes, minimumHeight = 200) {
   if (bytes.length < 512 || bytes.length > 8388608 || bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw new ProbeFailure('SCREENSHOT_BYTES_INVALID');
   const context = await browser.newContext({ serviceWorkers: 'block' });
   try {
@@ -77,9 +77,19 @@ async function verifyPng(browser, bytes) {
       for (let i = 0; i < data.length; i += 4) colors.add(`${data[i]},${data[i + 1]},${data[i + 2]},${data[i + 3]}`);
       return { width: image.width, height: image.height, sampledColors: colors.size };
     }, bytes.toString('base64'));
-    if (proof.width < 300 || proof.height < 200 || proof.sampledColors < 8) throw new ProbeFailure('SCREENSHOT_EMPTY_OR_UNREADABLE');
+    if (proof.width < 300 || proof.height < minimumHeight || proof.sampledColors < 8) throw new ProbeFailure('SCREENSHOT_EMPTY_OR_UNREADABLE');
     return proof;
   } finally { await context.close(); }
+}
+
+export function finalizeGuardVerdict(report, guard) {
+  const code = guard?.fatal();
+  if (code) {
+    report.passed = false; report.fullAcceptancePassed = false;
+    report.guardFailure = /^[A-Z0-9_]{1,90}$/.test(code) ? code : 'SAFETY_GUARD_STOPPED';
+    report.failure ??= report.guardFailure;
+  }
+  return report;
 }
 
 export async function main() {
@@ -91,12 +101,16 @@ export async function main() {
     checkpoints: [], screenshots: [], scope: 'writes and screenshots: new owned QA project only',
     authorizedMetadataReads: 'Native clients also read the QA-authorized identity, course/project/Skill catalogs and Design list in memory. No raw lists or unrelated projects are exported.',
     designRequestLimit: 'At most one normal UI Design chat request; default page count is decided by the existing service, not capped to one page.' };
-  let browser, context, output, identity, guard, credentials, timer, stage = 'preflight';
+  let browser, context, page, output, identity, guard, credentials, timer, stage = 'preflight';
   try {
     if (process.argv.length !== 2) throw new ProbeFailure('ARGUMENTS_REJECTED');
     assertAcceptanceWorkflow(process.env);
     identity = acceptanceIdentity(process.env);
     report.controlSource = process.env.GITHUB_SHA;
+    report.executionMode = identity.entryDiagnosticOnly ? 'entry-diagnostic-readonly' : 'ordinary-ui-first-full';
+    report.fullAcceptancePassed = false;
+    report.requirements = { source: 'docs/requirements/aidt-v2-full.md', declaredVersion: 'V2 with 2026-11-15 FR15-FR19', independentVrOriginal: 'not located; do not infer VR compliance' };
+    report.stageIterations = [];
     output = privateOutput(process.env, identity);
     const metadata = JSON.parse(readFileSync(new URL('../../../../acceptance-source.json', import.meta.url), 'utf8'));
     if (metadata.controlSource !== process.env.GITHUB_SHA || !Array.isArray(metadata.teachingSkillNames) || metadata.teachingSkillNames.length < 6) throw new ProbeFailure('SOURCE_BUNDLE_INVALID');
@@ -109,6 +123,7 @@ export async function main() {
     timer = setTimeout(() => { guard.fail('ACCEPTANCE_TIMEOUT'); void context?.close(); }, 30 * 60 * 1000);
     const browserEnv = Object.fromEntries(['PATH', 'HOME', 'LANG', 'TZ', 'PLAYWRIGHT_BROWSERS_PATH'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
     browser = await chromium.launch({ headless: true, env: browserEnv });
+    report.browser = { name: 'Chromium', version: browser.version(), playwrightVersion: metadata.playwrightVersion, headless: true };
     context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block', acceptDownloads: true });
     await context.route('**/*', async route => {
       const request = route.request();
@@ -144,12 +159,20 @@ export async function main() {
           try { parsed = JSON.parse(bytes.toString('utf8')); } catch { throw new ProbeFailure('RESPONSE_SCHEMA_INVALID'); }
         }
         guard.observe(decision, response.status(), parsed);
+        // Bind only the actual created candidate before the normal UI resumes.
+        if (decision.kind === 'create-project' && [200, 201].includes(response.status())) {
+          const id = guard.identity().candidate;
+          const overview = await api(page, 'GET', `/api/projects/${id}/overview`);
+          const membership = await api(page, 'GET', `/api/projects/${id}/collaborators`);
+          if (overview.status !== 200 || membership.status !== 200) throw new ProbeFailure('QA_PROJECT_OWNERSHIP_READ_FAILED');
+          guard.bindOwnedProject(overview.data, membership.data?.members);
+        }
         await route.fulfill({ response });
       } catch (error) { guard.fail(safeCode(error)); try { await route.abort('blockedbyclient'); } catch { /* Already closed. */ } }
     });
     if (typeof context.routeWebSocket !== 'function') throw new ProbeFailure('WEBSOCKET_GUARD_UNAVAILABLE');
     await context.routeWebSocket('**/*', socket => socket.close());
-    const page = await context.newPage(); page.setDefaultTimeout(15000);
+    page = await context.newPage(); page.setDefaultTimeout(15000);
     stage = 'login';
     await page.goto(`${ORIGIN}/login?next=%2Faidt`, { waitUntil: 'domcontentloaded' });
     await page.getByTestId('login-email').fill(credentials.email);
@@ -158,50 +181,79 @@ export async function main() {
     await page.waitForURL(`${ORIGIN}/aidt`, { waitUntil: 'domcontentloaded' });
     if (!guard.identity().actor) throw new ProbeFailure('AUTHENTICATION_FAILED');
     report.login = { authenticated: true, loginRequests: 1 };
-    stage = 'owned-project-setup';
-    const created = await api(page, 'POST', '/api/projects', { orgId: guard.identity().org, name: identity.projectName, kind: 'general', blueprintVersionId: null });
-    if (![200, 201].includes(created.status) || !guard.identity().candidate) throw new ProbeFailure('QA_PROJECT_CREATE_FAILED');
-    const projectId = guard.identity().candidate;
-    const overview = await api(page, 'GET', `/api/projects/${projectId}/overview`);
-    const membership = await api(page, 'GET', `/api/projects/${projectId}/collaborators`);
-    guard.bindOwnedProject(overview.data, membership.data?.members);
-    const tagged = await api(page, 'PATCH', `/api/projects/${projectId}/tags`, { projectId, tags: ['workspacex:aidt'] });
-    if (tagged.status !== 200 || tagged.data?.id !== projectId || !tagged.data.tags?.includes('workspacex:aidt')) throw new ProbeFailure('QA_PROJECT_TAG_FAILED');
-    report.project = { id: projectId, name: identity.projectName, ownerVerified: true, setup: 'normal-project-API' };
     const recheckRuntime = () => {
       const observed = runtimeProof(identity);
       if (JSON.stringify(observed) !== JSON.stringify(report.deployedRuntime)) { guard.fail('RUNTIME_CHANGED_DURING_ACCEPTANCE'); throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE'); }
       report.runtimeRechecks++;
     };
-    const capture = async (name, expectedStage) => {
+    const capture = async (name, expectedStage, region = 'workspace') => {
       if (!/^[a-z0-9][a-z0-9-]{0,85}$/.test(name)) throw new ProbeFailure('SCREENSHOT_NAME_INVALID');
-      assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
+      if (region === 'workspace') assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
+      else { const url = new URL(page.url()); if (url.origin !== ORIGIN || url.pathname !== '/aidt' || !['home-create-actions', 'create-dialog'].includes(region)) throw new ProbeFailure('SCREENSHOT_SCOPE_REJECTED'); }
       recheckRuntime();
-      const workspace = page.getByTestId('aidt-project-workspace');
+      const workspace = region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') });
       await workspace.waitFor({ state: 'visible' });
-      await page.keyboard.press('Escape');
-      const sensitive = await page.evaluate(({ email, password }) => {
+      if (region === 'workspace') await page.keyboard.press('Escape');
+      const sensitive = await workspace.evaluate((root, { email, password }) => {
         const visible = node => node instanceof HTMLElement && node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
-        const values = [document.body.innerText, ...[...document.querySelectorAll('input,textarea,[contenteditable="true"]')].filter(visible).map(node => 'value' in node ? node.value : node.innerText)].join('\n');
+        const values = [root.innerText, ...[...root.querySelectorAll('input,textarea,[contenteditable="true"]')].filter(visible).map(node => 'value' in node ? node.value : node.innerText)].join('\n');
         const token = localStorage.getItem('wsx.sessionToken');
         return [email, password, token].some(secret => typeof secret === 'string' && secret.length > 0 && values.includes(secret)) || /Bearer\s+[A-Za-z0-9._~-]{12,}|\bsk-[A-Za-z0-9]{16,}/.test(values);
       }, { email: credentials.email, password: credentials.password });
       if (sensitive) throw new ProbeFailure('SCREENSHOT_SENSITIVE_CONTENT');
       const bytes = await workspace.screenshot({ type: 'png', animations: 'disabled' });
-      const dimensions = await verifyPng(browser, bytes), filename = `${name}.png`;
+      const dimensions = await verifyPng(browser, bytes, region === 'workspace' ? 200 : 24), filename = `${name}.png`;
       writeFileSync(resolve(output.out, filename), bytes, { flag: 'wx', mode: 0o600 });
-      report.screenshots.push({ filename, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), ...dimensions, stage: expectedStage ?? null });
+      report.screenshots.push({ filename, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), ...dimensions, stage: expectedStage ?? null, region });
     };
     const checkpoint = async (name, operation) => {
       if (!/^[a-z0-9][a-z0-9-]{0,90}$/.test(name)) throw new ProbeFailure('CHECKPOINT_NAME_INVALID');
       if (guard.fatal()) { report.checkpoints.push({ name, status: 'blocked', code: guard.fatal() }); return false; }
-      try { recheckRuntime(); await operation(); report.checkpoints.push({ name, status: 'passed' }); return true; }
+      const startedUTC = new Date().toISOString(), tick = performance.now();
+      console.log(JSON.stringify({ event: 'checkpoint-start', name, startedUTC, maximumMinutes: 15 }));
+      const record = result => { const durationMs = Math.round(performance.now() - tick); const item = { name, ...result, startedUTC, finishedUTC: new Date().toISOString(), durationMs, maximumMinutes: 15, timedOut: durationMs > 900000 }; report.checkpoints.push(item); console.log(JSON.stringify({ event: 'checkpoint-finish', ...item })); };
+      try { recheckRuntime(); await operation(); record({ status: 'passed' }); return true; }
       catch (error) {
-        report.checkpoints.push({ name, status: 'failed', code: safeCode(error) });
+        record({ status: 'failed', code: safeCode(error) });
         try { await capture(`${name}-failed`); } catch { report.checkpoints.push({ name: `${name}-capture`, status: 'blocked', code: 'FAILURE_SCREENSHOT_UNAVAILABLE' }); }
         return false;
       }
     };
+    stage = 'ordinary-identity-and-home-entry';
+    const me = await api(page, 'GET', `/api/identity/me?orgId=${encodeURIComponent(guard.identity().org)}`);
+    report.actor = guard.readIdentityRole(me.status, me.data);
+    await expect(page.getByTestId('aidt-home')).toBeVisible();
+    if (identity.entryDiagnosticOnly) {
+      report.kind = 'devapp-aidt-entry-diagnostic-v1';
+      const visible = await page.getByTestId('aidt-new').isVisible();
+      await capture('00-home-create-actions', undefined, 'home-create-actions');
+      report.entryDiagnostic = { completed: true, orgRole: report.actor.orgRole, creationEntryVisible: visible,
+        ordinaryQaSuitable: report.actor.ordinaryConsultant, missingEntryReproduced: report.actor.ordinaryConsultant && !visible,
+        writesOtherThanLogin: 0, scope: 'read-only entry observation; not creation or six-stage acceptance' };
+      report.passed = true;
+      return;
+    }
+    guard.verifyOrdinaryIdentity(me.status, me.data);
+    const homeCreated = await checkpoint('homepage-ui-create-persist', async () => {
+      await capture('00-home-create-actions', undefined, 'home-create-actions');
+      await expect(page.getByTestId('aidt-new')).toBeVisible(); await page.getByTestId('aidt-new').click();
+      await page.getByTestId('project-new-name').fill(identity.projectName);
+      await capture('00-create-dialog', undefined, 'create-dialog');
+      guard.armProjectCreate(); await page.getByTestId('project-new-create').click();
+      await expect.poll(() => guard.identity().projectId).toMatch(/^prj-/);
+      const id = guard.identity().projectId;
+      await page.waitForURL(`${ORIGIN}/aidt/${id}`, { waitUntil: 'domcontentloaded' });
+      await expect(page.getByTestId('aidt-dashboard')).toBeVisible();
+      for (let n = 1; n <= 6; n++) await expect(page.getByTestId(`aidt-step-${n}`)).toBeVisible();
+      report.project = { id, name: identity.projectName, ownerVerified: true, profile: 'aidt', setup: 'normal-homepage-UI', ordinaryConsultant: true };
+      await capture('00-created-six-stage-overview');
+      await page.goto(`${ORIGIN}/aidt`); await expect(page.getByTestId(`aidt-project-${id}`)).toBeVisible();
+      await page.reload(); await expect(page.getByTestId(`aidt-project-${id}`)).toBeVisible();
+      await page.getByTestId(`aidt-project-${id}`).click(); await expect(page.getByTestId('aidt-dashboard')).toBeVisible();
+      await capture('00-created-reentry-overview');
+    });
+    if (!homeCreated) throw new ProbeFailure('HOMEPAGE_UI_CREATION_NOT_ACCEPTED');
+    const projectId = guard.identity().projectId;
     const saveStage = async (n, visibleButton) => {
       const button = visibleButton ?? page.getByTestId('aidt-shared-save');
       await expect(button).toBeVisible(); await expect(button).toBeEnabled();
@@ -258,8 +310,9 @@ export async function main() {
       registerFixture: fixture => guard.registerFixture(fixture), armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), createAnonymousPage, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
-    report.requiredChecks = ['unknown-project-denied', ...REQUIRED_CHECKS];
+    report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS];
     report.passed = !guard.fatal() && report.requiredChecks.every(name => report.checkpoints.some(item => item.name === name && item.status === 'passed'));
+    report.fullAcceptancePassed = report.passed;
     if (!report.passed) report.failure = guard.fatal() ?? 'REQUIRED_CHECKS_NOT_ALL_PASSED';
   } catch (error) { report.failure = safeCode(error); report.failedStage = stage; }
   finally {
@@ -270,7 +323,9 @@ export async function main() {
       report.requestScope = guard.summary();
       report.designGenerationWorkflowObserved = report.requestScope.designModel?.httpStatus === 200 && report.requestScope.designModel?.generatedFrames > 0;
       report.designProviderIndependentlyVerified = false;
+      report.cleanup = { performed: false, reason: 'No delete API; consultant is not entitled to project lifecycle archive. Keep labelled synthetic QA project and evidence; no privilege escalation.' };
     }
+    finalizeGuardVerdict(report, guard);
     if (output) writeFileSync(resolve(output.out, 'acceptance.json'), `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
     console.log(JSON.stringify({ kind: report.kind, passed: report.passed, failure: report.failure ?? null,
       source: identity?.source ?? null, tag: identity?.tag ?? null, checkpoints: report.checkpoints, screenshots: report.screenshots.map(({ filename, bytes, sha256 }) => ({ filename, bytes, sha256 })) }));
