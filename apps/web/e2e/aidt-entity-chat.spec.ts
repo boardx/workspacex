@@ -53,6 +53,15 @@ test("ten interviews bind to ten native conversations and reopening never copies
   const secondTab = await context.newPage();
   const [first, duplicate] = await Promise.all([openInterview(page, urls[0]!), openInterview(secondTab, urls[0]!)]);
   expect(duplicate).toBe(first);
+  await page.goto(urls[0]! + "&tool=outcome");
+  const inspector = page.getByTestId("aidt-tool-panel");
+  await expect(inspector).toBeVisible();
+  await expect(inspector.getByLabel("受访者代号", { exact: true })).toHaveValue("U01");
+  await expect(inspector.getByLabel("访谈 / 观察提纲", { exact: true })).toHaveCount(0);
+  await page.getByTestId("chat-task-workbench-inspector-collapse").click();
+  await expect(inspector).toHaveCount(0);
+  await expect.poll(() => new URL(page.url()).searchParams.get("entity")).toBe(ids[0]);
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(first);
   const message = "这条 U01 专用记录不应出现在其他受访者的会话里。";
   const run = await sendViaWorkbench(page, message);
   expect(AidtContextSelector.parse(run.postDataJSON().forwardedProps?.aidtContext)).toMatchObject({
