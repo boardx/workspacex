@@ -103,6 +103,23 @@ function readInterviewProblemSource(fields: Record<string, string>, interviewId:
   }
 }
 
+function AidtOpenOnNewTurn({ messages, loading, open }: {
+  messages: readonly { id: string; role: string; content?: unknown }[];
+  loading: boolean;
+  open: () => void;
+}) {
+  const seen = React.useRef<Set<string> | null>(null);
+  React.useEffect(() => {
+    if (loading) return;
+    const ids = messages.filter(message => (message.role === "user" || message.role === "assistant")
+      && typeof message.content === "string" && message.content.trim()).map(message => message.id);
+    const previous = seen.current;
+    seen.current = new Set(ids);
+    if (previous && ids.some(id => !previous.has(id))) open();
+  }, [messages, loading, open]);
+  return null;
+}
+
 export function ProjectAidt({ projectId, projectName, sub, canWrite, activePrototypeId, activeEntityId }: { projectId: string; projectName?: string; sub: string | null; canWrite: boolean; activePrototypeId?: string; activeEntityId?: string }) {
   const identity = useOptionalSession()?.session;
   const authenticated = hasAidtIdentity(identity);
@@ -226,6 +243,21 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
       return { ...base, revision: base.revision + 1, drafts: { ...base.drafts, [id]: draft } };
     });
   } });
+  const [pendingEntitySave, setPendingEntitySave] = React.useState<string | null>(null);
+  const entitySaveScope = JSON.stringify([shared.writeKey, activeEntityId]);
+  function requestEntitySave() {
+    if (canWrite && activeEntityId) setPendingEntitySave(entitySaveScope);
+  }
+  React.useEffect(() => {
+    if (pendingEntitySave === null) return;
+    if (pendingEntitySave !== entitySaveScope || !canWrite || shared.needsBaseReview) {
+      setPendingEntitySave(null);
+      return;
+    }
+    if (!shared.canSave) return;
+    setPendingEntitySave(null);
+    if (!shared.matchesServer) void shared.saveCurrent();
+  }, [pendingEntitySave, entitySaveScope, canWrite, shared]);
   const latestHmwStage = shared.stages[3];
   const hmwSessionToken = checkpointScope?.sessionToken;
   const reportReview = useAidtReportReview({
@@ -482,14 +514,16 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
               <ChatHostConversationContext.Provider value={problemStep && tool === "outcome" && conversationTarget ? { target: conversationTarget, render: (messages, loading, running) => <AidtProblemConversation messages={messages} loading={loading} running={running}
                 hasInitial={Boolean(problemDraft.fields.initial?.trim())} onUseInitial={(content, messageId) => updateStage(1, old =>
                   old.fields.initial?.trim() ? old : { ...old, fields: { ...old.fields, initial: content, initialChatMessageId: messageId } }
-                )} /> } : activeInterview && conversationTarget && tool === "outcome" && !isAidtInterviewArchived(currentUi.drafts[2]!.fields, activeInterview.id) ? {
-                target: conversationTarget, render: (messages, loading, running) => <AidtInterviewConversation key={activeInterview.id} interview={activeInterview} messages={messages} loading={loading} running={running} onApply={patch => updateStage(2, old => {
+                )} /> } : activeInterview && !isAidtInterviewArchived(currentUi.drafts[2]!.fields, activeInterview.id) ? {
+                render: (messages, loading, running) => <>
+                  <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
+                  <AidtInterviewConversation key={activeInterview.id} interview={activeInterview} messages={messages} loading={loading} running={running} onApply={patch => updateStage(2, old => {
                   const current = readAidtInterviews(old.fields).find(item => item.id === activeInterview.id);
                   if (!current || isAidtInterviewArchived(old.fields, current.id) || (patch.original && current.original)) return old;
                   return writeAidtInterview(old, { ...current, ...patch });
-                })} />
+                })} /></>
               } : null}>
-              <Chat interviewPhase={activeInterview ? activeInterview.guideConfirmed || activeInterview.consent ? "fieldwork" : activeInterview.original ? "revision" : "initial" : undefined} offerInitial={problemStep ? text => toChat(text, false) : undefined} key={`${uiScope}:${step.id}:${reportMode ? "report" : "stage"}:${activeEntityId ?? ""}`} entityId={activeEntityId} entityRevision={activeEntityId ? shared.stages[step.id]?.revision : undefined} sourceEntityId={sourceProblem?.id} sourceRevision={sourceProblem?.revision} projectId={projectId} step={step} thread={reportMode ? summaryThread : thread} purpose={reportMode ? "report" : undefined} returnRevision={returnRevision} taskHref={href(reportMode ? "report" : "outcome")} onResolvedThread={onResolvedThread} savedContextRefs={activeEntityId ? [] : savedContextRefs} sharedContextRefs={sharedContextRefs} sharedContextReady={shared.read?.phase === "ready"} referencePanel={referencePanel} hostPanel={{ scope: `${uiLifecycleKey}:${step.id}:${activeEntityId ?? ""}`, title: problemStep ? "工作坊问题" : "成果", placement: problemStep || activeInterview ? "artifacts" : undefined, open: tool !== "chat", content: workspaceTools, onOpenChange: setWorkspaceToolsOpen }} />
+              <Chat interviewPhase={activeInterview ? activeInterview.guideConfirmed || activeInterview.consent ? "fieldwork" : activeInterview.original ? "revision" : "initial" : undefined} offerInitial={problemStep ? text => toChat(text, false) : undefined} key={`${uiScope}:${step.id}:${reportMode ? "report" : "stage"}:${activeEntityId ?? ""}`} entityId={activeEntityId} entityRevision={activeEntityId ? shared.stages[step.id]?.revision : undefined} sourceEntityId={sourceProblem?.id} sourceRevision={sourceProblem?.revision} projectId={projectId} step={step} thread={reportMode ? summaryThread : thread} purpose={reportMode ? "report" : undefined} returnRevision={returnRevision} taskHref={href(reportMode ? "report" : "outcome")} onResolvedThread={onResolvedThread} savedContextRefs={activeEntityId ? [] : savedContextRefs} sharedContextRefs={sharedContextRefs} sharedContextReady={shared.read?.phase === "ready"} referencePanel={referencePanel} hostPanel={{ scope: `${uiLifecycleKey}:${step.id}:${activeEntityId ?? ""}`, title: problemStep ? "工作坊问题" : "成果", placement: problemStep || activeEntityId ? "artifacts" : undefined, open: tool !== "chat", content: workspaceTools, onOpenChange: setWorkspaceToolsOpen }} />
               </ChatHostConversationContext.Provider>
             </div> : <ProjectConversations key={uiScope} projectId={projectId} canWrite={false} />}
           </AidtAssistantPanel>
