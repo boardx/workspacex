@@ -143,13 +143,15 @@ it("requires a student turn and accepts 暂无 only from the student", () => {
 });
 
 it("selects multiple confirmed interview discoveries as frozen evidence when creating a Persona or HMW", () => {
+  const interviewId = "73e90275-e848-480f-8962-8d39d3b88b43";
+  const first = { ...card, id: interviewId };
   const second = { ...card, id: "u3", participantCode: "U03", headline: "先看排队长度" };
-  const source = { ...context, availableCards: [card, unconfirmed, second], discoveryCardFields: {
-    ...context.discoveryCardFields, "interviewConfirmed:u3": "true",
-    "interviewRecord:u1": JSON.stringify({ version: 1, id: "u1", code: "U01", displayName: "阿岚",
+  const source = { ...context, availableCards: [first, unconfirmed, second], discoveryCardFields: {
+    [`interviewConfirmed:${interviewId}`]: "true", "interviewConfirmed:u3": "true",
+    [`interviewRecord:${interviewId}`]: JSON.stringify({ version: 1, id: interviewId, code: "U01", displayName: "阿岚",
       topic: "", topicRevision: null, goal: "", original: "", adopted: "", guideConfirmed: false, consent: null }),
   } };
-  let result = saveAidtDefinitionPersona(noSurprise(), persona("p1"), 2);
+  let result = saveAidtDefinitionPersona(noSurprise(), { ...persona("p1"), cardIds: [interviewId] }, 2);
   function Directory() {
     const [draft, setDraft] = React.useState(result);
     return <AidtDefinitionDirectory {...source} draft={draft} update={mutate => setDraft(old => { result = mutate(old); return result; })}
@@ -160,12 +162,12 @@ it("selects multiple confirmed interview discoveries as frozen evidence when cre
     fireEvent.click(screen.getByRole("button", { name: openLabel }));
     const dialog = within(screen.getByRole("dialog"));
     expect(dialog.queryByText("U02")).not.toBeInTheDocument();
-    fireEvent.click(dialog.getByRole("checkbox", { name: "难以比较口味" }));
-    fireEvent.click(dialog.getByRole("checkbox", { name: "先看排队长度" }));
+    fireEvent.click(dialog.getByRole("checkbox", { name: "U01 · 阿岚 · 难以比较口味" }));
+    fireEvent.click(dialog.getByRole("checkbox", { name: "U03 · 先看排队长度" }));
     fireEvent.click(dialog.getByRole("button", { name: createLabel }));
   }
   const definition = readAidtDefinition(result.fields);
-  expect(definition.personas.at(-1)?.cardIds).toEqual(["u1", "u3"]);
-  expect(definition.hmws[0]?.cardIds).toEqual(["u1", "u3"]);
+  expect(definition.personas.at(-1)?.cardIds).toEqual([interviewId, "u3"]);
+  expect(definition.hmws[0]?.cardIds).toEqual([interviewId, "u3"]);
   expect(readAidtDefinitionEvidenceRevision(result.fields)).toBe(2);
 });

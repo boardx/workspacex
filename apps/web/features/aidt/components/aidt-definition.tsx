@@ -367,7 +367,7 @@ function DefinitionEvidence({ projectId, sourceFields, cards, unconfirmedCards, 
     const name = interview?.displayName ? `${interview.code} · ${interview.displayName}` : interview?.code || card.participantCode;
     return <div key={card.id} className="rounded-lg border border-border p-2 text-13">
       {groupByInterview && name && <p className="mb-1 font-semibold">{name}</p>}
-      <label className="flex items-start gap-2"><input className="mt-1" type="checkbox" checked={selected.includes(card.id)} disabled={!selected.includes(card.id) && selected.length >= AIDT_DEFINITION_EVIDENCE_LIMIT} onChange={event => onChange(toggleId(selected, card.id, event.currentTarget.checked))} /><span className="min-w-0 break-words">{groupByInterview ? card.headline || "人物发现卡" : `${card.participantCode} · ${card.headline || "人物发现"}`}</span></label>
+      <label className="flex items-start gap-2"><input className="mt-1" type="checkbox" aria-label={groupByInterview ? `${name} · ${card.headline || "人物发现卡"}` : undefined} checked={selected.includes(card.id)} disabled={!selected.includes(card.id) && selected.length >= AIDT_DEFINITION_EVIDENCE_LIMIT} onChange={event => onChange(toggleId(selected, card.id, event.currentTarget.checked))} /><span className="min-w-0 break-words">{groupByInterview ? card.headline || "人物发现卡" : `${card.participantCode} · ${card.headline || "人物发现"}`}</span></label>
       <DefinitionEvidenceSource projectId={projectId} card={card} source={sourceFields[researchMaterialKey("source", card.id)]} />
     </div>;
   };
