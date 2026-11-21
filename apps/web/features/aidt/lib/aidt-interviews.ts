@@ -13,6 +13,7 @@ const Interview = z.object({
   version: z.literal(1),
   id: z.string().uuid(),
   code: z.string().trim().min(1).max(32),
+  problemEntityId: z.string().uuid().optional(),
   topicRevision: z.number().int().positive().nullable(),
   topic: z.string().max(650),
   goal: z.string().max(250),
@@ -94,7 +95,7 @@ export function writeAidtInterview(draft: AidtUiStageDraft, interview: AidtInter
     && record.code.normalize("NFKC").toLowerCase() === value.data.code.normalize("NFKC").toLowerCase())) return draft;
   const payload = JSON.stringify(value.data);
   if (payload.length > 6000) return draft;
-  const invalidate = current && (current.code !== value.data.code || current.topicRevision !== value.data.topicRevision
+  const invalidate = current && (current.code !== value.data.code || current.topicRevision !== value.data.topicRevision || current.problemEntityId !== value.data.problemEntityId
     || !value.data.guideConfirmed || JSON.stringify(current.consent) !== JSON.stringify(value.data.consent));
   const fields = { ...draft.fields, [recordKey(interview.id)]: payload, ...(invalidate ? { [confirmedKey(interview.id)]: "" } : {}) };
   if (invalidate) delete fields[researchMaterialKey("source", interview.id)];

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
@@ -19,21 +20,44 @@ import {
 } from "../lib/aidt-interviews";
 
 type UpdateDraft = (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
-type Topic = { revision: number | null; text: string; reflection?: string };
+type Topic = { revision: number | null; text: string; reflection?: string; problemEntityId?: string };
 const inputClass = "mt-1 w-full rounded-md border border-border bg-background p-2 text-13";
 const blankTopic: Topic = { revision: null, text: "" };
 
-async function confirmedTopic(stage: AidtSharedStage | null): Promise<Topic | null> {
+const problemEntry = z.object({ id: z.string().uuid(), archived: z.boolean() });
+const problemFields = z.record(z.string());
+
+function readProblemDraft(draft: AidtUiStageDraft, id?: string): AidtUiStageDraft | null {
+  if (!id) return draft;
+  try {
+    const entity = problemEntry.parse(JSON.parse(draft.fields["problemEntity:" + id] ?? "null"));
+    if (entity.id !== id || entity.archived) return null;
+    const fields = problemFields.parse(JSON.parse(draft.fields["problemDraft:" + id] ?? "null"));
+    return { fields, ideas: [], selectedIdeaId: "" };
+  } catch { return null; }
+}
+
+async function confirmedTopic(stage: AidtSharedStage | null, problemEntityId?: string): Promise<Topic | null> {
   if (!stage) return null;
-  const { fields } = stage.content.draft;
+  const draft = readProblemDraft(stage.content.draft, problemEntityId);
+  if (!draft) return null;
+  const { fields } = draft;
   const record = fields[AIDT_ROUND_COMPLETION_FIELD];
   if (!record || !fields.rewrittenTheme?.trim()) return null;
-  const digest = await aidtRoundDigest(aidtRoundPayload(stage.projectId, 1, stage.content.draft, stage.sourceStageRevisions));
+  const digest = await aidtRoundDigest(aidtRoundPayload(stage.projectId, 1, draft, stage.sourceStageRevisions));
   return record === aidtRoundConfirmation(stage.projectId, 1, digest)
-    ? { revision: stage.revision, text: fields.rewrittenTheme, reflection: formatAidtProblemReflectionMarkdown(stage.content.draft).slice(1).join("\n") }
+    ? { revision: stage.revision, text: fields.rewrittenTheme, reflection: formatAidtProblemReflectionMarkdown(draft).slice(1).join("\n"), problemEntityId }
     : null;
 }
 
+async function readExactTopic(projectId: string, token: string, revision: number, signal: AbortSignal, id?: string) {
+  if (!Number.isInteger(revision) || revision < 1 || revision > 2147483647) return null;
+  const { stage } = await readAidtStage(projectId, 1, token, signal);
+  if (stage?.revision === revision) return confirmedTopic(stage, id);
+  if (!stage || stage.revision < revision || revision === 2147483647) return null;
+  const { items } = await listAidtStageHistory(projectId, 1, token, { beforeRevision: revision + 1, limit: 1 }, signal);
+  return confirmedTopic(items[0]?.revision === revision ? items[0] : null, id);
+}
 
 function InterviewField({ label, value, maxLength, disabled, onChange, rows = 1 }: {
   label: string; value: string; maxLength: number; disabled: boolean;
@@ -44,9 +68,10 @@ function InterviewField({ label, value, maxLength, disabled, onChange, rows = 1 
     : <input className={inputClass} maxLength={maxLength} disabled={disabled} value={value} onChange={event => onChange(event.currentTarget.value)} />}</label>;
 }
 
-export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate }: {
+export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate, problemEntityId, problemRevision }: {
   projectId: string; draft: AidtUiStageDraft; update: UpdateDraft; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
+  problemEntityId?: string; problemRevision?: number;
   entityId?: string | null; onOpen?: (id: string) => void; onCreate?: (id: string) => void;
 }) {
   const token = useOptionalSession()?.session?.sessionToken;
@@ -61,6 +86,16 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
     if (!token) return;
     const controller = new AbortController();
     async function load(sessionToken: string) {
+      if (problemEntityId !== undefined || problemRevision !== undefined) {
+        const exact = problemEntityId && problemRevision !== undefined
+          ? await readExactTopic(projectId, sessionToken, problemRevision, controller.signal, problemEntityId)
+          : null;
+        if (!controller.signal.aborted) {
+          if (exact) setTopic(exact);
+          else setTopicError(true);
+        }
+        return;
+      }
       const { stage } = await readAidtStage(projectId, 1, sessionToken, controller.signal);
       if (!stage) return;
       let latest = await confirmedTopic(stage);
@@ -75,11 +110,13 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
     }
     void load(token).catch(() => { if (!controller.signal.aborted) setTopicError(true); });
     return () => controller.abort();
-  }, [projectId, token, attempt]);
+  }, [projectId, token, attempt, problemEntityId, problemRevision]);
 
   const records = readAidtInterviews(draft.fields);
   const interview = records.find(record => record.id === (entityId === undefined ? selected : entityId));
-  const canAdd = !readOnly && topic.revision !== null && Object.keys(draft.fields).length < 90;
+  const explicit = problemEntityId !== undefined || problemRevision !== undefined;
+  const validTopic = !explicit || (topic.problemEntityId === problemEntityId && topic.revision === problemRevision);
+  const canAdd = !readOnly && validTopic && topic.revision !== null && Object.keys(draft.fields).length < 90;
   const add = () => {
     if (!canAdd) return;
     let number = 1;
@@ -90,6 +127,7 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
       id: crypto.randomUUID(),
       code: `U${String(number).padStart(2, "0")}`,
       topicRevision: topic.revision,
+      ...(topic.problemEntityId ? { problemEntityId: topic.problemEntityId } : {}),
       topic: topic.text.slice(0, 650),
       goal: "", original: "", adopted: "", guideConfirmed: false, consent: null,
     };
@@ -133,15 +171,15 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
   const [pinned, setPinned] = React.useState<Topic | null>(null);
   React.useEffect(() => {
     const revision = interview.topicRevision;
-    if (!token || !revision || topic.revision === revision || revision >= 2147483647) return;
+    if (!token || !revision || (topic.revision === revision && topic.problemEntityId === interview.problemEntityId)) return;
     const controller = new AbortController();
-    void listAidtStageHistory(projectId, 1, token, { beforeRevision: revision + 1, limit: 1 }, controller.signal)
-      .then(({ items }) => confirmedTopic(items[0]?.revision === revision ? items[0] : null))
+    void readExactTopic(projectId, token, revision, controller.signal, interview.problemEntityId)
       .then(result => { if (result && !controller.signal.aborted) setPinned(result); })
       .catch(() => { if (!controller.signal.aborted) setPinned(null); });
     return () => controller.abort();
-  }, [projectId, token, interview.topicRevision, topic.revision]);
-  const exactTopic = topic.revision === interview.topicRevision ? topic : pinned?.revision === interview.topicRevision ? pinned : null;
+  }, [projectId, token, interview.topicRevision, interview.problemEntityId, topic.revision, topic.problemEntityId]);
+  const matchesTopic = (candidate: Topic | null) => candidate?.revision === interview.topicRevision && candidate?.problemEntityId === interview.problemEntityId;
+  const exactTopic = matchesTopic(topic) ? topic : matchesTopic(pinned) ? pinned : null;
   const topicText = exactTopic?.text ?? interview.topic;
   const [newCode, setNewCode] = React.useState(code);
   const [status, setStatus] = React.useState("");
@@ -192,7 +230,7 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
       <summary className="cursor-pointer">查看第 1 步同版本的问题反思</summary>
       <p className="mt-2 whitespace-pre-wrap">{exactTopic.reflection}</p>
     </details>}
-    {topic.revision !== null && topic.revision !== interview.topicRevision && <Button type="button" size="sm" variant="outline" disabled={readOnly} onClick={() =>
+    {topic.revision !== null && topic.problemEntityId === interview.problemEntityId && topic.revision !== interview.topicRevision && <Button type="button" size="sm" variant="outline" disabled={readOnly} onClick={() =>
       record({ topicRevision: topic.revision, topic: topic.text.slice(0, 650), guideConfirmed: false })
     }>改用第 1 步 V{topic.revision} 并重新核对提纲</Button>}
     <section className="space-y-3 border-t border-border pt-3" aria-label="访谈提纲">
