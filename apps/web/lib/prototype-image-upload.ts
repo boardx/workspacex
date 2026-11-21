@@ -56,9 +56,15 @@ function encode(source: CanvasImageSource, w: number, h: number, side: number, q
   return canvas.toDataURL("image/jpeg", quality);
 }
 
-export async function fileToImageSrc(file: Blob): Promise<string> {
+export async function fileToImageSrc(file: Blob, preserveSmallPng = false): Promise<string> {
   if (!file.type.startsWith("image/")) throw new NotAnImageError();
   const { source, w, h } = await decode(file);
+  if (preserveSmallPng && file.type === "image/png" && file.size <= 16_384 && Math.max(w, h) <= MAX_SIDE) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if ([137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => bytes[index] === byte)) {
+      return "data:image/png;base64," + btoa(String.fromCharCode(...bytes));
+    }
+  }
   // 起始尺寸一定试一次（本来就比 `MIN_SIDE` 小的图不能一次都不试），之后减半到 `MIN_SIDE` 为止。
   const sides: number[] = [];
   for (let side = Math.min(MAX_SIDE, Math.max(w, h)); sides.length === 0 || side >= MIN_SIDE; side = Math.floor(side / 2)) sides.push(side);

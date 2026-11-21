@@ -329,7 +329,7 @@ export function schematicPng(identity, ordinal) {
 
 export async function runAidtJourney({ page, expect, scope, checkpoint, capture, api,
   saveStage, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
-  armDesignCreate, armDesignGeneration, createAnonymousPage, savePrint, teachingFeedback, reviewS1StudentResponse }) {
+  armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, savePrint, teachingFeedback, reviewS1StudentResponse }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
   const root = `/aidt/${encodeURIComponent(scope.projectId)}`;
   const origin = new URL(page.url()).origin;
@@ -973,6 +973,25 @@ ${JSON.stringify(studentInputs)}`);
     await click(picker.locator('[aria-label="已关联的设计"]').getByRole('button', { name: '未命名设计', exact: true }));
     await saveStage(5, picker.getByRole('button', { name: /^选择 v\d+：/ }).first());
     await expect(page.getByTestId('aidt-prototype-recorded-reference')).toContainText(/v[1-9]\d*/);
+    const generatedVersion = JSON.parse((await readPrototype()).prototypeReference ?? '{}');
+    if (!generatedVersion.versionId || !generatedVersion.generatedFrameCount) fail('S5_NATIVE_DESIGN_VERSION_REQUIRED');
+    if (typeof armDesignImage !== 'function') fail('S5_SYNTHETIC_IMAGE_GUARD_REQUIRED');
+    await disclosure('用图片制作静态原型');
+    const fileName = `qa-${scope.runId}-prototype.png`;
+    const bytes = schematicPng(unique, 5);
+    await actions.getByLabel('上传原型图片').setInputFiles({ name: fileName, mimeType: 'image/png', buffer: bytes });
+    await armDesignImage({ id: designId, fileName, bytes });
+    await saveStage(5, btn('保存上传图片方案', actions));
+    const imageVersion = JSON.parse((await readPrototype()).prototypeReference ?? '{}');
+    if (!imageVersion.versionId || imageVersion.versionId === generatedVersion.versionId || imageVersion.source !== 'user'
+      || imageVersion.designId !== generatedVersion.designId) fail('S5_STATIC_IMAGE_VERSION_NOT_RETAINED');
+    await expect(inspector.getByRole('img', { name: fileName, exact: true })).toBeVisible();
+    await click(btn('选择真实原型版本', picker));
+    await click(picker.locator('[aria-label="已关联的设计"]').getByRole('button', { name: '未命名设计', exact: true }));
+    await expect(picker.getByRole('button', { name: new RegExp(`^选择 v${generatedVersion.seq}：`) })).toBeVisible();
+    await expect(picker.getByRole('button', { name: new RegExp(`^选择 v${imageVersion.seq}：`) })).toBeVisible();
+    evidence(5).outputs.push({ name: '原生设计及静态图片候选', format: 'two preserved native Design snapshots', status: 'pass',
+      evidence: `Design v${generatedVersion.seq}；图片 v${imageVersion.seq}` });
     const beforeHandoff = await revision(5);
     await reviewAndSave(5, btn('确认本原型', actions));
     await expect.poll(() => revision(5)).toBeGreaterThan(beforeHandoff);

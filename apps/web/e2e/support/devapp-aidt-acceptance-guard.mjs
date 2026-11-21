@@ -82,6 +82,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
   let reconcileCount = 0;
   let teachingRequests = 0, suggestionsBlocked = 0, teachingStopped = false, isolatedProblemReceipt = null;
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
+  let imageArm = null, imageCount = 0, designLinked = false;
   let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null, modelRequestedScreens = null;
   const readCategories = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
   const readDenials = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
@@ -170,6 +171,16 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       modelRequestedScreens = body.maxScreens ?? 'service-default';
       modelCount++; modelArm = null; allowedWrites++; return { allow: true, kind: 'design-generation', designId };
     }
+    if (method === 'POST' && designId && path === `/api/pm-designs/${designId}/prototype/patch`) {
+      const op = body?.ops?.[0], root = op?.root, props = root?.props;
+      if (target.search || !imageArm || imageCount || now() > imageArm.until || !object(body) || Object.keys(body).sort().join(',') !== 'ops,summary'
+        || !Array.isArray(body.ops) || body.ops.length !== 1 || !object(op) || Object.keys(op).sort().join(',') !== 'at,frame,op,root'
+        || op.op !== 'addScreen' || op.at !== 0 || op.frame !== '图片原型' || !object(root) || Object.keys(root).sort().join(',') !== 'props,type'
+        || root.type !== 'image' || !object(props) || Object.keys(props).sort().join(',') !== 'alt,src'
+        || props.alt !== imageArm.name || props.src !== imageArm.source || body.summary !== imageArm.summary) return stop('DESIGN_IMAGE_NOT_ARMED');
+      imageCount++; imageArm = null; allowedWrites++;
+      return { allow: true, kind: 'design-image', designId };
+    }
     if (method === 'POST' && path === `/api/projects/${projectId}/artifacts/upload`) {
       const file = body?.files?.[0], meta = body?.meta;
       if (!uploadArm || now() > uploadArm.until || body?.__multipart !== true || body.files.length !== 1 || !object(meta) || Object.keys(meta).sort().join(',') !== 'agendaSegmentId,confidential,files,onDuplicate,projectId,visibilityScope'
@@ -246,6 +257,10 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       const item = response?.project;
       if (![200, 201].includes(status) || !/^[A-Za-z0-9_-]{1,128}$/.test(item?.id ?? '') || item.ownerId !== actor || item.name !== '未命名设计' || item.template !== 'ui' || item.frames?.length !== 0 || item.share !== null) throw new ProbeFailure('DESIGN_OWNERSHIP_UNVERIFIED');
       designId = item.id; resources.add(designId);
+    } else if (decision.kind === 'link-design' && [200, 201, 204].includes(status)) {
+      designLinked = true;
+    } else if (decision.kind === 'design-image' && status === 200) {
+      if (response?.project?.id !== designId || response.project.ownerId !== actor || response.project.prototype?.[0]?.type !== 'image') throw new ProbeFailure('DESIGN_IMAGE_RESPONSE_REJECTED');
     } else if (decision.kind === 'design-versions' && status === 200) {
       for (const item of response?.items ?? []) { if (!/^[A-Za-z0-9_-]{1,256}$/.test(item.id ?? '')) throw new ProbeFailure('DESIGN_VERSION_UNVERIFIED'); resources.add(item.id); }
     } else if (decision.kind === 'design-generation') {
@@ -345,6 +360,16 @@ export function createAcceptanceGuard(identity, now = Date.now) {
 
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },
     armDesignGeneration: () => { if (!designId || modelCount) throw new ProbeFailure('DESIGN_GENERATION_ARM_REJECTED'); modelArm = now() + 15000; },
+    armDesignImage: ({ id, fileName, bytes }) => {
+      let record;
+      try { record = JSON.parse(stageStates.get(5)?.content.draft.fields[`prototypeEntity:${id}`]); } catch { /* No confirmed record. */ }
+      if (!projectId || !ordinaryVerified || !designLinked || id !== designId || !resources.has(id) || imageCount || imageArm
+        || record?.verificationQuestionConfirmed !== 'true' || !record.verificationQuestion?.trim() || !record.prototypeIdeaSource
+        || fileName !== `qa-${identity.run}-prototype.png` || !Buffer.isBuffer(bytes) || bytes.length < 10 || bytes.length > 16_384
+        || bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw new ProbeFailure('DESIGN_IMAGE_ARM_REJECTED');
+      const source = 'data:image/png;base64,' + bytes.toString('base64');
+      imageArm = { name: fileName, source, summary: 'AIDT 图片原型 · ' + createHash('sha256').update(source).digest('hex'), until: now() + 15000 };
+    },
     registerFixture: ({ filename, bytes, mime }) => {
       if (!projectId || !Buffer.isBuffer(bytes) || bytes.length < 10 || bytes.length > 262144 || !filename.startsWith(`qa-${identity.run}-`) || !/^[A-Za-z0-9_.-]{1,180}$/.test(filename) || !['text/plain', 'image/png'].includes(mime)) throw new ProbeFailure('FIXTURE_REJECTED');
       const fixture = { filename, sizeBytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), mime };

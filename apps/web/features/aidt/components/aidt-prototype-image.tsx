@@ -40,7 +40,7 @@ export function AidtPrototypeImage({ projectId, designId, onSaved }: {
     operation.current = controller;
     setBusy(true); setError(false); setSaved(false);
     try {
-      const image = await fileToImageSrc(await load(signal));
+      const image = await fileToImageSrc(await load(signal), true);
       if (signal.aborted) return;
       const version = await saveAidtPrototypeImage({
         projectId, sessionToken: session.sessionToken, userId: session.userId, signal,
