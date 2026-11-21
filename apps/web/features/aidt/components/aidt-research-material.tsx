@@ -9,7 +9,18 @@ import type { AidtImageAttachmentState } from "./aidt-image-attachment-picker";
 type SessionContext = Omit<AidtMaterialContext, "signal">;
 type MaterialWorkContext = AidtMaterialContext & { isCurrent: () => boolean };
 const materialIdentity = (value?: AidtResearchMaterialReference | null) => JSON.stringify(value ? [value.projectId, value.artifactId, value.versionId, value.runId] : null);
-type MaterialProps = { projectId: string; value?: AidtResearchMaterialReference | null; label: string; readOnly?: boolean; imagesOnly?: boolean; selectionScope?: string; localMaterials?: readonly AidtResearchMaterialReference[]; onChange: (reference: AidtResearchMaterialReference | null) => void };
+type MaterialKind = "image" | "document" | "audio";
+const accepts = {
+  image: "image/png,image/jpeg,image/webp,image/gif",
+  document: ".txt,.md,.csv,.pdf,.docx",
+  audio: ".wav,.mp3",
+};
+function materialKind(type: string, name: string): MaterialKind {
+  if (type.startsWith("audio/") || /\.(wav|mp3)$/i.test(name)) return "audio";
+  if (type.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(name)) return "image";
+  return "document";
+}
+type MaterialProps = { projectId: string; value?: AidtResearchMaterialReference | null; label: string; readOnly?: boolean; imagesOnly?: boolean; allowedKinds?: readonly MaterialKind[]; onlyLocalMaterials?: boolean; selectionScope?: string; localMaterials?: readonly AidtResearchMaterialReference[]; onChange: (reference: AidtResearchMaterialReference | null) => void };
 
 export function AidtResearchMaterialControl(props: MaterialProps) {
   const session = useOptionalSession()?.session;
@@ -18,8 +29,11 @@ export function AidtResearchMaterialControl(props: MaterialProps) {
   const scope = JSON.stringify([session.currentOrgId, session.userId, session.sessionToken, props.projectId, !!props.readOnly]);
   return <MaterialControl key={scope} {...props} context={{ projectId: props.projectId, sessionToken: session.sessionToken }} />;
 }
-function MaterialControl({ context, value, label, onChange, readOnly = false, imagesOnly = false, selectionScope, localMaterials = [] }: MaterialProps & { context: SessionContext }) {
+function MaterialControl({ context, value, label, onChange, readOnly = false, imagesOnly = false, allowedKinds, onlyLocalMaterials = false, selectionScope, localMaterials = [] }: MaterialProps & { context: SessionContext }) {
   const [file, setFile] = React.useState<File | null>(null), [strategy, setStrategy] = React.useState<"use-existing" | "as-new-version">("use-existing");
+  const kinds: readonly MaterialKind[] = allowedKinds ?? (imagesOnly ? ["image"] : ["document", "image"]);
+  const acceptsReference = (reference: AidtResearchMaterialReference) => kinds.includes(isAidtResearchImage(reference) ? "image" : reference.mime.startsWith("audio/") ? "audio" : "document");
+  const acceptAttribute = kinds.map(kind => accepts[kind]).join(",");
   const valueIdentity = materialIdentity(value), intentIdentity = JSON.stringify([valueIdentity, selectionScope ?? ""]);
   const intent = React.useRef({ identity: intentIdentity, generation: 0 });
   if (intent.current.identity !== intentIdentity) intent.current = { identity: intentIdentity, generation: intent.current.generation + 1 };
@@ -47,19 +61,19 @@ function MaterialControl({ context, value, label, onChange, readOnly = false, im
   async function accept(context: MaterialWorkContext, received: AidtMaterialReceipt | AidtResearchMaterialReference) {
     const result = await readAidtResearchMaterial(context, received);
     if (!context.isCurrent()) return;
-    if (imagesOnly && !isAidtResearchImage(result.reference)) throw new Error("AIDT_MATERIAL_IMAGE_REQUIRED");
+    if (!acceptsReference(result.reference)) throw new Error("AIDT_MATERIAL_KIND_NOT_ALLOWED");
     notify.current(result.reference); setFile(null); setReceipt(null); setChoices(null);
     setFeedback({ selected: materialIdentity(result.reference), text: `${"duplicateAction" in received && received.duplicateAction === "use-existing" ? "重复文件已复用原版本。" : "duplicateAction" in received && received.duplicateAction === "as-new-version" ? "重复文件已另存新版本。" : ""}${result.processingFailed ? "后续材料处理失败；原件可读，检索和转写状态未确认。" : ""}原件已保存并回读，已加入草稿；请保存到小组。` });
   }
   return <div className="space-y-2 rounded-lg border border-border p-3" aria-label={label} data-testid="aidt-research-material-control">
     <p className="text-12 font-medium">{label}</p>
-    <label className="block text-12">选择原始文件<input aria-label={`${label}选择文件`} type="file" accept={imagesOnly ? "image/png,image/jpeg,image/webp,image/gif" : ".txt,.md,.csv,.pdf,.docx,image/png,image/jpeg,image/webp,image/gif"} disabled={readOnly || pending} className="mt-1 block w-full text-12" onChange={event => { if (!readOnly && !locked.current) { setFile(event.currentTarget.files?.[0] ?? null); setReceipt(null); setFeedback(null); } }} /></label>
+    <label className="block text-12">选择原始文件<input aria-label={`${label}选择文件`} type="file" accept={acceptAttribute} disabled={readOnly || pending} className="mt-1 block w-full text-12" onChange={event => { if (!readOnly && !locked.current) { setFile(event.currentTarget.files?.[0] ?? null); setReceipt(null); setFeedback(null); } }} /></label>
     <details className="text-12"><summary className="cursor-pointer text-muted-foreground">重复文件设置</summary><label className="mt-2 block">内容重复时<select aria-label={`${label}重复处理`} disabled={readOnly || pending} value={strategy} className="ml-2 rounded-md border border-border bg-background p-1" onChange={event => { if (!readOnly) setStrategy(event.currentTarget.value === "as-new-version" ? "as-new-version" : "use-existing"); }}><option value="use-existing">使用已有原件版本</option><option value="as-new-version">明确另存为新版本</option></select></label></details>
-    <p className="text-11 text-muted-foreground">仅存原件；AI建议需另行请求。录音与转写暂后置。</p>
-    <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={readOnly || pending || !file || !!receipt} onClick={() => void execute(async current => { if (!file) return; const received = await uploadAidtResearchMaterial(current, file, strategy); if (!current.isCurrent()) return; setReceipt({ intent: intentIdentity, receipt: received }); await accept(current, received); })}>保存原始材料</Button>
+    <p className="text-11 text-muted-foreground">{kinds.includes("audio") ? "上传已获授权的原始录音。上传后可核对原件，并手动记录转写摘录。" : "保存原件；如需 AI 建议，请在对话中提出。"}</p>
+    <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={readOnly || pending || !file || !kinds.includes(materialKind(file.type, file.name)) || !!receipt} onClick={() => void execute(async current => { if (!file || !kinds.includes(materialKind(file.type, file.name))) return; const received = await uploadAidtResearchMaterial(current, file, strategy); if (!current.isCurrent()) return; setReceipt({ intent: intentIdentity, receipt: received }); await accept(current, received); })}>保存原始材料</Button>
       {receipt && <Button type="button" size="sm" variant="outline" disabled={readOnly || pending} onClick={() => void execute(current => accept(current, receipt))}>重试读取上传回执</Button>}
       <Button type="button" size="sm" variant="ghost" disabled={readOnly || pending} onClick={() => void execute(async current => {
-        setListError(false); try { const received = await listAidtResearchMaterials(current); if (current.isCurrent()) { const unique = new Map([...received, ...localMaterials.filter(reference => reference.projectId === context.projectId)].map(reference => [`${reference.artifactId}:${reference.versionId}`, reference])); setChoices([...unique.values()].filter(reference => !imagesOnly || isAidtResearchImage(reference))); } } catch (error) { if (current.isCurrent()) setListError(true); throw error; }
+        setListError(false); try { const received = onlyLocalMaterials ? [] : await listAidtResearchMaterials(current); if (current.isCurrent()) { const unique = new Map([...received, ...localMaterials.filter(reference => reference.projectId === context.projectId)].map(reference => [`${reference.artifactId}:${reference.versionId}`, reference])); setChoices([...unique.values()].filter(acceptsReference)); } } catch (error) { if (current.isCurrent()) setListError(true); throw error; }
       })}>选择本组已保存原始材料</Button>
       {value && <Button type="button" size="xs" variant="ghost" disabled={readOnly || pending} onClick={() => { if (!readOnly) notify.current(null); }}>移除原始材料引用</Button>}
     </div>
@@ -106,6 +120,7 @@ function MaterialPreview({ context, reference, alt, quote, onImageState }: { con
       {state.processingFailed && <p role="alert" className="text-12">后续材料处理失败；原件仍可下载，检索和转写状态未确认。</p>}
       {/* eslint-disable-next-line @next/next/no-img-element -- authenticated original bytes, verified hash and revocable local blob URL */}
       {state.url && isAidtResearchImage(reference) && <img src={state.url} alt={alt} className="max-h-60 w-full rounded-md object-contain" onLoad={event => { if (activeImage.current !== event.currentTarget.src) return; if (event.currentTarget.naturalWidth > 0 && event.currentTarget.naturalHeight > 0) setDecoded(true); else { setState({ failed: true }); notify.current?.({ src: null, failed: true }); } }} onError={event => { if (activeImage.current !== event.currentTarget.src) return; setState({ failed: true }); notify.current?.({ src: null, failed: true }); }} />}
+      {state.url && shown.mime.startsWith("audio/") && <audio controls src={state.url} aria-label={`收听原始录音：${shown.name}`} className="w-full" />}
       {state.text !== undefined && <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-12" data-testid="aidt-research-original-text">{match >= 0 ? <>{state.text.slice(0, match)}<mark className="rounded-sm bg-accent text-accent-foreground">{excerpt}</mark>{state.text.slice(last)}</> : state.text}</pre>}
       {excerpt && state.text !== undefined && match < 0 && <p className="text-12 text-muted-foreground">预览中未匹配到这段引文，请核对完整原件。</p>}
       {state.text !== undefined && <p className="text-11 text-muted-foreground">原文预览最多前10000字；完整原件请下载。这里不会转写或改写内容。</p>}

@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api-client";
 import { aidtUiReportMarkdown, aidtUiStageSummary, emptyAidtUiDrafts, type AidtUiDrafts, type AidtUiStageDraft } from "./aidt-ui-drafts";
 import { readAidtStage, saveAidtStage, type AidtSharedStage } from "./live-aidt-stages";
 
+import { readAidtDefinitionEvidenceRevision } from "./aidt-definition";
 import { parseAidtSurpriseReflection, readAidtSurpriseSourceRevision } from "./aidt-surprise-reflection";
 import { readAidtIdeaHmwSource } from "./aidt-idea-handoff";
 import { readAidtQuestionSnapshot } from "./aidt-verification-loop";
@@ -72,8 +73,12 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const surpriseRevisionValue = draft ? readAidtSurpriseSourceRevision(draft) : null;
   const surprise = stageId === 3 && draft ? parseAidtSurpriseReflection(draft) : null;
   const surpriseRevision = surprise?.status === "found" && surprise.cardIds.length > 0 && !surprise.invalidCardIds && draft?.fields.surpriseConfirmed === "true" && surpriseRevisionValue !== null && Number.isSafeInteger(surpriseRevisionValue) && surpriseRevisionValue > 0 ? surpriseRevisionValue : null;
+  const definitionRevision = (stageId === 3 && draft ? readAidtDefinitionEvidenceRevision(draft.fields) : null) ?? surpriseRevision;
   const ideaHmwRevision = stageId === 4 && draft ? readAidtIdeaHmwSource(draft)?.revision : null;
-  const lockedSourceStage = ideaHmwRevision ? { stageId: 3, revision: ideaHmwRevision } : questionRevision ? { stageId: 5, revision: questionRevision } : surpriseRevision ? { stageId: 2, revision: surpriseRevision } : null;
+  const lockedSourceStage = ideaHmwRevision ? { stageId: 3, revision: ideaHmwRevision }
+    : questionRevision ? { stageId: 5, revision: questionRevision }
+    : definitionRevision ? { stageId: 2, revision: definitionRevision }
+    : null;
   const sourceStageRevisions = lockedSourceStage
     ? [...chosenSourceStageRevisions.filter(source => source.stageId !== lockedSourceStage.stageId), lockedSourceStage].sort((a, b) => a.stageId - b.stageId)
     : chosenSourceStageRevisions;

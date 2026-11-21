@@ -184,6 +184,7 @@ class Producer(unittest.TestCase):
         m = module()
         for changed, expected in (
             ('apps/web/components/banner.tsx', ['web']),
+            ('skills/aidt-methods-candidates/1.4.1/aidt-understand/starter.json', ['web']),
             ('apps/skill-sandbox/src/main.ts', ['api', 'sandbox']),
             ('packages/contracts/index.ts', ['api', 'web']),
             ('scripts/registry-images.py', list(m.SERVICES)),

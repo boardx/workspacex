@@ -1,0 +1,65 @@
+import { randomUUID } from "node:crypto";
+import { expect, test, type Page } from "@playwright/test";
+import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+
+function routeId(page: Page, key: string) {
+  return new URL(page.url()).searchParams.get(key);
+}
+
+test("AIDT definition personas open distinct native Chat threads from the directory", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.leadEmail);
+  await page.getByTestId("login-password").fill(FULLSTACK_E2E.leadPassword);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/home$/);
+  await page.getByTestId("rail-aidt").click();
+  await page.getByTestId("aidt-new").click();
+  await page.getByTestId("project-new-name").fill(`综合定义 ${randomUUID().slice(0, 8)}`);
+  await page.getByTestId("project-new-create").click();
+  await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
+  const projectUrl = page.url();
+  await page.getByTestId("aidt-step-3").click();
+  const directory = page.getByTestId("aidt-definition-directory");
+  await expect(directory).toBeVisible();
+  const composer = page.getByTestId("copilotkit-v2-input");
+  await expect(composer).toHaveCount(0);
+  await expect(directory.getByRole("button", { name: "新建画像" })).toBeDisabled();
+  await directory.getByRole("radio", { name: "暂无意外发现" }).check();
+  await directory.getByRole("button", { name: "确认暂无意外发现" }).click();
+  await directory.getByRole("button", { name: "新建画像" }).click();
+  await directory.getByRole("button", { name: "新建画像" }).click();
+  const personas = directory.getByRole("link", { name: "未命名画像" });
+  await expect(personas).toHaveCount(2);
+  const first = (await personas.nth(0).getAttribute("href"))!;
+  const second = (await personas.nth(1).getAttribute("href"))!;
+  expect(first).not.toBe(second);
+  await page.getByTestId("aidt-shared-save").click();
+  await expect(page.getByTestId("aidt-shared-status")).toContainText("小组已保存");
+  await personas.nth(0).click();
+  await expect(composer).toBeVisible();
+  await expect.poll(() => routeId(page, "thread")).toBeTruthy();
+  const firstThread = routeId(page, "thread");
+  const firstEntity = routeId(page, "entity");
+  await composer.fill("第一张画像尚未发送的草稿");
+  await page.goto(second);
+  await expect(composer).toBeVisible();
+  await expect.poll(() => routeId(page, "thread")).toBeTruthy();
+  const secondThread = routeId(page, "thread");
+  const secondEntity = routeId(page, "entity");
+  expect(firstEntity).toBeTruthy();
+  expect(secondEntity).toBeTruthy();
+  expect(secondEntity).not.toBe(firstEntity);
+  expect(secondThread).not.toBe(firstThread);
+  await expect(composer).toHaveValue("");
+  await page.reload();
+  await expect(composer).toBeVisible();
+  await expect.poll(() => routeId(page, "thread")).toBe(secondThread);
+  await expect.poll(() => routeId(page, "entity")).toBe(secondEntity);
+  await page.goto(`${projectUrl}?step=3`);
+  await expect(directory).toBeVisible();
+  await expect(composer).toHaveCount(0);
+  await page.goto(first);
+  await expect(composer).toBeVisible();
+  await expect.poll(() => routeId(page, "thread")).toBe(firstThread);
+});

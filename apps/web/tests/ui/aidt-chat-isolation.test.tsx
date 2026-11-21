@@ -20,7 +20,6 @@ it("keeps teaching copy local while ordinary Chat retains its four templates and
 });
 
 it.each([
-  [0, "先用一句原始命题"],
   [1, "访谈问题初稿"],
   [2, "暂无也可以"],
   [3, "一个点子一行"],
