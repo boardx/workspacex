@@ -911,28 +911,52 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     if (!state.s4 || !step5Href) { await go(5); fail('S4_CONFIRMED_HANDOFF_REQUIRED'); }
     if (typeof armDesignGeneration !== 'function' || typeof armDesignCreate !== 'function') fail('BOUNDED_DESIGN_GENERATION_GUARD_REQUIRED');
     await page.goto(owned(step5Href));
-    const createDesign = page.getByTestId('project-resources-new'); await expect(createDesign).toBeVisible(); await expect(createDesign).toBeEnabled();
-    await armDesignCreate(); await createDesign.click();
-    await expect.poll(() => new URL(page.url()).searchParams.get('entity')).toBeTruthy();
-    designId = new URL(page.url()).searchParams.get('entity'); const entityHref = page.url();
-    const designRoute = ownedAidtEntityRoute(entityHref, { origin, projectId: scope.projectId }, { stage: 5, entityId: designId });
+    const cardDirectory = page.getByTestId('aidt-prototype-directory');
+    await expect(cardDirectory).toBeVisible();
+    const createButton = cardDirectory.getByTestId('aidt-new-entity-card').or(cardDirectory.getByRole('button', { name: '新建原型', exact: true }));
+    await click(createButton);
+    await fill('原型名称', '未命名设计');
+    await armDesignCreate();
+    await saveStage(5, btn('创建原型'));
+    const card = cardDirectory.getByRole('link', { name: '未命名设计', exact: true });
+    await expect(card).toBeVisible();
+    const target = owned(await card.getAttribute('href'));
+    designId = new URL(target).searchParams.get('entity');
+    if (!designId) fail('PROTOTYPE_ENTITY_REQUIRED');
+    const designRoute = ownedAidtEntityRoute(target, { origin, projectId: scope.projectId }, { stage: 5, entityId: designId });
+    await click(card);
+    await waitForEntity(() => matchesAidtEntityRoute(page.url(), designRoute));
+    const actions = page.getByRole('region', { name: '原型对话操作' });
+    await expect(actions.getByRole('link', { name: '打开 Design 工作台' })).toHaveCount(0);
+    await saveStage(5, btn('采用入选点子', actions));
+    const studentInputs = {
+      verificationQuestion: question,
+      beforeTestBelief: '我预计并排信息能帮助比较，实际等待行为未知。',
+      verificationBasis: '这只是合成练习中的学生预期，暂无真实研究证据。',
+      verificationLimits: '静态图能检查理解或意向，不能证明实际等待、购买或付费。',
+      type: '静态示意图', situation: '合成校园午休', task: '先看等待信息再决定',
+    };
+    const request = text(`QA ${scope.runId}，请整理本轮学生草稿，原样保留下面的问题、看法与依据，使用当前原型 Skill 已约定的格式，只给文字，不启动工具和生成。
+${JSON.stringify(studentInputs)}`);
+    if (!await feedback(5, request)) fail('S5_NATIVE_TEACHING_REPLY_REQUIRED');
     await output(designRoute);
-    await click(page.getByRole('button', { name: /^采用第 4 步 V\d+ 的 \d+ 个点子$/ }));
-    await fill('通过这次制作原型，你最想知道什么？', '学生能理解提示吗？');
-    await disclosure('补充先前看法与验证范围');
-    await fill('测试前，你们怎么想？', text('目前不确定，预计静态图只能检查理解。'));
-    await fill('目前看法的依据', text('仅来自QA合成发现卡，不是已验证的研究事实。'));
-    await fill('这个原型能了解什么，还有什么不能验证？', '能检查示意顺序的理解，不能证明真实等待、时间投入或付费行为。');
-    const fields = page.getByTestId('aidt-prototype-entity-output').getByRole('group', { name: '原型制作说明', exact: true }).getByRole('textbox');
-    const descriptions = ['静态界面示意图', '合成校园午休情境', '先看提示再决定', '选择、查看队列、决定等待', '解释等待信息与操作顺序'];
-    for (let index = 0; index < await fields.count(); index++) await fields.nth(index).fill(text(descriptions[index] ?? '表达当前验证范围。'));
-    await saveStage(5);
-    await iterate(5, page.getByLabel('通过这次制作原型，你最想知道什么？', { exact: true }), '本轮验证问题', question);
-    await feedback(5);
-    await observeInputs(5);
-    evidence(5).notes.push('本轮真实迭代是原型制作前验证问题/制作说明的保存修订；仅调用一次Design生成，没有把再次确认同一文件冒充原型第二版。');
-    await persistConfirmed(5, btn('确认本轮验证问题'));
-    await follow('打开原生 Design Workbench', { resource: true });
+    const inspector = page.getByTestId('aidt-prototype-entity-output');
+    await expect(inspector).toContainText(question);
+    await expect(inspector.getByRole('textbox')).toHaveCount(0);
+    const beforeQuestion = await revision(5);
+    await reviewAndSave(5, btn('确认验证问题', actions));
+    await expect.poll(() => revision(5)).toBeGreaterThan(beforeQuestion);
+    const readPrototype = async () => JSON.parse((await savedStage(5)).content?.draft?.fields?.[`prototypeEntity:${designId}`] ?? '{}');
+    const bound = await readPrototype();
+    if (bound.verificationQuestion !== question || bound.beforeTestBelief !== studentInputs.beforeTestBelief
+      || bound.verificationBasis !== studentInputs.verificationBasis || bound.verificationQuestionConfirmed !== 'true') fail('S5_QUESTION_NOT_EXACTLY_CONFIRMED');
+    const selectedIdeas = JSON.parse(bound.prototypeIdeaSource ?? '{}');
+    const priorStage = await savedStage(4);
+    if (selectedIdeas.revision !== priorStage.revision || JSON.stringify(selectedIdeas.ideaIds) !== priorStage.content.draft.fields.ideaHandoffIds) fail('S5_IDEA_SOURCE_MISMATCH');
+    evidence(5).inputs.push({ name: '确认后的验证问题', content: question, format: 'native Chat and saved entity', source: { entityId: designId, ideaRevision: selectedIdeas.revision } });
+    const workbenchLink = actions.getByRole('link', { name: '打开 Design 工作台', exact: true });
+    await expect(workbenchLink).toBeVisible();
+    await workbenchLink.click();
     await expect(page.getByTestId('design-detail-input')).toBeEditable();
     await page.getByTestId('design-detail-input').fill(`${SYNTHETIC}。QA run=${scope.runId}。请生成一页静态校园饮品队列提示界面，标题明确QA合成演示；展示预计等待时间、查看口味、决定是否排队三个区块。只用于检查理解，不宣称有真实研究或用户认可。`);
     const send = page.getByTestId('design-detail-send'); await expect(send).toBeEnabled(); await armDesignGeneration();
@@ -947,11 +971,19 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await output(designRoute);
     const picker = page.getByTestId('aidt-prototype-version-picker'); await click(btn('选择真实原型版本', picker));
     await click(picker.locator('[aria-label="已关联的设计"]').getByRole('button', { name: '未命名设计', exact: true }));
-    await click(picker.getByRole('button', { name: /^选择 v\d+：/ }).first());
-    await expect(page.getByTestId('aidt-prototype-recorded-reference')).toContainText(/已生成 [1-9]\d*\//);
-    await persistConfirmed(5, btn('确认所选原型'));
+    await saveStage(5, picker.getByRole('button', { name: /^选择 v\d+：/ }).first());
+    await expect(page.getByTestId('aidt-prototype-recorded-reference')).toContainText(/v[1-9]\d*/);
+    const beforeHandoff = await revision(5);
+    await reviewAndSave(5, btn('确认本原型', actions));
+    await expect.poll(() => revision(5)).toBeGreaterThan(beforeHandoff);
+    const frozen = await readPrototype();
+    const prototype = JSON.parse(frozen.prototypeReference ?? '{}');
+    if (frozen.verificationQuestion !== question || prototype.designId !== designId || !prototype.versionId || !prototype.generatedFrameCount || !frozen.aidtPrototypeConfirmedHandoff) fail('S5_VERSION_NOT_EXACTLY_CONFIRMED');
     evidence(5).outputs.push({ name: '已选静态原型与绑定验证问题', format: 'native Design version reference and verification question', status: 'pass', evidence: (await page.getByTestId('aidt-prototype-recorded-reference').innerText()).slice(0,2000) });
-    step6Href = owned(await page.getByRole('link', { name: '带入测试与迭代', exact: true }).getAttribute('href'));
+    const nextLink = page.getByTestId('aidt-stage-next');
+    await expect(nextLink).toBeVisible();
+    step6Href = owned(await nextLink.getAttribute('href'));
+    if (new URL(step6Href).searchParams.get('prototypeEntity') !== designId || Number(new URL(step6Href).searchParams.get('prototypeRevision')) !== await revision(5)) fail('S5_HANDOFF_VERSION_MISMATCH');
     await shot('05-prototype-question-version', 5); await completed(5); await output(designRoute);
     report.designGenerationAndVersionWorkflowVerified = true;
     report.designProviderIndependentlyVerified = false;

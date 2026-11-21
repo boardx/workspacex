@@ -35,9 +35,10 @@ it("projects the entity discussion to the read-only inspector, confirming only f
   expect(within(inspector).queryByRole("textbox")).toBeNull();
   expect(within(inspector).queryByRole("button", { name: /确认/ })).toBeNull();
   expect(requestSave).not.toHaveBeenCalled();
-  fireEvent.click(within(screen.getByRole("region", { name: "原型对话操作" })).getByRole("button", { name: "确认原型草稿" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "原型对话操作" })).getByRole("button", { name: "保存原型草稿" }));
   const draft = readAidtPrototypeEntityDraft(JSON.parse(screen.getByTestId("stage").textContent!), designId);
   expect(draft?.fields.verificationQuestion).toBe("学生能否快速区分口味？");
+  expect(draft?.fields.verificationQuestionConfirmed).toBeUndefined();
   expect(draft?.fields.prototypeReference).toBeUndefined();
   expect(draft?.fields.prototypeArchived).toBeUndefined();
   expect(requestSave).toHaveBeenCalledOnce();
