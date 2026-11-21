@@ -53,7 +53,7 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
     <div className="flex flex-wrap items-center gap-3">
       <span className="mr-auto text-13 font-medium">{showArchived ? "已移除" : "全部访谈"} · {visible.length}</span>
       {!showArchived && active.length > 0 && <div role="group" aria-label="筛选标签" className="flex min-w-0 flex-wrap gap-2">
-        {["", ...knownTags.keys()].map(value => <Button type="button" key={value} size="xs" variant={filter === value ? "primary" : "outline"} aria-pressed={filter === value} className="h-auto max-w-full whitespace-normal break-all rounded-full py-1.5" onClick={() => selectTag(value)}>{value || "全部"}</Button>)}
+        {["", ...knownTags.keys()].map(value => <Button type="button" key={value} size="xs" variant={filter === value ? "primary" : "outline"} aria-pressed={filter === value} aria-label={value === "全部" ? "标签「全部」" : undefined} className="h-auto max-w-full whitespace-normal break-all rounded-full py-1.5" onClick={() => selectTag(value)}>{value || "全部"}</Button>)}
       </div>}
       {(archived.length > 0 || showArchived) && <Button type="button" size="sm" variant="ghost" onClick={() => setShowArchived(!showArchived)}>{showArchived ? "返回访谈" : "查看已移除"}</Button>}
     </div>
@@ -68,7 +68,7 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
         <div className="flex items-center justify-between gap-2"><span className="rounded-md bg-primary/10 px-2 py-1 text-12 font-semibold text-primary">{record.code}</span><span className="text-12 text-muted-foreground">{status}</span></div>
         <h5 className="break-words text-16 font-semibold">{record.displayName || ("受访者 " + record.code)}</h5>
         {record.goal && <p className="line-clamp-2 break-words text-13 text-muted-foreground">{record.goal}</p>}
-        {!!record.tags?.length && <div className="flex flex-wrap gap-1">{record.tags.map(value => <span key={value} className="max-w-full truncate rounded-full bg-muted px-2 py-0.5 text-11">{value}</span>)}</div>}
+        {!!record.tags?.length && <div className="flex flex-wrap gap-1">{record.tags.map(value => <span key={value} className="max-w-full break-all rounded-full bg-muted px-2 py-0.5 text-11">{value}</span>)}</div>}
         <div className="mt-auto flex flex-wrap items-center gap-3 text-12 text-muted-foreground"><span className="inline-flex items-center gap-1"><ListChecks aria-hidden className="size-4" />{record.guideConfirmed ? "提纲已确认" : record.original ? "提纲已起草" : "待写提纲"}</span><span className="inline-flex items-center gap-1"><Paperclip aria-hidden className="size-4" />{materials} 份材料</span></div>
         <div className="flex items-center gap-1 border-t border-border pt-3">
           {!removed && <Button type="button" size="sm" disabled={!saved} title={saved ? undefined : "保存到小组后可打开对话"} variant="secondary" className="mr-auto after:absolute after:inset-0 after:rounded-2xl after:content-['']" aria-label={aidtInterviewTitle(record.code, record.displayName) + " 打开访谈 · " + status} onClick={() => onOpen(record.id)}><MessagesSquare aria-hidden className="size-4" />{saved ? "打开访谈" : "先保存到小组"}<ArrowUpRight aria-hidden className="size-3" /></Button>}
