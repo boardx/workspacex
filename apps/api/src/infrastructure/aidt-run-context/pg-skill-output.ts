@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import type { PermissionDecision } from "../../domain/identity/permission-decision";
+import { guard, discloseDecided, isDisclosed } from "../../application/security/permission-filter";
 import type { TenantSession } from "../../application/ports/database.port";
 import type { AidtContextActor } from "../../application/aidt-run-context/ports";
 import type { AidtStagesService } from "../../application/aidt-stages/service";
@@ -19,7 +21,7 @@ function operationId(runId:string) {
  * binds the finished model answer to its real input message and the selected mounted Skill.
  * Never use text, entity IDs or version numbers supplied by the browser to create an outcome. */
 export async function projectSavedSkillOutput(s:TenantSession, stages:AidtStagesService, actor:AidtContextActor,
-  stageId:number, entityId:string, runId?:string):Promise<boolean> {
+  decision:PermissionDecision, stageId:number, entityId:string, runId?:string):Promise<boolean> {
   if ((stageId!==1 && stageId!==2) || aidtEntityThreadId(actor,stageId,entityId,"stage")!==actor.threadId) return false;
   const current=(await stages.get(actor,stageId)).stage;
   if (!current || !aidtSavedEntityTitle(current,entityId,"stage")) return false;
@@ -45,7 +47,9 @@ export async function projectSavedSkillOutput(s:TenantSession, stages:AidtStages
     ORDER BY human.created_at DESC,human.id DESC LIMIT 32`,
   [actor.orgId,actor.projectId,actor.threadId,stageId,entityId,stageId===1?"aidt-understand":"aidt-empathize",runId??null]);
   const recordKey=(stageId===1?"problemDraft:":"interviewRecord:")+entityId;
-  for (const row of rows.rows) {
+  const permitted = discloseDecided(guard({kind:"project",id:actor.projectId},rows.rows),decision);
+  if (!isDisclosed(permitted)) return false;
+  for (const row of permitted.payload) {
     const op=operationId(row.run_id);
     const receipt=await s.query("SELECT 1 FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 AND stage_id=$3 AND operation_id=$4",
       [actor.orgId,actor.projectId,stageId,op]);

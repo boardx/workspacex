@@ -149,14 +149,14 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
    if (!guarded) return;
    const selector=this.disclose(guarded,actor,scope.decision).snapshot.selector;
    if (selector.purpose==="stage" && selector.entityId)
-    await projectSavedSkillOutput(s,scope.stages,actor,selector.stageId,selector.entityId,runId);
+    await projectSavedSkillOutput(s,scope.stages,actor,scope.decision,selector.stageId,selector.entityId,runId);
   });
  }
  async reconcileEntity(actor:AidtContextActor,stageId:number,entityId:string) {
   if (!this.enabled()) return unavailable();
   return this.db.withTenant(actor.orgId,async s=>{
    const scope=await this.accessIn(s,actor,true);
-   return projectSavedSkillOutput(s,scope.stages,actor,stageId,entityId);
+   return projectSavedSkillOutput(s,scope.stages,actor,scope.decision,stageId,entityId);
   });
  }
  async receipt(actor:{orgId:OrgId;userId:string},runId:string){return this.db.withTenant(actor.orgId,s=>this.timed(s,async tx=>{
