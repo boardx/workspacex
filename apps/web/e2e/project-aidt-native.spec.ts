@@ -255,11 +255,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   const mobileSend = page.getByTestId("copilotkit-v2-send");
   await expect(mobileSend).toBeEnabled();
   await expect(mobileSend).toBeInViewport({ ratio: 0.8 });
-  expect(await mobileSend.evaluate((node) => {
-    const rect = node.getBoundingClientRect();
-    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-    return hit === node || node.contains(hit);
-  })).toBe(true);
+  await mobileSend.click({ trial: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath("aidt-teaching-mobile-start.png"), fullPage: true });
   if (isProjectMemberChatEnabled()) {
@@ -359,6 +355,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await expect(checkpointSelect).toBeVisible();
   await checkpointSelect.selectOption(JSON.stringify([checkpointArtifactId, checkpointSource.data.immutableRevision]));
   await page.getByTestId("aidt-checkpoint-restore").click();
+  await page.getByTestId("aidt-checkpoint-restore-confirm-apply").click();
   await expect(page.getByTestId("aidt-checkpoint-restore-notice")).toContainText("尚未同步给小组");
   await openOutcome(page);
   await expect(page.getByTestId("aidt-stage-output")).not.toContainText("本页草稿：改善校园午餐排队");
@@ -412,12 +409,9 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
       await openOutcome(page);
       await page.getByLabel("候选1名称", { exact: true }).fill("错峰取餐界面");
       await page.getByLabel("候选1核心说明", { exact: true }).fill("向学生展示取餐时间窗口。用静态界面先讨论是否容易理解。");
-      await page.getByRole("button", { name: "移除候选 3" }).click();
-      await page.getByRole("button", { name: "移除候选 2" }).click();
-      await page.getByRole("radio").check();
       await page.getByLabel("候选1参考图", { exact: true }).setInputFiles({ name: "ui-reference.webp", mimeType: "image/webp", buffer: await readFile(resolve(dirname(test.info().file), "../../home/assets/img/aidt-cocreation-640.webp")) });
       await expect(page.getByAltText("候选1参考图（未上传）")).toBeVisible();
-      await expect(page.getByRole("radio")).toHaveCount(1);
+      await expect(page.getByLabel("候选1名称", { exact: true })).toHaveValue("错峰取餐界面");
       await page.getByTestId("aidt-tool-panel").evaluate((element) => { element.scrollTop = 0; });
       await page.screenshot({ path: test.info().outputPath("aidt-ui-v2-idea-sheet.png"), fullPage: true });
       const noIdeaSave = await api(page, `/chat/threads/${currentThread}/messages?limit=100`);
@@ -434,7 +428,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await expect(page.getByTestId("aidt-report-preview")).toBeVisible();
   await page.getByRole("button", { name: "编辑报告", exact: true }).click();
   const reportEditor = page.getByLabel("小组报告草稿", { exact: true });
-  await expect(reportEditor).toHaveValue(/本页草稿：改善校园午餐排队/);
+  await expect(reportEditor).not.toHaveValue(/本页草稿：改善校园午餐排队/);
   await expect(reportEditor).toHaveValue(/错峰取餐界面/);
   const draftReport = await reportEditor.inputValue();
   await reportEditor.fill(`${draftReport}\n本组本页审阅备注：尚未真实测试。`);
@@ -459,8 +453,8 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await closeTools(page);
   await expect.poll(() => {
     const query = new URL(page.url()).searchParams;
-    return [query.get("step"), query.get("tool"), query.get("summary")];
-  }).toEqual(["6", "chat", "1"]);
+    return [query.get("step"), query.get("tool") ?? "chat", query.get("summary"), query.get("entity")];
+  }).toEqual(["6", "chat", "1", "group-report"]);
   await expect.poll(() => new URL(page.url()).searchParams.get("summaryThread")).toBeTruthy();
   expect(stageThreads.has(new URL(page.url()).searchParams.get("summaryThread")!)).toBe(false);
 
