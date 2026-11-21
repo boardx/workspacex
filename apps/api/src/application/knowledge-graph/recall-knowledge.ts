@@ -3,7 +3,7 @@ import type {RetrievalAccountingContext} from "../retrieval/ports";
  * Phase 18 F08 —— 对话一轮开始前，召回本会话记下的相关知识（uc-18-2）。
  *
  * 失败**降级**、不 fail run（同 L3 文件检索的纪律）：候选集读不到 ⇒ 这轮不带记忆；图路读不到 ⇒
- * 只用字面召回，并在计划里记 graph.available = false，给模型的材料里带上降级说明（R4-E1）。
+ * 只用字面召回，并在计划里记 graph.available = false，给模型的通过日志和本轮记录保留诊断。
  * S9（#4366）：向量通道与图路并行、有时限（KG_VECTOR_RECALL_TIMEOUT_MS）；没配置嵌入模型 ⇒ 未启用（不提醒）；
  * 配置了但失败 / 超时 ⇒ 这一轮降级为字面 + 图，同样如实说明。
  */
@@ -13,6 +13,7 @@ import { detectMemoryIntent, forgetMatches, MEMORY_CARD_MAX_ITEMS } from "../../
 import {
   buildKnowledgeContextMessage, fuseRecall, graphSeeds, recallable, recallDegraded, VECTOR_RECALL_TOP_K, type KnowledgeRecall, type RecallClaim, type VectorHit,
 } from "../../domain/knowledge-graph/recall";
+import { judgeWorthRemembering } from "../../domain/knowledge-graph/worth-remembering";
 import { withProfileSummary } from "../../domain/knowledge-graph/profile";
 import { changeOfMindFor, type ChangeMindPorts } from "./change-mind";
 import { newKgId } from "./ids";
@@ -30,7 +31,7 @@ export async function recallThreadKnowledge(
   },
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<KnowledgeRecall> {
-  // S9（#4366）：候选集一开始读，向量通道就开始嵌入问题（两者并行）；SQL 仍只在候选 id 里找。
+  // S9（#4366）：向量通道只检索有资格的候选 id。
   const candidates = port.candidates(input.orgId, input.userId, input.threadId);
   // issue #4363（S6）：过期 / 不做了的不交给向量通道——否则它们会占掉 top-k 的名额，把还算数的挤出去。
   const now = new Date();
@@ -108,7 +109,7 @@ async function vectorChannel(
 /**
  * 对话一轮开始前交给模型的那段【记忆】参考材料；没有命中 ⇒ null。
  * 与 L3 文件检索同一条降级纪律：召回整个失败 ⇒ 记一条日志、这轮不带记忆，绝不 fail run；
- * 只有图路失败 ⇒ 只用字面召回，材料里带一句「可能不完整」让模型如实告诉用户（R4-E1）。
+ * 只有图路失败 ⇒ 只用字面召回，通道状态写入日志和本轮记录。
  */
 export async function knowledgeMemoryFor(
   port: KnowledgeRecallPort,
@@ -116,6 +117,8 @@ export async function knowledgeMemoryFor(
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<string | null> {
   try {
+    const intent = judgeWorthRemembering(input.query);
+    if (intent.verdict === "skip" && intent.reason === "greeting") return null;
     const recall = await recallThreadKnowledge(port, input, log);
     if (await recordTurn(port, input, recall, log)) return buildKnowledgeContextMessage(recall);
     // round 7（#4284 收口）：抽取那一侧靠这条记录判断「这一轮的回答用没用个人记忆」（项目会话里用过的回答不抽）。
@@ -145,7 +148,7 @@ async function recordTurn(
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<boolean> {
   // S9（#4366）：列名沿用 F13 的 graph_degraded，读侧早已按「这一轮召回降级」（recallDegraded）解释——
-  // 图路或向量通道任一**故障**都记 true（没配置向量不算），回答下方那一行「这次没能查全你的记忆」照常出现。
+  // 图路或向量通道任一**故障**都记 true（没配置向量不算），读侧可以回溯降级的通道。
   const graphDegraded = recallDegraded(recall);
   if (recall.items.length === 0 && !graphDegraded) return true;
   try {
