@@ -7,6 +7,7 @@ const files = [
   '.nvmrc',
   'apps/web/e2e/support/devapp-aidt-auth-readonly.mjs',
   'apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs',
+  'apps/web/e2e/support/devapp-aidt-survey.mjs',
   'apps/web/e2e/support/devapp-aidt-acceptance.mjs',
   'apps/web/e2e/support/devapp-aidt-journey.mjs',
   'apps/web/e2e/support/devapp-aidt-print-evidence.mjs',

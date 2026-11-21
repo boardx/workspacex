@@ -1,5 +1,6 @@
 /** Live Dev acceptance: this is a bounded test-data writer, not the read-only probe. */
 import { ORIGIN, ProbeFailure, validLoginBody } from './devapp-aidt-auth-readonly.mjs';
+import { createSurveyCollectionGuard } from './devapp-aidt-survey.mjs';
 import { createHash } from 'node:crypto';
 import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, brainstormRecord, validBrainstormProjection, validTestPlanProjection, ENTITY } from './devapp-aidt-chat-evidence.mjs';
 
@@ -85,6 +86,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
   let imageArm = null, imageCount = 0, designLinked = false;
   let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null, modelRequestedScreens = null;
+  const survey = createSurveyCollectionGuard(identity.run);
   const readCategories = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
   const readDenials = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
   const metadataHttpStatuses = [];
@@ -101,6 +103,11 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     if (body !== undefined && Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_BODY) return stop('REQUEST_BODY_BOUND');
     if (projectId && target.searchParams.has('projectId') && target.searchParams.get('projectId') !== projectId) return stop('FOREIGN_PROJECT_REFERENCE');
     if (allowedWrites - reconcileCount >= WRITE_LIMIT && method !== 'GET') return stop('WRITE_COUNT_BOUND');
+    const surveyDecision = survey.decide(method, target, body, projectId);
+    if (surveyDecision) {
+      if (method !== 'GET') allowedWrites++;
+      return surveyDecision;
+    }
     if (method === 'POST' && path === '/api/auth/login' && !target.search) {
       if (!loginArmed || actor || loginCount !== 0 || !object(body) || Object.keys(body).sort().join(',') !== 'email,password' || !body.email || !body.password) return stop('LOGIN_REJECTED');
       loginCount++; return { allow: true, kind: 'login' };
@@ -248,6 +255,8 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     return decision;
   }
   function observe(decision, status, response) {
+    survey.observe(decision.kind, status, response);
+    if (decision.kind === 'survey-create') resources.add(survey.receipt().id);
     if (decision.allow && ['nativeAgentCatalog', 'runtimeMetadata'].includes(decision.readCategory) && Number.isInteger(status) && status >= 100 && status <= 599) {
       if (metadataHttpStatuses.length < 128) metadataHttpStatuses.push({ category: decision.readCategory, status });
       else metadataHttpStatusesTruncated = true;
@@ -395,6 +404,13 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000, ...(brainstorming ? { brainstormUntil: now() + 180000 } : {}), ...(scope.testPlan ? { planUntil: now() + 180000 } : {}) });
     },
 
+    armSurvey(entityId) {
+      let record;
+      try { record = JSON.parse(stageStates.get(6)?.content?.draft?.fields?.['testGroup:' + entityId]); } catch {}
+      if (!ordinaryVerified || !projectId || !designId || record?.designId !== designId || record.method !== 'survey' || !record.versionId || !record.planFromMessageId) throw new ProbeFailure('SURVEY_TEST_ENTITY_REQUIRED');
+      survey.arm();
+    },
+    surveyReceipt: survey.receipt,
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },
     armDesignGeneration: () => { if (!designId || modelCount) throw new ProbeFailure('DESIGN_GENERATION_ARM_REJECTED'); modelArm = now() + 15000; },
     armDesignImage: ({ id, fileName, bytes }) => {

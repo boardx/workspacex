@@ -2,6 +2,7 @@
  * A synthetic journey checks software behavior, never real interviews or classroom outcomes.
  * Credentials, request allowlists, run identity and evidence publication belong to the runner.
  */
+import { collectNativeSurvey, surveyFixture } from './devapp-aidt-survey.mjs';
 import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
@@ -352,7 +353,7 @@ export function assertSavedCardCreation(before, after, target, kind) {
 
 export async function runAidtJourney({ page, expect, scope, checkpoint, capture, api,
   saveStage, armCardCreate, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
-  armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, savePrint, teachingFeedback, reviewS1StudentResponse }) {
+  armSurvey, surveyReceipt, armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, savePrint, teachingFeedback, reviewS1StudentResponse }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
   const root = `/aidt/${encodeURIComponent(scope.projectId)}`;
   const origin = new URL(page.url()).origin;
@@ -482,7 +483,16 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   };
   const shot = async (name, stage) => {
     const url = new URL(page.url());
-    if (url.pathname === root && (!stage || url.searchParams.get('step') === String(stage))) await capture(name, stage);
+    if (url.pathname !== root || (stage && url.searchParams.get('step') !== String(stage))) return;
+    const thread = url.searchParams.get('thread');
+    const proof = thread && report.teachingEvidence.findLast(item => item.threadId === thread && item.status === 'passed');
+    if (proof) {
+      await expect(page.getByTestId('copilot-user-message').filter({ hasText: proof.prompt }).last()).toBeVisible();
+      const response = page.getByTestId('copilot-assistant-message').filter({ has: page.locator('[data-message-id="' + proof.assistantMessageId + '"]') });
+      await expect(response).toBeVisible();
+      await expect.poll(() => response.innerText().then(value => value.trim().length)).toBeGreaterThan(8);
+    }
+    await capture(name, stage);
   };
   const check = async (name, stage, fn, image) => checkpoint(name, async () => {
     const started = new Date().toISOString(), tick = performance.now();
@@ -1153,8 +1163,12 @@ ${JSON.stringify(studentInputs)}`);
       await expect(detail).toContainText((await readGroup()).task);
       await shot('06-' + method + '-chat-plan', 6);
       const syntheticTestRecord = text(`${label}合成材料第1段。合成页面按查看等待信息、理解选择、决定是否排队的顺序展示。未进行真实用户测试。`);
-      await saveSource(() => uploaded('本组原始材料', `qa-${unique}-${method}.txt`, Buffer.from(syntheticTestRecord), 'text/plain'));
-      const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的${label}合成材料第1段，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
+      const survey = surveyFixture(scope.runId);
+      if (method === 'survey') {
+        armSurvey(testTarget.entityId);
+        await collectNativeSurvey({ page, expect, actions, saveSource, fixture: survey, receipt: surveyReceipt });
+      } else await saveSource(() => uploaded('本组原始材料', `qa-${unique}-${method}.txt`, Buffer.from(syntheticTestRecord), 'text/plain'));
+      const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的${method === 'survey' ? '原生问卷答卷，自报原话为「' + survey.answer + '」' : '线下访谈合成材料第1段'}，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
       if (!await feedback(6, prompt)) fail('TEST_TEACHING_REPLY_REQUIRED');
       const proof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.prompt === prompt && item.status === 'passed');
       await saveStage(6, btn('确认并保存测试成果', actions), { confirmation: true });
@@ -1164,6 +1178,15 @@ ${JSON.stringify(studentInputs)}`);
       const testRecord = JSON.parse(fields['testGroup:' + testTarget.entityId]);
       if (testRecord.method !== method || testRecord.designId !== designId || !testRecord.versionId || !proof || testRecord.confirmedFromMessageId !== proof.assistantMessageId || !testRecord.task?.trim() || !testRecord.reflection?.trim() ||
           fields.reflectionConfirmed !== 'true' || fields.understandingChangeStatus !== 'insufficient' || fields.returnStep !== '2') fail('TEST_NATIVE_ROUND_UNVERIFIED');
+      if (method === 'survey') {
+        if (testRecord.source?.kind !== 'survey' || testRecord.source.id !== surveyReceipt().id || testRecord.surveyResponseId !== surveyReceipt().responseId) fail('NATIVE_SURVEY_RESPONSE_REQUIRED');
+        await disclosure('原型版本与来源');
+        await expect(detail.getByRole('link', { name: '查看原生答卷' })).toHaveAttribute('href', new RegExp('/studio/survey/' + testRecord.source.id + '/responses'));
+        await expect(detail.getByText('已定位答卷 ' + testRecord.surveyResponseId, { exact: true })).toBeVisible();
+        await disclosure('查看所选答卷的原始回答');
+        await expect(detail.getByText(survey.answer, { exact: true })).toBeVisible();
+        await shot('06-survey-real-response', 6);
+      }
       if (method === 'interview') {
         await disclosure('原型版本与来源');
         await expect(detail.getByTestId('aidt-research-original-text')).toContainText(syntheticTestRecord);

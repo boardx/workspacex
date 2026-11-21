@@ -330,6 +330,7 @@ export async function main() {
           try { parsed = JSON.parse(bytes.toString('utf8')); } catch { throw new ProbeFailure('RESPONSE_SCHEMA_INVALID'); }
         }
         if (decision.kind === 'login' && typeof parsed?.sessionToken === 'string') sensitiveEvidence.remember(parsed.sessionToken);
+        if (decision.kind === 'survey-publish' && typeof parsed?.publication?.token === 'string') sensitiveEvidence.remember(parsed.publication.token);
         guard.observe(decision, response.status(), parsed);
         // Bind only the actual created candidate before the normal UI resumes.
         if (decision.kind === 'create-project' && [200, 201].includes(response.status())) {
@@ -613,7 +614,7 @@ export async function main() {
     await runAidtJourney({ page, context, expect, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
       checkpoint, capture, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
       armInterviewEdit: () => guard.armStageSave(2, false), armCardCreate: stage => guard.armStageSave(stage, false),
-      registerFixture: fixture => guard.registerFixture(fixture), armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, report });
+      registerFixture: fixture => guard.registerFixture(fixture), armSurvey: id => guard.armSurvey(id), surveyReceipt: guard.surveyReceipt, armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
     report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, 'teaching-chat-final-report', 'teaching-chat-stage-3-2', 'teaching-chat-stage-3-3', 'teaching-chat-stage-3-4', 'teaching-chat-stage-4-reverse', 'teaching-chat-stage-6-plan', 'teaching-chat-stage-6-survey-plan', 'teaching-chat-stage-6-survey', ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
