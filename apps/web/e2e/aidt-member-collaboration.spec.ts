@@ -8,6 +8,7 @@ import { project } from "@repo/contracts";
 import * as stages from "@repo/contracts/aidt-stages";
 import * as memberChat from "@repo/contracts/project-member-chat";
 import { isAidtModuleEnabled } from "@/lib/aidt-module-config";
+import { readAidtProblemEntityDraft } from "@/features/aidt/lib/aidt-problem-entities";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 const enabled = (value: string | undefined) => value === "1" || value === "true";
@@ -78,7 +79,7 @@ async function exposedGeometry(locator: Locator) {
   return geometry;
 }
 
-test("shared AIDT stages: two members persist revisions, stale CAS and isolation remain explicit", async ({ page, browser }) => {
+test("shared AIDT legacy aggregate stages: two members persist revisions, stale CAS and isolation remain explicit", async ({ page, browser }) => {
   test.skip(!isAidtModuleEnabled() || !enabled(process.env.ENABLE_AIDT_MODULE), "Optional AIDT frontend and backend must both be explicitly enabled.");
   test.setTimeout(120_000);
   await login(page);
@@ -128,15 +129,18 @@ test("shared AIDT stages: two members persist revisions, stale CAS and isolation
     await member.evaluate(() => localStorage.clear());
     await login(member, "member");
     expect(stages.operations.get.out.parse((await request(member, path)).data).stage).toEqual(secondSaved.stage);
-    await page.goto(`/aidt/${projectId}?step=1&tool=outcome`);
-    await member.goto(`/aidt/${projectId}?step=1&tool=outcome`);
+    // The API fixtures above deliberately use the original aggregate shape.
+    // The current default entry is an entity directory; its explicit early-stage
+    // compatibility view still owns this aggregate CAS/local-draft regression.
+    await page.goto(`/aidt/${projectId}?step=1&tool=outcome&history=1`);
+    await member.goto(`/aidt/${projectId}?step=1&tool=outcome&history=1`);
     await expect(page.getByLabel("初始问题", { exact: true })).toHaveValue("组员修订：聚焦午休较短的学生。仍需访谈。");
     await expect(member.getByLabel("初始问题", { exact: true })).toHaveValue("组员修订：聚焦午休较短的学生。仍需访谈。");
     const localText = "本页保留：先验证午休短的情境，不把推测写成结论。";
     await page.getByLabel("初始问题", { exact: true }).fill(localText);
     await member.getByLabel("初始问题", { exact: true }).fill("成员新修订：先访谈最近一次取餐经历。");
     await member.getByTestId("aidt-shared-save").click();
-    await expect(member.getByTestId("aidt-shared-receipt")).toContainText("服务器已回执 V3");
+    await expect(member.getByTestId("aidt-shared-receipt")).toHaveText("已保存到小组 · V3");
     await page.getByTestId("aidt-shared-save").click();
     await expect(page.getByTestId("aidt-shared-conflict")).toBeVisible();
     await expect(page.getByLabel("初始问题", { exact: true })).toHaveValue(localText);
@@ -144,7 +148,7 @@ test("shared AIDT stages: two members persist revisions, stale CAS and isolation
     await page.screenshot({ path: test.info().outputPath("aidt-shared-stage-conflict-preserves-input.png"), fullPage: true });
     await page.getByTestId("aidt-shared-use-server-base").click();
     await page.getByTestId("aidt-shared-save").click();
-    await expect(page.getByTestId("aidt-shared-receipt")).toContainText("服务器已回执 V4");
+    await expect(page.getByTestId("aidt-shared-receipt")).toHaveText("已保存到小组 · V4");
     await member.reload();
     await expect(member.getByLabel("初始问题", { exact: true })).toHaveValue(localText);
     await page.screenshot({ path: test.info().outputPath("aidt-shared-stage-real-receipt.png"), fullPage: true });
@@ -160,10 +164,12 @@ test("shared AIDT stages: two members persist revisions, stale CAS and isolation
     expect(wrongReportStage.status).toBe(422);
     const missingReportSource = await request(page, stage6Path, "PUT", { ...stage6Input, operationId: randomUUID(), expectedRevision: 2, content: { ...stage6Input.content, summaryReport: { ...summaryReport, sourceStageRevisions: [{ stageId: 3, revision: 123 }] } } });
     expect(missingReportSource.status).toBe(422);
-    await page.goto(`/aidt/${projectId}?step=6&tool=outcome`);
+    await page.goto(`/aidt/${projectId}?step=6&tool=outcome&history=1`);
     const stage6Reflection = "阶段六未保存反思：新版仍需真实测试。";
     await page.getByLabel("反思与解释", { exact: true }).fill(stage6Reflection);
-    await page.getByTestId("aidt-open-report").click();
+    // Follow the product's actual report link, rather than an obsolete toolbar
+    // test id or a history flag that would conceal a broken report entry.
+    await page.getByRole("link", { name: "预览小组报告", exact: true }).click();
     await expect(page.getByLabel("小组报告草稿", { exact: true })).toHaveValue(summaryReport.markdown);
     const reviewedReport = `${summaryReport.markdown}\n小组审阅：下一步补测不同午休情境。`;
     await page.getByLabel("小组报告草稿", { exact: true }).fill(reviewedReport);
@@ -184,10 +190,13 @@ test("shared AIDT stages: two members persist revisions, stale CAS and isolation
     }
     await member.goto(`/aidt/${projectId}?step=6&tool=report`);
     await expect(member.getByLabel("小组报告草稿", { exact: true })).toHaveValue(reviewedReport);
-    await page.getByTestId("aidt-open-output").click();
+    // Browser Back returns through the same UI navigation without discarding
+    // the deliberately unsaved aggregate reflection via a document reload.
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/aidt/${projectId}\\?step=6&tool=outcome&history=1(?:&|$)`));
     await expect(page.getByLabel("反思与解释", { exact: true })).toHaveValue(stage6Reflection);
     await page.getByTestId("aidt-shared-save").click();
-    await expect(page.getByTestId("aidt-shared-receipt")).toContainText("服务器已回执 V4");
+    await expect(page.getByTestId("aidt-shared-receipt")).toHaveText("已保存到小组 · V4");
     const stageAndReport = stages.operations.get.out.parse((await request(page, stage6Path)).data).stage!;
     expect(stageAndReport.content.draft.fields.reflection).toBe(stage6Reflection);
     expect(stageAndReport.content.summaryReport?.markdown).toBe(reviewedReport);
@@ -364,6 +373,85 @@ test("pure human project chat: two authors, durable topic replies, idempotency a
   } finally { await memberContext.close(); }
 });
 
+test("named AIDT problem: two fixture members share normal directory edits across sessions without model work", async ({ page, browser }) => {
+  test.skip(!isAidtModuleEnabled() || !enabled(process.env.ENABLE_AIDT_MODULE), "Optional AIDT must be enabled.");
+  test.setTimeout(120_000);
+  await login(page);
+  // This is the existing isolated lead/member project fixture, not a claim of
+  // ordinary Dev homepage creation or a change to either seeded org role.
+  const projectId = await createProject(page, "新实体两成员共享");
+  await addMember(page, projectId);
+  const before = await modelActivity(projectId);
+  const memberContext = await browser.newContext({ baseURL: new URL(page.url()).origin, locale: "zh-CN" });
+  const path = `/projects/${projectId}/aidt/stages/1`;
+  const directoryUrl = `/aidt/${projectId}?step=1`;
+  const title = "本组自拟问题 " + randomUUID().slice(0, 8);
+  const firstText = "学生初稿：了解午间取餐的选择情境；尚未访谈。";
+  const memberText = "组员修订：先了解最近一次午间取餐经历，不把原因当作事实。";
+  const save = async (actor: Page) => {
+    const button = actor.getByTestId("aidt-shared-save");
+    await expect(button).toBeEnabled();
+    const [response] = await Promise.all([
+      actor.waitForResponse(value => value.request().method() === "PUT" && new URL(value.url()).pathname.endsWith(path)),
+      button.click(),
+    ]);
+    expect(response.status()).toBe(200);
+    return stages.operations.save.out.parse(await response.json()).stage;
+  };
+  const openSavedProblem = async (actor: Page) => {
+    await actor.goto(directoryUrl);
+    const link = actor.getByTestId("aidt-problem-directory").getByRole("link", { name: title, exact: true });
+    await expect(link).toBeVisible();
+    await link.click();
+    await expect(actor.getByTestId("copilotkit-v2-input")).toBeVisible();
+    await actor.getByTestId("chat-task-workbench-inspector-tab-artifacts").click();
+    await expect(actor.getByLabel("初始问题", { exact: true })).toBeEditable();
+    expect(new URL(actor.url()).searchParams.has("history")).toBe(false);
+    return new URL(actor.url()).searchParams.get("entity")!;
+  };
+  try {
+    await page.goto(directoryUrl);
+    await page.getByLabel("问题名称", { exact: true }).fill(title);
+    await page.getByRole("button", { name: "新建问题", exact: true }).click();
+    const created = await save(page);
+    expect(created).toMatchObject({ revision: 1, updatedBy: FULLSTACK_E2E.collaborationLeadUserId });
+    const entityId = await openSavedProblem(page);
+    expect(entityId).toMatch(/^[0-9a-f-]{36}$/);
+    await page.getByLabel("初始问题", { exact: true }).fill(firstText);
+    const first = await save(page);
+    expect(first).toMatchObject({ revision: 2, updatedBy: FULLSTACK_E2E.collaborationLeadUserId });
+    expect(readAidtProblemEntityDraft(first.content.draft, entityId).fields.initial).toBe(firstText);
+    expect(first.content.draft.fields.initial).toBeUndefined();
+    const member = await memberContext.newPage();
+    await login(member, "member");
+    expect(await openSavedProblem(member)).toBe(entityId);
+    await expect(member.getByLabel("初始问题", { exact: true })).toHaveValue(firstText);
+    expect(stages.operations.get.out.parse((await request(member, path)).data).stage).toEqual(first);
+    await member.getByLabel("初始问题", { exact: true }).fill(memberText);
+    const revised = await save(member);
+    expect(revised).toMatchObject({ revision: 3, updatedBy: FULLSTACK_E2E.collaborationMemberUserId });
+    expect(readAidtProblemEntityDraft(revised.content.draft, entityId).fields.initial).toBe(memberText);
+    await member.reload();
+    await expect(member.getByLabel("初始问题", { exact: true })).toHaveValue(memberText);
+    await expect(member.getByTestId("aidt-shared-status")).toHaveText("小组已保存 · V3");
+    await page.reload();
+    await expect(page.getByLabel("初始问题", { exact: true })).toHaveValue(memberText);
+    await expect(page.getByTestId("aidt-shared-status")).toHaveText("小组已保存 · V3");
+    expect(stages.operations.get.out.parse((await request(page, path)).data).stage).toEqual(revised);
+    await memberContext.clearCookies();
+    await member.evaluate(() => localStorage.clear());
+    await login(member, "member");
+    expect(await openSavedProblem(member)).toBe(entityId);
+    await expect(member.getByLabel("初始问题", { exact: true })).toHaveValue(memberText);
+    const persisted = await audit(client => client.query("SELECT revision,updated_by,content FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 AND stage_id=1 ORDER BY revision", [FULLSTACK_E2E.collaborationOrgId, projectId]));
+    expect(persisted.rows).toHaveLength(3);
+    expect(persisted.rows[2]).toMatchObject({ revision: 3, updated_by: FULLSTACK_E2E.collaborationMemberUserId, content: revised.content });
+    expect(await modelActivity(projectId)).toEqual(before);
+    await page.screenshot({ path: test.info().outputPath("aidt-named-problem-member-revision.png"), fullPage: true });
+    await test.info().attach("named-problem-two-member-persistence", { body: JSON.stringify({ projectId, entityId, fixtureScope: "isolated existing lead/member; no ordinary Dev homepage claim", persisted: persisted.rows, modelActivityBefore: before }, null, 2), contentType: "application/json" });
+  } finally { await memberContext.close(); }
+});
+
 test("saved AIDT report confirms a frozen version and exports that version after a newer draft", async ({ page }) => {
   test.skip(!isAidtModuleEnabled() || !enabled(process.env.ENABLE_AIDT_MODULE), "Optional AIDT must be enabled.");
   test.setTimeout(120_000);
@@ -379,6 +467,8 @@ test("saved AIDT report confirms a frozen version and exports that version after
   expect((await request(page, stagePath(6), "PUT", sixth)).status).toBe(200);
 
   await page.goto(`/aidt/${projectId}?step=6&tool=report`);
+  // Keep this first-party report URL independent of the aggregate history
+  // escape hatch: it must open the stored report, not an entity directory.
   await expect(page.getByTestId("aidt-report-save-state")).toHaveText("小组报告已保存 · 待确认");
   await page.getByRole("button", { name: "阅读预览", exact: true }).click();
   await page.getByRole("button", { name: "确认审阅此版本" }).click();
