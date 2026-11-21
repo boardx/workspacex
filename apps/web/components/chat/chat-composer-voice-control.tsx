@@ -2,14 +2,14 @@
 import { useI18n } from "@/lib/i18n/provider";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
-import { SILENCE_HINT_AFTER_SECONDS, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
+import { SILENCE_HINT_AFTER_SECONDS, SILENCE_AUTO_PAUSE_AFTER_SECONDS, type ComposerVoicePhase, type ComposerVoiceSession } from "@/lib/use-composer-voice-session";
 
 import * as React from "react";
-import { Check, ChevronDown, Loader2, Mic, Square } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Loader2, Mic, Pause, Play, Square, Undo2, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useChatPopoverSlot } from "@/components/chat/chat-popover-coordinator";
+import { voiceErrorStatus } from "@/components/chat/chat-composer-status-bar";
 import type { AsrDraftStatus } from "@/lib/use-asr-draft";
-import type { ComposerVoicePhase } from "@/lib/use-composer-voice-session";
 
 /**
  * 2026-09-02 composer 重设计——**一个按钮承载全部语音状态**的分段胶囊：
@@ -27,6 +27,13 @@ export interface ComposerVoiceDevice {
   readonly deviceId: string;
   readonly label: string;
 }
+
+type InlineDictation = Pick<ComposerVoiceSession, "pause" | "discard" | "undo" | "silenceHint" | "transcribedChars"> & {
+  readonly error: string | null;
+  readonly errorReason: string | null;
+};
+
+const INLINE_ACTION_CLASS = "flex shrink-0 items-center justify-center rounded-pill transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground";
 
 export function describeVoiceDevice(devices: readonly ComposerVoiceDevice[], selectedDeviceId: string | null, locale: Locale = DEFAULT_LOCALE): string {
   if (selectedDeviceId === null) return translate(locale, "chatComposer.deviceDefault");
@@ -94,6 +101,7 @@ export function ComposerVoiceControl({
   autoPause,
   onAutoPauseChange,
   deviceMenuRequest = 0,
+  inline,
 }: {
   readonly status: AsrDraftStatus;
   readonly phase: ComposerVoicePhase;
@@ -112,10 +120,16 @@ export function ComposerVoiceControl({
   readonly onAutoPauseChange: (on: boolean) => void;
   /** 外部（状态栏「换麦克风」）请求打开设备菜单的计数。 */
   readonly deviceMenuRequest?: number;
+  readonly inline?: InlineDictation;
 }): JSX.Element {
   const { locale, t } = useI18n();
   const [menuOpen, setMenuOpen] = useChatPopoverSlot("chat-composer-mic-devices");
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const micRef = React.useRef<HTMLButtonElement>(null);
+  const [errorDismissed, setErrorDismissed] = React.useState(false);
+  React.useEffect(() => {
+    if (phase !== "error") setErrorDismissed(false);
+  }, [phase]);
   const lastRequestRef = React.useRef(deviceMenuRequest);
   React.useEffect(() => {
     if (deviceMenuRequest === lastRequestRef.current) return;
@@ -144,6 +158,30 @@ export function ComposerVoiceControl({
   const busy = (phase === "connecting" && !reconnecting) || phase === "stopping";
   const deviceText = describeVoiceDevice(devices, selectedDeviceId, locale);
   const ariaLabel = canStop ? t("chatComposer.voiceStop") : paused ? t("chatComposer.voiceResume") : t(LABEL_BY_STATUS[status]);
+  const elapsed = formatElapsed(elapsedSeconds);
+  const silenceHint = listening && inline?.silenceHint
+    ? t("chatComposer.voiceSilentInline") + (autoPause
+      ? t("chatComposer.voiceAutoPauseHint", { seconds: SILENCE_HINT_AFTER_SECONDS + SILENCE_AUTO_PAUSE_AFTER_SECONDS })
+      : "")
+    : null;
+  const showTimer = listening || paused || reconnecting;
+  const done = inline !== undefined && phase === "done";
+  const statusMessage = inline && (
+    silenceHint ?? (listening ? t("chatComposer.voiceListeningInline")
+      : paused ? t("chatComposer.voicePausedInline")
+      : reconnecting ? t("voice.reconnecting")
+      : phase === "connecting" ? t("chatComposer.voiceConnecting")
+      : phase === "stopping" ? t("chatComposer.voiceStopping")
+      : done ? t("chatComposer.voiceTranscribed", { count: inline.transcribedChars })
+      : "")
+  );
+  const error = inline && phase === "error" && !errorDismissed && !menuOpen
+    ? voiceErrorStatus({ status, error: inline.error, errorReason: inline.errorReason }, {
+      onRetry: () => { micRef.current?.focus(); if (onRequireSession()) onStart(); },
+      retryTestId: "chat-task-workbench-composer-mic-retry",
+      helpTestId: "chat-task-workbench-composer-mic-permission-help",
+    }, locale)
+    : null;
 
   const shell = listening
     ? "border-destructive bg-destructive text-destructive-foreground"
@@ -152,61 +190,153 @@ export function ComposerVoiceControl({
       : "border-border bg-panel-alt text-card-foreground";
   const divider = listening ? "bg-destructive-foreground/30" : "bg-border";
   const hover = listening ? "hover:bg-destructive/90" : "hover:bg-muted";
+  const connecting = phase === "connecting";
+  const mainText = canStop ? t("chatComposer.stop")
+    : connecting ? t("chatComposer.voiceConnectingShort")
+    : phase === "stopping" ? t("chatComposer.stopping")
+    : paused ? t("chatComposer.continue")
+    : t("chatComposer.voiceInput");
 
   return (
-    <div ref={containerRef} className={`relative flex h-8 items-stretch overflow-visible rounded-pill border transition-colors duration-fast ${shell}`}>
+    <div ref={containerRef} className={`relative flex h-8 items-stretch overflow-visible rounded-pill border transition-colors duration-fast ${shell} ${inline ? "w-36 shrink-0" : ""}`}>
+      {inline ? <span role="status" className="sr-only">{error?.title ?? statusMessage}</span> : null}
+      {inline && (paused || (connecting && !reconnecting)) ? (
+        <button
+          type="button"
+          data-testid="chat-task-workbench-composer-recording-cancel"
+          aria-label={t(paused ? "chatComposer.discard" : "common.cancel")}
+          title={t(paused ? "chatComposer.discard" : "common.cancel")}
+          onClick={() => { micRef.current?.focus(); inline.discard(); }}
+          className={`${INLINE_ACTION_CLASS} w-6 ${hover}`}
+        >
+          <X aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+      {inline && showTimer ? (
+        <span
+          data-testid={listening ? "chat-mic-listening" : paused ? "chat-task-workbench-composer-paused" : "chat-mic-connecting"}
+          title={silenceHint ?? (reconnecting ? t("voice.reconnecting") : t(listening ? "chatComposer.voiceListening" : "chatComposer.voicePaused", { elapsed }))}
+          className={`flex min-w-0 flex-1 items-center gap-1 ${paused ? "" : "pl-1"}`}
+        >
+          {silenceHint ? <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" /> : listening ? <LevelBars level={level} /> : null}
+          {reconnecting ? <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin" /> : null}
+          <span
+            data-testid="chat-task-workbench-composer-recording-timer"
+            className="truncate font-mono text-10 tabular-nums"
+          >
+            {elapsed}
+          </span>
+        </span>
+      ) : null}
+      {inline && listening ? (
+        <button
+          type="button"
+          data-testid="chat-task-workbench-composer-recording-pause"
+          aria-label={t("chatComposer.pause")}
+          title={t("chatComposer.pause")}
+          onClick={() => { micRef.current?.focus(); inline.pause(); }}
+          className={`${INLINE_ACTION_CLASS} w-7 ${hover}`}
+        >
+          <Pause aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+      {done ? (
+        <span
+          data-testid="chat-task-workbench-composer-transcribed"
+          title={statusMessage || undefined}
+          className="flex min-w-0 flex-1 items-center gap-1 pl-2 text-11 text-success"
+        >
+          <Check aria-hidden className="h-3 w-3 shrink-0" />
+          <span className="truncate">{t("chatComposer.voiceTranscribedShort")}</span>
+        </span>
+      ) : null}
       <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
           <button
             type="button"
+            ref={micRef}
             data-testid="chat-task-workbench-composer-mic"
             data-mic-status={status}
             data-voice-phase={phase}
             aria-pressed={listening}
             aria-busy={busy}
             aria-label={ariaLabel}
-            disabled={disabled || busy}
+            aria-disabled={inline && busy ? true : undefined}
+            disabled={(disabled && !(inline && canStop)) || (!inline && busy)}
             onClick={() => {
+              if (busy) return;
               if (canStop) onStop();
               else if (onRequireSession()) {
+                if (errorDismissed) setErrorDismissed(false);
                 if (paused) onResume();
                 else onStart();
               }
             }}
-            className={`flex items-center gap-2 rounded-l-pill pl-3.5 pr-3 text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover}`}
+            className={`flex items-center text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover} ${
+              inline ? `justify-center gap-1 ${showTimer || done
+                ? "w-7 shrink-0 rounded-pill" : "min-w-0 flex-1 rounded-pill px-1"}`
+                : "gap-2 rounded-l-pill pl-3.5 pr-3"
+            }`}
           >
             {busy ? (
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+              <Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin" />
             ) : canStop ? (
               <Square aria-hidden className="h-3 w-3 fill-current" />
+            ) : inline && paused ? (
+              <Play aria-hidden className="h-3.5 w-3.5" />
             ) : (
-              <Mic aria-hidden className="h-4 w-4" />
+              <Mic aria-hidden className="h-4 w-4 shrink-0" />
             )}
-            <span>
-              {canStop ? t("chatComposer.stop")
-                : phase === "connecting" ? t("chatComposer.voiceConnectingShort")
-                : phase === "stopping" ? t("chatComposer.stopping")
-                : paused ? t("chatComposer.continue")
-                /*
-                 * 2026-09-23：出错态这里原来写「重试」——状态栏里已经有一个「重试」，屏上于是并排两个；
-                 * 而「这里没开通语音」时两个都是死路。按钮只说它是什么（语音），要不要重试交给状态栏判断。
-                 */
-                : t("chatComposer.voiceInput")}
-            </span>
-            {listening ? <LevelBars level={level} /> : null}
-            {listening || paused ? (
+            {!(inline && (showTimer || done)) ? (
+              <span
+                data-testid={inline && busy ? (connecting ? "chat-mic-connecting" : "chat-mic-stopping") : undefined}
+                className={inline ? "truncate" : undefined}
+              >
+                {mainText}
+              </span>
+            ) : null}
+            {!inline && listening ? <LevelBars level={level} /> : null}
+            {!inline && (listening || paused) ? (
               <span className="font-mono tabular-nums" data-testid="chat-task-workbench-composer-recording-timer">
-                {formatElapsed(elapsedSeconds)}
+                {elapsed}
               </span>
             ) : null}
           </button>
           </TooltipTrigger>
           <TooltipContent data-testid="chat-task-workbench-composer-mic-tooltip">
-            {phase === "idle" ? t("chatComposer.voiceTooltip", { device: deviceText }) : ariaLabel}
+            {phase === "idle" ? t("chatComposer.voiceTooltip", { device: deviceText })
+              : inline && canStop ? `${ariaLabel} · ${t("chatComposer.escapeRecording")}`
+              : done ? t("chatComposer.speakAgain")
+              : ariaLabel}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+      {inline && paused ? (
+        <button
+          type="button"
+          data-testid="chat-task-workbench-composer-recording-confirm"
+          aria-label={t("chatComposer.done")}
+          title={t("chatComposer.done")}
+          onClick={() => { micRef.current?.focus(); onStop(); }}
+          className={`${INLINE_ACTION_CLASS} w-7 ${hover}`}
+        >
+          <Check aria-hidden className="h-4 w-4" />
+        </button>
+      ) : null}
+      {inline && done ? (
+        <button
+          type="button"
+          data-testid="chat-task-workbench-composer-recording-undo"
+          aria-label={t("chatComposer.undoTranscription")}
+          title={t("chatComposer.undoTranscription")}
+          disabled={disabled}
+          onClick={() => { micRef.current?.focus(); inline.undo(); }}
+          className={`${INLINE_ACTION_CLASS} w-7 ${hover}`}
+        >
+          <Undo2 aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
       <span aria-hidden className={`my-1.5 w-px ${divider}`} />
       <button
         type="button"
@@ -221,6 +351,42 @@ export function ComposerVoiceControl({
       >
         <ChevronDown aria-hidden className="h-3.5 w-3.5" />
       </button>
+      {error ? (
+        <div data-testid="chat-mic-error" className="absolute bottom-full right-0 z-20 mb-2 w-52 rounded-lg border border-warning/30 bg-popover p-3 text-12 text-card-foreground shadow-md">
+          <div className="flex items-start gap-2">
+            <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <p className="min-w-0 flex-1 break-words">
+              <strong className="block">{error.title}</strong>
+              {error.description ? <span className="mt-1 block text-muted-foreground">{error.description}</span> : null}
+            </p>
+            <button
+              type="button"
+              aria-label={t("common.close")}
+              title={t("common.close")}
+              onClick={() => { micRef.current?.focus(); setErrorDismissed(true); }}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X aria-hidden className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {error.actions.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+              {error.actions.map((action) => (
+                <button
+                  key={action.testId}
+                  type="button"
+                  data-testid={action.testId}
+                  disabled={disabled}
+                  onClick={action.onClick}
+                  className="rounded-sm underline underline-offset-2 transition-colors duration-fast hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {menuOpen ? (
         <div
           role="menu"
@@ -228,6 +394,7 @@ export function ComposerVoiceControl({
           data-testid="chat-task-workbench-composer-mic-devices-listbox"
           className="absolute bottom-full right-0 z-20 mb-1.5 w-64 rounded-lg border border-border bg-popover p-1 text-card-foreground shadow-md"
         >
+          {silenceHint ? <p className="px-2 py-1.5 text-12 text-muted-foreground">{silenceHint}</p> : null}
           <p className="px-2 pb-1 pt-1.5 text-10 text-muted-foreground">{t("chatComposer.inputDevice")}{listening ? t("chatComposer.cannotSwitchRecording") : ""}</p>
           <button
             type="button"

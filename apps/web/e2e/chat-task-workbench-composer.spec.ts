@@ -21,8 +21,7 @@ import { ACCEPTANCE_DOC, CHAT_READ_E2E, expectAnchor, gapMessage, openFreshThrea
  * 工具行左 = 材料 / 技能两颗 32px 圆形图标按钮 + 「能力：自动匹配」选择器（issue #2770：
  * 原第三颗「任务模式」与「每次都先计划」两个手动开关已删，要不要先计划由内核自动判）；
  * 右 = 一个分段语音胶囊承载全部语音状态（语音 → 连接中 → 停止+音量条+计时 → 继续），
- * 设备列表与静音自动暂停开关收进它右侧的小箭头菜单；卡片底部一条状态栏按状态区分
- * 语气与操作；「请先输入任务目标」只在用户试图发送（空输入按 Enter）时出现在页脚。
+ * 设备列表与静音自动暂停开关收进它右侧的小箭头菜单；录音操作与提示在工具行内切换。
  *
  * ## 边界（不重复声明）
  * 「语音转录必须经服务端代理」「转录是否实时可编辑」属于
@@ -158,22 +157,45 @@ test("TW-P0-5⑥：设备选择是语音按钮的二级菜单，录音时显示�
   await expect(autoPause).toHaveAttribute("aria-checked", "false");
   await page.keyboard.press("Escape");
 
+  const composer = page.getByTestId("chat-task-workbench-composer");
+  const composerChromeHeight = () => composer.evaluate((card) => {
+    const draft = card.querySelector("textarea")!;
+    const footer = card.nextElementSibling!;
+    // Subtract the independently auto-growing transcript field. The footer
+    // measurement includes its margin so an empty but visible row also fails.
+    return card.getBoundingClientRect().height - draft.getBoundingClientRect().height
+      + footer.getBoundingClientRect().height + parseFloat(getComputedStyle(footer).marginTop);
+  });
+  const initialChromeHeight = await composerChromeHeight();
+  const desktopViewport = page.viewportSize()!;
+  const narrowViewport = { width: 375, height: 812 };
+  await page.setViewportSize(narrowViewport);
+  await expect(composer).toBeVisible();
+  const narrowChromeHeight = await composerChromeHeight();
+  await page.setViewportSize(desktopViewport);
+
   // 录音态四件：计时 + 音量条在语音胶囊上；正在听 → 暂停 / 停止；暂停 → 丢弃 / 继续 / 完成。
   await mic.click();
   await expect(mic).toHaveAttribute("data-voice-phase", "listening", { timeout: 30_000 });
+  await expect(mic).toHaveAccessibleName("停止语音输入");
+  expect(await composerChromeHeight()).toBeCloseTo(initialChromeHeight);
   for (const [suffix, what] of [
     ["timer", "录音计时"],
     ["level", "音量指示"],
     ["pause", "暂停"],
-    ["confirm", "停止（确认保留转录）"],
   ] as const) {
     await expectAnchor(page, `chat-task-workbench-composer-recording-${suffix}`, "TW-P0-5⑥", `录音态缺少${what}`, 15_000);
   }
+  await page.setViewportSize(narrowViewport);
+  expect(await composerChromeHeight()).toBeCloseTo(narrowChromeHeight);
   await page.getByTestId("chat-task-workbench-composer-recording-pause").click();
   await expectAnchor(page, "chat-task-workbench-composer-paused", "TW-P0-5⑥", "点「暂停」后没有暂停态", 30_000);
+  await expect(mic).toHaveAccessibleName("继续语音输入");
+  expect(await composerChromeHeight()).toBeCloseTo(narrowChromeHeight);
+  await page.setViewportSize(desktopViewport);
+  expect(await composerChromeHeight()).toBeCloseTo(initialChromeHeight);
   for (const [suffix, what] of [
     ["cancel", "丢弃"],
-    ["resume", "继续"],
     ["confirm", "完成"],
   ] as const) {
     await expectAnchor(page, `chat-task-workbench-composer-recording-${suffix}`, "TW-P0-5⑥", `暂停态缺少${what}`, 15_000);

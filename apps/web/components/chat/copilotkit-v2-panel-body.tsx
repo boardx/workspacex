@@ -107,7 +107,7 @@ const EMPTY_SEND_HINT_MS = 2_500;
  */
 const RECORDING_SEND_REASON = "chatComposer.recording";
 /** 2026-09-10 人类实测反馈：「下面的绿色提醒要过 5 秒自动消失，不要一直停留」。 */
-const TRANSCRIBED_BAR_AUTO_DISMISS_MS = 5_000;
+const TRANSCRIPTION_NOTICE_TIMEOUT_MS = 5_000;
 /** 2026-09-08 人类反馈「默认有一行就可以了」：composer 自动增高的封顶（约 8 行 text-16），超出后内部滚动。 */
 const COMPOSER_MAX_HEIGHT_PX = 200;
 
@@ -1256,7 +1256,7 @@ function useCopilotKitV2PanelController({
     if (voiceFollowRef.current) ta.scrollTop = ta.scrollHeight;
     syncComposerMirrorScroll();
   }, [voiceActive, speech.baseText, speech.committedText, speech.partialText, syncComposerMirrorScroll]);
-  // 按 Esc 停止录音（设计稿页脚："按 Esc 停止录音"）。
+  // Esc stops an active dictation or cancels the initial connection.
   React.useEffect(() => {
     if (voice.phase !== "listening" && voice.phase !== "connecting") return;
     function onKeyDown(e: KeyboardEvent) {
@@ -1271,24 +1271,14 @@ function useCopilotKitV2PanelController({
   React.useEffect(() => {
     if (voice.phase === "done" && inputDraft.trim() === "") voice.dismiss();
   }, [inputDraft, voice]);
-  /*
-   * 2026-09-10 人类实测反馈：「下面的绿色提醒要过 5 秒自动消失，不要一直停留」——
-   * 「已转录 N 字」是一条**已完成动作的回执**，看过就没用了，却一直占着 composer 底部
-   * 48px 直到用户发送或清空输入框。到点自动 `dismiss()`（与"输入框被清空"走同一条退出
-   * 路径），转录出来的文字留在输入框里不动，只是这条回执不再常驻。
-   * ⚠ 计时以进入 `done` 那一刻起算：依赖 `voice.phase`（不是 `voice` 整个对象）当
-   * effect 依赖，否则 `voice` 每次渲染都是新引用，定时器会被反复重建、永远到不了 5 秒。
-   */
+  // Start the timeout on entering done so unrelated renders do not extend it.
   const voiceDismissRef = React.useRef(voice.dismiss);
   voiceDismissRef.current = voice.dismiss;
   React.useEffect(() => {
     if (voice.phase !== "done") return;
-    const timer = setTimeout(() => voiceDismissRef.current(), TRANSCRIBED_BAR_AUTO_DISMISS_MS);
+    const timer = setTimeout(() => voiceDismissRef.current(), TRANSCRIPTION_NOTICE_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [voice.phase]);
-
-  /** 卡片底部状态栏：语音各态 > Agent 处理中 > 附件上传中 > 无。文案与操作对齐设计稿。 */
-
 
   /**
    * CK-P4（issue #2054）—— run 进度：已耗时 / 阶段文案 / 45s longrun 提示。
@@ -1775,8 +1765,7 @@ function useCopilotKitV2PanelController({
   const composerFooterVisible =
     queuedReply !== null || runningReplyAck !== null
     || (sendDisabledReason !== null && sendDisabledReason !== RECORDING_SEND_REASON
-      && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint) && !attach.hasUploading)
-    || voice.phase === "listening" || voice.phase === "connecting";
+      && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint) && !attach.hasUploading);
   const emptySendHintTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashEmptySendHint = React.useCallback(() => {
     setEmptySendHint(true);

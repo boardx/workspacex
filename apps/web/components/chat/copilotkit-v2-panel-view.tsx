@@ -123,7 +123,6 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps): JSX.El
     threadId,
     userMessageAttachmentsContextValue,
     visibleAttachmentOptions,
-    voice
   } = props;
   const { t, locale } = useI18n();
   return (
@@ -547,17 +546,6 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps): JSX.El
           容器：第一行多行任务输入（`textarea`，不再是单行 `input`），第二行左
           （附件/`@Agent`/`/技能`/任务模式）右（麦克风+发送）。
         */}
-        {/*
-          2026-09-02 composer 重设计（人类交付的状态预览稿，要求像素级）——
-          结构：卡片上方右对齐「能力」触发器（移出输入区）→ 卡片（内边距 20：多行输入 +
-          工具行）→ 卡片底部状态栏（按状态区分语气与操作）→ 卡片下方页脚
-          （左：快捷键 / 禁用理由；右：当前麦克风）。
-          工具行：左 = 三颗 32px 圆形图标按钮（材料 / 技能 / 任务模式，悬停显示名称）；
-          右 = 分段语音胶囊（一个按钮承载全部语音状态）+ 32px 圆形发送（Agent 处理中变为停止）。
-          既有锚点（`chat-attachment-input` / `chat-skill-mount` / `...-task-mode` /
-          `chat-task-workbench-capability-picker` / `...-composer-mic` / `chat-mic-*` /
-          `...-recording-*`）逐字保留，只是住进了新结构。
-        */}
         <NativeChatComposer {...props} />
         <div className={cn("flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground", composerFooterVisible ? "mt-2" : "hidden")}>
           {queuedReply !== null ? (
@@ -579,13 +567,7 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps): JSX.El
             && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint)
             && !attach.hasUploading ? (
             <span data-testid="chat-task-workbench-composer-send-disabled-reason">{t(sendDisabledReason)}</span>
-          ) : voice.phase === "listening" || voice.phase === "connecting" ? (
-            <span>{t("chatComposer.escapeRecording")}</span>
           ) : null}
-          {/* 2026-09-08 人类直接指令：去掉常驻的「Enter 发送 · Shift+Enter 换行」和
-              「麦克风：xxx」这一行——太占空间。这一行现在只在真有话要说时出现
-              （待发内容 / 发送被禁用的原因 / 录音中），否则整行不渲染。
-              快捷键说明留在发送按钮的 title 里；麦克风设备仍在录音按钮旁的下拉里选。 */}
         </div>
         <ChatAttachmentDock ctl={attach} open={attachOpen} disabled={attachDisabled} onClose={() => setAttachOpen(false)} />
         </div>
