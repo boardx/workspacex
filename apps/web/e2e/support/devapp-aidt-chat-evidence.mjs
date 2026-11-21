@@ -9,6 +9,42 @@ const object = value => value && typeof value === 'object' && !Array.isArray(val
 const id = value => typeof value === 'string' && value.length > 0 && value.length <= 256 && /^[A-Za-z0-9][A-Za-z0-9_.:-]*$/.test(value);
 const sha = value => createHash('sha256').update(value, 'utf8').digest('hex');
 const canonical = value => value === null || typeof value !== 'object' ? JSON.stringify(value) : Array.isArray(value) ? `[${value.map(canonical).join(',')}]` : `{${Object.keys(value).filter(key => value[key] !== undefined).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+// The native UI projects a finished answer into one interview's unconfirmed draft.
+// Project identity, sibling records, source references, consent and decisions are immutable here.
+export function matchesInterviewProjection(previous, next, scope, assistantId) {
+  const entity = scope.selector?.entityId;
+  if (scope.stageId !== 2 || !id(entity) || !object(previous?.draft?.fields) || !object(next?.draft?.fields)) return false;
+  const key = `interviewRecord:${entity}`, interpretation = `interviewInterpretation:${entity}`, confirmed = `interviewConfirmed:${entity}`;
+  const clean = (value, keys) => Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
+  const same = (a, b) => canonical(a) === canonical(b);
+  const bounded = (value, max) => typeof value === 'string' && value.length <= max;
+  const left = previous.draft, right = next.draft;
+  if (!same(clean(previous, ['draft']), clean(next, ['draft'])) || !same(clean(left, ['fields','discoveryCards']), clean(right, ['fields','discoveryCards']))) return false;
+  const finding = scope.interviewFinding === true;
+  const allowed = finding ? [key, confirmed, interpretation] : [key, confirmed];
+  if (!same(clean(left.fields, allowed), clean(right.fields, allowed))) return false;
+  if (left.fields[confirmed] !== right.fields[confirmed] && right.fields[confirmed] !== '') return false;
+  let before, after;
+  try { before = JSON.parse(left.fields[key]); after = JSON.parse(right.fields[key]); } catch { return false; }
+  if (!object(before) || !object(after) || before.id !== entity) return false;
+  const changeable = finding ? ['draftTurnId'] : ['original','goal','adopted','draftTurnId'];
+  if (!same(clean(before, changeable), clean(after, changeable))) return false;
+  if (before.draftTurnId !== after.draftTurnId && (!id(after.draftTurnId) || assistantId && after.draftTurnId !== assistantId)) return false;
+  if (!finding) {
+    return before.guideConfirmed === false && after.original === scope.prompt && bounded(after.goal, 250) && bounded(after.adopted, 1000)
+      && (!before.original || before.original === after.original) && same(left.discoveryCards, right.discoveryCards);
+  }
+  if (before.guideConfirmed !== true || right.fields[interpretation] !== undefined && !bounded(right.fields[interpretation], 1000)) return false;
+  const oldCards = left.discoveryCards ?? [], newCards = right.discoveryCards ?? [];
+  if (!Array.isArray(oldCards) || !Array.isArray(newCards) || !same(oldCards.filter(c => c.id !== entity), newCards.filter(c => c.id !== entity))) return false;
+  const old = oldCards.find(c => c.id === entity), cards = newCards.filter(c => c.id === entity);
+  if (!cards.length) return !old;
+  const card = cards[0];
+  if (cards.length !== 1 || !['student-summary', 'quote'].includes(card.headlineKind) || !['headline','context','quote'].every(k => bounded(card[k], 1000))) return false;
+  const fixed = c => clean(c, ['headlineKind','headline','context','quote']);
+  return same(fixed(card), old ? fixed(old) : { id: entity, participantCode: before.code, sourceRef: '', photoRef: '' });
+}
+
 const refs = value => {
   if (!Array.isArray(value) || value.length > 6 || value.some(row => !object(row) || Object.keys(row).sort().join(',') !== 'revision,stageId' || !Number.isInteger(row.stageId) || row.stageId < 1 || row.stageId > 6 || !Number.isSafeInteger(row.revision) || row.revision < 1) || new Set(value.map(row => row.stageId)).size !== value.length) fail('TEACHING_SOURCE_REFERENCES_INVALID');
   return [...value].sort((a, b) => a.stageId - b.stageId);
@@ -96,6 +132,7 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
   const requestReady = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === SEND_PATH, { timeout: 60000 });
   const [request] = await Promise.all([requestReady, send.click()]);
   const wire = validateTeachingWire({ method: request.method(), url: request.url(), body: request.postDataJSON() }, current);
+  let stageVersionsUnchanged = true;
   let proof, observedRunId = null, terminalError = null, frozenSnapshotHash = null, pendingReviewReported = false;
   const timeout = Number.isInteger(scope.timeoutMs) && scope.timeoutMs >= 1000 && scope.timeoutMs <= 600000 ? scope.timeoutMs : 120000;
   try {
@@ -156,7 +193,18 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
     }, { timeout, intervals: [500, 1000, 2000] }).toBe(true);
     if (terminalError) throw terminalError;
     const stagesAfter = await Promise.all(stagePaths.map(readData));
-    if (canonical(stagesBefore) !== canonical(stagesAfter)) fail('TEACHING_STAGE_CHANGED_DURING_RUN');
+    stageVersionsUnchanged = canonical(stagesBefore) === canonical(stagesAfter);
+    if (!stageVersionsUnchanged) {
+      const allowed = stagesBefore.every((previous, index) => {
+        const next = stagesAfter[index];
+        if (canonical(previous) === canonical(next)) return true;
+        const a = previous.stage, b = next.stage;
+        return index === 1 && a?.stageId === 2 && b?.stageId === 2 && a.projectId === current.projectId && b.projectId === current.projectId
+          && b.revision > a.revision && canonical(a.sourceStageRevisions) === canonical(b.sourceStageRevisions)
+          && matchesInterviewProjection(a.content, b.content, current, proof.assistantMessageId);
+      });
+      if (!allowed) fail('TEACHING_STAGE_CHANGED_DURING_RUN');
+    }
   } catch (error) {
     onEvent({ event: 'send-failed-or-unresolved', stageId: scope.stageId, runId: observedRunId });
     if (error instanceof ProbeFailure) throw error;
@@ -164,5 +212,5 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
   }
   await expect(page.getByTestId('copilotkit-v2-error')).toHaveCount(0);
   onEvent({ event: 'durable-run-succeeded', stageId: scope.stageId, runId: proof.runId });
-  return { ...proof, stageSavedByAgent: false, stageVersionsUnchanged: true, contextSnapshotStableAcrossReads: true };
+  return { ...proof, stageSavedByAgent: false, stageVersionsUnchanged, studentDraftProjectionObserved: !stageVersionsUnchanged, contextSnapshotStableAcrossReads: true };
 }

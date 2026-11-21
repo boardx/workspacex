@@ -1,7 +1,7 @@
 /** Live Dev acceptance: this is a bounded test-data writer, not the read-only probe. */
 import { ORIGIN, ProbeFailure, validLoginBody } from './devapp-aidt-auth-readonly.mjs';
 import { createHash } from 'node:crypto';
-import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun } from './devapp-aidt-chat-evidence.mjs';
+import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, matchesInterviewProjection } from './devapp-aidt-chat-evidence.mjs';
 
 export const SHA = /^[a-f0-9]{40}$/;
 export const TAG = /^[0-9]+-[0-9]+$/;
@@ -180,7 +180,15 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     const stage = new RegExp(`^/api/projects/${projectId}/aidt/stages/([1-6])$`).exec(path);
     if (method === 'PUT' && stage && object(body) && object(body.content) && object(body.content.draft)) {
       const n = Number(stage[1]);
-      if (!arm || arm.stage !== n || arm.remaining < 1 || now() > arm.until) return stop('STAGE_SAVE_NOT_ARMED');
+      if (!arm || arm.stage !== n || arm.remaining < 1 || now() > arm.until) {
+        const saved = stageStates.get(n);
+        const entry = [...teachingLedger.values()].at(-1);
+        if (n !== 2 || !entry?.wire || !saved || entry.projections >= 2 || now() > entry.projectionUntil
+          || body.expectedRevision !== saved.revision || JSON.stringify(body.sourceStageRevisions) !== JSON.stringify(saved.sourceStageRevisions)
+          || !matchesInterviewProjection(saved.content, body.content, entry.scope)) return stop('STAGE_SAVE_NOT_ARMED');
+        entry.projections++; allowedWrites++;
+        return { allow: true, kind: 'save-stage', stageId: n };
+      }
       const before = snapshots.get(n) ?? new Set();
       let next;
       try { next = confirmations(body.content); } catch (error) { return stop(error.code ?? 'CONFIRMATION_REJECTED'); }
@@ -304,7 +312,8 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         || skillCatalog.get(scope.skillId)?.stableName !== identity.teachingSkillNames?.[scope.stageId - 1]
         || scope.selector.stageRevisions.some(ref => stageStates.get(ref.stageId)?.revision !== ref.revision)
         || JSON.stringify(scope.knownMessages) !== JSON.stringify(messageSnapshots.get(scope.threadId))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
-      teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000 });
+      arm = null;
+      teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000, projections: 0, projectionUntil: now() + 210000 });
     },
 
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },

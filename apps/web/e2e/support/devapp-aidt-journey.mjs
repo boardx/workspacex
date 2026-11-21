@@ -207,7 +207,7 @@ export function schematicPng(identity, ordinal) {
 }
 
 export async function runAidtJourney({ page, expect, scope, checkpoint, capture, api,
-  saveStage, reviewAndSave, report, registerFixture, saveReport, saveDownload,
+  saveStage, reviewAndSave, report, registerFixture, armMaterialEdit, saveReport, saveDownload,
   armDesignCreate, armDesignGeneration, createAnonymousPage, savePrint, teachingFeedback }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
   const root = `/aidt/${encodeURIComponent(scope.projectId)}`;
@@ -426,6 +426,16 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect(inspector.locator('textarea:not([readonly]):not(:disabled), input:not([readonly]):not(:disabled), select:not(:disabled), [contenteditable="true"], button[role="checkbox"]')).toHaveCount(0);
     return inspector;
   };
+  const updateInterviewMaterial = async operation => {
+    armMaterialEdit();
+    const [response] = await Promise.all([
+      page.waitForResponse(response => response.request().method() === 'PUT'
+        && new URL(response.url()).pathname === `/api/projects/${scope.projectId}/aidt/stages/2`, { timeout: 30000 }),
+      operation(),
+    ]);
+    if (response.status() !== 200) fail('INTERVIEW_MATERIAL_EDIT_NOT_PERSISTED');
+    await expect(page.getByTestId('aidt-interview-save-state')).toContainText('已保存');
+  };
   const confirmInInterviewChat = async button => {
     const [response] = await Promise.all([
       page.waitForResponse(response => response.request().method() === 'PUT'
@@ -510,13 +520,14 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await click(page.getByTestId('chat-task-workbench-inspector-tab-materials'));
     const materials = page.getByRole('region', { name: '授权和访谈材料' });
     await expect(materials).toBeVisible();
-    await page.getByLabel('已获授权共享文字记录', { exact: true }).check(); await click(btn('更新授权记录'));
+    await page.getByLabel('已获授权共享文字记录', { exact: true }).check(); await updateInterviewMaterial(() => click(btn('更新授权记录')));
     const quote = `QA-${code}：我在合成情境中先看队列，再决定是否等待。`;
-    await uploaded(`${code}研究原件`, `qa-${unique}-${code}.txt`, Buffer.from(`${SYNTHETIC}。run=${unique}\n第1段 ${quote}\n`), 'text/plain');
+    await updateInterviewMaterial(() => uploaded(`${code}研究原件`, `qa-${unique}-${code}.txt`, Buffer.from(`${SYNTHETIC}。run=${unique}\n第1段 ${quote}\n`), 'text/plain'));
     const select = page.getByRole('combobox', { name: '转写原件', exact: true });
-    await expect(select.locator('option')).toHaveCount(2); await select.selectOption({ index: 1 });
-    await fill('定位（如 01:42 或第 3 段）', '第1段'); await fill('校对后的摘录', quote);
-    await page.getByLabel('已对照原始材料校对', { exact: true }).check();
+    await expect(select.locator('option')).toHaveCount(2); await updateInterviewMaterial(() => select.selectOption({ index: 1 }));
+    await updateInterviewMaterial(() => fill('定位（如 01:42 或第 3 段）', '第1段'));
+    await updateInterviewMaterial(() => fill('校对后的摘录', quote));
+    await updateInterviewMaterial(() => page.getByLabel('已对照原始材料校对', { exact: true }).check());
     const firstFinding = text(`我自己的发现是${code}关注等待时间。来源是第1段的「${quote}」。请帮我检查这个解释和证据的关系。`);
     if (!await feedback(2, firstFinding, code, true)) fail('S2_NATIVE_FINDING_REPLY_REQUIRED');
     const actions = page.getByTestId('aidt-interview-chat-actions');
