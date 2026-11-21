@@ -2,7 +2,7 @@ import * as React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { AidtDefinitionDirectory, AidtDefinitionEditor } from "@/features/aidt/components/aidt-definition";
-import { addAidtDefinitionEntity, chooseAidtDefinitionHmw, readAidtDefinition, readAidtDefinitionSelection, saveAidtDefinitionHmw, saveAidtDefinitionPersona } from "@/features/aidt/lib/aidt-definition";
+import { addAidtDefinitionEntity, addAidtDefinitionSurprise, chooseAidtDefinitionHmw, confirmedAidtDefinitionSurprises, readAidtDefinition, readAidtDefinitionSelection, saveAidtDefinitionHmw, saveAidtDefinitionPersona, saveAidtDefinitionSurprise } from "@/features/aidt/lib/aidt-definition";
 import { emptyAidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { aidtRoundMissingOutput } from "@/features/aidt/lib/aidt-round-completion";
 import { StageContent } from "@repo/contracts/aidt-stages";
@@ -60,4 +60,26 @@ it("shares multiple explicit links at one immutable stage revision and invalidat
   expect(readAidtDefinitionSelection(updated.fields)).toBeNull();
   expect(readAidtDefinition(updated.fields).hmws.every(item => !item.confirmed)).toBe(true);
   expect(aidtRoundMissingOutput(3, updated)).toMatch(/选定HMW/);
+});
+
+
+it("preserves independent surprise records and requires review of dependent artifacts after one changes", () => {
+  const primary: AidtUiStageDraft = { ...blank(), fields: { surpriseStatus: "found", surpriseConfirmed: "true", surprisingFinding: "看懂口味后仍选择熟悉款" } };
+  expect(addAidtDefinitionSurprise(noSurprise(), "inapplicable")).toEqual(noSurprise());
+  const newRecord = (id: string, observation: string) => ({ id, observation, priorBelief: "原先以为只看价格", interpretation: "单次观察", unknowns: "待补访", cardIds: ["u1"], confirmed: true, archived: false });
+  let draft = addAidtDefinitionSurprise(addAidtDefinitionSurprise(primary, "s1"), "s2");
+  expect(readAidtDefinition(draft.fields).surprises).toHaveLength(2);
+  draft = saveAidtDefinitionSurprise(draft, newRecord("s1", "先比口味"), 2);
+  draft = saveAidtDefinitionSurprise(draft, newRecord("s2", "还会看配料"), 2);
+  draft = saveAidtDefinitionPersona(draft, { ...persona("p1"), surpriseIds: ["s1", "s2"] }, 2);
+  draft = saveAidtDefinitionPersona(draft, { ...persona("p2"), surpriseIds: ["s1"] }, 2);
+  draft = saveAidtDefinitionHmw(draft, { ...hmw("h1"), surpriseIds: ["s2"] }, 2);
+  draft = chooseAidtDefinitionHmw(draft, "h1", ids);
+  expect(confirmedAidtDefinitionSurprises(draft.fields).map(record => record.id)).toEqual(["primary-surprise", "s1", "s2"]);
+  expect(readAidtDefinitionSelection(draft.fields)?.id).toBe("h1");
+  const changed = saveAidtDefinitionSurprise(draft, { ...newRecord("s2", "还会看配料"), archived: true }, 2);
+  expect(confirmedAidtDefinitionSurprises(changed.fields).map(record => record.id)).toEqual(["primary-surprise", "s1"]);
+  expect(readAidtDefinition(changed.fields).personas.map(persona => persona.confirmed)).toEqual([false, true]);
+  expect(readAidtDefinitionSelection(changed.fields)).toBeNull();
+  expect(readAidtDefinitionSelection(draft.fields)?.id).toBe("h1");
 });
