@@ -90,3 +90,49 @@ export const operations = {
 export type PricingCatalog = z.infer<typeof PricingCatalog>;
 export type PersonalCheckoutRequest = z.infer<typeof PersonalCheckoutRequest>;
 export type PricingSubscriptionInfo = z.infer<typeof PricingSubscriptionInfo>;
+
+const CatalogInteger = z.number().int().positive().max(2_147_483_647);
+const CatalogTeamTerms = z.object({
+  includedSeats: CatalogInteger,
+  additionalSeatAmountMinor: CatalogInteger,
+  additionalSeatMonthlyCredits: ConfiguredCreditQuantity,
+}).strict();
+
+export const AdminCatalogProductValues = z.object({
+  amountMinor: CatalogInteger,
+  baseCredits: ConfiguredCreditQuantity,
+  bonusCredits: z.number().int().min(0).max(2_147_483_647),
+  enabled: z.boolean(),
+  teamTerms: CatalogTeamTerms.nullable(),
+}).strict().superRefine((value, ctx) => {
+  if (value.baseCredits + value.bonusCredits > 2_147_483_647 ||
+      Math.round(value.bonusCredits / value.baseCredits * 10000) >= 1_000_000) {
+    ctx.addIssue({ code: "custom", message: "credit amounts exceed the supported range" });
+  }
+});
+export const AdminCatalogProduct = z.object({
+  market: PricingMarket,
+  sku: Identifier,
+  currency: PricingCurrency,
+  owner: z.enum(["user", "team", "both"]),
+  kind: z.enum(["subscription", "credit_topup"]),
+  cycle: BillingCycle.nullable(),
+  revision: z.string().regex(/^[a-f0-9]{64}$/),
+  values: AdminCatalogProductValues,
+}).strict();
+export const adminCatalogOperations = {
+  list: {
+    path: "/platform/billing/catalog",
+    in: z.object({ market: PricingMarket }).strict(),
+    out: z.object({ items: z.array(AdminCatalogProduct), writable: z.boolean() }).strict(),
+  },
+  update: {
+    path: "/platform/billing/catalog/product",
+    in: z.object({
+      market: PricingMarket, sku: Identifier,
+      expectedRevision: AdminCatalogProduct.shape.revision,
+      values: AdminCatalogProductValues,
+    }).strict(),
+    out: AdminCatalogProduct,
+  },
+} as const;

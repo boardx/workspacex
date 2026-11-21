@@ -1,3 +1,4 @@
+import { resolveBillingMarket } from "./deployment-billing-config";
 import {assertMemberCreditQuota,enterpriseCreditPlan} from "./member-credit-quota";
 import {resolveNativeCreditTariff} from './resolve-native-credit-tariff';
 import {lockTeamFinancialOwner} from "./team-financial-owner";
@@ -69,8 +70,13 @@ export class PgCreditConsumption {
   const admission=(await s.query<{maximum_tokens:string;billing_kind:string;native_unit:string|null;max_native_quantity:string|null}>("SELECT maximum_tokens::text,billing_kind,native_unit,max_native_quantity::text FROM ai_request_reservations WHERE id=$1 AND org_id=$2 AND user_id=$3",[input.requestId,orgId,input.userId])).rows[0];
   const extended=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};
   const native=extended.nativeMaximum??(admission?.billing_kind==="native"&&admission.native_unit&&admission.max_native_quantity?{unit:admission.native_unit,quantity:BigInt(admission.max_native_quantity)}:undefined);
+  const configuredRate = (await s.query<{credit_rate_bps: number | null}>(
+   `SELECT COALESCE(CASE $1 WHEN 'cn' THEN credit_rate_cn_bps WHEN 'us' THEN credit_rate_us_bps END,
+    credit_rate_bps) AS credit_rate_bps FROM credit_consumption_settings WHERE singleton=true`,
+   [resolveBillingMarket()],
+  )).rows[0]?.credit_rate_bps;
   let bps: number;
-  try {bps=creditRateBps(process.env.WORKSPACEX_CREDIT_RATE_BPS);} catch {throw this.error(p,"invalid_credit_rate_bps");}
+  try {bps=creditRateBps(configuredRate ?? process.env.WORKSPACEX_CREDIT_RATE_BPS);} catch {throw this.error(p,"invalid_credit_rate_bps");}
   let reserved=0n,version="token-v1-1000-per-credit",quantum:bigint|null=null,rate:bigint|null=null;
   if(native){
    const tariff=await resolveNativeCreditTariff(s,orgId,input.modelProvider,input.modelId,native.unit);

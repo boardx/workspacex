@@ -11,7 +11,7 @@ import {PRINCIPAL_RESOLVER_PORT} from "../../src/application/ports/principal-res
 import {toOrgId} from "../../src/domain/org-id";
 const orgId=toOrgId("credit-settings-org");
 let enabled=false;const audit:string[]=[];
-const store:ConsumptionSettingsRepository={read:async()=>({creditPreflightEnabled:enabled}),update:async(_org,user,value)=>{enabled=value.creditPreflightEnabled;audit.push(user);return value;}};
+const store:ConsumptionSettingsRepository={read:async()=>({creditPreflightEnabled:enabled}),update:async(_org,user,value)=>{enabled=value.creditPreflightEnabled??enabled;audit.push(user);return {creditPreflightEnabled:enabled};}};
 const service=new ConsumptionSettingsService(store,async user=>user==="operator");
 let app:NestExpressApplication,base:string;
 beforeAll(async()=>{

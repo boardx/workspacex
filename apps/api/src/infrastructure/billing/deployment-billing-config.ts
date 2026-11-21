@@ -41,6 +41,14 @@ function purchaseEnabled(env: Deployment, name: string): boolean {
   const value = text(env, name).toLowerCase();
   return !value || value === "true" || value === "1";
 }
+export function resolveBillingMarket(env: Deployment = process.env): "cn" | "us" | null {
+  const deployment = text(env, "BILLING_DEPLOYMENT").toLowerCase();
+  const market = text(env, "BILLING_CATALOG_MARKET").toLowerCase();
+  if (deployment === "cn" || deployment === "us") return deployment;
+  if (deployment !== "devapp") return null;
+  if (!market || market === "cn") return "cn";
+  return market === "us" ? "us" : null;
+}
 function httpsUrl(value: string): boolean {
   try { const url = new URL(value); return url.protocol === "https:" && Boolean(url.hostname) && !url.username && !url.password; }
   catch { return false; }
@@ -109,10 +117,7 @@ export class DeploymentBillingConfig implements BillingConfigPort {
     this.wechat = wechat(env);
     this.stripe = stripe(env);
     const deployment=text(env,"BILLING_DEPLOYMENT").toLowerCase();
-    const testMarket = text(env, "BILLING_CATALOG_MARKET").toLowerCase();
-    this.pricingMarket = deployment === "devapp"
-      ? testMarket === "us" ? "us" : !testMarket || testMarket === "cn" ? "cn" : null
-      : deployment === "us" ? "us" : deployment === "cn" ? "cn" : null;
+    this.pricingMarket = resolveBillingMarket(env);
     const valid=["","cn","us","devapp"].includes(deployment);
     const validTestMarket = deployment !== "devapp" || this.pricingMarket !== null;
     this.wechatEnabled = valid&&validTestMarket&&deployment!=="us"&&!(deployment==="devapp"&&this.pricingMarket==="us")&&purchaseEnabled(env, "BILLING_WECHAT_ENABLED");

@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { PlatformConfigurationScreen } from "@/components/admin/platform-configuration-screen";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { PlatformAiCatalog } from "@/components/admin/platform-ai-catalog";
 import { ModelScreen } from "@/components/admin/model-screen";
@@ -46,6 +47,7 @@ const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.R
   "feedback-drafts": FeedbackDraftsScreen,
   inbox: DesignLoopInboxAdminScreen,
   "design-workbench": DesignWorkbenchAdminScreen,
+  configuration: PlatformConfigurationScreen,
 };
 
 export function generateStaticParams() {

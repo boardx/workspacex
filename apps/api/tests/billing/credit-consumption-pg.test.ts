@@ -107,16 +107,19 @@ it("accepts monotonic late token dimensions without another debit and rejects kn
 
 it("durably replays enriched diagnostics after outage with exactly one financial debit",async()=>{const directory=await mkdtemp(join(tmpdir(),"credit-pg-outbox-")),id="credit-ledger-test-outbox-enrichment";let offline=false;const delegate={startRequest:async(_org:typeof org,input:ReturnType<typeof start>)=>db.withTenant(org,s=>store.reserveInSession(s,org,input)),record:async(_org:typeof org,input:TokenUsageRecord)=>{if(offline)throw new Error("offline");await db.withTenant(org,s=>store.settleInSession(s,org,input));}};try{const meter=new DurableCreditUsageMeter(delegate,{directory});await meter.startRequest(org,start(id,1000));await meter.record(org,{...usage(id,1000),promptTokens:null,completionTokens:null});offline=true;await expect(meter.record(org,{...usage(id,1000),promptTokens:400,completionTokens:600})).rejects.toThrow("offline");offline=false;expect(await new DurableCreditUsageMeter(delegate,{directory}).replayPending()).toEqual({settled:1,pending:0});expect(await asApp(org,async c=>(await c.query("SELECT count(*)::int AS n FROM credit_transactions WHERE source_id=$1 AND type='consume'",[id])).rows[0].n)).toBe(1);expect(await asApp(org,async c=>(await c.query("SELECT usage_facts FROM credit_consumption_requests WHERE request_id=$1",[id])).rows[0].usage_facts)).toMatchObject({tokens:1000,prompt:400,completion:600});}finally{await rm(directory,{recursive:true,force:true});}});
 
-it("snapshots the environment rate across token and native settlement, even after a config change", async () => {
+it("snapshots the database rate across token and native settlement, even after a config change", async () => {
  const previous=process.env.WORKSPACEX_CREDIT_RATE_BPS;
+ const previousDeployment=process.env.BILLING_DEPLOYMENT;
  const tokenId="credit-ledger-test-rated-token",nativeId="credit-ledger-test-rated-native";
  const before=Number((await wallet()).balance);
  try {
-  process.env.WORKSPACEX_CREDIT_RATE_BPS="15000";
+  process.env.WORKSPACEX_CREDIT_RATE_BPS="10000";
+  process.env.BILLING_DEPLOYMENT="cn";
+  await asApp(org,c=>c.query("UPDATE credit_consumption_settings SET credit_rate_cn_bps=15000,credit_rate_us_bps=5000 WHERE singleton"));
   await reserve(tokenId,100);
   await db.withTenant(org,s=>store.reserveInSession(s,org,{...start(nativeId),nativeMaximum:{unit:"image",quantity:1n},callPurpose:"native-image"}));
   expect(await wallet()).toMatchObject({held_hundredths:"38"});
-  process.env.WORKSPACEX_CREDIT_RATE_BPS="5000";
+  process.env.BILLING_DEPLOYMENT="us";
   await reserve(tokenId,100);
   await settle(tokenId,20);await settle(tokenId,20);
   await db.withTenant(org,s=>store.settleInSession(s,org,{...usage(nativeId,0),totalSource:"not-applicable",nativeUsage:{unit:"image",source:"reported",quantity:1n}}));
@@ -126,9 +129,13 @@ it("snapshots the environment rate across token and native settlement, even afte
   expect(await wallet()).toMatchObject({held_hundredths:"5"});
   await settle("credit-ledger-test-half-rate",100);
   expect(Number((await wallet()).balance)).toBeCloseTo(before-0.31,2);
+  await asApp(org,c=>c.query("UPDATE credit_consumption_settings SET credit_rate_cn_bps=NULL,credit_rate_us_bps=NULL WHERE singleton"));
   process.env.WORKSPACEX_CREDIT_RATE_BPS="0";
   await expect(reserve("invalid-rate")).rejects.toMatchObject({code:"credit_accounting_unavailable",message:"invalid_credit_rate_bps"});
  } finally {
+  await asApp(org,c=>c.query("UPDATE credit_consumption_settings SET credit_rate_cn_bps=NULL,credit_rate_us_bps=NULL WHERE singleton"));
+  if(previousDeployment===undefined)delete process.env.BILLING_DEPLOYMENT;
+  else process.env.BILLING_DEPLOYMENT=previousDeployment;
   if(previous===undefined)delete process.env.WORKSPACEX_CREDIT_RATE_BPS;
   else process.env.WORKSPACEX_CREDIT_RATE_BPS=previous;
  }
