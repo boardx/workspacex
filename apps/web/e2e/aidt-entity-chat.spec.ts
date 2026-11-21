@@ -65,7 +65,7 @@ test("ten interviews bind to ten native conversations and reopening never copies
   const message = "这条 U01 专用记录不应出现在其他受访者的会话里。";
   const run = await sendViaWorkbench(page, message);
   expect(AidtContextSelector.parse(run.postDataJSON().forwardedProps?.aidtContext)).toMatchObject({
-    entityId: ids[0], stageId: 2, stageRevisions: [],
+    entityId: ids[0], stageId: 2, stageRevisions: [{ stageId: 2, revision: 1 }],
   });
   await expect(page.getByText(message, { exact: true }).first()).toBeVisible();
 

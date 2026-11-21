@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { operations, SaveInput, SharedStage, SourceStageRevision, StageContent, StageSummary, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { AidtStagesService } from "../../src/application/aidt-stages/service";
+import { aidtSavedEntityContext } from "../../src/application/aidt-stages/entity-thread";
 import type { AidtStageRepository, StageActor, StageTransaction } from "../../src/application/aidt-stages/ports";
 import type { IdentityRepository } from "../../src/application/identity/ports";
 import { guard } from "../../src/application/security/permission-filter";
@@ -68,6 +69,20 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
     await expect(open("absent")).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
     await expect(open(ids[0]!, { ...actor, userId: "outsider" })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
     expect(f.entityThreads.size).toBe(10);
+  });
+  it("projects only the selected interview fields and withholds unrelated evidence from Skill context", async () => {
+    const { service } = fixture();
+    const draft = input(2);
+    draft.content.draft.fields = {
+      "interviewRecord:first": JSON.stringify({ id: "first", code: "U01", original: "原始问题", consent: { notes: true } }),
+      "interviewRecord:next": JSON.stringify({ id: "next", code: "U02", original: "另一个人的问题" }),
+      "interviewTranscript:first": "需要单独授权的材料",
+      guide: "归属不明的历史提纲",
+    };
+    const { stage } = await service.save(actor, draft);
+    expect(aidtSavedEntityContext(stage, "first")).toEqual({
+      entityId: "first", fields: { code: "U01", original: "原始问题" }, finding: undefined,
+    });
   });
   it("summary has all six stages, missing stages remain revision zero",async()=>{const f=fixture();const out=await f.service.list(actor);expect(out.items).toHaveLength(6);expect(out.items.every(r=>r.revision===0&&r.updatedAt===null)).toBe(true);});
   it("stale revision returns authorized current and preserves prior record",async()=>{const f=fixture();await f.service.save(actor,input());await expect(f.service.save(actor,input())).rejects.toMatchObject({reasonCode:"AIDT_STAGE_REVISION_CONFLICT",current:{revision:1}});expect(f.records).toHaveLength(1);});

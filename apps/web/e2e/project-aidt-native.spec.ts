@@ -598,5 +598,5 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   const interview = await sendViaWorkbench(page, "我先拟一道访谈问题：请回想最近一次你看见新品菜单时发生了什么。");
   const context = AidtContextSelector.parse(interview.postDataJSON().forwardedProps?.aidtContext);
   await page.screenshot({ path: test.info().outputPath("aidt-interview-handoff.png"), fullPage: true });
-  expect(context).toMatchObject({ projectId, stageId: 2, entityId: interviewId, sourceEntityId: problemId, stageRevisions: [{ stageId: 1, revision: stored.data.stage.revision }] });
+  expect(context).toMatchObject({ projectId, stageId: 2, entityId: interviewId, sourceEntityId: problemId, stageRevisions: [{ stageId: 1, revision: stored.data.stage.revision }, { stageId: 2, revision: 1 }] });
 });

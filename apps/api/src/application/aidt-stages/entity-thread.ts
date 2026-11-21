@@ -59,3 +59,40 @@ export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: s
       return null;
   }
 }
+
+/** Read only the selected entity's saved teaching fields. Native attachments use their own authorized tools. */
+export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string) {
+  const { fields, ideas, discoveryCards } = stage.content.draft;
+  const list = (value: Record<string, unknown> | null, keys: readonly string[]) =>
+    value ? Object.fromEntries(keys.flatMap(key => {
+      const item = value[key];
+      return typeof item === "string" || typeof item === "number" || typeof item === "boolean" ? [[key, item]] : [];
+    })) : {};
+  const read = (prefix: string, keys: readonly string[]) => list(readObject(fields[prefix + entityId]), keys);
+  switch (stage.stageId) {
+    case 1:
+      return { entityId, fields: read("problemDraft:", ["initial", "rewrittenTheme", "reason", "problemReflectionConfirmed"]) };
+    case 2: {
+      const card = discoveryCards?.find(item => item.id === entityId);
+      return { entityId, fields: read("interviewRecord:", ["code", "topic", "goal", "original", "adopted", "guideConfirmed"]),
+        finding: card ? { headline: card.headline, headlineKind: card.headlineKind, context: card.context } : undefined };
+    }
+    case 3:
+      return { entityId, persona: read("definitionPersona:", ["name", "situation", "behavior", "need", "limits", "confirmed"]),
+        hmw: read("definitionHmw:", ["text", "rationale", "confirmed"]) };
+    case 4: {
+      const idea = ideas.find(item => item.id === entityId);
+      return { entityId, idea: idea ? { title: idea.title, description: idea.description } : undefined };
+    }
+    case 5: {
+      const prototype = readObject(fields["prototypeEntity:" + entityId]);
+      const content = prototype?.fields;
+      return { entityId, fields: list(content && typeof content === "object" ? content as Record<string, unknown> : null,
+        ["verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits", "designBrief", "version"]) };
+    }
+    case 6:
+      return { entityId, fields: read("testGroup:", ["name", "task", "situation", "method", "reflection", "interpretation", "decision", "decisionReason"]) };
+    default:
+      return { entityId };
+  }
+}

@@ -30,7 +30,7 @@ export const AidtContextSelector=z.discriminatedUnion("purpose",[
   if(new Set(v.stageRevisions.map(r=>r.stageId)).size!==v.stageRevisions.length)ctx.addIssue({code:z.ZodIssueCode.custom,message:"One selected current revision per stage"});
   if(v.purpose==="stage") {
     if(v.stageRevisions.some(r=>r.stageId>v.stageId))ctx.addIssue({code:z.ZodIssueCode.custom,message:"Future stages are not current-stage input"});
-    if(v.sourceEntityId && (!v.entityId || v.stageId !== 2 || v.stageRevisions.length !== 1 || v.stageRevisions[0]?.stageId !== 1))ctx.addIssue({code:z.ZodIssueCode.custom,message:"An interview can explicitly select one problem version"});
+    if(v.sourceEntityId && (!v.entityId || v.stageId !== 2 || !v.stageRevisions.some(ref => ref.stageId === 1)))ctx.addIssue({code:z.ZodIssueCode.custom,message:"An interview can explicitly select one problem version"});
     if(v.stageId===6 && v.returnRevision!==undefined)ctx.addIssue({code:z.ZodIssueCode.custom,message:"A return target is one of stages one through five"});
   } else {
     const keys=v.historyRevisions.map(r=>`${r.stageId}:${r.revision}`);

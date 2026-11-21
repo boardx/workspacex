@@ -1,5 +1,5 @@
 import { AIDT_ENTITY_THREAD_PREFIX } from "@repo/contracts/aidt-stages";
-import { aidtEntityThreadId } from "../../application/aidt-stages/entity-thread";
+import { aidtEntityThreadId, aidtSavedEntityContext } from "../../application/aidt-stages/entity-thread";
 import { randomUUID } from "node:crypto";
 import { AidtContextSelector, AidtStoredContextSnapshot, AidtContextReceipt, AIDT_STAGE_IDENTITIES, AIDT_SUMMARY_STABLE_NAME, AIDT_CONTEXT_LIMITS, aidtContextSelectorJson, type AidtContextSnapshot } from "@repo/contracts/aidt-run-context";
 import { readConfirmedAidtReturn } from "@repo/contracts/aidt-return-reflection";
@@ -80,7 +80,8 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
     const stageId = selector.purpose === "stage" ? selector.stageId : 6;
     const purpose = selector.purpose === "stage" ? "stage" : "report";
     if (!selector.entityId || aidtEntityThreadId(actor, stageId, selector.entityId, purpose) !== actor.threadId) return unavailable();
-    if (selector.purpose === "stage" && (selector.stageRevisions.length > 0 && !selector.sourceEntityId || selector.returnRevision !== undefined)) return unavailable();
+    if (selector.purpose === "stage" && (selector.returnRevision !== undefined || selector.stageRevisions.some(
+      ref => ref.stageId !== stageId && !(stageId === 2 && ref.stageId === 1 && selector.sourceEntityId)))) return unavailable();
   } else if (selector.entityId) return unavailable();
 
   return this.timed(session,async s=>{
@@ -88,6 +89,10 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
    const heads=new Map((await scope.stages.list(actor)).items.map(row=>[row.stageId,row.revision]));const loaded:LoadedAidtContextSource[]=[];
    for (const ref of selector.stageRevisions) {
      const stage = await this.exact(scope.stages, actor, ref.stageId, ref.revision);
+     if (selector.purpose === "stage" && selector.entityId && ref.stageId === selector.stageId) {
+       loaded.push({ kind: "stage", stage, payload: aidtSavedEntityContext(stage, selector.entityId) });
+       continue;
+     }
      if (selector.purpose !== "stage" || !selector.sourceEntityId) {
        loaded.push({ kind: "stage", stage });
        continue;
