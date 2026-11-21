@@ -219,8 +219,8 @@ test('manual lane pins the official credential-path contract, data-only prefligh
 
 const registeredWorkflow = readFileSync(new URL('../../.github/workflows/real-model-chat-evidence.yml', import.meta.url), 'utf8');
 const readonlyJob = registeredWorkflow.split('\n  readonly-gates:\n')[1];
-function runBlockAfter(marker) {
-  const after = readonlyJob.split(marker)[1];
+function runBlockAfter(marker, workflow = readonlyJob) {
+  const after = workflow.split(marker)[1];
   assert.ok(after, `missing step ${marker}`);
   const block = after.split('        run: |\n')[1].split(/\n      - /)[0];
   return block.split('\n').filter(line => !line || line.startsWith('          '))
@@ -228,6 +228,9 @@ function runBlockAfter(marker) {
 }
 const checkoutShell = runBlockAfter('id: private-source\n');
 const cleanupShell = runBlockAfter('- name: Remove only this attempt\'s owned private directory\n');
+
+const acceptanceWorkflow = readFileSync(new URL('../../.github/workflows/aidt-devapp-acceptance.yml', import.meta.url), 'utf8');
+const acceptanceCleanupShell = runBlockAfter("- name: Remove only this attempt's private directory\n", acceptanceWorkflow);
 
 function isolatedCheckoutFixture() {
   const base = mkdtempSync(join(tmpdir(), 'aidt-private-checkout-test-'));
@@ -311,8 +314,26 @@ test('existing attempt directory is never reused or removed, and cleanup rejects
     assert.equal(readFileSync(f.output,'utf8'),'');
     assert.equal(readFileSync(f.envFile,'utf8'),'');
     assert.equal(existsSync(f.gitLog),false);
-    assert.notEqual(f.run(cleanupShell).status,0);
+    const rejected = f.run(cleanupShell);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /PRIVATE_DIRECTORY_OWNER_MISMATCH/);
     assert.equal(readFileSync(join(f.root,'.owner'),'utf8'),'DUMMY_FOREIGN_OWNER');
+  } finally { f.close(); }
+});
+
+test('acceptance cleanup rejects a foreign marker and removes its own synthetic directory', () => {
+  const f = isolatedCheckoutFixture();
+  const root = join(f.base, 'wsx-aidt-acceptance-123-1');
+  try {
+    mkdirSync(root);
+    writeFileSync(join(root, '.owner'), 'DUMMY_FOREIGN_OWNER');
+    const rejected = f.run(acceptanceCleanupShell);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /PRIVATE_DIRECTORY_OWNER_MISMATCH/);
+    assert.equal(readFileSync(join(root, '.owner'), 'utf8'), 'DUMMY_FOREIGN_OWNER');
+    writeFileSync(join(root, '.owner'), '123:1:' + f.env.GITHUB_SHA);
+    assert.equal(f.run(acceptanceCleanupShell).status, 0);
+    assert.equal(existsSync(root), false);
   } finally { f.close(); }
 });
 
