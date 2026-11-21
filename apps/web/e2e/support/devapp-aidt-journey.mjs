@@ -458,7 +458,12 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect(inspector).toContainText(code);
     const initial = text(`${code}：请回忆最近一次午休选择饮品的经过。先做了什么，后来怎样决定？`);
     if (!await feedback(2, initial, code)) fail('S2_NATIVE_TEACHING_REPLY_REQUIRED');
-    await expect(page.getByTestId('aidt-interview-chat-question').first()).toBeVisible();
+    // The first real reply may ask a clarification. Only the second turn must produce actionable questions.
+    const readRecord = async () => {
+      const raw = (await savedStage(2)).content?.draft?.fields?.[`interviewRecord:${target.entityId}`];
+      return raw ? JSON.parse(raw) : null;
+    };
+    await expect.poll(async () => (await readRecord())?.original, { timeout: 30000 }).toBe(initial);
     const revisionInput = text(`${code}：我想改得更具体，先问「上次到了哪个窗口」，再追问「哪一刻决定继续等或离开」。请据此调整我的问题清单草稿。`);
     if (!await feedback(2, revisionInput, code)) fail('S2_NATIVE_TEACHING_REVISION_REQUIRED');
     const actions = page.getByTestId('aidt-interview-chat-actions');
@@ -473,8 +478,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const adopted = text(`${code}：请描述最近一次具体选择的经过，你看到了什么，又是怎样作出决定的？`);
     await revisedQuestion.fill(adopted);
     await confirmInInterviewChat(btn('确认这份问题清单', actions));
-    const canonical = JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]);
-    if (canonical.code !== code || canonical.original !== initial || canonical.adopted !== adopted || canonical.guideConfirmed !== true) fail('INTERVIEW_CHAT_GUIDE_NOT_SAVED');
+    const canonical = await readRecord();
+    if (canonical?.code !== code || canonical.original !== initial || canonical.adopted !== adopted || canonical.guideConfirmed !== true) fail('INTERVIEW_CHAT_GUIDE_NOT_SAVED');
     await expect(inspector.getByTestId('aidt-interview-question-list')).toContainText(adopted);
     recordInterviewIteration(initial, revisionInput, `${code}问题初稿`, target);
     recordInterviewIteration(revisionInput, adopted, `${code}问题清单`, target);
