@@ -104,6 +104,7 @@ export interface CreateProjectInput {
   readonly name: string;
   readonly kind: string;
   readonly blueprintVersionId: string | null;
+  readonly courseTag?: string;
   readonly profile?: z.infer<typeof project.ProjectCreationProfile>;
 }
 
@@ -118,6 +119,10 @@ export async function createProject(
       || input.kind !== "general" || input.blueprintVersionId !== null)) {
     throw new ProjectError("INVALID_CREATION_PROFILE");
   }
+
+  const courseTag = input.courseTag === undefined ? undefined : project.AidtCourseTag.safeParse(input.courseTag);
+  if (courseTag && (input.profile !== "aidt" || !courseTag.success)) throw new ProjectError("INVALID_CREATION_PROFILE");
+  const tagInput = courseTag?.success ? { courseTag: courseTag.data } : {};
 
   let orgRole: Awaited<ReturnType<IdentityRepository["findOrgMembership"]>>;
   try {
@@ -176,6 +181,7 @@ export async function createProject(
       kind: input.kind,
       blueprintVersionId: input.blueprintVersionId,
       ...(input.profile === undefined ? {} : { profile: input.profile }),
+      ...tagInput,
       fingerprint: creationFingerprint({
         orgId: input.orgId,
         actorId: input.actorId,
@@ -183,6 +189,7 @@ export async function createProject(
         name: input.name,
         blueprintVersionId: input.blueprintVersionId,
         ...(input.profile === undefined ? {} : { profile: input.profile }),
+        ...tagInput,
       }),
       blueprintBinding,
     });

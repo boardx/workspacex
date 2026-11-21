@@ -22,13 +22,13 @@ export const PROJECT_NAME_MAX_LENGTH = 60;
 
 export function CreateProjectForm({
   cancel, className, autoFocus = true, createProjectAction = createProject, createdHref,
-  nameLabel, namePlaceholder, intro, nameLocked = false, submitLabel, failurePrefix,
+  nameLabel, namePlaceholder, intro, additionalFields, nameLocked = false, submitLabel, failurePrefix,
 }: {
   /** Presentation and creation extension points; the default is always an ordinary project. */
   cancel: React.ReactNode; className?: string; autoFocus?: boolean;
   createProjectAction?: (input: Parameters<typeof createProject>[0]) => Promise<{ id: string } | null>;
   createdHref?: (projectId: string) => string;
-  nameLabel?: string; namePlaceholder?: string; intro?: React.ReactNode;
+  nameLabel?: string; namePlaceholder?: string; intro?: React.ReactNode; additionalFields?: (busy: boolean) => React.ReactNode;
   nameLocked?: boolean; submitLabel?: string; failurePrefix?: React.ReactNode;
 }) {
   const { t, locale } = useI18n();
@@ -62,6 +62,7 @@ export function CreateProjectForm({
       <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={namePlaceholder ?? t("projects.namePlaceholder")} aria-label={nameLabel ?? t("projects.name")} maxLength={PROJECT_NAME_MAX_LENGTH} data-testid="project-new-name" className="h-9 text-12" disabled={busy || nameLocked} autoFocus={autoFocus} />
     </label>
     {nearLimit && <p className="-mt-1 text-right text-11 text-muted-foreground" data-testid="project-new-name-count" aria-live="polite">{name.length} / {PROJECT_NAME_MAX_LENGTH}</p>}
+    {additionalFields?.(busy || nameLocked)}
     {error !== null && <p role="alert" data-testid="project-new-error" data-reason={error.code ?? undefined} className="text-12 text-destructive">{failurePrefix}{t("projects.createFailed", { error: describeCreateProjectError(error.failure, locale) })}</p>}
     <div className="flex items-center justify-end gap-2">{cancel}<Button type="submit" size="sm" variant="primary" disabled={!canSubmit} data-testid="project-new-create">{busy ? t("projects.creating") : submitLabel ?? t("projects.create")}</Button></div>
   </form>;

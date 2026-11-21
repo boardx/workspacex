@@ -81,6 +81,16 @@ describe("AIDT controlled creation in the original tenant transaction", () => {
     expect(await counts()).toEqual({ projects: 2, subtypes: 2, owners: 2, requests: 2, tags: 1 });
   });
 
+  it("persists each course tag atomically and replays within the same course", async () => {
+    const create = (courseTag: string) => createProject({ repo, identity }, { ...base, courseTag });
+    const first = await create("设计"), second = await create("工程"), replay = await create(" 设计 ");
+    expect(first.id).toBe(replay.id);
+    expect(first.id).not.toBe(second.id);
+    const tags = await asApp(ORG, s => s.query<{ tag: string }>("SELECT tag FROM project_tags WHERE project_id=$1", [first.id]));
+    expect(tags.rows.map(row => row.tag).sort()).toEqual([TAG, project.encodeAidtCourseTag("设计")].sort());
+    expect(await counts()).toEqual({ projects: 2, subtypes: 2, owners: 2, requests: 2, tags: 4 });
+  });
+
   it("concurrent identical AIDT requests leave exactly one project/owner/tag", async () => {
     const [first, second] = await Promise.all([createProject({ repo, identity }, base), createProject({ repo, identity }, base)]);
     expect(first.id).toBe(second.id); expect([first.created, second.created].sort()).toEqual([false, true]);

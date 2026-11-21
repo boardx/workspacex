@@ -69,6 +69,7 @@ export interface CreationRequestIdentity {
   readonly kind: string;
   readonly name: string;
   readonly blueprintVersionId: string | null;
+  readonly courseTag?: string;
   readonly profile?: ProjectCreationProfile;
 }
 
@@ -98,5 +99,6 @@ export function creationFingerprint(req: CreationRequestIdentity): string {
   const parts = [req.orgId, req.actorId, req.kind, req.name, blueprint];
   // Preserve the exact legacy byte sequence when profile is absent.
   if (req.profile !== undefined) parts.push(req.profile);
+  if (req.courseTag !== undefined) parts.push(req.courseTag);
   return createHash("sha256").update(parts.join(SEP), "utf8").digest("hex");
 }
