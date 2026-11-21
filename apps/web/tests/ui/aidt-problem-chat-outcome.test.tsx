@@ -33,6 +33,9 @@ it("presents only formed results in Output and keeps chat input and operations o
   rerender(<AidtProblemWorkspace draft={readAidtProblemEntityDraft(stage().content.draft, other)} confirmed={false} revision={5} />);
   expect(panel.getByText("尚无工作坊问题草稿。")).toBeVisible();
   expect(panel.queryByText(formed.rewrittenTheme)).toBeNull();
+  rerender(<AidtProblemWorkspace draft={{ ...result, fields: { initial: "你好！" } }} confirmed={false} revision={1} />);
+  expect(panel.getByText("尚无工作坊问题草稿。")).toBeVisible();
+  expect(panel.queryByText("你好！")).toBeNull();
 });
 
 it("refreshes the durable stage at each settled assistant turn, without persisting human greetings or duplicating assistant messages", () => {
