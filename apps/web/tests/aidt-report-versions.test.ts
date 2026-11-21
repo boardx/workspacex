@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { isConfirmedReportVersion, readConfirmedReportForExport } from "@/features/aidt/lib/aidt-report-versions";
 import { StageDraft } from "@repo/contracts/aidt-stages";
 
 const { history } = vi.hoisted(() => ({ history: vi.fn() }));
 vi.mock("@/features/aidt/lib/live-aidt-stages", () => ({ listAidtStageHistory: history }));
+afterEach(() => vi.unstubAllGlobals());
 
 const firstSource = { stageId: 1, revision: 2 };
 const confirmed = { markdown: "# 第一份报告", sourceStageRevisions: [firstSource], confirmedAtRevision: 4 };
@@ -68,6 +69,29 @@ describe("exact AIDT report source links", () => {
     for (const invalid of [{ ...saved, projectId: "foreign" }, { ...saved, stageId: 2 }]) {
       history.mockReset().mockResolvedValueOnce({ items: [report] }).mockResolvedValueOnce({ items: [invalid] });
       await expect(readConfirmedReportForExport("project", 4, "token", signal, "report-a")).rejects.toThrow("AIDT_REPORT_VERSION_UNAVAILABLE");
+    }
+  });
+
+  it("exports absolute same-site entity links from the browser origin and keeps an honest fallback without one", async () => {
+    const saved = stage(4, 3), report = stage(6, 4), id = "idea-73990275-e848-480f-8962-8d39d3b88b43";
+    saved.content.draft.ideas = [{ id, title: "来源点子", description: "已保存说明" }];
+    report.content.reports = { "report-a": { ...confirmed, sourceStageRevisions: [{ stageId: 4, revision: 3 }] } };
+    const signal = new AbortController().signal;
+    const reset = () => history.mockReset().mockResolvedValueOnce({ items: [report] }).mockResolvedValueOnce({ items: [saved] });
+    vi.stubGlobal("window", { location: { origin: "https://devapp.boardx.us" } });
+    reset();
+    await expect(readConfirmedReportForExport("project", 4, "token", signal, "report-a")).resolves.toContain(`](https://devapp.boardx.us/aidt/project?step=4&entity=${id}&entityRevision=3)`);
+    reset();
+    await expect(readConfirmedReportForExport("project", 4, "token", signal, "report-a", "https://app.workspacex.cn")).resolves.toContain("](https://app.workspacex.cn/aidt/");
+    vi.unstubAllGlobals();
+    reset();
+    await expect(readConfirmedReportForExport("project", 4, "token", signal, "report-a")).resolves.toContain("离线打开不能直接回到来源");
+    for (const origin of ["javascript:alert(1)", "file:///tmp", "https://user:secret@devapp.boardx.us", "https://devapp.boardx.us/path", "https://devapp.boardx.us?redirect=evil", "https://devapp.boardx.us#section", "//evil.example", " https://devapp.boardx.us"]) {
+      reset();
+      const markdown = await readConfirmedReportForExport("project", 4, "token", signal, "report-a", origin);
+      expect(markdown).toContain(`](/aidt/project?step=4&entity=${id}&entityRevision=3)`);
+      expect(markdown).toContain("未取得可信站点地址");
+      expect(markdown).not.toContain(origin);
     }
   });
 
