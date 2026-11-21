@@ -6,12 +6,13 @@ import { enforceDeniedProbeStatus } from '../../apps/web/e2e/support/devapp-aidt
 import { interviewCodePattern } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
+const syntheticLoginValue = 'synthetic-only'; // Unit fixture, never an account credential.
 const identity = () => acceptanceIdentity({ EXPECTED_SOURCE_SHA: source, EXPECTED_RELEASE_TAG: '123-1', GITHUB_RUN_ID: '456', GITHUB_RUN_ATTEMPT: '1' });
 const request = (guard, method, path, body) => guard.decide({ url: `https://devapp.boardx.us${path}`, method, body, resourceType: 'fetch' });
 function owned(options = {}) {
   const id = { ...identity(), teachingSkillNames: ['aidt-understand'], ...options }, guard = createAcceptanceGuard(id, () => options.now?.() ?? 100);
   guard.armLogin();
-  const login = request(guard, 'POST', '/api/auth/login', { email: 'synthetic-only', password: 'synthetic-only' });
+  const login = request(guard, 'POST', '/api/auth/login', { email: syntheticLoginValue, password: syntheticLoginValue });
   guard.observe(login, 200, { userId: 'qa-user', orgs: ['qa-org'], sessionToken: 'synthetic-token', expiresAt: '2099-01-01T00:00:00Z' });
   const create = request(guard, 'POST', '/api/projects', { orgId: 'qa-org', name: id.projectName, kind: 'general', blueprintVersionId: null });
   assert.equal(create.allow, true);
