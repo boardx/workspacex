@@ -118,6 +118,34 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
     const saved = await f.service.save(actor, ideate);
     expect(saved.stage.sourceStageRevisions).toEqual([{ stageId: 3, revision: 1 }]);
   });
+  it("validates each idea against its own confirmed HMW at the pinned historical revision", async () => {
+    const f = fixture();
+    const first = { id: "selected", text: "如何选口味？", revision: 1 };
+    const other = { id: "other", text: "如何知晓等候时间？", revision: 1 };
+    const definition = input(3);
+    definition.content.draft.fields = { definitionHmwId: first.id, hmw: first.text };
+    for (const hmw of [first, other]) {
+      definition.content.draft.fields["definitionHmw:" + hmw.id] = JSON.stringify({ ...hmw, confirmed: true, archived: false });
+    }
+    await f.service.save(actor, definition);
+    const changed = input(3, 1);
+    changed.content.draft.fields["definitionHmw:other"] = JSON.stringify({ ...other, confirmed: true, archived: true });
+    await f.service.save(actor, changed);
+    const ideas = input(4);
+    ideas.sourceStageRevisions = [{ stageId: 3, revision: 1 }];
+    ideas.content.draft.ideas = [{ id: "a", title: "点子 A", description: "" }, { id: "b", title: "点子 B", description: "" }];
+    ideas.content.draft.fields = { ideaHmwSource: JSON.stringify(other), "ideaHmwSource:a": JSON.stringify(first) };
+    const fields = ideas.content.draft.fields;
+    for (const bad of [{ ...other, revision: 2 }, { ...other, text: "篡改" }, { ...other, id: "missing" }]) {
+      fields["ideaHmwSource:b"] = JSON.stringify(bad);
+      await expect(f.service.save(actor, ideas)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    }
+    fields["ideaHmwSource:b"] = JSON.stringify(other);
+    fields["ideaHmwSource:unknown"] = JSON.stringify(first);
+    await expect(f.service.save(actor, ideas)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    delete fields["ideaHmwSource:unknown"];
+    await expect(f.service.save(actor, ideas)).resolves.toMatchObject({ stage: { content: { draft: { fields } } } });
+  });
   it("history is immutable and paginates descending without overlap",async()=>{const f=fixture();for(let n=0;n<3;n++)await f.service.save(actor,input(1,n));const page=await f.service.history(actor,1,undefined,2);expect(page.items.map(r=>r.revision)).toEqual([3,2]);expect(page.nextBeforeRevision).toBe(2);expect((await f.service.history(actor,1,page.nextBeforeRevision!,2)).items.map(r=>r.revision)).toEqual([1]);});
   it("writes the last PostgreSQL integer revision and rejects another append before storage",async()=>{
     const f=fixture(),max=2147483647,prior=input(1,max-2);

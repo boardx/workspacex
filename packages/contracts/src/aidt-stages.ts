@@ -42,6 +42,17 @@ export function readIdeaHmwSource(value?: string): z.infer<typeof IdeaHmwSource>
   }
 }
 
+export function isAidtConfirmedHmwSource(stage: SharedStageValue | null, source: z.infer<typeof IdeaHmwSource>): boolean {
+  if (stage?.stageId !== 3 || stage.revision !== source.revision) return false;
+  try {
+    const hmw = JSON.parse(stage.content.draft.fields["definitionHmw:" + source.id] ?? "null");
+    return hmw?.id === source.id && hmw.confirmed === true && hmw.archived === false
+      && typeof hmw.text === "string" && hmw.text.trim() === source.text;
+  } catch {
+    return false;
+  }
+}
+
 export const SummaryReport = z.object({
   markdown: z.string().max(100000),
   sourceStageRevisions: z.array(SourceStageRevision).max(6).refine(
