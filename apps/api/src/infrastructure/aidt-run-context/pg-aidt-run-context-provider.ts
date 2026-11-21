@@ -1,3 +1,5 @@
+import { AIDT_ENTITY_THREAD_PREFIX } from "@repo/contracts/aidt-stages";
+import { aidtEntityThreadId } from "../../application/aidt-stages/entity-thread";
 import { randomUUID } from "node:crypto";
 import { AidtContextSelector, AidtStoredContextSnapshot, AidtContextReceipt, AIDT_STAGE_IDENTITIES, AIDT_SUMMARY_STABLE_NAME, AIDT_CONTEXT_LIMITS, aidtContextSelectorJson, type AidtContextSnapshot } from "@repo/contracts/aidt-run-context";
 import { readConfirmedAidtReturn } from "@repo/contracts/aidt-return-reflection";
@@ -74,13 +76,23 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
  }
  async prepareIn(session:TenantSession,actor:AidtContextActor,raw:AidtContextSelector,run:AidtContextFocusRun){
   const selector=this.selector(raw);if(selector.projectId!==actor.projectId)return unavailable();
+  if (actor.threadId.startsWith(AIDT_ENTITY_THREAD_PREFIX)) {
+    const stageId = selector.purpose === "stage" ? selector.stageId : 6;
+    const purpose = selector.purpose === "stage" ? "stage" : "report";
+    if (!selector.entityId || aidtEntityThreadId(actor, stageId, selector.entityId, purpose) !== actor.threadId) return unavailable();
+    if (selector.purpose === "stage" && (selector.stageRevisions.length || selector.returnRevision !== undefined)) return unavailable();
+  } else if (selector.entityId) return unavailable();
+
   return this.timed(session,async s=>{
    const scope=await this.accessIn(s,actor,true),focus=await this.focusIn(s,actor,selector,run.skillVersionIds,scope.db);
    const heads=new Map((await scope.stages.list(actor)).items.map(row=>[row.stageId,row.revision]));const loaded:LoadedAidtContextSource[]=[];
    for(const ref of selector.stageRevisions)loaded.push({kind:"stage",stage:await this.exact(scope.stages,actor,ref.stageId,ref.revision)});
    const reflection=await this.checkReturn(scope.stages,actor,selector);if(reflection)loaded.push({kind:"return",stage:reflection.row,payload:reflection.payload});
    if(selector.purpose==="summary")for(const ref of selector.historyRevisions)loaded.push({kind:"history",stage:await this.exact(scope.stages,actor,ref.stageId,ref.revision)});
-   const prepared=prepareAidtContext(selector,focus,loaded,heads);return {...prepared,focusSkillVersionId:focus.skillVersionId};
+   const entitySources = selector.entityId && selector.purpose === "summary"
+     ? loaded.map(source => ({ ...source, stage: { ...source.stage, content: { ...source.stage.content, summaryReport: undefined } } }))
+     : loaded;
+   const prepared=prepareAidtContext(selector,focus,entitySources,heads);return {...prepared,focusSkillVersionId:focus.skillVersionId};
   });
  }
  async persistIn(session:TenantSession,actor:AidtContextActor,input:{runId:string;inputMessageId:string;selectorHash:string;snapshot:AidtContextSnapshot}){

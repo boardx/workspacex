@@ -1,5 +1,6 @@
 import { createThread, getThread, listThreads } from "@/lib/live-chat";
 import { skills } from "@repo/contracts";
+import { AIDT_ENTITY_THREAD_PREFIX, operations as aidtStages } from "@repo/contracts/aidt-stages";
 import type { z } from "zod";
 import { apiRequest } from "@/lib/api-client";
 import { isAidtModuleEnabled } from "@/features/aidt/lib/aidt-module-config";
@@ -7,7 +8,7 @@ import { listThreadMounts, mountSkills } from "@/lib/live-skill-mount";
 import { AIDT_STEPS, type AidtStep } from "@/features/aidt/lib/project-aidt";
 import { AIDT_REPORT_SKILL } from "./aidt-report-task";
 
-type Input = { orgId: string; userId: string; projectId: string; step: AidtStep; purpose?: "report"; thread: string | null; sessionToken: string; signal?: AbortSignal; createLatest?: { expectedLatestVersionId: string; expectedPinnedVersionId: string } };
+type Input = { orgId: string; userId: string; projectId: string; step: AidtStep; purpose?: "report"; entityId?: string; thread: string | null; sessionToken: string; signal?: AbortSignal; createLatest?: { expectedLatestVersionId: string; expectedPinnedVersionId: string } };
 export class AidtStepChatChoiceError extends Error {
   constructor(public readonly choices: readonly { id: string; title: string }[]) { super("本组有多个本步对话，请共同选择要继续的一条。不会自动合并或删除。"); }
 }
@@ -24,7 +25,7 @@ export function resolveAidtStepChat(input: Input): Promise<AidtStepChat> {
   if (!isAidtModuleEnabled()) return Promise.reject(new Error("教学模块未启用。"));
   if (input.signal?.aborted) return Promise.reject(new Error("AIDT_CONTEXT_CHANGED"));
   if (input.purpose === "report" && input.step.id !== 6) return Promise.reject(new Error("报告总结任务只在第6步报告入口使用。"));
-  const key = JSON.stringify([input.orgId, input.userId, input.sessionToken, input.projectId, input.step.id, input.purpose, input.thread, input.createLatest]);
+  const key = JSON.stringify([input.orgId, input.userId, input.sessionToken, input.projectId, input.step.id, input.purpose, input.entityId, input.thread, input.createLatest]);
   const existing = pending.get(key);
   if (existing) {
     if (input.signal) existing.scope.consumers.add(input.signal); else existing.scope.unscoped = true;
@@ -40,7 +41,7 @@ export function resolveAidtStepChat(input: Input): Promise<AidtStepChat> {
   return task;
 }
 
-async function resolve({ orgId, userId, projectId, step, purpose, thread, sessionToken, createLatest }: Input, assertCurrent: () => void): Promise<AidtStepChat> {
+async function resolve({ orgId, userId, projectId, step, purpose, entityId, thread, sessionToken, createLatest }: Input, assertCurrent: () => void): Promise<AidtStepChat> {
   assertCurrent();
   // Same authorized library operation, with this host's captured bearer rather
   // than the mutable globally stored session used by the generic library UI.
@@ -64,7 +65,32 @@ async function resolve({ orgId, userId, projectId, step, purpose, thread, sessio
     return { detail, mounts, match, wrongStep };
   };
   const result = (id: string, versionId: string) => ({ threadId: id, skillName: skill.name, versionId, latestVersionId: skill.currentVersionId! });
+  if (entityId) {
+    const operation = aidtStages.entityThread;
+    const path = operation.path.replace(":projectId", encodeURIComponent(projectId))
+      .replace(":stageId", String(step.id)).replace(":entityId", encodeURIComponent(entityId));
+    const { threadId } = operation.out.parse(await apiRequest<unknown>(path, {
+      method: operation.method, sessionToken, body: { purpose: purpose ?? "stage" },
+    }));
+    const before = await read(threadId);
+    if (before.detail.thread.visibilityScope !== "plenary" || before.detail.thread.archived
+      || !before.detail.capabilities.includes("composer.send") || before.wrongStep) {
+      throw new Error("该产物的对话不可用。");
+    }
+    if (before.match) return { threadId, skillName: skill.name, versionId: before.match.versionId };
+    let mountError: unknown;
+    try {
+      await mountSkills(threadId, projectId, { skillIds: [skill.skillId], expectedVersion: before.mounts.version }, sessionToken);
+    } catch (error) {
+      mountError = error;
+    }
+    // The other tab can complete the same optimistic mount first.
+    const saved = await read(threadId);
+    if (!saved.match || saved.wrongStep) throw mountError ?? new Error("步骤 Skill 挂载未能确认。");
+    return { threadId, skillName: skill.name, versionId: saved.match.versionId };
+  }
   if (thread) {
+    if (thread.startsWith(AIDT_ENTITY_THREAD_PREFIX)) throw new Error("请从产物列表打开这条对话。");
     const state = await read(thread);
     assertCurrent();
     if (state.detail.thread.visibilityScope !== "plenary") throw new Error("这个对话是个人范围，不能作为小组共同对话。请返回本步对话。");
@@ -76,7 +102,7 @@ async function resolve({ orgId, userId, projectId, step, purpose, thread, sessio
   const title = `${purpose === "report" ? "[AIDT SUM] 小组研究报告" : `[AIDT ${step.id}] ${step.title}`}${createLatest ? " · 新版教学" : ""}`;
   const listed = await listThreads(projectId, {}, sessionToken);
   assertCurrent();
-  const cards = listed.groups.flatMap((group) => group.cards);
+  const cards = listed.groups.flatMap(group => group.cards).filter(card => !card.id.startsWith(AIDT_ENTITY_THREAD_PREFIX));
   const matches: { id: string; title: string; versionId: string }[] = [];
   let recovery: { id: string; state: Awaited<ReturnType<typeof read>> } | undefined;
   // The persisted mount identifies a step even after the native thread is renamed.

@@ -4,6 +4,7 @@ import { authorize } from "../identity/authorize";
 import { discloseDecided, isDisclosed, type Guarded } from "../security/permission-filter";
 import { AidtStageError } from "../../domain/aidt-stages/errors";
 import type { AidtStageRepository, StageActor, StageTransaction } from "./ports";
+import { aidtEntityThreadId, aidtSavedEntityTitle } from "./entity-thread";
 import type { PermissionDecision } from "../../domain/identity/permission-decision";
 function unwrap<T>(value:Guarded<T>,decision:PermissionDecision):T { const out=discloseDecided(value,decision); if(!isDisclosed(out)) throw new AidtStageError("AIDT_STAGE_NOT_FOUND"); return out.payload; }
 /** Stable key for normalized contract values; key order cannot break retry identity. */
@@ -31,6 +32,22 @@ export class AidtStagesService {
       }
       return fn(tx,read);
     }); } catch(e) { if(e instanceof AidtStageError) throw e; throw new AidtStageError("AIDT_STAGE_UNAVAILABLE"); }
+  }
+  async entityThread(actor: StageActor, raw: { stageId: number; entityId: string; purpose: "stage" | "report" }) {
+    const parsed = operations.entityThread.in.safeParse({ ...raw, projectId: actor.projectId });
+    if (!parsed.success) throw new AidtStageError("AIDT_STAGE_INVALID");
+    const { stageId, entityId, purpose } = parsed.data;
+    return this.access(actor, true, async (tx, decision) => {
+      if (!tx.ensureEntityThread) throw new AidtStageError("AIDT_STAGE_UNAVAILABLE");
+      const design = stageId === 5 && tx.projectResources
+        ? unwrap(await tx.projectResources(), decision)?.find(resource => resource.kind === "design" && resource.id === entityId && resource.status !== "archived")
+        : undefined;
+      const title = design ? design.title.trim().slice(0, 200) || "原型"
+        : aidtSavedEntityTitle(unwrap(await tx.current(stageId), decision), entityId, purpose);
+      if (title === null) throw new AidtStageError("AIDT_STAGE_NOT_FOUND");
+      const threadId = aidtEntityThreadId(actor, stageId, entityId, purpose);
+      return unwrap(await tx.ensureEntityThread(threadId, title), decision);
+    });
   }
   get(actor:StageActor,stageId:number) { const input=operations.get.in.safeParse({projectId:actor.projectId,stageId}); if(!input.success) throw new AidtStageError("AIDT_STAGE_INVALID"); return this.access(actor,false,async(tx,d)=>({stage:unwrap(await tx.current(stageId),d)})); }
   getRevision(actor:StageActor,stageId:number,revision:number) {

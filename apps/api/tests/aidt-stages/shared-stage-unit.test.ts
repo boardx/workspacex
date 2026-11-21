@@ -9,6 +9,7 @@ import { toOrgId } from "../../src/domain/org-id";
 const actor:StageActor={orgId:toOrgId("org-a"),userId:"student-a",projectId:"project-a"};
 function input(stageId=1,expectedRevision=0):SaveStageInput{return {projectId:actor.projectId,stageId,expectedRevision,operationId:randomUUID(),content:{schemaVersion:1,draft:{fields:{initial:"学生想法"},ideas:[],selectedIdeaId:""}},sourceStageRevisions:[]};}
 function fixture(){
+  const entityThreads = new Map<string, string>();
   const records:Array<{stage:SharedStageValue;requestKey:string;operationId:string;actor:string}>=[];
   const members=new Map([["student-a","owner"],["student-b","collaborator"]]);
   let state={status:"active",orgStatus:"active",aidt:true};let fail=false;let queue=Promise.resolve();
@@ -22,6 +23,10 @@ function fixture(){
     } as unknown as IdentityRepository;
     const ref={kind:"project" as const,id:who.projectId};const own=()=>records.filter(r=>r.stage.projectId===who.projectId&&who.orgId===actor.orgId);
     return await fn({identity,project:who.projectId===actor.projectId&&who.orgId===actor.orgId?state:null,
+      ensureEntityThread: async (threadId, title) => {
+        if (!entityThreads.has(threadId)) entityThreads.set(threadId, title);
+        return guard(ref, { threadId });
+      },
       current:async stageId=>guard(ref,own().filter(r=>r.stage.stageId===stageId).at(-1)?.stage??null),
       revision:async(stageId,revision)=>guard(ref,own().find(r=>r.stage.stageId===stageId&&r.stage.revision===revision)?.stage??null),
       history:async(stageId,before,limit)=>guard(ref,own().filter(r=>r.stage.stageId===stageId&&(!before||r.stage.revision<before)).map(r=>r.stage).reverse().slice(0,limit)),
@@ -31,11 +36,39 @@ function fixture(){
       append:async(value,requestKey)=>{const stage={projectId:who.projectId,stageId:value.stageId,revision:value.expectedRevision+1,content:structuredClone(value.content),sourceStageRevisions:value.sourceStageRevisions,updatedBy:who.userId,updatedAt:new Date().toISOString()};records.push({stage,requestKey,actor:who.userId,operationId:value.operationId});return guard(ref,stage);},
     });}finally{release();}
   }};
-  return {service:new AidtStagesService(repo,()=>true),repo,records,members,setState:(v:Partial<typeof state>)=>{state={...state,...v};},fail:()=>{fail=true;}};
+  return {service:new AidtStagesService(repo,()=>true),repo,records,members,entityThreads,setState:(v:Partial<typeof state>)=>{state={...state,...v};},fail:()=>{fail=true;}};
 }
 describe("AIDT shared stage transaction behavior (in-memory ports, not PG evidence)",()=>{
   it("defaults off with no storage touched",async()=>{const f=fixture();f.fail();await expect(new AidtStagesService(f.repo).get(actor,1)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_NOT_FOUND"});});
   it("stores complete student draft and discovery cards, shared by another member",async()=>{const f=fixture();const v=input(2);v.content.draft.discoveryCards=[{id:"d1",participantCode:"P1",headline:"学生概括",headlineKind:"student-summary",context:"情境",quote:"",sourceRef:"缺口待补",photoRef:""}];await f.service.save(actor,v);expect((await f.service.get({...actor,userId:"student-b"},2)).stage).toMatchObject({revision:1,updatedBy:"student-a",content:v.content});expect(f.records).toHaveLength(1);});
+  it("binds ten saved interviews exactly once and retains bindings across actors and renames", async () => {
+    const f = fixture();
+    const saved = input(2);
+    const ids = Array.from({ length: 10 }, () => randomUUID());
+    ids.forEach((id, index) => {
+      saved.content.draft.fields["interviewRecord:" + id] = JSON.stringify({ version: 1, id, code: "U" + (index + 1) });
+    });
+    await f.service.save(actor, saved);
+    const open = (entityId: string, who = actor) => f.service.entityThread(who, { stageId: 2, entityId, purpose: "stage" });
+    const bindings = await Promise.all(ids.map(async id => {
+      const [left, right] = await Promise.all([open(id), open(id, { ...actor, userId: "student-b" })]);
+      expect(left).toEqual(right);
+      return left.threadId;
+    }));
+    expect(new Set(bindings).size).toBe(10);
+    expect(f.entityThreads.size).toBe(10);
+
+    const changed = input(2, 1);
+    changed.content.draft.fields = { ...saved.content.draft.fields };
+    changed.content.draft.fields["interviewRecord:" + ids[0]!] = JSON.stringify({ version: 1, id: ids[0], code: "更名" });
+    changed.content.draft.fields["interviewArchived:" + ids[1]!] = "true";
+    await f.service.save(actor, changed);
+    expect(await open(ids[0]!)).toEqual({ threadId: bindings[0] });
+    await expect(open(ids[1]!)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
+    await expect(open("absent")).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
+    await expect(open(ids[0]!, { ...actor, userId: "outsider" })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
+    expect(f.entityThreads.size).toBe(10);
+  });
   it("summary has all six stages, missing stages remain revision zero",async()=>{const f=fixture();const out=await f.service.list(actor);expect(out.items).toHaveLength(6);expect(out.items.every(r=>r.revision===0&&r.updatedAt===null)).toBe(true);});
   it("stale revision returns authorized current and preserves prior record",async()=>{const f=fixture();await f.service.save(actor,input());await expect(f.service.save(actor,input())).rejects.toMatchObject({reasonCode:"AIDT_STAGE_REVISION_CONFLICT",current:{revision:1}});expect(f.records).toHaveLength(1);});
   it("serializes simultaneous base-zero writers, exactly one succeeds",async()=>{const f=fixture();const out=await Promise.allSettled([f.service.save(actor,input()),f.service.save({...actor,userId:"student-b"},input())]);expect(out.filter(r=>r.status==="fulfilled")).toHaveLength(1);expect(f.records).toHaveLength(1);});

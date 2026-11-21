@@ -25,7 +25,7 @@ import { AIDT_EMPTY_RETURN_CONTEXT, loadAidtReturnChatContext, type AidtReturnCh
 import { isAidtModuleEnabled } from "@/features/aidt/lib/aidt-module-config";
 import { AidtSummaryChatContext } from "./aidt-summary-chat-context";
 import { aidtReportChatHref } from "../lib/aidt-report-task";
-function AidtSkillUpdate({ projectId, step, current, identity, threadHref, purpose }: { purpose?: "report"; projectId: string; step: AidtStep; current: AidtStepChat; identity: { orgId: string; userId: string; sessionToken: string }; threadHref: (id: string | null) => string }) {
+function AidtSkillUpdate({ projectId, step, current, identity, threadHref, purpose }: { purpose?: "report"; entityId?: string; projectId: string; step: AidtStep; current: AidtStepChat; identity: { orgId: string; userId: string; sessionToken: string }; threadHref: (id: string | null) => string }) {
   const [state, setState] = React.useState<{ pending: boolean; href?: string; error?: string }>({ pending: false });
   const lifetime = React.useRef({ active: true, cancellation: null as AbortController | null });
   const submitting = React.useRef(false);
@@ -53,19 +53,19 @@ function AidtSkillUpdate({ projectId, step, current, identity, threadHref, purpo
   </div>;
 }
 /** Keep navigation hints only inside the same project and teaching stage. */
-function currentStageQuery(projectId: string, stageId: number): URLSearchParams {
+function currentStageQuery(projectId: string, stageId: number, entityId?: string): URLSearchParams {
   const query = new URLSearchParams(window.location.search);
-  return window.location.pathname === `/aidt/${encodeURIComponent(projectId)}` && query.get("step") === String(stageId) ? query : new URLSearchParams();
+  return window.location.pathname === `/aidt/${encodeURIComponent(projectId)}` && query.get("step") === String(stageId) && query.get("entity") === (entityId ?? null) ? query : new URLSearchParams();
 }
 type AidtChatProps = {
-  offerInitial?: (text: string) => ComposerOfferResult; hostPanel?: ChatHostPanel; referencePanel?: HTMLDivElement | null; taskHref?: string; purpose?: "report"; projectId: string; step: AidtStep; thread: string | null; returnRevision?: string | null; savedContextRefs?: readonly AidtSavedContextReference[]; sharedContextRefs?: readonly AidtSharedContextReference[]; sharedContextReady?: boolean; onResolvedThread?: (threadId: string) => void };
+  offerInitial?: (text: string) => ComposerOfferResult; hostPanel?: ChatHostPanel; referencePanel?: HTMLDivElement | null; taskHref?: string; purpose?: "report"; entityId?: string; projectId: string; step: AidtStep; thread: string | null; returnRevision?: string | null; savedContextRefs?: readonly AidtSavedContextReference[]; sharedContextRefs?: readonly AidtSharedContextReference[]; sharedContextReady?: boolean; onResolvedThread?: (threadId: string) => void };
 export function ProjectAidtChat(props: AidtChatProps) {
   if (!isAidtModuleEnabled()) return <p role="status" data-testid="aidt-chat-disabled" className="p-4 text-13 text-muted-foreground">教学模块未启用。</p>;
   return <EnabledAidtChat {...props} />;
 }
-function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContextRefs = [], sharedContextRefs = [], sharedContextReady = true, onResolvedThread, purpose, taskHref, referencePanel, hostPanel, offerInitial }: AidtChatProps) {
+function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContextRefs = [], sharedContextRefs = [], sharedContextReady = true, onResolvedThread, purpose, entityId, taskHref, referencePanel, hostPanel, offerInitial }: AidtChatProps) {
   const { session } = useSession();
-  const scope = JSON.stringify([session?.currentOrgId, session?.userId, session?.sessionToken, projectId, step.id, thread, purpose]);
+  const scope = JSON.stringify([session?.currentOrgId, session?.userId, session?.sessionToken, projectId, step.id, entityId ? null : thread, purpose, entityId]);
   const lifecycle = React.useRef({ scope, generation: 0 });
   if (lifecycle.current.scope !== scope) lifecycle.current = { scope, generation: lifecycle.current.generation + 1 };
   const generation = lifecycle.current.generation;
@@ -79,7 +79,7 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
   const selectSummary = React.useCallback((selector:AidtContextSelector|null) => { setSummarySelection({scope:requestScope,selector}); }, [requestScope]);
   const acceptRun = React.useCallback((observation:HostRunObservation) => { if (lifecycle.current.scope === scope && lifecycle.current.generation === generation && (attemptOwner.current?.scope !== requestScope || attemptOwner.current.clientMessageId === observation.clientMessageId)) setAcceptedRun({scope:requestScope,runId:observation.runId}); }, [scope,generation,requestScope]);
   let contextSelector:AidtContextSelector|null = null;
-  try { contextSelector = purpose === "report" ? summarySelection?.scope === requestScope ? summarySelection.selector : null : sharedContextReady ? aidtStageContextSelector(projectId,step.id,sharedContextRefs,returnRevision) : null; } catch { /* Invalid selectors stay blocked, never ordinary Chat. */ }
+  try { contextSelector = purpose === "report" ? summarySelection?.scope === requestScope ? summarySelection.selector : null : sharedContextReady ? aidtStageContextSelector(projectId,step.id,entityId ? [] : sharedContextRefs,entityId ? null : returnRevision) : null; if (entityId && contextSelector) contextSelector = { ...contextSelector, entityId }; } catch { /* Invalid selectors stay blocked, never ordinary Chat. */ }
   const resolvedCallback = React.useRef({ scope, generation, callback: onResolvedThread }); resolvedCallback.current = { scope, generation, callback: onResolvedThread };
   const referenceKey = JSON.stringify(savedContextRefs);
   const sharedReferenceKey = JSON.stringify(sharedContextRefs);
@@ -133,26 +133,36 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
     let active = true;
     const cancellation = new AbortController();
     setState(null);
-    void resolveAidtStepChat({ orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken, projectId, step, thread, ...(purpose ? { purpose } : {}), signal: cancellation.signal }).then((value) => {
+    void resolveAidtStepChat({ orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken, projectId, step, thread: entityId ? null : thread, ...(entityId ? { entityId } : {}), ...(purpose ? { purpose } : {}), signal: cancellation.signal }).then((value) => {
       if (!active || lifecycle.current.generation !== generation || lifecycle.current.scope !== scope) return;
-      const query = currentStageQuery(projectId, step.id);
+      const query = currentStageQuery(projectId, step.id, entityId);
       const threadParameter = purpose === "report" ? "summaryThread" : "thread";
       // A second resolution of the same thread must not compete with a Next.js tool navigation.
       if (query.has("step") && (query.get("summary") === "1") === (purpose === "report") && query.get(threadParameter) !== value.threadId) {
-        window.history.replaceState(null, "", purpose === "report" ? aidtReportChatHref(projectId, { threadId: value.threadId, stageThread: query.get("thread"), tool: query.get("tool") === "report" ? "report" : "chat", returnRevision: query.get("returnRevision") }) : aidtHref(projectId, step.id, { thread: value.threadId, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision") }));
+        if (entityId) {
+          const url = new URL(window.location.href);
+          url.searchParams.set(threadParameter, value.threadId);
+          window.history.replaceState(null, "", url);
+        } else window.history.replaceState(null, "", purpose === "report" ? aidtReportChatHref(projectId, { threadId: value.threadId, stageThread: query.get("thread"), tool: query.get("tool") === "report" ? "report" : "chat", returnRevision: query.get("returnRevision") }) : aidtHref(projectId, step.id, { thread: value.threadId, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision") }));
       }
       setState({ scope: requestScope, value });
       if (resolvedCallback.current.scope === scope && resolvedCallback.current.generation === generation) resolvedCallback.current.callback?.(value.threadId);
     }).catch((error: unknown) => { if (active && lifecycle.current.generation === generation && lifecycle.current.scope === scope) setState({ scope: requestScope, error: error instanceof Error ? error.message : "步骤对话读取失败，请重试。", choices: error instanceof AidtStepChatChoiceError ? error.choices : undefined }); });
     return () => { active = false; cancellation.abort(); };
-  }, [scope, generation, requestScope, session, projectId, step, thread, retry, purpose]);
+  }, [scope, generation, requestScope, session, projectId, step, thread, retry, purpose, entityId]);
   const path = React.useCallback((id: string | null) => {
-    const query = currentStageQuery(projectId, step.id);
+    const query = currentStageQuery(projectId, step.id, entityId);
+    if (entityId && query.has("step")) {
+      const parameter = purpose === "report" ? "summaryThread" : "thread";
+      if (id) query.set(parameter, id);
+      else query.delete(parameter);
+      return aidtHref(projectId) + "?" + query.toString();
+    }
     return purpose === "report" ? aidtReportChatHref(projectId, { threadId: id, stageThread: query.get("thread"), tool: query.get("tool") === "report" ? "report" : "chat", returnRevision: query.get("returnRevision") }) : aidtHref(projectId, step.id, { thread: id, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision") });
-  }, [projectId, step.id, purpose]);
+  }, [projectId, step.id, purpose, entityId]);
   const fromLocation = React.useCallback(() => new URLSearchParams(window.location.search).get(purpose === "report" ? "summaryThread" : "thread"), [purpose]);
   const current = state?.scope === requestScope ? state : null;
-  const fallback = (content: React.ReactNode) => hostPanel ? <div className="flex h-full min-h-0"><div className="min-w-0 flex-1">{content}</div><ChatTaskInspector hostPanel={hostPanel} projectId={projectId} threadId={null} hasSelection={false} artifacts={null} materials={null} loading={false} artifactsError={null} materialsError={null} onRetry={() => setRetry(value => value + 1)} pendingMaterialsCount={0} planTodos={null} isRunning={false} runPhaseLabel={null} runStartedAt={null} /></div> : content;
+  const fallback = (content: React.ReactNode) => hostPanel && !entityId ? <div className="flex h-full min-h-0"><div className="min-w-0 flex-1">{content}</div><ChatTaskInspector hostPanel={hostPanel} projectId={projectId} threadId={null} hasSelection={false} artifacts={null} materials={null} loading={false} artifactsError={null} materialsError={null} onRetry={() => setRetry(value => value + 1)} pendingMaterialsCount={0} planTodos={null} isRunning={false} runPhaseLabel={null} runStartedAt={null} /></div> : content;
   if (!current) return fallback(<p role="status" className="p-4">正在准备本步对话与 Skill…</p>);
   if (current.error || !current.value) return fallback(<div role="alert" className="p-4" data-testid="aidt-chat-error"><p>{current.error}</p>{current.choices && <ul className="my-3 space-y-2">{current.choices.map((choice) => <li key={choice.id}><a className="text-primary underline" href={path(choice.id)}>{choice.title} · 继续这条对话</a></li>)}</ul>}<Button variant="outline" onClick={() => setRetry((n) => n + 1)}>重试</Button><a className="ml-3 text-primary underline" href={taskHref ?? aidtHref(projectId, step.id, { tool: "outcome", returnRevision: currentStageQuery(projectId, step.id).get("returnRevision") })}>{purpose === "report" ? "返回小组报告" : "打开本步任务"}</a>{thread && !current.choices && <a className="ml-3 text-primary underline" href={path(null)} data-aidt-reset-thread>选择本步对话</a>}</div>);
   const references = <>

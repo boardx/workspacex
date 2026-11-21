@@ -1,6 +1,6 @@
 /** User-approved AIDT server-selected run context. Client selectors never grant authority. */
 import { z } from "zod";
-import { StageId, SourceStageRevision } from "./aidt-stages";
+import { AidtEntityId, StageId, SourceStageRevision } from "./aidt-stages";
 
 export const AIDT_STAGE_IDENTITIES = [
   { id: 1, skill: "aidt-understand", title: "理解与提出问题" },
@@ -22,7 +22,7 @@ const revision = z.number().int().positive().safe().max(Number.MAX_SAFE_INTEGER 
 export const AidtContextStageRevision = SourceStageRevision.extend({revision});
 export type AidtContextStageRevision = z.infer<typeof AidtContextStageRevision>;
 const stageRefs=z.array(AidtContextStageRevision).max(AIDT_CONTEXT_LIMITS.stageReferences);
-const selectorBase={schemaVersion:z.literal(1),projectId:identifier,stageRevisions:stageRefs};
+const selectorBase={schemaVersion:z.literal(1),projectId:identifier,stageRevisions:stageRefs,entityId:AidtEntityId.optional()};
 export const AidtContextSelector=z.discriminatedUnion("purpose",[
   z.object({...selectorBase,purpose:z.literal("stage"),stageId:StageId,returnRevision:revision.optional()}).strict(),
   z.object({...selectorBase,purpose:z.literal("summary"),historyRevisions:z.array(AidtContextStageRevision).max(AIDT_CONTEXT_LIMITS.historyReferences).default([])}).strict(),
