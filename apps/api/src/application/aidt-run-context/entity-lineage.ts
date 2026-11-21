@@ -1,4 +1,4 @@
-import { AIDT_LEGACY_PROBLEM, isAidtLegacyProblem, aidtEntitySourceHref, isAidtProblemControlText, readIdeaHmwSource, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { AidtEntityId, AIDT_LEGACY_PROBLEM, isAidtLegacyProblem, aidtEntitySourceHref, isAidtProblemControlText, readIdeaHmwSource, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { aidtSavedEntityContext } from "../aidt-stages/entity-thread";
 
 type Ref = { stageId: number; revision: number; entityId: string };
@@ -14,7 +14,7 @@ function object(raw: unknown): Fields {
 function refs(stageId: number, revision: unknown, ids: unknown): Ref[] {
   const number = typeof revision === "string" && /^[1-9]\d*$/.test(revision) ? Number(revision) : revision;
   if (typeof number !== "number" || !Number.isInteger(number) || number <= 0 || number > 2147483647 || !Array.isArray(ids)) return [];
-  return [...new Set(ids)].flatMap(entityId => typeof entityId === "string" && entityId.trim() && entityId.length <= 256
+  return [...new Set(ids)].flatMap(entityId => typeof entityId === "string" && AidtEntityId.safeParse(entityId).success
     ? [{ stageId, revision: number, entityId }] : []);
 }
 
@@ -76,7 +76,7 @@ export async function entityLineage(stage: SharedStageValue, entityId: string,
     }
     const handoff = fields.problemHandoffEntity;
     // Old interview cards stored the version alone. Only the handoff selected *in that version* identifies its problem.
-    if (handoff && topic.content.draft.fields["problemDraft:"+handoff]) queue.push({stageId:1, revision:topic.revision, entityId:handoff});
+    if (AidtEntityId.safeParse(handoff).success && handoff && topic.content.draft.fields["problemDraft:"+handoff]) queue.push({stageId:1, revision:topic.revision, entityId:handoff});
   }
   await addLegacyInterview(stage,entityId);
   const visited = new Set<string>([JSON.stringify([stage.stageId,stage.revision,entityId])]);

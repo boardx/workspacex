@@ -17,6 +17,12 @@ it("is hidden without an accepted run, and does not fetch while collapsed", asyn
   expand(); await screen.findByText(/这只表示来源已保存到本轮快照/);
   expect(screen.getByText("第 1 步 · V2")).toBeVisible(); expect(screen.queryByText(/^材料已随本轮消息派发/)).toBeNull();
 });
+it("opens a selected entity at the frozen revision", async () => {
+  mocks.read.mockResolvedValue({ ...receipt(), entityReferences:[{stageId:1,revision:7,entityId:"problem-a"}] });
+  render(<AidtRunContextReceipt {...props} />); expand();
+  const link=await screen.findByRole("link",{name:/查看第 1 步来源 · V7/});
+  expect(link).toHaveAttribute("href","/aidt/p?step=1&entity=problem-a&entityRevision=7");
+});
 it("shows actual dispatch metadata and keeps source hashes folded", async () => {
   mocks.read.mockResolvedValue({ ...receipt("message-dispatch-observed"), truncated: true });
   render(<AidtRunContextReceipt {...props} />); expand(); await screen.findByText(/派发或续跑回执不代表模型判断正确/);
