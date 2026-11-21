@@ -83,22 +83,26 @@ test("ten interviews bind to ten native conversations and reopening never copies
       operationId: ids[0], expectedRevision: 1, sourceStageRevisions: [],
       content: { schemaVersion: 1, draft: { fields: nextFields, ideas: [], selectedIdeaId: "" } },
     }) });
-    const report = await fetch(endpoint + "6", { method: "PUT", headers, body: JSON.stringify({
-      operationId: ids[1], expectedRevision: 0, sourceStageRevisions: [],
-      content: { schemaVersion: 1, draft: { fields: {}, ideas: [], selectedIdeaId: "" },
-        summaryReport: { markdown: "# 访谈回顾", sourceStageRevisions: [{ stageId: 2, revision: 1 }], confirmedAtRevision: 1 } },
-    }) });
-    return [next.status, report.status];
-  }, { pathname, fields, firstId: ids[0]!, ids: [randomUUID(), randomUUID()] });
-  expect(versionsSaved).toEqual([200, 200]);
+    const saveReport = (expectedRevision: number, confirmedAtRevision?: number) => fetch(endpoint + "6", {
+      method: "PUT", headers, body: JSON.stringify({
+        operationId: ids[expectedRevision + 1], expectedRevision, sourceStageRevisions: [],
+        content: { schemaVersion: 1, draft: { fields: {}, ideas: [], selectedIdeaId: "" },
+          summaryReport: { markdown: "# 访谈回顾", sourceStageRevisions: [{ stageId: 2, revision: 1 }], confirmedAtRevision } },
+      }),
+    });
+    const draft = await saveReport(0);
+    const confirmed = await saveReport(1, 2);
+    return [next.status, draft.status, confirmed.status];
+  }, { pathname, fields, firstId: ids[0]!, ids: [randomUUID(), randomUUID(), randomUUID()] });
+  expect(versionsSaved).toEqual([200, 200, 200]);
   await page.goto(pathname + "?step=6&summary=1&entity=group-report&tool=report");
   const reports = page.getByTestId("aidt-report-versions");
   await reports.getByText("已确认版本与导出", { exact: true }).click();
-  await reports.getByRole("button", { name: "查看确认版 V1" }).click();
+  await reports.getByRole("button", { name: "查看确认版 V2" }).click();
   await reports.getByRole("button", { name: "查看第 2 步 V1" }).click();
   await reports.getByRole("link", { name: "U01 · V1" }).click();
   await expect(page.getByTestId("aidt-entity-history")).toBeVisible();
   await expect(page).toHaveURL(new RegExp("entity=" + ids[0] + ".*entityRevision=1"));
-  await expect(page.getByText("U01 最新标题", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("受访者代号", { exact: true })).toHaveValue("U01");
 
 });
