@@ -5,7 +5,7 @@ import { AidtDefinitionChatArtifact, AidtDefinitionDirectory, AidtDefinitionEdit
 import { addAidtDefinitionEntity, addAidtDefinitionSurprise, chooseAidtDefinitionHmw, confirmedAidtDefinitionSurprises, readAidtDefinition, readAidtDefinitionEvidenceRevision, readAidtDefinitionSelection, saveAidtDefinitionHmw, saveAidtDefinitionPersona, saveAidtDefinitionSurprise } from "@/features/aidt/lib/aidt-definition";
 import { emptyAidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { aidtRoundMissingOutput } from "@/features/aidt/lib/aidt-round-completion";
-import { allAidtDefinitionEntitiesConfirmed, latestAidtDefinitionCandidate } from "@/features/aidt/lib/aidt-definition-chat";
+import { allAidtDefinitionEntitiesConfirmed, applyAidtDefinitionCandidate, latestAidtDefinitionCandidate } from "@/features/aidt/lib/aidt-definition-chat";
 import { StageContent } from "@repo/contracts/aidt-stages";
 
 const card = { id: "u1", participantCode: "U01", headline: "难以比较口味", headlineKind: "student-summary" as const, context: "午休点单", quote: "口味看不出差别", sourceRef: "校对转写 01:42", photoRef: "" };
@@ -179,4 +179,12 @@ it("selects multiple confirmed interview discoveries as frozen evidence when cre
   expect(result.fields[`definitionCardName:${definition.hmws[0]!.id}`]).toBe("创建HMW");
   expect(definition.personas.at(-1)?.name).toBe("创建画像");
   expect(readAidtDefinitionEvidenceRevision(result.fields)).toBe(2);
+
+  const hypothesis = latestAidtDefinitionCandidate([
+    { id: "student", role: "user", content: "请帮忙核对研究方向" },
+    { id: "skill", role: "assistant", content: '```aidt-definition\n{"kind":"hmw","text":"我们如何呈现等待时间？","cardIds":["u2"],"personaIds":["unrelated"]}\n```' },
+  ], "hmw", false);
+  expect(hypothesis).not.toBeNull();
+  const reviewed = applyAidtDefinitionCandidate(result, definition.hmws[0]!.id, hypothesis!, source.availableCards, 2);
+  expect(readAidtDefinition(reviewed.fields).hmws[0]).toMatchObject({ cardIds: [interviewId, secondId], personaIds: ["p1"], text: "我们如何呈现等待时间？" });
 });

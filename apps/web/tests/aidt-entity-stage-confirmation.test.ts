@@ -41,6 +41,20 @@ it("requires a selected confirmed HMW and its confirmed persona instead of accep
   expect(await aidtStageHasConfirmation(stage(3, draft))).toBe(true);
   expect(await aidtStageHasConfirmation(stage(3, saveAidtDefinitionPersona(draft, { ...persona, confirmed: false, behavior: "更改待核对" }, 2)))).toBe(false);
 });
+it("keeps a confirmed definition pinned if the interview list is saved again", async () => {
+  const empty = emptyAidtUiDrafts();
+  let draft = { ...empty[3]!, fields: { surpriseStatus: "found", surpriseConfirmed: "true",
+    surpriseCardIds: '["u1"]', surpriseSourceRevision: "2", priorBelief: "先看队列", surprisingFinding: "先比较口味" } } as AidtUiStageDraft;
+  draft = saveAidtDefinitionPersona(draft, { id: "p1", name: "午休学生", situation: "午休", behavior: "比较口味",
+    need: "清晰差别", limits: "一位受访者", cardIds: ["u1"], confirmed: true, archived: false }, 2);
+  draft = saveAidtDefinitionHmw(draft, { id: "h1", text: "我们如何帮助学生比较口味？", rationale: "根据访谈",
+    cardIds: ["u1"], personaIds: ["p1"], confirmed: true, archived: false }, 2);
+  draft = chooseAidtDefinitionHmw(draft, "h1", new Set(["u1"]));
+  const frozen = { ...stage(3, draft), sourceStageRevisions: [{ stageId: 2, revision: 2 }] };
+  const renamed = { ...stage(2, empty[2]!), revision: 3 };
+  expect(await aidtStageHasConfirmation(frozen, { 2: renamed, 3: frozen })).toBe(true);
+  expect(frozen.sourceStageRevisions).toEqual([{ stageId: 2, revision: 2 }]);
+});
 it("requires the actual three distinct reviewed sheets, student classification and explicit selected ideas", async () => {
   const ids = ["menu", "comparison", "samples"];
   let draft: AidtUiStageDraft = { ...emptyAidtUiDrafts()[4]!, ideas: ids.map((id, index) => ({ id, title: ["菜单标签", "对比卡", "试饮"][index]!, description: "显示三种口味。方便比较。" })), fields: {
