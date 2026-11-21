@@ -23,6 +23,8 @@ import { AidtIdeaConversation } from "./aidt-idea-conversation";
 import { AidtIdeaOutput } from "./aidt-idea-output";
 import { AidtIdeaDirectory } from "./aidt-idea-directory";
 import { AidtPrototypeDirectory } from "./aidt-prototype-directory";
+import { AidtTestConversation, AidtTestGroupOutput } from "./aidt-test-conversation";
+import type { AidtTestProposal } from "../lib/aidt-test-proposal";
 import { AidtTestGroupDirectory } from "./aidt-test-group-directory";
 import { listAidtConfirmedPrototypeEntities } from "../lib/aidt-prototype-handoff";
 import { aidtInterviewHandoffReady, isAidtInterviewArchived, readAidtInterviews, writeAidtInterview } from "../lib/aidt-interviews";
@@ -248,6 +250,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
       return { ...base, revision: base.revision + 1, drafts: { ...base.drafts, [id]: draft } };
     });
   } });
+  const [testProposal, setTestProposal] = React.useState<{ scope: string; proposal: AidtTestProposal | null }>();
   const [reportProposal, setReportProposal] = React.useState<{ scope: string; markdown: string }>();
   const reportHistoryScope = checkpointScope ? { ...checkpointScope, lifecycleKey: uiLifecycleKey } : undefined;
   const reportText = currentUi.reports[reportDraftKey]?.text ?? null;
@@ -470,7 +473,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const toolContent = <div className="space-y-4 p-4" data-testid="aidt-tool-panel">
     {tool === "outcome" && !problemStep && !activeEntityId && <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite} />}
         {(tool === "sources" || tool === "transcript" || tool === "record") && <AidtEvidenceGuide />}
-        {tool === "outcome" && step.id === 3 && activeEntityId ? <AidtDefinitionOutput {...definitionProps} entityId={activeEntityId} /> : tool === "outcome" && step.id === 4 && activeEntityId ? <AidtIdeaOutput projectId={projectId} entityId={activeEntityId} draft={currentUi.drafts[4]!} savedDraft={shared.stages[4]?.content.draft} savedRevision={shared.stages[4]?.revision} /> : tool === "outcome" ? <>
+        {tool === "outcome" && step.id === 6 && activeEntityId ? <AidtTestGroupOutput projectId={projectId} draft={currentUi.drafts[6]!} savedDraft={shared.stages[6]?.content.draft} activeEntityId={activeEntityId} readPrototypeEntity={readAidtPrototypeEntityDraft} proposal={testProposal?.scope === threadResolutionScope ? testProposal.proposal : null} /> : tool === "outcome" && step.id === 3 && activeEntityId ? <AidtDefinitionOutput {...definitionProps} entityId={activeEntityId} /> : tool === "outcome" && step.id === 4 && activeEntityId ? <AidtIdeaOutput projectId={projectId} entityId={activeEntityId} draft={currentUi.drafts[4]!} savedDraft={shared.stages[4]?.content.draft} savedRevision={shared.stages[4]?.revision} /> : tool === "outcome" ? <>
           {prototypeEntityId ? <AidtPrototypeEntityOutput key={prototypeEntityId} projectId={projectId} designId={prototypeEntityId} ideaRevision={ideaRevision} stageDraft={prototypeDraft} update={mutate => updateStage(5, mutate)} workflow={prototypeWorkflow} presentationOnly={Boolean(activeEntityId)} readOnly={!canWrite} /> : <>
           {problemStep ? <AidtProblemWorkspace key={uiLifecycleKey} draft={problemDraft} manualEdit={requested === "outcome"} confirmRevision={shared.matchesServer && (activeEntityId ? Boolean(problemDraft.fields.roundCompletion) : completedStages?.has(1)) ? shared.stages[1]?.revision : undefined} previousConfirmed={!activeEntityId && !shared.matchesServer && completedStages?.has(1) ? shared.stages[1] : undefined} update={mutate => updateStage(1, mutate)} readOnly={!canWrite} ask={text => toChat(text, !wide)} conversationRef={setConversationTarget} /> : <AidtStageOutput key={`${uiScope}:${step.id}:${activeEntityId ?? ""}`} entityId={step.id === 2 ? activeEntityId : undefined} ideaEntityId={step.id === 4 ? activeEntityId : undefined} ideaHandoff={step.id === 4 ? ideaHandoff : undefined} activeTestEntityId={step.id === 6 ? activeEntityId : undefined} readTestPrototypeEntity={readAidtPrototypeEntityDraft} projectId={projectId} thread={checkpointThread} step={step} draft={currentUi.drafts[step.id]!} availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision} discoveryCardFields={shared.stages[2]?.content.draft.fields} activeDefinitionEntityId={step.id === 3 ? activeEntityId : null} previousPrototype={shared.stages[5]?.content.draft} previousPrototypeRevision={shared.stages[5]?.revision} update={(mutate) => updateStage(step.id, mutate)} readOnly={!canWrite} toolHref={(key) => href(key as Tool)} toChat={toChat} />}
           {(!activeEntityId || problemStep) && <AidtRoundCompletion key={shared.writeKey} projectId={projectId} step={step} draft={problemStep ? problemDraft : currentUi.drafts[step.id]!} controller={shared} readOnly={!canWrite} onConfirm={record => updateStage(step.id, old => ({ ...old, fields: { ...old.fields, roundCompletion: record } }))} nextHref={activeEntityId ? nextStageHref : nextStep ? aidtHref(projectId, nextStep.id) : reportHref} />}
@@ -505,7 +508,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
         : <ProjectResourceSection contained key={`${uiScope}:${tool}`} projectId={projectId} kind={tool as ProjectResearchSub} canWrite={canWrite} resourceHref={resourceHref} transformCreateHref={createdHref} />}
   </div>;
   const workspaceTools = <>
-    {!activeInterview && <nav className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle p-3" aria-label="学习工具">
+    {!activeEntityId && <nav className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle p-3" aria-label="学习工具">
       <Button asChild size="sm" variant={tool === "outcome" ? "secondary" : "ghost"}><Link href={href(isEntityReport ? "report" : "outcome")} data-testid="aidt-open-output">{problemStep ? "问题与依据" : "成果"}</Link></Button>
       {!activeEntityId && <Button asChild size="sm" variant={tool === "context" ? "secondary" : "ghost"}><Link href={href("context")}>资料</Link></Button>}
       {!activeEntityId && <DropdownMenu open={toolsScope === `${uiLifecycleKey}:${step.id}`} onOpenChange={open => setToolsScope(open ? `${uiLifecycleKey}:${step.id}` : null)}><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" data-testid="aidt-tools">更多工具</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{allowed.filter(key => !["chat", "outcome", "context"].includes(key) && (canWrite || key !== "record")).map(key => <DropdownMenuItem asChild key={key}><Link href={key === "report" ? aidtReportChatHref(projectId, {tool:"report",stageThread:thread,threadId:summaryThread,entityId:reportEntityId,returnRevision}) : href(key)}>{TOOLS[key]}</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>}
@@ -549,6 +552,18 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                   <AidtPrototypeConversation key={prototypeEntityId} projectId={projectId} designId={prototypeEntityId} ideaRevision={ideaRevision}
                     stageDraft={prototypeDraft} update={mutate => updateStage(5, mutate)} workflow={prototypeWorkflow}
                     messages={messages} loading={loading} running={running} readOnly={!canWrite} requestSave={requestEntitySave} />
+                  {advance}
+                </>,
+              } : step.id === 6 && activeEntityId ? {
+                render: (messages, loading, running) => <>
+                  <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
+                  <AidtTestConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId}
+                    draft={currentUi.drafts[6]!} savedDraft={shared.stages[6]?.content.draft} messages={messages}
+                    loading={loading} running={running} update={mutate => updateStage(6, mutate)} readOnly={!canWrite}
+                    canSave={shared.read?.phase === 'ready' && shared.write.phase !== 'saving' && !shared.needsBaseReview}
+                    requestSave={requestEntitySave} onProposal={proposal => setTestProposal(previous =>
+                      previous?.scope === threadResolutionScope && previous.proposal?.messageId === proposal?.messageId
+                        ? previous : { scope: threadResolutionScope, proposal })} />
                   {advance}
                 </>,
               } : step.id === 4 && activeEntityId ? {

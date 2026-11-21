@@ -11,7 +11,7 @@ import { allAidtIdeasConfirmed } from "./aidt-idea-chat";
 import { readAidtIdeaDirectory, readAidtIdeaHandoff } from "./aidt-idea-handoff";
 import { aidtAllActivePrototypeEntitiesConfirmed } from "./aidt-prototype-handoff";
 import { isAidtReflectionConfirmed } from "./aidt-verification-loop";
-import { readAidtTestGroups } from "./aidt-test-groups";
+import { aidtTestGroupsComplete } from "./aidt-test-groups";
 
 const EMPTY: ReadonlySet<number> = new Set();
 
@@ -47,7 +47,7 @@ export async function aidtStageHasConfirmation(stage: AidtSharedStage, stages?: 
     return aidtAllActivePrototypeEntitiesConfirmed(saved);
   }
   if (stage.stageId === 6 && Object.keys(saved.fields).some(key => key.startsWith("testGroup:"))) {
-    return readAidtTestGroups(saved.fields).some(group => !group.archived) && isAidtReflectionConfirmed(saved);
+    return aidtTestGroupsComplete(saved) && isAidtReflectionConfirmed(saved);
   }
   const draft = stage.stageId === 1 ? readAidtProblemHandoffDraft(stage.content.draft) : undefined;
   if (draft === null) return false;
