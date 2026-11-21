@@ -73,6 +73,16 @@ export function createAidtIdea(draft: AidtUiStageDraft, id: string, title: strin
   });
 }
 
+export function renameAidtIdea(draft: AidtUiStageDraft, id: string, title: string): AidtUiStageDraft {
+  const name = title.trim();
+  if (!name || name.length > 120 || !readAidtIdeaDirectory(draft).some(item => item.id === id && !item.archived && item.title !== name)) return draft;
+  return invalidateAidtIdeaSheets({
+    ...draft,
+    fields: { ...draft.fields, [AIDT_IDEA_CLASSIFICATION_FIELDS.confirmed]: "" },
+    ideas: draft.ideas.map(item => item.id === id ? { ...item, title: name } : item),
+  });
+}
+
 function readAidtArchivedIdeaIds(draft: AidtUiStageDraft): string[] {
   return parse(ideaIds, draft.fields.ideaArchivedIds) ?? [];
 }

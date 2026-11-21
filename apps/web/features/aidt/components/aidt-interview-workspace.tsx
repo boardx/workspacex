@@ -71,7 +71,7 @@ function InterviewField({ label, value, maxLength, disabled, onChange, rows = 1 
     : <input className={inputClass} maxLength={maxLength} disabled={disabled} value={value} onChange={event => onChange(event.currentTarget.value)} />}</label>;
 }
 
-export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate, conversationRef, savedIds, problemEntityId, problemRevision }: {
+export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate, savedIds, problemEntityId, problemRevision }: {
   projectId: string; draft: AidtUiStageDraft; update: UpdateDraft; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
   problemEntityId?: string; problemRevision?: number;
@@ -147,7 +147,7 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
 
   return <section className="space-y-4" aria-label="访谈工作区">
     {entityId && !interview ? <p role="status">找不到此访谈。请返回访谈列表查找其最新状态。</p> : interview
-      ? <InterviewDetail conversationRef={conversationRef} compact={Boolean(entityId)} key={interview.id} {...{ interview, draft, update, projectId, topic, toChat }} readOnly={readOnly || isAidtInterviewArchived(draft.fields, interview.id)} onBack={entityId ? undefined : back} />
+      ? entityId ? <AidtInterviewOutput interview={interview} draft={draft} projectId={projectId} /> : <InterviewDetail key={interview.id} {...{ interview, draft, update, projectId, topic, toChat }} readOnly={readOnly || isAidtInterviewArchived(draft.fields, interview.id)} onBack={entityId ? undefined : back} />
       : <>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-16 font-semibold" ref={listFocus} tabIndex={-1}>访谈列表</h4>
@@ -161,12 +161,40 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
   </section>;
 }
 
-function InterviewSection({ compact, title, children }: { compact: boolean; title: string; children: React.ReactNode }) {
-  return compact ? <details className="space-y-3 border-t border-border pt-3"><summary className="cursor-pointer text-13 font-medium">{title}</summary>{children}</details> : <>{children}</>;
+export function AidtInterviewOutput({ interview, draft, projectId }: { interview: AidtInterview; draft: AidtUiStageDraft; projectId: string }) {
+  const finding = getAidtInterviewFinding(draft, interview);
+  const confirmed = isAidtInterviewConfirmed(draft.fields, interview.id);
+  return <section className="space-y-4" aria-label="本次访谈产物">
+    <header><h4 className="text-16 font-semibold">{interview.code} · {interview.displayName || "访谈详情"}</h4></header>
+    <div className="space-y-2">
+      <h5 className="text-14 font-semibold">访谈问题清单</h5>
+      {interview.adopted ? <>
+        <p className="whitespace-pre-wrap break-words text-14">{interview.adopted}</p>
+        {interview.guideConfirmed ? <AidtInterviewGuideExport scopeKey={interview.id} guide={interview.original} adoptedGuide={[interview.code, interview.topic, interview.adopted].filter(Boolean).join("\n\n")} /> : <p className="text-12 text-muted-foreground">草稿</p>}
+      </> : <p className="text-12 text-muted-foreground">清单将在对话后显示。</p>}
+    </div>
+    {finding.headline && <div className="space-y-1">
+      <h5 className="text-14 font-semibold">人物发现卡 · {confirmed ? "已确认" : "草稿"}</h5>
+      <p className="whitespace-pre-wrap break-words text-13">{finding.headlineKind === "quote" ? "受访者原话" : "学生概括"} · {finding.headline}</p>
+      <p className="whitespace-pre-wrap break-words text-13">{finding.context}</p>
+      {finding.quote && <blockquote className="border-l border-border pl-2 text-12">{finding.quote}</blockquote>}
+      {finding.sourceRef && <p className="text-12 text-muted-foreground">{finding.sourceRef}</p>}
+    </div>}
+    {readAidtInterviewMaterials(draft.fields, interview.id, projectId).length > 0 && <details className="text-12">
+      <summary className="cursor-pointer">材料</summary>
+      {readAidtInterviewMaterials(draft.fields, interview.id, projectId).filter(({reference}) => reference.mime.startsWith("image/") ? interview.consent?.photos : reference.mime.startsWith("audio/") ? interview.consent?.audio : interview.consent?.notes).map(({key, reference}) => <AidtResearchMaterialPreview key={key} projectId={projectId} reference={reference} />)}
+    </details>}
+  </section>;
 }
 
-function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack, topic, toChat, conversationRef, compact }: {
-  conversationRef?: (node: HTMLDivElement | null) => void; compact: boolean;
+export function AidtInterviewFieldwork({ interview, draft, update, projectId, readOnly }: {
+  interview: AidtInterview; draft: AidtUiStageDraft; update: UpdateDraft; projectId: string; readOnly: boolean;
+}) {
+  return <InterviewDetail interview={interview} draft={draft} update={update} projectId={projectId} readOnly={readOnly} topic={blankTopic} materialsOnly />;
+}
+
+function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack, topic, toChat, materialsOnly = false }: {
+  materialsOnly?: boolean;
   interview: AidtInterview; draft: AidtUiStageDraft; update: UpdateDraft; projectId: string;
   readOnly: boolean; onBack?: () => void; topic: Topic; toChat?: (text: string) => ComposerOfferResult;
 }) {
@@ -216,21 +244,11 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
   );
 
   return <div className="space-y-4">
+    {!materialsOnly && <>
     <div className="flex flex-wrap items-center justify-between gap-2">
       {onBack && <Button type="button" size="xs" variant="ghost" onClick={onBack}>返回访谈列表</Button>}
       <h4 className="text-16 font-semibold" ref={heading} tabIndex={-1}>{code} · 访谈详情</h4>
     </div>
-    {compact && <section className="space-y-3" aria-label="本次访谈产物">
-      <h5 className="text-16 font-semibold">访谈问题清单</h5>
-      {interview.adopted ? <p className="whitespace-pre-wrap break-words text-14">{interview.adopted}</p> : <p className="text-13 text-muted-foreground">等待在对话中整理问题。</p>}
-      <div ref={conversationRef} />
-      {interview.guideConfirmed && <AidtInterviewGuideExport scopeKey={id} guide={interview.original} adoptedGuide={[code, topicText, interview.adopted].filter(Boolean).join("\n\n")} />}
-      {finding.headline && <div className="space-y-1"><h5 className="text-14 font-semibold">人物发现卡</h5>
-        <p className="text-13">{finding.headlineKind === "quote" ? "受访者原话" : "学生概括"} · {finding.headline}</p>
-        <p className="text-12 text-muted-foreground">{confirmedFinding ? "已核对" : "草稿"}</p>
-      </div>}
-    </section>}
-    <InterviewSection compact={compact} title="访谈设置与研究问题">
     <div className="flex items-end gap-2">
       <InterviewField label="受访者代号" value={newCode} maxLength={32} disabled={readOnly} onChange={setNewCode} />
       <Button type="button" size="sm" variant="outline" disabled={readOnly || !newCode.trim() || newCode.trim() === code} onClick={() => {
@@ -250,8 +268,6 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
     {topic.revision !== null && topic.problemEntityId === interview.problemEntityId && topic.revision !== interview.topicRevision && <Button type="button" size="sm" variant="outline" disabled={readOnly} onClick={() =>
       record({ topicRevision: topic.revision, topic: topic.text.slice(0, 650), guideConfirmed: false })
     }>改用第 1 步 V{topic.revision} 并重新核对提纲</Button>}
-    </InterviewSection>
-    <InterviewSection compact={compact} title="编辑提纲">
     <section className="space-y-3 border-t border-border pt-3" aria-label="访谈提纲">
       <h5 className="text-14 font-semibold">访谈提纲</h5>
       <InterviewField label="想了解什么" value={interview.goal} maxLength={250} disabled={readOnly} onChange={goal => record({ goal, guideConfirmed: false })} />
@@ -262,10 +278,9 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
       }}>向引导师核对原稿</Button>}
       <InterviewField label="学生采纳清单" value={interview.adopted} maxLength={1000} disabled={readOnly} rows={3} onChange={adopted => record({ adopted, guideConfirmed: false })} />
       <Button type="button" size="sm" disabled={readOnly || interview.guideConfirmed || !interview.original.trim() || !interview.adopted.trim()} onClick={() => record({ guideConfirmed: true })}>{interview.guideConfirmed ? "已核对清单" : "确认此人的问题清单"}</Button>
-      {!compact && <AidtInterviewGuideExport scopeKey={id} guide={interview.original} adoptedGuide={interview.guideConfirmed ? [code, topicText, interview.adopted].filter(Boolean).join("\n\n") : ""} />}
+      <AidtInterviewGuideExport scopeKey={id} guide={interview.original} adoptedGuide={interview.guideConfirmed ? [code, topicText, interview.adopted].filter(Boolean).join("\n\n") : ""} />
     </section>
-    </InterviewSection>
-    <InterviewSection compact={compact} title="访谈材料与授权">
+    </>}
     <section className="space-y-3 border-t border-border pt-3" aria-label="授权和访谈材料">
       <h5 className="text-14 font-semibold">授权和材料</h5>
       <p className="text-12 text-muted-foreground">{interview.consent ? `学生记录于 ${new Date(interview.consent.observedAt).toLocaleString()}` : "尚未记录可共享的材料授权。"}请按实际授权勾选。</p>
@@ -333,8 +348,7 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
         }} />已对照原始材料校对</label>
       </>}
     </section>
-    </InterviewSection>
-    <InterviewSection compact={compact} title="整理访谈发现">
+    {!materialsOnly && <>
     <section aria-label="人物发现卡" className="space-y-3 border-t border-border pt-3">
       <h5 className="text-14 font-semibold">人物发现卡</h5>
       <label className="block text-12">标题来源<select className={inputClass} value={finding.headlineKind} disabled={!editableEvidence} onChange={event => {
@@ -360,8 +374,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
       <p className="text-12 text-muted-foreground">{confirmedFinding ? "已核对发现卡。保存本步后，可按版本带入综合与定义。" : "确认前需要核对清单、观察内容及可定位的原始材料。"}</p>
       <Button type="button" size="sm" disabled={!editableEvidence || confirmedFinding || !aidtInterviewFindingReady(draft, interview, projectId)} onClick={() => update(old => confirmAidtInterviewFinding(old, id, projectId))}>确认人物发现卡</Button>
     </section>
-    </InterviewSection>
-    {!readOnly && !compact && <div className="space-y-2 border-t border-border pt-3">{archiving ? <>
+    </>}
+    {!readOnly && !materialsOnly && <div className="space-y-2 border-t border-border pt-3">{archiving ? <>
       <p className="text-12">归档后从待交接列表移除，历史版本和原件可按权限回查。</p>
       <Button type="button" size="xs" variant="outline" onClick={() => { update(old => archiveAidtInterview(old, id)); onBack?.(); setArchiving(false); }}>确认归档</Button>
       <Button type="button" size="xs" variant="ghost" onClick={() => setArchiving(false)}>取消</Button>
