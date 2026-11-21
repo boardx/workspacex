@@ -63,9 +63,9 @@ it("uses saved group revisions after re-entry without equating saving with compl
   const drafts=emptyAidtUiDrafts();drafts[1]!.fields.initial="小组问题";
   const stage=SharedStage.parse({projectId:"g",stageId:1,revision:3,content:{schemaVersion:1,draft:structuredClone(drafts[1]!)},sourceStageRevisions:[],updatedBy:"student",updatedAt:"2026-11-15T00:00:00.000Z"});
   drafts[1]!.fields.scene="本页新增场景";
-  render(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={drafts} shared={{phase:"ready",stages:{1:stage}}} />);
+  render(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={drafts} completed={new Set()} shared={{phase:"ready",stages:{1:stage}}} />);
   expect(screen.getByRole("heading",{level:1,name:"六步，探索新的可能。"})).toBeVisible();
-  expect(screen.getByTestId("aidt-stage-save-1")).toHaveTextContent("已保存 · V3 · 有修改");
+  expect(screen.getByTestId("aidt-stage-save-1")).toHaveTextContent("已保存草稿 · V3 · 有修改");
   expect(screen.queryByTestId("aidt-stage-save-2")).toBeNull();
   expect(screen.getByRole("link", { name: "继续第1步" })).toHaveAttribute("href", "/aidt/g?step=1");
   expect(screen.getByTestId("aidt-step-2")).toHaveAttribute("href", "/aidt/g?step=2");
@@ -79,7 +79,7 @@ it("a failed group status read stays an error and never labels stages unsaved", 
 });
 
 it("gives a real unsaved empty group a clear first-step action without inferring completion", () => {
-  const {rerender}=render(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={emptyAidtUiDrafts()} shared={{phase:"ready",stages:{}}} />);
+  const {rerender}=render(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={emptyAidtUiDrafts()} completed={new Set()} shared={{phase:"ready",stages:{}}} />);
   expect(screen.getByRole("link",{name:"从第1步开始"})).toHaveAttribute("href","/aidt/g?step=1");
   rerender(<AidtDashboard href={id=>`/aidt/g?step=${id}`} drafts={emptyAidtUiDrafts()} shared={{phase:"loading",stages:{}}} />);
   expect(screen.queryByTestId("aidt-first-start")).toBeNull();expect(screen.queryByText("尚未保存成果")).toBeNull();
