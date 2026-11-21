@@ -1,5 +1,6 @@
 "use client";
 
+import { AidtCardSources, useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
 import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
@@ -147,6 +148,14 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
     ...surprises.map(item => ({ id: item.id, title: item.observation.trim() || "未命名发现", kind: "surprise" as const, archived: item.archived })),
     ...readAidtDefinitionEntities(draft.fields),
   ];
+  type CreateKind = "primary" | "surprise" | "persona" | "hmw";
+  const labels = { primary: "意外发现", surprise: "补充发现", persona: "画像", hmw: "HMW" };
+  const [kindToCreate, setKind] = React.useState<CreateKind | null>(null);
+  const [newName, setNewName] = React.useState("");
+  const [selected, setSelected] = React.useState<string[]>([]);
+  const tags = useAidtCreateTags(draft);
+  const evidenceOptions = evidence.cards.map(card => ({ id: card.id, title: card.participantCode + " · " + (card.headline || "人物发现") }));
+  const personaOptions = personas.filter(item => item.confirmed && !item.archived).map(item => ({ id: item.id, title: draft.fields[nameKey(item.id)] || item.name }));
   const pending = React.useRef<{ kind: string; id: string } | null>(null);
   const [creating, setCreating] = React.useState(false);
   const [createFailed, setCreateFailed] = React.useState(false);
@@ -155,7 +164,11 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
   const title = (id: string, fallback: string) => draft.fields[nameKey(id)] || fallback;
   const save = (change: (old: AidtUiStageDraft) => AidtUiStageDraft) => { update(change); requestSave?.(); };
   const openAllowed = (id: string) => savedDraft ? Boolean(aidtDefinitionEntityKind(savedDraft, id)) : !requestSave;
-  async function add(kind: "primary" | "surprise" | "persona" | "hmw") {
+  function start(kind: CreateKind) {
+    if (!onCreate) { void add(kind); return; }
+    tags.reset(); setSelected([]); setNewName(""); setCreateFailed(false); pending.current = null; setKind(kind);
+  }
+  async function add(kind: CreateKind) {
     if (pending.current?.kind !== kind) pending.current = { kind, id: kind === "primary" ? AIDT_PRIMARY_SURPRISE_ID : crypto.randomUUID() };
     const { id } = pending.current;
     const change = (old: AidtUiStageDraft) => kind === "primary" ? enableAidtPrimarySurpriseEntity(old)
@@ -163,10 +176,30 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
     if (!onCreate) { save(change); pending.current = null; return; }
     setCreating(true);
     try {
-      const success = await onCreate(id, change);
+      const success = await onCreate(id, old => {
+        let next = change(old);
+        if (next === old) return old;
+        const records = readAidtDefinition(next.fields);
+        if (kind === "persona") {
+          const persona = records.personas.find(item => item.id === id);
+          if (!persona || !selected.length) return old;
+          next = saveAidtDefinitionPersona(next, { ...persona, name: newName.trim(), cardIds: selected }, evidence.revision ?? null);
+        } else if (kind === "hmw") {
+          const hmw = records.hmws.find(item => item.id === id);
+          if (!hmw || !selected.length || !selected.every(id => records.personas.some(item => item.id === id && item.confirmed && !item.archived))) return old;
+          next = saveAidtDefinitionHmw(next, { ...hmw, personaIds: selected }, null);
+        } else if (kind === "surprise") {
+          const surprise = records.surprises.find(item => item.id === id);
+          if (!surprise) return old;
+          next = saveAidtDefinitionSurprise(next, { ...surprise, cardIds: selected }, evidence.revision ?? null);
+        } else if (selected.length && evidence.revision) {
+          next = { ...next, fields: { ...next.fields, surpriseCardIds: JSON.stringify(selected), surpriseSourceRevision: String(evidence.revision) } };
+        }
+        return tags.apply({ ...next, fields: { ...next.fields, [nameKey(id)]: newName.trim() } }, id);
+      });
       setCreateFailed(!success);
       if (success) pending.current = null;
-    } finally { setCreating(false); }
+    } catch { setCreateFailed(true); } finally { setCreating(false); }
   }
   const archive = (id: string) => {
     save(old => {
@@ -187,15 +220,26 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
       {!readOnly && <AidtNewEntityCardButton disabled={!canEdit} aria-expanded={choosingKind} aria-controls={kindOptionsId} onClick={() => setChoosingKind(value => !value)} />}
       {active.some(item => item.archived) && <Button type="button" variant="ghost" onClick={() => setShowArchived(value => !value)}>{showArchived ? "返回产物" : "查看已移除"}</Button>}
     </div>
-    <div id={kindOptionsId} role="group" aria-label="选择卡片类型" hidden={!choosingKind}>
+    {(choosingKind || kindToCreate) && <Dialog open onOpenChange={open => { if (!open && !creating) { setChoosingKind(false); setKind(null); } }}><DialogContent>
+      <DialogTitle>{kindToCreate ? "新建" + labels[kindToCreate] : "新建卡片"}</DialogTitle>
+      <DialogDescription>{kindToCreate ? "保存后将打开这张卡的对话。" : "选择要创建的卡片类型。"}</DialogDescription>
+    <div id={kindOptionsId} role="group" aria-label="选择卡片类型" hidden={Boolean(kindToCreate)}>
       <div className="flex flex-wrap gap-2">
-        {!hasAidtPrimarySurpriseEntity(draft) && <Button type="button" disabled={!canEdit} onClick={() => { setChoosingKind(false); void add("primary"); }}>{draft.fields.surpriseConfirmed === "true" ? "开启意外发现对话" : "新建意外发现"}</Button>}
-        {draft.fields.surpriseStatus === "found" && <Button type="button" variant="outline" disabled={!canAdd || surprises.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); void add("surprise"); }}>新建补充发现</Button>}
-        <Button type="button" variant="outline" disabled={!canAdd || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); void add("persona"); }}>新建画像</Button>
-        <Button type="button" variant="outline" disabled={!canAdd || !personas.some(item => item.confirmed && !item.archived) || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); void add("hmw"); }}>新建 HMW</Button>
+        {!hasAidtPrimarySurpriseEntity(draft) && <Button type="button" disabled={!canEdit} onClick={() => { setChoosingKind(false); start("primary"); }}>{draft.fields.surpriseConfirmed === "true" ? "开启意外发现对话" : "新建意外发现"}</Button>}
+        {draft.fields.surpriseStatus === "found" && <Button type="button" variant="outline" disabled={!canAdd || surprises.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("surprise"); }}>新建补充发现</Button>}
+        <Button type="button" variant="outline" disabled={!canAdd || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("persona"); }}>新建画像</Button>
+        <Button type="button" variant="outline" disabled={!canAdd || !personas.some(item => item.confirmed && !item.archived) || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("hmw"); }}>新建 HMW</Button>
       </div>
     </div>
-    {createFailed && <p role="alert">创建未完成。请重试创建此卡。</p>}
+      {kindToCreate && <form className="space-y-4" onSubmit={event => { event.preventDefault(); void add(kindToCreate); }}>
+        <label className="block text-13">卡片名称<Input value={newName} maxLength={80} required onChange={event => setNewName(event.target.value)} /></label>
+        {tags.field}
+        <AidtCardSources label={kindToCreate === "hmw" ? "来源画像" : "来源访谈"} options={kindToCreate === "hmw" ? personaOptions : evidenceOptions} selected={selected}
+          select={values => { if (values.length <= AIDT_DEFINITION_EVIDENCE_LIMIT) setSelected(values); }} />
+        {createFailed && <p role="alert">创建未完成。请重试创建此卡。</p>}
+        <div className="flex justify-end gap-2"><Button type="button" variant="ghost" disabled={creating} onClick={() => setKind(null)}>取消</Button>
+          <Button type="submit" disabled={creating || !newName.trim() || (kindToCreate !== "primary" && !selected.length)}>创建{labels[kindToCreate]}</Button></div>
+      </form>}</DialogContent></Dialog>}
     {!evidence.ready && !evidence.unavailable && <p className="text-13 text-muted-foreground">先在意外发现的 Chat 中记录并确认发现或「暂无」。</p>}
     {invalid && <p role="alert" className="text-13">部分产物读取失败。</p>}
     {evidence.stale && <div role="status" className="flex flex-wrap items-center gap-2 text-13">

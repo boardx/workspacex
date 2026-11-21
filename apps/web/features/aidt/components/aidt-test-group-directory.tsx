@@ -1,5 +1,6 @@
 "use client";
 
+import { useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
 import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import { createAidtTestGroup, isAidtTestGroupConfirmed, readAidtTestGroups, upda
 import { readAidtTestPrototypeStage, type AidtReadPrototypeEntity } from "./aidt-test-prototype-source";
 import { resolveAidtPrototypeVersion } from "../lib/aidt-prototype-versions";
 import { aidtHref } from "../lib/project-aidt";
+import { isAidtPrototypeHandoffConfirmed } from "../lib/aidt-prototype-handoff";
 import { createAidtQuestionSnapshot } from "../lib/aidt-verification-loop";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 
@@ -41,6 +43,7 @@ export function AidtTestGroupDirectory(props: Props) {
 }
 
 function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, automaticSave, update, onCreate, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
+  const tags = useAidtCreateTags(draft);
   const [name, setName] = React.useState("");
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<{ id: string; name: string }>();
@@ -78,14 +81,16 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
         stage5 = await readAidtTestPrototypeStage(projectId, exactRevision, sessionToken, controller.signal);
       }
       const source = stage5 && (id ? readPrototypeEntity?.(stage5, id) : stage5);
-      if (!source) throw new Error("source");
+      if (!source || (id && !isAidtPrototypeHandoffConfirmed(source))) throw new Error("source");
       const binding = createAidtQuestionSnapshot(source, exactRevision);
       const group = binding.ok ? createAidtTestGroup(binding.snapshot, creationId.current ??= crypto.randomUUID(), id) : null;
       if (!group || !binding.ok) throw new Error("binding");
-      await resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, group.designId, group.versionId);
+      await resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, group.designId, group.versionId, "linked-reader");
       if (controller.signal.aborted) return;
       const change = (current: AidtUiStageDraft) => {
-        const next = updateAidtTestGroup(current, { ...group, name: name.trim() });
+        const created = updateAidtTestGroup(current, { ...group, name: name.trim() });
+        if (created === current) return current;
+        const next = tags.apply(created, group.id);
         if (next === current || current.fields.questionSnapshot || current.fields.version?.trim()) return next;
         return { ...next, fields: { ...next.fields, version: binding.snapshot.prototypeRef, questionSnapshot: binding.serialized } };
       };
@@ -169,13 +174,16 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
     </details>}
     {!readOnly && <div className="space-y-3 border-t border-border pt-3">
       {automaticSave ? <>
-        <AidtNewEntityCardButton disabled={checking || limit} onClick={() => setCreateOpen(true)} />
+        <AidtNewEntityCardButton disabled={checking || limit} onClick={() => { setName(""); setError(""); tags.reset(); creationId.current = null; setCreateOpen(true); }} />
         <Dialog open={createOpen} onOpenChange={open => { if (!checking) setCreateOpen(open); }}>
           <DialogContent>
             <DialogTitle>新建测试卡片</DialogTitle>
             <DialogDescription>选择本轮测试使用的原型。</DialogDescription>
             <form className="space-y-3" onSubmit={event => { event.preventDefault(); void create(); }}>
               {creationFields}
+              {tags.field}
+              {(prototypeEntity || !candidates.length) && <p className="text-13">来源原型 · {candidates.find(item => item.id === id)?.title || "本轮原型"} · 第 5 步 V{exactRevision}</p>}
+              {error && <p role="alert">{error}</p>}
               <Button type="submit" disabled={!canCreate}>{checking ? "核对版本…" : "创建测试卡片"}</Button>
             </form>
           </DialogContent>

@@ -34,7 +34,7 @@ import type { AidtTestProposal } from "../lib/aidt-test-proposal";
 import { AidtTestGroupDirectory } from "./aidt-test-group-directory";
 import { listAidtConfirmedPrototypeEntities } from "../lib/aidt-prototype-handoff";
 import { aidtInterviewHandoffReady, isAidtInterviewArchived, readAidtInterviews, savedAidtInterviewArtifactTitle } from "../lib/aidt-interviews";
-import { readAidtDefinitionSelection } from "../lib/aidt-definition";
+import { readAidtDefinition, readAidtDefinitionSelection } from "../lib/aidt-definition";
 import { readAidtStageRevision, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { AidtProblemDirectory } from "./aidt-problem-directory";
 import { listAidtProblems, readAidtProblemEntityDraft, updateAidtProblemEntity } from "../lib/aidt-problem-entities";
@@ -481,10 +481,10 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
           : step.id === 4 ? <>
               <AidtBrainstormDirectory definition={hmwStage} draft={savedDraft ?? draft} readOnly={!canWrite}
                 href={entityHref} onOpen={openCreated} saveDraft={shared.saveDraft} />
-              <AidtIdeaDirectory draft={draft} saved={savedDraft} href={entityHref} onCreated={openCreated} update={update} readOnly={!canWrite} saveDraft={shared.saveDraft} />
+              <AidtIdeaDirectory initialSource={ideaHandoff.hmw} sources={hmwStage ? readAidtDefinition(hmwStage.content.draft.fields).hmws.filter(item => item.confirmed && !item.archived && item.text.trim()).map(item => ({ revision: hmwStage.revision, id: item.id, text: item.text })) : []} draft={draft} saved={savedDraft} href={entityHref} onCreated={openCreated} update={update} readOnly={!canWrite} saveDraft={shared.saveDraft} />
               {save}
             </>
-          : step.id === 5 ? <AidtPrototypeDirectory onCreated={openCreated} projectId={projectId} canWrite={canWrite} ideaRevision={ideaRevision} draft={savedDraft ?? draft} saveDraft={shared.saveDraft} mutationBusy={shared.write.phase === "saving" || shared.needsBaseReview} />
+          : step.id === 5 ? <AidtPrototypeDirectory sourceIdeas={shared.stages[4]} onCreated={openCreated} projectId={projectId} canWrite={canWrite} ideaRevision={ideaRevision} draft={savedDraft ?? draft} saveDraft={shared.saveDraft} mutationBusy={shared.write.phase === "saving" || shared.needsBaseReview} />
           : <><AidtTestGroupDirectory onCreate={createAndOpen} projectId={projectId} draft={draft} savedDraft={savedDraft} update={update} readOnly={!canWrite}
               canSave={shared.canSave} save={shared.saveCurrent} automaticSave previousPrototype={shared.stages[5]?.content.draft}
               previousPrototypeRevision={shared.stages[5]?.revision} prototypeRevision={search.get("prototypeRevision")}
@@ -588,7 +588,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
               } : step.id === 6 && activeEntityId ? {
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
-                  <AidtTestConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId}
+                  <AidtTestConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId} readPrototypeEntity={readAidtPrototypeEntityDraft}
                     draft={currentUi.drafts[6]!} savedDraft={shared.stages[6]?.content.draft} messages={messages}
                     loading={loading} running={running} update={mutate => updateStage(6, mutate)} readOnly={!canWrite}
                     canSave={shared.read?.phase === 'ready' && shared.write.phase !== 'saving' && !shared.needsBaseReview}

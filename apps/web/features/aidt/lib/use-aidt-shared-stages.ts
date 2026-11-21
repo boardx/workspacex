@@ -197,7 +197,8 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
     if (latest.current.writeKey !== writeKey || !latest.current.canWrite || !canWriteDraft || !scope || !stageId || !draft || inFlight.current) return false;
     // An explicit directory action writes against the saved head. Other edits in the local form stay local.
     const base = change ? server?.content.draft ?? emptyAidtUiDrafts()[stageId]! : draft;
-    const next = change ? change(base) : base;
+    let next: AidtUiStageDraft;
+    try { next = change ? change(base) : base; } catch { return false; }
     if ((change && next === base) || (!change && !server && !aidtUiStageSummary(stageId, next))) return false;
     const nextSignature = change ? aidtSharedDraftSignature(next) : signature;
     const revision = change ? server?.revision ?? 0 : expectedRevision;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAidtGreetingText } from "@repo/contracts/aidt-stages";
 import { isAidtReflectionConfirmed, readAidtQuestionSnapshot } from "./aidt-verification-loop";
 import { isAidtTestGroupConfirmed, readAidtTestGroups, updateAidtTestGroup, type AidtTestGroup } from "./aidt-test-groups";
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
@@ -31,15 +32,18 @@ const Proposal = z.object({
 export type AidtTestTurn = { id: string; role: string; content?: unknown };
 export type AidtTestProposal = { messageId: string; result: z.infer<typeof Proposal> };
 
-export function readAidtTestProposal(messages: readonly AidtTestTurn[], entityId: string): AidtTestProposal | null {
+const Plan = Proposal.pick({ entityId: true, task: true, situation: true });
+
+function readAidtTestBlock<T>(messages: readonly AidtTestTurn[], entityId: string, fence: "aidt-test-plan" | "aidt-test-result", schema: z.ZodType<T & { entityId: string }>) {
+  const block = new RegExp("(?:^|\\r?\\n)```" + fence + "[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n```(?=\\r?\\n|$)", "g");
   for (let index = messages.length - 1; index >= 0; index--) {
     const turn = messages[index]!;
     if (turn.role === "user") return null;
     if (turn.role !== "assistant" || typeof turn.content !== "string" || !turn.id || turn.id.length > 200) continue;
-    const blocks = [...turn.content.matchAll(/(?:^|\r?\n)```aidt-test-result[ \t]*\r?\n([\s\S]*?)\r?\n```(?=\r?\n|$)/g)];
+    const blocks = [...turn.content.matchAll(block)];
     if (blocks.length !== 1 || !blocks[0]?.[1] || blocks[0][1].length > 10000) return null;
     try {
-      const parsed = Proposal.safeParse(JSON.parse(blocks[0][1]));
+      const parsed = schema.safeParse(JSON.parse(blocks[0][1]));
       return parsed.success && parsed.data.entityId === entityId ? { messageId: turn.id, result: parsed.data } : null;
     } catch {
       return null;
@@ -48,17 +52,40 @@ export function readAidtTestProposal(messages: readonly AidtTestTurn[], entityId
   return null;
 }
 
-export function aidtTestGroupFromProposal(group: AidtTestGroup, proposal: AidtTestProposal, sourceAccessible: boolean): AidtTestGroup | null {
-  const { entityId, round: _round, ...fields } = proposal.result;
+export function readAidtTestProposal(messages: readonly AidtTestTurn[], entityId: string): AidtTestProposal | null {
+  return readAidtTestBlock(messages, entityId, "aidt-test-result", Proposal);
+}
+
+export function readAidtTestPlan(messages: readonly AidtTestTurn[], entityId: string) {
+  const latestStudent = messages.findLast(turn => turn.role === "user");
+  if (typeof latestStudent?.content !== "string" || !latestStudent.content.trim() || isAidtGreetingText(latestStudent.content)) return null;
+  return readAidtTestBlock(messages, entityId, "aidt-test-plan", Plan);
+}
+
+export function applyAidtTestPlan(draft: AidtUiStageDraft, plan: NonNullable<ReturnType<typeof readAidtTestPlan>>) {
+  const group = readAidtTestGroups(draft.fields).find(item => item.id === plan.result.entityId);
+  if (!group || group.archived || group.confirmedFromMessageId || group.planFromMessageId === plan.messageId) return draft;
+  return updateAidtTestGroup(draft, { ...group, task: plan.result.task,
+    situation: plan.result.situation ?? group.situation, planFromMessageId: plan.messageId });
+}
+
+export function aidtTestGroupFromProposal(group: AidtTestGroup, proposal: AidtTestProposal, sourceAccessible: boolean, observationAccessible = false): AidtTestGroup | null {
+  const { entityId, round, ...fields } = proposal.result;
   if (group.id !== entityId || group.archived) return null;
-  const next = { ...group, ...fields, confirmedFromMessageId: proposal.messageId };
+  const next = { ...group, ...fields, afterTestBelief: round?.afterTestBelief,
+    understandingChange: round?.understandingChangeStatus, confirmedFromMessageId: proposal.messageId };
+  if (group.surveyResponseId) next.sourceLocation = group.sourceLocation;
   if (!sourceAccessible && (next.said.trim() || next.did.trim())) return null;
+  // Surveys and reported interview statements cannot certify a witnessed action.
+  if (next.did.trim() && !observationAccessible) return null;
+  if (round && round.understandingChangeStatus !== "insufficient"
+    && !(sourceAccessible && next.sourceLocation.trim() && (next.said.trim() || next.did.trim()))) return null;
   return isAidtTestGroupConfirmed(next) ? next : null;
 }
 
-export function confirmAidtTestProposal(draft: AidtUiStageDraft, proposal: AidtTestProposal, sourceAccessible: boolean): AidtUiStageDraft {
+export function confirmAidtTestProposal(draft: AidtUiStageDraft, proposal: AidtTestProposal, sourceAccessible: boolean, observationAccessible = false): AidtUiStageDraft {
   const current = readAidtTestGroups(draft.fields).find(group => group.id === proposal.result.entityId);
-  const group = current && aidtTestGroupFromProposal(current, proposal, sourceAccessible);
+  const group = current && aidtTestGroupFromProposal(current, proposal, sourceAccessible, observationAccessible);
   if (!group) return draft;
   const next = updateAidtTestGroup(draft, group);
   if (next === draft) return draft;

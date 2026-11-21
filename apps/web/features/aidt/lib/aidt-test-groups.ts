@@ -21,20 +21,27 @@ const TestGroup = z.object({
   prototypeEntity: AidtPrototypeIdentifierSchema.optional(),
   reflection: z.string().max(400).default(""),
   evidenceGap: z.string().max(400).optional(),
+  afterTestBelief: z.string().max(1200).optional(),
+  understandingChange: z.enum(["changed", "unchanged", "insufficient"]).optional(),
   confirmedFromMessageId: z.string().min(1).max(200).optional(),
+  planFromMessageId: z.string().min(1).max(200).optional(),
   task: z.string().max(300).default(""),
   participant: z.string().max(80),
   situation: z.string().max(300),
   method: TestResource.shape.kind,
   source: TestResource.nullable(),
   sourceLocation: z.string().max(180),
+  surveyResponseId: AidtResearchMaterialIdentifier.optional(),
+  audioConsentAt: z.string().datetime().optional(),
   material: AidtResearchMaterial.nullable(),
   said: z.string().max(500),
   did: z.string().max(500),
   interpretation: z.string().max(500),
   decision: z.enum(["pending", "adopted", "declined"]),
   decisionReason: z.string().max(350),
-}).strict().refine(group => group.source?.kind === group.method || group.source === null);
+}).strict().refine(group => (group.source?.kind === group.method || group.source === null)
+  && (!group.surveyResponseId || group.source?.kind === "survey")
+  && (!group.audioConsentAt || group.method === "interview"));
 
 export type AidtTestGroup = z.infer<typeof TestGroup>;
 

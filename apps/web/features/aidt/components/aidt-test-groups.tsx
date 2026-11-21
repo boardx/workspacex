@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { projectResourceHref, startNewProjectResource } from "@/components/project/project-resource-section";
 import { listProjectResources, type ProjectResourceItem } from "@/lib/live-project-resources";
+import { AidtInterviewRecorder } from "./aidt-interview-recorder";
+import { AidtTestSurveyCollection } from "./aidt-test-survey-collection";
 import { AidtTestPrototypeSource, type AidtReadPrototypeEntity } from "./aidt-test-prototype-source";
 import { AidtResearchMaterialControl, AidtResearchMaterialPreview } from "./aidt-research-material";
 import { aidtTestGroupHasEvidence, readAidtTestGroups, updateAidtTestGroup, type AidtTestGroup } from "../lib/aidt-test-groups";
@@ -22,6 +24,7 @@ type Props = {
   readPrototypeEntity?: AidtReadPrototypeEntity;
   readOnly: boolean;
   sourcesOnly?: boolean;
+  onSourceChange?: () => void;
   update: (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 };
 
@@ -44,7 +47,7 @@ export function AidtTestGroups(props: Props) {
   return <TestGroups key={key} {...props} sessionToken={session.sessionToken} userId={session.userId} />;
 }
 
-function TestGroups({ projectId, draft, readOnly, sourcesOnly, update, activeEntityId, readPrototypeEntity, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
+function TestGroups({ projectId, draft, readOnly, sourcesOnly, update, onSourceChange, activeEntityId, readPrototypeEntity, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
   const [retry, refresh] = React.useReducer((value: number) => value + 1, 0);
   const [resources, setResources] = React.useState<ProjectResourceItem[] | "failed" | null>(null);
   const group = readAidtTestGroups(draft.fields).find(item => item.id === activeEntityId && !item.archived);
@@ -62,6 +65,7 @@ function TestGroups({ projectId, draft, readOnly, sourcesOnly, update, activeEnt
   }, [projectId, sessionToken, materialKey, retry]);
   const [newResource, setNewResource] = React.useState<{ kind: AidtTestGroup["method"]; href: string }>();
   const [resourceLinkFailed, setResourceLinkFailed] = React.useState(false);
+  const [materialError, setMaterialError] = React.useState("");
   const currentMethod = group?.method;
   React.useEffect(() => {
     if (readOnly || !currentMethod) return;
@@ -86,11 +90,18 @@ function TestGroups({ projectId, draft, readOnly, sourcesOnly, update, activeEnt
     if (readOnly) return;
     update(current => {
       const record = readAidtTestGroups(current.fields).find(item => item.id === id);
-      return record ? updateAidtTestGroup(current, { ...record, ...patch }) : current;
+      if (!record) return current;
+      const others = readAidtTestGroups(current.fields).filter(item => item.id !== id);
+      if (patch.source && others.some(item => item.source?.kind === patch.source?.kind && item.source?.id === patch.source?.id)) return current;
+      return updateAidtTestGroup(current, { ...record, ...patch });
     });
+    onSourceChange?.();
   }
 
-  const options = group && Array.isArray(resources) ? resources.filter(item => item.kind === group.method) : [];
+  const otherSources = new Set(readAidtTestGroups(draft.fields)
+    .filter(item => item.id !== activeEntityId && item.source?.kind === group?.method).map(item => item.source?.id));
+  const options = group && Array.isArray(resources) ? resources.filter(item => item.kind === group.method
+    && (item.id === group.source?.id || !otherSources.has(item.id))) : [];
   const source = options.find(item => item.id === group?.source?.id);
   const hasEvidence = group && aidtTestGroupHasEvidence(group, projectId, !!source, !!materialKey && verifiedMaterial === materialKey);
   const snapshot = readAidtQuestionSnapshot(draft);
@@ -104,18 +115,42 @@ function TestGroups({ projectId, draft, readOnly, sourcesOnly, update, activeEnt
       <label className="block text-12">测试方式
         <select className="mt-1 w-full rounded-md border border-border bg-background p-2" disabled={readOnly} value={group.method} onChange={event => {
           const method = event.currentTarget.value === "survey" ? "survey" : "interview";
-          change(group.id, { method, source: null, sourceLocation: "" });
+          change(group.id, { method, source: null, material: null, audioConsentAt: undefined, sourceLocation: "", surveyResponseId: undefined, said: "", did: "", afterTestBelief: undefined, understandingChange: undefined });
         }}><option value="interview">访谈</option><option value="survey">问卷</option></select>
       </label>
       {resources === "failed" ? <p role="alert" className="text-12">项目资料读取失败。 <Button type="button" variant="outline" size="xs" onClick={refresh}>重试读取资料</Button></p> : resources === null ? <p role="status" className="text-12">正在读取已关联的项目资料…</p> : <>
         <label className="block text-12">关联项目{group.method === "survey" ? "问卷" : "访谈"}
           <select className="mt-1 w-full rounded-md border border-border bg-background p-2" disabled={readOnly} value={source?.id ?? ""} onChange={event => {
             const id = event.currentTarget.value;
-            if (!id || options.some(item => item.id === id)) change(group.id, { source: id ? { id, kind: group.method } : null, sourceLocation: "" });
+            if (!id || options.some(item => item.id === id)) change(group.id, { source: id ? { id, kind: group.method } : null, sourceLocation: "", surveyResponseId: undefined, said: "", did: "", afterTestBelief: undefined, understandingChange: undefined });
           }}><option value="">暂未选择</option>{options.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select>
         </label>
         {group.source && !source && <p role="status" className="text-12">已保存的来源目前无法读取，保留引用以便后续核对。</p>}
-        {source && <Link className="text-12 text-primary underline" href={projectResourceHref(source.kind, source.id, projectId)}>打开已关联{group.method === "survey" ? "问卷" : "访谈"}</Link>}
+        {source?.kind === "interview" && <Link className="text-12 text-primary underline" href={projectResourceHref(source.kind, source.id, projectId)}>打开已关联访谈</Link>}
+        {source?.kind === "survey" && <AidtTestSurveyCollection key={source.id} projectId={projectId} surveyId={source.id}
+          responseId={group.surveyResponseId} canEdit={!readOnly} onSelect={(responseId, locator) => change(group.id, {
+            surveyResponseId: responseId, sourceLocation: locator, said: "", did: "", afterTestBelief: undefined, understandingChange: undefined,
+          })} />}
+        {group.method === "interview" && <div className="space-y-2 text-12">
+          <p className="text-muted-foreground">真人访谈请先取得授权，再将录音、转写或观察记录关联到本测试。虚拟访谈仅用于演练。</p>
+          {sourcesOnly && !readOnly && <>
+            <label className="flex items-start gap-2"><input type="checkbox" checked={Boolean(group.audioConsentAt)}
+              onChange={event => change(group.id, event.currentTarget.checked
+                ? { audioConsentAt: new Date().toISOString() }
+                : { audioConsentAt: undefined, ...(group.material?.mime.startsWith("audio/") ? { material: null, said: "", did: "" } : {}) })} />
+              已获得本次访谈录音和保存授权
+            </label>
+            {group.audioConsentAt && <AidtInterviewRecorder key={group.id} projectId={projectId} participantCode={group.participant || group.name || "测试访谈"} sessionToken={sessionToken}
+              disabled={false} asrAllowed={false} onAttached={({ source }) => {
+                update(current => {
+                  const currentGroup = readAidtTestGroups(current.fields).find(record => record.id === group.id);
+                  if (!currentGroup?.audioConsentAt || currentGroup.archived || currentGroup.method !== "interview") return current;
+                  return updateAidtTestGroup(current, { ...currentGroup, material: source });
+                });
+                onSourceChange?.();
+              }} />}
+          </>}
+        </div>}
         <div className="flex flex-wrap items-center gap-2">
           {!readOnly && newResource?.kind === group.method && <Link className="text-12 text-primary underline" href={newResource.href} target="_blank" rel="noreferrer">在新标签页创建{group.method === "survey" ? "问卷" : "访谈"}</Link>}
           <Button type="button" variant="ghost" size="xs" onClick={refresh}>刷新已关联资料</Button>
@@ -130,8 +165,13 @@ function TestGroups({ projectId, draft, readOnly, sourcesOnly, update, activeEnt
           : <Textarea rows={2} value={group[field]} maxLength={maxLength} disabled={readOnly} onChange={event => change(group.id, { [field]: event.currentTarget.value })} />}
       </label>)}
       {!sourcesOnly && group.method === "survey" && <p className="text-12 text-muted-foreground">问卷自报写在原始回答；只有现场实际观察才填写行为。</p>}
-      <AidtResearchMaterialControl projectId={projectId} label="本组原始材料" value={group.material} readOnly={readOnly} selectionScope={group.id} onChange={material => change(group.id, { material })} />
-      {group.material?.projectId === projectId && <AidtResearchMaterialPreview projectId={projectId} reference={group.material} quote={group.said} />}
+      <AidtResearchMaterialControl projectId={projectId} label="本组原始材料" value={group.material} readOnly={readOnly} selectionScope={group.id} onChange={material => {
+        const needsConsent = material?.mime.startsWith("audio/") && !group.audioConsentAt;
+        setMaterialError(needsConsent ? "请先核对本次访谈录音授权。" : "");
+        if (!needsConsent) change(group.id, { material });
+      }} />
+      {materialError && <p role="alert">{materialError}</p>}
+      {group.material?.projectId === projectId && (!group.material.mime.startsWith("audio/") || group.audioConsentAt) && <AidtResearchMaterialPreview projectId={projectId} reference={group.material} quote={group.said} />}
       {!sourcesOnly && <><label className="block text-12">反馈处理
         <select className="mt-1 w-full rounded-md border border-border bg-background p-2" disabled={readOnly} value={group.decision} onChange={event => {
           const value = event.currentTarget.value;

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AidtEntityId, IdeaHmwSource, readIdeaHmwSource, type SharedStageValue } from "./aidt-stages";
+import { AidtEntityId, IdeaHmwSource, readIdeaHmwSource } from "./aidt-stages";
 
 export const AIDT_BRAINSTORM_METHODS = { free: "自由联想", reverse: "逆向思考", scamper: "SCAMPER" } as const;
 export const AIDT_BRAINSTORM_SELECTION_FIELD = "ideaBrainstormHandoff";
@@ -29,18 +29,6 @@ export function readAidtBrainstorm(fields: Record<string, string>, id: string): 
 export function readAidtBrainstorms(fields: Record<string, string>) {
   return Object.keys(fields).filter(key => key.startsWith(AIDT_BRAINSTORM_PREFIX))
     .flatMap(key => readAidtBrainstorm(fields, key.slice(AIDT_BRAINSTORM_PREFIX.length)) ?? []);
-}
-
-export function isAidtConfirmedHmwSource(stage: SharedStageValue | null, source: AidtBrainstorm["source"]) {
-  if (stage?.stageId !== 3 || stage.revision !== source.revision) return false;
-  const { fields } = stage.content.draft;
-  try {
-    const hmw = JSON.parse(fields["definitionHmw:" + source.id] ?? "null");
-    return hmw?.id === source.id && hmw.confirmed === true && hmw.archived === false
-      && typeof hmw.text === "string" && hmw.text.trim() === source.text;
-  } catch {
-    return false;
-  }
 }
 
 export function readAidtBrainstormSelection<Idea extends { id: string; title: string; description: string }>(

@@ -41,8 +41,8 @@ export function aidtChosenPrototypeIdeas(stage: AidtSharedStage | undefined) {
   } catch { return []; }
 }
 
-export function pinAidtPrototypeInputs(draft: AidtUiStageDraft, stage: AidtSharedStage) {
-  const ideas = aidtChosenPrototypeIdeas(stage);
+export function pinAidtPrototypeInputs(draft: AidtUiStageDraft, stage: AidtSharedStage, selected?: readonly string[]) {
+  const ideas = aidtChosenPrototypeIdeas(stage).filter(idea => !selected || selected.includes(idea.id));
   if (!ideas.length) return draft;
   return { ...draft, fields: { ...draft.fields, [sourceField]: JSON.stringify({ revision: stage.revision, ideaIds: ideas.map(idea => idea.id) }), [confirmationField]: "", verificationQuestionConfirmed: "", verificationQuestionConfirmation: "" } };
 }
@@ -50,7 +50,8 @@ export function pinAidtPrototypeInputs(draft: AidtUiStageDraft, stage: AidtShare
 export function resolveAidtPrototypeInputIdeas(selection: AidtPrototypeInputSelection, stage: AidtSharedStage | undefined) {
   if (stage?.revision !== selection.revision) return [];
   const ideas = aidtChosenPrototypeIdeas(stage);
-  return ideas.length === selection.ideaIds.length && ideas.every((idea, index) => idea.id === selection.ideaIds[index]) ? ideas : [];
+  const chosen = selection.ideaIds.map(id => ideas.find(idea => idea.id === id));
+  return chosen.every(idea => idea !== undefined) ? chosen.filter(idea => idea !== undefined) : [];
 }
 
 export function aidtPrototypePreparationError(draft: AidtUiStageDraft): string | null {
