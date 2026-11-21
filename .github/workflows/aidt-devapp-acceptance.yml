@@ -60,7 +60,7 @@ jobs:
           set -euo pipefail
           [[ "$EXPECTED_SOURCE_SHA" =~ ^[a-f0-9]{40}$ && "$EXPECTED_RELEASE_TAG" =~ ^[0-9]+-[0-9]+$ ]]
           node --input-type=module -e 'import {ordinaryQaProvisioningRequested} from "./apps/web/e2e/support/devapp-aidt-acceptance.mjs"; ordinaryQaProvisioningRequested(process.env, {entryDiagnosticOnly:process.env.AIDT_ENTRY_DIAGNOSTIC_ONLY==="true"});'
-          node --test scripts/tests/devapp-aidt-acceptance.test.mjs scripts/tests/devapp-aidt-auth-readonly.test.mjs scripts/tests/devapp-aidt-print-evidence.test.mjs scripts/tests/devapp-aidt-chat-evidence.test.mjs scripts/tests/devapp-aidt-teaching-guard.test.mjs scripts/tests/devapp-aidt-qa-identity.test.mjs scripts/tests/devapp-aidt-navigation.test.mjs
+          node --test scripts/tests/devapp-aidt-acceptance.test.mjs scripts/tests/devapp-aidt-auth-readonly.test.mjs scripts/tests/devapp-aidt-print-evidence.test.mjs scripts/tests/devapp-aidt-chat-evidence.test.mjs scripts/tests/devapp-aidt-teaching-guard.test.mjs scripts/tests/devapp-aidt-qa-identity.test.mjs scripts/tests/devapp-aidt-navigation.test.mjs scripts/tests/devapp-aidt-native-survey.test.mjs
           node --test .harness/scripts/ci-aidt-native.test.mjs
           node --check apps/web/e2e/support/devapp-aidt-acceptance.mjs
           node --check apps/web/e2e/support/devapp-aidt-journey.mjs

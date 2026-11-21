@@ -109,7 +109,7 @@ test('catalog permission does not authorize capability mutations or change safet
     const { guard, bind } = owned(); bind();
     assert.equal(request(guard, method, '/api/capabilities?orgId=qa-org&kind=agent', { orgId: 'qa-org', kind: 'agent', op: 'add' }).allow, false);
     assert.equal(guard.summary().allowedWrites, 1); assert.equal(guard.summary().roleWritesAllowed, 0); assert.equal(guard.summary().deletesAllowed, 0);
-    assert.equal(guard.summary().modelRequestsAllowed, 1); assert.equal(guard.summary().teachingRequestsAllowed, 39);
+    assert.equal(guard.summary().modelRequestsAllowed, 1); assert.equal(guard.summary().teachingRequestsAllowed, 44);
   }
 });
 test('allowed read evidence uses detached closed category counts with no request data', () => {
@@ -590,4 +590,14 @@ test('unreadable approval visibility remains null rather than claiming it was hi
   const entry = { receipt: reviewReceipt() };
   assert.equal(recordTeachingEvent({ ...toolReviewEvent(), approvalVisible: null, dialogOpened: null }, reviewScope(), [entry], () => {}, () => {}), true);
   assert.equal(entry.approvalVisible, null); assert.equal(entry.dialogOpened, null);
+});
+
+test('illustrated acceptance reports only observed checkpoints and scoped image paths', async () => {
+  const { illustratedAcceptance } = await import('../../apps/web/e2e/support/devapp-aidt-acceptance.mjs');
+  const text = illustratedAcceptance({ source: 'a'.repeat(40), fullAcceptancePassed: false,
+    checkpoints: [{ name: 's3-definition-hmw-handoff', status: 'failed', code: 'PROJECT_UNAVAILABLE' }],
+    screenshots: [{ filename: '03-create-persona-dialog.png' }, { filename: '03-../../invalid.png' }] });
+  assert.match(text, /未全部通过/); assert.match(text, /失败.*s3-definition-hmw-handoff/);
+  assert.match(text, /\(\.\/03-create-persona-dialog\.png\)/); assert.doesNotMatch(text, /invalid/);
+  assert.match(text, /## 最终报告\n\n未取得检查结果/);
 });

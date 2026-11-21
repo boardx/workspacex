@@ -320,3 +320,42 @@ test('S1 draft projection is restricted to the exact successful turn and current
   after.draft.fields.other = 'changed';
   assert.equal(matchesProblemProjection(before, after, scope, proof), false);
 });
+
+test('summary Skill proof requires the six current revisions and the exact history in its dispatch receipt', () => {
+  const base = scope();
+  const selected = { schemaVersion: 1, purpose: 'summary', projectId: base.projectId,
+    stageRevisions: Array.from({ length: 6 }, (_, index) => ({ stageId: index + 1, revision: 3 })),
+    historyRevisions: [{ stageId: 2, revision: 1 }, { stageId: 2, revision: 2 }] };
+  const s = { ...base, stageId: 6, selector: selected };
+  const e = evidence(s);
+  delete e.receipt.stageId;
+  Object.assign(e.receipt, { purpose: 'summary', stageRevisions: selected.stageRevisions, historyRevisions: selected.historyRevisions });
+  const wire = validateTeachingWire(request(s), s);
+  const accepted = identifyOwnedTeachingRun(e.messages, s, wire);
+  const ref = { stageId: 5, entityId: 'design-owned', revision: 2 };
+  e.receipt.entityReferences = [ref];
+  assert.deepEqual(validateTeachingEvidence(e, s, wire, accepted).sourceEntities, [ref]);
+  assert.throws(() => validateTeachingEvidence({ ...e, receipt: { ...e.receipt, entityReferences: [ref,ref] } }, s, wire, accepted), /TEACHING_ENTITY_REFERENCES_INVALID/);
+  assert.equal(validateTeachingEvidence(e, s, wire, accepted).sourceRevisions.length, 6);
+  assert.throws(() => validateTeachingEvidence({ ...e, receipt: { ...e.receipt, historyRevisions: [] } }, s, wire, accepted));
+  for (const selector of [{ ...selected, stageId: 6 }, { ...selected, stageRevisions: selected.stageRevisions.slice(0, 5) },
+    { ...selected, historyRevisions: [selected.historyRevisions[0], selected.historyRevisions[0]] }]) {
+    const wrong = { ...s, selector };
+    assert.throws(() => validateTeachingWire(request(wrong), wrong));
+  }
+});
+
+test('stage six planning accepts only the bound student test plan and excludes original evidence or confirmation changes', async () => {
+  const { validTestPlanProjection } = await import('../../apps/web/e2e/support/devapp-aidt-chat-evidence.mjs');
+  const group = { id: 'test-owned', method: 'survey', task: '', situation: '' }, key = 'testGroup:test-owned';
+  const draft = record => ({ draft: { fields: { [key]: JSON.stringify(record), 'testGroup:sibling': '{"id":"sibling"}' }, ideas: [], selectedIdeaId: '' } });
+  const before = { revision: 1, content: draft(group), sourceStageRevisions: [{ stageId: 5, revision: 2 }] };
+  const ready = { ...group, planFromMessageId: 'message-7', task: '请描述下一步操作。', situation: '合成午休情境' };
+  const request = record => ({ expectedRevision: 1, content: draft(record), sourceStageRevisions: before.sourceStageRevisions });
+  assert.equal(validTestPlanProjection(before, request(ready), group.id, 'message-7'), true);
+  for (const patch of [{ planFromMessageId: 'message-8' }, { task: '' }, { confirmedFromMessageId: 'message-7' }, { source: { kind: 'survey', id: 'unrelated' } }]) {
+    assert.equal(validTestPlanProjection(before, request({ ...ready, ...patch }), group.id, 'message-7'), false);
+  }
+  const sibling = request(ready); sibling.content.draft.fields['testGroup:sibling'] = '{}';
+  assert.equal(validTestPlanProjection(before, sibling, group.id), false);
+});

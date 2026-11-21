@@ -2,6 +2,49 @@
 import { createHash } from 'node:crypto';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 
+export const ENTITY = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+export function validTestPlanProjection(before, body, entityId, messageId) {
+  const oldDraft = before?.content?.draft, nextDraft = body?.content?.draft, key = 'testGroup:' + entityId;
+  if (!oldDraft || !nextDraft || before.revision !== body.expectedRevision || canonical(before.sourceStageRevisions) !== canonical(body.sourceStageRevisions)) return false;
+  let old, next;
+  try { old = JSON.parse(oldDraft.fields[key]); next = JSON.parse(nextDraft.fields[key]); } catch { return false; }
+  if (old.id !== entityId || next.id !== entityId || old.archived || old.confirmedFromMessageId || !id(next.planFromMessageId) ||
+      old.planFromMessageId === next.planFromMessageId || messageId && messageId !== next.planFromMessageId ||
+      typeof next.task !== 'string' || !next.task.trim() || next.task.length > 300 || typeof next.situation !== 'string' || next.situation.length > 300) return false;
+  const retained = value => Object.fromEntries(Object.entries(value).filter(([field]) => !['planFromMessageId','task','situation'].includes(field)));
+  const remaining = draft => Object.fromEntries(Object.entries(draft.fields).filter(([field]) => field !== key && field !== 'reflectionConfirmed'));
+  return canonical(retained(old)) === canonical(retained(next)) && canonical(remaining(oldDraft)) === canonical(remaining(nextDraft))
+    && (!nextDraft.fields.reflectionConfirmed || oldDraft.fields.reflectionConfirmed === nextDraft.fields.reflectionConfirmed)
+    && canonical({ ...oldDraft, fields: {} }) === canonical({ ...nextDraft, fields: {} });
+}
+export function brainstormRecord(stage, id) {
+  if (!/^brainstorm-[a-zA-Z0-9-]{1,100}$/.test(id ?? '')) return null;
+  try {
+    const record = JSON.parse(stage?.content?.draft?.fields?.[`ideaBrainstorm:${id}`] ?? 'null');
+    return record?.id === id && record.source?.id && Array.isArray(record.candidates) ? record : null;
+  } catch { return null; }
+}
+export function validBrainstormProjection(before, body, id) {
+  const prior = brainstormRecord(before, id), next = brainstormRecord(body, id);
+  if (!prior || !next || before.revision !== body.expectedRevision || !Number.isInteger(prior.count)
+    || next.candidates.length <= prior.candidates.length || next.candidates.length > prior.count
+    || new Set(next.candidates).size !== next.candidates.length
+    || !prior.candidates.every((candidate, index) => next.candidates[index] === candidate)) return false;
+  const candidateIds = next.candidates.slice(prior.candidates.length);
+  const oldDraft = before.content.draft, newDraft = body.content.draft;
+  if (!Array.isArray(newDraft.ideas) || newDraft.ideas.length !== oldDraft.ideas.length + candidateIds.length
+    || !oldDraft.ideas.every((idea, index) => canonical(idea) === canonical(newDraft.ideas[index]))
+    || !newDraft.ideas.slice(oldDraft.ideas.length).every((item, index) => object(item)
+      && item.id === candidateIds[index] && ENTITY.test(item.id) && item.id.startsWith(id + '-')
+      && typeof item.title === 'string' && typeof item.description === 'string')) return false;
+  const { candidates: _oldCandidates, ...samePrior } = prior;
+  const { candidates: _newCandidates, ...sameNext } = next;
+  return canonical(samePrior) === canonical(sameNext)
+    && canonical(before.sourceStageRevisions) === canonical(body.sourceStageRevisions)
+    && canonical(oldDraft) === canonical({ ...newDraft, ideas: oldDraft.ideas,
+      fields: { ...newDraft.fields, [`ideaBrainstorm:${id}`]: oldDraft.fields[`ideaBrainstorm:${id}`] } });
+}
+
 const SEND_PATH = '/api/copilotkit/agent/default/run';
 const HEX = /^[a-f0-9]{64}$/;
 const fail = code => { throw new ProbeFailure(code); };
@@ -70,7 +113,19 @@ const refs = value => {
   if (!Array.isArray(value) || value.length > 6 || value.some(row => !object(row) || Object.keys(row).sort().join(',') !== 'revision,stageId' || !Number.isInteger(row.stageId) || row.stageId < 1 || row.stageId > 6 || !Number.isSafeInteger(row.revision) || row.revision < 1) || new Set(value.map(row => row.stageId)).size !== value.length) fail('TEACHING_SOURCE_REFERENCES_INVALID');
   return [...value].sort((a, b) => a.stageId - b.stageId);
 };
+function summaryHistory(value) {
+  if (!Array.isArray(value) || value.length > 60) fail('TEACHING_SOURCE_REFERENCES_INVALID');
+  const rows = value.map(row => refs([row])[0]).sort((a,b) => a.stageId - b.stageId || a.revision - b.revision);
+  if (new Set(rows.map(row => row.stageId + ':' + row.revision)).size !== rows.length || rows.some(row => rows.filter(item => item.stageId === row.stageId).length > 10)) fail('TEACHING_SOURCE_REFERENCES_INVALID');
+  return rows;
+}
 function selector(value) {
+  if (value?.purpose === 'summary') {
+    if (Object.keys(value).sort().join(',') !== 'historyRevisions,projectId,purpose,schemaVersion,stageRevisions' || value.schemaVersion !== 1 || !id(value.projectId)) fail('TEACHING_SELECTOR_INVALID');
+    const stageRevisions = refs(value.stageRevisions);
+    if (stageRevisions.length !== 6) fail('TEACHING_SELECTOR_INVALID');
+    return { ...value, stageRevisions, historyRevisions: summaryHistory(value.historyRevisions) };
+  }
   if (!object(value) || Object.keys(value).some(key => !['schemaVersion', 'purpose', 'projectId', 'stageId', 'stageRevisions', 'entityId', 'sourceEntityId', 'returnRevision'].includes(key)) || value.schemaVersion !== 1 || value.purpose !== 'stage' || !id(value.projectId) || !Number.isInteger(value.stageId) || value.stageId < 1 || value.stageId > 6 || ['entityId', 'sourceEntityId'].some(key => value[key] !== undefined && !id(value[key])) || value.returnRevision !== undefined && (!Number.isSafeInteger(value.returnRevision) || value.returnRevision < 1)) fail('TEACHING_SELECTOR_INVALID');
   const stageRevisions = refs(value.stageRevisions);
   if (stageRevisions.some(row => row.stageId > value.stageId)) fail('TEACHING_SELECTOR_INVALID');
@@ -79,7 +134,7 @@ function selector(value) {
 export function validateTeachingScope(scope) {
   if (!object(scope) || scope.origin !== 'https://devapp.boardx.us' || !id(scope.projectId) || !id(scope.threadId) || !id(scope.actorId) || !id(scope.skillId) || !id(scope.skillVersionId) || typeof scope.prompt !== 'string' || !/合成|QA/.test(scope.prompt) || scope.prompt.length < 12 || scope.prompt.length > 5000) fail('TEACHING_SCOPE_INVALID');
   const selected = selector(scope.selector);
-  if (selected.projectId !== scope.projectId || selected.stageId !== scope.stageId) fail('TEACHING_SCOPE_MISMATCH');
+  if (selected.projectId !== scope.projectId || (selected.purpose === 'summary' ? scope.stageId !== 6 : selected.stageId !== scope.stageId)) fail('TEACHING_SCOPE_MISMATCH');
   return selected;
 }
 function messageText(message) {
@@ -127,17 +182,22 @@ export function validateTeachingEvidence({ messages, run, receipt }, scope, wire
   if (replies.length !== 1 || (scope.knownMessages ?? []).some(row => row.id === replies[0].id)) fail('TEACHING_DURABLE_REPLY_MISSING');
   // Receipt schema intentionally does not expose entityId/sourceEntityId. Check only real fields;
   // entity selection is checked separately against the full browser wire + the server-owned thread.
-  if (!object(receipt) || receipt.runId !== run.runId || receipt.projectId !== scope.projectId || receipt.purpose !== 'stage' || receipt.stageId !== scope.stageId || receipt.skillVersionId !== scope.skillVersionId || !HEX.test(receipt.snapshotHash ?? '') || canonical(refs(receipt.stageRevisions)) !== canonical(chosen.stageRevisions) || !Array.isArray(receipt.historyRevisions) || receipt.historyRevisions.length !== 0 || receipt.returnRevision !== chosen.returnRevision) fail('TEACHING_CONTEXT_RECEIPT_MISMATCH');
+  if (!object(receipt) || receipt.runId !== run.runId || receipt.projectId !== scope.projectId || receipt.purpose !== chosen.purpose || receipt.stageId !== chosen.stageId || receipt.skillVersionId !== scope.skillVersionId || !HEX.test(receipt.snapshotHash ?? '') || canonical(refs(receipt.stageRevisions)) !== canonical(chosen.stageRevisions) || canonical(summaryHistory(receipt.historyRevisions)) !== canonical(chosen.historyRevisions ?? []) || receipt.returnRevision !== chosen.returnRevision) fail('TEACHING_CONTEXT_RECEIPT_MISMATCH');
   if (frozenSnapshotHash !== undefined && receipt.snapshotHash !== frozenSnapshotHash) fail('TEACHING_CONTEXT_SNAPSHOT_CHANGED');
   const application = receipt.application;
   if (!object(application) || application.state !== 'message-dispatch-observed' || typeof application.attemptId !== 'string' || !application.attemptId.startsWith(`${run.runId}:`) || !/^(0|[1-9][0-9]*)$/.test(application.attemptId.slice(run.runId.length + 1)) || !HEX.test(application.assembledContextHash ?? '') || !Number.isFinite(Date.parse(application.assembledAt)) || !Number.isFinite(Date.parse(application.messageDispatchedAt))) fail('TEACHING_CONTEXT_DISPATCH_UNPROVEN');
-  return { stageId: scope.stageId, threadId: scope.threadId, runId: run.runId, inputMessageId: accepted.inputMessageId, assistantMessageId: replies[0].id, skillId: scope.skillId, skillVersionId: scope.skillVersionId, agentVersionId: id(run.agentVersionId) ? run.agentVersionId : null, modelProvider: typeof run.modelProvider === 'string' && /^[A-Za-z0-9_.:-]{1,160}$/.test(run.modelProvider) ? run.modelProvider : null, modelId: typeof run.modelId === 'string' && /^[A-Za-z0-9_./:-]{1,200}$/.test(run.modelId) ? run.modelId : null, sourceRevisions: chosen.stageRevisions, snapshotHash: receipt.snapshotHash, assembledContextHash: application.assembledContextHash, studentTextSha256: sha(scope.prompt), assistantTextSha256: sha(replies[0].text), assistantText: replies[0].text, providerIndependentlyVerified: false, teachingQualityAccepted: false };
+  const sourceEntities = receipt.entityReferences ?? [];
+  if (!Array.isArray(sourceEntities) || sourceEntities.length > 256 || sourceEntities.some(ref => !object(ref)
+    || Object.keys(ref).sort().join(',') !== 'entityId,revision,stageId' || !Number.isInteger(ref.stageId)
+    || ref.stageId < 1 || ref.stageId > 6 || !Number.isSafeInteger(ref.revision) || ref.revision < 1 || typeof ref.entityId !== 'string' || !ENTITY.test(ref.entityId))
+    || new Set(sourceEntities.map(ref => [ref.stageId,ref.entityId,ref.revision].join(':'))).size !== sourceEntities.length) fail('TEACHING_ENTITY_REFERENCES_INVALID');
+  return { stageId: scope.stageId, threadId: scope.threadId, sourceEntities, runId: run.runId, inputMessageId: accepted.inputMessageId, assistantMessageId: replies[0].id, skillId: scope.skillId, skillVersionId: scope.skillVersionId, agentVersionId: id(run.agentVersionId) ? run.agentVersionId : null, modelProvider: typeof run.modelProvider === 'string' && /^[A-Za-z0-9_.:-]{1,160}$/.test(run.modelProvider) ? run.modelProvider : null, modelId: typeof run.modelId === 'string' && /^[A-Za-z0-9_./:-]{1,200}$/.test(run.modelId) ? run.modelId : null, sourceRevisions: chosen.stageRevisions, snapshotHash: receipt.snapshotHash, assembledContextHash: application.assembledContextHash, studentTextSha256: sha(scope.prompt), assistantTextSha256: sha(replies[0].text), assistantText: replies[0].text, providerIndependentlyVerified: false, teachingQualityAccepted: false };
 }
 /** One normal UI send. Caller/guard enforce the bounded per-entity teaching ledger and own all HTTP authorization. */
 export async function sendTeachingFeedback({ page, expect, scope, read, armSend, onEvent = () => {}, onPendingReview }) {
   validateTeachingScope(scope);
   const url = new URL(page.url());
-  if (url.origin !== scope.origin || url.pathname !== `/aidt/${scope.projectId}` || url.searchParams.get('step') !== String(scope.stageId) || url.searchParams.get('thread') !== scope.threadId || scope.selector.entityId !== undefined && url.searchParams.get('entity') !== scope.selector.entityId) fail('TEACHING_UI_SCOPE_MISMATCH');
+  if (url.origin !== scope.origin || url.pathname !== `/aidt/${scope.projectId}` || url.searchParams.get('step') !== String(scope.stageId) || url.searchParams.get(scope.selector.purpose === 'summary' ? 'summaryThread' : 'thread') !== scope.threadId || scope.selector.purpose === 'summary' && (url.searchParams.get('summary') !== '1' || url.searchParams.get('entity') !== 'group-report') || scope.selector.entityId !== undefined && url.searchParams.get('entity') !== scope.selector.entityId) fail('TEACHING_UI_SCOPE_MISMATCH');
   const readData = async path => { const response = await read(path); if (response?.status !== 200) fail('TEACHING_READ_NOT_SUCCESSFUL'); return response.data; };
   const messagePath = `/api/chat/threads/${encodeURIComponent(scope.threadId)}/messages?limit=100`;
   const knownMessages = messageRows(await readData(messagePath));
@@ -166,7 +226,7 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
       observedRunId = accepted.runId;
       if (frozenSnapshotHash === null) {
         const firstReceipt = await readData(`/api/agent-runs/${encodeURIComponent(accepted.runId)}/aidt-context`);
-        if (!object(firstReceipt) || firstReceipt.runId !== accepted.runId || firstReceipt.projectId !== scope.projectId || firstReceipt.stageId !== scope.stageId || firstReceipt.purpose !== 'stage' || firstReceipt.skillVersionId !== scope.skillVersionId || !HEX.test(firstReceipt.snapshotHash ?? '') || canonical(refs(firstReceipt.stageRevisions)) !== canonical(selector(scope.selector).stageRevisions)) fail('TEACHING_CONTEXT_RECEIPT_MISMATCH');
+        if (!object(firstReceipt) || firstReceipt.runId !== accepted.runId || firstReceipt.projectId !== scope.projectId || firstReceipt.stageId !== scope.selector.stageId || firstReceipt.purpose !== scope.selector.purpose || firstReceipt.skillVersionId !== scope.skillVersionId || !HEX.test(firstReceipt.snapshotHash ?? '') || canonical(refs(firstReceipt.stageRevisions)) !== canonical(selector(scope.selector).stageRevisions)) fail('TEACHING_CONTEXT_RECEIPT_MISMATCH');
         frozenSnapshotHash = firstReceipt.snapshotHash;
       }
       const run = await readData(`/api/agent-runs/${encodeURIComponent(accepted.runId)}`);
@@ -220,6 +280,14 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
         const next = stagesAfter[index];
         if (canonical(previous) === canonical(next)) return true;
         const a = previous.stage, b = next.stage;
+        if (index === 5 && current.testPlan === true && a?.stageId === 6 && b?.stageId === 6 && a.projectId === current.projectId && b.projectId === current.projectId && b.revision > a.revision) {
+          return validTestPlanProjection(a, { expectedRevision: a.revision, content: b.content, sourceStageRevisions: b.sourceStageRevisions }, current.selector.entityId, proof.assistantMessageId);
+        }
+        if (index === 3 && current.stageId === 4 && a?.stageId === 4 && b?.stageId === 4 &&
+            a.projectId === current.projectId && b.projectId === current.projectId && b.revision > a.revision &&
+            canonical(a.sourceStageRevisions) === canonical(b.sourceStageRevisions)) {
+          return validBrainstormProjection(a, { expectedRevision: a.revision, content: b.content, sourceStageRevisions: b.sourceStageRevisions }, current.selector.entityId);
+        }
         if ((index !== 0 && index !== 1) || a?.stageId !== index + 1 || b?.stageId !== index + 1
           || a.projectId !== current.projectId || b.projectId !== current.projectId || b.revision <= a.revision
           || canonical(a.sourceStageRevisions) !== canonical(b.sourceStageRevisions)) return false;

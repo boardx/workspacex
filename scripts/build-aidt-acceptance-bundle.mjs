@@ -7,6 +7,7 @@ const files = [
   '.nvmrc',
   'apps/web/e2e/support/devapp-aidt-auth-readonly.mjs',
   'apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs',
+  'apps/web/e2e/support/devapp-aidt-survey.mjs',
   'apps/web/e2e/support/devapp-aidt-acceptance.mjs',
   'apps/web/e2e/support/devapp-aidt-journey.mjs',
   'apps/web/e2e/support/devapp-aidt-print-evidence.mjs',
@@ -29,7 +30,9 @@ for (const file of files) {
   const info = lstatSync(file); if (!info.isFile() || info.isSymbolicLink() || info.size > 1048576) throw new Error('BUNDLE_FILE_INVALID');
   mkdirSync(dirname(resolve(root, file)), { recursive: true, mode: 0o700 }); copyFileSync(file, resolve(root, file));
 }
-writeFileSync(resolve(root, 'acceptance-source.json'), JSON.stringify({ controlSource: sha, teachingSkillNames: [...names, summary], playwrightVersion: playwright }));
+const interviewStarter = JSON.parse(readFileSync('skills/aidt-methods/aidt-empathize/starter.json', 'utf8')).initial;
+if (typeof interviewStarter !== 'string' || !interviewStarter.includes('问题') || !interviewStarter.includes('初稿')) throw new Error('INTERVIEW_STARTER_INVALID');
+writeFileSync(resolve(root, 'acceptance-source.json'), JSON.stringify({ controlSource: sha, interviewStarter, teachingSkillNames: [...names, summary], playwrightVersion: playwright }));
 writeFileSync(resolve(root, 'package.json'), JSON.stringify({ private: true, type: 'module', dependencies: { '@playwright/test': playwright } }));
 const listed = [...files, 'acceptance-source.json', 'package.json'];
 writeFileSync(resolve(root, 'SHA256SUMS'), listed.map(file => `${createHash('sha256').update(readFileSync(resolve(root, file))).digest('hex')}  ${file}`).join('\n') + '\n');

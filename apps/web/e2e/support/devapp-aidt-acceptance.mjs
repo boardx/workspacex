@@ -9,6 +9,27 @@ import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, creat
 import { captureApplicationPrint } from './devapp-aidt-print-evidence.mjs';
 import { sendTeachingFeedback } from './devapp-aidt-chat-evidence.mjs';
 
+export function illustratedAcceptance(report) {
+  const headings = ['首页', '理解与提出问题', '共情用户', '综合与定义', '创意发散', '制作原型', '测试与迭代', '最终报告'];
+  const status = value => ({ passed: '通过', pass: '通过', failed: '失败', blocked: '阻塞' })[value] ?? '待核验';
+  const lines = ['# AIDT Devapp 图文验收报告', '', '候选版本 \`' + report.source + '\`。本次使用合成教学材料。', '',
+    '**整体结果 ' + (report.fullAcceptancePassed ? '通过' : report.passed ? '浏览器验收通过，PDF 字形独立核验待完成' : '未全部通过') + '**', ''];
+  for (const [index, title] of headings.entries()) {
+    const section = index === 7 ? /^(report-|teaching-chat-final-report)/ : index === 0 ? /^homepage-/ : new RegExp('^(s' + index + '-|teaching-chat-stage-' + index + '(?:-|$))');
+    const checks = report.checkpoints.filter(row => section.test(row.name));
+    const screens = report.screenshots.filter(row => row.filename.startsWith(String(index).padStart(2, '0') + '-') && /^[a-z0-9-]+\.png$/.test(row.filename));
+    lines.push('## ' + title, '');
+    if (!checks.length) lines.push('未取得检查结果。', '');
+    for (const check of checks) lines.push('- ' + status(check.status) + '　\`' + check.name + '\`' + (check.code ? '　\`' + check.code + '\`' : ''));
+    lines.push('');
+    for (const image of screens) {
+      const label = image.filename.replace(/\.png$/, '');
+      lines.push('![' + title + ' ' + label + '](./' + image.filename + ')', '');
+    }
+  }
+  return lines.join('\n');
+}
+
 function safeCode(error) { return error instanceof ProbeFailure && /^[A-Z0-9_]{1,90}$/.test(error.code) ? error.code : 'UI_ACCEPTANCE_STEP_FAILED'; }
 
 export async function enforceDeniedProbeStatus(decision, response) {
@@ -309,6 +330,7 @@ export async function main() {
           try { parsed = JSON.parse(bytes.toString('utf8')); } catch { throw new ProbeFailure('RESPONSE_SCHEMA_INVALID'); }
         }
         if (decision.kind === 'login' && typeof parsed?.sessionToken === 'string') sensitiveEvidence.remember(parsed.sessionToken);
+        if (decision.kind === 'survey-publish' && typeof parsed?.publication?.token === 'string') sensitiveEvidence.remember(parsed.publication.token);
         guard.observe(decision, response.status(), parsed);
         // Bind only the actual created candidate before the normal UI resumes.
         if (decision.kind === 'create-project' && [200, 201].includes(response.status())) {
@@ -340,7 +362,7 @@ export async function main() {
     let pendingReviewCapture = null;
     const capture = async (name, expectedStage, region = 'workspace', pendingReceipt) => {
       if (!/^[a-z0-9][a-z0-9-]{0,85}$/.test(name)) throw new ProbeFailure('SCREENSHOT_NAME_INVALID');
-      if (region === 'workspace' || region === 'owned-tool-review') assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
+      if (region === 'workspace' || region === 'owned-tool-review' || region === 'card-dialog') assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
       else { const url = new URL(page.url()); if (url.origin !== ORIGIN || url.pathname !== '/aidt' || !['home-create-actions', 'create-dialog'].includes(region)) throw new ProbeFailure('SCREENSHOT_SCOPE_REJECTED'); }
       if (region === 'owned-tool-review') {
         if (!pendingReviewCapture || pendingReviewCapture.receipt !== pendingReceipt || pendingReceipt.stageId !== expectedStage) throw new ProbeFailure('TOOL_REVIEW_SCOPE_UNVERIFIED');
@@ -348,8 +370,12 @@ export async function main() {
         pendingTeachingReviewReceipt(pendingReceipt, scope, page.url(), guard.teachingPin(scope.stageId, scope.threadId, scope.selector.entityId));
         if (await page.getByTestId('aidt-project-workspace').getByTestId('restored-run-approval').count() !== 1 || await page.getByTestId('chat-tool-permission-dialog').count() !== 1) throw new ProbeFailure('TOOL_REVIEW_DIALOG_NOT_UNIQUE');
       }
+      if (region === 'card-dialog') {
+        const url = new URL(page.url());
+        if (url.searchParams.has('entity') || await page.getByRole('dialog').count() !== 1 || !await page.getByRole('dialog').getByRole('textbox', { name: '添加标签', exact: true }).isVisible()) throw new ProbeFailure('CARD_DIALOG_SCOPE_UNVERIFIED');
+      }
       recheckRuntime();
-      const workspace = region === 'owned-tool-review' ? page.getByTestId('chat-tool-permission-dialog') : region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') });
+      const workspace = region === 'card-dialog' ? page.getByRole('dialog') : region === 'owned-tool-review' ? page.getByTestId('chat-tool-permission-dialog') : region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') });
       await workspace.waitFor({ state: 'visible' });
       // Workspace captures dismiss unrelated overlays; owned review evidence must keep its modal open.
       if (region === 'workspace') await page.keyboard.press('Escape');
@@ -432,10 +458,10 @@ export async function main() {
     });
     if (!homeCreated) throw new ProbeFailure('HOMEPAGE_UI_CREATION_NOT_ACCEPTED');
     const projectId = guard.identity().projectId;
-    const saveStage = async (n, visibleButton) => {
+    const saveStage = async (n, visibleButton, { confirmation = false } = {}) => {
       const button = visibleButton ?? page.getByTestId('aidt-shared-save');
       await expect(button).toBeVisible(); await expect(button).toBeEnabled();
-      guard.armStageSave(n, false);
+      guard.armStageSave(n, confirmation);
       const [response] = await Promise.all([
         page.waitForResponse(response => new URL(response.url()).pathname === `/api/projects/${projectId}/aidt/stages/${n}` && response.request().method() === 'PUT', { timeout: 30000 }),
         button.click(),
@@ -467,6 +493,39 @@ export async function main() {
       await anonymous.routeWebSocket('**/*', socket => socket.close());
       return { page: await anonymous.newPage(), close: () => anonymous.close() };
     };
+    const createSurveyParticipant = async href => {
+      if (!href) throw new ProbeFailure('NATIVE_SURVEY_FORM_LINK_MISSING');
+      const target = new URL(href, ORIGIN);
+      if (!guard.decideSurveyParticipant({ url: target.href, method: 'GET' }).allow || !target.pathname.startsWith('/surveys/'))
+        throw new ProbeFailure('NATIVE_SURVEY_FORM_LINK_INVALID');
+      const respondent = await browser.newContext({ serviceWorkers: 'block', acceptDownloads: false });
+      await respondent.route('**/*', async route => {
+        const request = route.request();
+        try {
+          if (request.headers().authorization) throw new ProbeFailure('SURVEY_RESPONDENT_AUTH_PRESENT');
+          const body = request.method() === 'POST' ? request.postDataJSON() : undefined;
+          const decision = guard.decideSurveyParticipant({ url: request.url(), method: request.method(), body });
+          if (!decision.allow) return await route.abort('blockedbyclient');
+          const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: 15000 });
+          if (response.status() >= 300 && response.status() < 400) throw new ProbeFailure('REDIRECT_REJECTED');
+          if (decision.kind === 'survey-submit') {
+            const bytes = await response.body();
+            if (bytes.length > 4096) throw new ProbeFailure('RESPONSE_BOUND');
+            guard.observe(decision, response.status(), JSON.parse(bytes.toString('utf8')));
+          }
+          await route.fulfill({ response });
+        } catch (error) { guard.fail(safeCode(error)); try { await route.abort('blockedbyclient'); } catch { /* Already closed. */ } }
+      });
+      await respondent.routeWebSocket('**/*', socket => socket.close());
+      try {
+        const page = await respondent.newPage();
+        await page.goto(target.href);
+        return { page, close: () => respondent.close() };
+      } catch (error) {
+        await respondent.close();
+        throw error;
+      }
+    };
     const saveDownload = async download => {
       const path = await download.path();
       if (!path || !download.suggestedFilename().endsWith('.md')) throw new ProbeFailure('REPORT_DOWNLOAD_INVALID');
@@ -480,28 +539,37 @@ export async function main() {
       report.download = { filename, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), humanReadableUtf8: true };
       return report.download;
     };
-    const teachingFeedback = async (stageId, prompt, interviewCode, interviewFinding = false, syntheticProblemFixture = false) => {
+    const teachingFeedback = async (stageId, prompt, interviewCode, interviewFinding = false, syntheticProblemFixture = false, testPlan = false) => {
       if (interviewCode !== undefined && (stageId !== 2 || !/^U(?:0[1-9]|10)$/.test(interviewCode))) throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED');
       if (interviewFinding && (stageId !== 2 || !interviewCode)) throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED');
       const problemRevision = !syntheticProblemFixture && stageId === 1 && report.teachingEvidence.some(item => item.status === 'passed' && item.stageId === 1);
       const interviewGuideRevision = stageId === 2 && !interviewFinding && report.teachingEvidence.some(item => item.status === 'passed' && item.interviewCode === interviewCode);
       const codeSuffix = interviewCode && interviewCode !== 'U01' ? `-${interviewCode.toLowerCase()}` : '';
-      const entity = new URL(page.url()).searchParams.get('entity');
-      const brainstormSuffix = stageId === 4 && /^brainstorm-[a-zA-Z0-9-]{1,100}$/.test(entity ?? '') ? `-brainstorm-${entity.slice(-12)}` : '';
-      const suffix = brainstormSuffix || (syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : codeSuffix + (interviewFinding ? '-finding' : interviewGuideRevision ? '-revision' : ''));
-      const name = `teaching-chat-stage-${stageId}${suffix}`;
+      const suffix = syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : codeSuffix + (interviewFinding ? '-finding' : interviewGuideRevision ? '-revision' : '');
+      const definitionTurn = stageId === 3 ? report.teachingEvidence.filter(item => item.stageId === 3 && item.status === 'passed').length : 0;
+      const summary = stageId === 6 && new URL(page.url()).searchParams.get('summary') === '1';
+      const brainstormTurn = stageId === 4 && report.teachingEvidence.some(item => item.stageId === 4 && item.status === 'passed') ? '-reverse' : '';
+      const testTurn = !summary && stageId === 6
+        ? (report.teachingEvidence.some(item => item.stageId === 6 && item.entityId !== new URL(page.url()).searchParams.get('entity') && item.status === 'passed') ? '-survey' : '') + (testPlan ? '-plan' : '') : '';
+      const threadParam = summary ? 'summaryThread' : 'thread';
+      const name = summary ? 'teaching-chat-final-report' : `teaching-chat-stage-${stageId}${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`;
       let isolatedKnownS1Review = false;
       const accepted = await checkpoint(name, async () => {
         if (guard.teachingStopped()) throw new ProbeFailure('TEACHING_PREVIOUS_OUTCOME_UNRESOLVED');
         const url = new URL(page.url());
-        await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr/);
+        await expect.poll(() => new URL(page.url()).searchParams.get(threadParam)).toMatch(/^thr/);
         const entityId = url.searchParams.get('entity');
-        await expect.poll(() => { const id = new URL(page.url()).searchParams.get('thread'); return id && guard.teachingPin(stageId, id, entityId ?? undefined) ? true : false; }, { timeout: 30000 }).toBe(true);
-        const threadId = new URL(page.url()).searchParams.get('thread');
+        await expect.poll(() => { const id = new URL(page.url()).searchParams.get(threadParam); return id && guard.teachingPin(stageId, id, entityId ?? undefined) ? true : false; }, { timeout: 30000 }).toBe(true);
+        const threadId = new URL(page.url()).searchParams.get(threadParam);
         const stages = {};
         for (let n = 1; n <= stageId; n++) { const got = await api(page, 'GET', `/api/projects/${projectId}/aidt/stages/${n}`); if (got.status !== 200) throw new ProbeFailure('TEACHING_SOURCE_READ_FAILED'); if (got.data?.stage) stages[n] = got.data.stage; }
         let selector;
-        if (entityId) {
+        if (summary) {
+          if (entityId !== 'group-report') throw new ProbeFailure('REPORT_SCOPE_UNVERIFIED');
+          const history = page.getByTestId('aidt-summary-materials').locator('p').filter({ hasText: /^历史选择/ });
+          const historyRevisions = [...(await history.textContent()).matchAll(/第(\d+)步 V(\d+)/g)].map(match => ({ stageId: Number(match[1]), revision: Number(match[2]) }));
+          selector = { schemaVersion: 1, projectId, purpose: 'summary', stageRevisions: Object.values(stages).map(({stageId,revision}) => ({stageId,revision})), historyRevisions };
+        } else if (entityId) {
           selector = { schemaVersion: 1, projectId, purpose: 'stage', stageId, entityId, stageRevisions: stages[stageId] ? [{ stageId, revision: stages[stageId].revision }] : [] };
           if (stageId === 2) {
             const raw = stages[2]?.content?.draft?.fields?.[`interviewRecord:${entityId}`];
@@ -519,7 +587,7 @@ export async function main() {
         await api(page, 'GET', `/api/chat/threads/${encodeURIComponent(threadId)}`);
         await api(page, 'GET', `/api/threads/${encodeURIComponent(threadId)}/skill-deviations?projectId=${encodeURIComponent(projectId)}`);
         const pin = guard.teachingPin(stageId, threadId, entityId ?? undefined); if (!pin) throw new ProbeFailure('TEACHING_SKILL_PIN_UNVERIFIED');
-        const scope = { origin: ORIGIN, projectId, stageId, threadId, actorId: guard.identity().actor, prompt, selector, interviewFinding, interviewGuideRevision, problemRevision, syntheticProblemFixture, ...pin, timeoutMs: 180000 };
+        const scope = { origin: ORIGIN, projectId, stageId, threadId, actorId: guard.identity().actor, prompt, selector, testPlan, interviewFinding, interviewGuideRevision, problemRevision, syntheticProblemFixture, ...pin, timeoutMs: 180000 };
         const proof = await sendTeachingFeedback({ page, expect, scope, read: path => api(page, 'GET', path), armSend: current => guard.armTeachingSend(current),
           onEvent: event => recordTeachingEvent(event, scope, report.pendingTeachingReviews,
             text => sensitiveEvidence.assertSafe(text), value => console.log(JSON.stringify({ ...value, owner: 'root/aidt_ui_first_acceptance' }))),
@@ -543,7 +611,7 @@ export async function main() {
         sensitiveEvidence.assertSafe(proof.assistantText);
         guard.completeTeaching(proof);
         report.teachingEvidence.push({ ...proof, projectId, entityId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
-        await capture(`${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}`, stageId);
+        await capture(summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`, stageId);
       });
       if (!accepted) {
         if (!isolatedKnownS1Review) guard.stopTeaching();
@@ -576,13 +644,13 @@ export async function main() {
       if (![403, 404].includes(result.status)) throw new ProbeFailure('UNKNOWN_PROJECT_NOT_DENIED');
       report.unknownProjectGate = { passed: true, status: result.status, crossUserIsolation: false };
     });
-    await runAidtJourney({ page, context, expect, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
+    await runAidtJourney({ page, context, expect, interviewStarter: metadata.interviewStarter, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
       checkpoint, capture, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
       armInterviewEdit: () => guard.armStageSave(2, false), armCardCreate: stage => guard.armStageSave(stage, false),
-      registerFixture: fixture => guard.registerFixture(fixture), armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, report });
+      registerFixture: fixture => guard.registerFixture(fixture), armSurvey: id => guard.armSurvey(id), surveyReceipt: guard.surveyReceipt, armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, createSurveyParticipant, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
-    report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
+    report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, 'teaching-chat-final-report', 'teaching-chat-stage-3-2', 'teaching-chat-stage-3-3', 'teaching-chat-stage-3-4', 'teaching-chat-stage-4-reverse', 'teaching-chat-stage-6-plan', 'teaching-chat-stage-6-survey-plan', 'teaching-chat-stage-6-survey', ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
     report.passed = !guard.fatal() && report.requiredChecks.every(name => report.checkpoints.some(item => item.name === name && item.status === 'passed'));
     // UI/runtime checks and exported PDF bytes are complete here; final glyph
     // acceptance is performed independently on the retained artifacts.
@@ -616,6 +684,7 @@ export async function main() {
     }
     finalizeGuardVerdict(report, guard);
     const artifactReport = privateEvidenceSafe ? report : { kind: report.kind, target: ORIGIN, passed: false, fullAcceptancePassed: false, failure: 'EVIDENCE_PRIVACY_REVIEW_FAILED', source: identity?.source ?? null, tag: identity?.tag ?? null, note: 'Rich evidence was withheld rather than exposing unverified content.' };
+    if (output && privateEvidenceSafe && report.checkpoints.length) writeFileSync(resolve(output.out, 'qa-report-illustrated-acceptance.md'), illustratedAcceptance(artifactReport), { flag: 'wx', mode: 0o600 });
     if (output) writeFileSync(resolve(output.out, 'acceptance.json'), `${JSON.stringify(artifactReport, null, 2)}\n`, { mode: 0o600 });
     console.log(JSON.stringify({ kind: report.kind, passed: report.passed, failure: report.failure ?? null, ...publicEntryDiagnostic(report),
       source: identity?.source ?? null, tag: identity?.tag ?? null, checkpoints: report.checkpoints, screenshots: report.screenshots.map(({ filename, bytes, sha256 }) => ({ filename, bytes, sha256 })) }));

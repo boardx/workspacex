@@ -2,6 +2,7 @@
  * A synthetic journey checks software behavior, never real interviews or classroom outcomes.
  * Credentials, request allowlists, run identity and evidence publication belong to the runner.
  */
+import { collectNativeSurvey, surveyFixture } from './devapp-aidt-survey.mjs';
 import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
@@ -11,7 +12,7 @@ export const REQUIRED_CHECKS = Object.freeze([
   's2-ten-card-chats', 's2-interview-handoff',
   ...Array.from({ length: 10 }, (_, index) => `s2-interview-u${String(index + 1).padStart(2, '0')}`),
   's2-distinct-threads', 's2-card-management', 's3-definition-hmw-handoff',
-  's4-three-distinct-descriptions', 's4-brainstorm-five-to-two', 's5-prototype-question-version',
+  's4-brainstorm-five-to-two', 's5-prototype-question-version',
   's6-test-reflection', 'report-confirmed-source-export',
   'six-stage-completion', 'anonymous-access-boundary',
 ]);
@@ -350,17 +351,17 @@ export function assertSavedCardCreation(before, after, target, kind) {
       new Set(ids).size !== ids.length || oldIds.some(id => !ids.includes(id))) fail('CARD_CREATION_ENTITY_UNVERIFIED');
 }
 
-export async function runAidtJourney({ page, expect, scope, checkpoint, capture, api,
+export async function runAidtJourney({ page, expect, interviewStarter, scope, checkpoint, capture, api,
   saveStage, armCardCreate, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
-  armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, savePrint, teachingFeedback, reviewS1StudentResponse }) {
+  armSurvey, surveyReceipt, armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, createSurveyParticipant, savePrint, teachingFeedback, reviewS1StudentResponse }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
   const root = `/aidt/${encodeURIComponent(scope.projectId)}`;
   const origin = new URL(page.url()).origin;
   const unique = `${scope.runId}-${scope.runAttempt}`.replace(/[^a-zA-Z0-9-]/g, '').slice(-28);
   const text = value => `${SYNTHETIC}。${value}`;
-  const feedback = async (stage, studentQuestion, code, finding, fixture) => {
+  const feedback = async (stage, studentQuestion, code, finding, fixture, testPlan) => {
     if (typeof teachingFeedback !== 'function') fail('NATIVE_TEACHING_CHAT_UNAVAILABLE');
-    return teachingFeedback(stage, studentQuestion ?? `QA ${scope.runId} 合成软件验收，非真实采访或课堂。请以本步已保存的学生初稿为依据，这是单轮纯文字咨询，只指出一个可完善处并问一个开放问题，不执行方案，不需要任务计划。不要替学生做决定，不保存成果，不调用工具、不生成文件，不把合成资料当真人证据。第${stage}步。`, code, finding, fixture);
+    return teachingFeedback(stage, studentQuestion ?? `QA ${scope.runId} 合成软件验收，非真实采访或课堂。请以本步已保存的学生初稿为依据，这是单轮纯文字咨询，只指出一个可完善处并问一个开放问题，不执行方案，不需要任务计划。不要替学生做决定，不保存成果，不调用工具、不生成文件，不把合成资料当真人证据。第${stage}步。`, code, finding, fixture, testPlan);
   };
   const stageEvidence = new Map();
   report.stageEvidence = [];
@@ -370,27 +371,6 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   };
   const savedStage = async stage => { const result = await api(`/api/projects/${scope.projectId}/aidt/stages/${stage}`); if (result.status !== 200 || (result.data?.stage && (result.data.stage.projectId !== scope.projectId || result.data.stage.stageId !== stage || !Number.isInteger(result.data.stage.revision)))) fail('STAGE_REVISION_UNVERIFIED'); return result.data?.stage ?? { revision: 0, content: null }; };
   const revision = async stage => (await savedStage(stage)).revision;
-  const observeInputs = async stage => {
-    const candidates = stage === 6 ? ['aidt-test-reflection'] : stage === 5 ? ['aidt-prototype-entity-output','aidt-stage-output'] : stage === 4 ? ['aidt-stage-output','aidt-idea-directory'] : stage === 3 ? ['aidt-definition-editor','aidt-stage-output'] : ['aidt-stage-output'];
-    let host; for (const id of candidates) { const candidate = page.getByTestId(id); if (await candidate.isVisible()) { host = candidate; break; } }
-    if (!host) fail('STAGE_INPUT_OBSERVATION_UNAVAILABLE');
-    const fields = await host.evaluate(root => [...root.querySelectorAll('textarea,input:not([type=file]):not([type=password]),select')].filter(node => node.getClientRects().length > 0).map(node => ({ name: (node.labels?.[0]?.innerText || node.getAttribute('aria-label') || node.getAttribute('data-testid') || node.name || node.tagName).trim().slice(0,180), content: node.type === 'checkbox' || node.type === 'radio' ? String(node.checked) : node.value.slice(0,2000), format: node.tagName === 'SELECT' || ['checkbox','radio'].includes(node.type) ? 'student choice in native UI' : 'plain text in native UI' })));
-    if (!fields.length) fail('STAGE_INPUT_FIELDS_NOT_OBSERVED');
-    const source = { projectId: scope.projectId, entityId: new URL(page.url()).searchParams.get('entity'), tool: new URL(page.url()).searchParams.get('tool'), saved_base_revision: await revision(stage), observation: 'Current native form values; some edits may be confirmed in the next save' };
-    for (const field of fields) { const item = { ...field, source }; if (!evidence(stage).inputs.some(existing => JSON.stringify(existing) === JSON.stringify(item))) evidence(stage).inputs.push(item); }
-  };
-  const iterate = async (stage, field, label, next, saveButton) => {
-    const before = await field.inputValue(), beforeRevision = await revision(stage);
-    if (before === next) fail('ITERATION_REQUIRES_ACTUAL_INPUT_CHANGE');
-    await field.fill(next); await saveStage(stage, saveButton);
-    await expect.poll(async () => { const saved = await savedStage(stage); return saved.revision > beforeRevision && hasExactSavedInput(saved.content, next); }, { timeout: 30000 }).toBe(true);
-    await page.reload();
-    if (stage === 4) await disclosure('分类与描述单');
-    await expect(field).toHaveValue(next);
-    const after = await field.inputValue(), afterRevision = await revision(stage);
-    if (after !== next) fail('ITERATION_INPUT_NOT_RETAINED');
-    evidence(stage).iterations.push({ action: `学生编辑${label}并正常保存`, before, after, reason: '学生先保留初稿，再补充更明确的范围；这是软件验收中的合成修订，不是AI或真实研究结论。', reload_value_matched: true, before_revision: beforeRevision, after_revision: afterRevision });
-  };
   const printOutput = async (stage, name, button, texts, imageHashes = []) => {
     if (typeof savePrint !== 'function') fail('PRINT_EVIDENCE_CAPTURE_UNAVAILABLE');
     const out = await savePrint({ stage, name, button, requiredTexts: texts, imageHashes });
@@ -417,10 +397,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   let lastEntityRoute = null;
   const waitForEntity = predicate => expect.poll(predicate, { timeout: 30000 }).toBe(true);
   const entityReady = async stage => {
-    const id = ({ 2: 'aidt-interview-output', 3: 'aidt-definition-editor', 4: 'aidt-idea-output', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
+    const id = ({ 2: 'aidt-interview-output', 3: 'aidt-definition-editor', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
     if (!id) fail('ENTITY_FORM_EXPECTATION_MISSING');
     await expect(page.getByTestId(id)).toBeVisible();
-    if (stage === 6) await expect(page.getByTestId(id).getByRole('textbox', { name: '测试任务与追问', exact: true })).toBeEditable();
+    if ([3, 5, 6].includes(stage)) await expect(page.getByTestId(id).getByRole('textbox')).toHaveCount(0);
   };
   const follow = async (name, { resource = false } = {}) => {
     const link = page.getByRole('link', { name, exact: true }); await expect(link).toBeVisible();
@@ -437,7 +417,15 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     lastEntityRoute = target;
     return href;
   };
-  const captureCardCreation = async (stage, kind, submit, { reopen = false } = {}) => {
+  const capturedDialogs = new Set();
+  const captureCardCreation = async (stage, kind, submit, { reopen = false, example = kind, expectedName } = {}) => {
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    const tag = dialog.getByRole('textbox', { name: '添加标签', exact: true });
+    await tag.fill('QA课堂'); await tag.press('Enter');
+    await expect(dialog.getByText('QA课堂', { exact: true })).toBeVisible();
+    const screenshotName = '0' + stage + '-create-' + example;
+    if (!capturedDialogs.has(example)) await capture(screenshotName + '-dialog', stage, 'card-dialog');
     const before = await savedStage(stage);
     armCardCreate(stage);
     const [response] = await Promise.all([
@@ -450,6 +438,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const target = ownedAidtEntityRoute(page.url(), { origin, projectId: scope.projectId }, { stage });
     const threadId = new URL(target.href).searchParams.get('thread');
     await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+    if (!capturedDialogs.has(example)) {
+      await capture(screenshotName + '-chat', stage);
+      capturedDialogs.add(example);
+    }
     const saved = await savedStage(stage);
     assertSavedCardCreation(before, saved, target, kind);
     await follow(stage === 1 ? '返回问题列表' : stage === 2 ? '返回访谈列表' : '返回产物列表');
@@ -458,6 +450,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const reloaded = await savedStage(stage);
     assertSavedCardCreation(before, reloaded, target, kind);
     if (reloaded.revision < saved.revision) fail('CARD_CREATION_RELOAD_UNVERIFIED');
+    const fields = reloaded.content.draft.fields;
+    const storedTags = stage === 2 ? JSON.parse(fields['interviewRecord:' + target.entityId]).tags : JSON.parse(fields['cardTags:' + target.entityId] ?? '[]');
+    if (!Array.isArray(storedTags) || !storedTags.includes('QA课堂')) fail('CARD_CREATION_TAG_RELOAD_UNVERIFIED');
+    if (expectedName) await expect(page.getByTestId('aidt-step-entity-directory').getByText(expectedName, { exact: false }).first()).toBeVisible();
     const directoryHref = page.url();
     let card;
     if (stage === 2) {
@@ -486,22 +482,18 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     return openAidtEntityOutcome({ page, target, waitForRoute: waitForEntity,
       assertReady: () => entityReady(target.stage) });
   };
-  const persistConfirmed = async (stage, control, saveControl) => {
-    await reviewAndSave(stage, control);
-    // Explicit entity confirmation is a local UI action; persist through the normal CAS button.
-    const save = saveControl ?? page.getByTestId('aidt-shared-save');
-    if (await save.isVisible() && await save.isEnabled()) {
-      const [pending] = await Promise.all([
-        page.waitForResponse(response => new URL(response.url()).pathname === `/api/projects/${scope.projectId}/aidt/stages/${stage}` && response.request().method() === 'PUT', { timeout: 30000 }),
-        click(save),
-      ]);
-      if (pending.status() !== 200) fail('CONFIRMED_UI_SAVE_NOT_ACKNOWLEDGED');
-    }
-    if (!saveControl) await expect(page.getByTestId('aidt-shared-status')).toContainText('小组已保存', { timeout: 30000 });
-  };
   const shot = async (name, stage) => {
     const url = new URL(page.url());
-    if (url.pathname === root && (!stage || url.searchParams.get('step') === String(stage))) await capture(name, stage);
+    if (url.pathname !== root || (stage && url.searchParams.get('step') !== String(stage))) return;
+    const thread = url.searchParams.get('summaryThread') ?? url.searchParams.get('thread');
+    const proof = thread && report.teachingEvidence.findLast(item => item.threadId === thread && item.status === 'passed');
+    if (proof) {
+      await expect(page.getByTestId('copilot-user-message').filter({ hasText: proof.prompt }).last()).toBeVisible();
+      const response = page.getByTestId('copilot-assistant-message').filter({ has: page.locator('[data-message-id="' + proof.assistantMessageId + '"]') });
+      await expect(response).toBeVisible();
+      await expect.poll(() => response.innerText().then(value => value.trim().length)).toBeGreaterThan(8);
+    }
+    await capture(name, stage);
   };
   const check = async (name, stage, fn, image) => checkpoint(name, async () => {
     const started = new Date().toISOString(), tick = performance.now();
@@ -548,7 +540,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   const problemName = `QA合成选题 ${unique}`;
   const personaName = `QA合成画像 ${unique}`;
   const question = '合成情境中，学生能否从静态队列示意中理解先看等待时间再决定的顺序？';
-  const ideaNames = ['QA纸质队列提示', 'QA分时试饮服务', 'QA同伴口味对照'].map(name => `${name} ${unique}`);
+
 
   await check('overview', undefined, async () => {
     await go(); await expect(page.getByTestId('aidt-dashboard')).toBeVisible();
@@ -558,7 +550,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   await check('s1-draft-not-complete', undefined, async () => {
     report.s1Navigation.operation = 'create-problem';
     await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', problemName);
-    await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true });
+    await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true, expectedName: problemName });
     report.s1Navigation.operation = 'open-problem-outcome';
     await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
     problemRoute = ownedAidtProblemRoute(page.url(), { origin, projectId: scope.projectId });
@@ -721,7 +713,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     state.syntheticHandoff = await check('synthetic-problem-for-interviews', undefined, async () => {
       const fixtureName = `QA独立访谈前置题 ${unique}`;
       await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', fixtureName);
-      await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true });
+      await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true, expectedName: fixtureName });
       const fixtureRoute = ownedAidtProblemRoute(page.url(), { origin, projectId: scope.projectId });
       const fixture = await openAidtProblemOutcome({ page, route: fixtureRoute,
         scope: { origin, projectId: scope.projectId }, waitForRoute: waitForEntity,
@@ -752,7 +744,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       if (await topic.locator('..').getAttribute('open') === null) await topic.click();
       await expect(topic.locator('..')).toContainText(confirmedProblem.rewrittenTheme);
       await click(page.getByTestId('aidt-new-entity-card'));
-      await captureCardCreation(2, 'interview', () => click(btn('创建访谈')), { reopen: true });
+      await fill('受访者姓名或化名', `QA受访者 ${code}`, page.getByRole('dialog'));
+      await captureCardCreation(2, 'interview', () => click(btn('创建访谈')), { reopen: true, expectedName: `QA受访者 ${code}` });
       const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
       assertAidtS2Topic(JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]), confirmedProblem);
       await waitForEntity(() => matchesAidtEntityRoute(page.url(), target));
@@ -760,6 +753,11 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await output(target);
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
       await expect(page.getByTestId('aidt-interview-output')).toContainText(code);
+      if (typeof interviewStarter !== 'string' || !interviewStarter.trim()) fail('INTERVIEW_SKILL_STARTER_MISSING');
+      await expect(page.getByTestId('aidt-chat-welcome')).toHaveText(interviewStarter);
+      await expect(page.getByTestId('copilotkit-v2-input')).toHaveCount(1);
+      await expect(page.getByTestId('copilotkit-v2-input')).toBeEditable();
+      await expect(page.getByRole('heading', { name: '先说说你们的想法' })).toHaveCount(0);
       const threadId = new URL(page.url()).searchParams.get('thread');
       expect(state.interviews.some(item => item.threadId === threadId || item.target.entityId === target.entityId)).toBe(false);
       state.interviews.push({ code, threadId, target, href: page.url(), hasMaterial: false });
@@ -783,28 +781,30 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await saveInterviewEdit(() => fill('定位（如 01:42 或第 3 段）', '第1段'));
     await saveInterviewEdit(() => fill('校对后的摘录', quote));
     await saveInterviewEdit(() => page.getByLabel('已对照原始材料校对', { exact: true }).check());
-    const firstFinding = text(`我自己的发现是${code}关注等待时间。来源是第1段的「${quote}」。请帮我检查这个解释和证据的关系。`);
+    const firstFinding = text(`我先写下自己的发现。标题：${code}关注等待时间。具体情况：午休选饮品时先看模拟队列再作决定。学生解释：等待时间可能影响选择，仍需真实访谈核实。第1段的原话是「${quote}」。请检查这些发现和引用，整理本次访谈的发现卡。`);
     if (!await feedback(2, firstFinding, code, true)) fail('S2_NATIVE_FINDING_REPLY_REQUIRED');
+    const proof = report.teachingEvidence.find(row => row.stageId === 2 && row.entityId === target.entityId && row.prompt === firstFinding && row.status === 'passed');
+    const readFinding = async () => {
+      const draft = (await savedStage(2)).content?.draft;
+      const card = draft?.discoveryCards?.find(item => item.id === target.entityId);
+      const record = JSON.parse(draft?.fields?.[`interviewRecord:${target.entityId}`] ?? '{}');
+      const interpretation = draft?.fields?.[`interviewInterpretation:${target.entityId}`];
+      if (!proof || record.draftTurnId !== proof.assistantMessageId || !card ||
+          card.participantCode !== code || !card.headline?.trim() || !card.context?.trim() || !interpretation?.trim() ||
+          !firstFinding.includes(card.headline) || !firstFinding.includes(card.context) || !firstFinding.includes(interpretation) ||
+          card.quote !== quote || draft.fields[`interviewConfirmed:${target.entityId}`] === 'true') return null;
+      return card;
+    };
+    await expect.poll(async () => Boolean(await readFinding()), { timeout: 30000 }).toBe(true);
+    const projected = await readFinding();
     const actions = page.getByTestId('aidt-interview-chat-actions');
     await disclosure('整理访谈发现');
-    const titleKind = actions.getByRole('combobox', { name: '标题来源', exact: true });
-    if (await titleKind.inputValue() !== 'student-summary') await saveInterviewEdit(() => titleKind.selectOption('student-summary'));
-    const discoveryEdits = [
-      ['一句发现', text(`${code}的合成记录关注等待时间。`)],
-      ['学生记录的可观察情况', text('测试夹具仅包含文字情境，不代表实际观察。')],
-      ['学生的解释', text('等待与选择可能有关，此解释未验证。')],
-      ['可定位的受访者原话', quote],
-    ];
-    for (const [label, value] of discoveryEdits) {
-      const field = actions.getByLabel(label, { exact: true });
-      if (await field.inputValue() !== value) await saveInterviewEdit(() => field.fill(value));
-    }
     await confirmInInterviewChat(btn('确认人物发现卡', actions));
     await output(target);
     const inspector = await readOnlyInterviewOutput();
     evidence(2).outputs.push({ name: `${code}人物发现卡`, format: 'native finding card; synthetic text, real-person photo missing', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}; software scope only` });
-    await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(code + '的合成记录关注等待时间');
-    recordInterviewIteration(firstFinding, text(`${code}的合成记录关注等待时间。`), `${code}人物发现卡`, target);
+    await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(projected.headline);
+    recordInterviewIteration(firstFinding, projected.headline, `${code}人物发现卡`, target);
     Object.assign(interview, { quote, materialName: `qa-${unique}-${code}.txt`, hasMaterial: true });
   };
   if (tenChatsOpened) {
@@ -888,7 +888,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await click(page.getByTestId('aidt-new-entity-card'));
     const creation = page.getByRole('dialog', { name: '新建访谈' });
     await fill('受访者姓名或化名', '临时化名', creation);
-    const { target: created } = await captureCardCreation(2, 'interview', () => click(btn('创建访谈', creation)));
+    const { target: created } = await captureCardCreation(2, 'interview', () => click(btn('创建访谈', creation)), { expectedName: '临时化名' });
     const createdRecord = JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${created.entityId}`] ?? '{}');
     if (createdRecord.code !== 'U11') fail('S2_CARD_AUTO_OPEN_MISMATCH');
     await expect(cards).toHaveCount(11);
@@ -922,128 +922,64 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     report.interviewCardManagement = { created: true, editedAfterReload: true, retainedMultipleTags: true, filterMatchedEachTag: true, removedFromActiveAfterReload: true, retainedArchive: true };
   }, '02-interview-card-management');
 
-  async function createDefinitionCard(kind, typeButton, name, sourceGroup) {
-    await click(page.getByTestId('aidt-new-entity-card'));
-    const dialog = page.getByRole('dialog');
-    await click(btn(typeButton, dialog));
-    await fill('卡片名称', name, dialog);
-    await dialog.getByTestId('card-create-tag-input').fill('课程 QA');
-    if (sourceGroup) await dialog.getByRole('group', { name: sourceGroup }).getByRole('checkbox').first().check();
-    await captureCardCreation(3, kind, () => click(btn('创建' + ({surprise: '意外发现', persona: '画像', hmw: 'HMW'})[kind], dialog)), { reopen: true });
-  }
-
   state.s3 = await check('s3-definition-hmw-handoff', 3, async () => {
     if (!state.s2 || !step3Href) { await go(3); fail('S2_CONFIRMED_HANDOFF_REQUIRED'); }
     await page.goto(owned(step3Href));
-    await createDefinitionCard('surprise', '新建意外发现', 'QA 合成意外发现'); await output();
-    await page.getByRole('radio', { name: '暂无意外发现', exact: true }).check();
-    await persistConfirmed(3, page.getByTestId('aidt-surprise-confirm'));
+    const source = state.interviews[0];
+    const secondSource = state.interviews[1];
+    const context = `使用已确认的 ${source.code} 与 ${secondSource.code} 发现卡，记录分别为 ${source.target.entityId} 与 ${secondSource.target.entityId}。`;
+    const confirmDefinition = async (target, prompt) => {
+      if (!await feedback(3, text(prompt))) fail('DEFINITION_TEACHING_REPLY_REQUIRED');
+      const proof = report.teachingEvidence.find(item => item.stageId === 3 && item.entityId === target.entityId && item.status === 'passed');
+      if (!proof) fail('DEFINITION_TEACHING_REPLY_REQUIRED');
+      await saveStage(3, btn('确认当前产物'), { confirmation: true });
+      const stage = await savedStage(3);
+      if (stage.content.draft.fields['definitionChatSource:' + target.entityId] !== proof.assistantMessageId) fail('DEFINITION_CONFIRMATION_SOURCE_UNVERIFIED');
+      await output(target);
+      const panel = page.getByTestId('aidt-definition-editor');
+      await expect(panel.getByRole('textbox')).toHaveCount(0);
+      return { panel, draft: stage.content.draft };
+    };
+    const createDefinition = async (kind, label, launch, title, sourceLabel, sourceName) => {
+      await click(page.getByTestId('aidt-new-entity-card'));
+      await click(btn(launch, page.getByRole('group', { name: '选择卡片类型' })));
+      const dialog = page.getByRole('dialog', { name: '新建' + label });
+      await fill('卡片名称', title, dialog);
+      const source = dialog.getByRole('group', { name: sourceLabel, exact: true }).getByRole('checkbox', { name: sourceName });
+      await source.check();
+      if (kind === 'hmw') await dialog.getByRole('group', { name: '来源访谈', exact: true }).getByRole('checkbox', { name: /U01/ }).check();
+      if (kind === 'persona') await dialog.getByRole('group', { name: sourceLabel, exact: true }).getByRole('checkbox', { name: /U02/ }).check();
+      return captureCardCreation(3, kind, () => click(btn('创建' + label, dialog)), { reopen: true, expectedName: title });
+    };
+    const { target: surprise } = await createDefinition('surprise', '意外发现', '新建意外发现', 'QA意外发现', '来源访谈', /U01/);
+    const noSurprise = await confirmDefinition(surprise, '我们重新读了合成材料，暂无与原先想法冲突的证据。请如实记录「暂无意外发现」。');
+    await expect(noSurprise.panel).toContainText('暂无');
     await follow('返回产物列表');
-    await createDefinitionCard('persona', '新建画像', personaName, '来源访谈'); await output();
-    await fill('画像名称', personaName); await fill('用户情境', text('午休时的饮品选择合成情境。'));
-    await fill('可观察的行为', text('夹具中的人物先看队列。')); await fill('需求', text('了解等待信息，仍需真实研究。'));
-    await fill('反例、适用范围或仍未知的地方', '只有QA合成材料，年龄、兴趣与真实行为均未知。');
-    await page.getByRole('group', { name: /^关联已确认的人物发现卡/ }).getByRole('checkbox', { name: /^U01/ }).check();
-    await saveStage(3);
-    await iterate(3, page.getByRole('textbox', { name: '可观察的行为', exact: true }), '画像的行为范围', text('合成夹具中人物先看队列；赶时间与闲暇情境需要分开理解，尚不能推广到真实人群。'));
-    await observeInputs(3);
-    await persistConfirmed(3, btn('确认画像')); personaHref = page.url();
-    evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
-    await follow('返回产物列表'); await createDefinitionCard('hmw', '新建 HMW', 'QA 合成 HMW', '来源画像'); await output();
-    await fill('我们如何……（HMW）', text('我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？'));
-    await fill('选择理由或待核实处', '来自本次合成发现卡；是否适用于真实学生仍待验证。');
-    await page.getByRole('group', { name: '关联已确认画像', exact: true }).getByRole('checkbox', { name: personaName, exact: true }).check();
-    await page.getByRole('group', { name: /^关联已确认的人物发现卡/ }).getByRole('checkbox', { name: /^U01/ }).check();
-    await saveStage(3);
-    await iterate(3, page.getByRole('textbox', { name: '我们如何……（HMW）', exact: true }), 'HMW表述', text('我们如何帮助不同时间情境中的学生理解等待信息，并保留多种自主选择？'));
-    await feedback(3);
-    await observeInputs(3);
-    await persistConfirmed(3, btn('确认 HMW')); await persistConfirmed(3, btn('选为本轮 HMW'));
-    evidence(3).outputs.push({ name: '本轮选定HMW及暂无意外发现记录', format: 'native confirmed HMW and source-card links', status: 'pass', evidence: `V${await revision(3)}; 暂无 is a valid branch, no invented surprise` });
-    await follow('返回产物列表'); step4Href = owned(await page.getByRole('link', { name: '带入创意发散', exact: true }).getAttribute('href'));
+    const { target: persona } = await createDefinition('persona', '画像', '新建画像', personaName, '来源访谈', /U01/);
+    const personaProjection = await confirmDefinition(persona, `${context} 我们将画像命名为「${personaName}」。午休赶课的学生先看队列，希望了解等待时间。只有合成记录，不能推广到真实人群。请整理为画像并引用这两张发现卡。`);
+    const personaRecord = JSON.parse(personaProjection.draft.fields['definitionPersona:' + persona.entityId]);
+    if (!personaRecord.confirmed || ![source, secondSource].every(row => personaRecord.cardIds.includes(row.target.entityId))) fail('PERSONA_FINDING_LINK_UNVERIFIED');
+    personaHref = persona.href;
+    await expect(personaProjection.panel).toContainText(personaRecord.name);
+    await follow('返回产物列表');
+    const { target: alternate } = await createDefinition('hmw', 'HMW', '新建 HMW', 'QA另一研究方向', '来源画像', personaName);
+    const alternateProjection = await confirmDefinition(alternate, `${context} 关联画像「${personaRecord.name}」（记录 ${persona.entityId}）。另一个方向是：我们如何让午休赶课的学生在排队前理解等待时间？这是待核实的方向。请记录这个问题及来源。`);
+    const alternateRecord = JSON.parse(alternateProjection.draft.fields['definitionHmw:' + alternate.entityId]);
+    if (!alternateRecord.confirmed || !alternateRecord.personaIds.includes(persona.entityId)) fail('HMW_REFERENCE_UNVERIFIED');
+    await follow('返回产物列表');
+    const { target: hmw } = await createDefinition('hmw', 'HMW', '新建 HMW', 'QA研究方向', '来源画像', personaName);
+    const hmwProjection = await confirmDefinition(hmw, `${context} 关联已确认画像「${personaRecord.name}」（记录 ${persona.entityId}）。我们如何帮助不同时间情境中的学生理解等待信息，并保留自主选择？请整理这个方向，标注现有依据只是合成记录。`);
+    const hmwRecord = JSON.parse(hmwProjection.draft.fields['definitionHmw:' + hmw.entityId]);
+    if (!hmwRecord.confirmed || !hmwRecord.personaIds.includes(persona.entityId) || !hmwRecord.cardIds.includes(source.target.entityId)) fail('HMW_REFERENCE_UNVERIFIED');
+    if (alternate.entityId === hmw.entityId || alternateRecord.text.trim() === hmwRecord.text.trim()) fail('DISTINCT_HMW_REQUIRED');
+    state.hmwChoices = { selected: hmw.entityId, alternate: alternate.entityId };
+    await expect(hmwProjection.panel).toContainText(hmwRecord.text);
+    await saveStage(3, btn('选为本轮 HMW'), { confirmation: true });
+    step4Href = owned(await page.getByTestId('aidt-stage-next').getAttribute('href'));
+    evidence(3).outputs.push({ name: personaRecord.name, format: 'confirmed Chat persona with linked interview', status: 'pass' }, { name: hmwRecord.text, format: 'confirmed HMW with persona and interview source', status: 'pass' });
+    await follow('返回产物列表');
     await shot('03-definition-directory', 3); await completed(3); await page.goto(owned(step3Href));
   }, '03-definition');
-
-  state.s4 = await check('s4-three-distinct-descriptions', 4, async () => {
-    if (!state.s3 || !step4Href) { await go(4); fail('S3_CONFIRMED_HANDOFF_REQUIRED'); }
-    const directoryHref = owned(step4Href);
-    await page.goto(directoryHref);
-    const ideaDirectory = page.getByTestId('aidt-idea-directory');
-    await expect(ideaDirectory).toBeVisible();
-    for (const name of ideaNames) {
-      await click(btn('新建点子', ideaDirectory));
-      const dialog = page.getByRole('dialog', { name: '新建点子' });
-      await fill('点子名称', name, dialog);
-      await captureCardCreation(4, 'idea', () => click(dialog.locator('button[type=submit]')));
-      await expect(ideaDirectory.getByRole('link', { name: `打开「${name}」对话`, exact: true })).toBeVisible();
-    }
-    const hmwStage = await savedStage(3), hmwId = hmwStage.content.draft.fields.definitionHmwId;
-    let hmw; try { hmw = JSON.parse(hmwStage.content.draft.fields[`definitionHmw:${hmwId}`]); } catch { fail('SELECTED_HMW_UNVERIFIED'); }
-    if (hmw?.id !== hmwId || !hmw.confirmed || hmw.archived || typeof hmw.text !== 'string' || !hmw.text.trim() || String(hmwStage.revision) !== new URL(step4Href).searchParams.get('hmwRevision')) fail('SELECTED_HMW_UNVERIFIED');
-    const expectedHmw = { id: hmwId, revision: hmwStage.revision, text: hmw.text };
-    const descriptions = [
-      text('用纸质提示展示队列和预计等待。学生据此自主决定是否加入队列，实际效果仍待真实测试。'),
-      text('用分时预约说明不同的领取顺序。是否减少等待需要真实服务测试。'),
-      text('用同伴口味对照展示不同人的具体偏好。少数意见不能代表所有学生。'),
-    ];
-    const ownDraft = async name => (await savedStage(4)).content.draft.ideas.find(idea => idea.title === name);
-    const verifiedRoutes = [];
-    for (const [index, name] of ideaNames.entries()) {
-      await page.goto(directoryHref);
-      await follow(`打开「${name}」对话`);
-      const target = lastEntityRoute;
-      verifiedRoutes.push(target);
-      const review = page.getByRole('region', { name: '点子确认' });
-      await expect(review).toBeVisible();
-      if (index === 0) {
-        if (!await feedback(4)) fail('S4_NATIVE_TEACHING_FEEDBACK_REQUIRED');
-      }
-      await disclosure('添加描述单配图');
-      await uploaded('点子配图', `qa-${unique}-idea-${index + 1}.png`, schematicPng(unique, index + 1), 'image/png');
-      const control = review.getByRole('textbox', { name: '点子描述草稿' });
-      await control.fill(descriptions[index]);
-      await reviewAndSave(4, btn('确认点子产物', review));
-      await expect.poll(async () => (await ownDraft(name))?.description, { timeout: 30000 }).toBe(descriptions[index]);
-      await expect(review.getByText('点子已确认', { exact: true })).toBeVisible();
-      if (index === 0) {
-        assertSavedAidtHmwSource(await savedStage(4), expectedHmw);
-        const previous = descriptions[index];
-        const beforeRevision = await revision(4);
-        descriptions[index] = text('纸质提示同时展示预计等待和可选口味，学生先看再自主决定。它只解释信息，不证明真实等待已经改善。');
-        await click(btn('改写描述', review)); await control.fill(descriptions[index]);
-        await reviewAndSave(4, btn('确认点子产物', review));
-        await expect.poll(async () => (await ownDraft(name))?.description, { timeout: 30000 }).toBe(descriptions[index]);
-        const afterRevision = await revision(4);
-        if (afterRevision <= beforeRevision) fail('ITERATION_INPUT_NOT_RETAINED');
-        evidence(4).iterations.push({ name: '首个点子的核心说明', before: previous, after: descriptions[index], beforeRevision, afterRevision });
-      }
-      evidence(4).inputs.push({ name, content: descriptions[index], format: 'student-reviewed description in native Chat', source: { entityId: target.entityId } });
-    }
-    if (new Set(descriptions).size !== 3 || new Set(verifiedRoutes.map(route => route.entityId)).size !== 3) fail('S4_DISTINCT_DESCRIPTIONS_REQUIRED');
-    const categories = ['最容易实现的', '最具突破性的', '最有趣的'];
-    const compare = page.getByRole('region', { name: '点子确认' });
-    await disclosure('确认分类与原型交接');
-    for (const [index, name] of ideaNames.entries()) {
-      await compare.getByLabel(`${name} · ${categories[index]}`, { exact: true }).check();
-      await fill(`${name} · 分类理由`, text('这是本次QA学生选择，课堂效果未知。'), compare);
-    }
-    await click(btn('确认本组分类', compare));
-    await compare.getByRole('group', { name: '选择带入原型的点子' }).getByRole('checkbox', { name: ideaNames[0], exact: true }).check();
-    await reviewAndSave(4, btn('确认完成本阶段', compare));
-    await expect.poll(async () => JSON.parse((await savedStage(4)).content.draft.fields.ideaSheetIds || '[]').length, { timeout: 30000 }).toBe(3);
-    step5Href = owned(await compare.getByRole('link', { name: '进入原型制作', exact: true }).getAttribute('href'));
-    for (const [index, target] of verifiedRoutes.entries()) {
-      await page.goto(target.href);
-      await output(target);
-      const artifact = page.getByTestId('aidt-idea-output');
-      await expect(artifact).toContainText(descriptions[index]);
-      await printOutput(4, `idea-description-${index + 1}`, btn('导出描述单 PDF', artifact), [ideaNames[index], descriptions[index]], [createHash('sha256').update(schematicPng(unique, index + 1)).digest('hex')]);
-    }
-    await shot('04-three-idea-descriptions', 4); await completed(4); await page.goto(directoryHref);
-    report.threeDistinctDescriptionPreviewsVerified = true;
-    report.descriptionPdfBytesGenerated = true;
-    report.descriptionPdfIndependentGlyphValidation = 'pending artifact download';
-  }, '04-ideas');
 
   state.s4 = await check('s4-brainstorm-five-to-two', 4, async () => {
     if (!state.s3 || !step4Href) fail('S3_CONFIRMED_HANDOFF_REQUIRED');
@@ -1064,39 +1000,67 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await click(page.getByTestId('aidt-new-entity-card'));
       const dialog = page.getByRole('dialog', { name: '新建头脑风暴' });
       const name = 'QA头脑风暴 ' + method + ' ' + unique;
-      await fill('场次名称', name, dialog);
-      await fill('添加标签', 'QA课堂', dialog);
-      await dialog.getByRole('textbox', { name: '添加标签', exact: true }).press('Enter');
+      await dialog.getByRole('textbox', { name: '场次名称', exact: true }).fill(name);
       const hmw = dialog.getByRole('combobox', { name: 'HMW', exact: true });
       await expect.poll(() => hmw.locator('option').count()).toBeGreaterThanOrEqual(3);
       await hmw.selectOption(chosenHmw.id);
       await dialog.getByRole('combobox', { name: '发散方法' }).selectOption(method);
       await dialog.getByRole('spinbutton', { name: '希望探索的点子数' }).fill(String(target));
-      const { target: route } = await captureCardCreation(4, 'brainstorm', () => click(btn('开始头脑风暴', dialog)), { reopen: true });
-      const entity = route.entityId;
-      if (!entity.startsWith('brainstorm-')) fail('S4_BRAINSTORM_SOURCE_UNVERIFIED');
+      await captureCardCreation(4, 'brainstorm', () => click(btn('开始头脑风暴', dialog)), { reopen: true, example: 'brainstorm-' + method, expectedName: name });
+      await expect.poll(() => new URL(page.url()).searchParams.get('entity')).toMatch(/^brainstorm-/);
+      const entity = new URL(page.url()).searchParams.get('entity');
+      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
       const threadId = new URL(page.url()).searchParams.get('thread');
-      const fields = (await savedStage(4)).content.draft.fields;
-      if (!JSON.parse(fields['cardTags:' + entity] ?? '[]').includes('QA课堂')) fail('S4_BRAINSTORM_TAG_RELOAD_UNVERIFIED');
       if (methodSessions.has(threadId)) fail('S4_BRAINSTORM_THREAD_NOT_INDEPENDENT');
       methodSessions.add(threadId);
       const key = 'ideaBrainstorm:' + entity;
       const read = async () => JSON.parse((await savedStage(4)).content.draft.fields[key] ?? 'null');
       const session = await read();
-      if (session?.source?.id !== chosenHmw.id || session.source?.text !== chosenHmw.text || session.source?.revision !== stage3.revision
-        || session.title !== name || session.method !== method || session.count !== target) fail('S4_BRAINSTORM_SOURCE_UNVERIFIED');
+      if (session?.title !== name || session.source?.id !== chosenHmw.id || session.source?.text !== chosenHmw.text || session.source?.revision !== stage3.revision
+        || session.method !== method || session.count !== target) fail('S4_BRAINSTORM_SOURCE_UNVERIFIED');
       return { entity, threadId, read };
     };
+    const second = await start('scamper', 1);
+    const secondPrompt = text('我的初步办法是发一张纸卡。请按当前场次的方法选择一个具体步骤延展这个点子，说明你用了哪一步。');
+    if (!await feedback(4, secondPrompt)) fail('S4_SCAMPER_NATIVE_FEEDBACK_REQUIRED');
+    await expect.poll(async () => (await second.read())?.candidates.length, { timeout: 30000 }).toBe(1);
+    const exactScamper = report.teachingEvidence.find(row => row.threadId === second.threadId && row.prompt === secondPrompt && row.status === 'passed');
+    if (!exactScamper || !/SCAMPER|替代|组合|调整|改变|移除/u.test(exactScamper.assistantText)) fail('S4_SCAMPER_METHOD_NOT_OBSERVED');
     const reverse = await start('reverse', 5);
     const reversePrompt = text('我想到在排队入口放纸牌显示等待时间。请用场次选定的方法先对比怎样会让体验变糟及如何翻转，再和我一起补到本场目标数量。只做概念草稿。');
     if (!await feedback(4, reversePrompt)) fail('S4_REVERSE_NATIVE_FEEDBACK_REQUIRED');
     await expect.poll(async () => (await reverse.read())?.candidates.length, { timeout: 30000 }).toBe(5);
     const exactReverse = report.teachingEvidence.find(row => row.threadId === reverse.threadId && row.prompt === reversePrompt && row.status === 'passed');
     if (!exactReverse || !/逆向|翻转|反转|反过来/u.test(exactReverse.assistantText)) fail('S4_REVERSE_METHOD_NOT_OBSERVED');
-    const output = page.getByTestId('aidt-brainstorm-output');
-    await expect(output).toBeVisible();
-    await expect(output.getByRole('listitem')).toHaveCount(5);
+    const brainstormOutput = page.getByTestId('aidt-brainstorm-output');
+    await expect(brainstormOutput).toBeVisible();
+    await expect(brainstormOutput.getByRole('listitem')).toHaveCount(5);
     const selectedIds = (await reverse.read()).candidates.slice(0, 2);
+    const reverseHref = owned(page.url());
+    const candidates = (await savedStage(4)).content.draft.ideas;
+    for (const [index, id] of selectedIds.entries()) {
+      const idea = candidates.find(record => record.id === id);
+      if (!idea?.title || !idea.description) fail('S4_SELECTED_CANDIDATE_DESCRIPTION_REQUIRED');
+      await page.goto(frozenUrl.href);
+      const link = page.getByRole('link', { name: '打开「' + idea.title + '」对话', exact: true });
+      const route = ownedAidtEntityRoute(await link.getAttribute('href'), { origin, projectId: scope.projectId }, { stage: 4, entityId: id });
+      await click(link);
+      await page.waitForURL(url => matchesAidtEntityRoute(url.href, route) && url.searchParams.get('thread')?.startsWith('thr_aidt_'));
+      const review = page.getByRole('region', { name: '点子确认' });
+      await expect(review.getByRole('textbox', { name: '点子描述草稿' })).toHaveValue(idea.description);
+      await disclosure('添加描述单配图');
+      const image = schematicPng(unique, index + 1);
+      await uploaded('点子配图', `qa-${unique}-idea-${index + 1}.png`, image, 'image/png');
+      await reviewAndSave(4, btn('确认点子产物', review));
+      await output(route);
+      const artifact = page.getByTestId('aidt-idea-output');
+      await expect(artifact.getByRole('textbox')).toHaveCount(0);
+      await expect(artifact).toContainText(idea.description);
+      await printOutput(4, 'idea-description-' + (index + 1), btn('导出描述单 PDF', artifact),
+        [idea.title, idea.description, chosenHmw.text], [createHash('sha256').update(image).digest('hex')]);
+    }
+    await page.goto(reverseHref);
+    await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(reverse.threadId);
     const compare = page.getByRole('region', { name: '筛选点子' });
     await click(compare.getByText('筛选点子 · 已选 0', { exact: true }));
     await compare.getByRole('checkbox').nth(0).check();
@@ -1108,21 +1072,16 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const frozenHandoff = owned(await compare.getByRole('link', { name: '进入原型制作' }).getAttribute('href'));
     if (String(stage4.revision) !== new URL(frozenHandoff).searchParams.get('ideaRevision')) fail('S4_BRAINSTORM_HANDOFF_REVISION_MISMATCH');
     await page.reload();
-    await expect(output.getByRole('listitem')).toHaveCount(5);
+    await expect(brainstormOutput.getByRole('listitem')).toHaveCount(5);
     await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(reverse.threadId);
-    await expect(output.getByRole('heading', { name: /入选 2/ })).toBeVisible();
+    await expect(brainstormOutput.getByRole('heading', { name: /入选 2/ })).toBeVisible();
     await shot('04-brainstorm-five-to-two', 4);
-    const second = await start('scamper', 1);
-    const secondPrompt = text('我的初步办法是发一张纸卡。请按当前场次的方法选择一个具体步骤延展这个点子，说明你用了哪一步。');
-    if (!await feedback(4, secondPrompt)) fail('S4_SCAMPER_NATIVE_FEEDBACK_REQUIRED');
-    await expect.poll(async () => (await second.read())?.candidates.length, { timeout: 30000 }).toBe(1);
-    const exactScamper = report.teachingEvidence.find(row => row.threadId === second.threadId && row.prompt === secondPrompt && row.status === 'passed');
-    if (!exactScamper || !/SCAMPER|替代|组合|调整|改变|移除/u.test(exactScamper.assistantText)) fail('S4_SCAMPER_METHOD_NOT_OBSERVED');
+    await completed(4);
     await page.goto(frozenHandoff);
     await expect(page.getByTestId('aidt-step-entity-directory')).toBeVisible();
-    if (state.s4) step5Href = frozenHandoff;
+    step5Href = frozenHandoff;
     report.brainstormHandoff = { hmwId: chosenHmw.id, hmwRevision: stage3.revision, stage4Revision: stage4.revision, sameSessionAfterReload: true, retained: 5, selected: 2, selectedIds, methodThreadCount: 2, methods: ['reverse', 'scamper'] };
-  }, '04-brainstorm') && state.s4;
+  }, '04-brainstorm');
 
   state.s5 = await check('s5-prototype-question-version', 5, async () => {
     if (!state.s4 || !step5Href) { await go(5); fail('S4_CONFIRMED_HANDOFF_REQUIRED'); }
@@ -1132,13 +1091,16 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await click(cardDirectory.getByTestId('aidt-new-entity-card'));
     const dialog = page.getByRole('dialog', { name: '新建原型' });
     await fill('原型名称', '未命名设计', dialog);
+    const chosenIdeas = dialog.getByRole('group', { name: '来源点子', exact: true });
+    await expect(chosenIdeas.getByRole('checkbox', { checked: true }).first()).toBeVisible();
     const { target: designRoute } = await captureCardCreation(5, 'prototype', async () => {
       await armDesignCreate(); await click(btn('创建原型', dialog));
-    }, { reopen: true });
+    }, { reopen: true, expectedName: '未命名设计' });
     designId = designRoute.entityId;
+    await output(designRoute);
     const actions = page.getByRole('region', { name: '原型对话操作' });
     await expect(actions.getByRole('link', { name: '打开 Design 工作台' })).toHaveCount(0);
-    await saveStage(5, btn('采用入选点子', actions));
+
     const studentInputs = {
       verificationQuestion: question,
       beforeTestBelief: '我预计并排信息能帮助比较，实际等待行为未知。',
@@ -1162,9 +1124,7 @@ ${JSON.stringify(studentInputs)}`);
       || bound.verificationBasis !== studentInputs.verificationBasis || bound.verificationQuestionConfirmed !== 'true') fail('S5_QUESTION_NOT_EXACTLY_CONFIRMED');
     const selectedIdeas = JSON.parse(bound.prototypeIdeaSource ?? '{}');
     const ideaRevision = Number(new URL(step5Href).searchParams.get('ideaRevision'));
-    if (!Number.isSafeInteger(ideaRevision) || ideaRevision < 1 || selectedIdeas.revision !== ideaRevision
-      || ideaRevision !== report.brainstormHandoff.stage4Revision
-      || JSON.stringify(selectedIdeas.ideaIds) !== JSON.stringify(report.brainstormHandoff.selectedIds)) fail('S5_IDEA_SOURCE_MISMATCH');
+    if (JSON.stringify(selectedIdeas.ideaIds) !== JSON.stringify(report.brainstormHandoff.selectedIds) || ideaRevision !== report.brainstormHandoff.stage4Revision || !Number.isSafeInteger(ideaRevision) || ideaRevision < 1 || selectedIdeas.revision !== ideaRevision) fail('S5_IDEA_SOURCE_MISMATCH');
     const priorResult = await api(`/api/projects/${scope.projectId}/aidt/stages/4/revision/${ideaRevision}`);
     const priorStage = priorResult.data?.stage;
     if (priorResult.status !== 200 || priorStage?.projectId !== scope.projectId || priorStage.stageId !== 4
@@ -1226,47 +1186,79 @@ ${JSON.stringify(studentInputs)}`);
 
   state.s6 = await check('s6-test-reflection', 6, async () => {
     if (!state.s5 || !step6Href) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
-    await page.goto(owned(step6Href)); await click(page.getByTestId('aidt-new-entity-card'));
-    const creation = page.getByRole('dialog', { name: '新建测试卡片' });
-    await fill('测试名称', `QA合成测试 ${unique}`, creation);
-    const { directoryHref: savedDirectoryHref } = await captureCardCreation(6, 'test',
-      () => click(btn('创建测试卡片', creation)), { reopen: true });
-    await output();
-    const detail = page.getByTestId('aidt-test-group-detail'); await expect(detail).toBeVisible();
-    await fill('参与者代号', `QA合成对象 ${unique}`, detail);
-    await fill('测试情境', text('只用于软件验收的虚构午休情境，未接触真实受访者。'), detail);
-    await fill('测试任务与追问', text('请指出示意图里先看等待信息再选择的顺序；这是一份待真实对象测试的计划。'), detail);
-    await fill('原件位置（时间点、答卷或批次）', '合成记录第1段', detail);
-    const syntheticTestRecord = text('QA记录：本次仅校验软件如何保存原型、测试计划和反馈位置，没有真实用户行为。');
-    await uploaded('本组原始材料', `qa-${unique}-test.txt`, Buffer.from(syntheticTestRecord), 'text/plain');
-    await fill('原话或问卷原始回答', text('合成夹具文字，不是真人引文；真实回答尚未采集。'), detail);
-    await fill('现场观察到的行为', '本次未观察真人行为。', detail);
-    await fill('学生解释', '当前只是软件验收，不能由合成材料判断方案有效。', detail);
-    await fill('学生对本组测试的反思', '正式研究需授权真实对象并核对记录。', detail);
-    await saveStage(6);
-    await iterate(6, detail.getByRole('textbox', { name: '测试任务与追问', exact: true }), '待实施的测试问题', text('正式测试时先请对象说明自己会做哪一步，再追问不理解之处；本次不诱导赞同，不声称已经真实测试。'));
-    await feedback(6);
-    const nativeFields = await detail.locator('input,textarea,select').evaluateAll(nodes => nodes.filter(node => node.getClientRects().length > 0 && node.type !== 'file').map(node => ({ name: (node.labels?.[0]?.innerText || node.tagName).trim().slice(0,180), content: node.value.slice(0,2000), format: 'native test plan/material form' })));
-    const nativePlanRevision = await revision(6);
-    evidence(6).inputs.push(...nativeFields.map(field => ({ ...field, source: { projectId: scope.projectId, entityId: new URL(page.url()).searchParams.get('entity'), saved_base_revision: nativePlanRevision, observation: 'Native test entity planning and explicitly synthetic material, not a real participant test' } })));
-    await shot('06-native-test-plan-and-material', 6);
-    await page.goto(owned(savedDirectoryHref));
-    const reflection = page.getByTestId('aidt-test-reflection'); await expect(reflection).toBeVisible();
-    await expect(reflection.getByTestId('aidt-bound-question')).toContainText(question);
-    await reflection.getByRole('combobox', { name: '测试之后，对这个问题的认识有什么变化？', exact: true }).selectOption('insufficient');
-    await fill('测试后的认识', text('本次只有合成软件验收，没有真实对象测试，不能判断方案效果。'), reflection);
-    await fill('支持判断的测试材料', 'QA合成记录；未采集真实用户行为。', reflection);
-    await fill('仍不确定的地方', '需要真实对象理解反馈及实际情境观察，当前证据不足。', reflection);
-    await reflection.getByRole('combobox', { name: '如果继续改进，优先从哪一步重新入手？', exact: true }).selectOption('2');
-    await fill('为什么从这里重新入手？', '需要真实访谈，不能用QA合成夹具支持效果判断。', reflection);
-    await fill('下一步具体做什么？', '取得适当授权后补充真实访谈，再回看原问题；本次不生成新版。', reflection);
-    await saveStage(6, btn('保存本轮测试与反思'));
-    await iterate(6, reflection.getByRole('textbox', { name: '测试后的认识', exact: true }), '证据不足时的认识', text('本次只有合成软件验收，未测试真实对象；认识暂不能改变，下一轮先补真实访谈后判断情境差异。'), btn('保存本轮测试与反思'));
-    await observeInputs(6);
-    await persistConfirmed(6, btn('确认本轮学习记录', reflection), btn('保存本轮测试与反思'));
-    await page.reload(); await expect(page.getByTestId('aidt-test-reflection')).toContainText('本轮学习记录已确认');
+    let interviewTarget;
+    for (const [method, label] of [['interview', '线下访谈'], ['survey', '问卷']]) {
+      await page.goto(owned(step6Href)); await click(page.getByTestId('aidt-new-entity-card'));
+      const dialog = page.getByRole('dialog', { name: '新建测试卡片' });
+      await fill('测试名称', `QA合成${label} ${unique}`, dialog);
+      await expect(dialog).toContainText('原型');
+      const { target: testTarget } = await captureCardCreation(6, 'test', () => click(btn('创建测试卡片', dialog)), { reopen: true, example: method + '-test', expectedName: `QA合成${label} ${unique}` });
+      await output(testTarget);
+      const detail = page.getByTestId('aidt-test-group-detail');
+      await expect(detail.getByRole('textbox')).toHaveCount(0);
+      const actions = page.getByTestId('aidt-test-chat-confirmation');
+      await disclosure('关联测试材料');
+      const methodField = actions.getByRole('combobox', { name: '测试方式', exact: true });
+      const saveSource = async action => {
+        armCardCreate(6);
+        const [response] = await Promise.all([page.waitForResponse(row => row.url() === origin + '/api/projects/' + scope.projectId + '/aidt/stages/6' && row.request().method() === 'PUT'), action()]);
+        if (response.status() !== 200) fail('TEST_MATERIAL_WRITE_UNVERIFIED');
+      };
+      if (await methodField.inputValue() !== method) await saveSource(() => methodField.selectOption(method));
+      const initialPlan = text(`本组准备通过${label}观察学生读懂队列提示的情况。我们的初始测试问题是：你会从哪里开始看？接下来想做什么？请根据这个实体的验证问题整理成不诱导的测试计划，保留我们的测试方式，目前尚未采集反馈。`);
+      if (!await feedback(6, initialPlan, undefined, false, false, true)) fail('TEST_PLAN_REPLY_REQUIRED');
+      const planProof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.prompt === initialPlan && item.status === 'passed');
+      const readGroup = async () => JSON.parse((await savedStage(6)).content.draft.fields['testGroup:' + testTarget.entityId]);
+      await expect.poll(async () => (await readGroup()).planFromMessageId, { timeout: 30000 }).toBe(planProof?.assistantMessageId ?? 'MISSING');
+      await expect(detail).toContainText((await readGroup()).task);
+      await shot('06-' + method + '-chat-plan', 6);
+      const syntheticTestRecord = text(`${label}合成材料第1段。合成页面按查看等待信息、理解选择、决定是否排队的顺序展示。未进行真实用户测试。`);
+      const survey = surveyFixture(scope.runId);
+      if (method === 'survey') {
+        armSurvey(testTarget.entityId);
+        await collectNativeSurvey({ page, expect, actions, saveSource, fixture: survey, receipt: surveyReceipt, createSurveyParticipant });
+      } else await saveSource(() => uploaded('本组原始材料', `qa-${unique}-${method}.txt`, Buffer.from(syntheticTestRecord), 'text/plain'));
+      const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的${method === 'survey' ? '原生问卷答卷，自报原话为「' + survey.answer + '」，没有独立行为观察，请保留行为字段为空' : '线下访谈合成材料第1段'}，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
+      if (!await feedback(6, prompt)) fail('TEST_TEACHING_REPLY_REQUIRED');
+      const proof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.prompt === prompt && item.status === 'passed');
+      await saveStage(6, btn('确认并保存测试成果', actions), { confirmation: true });
+      await page.reload();
+      await output(testTarget);
+      const fields = (await savedStage(6)).content.draft.fields;
+      const testRecord = JSON.parse(fields['testGroup:' + testTarget.entityId]);
+      if (testRecord.method !== method || testRecord.designId !== designId || !testRecord.versionId || !proof || testRecord.confirmedFromMessageId !== proof.assistantMessageId || !testRecord.task?.trim() || !testRecord.reflection?.trim() ||
+          fields.reflectionConfirmed !== 'true' || fields.understandingChangeStatus !== 'insufficient' || fields.returnStep !== '2') fail('TEST_NATIVE_ROUND_UNVERIFIED');
+      if (method === 'survey') {
+        if (testRecord.did || testRecord.source?.kind !== 'survey' || testRecord.source.id !== surveyReceipt().id || testRecord.surveyResponseId !== surveyReceipt().responseId) fail('NATIVE_SURVEY_RESPONSE_REQUIRED');
+        await disclosure('原型版本与来源');
+        await expect(detail.getByRole('link', { name: '查看原生答卷' })).toHaveAttribute('href', new RegExp('/studio/survey/' + testRecord.source.id + '/responses'));
+        await expect(detail.getByText('已定位答卷 ' + testRecord.surveyResponseId, { exact: true })).toBeVisible();
+        await disclosure('查看所选答卷的原始回答');
+        await expect(detail.getByText(survey.answer, { exact: true })).toBeVisible();
+        await shot('06-survey-real-response', 6);
+      }
+      if (method === 'interview') {
+        interviewTarget = testTarget;
+        await disclosure('原型版本与来源');
+        await expect(detail.getByTestId('aidt-research-original-text')).toContainText(syntheticTestRecord);
+        await shot('06-interview-reloaded-original', 6);
+      }
+      await expect(detail).toContainText(testRecord.task);
+      await expect(detail).toContainText(testRecord.reflection);
+      evidence(6).outputs.push({ name: label, entityId: testTarget.entityId, threadId: new URL(testTarget.href).searchParams.get('thread'), designId, versionId: testRecord.versionId, method });
+      await shot('06-native-' + method + '-plan-and-material', 6);
+    }
+    const tested = evidence(6).outputs.filter(item => item.designId === designId);
+    if (tested.length !== 2 || tested[0].entityId === tested[1].entityId || tested[0].threadId === tested[1].threadId || tested[0].versionId !== tested[1].versionId) fail('TEST_GROUP_ISOLATION_UNVERIFIED');
     await shot('06-reflection-insufficient-return-empathy', 6); await completed(6); await page.goto(owned(step6Href));
-    evidence(6).notes.push('没有真人测试；本次明确选择证据不足并回共情研究，保存本轮认识与行动，未强制生成新版原型。');
+    if (!interviewTarget) fail('TEST_GROUP_ISOLATION_UNVERIFIED');
+    await output(interviewTarget);
+    const interviewOutput = page.getByTestId('aidt-test-group-detail');
+    await disclosure('原型版本与来源');
+    await expect(interviewOutput.getByRole('link', { name: '查看原生答卷' })).toHaveCount(0);
+    await expect(interviewOutput).not.toContainText(surveyReceipt().responseId);
+    await expect(interviewOutput).not.toContainText(surveyFixture(scope.runId).answer);
+    report.nativeSurveyRoundtrip = { ...surveyReceipt(), participantBrowserIndependent: true, siblingIsolation: true, screenshot: '06-survey-real-response.png' };
     report.insufficientEvidenceAndReturnWithoutNewPrototypeVerified = true;
   }, '06-reflection');
 
@@ -1281,24 +1273,36 @@ ${JSON.stringify(studentInputs)}`);
       assertReady: async () => { await expect(page.getByTestId('aidt-report-preview')).toBeVisible(); await expect(page.getByTestId('aidt-report-reload')).toBeEnabled(); } });
     const reportUrl = new URL(page.url());
     const reportRegion = page.getByTestId('aidt-report-preview'); await expect(reportRegion).toBeVisible();
-    await click(btn('编辑报告', reportRegion));
-    const draft = reportRegion.getByLabel('小组报告草稿', { exact: true });
-    await expect(draft).toHaveValue(/合成/);
-    const initial = await draft.inputValue();
-    await draft.fill(`${initial}\n\n## QA验收边界\n${SYNTHETIC}。本次验证软件流程与来源追溯，没有进行真实课堂或真实访谈，方案效果尚待验证。\n`);
-    await disclosure('选择报告引用的阶段版本');
-    for (let stage = 1; stage <= 6; stage++) {
-      const sourceSelect = reportRegion.locator('label').filter({ has: page.locator('span').filter({ hasText: new RegExp(`^第 ${stage} 步$`) }) }).locator('select');
-      await expect(sourceSelect).toBeEnabled(); await sourceSelect.selectOption({ index: 1 });
+    await expect(reportRegion.getByRole('textbox')).toHaveCount(0);
+    await expect(page.getByTestId('aidt-summary-materials')).toBeVisible();
+    const reportPrompt = text('请依据本项目六个步骤当前已确认的版本起草小组研究报告。说明项目问题、访谈发现、画像和 HMW、发散与收敛、原型验证问题、测试反思和下一轮安排。逐步列出引用的版本，保留证据缺口。明确写入「合成验收数据，非真实访谈」，避免将软件验证描述成真实受访者的结论。');
+    if (!await feedback(6, reportPrompt)) fail('REPORT_NATIVE_REPLY_REQUIRED');
+    const proof = report.teachingEvidence.find(item => item.entityId === 'group-report' && item.status === 'passed' && item.prompt === reportPrompt);
+    if (!proof) fail('REPORT_NATIVE_REPLY_REQUIRED');
+    const expectedPrototypeRevision = Number(new URL(step6Href).searchParams.get('prototypeRevision'));
+    if (!proof.sourceEntities.some(ref => ref.stageId === 5 && ref.entityId === designId && ref.revision === expectedPrototypeRevision)) fail('REPORT_FROZEN_PROTOTYPE_LINEAGE_REQUIRED');
+    const receipt = page.getByTestId('aidt-run-context-receipt');
+    await expect(receipt).toBeVisible();
+    if (!await receipt.evaluate(element => element.open)) await receipt.locator('summary').click();
+    for (const ref of proof.sourceEntities) {
+      const params = new URLSearchParams({ step: String(ref.stageId), entity: ref.entityId, entityRevision: String(ref.revision) });
+      await expect(receipt.locator('a').filter({ hasText: '查看第 ' + ref.stageId + ' 步来源' }).and(receipt.locator('a[href="' + root + '?' + params + '"]'))).toBeVisible();
     }
-    await saveReport(); await click(btn('阅读预览', reportRegion)); await click(btn('确认审阅此版本', reportRegion));
-    await reviewAndSave(6, btn('确认小组报告', reportRegion));
+    await shot('07-frozen-source-receipt', 6);
+    const actions = page.getByTestId('aidt-report-chat-actions');
+    await click(btn('采用报告草稿', actions));
+    await saveReport();
+    await reviewAndSave(6, btn('确认小组报告', actions));
     await expect(page.getByTestId('aidt-report-save-state')).toContainText('已确认');
     await disclosure('已确认版本与导出');
     const readVersion = page.getByRole('button', { name: /^查看确认版 V\d+$/ }); await click(readVersion);
     await expect(page.getByRole('article', { name: '已确认报告正文', exact: true })).toContainText(SYNTHETIC);
     const sources = page.getByRole('list', { name: '确认版本来源', exact: true }); await expect(sources).toBeVisible();
-    for (let stage = 1; stage <= 6; stage++) await expect(sources).toContainText(`第 ${stage} 步`);
+    for (let stage = 1; stage <= 6; stage++) {
+      const selectedRevision = proof.sourceRevisions.find(item => item.stageId === stage)?.revision;
+      if (!selectedRevision) fail('REPORT_SOURCE_REVISION_MISSING');
+      await expect(sources.getByText(new RegExp('第\\s*' + stage + '\\s*步.*V' + selectedRevision + '(?:\\D|$)'))).toBeVisible();
+    }
     const [download] = await Promise.all([page.waitForEvent('download'), click(page.getByRole('button', { name: /^下载 V\d+ Markdown$/ }))]);
     if (typeof saveDownload !== 'function') fail('REPORT_SAFE_DOWNLOAD_STORAGE_REQUIRED');
     await saveDownload(download);
@@ -1306,11 +1310,11 @@ ${JSON.stringify(studentInputs)}`);
     const stream = await download.createReadStream(); if (!stream) fail('REPORT_DOWNLOAD_UNREADABLE');
     let bytes = 0; const chunks = []; for await (const chunk of stream) { bytes += chunk.length; if (bytes > 1000000) fail('REPORT_DOWNLOAD_TOO_LARGE'); chunks.push(chunk); }
     const content = Buffer.concat(chunks), exportedText = content.toString('utf8'); expect(exportedText).toContain(SYNTHETIC);
-    const requiredReportHighlights = ['探索校园午休饮品选择中的情境差异', 'U01的合成记录关注等待时间', personaName, '我们如何帮助不同时间情境中的学生理解等待信息', ...ideaNames, question, '本次只有合成软件验收，未测试真实对象', '需要真实访谈'];
+    const requiredReportHighlights = ['午休', '等待', '访谈', '画像', '原型', '测试'];
     for (const text of requiredReportHighlights) { expect(exportedText).toContain(text); await expect(page.getByRole('article', { name: '已确认报告正文', exact: true })).toContainText(text); }
     report.nativeReportContentChecks = requiredReportHighlights.map(text => ({ text, observedInConfirmedBody: true, observedInDownloadedMarkdown: true }));
     report.confirmedReportExport = { bytes, sha256: createHash('sha256').update(content).digest('hex'), format: 'markdown' };
-    await printOutput(6, 'confirmed-group-report', page.getByRole('button', { name: /^打印 V\d+ PDF$/ }), [SYNTHETIC, 'QA验收边界']);
+    await printOutput(6, 'confirmed-group-report', page.getByRole('button', { name: /^打印 V\d+ PDF$/ }), [SYNTHETIC, '午休']);
     const confirmedState = await page.getByTestId('aidt-report-save-state').innerText();
     const confirmedMatch = confirmedState.match(/已确认 · V(\d+)/); if (!confirmedMatch) fail('CONFIRMED_REPORT_REVISION_MISSING');
     const confirmedRevision = Number(confirmedMatch[1]);
