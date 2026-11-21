@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { AidtDefinitionDirectory, AidtDefinitionEditor } from "@/features/aidt/components/aidt-definition";
 import { addAidtDefinitionEntity, chooseAidtDefinitionHmw, readAidtDefinition, readAidtDefinitionSelection, saveAidtDefinitionHmw, saveAidtDefinitionPersona } from "@/features/aidt/lib/aidt-definition";
-import { emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
+import { emptyAidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { aidtRoundMissingOutput } from "@/features/aidt/lib/aidt-round-completion";
 import { StageContent } from "@repo/contracts/aidt-stages";
 
@@ -11,7 +11,7 @@ const card = { id: "u1", participantCode: "U01", headline: "难以比较口味",
 const unconfirmed = { ...card, id: "u2", participantCode: "U02" };
 const context = { availableCards: [card, unconfirmed], availableCardsRevision: 2, discoveryCardFields: { "interviewConfirmed:u1": "true" }, readOnly: false };
 const blank = () => emptyAidtUiDrafts()[3]!;
-const noSurprise = () => ({ ...blank(), fields: { surpriseStatus: "none", surpriseConfirmed: "true" } });
+const noSurprise = (): AidtUiStageDraft => ({ ...blank(), fields: { surpriseStatus: "none", surpriseConfirmed: "true" } });
 const ids = new Set(["u1"]);
 const persona = (id: string) => ({ id, name: id, situation: "食堂午休点单", behavior: "先比较口味", need: "清晰区分差异", limits: "目前只有单个访谈证据", cardIds: ["u1"], confirmed: true, archived: false });
 const hmw = (id: string) => ({ id, text: `我们如何改善 ${id} 的选择体验？`, rationale: "学生进一步核对", cardIds: ["u1"], personaIds: ["p1", "p2"], confirmed: true, archived: false });

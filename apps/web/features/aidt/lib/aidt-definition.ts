@@ -76,7 +76,7 @@ function clearSelection(fields: Record<string, string>): void {
   delete fields.personaBehavior;
 }
 
-function writeRecord(fields: Record<string, string>, prefix: string, record: { id: string }): boolean {
+function writeRecord<T extends { id: string }>(fields: Record<string, string>, prefix: string, record: T): boolean {
   const key = prefix + record.id;
   const value = JSON.stringify(record);
   if (value.length > 6000 || (!Object.hasOwn(fields, key) && Object.keys(fields).length >= 95)) return false;
