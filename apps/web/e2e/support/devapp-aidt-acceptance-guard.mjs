@@ -76,6 +76,34 @@ export const TEACHING_TURN_LIMIT = 44;
 // Nine additional interviews each save a guide, consent, a transcript and the confirmed finding.
 const WRITE_LIMIT = 128 + 9 * 15;
 
+const SurveyId = new RegExp(`^${UUID}$`);
+const SurveyToken = /^[A-Za-z0-9._-]{12,180}$/;
+const surveyTypes = ['short','date','scale','scale','scale','single','scale','open'];
+const surveyQuestions = surveyTypes.map((_, i) => `meeting-feedback-q${i + 1}`);
+export function aidtSurveyFixture(run, attempt) {
+  const marker = `QA-${run}-${attempt}`;
+  return { title: `${marker} 合成原型反馈问卷`, name: `${marker} 合成原型观察`, answer: `${marker} 只验证原型标签是否可读，未观察到真实购买或耗时。` };
+}
+function validSurveyDraft(body, fixture) {
+  return object(body) && Object.keys(body).sort().join(',') === 'questions,tags,template,title'
+    && body.title === fixture.title && Array.isArray(body.tags) && body.tags.length === 0
+    && body.template?.id === 'meeting-feedback-report'
+    && Array.isArray(body.questions) && body.questions.length === surveyTypes.length
+    && body.questions.every((question, i) => question?.id === surveyQuestions[i] && question.type === surveyTypes[i]
+       && question.provenance?.source === 'template' && question.provenance.sourceId === 'builtin-survey-meeting-feedback');
+}
+function validSurveySubmission(body, fixture) {
+  if (!object(body) || Object.keys(body).sort().join(',') !== 'answers,durationSeconds,submissionId'
+      || !SurveyId.test(body.submissionId ?? '') || !Number.isSafeInteger(body.durationSeconds) || body.durationSeconds < 0 || body.durationSeconds > 180
+      || !Array.isArray(body.answers) || body.answers.length !== surveyQuestions.length
+      || body.answers.some(answer => !object(answer) || Object.keys(answer).sort().join(',') !== 'questionId,value')) return false;
+  const answers = new Map(body.answers.map(({questionId, value}) => [questionId, value]));
+  return answers.size === surveyQuestions.length && answers.get(surveyQuestions[0]) === fixture.name
+    && answers.get(surveyQuestions[1]) === '2026-11-21'
+    && [2,3,4,6].every(index => answers.get(surveyQuestions[index]) === '4')
+    && ['o2', '合适'].includes(answers.get(surveyQuestions[5])) && answers.get(surveyQuestions[7]) === fixture.answer;
+}
+
 export function createAcceptanceGuard(identity, now = Date.now) {
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
   let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0, ordinaryVerified = false, projectCreateUntil = null, projectCourseTag;
@@ -84,13 +112,48 @@ export function createAcceptanceGuard(identity, now = Date.now) {
   let teachingRequests = 0, suggestionsBlocked = 0, teachingStopped = false, isolatedProblemReceipt = null;
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
   let imageArm = null, imageCount = 0, designLinked = false;
+  const surveyFixture = aidtSurveyFixture(identity.run, identity.attempt);
+  let surveyArm = null, survey = null, surveyCreateSent = false, surveyLinkSent = false, surveyPublishSent = false, surveySubmitSent = false;
+  let testSaveArm = null;
+  function testRecord(stage, entityId) {
+    try {
+      const record = JSON.parse(stage?.content?.draft?.fields?.['testGroup:' + entityId]);
+      return record.id === entityId && !record.archived ? record : null;
+    } catch { return null; }
+  }
+  function guardedTestSave(body) {
+    const beforeStage = stageStates.get(6), before = beforeStage?.content?.draft, after = body?.content?.draft;
+    const bound = testSaveArm, key = 'testGroup:' + bound?.entityId;
+    if (!bound || now() > bound.until || !before || !after || body.expectedRevision !== beforeStage.revision
+      || JSON.stringify(body.sourceStageRevisions) !== JSON.stringify(beforeStage.sourceStageRevisions)) return false;
+    if (JSON.stringify({ ...before, fields: undefined }) !== JSON.stringify({ ...after, fields: undefined })) return false;
+    const beforeFields = { ...before.fields }, afterFields = { ...after.fields };
+    delete beforeFields[key]; delete afterFields[key];
+    if (afterFields.reflectionConfirmed === '') afterFields.reflectionConfirmed = beforeFields.reflectionConfirmed;
+    if (Object.keys({ ...beforeFields, ...afterFields }).some(field => beforeFields[field] !== afterFields[field])) return false;
+    const original = testRecord(beforeStage, bound.entityId), next = testRecord({ content: body.content }, bound.entityId);
+    if (!original || !next) return false;
+    const fields = bound.action === 'method' ? ['method','source','material','sourceLocation','said','did','audioConsentAt','surveyResponseId','afterTestBelief','understandingChange']
+      : bound.action === 'survey' || bound.action === 'response' ? ['source','sourceLocation','surveyResponseId','said','did','afterTestBelief','understandingChange'] : ['material'];
+    if (Object.keys({ ...original, ...next }).some(field => !fields.includes(field) && JSON.stringify(next[field]) !== JSON.stringify(original[field]))) return false;
+    if (bound.action === 'method') return original.method === 'interview' && next.method === 'survey' && next.source === null && next.material === null
+      && !next.audioConsentAt && !next.surveyResponseId && !next.sourceLocation && !next.said && !next.did && !next.afterTestBelief && !next.understandingChange;
+    if (bound.action === 'survey') return survey?.linked && bound.entityId === survey.entityId && next.method === 'survey' && next.source?.kind === 'survey'
+      && Object.keys(next.source).sort().join(',') === 'id,kind' && next.source.id === survey.id
+      && !next.surveyResponseId && !next.sourceLocation && !next.said && !next.did && !next.afterTestBelief && !next.understandingChange;
+    if (bound.action === 'response') return survey?.responseId && bound.entityId === survey.entityId && next.source?.kind === 'survey'
+      && Object.keys(next.source).sort().join(',') === 'id,kind' && original.source?.id === survey.id && next.source.id === survey.id
+      && next.surveyResponseId === survey.responseId && next.sourceLocation === `答卷 ${survey.responseId}` && !next.said && !next.did && !next.afterTestBelief && !next.understandingChange;
+    const upload = uploads.get(next.material?.runId);
+    return original.method === 'interview' && upload?.filename === bound.filename && upload.artifactId === next.material.artifactId;
+  }
   let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null, modelRequestedScreens = null;
   const readCategories = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
   const readDenials = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
   const metadataHttpStatuses = [];
   let metadataHttpStatusesTruncated = false;
   const stop = code => { fatal ??= code; return { allow: false, kind: 'rejected', code }; };
-  function decideRequest({ url, method, resourceType, body }) {
+  function decideRequest({ url, method, resourceType, body, audience }) {
     if (fatal) return { allow: false, kind: 'stopped', code: fatal };
     if (/%2f|%5c|%2e|\\/i.test(url.split('?')[0])) return stop('TARGET_REJECTED');
     let target;
@@ -101,6 +164,16 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     if (body !== undefined && Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_BODY) return stop('REQUEST_BODY_BOUND');
     if (projectId && target.searchParams.has('projectId') && target.searchParams.get('projectId') !== projectId) return stop('FOREIGN_PROJECT_REFERENCE');
     if (allowedWrites - reconcileCount >= WRITE_LIMIT && method !== 'GET') return stop('WRITE_COUNT_BOUND');
+    if (audience === 'survey-participant') {
+      if (!survey?.token || !ordinaryVerified || !survey.linked || target.search) return stop('SURVEY_PARTICIPANT_SCOPE_REJECTED');
+      if (method === 'GET' && (path === `/surveys/${survey.token}` || path === `/api/public/surveys/${survey.token}`
+          || path.startsWith('/_next/static/') || path === '/favicon.ico')) return { allow: true, kind: 'read' };
+      if (method === 'POST' && path === `/api/public/surveys/${survey.token}/responses` && !surveySubmitSent
+        && validSurveySubmission(body, surveyFixture)) {
+        surveySubmitSent = true; allowedWrites++; return { allow: true, kind: 'survey-respond' };
+      }
+      return stop('SURVEY_PARTICIPANT_SCOPE_REJECTED');
+    }
     if (method === 'POST' && path === '/api/auth/login' && !target.search) {
       if (!loginArmed || actor || loginCount !== 0 || !object(body) || Object.keys(body).sort().join(',') !== 'email,password' || !body.email || !body.password) return stop('LOGIN_REJECTED');
       loginCount++; return { allow: true, kind: 'login' };
@@ -116,6 +189,12 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         && target.searchParams.get('orgId') === org && target.searchParams.get('kind') === 'agent') {
         return { allow: true, kind: 'native-agent-catalog' };
       }
+      if (ordinaryVerified && projectId && surveyArm && now() <= surveyArm.until && path === '/studio/survey'
+          && [...target.searchParams.keys()].sort().join(',') === 'create,projectId' && target.searchParams.get('create') === '1') return { allow: true, kind: 'read' };
+      if (survey?.linked && target.searchParams.get('projectId') === projectId
+        && [...target.searchParams.keys()].every(key => key === 'projectId' || key === '_rsc')
+        && ['design','publish','responses'].some(step => path === `/studio/survey/${survey.id}/${step}`)) return { allow: true, kind: 'read' };
+      if (survey?.linked && path === `/api/surveys/${survey.id}` && !target.search) return { allow: true, kind: 'survey-read' };
       const publicPage = path === '/login' || path === '/aidt' || path === '/favicon.ico' || path.startsWith('/_next/static/') || approvedHomeImage(target);
       const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/copilotkit/info' && !target.search) || (path === '/api/projects' && target.searchParams.get('orgId') === org) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
       const ownedRead = (projectId || candidate) && (path === `/aidt/${projectId ?? candidate}` || path.startsWith(`/api/projects/${projectId ?? candidate}/`));
@@ -158,6 +237,19 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       teachingRequests++; return { allow: true, kind: 'teaching-turn', stageId: entry.scope.stageId, threadId: entry.scope.threadId };
     }
 
+    if (method === 'POST' && path === '/api/surveys' && !target.search && ordinaryVerified && surveyArm && now() <= surveyArm.until
+      && !surveyCreateSent && validSurveyDraft(body, surveyFixture)) {
+      surveyCreateSent = true; allowedWrites++; return { allow: true, kind: 'survey-create' };
+    }
+    if (method === 'POST' && survey && !surveyLinkSent && path === `/api/projects/${projectId}/resources` && !target.search
+      && object(body) && Object.keys(body).sort().join(',') === 'kind,projectId,resourceId' && body.kind === 'survey'
+      && body.projectId === projectId && body.resourceId === survey.id) {
+      surveyLinkSent = true; allowedWrites++; return { allow: true, kind: 'survey-link' };
+    }
+    if (method === 'POST' && survey?.linked && !surveyPublishSent && survey.publishUntil >= now() && !target.search
+      && path === `/api/surveys/${survey.id}/publish` && object(body) && Object.keys(body).join(',') === 'expectedVersion' && body.expectedVersion === survey.version) {
+      surveyPublishSent = true; allowedWrites++; return { allow: true, kind: 'survey-publish' };
+    }
     try { checkReferences(body, projectId, threads, resources); } catch (error) { return stop(error.code ?? 'REFERENCE_REJECTED'); }
     if (method === 'POST' && path === '/api/pm-designs' && !target.search && !designId && designArm && now() <= designArm && object(body) && Object.keys(body).sort().join(',') === 'name,template' && body.name === '未命名设计' && body.template === 'ui') {
       designArm = null; allowedWrites++; return { allow: true, kind: 'create-design' };
@@ -193,6 +285,10 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     const stage = new RegExp(`^/api/projects/${projectId}/aidt/stages/([1-6])$`).exec(path);
     if (method === 'PUT' && stage && object(body) && object(body.content) && object(body.content.draft)) {
       const n = Number(stage[1]);
+      if (n === 6 && testSaveArm) {
+        if (target.search || !guardedTestSave(body)) return stop('TEST_AUTOSAVE_SCOPE_REJECTED');
+        testSaveArm = null; allowedWrites++; return { allow: true, kind: 'save-stage', stageId: n };
+      }
       const explicitlyArmed = arm && arm.stage === n && arm.remaining > 0 && now() <= arm.until;
       const projection = [...teachingLedger.values()].find(entry => entry.wire && !entry.projected && (
         n === 4 && entry.brainstormUntil >= now() && validBrainstormProjection(stageStates.get(4), body, entry.scope.selector.entityId) ||
@@ -259,6 +355,27 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     } else if (decision.kind === 'create-project') {
       if (![200, 201].includes(status) || !PROJECT.test(response?.id ?? '') || response.kind !== 'general' || response.status !== 'active') throw new ProbeFailure('PROJECT_RESPONSE_REJECTED');
       candidate = response.id;
+    } else if (decision.kind === 'survey-create') {
+      if (status !== 201 || !SurveyId.test(response?.id ?? '') || response.title !== surveyFixture.title || response.status !== 'draft'
+        || !Number.isSafeInteger(response.version) || response.version < 1 || response.publication !== null || response.responses?.length !== 0)
+        throw new ProbeFailure('NATIVE_SURVEY_CREATE_UNVERIFIED');
+      survey = { id: response.id, version: response.version, entityId: surveyArm.entityId };
+    } else if (decision.kind === 'survey-link') {
+      if (![200,201,204].includes(status)) throw new ProbeFailure('NATIVE_SURVEY_LINK_UNVERIFIED');
+      survey.linked = true;
+    } else if (decision.kind === 'survey-publish') {
+      const token = response?.publication?.token;
+      if (status !== 201 || response.id !== survey.id || response.title !== surveyFixture.title || response.publication?.status !== 'collecting'
+        || !SurveyToken.test(token ?? '') || response.responses?.length !== 0) throw new ProbeFailure('NATIVE_SURVEY_PUBLISH_UNVERIFIED');
+      survey.token = token;
+    } else if (decision.kind === 'survey-respond') {
+      if (status !== 201 || !SurveyId.test(response?.responseId ?? '') || response.replayed !== false) throw new ProbeFailure('NATIVE_SURVEY_RESPONSE_UNVERIFIED');
+      survey.responseId = response.responseId;
+    } else if (decision.kind === 'survey-read') {
+      if (status !== 200 || response?.id !== survey.id || response.title !== surveyFixture.title) throw new ProbeFailure('NATIVE_SURVEY_READ_UNVERIFIED');
+      if (survey.responseId && (response.responses?.length !== 1 || response.responses[0].id !== survey.responseId
+        || !response.responses[0].answers?.some(answer => answer.questionId === surveyQuestions[7] && answer.value === surveyFixture.answer)))
+        throw new ProbeFailure('NATIVE_SURVEY_READ_UNVERIFIED');
     } else if (decision.kind === 'create-design') {
       const item = response?.project;
       if (![200, 201].includes(status) || !/^[A-Za-z0-9_-]{1,128}$/.test(item?.id ?? '') || item.ownerId !== actor || item.name !== '未命名设计' || item.template !== 'ui' || item.frames?.length !== 0 || item.share !== null) throw new ProbeFailure('DESIGN_OWNERSHIP_UNVERIFIED');
@@ -395,6 +512,23 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000, ...(brainstorming ? { brainstormUntil: now() + 180000 } : {}), ...(scope.testPlan ? { planUntil: now() + 180000 } : {}) });
     },
 
+    armSurveyCreate: entityId => {
+      const group = testRecord(stageStates.get(6), entityId);
+      if (!projectId || !ordinaryVerified || surveyArm || group?.method !== 'survey' || group.source
+        || group.name !== `QA合成问卷 ${identity.run}-${identity.attempt}`) throw new ProbeFailure('SURVEY_CREATE_ARM_REJECTED');
+      surveyArm = { entityId, until: now() + 60000 };
+    },
+    armSurveyPublish: () => {
+      if (!survey?.linked || surveyPublishSent) throw new ProbeFailure('SURVEY_PUBLISH_ARM_REJECTED');
+      survey.publishUntil = now() + 15000;
+    },
+    surveyReceipt: () => survey ? { ...survey } : null,
+    armTestSave: ({ entityId, action, filename }) => {
+      const group = testRecord(stageStates.get(6), entityId);
+      if (!ordinaryVerified || !group || testSaveArm || !['method', 'survey', 'response', 'material'].includes(action)
+        || action === 'material' && filename !== `qa-${identity.run}-${identity.attempt}-interview.txt`) throw new ProbeFailure('TEST_AUTOSAVE_ARM_REJECTED');
+      testSaveArm = { entityId, action, filename, until: now() + 45000 };
+    },
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },
     armDesignGeneration: () => { if (!designId || modelCount) throw new ProbeFailure('DESIGN_GENERATION_ARM_REJECTED'); modelArm = now() + 15000; },
     armDesignImage: ({ id, fileName, bytes }) => {
