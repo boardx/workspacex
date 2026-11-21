@@ -355,6 +355,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await expect(checkpointSelect).toBeVisible();
   await checkpointSelect.selectOption(JSON.stringify([checkpointArtifactId, checkpointSource.data.immutableRevision]));
   await page.getByTestId("aidt-checkpoint-restore").click();
+  await page.getByTestId("aidt-checkpoint-restore-confirm-apply").click();
   await expect(page.getByTestId("aidt-checkpoint-restore-notice")).toContainText("尚未同步给小组");
   await openOutcome(page);
   await expect(page.getByTestId("aidt-stage-output")).not.toContainText("本页草稿：改善校园午餐排队");
@@ -430,7 +431,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await expect(page.getByTestId("aidt-report-preview")).toBeVisible();
   await page.getByRole("button", { name: "编辑报告", exact: true }).click();
   const reportEditor = page.getByLabel("小组报告草稿", { exact: true });
-  await expect(reportEditor).toHaveValue(/本页草稿：改善校园午餐排队/);
+  await expect(reportEditor).not.toHaveValue(/本页草稿：改善校园午餐排队/);
   await expect(reportEditor).toHaveValue(/错峰取餐界面/);
   const draftReport = await reportEditor.inputValue();
   await reportEditor.fill(`${draftReport}\n本组本页审阅备注：尚未真实测试。`);

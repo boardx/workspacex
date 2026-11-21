@@ -193,7 +193,7 @@ test("shared AIDT legacy aggregate stages: two members persist revisions, stale 
     const reportOnly = stages.operations.get.out.parse((await request(page, stage6Path)).data).stage!;
     expect(reportOnly.content.draft).toEqual(stage6Input.content.draft);
     expect(reportOnly.content.summaryReport?.markdown).toBe(reviewedReport);
-    expect(reportOnly.content.summaryReport?.sourceStageRevisions.some(source => source.stageId === 6)).toBe(false);
+    expect(reportOnly.content.summaryReport?.sourceStageRevisions).toEqual(summaryReport.sourceStageRevisions);
     await page.screenshot({ path: test.info().outputPath("aidt-report-real-shared-receipt.png"), fullPage: true });
     const reportGeometry = [];
     for (const width of [1280, 375]) {
