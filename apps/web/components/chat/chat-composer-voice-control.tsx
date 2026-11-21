@@ -75,7 +75,7 @@ function LevelBars({ level }: { level: number }): JSX.Element {
         return (
           <span
             key={threshold}
-            className="w-0.5 rounded-pill bg-destructive-foreground transition-[height] duration-fast"
+            className="w-0.5 rounded-pill bg-current transition-[height] duration-fast"
             style={{ height: `${height}px`, opacity: on ? 1 : 0.45 }}
           />
         );
@@ -183,13 +183,15 @@ export function ComposerVoiceControl({
     }, locale)
     : null;
 
-  const shell = listening
+  const shell = inline && (listening || paused || reconnecting)
+    ? "border-primary/30 bg-primary/10 text-primary"
+    : listening
     ? "border-destructive bg-destructive text-destructive-foreground"
     : paused
       ? "border-destructive bg-panel-alt text-destructive"
       : "border-border bg-panel-alt text-card-foreground";
-  const divider = listening ? "bg-destructive-foreground/30" : "bg-border";
-  const hover = listening ? "hover:bg-destructive/90" : "hover:bg-muted";
+  const divider = listening && !inline ? "bg-destructive-foreground/30" : "bg-border";
+  const hover = listening && !inline ? "hover:bg-destructive/90" : "hover:bg-muted";
   const connecting = phase === "connecting";
   const mainText = canStop ? t("chatComposer.stop")
     : connecting ? t("chatComposer.voiceConnectingShort")
@@ -198,7 +200,7 @@ export function ComposerVoiceControl({
     : t("chatComposer.voiceInput");
 
   return (
-    <div ref={containerRef} className={`relative flex h-8 items-stretch overflow-visible rounded-pill border transition-colors duration-fast ${shell} ${inline ? "w-36 shrink-0" : ""}`}>
+    <div ref={containerRef} className={`relative flex h-8 items-stretch overflow-visible rounded-pill border transition-colors duration-fast ${shell} ${inline ? (showTimer || done || busy ? "w-36 shrink-0" : "shrink-0") : ""}`}>
       {inline ? <span role="status" className="sr-only">{error?.title ?? statusMessage}</span> : null}
       {inline && (paused || (connecting && !reconnecting)) ? (
         <button
@@ -275,7 +277,7 @@ export function ComposerVoiceControl({
             }}
             className={`flex items-center text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover} ${
               inline ? `justify-center gap-1 ${showTimer || done
-                ? "w-7 shrink-0 rounded-pill" : "min-w-0 flex-1 rounded-pill px-1"}`
+                ? "w-7 shrink-0 rounded-pill" : busy ? "min-w-0 flex-1 rounded-pill px-1" : "w-8 rounded-pill"}`
                 : "gap-2 rounded-l-pill pl-3.5 pr-3"
             }`}
           >
@@ -291,7 +293,7 @@ export function ComposerVoiceControl({
             {!(inline && (showTimer || done)) ? (
               <span
                 data-testid={inline && busy ? (connecting ? "chat-mic-connecting" : "chat-mic-stopping") : undefined}
-                className={inline ? "truncate" : undefined}
+                className={inline ? (busy ? "truncate" : "sr-only") : undefined}
               >
                 {mainText}
               </span>
