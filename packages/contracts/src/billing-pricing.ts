@@ -30,7 +30,11 @@ export function validatePricingCatalog(value:{market:z.infer<typeof PricingMarke
   if (new Set(value.products.map(product => product.sku)).size !== value.products.length) ctx.addIssue({ code: "custom", message: "duplicate product SKU" });
   if (new Set(value.enabledProviders).size !== value.enabledProviders.length) ctx.addIssue({ code: "custom", message: "duplicate payment provider" });
 }
-export const PricingCatalog = PricingCatalogBase.superRefine(validatePricingCatalog);
+export const WelcomeCreditPolicy = z.object({
+  credits: ConfiguredCreditQuantity,
+  validityDays: z.number().int().min(1).max(3650),
+}).strict();
+export const PricingCatalog = PricingCatalogBase.extend({ welcomeCreditPolicy: WelcomeCreditPolicy.optional() }).superRefine(validatePricingCatalog);
 
 /** Caller selects a server-owned SKU; price, credit amounts and owner come from trusted state. */
 export const PersonalCheckoutRequest = z.object({
@@ -49,14 +53,17 @@ export const WELCOME_CREDIT_PROGRAM = "welcome-credit-v1";
 export const WELCOME_CREDITS = 1000;
 export const WELCOME_CREDIT_VALIDITY_DAYS = 30;
 const WelcomeGrant = z.object({
-  credits: z.literal(WELCOME_CREDITS), remainingCredits: z.number().finite().min(0).max(WELCOME_CREDITS).multipleOf(0.01),
+  credits: ConfiguredCreditQuantity, remainingCredits: z.number().finite().min(0).multipleOf(0.01),
   grantedAt: Timestamp, expiresAt: Timestamp,
 }).strict();
 export const WelcomeCreditGrant = z.object({
   status: z.enum(["none", "granted", "expired"]), grant: WelcomeGrant.nullable(),
 }).strict().superRefine((value, ctx) => {
   if ((value.status === "none") !== (value.grant === null)) ctx.addIssue({ code: "custom", message: "welcome state and grant must agree" });
-  if (value.grant && Date.parse(value.grant.expiresAt) - Date.parse(value.grant.grantedAt) !== WELCOME_CREDIT_VALIDITY_DAYS * 86400000) ctx.addIssue({ code: "custom", message: "welcome credits expire after 30 days" });
+  if (value.grant && (Date.parse(value.grant.expiresAt) <= Date.parse(value.grant.grantedAt) ||
+    value.grant.remainingCredits > value.grant.credits)) {
+    ctx.addIssue({ code: "custom", message: "welcome grant snapshot is invalid" });
+  }
   if (value.status === "expired" && value.grant?.remainingCredits !== 0) ctx.addIssue({ code: "custom", message: "expired welcome credits must be zero" });
 });
 
@@ -90,3 +97,63 @@ export const operations = {
 export type PricingCatalog = z.infer<typeof PricingCatalog>;
 export type PersonalCheckoutRequest = z.infer<typeof PersonalCheckoutRequest>;
 export type PricingSubscriptionInfo = z.infer<typeof PricingSubscriptionInfo>;
+
+const CatalogInteger = z.number().int().positive().max(2_147_483_647);
+const CatalogTeamTerms = z.object({
+  includedSeats: CatalogInteger,
+  additionalSeatAmountMinor: CatalogInteger,
+  additionalSeatMonthlyCredits: ConfiguredCreditQuantity,
+}).strict();
+
+export const AdminCatalogProductValues = z.object({
+  amountMinor: CatalogInteger,
+  baseCredits: ConfiguredCreditQuantity,
+  bonusCredits: z.number().int().min(0).max(2_147_483_647),
+  enabled: z.boolean(),
+  teamTerms: CatalogTeamTerms.nullable(),
+}).strict().superRefine((value, ctx) => {
+  if (value.baseCredits + value.bonusCredits > 2_147_483_647 ||
+      Math.round(value.bonusCredits / value.baseCredits * 10000) >= 1_000_000) {
+    ctx.addIssue({ code: "custom", message: "credit amounts exceed the supported range" });
+  }
+});
+export const AdminCatalogProduct = z.object({
+  market: PricingMarket,
+  sku: Identifier,
+  currency: PricingCurrency,
+  owner: z.enum(["user", "team", "both"]),
+  kind: z.enum(["subscription", "credit_topup"]),
+  cycle: BillingCycle.nullable(),
+  revision: z.string().regex(/^[a-f0-9]{64}$/),
+  values: AdminCatalogProductValues,
+}).strict();
+export const adminCatalogOperations = {
+  list: {
+    path: "/platform/billing/catalog",
+    in: z.object({ market: PricingMarket }).strict(),
+    out: z.object({ items: z.array(AdminCatalogProduct), writable: z.boolean() }).strict(),
+  },
+  update: {
+    path: "/platform/billing/catalog/product",
+    in: z.object({
+      market: PricingMarket, sku: Identifier,
+      expectedRevision: AdminCatalogProduct.shape.revision,
+      values: AdminCatalogProductValues,
+    }).strict(),
+    out: AdminCatalogProduct,
+  },
+} as const;
+
+const WelcomePolicyEntry = WelcomeCreditPolicy.extend({ market: PricingMarket, revision: z.string().uuid() });
+export const adminWelcomeCreditOperations = {
+  list: {
+    path: "/platform/billing/welcome-credits",
+    in: z.object({ market: PricingMarket }).strict(),
+    out: z.object({ policy: WelcomePolicyEntry, writable: z.boolean() }).strict(),
+  },
+  update: {
+    path: "/platform/billing/welcome-credits",
+    in: WelcomeCreditPolicy.extend({ market: PricingMarket, expectedRevision: z.string().uuid() }),
+    out: WelcomePolicyEntry,
+  },
+} as const;

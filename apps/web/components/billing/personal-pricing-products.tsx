@@ -45,7 +45,7 @@ export function PersonalPricingProducts({kind,catalog,entitlement:e,busy=false,m
    </div>}
    {blocked&&<p role="status" className="text-13 text-muted-foreground">请先处理原订阅付款或管理已有订阅，避免重复购买。</p>}
    <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-13 text-muted-foreground">本次支付<strong data-testid="pricing-total" className="ml-3 text-24 font-semibold text-background-foreground tabular-nums">{selected?pricingMoney(selected.currency,selected.amountMinor):"—"}</strong></span><Button data-testid="pricing-continue-checkout" variant="primary" disabled={Boolean(disabled || onResume)} onClick={()=>{if(!disabled&&selected&&provider)onSelect(selected.sku,provider);}}>{busy?"正在创建付款…":"继续付款"}</Button></div>
-   {kind==="plans"&&<p className="text-12 text-muted-foreground">Free 为新用户提供一次性 {number(WELCOME_CREDITS)} credit，到账后 {WELCOME_CREDIT_VALIDITY_DAYS} 天到期。Community 免费开源自部署，自备服务器与模型。</p>}
+   {kind==="plans"&&<p className="text-12 text-muted-foreground">Free 为新用户提供一次性 {number(catalog.welcomeCreditPolicy?.credits ?? WELCOME_CREDITS)} credit，到账后 {catalog.welcomeCreditPolicy?.validityDays ?? WELCOME_CREDIT_VALIDITY_DAYS} 天到期。Community 免费开源自部署，自备服务器与模型。</p>}
   </div>
  </DialogContent></Dialog>;
 }

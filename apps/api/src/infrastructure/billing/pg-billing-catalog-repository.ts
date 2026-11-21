@@ -1,3 +1,4 @@
+import { readWelcomeCreditPolicy } from "./pg-admin-product-catalog";
 import type {PricingCatalog} from "@repo/contracts/billing-pricing";
 import type {BillingCatalogReader} from "../../application/billing/billing-catalog-reader";
 import type {DatabasePort} from "../../application/ports/database.port";
@@ -7,6 +8,7 @@ export class PgBillingCatalogRepository implements BillingCatalogReader {
  constructor(private readonly db:DatabasePort){}
  read(principal:Principal,market:PricingCatalog["market"]){return this.db.withTenant(principal.orgId,async s=>{
   const configured=await readProductConfiguration(s,market);
-  return {version:configured.version,products:personalConfiguredProducts(configured.rows)};
+  const {credits, validityDays}=await readWelcomeCreditPolicy(s,market);
+  return {version:configured.version,products:personalConfiguredProducts(configured.rows),welcomeCreditPolicy:{credits,validityDays}};
  });}
 }
