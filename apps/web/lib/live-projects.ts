@@ -98,12 +98,7 @@ export const PROJECT_STATUS_LABEL: Record<z.infer<typeof project.ProjectStatus>,
   archived: projectStatusLabel("archived"),
 };
 
-export interface CreateProjectInput {
-  readonly orgId: string;
-  readonly name: string;
-  readonly kind: z.infer<typeof project.ProjectKind>;
-  readonly blueprintVersionId: string | null;
-}
+export type CreateProjectInput = Readonly<z.infer<typeof project.operations.createProject.in>>;
 
 export async function createProject(input: CreateProjectInput): Promise<CreateProjectOut> {
   return apiRequest<CreateProjectOut>(project.operations.createProject.path, {

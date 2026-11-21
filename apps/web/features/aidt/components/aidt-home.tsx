@@ -42,8 +42,9 @@ export function AidtHome() {
     return () => { active = false; cancellation.abort(); };
   }, [enabled, orgId, userId, bearer, hasIdentity, key, revision]);
   const current = load?.key === key ? load : null;
-  // Saving the profile uses the existing project lifecycle/tagging permission.
-  const canCreate = hasIdentity && (context?.identity?.orgRole === "lead" || context?.identity?.orgRole === "admin");
+  // Creation and course management retain their distinct server permissions.
+  const canCreate = hasIdentity && (orgRole === "consultant" || orgRole === "lead" || orgRole === "admin");
+  const canManageCourses = hasIdentity && (orgRole === "lead" || orgRole === "admin");
   if (!enabled) return <section role="status" data-testid="aidt-home-disabled">教学模块尚未启用。</section>;
   return <section className="min-h-0 flex-1 overflow-y-auto" data-testid="aidt-home">
     <header className="border-b border-border-subtle">
@@ -79,7 +80,7 @@ export function AidtHome() {
         {canCreate && <Button variant="primary" onClick={() => setCreationScope(key)} data-testid="aidt-new">新建小组空间</Button>}
       </div>
     {!hasIdentity ? <p role="status">请先登录并选择组织。</p> : !current ? <p role="status" data-testid="aidt-home-loading">正在加载 AIDT 项目…</p> : current.error ? <div role="alert" data-testid="aidt-home-error"><p>项目加载失败，不能确定当前项目列表。</p><Button variant="outline" onClick={() => setRevision((n) => n + 1)}>重试</Button></div> : current.projects?.length === 0 ? <p className="rounded-lg border border-dashed border-border p-6 text-13 text-muted-foreground" data-testid="aidt-home-empty">还没有可进入的小组空间。{canCreate ? "请为每个学习小组分别创建空间，再添加组员。" : "请老师或空间负责人将你加入相应小组；加入后会出现在这里。"}</p> : <AidtCourseEntry groups={current.projects ?? []} />}
-    {hasIdentity && orgId && userId && bearer && <details className="border-t border-border pt-5 text-13" data-testid="aidt-course-disclosure"><summary className="cursor-pointer rounded-md py-2 font-medium text-muted-foreground transition-colors hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">按课程查找{canCreate ? "与管理" : ""}</summary><div className="mt-4"><AidtCoursesPanel key={key} actor={{ orgId, userId, sessionToken: bearer }} canManage={canCreate} permissionKey={orgRole} availableGroups={current?.projects ?? []} /></div></details>}
+    {hasIdentity && orgId && userId && bearer && <details className="border-t border-border pt-5 text-13" data-testid="aidt-course-disclosure"><summary className="cursor-pointer rounded-md py-2 font-medium text-muted-foreground transition-colors hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">按课程查找{canManageCourses ? "与管理" : ""}</summary><div className="mt-4"><AidtCoursesPanel key={key} actor={{ orgId, userId, sessionToken: bearer }} canManage={canManageCourses} permissionKey={orgRole} availableGroups={current?.projects ?? []} /></div></details>}
     <Dialog open={canCreate && creationScope === key} onOpenChange={(open) => setCreationScope(open ? key : null)}><DialogContent className="gap-6 rounded-2xl p-6 sm:p-8"><div className="space-y-2"><DialogTitle className="text-24 tracking-tight">新建小组</DialogTitle><DialogDescription>先给小组起个名字，研究主题稍后一起讨论。</DialogDescription></div><AidtCreateProjectForm key={key} cancel={<Button variant="ghost" type="button" onClick={() => setCreationScope(null)}>取消</Button>} /></DialogContent></Dialog>
     </div>
   </section>;

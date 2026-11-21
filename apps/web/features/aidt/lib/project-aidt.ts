@@ -1,10 +1,11 @@
 import { AIDT_STAGE_IDENTITIES } from "@repo/contracts/aidt-run-context";
+import { PROJECT_CREATION_PROFILE_TAGS } from "@repo/contracts/project";
 import { isAidtModuleEnabled } from "@/features/aidt/lib/aidt-module-config";
 
-/** A special project profile stored through the existing project-tags contract.
+/** A special project profile initialized atomically by the project creation contract.
  * This is presentation metadata, not a third ProjectKind or a new permission model.
  */
-export const AIDT_PROJECT_TAG = "workspacex:aidt";
+export const AIDT_PROJECT_TAG = PROJECT_CREATION_PROFILE_TAGS.aidt;
 export const AIDT_PROJECT_LABEL = "AIDT · 设计思维项目";
 export function isAidtProject(project: { kind: string; tags: readonly string[] } | null | undefined): boolean {
   return project?.kind === "general" && (project.tags ?? []).includes(AIDT_PROJECT_TAG);

@@ -32,6 +32,7 @@
  * 而且崩溃在那一刻的话它会永久留下。反证见测试文件里那条 `FaultAfterQuery`。
  * 同一条纪律现在也覆盖④：不存在"项目建成功、但创建者没有角色"的中间态。
  */
+import { project } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { IdFactory } from "../../application/artifact/ports";
 import type {
@@ -133,6 +134,15 @@ export class PgProjectRepository implements ProjectRepository, SampleProjectMark
         await s.query(
           `INSERT INTO general_project_members (user_id, project_id, org_id, role) VALUES ($1, $2, $3, 'owner')`,
           [cmd.actorId, id, cmd.orgId],
+        );
+      }
+
+      // #6824: creation-only controlled metadata, in this same tenant transaction.
+      // Replays returned above and never restore tags, members, or lifecycle state.
+      if (cmd.profile !== undefined) {
+        await s.query(
+          `INSERT INTO project_tags (project_id, org_id, tag) VALUES ($1, $2, $3)`,
+          [id, cmd.orgId, project.PROJECT_CREATION_PROFILE_TAGS[cmd.profile]],
         );
       }
 

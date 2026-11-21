@@ -65,6 +65,10 @@ import { TemplateError } from "./templates";
  */
 export const ProjectKind = z.enum(["workshop", "general"]);
 
+/** #6824: controlled creation-time initialization; not mutable project tags. */
+export const ProjectCreationProfile = z.enum(["aidt"]);
+export const PROJECT_CREATION_PROFILE_TAGS = { aidt: "workspacex:aidt" } as const satisfies Record<z.infer<typeof ProjectCreationProfile>, string>;
+
 /**
  * 生命周期。**恰好两态**（Q-5 裁 B）：`archived` = 只读，**归档不删除任何内容**。
  *
@@ -141,6 +145,8 @@ export const ProjectReason = z.enum([
   "ORG_ROLE_INSUFFICIENT",
   /** `kind` 不在三值闭集内。⚠ DB CHECK 与本枚举**成员逐个相等**，不是包含 */
   "INVALID_KIND",
+  /** Invalid creation profile or a profile incompatible with kind/blueprint. */
+  "INVALID_CREATION_PROFILE",
   /**
    * 违反「同一工作坊至多一个 `active`」（I-P44）。
    * ⚠ 它由**部分唯一索引**产生，**不是**应用层先查后写——先查后写在并发下就是那条空转的门。
@@ -495,6 +501,8 @@ export const operations = {
          *   U-1 定了两类各有自己的成员表但**没说筹备机件** → `KNOWN_CONTRACT_GAPS.P4`。
          */
         blueprintVersionId: z.string().nullable(),
+        /** Creation-only fixed AIDT initialization; only general + null blueprint is supported. */
+        profile: ProjectCreationProfile.optional(),
       })
       .strict(),
     out: z
@@ -518,6 +526,7 @@ export const operations = {
     err: [
       "ORG_ROLE_INSUFFICIENT",
       "INVALID_KIND",
+      "INVALID_CREATION_PROFILE",
       "AUTH_SERVICE_UNAVAILABLE",
       "BLUEPRINT_NOT_FOUND",
       "BLUEPRINT_NOT_VISIBLE",
