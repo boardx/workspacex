@@ -37,14 +37,26 @@ export function readInterviewChatDraft(text: string) {
 }
 
 type Draft = SharedStageValue["content"]["draft"];
-type Turn = { user: string; assistant: string; messageId: string };
+type Turn = { verifiedFindingText?: readonly string[]; projectId?: string; user: string; assistant: string; messageId: string };
 const recordShape = z.object({
   id: z.string().uuid(), version: z.literal(1), code: z.string().min(1).max(32), original: z.string(),
   adopted: z.string(), goal: z.string(), guideConfirmed: z.boolean(), consent: z.object({ notes: z.boolean() }).passthrough().nullable(),
 }).passthrough();
-const sourceShape = z.object({ checked: z.literal(true), text: z.string(), locator: z.string().trim().min(1), sourceKey: z.string() });
-const materialShape = z.object({ mime: z.string(), artifactId: z.string().min(1), projectId: z.string().min(1) });
+const sourceShape = z.object({ checked: z.literal(true), text: z.string().trim().min(1).max(1700), locator: z.string().trim().min(1).max(120), sourceKey: z.string() });
+const materialShape = z.object({ mime: z.string().min(1), name: z.string().min(1).max(300), artifactId: z.string().min(1), versionId: z.string().min(1), projectId: z.string().min(1) });
 function json(raw: string | undefined): unknown { try { return JSON.parse(raw ?? ""); } catch { return null; } }
+
+/** Only the reviewed excerpt can reach the teaching Skill, never recording bytes or raw ASR. */
+export function checkedInterviewExcerpt(fields: Draft["fields"], entityId: string, projectId: string) {
+  const interview = recordShape.safeParse(json(fields["interviewRecord:" + entityId]));
+  if (!interview.success || interview.data.id !== entityId || !interview.data.consent?.notes || fields["interviewArchived:" + entityId] === "true") return;
+  const source = sourceShape.safeParse(json(fields["interviewTranscript:" + entityId]));
+  if (!source.success || !source.data.sourceKey.startsWith("interviewMaterial:" + entityId + ":")) return;
+  const material = materialShape.safeParse(json(fields[source.data.sourceKey]));
+  if (!material.success || material.data.projectId !== projectId || material.data.mime.startsWith("image/")
+    || (material.data.mime.startsWith("audio/") && interview.data.consent.audio !== true)) return;
+  return { text: source.data.text, locator: source.data.locator, name: material.data.name };
+}
 
 /** Run completion owns automatic drafts. Caller authenticates the pinned Skill, thread, turn and stage before calling. */
 export function projectInterviewSkillDraft(draft: Draft, entityId: string, turn: Turn): Draft | null {
@@ -72,17 +84,19 @@ export function projectInterviewSkillDraft(draft: Draft, entityId: string, turn:
   let cards = draft.discoveryCards;
   let changed = original !== current.original || adopted !== current.adopted || goal !== current.goal;
   if (data?.finding && current.consent?.notes && fields["interviewConfirmed:" + entityId] !== "true") {
-    const source = sourceShape.safeParse(json(fields["interviewTranscript:" + entityId]));
-    const attached = source.success && source.data.sourceKey.startsWith("interviewMaterial:" + entityId + ":") ? materialShape.safeParse(json(fields[source.data.sourceKey])) : null;
-    const canQuote = source.success && attached?.success && !attached.data.mime.startsWith("image/") && (!attached.data.mime.startsWith("audio/") || current.consent.audio === true);
+    const source = turn.projectId ? checkedInterviewExcerpt(fields, entityId, turn.projectId) : undefined;
     const prior = cards?.find(card => card.id === entityId);
     const next = prior ? { ...prior } : { id: entityId, participantCode: current.code, headlineKind: "student-summary" as const, headline: "", quote: "", context: "", sourceRef: "", photoRef: "" };
     const f = data.finding;
-    if (f.headline && userText.includes(f.headline)) { next.headline = f.headline; next.headlineKind = "student-summary"; }
-    if (f.context && userText.includes(f.context)) next.context = f.context;
-    if (f.quote && source.success && canQuote && source.data.text.includes(f.quote)) next.quote = f.quote;
+    const studentWrote = (value: string) => userText.includes(value) || turn.verifiedFindingText?.includes(value);
+    if (f.headline && studentWrote(f.headline)) { next.headline = f.headline; next.headlineKind = "student-summary"; }
+    if (f.context && studentWrote(f.context)) next.context = f.context;
+    if (f.quote && source?.text.includes(f.quote)) {
+      next.quote = f.quote;
+      next.sourceRef = source.name + " · " + source.locator;
+    }
     const interpretationKey = "interviewInterpretation:" + entityId;
-    if (f.interpretation && userText.includes(f.interpretation) && fields[interpretationKey] !== f.interpretation) {
+    if (f.interpretation && studentWrote(f.interpretation) && fields[interpretationKey] !== f.interpretation) {
       fields[interpretationKey] = f.interpretation; changed = true;
     }
     if ((next.headline || next.context || next.quote) && JSON.stringify(next) !== JSON.stringify(prior)) {

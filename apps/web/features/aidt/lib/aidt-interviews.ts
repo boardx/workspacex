@@ -88,7 +88,15 @@ export function readAidtInterviewTranscript(fields: Readonly<Record<string, stri
   return parse(Transcript, fields[transcriptKey(id)]);
 }
 
-export function writeAidtInterviewTranscript(draft: AidtUiStageDraft, id: string, transcript: AidtInterviewTranscript) {
+export function writeAidtInterviewTranscript(draft: AidtUiStageDraft, id: string, transcript: AidtInterviewTranscript, projectId?: string) {
+  const interview = parse(Interview, draft.fields[recordKey(id)]);
+  const material = transcript.checked && projectId && readAidtInterviewMaterials(draft.fields, id, projectId).find(item => item.key === transcript.sourceKey);
+  const finding = draft.discoveryCards?.find(card => card.id === id);
+  if (interview?.consent?.notes && finding?.headline && material && transcript.text.trim() && transcript.locator.trim()
+    && !material.reference.mime.startsWith("image/") && (!material.reference.mime.startsWith("audio/") || interview.consent.audio)
+    && (!finding.quote || transcript.text.includes(finding.quote))) {
+    draft = writeAidtInterviewFinding(draft, interview, { sourceRef: material.reference.name + " · " + transcript.locator });
+  }
   return { ...draft, fields: { ...draft.fields, [transcriptKey(id)]: JSON.stringify(transcript), [confirmedKey(id)]: "" } };
 }
 
