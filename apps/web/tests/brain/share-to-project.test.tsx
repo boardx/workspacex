@@ -133,7 +133,7 @@ describe("S10 出处标签：「由 X 分享自个人记忆」", () => {
       claimId: "c-1", statement: "客户 A 最看重交付确定性", kind: "fact", triState: "confirmed", scope: "project", saidAt: null,
       channels: ["claim"], retrievalReasons: [], score: 0, graphPath: null, sharedByName: "李雷",
     });
-    render(<AnswerKnowledgeFooter recalled={[m]} recallDegraded={false} onOpenSource={() => undefined} />);
+    render(<AnswerKnowledgeFooter recalled={[m]} onOpenSource={() => undefined} />);
     expect(screen.getByTestId("kg-from-project-c-1").textContent).toBe("由 李雷 分享自个人记忆");
   });
 

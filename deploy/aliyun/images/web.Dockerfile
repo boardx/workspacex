@@ -11,6 +11,7 @@ COPY packages ./packages
 COPY shared ./shared
 COPY skills/localizations ./skills/localizations
 COPY skills/aidt-methods-candidates ./skills/aidt-methods-candidates
+COPY skills/aidt-methods/aidt-empathize/starter.json ./skills/aidt-methods/aidt-empathize/starter.json
 COPY apps/web ./apps/web
 # Next typechecks the checked-in Playwright config and its external imports.
 # These fixtures stay in the builder; the runtime copies only standalone output.

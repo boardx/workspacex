@@ -509,4 +509,4 @@ export const recalledMemoriesGraphDown: KgRecalledMemory[] = recalledMemoriesNor
 }));
 
 /* 召回通道用词与「查不全」固定说法：定义在非 mock 模块（产品路由也要用），这里只 re-export。 */
-export { RETRIEVAL_CHANNEL_LABEL_ZH, KG_RELATED_QUERY_DEGRADED_ZH } from "@/lib/knowledge-graph-recall";
+export { RETRIEVAL_CHANNEL_LABEL_ZH } from "@/lib/knowledge-graph-recall";

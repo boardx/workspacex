@@ -51,7 +51,7 @@ export const TURN_MEMORY_REPOLL_DELAYS_MS: readonly number[] = [3_000, 8_000];
  * - 「撤销」（F10）：只有所有者看得到（读模型快照 `canEdit`，见 `lib/knowledge-graph-events.ts`）。
  *   把本轮记下的逐条 `revokeClaim`，每条带上一条返回的最新 `revision`；已经不在的那条
  *   （`KG_CLAIM_NOT_FOUND`，比如先在面板里忘掉了）视为已撤销。结束后让右栏记忆重读。
- * - F13：本轮用到的记忆（`recalled`）与「查不全」（`recallDegraded`）画在最前面——引用 chip +
+ * - F13：本轮用到的记忆（`recalled`）画在最前面——引用 chip +
  *   「为什么用到它」，点 chip 打开那一条的来源抽屉；其后才是「已记下 N 条」。两样都没有 ⇒ 整块不渲染。
  * - F16 / U-5：本轮的矛盾提醒卡（`prompt.type = conflict`，服务端保证一轮至多一张）画在引用之后、
  *   「已记下」之前。按钮只给所有者（同「撤销」，读模型快照 `canEdit`）；点了经 `applyHumanAction{resolveConflict}`
@@ -237,7 +237,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
   }, [threadId, messageId, reloadKey]);
 
   if (turn === null) return null;
-  const showFooter = turn.recalled.length > 0 || turn.recallDegraded;
+  const showFooter = turn.recalled.length > 0;
   const showCaptured = turn.pending || turn.captured.length > 0;
   if (!showFooter && !showCaptured && conflict === null && memoryCard === null && supersede === null) return null;
   return (
@@ -245,8 +245,6 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
       {showFooter ? (
         <AnswerKnowledgeFooter
           recalled={turn.recalled}
-          recallDegraded={turn.recallDegraded}
-          degradedChannels={turn.degradedChannels}
           {...(turn.cited !== undefined ? { cited: turn.cited } : {})}
           canCorrect={canEdit && turn.canCorrect === true}
           onJump={jumpToSource}

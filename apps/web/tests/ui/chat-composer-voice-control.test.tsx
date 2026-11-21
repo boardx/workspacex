@@ -27,6 +27,16 @@ function renderCtl(over: Partial<React.ComponentProps<typeof ComposerVoiceContro
   return { onStart, onStop, onResume };
 }
 
+const inlineDictation = {
+  pause: vi.fn(),
+  discard: vi.fn(),
+  undo: vi.fn(),
+  silenceHint: false,
+  transcribedChars: 0,
+  error: null,
+  errorReason: null,
+};
+
 describe("ComposerVoiceControl", () => {
   it("idle：语音输入的说明是真 DOM 气泡（焦点触发），不再靠原生 title", async () => {
     vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
@@ -59,6 +69,21 @@ describe("ComposerVoiceControl", () => {
     fireEvent.click(mic);
     expect(h.onStop).toHaveBeenCalledTimes(1);
     expect(h.onStart).not.toHaveBeenCalled();
+  });
+
+  it.each(["idle", "listening"] as const)("inline %s keeps the primary action visible", (phase) => {
+    const listening = phase === "listening";
+    const handlers = renderCtl({ status: phase, phase, inline: inlineDictation, elapsedSeconds: 65 });
+    const mic = screen.getByTestId("chat-task-workbench-composer-mic");
+    const label = screen.getByText(listening ? "停止" : "语音输入", { exact: true });
+    expect(mic).toContainElement(label);
+    expect(label).not.toHaveClass("sr-only");
+    if (listening) {
+      expect(screen.getByTestId("chat-task-workbench-composer-recording-timer").parentElement?.parentElement)
+        .toBe(mic.parentElement);
+    }
+    fireEvent.click(mic);
+    expect(listening ? handlers.onStop : handlers.onStart).toHaveBeenCalledOnce();
   });
 
   it("paused：「继续 mm:ss」，点击 → onResume；connecting / stopping 禁用并旋转", () => {

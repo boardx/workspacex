@@ -411,9 +411,16 @@ test("named AIDT problem: two fixture members share normal directory edits acros
   };
   try {
     await page.goto(directoryUrl);
-    await page.getByLabel("问题名称", { exact: true }).fill(title);
     await page.getByRole("button", { name: "新建问题", exact: true }).click();
-    const created = await save(page);
+    const dialog = page.getByRole("dialog", { name: "新建问题" });
+    await dialog.getByLabel("问题名称", { exact: true }).fill(title);
+    const [createdResponse] = await Promise.all([
+      page.waitForResponse(value => value.request().method() === "PUT" && new URL(value.url()).pathname.endsWith(path)),
+      dialog.getByRole("button", { name: "创建问题" }).click(),
+    ]);
+    expect(createdResponse.status()).toBe(200);
+    const created = stages.operations.save.out.parse(await createdResponse.json()).stage;
+    await expect(dialog).toHaveCount(0);
     expect(created).toMatchObject({ revision: 1, updatedBy: FULLSTACK_E2E.collaborationLeadUserId });
     const entityId = await openSavedProblem(page);
     expect(entityId).toMatch(/^[0-9a-f-]{36}$/);

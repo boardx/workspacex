@@ -1,13 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Quote, ChevronDown, Route, AlertTriangle, Clock } from "lucide-react";
+import { Quote, ChevronDown, Route, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CITATION_CORRECTABLE_SCOPES, type KgRecalledMemory } from "@repo/contracts/chat-knowledge-graph";
 import {
   retrievalChannelLabel,
-  recallDegradedNotice,
   graphPathText,
   personalOriginLabel,
   projectOriginLabel,
@@ -30,16 +29,12 @@ import { CitationDetail, type CitationCorrect } from "./citation-detail";
  *   点一下打开那一条的来源抽屉（默认经 `requestOpenClaimSources` 交给右栏记忆面板）。
  * - 「为什么用到它」：通道（全文 / 相似 / 关联）、召回理由（filter-action 单源展示名）、关系路径。
  *   **不显示 `score`**：那是原始 RRF 分（约 0.01–0.03），不是给人看的「相关度」。
- * - 查不全提示：**只看 `recallDegraded`**（本轮至少一个已配置的召回通道执行失败）。具体失败通道来自服务端记录，不由前端猜测——
- *   MVP 没部署向量，那不是降级，不该每条回答都挂一句「查不全」。
  * - S7（#4364）：chip 只画服务端对账后的 `cited`（本轮召回集合里、回答真的用到了的；省略 ⇒ 全部 `recalled`），
  *   chip 上写「依据你 {M/D} 的决定」。点 chip：照旧打开来源抽屉，同时在下面展开这一条（完整原话、「跳到原消息」、
  *   只给所有者的「这条不对」/「已过时」，见 `CitationDetail`）。「为什么用到它」仍列本轮召回到的全部。
  */
 export function AnswerKnowledgeFooter({
   recalled,
-  recallDegraded,
-  degradedChannels,
   cited,
   onOpenSource = requestOpenClaimSources,
   canCorrect = false,
@@ -47,8 +42,6 @@ export function AnswerKnowledgeFooter({
   onCorrect,
 }: {
   recalled: readonly KgRecalledMemory[];
-  recallDegraded: boolean;
-  degradedChannels?: readonly ("graph" | "vector")[];
   /** S7：服务端对账后的引用 id（按召回名次）；省略 ⇒ 全部 `recalled` */
   cited?: readonly string[];
   /** 点引用 chip：打开这一条的来源抽屉 */
@@ -63,24 +56,12 @@ export function AnswerKnowledgeFooter({
   const { t, locale } = useI18n();
   const [expanded, setExpanded] = React.useState(false);
   const [open, setOpen] = React.useState<string | null>(null);
-  if (recalled.length === 0 && !recallDegraded) return null;
+  if (recalled.length === 0) return null;
   const chips = citedMemories(recalled, cited);
   const openMemory = open === null ? undefined : chips.find((m) => m.claimId === open);
 
   return (
     <div className="mt-2 flex flex-col gap-2 border-t border-border-subtle pt-2" data-testid="kg-answer-footer">
-      {/* 查不全提示（不静默降级；文案是用词表的固定说法，带图标不只靠颜色） */}
-      {recallDegraded ? (
-        <p
-          role="status"
-          className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 p-2 text-12 text-foreground"
-          data-testid="kg-channel-unavailable"
-        >
-          <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-          {recallDegradedNotice(degradedChannels, locale)}
-        </p>
-      ) : null}
-
       {recalled.length > 0 ? (
         <>
           {/* 引用 chips */}

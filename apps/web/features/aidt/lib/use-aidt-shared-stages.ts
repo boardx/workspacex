@@ -94,7 +94,8 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const conflicted = currentWrite.phase === "conflict";
   const needsBaseReview = conflicted && baseChoice?.key !== writeKey;
   const expectedRevision = baseChoice?.key === writeKey ? baseChoice.revision : server?.revision ?? 0;
-  const canSave = available && canWrite && currentRead?.phase === "ready" && Boolean(stageId && draft && (server || aidtUiStageSummary(stageId, draft))) && currentWrite.phase !== "saving" && currentReportWrite.phase !== "saving" && !needsBaseReview;
+  const canWriteDraft = available && canWrite && currentRead?.phase === "ready" && currentWrite.phase !== "saving" && currentReportWrite.phase !== "saving" && !needsBaseReview;
+  const canSave = canWriteDraft && Boolean(stageId && draft && (server || aidtUiStageSummary(stageId, draft)));
   const matchesServer = Boolean(server && draft && aidtSharedDraftSignature(server.content.draft) === signature && JSON.stringify(server.sourceStageRevisions) === JSON.stringify(sourceStageRevisions));
 
   React.useEffect(() => {
@@ -183,34 +184,54 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
     setBaseChoice({ key: writeKey, revision: server.revision });
   }
   async function saveCurrent() {
-    if (latest.current.writeKey !== writeKey || !latest.current.canWrite || !canSave || !scope || !stageId || !draft || inFlight.current) return;
+    await saveDraft();
+  }
+  async function saveDraft(change?: (old: AidtUiStageDraft) => AidtUiStageDraft): Promise<boolean> {
+    if (latest.current.writeKey !== writeKey || !latest.current.canWrite || !canWriteDraft || !scope || !stageId || !draft || inFlight.current) return false;
+    // An explicit directory action writes against the saved head. Other edits in the local form stay local.
+    const base = change ? server?.content.draft ?? emptyAidtUiDrafts()[stageId]! : draft;
+    const next = change ? change(base) : base;
+    if ((change && next === base) || (!server && !aidtUiStageSummary(stageId, next))) return false;
+    const nextSignature = change ? aidtSharedDraftSignature(next) : signature;
+    const revision = change ? server?.revision ?? 0 : expectedRevision;
     const legacyReport = server?.content.summaryReport;
-    const content = { schemaVersion: 1 as const, draft: clone(draft), ...(legacyReport ? { summaryReport: legacyReport } : {}) };
+    const content = { schemaVersion: 1 as const, draft: clone(next), ...(legacyReport ? { summaryReport: legacyReport } : {}) };
     const refs = clone(sourceStageRevisions);
-    const requestSignature = JSON.stringify([scope.projectId, stageId, expectedRevision, signature, refs, server?.content.summaryReport]);
+    const requestSignature = JSON.stringify([scope.projectId, stageId, revision, nextSignature, refs, legacyReport]);
     if (attempt.current?.key !== writeKey || attempt.current.signature !== requestSignature) attempt.current = { key: writeKey, signature: requestSignature, operationId: crypto.randomUUID() };
     const controller = new AbortController(); inFlight.current = { key: writeKey, controller };
-    setWrite({ key: writeKey, phase: "saving", signature });
+    setWrite({ key: writeKey, phase: "saving", signature: nextSignature });
     try {
-      const result = await saveAidtStage({ projectId: scope.projectId, stageId, operationId: attempt.current.operationId, expectedRevision, content: StageContent.parse(content), sourceStageRevisions: refs }, scope.sessionToken, controller.signal);
-      if (latest.current.writeKey !== writeKey || !latest.current.canWrite || controller.signal.aborted) return;
+      const result = await saveAidtStage({ projectId: scope.projectId, stageId, operationId: attempt.current.operationId, expectedRevision: revision, content: StageContent.parse(content), sourceStageRevisions: refs }, scope.sessionToken, controller.signal);
+      if (latest.current.writeKey !== writeKey || !latest.current.canWrite || controller.signal.aborted) return false;
       if (result.stage.projectId !== scope.projectId || result.stage.stageId !== stageId) throw new Error("stage scope mismatch");
       setRead(old => ({ key, phase: "ready", stages: { ...(old?.key === key ? old.stages : {}), [stageId]: result.stage } }));
-      setWrite({ key: writeKey, phase: "saved", stage: result.stage, signature });
+      if (change) {
+        const current = latest.current.drafts[stageId]!;
+        const changedFields = { ...current.fields };
+        for (const [field, value] of Object.entries(next.fields)) if (value !== base.fields[field]) changedFields[field] = value;
+        latest.current.onHydrate(stageId, { ...current, fields: changedFields });
+      }
+      setWrite({ key: writeKey, phase: "saved", stage: result.stage, signature: nextSignature });
       setBaseChoice({ key: writeKey, revision: result.stage.revision });
       if (stageId === 6 && currentReportWrite.phase !== "conflict") setReportBase({ key: reportKey, revision: result.stage.revision });
+      return true;
     } catch (error) {
-      if (latest.current.writeKey !== writeKey || controller.signal.aborted) return;
+      if (latest.current.writeKey !== writeKey || controller.signal.aborted) return false;
       if (error instanceof ApiError && error.status === 409) {
         setBaseChoice(null);
         try {
           const result = await readAidtStage(scope.projectId, stageId, scope.sessionToken, controller.signal);
-          if (latest.current.writeKey !== writeKey || controller.signal.aborted) return;
+          if (latest.current.writeKey !== writeKey || controller.signal.aborted) return false;
           if (result.stage && (result.stage.projectId !== scope.projectId || result.stage.stageId !== stageId)) throw new Error("stage scope mismatch");
           setRead(old => { const values = { ...(old?.key === key ? old.stages : {}) }; if (result.stage) values[stageId] = result.stage; else delete values[stageId]; return { key, phase: "ready", stages: values }; });
           setWrite({ key: writeKey, phase: "conflict", error: "另一位成员已更新本步。本页内容保留，请比较服务器版本后再决定。", signature });
+          if (change && latest.current.drafts[stageId] === draft && (matchesServer || (!server && !aidtUiStageSummary(stageId, draft)))) {
+            latest.current.onHydrate(stageId, clone(result.stage?.content.draft ?? emptyAidtUiDrafts()[stageId]!));
+          }
         } catch { if (latest.current.writeKey === writeKey) { setRead(old => ({ key, phase: "error", stages: old?.key === key ? old.stages : {}, error: "检测到版本冲突，但最新版本读取失败。请重试读取后再保存。" })); setWrite({ key: writeKey, phase: "conflict", error: "本页内容保留，尚未覆盖服务器版本。", signature }); } }
       } else setWrite({ key: writeKey, phase: "error", error: "尚未确认保存成功。本页内容保留，可重试；图片请使用已上传材料引用。", signature });
+      return false;
     } finally { if (inFlight.current?.controller === controller) inFlight.current = null; }
   }
   const reportServer = stages[6], serverReport = readGroupReport(reportServer, reportEntityId);
@@ -296,5 +317,5 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const report: AidtSharedReportController = { available, loading: available && (!currentRead || currentRead.phase === "loading"), saving: currentReportWrite.phase === "saving", canSave: reportCanSave, serverRevision: serverReport ? reportServer!.revision : null, serverMarkdown: serverReport?.markdown ?? null, savedAt: serverReport ? reportServer!.updatedAt : null, savedBy: serverReport ? reportServer!.updatedBy : null, matchesServer: reportMatchesServer, sourceStageRevisions: clone(serverReport?.sourceStageRevisions ?? []), conflict: currentReportWrite.phase === "conflict", needsBaseReview: reportNeedsBaseReview, error: currentReportWrite.error ?? null, loadError: currentRead?.phase === "error" ? currentRead.error ?? "读取失败" : null, availableSources: availableReportRefs, selectedSources: reportRefs,
     chooseSources: (sources) => { if (latest.current.key === key && latest.current.canWrite) setReportSourceChoice({ key: editKey, sources }); },
     confirmedAtRevision: serverReport?.confirmedAtRevision, canConfirm: reportCanConfirm, confirm: () => writeReport(true), save: () => writeReport(false), reload, restore: restoreReport, reviewBase: reviewReportBase };
-  return { key, writeKey, available, read: currentRead, write: currentWrite, stages, server, sourceStageRevisions, questionRevision, lockedSourceStage, expectedRevision, needsBaseReview, canSave, matchesServer, reload, refreshCurrentStage, chooseSource, reviewServerBase, restoreServer, saveCurrent, report };
+  return { key, writeKey, available, read: currentRead, write: currentWrite, stages, server, sourceStageRevisions, questionRevision, lockedSourceStage, expectedRevision, needsBaseReview, canSave, matchesServer, reload, refreshCurrentStage, chooseSource, reviewServerBase, restoreServer, saveCurrent, saveDraft, report };
 }
