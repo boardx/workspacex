@@ -77,6 +77,15 @@ async function closeTools(page: Page) {
   await expect(page.getByTestId("aidt-tool-panel")).toHaveCount(0);
 }
 async function openOutcome(page: Page) {
+  if (new URL(page.url()).searchParams.has("entity")) {
+    if (!await page.getByTestId("aidt-stage-output").isVisible()) {
+      const mobile = page.getByTestId("chat-task-workbench-mobile-open");
+      if (await mobile.isVisible()) await mobile.click();
+      await page.getByRole("tab", { name: "产物" }).click();
+    }
+    await expect(page.getByTestId("aidt-stage-output")).toBeVisible();
+    return;
+  }
   if (!(await page.getByTestId("aidt-open-output").isVisible())) {
     const mobile = page.getByTestId("chat-task-workbench-mobile-open");
     if (await mobile.isVisible()) await mobile.click();
