@@ -6,7 +6,7 @@ import {
 } from "../../application/billing/admin-product-catalog";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { personalConfiguredProducts, type ProductConfigurationRow } from "./product-catalog-configuration";
-import { teamConfiguredProducts } from "./team-product-configuration";
+import { TeamProduct } from "@repo/contracts/billing-team";
 
 type Row = ProductConfigurationRow & { base_credits: number; bonus_credits: number; enabled: boolean };
 const select = `SELECT package_id, region, currency, amount_fen, total_credits, owner_type, product_kind,
@@ -66,7 +66,13 @@ export class PgAdminProductCatalog implements AdminProductCatalog {
       };
       try {
         personalConfiguredProducts([next]);
-        teamConfiguredProducts([next]);
+        if (next.owner_type === "team" && next.product_kind === "subscription") {
+          TeamProduct.parse({
+            kind: "subscription", sku: next.package_id, currency: next.currency,
+            amountMinor: next.amount_fen, cycle: next.billing_cycle, monthlyCredits: next.total_credits,
+            ...teamTerms,
+          });
+        }
       } catch {
         throw new CatalogProductInvalid();
       }
