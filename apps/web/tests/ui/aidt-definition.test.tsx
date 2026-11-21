@@ -1,11 +1,11 @@
 import * as React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, it, vi } from "vitest";
 import { AidtDefinitionChatArtifact, AidtDefinitionDirectory, AidtDefinitionEditor, AidtDefinitionOutput } from "@/features/aidt/components/aidt-definition";
-import { addAidtDefinitionEntity, addAidtDefinitionSurprise, chooseAidtDefinitionHmw, confirmedAidtDefinitionSurprises, readAidtDefinition, readAidtDefinitionSelection, saveAidtDefinitionHmw, saveAidtDefinitionPersona, saveAidtDefinitionSurprise } from "@/features/aidt/lib/aidt-definition";
+import { addAidtDefinitionEntity, addAidtDefinitionSurprise, chooseAidtDefinitionHmw, confirmedAidtDefinitionSurprises, readAidtDefinition, readAidtDefinitionEvidenceRevision, readAidtDefinitionSelection, saveAidtDefinitionHmw, saveAidtDefinitionPersona, saveAidtDefinitionSurprise } from "@/features/aidt/lib/aidt-definition";
 import { emptyAidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { aidtRoundMissingOutput } from "@/features/aidt/lib/aidt-round-completion";
-import { allAidtDefinitionEntitiesConfirmed, latestAidtDefinitionCandidate } from "@/features/aidt/lib/aidt-definition-chat";
+import { allAidtDefinitionEntitiesConfirmed, applyAidtDefinitionCandidate, latestAidtDefinitionCandidate } from "@/features/aidt/lib/aidt-definition-chat";
 import { StageContent } from "@repo/contracts/aidt-stages";
 
 const card = { id: "u1", participantCode: "U01", headline: "难以比较口味", headlineKind: "student-summary" as const, context: "午休点单", quote: "口味看不出差别", sourceRef: "校对转写 01:42", photoRef: "" };
@@ -94,6 +94,8 @@ it("creates a primary surprise card and offers no workspace questions or forms",
   expect(screen.queryByRole("radio")).toBeNull();
   fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   fireEvent.click(screen.getByRole("button", { name: "新建意外发现" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "卡片名称" }), { target: { value: "午间发现" } });
+  fireEvent.click(screen.getByRole("button", { name: "创建意外发现" }));
   expect(screen.getByRole("link", { name: "打开意外发现对话" })).toHaveAttribute("href", "/aidt/p?step=3&entity=primary-surprise");
   fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   expect(screen.getByRole("button", { name: "新建画像" })).toBeDisabled();
@@ -144,25 +146,83 @@ it("requires a student turn and accepts 暂无 only from the student", () => {
   expect(candidate?.proposal).toEqual({ kind: "surprise", status: "none" });
 });
 
-it.each(["persona", "hmw"] as const)("saves a new %s card's name, tags and chosen source together", async kind => {
-  const initial = saveAidtDefinitionPersona(noSurprise(), persona("p1"), 2);
-  let durable = initial;
-  let entityId = "";
-  const label = kind === "persona" ? "画像" : "HMW";
-  render(<AidtDefinitionDirectory {...context} draft={initial} savedDraft={initial} update={() => undefined} nativeChat entityHref={id => "/" + id}
-    onCreate={async (id, change) => { entityId = id; durable = change(initial); return true; }} />);
+it("selects multiple confirmed interview discoveries as frozen evidence when creating a Persona or HMW", async () => {
+  const interviewId = "73e90275-e848-480f-8962-8d39d3b88b43";
+  const first = { ...card, id: interviewId };
+  const secondId = "b40ef781-10f0-4e0c-b4ce-b09d88efe6a9";
+  const second = { ...card, id: secondId, participantCode: "U03", headline: "先看排队长度" };
+  const orphaned = { ...card, id: "orphan", participantCode: "已丢失访谈", headline: "已丢失访谈的旧记录" };
+  const source = { ...context, availableCards: [first, unconfirmed, second, orphaned], discoveryCardFields: {
+    [`interviewConfirmed:${interviewId}`]: "true", [`interviewConfirmed:${secondId}`]: "true", "interviewConfirmed:orphan": "true",
+    [`interviewRecord:${secondId}`]: JSON.stringify({ version: 1, id: secondId, code: "U03",
+      topic: "", topicRevision: null, goal: "", original: "", adopted: "", guideConfirmed: false, consent: null }),
+    [`interviewRecord:${interviewId}`]: JSON.stringify({ version: 1, id: interviewId, code: "U01", displayName: "阿岚",
+      topic: "", topicRevision: null, goal: "", original: "", adopted: "", guideConfirmed: false, consent: null }),
+  } };
+  let result = saveAidtDefinitionPersona(noSurprise(), { ...persona("p1"), cardIds: [interviewId] }, 2);
+  function Directory() {
+    const [draft, setDraft] = React.useState(result);
+    return <AidtDefinitionDirectory {...source} draft={draft} update={mutate => setDraft(old => { result = mutate(old); return result; })}
+      nativeChat entityHref={id => `/aidt/p?step=3&entity=${id}`} />;
+  }
+  render(<Directory />);
+  for (const [openLabel, createLabel] of [["新建画像", "创建画像"], ["新建 HMW", "创建HMW"]] as const) {
+    fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
+    fireEvent.click(screen.getByRole("button", { name: openLabel }));
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.change(dialog.getByRole("textbox", { name: "卡片名称" }), { target: { value: createLabel } });
+    fireEvent.change(dialog.getByTestId("card-create-tag-input"), { target: { value: "课堂" } });
+    if (createLabel === "创建HMW") fireEvent.click(within(dialog.getByRole("group", { name: "来源画像" })).getByRole("checkbox", { name: "p1" }));
+    expect(dialog.queryByText("U02")).not.toBeInTheDocument();
+    expect(dialog.queryByText(orphaned.headline)).not.toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("checkbox", { name: "U01 · 阿岚 · 难以比较口味" }));
+    fireEvent.click(dialog.getByRole("checkbox", { name: "U03 · 先看排队长度" }));
+    fireEvent.click(dialog.getByRole("button", { name: createLabel }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  }
+  const definition = readAidtDefinition(result.fields);
+  expect(definition.personas.at(-1)?.cardIds).toEqual([interviewId, secondId]);
+  expect(definition.hmws[0]).toMatchObject({ cardIds: [interviewId, secondId], personaIds: ["p1"], text: "", confirmed: false });
+  expect(result.fields[`definitionCardName:${definition.hmws[0]!.id}`]).toBe("创建HMW");
+  expect(definition.personas.at(-1)?.name).toBe("创建画像");
+  expect(result.fields[`cardTags:${definition.hmws[0]!.id}`]).toBe('["课堂"]');
+  expect(readAidtDefinitionEvidenceRevision(result.fields)).toBe(2);
+
+  const hypothesis = latestAidtDefinitionCandidate([
+    { id: "student", role: "user", content: "请帮忙核对研究方向" },
+    { id: "skill", role: "assistant", content: '```aidt-definition\n{"kind":"hmw","text":"我们如何呈现等待时间？","cardIds":["u2"],"personaIds":["unrelated"]}\n```' },
+  ], "hmw", false);
+  expect(hypothesis).not.toBeNull();
+  const reviewed = applyAidtDefinitionCandidate(result, definition.hmws[0]!.id, hypothesis!, source.availableCards, 2);
+  expect(readAidtDefinition(reviewed.fields).hmws[0]).toMatchObject({ cardIds: [interviewId, secondId], personaIds: ["p1"], text: "我们如何呈现等待时间？" });
+});
+
+it("retries a failed create using the same entity and entered card name", async () => {
+  const onCreate = vi.fn<(entityId: string, change: (draft: AidtUiStageDraft) => AidtUiStageDraft) => Promise<boolean>>()
+    .mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+  const update = vi.fn();
+  const draft = noSurprise();
+  const interviewId = "73e90275-e848-480f-8962-8d39d3b88b43";
+  const savedContext = { ...context, availableCards: [{ ...card, id: interviewId }], discoveryCardFields: {
+    [`interviewConfirmed:${interviewId}`]: "true",
+    [`interviewRecord:${interviewId}`]: JSON.stringify({ version: 1, id: interviewId, code: "U01",
+      topic: "", topicRevision: null, goal: "", original: "", adopted: "", guideConfirmed: false, consent: null }),
+  } };
+  render(<AidtDefinitionDirectory {...savedContext} draft={draft} savedDraft={draft} update={update} onCreate={onCreate}
+    nativeChat entityHref={id => `/aidt/p?step=3&entity=${id}`} />);
   fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
+  fireEvent.click(screen.getByRole("button", { name: "新建画像" }));
   const dialog = within(screen.getByRole("dialog"));
-  fireEvent.click(dialog.getByRole("button", { name: kind === "persona" ? "新建画像" : "新建 HMW" }));
-  fireEvent.change(dialog.getByLabelText("卡片名称"), { target: { value: "午休" + label } });
-  fireEvent.change(dialog.getByTestId("card-create-tag-input"), { target: { value: "课堂" } });
-  const submit = dialog.getByRole("button", { name: "创建" + label });
-  expect(submit).toBeDisabled();
-  fireEvent.click(dialog.getByRole("checkbox", { name: kind === "persona" ? /U01/ : /p1/ }));
-  fireEvent.click(submit);
-  expect(durable.fields["definitionCardName:" + entityId]).toBe("午休" + label);
-  expect(durable.fields["cardTags:" + entityId]).toBe('["课堂"]');
-  const content = readAidtDefinition(durable.fields);
-  if (kind === "persona") expect(content.personas.find(record => record.id === entityId)).toMatchObject({ confirmed: false, cardIds: ["u1"] });
-  else expect(content.hmws.find(record => record.id === entityId)).toMatchObject({ confirmed: false, personaIds: ["p1"] });
+  const name = dialog.getByRole("textbox", { name: "卡片名称" });
+  fireEvent.change(name, { target: { value: "午间学生" } });
+  fireEvent.click(dialog.getByRole("checkbox", { name: /U01/ }));
+  fireEvent.click(dialog.getByRole("button", { name: "创建画像" }));
+  expect(await dialog.findByRole("alert")).toHaveTextContent("请重试创建此卡");
+  expect(name).toHaveValue("午间学生");
+  fireEvent.click(dialog.getByRole("button", { name: "创建画像" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  const [first, retried] = onCreate.mock.calls;
+  expect(retried?.[0]).toBe(first?.[0]);
+  expect(readAidtDefinition(retried![1](draft).fields).personas[0]).toMatchObject({ id: first?.[0], name: "午间学生", confirmed: false });
+  expect(update).not.toHaveBeenCalled();
 });

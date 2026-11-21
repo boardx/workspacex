@@ -89,15 +89,15 @@ export function applyAidtDefinitionCandidate(
     const existing = current.personas.find(item => item.id === entityId);
     if (existing) next = saveAidtDefinitionPersona(draft, {
       ...existing, name: value.name, situation: value.situation, behavior: value.behavior, need: value.need,
-      limits: value.limits ?? existing.limits, cardIds: allowedIds(value.cardIds, existing.cardIds, knownCards),
+      limits: value.limits ?? existing.limits, cardIds: existing.cardIds.length ? existing.cardIds : allowedIds(value.cardIds, existing.cardIds, knownCards),
       surpriseIds: allowedIds(value.surpriseIds, existing.surpriseIds ?? [], surpriseIds), confirmed: false,
     }, revision ?? null);
   } else if (value.kind === "hmw") {
     const existing = current.hmws.find(item => item.id === entityId);
     if (existing) next = saveAidtDefinitionHmw(draft, {
       ...existing, text: value.text, rationale: value.rationale ?? existing.rationale,
-      personaIds: allowedIds(value.personaIds, existing.personaIds, new Set(current.personas.filter(item => item.confirmed && !item.archived).map(item => item.id))).slice(0, 12),
-      cardIds: allowedIds(value.cardIds, existing.cardIds, knownCards),
+      personaIds: existing.personaIds.length ? existing.personaIds : allowedIds(value.personaIds, existing.personaIds, new Set(current.personas.filter(item => item.confirmed && !item.archived).map(item => item.id))).slice(0, 12),
+      cardIds: existing.cardIds.length ? existing.cardIds : allowedIds(value.cardIds, existing.cardIds, knownCards),
       surpriseIds: allowedIds(value.surpriseIds, existing.surpriseIds ?? [], surpriseIds), confirmed: false,
     }, revision ?? null);
   } else if (entityId === AIDT_PRIMARY_SURPRISE_ID) {

@@ -137,3 +137,18 @@ describe("exact AIDT report source links", () => {
     expect(aidtReportSourceLinks(def)).toEqual([]);
   });
 });
+
+it("links each selected Persona and HMW interview finding to the persisted source revision", async () => {
+  const { aidtReportSourceLinks } = await import("@/features/aidt/lib/aidt-report-source-links");
+  const saved = stage(3, 9);
+  const interviewId = "73990275-e848-480f-8962-8d39d3b88b43";
+  saved.sourceStageRevisions = [{ stageId: 2, revision: 4 }];
+  saved.content.draft.fields = {
+    definitionEvidenceRevision: "4",
+    "definitionPersona:p": JSON.stringify({ id: "p", name: "肖像", archived: false, confirmed: true, cardIds: [interviewId] }),
+    "definitionHmw:h": JSON.stringify({ id: "h", text: "开放式问题", archived: false, confirmed: true, cardIds: [interviewId] }),
+  };
+  const links = aidtReportSourceLinks(saved).filter(link => link.href.includes("step=2"));
+  expect(links.map(link => link.href)).toEqual(Array(2).fill(`/aidt/project?step=2&entity=${interviewId}&entityRevision=4`));
+  expect(aidtReportSourceLinks({ ...saved, sourceStageRevisions: [{ stageId: 2, revision: 5 }] }).some(link => link.href.includes("step=2"))).toBe(false);
+});

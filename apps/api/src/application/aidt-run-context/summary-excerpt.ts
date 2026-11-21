@@ -7,11 +7,11 @@ const important = [
  "returnStep", "returnReason", "questionSnapshot", "iterationPrototypeReference", "prototypeReference",
  "afterTestBelief", "understandingChangeStatus", "understandingEvidence", "iterationChangeReason", "iterationFeedbackReference",
  "feedback", "reflection", "nextAction", "unresolvedQuestions", "verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits",
- "initial", "whyWorthStudying", "problemSources", "sourceDetails", "rewrittenTheme", "focus", "people", "scene", "activity", "assumptions", "sourceUncertainty", "surpriseStatus", "priorBelief", "surprisingFinding",
+ "ideaHmwSource", "ideaBrainstormHandoff", "ideaHandoffIds", "initial", "whyWorthStudying", "problemSources", "sourceDetails", "rewrittenTheme", "focus", "people", "scene", "activity", "assumptions", "sourceUncertainty", "surpriseStatus", "priorBelief", "surprisingFinding",
  "surpriseSourceDetails", "surpriseInterpretation", "surpriseCardIds", "persona", "hmw", "ideaClassificationTags", "ideaClassificationReasons",
  "version", "questions", "said", "did", "inference", "next", "newVersion", "guide", "adoptedGuide", "sources", "interpretation", "goal", "personaBehavior", "patterns", "insight", "evidence", "decision", "reason", "criteria", "idea", "type", "situation", "touchpoints", "operations", "task", "requirements",
 ];
-const expanded = new Set(["questionSnapshot", "prototypeReference", "iterationPrototypeReference", "iterationPrototypeRelation", "ideaClassificationTags", "ideaClassificationReasons"]);
+const expanded = new Set(["questionSnapshot", "prototypeReference", "iterationPrototypeReference", "iterationPrototypeRelation", "ideaClassificationTags", "ideaClassificationReasons", "ideaHmwSource", "ideaBrainstormHandoff", "ideaHandoffIds"]);
 const repeatedConfirmation = new Set(["verificationQuestionConfirmation", "problemReflectionConfirmation", "ideaClassificationConfirmation"]);
 const clip = (text: string, max: number) => { const value = text.slice(0, max); return /[\uD800-\uDBFF]$/.test(value) ? value.slice(0, -1) : value; };
 const pathName = (path: Cell["path"]) => path.map(part => typeof part === "number" ? `[${part}]` : part).join(".");
@@ -45,7 +45,7 @@ export function projectAidtSummaryExcerpt(stage: SharedStageValue, maxChars: num
   if (repeatedConfirmation.has(key)) { policyOmitted.push(pathName(path)); continue; }
   const rank = important.indexOf(key), priority = rank < 0 ? 70 : rank;
   let value: unknown = raw;
-  if (expanded.has(key)) { try { const decoded: unknown = JSON.parse(raw); if (decoded !== null && typeof decoded === "object") value = decoded; } catch { /* Keep malformed student data verbatim; do not repair or infer it. */ } }
+  if (expanded.has(key) || (stage.stageId === 3 && /^definition(?:Persona|Hmw):/u.test(key))) { try { const decoded: unknown = JSON.parse(raw); if (decoded !== null && typeof decoded === "object") value = decoded; } catch { /* Keep malformed student data verbatim; do not repair or infer it. */ } }
   visit(value, path, priority);
  }
  visit(stage.sourceStageRevisions, ["sourceStageRevisions"], 45);

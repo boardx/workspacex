@@ -3,7 +3,7 @@
 import { useAidtCreateTags } from "./aidt-card-create-fields";
 import type { AidtIdeaHmwSource } from "../lib/aidt-idea-handoff";
 import * as React from "react";
-import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtEntityCard } from "./aidt-entity-card";
 import Link from "next/link";
 import { ArrowUpRight, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -81,8 +81,8 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     }
   }
 
-  const create = !readOnly && <AidtNewEntityCardButton disabled={saving || allItems.length >= 8}
-    onClick={() => open({ kind: "create", id: `idea-${crypto.randomUUID()}`, title: "" })} />;
+  const create = !readOnly && <Button type="button" variant="outline" disabled={saving || allItems.length >= 8}
+    onClick={() => open({ kind: "create", id: `idea-${crypto.randomUUID()}`, title: "" })}>新建点子</Button>;
 
   return <section aria-label="点子列表" className="space-y-4" data-testid="aidt-idea-directory">
     <header className="flex items-center justify-between gap-3">

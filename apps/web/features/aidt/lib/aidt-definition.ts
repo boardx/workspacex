@@ -4,6 +4,7 @@ import type { AidtDiscoveryCardDraft, AidtUiStageDraft } from "./aidt-ui-drafts"
 export const AIDT_DEFINITION_ITEM_LIMIT = 12;
 export const AIDT_DEFINITION_EVIDENCE_LIMIT = 16;
 const evidenceRevisionKey = "definitionEvidenceRevision";
+export const aidtDefinitionCardNameKey = (entityId: string) => "definitionCardName:" + entityId;
 const selectedHmwKey = "definitionHmwId";
 const personaPrefix = "definitionPersona:";
 const hmwPrefix = "definitionHmw:";
@@ -168,12 +169,28 @@ export function readAidtDefinitionEntities(fields: Fields) {
   ];
 }
 
-export function addAidtDefinitionEntity(draft: AidtUiStageDraft, kind: "persona" | "hmw", entityId: string): AidtUiStageDraft {
+export function addAidtDefinitionEntity(draft: AidtUiStageDraft, kind: "persona" | "hmw", entityId: string, options?: {
+  name?: string;
+  personaIds?: readonly string[];
+  source?: { revision: number; cardIds: readonly string[]; available: ReadonlySet<string> };
+}): AidtUiStageDraft {
   const { personas, hmws, surprises, invalid } = readAidtDefinition(draft.fields);
   if (invalid || entityId === AIDT_PRIMARY_SURPRISE_ID || [...personas, ...hmws, ...surprises].some(entity => entity.id === entityId)) return draft;
-  const common = { id: entityId, confirmed: false, archived: false, cardIds: [] };
-  if (kind === "persona") return personas.length < AIDT_DEFINITION_ITEM_LIMIT ? saveAidtDefinitionPersona(draft, { ...common, name: "", situation: "", behavior: "", need: "", limits: "" }, null) : draft;
-  return hmws.length < AIDT_DEFINITION_ITEM_LIMIT ? saveAidtDefinitionHmw(draft, { ...common, text: "", rationale: "", personaIds: [] }, null) : draft;
+  const { source } = options ?? {};
+  const name = options?.name?.trim() ?? "";
+  const selectedPersonas = [...new Set(options?.personaIds ?? [])];
+  const cardIds = [...new Set(source?.cardIds ?? [])];
+  const revision = source?.revision ?? null;
+  const pinned = readAidtDefinitionEvidenceRevision(draft.fields);
+  if (source && (!Number.isSafeInteger(source.revision) || source.revision < 1 || source.revision > 2147483647
+    || (pinned !== null && pinned !== revision) || cardIds.some(id => !source.available.has(id)))) return draft;
+  if (name.length > 80 || selectedPersonas.some(id => !personas.some(persona => persona.id === id && persona.confirmed && !persona.archived))) return draft;
+  const common = { id: entityId, confirmed: false, archived: false, cardIds };
+  const next = kind === "persona"
+    ? personas.length < AIDT_DEFINITION_ITEM_LIMIT ? saveAidtDefinitionPersona(draft, { ...common, name, situation: "", behavior: "", need: "", limits: "" }, revision) : draft
+    : hmws.length < AIDT_DEFINITION_ITEM_LIMIT ? saveAidtDefinitionHmw(draft, { ...common, text: "", rationale: "", personaIds: selectedPersonas }, revision) : draft;
+  if (next === draft || !name) return next;
+  return Object.keys(next.fields).length < 95 ? { ...next, fields: { ...next.fields, [aidtDefinitionCardNameKey(entityId)]: name } } : draft;
 }
 
 /** Stage-level summary for the existing group save and history surface. */

@@ -32,3 +32,28 @@ it("only recovers a legacy topic by the handoff held in the same revision",async
   expect(await entityLineage(two,"i",async()=>problem)).toEqual([]);
   expect(problemReference({scene:"确认", initial:" 你好！ ", rewrittenTheme:"为什么需要二次确认？"})).toEqual({"研究问题":"为什么需要二次确认？"});
 });
+
+it("follows both a brainstorm and its candidate to the same exact authorized HMW", async () => {
+  const session = "brainstorm-session", candidate = session + "-candidate";
+  const source = { id: "chosen", text: "如何比较食品？", revision: 4 };
+  const other = { id: "other", text: "其他活动", revision: 5 };
+  const frozen = make(3, 4, { "definitionHmw:chosen": json({ id: source.id, text: source.text, confirmed: true, archived: false }) });
+  const stage = make(4, 9, {
+    [`ideaBrainstorm:${session}`]: json({ id: session, source, method: "reverse", count: 5, candidates: [candidate] }),
+    ideaHmwSource: json(other),
+  });
+  stage.content.draft.ideas.push({ id: candidate, title: "菜单提示", description: "先比较配料，再决定是否排队。" });
+  const exact = async (step: number, revision: number) => {
+    expect([step, revision]).toEqual([3, 4]);
+    return frozen;
+  };
+  for (const id of [session, candidate]) {
+    expect(await entityLineage(stage, id, exact)).toEqual([expect.objectContaining({
+      step: 3, revision: 4, entityId: "chosen", href: "/aidt/project?step=3&entity=chosen&entityRevision=4",
+    })]);
+    expect(await entityLineage(stage, id, async () => ({ ...frozen, projectId: "foreign" }))).toEqual([]);
+    expect(await entityLineage(stage, id, async () => make(3, 4, {}))).toEqual([]);
+  }
+  delete stage.content.draft.fields[`ideaBrainstorm:${session}`];
+  expect(await entityLineage(stage, candidate, async () => { throw new Error("Unexpected fallback"); })).toEqual([]);
+});
