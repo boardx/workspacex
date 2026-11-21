@@ -5,7 +5,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { printResearchPdf } from "@/lib/research-report-export";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
-import { getAidtInterviewFinding, isAidtInterviewConfirmed, readAidtInterviews, readAidtInterviewTranscript, readAidtInterviewMaterials } from "../lib/aidt-interviews";
+import { getAidtInterviewFinding, hasAidtInterviewFinding, isAidtInterviewConfirmed, readAidtInterviews, readAidtInterviewTranscript, readAidtInterviewMaterials } from "../lib/aidt-interviews";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
 
 import { AidtResearchMaterialPreview } from "./aidt-research-material";
@@ -25,7 +25,7 @@ export function AidtInterviewOutput({ projectId, entityId, draft, frozenSourceId
   const reviewedMaterial = transcript?.checked && transcript.text.trim() && transcript.locator.trim() && interview.consent?.notes
     && material && !material.reference.mime.startsWith("image/") && (!material.reference.mime.startsWith("audio/") || interview.consent.audio) ? material : null;
   const quote = reviewedMaterial && transcript?.text.includes(finding.quote) ? finding.quote : "";
-  const hasFinding = interview.consent?.notes && !!(finding.headline || finding.context || quote || draft.fields["interviewInterpretation:" + entityId]);
+  const hasFinding = hasAidtInterviewFinding(draft, interview);
   const fields = [["标题来源", finding.headlineKind === "quote" ? "受访者原话" : "学生概括"], ["一句发现", finding.headline], ["具体情况", finding.context], ["受访者原话", quote], ["学生的解释", draft.fields["interviewInterpretation:" + entityId]], ["材料定位", reviewedMaterial ? [reviewedMaterial.reference.name, transcript?.locator].filter(Boolean).join(" · ") : ""], ["授权照片", interview.consent?.photos ? finding.photoRef : ""]];
   const missing = [!finding.headline.trim() && "你在 Chat 中写下的一句发现", !finding.context.trim() && "观察发生的具体情况", !reviewedMaterial && "已校对的摘录及其位置"].filter(Boolean);
   const frozenSource = material && material.reference.artifactId === frozenSourceId && interview.consent?.notes
