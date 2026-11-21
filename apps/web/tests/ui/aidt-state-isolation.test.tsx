@@ -5,7 +5,7 @@ import { ProjectAidt } from "@/features/aidt/components/project-aidt";
 
 type Identity = { currentOrgId: string; userId: string; sessionToken: string };
 type Reader = { result: string | null; onload: (() => void) | null; readAsDataURL: () => void };
-const mocks = vi.hoisted(() => ({ search: "tool=outcome", session: { currentOrgId: "org-a", userId: "student-a", sessionToken: "token-a" } as Identity | null, list: vi.fn(), readers: [] as Reader[] }));
+const mocks = vi.hoisted(() => ({ search: "history=1&tool=outcome", session: { currentOrgId: "org-a", userId: "student-a", sessionToken: "token-a" } as Identity | null, list: vi.fn(), readers: [] as Reader[] }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(mocks.search), useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: mocks.session }) }));
 vi.mock("next/dynamic", () => ({ default: (loader: () => Promise<unknown>) => {
@@ -22,7 +22,7 @@ vi.mock("@/components/project/project-evidence-section", () => ({ ProjectEvidenc
 vi.mock("@/components/project/project-conversations", () => ({ ProjectConversations: () => <div data-testid="readonly-conversations" /> }));
 
 beforeEach(() => {
-  vi.clearAllMocks(); mocks.list.mockReset(); mocks.search = "tool=outcome"; mocks.session = { currentOrgId: "org-a", userId: "student-a", sessionToken: "token-a" }; mocks.readers = [];
+  vi.clearAllMocks(); mocks.list.mockReset(); mocks.search = "history=1&tool=outcome"; mocks.session = { currentOrgId: "org-a", userId: "student-a", sessionToken: "token-a" }; mocks.readers = [];
   mocks.list.mockResolvedValue({ items: [{ id: "design-a", kind: "design" }] });
   vi.stubGlobal("FileReader", class {
     result: string | null = null;
@@ -54,7 +54,7 @@ it("does not carry local drafts across organizations but preserves them on same-
   expect(screen.getByLabelText("初始问题")).toHaveValue("");
 });
 it("rechecks resource access for a new actor before mounting the native editor", async () => {
-  mocks.search = "tool=design&resource=design-a";
+  mocks.search = "history=1&tool=design&resource=design-a";
   const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   await screen.findByTestId("native-design");
   let finish!: (value: { items: never[] }) => void;
@@ -63,31 +63,31 @@ it("rechecks resource access for a new actor before mounting the native editor",
   rerender(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   expect(screen.queryByTestId("native-design")).toBeNull();
   await act(async () => finish({ items: [] }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("未关联当前项目");
+  expect(await screen.findByTestId("aidt-resource-error")).toHaveTextContent("未关联当前项目");
   expect(mocks.list).toHaveBeenCalledTimes(2);
 });
 it("does not let an old actor's delayed successful association replace the current actor's denial", async () => {
-  mocks.search = "tool=design&resource=design-a";
+  mocks.search = "history=1&tool=design&resource=design-a";
   let oldFinish!: (value: { items: { id: string; kind: string }[] }) => void;
   mocks.list.mockImplementationOnce(() => new Promise(resolve => { oldFinish = resolve; }));
   const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   mocks.list.mockResolvedValueOnce({ items: [] });
   mocks.session = { ...mocks.session!, currentOrgId: "org-b", sessionToken: "token-b" };
   rerender(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
-  await screen.findByRole("alert");
+  await screen.findByTestId("aidt-resource-error");
   await act(async () => oldFinish({ items: [{ id: "design-a", kind: "design" }] }));
   expect(screen.queryByTestId("native-design")).toBeNull();
-  expect(screen.getByRole("alert")).toHaveTextContent("未关联当前项目");
+  expect(screen.getByTestId("aidt-resource-error")).toHaveTextContent("未关联当前项目");
 });
 it("invalidates an old association on token rotation and does not read resources when signed out", async () => {
-  mocks.search = "tool=design&resource=design-a";
+  mocks.search = "history=1&tool=design&resource=design-a";
   const { rerender } = render(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   await screen.findByTestId("native-design");
   mocks.list.mockRejectedValueOnce(new Error("revoked"));
   mocks.session = { ...mocks.session!, sessionToken: "token-b" };
   rerender(<ProjectAidt projectId="group" sub="aidt-6" canWrite />);
   expect(screen.queryByTestId("native-design")).toBeNull();
-  expect(await screen.findByRole("alert")).toHaveTextContent("资源读取失败");
+  expect(await screen.findByTestId("aidt-resource-error")).toHaveTextContent("资源读取失败");
   mocks.session = null;
   rerender(<ProjectAidt projectId="group" sub="aidt-6" canWrite={false} />);
   expect(screen.getByText("登录后可查看关联资源。")).toBeVisible();

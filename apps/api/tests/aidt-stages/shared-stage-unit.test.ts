@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { operations, SaveInput, SharedStage, SourceStageRevision, StageContent, StageSummary, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { AidtStagesService } from "../../src/application/aidt-stages/service";
+import { aidtSavedEntityContext } from "../../src/application/aidt-stages/entity-thread";
 import type { AidtStageRepository, StageActor, StageTransaction } from "../../src/application/aidt-stages/ports";
 import type { IdentityRepository } from "../../src/application/identity/ports";
 import { guard } from "../../src/application/security/permission-filter";
@@ -28,6 +29,7 @@ function fixture(){
         return guard(ref, { threadId });
       },
       current:async stageId=>guard(ref,own().filter(r=>r.stage.stageId===stageId).at(-1)?.stage??null),
+      revision:async(stageId,revision)=>guard(ref,own().find(r=>r.stage.stageId===stageId&&r.stage.revision===revision)?.stage??null),
       history:async(stageId,before,limit)=>guard(ref,own().filter(r=>r.stage.stageId===stageId&&(!before||r.stage.revision<before)).map(r=>r.stage).reverse().slice(0,limit)),
       receipt:async operationId=>{const v=own().find(r=>r.actor===who.userId&&r.operationId===operationId);return guard(ref,v?{stage:v.stage,requestKey:v.requestKey}:null);},
       hasImageAttachment:async ref=>ref.attachmentId==="sent-image"&&ref.threadId==="plenary"&&ref.name==="photo.png",
@@ -68,6 +70,20 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
     await expect(open(ids[0]!, { ...actor, userId: "outsider" })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
     expect(f.entityThreads.size).toBe(10);
   });
+  it("projects only the selected interview fields and withholds unrelated evidence from Skill context", async () => {
+    const { service } = fixture();
+    const draft = input(2);
+    draft.content.draft.fields = {
+      "interviewRecord:first": JSON.stringify({ id: "first", code: "U01", original: "原始问题", consent: { notes: true } }),
+      "interviewRecord:next": JSON.stringify({ id: "next", code: "U02", original: "另一个人的问题" }),
+      "interviewTranscript:first": "需要单独授权的材料",
+      guide: "归属不明的历史提纲",
+    };
+    const { stage } = await service.save(actor, draft);
+    expect(aidtSavedEntityContext(stage, "first")).toEqual({
+      entityId: "first", fields: { code: "U01", original: "原始问题" }, finding: undefined,
+    });
+  });
   it("summary has all six stages, missing stages remain revision zero",async()=>{const f=fixture();const out=await f.service.list(actor);expect(out.items).toHaveLength(6);expect(out.items.every(r=>r.revision===0&&r.updatedAt===null)).toBe(true);});
   it("stale revision returns authorized current and preserves prior record",async()=>{const f=fixture();await f.service.save(actor,input());await expect(f.service.save(actor,input())).rejects.toMatchObject({reasonCode:"AIDT_STAGE_REVISION_CONFLICT",current:{revision:1}});expect(f.records).toHaveLength(1);});
   it("serializes simultaneous base-zero writers, exactly one succeeds",async()=>{const f=fixture();const out=await Promise.allSettled([f.service.save(actor,input()),f.service.save({...actor,userId:"student-b"},input())]);expect(out.filter(r=>r.status==="fulfilled")).toHaveLength(1);expect(f.records).toHaveLength(1);});
@@ -80,6 +96,27 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
   it("non AIDT project and cross project return same inaccessible response",async()=>{const f=fixture();f.setState({aidt:false});await expect(f.service.get(actor,1)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_NOT_FOUND"});await expect(f.service.get({...actor,projectId:"other"},1)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_NOT_FOUND"});});
   it("cross tenant cannot see stage",async()=>{await expect(fixture().service.get({...actor,orgId:toOrgId("org-b")},1)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_NOT_FOUND"});});
   it("validates explicit earlier revision sources, never creates missing material",async()=>{const f=fixture();const v=input(2);v.sourceStageRevisions=[{stageId:1,revision:1}];await expect(f.service.save(actor,v)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_INVALID"});await f.service.save(actor,input());await expect(f.service.save(actor,v)).resolves.toMatchObject({stage:{sourceStageRevisions:v.sourceStageRevisions}});});
+  it("pins the actual selected HMW at the authorized historical stage-3 revision", async () => {
+    const f = fixture();
+    const definition = input(3);
+    definition.content.draft.fields = { definitionHmwId: "h-1", hmw: "我们如何理解校园菜单？" };
+    await f.service.save(actor, definition);
+    const newer = input(3, 1);
+    newer.content.draft.fields = { definitionHmwId: "h-2", hmw: "我们如何比较口味？" };
+    await f.service.save(actor, newer);
+    const ideate = input(4);
+    const hmw = { id: "h-1", text: "我们如何理解校园菜单？", revision: 1 };
+    ideate.content.draft.fields.ideaHmwSource = JSON.stringify(hmw);
+    await expect(f.service.save(actor, ideate)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    ideate.sourceStageRevisions = [{ stageId: 3, revision: 1 }];
+    ideate.content.draft.fields.ideaHmwSource = JSON.stringify({ ...hmw, id: "h-2" });
+    await expect(f.service.save(actor, ideate)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    ideate.content.draft.fields.ideaHmwSource = JSON.stringify({ ...hmw, text: "篡改文字" });
+    await expect(f.service.save(actor, ideate)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    ideate.content.draft.fields.ideaHmwSource = JSON.stringify(hmw);
+    const saved = await f.service.save(actor, ideate);
+    expect(saved.stage.sourceStageRevisions).toEqual([{ stageId: 3, revision: 1 }]);
+  });
   it("history is immutable and paginates descending without overlap",async()=>{const f=fixture();for(let n=0;n<3;n++)await f.service.save(actor,input(1,n));const page=await f.service.history(actor,1,undefined,2);expect(page.items.map(r=>r.revision)).toEqual([3,2]);expect(page.nextBeforeRevision).toBe(2);expect((await f.service.history(actor,1,page.nextBeforeRevision!,2)).items.map(r=>r.revision)).toEqual([1]);});
   it("writes the last PostgreSQL integer revision and rejects another append before storage",async()=>{
     const f=fixture(),max=2147483647,prior=input(1,max-2);
@@ -135,3 +172,52 @@ describe("shared stage contract",()=>{
   it("limits report text and rejects duplicate or more than six source stages",()=>{const v=input(6);v.content.summaryReport={markdown:"x".repeat(100001),sourceStageRevisions:[]};expect(SaveInput.safeParse(v).success).toBe(false);v.content.summaryReport={markdown:"报告",sourceStageRevisions:[{stageId:1,revision:1},{stageId:1,revision:2}]};expect(SaveInput.safeParse(v).success).toBe(false);v.content.summaryReport.sourceStageRevisions=Array.from({length:7},(_,i)=>({stageId:(i%6)+1,revision:1}));expect(SaveInput.safeParse(v).success).toBe(false);});
   it("caps history pagination to 100",()=>{expect(operations.history.in.safeParse({projectId:actor.projectId,stageId:1,limit:101}).success).toBe(false);});
 });
+
+describe("AIDT report entity receipts", () => {
+  it("isolates report drafts and freezes one exact revision per confirmation", async () => {
+    const { service } = fixture();
+    await service.save(actor, input());
+    const stageSix = input(6);
+    await service.save(actor, stageSix);
+    const sourceStageRevisions = [{ stageId: 1, revision: 1 }];
+    const reportA = { markdown: "# 小组报告 A", sourceStageRevisions };
+    const reportB = { markdown: "# 小组报告 B", sourceStageRevisions };
+    const saveReport = (reportEntityId: string, expectedRevision: number, summaryReport: NonNullable<SaveStageInput["content"]["summaryReport"]>) =>
+      service.save(actor, { ...stageSix, operationId: randomUUID(), reportEntityId, expectedRevision, content: { ...stageSix.content, summaryReport } });
+
+    await expect(saveReport("report-a", 1, { ...reportA, confirmedAtRevision: 2 })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    await saveReport("report-a", 1, reportA);
+    await saveReport("report-b", 2, reportB);
+    await expect(saveReport("report-a", 3, { ...reportB, confirmedAtRevision: 4 })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    const confirmedA = { ...reportA, confirmedAtRevision: 4 };
+    await expect(saveReport("report-a", 3, confirmedA)).resolves.toMatchObject({
+      stage: { revision: 4, content: { reports: { "report-a": confirmedA, "report-b": reportB } } },
+    });
+
+    const learningContent = draftForStageSix();
+    const nextLearning = await service.save(actor, { ...input(6, 4), content: learningContent });
+    expect(nextLearning.stage.content.reports).toEqual({ "report-a": confirmedA, "report-b": reportB });
+    const editedA = { ...reportA, markdown: "# A 的后续草稿" };
+    const saved = await service.save(actor, {
+      ...input(6, 5), reportEntityId: "report-a", content: { ...learningContent, summaryReport: editedA },
+    });
+    expect(saved.stage.content.reports).toEqual({ "report-a": editedA, "report-b": reportB });
+    expect(saved.stage.content.summaryReport).toBeUndefined();
+    const history = await service.history({ ...actor, userId: "student-b" }, 6, 5, 1);
+    expect(history.items[0]?.content.reports?.["report-a"]).toEqual(confirmedA);
+    expect(history.items[0]?.content.reports?.["report-b"]).toEqual(reportB);
+  });
+
+  it("rejects report-only writes that simultaneously change a learning draft", async () => {
+    const { service } = fixture();
+    await service.save(actor, input(6));
+    await expect(service.save(actor, {
+      ...input(6, 1),
+      reportEntityId: "new-report",
+      content: { ...draftForStageSix(), summaryReport: { markdown: "# Report", sourceStageRevisions: [] } },
+    })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+  });
+});
+function draftForStageSix(): SaveStageInput["content"] {
+  return { schemaVersion: 1, draft: { fields: { reflection: "迭代反馈" }, ideas: [], selectedIdeaId: "" } };
+}

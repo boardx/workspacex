@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { AidtContextSelector } from "@repo/contracts/aidt-run-context";
+import { chat } from "@repo/contracts";
+import { AidtContextReceipt, AidtContextSelector } from "@repo/contracts/aidt-run-context";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
-import { sendViaWorkbench } from "./chat-v2-send";
+import { bearerOf, sendViaWorkbench } from "./chat-v2-send";
 
 const composer = (page: Page) => page.getByTestId("copilotkit-v2-input");
 
@@ -53,12 +54,35 @@ test("ten interviews bind to ten native conversations and reopening never copies
   const secondTab = await context.newPage();
   const [first, duplicate] = await Promise.all([openInterview(page, urls[0]!), openInterview(secondTab, urls[0]!)]);
   expect(duplicate).toBe(first);
+  await page.goto(urls[0]! + "&tool=outcome");
+  const inspector = page.getByTestId("aidt-tool-panel");
+  await expect(inspector).toBeVisible();
+  await expect(inspector.getByLabel("受访者代号", { exact: true })).toHaveValue("U01");
+  await expect(inspector.getByLabel("访谈 / 观察提纲", { exact: true })).toHaveCount(0);
+  await page.getByTestId("chat-task-workbench-inspector-collapse").click();
+  await expect(inspector).toHaveCount(0);
+  await expect.poll(() => new URL(page.url()).searchParams.get("entity")).toBe(ids[0]);
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(first);
   const message = "这条 U01 专用记录不应出现在其他受访者的会话里。";
   const run = await sendViaWorkbench(page, message);
   expect(AidtContextSelector.parse(run.postDataJSON().forwardedProps?.aidtContext)).toMatchObject({
-    entityId: ids[0], stageId: 2, stageRevisions: [],
+    entityId: ids[0], stageId: 2, stageRevisions: [{ stageId: 2, revision: 1 }],
   });
   await expect(page.getByText(message, { exact: true }).first()).toBeVisible();
+
+  const bearer = await bearerOf(page);
+  const headers = { Authorization: "Bearer " + bearer };
+  let runId: string | null | undefined;
+  await expect.poll(async () => {
+    const response = await page.request.get("/__fullstack_api/chat/threads/" + encodeURIComponent(first) + "/messages?limit=100", { headers });
+    expect(response.ok()).toBe(true);
+    const { messages } = chat.operations.listMessages.out.parse(await response.json());
+    runId = messages.find(row => row.authorKind === "human" && row.text === message)?.agentRunId;
+    return runId;
+  }).toBeTruthy();
+  const receipt = await page.request.get("/__fullstack_api/agent-runs/" + encodeURIComponent(runId!) + "/aidt-context", { headers });
+  expect(receipt.ok()).toBe(true);
+  expect(AidtContextReceipt.parse(await receipt.json()).stageRevisions).toEqual([{ stageId: 2, revision: 1 }]);
 
   const threads = [first];
   for (const url of urls.slice(1)) {
@@ -73,4 +97,36 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(first);
   await page.getByRole("link", { name: /返回产物列表/ }).click();
   await expect(composer(page)).toHaveCount(0);
+
+  const versionsSaved = await page.evaluate(async ({ pathname, fields, firstId, ids }) => {
+    const endpoint = "/__fullstack_api/projects/" + pathname.split("/").pop() + "/aidt/stages/";
+    const headers = { "content-type": "application/json", authorization: "Bearer " + localStorage.getItem("wsx.sessionToken") };
+    const original = JSON.parse(fields["interviewRecord:" + firstId]!);
+    const nextFields = { ...fields, ["interviewRecord:" + firstId]: JSON.stringify({ ...original, code: "U01 最新标题" }) };
+    const next = await fetch(endpoint + "2", { method: "PUT", headers, body: JSON.stringify({
+      operationId: ids[0], expectedRevision: 1, sourceStageRevisions: [],
+      content: { schemaVersion: 1, draft: { fields: nextFields, ideas: [], selectedIdeaId: "" } },
+    }) });
+    const saveReport = (expectedRevision: number, confirmedAtRevision?: number) => fetch(endpoint + "6", {
+      method: "PUT", headers, body: JSON.stringify({
+        operationId: ids[expectedRevision + 1], expectedRevision, sourceStageRevisions: [],
+        content: { schemaVersion: 1, draft: { fields: {}, ideas: [], selectedIdeaId: "" },
+          summaryReport: { markdown: "# 访谈回顾", sourceStageRevisions: [{ stageId: 2, revision: 1 }], confirmedAtRevision } },
+      }),
+    });
+    const draft = await saveReport(0);
+    const confirmed = await saveReport(1, 2);
+    return [next.status, draft.status, confirmed.status];
+  }, { pathname, fields, firstId: ids[0]!, ids: [randomUUID(), randomUUID(), randomUUID()] });
+  expect(versionsSaved).toEqual([200, 200, 200]);
+  await page.goto(pathname + "?step=6&summary=1&entity=group-report&tool=report");
+  const reports = page.getByTestId("aidt-report-versions");
+  await reports.getByText("已确认版本与导出", { exact: true }).click();
+  await reports.getByRole("button", { name: "查看确认版 V2" }).click();
+  await reports.getByRole("button", { name: "查看第 2 步 V1" }).click();
+  await reports.getByRole("link", { name: "U01 · V1" }).click();
+  await expect(page.getByTestId("aidt-entity-history")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp("entity=" + ids[0] + ".*entityRevision=1"));
+  await expect(page.getByLabel("受访者代号", { exact: true })).toHaveValue("U01");
+
 });

@@ -1,10 +1,13 @@
+import { readAidtDefinition, readAidtDefinitionEvidenceRevision, readAidtDefinitionSelection } from "./aidt-definition";
 import type { AidtUiStageDraft, AidtDiscoveryCardDraft, AidtIdeaDraft } from "./aidt-ui-drafts";
+import { readAidtProblemDirections } from "./aidt-problem-directions";
 import { isProblemReflectionConfirmed } from "./aidt-problem-reflection";
-import { isAidtSurpriseConfirmed } from "./aidt-surprise-reflection";
+import { parseAidtSurpriseReflection } from "./aidt-surprise-reflection";
 import { readAidtIdeaClassification } from "./aidt-idea-classification";
 import { aidtIdeaReadiness, aidtCompleteIdeas } from "./aidt-idea-readiness";
 import { isAidtReflectionConfirmed, isVerificationQuestionConfirmed } from "./aidt-verification-loop";
 import { parseAidtResearchMaterial, researchMaterialKey, isAidtResearchImage } from "./aidt-research-material-reference";
+import { aidtInterviewHandoffReady } from "./aidt-interviews";
 import { readAidtPrototypeReference } from "./aidt-prototype-reference";
 
 export type RoundSource = { stageId: number; revision: number };
@@ -12,9 +15,29 @@ export const AIDT_ROUND_COMPLETION_FIELD = "roundCompletion";
 /** Student review in the existing working document; never a permission or teacher-grade authority. */
 export function aidtRoundMissingOutput(stageId: number, draft: AidtUiStageDraft, context?: { projectId: string; cards?: readonly AidtDiscoveryCardDraft[]; cardsRevision?: number }): string | null {
   const has = (...keys: string[]) => keys.every(key => Boolean(draft.fields[key]?.trim()));
-  if (stageId === 1 && (!has("rewrittenTheme") || !isProblemReflectionConfirmed(draft))) return "先核对重写主题与选题反思。";
-  if (stageId === 2 && (!has("adoptedGuide") || !draft.discoveryCards?.length || draft.discoveryCards.some(card => !card.participantCode.trim() || !card.headline.trim() || !card.context.trim() || !card.sourceRef.trim()))) return "先核对采纳后的访谈清单与带来源的人物发现卡。";
-  if (stageId === 3 && (!has("hmw") || !["personaAge", "personaInterests", "personaLifestyle", "personaBehavior"].some(key => draft.fields[key]?.trim()) || !isAidtSurpriseConfirmed(draft, context?.cards, context?.cardsRevision))) return "先核对意外发现或暂无、画像与选定HMW。";
+  if (stageId === 1) {
+    if (!has("rewrittenTheme") || !isProblemReflectionConfirmed(draft)) return "先核对重写主题与选题反思。";
+    const directions = readAidtProblemDirections(draft.fields.problemDirections);
+    if (directions.length && !directions.some(direction => direction.id === draft.fields.problemDirectionId)) return "请选择本轮研究方向。";
+  }
+  if (stageId === 2) {
+    const ready = aidtInterviewHandoffReady(draft);
+    const legacyReady = has("adoptedGuide") && draft.discoveryCards?.length && draft.discoveryCards.every(
+      card => card.participantCode.trim() && card.headline.trim() && card.context.trim() && card.sourceRef.trim(),
+    );
+    if (!(ready ?? legacyReady)) return "先核对至少一位受访者的清单、原始材料与发现卡。";
+  }
+  if (stageId === 3) {
+    const definition = readAidtDefinition(draft.fields);
+    const hasStructuredDraft = definition.personas.length || definition.hmws.length || definition.invalid;
+    const selectedHmw = hasStructuredDraft ? readAidtDefinitionSelection(draft.fields) : has("hmw") && ["personaAge", "personaInterests", "personaLifestyle", "personaBehavior"].some(key => draft.fields[key]?.trim());
+    const surprise = parseAidtSurpriseReflection(draft, context?.cards, context?.cardsRevision);
+    const pinned = readAidtDefinitionEvidenceRevision(draft.fields);
+    const confirmedHistoricalSource = hasStructuredDraft && pinned && pinned !== context?.cardsRevision && surprise.sourceRevision === pinned
+      && surprise.requiresCardRevision && !surprise.invalidCardIds && draft.fields.surpriseConfirmed === "true"
+      && Boolean(surprise.priorBelief.trim() && surprise.surprisingFinding.trim());
+    if (!selectedHmw || (!surprise.confirmed && !confirmedHistoricalSource)) return "先核对意外发现或暂无、画像与选定HMW。";
+  }
   if (stageId === 4) {
     const hasOriginalImage = (idea: AidtIdeaDraft) => { const material = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]); return Boolean(material && material.projectId === context?.projectId && isAidtResearchImage(material)); };
     const readiness = aidtIdeaReadiness(draft.ideas, hasOriginalImage);

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { project } from "@repo/contracts";
 import * as stages from "@repo/contracts/aidt-stages";
@@ -362,4 +362,49 @@ test("pure human project chat: two authors, durable topic replies, idempotency a
     await writeFile(evidence, JSON.stringify({ projectId, persisted: persisted.rows, modelActivity: { before, after }, topicGeometry }, null, 2));
     await test.info().attach("member-chat-pg-readback", { path: evidence, contentType: "application/json" });
   } finally { await memberContext.close(); }
+});
+
+test("saved AIDT report confirms a frozen version and exports that version after a newer draft", async ({ page }) => {
+  test.skip(!isAidtModuleEnabled() || !enabled(process.env.ENABLE_AIDT_MODULE), "Optional AIDT must be enabled.");
+  test.setTimeout(120_000);
+  await login(page);
+  const projectId = await createProject(page, "小组报告确认回归");
+  const stagePath = (stage: number) => `/projects/${projectId}/aidt/stages/${stage}`;
+  const source = { stageId: 1, revision: 1 };
+  const first = { projectId, stageId: 1, operationId: randomUUID(), expectedRevision: 0, content: draft("已保存研究问题"), sourceStageRevisions: [] };
+  expect((await request(page, stagePath(1), "PUT", first)).status).toBe(200);
+  const markdown = "# 小组报告\n本轮尚未开展真实测试。";
+  const reportDraft = { markdown, sourceStageRevisions: [source] };
+  const sixth = { ...first, stageId: 6, operationId: randomUUID(), content: { ...draft("等待验证"), summaryReport: reportDraft } };
+  expect((await request(page, stagePath(6), "PUT", sixth)).status).toBe(200);
+
+  await page.goto(`/aidt/${projectId}?step=6&tool=report`);
+  await expect(page.getByTestId("aidt-report-save-state")).toHaveText("小组报告已保存 · 待确认");
+  await page.getByRole("button", { name: "阅读预览", exact: true }).click();
+  await page.getByRole("button", { name: "确认审阅此版本" }).click();
+  await page.getByRole("button", { name: "确认小组报告", exact: true }).click();
+  await expect(page.getByTestId("aidt-report-save-state")).toHaveText("小组报告已确认 · V2");
+  const confirmed = stages.operations.get.out.parse((await request(page, stagePath(6))).data).stage;
+  expect(confirmed?.content.summaryReport).toEqual({ ...reportDraft, confirmedAtRevision: 2 });
+
+  await page.getByRole("button", { name: "编辑报告", exact: true }).click();
+  await page.getByLabel("小组报告草稿", { exact: true }).fill("# 后续草稿：仍待审阅");
+  await page.getByTestId("aidt-report-save").click();
+  await expect(page.getByTestId("aidt-report-save-state")).toHaveText("小组报告已保存 · 待确认");
+  await page.getByText("已确认版本与导出", { exact: true }).click();
+  await page.getByRole("button", { name: "读取版本历史", exact: true }).click();
+  await page.getByRole("button", { name: /查看确认版 V2/ }).click();
+  await expect(page.getByRole("article", { name: "已确认报告正文" })).toContainText("本轮尚未开展真实测试。");
+  await page.getByRole("button", { name: "查看第 1 步 V1", exact: true }).click();
+  await expect(page.getByLabel("来源版本详情")).toContainText("已保存研究问题");
+
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载 V2 Markdown", exact: true }).click();
+  const exported = await download;
+  const file = test.info().outputPath("confirmed-report-v2.md");
+  await exported.saveAs(file);
+  const bytes = await readFile(file, "utf8");
+  expect(bytes).toContain(markdown);
+  expect(bytes).toContain("第 1 步 V1");
+  expect(bytes).not.toContain("后续草稿");
 });
