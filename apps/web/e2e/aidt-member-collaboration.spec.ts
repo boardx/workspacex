@@ -508,6 +508,7 @@ test("saved AIDT report confirms a frozen version and exports that version after
 });
 
 test("ordinary member names and retags an interview without replacing the native conversation", async ({ page, browser }) => {
+  test.skip(!isAidtModuleEnabled() || !enabled(process.env.ENABLE_AIDT_MODULE), "Optional AIDT must be enabled.");
   test.setTimeout(180_000);
   await login(page);
   const projectId = await createProject(page, "访谈姓名与标签");
