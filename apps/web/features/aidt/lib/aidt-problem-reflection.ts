@@ -1,3 +1,4 @@
+import { readAidtProblemDirections } from "./aidt-problem-directions";
 /** Source labels describe student-reported provenance, never proof of a claim. */
 export const PROBLEM_SOURCE_OPTIONS = [
   { value: "observation", label: "亲自观察" },
@@ -42,6 +43,7 @@ export function formatAidtProblemReflectionMarkdown(draft: AidtUiStageDraft): st
   const sources = readProblemSources(fields.problemSources);
   const sourceLabels = sources.selected.map((source) => PROBLEM_SOURCE_OPTIONS.find((option) => option.value === source)!.label);
   const missing = problemReflectionMissingFields(draft);
+  const directions = readAidtProblemDirections(fields.problemDirections);
   return [
     "### 问题反思记录",
     `原始命题：${fields.initial?.trim() || "待补充"}`,
@@ -50,6 +52,7 @@ export function formatAidtProblemReflectionMarkdown(draft: AidtUiStageDraft): st
     `学生标注的问题来源：${sourceLabels.join("、") || "待补充"}${sources.invalid ? "（来源数据待核对）" : ""}`,
     `来源描述：${fields.sourceDetails?.trim() || "待补充"}`,
     `尚不确定：${fields.sourceUncertainty?.trim() || "尚未填写；不表示没有不确定性"}`,
+    ...directions.map(direction => `候选方向：${direction.title}（${direction.source === "group" ? "小组讨论" : "AI 补充，待验证"}${direction.id === fields.problemDirectionId ? "；本轮选择" : ""}）`),
     `反思确认：${isProblemReflectionConfirmed(draft) ? "本组编辑者已确认" : "待学生确认"}${missing.length ? `；待补充：${missing.join("、")}` : ""}`,
     "依据状态：学生记录，尚待研究核实；观察、转述抱怨或猜测均不自动证明命题与原因。",
     "",

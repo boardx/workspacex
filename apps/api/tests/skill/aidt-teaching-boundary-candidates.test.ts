@@ -17,7 +17,7 @@ const content = (name: string) => readFileSync(join(AIDT_METHODS_CANDIDATE_SOURC
 
 describe("opt-in teaching boundary release candidates", () => {
   it("selects new opt-in coordinates while retaining published bytes", () => {
-    expect(AIDT_PLATFORM_SKILL_PACK).toEqual({ packId: "aidt-methods", packVersion: "1.4.0" });
+    expect(AIDT_PLATFORM_SKILL_PACK).toEqual({ packId: "aidt-methods", packVersion: "1.4.1" });
     expect(AIDT_SUMMARY_SKILL_PACK).toEqual({ packId: "aidt-project-summary", packVersion: "1.0.4" });
     for (const [path, digest] of [
       ["aidt-methods/1.3.0.json", "43bd0807885fb9a47d2c4dc56c5403969d2be7fda665b10d83a34a99409d40af"],
@@ -25,7 +25,7 @@ describe("opt-in teaching boundary release candidates", () => {
       ["aidt-project-summary/1.0.0.json", "ccf956f35998325fe48586c8d7372b5225435eb2489193baa6d1eeb44f8dffb7"],
       ["aidt-project-summary/1.0.1.json", "3ea83de72863f7c2550984fc988515460e5f35a940237c74d2ef3c28b8ba05ba"],
     ]) expect(sha256(readFileSync(new URL(`skills/starter-packs/${path}`, root)))).toBe(digest);
-    expect(buildAidtMethodsPack().packVersion).toBe("1.4.0");
+    expect(buildAidtMethodsPack().packVersion).toBe("1.4.1");
     expect(buildAidtSummaryPack().packVersion).toBe("1.0.4");
   });
 
