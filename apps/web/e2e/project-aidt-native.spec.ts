@@ -38,7 +38,7 @@ async function openHistoryTools(page: Page) {
 /** Preserve compact/mobile navigation while explicitly entering supported aggregate tools. */
 async function selectHistoryStage(page: Page, stage: number) {
   if (new URL(page.url()).searchParams.has("entity")) {
-    await page.getByRole("link", { name: "返回产物列表", exact: true }).click();
+    await page.getByRole("link", { name: /^返回(产物|访谈)列表$/ }).click();
     await expect(page.getByTestId("aidt-step-entity-directory")).toBeVisible();
     await page.getByRole("link", { name: "项目总览", exact: true }).click();
     await page.getByTestId(`aidt-step-${stage}`).click();
@@ -174,7 +174,7 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   expect(projectList.data.some((item: { id: string }) => item.id === FULLSTACK_E2E.projectId)).toBe(true);
   expect((await api(page, `${nativeThreadPath}?projectId=${encodeURIComponent(FULLSTACK_E2E.projectId)}`)).status).toBe(404);
   await page.screenshot({ path: test.info().outputPath("aidt-native-problem-entity-chat.png"), fullPage: true });
-  await page.getByRole("link", { name: "返回产物列表", exact: true }).click();
+  await page.getByRole("link", { name: /^返回(产物|访谈)列表$/ }).click();
   // The history link is deliberately existing-only and never creates new
   // aggregate conversations. Build explicit, persisted compatibility fixtures
   // using the same native create/mount APIs exercised by the privacy checks.
@@ -684,7 +684,7 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   const context = AidtContextSelector.parse(interview.postDataJSON().forwardedProps?.aidtContext);
   await page.screenshot({ path: test.info().outputPath("aidt-interview-handoff.png"), fullPage: true });
   expect(context).toMatchObject({ projectId, stageId: 2, entityId: interviewId, sourceEntityId: problemId, stageRevisions: [{ stageId: 1, revision: stored.data.stage.revision }, { stageId: 2, revision: 1 }] });
-  await page.getByRole("link", { name: "返回产物列表" }).click();
+  await page.getByRole("link", { name: "返回访谈列表" }).click();
   await expect(page.getByTestId("aidt-step-entity-directory")).toBeVisible();
   const back = new URL(page.url()).searchParams;
   expect(back.get("problemEntity")).toBe(problemId);

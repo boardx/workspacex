@@ -231,6 +231,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect.poll(async () => { const saved = await savedStage(stage); return saved.revision > beforeRevision && hasExactSavedInput(saved.content, next); }, { timeout: 30000 }).toBe(true);
     await page.reload();
     if (stage === 4) await disclosure('分类与描述单');
+    if (stage === 2) {
+      await expect(page.getByTestId('aidt-stage-output')).toBeVisible();
+      await expandInterviewSection('编辑提纲');
+    }
     await expect(field).toHaveValue(next);
     const after = await field.inputValue(), afterRevision = await revision(stage);
     if (after !== next) fail('ITERATION_INPUT_NOT_RETAINED');
@@ -265,7 +269,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const id = ({ 2: 'aidt-stage-output', 3: 'aidt-definition-editor', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
     if (!id) fail('ENTITY_FORM_EXPECTATION_MISSING');
     await expect(page.getByTestId(id)).toBeVisible();
-    if (stage === 2) await expect(page.getByRole('textbox', { name: '学生提纲原稿', exact: true })).toBeEditable();
+    if (stage === 2) {
+      await expandInterviewSection('编辑提纲');
+      await expect(page.getByRole('textbox', { name: '学生提纲原稿', exact: true })).toBeEditable();
+    }
     if (stage === 6) await expect(page.getByTestId(id).getByRole('textbox', { name: '测试任务与追问', exact: true })).toBeEditable();
   };
   const follow = async (name, { resource = false } = {}) => {
@@ -282,6 +289,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     } else await expect(page.getByTestId('aidt-step-entity-directory')).toBeVisible();
     lastEntityRoute = target;
     return href;
+  };
+  const expandInterviewSection = async name => {
+    const entry = page.locator('summary').filter({ hasText: name }).first();
+    if (await entry.isVisible()) await disclosure(name);
   };
   const output = async (target = lastEntityRoute) => {
     if (!target) fail('CAPTURED_ENTITY_REQUIRED');
@@ -422,8 +433,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await fill('学生采纳清单', text('请说说选择时的想法。')); await saveStage(2);
       await iterate(2, page.getByRole('textbox', { name: '学生采纳清单', exact: true }), '访谈问题清单', text('请描述最近一次具体选择的经过：你看了什么，怎样决定，什么地方让你犹豫？'));
       if (index === 1) await feedback(2);
+      await expandInterviewSection('编辑提纲');
       await persistConfirmed(2, btn('确认此人的问题清单'));
       await printOutput(2, `interview-guide-${code}`, page.getByTestId('aidt-interview-guide-print'), ['访谈问题清单', SYNTHETIC, '最近一次具体选择']);
+      await expandInterviewSection('访谈材料与授权');
       await page.getByLabel('已获授权共享文字记录', { exact: true }).check(); await click(btn('更新授权记录'));
       const quote = `QA-${code}：我在合成情境${index}中先看队列，再决定是否等待。`;
       await uploaded(`${code}研究原件`, `qa-${unique}-${code}.txt`, Buffer.from(`${SYNTHETIC}。run=${unique}\n第1段 ${quote}\n`), 'text/plain');
@@ -431,6 +444,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(select.locator('option')).toHaveCount(2); await select.selectOption({ index: 1 });
       await fill('定位（如 01:42 或第 3 段）', '第1段'); await fill('校对后的摘录', quote);
       await page.getByLabel('已对照原始材料校对', { exact: true }).check();
+      await expandInterviewSection('整理访谈发现');
       await page.getByRole('combobox', { name: '标题来源', exact: true }).selectOption('student-summary');
       await fill('一句发现', text(`${code}的合成记录关注等待时间。`));
       await fill('学生记录的可观察情况', text('测试夹具仅包含文字情境，不代表实际观察。'));
@@ -485,6 +499,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds.get(interview.code));
       await page.reload(); await output(interview.target);
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds.get(interview.code));
+      await expandInterviewSection('访谈设置与研究问题');
+      await expandInterviewSection('编辑提纲');
       await expect(page.getByLabel('受访者代号', { exact: true })).toHaveValue(interview.code);
       await expect(page.getByRole('textbox', { name: '想了解什么', exact: true })).toHaveValue(interviewGoal(interview.code));
       expect(new URL(page.url()).searchParams.get('entity')).toBe(new URL(interview.href).searchParams.get('entity'));

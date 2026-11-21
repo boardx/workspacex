@@ -62,6 +62,8 @@ it("keeps per-person questions independent across directory and saved entity vie
   directory.unmount();
 
   render(<Workspace initial={saved} entityId={first!.id} />);
+  fireEvent.click(screen.getByText("编辑提纲"));
+  fireEvent.click(screen.getByText("整理访谈发现"));
   expect(screen.getByRole("textbox", { name: "学生提纲原稿" })).toHaveValue("U01 原稿");
   expect(screen.getByRole("textbox", { name: "学生采纳清单" })).toHaveValue("U01 确认清单");
   expect(screen.getByRole("button", { name: "确认人物发现卡" })).toBeDisabled();
