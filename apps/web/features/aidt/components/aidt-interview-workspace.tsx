@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
+import { AidtInterviewRecorder } from "./aidt-interview-recorder";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
 import { AidtResearchMaterialControl, AidtResearchMaterialPreview } from "./aidt-research-material";
 import { listAidtStageHistory, readAidtStage, type AidtSharedStage } from "../lib/live-aidt-stages";
@@ -14,9 +15,9 @@ import { researchMaterialKey } from "../lib/aidt-research-material-reference";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import {
   aidtInterviewFindingReady, aidtInterviewMaterialKey, archiveAidtInterview, confirmAidtInterviewFinding,
-  getAidtInterviewFinding, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviewMaterials,
+  getAidtInterviewFinding, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviewAudio, readAidtInterviewMaterials,
   readAidtInterviewTranscript, readAidtInterviews, setAidtInterviewPhoto, writeAidtInterview, writeAidtInterviewFinding,
-  writeAidtInterviewMaterial, writeAidtInterviewTranscript, type AidtInterview,
+  writeAidtInterviewAudio, writeAidtInterviewMaterial, writeAidtInterviewTranscript, type AidtInterview,
 } from "../lib/aidt-interviews";
 
 type UpdateDraft = (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
@@ -186,6 +187,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
   const [archiving, setArchiving] = React.useState(false);
   const [notes, setNotes] = React.useState(interview.consent?.notes ?? false);
   const [audio, setAudio] = React.useState(interview.consent?.audio ?? false);
+  const [capture, setCapture] = React.useState(interview.consent?.capture ?? false);
+  const [asr, setAsr] = React.useState(interview.consent?.asr ?? false);
   const [photos, setPhotos] = React.useState(interview.consent?.photos ?? false);
   const heading = React.useRef<HTMLHeadingElement>(null);
   React.useEffect(() => { heading.current?.focus(); }, []);
@@ -251,9 +254,20 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
       <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={notes} disabled={readOnly} onChange={event => setNotes(event.currentTarget.checked)} />已获授权共享文字记录</label>
       <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={photos} disabled={readOnly} onChange={event => setPhotos(event.currentTarget.checked)} />已获授权共享照片</label>
       <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio} disabled={readOnly} onChange={event => setAudio(event.currentTarget.checked)} />已获授权共享原始录音</label>
-      <Button type="button" size="sm" variant="outline" disabled={readOnly || (audio === (interview.consent?.audio ?? false) && notes === (interview.consent?.notes ?? false) && photos === (interview.consent?.photos ?? false))} onClick={() =>
-        record({ consent: notes || photos || audio ? { observedAt: new Date().toISOString(), notes, photos, audio } : null })
+      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio && capture} disabled={readOnly || !audio} onChange={event => setCapture(event.currentTarget.checked)} />已获授权在此录音</label>
+      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio && capture && asr} disabled={readOnly || !audio || !capture} onChange={event => setAsr(event.currentTarget.checked)} />已获授权使用在线转写服务</label>
+      <Button type="button" size="sm" variant="outline" disabled={readOnly || ((audio && capture && asr) === (interview.consent?.asr ?? false) && (audio && capture) === (interview.consent?.capture ?? false) && audio === (interview.consent?.audio ?? false) && notes === (interview.consent?.notes ?? false) && photos === (interview.consent?.photos ?? false))} onClick={() =>
+        record({ consent: notes || photos || audio ? { observedAt: new Date().toISOString(), notes, photos, audio, capture: audio && capture, asr: audio && capture && asr } : null })
       }>更新授权记录</Button>
+      {interview.consent?.audio && interview.consent.capture && token && <AidtInterviewRecorder
+        key={JSON.stringify([projectId, token, id, interview.consent.observedAt, readOnly])}
+        projectId={projectId} participantCode={code} sessionToken={token}
+        disabled={readOnly || Object.keys(draft.fields).length >= 95} asrAllowed={!!interview.consent.asr}
+        onAttached={({ source, ...metadata }) => {
+          const key = aidtInterviewMaterialKey(id, encodeURIComponent(source.runId));
+          update(old => writeAidtInterviewAudio(old, id, key, source, metadata));
+        }}
+      />}
       {interview.consent && !!allowedKinds.length && <AidtResearchMaterialControl
         projectId={projectId} label={`${code}研究原件`} readOnly={readOnly || Object.keys(draft.fields).length >= 95}
         allowedKinds={allowedKinds}
@@ -264,10 +278,24 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
           update(old => writeAidtInterviewMaterial(old, id, key, JSON.stringify(reference)));
         }}
       />}
-      {materials.filter(item => isAllowed(item.reference.mime)).map(({ key, reference }) => <div key={key} className="space-y-2">
-        <AidtResearchMaterialPreview projectId={projectId} reference={reference} quote={key === transcript.sourceKey ? finding.quote : undefined} />
-        <Button type="button" size="xs" variant="ghost" disabled={readOnly} onClick={() => update(old => writeAidtInterviewMaterial(old, id, key, ""))}>移除此访谈的材料关联</Button>
-      </div>)}
+      {materials.filter(item => isAllowed(item.reference.mime)).map(({ key, reference }) => {
+        const recorded = readAidtInterviewAudio(draft.fields, key);
+        return <div key={key} className="space-y-2">
+          {recorded && <p className="text-12 text-muted-foreground">
+            录音 ${new Date(recorded.startedAt).toLocaleString()} · ${Math.round(recorded.durationMs / 1000)} 秒
+          </p>}
+          <AidtResearchMaterialPreview projectId={projectId} reference={reference} quote={key === transcript.sourceKey ? finding.quote : undefined} />
+          {recorded?.draftTranscript && interview.consent?.asr && <details className="text-12">
+            <summary className="cursor-pointer">查看自动转写摘录</summary>
+            <p className="mt-2 whitespace-pre-wrap">{recorded.draftTranscript}</p>
+            <p className="text-muted-foreground">时间标记为浏览器收到文字时的录音位置，请对照原件校对。</p>
+            <Button type="button" size="xs" variant="outline" disabled={!editableEvidence || !!transcript.text.trim()} onClick={() => {
+              update(old => writeAidtInterviewTranscript(old, id, { sourceKey: key, locator: "", text: recorded.draftTranscript, checked: false }));
+            }}>带入待校对摘录</Button>
+          </details>}
+          <Button type="button" size="xs" variant="ghost" disabled={readOnly} onClick={() => update(old => writeAidtInterviewMaterial(old, id, key, ""))}>移除此访谈的材料关联</Button>
+        </div>;
+      })}
       {interview.consent?.notes && <>
         <label className="block text-12">转写原件<select className={inputClass} value={transcript.sourceKey} disabled={!editableEvidence} onChange={event => {
           const sourceKey = event.currentTarget.value;

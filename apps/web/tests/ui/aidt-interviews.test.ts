@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { StageDraft } from "@repo/contracts/aidt-stages";
-import { emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
+import { aidtUiStageSummary, emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import {
   aidtInterviewDirectory, aidtInterviewMaterialKey, archiveAidtInterview, confirmAidtInterviewFinding,
-  confirmedAidtInterviewCards, readAidtInterviews, writeAidtInterview, writeAidtInterviewFinding,
+  confirmedAidtInterviewCards, readAidtInterviewAudio, readAidtInterviews, writeAidtInterview, writeAidtInterviewAudio, writeAidtInterviewFinding,
   writeAidtInterviewMaterial, writeAidtInterviewTranscript, type AidtInterview,
 } from "@/features/aidt/lib/aidt-interviews";
 
@@ -59,4 +59,20 @@ describe("AIDT interview entity snapshots", () => {
     expect(confirmedAidtInterviewCards(snapshot)).toHaveLength(1);
     expect(aidtInterviewDirectory(archived)).toMatchObject([{ id: student.id, archived: true }, { id: pending.id, archived: false }]);
   });
+});
+
+it("makes a new directory saveable and stores captured media only with that participant's capture grant", () => {
+  const student = interview(1);
+  const draft = writeAidtInterview(emptyAidtUiDrafts()[2]!, student);
+  expect(aidtUiStageSummary(2, draft)).toBe("访谈记录：1 份");
+  const material = { projectId: "group-A", runId: "run", artifactId: "capture", versionId: "v1", name: "U01.wav",
+    mime: "audio/wav", sha256: "a".repeat(64), bytes: 32044 };
+  const metadata = { startedAt: "2026-11-20T04:12:00Z", finishedAt: "2026-11-20T04:12:01Z", durationMs: 1000, draftTranscript: "临时转写" };
+  const key = aidtInterviewMaterialKey(student.id, "run");
+  expect(writeAidtInterviewAudio(draft, student.id, key, material, metadata)).toBe(draft);
+  const approved = writeAidtInterview(draft, { ...student, consent: { ...student.consent!, audio: true, capture: true } });
+  const otherKey = aidtInterviewMaterialKey(interview(2).id, "run");
+  expect(writeAidtInterviewAudio(approved, student.id, otherKey, material, metadata)).toBe(approved);
+  const recorded = StageDraft.parse(writeAidtInterviewAudio(approved, student.id, key, material, metadata));
+  expect(readAidtInterviewAudio(recorded.fields, key)).toEqual({ ...metadata, draftTranscript: "" });
 });

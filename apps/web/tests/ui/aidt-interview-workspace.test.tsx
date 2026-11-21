@@ -82,7 +82,7 @@ it("opens only the explicitly selected historical problem entity and persists bo
   const view = render(<Workspace problemEntityId={id} problemRevision={3} />);
   await screen.findByText("已确认研究问题 · 第 1 步 V3");
   fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
-  expect(screen.getByText(/怎样比较菜单上的口味/)).toBeInTheDocument();
+  expect(screen.getByText("第 1 步 V3 · 第二个问题：怎样比较菜单上的口味？")).toBeInTheDocument();
   const record = JSON.parse(Object.entries(latest.fields).find(([key]) => key.startsWith("interviewRecord:"))![1]);
   expect(record).toMatchObject({ problemEntityId: id, topicRevision: 3, topic: confirmed.fields.rewrittenTheme });
   view.unmount();

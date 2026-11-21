@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AidtDiscoveryCardDraft, AidtUiStageDraft } from "./aidt-ui-drafts";
-import { isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey } from "./aidt-research-material-reference";
+import { isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey, type AidtResearchMaterialReference } from "./aidt-research-material-reference";
 
 const prefix = "interviewRecord:";
 const recordKey = (id: string) => `${prefix}${id}`;
@@ -20,9 +20,29 @@ const Interview = z.object({
   original: z.string().max(1000),
   adopted: z.string().max(1000),
   guideConfirmed: z.boolean(),
-  consent: z.object({ observedAt: z.string().datetime(), notes: z.boolean(), photos: z.boolean(), audio: z.boolean().default(false) }).nullable(),
+  consent: z.object({ observedAt: z.string().datetime(), notes: z.boolean(), photos: z.boolean(), audio: z.boolean().default(false), capture: z.boolean().optional(), asr: z.boolean().optional() }).nullable(),
 });
 export type AidtInterview = z.infer<typeof Interview>;
+
+const audioMetadata = z.object({
+  startedAt: z.string().datetime(),
+  finishedAt: z.string().datetime(),
+  durationMs: z.number().int().positive(),
+  draftTranscript: z.string().max(1700),
+});
+
+export function readAidtInterviewAudio(fields: Readonly<Record<string, string>>, sourceKey: string) {
+  return parse(audioMetadata, fields["captured:" + sourceKey]);
+}
+
+export function writeAidtInterviewAudio(draft: AidtUiStageDraft, id: string, sourceKey: string, source: AidtResearchMaterialReference, metadata: z.infer<typeof audioMetadata>) {
+  const interview = parse(Interview, draft.fields[recordKey(id)]);
+  if (!interview?.consent?.audio || !interview.consent.capture || !sourceKey.startsWith(materialPrefix(id)) || isAidtInterviewArchived(draft.fields, id)) return draft;
+  const value = audioMetadata.safeParse({ ...metadata, draftTranscript: interview.consent.asr ? metadata.draftTranscript : "" });
+  if (!value.success || source.mime !== "audio/wav") return draft;
+  const attached = writeAidtInterviewMaterial(draft, id, sourceKey, JSON.stringify(source));
+  return { ...attached, fields: { ...attached.fields, ["captured:" + sourceKey]: JSON.stringify(value.data) } };
+}
 
 const Transcript = z.object({
   sourceKey: z.string(),
@@ -80,6 +100,7 @@ export function writeAidtInterviewMaterial(draft: AidtUiStageDraft, id: string, 
     }
     if (removed && fields[sourceKey] === removed) delete fields[sourceKey];
     delete fields[key];
+    delete fields["captured:" + key];
   }
   return { ...draft, fields };
 }
@@ -195,4 +216,8 @@ export function aidtInterviewDirectory(draft: AidtUiStageDraft) {
     title: record.code,
     archived: isAidtInterviewArchived(draft.fields, record.id),
   }));
+}
+
+export function countAidtInterviewRecords(draft: AidtUiStageDraft) {
+  return readAidtInterviews(draft.fields).length;
 }
