@@ -242,12 +242,24 @@ test.describe("recording evidence in the interview Chat", () => {
     await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
     const path = new URL(page.url()).pathname, projectId = path.split("/").pop()!;
     const first = randomUUID(), sibling = randomUUID();
+    const problemId = randomUUID();
+    const topic = "顾客在菜单前如何选择饮料？";
+    const headers = { Authorization: "Bearer " + await bearerOf(page) };
+    const projectStages = "/__fullstack_api/projects/" + projectId + "/aidt/stages";
+    const problem = await page.request.put(projectStages + "/1", { headers, data: {
+      operationId: randomUUID(), expectedRevision: 0, sourceStageRevisions: [],
+      content: { schemaVersion: 1, draft: { fields: {
+        problemHandoffEntity: problemId,
+        ["problemEntity:" + problemId]: JSON.stringify({ id: problemId, title: "菜单饮料选择", archived: false }),
+        ["problemDraft:" + problemId]: JSON.stringify({ initial: topic, scene: "顾客在菜单前比较饮料", rewrittenTheme: topic }),
+      }, ideas: [], selectedIdeaId: "" } },
+    } });
+    expect(problem.ok()).toBe(true);
     const fields = Object.fromEntries([first, sibling].map((id, index) => ["interviewRecord:" + id,
-      JSON.stringify({ version: 1, id, code: "U0" + (index + 1), topicRevision: 1, topic: "合成音源验收", goal: "了解选择",
+      JSON.stringify({ version: 1, id, code: "U0" + (index + 1), topicRevision: 1, topic, goal: "了解选择",
         original: "怎么选饮料？", adopted: "上次怎么选的？", guideConfirmed: true,
         consent: { notes: true, photos: false, audio: true, capture: true, asr: false, observedAt: new Date().toISOString() } })]));
-    const headers = { Authorization: "Bearer " + await bearerOf(page) };
-    const endpoint = "/__fullstack_api/projects/" + projectId + "/aidt/stages/2";
+    const endpoint = projectStages + "/2";
     expect((await page.request.put(endpoint, { headers, data: { operationId: randomUUID(), expectedRevision: 0,
       sourceStageRevisions: [], content: { schemaVersion: 1, draft: { fields, selectedIdeaId: "", ideas: [] } } } })).ok()).toBe(true);
     const url = path + "?step=2&entity=" + first + "&tool=outcome";
@@ -265,9 +277,12 @@ test.describe("recording evidence in the interview Chat", () => {
     await expect.poll(async () => Object.keys((await head()).fields).some(key => key.startsWith("captured:interviewMaterial:" + first + ":"))).toBe(true);
     await page.reload();
     await materials();
-    const select = page.getByLabel("转写原件", { exact: true });
-    await expect(select.locator("option")).toHaveCount(2);
+    const select = page.getByRole("combobox", { name: "转写原件", exact: true });
+    await expect(select.getByRole("option")).toHaveCount(2);
+    const recording = select.getByRole("option", { name: /^U01-.*\.wav$/ });
+    await expect(recording).toHaveCount(1);
     await select.selectOption({ index: 1 });
+    await expect(select.locator("option:checked")).toHaveText(/^U01-.*\.wav$/);
     await page.getByLabel("定位（如 01:42 或第 3 段）").fill("00:01");
     await page.getByLabel("校对后的摘录").fill("我先看口味");
     await page.getByLabel("已对照原始材料校对").check();
