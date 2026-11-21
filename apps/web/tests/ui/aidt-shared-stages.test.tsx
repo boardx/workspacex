@@ -99,6 +99,27 @@ it("treats load failure as failure instead of an empty group and disables writes
   mocks.read.mockRejectedValue(new Error("503")); render(<Harness />); await screen.findByTestId("aidt-shared-load-error"); expect(screen.getByTestId("aidt-shared-save")).toBeDisabled(); expect(screen.getByLabelText("学生本页内容")).toHaveValue("本页学生问题");
   mocks.read.mockResolvedValue({ stage: null }); fireEvent.click(screen.getByTestId("aidt-shared-reload")); await ready(); expect(screen.getByTestId("aidt-shared-save")).toBeEnabled();
 });
+it("keeps the current stage ready during a scoped interview readback failure and retry", async () => {
+  const initialStage = saved("原清单", 1, 2);
+  mocks.read.mockImplementation(async (_project, id: number) => ({ stage: id === 2 ? initialStage : null }));
+  render(<Harness stageId={2} initial="" />);
+  await ready();
+  expect(screen.getByLabelText("学生本页内容")).toHaveValue("原清单");
+
+  mocks.read.mockClear();
+  mocks.read.mockRejectedValueOnce(new Error("503"));
+  await act(async () => {
+    await expect(exposed.refreshCurrentStage({ fallbackToReload: false })).rejects.toThrow("503");
+  });
+  expect(exposed.read?.phase).toBe("ready");
+  expect(mocks.read.mock.calls.map(call => call[1])).toEqual([2]);
+  expect(screen.getByLabelText("学生本页内容")).toHaveValue("原清单");
+
+  mocks.read.mockResolvedValueOnce({ stage: saved("同步后的清单", 2, 2) });
+  await act(async () => { await exposed.refreshCurrentStage({ fallbackToReload: false }); });
+  expect(exposed.server?.revision).toBe(2);
+  expect(screen.getByLabelText("学生本页内容")).toHaveValue("同步后的清单");
+});
 it("keeps local work and blocks saving if the conflict readback fails", async () => {
   render(<Harness />); await ready(); mocks.save.mockRejectedValueOnce(new ApiError(409, "AIDT_STAGE_REVISION_CONFLICT", {})); mocks.read.mockRejectedValue(new Error("503"));
   fireEvent.click(screen.getByTestId("aidt-shared-save")); await screen.findByTestId("aidt-shared-load-error"); expect(screen.getByLabelText("学生本页内容")).toHaveValue("本页学生问题"); expect(screen.getByTestId("aidt-shared-save")).toBeDisabled();

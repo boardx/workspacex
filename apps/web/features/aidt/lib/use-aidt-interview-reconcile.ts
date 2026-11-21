@@ -3,7 +3,7 @@
 import * as React from "react";
 import { apiRequest } from "@/lib/api-client";
 
-export function useAidtInterviewReconcile(projectId: string, entityId: string | undefined, token: string | undefined, clean: boolean, reload: () => void) {
+export function useAidtInterviewReconcile(projectId: string, entityId: string | undefined, token: string | undefined, clean: boolean, refreshStage: () => Promise<void>) {
   const completed = React.useRef("");
   const pending = React.useRef<AbortController | null>(null);
   const [failed, setFailed] = React.useState("");
@@ -18,10 +18,11 @@ export function useAidtInterviewReconcile(projectId: string, entityId: string | 
     pending.current = controller;
     void apiRequest<unknown>(`/projects/${encodeURIComponent(projectId)}/aidt/stages/2/entities/${encodeURIComponent(entityId)}/reconcile`, {
       method: "POST", sessionToken: token, signal: controller.signal,
-    }).then(() => {
+    }).then(async () => {
       if (controller.signal.aborted) return;
-      completed.current = id;
-      reload();
+      // A full reload removes the Chat controls and discards in-progress guide edits.
+      await refreshStage();
+      if (!controller.signal.aborted) completed.current = id;
     }).catch(() => { if (!controller.signal.aborted) setFailed(id); })
       .finally(() => { if (pending.current === controller) pending.current = null; });
   };
