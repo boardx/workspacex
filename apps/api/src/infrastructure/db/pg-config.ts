@@ -1,3 +1,4 @@
+import { resolveBillingMarket } from "../billing/deployment-billing-config";
 import { readFileSync } from "node:fs";
 import { RDS_TLS_EXCEPTION_KIND } from "@repo/cloud-deploy";
 /**
@@ -40,6 +41,7 @@ export interface PgConfig {
   readonly ssl?: { rejectUnauthorized: true; ca?: string };
   readonly connectionTimeoutMillis?: number;
   readonly statement_timeout?: number;
+  readonly options?: string;
 }
 
 function req(name: string, fallback?: string): string {
@@ -80,7 +82,9 @@ function credential(name: string, fallback: string): string {
 
 /** The APPLICATION identity used at runtime */
 export function appConfig(): PgConfig {
+  const market = resolveBillingMarket();
   return {
+    ...(market ? { options: `-c app.billing_market=${market}` } : {}),
     ...transport(),
     host: req("PGHOST", "127.0.0.1"),
     port: port(),

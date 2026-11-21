@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { AdminCatalogProduct } from "@repo/contracts/billing-pricing";
+import { AdminCatalogProduct, adminWelcomeCreditOperations } from "@repo/contracts/billing-pricing";
 import {
   CatalogProductConflict, CatalogProductInvalid, CatalogProductMissing, CatalogWriterUnavailable,
-  type AdminProductCatalog, type CatalogMarket, type UpdateCatalogProduct,
+  type AdminProductCatalog, type CatalogMarket, type UpdateCatalogProduct, type UpdateWelcomePolicy,
 } from "../../application/billing/admin-product-catalog";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { personalConfiguredProducts, type ProductConfigurationRow } from "./product-catalog-configuration";
@@ -36,8 +36,36 @@ async function find(s: TenantSession, input: UpdateCatalogProduct, lock = false)
   return row;
 }
 
+export async function readWelcomeCreditPolicy(s: TenantSession, market: CatalogMarket, lock = false) {
+  const row = (await s.query(
+    'SELECT market,credits,validity_days AS "validityDays",revision FROM welcome_credit_market_settings WHERE market=$1' +
+    (lock ? " FOR UPDATE" : ""), [market],
+  )).rows[0];
+  return adminWelcomeCreditOperations.update.out.parse(row);
+}
+
 export class PgAdminProductCatalog implements AdminProductCatalog {
   constructor(private readonly reader: DatabasePort, private readonly writer: DatabasePort | null) {}
+
+  welcomePolicy(market: CatalogMarket) {
+    return this.reader.withoutTenant(async (s) => ({
+      policy: await readWelcomeCreditPolicy(s, market), writable: this.writer !== null,
+    }));
+  }
+
+  updateWelcomePolicy(actorId: string, input: UpdateWelcomePolicy) {
+    if (!this.writer) throw new CatalogWriterUnavailable();
+    return this.writer.withoutTenant(async (s) => {
+      const previous = await readWelcomeCreditPolicy(s, input.market, true);
+      if (previous.revision !== input.expectedRevision) throw new CatalogProductConflict();
+      await s.query("UPDATE welcome_credit_market_settings SET credits=$2,validity_days=$3,revision=gen_random_uuid() WHERE market=$1",
+        [input.market, input.credits, input.validityDays]);
+      const current = await readWelcomeCreditPolicy(s, input.market);
+      await s.query("INSERT INTO welcome_credit_market_changes(actor_id,market,previous,current_value) VALUES($1,$2,$3,$4)",
+        [actorId, input.market, JSON.stringify(previous), JSON.stringify(current)]);
+      return current;
+    });
+  }
 
   list(market: CatalogMarket) {
     return this.reader.withoutTenant(async (s) => {

@@ -2,7 +2,7 @@ import {
   BadRequestException, Body, ConflictException, Controller, Get, Header, Inject,
   NotFoundException, Patch, Query, ServiceUnavailableException, UseGuards,
 } from "@nestjs/common";
-import { adminCatalogOperations } from "@repo/contracts/billing-pricing";
+import { adminCatalogOperations, adminWelcomeCreditOperations } from "@repo/contracts/billing-pricing";
 import type { z } from "zod";
 import type { Principal } from "../../domain/principal";
 import {
@@ -23,13 +23,31 @@ export class AdminProductCatalogController {
     return this.catalog.list(query.market);
   }
 
+  @Get(adminWelcomeCreditOperations.list.path)
+  @Header("Cache-Control", "private, no-store")
+  welcomePolicy(@Query(new ZodBodyPipe(adminWelcomeCreditOperations.list.in)) input: z.infer<typeof adminWelcomeCreditOperations.list.in>) {
+    return this.catalog.welcomePolicy(input.market);
+  }
+
+  @Patch(adminWelcomeCreditOperations.update.path)
+  updateWelcomePolicy(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(adminWelcomeCreditOperations.update.in)) input: z.infer<typeof adminWelcomeCreditOperations.update.in>,
+  ) {
+    return this.mapWrite(() => this.catalog.updateWelcomePolicy(principal.userId, input));
+  }
+
   @Patch(adminCatalogOperations.update.path)
   async update(
     @CurrentPrincipal() principal: Principal,
     @Body(new ZodBodyPipe(adminCatalogOperations.update.in)) input: z.infer<typeof adminCatalogOperations.update.in>,
   ) {
+    return this.mapWrite(() => this.catalog.update(principal.userId, input));
+  }
+
+  private async mapWrite<T>(operation: () => Promise<T>): Promise<T> {
     try {
-      return await this.catalog.update(principal.userId, input);
+      return await operation();
     } catch (error) {
       if (error instanceof CatalogProductMissing) throw new NotFoundException("catalog_product_missing");
       if (error instanceof CatalogProductConflict) throw new ConflictException("catalog_product_changed");

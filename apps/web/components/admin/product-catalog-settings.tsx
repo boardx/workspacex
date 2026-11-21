@@ -6,6 +6,7 @@ import type { z } from "zod";
 import { apiRequest, ApiError } from "@/lib/api-client";
 import { useI18n } from "@/lib/i18n/provider";
 import { Button } from "@/components/ui/button";
+import { WelcomeCreditSettings } from "./welcome-credit-settings";
 import { Input } from "@/components/ui/input";
 
 type Product = z.infer<typeof catalog.update.out>;
@@ -92,6 +93,7 @@ export function ProductCatalogSettings({ kind }: { kind: Product["kind"] }) {
           </Button>
         ))}
       </div>
+      {kind === "credit_topup" && <WelcomeCreditSettings key={market} market={market} />}
       {!data && !message && <p role="status">{zh ? "正在读取配置…" : "Loading settings…"}</p>}
       {data && !data.writable && <p>{zh ? "当前部署尚未配置商品写入连接。" : "The catalog writer is unavailable in this deployment."}</p>}
       {data && (

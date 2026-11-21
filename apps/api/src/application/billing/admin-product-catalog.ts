@@ -1,10 +1,14 @@
-import type { adminCatalogOperations } from "@repo/contracts/billing-pricing";
+import type { adminCatalogOperations, adminWelcomeCreditOperations } from "@repo/contracts/billing-pricing";
 import type { z } from "zod";
 
 export type UpdateCatalogProduct = z.infer<typeof adminCatalogOperations.update.in>;
 export type CatalogMarket = z.infer<typeof adminCatalogOperations.list.in>["market"];
 
+export type UpdateWelcomePolicy = z.infer<typeof adminWelcomeCreditOperations.update.in>;
+
 export abstract class AdminProductCatalog {
+  abstract welcomePolicy(market: CatalogMarket): Promise<z.infer<typeof adminWelcomeCreditOperations.list.out>>;
+  abstract updateWelcomePolicy(actorId: string, input: UpdateWelcomePolicy): Promise<z.infer<typeof adminWelcomeCreditOperations.update.out>>;
   abstract list(market: CatalogMarket): Promise<z.infer<typeof adminCatalogOperations.list.out>>;
   abstract update(actorId: string, input: UpdateCatalogProduct): Promise<z.infer<typeof adminCatalogOperations.update.out>>;
 }
