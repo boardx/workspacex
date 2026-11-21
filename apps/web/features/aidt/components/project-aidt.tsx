@@ -35,6 +35,7 @@ import type { ProjectResearchSub } from "@/components/project/project-links";
 
 import { AidtArtifactShelf } from "./aidt-artifact-shelf";
 import { AidtStageHistory } from "./aidt-stage-history";
+import { resetAidtTestRound } from "../lib/aidt-test-groups";
 import { AidtNextRound } from "./aidt-next-round";
 import { AidtRoundNavigation } from "./aidt-round-navigation";
 import { ArrowLeft } from "lucide-react";
@@ -268,7 +269,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
           {problemStep && <AidtSharedStagePanel key={`save:${shared.writeKey}`} stageNumber={1} controller={shared} readOnly={!canWrite} />}
           </>}
           <AidtRoundNavigation projectId={projectId} stageNumber={step.id} draft={currentUi.drafts[step.id]!} savedRound={shared.stages[6]} matchesServer={shared.matchesServer} returnRevision={search.get("returnRevision")} sessionToken={checkpointScope?.sessionToken ?? null} />
-          {step.id === 6 && <AidtNextRound draft={currentUi.drafts[6]!} savedRevision={shared.stages[6]?.revision} matchesServer={shared.matchesServer} readOnly={!canWrite} onStart={() => updateStage(6, old => ({ ...old, fields: {} }))} />}
+          {step.id === 6 && <AidtNextRound draft={currentUi.drafts[6]!} savedRevision={shared.stages[6]?.revision} matchesServer={shared.matchesServer} readOnly={!canWrite} onStart={() => updateStage(6, resetAidtTestRound)} />}
           <details className="mt-4 border-t border-border pt-3 text-12" onToggle={event => setHistoryScope(event.currentTarget.open ? `${uiLifecycleKey}:${step.id}` : null)} data-testid="aidt-history-disclosure"><summary className="cursor-pointer font-medium">查看本步历史版本</summary>{historyScope === `${uiLifecycleKey}:${step.id}` && <AidtStageHistory projectId={projectId} stageId={step.id} sessionToken={checkpointScope?.sessionToken ?? null} currentRevision={shared.stages[step.id]?.revision} />}</details>
           {problemStep && <details className="text-12">
             <summary className="cursor-pointer font-medium">本页回顾记录</summary>
