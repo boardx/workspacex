@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { SharedStageValue } from "@repo/contracts/aidt-stages";
+import { isAidtGreetingText, type SharedStageValue } from "@repo/contracts/aidt-stages";
 
 type Draft = SharedStageValue["content"]["draft"];
 const sections: Record<string, string> = {
@@ -8,7 +8,6 @@ const sections: Record<string, string> = {
   已知: "known", "未知/待讨论": "sourceUncertainty", 待验证: "sourceUncertainty", 未知: "sourceUncertainty",
   下一步行动: "nextAction", 学生重写命题: "rewrittenTheme", 研究范围: "focus",
 };
-const greeting = /^(?:(?:你|您)好(?:呀|啊)?|大家好|嗨|哈[喽啰]|hello|hi|hey)[\s!！。.?？~～]*$/iu;
 
 /** Parse the named sections of the Skill's visible draft, including pre-protocol Markdown.
  * Never take the first chat message or a teaching question as a saved answer. */
@@ -24,7 +23,7 @@ export function problemSkillFields(answer: string): Record<string, string> {
     if (!line.trim() && current && fields[current]) { current = undefined; continue; }
     if (current && line.trim()) fields[current] = [fields[current], line.trim()].filter(Boolean).join("\n").slice(0, 650);
   }
-  if (fields.initial && greeting.test(fields.initial)) delete fields.initial;
+  if (fields.initial && isAidtGreetingText(fields.initial)) delete fields.initial;
   if (fields.problemSources) {
     const codes: Record<string, string> = { "亲自观察":"observation", "听到抱怨":"complaint", "我们的猜测":"guess" };
     const labels = fields.problemSources.split(/[、，,；;]/).map(value => value.trim());
@@ -35,7 +34,7 @@ export function problemSkillFields(answer: string): Record<string, string> {
 }
 
 export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: { user:string; assistant:string; messageId:string; verifiedInitial?: string }): Draft | null {
-  if (greeting.test(turn.user.trim())) return null;
+  if (isAidtGreetingText(turn.user.trim())) return null;
   const key = "problemDraft:" + entityId;
   let previous: Record<string,string>;
   try { previous = JSON.parse(draft.fields[key] ?? "{}"); } catch { return null; }
@@ -45,10 +44,10 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   if (output.initial) {
     const existing = previous.initial?.trim();
     // Students' first framing stays intact. A later reformulation has its own field.
-    if ((existing && !greeting.test(existing)) ||
+    if ((existing && !isAidtGreetingText(existing)) ||
         (!turn.user.includes(output.initial) && turn.verifiedInitial !== output.initial)) delete output.initial;
   }
-  if (!output.initial && (!previous.initial?.trim() || greeting.test(previous.initial.trim()))) return null;
+  if (!output.initial && (!previous.initial?.trim() || isAidtGreetingText(previous.initial.trim()))) return null;
   const {directionsText,selectedText,...patch}=output;
   type Direction = { id:string; title:string; source:string };
   let priorDirections: Direction[] = [];
