@@ -32,13 +32,17 @@ test('identity requires explicit deployed SHA/tag and positive run identity', ()
   }
 });
 test('interview UI labels match spaces and newlines without template-string escape loss', () => {
-  for (const code of ['U01', 'U02']) {
+  for (const code of ['U01', 'U02', 'U03', 'U10']) {
     assert.equal(interviewCodePattern(code).test(`${code} 合成受访者`), true);
     assert.equal(interviewCodePattern(code).test(`${code}\n发现卡已核对`), true);
     assert.equal(interviewCodePattern(code).test(`${code}3 unexpected code`), false);
     assert.equal(interviewCodePattern(code).test(`${code}s swallowed escape`), false);
   }
-  assert.throws(() => interviewCodePattern('U03'), /INTERVIEW_CODE_UNEXPECTED/);
+  assert.equal(interviewCodePattern('U03').test('U10 合成受访者'), false);
+  assert.equal(interviewCodePattern('U10').test('U100 合成受访者'), false);
+  for (const code of ['U00', 'U11', 'U03.*', ' U10', undefined]) {
+    assert.throws(() => interviewCodePattern(code), /INTERVIEW_CODE_UNEXPECTED/);
+  }
 });
 test('credential-bearing lane is manual develop only in the official repository', () => {
   const context = { GITHUB_REPOSITORY: 'boardx/workspacex', GITHUB_REF: 'refs/heads/develop', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_SHA: source };
@@ -286,6 +290,21 @@ test('new creation requires the strict atomic profile and short-lived ordinary U
     guard.observe(login, 200, { userId: 'qa-user', orgs: ['qa-org'], sessionToken: 'synthetic-token', expiresAt: '2099-01-01T00:00:00Z' });
     guard.verifyOrdinaryIdentity(200, { org: { id: 'qa-org' }, orgRole: 'consultant' }); guard.armProjectCreate();
     assert.equal(request(guard, 'POST', '/api/projects', { orgId: 'qa-org', name: identity().projectName, kind: 'general', blueprintVersionId: null, profile: 'aidt', ...patch }).allow, false);
+  }
+});
+
+test('course-tag creation allows only the label bound to this ordinary QA run', () => {
+  const courseTag = 'QA课程 456-1';
+  for (const supplied of [courseTag, '课程 A', undefined]) {
+    const guard = createAcceptanceGuard(identity()); guard.armLogin();
+    const login = request(guard, 'POST', '/api/auth/login', { email: syntheticLoginValue, password: syntheticLoginValue });
+    guard.observe(login, 200, { userId: 'qa-user', orgs: ['qa-org'], sessionToken: 'synthetic-token', expiresAt: '2099-01-01T00:00:00Z' });
+    guard.verifyOrdinaryIdentity(200, { org: { id: 'qa-org' }, orgRole: 'consultant' });
+    assert.throws(() => guard.armProjectCreate('课程 A'), /PROJECT_CREATE_COURSE_TAG_REJECTED/);
+    guard.armProjectCreate(courseTag);
+    const body = { orgId: 'qa-org', name: identity().projectName, kind: 'general', blueprintVersionId: null, profile: 'aidt' };
+    if (supplied !== undefined) body.courseTag = supplied;
+    assert.equal(request(guard, 'POST', '/api/projects', body).allow, supplied === courseTag);
   }
 });
 
