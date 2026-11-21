@@ -8,6 +8,7 @@ import { aidtPrototypeVersionLabel, loadAidtPrototypeDesigns, loadAidtPrototypeV
 
 export type AidtPrototypeVersionPickerProps = {
   projectId: string;
+  designEntityId?: string;
   value?: AidtPrototypeVersionReference | null;
   onChange: (reference: AidtPrototypeVersionReference | null) => void;
   readOnly?: boolean;
@@ -24,11 +25,11 @@ export function AidtPrototypeVersionPicker(props: AidtPrototypeVersionPickerProp
   const session = useOptionalSession()?.session;
   if (!isAidtModuleEnabled()) return null;
   if (!session?.currentOrgId || !session.userId || !session.sessionToken) return <p role="status" className="text-12 text-muted-foreground">登录并选择组织后，才能读取已关联的原型版本。</p>;
-  const scope = JSON.stringify([props.projectId, session.currentOrgId, session.userId, session.sessionToken, !!props.readOnly, props.selectionScope ?? ""]);
+  const scope = JSON.stringify([props.projectId, session.currentOrgId, session.userId, session.sessionToken, !!props.readOnly, props.selectionScope ?? "", props.designEntityId ?? ""]);
   return <EnabledPicker key={scope} {...props} context={{ projectId: props.projectId, userId: session.userId, sessionToken: session.sessionToken }} />;
 }
 
-function EnabledPicker({ context, value, onChange, readOnly = false, label, removeLabel = "移除版本引用", description }: AidtPrototypeVersionPickerProps & { context: AidtPrototypeReadContext }) {
+function EnabledPicker({ context, value, onChange, designEntityId, readOnly = false, label, removeLabel = "移除版本引用", description }: AidtPrototypeVersionPickerProps & { context: AidtPrototypeReadContext }) {
   const [open, setOpen] = React.useState(false);
   const [retry, setRetry] = React.useState(0);
   const [designs, setDesigns] = React.useState<Result<AidtPrototypeDesignList> | null>(null);
@@ -51,10 +52,10 @@ function EnabledPicker({ context, value, onChange, readOnly = false, label, remo
     const controller = new AbortController();
     setDesigns(null);
     void loadAidtPrototypeDesigns({ projectId, userId, sessionToken, signal: controller.signal })
-      .then((items) => { if (!controller.signal.aborted) setDesigns({ items }); })
+      .then((items) => { if (!controller.signal.aborted) setDesigns({ items: designEntityId ? { ...items, items: items.items.filter(item => item.id === designEntityId), unavailableCount: 0 } : items }); })
       .catch(() => { if (!controller.signal.aborted) setDesigns({ failed: true }); });
     return () => controller.abort();
-  }, [open, retry, readOnly, projectId, userId, sessionToken]);
+  }, [open, retry, readOnly, projectId, userId, sessionToken, designEntityId]);
 
   React.useEffect(() => {
     if (!open || !designId || readOnly) return;

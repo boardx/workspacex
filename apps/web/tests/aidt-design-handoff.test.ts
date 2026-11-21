@@ -4,6 +4,8 @@ import { confirmAidtVerificationQuestion, createAidtQuestionSnapshot } from "@/f
 import { emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { ApiError } from "@/lib/api-client";
+import { pinAidtPrototypeInputs, updateAidtPrototypeEntityDraft, confirmAidtPrototypeHandoff, listAidtConfirmedPrototypeEntities } from "@/features/aidt/lib/aidt-prototype-handoff";
+import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
 import { StageDraft } from "@repo/contracts/aidt-stages";
 const mock = vi.hoisted(() => ({ enabled: true, read: vi.fn(), history: vi.fn() }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mock.enabled }));
@@ -88,4 +90,46 @@ it("refuses excessive context without silently truncating the original question,
   const cancellation = new AbortController(); cancellation.abort();
   await expect(loadAidtDesignHandoff({ ...input, signal: cancellation.signal })).rejects.toThrow("AIDT_CONTEXT_CHANGED");
   mock.enabled = false; await expect(loadAidtDesignHandoff(input)).rejects.toThrow("AIDT_CONTEXT_CHANGED");
+});
+
+it("projects only the selected Design entity and feeds multiple exact historical ideas into the native composer", async () => {
+  const selected = records[4]!;
+  selected.content.draft = { ...selected.content.draft, fields: { ideaHandoffIds: '["chosen","card"]', ideaHmwSource: '{"revision":2,"id":"hmw-stable","text":"如何帮助赶课者判断？"}' }, ideas: [...selected.content.draft.ideas, { id: "card", title: "新品对比卡", description: "让学生看到差别" }] };
+  records[5] = stage(5, 7);
+  const prepare = (id: string) => {
+    records[5]!.content.draft = StageDraft.parse(updateAidtPrototypeEntityDraft(records[5]!.content.draft, id, draft => {
+      const pinned = pinAidtPrototypeInputs({ ...draft, fields: { ...old5.content.draft.fields, verificationQuestion: `问题 ${id}？`, situation: "午休点单" } }, selected);
+      return confirmAidtVerificationQuestion(pinned)!;
+    }));
+  };
+  prepare("design-A");
+  prepare("design-B");
+  records[3]!.content.draft.fields.definitionHmwId = "hmw-stable";
+  records[4] = stage(4, 19, { ideaHandoffIds: '["new"]' });
+  mock.history.mockImplementation(async (_project: string, id: number, _token: string, options: { beforeRevision: number }) => ({ items: id === 4 && options.beforeRevision === 5 ? [selected] : id === 3 && options.beforeRevision === 3 ? [records[3]] : [] }));
+  const result = await loadAidtDesignHandoff({ ...input, prototypeEntityId: "design-A" });
+  expect(result.offer.text).toContain("问题 design-A？");
+  expect(result.offer.text).not.toContain("问题 design-B");
+  expect(result.offer.text).toContain("新品对比卡");
+  expect(result.offer.text).toContain("排队提示");
+  expect(result.sources).toContainEqual({ stageId: 4, revision: 4 });
+  await expect(loadAidtDesignHandoff({ ...input, prototypeEntityId: "unrelated" })).rejects.toThrow("AIDT_DESIGN_SAVED_QUESTION_REQUIRED");
+  mock.history.mockResolvedValue({ items: [] });
+  await expect(loadAidtDesignHandoff({ ...input, prototypeEntityId: "design-A" })).rejects.toThrow("AIDT_DESIGN_INPUTS_UNCONFIRMED");
+});
+
+it("confirms only the selected Design's real version and invalidates handoff if a brief changes", () => {
+  const selected = records[4]!;
+  selected.content.draft.fields.ideaHandoffIds = '["chosen"]';
+  const empty = emptyAidtUiDrafts()[5]!;
+  const base = updateAidtPrototypeEntityDraft(empty, "design-A", draft => {
+    const pinned = pinAidtPrototypeInputs({ ...draft, fields: { ...old5.content.draft.fields, situation: "午休点单" } }, selected);
+    const question = confirmAidtVerificationQuestion(pinned)!;
+    const withPrototype = updateAidtPrototypeReference(question, { designId: "design-A", versionId: "v1", designName: "原型A", createdAt: "2026-11-16T00:00:00Z", seq: 1, summary: "两款并排比较", frameCount: 2, generatedFrameCount: 2, source: "model" });
+    return confirmAidtPrototypeHandoff(withPrototype)!;
+  });
+  expect(listAidtConfirmedPrototypeEntities(base).map(value => value.id)).toEqual(["design-A"]);
+  expect(listAidtConfirmedPrototypeEntities(updateAidtPrototypeEntityDraft(base, "design-B", draft => ({ ...draft, fields: { task: "另一个实体" } }))).map(value => value.id)).toEqual(["design-A"]);
+  const edited = updateAidtPrototypeEntityDraft(base, "design-A", draft => ({ ...draft, fields: { ...draft.fields, task: "修改测试任务" } }));
+  expect(listAidtConfirmedPrototypeEntities(edited)).toEqual([]);
 });

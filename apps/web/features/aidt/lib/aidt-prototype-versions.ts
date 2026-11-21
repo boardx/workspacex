@@ -99,3 +99,8 @@ export async function resolveAidtPrototypeVersion(context: AidtPrototypeReadCont
 
 /** Compatibility export; keep the sole implementation on the pure formatting path. */
 export { aidtPrototypeVersionLabel } from "./aidt-prototype-label";
+
+export async function loadAidtPrototypeDirectory(context: AidtPrototypeReadContext) {
+  const { items } = await loadAidtPrototypeDesigns(context);
+  return items.map(item => ({ id: item.id, title: item.name, archived: false }));
+}
