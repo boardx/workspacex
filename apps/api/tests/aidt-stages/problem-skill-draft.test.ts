@@ -28,3 +28,8 @@ it("accepts only student-authored initial wording and reuses an existing choice 
  const next=projectProblemSkillDraft(prior,"p",turn("选夜间照明","### 本轮选定方向\n夜间照明"))!;
  expect(JSON.parse(next.fields["problemDraft:p"]!)).toMatchObject({initial:"商场照明",problemDirectionId:"old",focus:"夜间照明"});
 });
+
+it("keeps a student's original question and omits the teaching follow-up in the next paragraph",()=>{
+ const next=projectProblemSkillDraft(base,"p",turn("学生在哪里停下？","### 原始命题\n学生在哪里停下？\n\n你们是在哪里观察到这个情况的？"))!;
+ expect(JSON.parse(next.fields["problemDraft:p"]!).initial).toBe("学生在哪里停下？");
+});

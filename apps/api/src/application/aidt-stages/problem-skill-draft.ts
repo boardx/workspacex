@@ -20,6 +20,8 @@ export function problemSkillFields(answer: string): Record<string, string> {
     const label = line.trim().replace(/^#{1,6}\s+/, "").replaceAll("**", "").replace(/[：:]$/, "").replace(/\s*[／/]\s*/g, "/");
     if (Object.hasOwn(sections, label)) { current = sections[label]; continue; }
     if (/^\s*(?:---+|#{1,6}\s|\*\*[^*]+\*\*\s*$)/.test(line)) { current = undefined; continue; }
+    // One contiguous paragraph or list per field. Later teaching prose is not artifact content.
+    if (!line.trim() && current && fields[current]) { current = undefined; continue; }
     if (current && line.trim()) fields[current] = [fields[current], line.trim()].filter(Boolean).join("\n").slice(0, 650);
   }
   if (fields.initial && greeting.test(fields.initial)) delete fields.initial;
