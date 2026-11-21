@@ -9,6 +9,27 @@ import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, creat
 import { captureApplicationPrint } from './devapp-aidt-print-evidence.mjs';
 import { sendTeachingFeedback } from './devapp-aidt-chat-evidence.mjs';
 
+export function illustratedAcceptance(report) {
+  const headings = ['首页', '理解与提出问题', '共情用户', '综合与定义', '创意发散', '制作原型', '测试与迭代', '最终报告'];
+  const status = value => ({ passed: '通过', pass: '通过', failed: '失败', blocked: '阻塞' })[value] ?? '待核验';
+  const lines = ['# AIDT Devapp 图文验收报告', '', '候选版本 \`' + report.source + '\`。本次使用合成教学材料。', '',
+    '**整体结果 ' + (report.fullAcceptancePassed ? '通过' : '未全部通过') + '**', ''];
+  for (const [index, title] of headings.entries()) {
+    const section = index === 7 ? /^(report-|teaching-chat-final-report)/ : index === 0 ? /^homepage-/ : new RegExp('^(s' + index + '-|teaching-chat-stage-' + index + '(?:-|$))');
+    const checks = report.checkpoints.filter(row => section.test(row.name));
+    const screens = report.screenshots.filter(row => row.filename.startsWith(String(index).padStart(2, '0') + '-') && /^[a-z0-9-]+\.png$/.test(row.filename));
+    lines.push('## ' + title, '');
+    if (!checks.length) lines.push('未取得检查结果。', '');
+    for (const check of checks) lines.push('- ' + status(check.status) + '　\`' + check.name + '\`' + (check.code ? '　\`' + check.code + '\`' : ''));
+    lines.push('');
+    for (const image of screens) {
+      const label = image.filename.replace(/\.png$/, '');
+      lines.push('![' + title + ' ' + label + '](./' + image.filename + ')', '');
+    }
+  }
+  return lines.join('\n');
+}
+
 function safeCode(error) { return error instanceof ProbeFailure && /^[A-Z0-9_]{1,90}$/.test(error.code) ? error.code : 'UI_ACCEPTANCE_STEP_FAILED'; }
 
 export async function enforceDeniedProbeStatus(decision, response) {
@@ -436,10 +457,10 @@ export async function main() {
     });
     if (!homeCreated) throw new ProbeFailure('HOMEPAGE_UI_CREATION_NOT_ACCEPTED');
     const projectId = guard.identity().projectId;
-    const saveStage = async (n, visibleButton) => {
+    const saveStage = async (n, visibleButton, { confirmation = false } = {}) => {
       const button = visibleButton ?? page.getByTestId('aidt-shared-save');
       await expect(button).toBeVisible(); await expect(button).toBeEnabled();
-      guard.armStageSave(n, false);
+      guard.armStageSave(n, confirmation);
       const [response] = await Promise.all([
         page.waitForResponse(response => new URL(response.url()).pathname === `/api/projects/${projectId}/aidt/stages/${n}` && response.request().method() === 'PUT', { timeout: 30000 }),
         button.click(),
@@ -590,7 +611,7 @@ export async function main() {
     await runAidtJourney({ page, context, expect, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
       checkpoint, capture, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
       armInterviewEdit: () => guard.armStageSave(2, false), armCardCreate: stage => guard.armStageSave(stage, false),
-      registerFixture: fixture => guard.registerFixture(fixture), armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), createAnonymousPage, report });
+      registerFixture: fixture => guard.registerFixture(fixture), armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
     report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
@@ -627,6 +648,7 @@ export async function main() {
     }
     finalizeGuardVerdict(report, guard);
     const artifactReport = privateEvidenceSafe ? report : { kind: report.kind, target: ORIGIN, passed: false, fullAcceptancePassed: false, failure: 'EVIDENCE_PRIVACY_REVIEW_FAILED', source: identity?.source ?? null, tag: identity?.tag ?? null, note: 'Rich evidence was withheld rather than exposing unverified content.' };
+    if (output && privateEvidenceSafe && report.checkpoints.length) writeFileSync(resolve(output.out, 'qa-report-illustrated-acceptance.md'), illustratedAcceptance(artifactReport), { flag: 'wx', mode: 0o600 });
     if (output) writeFileSync(resolve(output.out, 'acceptance.json'), `${JSON.stringify(artifactReport, null, 2)}\n`, { mode: 0o600 });
     console.log(JSON.stringify({ kind: report.kind, passed: report.passed, failure: report.failure ?? null, ...publicEntryDiagnostic(report),
       source: identity?.source ?? null, tag: identity?.tag ?? null, checkpoints: report.checkpoints, screenshots: report.screenshots.map(({ filename, bytes, sha256 }) => ({ filename, bytes, sha256 })) }));
