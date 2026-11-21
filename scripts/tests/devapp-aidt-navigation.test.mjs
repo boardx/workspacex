@@ -488,3 +488,34 @@ test('native selected direction must bind its exact ID and title to the student 
     { problemDirections: JSON.stringify({ id: 'chosen', title: focus, source: 'group' }) },
   ]) assert.throws(() => assertSavedAidtS1NativeDraft(nativeStage(5, { ...fields, ...patch }), proof, { initial, focus, rewrittenTheme: fields.rewrittenTheme }), /S1_NATIVE_DRAFT_UNVERIFIED/);
 });
+
+import { assertSavedCardCreation } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+
+const creationProjectId = 'qa-project';
+const creationFixtures = [
+  [1, 'problem', 'problemEntity:'], [2, 'interview', 'interviewRecord:'],
+  [3, 'surprise', 'definitionSurprise:'], [3, 'persona', 'definitionPersona:'],
+  [3, 'hmw', 'definitionHmw:'], [4, 'idea'], [5, 'prototype', 'prototypeEntity:'],
+  [6, 'test', 'testGroup:'],
+];
+for (const [stage, kind, prefix] of creationFixtures) {
+  test('only a single new persisted ' + kind + ' matches the opened entity', () => {
+    const snap = (revision, ...ids) => ({ projectId: creationProjectId, stageId: stage, revision, content: { draft: {
+      fields: prefix ? Object.fromEntries(ids.map(id => [prefix + id, '{}'])) : {},
+      ideas: kind === 'idea' ? ids.map(id => ({ id })) : [],
+    } } });
+    const old = snap(3, 'older'), fresh = snap(4, 'older', 'new'), target = { projectId: creationProjectId, stage, entityId: 'new' };
+    assert.doesNotThrow(() => assertSavedCardCreation(old, fresh, target, kind));
+    assert.throws(() => assertSavedCardCreation(old, fresh, { ...target, entityId: 'older' }, kind));
+    for (const invalid of [snap(4, 'new'), snap(3, 'older', 'new'), snap(4, 'older', 'third'), snap(4, 'older', 'new', 'extra'), { ...fresh, projectId: 'another' }, { ...fresh, stageId: stage + 1 }]) {
+      assert.throws(() => assertSavedCardCreation(old, invalid, target, kind));
+    }
+  });
+}
+test('primary surprise uses its persistent identity flag', () => {
+  const target = { projectId: creationProjectId, stage: 3, entityId: 'primary-surprise' };
+  const before = { revision: 0, content: null };
+  const after = { projectId: creationProjectId, stageId: 3, revision: 1, content: { draft: { fields: { definitionPrimaryEntity: 'true' } } } };
+  assert.doesNotThrow(() => assertSavedCardCreation(before, after, target, 'surprise'));
+  assert.throws(() => assertSavedCardCreation(before, after, { ...target, entityId: 'other' }, 'surprise'));
+});
