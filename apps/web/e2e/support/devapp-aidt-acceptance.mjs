@@ -331,6 +331,7 @@ export async function main() {
         }
         if (decision.kind === 'login' && typeof parsed?.sessionToken === 'string') sensitiveEvidence.remember(parsed.sessionToken);
         guard.observe(decision, response.status(), parsed);
+        if (decision.kind === 'survey-publish') sensitiveEvidence.remember(guard.surveyReceipt()?.token);
         // Bind only the actual created candidate before the normal UI resumes.
         if (decision.kind === 'create-project' && [200, 201].includes(response.status())) {
           const id = guard.identity().candidate;
@@ -492,6 +493,39 @@ export async function main() {
       await anonymous.routeWebSocket('**/*', socket => socket.close());
       return { page: await anonymous.newPage(), close: () => anonymous.close() };
     };
+    const createSurveyParticipant = async () => {
+      if (!guard.surveyReceipt()?.token) throw new ProbeFailure('NATIVE_SURVEY_PARTICIPANT_NOT_BOUND');
+      const anonymous = await browser.newContext({ serviceWorkers: 'block', acceptDownloads: false });
+      await anonymous.route('**/*', async route => {
+        const request = route.request();
+        try {
+          if (request.headers().authorization) throw new ProbeFailure('NATIVE_SURVEY_PARTICIPANT_AUTH_PRESENT');
+          const body = request.method() === 'POST' ? request.postDataJSON() : undefined;
+          const decision = guard.decide({ url: request.url(), method: request.method(), body,
+            resourceType: request.resourceType(), audience: 'survey-participant' });
+          if (!decision.allow) return await route.abort('blockedbyclient');
+          const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: 15000 });
+          if (response.status() >= 300 && response.status() < 400) throw new ProbeFailure('REDIRECT_REJECTED');
+          if (decision.kind === 'survey-respond') {
+            const bytes = await response.body();
+            if (bytes.length > 4096) throw new ProbeFailure('RESPONSE_BOUND');
+            guard.observe(decision, response.status(), JSON.parse(bytes.toString('utf8')));
+          }
+          await route.fulfill({ response });
+        } catch (err) { guard.fail(safeCode(err)); try { await route.abort('blockedbyclient'); } catch { /* Already closed. */ } }
+      });
+      await anonymous.routeWebSocket('**/*', socket => socket.close());
+      return { page: await anonymous.newPage(), close: () => anonymous.close() };
+    };
+    const saveTestSource = async (entityId, action, operate, filename) => {
+      guard.armTestSave({ entityId, action, filename });
+      const [response] = await Promise.all([
+        page.waitForResponse(response => new URL(response.url()).pathname === `/api/projects/${projectId}/aidt/stages/6`
+          && response.request().method() === 'PUT', { timeout: 45000 }),
+        operate(),
+      ]);
+      if (response.status() !== 200) throw new ProbeFailure('TEST_AUTOSAVE_NOT_CONFIRMED');
+    };
     const saveDownload = async download => {
       const path = await download.path();
       if (!path || !download.suggestedFilename().endsWith('.md')) throw new ProbeFailure('REPORT_DOWNLOAD_INVALID');
@@ -613,7 +647,8 @@ export async function main() {
     await runAidtJourney({ page, context, expect, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
       checkpoint, capture, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
       armInterviewEdit: () => guard.armStageSave(2, false), armCardCreate: stage => guard.armStageSave(stage, false),
-      registerFixture: fixture => guard.registerFixture(fixture), armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, report });
+      registerFixture: fixture => guard.registerFixture(fixture), armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, createSurveyParticipant, saveTestSource, armSurveyCreate: id => guard.armSurveyCreate(id),
+      armSurveyPublish: () => guard.armSurveyPublish(), surveyReceipt: () => guard.surveyReceipt(), report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
     report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, 'teaching-chat-final-report', 'teaching-chat-stage-3-2', 'teaching-chat-stage-3-3', 'teaching-chat-stage-3-4', 'teaching-chat-stage-4-reverse', 'teaching-chat-stage-6-plan', 'teaching-chat-stage-6-survey-plan', 'teaching-chat-stage-6-survey', ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];

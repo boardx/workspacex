@@ -5,6 +5,7 @@
 import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
+import { aidtSurveyFixture } from './devapp-aidt-acceptance-guard.mjs';
 
 export const REQUIRED_CHECKS = Object.freeze([
   'overview', 's1-draft-not-complete', 's1-confirmed-reentry',
@@ -350,9 +351,9 @@ export function assertSavedCardCreation(before, after, target, kind) {
       new Set(ids).size !== ids.length || oldIds.some(id => !ids.includes(id))) fail('CARD_CREATION_ENTITY_UNVERIFIED');
 }
 
-export async function runAidtJourney({ page, expect, scope, checkpoint, capture, api,
+export async function runAidtJourney({ page, context, expect, scope, checkpoint, capture, api,
   saveStage, armCardCreate, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
-  armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, savePrint, teachingFeedback, reviewS1StudentResponse }) {
+  armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, createSurveyParticipant, saveTestSource, armSurveyCreate, armSurveyPublish, surveyReceipt, savePrint, teachingFeedback, reviewS1StudentResponse }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
   const root = `/aidt/${encodeURIComponent(scope.projectId)}`;
   const origin = new URL(page.url()).origin;
@@ -1125,8 +1126,65 @@ ${JSON.stringify(studentInputs)}`);
     report.designProviderIndependentlyVerified = false;
   }, '05-prototype');
 
+  async function liveNativeSurvey(testTarget, actions) {
+    if (![createSurveyParticipant, saveTestSource, armSurveyCreate, armSurveyPublish, surveyReceipt].every(value => typeof value === 'function'))
+      fail('NATIVE_SURVEY_GUARD_REQUIRED');
+    const fixture = aidtSurveyFixture(scope.runId, scope.runAttempt);
+    await savedStage(6);
+    armSurveyCreate(testTarget.entityId);
+    const [surveyPage] = await Promise.all([
+      context.waitForEvent('page', { timeout: 15000 }),
+      click(actions.getByRole('link', { name: '在新标签页创建问卷', exact: true })),
+    ]);
+    try {
+      const dialog = surveyPage.getByRole('dialog', { name: '新建问卷', exact: true });
+      await dialog.getByRole('textbox', { name: '问卷名称', exact: true }).fill(fixture.title);
+      await dialog.getByRole('radio', { name: /从模板创建/ }).check();
+      await dialog.getByRole('combobox', { name: '选择问卷模板', exact: true }).selectOption('builtin-survey-meeting-feedback');
+      await click(btn('下一步', dialog));
+      await expect.poll(() => Boolean(surveyReceipt()?.linked)).toBe(true);
+      const created = surveyReceipt();
+      await expect(surveyPage).toHaveURL(url => url.pathname === `/studio/survey/${created.id}/design` && url.searchParams.get('projectId') === scope.projectId);
+      await click(surveyPage.locator('header').getByRole('button', { name: '发布回收', exact: true }));
+      await expect(surveyPage).toHaveURL(url => url.pathname === `/studio/survey/${created.id}/publish`);
+      armSurveyPublish();
+      await click(btn('开始回收', surveyPage));
+      await expect.poll(() => Boolean(surveyReceipt()?.token)).toBe(true);
+      const publication = surveyReceipt();
+      const anonymous = await createSurveyParticipant();
+      try {
+        const respondent = anonymous.page;
+        await respondent.goto(`${origin}/surveys/${publication.token}`);
+        await expect(respondent.getByRole('heading', { name: fixture.title, exact: true })).toBeVisible();
+        await respondent.getByRole('textbox', { name: '会议名称' }).fill(fixture.name);
+        await respondent.getByLabel('会议日期').fill('2026-11-21');
+        for (const title of ['会议目标和议程清晰。','会议内容与我的工作相关。','参会者有足够机会表达意见。','会后行动项、负责人和时间明确。']) {
+          await respondent.getByRole('group', { name: title, exact: true }).getByRole('radio').nth(3).check();
+        }
+        await respondent.getByRole('group', { name: '会议时长是否合适？', exact: true }).getByLabel('合适', { exact: true }).check();
+        await respondent.getByRole('textbox', { name: '下次会议最值得改进的地方是什么？', exact: true }).fill(fixture.answer);
+        await click(btn('提交答卷', respondent));
+        await expect(respondent.getByRole('status')).toHaveText('提交成功，感谢您的参与。');
+      } finally { await anonymous.close(); }
+      const receipt = surveyReceipt();
+      if (!receipt.responseId || receipt.id !== created.id || receipt.entityId !== testTarget.entityId) fail('NATIVE_SURVEY_RESPONSE_UNVERIFIED');
+      await click(btn('刷新已关联资料', actions));
+      const linked = actions.getByRole('combobox', { name: '关联项目问卷', exact: true });
+      await expect(linked.locator(`option[value="${receipt.id}"]`)).toHaveText(fixture.title);
+      await saveTestSource(testTarget.entityId, 'survey', () => linked.selectOption(receipt.id));
+      const responses = actions.getByRole('combobox', { name: '选择本测试的答卷证据', exact: true });
+      await expect(responses).toBeVisible();
+      await saveTestSource(testTarget.entityId, 'response', () => responses.selectOption(receipt.responseId));
+      const record = JSON.parse((await savedStage(6)).content.draft.fields['testGroup:' + testTarget.entityId]);
+      if (record.source?.id !== receipt.id || record.surveyResponseId !== receipt.responseId || record.sourceLocation !== `答卷 ${receipt.responseId}` || record.did) fail('NATIVE_SURVEY_RESPONSE_NOT_BOUND');
+      // Publication tokens stay in the guard/isolated participant context only.
+      return { surveyId: receipt.id, responseId: receipt.responseId, answer: fixture.answer };
+    } finally { await surveyPage.close(); }
+  }
+
   state.s6 = await check('s6-test-reflection', 6, async () => {
     if (!state.s5 || !step6Href) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
+    let nativeSurvey = null, interviewTest = null;
     for (const [method, label] of [['interview', '线下访谈'], ['survey', '问卷']]) {
       await page.goto(owned(step6Href)); await click(page.getByTestId('aidt-new-entity-card'));
       const dialog = page.getByRole('dialog', { name: '新建测试卡片' });
@@ -1139,12 +1197,10 @@ ${JSON.stringify(studentInputs)}`);
       const actions = page.getByTestId('aidt-test-chat-confirmation');
       await disclosure('关联测试材料');
       const methodField = actions.getByRole('combobox', { name: '测试方式', exact: true });
-      const saveSource = async action => {
-        armCardCreate(6);
-        const [response] = await Promise.all([page.waitForResponse(row => row.url() === origin + '/api/projects/' + scope.projectId + '/aidt/stages/6' && row.request().method() === 'PUT'), action()]);
-        if (response.status() !== 200) fail('TEST_MATERIAL_WRITE_UNVERIFIED');
-      };
-      if (await methodField.inputValue() !== method) await saveSource(() => methodField.selectOption(method));
+      if (await methodField.inputValue() !== method) {
+        await savedStage(6);
+        await saveTestSource(testTarget.entityId, 'method', () => methodField.selectOption(method));
+      }
       const initialPlan = text(`本组准备通过${label}观察学生读懂队列提示的情况。我们的初始测试问题是：你会从哪里开始看？接下来想做什么？请根据这个实体的验证问题整理成不诱导的测试计划，保留我们的测试方式，目前尚未采集反馈。`);
       if (!await feedback(6, initialPlan, undefined, false, false, true)) fail('TEST_PLAN_REPLY_REQUIRED');
       const planProof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.prompt === initialPlan && item.status === 'passed');
@@ -1152,9 +1208,19 @@ ${JSON.stringify(studentInputs)}`);
       await expect.poll(async () => (await readGroup()).planFromMessageId, { timeout: 30000 }).toBe(planProof?.assistantMessageId ?? 'MISSING');
       await expect(detail).toContainText((await readGroup()).task);
       await shot('06-' + method + '-chat-plan', 6);
-      const syntheticTestRecord = text(`${label}合成材料第1段。合成页面按查看等待信息、理解选择、决定是否排队的顺序展示。未进行真实用户测试。`);
-      await saveSource(() => uploaded('本组原始材料', `qa-${unique}-${method}.txt`, Buffer.from(syntheticTestRecord), 'text/plain'));
-      const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的${label}合成材料第1段，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
+      let syntheticTestRecord;
+      if (method === 'survey') nativeSurvey = await liveNativeSurvey(testTarget, actions);
+      else {
+        interviewTest = testTarget;
+        const nativeFile = `qa-${unique}-interview.txt`;
+        syntheticTestRecord = text(`${label}合成材料第1段。合成页面按查看等待信息、理解选择、决定是否排队的顺序展示。未进行真实用户测试。`);
+        await savedStage(6);
+        await saveTestSource(testTarget.entityId, 'material', () => uploaded('本组原始材料', nativeFile, Buffer.from(syntheticTestRecord), 'text/plain'), nativeFile);
+      }
+      const sourcePrompt = method === 'survey'
+        ? `本次范围仅验证软件。实际收到的合成自报是「${nativeSurvey.answer}」，来源答卷 ${nativeSurvey.responseId}。`
+        : `只用刚关联的${label}合成材料第1段。`;
+      const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。${sourcePrompt} 未测试真实对象，未观察到真人行为或原话。学生反思：现有材料证据不足，暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
       if (!await feedback(6, prompt)) fail('TEST_TEACHING_REPLY_REQUIRED');
       const proof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.prompt === prompt && item.status === 'passed');
       await saveStage(6, btn('确认并保存测试成果', actions), { confirmation: true });
@@ -1171,9 +1237,24 @@ ${JSON.stringify(studentInputs)}`);
       }
       await expect(detail).toContainText(testRecord.task);
       await expect(detail).toContainText(testRecord.reflection);
+      if (method === 'survey') {
+        if (!nativeSurvey || testRecord.surveyResponseId !== nativeSurvey.responseId || testRecord.source?.id !== nativeSurvey.surveyId || testRecord.did) fail('NATIVE_SURVEY_RESPONSE_NOT_BOUND');
+        await detail.getByText('原型版本与来源', { exact: true }).click();
+        await expect(detail).toContainText(testRecord.versionId);
+        await detail.getByText('查看所选答卷的原始回答', { exact: true }).click();
+        await expect(detail.getByText(nativeSurvey.answer, { exact: true })).toBeVisible();
+        await shot('06-native-survey-answer-readback', 6);
+      }
       evidence(6).outputs.push({ name: label, entityId: testTarget.entityId, threadId: new URL(testTarget.href).searchParams.get('thread'), designId, versionId: testRecord.versionId, method });
       await shot('06-native-' + method + '-plan-and-material', 6);
     }
+    if (!nativeSurvey || !interviewTest) fail('NATIVE_SURVEY_RESPONSE_UNVERIFIED');
+    await output(interviewTest);
+    const siblingOutput = page.getByTestId('aidt-test-group-detail');
+    await siblingOutput.getByText('原型版本与来源', { exact: true }).click();
+    await expect(siblingOutput.getByText(nativeSurvey.answer, { exact: true })).toHaveCount(0);
+    await expect(siblingOutput.getByRole('link', { name: '查看原生答卷', exact: true })).toHaveCount(0);
+    report.nativeSurveyRoundtrip = { ...nativeSurvey, siblingIsolation: true, participantBrowserIndependent: true, screenshot: '06-native-survey-answer-readback.png' };
     const tested = evidence(6).outputs.filter(item => item.designId === designId);
     if (tested.length !== 2 || tested[0].entityId === tested[1].entityId || tested[0].threadId === tested[1].threadId || tested[0].versionId !== tested[1].versionId) fail('TEST_GROUP_ISOLATION_UNVERIFIED');
     await shot('06-reflection-insufficient-return-empathy', 6); await completed(6); await page.goto(owned(step6Href));

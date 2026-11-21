@@ -79,6 +79,7 @@ const WRITE_LIMIT = 128 + 9 * 15;
 const SurveyId = new RegExp(`^${UUID}$`);
 const SurveyToken = /^[A-Za-z0-9._-]{12,180}$/;
 const surveyTypes = ['short','date','scale','scale','scale','single','scale','open'];
+const surveyTitles = ['会议名称','会议日期','会议目标和议程清晰。','会议内容与我的工作相关。','参会者有足够机会表达意见。','会议时长是否合适？','会后行动项、负责人和时间明确。','下次会议最值得改进的地方是什么？'];
 const surveyQuestions = surveyTypes.map((_, i) => `meeting-feedback-q${i + 1}`);
 export function aidtSurveyFixture(run, attempt) {
   const marker = `QA-${run}-${attempt}`;
@@ -89,7 +90,7 @@ function validSurveyDraft(body, fixture) {
     && body.title === fixture.title && Array.isArray(body.tags) && body.tags.length === 0
     && body.template?.id === 'meeting-feedback-report'
     && Array.isArray(body.questions) && body.questions.length === surveyTypes.length
-    && body.questions.every((question, i) => question?.id === surveyQuestions[i] && question.type === surveyTypes[i]
+    && body.questions.every((question, i) => question?.id === surveyQuestions[i] && question.type === surveyTypes[i] && question.title === surveyTitles[i]
        && question.provenance?.source === 'template' && question.provenance.sourceId === 'builtin-survey-meeting-feedback');
 }
 function validSurveySubmission(body, fixture) {
@@ -125,7 +126,10 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     const beforeStage = stageStates.get(6), before = beforeStage?.content?.draft, after = body?.content?.draft;
     const bound = testSaveArm, key = 'testGroup:' + bound?.entityId;
     if (!bound || now() > bound.until || !before || !after || body.expectedRevision !== beforeStage.revision
-      || JSON.stringify(body.sourceStageRevisions) !== JSON.stringify(beforeStage.sourceStageRevisions)) return false;
+      || Object.keys(body).sort().join(',') !== 'content,expectedRevision,operationId,projectId,sourceStageRevisions,stageId'
+      || body.projectId !== projectId || body.stageId !== 6 || !SurveyId.test(body.operationId ?? '')
+      || JSON.stringify(body.sourceStageRevisions) !== JSON.stringify(beforeStage.sourceStageRevisions)
+      || JSON.stringify({ ...beforeStage.content, draft: undefined }) !== JSON.stringify({ ...body.content, draft: undefined })) return false;
     if (JSON.stringify({ ...before, fields: undefined }) !== JSON.stringify({ ...after, fields: undefined })) return false;
     const beforeFields = { ...before.fields }, afterFields = { ...after.fields };
     delete beforeFields[key]; delete afterFields[key];
@@ -172,6 +176,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         && validSurveySubmission(body, surveyFixture)) {
         surveySubmitSent = true; allowedWrites++; return { allow: true, kind: 'survey-respond' };
       }
+      if (method === 'GET') return { allow: false, kind: 'out-of-scope-read', code: 'READ_OUT_OF_SCOPE' };
       return stop('SURVEY_PARTICIPANT_SCOPE_REJECTED');
     }
     if (method === 'POST' && path === '/api/auth/login' && !target.search) {
@@ -527,6 +532,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       const group = testRecord(stageStates.get(6), entityId);
       if (!ordinaryVerified || !group || testSaveArm || !['method', 'survey', 'response', 'material'].includes(action)
         || action === 'material' && filename !== `qa-${identity.run}-${identity.attempt}-interview.txt`) throw new ProbeFailure('TEST_AUTOSAVE_ARM_REJECTED');
+      arm = null;
       testSaveArm = { entityId, action, filename, until: now() + 45000 };
     },
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },

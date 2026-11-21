@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, chmodSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
+import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage, aidtSurveyFixture } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
 import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern, schematicPng } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
@@ -600,4 +600,91 @@ test('illustrated acceptance reports only observed checkpoints and scoped image 
   assert.match(text, /未全部通过/); assert.match(text, /失败.*s3-definition-hmw-handoff/);
   assert.match(text, /\(\.\/03-create-persona-dialog\.png\)/); assert.doesNotMatch(text, /invalid/);
   assert.match(text, /## 最终报告\n\n未取得检查结果/);
+});
+
+const testEntity = '11111111-1111-4111-8111-111111111112';
+const siblingTest = '11111111-1111-4111-8111-111111111113';
+const fixtureSurveyId = '11111111-1111-4111-8111-111111111114';
+const fixtureResponseId = '11111111-1111-4111-8111-111111111115';
+const fixtureToken = 'synthetic-opaque-token';
+const stage6Path = `/api/projects/${project}/aidt/stages/6`;
+const stage6Fields = {
+  ['testGroup:' + testEntity]: JSON.stringify({ id: testEntity, name: 'QA合成问卷 456-1', method: 'survey', source: null }),
+  ['testGroup:' + siblingTest]: JSON.stringify({ id: siblingTest, name: 'QA合成线下访谈 456-1', method: 'interview', source: null }),
+};
+const nativeSurvey = aidtSurveyFixture('456', '1');
+const nativeDraft = {
+  title: nativeSurvey.title, tags: [], template: { id: 'meeting-feedback-report' },
+  questions: [
+    ['short','会议名称'],['date','会议日期'],['scale','会议目标和议程清晰。'],['scale','会议内容与我的工作相关。'],['scale','参会者有足够机会表达意见。'],['single','会议时长是否合适？'],['scale','会后行动项、负责人和时间明确。'],['open','下次会议最值得改进的地方是什么？'],
+  ].map(([type, title], i) => ({ id: `meeting-feedback-q${i + 1}`, type, title, provenance: { source: 'template', sourceId: 'builtin-survey-meeting-feedback' } })),
+};
+function boundSurveySetup() {
+  const { guard, bind } = owned(); bind();
+  const decision = request(guard, 'GET', stage6Path);
+  guard.observe(decision, 200, { stage: { projectId: project, stageId: 6, revision: 3, ...stageBody(stage6Fields) } });
+  return guard;
+}
+function boundSurveyCreated() {
+  const guard = boundSurveySetup();
+  guard.armSurveyCreate(testEntity);
+  const create = request(guard, 'POST', '/api/surveys', nativeDraft);
+  assert.equal(create.kind, 'survey-create');
+  guard.observe(create, 201, { id: fixtureSurveyId, title: nativeDraft.title, status: 'draft', version: 1, publication: null, responses: [] });
+  return guard;
+}
+function boundSurveyPublished() {
+  const guard = boundSurveyCreated();
+  const link = request(guard, 'POST', `/api/projects/${project}/resources`, { projectId: project, kind: 'survey', resourceId: fixtureSurveyId });
+  assert.equal(link.kind, 'survey-link');
+  guard.observe(link, 200, {});
+  guard.armSurveyPublish();
+  const publish = request(guard, 'POST', `/api/surveys/${fixtureSurveyId}/publish`, { expectedVersion: 1 });
+  assert.equal(publish.kind, 'survey-publish');
+  guard.observe(publish, 201, { id: fixtureSurveyId, title: nativeDraft.title, publication: { status: 'collecting', token: fixtureToken }, responses: [] });
+  return guard;
+}
+const participant = (guard, method, path, body) => guard.decide({ url: `https://devapp.boardx.us${path}`, method, body, audience: 'survey-participant' });
+const nativeSubmission = { submissionId: testEntity, durationSeconds: 20,
+  answers: [nativeSurvey.name,'2026-11-21','4','4','4','o2','4',nativeSurvey.answer].map((value, i) => ({ questionId: `meeting-feedback-q${i + 1}`, value })) };
+
+test('the Devapp Survey guard allows one owned fixture publish and one independent synthetic answer', () => {
+  const guard = boundSurveyPublished();
+  assert.equal(participant(guard, 'GET', `/surveys/${fixtureToken}`).allow, true);
+  assert.equal(participant(guard, 'GET', `/api/public/surveys/${fixtureToken}`).allow, true);
+  assert.equal(participant(guard, 'GET', '/api/identity/me').allow, false);
+  const submit = participant(guard, 'POST', `/api/public/surveys/${fixtureToken}/responses`, nativeSubmission);
+  assert.equal(submit.kind, 'survey-respond');
+  guard.observe(submit, 201, { responseId: fixtureResponseId, replayed: false });
+  const read = request(guard, 'GET', `/api/surveys/${fixtureSurveyId}`);
+  guard.observe(read, 200, { id: fixtureSurveyId, title: nativeDraft.title, responses: [{ id: fixtureResponseId, answers: nativeSubmission.answers }] });
+  assert.equal(guard.surveyReceipt().responseId, fixtureResponseId);
+  assert.equal(participant(guard, 'POST', `/api/public/surveys/${fixtureToken}/responses`, nativeSubmission).allow, false);
+  assert.equal(JSON.stringify(guard.summary()).includes(fixtureToken), false);
+});
+
+test('the Devapp Survey guard rejects other survey or participant writes and unowned creation', () => {
+  assert.equal(request(boundSurveySetup(), 'POST', '/api/surveys', nativeDraft).allow, false);
+  const wrong = boundSurveySetup(); wrong.armSurveyCreate(testEntity);
+  assert.equal(request(wrong, 'POST', '/api/surveys', { ...nativeDraft, title: 'Unowned real survey' }).allow, false);
+  const other = boundSurveyCreated();
+  assert.equal(request(other, 'POST', `/api/projects/${project}/resources`, { projectId: project, kind: 'survey', resourceId: siblingTest }).allow, false);
+  const bad = boundSurveyPublished();
+  assert.equal(participant(bad, 'POST', '/api/public/surveys/other-token/responses', nativeSubmission).allow, false);
+  const wrongAnswer = boundSurveyPublished();
+  assert.equal(participant(wrongAnswer, 'POST', `/api/public/surveys/${fixtureToken}/responses`,
+    { ...nativeSubmission, answers: [{ questionId: 'unowned-question', value: 'tampered' }, ...nativeSubmission.answers.slice(1)] }).allow, false);
+});
+
+test('Devapp binds saved test sources only to the captured entity and survey receipt', () => {
+  const buildSave = (override = {}) => ({ ...stageBody({ ...stage6Fields, ...override }), operationId: testEntity, expectedRevision: 3, projectId: project, stageId: 6 });
+  const valid = boundSurveyPublished();
+  valid.armTestSave({ entityId: testEntity, action: 'survey' });
+  const associated = { ...JSON.parse(stage6Fields['testGroup:' + testEntity]), source: { kind: 'survey', id: fixtureSurveyId } };
+  assert.equal(request(valid, 'PUT', stage6Path, buildSave({ ['testGroup:' + testEntity]: JSON.stringify(associated) })).allow, true);
+  assert.equal(request(valid, 'PUT', stage6Path, buildSave()).allow, false);
+  const sibling = boundSurveyPublished();
+  sibling.armTestSave({ entityId: testEntity, action: 'survey' });
+  const writeWithSiblingMutation = buildSave({ ['testGroup:' + testEntity]: JSON.stringify(associated), ['testGroup:' + siblingTest]: JSON.stringify({ id: siblingTest, method: 'survey' }) });
+  assert.equal(request(sibling, 'PUT', stage6Path, writeWithSiblingMutation).code, 'TEST_AUTOSAVE_SCOPE_REJECTED');
 });
