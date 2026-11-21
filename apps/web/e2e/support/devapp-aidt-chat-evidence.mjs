@@ -3,6 +3,20 @@ import { createHash } from 'node:crypto';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 
 export const ENTITY = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+export function validTestPlanProjection(before, body, entityId, messageId) {
+  const oldDraft = before?.content?.draft, nextDraft = body?.content?.draft, key = 'testGroup:' + entityId;
+  if (!oldDraft || !nextDraft || before.revision !== body.expectedRevision || canonical(before.sourceStageRevisions) !== canonical(body.sourceStageRevisions)) return false;
+  let old, next;
+  try { old = JSON.parse(oldDraft.fields[key]); next = JSON.parse(nextDraft.fields[key]); } catch { return false; }
+  if (old.id !== entityId || next.id !== entityId || old.archived || old.confirmedFromMessageId || !id(next.planFromMessageId) ||
+      old.planFromMessageId === next.planFromMessageId || messageId && messageId !== next.planFromMessageId ||
+      typeof next.task !== 'string' || !next.task.trim() || next.task.length > 300 || typeof next.situation !== 'string' || next.situation.length > 300) return false;
+  const retained = value => Object.fromEntries(Object.entries(value).filter(([field]) => !['planFromMessageId','task','situation'].includes(field)));
+  const remaining = draft => Object.fromEntries(Object.entries(draft.fields).filter(([field]) => field !== key && field !== 'reflectionConfirmed'));
+  return canonical(retained(old)) === canonical(retained(next)) && canonical(remaining(oldDraft)) === canonical(remaining(nextDraft))
+    && (!nextDraft.fields.reflectionConfirmed || oldDraft.fields.reflectionConfirmed === nextDraft.fields.reflectionConfirmed)
+    && canonical({ ...oldDraft, fields: {} }) === canonical({ ...nextDraft, fields: {} });
+}
 export function brainstormRecord(stage, id) {
   if (!/^brainstorm-[a-zA-Z0-9-]{1,100}$/.test(id ?? '')) return null;
   try {
@@ -261,6 +275,9 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
         const next = stagesAfter[index];
         if (canonical(previous) === canonical(next)) return true;
         const a = previous.stage, b = next.stage;
+        if (index === 5 && current.testPlan === true && a?.stageId === 6 && b?.stageId === 6 && a.projectId === current.projectId && b.projectId === current.projectId && b.revision > a.revision) {
+          return validTestPlanProjection(a, { expectedRevision: a.revision, content: b.content, sourceStageRevisions: b.sourceStageRevisions }, current.selector.entityId, proof.assistantMessageId);
+        }
         if (index === 3 && current.stageId === 4 && a?.stageId === 4 && b?.stageId === 4 &&
             a.projectId === current.projectId && b.projectId === current.projectId && b.revision > a.revision &&
             canonical(a.sourceStageRevisions) === canonical(b.sourceStageRevisions)) {

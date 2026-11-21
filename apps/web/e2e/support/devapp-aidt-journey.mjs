@@ -358,9 +358,9 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   const origin = new URL(page.url()).origin;
   const unique = `${scope.runId}-${scope.runAttempt}`.replace(/[^a-zA-Z0-9-]/g, '').slice(-28);
   const text = value => `${SYNTHETIC}。${value}`;
-  const feedback = async (stage, studentQuestion, code, finding, fixture) => {
+  const feedback = async (stage, studentQuestion, code, finding, fixture, testPlan) => {
     if (typeof teachingFeedback !== 'function') fail('NATIVE_TEACHING_CHAT_UNAVAILABLE');
-    return teachingFeedback(stage, studentQuestion ?? `QA ${scope.runId} 合成软件验收，非真实采访或课堂。请以本步已保存的学生初稿为依据，这是单轮纯文字咨询，只指出一个可完善处并问一个开放问题，不执行方案，不需要任务计划。不要替学生做决定，不保存成果，不调用工具、不生成文件，不把合成资料当真人证据。第${stage}步。`, code, finding, fixture);
+    return teachingFeedback(stage, studentQuestion ?? `QA ${scope.runId} 合成软件验收，非真实采访或课堂。请以本步已保存的学生初稿为依据，这是单轮纯文字咨询，只指出一个可完善处并问一个开放问题，不执行方案，不需要任务计划。不要替学生做决定，不保存成果，不调用工具、不生成文件，不把合成资料当真人证据。第${stage}步。`, code, finding, fixture, testPlan);
   };
   const stageEvidence = new Map();
   report.stageEvidence = [];
@@ -1174,13 +1174,24 @@ ${JSON.stringify(studentInputs)}`);
       const actions = page.getByTestId('aidt-test-chat-confirmation');
       await disclosure('关联测试材料');
       const methodField = actions.getByRole('combobox', { name: '测试方式', exact: true });
-      if (await methodField.inputValue() !== method) await methodField.selectOption(method);
+      const saveSource = async action => {
+        armCardCreate(6);
+        const [response] = await Promise.all([page.waitForResponse(row => row.url() === origin + '/api/projects/' + scope.projectId + '/aidt/stages/6' && row.request().method() === 'PUT'), action()]);
+        if (response.status() !== 200) fail('TEST_MATERIAL_WRITE_UNVERIFIED');
+      };
+      if (await methodField.inputValue() !== method) await saveSource(() => methodField.selectOption(method));
+      const initialPlan = text(`本组准备通过${label}观察学生读懂队列提示的情况。我们的初始测试问题是：你会从哪里开始看？接下来想做什么？请根据这个实体的验证问题整理成不诱导的测试计划，保留我们的测试方式，目前尚未采集反馈。`);
+      if (!await feedback(6, initialPlan, undefined, false, false, true)) fail('TEST_PLAN_REPLY_REQUIRED');
+      const planProof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.prompt === initialPlan && item.status === 'passed');
+      const readGroup = async () => JSON.parse((await savedStage(6)).content.draft.fields['testGroup:' + testTarget.entityId]);
+      await expect.poll(async () => (await readGroup()).planFromMessageId, { timeout: 30000 }).toBe(planProof?.assistantMessageId ?? 'MISSING');
+      await expect(detail).toContainText((await readGroup()).task);
+      await shot('06-' + method + '-chat-plan', 6);
       const syntheticTestRecord = text(`${label}合成材料第1段。合成页面按查看等待信息、理解选择、决定是否排队的顺序展示。未进行真实用户测试。`);
-      await uploaded('本组原始材料', `qa-${unique}-${method}.txt`, Buffer.from(syntheticTestRecord), 'text/plain');
-      await saveStage(6, btn('保存关联材料', actions));
+      await saveSource(() => uploaded('本组原始材料', `qa-${unique}-${method}.txt`, Buffer.from(syntheticTestRecord), 'text/plain'));
       const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的${label}合成材料第1段，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
       if (!await feedback(6, prompt)) fail('TEST_TEACHING_REPLY_REQUIRED');
-      const proof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.status === 'passed');
+      const proof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.prompt === prompt && item.status === 'passed');
       await saveStage(6, btn('确认并保存测试成果', actions), { confirmation: true });
       await page.reload();
       await output(testTarget);
@@ -1188,6 +1199,11 @@ ${JSON.stringify(studentInputs)}`);
       const testRecord = JSON.parse(fields['testGroup:' + testTarget.entityId]);
       if (testRecord.method !== method || testRecord.designId !== designId || !testRecord.versionId || !proof || testRecord.confirmedFromMessageId !== proof.assistantMessageId || !testRecord.task?.trim() || !testRecord.reflection?.trim() ||
           fields.reflectionConfirmed !== 'true' || fields.understandingChangeStatus !== 'insufficient' || fields.returnStep !== '2') fail('TEST_NATIVE_ROUND_UNVERIFIED');
+      if (method === 'interview') {
+        await disclosure('原型版本与来源');
+        await expect(detail.getByTestId('aidt-research-original-text')).toContainText(syntheticTestRecord);
+        await shot('06-interview-reloaded-original', 6);
+      }
       await expect(detail).toContainText(testRecord.task);
       await expect(detail).toContainText(testRecord.reflection);
       evidence(6).outputs.push({ name: label, entityId: testTarget.entityId, threadId: new URL(testTarget.href).searchParams.get('thread'), designId, versionId: testRecord.versionId, method });

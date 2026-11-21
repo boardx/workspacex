@@ -340,3 +340,18 @@ test('summary Skill proof requires the six current revisions and the exact histo
     assert.throws(() => validateTeachingWire(request(wrong), wrong));
   }
 });
+
+test('stage six planning accepts only the bound student test plan and excludes original evidence or confirmation changes', async () => {
+  const { validTestPlanProjection } = await import('../../apps/web/e2e/support/devapp-aidt-chat-evidence.mjs');
+  const group = { id: 'test-owned', method: 'survey', task: '', situation: '' }, key = 'testGroup:test-owned';
+  const draft = record => ({ draft: { fields: { [key]: JSON.stringify(record), 'testGroup:sibling': '{"id":"sibling"}' }, ideas: [], selectedIdeaId: '' } });
+  const before = { revision: 1, content: draft(group), sourceStageRevisions: [{ stageId: 5, revision: 2 }] };
+  const ready = { ...group, planFromMessageId: 'message-7', task: '请描述下一步操作。', situation: '合成午休情境' };
+  const request = record => ({ expectedRevision: 1, content: draft(record), sourceStageRevisions: before.sourceStageRevisions });
+  assert.equal(validTestPlanProjection(before, request(ready), group.id, 'message-7'), true);
+  for (const patch of [{ planFromMessageId: 'message-8' }, { task: '' }, { confirmedFromMessageId: 'message-7' }, { source: { kind: 'survey', id: 'unrelated' } }]) {
+    assert.equal(validTestPlanProjection(before, request({ ...ready, ...patch }), group.id, 'message-7'), false);
+  }
+  const sibling = request(ready); sibling.content.draft.fields['testGroup:sibling'] = '{}';
+  assert.equal(validTestPlanProjection(before, sibling, group.id), false);
+});

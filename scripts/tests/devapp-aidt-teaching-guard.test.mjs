@@ -87,7 +87,7 @@ test('the interview lane permits ten independently bound interviews, denying rep
     assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
   }
   assert.equal(guard.summary().teachingRequests, 15);
-  assert.equal(guard.summary().teachingRequestsAllowed, 42);
+  assert.equal(guard.summary().teachingRequestsAllowed, 44);
 });
 
 test('per-interview revision and finding each require the preceding bound turn and student confirmation', () => {

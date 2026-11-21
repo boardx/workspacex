@@ -1,7 +1,7 @@
 /** Live Dev acceptance: this is a bounded test-data writer, not the read-only probe. */
 import { ORIGIN, ProbeFailure, validLoginBody } from './devapp-aidt-auth-readonly.mjs';
 import { createHash } from 'node:crypto';
-import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, brainstormRecord, validBrainstormProjection, ENTITY } from './devapp-aidt-chat-evidence.mjs';
+import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, brainstormRecord, validBrainstormProjection, validTestPlanProjection, ENTITY } from './devapp-aidt-chat-evidence.mjs';
 
 export const SHA = /^[a-f0-9]{40}$/;
 export const TAG = /^[0-9]+-[0-9]+$/;
@@ -72,7 +72,7 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
 }
 
 // Two S1 turns, one optional independent S1 fixture, thirty S2 turns, four later stages.
-export const TEACHING_TURN_LIMIT = 42;
+export const TEACHING_TURN_LIMIT = 44;
 // Nine additional interviews each save a guide, consent, a transcript and the confirmed finding.
 const WRITE_LIMIT = 128 + 9 * 15;
 
@@ -194,8 +194,9 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     if (method === 'PUT' && stage && object(body) && object(body.content) && object(body.content.draft)) {
       const n = Number(stage[1]);
       const explicitlyArmed = arm && arm.stage === n && arm.remaining > 0 && now() <= arm.until;
-      const projection = n === 4 && [...teachingLedger.values()].find(entry => entry.wire && !entry.projected
-        && entry.brainstormUntil >= now() && validBrainstormProjection(stageStates.get(4), body, entry.scope.selector.entityId));
+      const projection = [...teachingLedger.values()].find(entry => entry.wire && !entry.projected && (
+        n === 4 && entry.brainstormUntil >= now() && validBrainstormProjection(stageStates.get(4), body, entry.scope.selector.entityId) ||
+        n === 6 && entry.planUntil >= now() && validTestPlanProjection(stageStates.get(6), body, entry.scope.selector.entityId)));
       if (!explicitlyArmed && !projection) return stop('STAGE_SAVE_NOT_ARMED');
       const before = snapshots.get(n) ?? new Set();
       let next;
@@ -374,7 +375,8 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       const brainstorming = scope.stageId === 4 ? brainstormRecord(stageStates.get(4), scope.selector.entityId) : null;
       if (brainstorming && (brainstorming.method === 'reverse' ? brainstorming.count !== 5
         : brainstorming.method === 'scamper' ? brainstorming.count !== 1 : true)) throw new ProbeFailure('TEACHING_BRAINSTORM_SCOPE_NOT_VERIFIED');
-      const key = brainstorming ? 'brainstorm:' + brainstorming.method : summary ? 'group-report' : testMethod ? 'test:' + testMethod : synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? `finding:${scope.selector.entityId}` : guideRevision ? revisionKey : scope.stageId === 2 ? guideKey : definitionKind ? 'definition:' + definitionKind : scope.stageId;
+      if (scope.testPlan && (!testMethod || summary)) throw new ProbeFailure('TEACHING_TEST_ENTITY_UNVERIFIED');
+      const key = scope.testPlan ? 'test-plan:' + testMethod : brainstorming ? 'brainstorm:' + brainstorming.method : summary ? 'group-report' : testMethod ? 'test:' + testMethod : synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? `finding:${scope.selector.entityId}` : guideRevision ? revisionKey : scope.stageId === 2 ? guideKey : definitionKind ? 'definition:' + definitionKind : scope.stageId;
       const interviews = [...teachingLedger.keys()].filter(id => typeof id === 'string' && id.startsWith('interview:'));
       if (scope.stageId === 2 && (!scope.selector.entityId || (!finding && !guideRevision && interviews.length >= 10))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       if (finding) {
@@ -390,7 +392,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         || scope.selector.stageRevisions.some(ref => stageStates.get(ref.stageId)?.revision !== ref.revision)
         || JSON.stringify(scope.knownMessages) !== JSON.stringify(messageSnapshots.get(scope.threadId))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       arm = null;
-      teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000, ...(brainstorming ? { brainstormUntil: now() + 180000 } : {}) });
+      teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000, ...(brainstorming ? { brainstormUntil: now() + 180000 } : {}), ...(scope.testPlan ? { planUntil: now() + 180000 } : {}) });
     },
 
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },
