@@ -6,6 +6,7 @@ import { readAidtIdeaClassification } from "./aidt-idea-classification";
 import { aidtIdeaReadiness, aidtCompleteIdeas } from "./aidt-idea-readiness";
 import { isAidtReflectionConfirmed, isVerificationQuestionConfirmed } from "./aidt-verification-loop";
 import { parseAidtResearchMaterial, researchMaterialKey, isAidtResearchImage } from "./aidt-research-material-reference";
+import { aidtInterviewHandoffReady } from "./aidt-interviews";
 import { readAidtPrototypeReference } from "./aidt-prototype-reference";
 
 export type RoundSource = { stageId: number; revision: number };
@@ -18,7 +19,13 @@ export function aidtRoundMissingOutput(stageId: number, draft: AidtUiStageDraft,
     const directions = readAidtProblemDirections(draft.fields.problemDirections);
     if (directions.length && !directions.some(direction => direction.id === draft.fields.problemDirectionId)) return "请选择本轮研究方向。";
   }
-  if (stageId === 2 && (!has("adoptedGuide") || !draft.discoveryCards?.length || draft.discoveryCards.some(card => !card.participantCode.trim() || !card.headline.trim() || !card.context.trim() || !card.sourceRef.trim()))) return "先核对采纳后的访谈清单与带来源的人物发现卡。";
+  if (stageId === 2) {
+    const ready = aidtInterviewHandoffReady(draft);
+    const legacyReady = has("adoptedGuide") && draft.discoveryCards?.length && draft.discoveryCards.every(
+      card => card.participantCode.trim() && card.headline.trim() && card.context.trim() && card.sourceRef.trim(),
+    );
+    if (!(ready ?? legacyReady)) return "先核对至少一位受访者的清单、原始材料与发现卡。";
+  }
   if (stageId === 3 && (!has("hmw") || !["personaAge", "personaInterests", "personaLifestyle", "personaBehavior"].some(key => draft.fields[key]?.trim()) || !isAidtSurpriseConfirmed(draft, context?.cards, context?.cardsRevision))) return "先核对意外发现或暂无、画像与选定HMW。";
   if (stageId === 4) {
     const hasOriginalImage = (idea: AidtIdeaDraft) => { const material = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]); return Boolean(material && material.projectId === context?.projectId && isAidtResearchImage(material)); };
