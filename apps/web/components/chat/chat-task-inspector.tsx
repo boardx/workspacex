@@ -600,7 +600,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             }}>‹ 产物列表</button>}
             {hostPanel?.content}
           </> : activeTab === "materials" ? (
-            <ChatMaterialsPanel
+            <>{hostPanel?.materialsContent}<ChatMaterialsPanel
               hasSelection={hasSelection}
               threadId={threadId}
               materials={materials}
@@ -613,7 +613,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               pendingCount={pendingMaterialsCount}
               uploadingCount={uploadingMaterialsCount}
               dropActive={dropActive}
-            />
+            /></>
           ) : activeTab === "artifacts" ? (
             <>
             {openInPanel && threadId ? (
