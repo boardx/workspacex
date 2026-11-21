@@ -124,11 +124,15 @@ test("issue #2052：落地按钮挂真实落库 id 且产物真出现（依赖 #
   await expect(page.getByTestId("chat-roster-empty")).toBeVisible({ timeout: 30_000 });
   await expect(rosterPanel).toContainText("本线程的 AI 团队 · 0");
 
-  await page.getByTestId("chat-roster-edit").click();
-  const addSelect = page.getByTestId("chat-roster-add-input");
-  await expect(addSelect).toBeEnabled({ timeout: 30_000 });
-  await addSelect.selectOption(CHAT_READ_E2E.catalogOnlyAgentId);
-  await page.getByTestId("chat-roster-add-submit").click();
+  const conversationUrl = page.url();
+  await page.getByTestId("chat-roster-market-entry").click();
+  const market = page.getByRole("dialog", { name: "从 Agent 市场加入" });
+  const addAgent = market.getByTestId(`chat-agent-market-add-${CHAT_READ_E2E.catalogOnlyAgentId}`);
+  await expect(addAgent).toBeEnabled({ timeout: 30_000 });
+  await expect(page).toHaveURL(conversationUrl);
+  await addAgent.click();
+  await expect(addAgent).toHaveCount(0);
+  await market.getByTestId("chat-agent-market-close").click();
 
   // 服务端返回后重读服务端（不是乐观更新）——编制里出现这个 agent，计数跟着变。
   await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.catalogOnlyAgentId}`))
