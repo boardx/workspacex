@@ -8,12 +8,18 @@ export const AIDT_BRAINSTORM_CANDIDATE_LIMIT = 24;
 
 export const AidtBrainstorm = z.object({
   id: AidtEntityId.refine(id => id.startsWith("brainstorm-")),
+  title: z.string().trim().min(1).max(120).optional(),
+  archived: z.literal(true).optional(),
   source: IdeaHmwSource,
   method: z.enum(["free", "reverse", "scamper"]),
   count: z.number().int().min(1).max(AIDT_BRAINSTORM_CANDIDATE_LIMIT),
   candidates: z.array(AidtEntityId).max(AIDT_BRAINSTORM_CANDIDATE_LIMIT).refine(ids => new Set(ids).size === ids.length),
 }).strict().refine(record => record.candidates.length <= record.count);
 export type AidtBrainstorm = z.infer<typeof AidtBrainstorm>;
+
+export function aidtBrainstormTitle(session: AidtBrainstorm) {
+  return session.title ?? `头脑风暴 · ${AIDT_BRAINSTORM_METHODS[session.method]}`;
+}
 
 export function readAidtBrainstorm(fields: Record<string, string>, id: string): AidtBrainstorm | null {
   const raw = fields[AIDT_BRAINSTORM_PREFIX + id];

@@ -39,7 +39,7 @@ export function readAidtBrainstormProposals(turns: readonly Turn[], sessionId: s
 
 export function addAidtBrainstormCandidates(draft: AidtUiStageDraft, sessionId: string, proposals: readonly Proposal[]) {
   const session = readAidtBrainstorm(draft.fields, sessionId);
-  if (!session || session.candidates.length >= session.count) return draft;
+  if (!session || session.archived || session.candidates.length >= session.count) return draft;
   const existing = draft.ideas.filter(idea => session.candidates.includes(idea.id));
   const titles = new Set(existing.map(idea => stableTitle(idea.title)));
   const descriptions = new Set(existing.map(idea => stableTitle(idea.description)));
@@ -66,7 +66,7 @@ export function addAidtBrainstormCandidates(draft: AidtUiStageDraft, sessionId: 
 
 export function confirmAidtBrainstormSelection(draft: AidtUiStageDraft, sessionId: string, ids: string[]): AidtUiStageDraft {
   const session = readAidtBrainstorm(draft.fields, sessionId);
-  if (!session) return draft;
+  if (!session || session.archived) return draft;
   const next = { ...draft, fields: {
     ...draft.fields,
     ideaHmwSource: JSON.stringify(session.source),

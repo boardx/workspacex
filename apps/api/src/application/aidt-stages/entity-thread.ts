@@ -1,4 +1,4 @@
-import { AIDT_BRAINSTORM_METHODS, readAidtBrainstorm, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
+import { aidtBrainstormTitle, AIDT_BRAINSTORM_METHODS, readAidtBrainstorm, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { createHash } from "node:crypto";
 import { AIDT_ENTITY_THREAD_PREFIX, aidtInterviewTitle, isAidtProblemControlText, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { readAidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
@@ -60,7 +60,7 @@ export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: s
         ?? titleFor(fields, "definitionSurprise:", entityId, "observation", "意外发现");
     case 4: {
       const session = readAidtBrainstorm(fields, entityId);
-      if (session) return `头脑风暴 · ${AIDT_BRAINSTORM_METHODS[session.method]}`;
+      if (session) return session.archived ? null : aidtBrainstormTitle(session);
       if (/^draft-[123]$/.test(entityId)) return null;
       let archived: unknown;
       try { archived = JSON.parse(fields.ideaArchivedIds || "[]"); } catch { return null; }

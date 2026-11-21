@@ -327,8 +327,8 @@ export function schematicPng(identity, ordinal) {
     chunk('tEXt', Buffer.from(`QA synthetic schematic\0${identity}:${ordinal}`)), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
 }
 
-const creationFields = { problem: 'problemEntity:', interview: 'interviewRecord:', surprise: 'definitionSurprise:', persona: 'definitionPersona:', hmw: 'definitionHmw:', prototype: 'prototypeEntity:', test: 'testGroup:' };
-const creationKinds = { problem: 1, interview: 2, surprise: 3, persona: 3, hmw: 3, idea: 4, prototype: 5, test: 6 };
+const creationFields = { problem: 'problemEntity:', interview: 'interviewRecord:', surprise: 'definitionSurprise:', persona: 'definitionPersona:', hmw: 'definitionHmw:', brainstorm: 'ideaBrainstorm:', prototype: 'prototypeEntity:', test: 'testGroup:' };
+const creationKinds = { problem: 1, interview: 2, surprise: 3, persona: 3, hmw: 3, idea: 4, brainstorm: 4, prototype: 5, test: 6 };
 
 function cardIds(stage, kind) {
   const draft = stage.content?.draft, fields = draft?.fields ?? {};
@@ -971,7 +971,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const ideaDirectory = page.getByTestId('aidt-idea-directory');
     await expect(ideaDirectory).toBeVisible();
     for (const name of ideaNames) {
-      await click(page.getByTestId('aidt-new-entity-card'));
+      await click(btn('新建点子', ideaDirectory));
       const dialog = page.getByRole('dialog', { name: '新建点子' });
       await fill('点子名称', name, dialog);
       await captureCardCreation(4, 'idea', () => click(dialog.locator('button[type=submit]')));
@@ -1045,7 +1045,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     report.descriptionPdfIndependentGlyphValidation = 'pending artifact download';
   }, '04-ideas');
 
-  await check('s4-brainstorm-five-to-two', 4, async () => {
+  state.s4 = await check('s4-brainstorm-five-to-two', 4, async () => {
     if (!state.s3 || !step4Href) fail('S3_CONFIRMED_HANDOFF_REQUIRED');
     const stage3 = await savedStage(3);
     const frozenUrl = new URL(owned(step4Href));
@@ -1061,24 +1061,30 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const methodSessions = new Set();
     const start = async (method, target) => {
       await page.goto(frozenUrl.href);
-      const directory = page.getByRole('region', { name: '头脑风暴', exact: true });
-      const hmw = directory.getByRole('combobox', { name: 'HMW', exact: true });
+      await click(page.getByTestId('aidt-new-entity-card'));
+      const dialog = page.getByRole('dialog', { name: '新建头脑风暴' });
+      const name = 'QA头脑风暴 ' + method + ' ' + unique;
+      await fill('场次名称', name, dialog);
+      await fill('添加标签', 'QA课堂', dialog);
+      await dialog.getByRole('textbox', { name: '添加标签', exact: true }).press('Enter');
+      const hmw = dialog.getByRole('combobox', { name: 'HMW', exact: true });
       await expect.poll(() => hmw.locator('option').count()).toBeGreaterThanOrEqual(3);
       await hmw.selectOption(chosenHmw.id);
-      await directory.getByRole('combobox', { name: '发散方法' }).selectOption(method);
-      await directory.getByRole('spinbutton', { name: '希望探索的点子数' }).fill(String(target));
-      await saveStage(4, btn('开始头脑风暴', directory));
-      await expect.poll(() => new URL(page.url()).searchParams.get('entity')).toMatch(/^brainstorm-/);
-      const entity = new URL(page.url()).searchParams.get('entity');
-      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
+      await dialog.getByRole('combobox', { name: '发散方法' }).selectOption(method);
+      await dialog.getByRole('spinbutton', { name: '希望探索的点子数' }).fill(String(target));
+      const { target: route } = await captureCardCreation(4, 'brainstorm', () => click(btn('开始头脑风暴', dialog)), { reopen: true });
+      const entity = route.entityId;
+      if (!entity.startsWith('brainstorm-')) fail('S4_BRAINSTORM_SOURCE_UNVERIFIED');
       const threadId = new URL(page.url()).searchParams.get('thread');
+      const fields = (await savedStage(4)).content.draft.fields;
+      if (!JSON.parse(fields['cardTags:' + entity] ?? '[]').includes('QA课堂')) fail('S4_BRAINSTORM_TAG_RELOAD_UNVERIFIED');
       if (methodSessions.has(threadId)) fail('S4_BRAINSTORM_THREAD_NOT_INDEPENDENT');
       methodSessions.add(threadId);
       const key = 'ideaBrainstorm:' + entity;
       const read = async () => JSON.parse((await savedStage(4)).content.draft.fields[key] ?? 'null');
       const session = await read();
       if (session?.source?.id !== chosenHmw.id || session.source?.text !== chosenHmw.text || session.source?.revision !== stage3.revision
-        || session.method !== method || session.count !== target) fail('S4_BRAINSTORM_SOURCE_UNVERIFIED');
+        || session.title !== name || session.method !== method || session.count !== target) fail('S4_BRAINSTORM_SOURCE_UNVERIFIED');
       return { entity, threadId, read };
     };
     const reverse = await start('reverse', 5);
@@ -1116,7 +1122,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect(page.getByTestId('aidt-step-entity-directory')).toBeVisible();
     if (state.s4) step5Href = frozenHandoff;
     report.brainstormHandoff = { hmwId: chosenHmw.id, hmwRevision: stage3.revision, stage4Revision: stage4.revision, sameSessionAfterReload: true, retained: 5, selected: 2, selectedIds, methodThreadCount: 2, methods: ['reverse', 'scamper'] };
-  }, '04-brainstorm');
+  }, '04-brainstorm') && state.s4;
 
   state.s5 = await check('s5-prototype-question-version', 5, async () => {
     if (!state.s4 || !step5Href) { await go(5); fail('S4_CONFIRMED_HANDOFF_REQUIRED'); }
