@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aidtTestGroupsComplete, isAidtTestGroupConfirmed, aidtTestGroupDirectory, aidtTestGroupHasEvidence, createAidtTestGroup, readAidtTestGroups, resetAidtTestRound, updateAidtTestGroup } from "@/features/aidt/lib/aidt-test-groups";
-import { confirmAidtTestProposal, readAidtTestProposal } from "@/features/aidt/lib/aidt-test-proposal";
+import { applyAidtTestPlan, confirmAidtTestProposal, readAidtTestPlan, readAidtTestProposal } from "@/features/aidt/lib/aidt-test-proposal";
 import { emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtQuestionSnapshot } from "@/features/aidt/lib/aidt-verification-loop";
 
@@ -74,4 +74,41 @@ describe("AIDT grouped test records", () => {
     expect(aidtTestGroupHasEvidence(linked, "group", false)).toBe(false);
     expect(aidtTestGroupHasEvidence(linked, "group", true)).toBe(true);
   });
+});
+
+it("pins the selected native answer and rejects self-report as observed behavior", () => {
+  const group = createAidtTestGroup(snapshot, one)!;
+  const draft = updateAidtTestGroup(emptyAidtUiDrafts()[6]!, { ...group, method: "survey",
+    source: { kind: "survey", id: "survey-1" }, surveyResponseId: "answer-1", sourceLocation: "答卷 answer-1" });
+  const result = { entityId: group.id, task: "对照标签", reflection: "只看到了自报", said: "我会试着买", did: "完成支付",
+    sourceLocation: "模型猜测位置" };
+  expect(confirmAidtTestProposal(draft, { messageId: "test-turn", result }, true)).toBe(draft);
+  const { did: _unsupported, ...statement } = result;
+  expect(confirmAidtTestProposal(draft, { messageId: "test-turn", result: statement }, false)).toBe(draft);
+  const confirmed = confirmAidtTestProposal(draft, { messageId: "test-turn", result: statement }, true);
+  expect(readAidtTestGroups(confirmed.fields)[0]).toMatchObject({ sourceLocation: "答卷 answer-1", surveyResponseId: "answer-1", said: "我会试着买", did: "" });
+});
+
+it("autofills a scoped plan from settled Chat without confirming any outcome", () => {
+  const a = createAidtTestGroup(snapshot, one)!;
+  const b = createAidtTestGroup(snapshot, two)!;
+  const draft = updateAidtTestGroup(updateAidtTestGroup(emptyAidtUiDrafts()[6]!, a), b);
+  const turn = { id: "plan", role: "assistant", content: ["```aidt-test-plan", JSON.stringify({ entityId: one, task: "让同学指出两种口味" }), "```"].join("\n") };
+  expect(readAidtTestPlan([{ id: "hello", role: "user", content: "你好" }, turn], one)).toBeNull();
+  const messages = [{ id: "prompt", role: "user", content: "想让同学辨认口味" }, turn];
+  expect(readAidtTestPlan(messages, two)).toBeNull();
+  const plan = readAidtTestPlan(messages, one)!;
+  const updated = applyAidtTestPlan(draft, plan);
+  expect(readAidtTestGroups(updated.fields)).toEqual([{ ...a, task: "让同学指出两种口味", planFromMessageId: "plan" }, b]);
+  expect(aidtTestGroupsComplete(updated)).toBe(false);
+  expect(applyAidtTestPlan(updated, plan)).toBe(updated);
+});
+
+it("requires authorized, located evidence before confirming a change in understanding", () => {
+  const draft = updateAidtTestGroup(emptyAidtUiDrafts()[6]!, createAidtTestGroup(snapshot, one)!);
+  const proposal = { messageId: "test", result: { entityId: one, task: "比较卡片", reflection: "材料还不完整",
+    evidenceGap: "尚无实际行为记录", round: { understandingChangeStatus: "changed" as const,
+      returnStep: "undecided" as const, returnReason: "还需补访" } } };
+  expect(confirmAidtTestProposal(draft, proposal, false)).toBe(draft);
+  expect(confirmAidtTestProposal(draft, proposal, true)).toBe(draft);
 });

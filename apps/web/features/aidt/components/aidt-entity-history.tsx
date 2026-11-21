@@ -5,6 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { AidtProblemWorkspace } from "./aidt-problem-workspace";
 import { AidtInterviewOutput } from "./aidt-interview-output";
+import { AidtTestGroupOutput } from "./aidt-test-conversation";
 import { AidtStageOutput } from "./aidt-stage-output";
 import { AidtPrototypeEntityOutput } from "./aidt-prototype-handoff";
 import { aidtHref, type AidtStep } from "../lib/project-aidt";
@@ -68,12 +69,14 @@ export function AidtEntityHistory({ projectId, entityId, step, revision, token, 
               : step.id === 5
               ? <AidtPrototypeEntityOutput projectId={projectId} designId={entityId} stageDraft={draft}
                   update={() => undefined} workflow={{ matchesServer: false }} readOnly />
+              : step.id === 6
+              ? <AidtTestGroupOutput projectId={projectId} activeEntityId={entityId} draft={draft} savedDraft={draft} readPrototypeEntity={readAidtPrototypeEntityDraft} historical />
               : <AidtStageOutput projectId={projectId} step={step} draft={draft} readOnly
                   update={() => undefined} toolHref={() => backHref}
                   activeDefinitionEntityId={step.id === 3 ? entityId : undefined}
-                  ideaEntityId={step.id === 4 ? entityId : undefined} activeTestEntityId={step.id === 6 ? entityId : undefined}
+                  ideaEntityId={step.id === 4 ? entityId : undefined}
                   availableCardsRevision={stage?.sourceStageRevisions.find(source => source.stageId === 2)?.revision}
-                  readTestPrototypeEntity={readAidtPrototypeEntityDraft} />}
+                  />}
           </>}
     </div>
   </section>;

@@ -580,7 +580,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
               } : step.id === 6 && activeEntityId ? {
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
-                  <AidtTestConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId}
+                  <AidtTestConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId} readPrototypeEntity={readAidtPrototypeEntityDraft}
                     draft={currentUi.drafts[6]!} savedDraft={shared.stages[6]?.content.draft} messages={messages}
                     loading={loading} running={running} update={mutate => updateStage(6, mutate)} readOnly={!canWrite}
                     canSave={shared.read?.phase === 'ready' && shared.write.phase !== 'saving' && !shared.needsBaseReview}
