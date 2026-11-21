@@ -9,6 +9,8 @@ import { printResearchPdf, preparePrintImages } from "@/lib/research-report-expo
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
 import { AidtInterviewWorkspace } from "./aidt-interview-workspace";
 import { readAidtInterviews } from "../lib/aidt-interviews";
+import { AidtTestGroups } from "./aidt-test-groups";
+import type { AidtReadPrototypeEntity } from "./aidt-test-prototype-source";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
 import { AidtDefinitionDirectory, AidtDefinitionEditor } from "./aidt-definition";
 import { AidtStageFields } from "@/features/aidt/components/aidt-stage-fields";
@@ -39,7 +41,7 @@ export function printAidtUiText(text: string, options?: Parameters<typeof printR
   return printResearchPdf(root, "AIDT 小组草稿", options);
 }
 
-export function AidtStageOutput({ projectId, thread = null, entityId, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision, discoveryCardFields, activeDefinitionEntityId, ideaEntityId, ideaHandoff }: {
+export function AidtStageOutput({ projectId, thread = null, entityId, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision, discoveryCardFields, activeDefinitionEntityId, ideaEntityId, ideaHandoff, activeTestEntityId, readTestPrototypeEntity }: {
   projectId: string; step: AidtStep; draft: AidtUiStageDraft;
   thread?: string | null; entityId?: string | null;
   update: (mutate: (previous: AidtUiStageDraft) => AidtUiStageDraft) => void;
@@ -49,6 +51,7 @@ export function AidtStageOutput({ projectId, thread = null, entityId, step, draf
   discoveryCardFields?: Readonly<Record<string, string>>; activeDefinitionEntityId?: string | null;
   previousPrototype?: AidtUiStageDraft; previousPrototypeRevision?: number;
   ideaEntityId?: string; ideaHandoff?: AidtIdeaHandoffContext;
+  activeTestEntityId?: string; readTestPrototypeEntity?: AidtReadPrototypeEntity;
 }) {
   const output = AIDT_OUTPUTS[step.id]!;
   const [status, setStatus] = React.useState("");
@@ -128,6 +131,9 @@ export function AidtStageOutput({ projectId, thread = null, entityId, step, draf
       setStatus("已请求打开打印预览，可选择另存为PDF；请分别保存各份描述单，不会因此保存到小组。");
     } catch { setStatus("描述单打印未能启动或图片尚不可用，文字与选择仍保留。请重试读取图片后再导出。"); }
     finally { setPrinting(false); }
+  }
+  if (step.id === 6 && activeTestEntityId) {
+    return <AidtTestGroups projectId={projectId} draft={draft} activeEntityId={activeTestEntityId} readPrototypeEntity={readTestPrototypeEntity} readOnly={readOnly} update={update} />;
   }
   return <section className="space-y-4" data-testid="aidt-stage-output">
     <div><h3 className="text-20 font-semibold tracking-tight">{output.title}</h3></div>
