@@ -925,11 +925,11 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   state.s3 = await check('s3-definition-hmw-handoff', 3, async () => {
     if (!state.s2 || !step3Href) { await go(3); fail('S2_CONFIRMED_HANDOFF_REQUIRED'); }
     await page.goto(owned(step3Href));
-    await captureCardCreation(3, 'surprise', () => click(btn('新建意外发现')), { reopen: true }); await output();
+    await click(page.getByTestId('aidt-new-entity-card')); await captureCardCreation(3, 'surprise', () => click(btn('新建意外发现')), { reopen: true }); await output();
     await page.getByRole('radio', { name: '暂无意外发现', exact: true }).check();
     await persistConfirmed(3, page.getByTestId('aidt-surprise-confirm'));
     await follow('返回产物列表');
-    await captureCardCreation(3, 'persona', () => click(btn('新建画像')), { reopen: true }); await output();
+    await click(page.getByTestId('aidt-new-entity-card')); await captureCardCreation(3, 'persona', () => click(btn('新建画像')), { reopen: true }); await output();
     await fill('画像名称', personaName); await fill('用户情境', text('午休时的饮品选择合成情境。'));
     await fill('可观察的行为', text('夹具中的人物先看队列。')); await fill('需求', text('了解等待信息，仍需真实研究。'));
     await fill('反例、适用范围或仍未知的地方', '只有QA合成材料，年龄、兴趣与真实行为均未知。');
@@ -939,7 +939,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await observeInputs(3);
     await persistConfirmed(3, btn('确认画像')); personaHref = page.url();
     evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
-    await follow('返回产物列表'); await captureCardCreation(3, 'hmw', () => click(btn('新建 HMW')), { reopen: true }); await output();
+    await follow('返回产物列表'); await click(page.getByTestId('aidt-new-entity-card')); await captureCardCreation(3, 'hmw', () => click(btn('新建 HMW')), { reopen: true }); await output();
     await fill('我们如何……（HMW）', text('我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？'));
     await fill('选择理由或待核实处', '来自本次合成发现卡；是否适用于真实学生仍待验证。');
     await page.getByRole('group', { name: '关联已确认画像', exact: true }).getByRole('checkbox', { name: personaName, exact: true }).check();
@@ -958,7 +958,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     if (!state.s3 || !step4Href) { await go(4); fail('S3_CONFIRMED_HANDOFF_REQUIRED'); }
     await page.goto(owned(step4Href));
     for (const name of ideaNames) {
-      await click(btn('新建点子'));
+      await click(page.getByTestId('aidt-new-entity-card'));
       const dialog = page.getByRole('dialog', { name: '新建点子' });
       await fill('点子名称', name, dialog);
       await captureCardCreation(4, 'idea', () => click(dialog.locator('button[type=submit]')));
@@ -1007,7 +1007,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     if (!state.s4 || !step5Href) { await go(5); fail('S4_CONFIRMED_HANDOFF_REQUIRED'); }
     if (typeof armDesignGeneration !== 'function' || typeof armDesignCreate !== 'function') fail('BOUNDED_DESIGN_GENERATION_GUARD_REQUIRED');
     await page.goto(owned(step5Href));
-    await click(btn('新建原型'));
+    await click(page.getByTestId('aidt-new-entity-card'));
     const dialog = page.getByRole('dialog', { name: '新建原型' });
     await fill('原型名称', '未命名设计', dialog);
     const { target: designRoute } = await captureCardCreation(5, 'prototype', async () => {
