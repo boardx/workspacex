@@ -9,6 +9,8 @@ const files = [
   'apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs',
   'apps/web/e2e/support/devapp-aidt-acceptance.mjs',
   'apps/web/e2e/support/devapp-aidt-journey.mjs',
+  'apps/web/e2e/support/devapp-aidt-print-evidence.mjs',
+  'apps/web/e2e/support/devapp-aidt-chat-evidence.mjs',
   'scripts/image-release-host-permissions.py',
 ];
 const sha = process.env.GITHUB_SHA;

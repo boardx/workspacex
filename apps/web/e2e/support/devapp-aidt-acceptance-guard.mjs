@@ -1,6 +1,7 @@
 /** Live Dev acceptance: this is a bounded test-data writer, not the read-only probe. */
 import { ORIGIN, ProbeFailure, validLoginBody } from './devapp-aidt-auth-readonly.mjs';
 import { createHash } from 'node:crypto';
+import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun } from './devapp-aidt-chat-evidence.mjs';
 
 export const SHA = /^[a-f0-9]{40}$/;
 export const TAG = /^[0-9]+-[0-9]+$/;
@@ -72,6 +73,8 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
 export function createAcceptanceGuard(identity, now = Date.now) {
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
   let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0, ordinaryVerified = false, projectCreateUntil = null;
+  const threadCoordinates = new Map(), threadFacts = new Map(), threadPins = new Map(), messageSnapshots = new Map(), stageStates = new Map(), skillCatalog = new Map(), teachingLedger = new Map(), ownedRuns = new Set();
+  let teachingRequests = 0, suggestionsBlocked = 0, teachingStopped = false;
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
   let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null, modelRequestedScreens = null;
   const stop = code => { fatal ??= code; return { allow: false, kind: 'rejected', code }; };
@@ -92,10 +95,18 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     }
     if (!actor && method !== 'GET') return stop('AUTHENTICATION_REQUIRED');
     if (identity.entryDiagnosticOnly && method !== 'GET') return stop('ENTRY_DIAGNOSTIC_READONLY');
+    if (method === 'POST' && (path === '/api/copilotkit/agent/default/suggest' || path === '/api/copilotkit/agent/default/run' && body?.forwardedProps?.toolChoice?.function?.name === 'copilotkitSuggest')) { suggestionsBlocked++; return { allow: false, kind: 'optional-suggestion-blocked', code: 'OPTIONAL_SUGGESTION_NOT_EXERCISED' }; }
     if (method === 'GET') {
       const publicPage = path === '/login' || path === '/aidt' || path === '/favicon.ico' || path.startsWith('/_next/static/') || approvedHomeImage(target);
-      const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/projects' && target.searchParams.get('orgId') === org) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
+      const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/copilotkit/info' && !target.search) || (path === '/api/projects' && target.searchParams.get('orgId') === org) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
       const ownedRead = (projectId || candidate) && (path === `/aidt/${projectId ?? candidate}` || path.startsWith(`/api/projects/${projectId ?? candidate}/`));
+      for (const id of threads) {
+        if (path === `/api/chat/threads/${encodeURIComponent(id)}`) return { allow: true, kind: 'thread-detail', threadId: id };
+        if (path === `/api/chat/threads/${encodeURIComponent(id)}/messages`) return { allow: true, kind: 'thread-messages', threadId: id };
+        if (path === `/api/threads/${encodeURIComponent(id)}/skill-deviations`) return { allow: true, kind: 'thread-pins', threadId: id };
+      }
+      const runRead = /^\/api\/agent-runs\/([A-Za-z0-9_.:-]+)(?:\/aidt-context)?$/.exec(path);
+      if (runRead && !target.search) return ownedRuns.has(runRead[1]) ? { allow: true, kind: 'owned-teaching-run-read', runId: runRead[1] } : { allow: false, kind: 'teaching-run-needs-binding', runId: runRead[1] };
       const ownedChat = [...threads].some(id => path === `/api/chat/threads/${encodeURIComponent(id)}` || path.startsWith(`/api/chat/threads/${encodeURIComponent(id)}/`)
         || path === `/api/threads/${encodeURIComponent(id)}/skill-mounts` || path === `/api/threads/${encodeURIComponent(id)}/skill-deviations`);
       const projectChatList = projectId && path === '/api/chat/threads' && target.searchParams.get('projectId') === projectId;
@@ -120,6 +131,14 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       projectCreateUntil = null; createCount++; allowedWrites++; return { allow: true, kind: 'create-project' };
     }
     if (!projectId) return stop('OWNED_PROJECT_REQUIRED');
+    if (method === 'POST' && path === '/api/copilotkit/agent/default/run') {
+      const entries = [...teachingLedger.values()].filter(entry => entry.wire === null && entry.until >= now());
+      if (teachingStopped || teachingRequests >= 6 || entries.length !== 1) return stop('TEACHING_SEND_NOT_ARMED');
+      const entry = entries[0];
+      try { entry.wire = validateTeachingWire({ url, method, body }, entry.scope); } catch (error) { return stop(error.code ?? 'TEACHING_WIRE_REJECTED'); }
+      teachingRequests++; return { allow: true, kind: 'teaching-turn', stageId: entry.scope.stageId, threadId: entry.scope.threadId };
+    }
+
     try { checkReferences(body, projectId, threads, resources); } catch (error) { return stop(error.code ?? 'REFERENCE_REJECTED'); }
     if (method === 'POST' && path === '/api/pm-designs' && !target.search && !designId && designArm && now() <= designArm && object(body) && Object.keys(body).sort().join(',') === 'name,template' && body.name === '未命名设计' && body.template === 'ui') {
       designArm = null; allowedWrites++; return { allow: true, kind: 'create-design' };
@@ -157,7 +176,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     }
     const entity = new RegExp(`^/api/projects/${projectId}/aidt/stages/([1-6])/entities/([^/]+)/thread$`).exec(path);
     if (method === 'PUT' && entity && (ENTITY.test(entity[2]) || entity[2] === 'group-report') && object(body) && Object.keys(body).join(',') === 'purpose' && ['stage', 'report'].includes(body.purpose)) {
-      allowedWrites++; return { allow: true, kind: 'entity-thread' };
+      allowedWrites++; return { allow: true, kind: 'entity-thread', stageId: Number(entity[1]), entityId: entity[2], purpose: body.purpose };
     }
     if (method === 'POST' && path === '/api/chat/threads/mutate' && object(body) && body.op === 'create'
         && Object.keys(body).sort().join(',') === 'expectedVersion,groupId,op,projectId,reason,threadId,title,visibilityScope'
@@ -200,15 +219,53 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       if (status === 200 || status === 201) {
         if (!/^(?:thr[-_])[a-zA-Z0-9_-]{1,180}$/.test(response?.threadId ?? '')) throw new ProbeFailure('THREAD_RESPONSE_REJECTED');
         threads.add(response.threadId);
+        if (decision.kind === 'entity-thread') threadCoordinates.set(response.threadId, { stageId: decision.stageId, entityId: decision.entityId, purpose: decision.purpose });
       }
     } else if (decision.kind === 'skill-catalog' && status === 200 && Array.isArray(response?.items)) {
-      for (const item of response.items) if (identity.teachingSkillNames?.includes(item.platformStableName) && item.status === '已启用' && typeof item.currentVersionId === 'string' && item.currentVersionId && typeof item.skillId === 'string') teachingSkills.add(item.skillId);
+      for (const item of response.items) if (identity.teachingSkillNames?.includes(item.platformStableName) && item.status === '已启用' && typeof item.currentVersionId === 'string' && item.currentVersionId && typeof item.skillId === 'string') { teachingSkills.add(item.skillId); skillCatalog.set(item.skillId, { stableName: item.platformStableName, currentVersionId: item.currentVersionId }); }
+    } else if (decision.kind === 'thread-detail' && status === 200) {
+      if (response?.thread?.id !== decision.threadId || response.thread.projectId !== projectId) throw new ProbeFailure('TEACHING_THREAD_PROJECT_MISMATCH');
+      threadFacts.set(decision.threadId, { writable: response.thread.archived === false && response.capabilities?.includes('composer.send') === true });
+    } else if (decision.kind === 'thread-pins' && status === 200) {
+      if (!Array.isArray(response?.temporary) || response.temporary.some(pin => pin.threadId !== decision.threadId)) throw new ProbeFailure('TEACHING_THREAD_PINS_INVALID');
+      threadPins.set(decision.threadId, response.temporary.filter(pin => pin.removedAt === null));
+    } else if (decision.kind === 'thread-messages' && status === 200) {
+      const rows = Array.isArray(response) ? response : response?.messages;
+      if (!Array.isArray(rows) || rows.length > 100 || !Array.isArray(response) && response.nextCursor != null) throw new ProbeFailure('TEACHING_MESSAGE_READ_INVALID');
+      messageSnapshots.set(decision.threadId, rows);
+      for (const entry of teachingLedger.values()) if (entry.wire && entry.scope.threadId === decision.threadId) {
+        const accepted = identifyOwnedTeachingRun(response, entry.scope, entry.wire);
+        if (accepted) { if (entry.accepted && entry.accepted.runId !== accepted.runId) throw new ProbeFailure('TEACHING_RUN_BINDING_CHANGED'); entry.accepted = accepted; ownedRuns.add(accepted.runId); }
+      }
     } else if ((decision.kind === 'save-stage' || decision.kind === 'get-stage') && status === 200 && response?.stage) {
       if (response?.stage?.projectId !== projectId || response.stage.stageId !== decision.stageId) throw new ProbeFailure('STAGE_RESPONSE_REJECTED');
       snapshots.set(decision.stageId, confirmations(response.stage.content));
+      stageStates.set(decision.stageId, response.stage);
     }
   }
   return { decide, observe, fail: stop, fatal: () => fatal,
+    stopTeaching: () => { teachingStopped = true; },
+    teachingStopped: () => teachingStopped,
+    teachingReadsToBind: () => [...teachingLedger.values()].filter(entry => entry.wire && !entry.accepted).map(entry => `/api/chat/threads/${encodeURIComponent(entry.scope.threadId)}/messages?limit=100`),
+    teachingPin: (stageId, threadId, entityId) => {
+      const coordinates = threadCoordinates.get(threadId);
+      if (!coordinates || coordinates.stageId !== stageId || coordinates.purpose !== 'stage' || (entityId !== undefined && coordinates.entityId !== entityId)) return null;
+      const expected = identity.teachingSkillNames?.[stageId - 1];
+      const pins = (threadPins.get(threadId) ?? []).filter(pin => skillCatalog.get(pin.skillId)?.stableName === expected);
+      return pins.length === 1 ? { skillId: pins[0].skillId, skillVersionId: pins[0].versionId } : null;
+    },
+    armTeachingSend: scope => {
+      validateTeachingScope(scope);
+      const coordinates = threadCoordinates.get(scope.threadId), pins = threadPins.get(scope.threadId) ?? [];
+      if (teachingStopped || !ordinaryVerified || scope.projectId !== projectId || scope.actorId !== actor || teachingLedger.has(scope.stageId) || teachingRequests >= 6
+        || !coordinates || coordinates.purpose !== 'stage' || coordinates.stageId !== scope.stageId || coordinates.entityId !== scope.selector.entityId
+        || !threadFacts.get(scope.threadId)?.writable || !pins.some(pin => pin.skillId === scope.skillId && pin.versionId === scope.skillVersionId)
+        || skillCatalog.get(scope.skillId)?.stableName !== identity.teachingSkillNames?.[scope.stageId - 1]
+        || scope.selector.stageRevisions.some(ref => stageStates.get(ref.stageId)?.revision !== ref.revision)
+        || JSON.stringify(scope.knownMessages) !== JSON.stringify(messageSnapshots.get(scope.threadId))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
+      teachingLedger.set(scope.stageId, { scope, wire: null, accepted: null, until: now() + 15000 });
+    },
+
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },
     armDesignGeneration: () => { if (!designId || modelCount) throw new ProbeFailure('DESIGN_GENERATION_ARM_REJECTED'); modelArm = now() + 15000; },
     registerFixture: ({ filename, bytes, mime }) => {
@@ -238,7 +295,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       projectId = candidate;
     },
     identity: () => ({ actor, org, candidate, projectId, ordinaryVerified }),
-    summary: () => ({ ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
+    summary: () => ({ ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: 6, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
   };
 }
 

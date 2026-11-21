@@ -1,11 +1,13 @@
 /** Explicit live-Dev QA writer. No trace/video/storage-state or credential copies. */
 import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync, lstatSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, lstatSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { ORIGIN, ProbeFailure, readQaCredentials } from './devapp-aidt-auth-readonly.mjs';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, SHA } from './devapp-aidt-acceptance-guard.mjs';
+import { captureApplicationPrint } from './devapp-aidt-print-evidence.mjs';
+import { sendTeachingFeedback } from './devapp-aidt-chat-evidence.mjs';
 
 function safeCode(error) { return error instanceof ProbeFailure && /^[A-Z0-9_]{1,90}$/.test(error.code) ? error.code : 'UI_ACCEPTANCE_STEP_FAILED'; }
 
@@ -18,7 +20,8 @@ export async function enforceDeniedProbeStatus(decision, response) {
 
 export function privateOutput(env, identity) {
   if (!env.RUNNER_TEMP?.startsWith('/') || /[\r\n]/.test(env.RUNNER_TEMP) || !SHA.test(env.GITHUB_SHA ?? '')) throw new ProbeFailure('PRIVATE_ROOT_INVALID');
-  const root = resolve(env.RUNNER_TEMP, '..', `wsx-aidt-acceptance-${identity.run}-${identity.attempt}`);
+  const root = resolve(realpathSync(resolve(env.RUNNER_TEMP, '..')), `wsx-aidt-acceptance-${identity.run}-${identity.attempt}`);
+  if (env.AIDT_ACCEPTANCE_ROOT !== root) throw new ProbeFailure('PRIVATE_ROOT_COLLECTOR_MISMATCH');
   const info = lstatSync(root);
   if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o777) !== 0o700 || info.uid !== process.getuid()) throw new ProbeFailure('PRIVATE_ROOT_INVALID');
   const marker = lstatSync(resolve(root, '.owner'));
@@ -92,6 +95,17 @@ export function finalizeGuardVerdict(report, guard) {
   return report;
 }
 
+export function publicEntryDiagnostic(report) {
+  const role = report.actor?.orgRole;
+  const result = {};
+  if (['consultant', 'lead', 'admin', 'compliance'].includes(role)) {
+    result.orgRole = role;
+    result.ordinaryQaSuitable = role === 'consultant';
+  }
+  if (report.entryDiagnostic?.completed === true && typeof report.entryDiagnostic.creationEntryVisible === 'boolean') result.creationEntryVisible = report.entryDiagnostic.creationEntryVisible;
+  return result;
+}
+
 export async function main() {
   // These variables can expose Playwright fill arguments; remove before importing its API.
   for (const key of ['DEBUG', 'PWDEBUG', 'NODE_DEBUG', 'NODE_DEBUG_NATIVE', 'NODE_OPTIONS']) delete process.env[key];
@@ -111,6 +125,10 @@ export async function main() {
     report.fullAcceptancePassed = false;
     report.requirements = { source: 'docs/requirements/aidt-v2-full.md', declaredVersion: 'V2 with 2026-11-15 FR15-FR19', independentVrOriginal: 'not located; do not infer VR compliance' };
     report.stageIterations = [];
+    report.systemArtifacts = [];
+    report.teachingEvidence = [];
+    report.budgets = { homepageMinutes: 20, stageMinutes: 15, stage5Minutes: 20, overallMinutes: 55, stage5Reason: 'Existing Design request can take up to 900 seconds; allow native Chat and normal UI save/review overhead without unknown-write retry.' };
+    report.independentPdfValidation = 'pending artifact download and independent parser/renderer; byte generation is not complete glyph acceptance';
     output = privateOutput(process.env, identity);
     const metadata = JSON.parse(readFileSync(new URL('../../../../acceptance-source.json', import.meta.url), 'utf8'));
     if (metadata.controlSource !== process.env.GITHUB_SHA || !Array.isArray(metadata.teachingSkillNames) || metadata.teachingSkillNames.length < 6) throw new ProbeFailure('SOURCE_BUNDLE_INVALID');
@@ -120,7 +138,7 @@ export async function main() {
     credentials = readQaCredentials();
     const { chromium, expect } = await import('@playwright/test');
     guard = createAcceptanceGuard(identity);
-    timer = setTimeout(() => { guard.fail('ACCEPTANCE_TIMEOUT'); void context?.close(); }, 30 * 60 * 1000);
+    timer = setTimeout(() => { guard.fail('ACCEPTANCE_TIMEOUT'); void context?.close(); }, 55 * 60 * 1000);
     const browserEnv = Object.fromEntries(['PATH', 'HOME', 'LANG', 'TZ', 'PLAYWRIGHT_BROWSERS_PATH'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
     browser = await chromium.launch({ headless: true, env: browserEnv });
     report.browser = { name: 'Chromium', version: browser.version(), playwrightVersion: metadata.playwrightVersion, headless: true };
@@ -143,9 +161,16 @@ export async function main() {
             body = { __multipart: true, meta, files: [{ filename: file.name, sizeBytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), mime: file.type }] };
           } else { try { body = request.postDataJSON(); } catch { throw new ProbeFailure('REQUEST_BODY_UNSUPPORTED'); } }
         }
-        const decision = guard.decide({ url: request.url(), method: request.method(), body, resourceType: request.resourceType() });
+        const descriptor = { url: request.url(), method: request.method(), body, resourceType: request.resourceType() };
+        let decision = guard.decide(descriptor);
+        if (!decision.allow && decision.kind === 'teaching-run-needs-binding') {
+          // Never trust a run ID from SSE. Reread only the armed owned thread,
+          // then let canonical human-message observation establish the run link.
+          for (const path of guard.teachingReadsToBind()) await api(page, 'GET', path);
+          decision = guard.decide(descriptor);
+        }
         if (!decision.allow) return await route.abort('blockedbyclient');
-        const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: decision.kind === 'design-generation' ? 900000 : 30000 });
+        const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: decision.kind === 'design-generation' ? 900000 : decision.kind === 'teaching-turn' ? 300000 : 30000 });
         await enforceDeniedProbeStatus(decision, response);
         if (response.status() >= 300 && response.status() < 400) throw new ProbeFailure('REDIRECT_REJECTED');
         let parsed;
@@ -153,7 +178,7 @@ export async function main() {
           const bytes = await response.body();
           if (bytes.length > 262144) throw new ProbeFailure('RESPONSE_BOUND');
           guard.observeContent(decision, response.status(), response.headers(), bytes);
-        } else if (!['read', 'denied-probe', 'aidt-tag', 'mount-owned-thread'].includes(decision.kind)) {
+        } else if (!['read', 'denied-probe', 'aidt-tag', 'mount-owned-thread', 'teaching-turn'].includes(decision.kind)) {
           const bytes = await response.body();
           if (bytes.length > 1048576) throw new ProbeFailure('RESPONSE_BOUND');
           try { parsed = JSON.parse(bytes.toString('utf8')); } catch { throw new ProbeFailure('RESPONSE_SCHEMA_INVALID'); }
@@ -209,10 +234,10 @@ export async function main() {
     const checkpoint = async (name, operation) => {
       if (!/^[a-z0-9][a-z0-9-]{0,90}$/.test(name)) throw new ProbeFailure('CHECKPOINT_NAME_INVALID');
       if (guard.fatal()) { report.checkpoints.push({ name, status: 'blocked', code: guard.fatal() }); return false; }
-      const startedUTC = new Date().toISOString(), tick = performance.now();
-      console.log(JSON.stringify({ event: 'checkpoint-start', name, startedUTC, maximumMinutes: 15 }));
-      const record = result => { const durationMs = Math.round(performance.now() - tick); const item = { name, ...result, startedUTC, finishedUTC: new Date().toISOString(), durationMs, maximumMinutes: 15, timedOut: durationMs > 900000 }; report.checkpoints.push(item); console.log(JSON.stringify({ event: 'checkpoint-finish', ...item })); };
-      try { recheckRuntime(); await operation(); record({ status: 'passed' }); return true; }
+      const startedUTC = new Date().toISOString(), tick = performance.now(), maximumMinutes = name === 's5-prototype-question-version' || name === 'homepage-ui-create-persist' ? 20 : 15;
+      console.log(JSON.stringify({ event: 'checkpoint-start', name, startedUTC, maximumMinutes }));
+      const record = result => { const durationMs = Math.round(performance.now() - tick); const item = { name, ...result, owner: 'root/aidt_ui_first_acceptance', startedUTC, finishedUTC: new Date().toISOString(), durationMs, maximumMinutes, timedOut: durationMs > maximumMinutes * 60000, nextAction: durationMs > maximumMinutes * 60000 ? 'Inspect exact active run and stage evidence before any retry' : null }; if (item.timedOut && item.status === 'passed') item.status = 'timed_out'; report.checkpoints.push(item); console.log(JSON.stringify({ event: 'checkpoint-finish', ...item })); return item; };
+      try { recheckRuntime(); await operation(); return record({ status: 'passed' }).status === 'passed'; }
       catch (error) {
         record({ status: 'failed', code: safeCode(error) });
         try { await capture(`${name}-failed`); } catch { report.checkpoints.push({ name: `${name}-capture`, status: 'blocked', code: 'FAILURE_SCREENSHOT_UNAVAILABLE' }); }
@@ -257,7 +282,12 @@ export async function main() {
     const saveStage = async (n, visibleButton) => {
       const button = visibleButton ?? page.getByTestId('aidt-shared-save');
       await expect(button).toBeVisible(); await expect(button).toBeEnabled();
-      guard.armStageSave(n, false); await button.click();
+      guard.armStageSave(n, false);
+      const [response] = await Promise.all([
+        page.waitForResponse(response => new URL(response.url()).pathname === `/api/projects/${projectId}/aidt/stages/${n}` && response.request().method() === 'PUT', { timeout: 30000 }),
+        button.click(),
+      ]);
+      if (response.status() !== 200) throw new ProbeFailure('STAGE_UI_SAVE_NOT_CONFIRMED');
       if (!visibleButton) await expect(page.getByTestId('aidt-shared-status')).toContainText('小组已保存');
     };
     const reviewAndSave = async (n, button) => {
@@ -297,6 +327,62 @@ export async function main() {
       report.download = { filename, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), humanReadableUtf8: true };
       return report.download;
     };
+    const teachingFeedback = async (stageId, prompt) => {
+      const name = `teaching-chat-stage-${stageId}`;
+      const accepted = await checkpoint(name, async () => {
+        if (guard.teachingStopped()) throw new ProbeFailure('TEACHING_PREVIOUS_OUTCOME_UNRESOLVED');
+        const url = new URL(page.url());
+        await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr/);
+        const entityId = url.searchParams.get('entity');
+        await expect.poll(() => { const id = new URL(page.url()).searchParams.get('thread'); return id && guard.teachingPin(stageId, id, entityId ?? undefined) ? true : false; }, { timeout: 30000 }).toBe(true);
+        const threadId = new URL(page.url()).searchParams.get('thread');
+        const stages = {};
+        for (let n = 1; n <= stageId; n++) { const got = await api(page, 'GET', `/api/projects/${projectId}/aidt/stages/${n}`); if (got.status !== 200) throw new ProbeFailure('TEACHING_SOURCE_READ_FAILED'); if (got.data?.stage) stages[n] = got.data.stage; }
+        let selector;
+        if (entityId) {
+          selector = { schemaVersion: 1, projectId, purpose: 'stage', stageId, entityId, stageRevisions: stages[stageId] ? [{ stageId, revision: stages[stageId].revision }] : [] };
+          if (stageId === 2) {
+            const raw = stages[2]?.content?.draft?.fields?.[`interviewRecord:${entityId}`];
+            let interview; try { interview = JSON.parse(raw); } catch { throw new ProbeFailure('TEACHING_INTERVIEW_SOURCE_UNVERIFIED'); }
+            if (interview.id === entityId && typeof interview.problemEntityId === 'string' && Number.isInteger(interview.topicRevision) && interview.topicRevision > 0) {
+              selector.sourceEntityId = interview.problemEntityId; selector.stageRevisions.unshift({ stageId: 1, revision: interview.topicRevision });
+            }
+          }
+        } else {
+          const selected = new Map(Object.values(stages).map(stage => [stage.stageId, stage.revision]));
+          for (const ref of stages[stageId]?.sourceStageRevisions ?? []) selected.set(ref.stageId, ref.revision);
+          selector = { schemaVersion: 1, projectId, purpose: 'stage', stageId, stageRevisions: [...selected].sort(([a],[b]) => a-b).map(([stageId, revision]) => ({ stageId, revision })) };
+          if (url.searchParams.get('returnRevision')) selector.returnRevision = Number(url.searchParams.get('returnRevision'));
+        }
+        await api(page, 'GET', `/api/chat/threads/${encodeURIComponent(threadId)}`);
+        await api(page, 'GET', `/api/threads/${encodeURIComponent(threadId)}/skill-deviations?projectId=${encodeURIComponent(projectId)}`);
+        const pin = guard.teachingPin(stageId, threadId, entityId ?? undefined); if (!pin) throw new ProbeFailure('TEACHING_SKILL_PIN_UNVERIFIED');
+        const scope = { origin: ORIGIN, projectId, stageId, threadId, actorId: guard.identity().actor, prompt, selector, ...pin, timeoutMs: 180000 };
+        const proof = await sendTeachingFeedback({ page, expect, scope, read: path => api(page, 'GET', path), armSend: current => guard.armTeachingSend(current), onEvent: event => console.log(JSON.stringify({ ...event, owner: 'root/aidt_ui_first_acceptance' })) });
+        assertScreenshotSafe(proof.assistantText, [credentials.email, credentials.password]);
+        report.teachingEvidence.push({ ...proof, status: 'passed', prompt, source: identity.source, tag: identity.tag });
+        await capture(`${String(stageId).padStart(2,'0')}-native-teaching-chat`, stageId);
+      });
+      if (!accepted) { guard.stopTeaching(); report.teachingEvidence.push({ stageId, status: 'blocked-or-failed', evidence: 'See exact teaching checkpoint; no automatic retry or tool approval', teachingQualityAccepted: false, providerIndependentlyVerified: false }); }
+      return accepted;
+    };
+    const savePrint = async ({ stage, name, button, requiredTexts, imageHashes }) => {
+      const key = name.toLowerCase();
+      if (!/^[a-z0-9-]{1,80}$/.test(key) || !Number.isInteger(stage) || stage < 1 || stage > 6 || report.systemArtifacts.filter(row => row.format === 'pdf').length >= 8) throw new ProbeFailure('PRINT_ARTIFACT_BOUND');
+      assertCaptureScope(page.url(), projectId, stage); recheckRuntime();
+      const assertSafe = async text => {
+        assertScreenshotSafe(text, [credentials.email, credentials.password]);
+        const tokenPresent = await page.evaluate(text => { const token = localStorage.getItem('wsx.sessionToken'); return Boolean(token && text.includes(token)); }, text);
+        if (tokenPresent || /Bearer\s+[A-Za-z0-9._~-]{12,}|\bsk-[A-Za-z0-9]{16,}/.test(text)) throw new ProbeFailure('PRINT_ARTIFACT_SENSITIVE');
+      };
+      const result = await captureApplicationPrint({ page, context, button, projectId, requiredTexts, imageHashes, assertSafe });
+      const base = `qa-system-${identity.run}-${identity.attempt}-${key}`;
+      const filename = `${base}.pdf`, htmlFilename = `${base}.html`;
+      writeFileSync(resolve(output.out, filename), result.bytes, { flag: 'wx', mode: 0o600 });
+      writeFileSync(resolve(output.out, htmlFilename), result.html, { flag: 'wx', mode: 0o600 });
+      const receipt = { stage, filename, htmlFilename, format: 'pdf', ...result.metadata, projectId, source: identity.source, tag: identity.tag };
+      report.systemArtifacts.push(receipt); return receipt;
+    };
     stage = 'six-stage-journey';
     const { runAidtJourney, REQUIRED_CHECKS } = await import('./devapp-aidt-journey.mjs');
     if (!Array.isArray(REQUIRED_CHECKS) || REQUIRED_CHECKS.length < 6) throw new ProbeFailure('JOURNEY_REQUIREMENTS_INVALID');
@@ -306,17 +392,33 @@ export async function main() {
       report.unknownProjectGate = { passed: true, status: result.status, crossUserIsolation: false };
     });
     await runAidtJourney({ page, context, expect, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
-      checkpoint, capture, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload,
+      checkpoint, capture, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
       registerFixture: fixture => guard.registerFixture(fixture), armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), createAnonymousPage, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
-    report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS];
+    report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
     report.passed = !guard.fatal() && report.requiredChecks.every(name => report.checkpoints.some(item => item.name === name && item.status === 'passed'));
-    report.fullAcceptancePassed = report.passed;
+    // UI/runtime checks and exported PDF bytes are complete here; final glyph
+    // acceptance is performed independently on the retained artifacts.
+    report.fullAcceptancePassed = false;
+    report.uiChecksPassed = report.passed;
+    report.teachingNativeChainVerified = [1,2,3,4,5,6].every(stageId => report.teachingEvidence.some(item => item.stageId === stageId && item.status === 'passed'));
+    report.realModelVerified = false;
     if (!report.passed) report.failure = guard.fatal() ?? 'REQUIRED_CHECKS_NOT_ALL_PASSED';
   } catch (error) { report.failure = safeCode(error); report.failedStage = stage; }
   finally {
     clearTimeout(timer);
+    let privateEvidenceSafe = true;
+    try {
+      if (credentials) {
+        const encoded = JSON.stringify(report); assertScreenshotSafe(encoded, [credentials.email, credentials.password]);
+        if ((report.stageEvidence?.length || report.teachingEvidence?.length) && (!page || page.isClosed())) throw new ProbeFailure('EVIDENCE_PRIVACY_REVIEW_UNAVAILABLE');
+        if (page && !page.isClosed()) {
+          const checked = await page.evaluate(text => { const token = localStorage.getItem('wsx.sessionToken'); return { available: Boolean(token), leaked: Boolean(token && text.includes(token)) }; }, encoded);
+          if (checked.leaked || ((report.stageEvidence?.length || report.teachingEvidence?.length) && !checked.available)) throw new ProbeFailure('EVIDENCE_REPORT_SENSITIVE');
+        }
+      }
+    } catch { privateEvidenceSafe = false; report.passed = false; report.fullAcceptancePassed = false; report.failure = 'EVIDENCE_PRIVACY_REVIEW_FAILED'; }
     try { await context?.close(); } catch { /* No raw errors. */ }
     try { await browser?.close(); } catch { /* No raw errors. */ }
     if (guard) {
@@ -326,8 +428,9 @@ export async function main() {
       report.cleanup = { performed: false, reason: 'No delete API; consultant is not entitled to project lifecycle archive. Keep labelled synthetic QA project and evidence; no privilege escalation.' };
     }
     finalizeGuardVerdict(report, guard);
-    if (output) writeFileSync(resolve(output.out, 'acceptance.json'), `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
-    console.log(JSON.stringify({ kind: report.kind, passed: report.passed, failure: report.failure ?? null,
+    const artifactReport = privateEvidenceSafe ? report : { kind: report.kind, target: ORIGIN, passed: false, fullAcceptancePassed: false, failure: 'EVIDENCE_PRIVACY_REVIEW_FAILED', source: identity?.source ?? null, tag: identity?.tag ?? null, note: 'Rich evidence was withheld rather than exposing unverified content.' };
+    if (output) writeFileSync(resolve(output.out, 'acceptance.json'), `${JSON.stringify(artifactReport, null, 2)}\n`, { mode: 0o600 });
+    console.log(JSON.stringify({ kind: report.kind, passed: report.passed, failure: report.failure ?? null, ...publicEntryDiagnostic(report),
       source: identity?.source ?? null, tag: identity?.tag ?? null, checkpoints: report.checkpoints, screenshots: report.screenshots.map(({ filename, bytes, sha256 }) => ({ filename, bytes, sha256 })) }));
     process.exitCode = report.passed ? 0 : 1;
   }

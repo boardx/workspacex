@@ -1,0 +1,136 @@
+/** Bounded normal-UI teaching feedback. No synthetic run/message/receipt, resume or approval. */
+import { createHash } from 'node:crypto';
+import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
+
+const SEND_PATH = '/api/copilotkit/agent/default/run';
+const HEX = /^[a-f0-9]{64}$/;
+const fail = code => { throw new ProbeFailure(code); };
+const object = value => value && typeof value === 'object' && !Array.isArray(value);
+const id = value => typeof value === 'string' && value.length > 0 && value.length <= 256 && /^[A-Za-z0-9][A-Za-z0-9_.:-]*$/.test(value);
+const sha = value => createHash('sha256').update(value, 'utf8').digest('hex');
+const canonical = value => value === null || typeof value !== 'object' ? JSON.stringify(value) : Array.isArray(value) ? `[${value.map(canonical).join(',')}]` : `{${Object.keys(value).filter(key => value[key] !== undefined).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+const refs = value => {
+  if (!Array.isArray(value) || value.length > 6 || value.some(row => !object(row) || Object.keys(row).sort().join(',') !== 'revision,stageId' || !Number.isInteger(row.stageId) || row.stageId < 1 || row.stageId > 6 || !Number.isSafeInteger(row.revision) || row.revision < 1) || new Set(value.map(row => row.stageId)).size !== value.length) fail('TEACHING_SOURCE_REFERENCES_INVALID');
+  return [...value].sort((a, b) => a.stageId - b.stageId);
+};
+function selector(value) {
+  if (!object(value) || Object.keys(value).some(key => !['schemaVersion', 'purpose', 'projectId', 'stageId', 'stageRevisions', 'entityId', 'sourceEntityId', 'returnRevision'].includes(key)) || value.schemaVersion !== 1 || value.purpose !== 'stage' || !id(value.projectId) || !Number.isInteger(value.stageId) || value.stageId < 1 || value.stageId > 6 || ['entityId', 'sourceEntityId'].some(key => value[key] !== undefined && !id(value[key])) || value.returnRevision !== undefined && (!Number.isSafeInteger(value.returnRevision) || value.returnRevision < 1)) fail('TEACHING_SELECTOR_INVALID');
+  const stageRevisions = refs(value.stageRevisions);
+  if (stageRevisions.some(row => row.stageId > value.stageId)) fail('TEACHING_SELECTOR_INVALID');
+  return { ...value, stageRevisions };
+}
+export function validateTeachingScope(scope) {
+  if (!object(scope) || scope.origin !== 'https://devapp.boardx.us' || !id(scope.projectId) || !id(scope.threadId) || !id(scope.actorId) || !id(scope.skillId) || !id(scope.skillVersionId) || typeof scope.prompt !== 'string' || !/合成|QA/.test(scope.prompt) || scope.prompt.length < 12 || scope.prompt.length > 5000) fail('TEACHING_SCOPE_INVALID');
+  const selected = selector(scope.selector);
+  if (selected.projectId !== scope.projectId || selected.stageId !== scope.stageId) fail('TEACHING_SCOPE_MISMATCH');
+  return selected;
+}
+function messageText(message) {
+  if (typeof message.content === 'string') return message.content;
+  if (Array.isArray(message.content) && message.content.every(part => object(part) && part.type === 'text' && typeof part.text === 'string')) return message.content.map(part => part.text).join('');
+  fail('TEACHING_NON_TEXT_MESSAGE');
+}
+/** SDK IDs are transport coordinates only. The backend ID comes from the accepted human row. */
+export function validateTeachingWire(request, scope) {
+  const expected = validateTeachingScope(scope); let url;
+  try { url = new URL(request.url); } catch { fail('TEACHING_WIRE_TARGET_INVALID'); }
+  const body = request.body;
+  if (request.method !== 'POST' || url.origin !== scope.origin || url.pathname !== SEND_PATH || url.search || url.hash || url.username || url.password || !object(body) || Object.keys(body).some(key => !['threadId', 'runId', 'parentRunId', 'messages', 'state', 'tools', 'context', 'forwardedProps', 'resume'].includes(key)) || !id(body.threadId) || !id(body.runId) || body.resume !== undefined && body.resume !== null || body.parentRunId !== undefined && body.parentRunId !== null) fail('TEACHING_WIRE_TARGET_INVALID');
+  const forwarded = body.forwardedProps;
+  if (!object(forwarded) || Object.keys(forwarded).some(key => !['chatThreadId', 'clientMessageId', 'aidtContext'].includes(key)) || forwarded.chatThreadId !== scope.threadId || !id(forwarded.clientMessageId) || canonical(selector(forwarded.aidtContext)) !== canonical(expected)) fail('TEACHING_WIRE_SCOPE_MISMATCH');
+  if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 100) fail('TEACHING_MESSAGES_INVALID');
+  const messages = body.messages, latest = messages.at(-1);
+  if (!object(latest) || !['user', 'human'].includes(latest.role) || latest.id !== forwarded.clientMessageId || messageText(latest) !== scope.prompt) fail('TEACHING_STUDENT_TEXT_MISMATCH');
+  const history = scope.knownMessages ?? [];
+  for (const message of messages.slice(0, -1)) {
+    if (!object(message) || !history.some(row => row.id === message.id && (row.authorKind === 'human' ? ['user', 'human'].includes(message.role) : row.authorKind === 'agent' && message.role === 'assistant') && row.text === messageText(message))) fail('TEACHING_HISTORY_NOT_CANONICAL');
+  }
+  return { clientMessageId: forwarded.clientMessageId, sdkRunId: body.runId, sdkThreadId: body.threadId };
+}
+function messageRows(value) {
+  const rows = Array.isArray(value) ? value : value?.messages;
+  if (!Array.isArray(rows) || rows.length > 100 || !Array.isArray(value) && value.nextCursor != null) fail('TEACHING_MESSAGE_READ_INVALID');
+  return rows;
+}
+/** Never accept a run learned from SSE, timestamps, a caller string or another author's message. */
+export function identifyOwnedTeachingRun(value, scope, wire) {
+  validateTeachingScope(scope);
+  const rows = messageRows(value).filter(row => row?.clientMessageId === wire.clientMessageId);
+  if (rows.length > 1 || rows.some(row => row.authorKind !== 'human' || row.authorId !== scope.actorId || row.text !== scope.prompt || !id(row.id))) fail('TEACHING_ACCEPTANCE_MISMATCH');
+  const row = rows[0];
+  if (!row || row.agentRunId === null) return null;
+  if (!id(row.agentRunId) || (scope.knownMessages ?? []).some(prior => prior.id === row.id)) fail('TEACHING_ACCEPTANCE_MISMATCH');
+  return { runId: row.agentRunId, inputMessageId: row.id };
+}
+export function validateTeachingEvidence({ messages, run, receipt }, scope, wire, accepted, frozenSnapshotHash) {
+  const chosen = validateTeachingScope(scope), observed = identifyOwnedTeachingRun(messages, scope, wire);
+  if (!accepted || canonical(observed) !== canonical(accepted)) fail('TEACHING_ACCEPTANCE_MISMATCH');
+  if (!object(run) || run.runId !== accepted.runId || run.threadId !== scope.threadId || run.inputMessageId !== accepted.inputMessageId || run.status !== 'succeeded' || !id(run.resultMessageId) || canonical(run.skillVersionIds) !== canonical([scope.skillVersionId])) fail('TEACHING_DURABLE_RUN_NOT_SUCCEEDED');
+  const replies = messageRows(messages).filter(row => row?.id === run.resultMessageId && row.authorKind === 'agent' && row.agentRunId === run.runId && typeof row.text === 'string' && row.text.trim());
+  if (replies.length !== 1 || (scope.knownMessages ?? []).some(row => row.id === replies[0].id)) fail('TEACHING_DURABLE_REPLY_MISSING');
+  // Receipt schema intentionally does not expose entityId/sourceEntityId. Check only real fields;
+  // entity selection is checked separately against the full browser wire + the server-owned thread.
+  if (!object(receipt) || receipt.runId !== run.runId || receipt.projectId !== scope.projectId || receipt.purpose !== 'stage' || receipt.stageId !== scope.stageId || receipt.skillVersionId !== scope.skillVersionId || !HEX.test(receipt.snapshotHash ?? '') || canonical(refs(receipt.stageRevisions)) !== canonical(chosen.stageRevisions) || !Array.isArray(receipt.historyRevisions) || receipt.historyRevisions.length !== 0 || receipt.returnRevision !== chosen.returnRevision) fail('TEACHING_CONTEXT_RECEIPT_MISMATCH');
+  if (frozenSnapshotHash !== undefined && receipt.snapshotHash !== frozenSnapshotHash) fail('TEACHING_CONTEXT_SNAPSHOT_CHANGED');
+  const application = receipt.application;
+  if (!object(application) || application.state !== 'message-dispatch-observed' || typeof application.attemptId !== 'string' || !application.attemptId.startsWith(`${run.runId}:`) || !/^(0|[1-9][0-9]*)$/.test(application.attemptId.slice(run.runId.length + 1)) || !HEX.test(application.assembledContextHash ?? '') || !Number.isFinite(Date.parse(application.assembledAt)) || !Number.isFinite(Date.parse(application.messageDispatchedAt))) fail('TEACHING_CONTEXT_DISPATCH_UNPROVEN');
+  return { stageId: scope.stageId, threadId: scope.threadId, runId: run.runId, inputMessageId: accepted.inputMessageId, assistantMessageId: replies[0].id, skillId: scope.skillId, skillVersionId: scope.skillVersionId, agentVersionId: id(run.agentVersionId) ? run.agentVersionId : null, modelProvider: typeof run.modelProvider === 'string' && /^[A-Za-z0-9_.:-]{1,160}$/.test(run.modelProvider) ? run.modelProvider : null, modelId: typeof run.modelId === 'string' && /^[A-Za-z0-9_./:-]{1,200}$/.test(run.modelId) ? run.modelId : null, sourceRevisions: chosen.stageRevisions, snapshotHash: receipt.snapshotHash, assembledContextHash: application.assembledContextHash, studentTextSha256: sha(scope.prompt), assistantTextSha256: sha(replies[0].text), assistantText: replies[0].text, providerIndependentlyVerified: false, teachingQualityAccepted: false };
+}
+/** One normal UI send. Caller/guard enforce the shared six-turn ledger and own all HTTP authorization. */
+export async function sendTeachingFeedback({ page, expect, scope, read, armSend, onEvent = () => {} }) {
+  validateTeachingScope(scope);
+  const url = new URL(page.url());
+  if (url.origin !== scope.origin || url.pathname !== `/aidt/${scope.projectId}` || url.searchParams.get('step') !== String(scope.stageId) || url.searchParams.get('thread') !== scope.threadId || scope.selector.entityId !== undefined && url.searchParams.get('entity') !== scope.selector.entityId) fail('TEACHING_UI_SCOPE_MISMATCH');
+  const readData = async path => { const response = await read(path); if (response?.status !== 200) fail('TEACHING_READ_NOT_SUCCESSFUL'); return response.data; };
+  const messagePath = `/api/chat/threads/${encodeURIComponent(scope.threadId)}/messages?limit=100`;
+  const knownMessages = messageRows(await readData(messagePath));
+  const current = { ...scope, knownMessages };
+  const stagePaths = [1, 2, 3, 4, 5, 6].map(stageId => `/api/projects/${encodeURIComponent(scope.projectId)}/aidt/stages/${stageId}`);
+  const stagesBefore = await Promise.all(stagePaths.map(readData));
+  const input = page.getByTestId('copilotkit-v2-input'), send = page.getByTestId('copilotkit-v2-send');
+  await expect(input).toBeVisible();
+  await expect(page.getByTestId('aidt-chat-context-pending')).toHaveCount(0);
+  await input.fill(scope.prompt);
+  await expect(send).toBeEnabled();
+  armSend(current); onEvent({ event: 'send-started', stageId: scope.stageId });
+  const requestReady = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === SEND_PATH, { timeout: 60000 });
+  const [request] = await Promise.all([requestReady, send.click()]);
+  const wire = validateTeachingWire({ method: request.method(), url: request.url(), body: request.postDataJSON() }, current);
+  let proof, observedRunId = null, terminalError = null, frozenSnapshotHash = null;
+  const timeout = Number.isInteger(scope.timeoutMs) && scope.timeoutMs >= 1000 && scope.timeoutMs <= 600000 ? scope.timeoutMs : 120000;
+  try {
+    await expect.poll(async () => {
+      try {
+      if (await page.getByTestId('copilotkit-v2-error').count()) fail('TEACHING_UI_ERROR');
+      const messages = await readData(messagePath), accepted = identifyOwnedTeachingRun(messages, current, wire);
+      if (!accepted) return false;
+      observedRunId = accepted.runId;
+      if (frozenSnapshotHash === null) {
+        const firstReceipt = await readData(`/api/agent-runs/${encodeURIComponent(accepted.runId)}/aidt-context`);
+        if (!object(firstReceipt) || firstReceipt.runId !== accepted.runId || firstReceipt.projectId !== scope.projectId || firstReceipt.stageId !== scope.stageId || firstReceipt.purpose !== 'stage' || firstReceipt.skillVersionId !== scope.skillVersionId || !HEX.test(firstReceipt.snapshotHash ?? '') || canonical(refs(firstReceipt.stageRevisions)) !== canonical(selector(scope.selector).stageRevisions)) fail('TEACHING_CONTEXT_RECEIPT_MISMATCH');
+        frozenSnapshotHash = firstReceipt.snapshotHash;
+      }
+      const run = await readData(`/api/agent-runs/${encodeURIComponent(accepted.runId)}`);
+      if (['failed', 'cancelled', 'paused'].includes(run.status)) fail('TEACHING_NATIVE_RUN_FAILED');
+      if (run.status === 'awaiting_tool_permission') fail('TEACHING_TOOL_REVIEW_REQUIRED');
+      if (run.status !== 'succeeded') return false;
+      const receipt = await readData(`/api/agent-runs/${encodeURIComponent(accepted.runId)}/aidt-context`);
+      proof = validateTeachingEvidence({ messages, run, receipt }, current, wire, accepted, frozenSnapshotHash);
+      return true;
+      } catch (error) {
+        if (error instanceof ProbeFailure) { terminalError = error; return true; }
+        throw error;
+      }
+    }, { timeout, intervals: [500, 1000, 2000] }).toBe(true);
+    if (terminalError) throw terminalError;
+    const stagesAfter = await Promise.all(stagePaths.map(readData));
+    if (canonical(stagesBefore) !== canonical(stagesAfter)) fail('TEACHING_STAGE_CHANGED_DURING_RUN');
+  } catch (error) {
+    onEvent({ event: 'send-failed-or-unresolved', stageId: scope.stageId, runId: observedRunId });
+    if (error instanceof ProbeFailure) throw error;
+    fail('TEACHING_NATIVE_OUTCOME_UNKNOWN');
+  }
+  await expect(page.getByTestId('copilotkit-v2-error')).toHaveCount(0);
+  onEvent({ event: 'durable-run-succeeded', stageId: scope.stageId, runId: proof.runId });
+  return { ...proof, stageSavedByAgent: false, stageVersionsUnchanged: true, contextSnapshotStableAcrossReads: true };
+}
