@@ -40,6 +40,7 @@
  * 让真实的轮询循环真的转一圈，不是首次调用就终态——这本身也是一种取证：证明轮询
  * 逻辑真的在工作，不是恰好一次到位。
  */
+import { loopbackAidtProblemReply } from "./loopback-aidt-problem";
 import { FILE_CONTEXT_MESSAGE_HEADER_PREFIX, FILE_RETRIEVAL_SOURCE_KINDS } from "../src/application/agent-run/file-retrieval";
 import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../src/application/agent-run/tool-trace-context";
 import { multistepPlanMessages } from "./loopback-multistep-plan";
@@ -962,6 +963,8 @@ function defaultTurnReply(record: RunRecord): string {
 }
 
 function computeSpecialTurnReply(threadId: string, record: RunRecord): string | null {
+  const problem = loopbackAidtProblemReply(record.userText);
+  if (problem) return problem;
   if (record.canvasGuidanceSeen) {
     const value = record.userText.replace(/[`\n]/g, "").trim().slice(0, 80);
     const dualSentinel = process.env.LOOPBACK_MODEL_CANVAS_DUAL_SENTINEL;

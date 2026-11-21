@@ -52,7 +52,8 @@ import { AidtNextRound } from "./aidt-next-round";
 import { AidtRoundNavigation } from "./aidt-round-navigation";
 import { ArrowLeft } from "lucide-react";
 import { ChatHostConversationContext } from "@/components/chat/chat-host-panel";
-import { AidtProblemConversation, AidtProblemWorkspace } from "./aidt-problem-workspace";
+import { AidtProblemChatReview } from "./aidt-problem-chat-review";
+import { AidtProblemWorkspace } from "./aidt-problem-workspace";
 import { useAidtConfirmedStages } from "../lib/use-aidt-confirmed-stages";
 import { useAidtReportReview } from "../lib/use-aidt-report-review";
 import { AidtRoundCompletion } from "./aidt-round-completion";
@@ -161,7 +162,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const router = useRouter();
   const step = aidtStep(sub);
   const problemStep = step?.id === 1;
-  const problemDraft = problemStep && activeEntityId ? readAidtProblemEntityDraft(currentUi.drafts[1]!, activeEntityId) : currentUi.drafts[1]!;
+
   const wide = React.useSyncExternalStore(subscribeViewport, isWide, serverViewport);
   const [conversationTarget, setConversationTarget] = React.useState<HTMLDivElement | null>(null);
   const thread = search.get("thread");
@@ -226,6 +227,9 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
       return { ...base, revision: base.revision + 1, drafts: { ...base.drafts, [id]: draft } };
     });
   } });
+  const savedProblemStage = shared.stages[1];
+  const savedProblem = savedProblemStage?.content.draft ?? emptyAidtUiDrafts()[1]!;
+  const problemDraft = activeEntityId ? readAidtProblemEntityDraft(savedProblem, activeEntityId) : savedProblem;
   const latestHmwStage = shared.stages[3];
   const hmwSessionToken = checkpointScope?.sessionToken;
   const reportReview = useAidtReportReview({
@@ -417,24 +421,13 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
         {(tool === "sources" || tool === "transcript" || tool === "record") && <AidtEvidenceGuide />}
         {tool === "outcome" ? <>
           {prototypeEntityId ? <AidtPrototypeEntityOutput key={prototypeEntityId} projectId={projectId} designId={prototypeEntityId} ideaRevision={ideaRevision} stageDraft={prototypeDraft} update={mutate => updateStage(5, mutate)} workflow={{ ideas: shared.stages[4], savedPrototype: shared.stages[5], matchesServer: shared.matchesServer }} readOnly={!canWrite} /> : <>
-          {problemStep ? <AidtProblemWorkspace key={uiLifecycleKey} draft={problemDraft} manualEdit={requested === "outcome"} confirmRevision={shared.matchesServer && (activeEntityId ? Boolean(problemDraft.fields.roundCompletion) : completedStages?.has(1)) ? shared.stages[1]?.revision : undefined} previousConfirmed={!activeEntityId && !shared.matchesServer && completedStages?.has(1) ? shared.stages[1] : undefined} update={mutate => updateStage(1, mutate)} readOnly={!canWrite} ask={text => toChat(text, !wide)} conversationRef={setConversationTarget} /> : <AidtStageOutput conversationRef={activeInterview ? setConversationTarget : undefined} key={`${uiScope}:${step.id}:${activeEntityId ?? ""}`} entityId={step.id === 2 ? activeEntityId : undefined} ideaEntityId={step.id === 4 ? activeEntityId : undefined} ideaHandoff={step.id === 4 ? ideaHandoff : undefined} activeTestEntityId={step.id === 6 ? activeEntityId : undefined} readTestPrototypeEntity={readAidtPrototypeEntityDraft} projectId={projectId} thread={checkpointThread} step={step} draft={currentUi.drafts[step.id]!} availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision} discoveryCardFields={shared.stages[2]?.content.draft.fields} activeDefinitionEntityId={step.id === 3 ? activeEntityId : null} previousPrototype={shared.stages[5]?.content.draft} previousPrototypeRevision={shared.stages[5]?.revision} update={(mutate) => updateStage(step.id, mutate)} readOnly={!canWrite} toolHref={(key) => href(key as Tool)} toChat={toChat} />}
+          {problemStep ? <AidtProblemWorkspace draft={problemDraft} revision={savedProblemStage?.revision} confirmed={Boolean(problemDraft.fields.roundCompletion && problemDraft.fields.problemReflectionConfirmed === "true")} /> : <AidtStageOutput conversationRef={activeInterview ? setConversationTarget : undefined} key={`${uiScope}:${step.id}:${activeEntityId ?? ""}`} entityId={step.id === 2 ? activeEntityId : undefined} ideaEntityId={step.id === 4 ? activeEntityId : undefined} ideaHandoff={step.id === 4 ? ideaHandoff : undefined} activeTestEntityId={step.id === 6 ? activeEntityId : undefined} readTestPrototypeEntity={readAidtPrototypeEntityDraft} projectId={projectId} thread={checkpointThread} step={step} draft={currentUi.drafts[step.id]!} availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision} discoveryCardFields={shared.stages[2]?.content.draft.fields} activeDefinitionEntityId={step.id === 3 ? activeEntityId : null} previousPrototype={shared.stages[5]?.content.draft} previousPrototypeRevision={shared.stages[5]?.revision} update={(mutate) => updateStage(step.id, mutate)} readOnly={!canWrite} toolHref={(key) => href(key as Tool)} toChat={toChat} />}
           {activeInterview && <AidtSharedStagePanel entityPreview={serverInterview ? [serverInterview.code, serverInterview.original, serverInterview.adopted].filter(Boolean).join("\n") : ""} key={shared.writeKey} stageNumber={2} controller={shared} readOnly={!canWrite} />}
-          {(!activeEntityId || problemStep) && <AidtRoundCompletion key={shared.writeKey} projectId={projectId} step={step} draft={problemStep ? problemDraft : currentUi.drafts[step.id]!} controller={shared} readOnly={!canWrite} onConfirm={record => updateStage(step.id, old => ({ ...old, fields: { ...old.fields, roundCompletion: record } }))} nextHref={problemStep && activeEntityId && shared.stages[1]
-              ? aidtHref(projectId, 2) + "&" + new URLSearchParams({ problemEntity: activeEntityId, problemRevision: String(shared.stages[1].revision) })
-              : nextStep ? aidtHref(projectId, nextStep.id) : reportHref} />}
-          {problemStep && <AidtSharedStagePanel key={`save:${shared.writeKey}`} stageNumber={1} controller={shared} readOnly={!canWrite} />}
+          {!activeEntityId && !problemStep && <AidtRoundCompletion key={shared.writeKey} projectId={projectId} step={step} draft={currentUi.drafts[step.id]!} controller={shared} readOnly={!canWrite} onConfirm={record => updateStage(step.id, old => ({ ...old, fields: { ...old.fields, roundCompletion: record } }))} nextHref={nextStep ? aidtHref(projectId, nextStep.id) : reportHref} />}
           </>}
           {!activeEntityId && <AidtRoundNavigation projectId={projectId} stageNumber={step.id} draft={currentUi.drafts[step.id]!} savedRound={shared.stages[6]} matchesServer={shared.matchesServer} returnRevision={search.get("returnRevision")} sessionToken={checkpointScope?.sessionToken ?? null} />}
           {!activeEntityId && step.id === 6 && <AidtNextRound draft={currentUi.drafts[6]!} savedRevision={shared.stages[6]?.revision} matchesServer={shared.matchesServer} readOnly={!canWrite} onStart={() => updateStage(6, resetAidtTestRound)} />}
           {!activeEntityId && <details className="mt-4 border-t border-border pt-3 text-12" onToggle={event => setHistoryScope(event.currentTarget.open ? `${uiLifecycleKey}:${step.id}` : null)} data-testid="aidt-history-disclosure"><summary className="cursor-pointer font-medium">查看本步历史版本</summary>{historyScope === `${uiLifecycleKey}:${step.id}` && <AidtStageHistory projectId={projectId} stageId={step.id} sessionToken={checkpointScope?.sessionToken ?? null} currentRevision={shared.stages[step.id]?.revision} />}</details>}
-          {problemStep && !activeEntityId && <details className="text-12">
-            <summary className="cursor-pointer font-medium">本页回顾记录</summary>
-            <AidtStageJourney key={`journey:${uiScope}:1`} stageNumber={1}
-              inputText="先记录本组自己的观察、问题、人群与场景。"
-              currentOutput={aidtUiStageSummary(1, currentUi.drafts[1]!)} checkpoints={currentUi.checkpoints[1] ?? []}
-              onKeepCheckpoint={() => keepCheckpoint(1)} readOnly={!canWrite}
-              reportNote="回顾记录保留在本页。" />
-          </details>}
           {!problemStep && <AidtStageJourney key={`journey:${uiScope}:${step.id}`} stageNumber={step.id}
           inputText={step.id > 1 ? `前序当前草稿（供参考，未自动继承或验证）：\n${aidtUiStageSummary(step.id - 1, currentUi.drafts[step.id - 1]!) || "尚缺前序填写"}` : "先记录本组自己的观察、问题、人群与场景。聊天内容由学生主动整理进成果。"}
           currentOutput={aidtUiStageSummary(step.id, currentUi.drafts[step.id]!)} checkpoints={currentUi.checkpoints[step.id] ?? []}
@@ -476,10 +469,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <AidtAssistantPanel open fullPage onClose={() => undefined}>
             {canWrite ? <div className="min-h-0 flex-1" data-testid="aidt-native-chat">
-              <ChatHostConversationContext.Provider value={problemStep && tool === "outcome" && conversationTarget ? { target: conversationTarget, render: (messages, loading, running) => <AidtProblemConversation messages={messages} loading={loading} running={running}
-                hasInitial={Boolean(problemDraft.fields.initial?.trim())} onUseInitial={(content, messageId) => updateStage(1, old =>
-                  old.fields.initial?.trim() ? old : { ...old, fields: { ...old.fields, initial: content, initialChatMessageId: messageId } }
-                )} /> } : activeInterview && conversationTarget && tool === "outcome" && !isAidtInterviewArchived(currentUi.drafts[2]!.fields, activeInterview.id) ? {
+              <ChatHostConversationContext.Provider value={problemStep && checkpointScope ? { target: null, render: (messages, loading, running) => <AidtProblemChatReview key={threadResolutionScope} projectId={projectId} entityId={activeEntityId} stage={savedProblemStage} sessionToken={checkpointScope.sessionToken} threadId={checkpointThread} messages={messages} loading={loading} running={running} onRefresh={shared.reload} /> } : activeInterview && conversationTarget && tool === "outcome" && !isAidtInterviewArchived(currentUi.drafts[2]!.fields, activeInterview.id) ? {
                 target: conversationTarget, render: (messages, loading, running) => <AidtInterviewConversation key={activeInterview.id} interview={activeInterview} messages={messages} loading={loading} running={running} onApply={patch => updateStage(2, old => {
                   const current = readAidtInterviews(old.fields).find(item => item.id === activeInterview.id);
                   if (!current || isAidtInterviewArchived(old.fields, current.id) || (patch.original && current.original)) return old;
