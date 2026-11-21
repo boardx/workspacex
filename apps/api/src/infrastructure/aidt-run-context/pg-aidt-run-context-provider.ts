@@ -1,3 +1,4 @@
+import { checkedInterviewExcerpt } from "../../application/aidt-stages/interview-skill-draft";
 import { projectSavedSkillOutput } from "./pg-skill-output";
 import { AIDT_ENTITY_THREAD_PREFIX } from "@repo/contracts/aidt-stages";
 import { aidtEntityThreadId, aidtSavedEntityContext } from "../../application/aidt-stages/entity-thread";
@@ -59,6 +60,15 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
   if(stored.orgId!==actor.orgId||stored.projectId!==actor.projectId||stored.threadId!==actor.threadId)return unavailable();return stored;
  }
  private async exact(stages:AidtStagesService,actor:AidtContextActor,stageId:number,revision:number):Promise<SharedStageValue>{const value=(await stages.getRevision(actor,stageId,revision)).stage;if(!value||value.projectId!==actor.projectId||value.stageId!==stageId||value.revision!==revision)return unavailable();return value;}
+ private async checkExcerpt(stages: AidtStagesService, actor: AidtContextActor, selected: SharedStageValue, entityId: string) {
+  const excerpt = checkedInterviewExcerpt(selected.content.draft.fields, entityId, actor.projectId);
+  if (!excerpt) return;
+  const current = (await stages.get(actor, 2)).stage;
+  if (!current) return unavailable();
+  if (current.revision === selected.revision) return;
+  const latest = checkedInterviewExcerpt(current.content.draft.fields, entityId, actor.projectId);
+  if (!latest || latest.text !== excerpt.text || latest.name !== excerpt.name || latest.locator !== excerpt.locator) return unavailable();
+ }
  private async checkReturn(stages:AidtStagesService,actor:AidtContextActor,selector:AidtContextSelector){
   if(selector.purpose!=="stage"||selector.returnRevision===undefined)return null;
   const row=await this.exact(stages,actor,6,selector.returnRevision),reflection=readConfirmedAidtReturn(row.content.draft,selector.stageId);if(!reflection)return unavailable();
@@ -91,6 +101,7 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
    for (const ref of selector.stageRevisions) {
      const stage = await this.exact(scope.stages, actor, ref.stageId, ref.revision);
      if (selector.purpose === "stage" && selector.entityId && ref.stageId === selector.stageId) {
+       if (stage.stageId === 2 && heads.get(2) !== stage.revision) await this.checkExcerpt(scope.stages, actor, stage, selector.entityId);
        loaded.push({ kind: "stage", stage, payload: aidtSavedEntityContext(stage, selector.entityId) });
        continue;
      }
@@ -130,7 +141,11 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
   const selector=stored.snapshot.selector;
   const focus=stored.snapshot.focus,expected=selector.purpose==="summary"?AIDT_SUMMARY_STABLE_NAME:AIDT_STAGE_IDENTITIES.find(s=>s.id===selector.stageId)!.skill;
   const skills=await new PgAgentRunRepository(scope.db).readPinnedSkills(actor.orgId,[focus.skillVersionId]),skill=skills[0];if(skills.length!==1||!skill?.package||skill.versionId!==focus.skillVersionId||skill.package.skillId!==focus.skillId||skill.stableName!==expected||focus.skillStableName!==expected)return unavailable();await verifyAidtPinnedSkill(skill,this.packs);
-  for(const source of stored.snapshot.sources)await this.exact(scope.stages,actor,source.stageId,source.revision);
+  for (const source of stored.snapshot.sources) {
+   const stage = await this.exact(scope.stages, actor, source.stageId, source.revision);
+   if (selector.purpose === "stage" && selector.stageId === 2 && selector.entityId && source.stageId === 2)
+    await this.checkExcerpt(scope.stages, actor, stage, selector.entityId);
+  }
   await this.checkReturn(scope.stages,actor,stored.snapshot.selector);
  }
  async revalidateIn(session:TenantSession,actor:AidtContextActor,stored:Stored){return this.timed(session,async s=>{const scope=await this.accessIn(s,actor,true);await this.verifyFrozenIn(s,actor,stored,scope);});}
