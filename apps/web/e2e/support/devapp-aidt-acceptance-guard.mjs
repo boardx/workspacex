@@ -1,7 +1,7 @@
 /** Live Dev acceptance: this is a bounded test-data writer, not the read-only probe. */
 import { ORIGIN, ProbeFailure, validLoginBody } from './devapp-aidt-auth-readonly.mjs';
 import { createHash } from 'node:crypto';
-import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, matchesInterviewProjection } from './devapp-aidt-chat-evidence.mjs';
+import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun } from './devapp-aidt-chat-evidence.mjs';
 
 export const SHA = /^[a-f0-9]{40}$/;
 export const TAG = /^[0-9]+-[0-9]+$/;
@@ -70,8 +70,8 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
   }
 }
 
-// Five other stages, ten independent guides, one material-backed finding.
-export const TEACHING_TURN_LIMIT = 16;
+// S1 initial draft and revision, ten interview guides and one finding, four later stages.
+export const TEACHING_TURN_LIMIT = 18;
 // Additional guides re-open the scoped thread, mount its skill and save the confirmed guide.
 const WRITE_LIMIT = 128 + 9 * 3;
 
@@ -79,7 +79,8 @@ export function createAcceptanceGuard(identity, now = Date.now) {
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
   let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0, ordinaryVerified = false, projectCreateUntil = null, projectCourseTag;
   const threadCoordinates = new Map(), threadFacts = new Map(), threadPins = new Map(), messageSnapshots = new Map(), stageStates = new Map(), skillCatalog = new Map(), teachingLedger = new Map(), ownedRuns = new Set();
-  let teachingRequests = 0, suggestionsBlocked = 0, teachingStopped = false;
+  let reconcileCount = 0;
+  let teachingRequests = 0, suggestionsBlocked = 0, teachingStopped = false, isolatedProblemReceipt = null;
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
   let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null, modelRequestedScreens = null;
   const readCategories = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
@@ -97,7 +98,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     const path = target.pathname;
     if (body !== undefined && Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_BODY) return stop('REQUEST_BODY_BOUND');
     if (projectId && target.searchParams.has('projectId') && target.searchParams.get('projectId') !== projectId) return stop('FOREIGN_PROJECT_REFERENCE');
-    if (allowedWrites >= WRITE_LIMIT && method !== 'GET') return stop('WRITE_COUNT_BOUND');
+    if (allowedWrites - reconcileCount >= WRITE_LIMIT && method !== 'GET') return stop('WRITE_COUNT_BOUND');
     if (method === 'POST' && path === '/api/auth/login' && !target.search) {
       if (!loginArmed || actor || loginCount !== 0 || !object(body) || Object.keys(body).sort().join(',') !== 'email,password' || !body.email || !body.password) return stop('LOGIN_REJECTED');
       loginCount++; return { allow: true, kind: 'login' };
@@ -180,15 +181,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     const stage = new RegExp(`^/api/projects/${projectId}/aidt/stages/([1-6])$`).exec(path);
     if (method === 'PUT' && stage && object(body) && object(body.content) && object(body.content.draft)) {
       const n = Number(stage[1]);
-      if (!arm || arm.stage !== n || arm.remaining < 1 || now() > arm.until) {
-        const saved = stageStates.get(n);
-        const entry = [...teachingLedger.values()].at(-1);
-        if (n !== 2 || !entry?.wire || !saved || entry.projections >= 2 || now() > entry.projectionUntil
-          || body.expectedRevision !== saved.revision || JSON.stringify(body.sourceStageRevisions) !== JSON.stringify(saved.sourceStageRevisions)
-          || !matchesInterviewProjection(saved.content, body.content, entry.scope)) return stop('STAGE_SAVE_NOT_ARMED');
-        entry.projections++; allowedWrites++;
-        return { allow: true, kind: 'save-stage', stageId: n };
-      }
+      if (!arm || arm.stage !== n || arm.remaining < 1 || now() > arm.until) return stop('STAGE_SAVE_NOT_ARMED');
       const before = snapshots.get(n) ?? new Set();
       let next;
       try { next = confirmations(body.content); } catch (error) { return stop(error.code ?? 'CONFIRMATION_REJECTED'); }
@@ -197,6 +190,15 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       arm.remaining--;
       if (Object.keys(body.content.draft).some(key => !ROOTS.has(key))) return stop('DRAFT_SCHEMA_REJECTED');
       allowedWrites++; return { allow: true, kind: 'save-stage', stageId: n };
+    }
+    const reconcile = new RegExp(`^/api/projects/${projectId}/aidt/stages/([12])/entities/(${UUID})/reconcile$`).exec(path);
+    if (method === 'POST' && reconcile) {
+      const stageId = Number(reconcile[1]), entityId = reconcile[2];
+      const key = `${stageId === 1 ? 'problemEntity' : 'interviewRecord'}:${entityId}`;
+      let entity;
+      try { entity = JSON.parse(stageStates.get(stageId)?.content.draft.fields[key]); } catch { /* Never create an unobserved target. */ }
+      if (reconcileCount >= 64 || target.search || body != null || !ordinaryVerified || entity?.id !== entityId) return stop('RECONCILE_ENTITY_NOT_VERIFIED');
+      reconcileCount++; allowedWrites++; return { allow: true, kind: 'reconcile-entity', stageId, entityId };
     }
     const entity = new RegExp(`^/api/projects/${projectId}/aidt/stages/([1-6])/entities/([^/]+)/thread$`).exec(path);
     if (method === 'PUT' && entity && (ENTITY.test(entity[2]) || entity[2] === 'group-report') && object(body) && Object.keys(body).join(',') === 'purpose' && ['stage', 'report'].includes(body.purpose)) {
@@ -292,12 +294,33 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       const pins = (threadPins.get(threadId) ?? []).filter(pin => skillCatalog.get(pin.skillId)?.stableName === expected);
       return pins.length === 1 ? { skillId: pins[0].skillId, skillVersionId: pins[0].versionId } : null;
     },
+    recordPendingProblem: receipt => {
+      const entry = [...teachingLedger.values()].find(item => item.scope.stageId === 1
+        && item.scope.threadId === receipt.threadId && item.accepted?.runId === receipt.runId
+        && item.accepted.inputMessageId === receipt.inputMessageId);
+      if (!entry || entry.scope.syntheticProblemFixture || receipt.projectId !== projectId || receipt.stageId !== 1
+        || receipt.knownConfirmTaskIntent !== true || receipt.toolName !== 'confirm_task_intent') throw new ProbeFailure('SYNTHETIC_PREREQUISITE_NOT_BOUND');
+      isolatedProblemReceipt = { threadId: entry.scope.threadId, entityId: entry.scope.selector.entityId };
+    },
+    completeTeaching: proof => {
+      const matches = [...teachingLedger.values()].filter(entry => entry.scope.threadId === proof.threadId
+        && entry.accepted?.runId === proof.runId && entry.accepted.inputMessageId === proof.inputMessageId);
+      if (matches.length !== 1) throw new ProbeFailure('TEACHING_COMPLETION_NOT_BOUND');
+      matches[0].completed = true;
+    },
     armTeachingSend: scope => {
       validateTeachingScope(scope);
       const coordinates = threadCoordinates.get(scope.threadId), pins = threadPins.get(scope.threadId) ?? [];
       const finding = scope.interviewFinding === true;
       const guideKey = `interview:${scope.selector.entityId}`;
-      const key = finding ? 'interview-finding' : scope.stageId === 2 ? guideKey : scope.stageId;
+      const previousProblem = teachingLedger.get(1);
+      const revising = scope.stageId === 1 && scope.problemRevision === true;
+      if (revising && (!previousProblem?.completed || previousProblem.scope.threadId !== scope.threadId
+        || previousProblem.scope.selector.entityId !== scope.selector.entityId || previousProblem.scope.prompt === scope.prompt)) throw new ProbeFailure('TEACHING_PROBLEM_REVISION_NOT_VERIFIED');
+      const synthetic = scope.syntheticProblemFixture === true;
+      if (synthetic && (scope.stageId !== 1 || revising || !isolatedProblemReceipt || !scope.selector.entityId
+        || isolatedProblemReceipt.threadId === scope.threadId || isolatedProblemReceipt.entityId === scope.selector.entityId)) throw new ProbeFailure('SYNTHETIC_PREREQUISITE_NOT_BOUND');
+      const key = synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? 'interview-finding' : scope.stageId === 2 ? guideKey : scope.stageId;
       const interviews = [...teachingLedger.keys()].filter(id => typeof id === 'string' && id.startsWith('interview:'));
       if (scope.stageId === 2 && (!scope.selector.entityId || (!finding && interviews.length >= 10))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       if (finding) {
@@ -313,7 +336,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         || scope.selector.stageRevisions.some(ref => stageStates.get(ref.stageId)?.revision !== ref.revision)
         || JSON.stringify(scope.knownMessages) !== JSON.stringify(messageSnapshots.get(scope.threadId))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       arm = null;
-      teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000, projections: 0, projectionUntil: now() + 210000 });
+      teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000 });
     },
 
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },
@@ -345,7 +368,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       projectId = candidate;
     },
     identity: () => ({ actor, org, candidate, projectId, ordinaryVerified }),
-    summary: () => ({ readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: TEACHING_TURN_LIMIT, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
+    summary: () => ({ readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: TEACHING_TURN_LIMIT, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, reconcileCount, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
   };
 }
 
