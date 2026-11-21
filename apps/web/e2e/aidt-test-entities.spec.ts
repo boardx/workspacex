@@ -124,7 +124,8 @@ test("AIDT testing entities bind an immutable Design and isolate parallel native
     await directory.getByRole("button", { name: "新建测试草稿" }).click();
     const card = directory.getByRole("listitem").filter({ has: page.getByRole("heading", { name, exact: true }) });
     await expect(card.getByText("保存后可以打开对话")).toBeVisible();
-    await directory.getByRole("button", { name: "保存测试列表" }).click();
+    await expect(directory.getByTestId("aidt-test-reflection")).toBeVisible();
+    await directory.getByRole("button", { name: "保存本轮测试与反思" }).click();
     const link = card.getByRole("link", { name: "打开测试", exact: true });
     await expect(link).toBeVisible();
     hrefs.push(await link.evaluate(el => (el as HTMLAnchorElement).href));

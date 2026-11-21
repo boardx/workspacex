@@ -58,6 +58,8 @@ description: >
 
 ## 踩坑与经验（append-only，最新在上）
 
+- 2026-11-21：AIDT 独立实体确认须校验实际实体 payload，不能用包含目录元数据的聚合文档重算摘要；阶段总览复用已保存的明确交接（画像/HMW、描述单、原型问题卡、测试反思）。原型有当前交接指针时只认该实体，失效时不回退旧候选；无指针旧数据仅兼容唯一有效候选。（出处：[issue #6818](https://github.com/boardx/workspacex/issues/6818)）
+
 - 2026-11-21：AIDT 六步卡片与阶段导航必须复用 `useAidtConfirmedStages` 的已保存确认结果；仅有共享草稿或版本号不能推出阶段完成。修改中的本页内容保留旧确认版本提示，下一步入口依据未确认阶段选择，读取或摘要核对未完成时不猜进度。（出处：[issue #6818](https://github.com/boardx/workspacex/issues/6818)）
 - 2026-11-09：项目内容的子列表嵌入时由外层工具栏持有新建/关联入口，独立使用仍保留自己的工具栏；关联意图在切换筛选后消费，权限降级立即关闭选择器。列表几何复用 `apps/web/components/ui/resource-card.tsx` 的 ResourceGrid，避免按内容宽度居中导致全部与类型筛选卡片错位。参见 issue #6442。
 - 2026-11-07: Shared UI status types must depend directly on canonical contracts, not API adapters with mock imports: lint-ui-wiring follows type-only edges too. Derive interview status from interview.DigitalInterviewStatus and keep project reachability clean without exemptions (issue #6377 / PR #6378).

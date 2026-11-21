@@ -11,6 +11,7 @@ import { resolveAidtPrototypeVersion } from "../lib/aidt-prototype-versions";
 import { aidtHref } from "../lib/project-aidt";
 import { createAidtQuestionSnapshot } from "../lib/aidt-verification-loop";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
+import { AidtTestReflection } from "./aidt-test-reflection";
 
 type Props = {
   projectId: string;
@@ -127,11 +128,15 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
       <label className="block space-y-1 text-12">测试名称<Input value={name} maxLength={80} onChange={event => setName(event.currentTarget.value)} /></label>
       {prototypeRevision && <p className="text-12 text-muted-foreground">本次从第 5 步 V{prototypeRevision} 带入。</p>}
       <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={!canCreate} onClick={() => void create()}>{checking ? "核对原型版本…" : "新建测试草稿"}</Button>
-        <Button type="button" size="sm" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>
+        {!draft.fields.questionSnapshot && <Button type="button" size="sm" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>}
       </div>
       {limit && <p role="status" className="text-12">本项目达到当前测试记录容量。归档记录仍保留。</p>}
       {requestId && savedIds.has(requestId) && <Link href={openHref(requestId)} className="text-12 text-primary underline">打开刚保存的测试</Link>}
       {error && <p role="alert" className="text-12">{error}</p>}
+    </div>}
+    {draft.fields.questionSnapshot && <div className="space-y-4 border-t border-border pt-4">
+      <AidtTestReflection draft={draft} readOnly={readOnly} onChange={next => update(() => next)} />
+      {!readOnly && <Button type="button" size="sm" disabled={!canSave} onClick={() => void save()}>保存本轮测试与反思</Button>}
     </div>}
   </section>;
 }

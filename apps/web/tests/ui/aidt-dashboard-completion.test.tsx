@@ -2,13 +2,14 @@ import * as React from "react";
 import { webcrypto } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { SharedStage } from "@repo/contracts/aidt-stages";
+import { SharedStage, StageDraft } from "@repo/contracts/aidt-stages";
 import { ProjectAidt } from "@/features/aidt/components/project-aidt";
 import { AidtDashboard } from "@/features/aidt/components/project-aidt-dashboard";
 import { AidtRoundCompletion } from "@/features/aidt/components/aidt-round-completion";
 import { useAidtConfirmedStages } from "@/features/aidt/lib/use-aidt-confirmed-stages";
 import { aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload } from "@/features/aidt/lib/aidt-round-completion";
 import { emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
+import { addAidtProblem, archiveAidtProblem, readAidtProblemEntityDraft, updateAidtProblemEntity } from "@/features/aidt/lib/aidt-problem-entities";
 import type { AidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import type { useAidtSharedStages } from "@/features/aidt/lib/use-aidt-shared-stages";
@@ -118,13 +119,13 @@ it.each(["loading", "error"] as const)("never uses stale completion after a %s r
   if (phase === "error") { fireEvent.click(screen.getByRole("button", { name: "重新读取成果" })); expect(reload).toHaveBeenCalledOnce(); }
 });
 
-function RoundAndDashboard({ initial, onSaved }: { initial: AidtSharedStage; onSaved: (saved: AidtSharedStage) => void }) {
-  const [saved, setSaved] = React.useState(initial), [draft, setDraft] = React.useState(initial.content.draft);
+function RoundAndDashboard({ initial, onSaved, entityId, failSave = false }: { initial: AidtSharedStage; onSaved: (saved: AidtSharedStage) => void; entityId?: string; failSave?: boolean }) {
+  const [saved, setSaved] = React.useState(initial), [draft, setDraft] = React.useState<AidtUiDrafts[number]>(initial.content.draft);
   const stages = React.useMemo(() => ({ 1: saved }), [saved]);
   const c = { sourceStageRevisions: [], stages, canSave: true, matchesServer: saved.content.draft === draft, write: { phase: "idle" }, server: saved,
-    saveCurrent: async () => { const next = { ...saved, revision: saved.revision + 1, content: { ...saved.content, draft } }; setSaved(next); onSaved(next); },
+    saveCurrent: async () => { if (failSave) return; const next = { ...saved, revision: saved.revision + 1, content: { ...saved.content, draft: StageDraft.parse(draft) } }; setSaved(next); setDraft(next.content.draft); onSaved(next); },
   } as unknown as ReturnType<typeof useAidtSharedStages>;
-  return <><Dashboard stages={stages} drafts={{ ...matchingDrafts(stages), 1: draft }} /><AidtRoundCompletion projectId={saved.projectId} step={AIDT_STEPS[0]} draft={draft} controller={c} readOnly={false} nextHref="/aidt/group-test?step=2" onConfirm={record => setDraft(old => ({ ...old, fields: { ...old.fields, roundCompletion: record } }))} /></>;
+  return <><Dashboard stages={stages} drafts={{ ...matchingDrafts(stages), 1: draft }} /><AidtRoundCompletion projectId={saved.projectId} step={AIDT_STEPS[0]} draft={entityId ? readAidtProblemEntityDraft(draft, entityId) : draft} controller={c} readOnly={false} nextHref="/aidt/group-test?step=2" onConfirm={record => setDraft(old => entityId ? updateAidtProblemEntity(old, entityId, current => ({ ...current, fields: { ...current.fields, roundCompletion: record } })) : ({ ...old, fields: { ...old.fields, roundCompletion: record } }))} /></>;
 }
 it("updates the card only after the actual confirmation action is saved, and restores it on remount", async () => {
   const initial = stage();
@@ -161,4 +162,105 @@ it("does not carry a confirmed card into another group or turn denied reads into
   expect(await screen.findByTestId("aidt-dashboard-error")).toBeVisible();
   expect(screen.queryByTestId("aidt-continue-task")).toBeNull();
   expect(mocks.save).not.toHaveBeenCalled();
+});
+
+const problemA = "f2cb6fe0-e115-4ab8-a3ba-2af7b0685ac1";
+const problemB = "f2cb6fe0-e115-4ab8-a3ba-2af7b0685ac2";
+function problemStage() {
+  const initial = stage();
+  initial.content.draft = StageDraft.parse(updateAidtProblemEntity(addAidtProblem(emptyAidtUiDrafts()[1]!, problemA, "午休"), problemA, current => ({
+    ...current, fields: { initial: "学生命题", rewrittenTheme: "理解赶课学生如何安排午休", whyWorthStudying: "理解时间安排", problemSources: '["guess"]', sourceDetails: "暂为猜测", problemReflectionConfirmed: "true" },
+  })));
+  return initial;
+}
+async function confirmedProblem() {
+  const saved = problemStage();
+  const selected = readAidtProblemEntityDraft(saved.content.draft, problemA);
+  const digest = await aidtRoundDigest(aidtRoundPayload(saved.projectId, 1, selected, saved.sourceStageRevisions));
+  saved.content.draft = StageDraft.parse(updateAidtProblemEntity(saved.content.draft, problemA, current => ({ ...current, fields: { ...current.fields, roundCompletion: aidtRoundConfirmation(saved.projectId, 1, digest, false) } })));
+  return saved;
+}
+
+it("confirms an actual problem entity through the student action, saves the aggregate directory, and restores completion", async () => {
+  const persisted = vi.fn();
+  const view = render(<RoundAndDashboard initial={problemStage()} entityId={problemA} onSaved={persisted} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "确认本轮成果并保存" })).toBeEnabled());
+  expect(screen.queryByText(/已完成/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "确认本轮成果并保存" }));
+  expect(await screen.findByText("已完成 · V2")).toBeVisible();
+  const saved = persisted.mock.calls[0]![0] as AidtSharedStage;
+  expect(saved.content.draft.fields.problemHandoffEntity).toBe(problemA);
+  expect(saved.content.draft.fields[`problemEntity:${problemA}`]).toBeTruthy();
+  expect(saved.content.draft.fields.roundCompletion).toBe(readAidtProblemEntityDraft(saved.content.draft, problemA).fields.roundCompletion);
+  view.unmount();
+  render(<Dashboard stages={{ 1: structuredClone(saved) }} />);
+  expect(await screen.findByText("已完成 · V2")).toBeVisible();
+});
+
+it("does not mark an entity complete if the confirmation save fails", async () => {
+  const persisted = vi.fn();
+  render(<RoundAndDashboard initial={problemStage()} entityId={problemA} onSaved={persisted} failSave />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "确认本轮成果并保存" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认本轮成果并保存" }));
+  expect(await screen.findByRole("button", { name: "重试保存确认" })).toBeVisible();
+  expect(screen.queryByText(/已完成/)).toBeNull();
+  expect(persisted).not.toHaveBeenCalled();
+});
+
+it("keeps the selected entity completion when another candidate is added, but rejects selected edits and archival", async () => {
+  const saved = await confirmedProblem();
+  saved.content.draft = StageDraft.parse(addAidtProblem(saved.content.draft, problemB, "另一候选"));
+  const view = render(<Dashboard stages={{ 1: saved }} />);
+  expect(await screen.findByText("已完成 · V1")).toBeVisible();
+  const local = matchingDrafts({ 1: saved });
+  local[1] = updateAidtProblemEntity(local[1]!, problemA, current => ({ ...current, fields: { ...current.fields, rewrittenTheme: "修改后的研究方向" } }));
+  view.rerender(<Dashboard stages={{ 1: saved }} drafts={local} />);
+  expect(await screen.findByText("已确认 V1 · 有修改待确认")).toBeVisible();
+  const edited = { ...saved, revision: 2, content: { ...saved.content, draft: StageDraft.parse(local[1]!) } };
+  view.rerender(<Dashboard stages={{ 1: edited }} />);
+  await waitFor(() => expect(screen.queryByTestId("aidt-dashboard-confirmation-loading")).toBeNull());
+  expect(screen.queryByText(/已完成/)).toBeNull();
+  view.rerender(<Dashboard stages={{ 1: { ...saved, content: { ...saved.content, draft: StageDraft.parse(archiveAidtProblem(saved.content.draft, problemA)) } } }} />);
+  await waitFor(() => expect(screen.queryByTestId("aidt-dashboard-confirmation-loading")).toBeNull());
+  expect(screen.queryByText(/已完成/)).toBeNull();
+});
+
+it("rejects unknown or unconfirmed entity selection and stale source revisions without falling back to an old global marker", async () => {
+  const saved = await confirmedProblem();
+  for (const changed of [
+    { ...saved, sourceStageRevisions: [{ stageId: 2, revision: 9 }] },
+    { ...saved, content: { ...saved.content, draft: { ...saved.content.draft, fields: { ...saved.content.draft.fields, problemHandoffEntity: problemB } } } },
+  ]) {
+    const view = render(<Dashboard stages={{ 1: changed }} />);
+    await waitFor(() => expect(screen.queryByTestId("aidt-dashboard-confirmation-loading")).toBeNull());
+    expect(screen.queryByText(/已完成/)).toBeNull();
+    view.unmount();
+  }
+});
+
+it("passes a saved entity confirmation through the real project parent and refuses denied re-entry", async () => {
+  const saved = await confirmedProblem();
+  mocks.read.mockImplementation(async (_project, id) => ({ stage: id === 1 ? saved : null }));
+  const view = render(<ProjectAidt projectId="group-test" sub="aidt" canWrite={false} />);
+  expect(await screen.findByText("已完成 · V1")).toBeVisible();
+  mocks.read.mockRejectedValue(new ApiError(403, "FORBIDDEN", {}));
+  view.rerender(<ProjectAidt projectId="other-group" sub="aidt" canWrite={false} />);
+  expect(await screen.findByTestId("aidt-dashboard-error")).toBeVisible();
+  expect(screen.queryByText(/已完成/)).toBeNull();
+});
+
+it("changes the selected problem only after the other entity is explicitly confirmed and saved", async () => {
+  const initial = problemStage();
+  initial.content.draft = StageDraft.parse(updateAidtProblemEntity(addAidtProblem(initial.content.draft, problemB, "不同方向"), problemB, () => ({ ...readAidtProblemEntityDraft(initial.content.draft, problemA), fields: { ...readAidtProblemEntityDraft(initial.content.draft, problemA).fields, rewrittenTheme: "理解闲暇学生的选择" } })));
+  const persisted = vi.fn();
+  const view = render(<RoundAndDashboard initial={initial} entityId={problemA} onSaved={persisted} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "确认本轮成果并保存" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认本轮成果并保存" }));
+  expect(await screen.findByText("已完成 · V2")).toBeVisible();
+  view.rerender(<RoundAndDashboard initial={initial} entityId={problemB} onSaved={persisted} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "确认本轮成果并保存" })).toBeEnabled());
+  expect((persisted.mock.calls[0]![0] as AidtSharedStage).content.draft.fields.problemHandoffEntity).toBe(problemA);
+  fireEvent.click(screen.getByRole("button", { name: "确认本轮成果并保存" }));
+  expect(await screen.findByText("已完成 · V3")).toBeVisible();
+  expect((persisted.mock.calls[1]![0] as AidtSharedStage).content.draft.fields.problemHandoffEntity).toBe(problemB);
 });

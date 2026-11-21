@@ -143,3 +143,21 @@ export function listAidtConfirmedPrototypeEntities(stageDraft: AidtUiStageDraft)
     return draft && reference && isAidtPrototypeHandoffConfirmed(draft) ? [{ id, title: reference.designName, draft }] : [];
   });
 }
+
+/** Selecting a handoff is a student action, separate from merely opening a candidate. */
+export function confirmAidtPrototypeEntityHandoff(stageDraft: AidtUiStageDraft, id: string): AidtUiStageDraft {
+  const draft = readAidtPrototypeEntityDraft(stageDraft, id);
+  const confirmed = draft && confirmAidtPrototypeHandoff(draft);
+  if (!confirmed) return stageDraft;
+  const next = updateAidtPrototypeEntityDraft(stageDraft, id, () => confirmed);
+  return { ...next, fields: { ...next.fields, prototypeHandoffEntity: id } };
+}
+
+export function readAidtConfirmedPrototypeHandoff(stageDraft: AidtUiStageDraft) {
+  const candidates = listAidtConfirmedPrototypeEntities(stageDraft);
+  if (Object.hasOwn(stageDraft.fields, "prototypeHandoffEntity")) {
+    return candidates.find(candidate => candidate.id === stageDraft.fields.prototypeHandoffEntity) ?? null;
+  }
+  // Older documents had no selection pointer. Multiple candidates cannot imply a choice.
+  return candidates.length === 1 ? candidates[0]! : null;
+}
