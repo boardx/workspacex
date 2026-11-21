@@ -8,7 +8,7 @@ import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 
 export const REQUIRED_CHECKS = Object.freeze([
   'overview', 's1-draft-not-complete', 's1-confirmed-reentry',
-  's2-interview-handoff', 's2-distinct-threads', 's3-definition-hmw-handoff',
+  's2-interview-handoff', 's2-distinct-threads', 's2-card-management', 's3-definition-hmw-handoff',
   's4-three-distinct-descriptions', 's5-prototype-question-version',
   's6-test-reflection', 'report-confirmed-source-export',
   'six-stage-completion', 'anonymous-access-boundary',
@@ -464,6 +464,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     }
     const threadIds = new Map();
     const observed = [];
+    report.interviewIsolation = observed;
     const interviewGoal = code => state.s2 && /^U0[12]$/.test(code)
       ? text(`核对${code}所代表的合成情境差异。`)
       : text(`访谈 ${code} 的独立产物核对 ${unique}`);
@@ -489,9 +490,44 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       expect(new URL(page.url()).searchParams.get('entity')).toBe(new URL(interview.href).searchParams.get('entity'));
       observed.push({ code: interview.code, stableThread: true, rightInspector: true, directoryReentry: true, refresh: true });
     }
-    report.interviewIsolation = observed;
     report.independentEntityThreadsVerified = true;
   }, '02-independent-chat');
+
+  await check('s2-card-management', 2, async () => {
+    if (!interviewDirectory || state.interviews.length !== 10) fail('INTERVIEW_CARDS_REQUIRED');
+    await page.goto(interviewDirectory);
+    const grid = page.getByRole('list', { name: '访谈卡片', exact: true });
+    const cards = grid.getByRole('listitem');
+    await expect(cards).toHaveCount(10);
+    await click(btn('新建访谈')); await saveStage(2);
+    await expect(cards).toHaveCount(11);
+    const temporary = cards.filter({ has: page.getByRole('button', { name: /^U11(?:\s|$)/ }) });
+    await click(btn('编辑访谈卡', temporary));
+    const editor = page.getByRole('dialog', { name: '编辑访谈卡' });
+    const name = `临时访谈 ${unique}`;
+    const tags = [`QA午休 ${unique}`, `QA饮品 ${unique}`];
+    await fill('访谈名称', name, editor);
+    const tagInput = editor.getByTestId('interview-tag-input');
+    for (const tag of tags) { await tagInput.fill(tag); await tagInput.press('Enter'); }
+    await click(btn('保存修改', editor)); await saveStage(2);
+    await page.reload();
+    await expect(temporary.getByText(name, { exact: true })).toBeVisible();
+    const filter = page.getByRole('combobox', { name: '筛选标签', exact: true });
+    for (const tag of tags) {
+      await filter.selectOption({ label: tag });
+      await expect(cards).toHaveCount(1);
+      await expect(temporary.getByText(tag, { exact: true })).toBeVisible();
+    }
+    await filter.selectOption('');
+    await click(btn('删除访谈卡', temporary));
+    await click(btn('确认删除', page.getByRole('dialog', { name: '删除访谈卡？' })));
+    await saveStage(2); await page.reload();
+    await expect(cards).toHaveCount(10);
+    await expect(temporary).toHaveCount(0);
+    await click(btn('查看已移除'));
+    await expect(grid.getByText(name, { exact: true })).toBeVisible();
+    report.interviewCardManagement = { created: true, editedAfterReload: true, retainedMultipleTags: true, filterMatchedEachTag: true, removedFromActiveAfterReload: true, retainedArchive: true };
+  }, '02-interview-card-management');
 
   state.s3 = await check('s3-definition-hmw-handoff', 3, async () => {
     if (!state.s2 || !step3Href) { await go(3); fail('S2_CONFIRMED_HANDOFF_REQUIRED'); }
