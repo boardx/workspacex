@@ -263,8 +263,13 @@ test("directory creation saves named problems, findings, ideas and native Design
     const title = kind + randomUUID().slice(0, 6);
     const directory = pathname + "?step=" + step;
     if (step === 4) await seedSourceStage(3, draft => {
-      const id = "hmw-create-test";
-      draft.fields["definitionHmw:" + id] = JSON.stringify({ id, text: "如何帮助学生挑选饮料？", rationale: "", cardIds: [], personaIds: [], confirmed: true, archived: false });
+      const persona = { id: "student", name: "午休赶课的学生", situation: "课间休息", behavior: "先看排队长度", need: "预估排队时间", limits: "合成来源", cardIds: [], confirmed: true, archived: false };
+      draft.fields["definitionPersona:" + persona.id] = JSON.stringify(persona);
+      for (const [id, text] of [["hmw-primary", "如何帮助学生挑选饮料？"], ["hmw-second", "如何预估等候时间？"]] as const) {
+        draft.fields["definitionHmw:" + id] = JSON.stringify({ id, text, rationale: "合成建卡来源", cardIds: [], personaIds: [persona.id], confirmed: true, archived: false });
+      }
+      draft.fields.definitionHmwId = "hmw-primary";
+      draft.fields.hmw = "如何帮助学生挑选饮料？";
     });
     if (step === 5) await seedSourceStage(4, draft => {
       for (const idea of draft.ideas) idea.description = "制作比较卡";
@@ -277,6 +282,7 @@ test("directory creation saves named problems, findings, ideas and native Design
       const dialog = page.getByRole("dialog");
       await dialog.getByRole("textbox", { name: /名称/ }).fill(title);
       await dialog.getByTestId("card-create-tag-input").fill("课堂 QA");
+      if (step === 4) await dialog.getByLabel("来源 HMW").selectOption("hmw-second");
       await page.screenshot({ path: test.info().outputPath("stage-" + step + "-creation-dialog.png") });
       const submit = dialog.locator('button[type="submit"]');
       if (!threads.size) {
@@ -302,6 +308,11 @@ test("directory creation saves named problems, findings, ideas and native Design
     const id = created.searchParams.get("entity")!;
     const thread = created.searchParams.get("thread")!;
     expect(id).toBeTruthy();
+    if (step === 4) {
+      const { stage } = await (await page.request.get("/__fullstack_api/projects/" + projectId + "/aidt/stages/4", { headers })).json();
+      const definition = await (await page.request.get("/__fullstack_api/projects/" + projectId + "/aidt/stages/3", { headers })).json();
+      expect(JSON.parse(stage.content.draft.fields["ideaHmwSource:" + id])).toEqual({ id: "hmw-second", text: "如何预估等候时间？", revision: definition.stage.revision });
+    }
     expect(threads.has(thread)).toBe(false);
     threads.add(thread);
     await page.goto(directory);
