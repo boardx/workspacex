@@ -35,7 +35,7 @@ export class PgAidtStageRepository implements AidtStageRepository {
       const db = boundDatabase(s, actor.orgId);
       return fn({identity:new PgIdentityRepository(db),
         projectResources: () => new PgProjectResourceRepository(db).listProjectResources(actor.orgId, actor.projectId),
-        async ensureEntityThread(threadId, title) {
+        async ensureEntityThread(threadId, title, syncInterviewTitle) {
           // The project row lock above serializes this lookup, insert and audit.
           const chat = new PgChatRepository(db);
           const existing = await chat.findThreadFacts(actor.orgId, threadId);
@@ -44,6 +44,10 @@ export class PgAidtStageRepository implements AidtStageRepository {
               throw new AidtStageError("AIDT_STAGE_NOT_FOUND");
             }
             if (existing.archived) throw new AidtStageError("AIDT_STAGE_READONLY");
+            if (syncInterviewTitle) {
+              const presentation = await chat.findThreadPresentation(actor.orgId, threadId);
+              if (presentation && presentation.title !== title) await chat.renameThread(actor.orgId, threadId, title, presentation.version);
+            }
             return guard(ref, { threadId });
           }
           await chat.createThread({ orgId: actor.orgId, threadId, projectId: actor.projectId,

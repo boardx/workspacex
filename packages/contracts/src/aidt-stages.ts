@@ -23,6 +23,11 @@ export function aidtEntitySourceHref(projectId: string, stageId: number, entity:
   return `/aidt/${encodeURIComponent(projectId)}?${query}`;
 }
 
+export function aidtInterviewTitle(code: string, displayName?: string): string {
+  const name = displayName?.trim();
+  return name && name !== code ? code + " · " + name : code;
+}
+
 export const StageId = z.number().int().min(1).max(6);
 // Persisted revisions and SQL pagination parameters use PostgreSQL integer columns.
 const maxStageRevision = 2147483647;

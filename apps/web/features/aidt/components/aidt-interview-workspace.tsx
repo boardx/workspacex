@@ -5,7 +5,8 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
-import { AidtInterviewCards } from "./aidt-interview-cards";
+import { aggregateTags } from "@/lib/tag-utils";
+import { AidtInterviewCards, InterviewCardEditor, type InterviewDetails } from "./aidt-interview-cards";
 import { Plus } from "lucide-react";
 import { AidtInterviewRecorder } from "./aidt-interview-recorder";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
@@ -124,13 +125,14 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
   const explicit = problemEntityId !== undefined || problemRevision !== undefined;
   const validTopic = !explicit || (topic.problemEntityId === problemEntityId && topic.revision === problemRevision);
   const canAdd = !readOnly && validTopic && topic.revision !== null && Object.keys(draft.fields).length < 90;
-  const add = () => {
+  const [creating, setCreating] = React.useState(false);
+  const add = (details: InterviewDetails) => {
     if (!canAdd) return;
     let number = 1;
     const codes = new Set(records.map(record => record.code.normalize("NFKC").toUpperCase()));
     while (codes.has(`U${String(number).padStart(2, "0")}`)) number += 1;
     const record: AidtInterview = {
-      version: 1,
+      version: 1, ...details,
       id: crypto.randomUUID(),
       code: `U${String(number).padStart(2, "0")}`,
       topicRevision: topic.revision,
@@ -153,11 +155,12 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
       : <>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-16 font-semibold" ref={listFocus} tabIndex={-1}>访谈列表</h4>
-          <Button type="button" size="sm" variant="primary" disabled={!canAdd} onClick={add}><Plus aria-hidden="true" />新建访谈</Button>
+          <Button type="button" size="sm" variant="primary" disabled={!canAdd} onClick={() => setCreating(true)}><Plus aria-hidden="true" />新建访谈</Button>
         </div>
         {topic.revision && <details className="text-12"><summary className="cursor-pointer">已确认研究问题 · 第 1 步 V{topic.revision}</summary><p className="mt-2 whitespace-pre-wrap">{topic.text}</p></details>}
         {!topic.revision && !topicError && <p className="text-12 text-muted-foreground">确认并保存第 1 步的研究问题后可新建访谈。</p>}
         {topicError && <p role="alert" className="text-12">研究问题读取失败。<Button size="xs" variant="ghost" onClick={retry}>重试读取</Button></p>}
+        {creating && canAdd && <InterviewCardEditor knownTags={aggregateTags(records.filter(row => !isAidtInterviewArchived(draft.fields, row.id)))} close={() => setCreating(false)} save={add} />}
         <AidtInterviewCards {...{ projectId, records, draft, readOnly, update, savedIds }} onOpen={id => onOpen ? onOpen(id) : setSelected(id)} />
       </>}
   </section>;
