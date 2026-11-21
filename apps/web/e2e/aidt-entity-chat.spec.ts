@@ -235,3 +235,62 @@ test.describe("recording evidence in the interview Chat", () => {
     await expect(page.getByTestId("aidt-interview-finding")).not.toContainText("我先看口味");
   });
 });
+
+test("directory creation saves named problems, findings, ideas and native Design prototypes before opening their chat", async ({ page }) => {
+  test.setTimeout(150_000);
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.leadEmail);
+  await page.getByTestId("login-password").fill(FULLSTACK_E2E.leadPassword);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/home$/);
+  await page.getByTestId("rail-aidt").click();
+  await page.getByTestId("aidt-new").click();
+  await page.getByTestId("project-new-name").fill("建卡持久化 " + randomUUID().slice(0, 8));
+  await page.getByTestId("project-new-create").click();
+  await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
+  const pathname = new URL(page.url()).pathname;
+  const threads = new Set<string>();
+  for (const [step, kind] of [[1, "问题"], [1, "问题"], [3, "意外发现"], [4, "点子"], [5, "原型"]] as const) {
+    const title = kind + randomUUID().slice(0, 6);
+    const directory = pathname + "?step=" + step;
+    await page.goto(directory);
+    await page.getByRole("button", { name: "新建" + kind, exact: true }).click();
+    if (step !== 3) {
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("textbox").fill(title);
+      const submit = dialog.locator('button[type="submit"]');
+      if (!threads.size) {
+        const pattern = "**/projects/*/aidt/stages/1";
+        let lost: { operationId: string } | undefined;
+        await page.route(pattern, async route => {
+          if (route.request().method() !== "PUT" || lost) return route.continue();
+          lost = route.request().postDataJSON();
+          const committed = await route.fetch();
+          expect(committed.ok()).toBe(true);
+          await route.abort("failed");
+        });
+        await submit.click();
+        await expect(dialog.getByRole("alert")).toBeVisible();
+        const retry = page.waitForRequest(request => request.method() === "PUT" && request.url().endsWith("/aidt/stages/1"));
+        await submit.click();
+        expect((await retry).postDataJSON().operationId).toBe(lost?.operationId);
+        await page.unroute(pattern);
+      } else await submit.click();
+    }
+    await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
+    const created = new URL(page.url());
+    const id = created.searchParams.get("entity")!;
+    const thread = created.searchParams.get("thread")!;
+    expect(id).toBeTruthy();
+    expect(threads.has(thread)).toBe(false);
+    threads.add(thread);
+    await page.goto(directory);
+    const card = page.locator('a[href*="entity=' + id + '"]').first();
+    await expect(card).toBeVisible();
+    await card.click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(thread);
+    await page.reload();
+    await expect(composer(page)).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("entity")).toBe(id);
+  }
+});

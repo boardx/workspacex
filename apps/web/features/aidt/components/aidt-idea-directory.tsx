@@ -14,12 +14,13 @@ type Action = { kind: "create" | "edit" | "delete"; id: string; title: string };
 type DraftChange = (old: AidtUiStageDraft) => AidtUiStageDraft;
 const actionName = { create: "新建点子", edit: "编辑点子", delete: "删除点子" };
 
-export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDraft }: {
+export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDraft, onCreated }: {
   draft: AidtUiStageDraft;
   saved: AidtUiStageDraft | undefined;
   href: (id: string) => string;
   update: (change: DraftChange) => void;
   readOnly: boolean;
+  onCreated?: (id: string) => void;
   saveDraft?: (change: DraftChange) => Promise<boolean>;
 }) {
   const [action, setAction] = React.useState<Action | null>(null);
@@ -54,7 +55,7 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     setSaving(true);
     setError(false);
     try {
-      if (await saveDraft(change)) setAction(null);
+      if (await saveDraft(change)) { setAction(null); if (kind === "create") onCreated?.(id); }
       else setError(true);
     } catch {
       setError(true);
