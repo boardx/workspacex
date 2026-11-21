@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { isConfirmedReportVersion, readConfirmedReportForExport } from "@/features/aidt/lib/aidt-report-versions";
+import { StageDraft } from "@repo/contracts/aidt-stages";
 
 const { history } = vi.hoisted(() => ({ history: vi.fn() }));
 vi.mock("@/features/aidt/lib/live-aidt-stages", () => ({ listAidtStageHistory: history }));
@@ -47,6 +48,29 @@ describe("confirmed AIDT report exports", () => {
 });
 
 describe("exact AIDT report source links", () => {
+  it("keeps a normally created prefixed idea linked to its exact saved revision", async () => {
+    const { createAidtIdea } = await import("@/features/aidt/lib/aidt-idea-handoff");
+    const { emptyAidtUiDrafts } = await import("@/features/aidt/lib/aidt-ui-drafts");
+    const { aidtReportSourceLinks } = await import("@/features/aidt/lib/aidt-report-source-links");
+    const id = "idea-73990275-e848-480f-8962-8d39d3b88b43", saved = stage(4, 7);
+    saved.content.draft = StageDraft.parse(createAidtIdea(saved.content.draft, id, "学生点子"));
+    expect(aidtReportSourceLinks(saved)).toEqual([{ id, title: "学生点子", href: `/aidt/project?step=4&entity=${id}&entityRevision=7` }]);
+    expect(aidtReportSourceLinks({ ...saved, content: { schemaVersion: 1, draft: StageDraft.parse(emptyAidtUiDrafts()[4]!) } })).toEqual([]);
+  });
+
+  it("retains entity hyperlinks in actual exports and refuses a returned source from another project or stage", async () => {
+    const saved = stage(4, 3), report = stage(6, 4), id = "idea-73990275-e848-480f-8962-8d39d3b88b43";
+    saved.content.draft.ideas = [{ id, title: "实际入选点子", description: "学生保存的说明" }];
+    report.content.reports = { "report-a": { ...confirmed, sourceStageRevisions: [{ stageId: 4, revision: 3 }] } };
+    const signal = new AbortController().signal;
+    history.mockReset().mockResolvedValueOnce({ items: [report] }).mockResolvedValueOnce({ items: [saved] });
+    await expect(readConfirmedReportForExport("project", 4, "token", signal, "report-a")).resolves.toContain(`](/aidt/project?step=4&entity=${id}&entityRevision=3)`);
+    for (const invalid of [{ ...saved, projectId: "foreign" }, { ...saved, stageId: 2 }]) {
+      history.mockReset().mockResolvedValueOnce({ items: [report] }).mockResolvedValueOnce({ items: [invalid] });
+      await expect(readConfirmedReportForExport("project", 4, "token", signal, "report-a")).rejects.toThrow("AIDT_REPORT_VERSION_UNAVAILABLE");
+    }
+  });
+
   it("opens the saved interview version and scopes the transcript location to its own material", async () => {
     const { aidtReportSourceLinks } = await import("@/features/aidt/lib/aidt-report-source-links");
     const id = "73990275-e848-480f-8962-8d39d3b88b43";

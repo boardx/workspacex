@@ -1,4 +1,5 @@
 import { listAidtStageHistory, type AidtSharedStage } from "./live-aidt-stages";
+import { aidtReportSourceLinks } from "./aidt-report-source-links";
 
 export function reportInStage(stage: AidtSharedStage, reportEntityId?: string) {
   return reportEntityId ? stage.content.reports?.[reportEntityId] : stage.content.summaryReport;
@@ -12,7 +13,7 @@ export async function readExactReportSource(projectId: string, stageId: number, 
   const beforeRevision = revision < 2147483647 ? revision + 1 : undefined;
   const { items } = await listAidtStageHistory(projectId, stageId, token, { beforeRevision, limit: 1 }, signal);
   const stage = items[0];
-  if (!stage || stage.revision !== revision) throw new Error("AIDT_REPORT_VERSION_UNAVAILABLE");
+  if (!stage || stage.projectId !== projectId || stage.stageId !== stageId || stage.revision !== revision) throw new Error("AIDT_REPORT_VERSION_UNAVAILABLE");
   return stage;
 }
 
@@ -29,7 +30,10 @@ export async function readConfirmedReportForExport(projectId: string, revision: 
     "",
     "## 确认与来源版本",
     receipt,
-    ...sources.map(source => `- 第 ${source.stageId} 步 V${source.revision} · ${source.updatedAt} · 保存者 ${source.updatedBy}`),
+    ...sources.flatMap(source => [
+      `- 第 ${source.stageId} 步 V${source.revision} · ${source.updatedAt} · 保存者 ${source.updatedBy}`,
+      ...aidtReportSourceLinks(source).map(link => `  - [${link.title.replace(/[\\[\]]/g, "\\$&").replace(/[\r\n]/g, " ")} · V${source.revision}](${link.href})`),
+    ]),
     ...(sources.length ? [] : ["尚未关联已保存的阶段版本。"]),
     "",
   ].join("\n");

@@ -11,6 +11,7 @@ import type { z } from "zod";
 import type { ImageAttachment } from "@repo/contracts/aidt-stages";
 import { aidtDiscoverySourceLabel, discoveryAiKey, readAidtDiscoverySource } from "./aidt-discovery-source-reference";
 import { aidtResearchMaterialLabel, aidtResearchMaterialsFromFields, parseAidtResearchMaterial, researchMaterialKey } from "./aidt-research-material-reference";
+import { aidtEntityReportLines } from "./aidt-entity-report";
 
 export type AidtImageReference = z.infer<typeof ImageAttachment>;
 export type AidtIdeaDraft = { id: string; title: string; description: string; image?: string; imageName?: string; imageAttachment?: AidtImageReference };
@@ -86,14 +87,20 @@ export function emptyAidtUiDrafts(): AidtUiDrafts {
 export function aidtUiStageMarkdown(stageNumber: number, draft: AidtUiStageDraft, cards?: readonly AidtDiscoveryCardDraft[], cardsRevision?: number): string {
   const step = AIDT_STEPS.find((s) => s.id === stageNumber)!;
   const lines = [`## ${stageNumber}. ${step.title}`, "", "状态：学生编辑稿；共享保存、来源与小组确认状态请核对对应回执。", ""];
-  for (const field of AIDT_OUTPUTS[stageNumber]!.fields) lines.push(`### ${field.label}`, draft.fields[field.id]?.trim() || "待补充", "");
+  const entityLines = aidtEntityReportLines(stageNumber, draft, AIDT_OUTPUTS[stageNumber]!.fields);
+  const entityPrototypes = stageNumber === 5 && entityLines.length > 0;
+  if (entityPrototypes && AIDT_OUTPUTS[5]!.fields.some(field => draft.fields[field.id]?.trim())) lines.push("### 早期阶段表单记录（不自动替代本轮实体）");
+  for (const field of AIDT_OUTPUTS[stageNumber]!.fields) {
+    if (!entityPrototypes || draft.fields[field.id]?.trim()) lines.push(`### ${field.label}`, draft.fields[field.id]?.trim() || "待补充", "");
+  }
   if (stageNumber === 2) {
     lines.push(...aidtResearchMaterialsFromFields(draft.fields).filter(item => item.key.startsWith("researchFile:")).map(item => `已关联研究原件（待学生核实）：${aidtResearchMaterialLabel(item.material)}`));
     lines.push("### 人物发现卡", ...(draft.discoveryCards?.length ? discoveryCardLines(draft.discoveryCards, draft.fields) : ["尚未记录受访者发现卡；不得以模拟人物补齐。"]), "");
   }
   if (stageNumber === 4) for (const [index, idea] of draft.ideas.entries()) { const original = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]); lines.push(`### 候选 ${index + 1}：${idea.title.trim() || "待命名"}${draft.selectedIdeaId === idea.id ? "（拟选择）" : ""}`, idea.description.trim() || "核心说明待补充。", original ? `原始图片：${aidtResearchMaterialLabel(original)}（当前访问及研究有效性待核对）` : idea.imageAttachment ? `已关联图片：${idea.imageAttachment.name}；对话 ${idea.imageAttachment.threadId}；附件 ${idea.imageAttachment.attachmentId}（可访问性须由原服务核对，不是研究证据）` : idea.imageName ? `参考图：${idea.imageName}（仅本页预览，原图请通过原始材料入口上传）` : "图像待补充。", ""); }
   if (stageNumber === 3) lines.push(...aidtDefinitionSummary(draft.fields));
-  lines.push(...aidtV2StageLines(stageNumber, draft, cards, cardsRevision));
+  lines.push(...entityLines);
+  if (!entityPrototypes || hasAidtV2Data(5, draft)) lines.push(...aidtV2StageLines(stageNumber, draft, cards, cardsRevision));
   return lines.join("\n");
 }
 /** Current student-authored work, without manufacturing values for empty fields. */
@@ -115,8 +122,9 @@ export function aidtUiStageSummary(stageNumber: number, draft: AidtUiStageDraft)
   if (stageNumber === 3) lines.push(...aidtDefinitionSummary(draft.fields));
   if (stageNumber === 5) {
     const prototypes = countAidtPrototypeEntityDrafts(draft);
-    if (prototypes) lines.push(`本组原型记录：${prototypes} 个。打开对应原型查看验证问题与已关联版本。`);
+    if (prototypes) lines.push(`本组原型记录：${prototypes} 个。`);
   }
+  lines.push(...aidtEntityReportLines(stageNumber, draft, AIDT_OUTPUTS[stageNumber]!.fields));
   if (hasAidtV2Data(stageNumber, draft)) lines.push(...aidtV2StageLines(stageNumber, draft));
   return lines.filter(Boolean).join("\n");
 }
