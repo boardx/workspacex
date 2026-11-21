@@ -561,7 +561,7 @@ test("ordinary member names and retags an interview without replacing the native
     await expect(member.getByTestId("aidt-interview-save-state")).toHaveText("已保存");
     const upload = member.getByTestId("aidt-research-material-control").filter({ has: member.getByLabel("U01研究原件选择文件", { exact: true }) });
     await upload.getByLabel("U01研究原件选择文件").setInputFiles({ name: rawName, mimeType: "text/plain", buffer: Buffer.from("合成记录，用于核对访谈改名后文件仍可读取。") });
-    await upload.getByRole("button", { name: "保存原始材料" }).click();
+    await upload.getByRole("button", { name: "保存原始材料", exact: true }).click();
     await expect(upload).toContainText("原件已保存并回读", { timeout: 60_000 });
     await expect(member.getByTestId("aidt-interview-save-state")).toHaveText("已保存");
     const sourcePrefix = "interviewMaterial:" + before.get("entity") + ":";
