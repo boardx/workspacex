@@ -8,7 +8,7 @@ import { listThreadMounts, mountSkills } from "@/lib/live-skill-mount";
 import { AIDT_STEPS, type AidtStep } from "@/features/aidt/lib/project-aidt";
 import { AIDT_REPORT_SKILL } from "./aidt-report-task";
 
-type Input = { orgId: string; userId: string; projectId: string; step: AidtStep; purpose?: "report"; entityId?: string; thread: string | null; sessionToken: string; signal?: AbortSignal; createLatest?: { expectedLatestVersionId: string; expectedPinnedVersionId: string } };
+type Input = { orgId: string; userId: string; projectId: string; step: AidtStep; purpose?: "report"; entityId?: string; thread: string | null; sessionToken: string; signal?: AbortSignal; existingOnly?: boolean; createLatest?: { expectedLatestVersionId: string; expectedPinnedVersionId: string } };
 export class AidtStepChatChoiceError extends Error {
   constructor(public readonly choices: readonly { id: string; title: string }[]) { super("本组有多个本步对话，请共同选择要继续的一条。不会自动合并或删除。"); }
 }
@@ -25,7 +25,7 @@ export function resolveAidtStepChat(input: Input): Promise<AidtStepChat> {
   if (!isAidtModuleEnabled()) return Promise.reject(new Error("教学模块未启用。"));
   if (input.signal?.aborted) return Promise.reject(new Error("AIDT_CONTEXT_CHANGED"));
   if (input.purpose === "report" && input.step.id !== 6) return Promise.reject(new Error("报告总结任务只在第6步报告入口使用。"));
-  const key = JSON.stringify([input.orgId, input.userId, input.sessionToken, input.projectId, input.step.id, input.purpose, input.entityId, input.thread, input.createLatest]);
+  const key = JSON.stringify([input.orgId, input.userId, input.sessionToken, input.projectId, input.step.id, input.purpose, input.entityId, input.thread, input.existingOnly, input.createLatest]);
   const existing = pending.get(key);
   if (existing) {
     if (input.signal) existing.scope.consumers.add(input.signal); else existing.scope.unscoped = true;
@@ -41,7 +41,7 @@ export function resolveAidtStepChat(input: Input): Promise<AidtStepChat> {
   return task;
 }
 
-async function resolve({ orgId, userId, projectId, step, purpose, entityId, thread, sessionToken, createLatest }: Input, assertCurrent: () => void): Promise<AidtStepChat> {
+async function resolve({ orgId, userId, projectId, step, purpose, entityId, thread, sessionToken, existingOnly, createLatest }: Input, assertCurrent: () => void): Promise<AidtStepChat> {
   assertCurrent();
   // Same authorized library operation, with this host's captured bearer rather
   // than the mutable globally stored session used by the generic library UI.
@@ -120,6 +120,7 @@ async function resolve({ orgId, userId, projectId, step, purpose, entityId, thre
   }
   if (matches.length > 1) throw new AidtStepChatChoiceError(matches);
   if (matches.length === 1) return result(matches[0]!.id, matches[0]!.versionId);
+  if (existingOnly && !createLatest) throw new Error("本组没有早期阶段对话。");
   assertCurrent();
   const id = recovery?.id ?? (await createThread({ projectId, title, groupId: null, visibilityScope: "plenary" }, sessionToken)).threadId;
   assertCurrent();

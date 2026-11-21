@@ -51,6 +51,15 @@ describe("durable AIDT step conversation and actual Skill mounting", () => {
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.mount).not.toHaveBeenCalled();
   });
+  it("opens existing history without creating or mounting a legacy thread", async () => {
+    const history = { ...input(), existingOnly: true };
+    await expect(resolveAidtStepChat(history)).rejects.toThrow("没有早期阶段对话");
+    mocks.list.mockResolvedValue({ groups: [{ cards: [{ id: "old", title: "Earlier discussion" }] }] });
+    mocks.mounts.mockResolvedValue({ temporary: [active()], version: "x" });
+    await expect(resolveAidtStepChat(history)).resolves.toMatchObject({ threadId: "old", versionId: "v1" });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.mount).not.toHaveBeenCalled();
+  });
   it("does not attach a step to an incoming thread with a different stage", async () => {
     mocks.mounts.mockResolvedValue({ temporary: [active("s2")], version: "x" });
     await expect(resolveAidtStepChat({ ...input(), thread: "other-step" })).rejects.toThrow("未绑定本步骤");
