@@ -9,7 +9,7 @@ import { writeBackPendingRuns } from "../../src/application/agent-run/writeback"
 import type { ModelCallInput } from "../../src/application/agent-run/ports";
 import type { KnowledgeRecallPort } from "../../src/application/knowledge-graph/ports";
 import { recallThreadKnowledge } from "../../src/application/knowledge-graph/recall-knowledge";
-import { RECALL_DEGRADED_NOTICE, buildKnowledgeContextMessage } from "../../src/domain/knowledge-graph/recall";
+import { buildKnowledgeContextMessage } from "../../src/domain/knowledge-graph/recall";
 import { toOrgId } from "../../src/domain/org-id";
 import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
@@ -63,12 +63,12 @@ describe("F08: 每条带理由，缺席的通道显式记录", () => {
     for (const p of r.plan) if (!p.available) expect(p.hitCount).toBe(0);
   });
 
-  it("AGE 不可用：图路记为不可用，给模型的材料里带上「可能不完整」那句原话（R4-E1）", async () => {
+  it("AGE 不可用：图路记为不可用，模型只收到仍可用的材料", async () => {
     const r = await recall("v2 是谁定的？", graphDown());
     expect(r.plan.find((p) => p.channel === "graph")?.available).toBe(false);
-    expect(buildKnowledgeContextMessage(r)).toContain(RECALL_DEGRADED_NOTICE);
+    expect(buildKnowledgeContextMessage(r)).not.toContain("这次没能查全你的记忆");
     const ok = buildKnowledgeContextMessage(await recall("v2 是谁定的？"))!;
-    expect(ok).not.toContain(RECALL_DEGRADED_NOTICE);
+    expect(ok).not.toContain("这次没能查全你的记忆");
     expect(ok).toContain("[AI 记下的] 张三决定下周一上线 v2");
   });
 

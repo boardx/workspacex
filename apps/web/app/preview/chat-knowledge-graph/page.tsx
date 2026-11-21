@@ -195,7 +195,7 @@ export default function ChatKnowledgeGraphPreviewPage({
     };
     const fallback = { recalled: recalledMemoriesNormal, degraded: false };
     const a = map[scene] ?? fallback;
-    answerSlot = <AnswerKnowledgeFooter recalled={a.recalled} recallDegraded={a.degraded} />;
+    answerSlot = <AnswerKnowledgeFooter recalled={a.recalled} />;
     body = <PreviewKnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />;
   } else {
     // 对话里的记忆场景：价值出现在回答原位（U-1 / U-4 / U-5 / uc-18-6 C）

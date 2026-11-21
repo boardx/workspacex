@@ -7,9 +7,9 @@
  */
 import { describe, expect, it } from "vitest";
 import type { KnowledgeRecallPort } from "../../src/application/knowledge-graph/ports";
-import { KG_VECTOR_RECALL_TIMEOUT_MS, recallThreadKnowledge } from "../../src/application/knowledge-graph/recall-knowledge";
+import { KG_VECTOR_RECALL_TIMEOUT_MS, knowledgeMemoryFor, recallThreadKnowledge } from "../../src/application/knowledge-graph/recall-knowledge";
 import {
-  buildKnowledgeContextMessage, fuseRecall, recallDegraded, RECALL_DEGRADED_NOTICE, VECTOR_RECALL_DEGRADED_NOTICE, VECTOR_RECALL_TOP_K,
+  buildKnowledgeContextMessage, fuseRecall, recallDegraded, VECTOR_RECALL_TOP_K,
   type GraphHit, type RecallClaim, type RecallObject, type VectorHit,
 } from "../../src/domain/knowledge-graph/recall";
 import { toOrgId } from "../../src/domain/org-id";
@@ -87,24 +87,24 @@ describe("S9: 没配置 ≠ 故障", () => {
     expect(r.plan.find((p) => p.channel === "vector")).toEqual({ channel: "vector", weight: 0, hitCount: 0, available: false });
     expect(r.degraded).toEqual([]);
     expect(recallDegraded(r)).toBe(false);
-    expect(buildKnowledgeContextMessage(r)).not.toContain(VECTOR_RECALL_DEGRADED_NOTICE);
+    expect(buildKnowledgeContextMessage(r)).not.toContain("这次没能查全你的记忆");
   });
 
-  it("配置了但失败（null）：降级为字面 + 图（结果不变），记入 degraded，材料里带「相似查询暂不可用」", () => {
+  it("配置了但失败（null）：降级为字面 + 图（结果不变），记录故障，模型仍只收到匹配的材料", () => {
     const r = fuseRecall({ ...input, vector: null });
     expect(r.items.map((i) => i.claim.id)).toEqual(["lex", "g"]);
     expect(r.plan.find((p) => p.channel === "vector")).toEqual({ channel: "vector", weight: 0, hitCount: 0, available: false });
     expect(r.degraded).toEqual(["vector"]);
     expect(recallDegraded(r)).toBe(true);
     const m = buildKnowledgeContextMessage(r)!;
-    expect(m).toContain(VECTOR_RECALL_DEGRADED_NOTICE);
-    expect(m).not.toContain(RECALL_DEGRADED_NOTICE);
+    expect(m).toContain("[");
+    expect(m).not.toContain("这次没能查全你的记忆");
   });
 
-  it("图与向量都坏了、一条也没召回 ⇒ 两句说明都在，不塞空壳", () => {
+  it("图与向量都坏了、一条也没召回 ⇒ 保留降级诊断且不塞空壳", () => {
     const r = fuseRecall({ query: "老张最近在忙什么", claims: [claim("c1", "张三上周五请假了")], objects: [zhang], graph: null, vector: null, limit: 8 });
     expect(r.items).toEqual([]);
-    expect(buildKnowledgeContextMessage(r)).toBe(`【记忆】（${RECALL_DEGRADED_NOTICE}）\n【记忆】（${VECTOR_RECALL_DEGRADED_NOTICE}）`);
+    expect(buildKnowledgeContextMessage(r)).toBeNull();
   });
 });
 
@@ -120,6 +120,19 @@ describe("S9: 应用层——向量通道并行、有时限、失败降级", () 
   });
   const run = (port: KnowledgeRecallPort, query = PARAPHRASE) =>
     recallThreadKnowledge(port, { orgId: ORG, userId: "u", threadId: "t", query }, log);
+
+  it("纯问候跳过召回，含实际问题的问候继续召回", async () => {
+    const queries: string[] = [];
+    const port = base({ vectorNeighbors: async (_orgId, _userId, query) => {
+      queries.push(query);
+      return [];
+    } });
+    const input = { orgId: ORG, userId: "u", threadId: "t", runId: "r" };
+    expect(await knowledgeMemoryFor(port, { ...input, query: "你好！" }, log)).toBeNull();
+    expect(queries).toEqual([]);
+    await knowledgeMemoryFor(port, { ...input, query: "你好，北极星项目的预算是多少？" }, log);
+    expect(queries).toEqual(["你好，北极星项目的预算是多少？"]);
+  });
 
   it("端口没有向量方法 ⇒ 未启用；返回 null ⇒ 未启用（都不算降级）", async () => {
     for (const port of [base({}), base({ vectorNeighbors: async () => null })]) {

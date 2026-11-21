@@ -6,7 +6,7 @@
  *   ② 文本变了 ⇒ 旧向量立刻删掉、重新排队；取出之后文本又变了 ⇒ 写回被拒（不写旧文本的向量）；
  *   ③ 召回：字面零重合的换说法，经向量通道召回；没配置嵌入模型时召不回（通道未启用、不提醒）；
  *   ④ 权限：向量只在候选集里找，而且即便伪造候选 id，别人个人空间的向量也读不到（RLS target_visible）；
- *   ⑤ 降级：嵌入服务挂了 / 模型没登记 ⇒ 这一轮只用字面 + 图，材料里如实说「相似查询暂不可用」；
+ *   ⑤ 降级：嵌入服务挂了 / 模型没登记 ⇒ 这一轮只用字面 + 图，如实记录降级；
  *      worker 遇到服务不可用不计失败次数、outbox 行保留。
  *
  * 嵌入器是确定性的回环实现（kg-vector-fixtures.ts），不调任何真实模型。
@@ -16,7 +16,7 @@ import { runEmbeddingTick } from "../../src/application/knowledge-graph/embed-pe
 import type { KgEmbeddingQueuePort } from "../../src/application/knowledge-graph/ports";
 import { recallThreadKnowledge } from "../../src/application/knowledge-graph/recall-knowledge";
 import { runExtractionTick } from "../../src/application/knowledge-graph/extract-message-knowledge";
-import { buildKnowledgeContextMessage, VECTOR_RECALL_DEGRADED_NOTICE } from "../../src/domain/knowledge-graph/recall";
+import { buildKnowledgeContextMessage } from "../../src/domain/knowledge-graph/recall";
 import { toOrgId } from "../../src/domain/org-id";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
@@ -166,18 +166,19 @@ describe("S9 ③④ 召回的向量通道", () => {
     expect(hits!.map((h) => h.claimId)).toEqual([other!.id]);
     const before = embedder.calls;
     expect(await port.vectorNeighbors(orgId, "u-owner", PARAPHRASE, [], 8,{orgId:String(orgId),runId:"kg-query-run",attemptId:"kg-query-run:1",leaseEpoch:1})).toEqual([]);
+    expect(await port.vectorNeighbors(orgId, "u-owner", PARAPHRASE, Promise.resolve([]), 8)).toEqual([]);
     expect(embedder.calls).toBe(before);
   });
 });
 
 describe("S9 ⑤ 降级：向量不可用时退回字面 + 图，并如实说", () => {
-  it("嵌入服务挂了 ⇒ 这一轮向量通道记为故障，字面 / 图的结果照常，材料里带「相似查询暂不可用」", async () => {
+  it("嵌入服务挂了 ⇒ 这一轮向量通道记为故障，字面 / 图的结果照常，用户回复无通道警告", async () => {
     const down = new LoopbackEmbedding();
     down.fail = true;
     const r = await recall(new PgKnowledgeRecall(db, down), fx.B, "客户 A 有什么要求？");
     expect(r.degraded).toEqual(["vector"]);
     expect(r.items[0]).toMatchObject({ claim: { id: fx.personalClaimId }, channels: ["fts", "graph"] });
-    expect(buildKnowledgeContextMessage(r)).toContain(VECTOR_RECALL_DEGRADED_NOTICE);
+    expect(buildKnowledgeContextMessage(r)).not.toContain("这次没能查全你的记忆");
   });
 
   it("配置的模型没登记 ⇒ 按故障降级（不当成「没有相似的」静默略过）", async () => {

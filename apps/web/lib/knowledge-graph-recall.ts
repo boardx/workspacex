@@ -9,7 +9,7 @@ import { graphRelationLabel } from "./knowledge-graph-copy";
  * 服务端已按查看者过滤；这里只把它翻成人话，不补任何东西。
  *
  * 单一事实源：
- *   - 召回通道用词 `RETRIEVAL_CHANNEL_LABEL_ZH`、「查不全」固定说法 `KG_RELATED_QUERY_DEGRADED_ZH`
+ *   - 召回通道用词 `RETRIEVAL_CHANNEL_LABEL_ZH`
  *     原本定义在 `lib/mock/knowledge-graph.ts`，产品路由不能够到 mock，于是搬到这里；mock 只 re-export。
  *   - 关系短标签 `KG_RELATION_LABEL_ZH` 只在 dependency-free `knowledge-graph-labels.ts` 定义；这里兼容 re-export。
  *   - 召回理由用 `lib/filter-action.ts`（契约 `filter-action` 单源）的展示名，这里不另建映射。
@@ -25,13 +25,6 @@ type RetrievalChannel = z.infer<typeof RetrievalChannelSchema>;
 /** 召回通道的界面用词（说人话：不出现「向量 / 图检索」这类内部词）。 */
 export { RETRIEVAL_CHANNEL_LABEL_ZH } from "./knowledge-graph-labels";
 
-/**
- * 「查不全」的固定文案（用词表：关联查询不可用 → 这句人话）。前端不另写第二份。
- * 只由契约 `recallDegraded` 触发——**不看向量是否可用**：MVP 没部署向量，那不是降级。
- */
-export const KG_RELATED_QUERY_DEGRADED_ZH = translate("zh-CN", "chatKnowledge.recall.degraded", {
-  detail: translate("zh-CN", "chatKnowledge.recall.degradedDetail", { channels: RETRIEVAL_CHANNEL_LABEL_ZH.graph }),
-});
 
 /** 关系的中文短标签：「为什么用到它」里的关系路径用（张三 —拍板人→ 决定 v2…）。 */
 export { KG_RELATION_LABEL_ZH } from "./knowledge-graph-labels";
@@ -93,11 +86,4 @@ export function graphPathText(path: KgRecalledMemory["graphPath"], locale: Local
     tail = e.to;
   }
   return text;
-}
-
-/** Older records cannot identify the failed channel, so their notice stays generic. */
-export function recallDegradedNotice(channels?: readonly ("graph" | "vector")[], locale: Locale = "zh-CN"): string {
-  const names = [...new Set(channels ?? [])].map(c => retrievalChannelLabel(c, locale));
-  const detail = names.length ? translate(locale, "chatKnowledge.recall.degradedDetail", { channels: names.join(locale === "zh-CN" ? "、" : ", ") }) : "";
-  return translate(locale, "chatKnowledge.recall.degraded", { detail });
 }
