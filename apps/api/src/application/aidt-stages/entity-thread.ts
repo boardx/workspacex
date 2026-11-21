@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { AIDT_ENTITY_THREAD_PREFIX, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { AIDT_ENTITY_THREAD_PREFIX, isAidtProblemControlText, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { readAidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
 import type { StageActor } from "./ports";
 
@@ -73,12 +73,13 @@ export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string
   const list = (value: Record<string, unknown> | null, keys: readonly string[]) =>
     value ? Object.fromEntries(keys.flatMap(key => {
       const item = value[key];
+      if (key === "topic" && typeof item === "string" && isAidtProblemControlText(item)) return [];
       return typeof item === "string" || typeof item === "number" || typeof item === "boolean" ? [[key, item]] : [];
     })) : {};
   const read = (prefix: string, keys: readonly string[]) => list(readObject(fields[prefix + entityId]), keys);
   switch (stage.stageId) {
     case 1:
-      return { entityId, fields: read("problemDraft:", ["initial", "rewrittenTheme", "reason", "whyWorthStudying", "sourceDetails", "problemSources",
+      return { entityId, fields: read("problemDraft:", ["initial", "rewrittenTheme", "people", "scene", "activity", "reason", "whyWorthStudying", "sourceDetails", "problemSources",
         "known", "sourceUncertainty", "focus", "problemDirections", "problemDirectionId", "nextAction", "problemReflectionConfirmed"]) };
     case 2: {
       const card = discoveryCards?.find(item => item.id === entityId);
