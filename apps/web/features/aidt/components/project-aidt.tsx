@@ -376,6 +376,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
               <AidtInterviewWorkspace projectId={projectId} draft={draft} update={update} readOnly={!canWrite} entityId={null}
                 problemEntityId={search.get("problemEntity") ?? undefined}
                 problemRevision={search.has("problemRevision") ? Number(search.get("problemRevision")) : undefined}
+                savedIds={new Set(readAidtInterviews(savedDraft?.fields ?? {}).map(record => record.id))}
                 onCreate={() => undefined} onOpen={id => {
                   if (savedDraft && readAidtInterviews(savedDraft.fields).some(record => record.id === id)) router.push(entityHref(id));
                 }} />

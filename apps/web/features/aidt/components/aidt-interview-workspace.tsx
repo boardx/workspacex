@@ -5,6 +5,8 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
+import { AidtInterviewCards } from "./aidt-interview-cards";
+import { Plus } from "lucide-react";
 import { AidtInterviewRecorder } from "./aidt-interview-recorder";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
 import { AidtResearchMaterialControl, AidtResearchMaterialPreview } from "./aidt-research-material";
@@ -69,10 +71,12 @@ function InterviewField({ label, value, maxLength, disabled, onChange, rows = 1 
     : <input className={inputClass} maxLength={maxLength} disabled={disabled} value={value} onChange={event => onChange(event.currentTarget.value)} />}</label>;
 }
 
-export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate, problemEntityId, problemRevision, conversationRef }: {
+export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate, conversationRef, savedIds, problemEntityId, problemRevision }: {
   projectId: string; draft: AidtUiStageDraft; update: UpdateDraft; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
-  problemEntityId?: string; problemRevision?: number; conversationRef?: (node: HTMLDivElement | null) => void;
+  problemEntityId?: string; problemRevision?: number;
+  conversationRef?: (node: HTMLDivElement | null) => void;
+  savedIds?: ReadonlySet<string>;
   entityId?: string | null; onOpen?: (id: string) => void; onCreate?: (id: string) => void;
 }) {
   const token = useOptionalSession()?.session?.sessionToken;
@@ -147,18 +151,12 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
       : <>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-16 font-semibold" ref={listFocus} tabIndex={-1}>访谈列表</h4>
-          <Button type="button" size="sm" disabled={!canAdd} onClick={add}>新建访谈</Button>
+          <Button type="button" size="sm" variant="primary" disabled={!canAdd} onClick={add}><Plus aria-hidden="true" />新建访谈</Button>
         </div>
         {topic.revision && <details className="text-12"><summary className="cursor-pointer">已确认研究问题 · 第 1 步 V{topic.revision}</summary><p className="mt-2 whitespace-pre-wrap">{topic.text}</p></details>}
         {!topic.revision && !topicError && <p className="text-12 text-muted-foreground">确认并保存第 1 步的研究问题后可新建访谈。</p>}
         {topicError && <p role="alert" className="text-12">研究问题读取失败。<Button size="xs" variant="ghost" onClick={retry}>重试读取</Button></p>}
-        {records.length === 0 && <p className="text-13 text-muted-foreground">每位受访者建立一张访谈卡，补访继续使用同一张卡。</p>}
-        <ul className="space-y-2">{records.map(record => <li key={record.id}>
-          <Button type="button" variant="outline" className="h-auto w-full justify-between gap-3 whitespace-normal text-left" onClick={() => onOpen ? onOpen(record.id) : setSelected(record.id)}>
-            <span>{record.code}</span>
-            <span className="text-12 text-muted-foreground">{isAidtInterviewArchived(draft.fields, record.id) ? "已归档" : isAidtInterviewConfirmed(draft.fields, record.id) ? "发现卡已核对" : record.guideConfirmed ? "清单已确认 · 发现待核对" : "提纲草稿"}</span>
-          </Button>
-        </li>)}</ul>
+        <AidtInterviewCards {...{ projectId, records, draft, readOnly, update, savedIds }} onOpen={id => onOpen ? onOpen(id) : setSelected(id)} />
       </>}
   </section>;
 }
