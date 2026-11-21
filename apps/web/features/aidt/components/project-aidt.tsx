@@ -79,6 +79,9 @@ const STEP_TOOLS: Record<number, readonly Tool[]> = {
 export function ProjectAidt({ projectId, projectName, sub, canWrite, activePrototypeId }: { projectId: string; projectName?: string; sub: string | null; canWrite: boolean; activePrototypeId?: string }) {
   const identity = useOptionalSession()?.session;
   const authenticated = hasAidtIdentity(identity);
+  const search = useSearchParams();
+  const reportEntityId = search.get("step") === "6" && search.get("summary") === "1" ? search.get("entity") ?? undefined : undefined;
+  const reportDraftKey = reportEntityId ? `entity:${reportEntityId}` : "legacy";
   const uiScope = aidtDraftScope(identity, projectId);
   const latestUiScope = React.useRef(uiScope); latestUiScope.current = uiScope;
   // Actor keys can recur (A -> B -> A). Old local reads belong to the earlier
@@ -88,8 +91,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const uiGeneration = uiLifecycle.current.generation;
   const uiLifecycleKey = JSON.stringify([uiScope, uiGeneration]);
   const latestCanWrite = React.useRef(canWrite); latestCanWrite.current = canWrite;
-  type UiState = { scope: string; drafts: AidtUiDrafts; checkpoints: Record<number, AidtReviewCheckpoint[]>; revision: number; report: { text: string; sourceRevision: number } | null };
-  const freshUi = React.useCallback((): UiState => ({ scope: uiScope, drafts: emptyAidtUiDrafts(), checkpoints: {}, revision: 0, report: null }), [uiScope]);
+  type UiState = { scope: string; drafts: AidtUiDrafts; checkpoints: Record<number, AidtReviewCheckpoint[]>; revision: number; reports: Record<string, { text: string; sourceRevision: number }> };
+  const freshUi = React.useCallback((): UiState => ({ scope: uiScope, drafts: emptyAidtUiDrafts(), checkpoints: {}, revision: 0, reports: {} }), [uiScope]);
   const [ui, setUi] = React.useState<UiState>(freshUi);
   const currentUi = ui.scope === uiScope ? ui : freshUi();
   React.useEffect(() => { setUi((old) => old.scope === uiScope ? old : freshUi()); }, [uiScope, freshUi]);
@@ -106,7 +109,11 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     setUi((old) => {
       if (latestUiScope.current !== expectedScope || uiLifecycle.current.generation !== uiGeneration || !latestCanWrite.current) return old;
       const base = old.scope === expectedScope ? old : freshUi();
-      return { ...base, report: { text: text ?? aidtUiReportMarkdown(base.drafts, { discoveryCardsRevision: shared.stages[2] && aidtSharedDraftSignature(base.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined }), sourceRevision: text === undefined ? base.revision : base.report?.sourceRevision ?? base.revision } };
+      const entry = {
+        text: text ?? aidtUiReportMarkdown(base.drafts, { discoveryCardsRevision: shared.stages[2] && aidtSharedDraftSignature(base.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined }),
+        sourceRevision: text === undefined ? base.revision : base.reports[reportDraftKey]?.sourceRevision ?? base.revision,
+      };
+      return { ...base, reports: { ...base.reports, [reportDraftKey]: entry } };
     });
   }
   function keepCheckpoint(id: number) {
@@ -124,7 +131,6 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const [referencePanel, setReferencePanel] = React.useState<HTMLDivElement | null>(null);
   const [historyScope, setHistoryScope] = React.useState<string | null>(null);
   const [toolsScope, setToolsScope] = React.useState<string | null>(null);
-  const search = useSearchParams();
   const router = useRouter();
   const step = aidtStep(sub);
   const problemStep = step?.id === 1;
@@ -145,7 +151,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const entityPrototypeGate = entityPrototypeDraft ? aidtPrototypePreparationError(entityPrototypeDraft) : "请先保存这份原型的验证问题和制作说明。";
   const prototypeGate = prototypeEntityId ? { ready: !entityPrototypeGate, reason: entityPrototypeGate } : getAidtPrototypeGenerationReadiness(prototypeDraft);
   const designAllowed = step?.id !== 5 || Boolean(returnRevision) || prototypeGate.ready;
-  const baseHref = (nextTool: Tool, id?: string) => reportMode && (nextTool === "chat" || nextTool === "report") ? aidtReportChatHref(projectId, { tool: nextTool, threadId: summaryThread, stageThread: thread, returnRevision }) : aidtHref(projectId, step?.id, { tool: nextTool, resource: id, thread, returnRevision });
+  const baseHref = (nextTool: Tool, id?: string) => reportMode && (nextTool === "chat" || nextTool === "report") ? aidtReportChatHref(projectId, { tool: nextTool, threadId: summaryThread, stageThread: thread, entityId: reportEntityId, returnRevision }) : aidtHref(projectId, step?.id, { tool: nextTool, resource: id, thread, returnRevision });
   const ideaRevision = search.get("ideaRevision");
   function href(nextTool: Tool, id?: string) {
     if (!prototypeEntityId) return baseHref(nextTool, id);
@@ -159,11 +165,11 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   }, [uiScope, uiGeneration, threadResolutionScope]);
   const checkpointThread = canWrite ? resolvedThread?.scope === threadResolutionScope ? resolvedThread.id : null : thread;
   const checkpointScope: AidtPersonalStageScope | null = authenticated && identity?.currentOrgId && identity.userId && identity.sessionToken ? { orgId: identity.currentOrgId, userId: identity.userId, projectId, sessionToken: identity.sessionToken } : null;
-  const shared = useAidtSharedStages({ enabled: isAidtModuleEnabled(), scope: checkpointScope, lifecycleKey: uiLifecycleKey, stageId: step?.id ?? null, drafts: currentUi.drafts, canWrite, reportText: currentUi.report?.text ?? null, onHydrateReport: (markdown) => {
+  const shared = useAidtSharedStages({ enabled: isAidtModuleEnabled(), scope: checkpointScope, lifecycleKey: uiLifecycleKey, stageId: step?.id ?? null, drafts: currentUi.drafts, canWrite, reportEntityId, reportText: currentUi.reports[reportDraftKey]?.text ?? null, onHydrateReport: (markdown) => {
     setUi(old => {
       if (latestUiScope.current !== uiScope || uiLifecycle.current.generation !== uiGeneration) return old;
       const base = old.scope === uiScope ? old : freshUi();
-      return { ...base, report: { text: markdown, sourceRevision: base.revision } };
+      return { ...base, reports: { ...base.reports, [reportDraftKey]: { text: markdown, sourceRevision: base.revision } } };
     });
   }, onHydrate: (id, draft) => {
     // Loading authorized server content is a read projection, including in read-only projects.
@@ -208,7 +214,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     if (!canWrite || !latestCanWrite.current || latestUiScope.current !== uiScope || uiLifecycle.current.generation !== uiGeneration || !identity || !step) return "unavailable";
     const currentThread = new URLSearchParams(window.location.search).get(reportMode ? "summaryThread" : "thread");
     const result = offerComposerDraft({ orgId: identity.currentOrgId, userId: identity.userId, projectId, threadId: currentThread }, text);
-    if (result === "accepted" && closePanel && tool !== "chat") router.push(reportMode ? aidtReportChatHref(projectId, { threadId: currentThread, stageThread: thread, returnRevision }) : aidtHref(projectId, step.id, { tool: "chat", thread: currentThread, returnRevision }));
+    if (result === "accepted" && closePanel && tool !== "chat") router.push(reportMode ? aidtReportChatHref(projectId, { threadId: currentThread, stageThread: thread, entityId: reportEntityId, returnRevision }) : aidtHref(projectId, step.id, { tool: "chat", thread: currentThread, returnRevision }));
     return result;
   }
   if (!step) return <div className="min-h-0 flex-1 overflow-y-auto"><AidtDashboard href={(id) => aidtHref(projectId, id)} drafts={currentUi.drafts} shared={{ phase: shared.read?.phase ?? (shared.available ? "loading" : "error"), stages: shared.stages, error: shared.read?.error ?? (shared.available ? undefined : "登录后可读取本组已保存成果。"), reload: shared.reload }} /></div>;
@@ -253,7 +259,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   }
   function setWorkspaceToolsOpen(open: boolean) {
     const current = new URL(window.location.href);
-    const target = new URL(href(open ? "outcome" : "chat"), current);
+    const target = new URL(href(open ? reportMode ? "report" : "outcome" : "chat"), current);
     pushWorkspaceUrl(target, current);
   }
   const reportHref = canWrite ? aidtReportChatHref(projectId, { stageThread: step.id === 6 ? thread : null, threadId: summaryThread, returnRevision }) : aidtHref(projectId, 6, { tool: "report" });
@@ -286,7 +292,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
           reportNote="原生报告当前整理本页最新草稿；这里的对照记录未自动写入共享报告。" />}
 </>
         : tool === "context" ? <><AidtStageBridge key={`${uiScope}:${step.id}`} projectId={projectId} stageNumber={step.id} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} toChat={toChat} readOnly={!canWrite} /><AidtMaterials key={uiScope} projectId={projectId} stageNumber={step.id} thread={thread} returnRevision={returnRevision} /></>
-        : tool === "report" ? <AidtReportPreview initialPreview={reportMode} key={uiScope} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} text={currentUi.report?.text ?? null} sourceRevision={currentUi.report?.sourceRevision ?? currentUi.revision} revision={currentUi.revision} onChange={(text) => changeReport(text)} regenerate={() => changeReport()} readOnly={!canWrite} toChat={toChat} shared={shared.report} onOpenSummary={() => router.push(aidtReportChatHref(projectId, { threadId: summaryThread, stageThread: thread, returnRevision }))} summaryThread={reportMode ? summaryThread : null} historyScope={checkpointScope ? { ...checkpointScope, lifecycleKey: uiLifecycleKey } : undefined} />
+        : tool === "report" ? <AidtReportPreview initialPreview={reportMode} key={reportDraftKey + uiScope} reportEntityId={reportEntityId} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} text={currentUi.reports[reportDraftKey]?.text ?? null} sourceRevision={currentUi.reports[reportDraftKey]?.sourceRevision ?? currentUi.revision} revision={currentUi.revision} onChange={(text) => changeReport(text)} regenerate={() => changeReport()} readOnly={!canWrite} toChat={toChat} shared={shared.report} onOpenSummary={() => router.push(aidtReportChatHref(projectId, { threadId: summaryThread, stageThread: thread, entityId: reportEntityId, returnRevision }))} summaryThread={reportMode ? summaryThread : null} historyScope={checkpointScope ? { ...checkpointScope, lifecycleKey: uiLifecycleKey } : undefined} />
         : tool === "sources" ? <ProjectEvidenceSection key={uiScope} projectId={projectId} />
         : tool === "record" ? canWrite ? <div data-testid="aidt-native-recording"><p className="px-4 text-12 text-muted-foreground">个人录音笔记只用于自己的思考。不得借此绕过项目访谈的参与者同意校验；项目访谈同意采集入口尚未集成。</p><Transcription key={uiScope} uiState="default" projectId={projectId} /></div> : null
         : selected ? !authenticated ? <p role="status" className="p-4 text-12 text-muted-foreground">登录后可查看关联资源。</p> : access?.key !== accessKey ? loading() : access.error ? <div role="alert" data-testid="aidt-resource-error" className="p-4"><p>{access.error}</p><Button variant="outline" onClick={() => setRetry((n) => n + 1)}>重试</Button></div>
@@ -299,7 +305,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     <nav className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle p-3" aria-label="学习工具">
       <Button asChild size="sm" variant={tool === "outcome" ? "secondary" : "ghost"}><Link href={href("outcome")} data-testid="aidt-open-output">{problemStep ? "问题与依据" : "成果"}</Link></Button>
       <Button asChild size="sm" variant={tool === "context" ? "secondary" : "ghost"}><Link href={href("context")}>资料</Link></Button>
-      <DropdownMenu open={toolsScope === `${uiLifecycleKey}:${step.id}`} onOpenChange={open => setToolsScope(open ? `${uiLifecycleKey}:${step.id}` : null)}><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" data-testid="aidt-tools">更多工具</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{allowed.filter(key => !["chat", "outcome", "context"].includes(key) && (canWrite || key !== "record")).map(key => <DropdownMenuItem asChild key={key}><Link href={key === "report" ? aidtReportChatHref(projectId, {tool:"report",stageThread:thread,threadId:summaryThread,returnRevision}) : href(key)}>{TOOLS[key]}</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
+      <DropdownMenu open={toolsScope === `${uiLifecycleKey}:${step.id}`} onOpenChange={open => setToolsScope(open ? `${uiLifecycleKey}:${step.id}` : null)}><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" data-testid="aidt-tools">更多工具</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{allowed.filter(key => !["chat", "outcome", "context"].includes(key) && (canWrite || key !== "record")).map(key => <DropdownMenuItem asChild key={key}><Link href={key === "report" ? aidtReportChatHref(projectId, {tool:"report",stageThread:thread,threadId:summaryThread,entityId:reportEntityId,returnRevision}) : href(key)}>{TOOLS[key]}</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
     </nav>
     {tool !== "chat" && toolContent}
     {tool === "context" && <div className="space-y-4 border-t border-border-subtle p-4">

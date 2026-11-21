@@ -9,10 +9,11 @@ export const AIDT_REPORT_GUIDANCE = [
   "若证据不足，按研究方案组织报告，写清基线、对照条件、完成标准、用时或出错等可观察指标，以及什么结果会改变当前决定。只提出适合本项目的指标，不捏造阈值、样本或数据。",
   "按证据量展开正文，材料充分时约 1200–1800 字。用自然语言综合六步材料，省略空字段、表单流水账、内部 ID、机器字段名及聊天开场和收尾。没有授权的教师点评或其他来源只在影响判断时简述。等待学生审阅，不能自动改动或保存报告。",
 ].join("\n");
-export function aidtReportChatHref(projectId: string, options: { tool?: "chat" | "report"; threadId?: string | null; stageThread?: string | null; returnRevision?: string | null } = {}) {
+export function aidtReportChatHref(projectId: string, options: { tool?: "chat" | "report"; threadId?: string | null; stageThread?: string | null; entityId?: string | null; returnRevision?: string | null } = {}) {
   const href = aidtHref(projectId, 6, { tool: options.tool ?? "chat", thread: options.stageThread, returnRevision: options.returnRevision });
   const [path, query] = href.split("?");
   const params = new URLSearchParams(query); params.set("summary", "1");
+  if (options.entityId) params.set("entity", options.entityId);
   if (options.threadId) params.set("summaryThread", options.threadId);
   return `${path}?${params}`;
 }
