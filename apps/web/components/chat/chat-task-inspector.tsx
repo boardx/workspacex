@@ -589,6 +589,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
       ) : (
         <div
           role="tabpanel"
+          tabIndex={0}
           aria-label={hostOpen ? hostPanel?.title : t(TAB_META[activeTab].labelKey)}
           id={hostOpen ? `${hostPanelId}-panel` : undefined}
           aria-labelledby={hostOpen ? `${hostPanelId}-tab` : undefined}

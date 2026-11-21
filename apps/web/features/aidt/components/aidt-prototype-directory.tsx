@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
-import { ArrowUpRight, Palette, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowUpRight, Palette, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -114,14 +115,12 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
   return <section aria-label="原型列表" className="space-y-4" data-testid="aidt-prototype-directory">
     <header className="flex items-center justify-between gap-3">
       <h2 className="text-xl font-semibold">原型列表</h2>
-      {canWrite && <Button type="button" variant="primary" disabled={!allowed || busy} onClick={() => open({ kind: "create" })}>
-        <Plus className="size-4" aria-hidden />新建原型
-      </Button>}
+      {canWrite && <AidtNewEntityCardButton disabled={!allowed || busy} onClick={() => open({ kind: "create" })} />}
     </header>
     {listError ? <div role="alert"><p>暂时无法读取原型。</p><Button type="button" variant="outline" onClick={reload}>重试</Button></div>
       : !resources ? <p role="status">正在读取原型…</p>
       : !cards.length ? <p className="rounded-container border border-dashed border-border bg-muted px-5 py-10 text-center text-13">暂无原型</p>
-      : <ul className="grid gap-3 sm:grid-cols-2">{cards.map(card => <li key={card.id} className="min-w-0 rounded-container border border-border bg-card text-card-foreground">
+      : <ul className="grid gap-3 sm:grid-cols-2">{cards.map(card => <AidtEntityCard key={card.id} entityId={card.id}>
         <Link href={aidtPrototypeEntityHref(projectId, card.id, undefined, ideaRevision)} aria-label={card.name}
           className="flex items-center gap-3 rounded-container p-4 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
           <Palette className="size-5 shrink-0 text-primary" aria-hidden />
@@ -132,7 +131,7 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
           <Button type="button" variant="ghost" size="sm" disabled={!allowed || busy} aria-label={`编辑原型 ${card.name}`} onClick={() => open({ kind: "edit", id: card.id }, card.name)}><Pencil className="size-3.5" aria-hidden />编辑</Button>
           <Button type="button" variant="ghost" size="sm" disabled={!allowed || busy} aria-label={`删除原型 ${card.name}`} onClick={() => open({ kind: "delete", id: card.id })}><Trash2 className="size-3.5" aria-hidden />删除</Button>
         </div>}
-      </li>)}</ul>}
+      </AidtEntityCard>)}</ul>}
     {action && <Dialog open onOpenChange={open => { if (!open && !busy) setAction(null); }}>
       <DialogContent>
         <DialogHeader><DialogTitle>{titles[action.kind]}</DialogTitle>

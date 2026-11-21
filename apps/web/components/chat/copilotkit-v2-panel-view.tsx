@@ -203,9 +203,17 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps & { conv
         <div
           ref={messagesContainerRef}
           onScroll={handleMessagesScroll}
+          tabIndex={0}
           onWheel={handleUserScrollIntent}
           onTouchMove={handleUserScrollIntent}
-          onKeyDown={handleUserScrollIntent}
+          onKeyDown={event => {
+            handleUserScrollIntent(event);
+            const pane = event.currentTarget;
+            if (event.target !== pane || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+            if (event.key !== "Home" && event.key !== "End") return;
+            event.preventDefault();
+            pane.scrollTo({ top: event.key === "Home" ? 0 : pane.scrollHeight, behavior: "instant" });
+          }}
           onPointerDown={handleUserScrollIntent}
           className={cn(
             // issue #2857（2026-09-06 devapp 人类实测「消息区能滚过底部进入整屏空白」）——

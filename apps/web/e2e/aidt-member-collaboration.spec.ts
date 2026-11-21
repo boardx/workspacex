@@ -412,7 +412,7 @@ test("named AIDT problem: two fixture members share normal directory edits acros
   };
   try {
     await page.goto(directoryUrl);
-    await page.getByRole("button", { name: "新建问题", exact: true }).click();
+    await page.getByTestId("aidt-new-entity-card").click();
     const dialog = page.getByRole("dialog", { name: "新建问题" });
     await dialog.getByLabel("问题名称", { exact: true }).fill(title);
     const [createdResponse] = await Promise.all([

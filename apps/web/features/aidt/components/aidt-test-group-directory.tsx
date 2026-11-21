@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ type Props = {
   readOnly: boolean;
   onCreate?: (id: string, change: (old: AidtUiStageDraft) => AidtUiStageDraft) => Promise<boolean>;
   canSave: boolean;
+  automaticSave?: boolean;
   save: () => Promise<void>;
   update: (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 };
@@ -38,8 +40,9 @@ export function AidtTestGroupDirectory(props: Props) {
   return <TestGroupDirectory key={key} {...props} sessionToken={session.sessionToken} userId={session.userId} />;
 }
 
-function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, update, onCreate, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
+function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, automaticSave, update, onCreate, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
   const [name, setName] = React.useState("");
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<{ id: string; name: string }>();
   const [removing, setRemoving] = React.useState<string>();
   const [chosenEntity, setChosenEntity] = React.useState("");
@@ -91,6 +94,7 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
       } else { update(change); setRequestId(group.id); }
       creationId.current = null;
       setName("");
+      setCreateOpen(false);
     } catch (failure) {
       if (controller.signal.aborted) return;
       const detail = failure instanceof Error ? failure.message : "";
@@ -114,13 +118,21 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
     });
   }
   const removalName = available.find(group => group.id === removing)?.name;
+  const creationFields = <>
+      {!!candidates.length && !prototypeEntity && <label className="block text-12">所用原型
+        <select className="mt-1 w-full rounded-md border border-border bg-background p-2" value={chosenEntity} onChange={event => setChosenEntity(event.currentTarget.value)}><option value="">请选择</option>{candidates.map(entity => <option key={entity.id} value={entity.id}>{entity.title}</option>)}</select>
+      </label>}
+      <label className="block space-y-1 text-12">测试名称<Input value={name} maxLength={80} onChange={event => setName(event.currentTarget.value)} /></label>
+      {error && <p role="alert" className="text-12">{error}</p>}
+  </>;
+
   return <section className="space-y-4" aria-label="本组测试" data-testid="aidt-test-group-directory">
     {!available.length && <p className="text-13 text-muted-foreground">选一个已确认的原型，创建测试。</p>}
     <ul aria-label="测试卡片" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {available.map(group => {
         const saved = savedById.get(group.id);
         const confirmed = Boolean(saved && !saved.archived && isAidtTestGroupConfirmed(saved));
-        return <li key={group.id} className="flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm">
+        return <AidtEntityCard key={group.id} entityId={group.id} className="gap-3 p-4">
           <div className="flex items-start justify-between gap-3">
             <h2 className="break-words text-16 font-semibold">{group.name || "测试组"}</h2>
             <span className={confirmed ? "shrink-0 rounded-full bg-primary/10 px-2 py-1 text-11 text-primary" : "shrink-0 rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground"}>{confirmed ? "已确认" : "待确认"}</span>
@@ -135,7 +147,7 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
               <Button type="button" size="sm" variant="ghost" onClick={() => setRemoving(group.id)}>删除</Button>
             </>}
           </div>
-        </li>;
+        </AidtEntityCard>;
       })}
     </ul>
     {editing && !readOnly && <Dialog open onOpenChange={open => { if (!open) setEditing(undefined); }}><DialogContent>
@@ -156,16 +168,24 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
       <ul className="mt-2 space-y-2">{archived.map(group => <li key={group.id}>{group.name || "测试组"}{!readOnly && <Button type="button" size="xs" variant="ghost" onClick={() => changeCard(group.id, { archived: false })}>恢复</Button>}</li>)}</ul>
     </details>}
     {!readOnly && <div className="space-y-3 border-t border-border pt-3">
-      {!!candidates.length && !prototypeEntity && <label className="block text-12">所用原型
-        <select className="mt-1 w-full rounded-md border border-border bg-background p-2" value={chosenEntity} onChange={event => setChosenEntity(event.currentTarget.value)}><option value="">请选择</option>{candidates.map(entity => <option key={entity.id} value={entity.id}>{entity.title}</option>)}</select>
-      </label>}
-      <label className="block space-y-1 text-12">测试名称<Input value={name} maxLength={80} onChange={event => setName(event.currentTarget.value)} /></label>
-      <div className="flex flex-wrap items-center gap-2"><Button type="button" size="sm" variant="outline" disabled={!canCreate} onClick={() => void create()}>{checking ? "核对版本…" : "新建测试草稿"}</Button>
-        {(!onCreate || canSave) && <Button type="button" size="sm" variant="primary" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>}
-        {requestId && savedIds.has(requestId) && <Link href={openHref(requestId)} className="text-12 text-primary underline">打开刚保存的测试</Link>}
-      </div>
+      {automaticSave ? <>
+        <AidtNewEntityCardButton disabled={checking || limit} onClick={() => setCreateOpen(true)} />
+        <Dialog open={createOpen} onOpenChange={open => { if (!checking) setCreateOpen(open); }}>
+          <DialogContent>
+            <DialogTitle>新建测试卡片</DialogTitle>
+            <DialogDescription>选择本轮测试使用的原型。</DialogDescription>
+            <form className="space-y-3" onSubmit={event => { event.preventDefault(); void create(); }}>
+              {creationFields}
+              <Button type="submit" disabled={!canCreate}>{checking ? "核对版本…" : "创建测试卡片"}</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </> : <>{creationFields}<div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="outline" disabled={!canCreate} onClick={() => void create()}>{checking ? "核对版本…" : "新建测试草稿"}</Button>
+        <Button type="button" size="sm" variant="primary" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>
+      </div></>}
+      {requestId && savedIds.has(requestId) && <Link href={openHref(requestId)} className="text-12 text-primary underline">打开刚保存的测试</Link>}
       {limit && <p role="status" className="text-12">测试记录已达上限。</p>}
-      {error && <p role="alert" className="text-12">{error}</p>}
     </div>}
   </section>;
 }

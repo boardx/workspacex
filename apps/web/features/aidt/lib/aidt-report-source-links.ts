@@ -1,3 +1,4 @@
+import { aidtEntitySourceHref } from "@repo/contracts/aidt-stages";
 import { z } from "zod";
 import type { AidtSharedStage } from "./live-aidt-stages";
 import { parseAidtPrototypeReference } from "./aidt-prototype-reference";
@@ -25,14 +26,10 @@ function read<T>(schema: z.ZodType<T>, raw: string | undefined): T | undefined {
 }
 
 function sourceHref(stage: AidtSharedStage, id: string, locator?: { sourceId: string; timestamp?: string }) {
-  const query = new URLSearchParams({
-    step: String(stage.stageId),
-    entity: id,
-    entityRevision: String(stage.revision),
-    ...(locator ? { sourceId: locator.sourceId } : {}),
-    ...(locator?.timestamp ? { timestamp: locator.timestamp } : {}),
-  });
-  return `/aidt/${encodeURIComponent(stage.projectId)}?${query}`;
+  const href = aidtEntitySourceHref(stage.projectId,stage.stageId,id,stage.revision);
+  if (!locator) return href;
+  const extra = new URLSearchParams({sourceId:locator.sourceId,...(locator.timestamp ? {timestamp:locator.timestamp} : {})});
+  return href + "&" + extra;
 }
 
 /** Enumerate records actually present in the selected authorized revision.

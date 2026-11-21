@@ -25,7 +25,7 @@ async function login(page: Page, member = false) {
 }
 
 async function createProblem(page: Page, title: string) {
-  await page.getByRole("button", { name: "新建问题", exact: true }).click();
+  await page.getByTestId("aidt-new-entity-card").click();
   const dialog = page.getByRole("dialog", { name: "新建问题" });
   await dialog.getByRole("textbox", { name: "问题名称", exact: true }).fill(title);
   await dialog.getByRole("button", { name: "创建问题", exact: true }).click();
@@ -682,7 +682,7 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   expect(directory.get("problemRevision")).toBe(String(stored.data.stage.revision));
   await expect(page.getByTestId("aidt-step-entity-directory")).toBeVisible();
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
-  await page.getByRole("button", { name: "新建访谈" }).click();
+  await page.getByTestId("aidt-new-entity-card").click();
   await page.getByRole("button", { name: "创建访谈" }).click();
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
   const storedInterview = await api(page, `/projects/${projectId}/aidt/stages/2`);
