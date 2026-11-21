@@ -332,6 +332,10 @@ test('summary Skill proof requires the six current revisions and the exact histo
   Object.assign(e.receipt, { purpose: 'summary', stageRevisions: selected.stageRevisions, historyRevisions: selected.historyRevisions });
   const wire = validateTeachingWire(request(s), s);
   const accepted = identifyOwnedTeachingRun(e.messages, s, wire);
+  const ref = { stageId: 5, entityId: 'design-owned', revision: 2 };
+  e.receipt.entityReferences = [ref];
+  assert.deepEqual(validateTeachingEvidence(e, s, wire, accepted).sourceEntities, [ref]);
+  assert.throws(() => validateTeachingEvidence({ ...e, receipt: { ...e.receipt, entityReferences: [ref,ref] } }, s, wire, accepted), /TEACHING_ENTITY_REFERENCES_INVALID/);
   assert.equal(validateTeachingEvidence(e, s, wire, accepted).sourceRevisions.length, 6);
   assert.throws(() => validateTeachingEvidence({ ...e, receipt: { ...e.receipt, historyRevisions: [] } }, s, wire, accepted));
   for (const selector of [{ ...selected, stageId: 6 }, { ...selected, stageRevisions: selected.stageRevisions.slice(0, 5) },

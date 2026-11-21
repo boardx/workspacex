@@ -1239,6 +1239,16 @@ ${JSON.stringify(studentInputs)}`);
     if (!await feedback(6, reportPrompt)) fail('REPORT_NATIVE_REPLY_REQUIRED');
     const proof = report.teachingEvidence.find(item => item.entityId === 'group-report' && item.status === 'passed' && item.prompt === reportPrompt);
     if (!proof) fail('REPORT_NATIVE_REPLY_REQUIRED');
+    const expectedPrototypeRevision = Number(new URL(step6Href).searchParams.get('prototypeRevision'));
+    if (!proof.sourceEntities.some(ref => ref.stageId === 5 && ref.entityId === designId && ref.revision === expectedPrototypeRevision)) fail('REPORT_FROZEN_PROTOTYPE_LINEAGE_REQUIRED');
+    const receipt = page.getByTestId('aidt-run-context-receipt');
+    await expect(receipt).toBeVisible();
+    if (!await receipt.evaluate(element => element.open)) await receipt.locator('summary').click();
+    for (const ref of proof.sourceEntities) {
+      const params = new URLSearchParams({ step: String(ref.stageId), entity: ref.entityId, entityRevision: String(ref.revision) });
+      await expect(receipt.locator('a').filter({ hasText: '查看第 ' + ref.stageId + ' 步来源' }).and(receipt.locator('a[href="' + root + '?' + params + '"]'))).toBeVisible();
+    }
+    await shot('07-frozen-source-receipt', 6);
     const actions = page.getByTestId('aidt-report-chat-actions');
     await click(btn('采用报告草稿', actions));
     await saveReport();

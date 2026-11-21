@@ -419,7 +419,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       if (method === 'GET' && (target.pathname === publicLink || target.pathname === '/api/public' + publicLink
         || target.pathname.startsWith('/_next/static/') || target.pathname === '/favicon.ico')) return { allow: true, kind: 'read' };
       if (method === 'POST' && target.pathname === '/api/public' + publicLink + '/responses'
-        && allowedWrites < WRITE_LIMIT && Buffer.byteLength(JSON.stringify(body ?? null), 'utf8') <= MAX_BODY) {
+        && allowedWrites - reconcileCount < WRITE_LIMIT && Buffer.byteLength(JSON.stringify(body ?? null), 'utf8') <= MAX_BODY) {
         const decision = survey.decide(method, target, body, projectId, 'survey-participant');
         if (decision?.allow) { allowedWrites++; return decision; }
       }
