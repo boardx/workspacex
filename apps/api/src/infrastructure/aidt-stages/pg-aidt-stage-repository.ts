@@ -6,6 +6,10 @@ import type { DatabasePort, TenantSession } from "../../application/ports/databa
 import type { AidtStageRepository, StageActor, StageTransaction } from "../../application/aidt-stages/ports";
 import { guard } from "../../application/security/permission-filter";
 import { PgIdentityRepository } from "../identity/pg-identity-repository";
+import { PgChatRepository } from "../chat/pg-chat-repository";
+import { PgProjectResourceRepository } from "../project/pg-project-resource-repository";
+import { PgProvenanceRepository } from "../provenance/pg-provenance-repository";
+import { AidtStageError } from "../../domain/aidt-stages/errors";
 import type { OrgId } from "../../domain/org-id";
 function boundDatabase(session:TenantSession,orgId:OrgId):DatabasePort { return {
   async withTenant<T>(requested:OrgId,fn:(s:TenantSession)=>Promise<T>):Promise<T> {if(requested!==orgId) throw new Error("tenant mismatch");return fn(session);},
@@ -28,7 +32,26 @@ export class PgAidtStageRepository implements AidtStageRepository {
       // This is only a lock; IdentityRepository remains the sole role interpretation.
       await s.query(`SELECT user_id FROM general_project_members WHERE org_id=$1 AND project_id=$2 AND user_id=$3 FOR SHARE`,[actor.orgId,actor.projectId,actor.userId]);
       const ref={kind:"project" as const,id:actor.projectId};
-      return fn({identity:new PgIdentityRepository(boundDatabase(s,actor.orgId)),
+      const db = boundDatabase(s, actor.orgId);
+      return fn({identity:new PgIdentityRepository(db),
+        projectResources: () => new PgProjectResourceRepository(db).listProjectResources(actor.orgId, actor.projectId),
+        async ensureEntityThread(threadId, title) {
+          // The project row lock above serializes this lookup, insert and audit.
+          const chat = new PgChatRepository(db);
+          const existing = await chat.findThreadFacts(actor.orgId, threadId);
+          if (existing) {
+            if (existing.projectId !== actor.projectId || existing.groupId !== null || existing.visibilityScope !== "plenary") {
+              throw new AidtStageError("AIDT_STAGE_NOT_FOUND");
+            }
+            if (existing.archived) throw new AidtStageError("AIDT_STAGE_READONLY");
+            return guard(ref, { threadId });
+          }
+          await chat.createThread({ orgId: actor.orgId, threadId, projectId: actor.projectId,
+            groupId: null, visibilityScope: "plenary", title, titleSource: "user", createdBy: actor.userId });
+          await new PgProvenanceRepository(db).append({ orgId: actor.orgId, type: "thread-created",
+            actorId: actor.userId, target: { kind: "thread", id: threadId }, detail: { projectId: actor.projectId, title } });
+          return guard(ref, { threadId });
+        },
         project:project?{status:project.status,orgStatus:project.org_status,aidt:project.kind==="general"&&project.aidt}:null,
         async revision(stageId,revision) {const r=await s.query<Row>(`SELECT * FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 AND stage_id=$3 AND revision=$4`,[actor.orgId,actor.projectId,stageId,revision]);return guard(ref,r.rows[0]?stage(r.rows[0]):null);},
         async current(stageId) {const r=await s.query<Row>(`SELECT * FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 AND stage_id=$3 ORDER BY revision DESC LIMIT 1`,[actor.orgId,actor.projectId,stageId]);return guard(ref,r.rows[0]?stage(r.rows[0]):null);},

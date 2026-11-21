@@ -10,6 +10,21 @@ function parse<T>(schema:{safeParse(v:unknown):{success:true;data:T}|{success:fa
 @Controller()
 export class AidtStagesController {
   constructor(@Inject(AIDT_STAGES_SERVICE) private readonly service:AidtStagesService) {}
+  @Put(C.entityThread.path)
+  entityThread(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string,
+    @Param("stageId") stageId: string, @Param("entityId") entityId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const purpose = typeof body === "object" && body !== null && "purpose" in body ? body.purpose : undefined;
+    const input = parse(C.entityThread.in, { projectId, stageId: Number(stageId), entityId, purpose });
+    return respond(() => this.service.entityThread({ ...principal, projectId }, input));
+  }
+  @Get(C.revision.path)
+  revision(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string,
+    @Param("stageId") stageId: string, @Param("revision") revision: string) {
+    assertPrincipal(principal);
+    const input = parse(C.revision.in, { projectId, stageId: Number(stageId), revision: Number(revision) });
+    return respond(() => this.service.getRevision({ ...principal, projectId }, input.stageId, input.revision));
+  }
   @Get(C.list.path) list(@CurrentPrincipal() p:Principal,@Param("projectId") projectId:string) {assertPrincipal(p);parse(C.list.in,{projectId});return respond(()=>this.service.list({...p,projectId}));}
   @Get(C.history.path) history(@CurrentPrincipal() p:Principal,@Param("projectId") projectId:string,@Param("stageId") rawStage:string,@Query("beforeRevision") before?:string,@Query("limit") limit?:string) {assertPrincipal(p);const v=parse(C.history.in,{projectId,stageId:Number(rawStage),beforeRevision:before===undefined?undefined:Number(before),limit:limit===undefined?undefined:Number(limit)});return respond(()=>this.service.history({...p,projectId},v.stageId,v.beforeRevision,v.limit));}
   @Get(C.get.path) get(@CurrentPrincipal() p:Principal,@Param("projectId") projectId:string,@Param("stageId") rawStage:string) {assertPrincipal(p);const v=parse(C.get.in,{projectId,stageId:Number(rawStage)});return respond(()=>this.service.get({...p,projectId},v.stageId));}
