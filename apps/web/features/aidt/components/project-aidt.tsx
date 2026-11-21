@@ -338,7 +338,9 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     matchesServer: shared.matchesServer,
     nextHref: aidtHref(projectId, 5) + (shared.stages[4] ? "&ideaRevision=" + shared.stages[4].revision : ""),
   };
-  if (!activeEntityId && search.get("history") !== "1") {
+  // Existing first-party report links select the shared report directly, without an entity.
+  const legacyReportEntry = step.id === 6 && tool === "report" && search.get("summary") !== "1";
+  if (!activeEntityId && search.get("history") !== "1" && !legacyReportEntry) {
     const draft = currentUi.drafts[step.id]!;
     const update = (mutate: (old: AidtUiStageDraft) => AidtUiStageDraft) => updateStage(step.id, mutate);
     const hasSummary = step.id === 6 && search.get("summary") === "1";

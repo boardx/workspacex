@@ -46,6 +46,69 @@ describe("native AIDT project workspace", () => {
       vi.unstubAllEnvs();
     }
   });
+  it.each([true, false])("opens the first-party legacy report link with its saved manuscript (canWrite=%s)", async canWrite => {
+    const stages = await import("@/features/aidt/lib/live-aidt-stages");
+    const markdown = "# 已有小组研究报告\nQA人工修订正文，不得被目录或重新整理替换。";
+    const read = vi.spyOn(stages, "readAidtStage").mockImplementation(async (_projectId, stageId) => ({ stage: stageId === 6 ? {
+      projectId: "p1", stageId: 6, revision: 4, updatedBy: "student-test", updatedAt: "2026-11-21T00:00:00.000Z", sourceStageRevisions: [],
+      content: { schemaVersion: 1, draft: { fields: {}, ideas: [], selectedIdeaId: "" }, summaryReport: { markdown, sourceStageRevisions: [] } },
+    } : null }));
+    const save = vi.spyOn(stages, "saveAidtStage");
+    try {
+      mocks.search = "step=6&tool=report";
+      render(<ProjectAidt projectId="p1" sub="aidt-6" canWrite={canWrite} />);
+      const editor = await screen.findByLabelText("小组报告草稿");
+      await waitFor(() => expect(editor).toHaveValue(markdown));
+      expect(screen.getByTestId("aidt-report-save-state")).toHaveTextContent("小组报告已保存 · 待确认");
+      expect(screen.queryByTestId("aidt-step-entity-directory")).toBeNull();
+      if (canWrite) {
+        expect(editor).toBeEnabled();
+        expect(mocks.chat).toHaveBeenLastCalledWith(expect.objectContaining({ projectId: "p1", step: expect.objectContaining({ id: 6 }), purpose: undefined }));
+      } else {
+        expect(editor).toBeDisabled();
+        expect(screen.getByTestId("aidt-report-save")).toBeDisabled();
+        expect(mocks.chat).not.toHaveBeenCalled();
+      }
+      fireEvent.click(screen.getByRole("button", { name: "阅读预览" }));
+      expect(screen.getByRole("article", { name: "小组报告阅读预览" })).toHaveTextContent("QA人工修订正文");
+      expect(save).not.toHaveBeenCalled();
+    } finally { read.mockRestore(); save.mockRestore(); }
+  });
+  it("follows the existing visible preview-report link into the report instead of the test directory", async () => {
+    const stages = await import("@/features/aidt/lib/live-aidt-stages");
+    const read = vi.spyOn(stages, "readAidtStage").mockResolvedValue({ stage: null });
+    const original = window.location.href;
+    try {
+      mocks.search = "step=6&tool=outcome&history=1";
+      window.history.replaceState(null, "", `/aidt/p1?${mocks.search}`);
+      const view = render(<ProjectAidt projectId="p1" sub="aidt-6" canWrite />);
+      const link = await screen.findByRole("link", { name: "预览小组报告" });
+      expect(link).toHaveAttribute("href", "/aidt/p1?step=6&tool=report");
+      fireEvent.click(link);
+      expect(window.location.pathname + window.location.search).toBe("/aidt/p1?step=6&tool=report");
+      mocks.search = window.location.search.slice(1);
+      view.rerender(<ProjectAidt projectId="p1" sub="aidt-6" canWrite />);
+      expect(await screen.findByTestId("aidt-report-preview")).toBeVisible();
+      expect(screen.getByLabelText("小组报告草稿")).toBeEnabled();
+      expect(screen.queryByTestId("aidt-step-entity-directory")).toBeNull();
+    } finally { read.mockRestore(); window.history.replaceState(null, "", original); }
+  });
+  it.each([
+    [1, "step=1&tool=outcome"], [1, "step=1&tool=chat"],
+    [2, "step=2"], [3, "step=3"], [4, "step=4"], [5, "step=5"],
+    [6, "step=6"], [6, "step=6&tool=outcome"], [6, "step=6&summary=1"], [6, "step=6&summary=1&tool=report"],
+  ])("retains the intended entity directory for stage %s query %s", async (stageId, query) => {
+    const stages = await import("@/features/aidt/lib/live-aidt-stages");
+    const read = vi.spyOn(stages, "readAidtStage").mockResolvedValue({ stage: null });
+    try {
+      mocks.search = String(query);
+      render(<ProjectAidt projectId="p1" sub={`aidt-${stageId}`} canWrite />);
+      expect(await screen.findByTestId("aidt-step-entity-directory")).toBeVisible();
+      expect(screen.queryByTestId("aidt-report-preview")).toBeNull();
+      expect(screen.queryByTestId("native-chat")).toBeNull();
+      if (String(query).includes("summary=1")) expect(await screen.findByRole("link", { name: "打开小组研究报告" })).toHaveAttribute("href", "/aidt/p1?step=6&summary=1&entity=group-report");
+    } finally { read.mockRestore(); }
+  });
   it("passes the actual project, step and current thread into canonical Chat v2", async () => {
     mocks.search = "thread=t1&history=1";
     render(<ProjectAidt projectId="p1" sub="aidt-3" canWrite />);
