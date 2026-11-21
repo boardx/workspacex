@@ -135,6 +135,8 @@ const nameKey = (id: string) => "definitionCardName:" + id;
 function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...props }: DirectoryProps) {
   const { draft, update, readOnly } = props;
   const evidence = useDefinitionEvidence(props);
+  const interviewIds = new Set(readAidtInterviews(evidence.sourceFields).map(interview => interview.id));
+  const interviewCards = evidence.cards.filter(card => interviewIds.has(card.id));
   const { personas, hmws, surprises, invalid } = readAidtDefinition(draft.fields);
   const [editing, setEditing] = React.useState<{ id: string; name: string } | null>(null);
   const [creating, setCreating] = React.useState<{ kind: "persona" | "hmw"; cardIds: string[]; revision?: number } | null>(null);
@@ -203,11 +205,11 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...p
           event.preventDefault();
           if (!canAdd || creating.revision !== evidence.revision || (creating.cardIds.length && !evidence.revision)) return;
           const id = crypto.randomUUID();
-          const source = evidence.revision ? { revision: evidence.revision, cardIds: creating.cardIds, available: new Set(evidence.cards.map(card => card.id)) } : undefined;
+          const source = evidence.revision ? { revision: evidence.revision, cardIds: creating.cardIds, available: new Set(interviewCards.map(card => card.id)) } : undefined;
           save(old => addAidtDefinitionEntity(old, creating.kind, id, source));
           setCreating(null);
         }}>
-          <DefinitionEvidence projectId={props.projectId} {...evidence} selected={creating.cardIds} disabled={!canAdd} onChange={cardIds => setCreating({ ...creating, cardIds })} groupByInterview />
+          <DefinitionEvidence projectId={props.projectId} {...evidence} cards={interviewCards} selected={creating.cardIds} disabled={!canAdd} onChange={cardIds => setCreating({ ...creating, cardIds })} groupByInterview />
           {creating.revision !== evidence.revision && <p role="status" className="text-13">访谈版本已更新，请重新打开并选择。</p>}
           <Button type="submit" disabled={!canAdd || creating.revision !== evidence.revision}>创建{creating.kind === "persona" ? "画像" : "HMW"}</Button>
         </form>
