@@ -7,6 +7,8 @@ import { AIDT_OUTPUTS, aidtUiStageMarkdown, type AidtUiStageDraft, type AidtIdea
 import { aidtHref, type AidtStep } from "@/features/aidt/lib/project-aidt";
 import { printResearchPdf, preparePrintImages } from "@/lib/research-report-export";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
+import { AidtTestGroups } from "./aidt-test-groups";
+import type { AidtReadPrototypeEntity } from "./aidt-test-prototype-source";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
 import { AidtStageFields } from "@/features/aidt/components/aidt-stage-fields";
 import { aidtIdeaSentenceCount, aidtIdeaReadiness, aidtCompleteIdeas } from "@/features/aidt/lib/aidt-idea-readiness";
@@ -34,14 +36,14 @@ export function printAidtUiText(text: string, options?: Parameters<typeof printR
   return printResearchPdf(root, "AIDT 小组草稿", options);
 }
 
-export function AidtStageOutput({ projectId, thread = null, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision }: {
+export function AidtStageOutput({ projectId, thread = null, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision, activeTestEntityId, readTestPrototypeEntity }: {
   projectId: string; step: AidtStep; draft: AidtUiStageDraft;
   thread?: string | null;
   update: (mutate: (previous: AidtUiStageDraft) => AidtUiStageDraft) => void;
   readOnly: boolean; toolHref: (tool: string) => string;
   toChat?: (text: string) => ComposerOfferResult;
   availableCards?: readonly AidtDiscoveryCardDraft[]; availableCardsRevision?: number;
-  previousPrototype?: AidtUiStageDraft; previousPrototypeRevision?: number;
+  previousPrototype?: AidtUiStageDraft; previousPrototypeRevision?: number; activeTestEntityId?: string; readTestPrototypeEntity?: AidtReadPrototypeEntity;
 }) {
   const output = AIDT_OUTPUTS[step.id]!;
   const [status, setStatus] = React.useState("");
@@ -119,6 +121,9 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
       setStatus("已请求打开打印预览，可选择另存为PDF；请分别保存各份描述单，不会因此保存到小组。");
     } catch { setStatus("描述单打印未能启动或图片尚不可用，文字与选择仍保留。请重试读取图片后再导出。"); }
     finally { setPrinting(false); }
+  }
+  if (step.id === 6 && activeTestEntityId) {
+    return <AidtTestGroups projectId={projectId} draft={draft} activeEntityId={activeTestEntityId} readPrototypeEntity={readTestPrototypeEntity} readOnly={readOnly} update={update} />;
   }
   return <section className="space-y-4" data-testid="aidt-stage-output">
     <div><h3 className="text-20 font-semibold tracking-tight">{output.title}</h3></div>
