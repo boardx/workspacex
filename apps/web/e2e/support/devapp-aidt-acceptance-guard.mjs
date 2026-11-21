@@ -411,6 +411,20 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       survey.arm();
     },
     surveyReceipt: survey.receipt,
+    decideSurveyParticipant({ url, method, body }) {
+      if (fatal) return { allow: false, kind: 'stopped', code: fatal };
+      const target = new URL(url), publicLink = survey.publicLink();
+      if (target.origin !== ORIGIN || target.username || target.password || target.hash
+        || target.search || /%2e|%2f|%5c|\\/i.test(url.split('?')[0]) || !publicLink) return { allow: false };
+      if (method === 'GET' && (target.pathname === publicLink || target.pathname === '/api/public' + publicLink
+        || target.pathname.startsWith('/_next/static/') || target.pathname === '/favicon.ico')) return { allow: true, kind: 'read' };
+      if (method === 'POST' && target.pathname === '/api/public' + publicLink + '/responses'
+        && allowedWrites < WRITE_LIMIT && Buffer.byteLength(JSON.stringify(body ?? null), 'utf8') <= MAX_BODY) {
+        const decision = survey.decide(method, target, body, projectId, 'survey-participant');
+        if (decision?.allow) { allowedWrites++; return decision; }
+      }
+      return { allow: false };
+    },
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },
     armDesignGeneration: () => { if (!designId || modelCount) throw new ProbeFailure('DESIGN_GENERATION_ARM_REJECTED'); modelArm = now() + 15000; },
     armDesignImage: ({ id, fileName, bytes }) => {

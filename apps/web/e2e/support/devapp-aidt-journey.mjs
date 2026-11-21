@@ -353,7 +353,7 @@ export function assertSavedCardCreation(before, after, target, kind) {
 
 export async function runAidtJourney({ page, expect, scope, checkpoint, capture, api,
   saveStage, armCardCreate, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
-  armSurvey, surveyReceipt, armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, savePrint, teachingFeedback, reviewS1StudentResponse }) {
+  armSurvey, surveyReceipt, armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, createSurveyParticipant, savePrint, teachingFeedback, reviewS1StudentResponse }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
   const root = `/aidt/${encodeURIComponent(scope.projectId)}`;
   const origin = new URL(page.url()).origin;
@@ -1137,6 +1137,7 @@ ${JSON.stringify(studentInputs)}`);
 
   state.s6 = await check('s6-test-reflection', 6, async () => {
     if (!state.s5 || !step6Href) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
+    let interviewTarget;
     for (const [method, label] of [['interview', '线下访谈'], ['survey', '问卷']]) {
       await page.goto(owned(step6Href)); await click(page.getByTestId('aidt-new-entity-card'));
       const dialog = page.getByRole('dialog', { name: '新建测试卡片' });
@@ -1166,7 +1167,7 @@ ${JSON.stringify(studentInputs)}`);
       const survey = surveyFixture(scope.runId);
       if (method === 'survey') {
         armSurvey(testTarget.entityId);
-        await collectNativeSurvey({ page, expect, actions, saveSource, fixture: survey, receipt: surveyReceipt });
+        await collectNativeSurvey({ page, expect, actions, saveSource, fixture: survey, receipt: surveyReceipt, createSurveyParticipant });
       } else await saveSource(() => uploaded('本组原始材料', `qa-${unique}-${method}.txt`, Buffer.from(syntheticTestRecord), 'text/plain'));
       const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的${method === 'survey' ? '原生问卷答卷，自报原话为「' + survey.answer + '」' : '线下访谈合成材料第1段'}，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
       if (!await feedback(6, prompt)) fail('TEST_TEACHING_REPLY_REQUIRED');
@@ -1179,7 +1180,7 @@ ${JSON.stringify(studentInputs)}`);
       if (testRecord.method !== method || testRecord.designId !== designId || !testRecord.versionId || !proof || testRecord.confirmedFromMessageId !== proof.assistantMessageId || !testRecord.task?.trim() || !testRecord.reflection?.trim() ||
           fields.reflectionConfirmed !== 'true' || fields.understandingChangeStatus !== 'insufficient' || fields.returnStep !== '2') fail('TEST_NATIVE_ROUND_UNVERIFIED');
       if (method === 'survey') {
-        if (testRecord.source?.kind !== 'survey' || testRecord.source.id !== surveyReceipt().id || testRecord.surveyResponseId !== surveyReceipt().responseId) fail('NATIVE_SURVEY_RESPONSE_REQUIRED');
+        if (testRecord.did || testRecord.source?.kind !== 'survey' || testRecord.source.id !== surveyReceipt().id || testRecord.surveyResponseId !== surveyReceipt().responseId) fail('NATIVE_SURVEY_RESPONSE_REQUIRED');
         await disclosure('原型版本与来源');
         await expect(detail.getByRole('link', { name: '查看原生答卷' })).toHaveAttribute('href', new RegExp('/studio/survey/' + testRecord.source.id + '/responses'));
         await expect(detail.getByText('已定位答卷 ' + testRecord.surveyResponseId, { exact: true })).toBeVisible();
@@ -1188,6 +1189,7 @@ ${JSON.stringify(studentInputs)}`);
         await shot('06-survey-real-response', 6);
       }
       if (method === 'interview') {
+        interviewTarget = testTarget;
         await disclosure('原型版本与来源');
         await expect(detail.getByTestId('aidt-research-original-text')).toContainText(syntheticTestRecord);
         await shot('06-interview-reloaded-original', 6);
@@ -1200,6 +1202,14 @@ ${JSON.stringify(studentInputs)}`);
     const tested = evidence(6).outputs.filter(item => item.designId === designId);
     if (tested.length !== 2 || tested[0].entityId === tested[1].entityId || tested[0].threadId === tested[1].threadId || tested[0].versionId !== tested[1].versionId) fail('TEST_GROUP_ISOLATION_UNVERIFIED');
     await shot('06-reflection-insufficient-return-empathy', 6); await completed(6); await page.goto(owned(step6Href));
+    if (!interviewTarget) fail('TEST_GROUP_ISOLATION_UNVERIFIED');
+    await output(interviewTarget);
+    const interviewOutput = page.getByTestId('aidt-test-group-detail');
+    await disclosure('原型版本与来源');
+    await expect(interviewOutput.getByRole('link', { name: '查看原生答卷' })).toHaveCount(0);
+    await expect(interviewOutput).not.toContainText(surveyReceipt().responseId);
+    await expect(interviewOutput).not.toContainText(surveyFixture(scope.runId).answer);
+    report.nativeSurveyRoundtrip = { ...surveyReceipt(), participantBrowserIndependent: true, siblingIsolation: true, screenshot: '06-survey-real-response.png' };
     report.insufficientEvidenceAndReturnWithoutNewPrototypeVerified = true;
   }, '06-reflection');
 

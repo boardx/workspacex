@@ -11,7 +11,8 @@ const questions = titles.map((title, i) => ({id: 'meeting-feedback-q' + (i + 1),
 const draft = { title: fixture.title, tags: [], template: { id:'meeting-feedback-report' }, questions };
 const created = {id,title:fixture.title,status:'draft',responses:[],publication:null,version:1};
 const link = {kind:'survey',resourceId:id,projectId:project};
-const req = (g, path, body, method = 'POST') => g.decide(method, new URL(path,'https://devapp.boardx.us'),body,project);
+const req = (g, path, body, method = 'POST', audience) => g.decide(method, new URL(path,'https://devapp.boardx.us'),body,project,audience);
+const respondent = (g, path, body) => req(g, path, body, 'POST', 'survey-participant');
 function published() {
   const g = survey(run); g.arm();
   g.observe(req(g, '/api/surveys', draft).kind, 201, created);
@@ -25,9 +26,12 @@ test('ordinary UI publication admits exactly one synthetic response and can clos
   assert.equal(req(g, '/surveys/' + token, undefined, 'GET').allow,true);
   assert.equal(req(g, '/api/public/surveys/unknown/responses', submit),undefined);
   const path = '/api/public/surveys/' + token + '/responses';
-  g.observe(req(g,path,submit).kind,201,{responseId:'owned-response',replayed:false});
+  assert.throws(() => req(g,path,submit), /NATIVE_SURVEY/);
+  assert.throws(() => respondent(g,'/api/public/surveys/unknown/responses',submit), /NATIVE_SURVEY/);
+  assert.throws(() => respondent(g,'/api/surveys/' + id + '/close',{expectedVersion:2}), /NATIVE_SURVEY/);
+  g.observe(respondent(g,path,submit).kind,201,{responseId:'owned-response',replayed:false});
   assert.deepEqual(g.receipt(),{id,responseId:'owned-response'});
-  assert.throws(()=>req(g,path,submit),/NATIVE_SURVEY/);
+  assert.throws(()=>respondent(g,path,submit),/NATIVE_SURVEY/);
   g.observe(req(g,'/api/surveys/' + id + '/close',{expectedVersion:2}).kind,200,{id,publication:{status:'closed'}});
   assert.equal(req(g, '/surveys/' + token, undefined, 'GET'),undefined);
 });
@@ -41,7 +45,7 @@ test('foreign survey, template, publication version, participant content, and un
   assert.throws(()=>req(g,'/api/projects/' + project + '/resources',{...link,resourceId:'foreign'}),/NATIVE_SURVEY/);
   assert.throws(()=>req(g,'/api/surveys/' + id + '/publish',{expectedVersion:1}),/NATIVE_SURVEY/);
   const active=published(), path='/api/public/surveys/' + token + '/responses';
-  assert.throws(()=>req(active,path,{...submit,answers:[...submit.answers.slice(0,-1),{questionId:questions[7].id,value:'unrelated data'}]}),/NATIVE_SURVEY/);
+  assert.throws(()=>respondent(active,path,{...submit,answers:[...submit.answers.slice(0,-1),{questionId:questions[7].id,value:'unrelated data'}]}),/NATIVE_SURVEY/);
   assert.equal(req(active,'/api/surveys/not-owned',undefined,'GET'),undefined);
   assert.equal(req(active,'/api/surveys',undefined,'GET'),undefined);
 });
