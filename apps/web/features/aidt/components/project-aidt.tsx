@@ -533,12 +533,15 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
           <AidtAssistantPanel open fullPage onClose={() => undefined}>
             {canWrite ? <div className="min-h-0 flex-1" data-testid="aidt-native-chat">
               <ChatHostConversationContext.Provider value={isEntityReport && activeEntityId ? {
-                render: (messages, loading, running) => <AidtReportConversation key={threadResolutionScope} messages={messages} loading={loading} running={running}
-                  projectId={projectId} entityId={activeEntityId} threadId={checkpointThread} text={reportText} onChange={changeReport}
-                  shared={shared.report} historyScope={reportHistoryScope} readOnly={!canWrite} onDraftReady={markdown => {
-                    setReportProposal({ scope: threadResolutionScope, markdown });
-                    setWorkspaceToolsOpen(true);
-                  }} />,
+                render: (messages, loading, running) => <>
+                  <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
+                  <AidtReportConversation key={activeEntityId} messages={messages} loading={loading} running={running}
+                    projectId={projectId} entityId={activeEntityId} threadId={checkpointThread} text={reportText} onChange={changeReport}
+                    shared={shared.report} historyScope={reportHistoryScope} readOnly={!canWrite} onDraftReady={markdown => {
+                      setReportProposal({ scope: threadResolutionScope, markdown });
+                      setWorkspaceToolsOpen(true);
+                    }} />
+                </>,
               } : step.id === 3 && activeEntityId ? {
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />

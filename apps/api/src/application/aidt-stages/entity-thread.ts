@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { AIDT_ENTITY_THREAD_PREFIX, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { readAidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
 import type { StageActor } from "./ports";
 
 export function aidtEntityThreadId(actor: StageActor, stageId: number, entityId: string, purpose: "stage" | "report") {
@@ -104,8 +105,14 @@ export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string
       return { entityId, fields: read("prototypeEntity:", [
         "verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits", "designBrief", "version",
       ]) };
-    case 6:
-      return { entityId, fields: read("testGroup:", ["name", "task", "situation", "method", "reflection", "interpretation", "decision", "decisionReason"]) };
+    case 6: {
+      const group = readObject(fields["testGroup:" + entityId]);
+      const question = readAidtQuestionSnapshot(stage.content.draft);
+      const matched = question && group?.stage5Revision === question.sourceStageRevision
+        && group.designId === question.prototypeDesignId && group.versionId === question.prototypeVersionId;
+      return { entityId, fields: list(group, ["name", "task", "situation", "method", "reflection", "interpretation", "decision", "decisionReason"]),
+        question: matched ? question : undefined };
+    }
     default:
       return { entityId };
   }
