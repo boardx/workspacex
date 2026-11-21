@@ -141,7 +141,7 @@ export async function main() {
     classroomValidated: false, realModelVerified: false, crossUserIsolationVerified: false,
     controlSource: null, deployedRuntime: null, deploymentLockHeld: false, runtimeRechecks: 0,
     checkpoints: [], screenshots: [], scope: 'writes and screenshots: new owned QA project only',
-    authorizedMetadataReads: 'Native clients also read the QA-authorized identity, course/project/Skill catalogs and Design list in memory. No raw lists or unrelated projects are exported.',
+    authorizedMetadataReads: 'Native clients also read the QA-authorized identity, course/project/Skill/Agent catalogs and Design list in memory. Closed read-category counters count guard decisions; bounded metadata HTTP statuses come only from observed responses. No raw lists, URLs, queries, headers, bodies or unrelated projects are exported.',
     designRequestLimit: 'At most one normal UI Design chat request; default page count is decided by the existing service, not capped to one page.' };
   let browser, context, page, output, identity, guard, credentials, provisionedIdentity, timer, stage = 'preflight';
   const sensitiveEvidence = sensitiveEvidenceGuard();

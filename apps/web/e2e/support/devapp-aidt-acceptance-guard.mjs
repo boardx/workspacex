@@ -77,8 +77,12 @@ export function createAcceptanceGuard(identity, now = Date.now) {
   let teachingRequests = 0, suggestionsBlocked = 0, teachingStopped = false;
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
   let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null, modelRequestedScreens = null;
+  const readCategories = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
+  const readDenials = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
+  const metadataHttpStatuses = [];
+  let metadataHttpStatusesTruncated = false;
   const stop = code => { fatal ??= code; return { allow: false, kind: 'rejected', code }; };
-  function decide({ url, method, resourceType, body }) {
+  function decideRequest({ url, method, resourceType, body }) {
     if (fatal) return { allow: false, kind: 'stopped', code: fatal };
     if (/%2f|%5c|%2e|\\/i.test(url.split('?')[0])) return stop('TARGET_REJECTED');
     let target;
@@ -97,6 +101,13 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     if (identity.entryDiagnosticOnly && method !== 'GET') return stop('ENTRY_DIAGNOSTIC_READONLY');
     if (method === 'POST' && (path === '/api/copilotkit/agent/default/suggest' || path === '/api/copilotkit/agent/default/run' && body?.forwardedProps?.toolChoice?.function?.name === 'copilotkitSuggest')) { suggestionsBlocked++; return { allow: false, kind: 'optional-suggestion-blocked', code: 'OPTIONAL_SUGGESTION_NOT_EXERCISED' }; }
     if (method === 'GET') {
+      // Native AgentOptions reads only this organization's agent catalog. This
+      // does not authorize capability mutations or requests before QA ownership.
+      if (path === '/api/capabilities' && ordinaryVerified && projectId
+        && [...target.searchParams.keys()].sort().join(',') === 'kind,orgId'
+        && target.searchParams.get('orgId') === org && target.searchParams.get('kind') === 'agent') {
+        return { allow: true, kind: 'native-agent-catalog' };
+      }
       const publicPage = path === '/login' || path === '/aidt' || path === '/favicon.ico' || path.startsWith('/_next/static/') || approvedHomeImage(target);
       const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/copilotkit/info' && !target.search) || (path === '/api/projects' && target.searchParams.get('orgId') === org) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
       const ownedRead = (projectId || candidate) && (path === `/aidt/${projectId ?? candidate}` || path.startsWith(`/api/projects/${projectId ?? candidate}/`));
@@ -194,7 +205,21 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     }
     return stop('MUTATION_OUT_OF_SCOPE');
   }
+  function decide(request) {
+    const decision = decideRequest(request);
+    if (request.method === 'GET') {
+      let path; try { path = new URL(request.url).pathname; } catch { /* Classify invalid targets without retaining request data. */ }
+      const category = path === '/api/capabilities' ? 'nativeAgentCatalog' : ['/api/copilotkit', '/api/copilotkit/info'].includes(path) ? 'runtimeMetadata' : 'other';
+      (decision.allow ? readCategories : readDenials)[category]++;
+      return { ...decision, readCategory: category };
+    }
+    return decision;
+  }
   function observe(decision, status, response) {
+    if (decision.allow && ['nativeAgentCatalog', 'runtimeMetadata'].includes(decision.readCategory) && Number.isInteger(status) && status >= 100 && status <= 599) {
+      if (metadataHttpStatuses.length < 128) metadataHttpStatuses.push({ category: decision.readCategory, status });
+      else metadataHttpStatusesTruncated = true;
+    }
     if (status >= 300 && status < 400) throw new ProbeFailure('REDIRECT_REJECTED');
     if (decision.kind === 'login') {
       if (status !== 200 || !validLoginBody(response)) throw new ProbeFailure('AUTHENTICATION_FAILED');
@@ -295,7 +320,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       projectId = candidate;
     },
     identity: () => ({ actor, org, candidate, projectId, ordinaryVerified }),
-    summary: () => ({ ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: 6, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
+    summary: () => ({ readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: 6, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
   };
 }
 

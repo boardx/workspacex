@@ -26,6 +26,62 @@ export function hasExactSavedInput(value, expected, depth = 0) {
   return Boolean(value && typeof value === 'object' && Object.values(value).some(item => hasExactSavedInput(item, expected, depth + 1)));
 }
 
+// Capture the destination before Next Link starts navigating. A matching pathname alone
+// cannot distinguish the directory from an entity because both share that pathname.
+export function ownedAidtProblemRoute(href, { origin, projectId }) {
+  let url;
+  try { url = new URL(href, origin); } catch { fail('S1_ENTITY_ROUTE_INVALID'); }
+  if (typeof href !== 'string' || !href || url.origin !== origin || url.username || url.password
+    || url.pathname !== `/aidt/${encodeURIComponent(projectId)}` || url.hash
+    || url.searchParams.getAll('step').length !== 1 || url.searchParams.get('step') !== '1'
+    || url.searchParams.getAll('entity').length !== 1
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(url.searchParams.get('entity') ?? '')
+    || url.searchParams.has('history') || url.searchParams.has('summary')) fail('S1_ENTITY_ROUTE_INVALID');
+  return Object.freeze({ href: url.href, origin, projectId, entityId: url.searchParams.get('entity') });
+}
+
+export function matchesAidtProblemRoute(href, route, outcome = false) {
+  try {
+    const actual = ownedAidtProblemRoute(href, route);
+    const url = new URL(actual.href);
+    return actual.entityId === route.entityId && (!outcome
+      || (url.searchParams.getAll('tool').length === 1 && url.searchParams.get('tool') === 'outcome'));
+  } catch { return false; }
+}
+
+export async function openAidtProblemOutcome({ page, route, link, scope, waitForRoute, assertReady }) {
+  // Reentry receives the original captured target, never the possibly stale current URL.
+  const target = ownedAidtProblemRoute(link ? await link.getAttribute('href') : route?.href, scope);
+  if (route && target.entityId !== route.entityId) fail('S1_ENTITY_ROUTE_CHANGED');
+  if (link) {
+    await link.click();
+    await waitForRoute(() => matchesAidtProblemRoute(page.url(), target));
+    if (!matchesAidtProblemRoute(page.url(), target)) fail('S1_ENTITY_NAVIGATION_UNVERIFIED');
+  }
+  const outcome = new URL(target.href); outcome.searchParams.set('tool', 'outcome');
+  await page.goto(outcome.href, { waitUntil: 'domcontentloaded' });
+  await waitForRoute(() => matchesAidtProblemRoute(page.url(), target, true));
+  if (!matchesAidtProblemRoute(page.url(), target, true)) fail('S1_OUTCOME_NAVIGATION_UNVERIFIED');
+  // Must observe the actual entity input; the directory also has aidt-shared-save.
+  await assertReady();
+  return target;
+}
+
+export function assertSavedAidtProblemInput(stage, entityId, expected) {
+  const fields = stage?.content?.draft?.fields;
+  let entry, draft;
+  try { entry = JSON.parse(fields?.[`problemEntity:${entityId}`]); draft = JSON.parse(fields?.[`problemDraft:${entityId}`]); } catch { fail('S1_SAVED_INITIAL_UNVERIFIED'); }
+  if (!Number.isInteger(stage?.revision) || stage.revision < 1 || !expected || entry?.id !== entityId
+    || entry.archived !== false || draft?.initial !== expected) fail('S1_SAVED_INITIAL_UNVERIFIED');
+  return true;
+}
+
+export async function requireAcceptedS1Feedback(feedback) {
+  // The native Chat callback already records its own precise checkpoint outcome.
+  // Keep that record, require literal acceptance, and never retry or confirm on failure.
+  if (await feedback() !== true) fail('S1_TEACHING_FEEDBACK_REQUIRED');
+}
+
 
 export function interviewCodePattern(code) {
   if (code === 'U01') return /^U01(?:\s|$)/;
@@ -180,7 +236,14 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     evidence(stage).outputs.push({ name: `第${stage}步已确认成果`, format: 'WorkspaceX shared stage record', status: 'pass', evidence: `saved revision V${savedRevision}; normal UI confirmation, dashboard and reload observed` });
   };
   const state = { s1: false, s2: false, s3: false, s4: false, s5: false, s6: false, interviews: [] };
-  let step2Href, step3Href, step4Href, step5Href, step6Href, problemHref, personaHref, designId;
+  let step2Href, step3Href, step4Href, step5Href, step6Href, problemHref, problemRoute, personaHref, designId;
+  let problemDraftReady = false;
+  const problemInitial = text('想了解校园午休中，赶课与闲暇两种情境如何影响饮品选择的犹豫。');
+  // Fixed enum/booleans only: no request, URL query, account or error-stack material.
+  report.s1Navigation = { operation: 'not-started', entityOutcomeObserved: false, savedInitialObserved: false, reentrySavedInitialObserved: false, teachingCheckpointAccepted: false };
+  const openProblem = async link => openAidtProblemOutcome({ page, route: problemRoute, link,
+    scope: { origin, projectId: scope.projectId }, waitForRoute: predicate => expect.poll(predicate, { timeout: 30000 }).toBe(true),
+    assertReady: async () => { await expect(page.getByTestId('aidt-field-initial')).toBeEditable(); } });
   const problemName = `QA合成选题 ${unique}`;
   const personaName = `QA合成画像 ${unique}`;
   const question = '合成情境中，学生能否从静态队列示意中理解先看等待时间再决定的顺序？';
@@ -192,20 +255,33 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   }, '00-overview');
 
   await check('s1-draft-not-complete', undefined, async () => {
+    report.s1Navigation.operation = 'create-problem';
     await go(1); await fill('问题名称', problemName); await click(btn('新建问题')); await saveStage(1);
     const link = page.getByRole('link', { name: problemName, exact: true });
-    problemHref = owned(await link.getAttribute('href')); await link.click(); await output();
+    await expect(link).toBeVisible();
+    report.s1Navigation.operation = 'open-problem-outcome';
+    problemRoute = await openProblem(link); report.s1Navigation.entityOutcomeObserved = true;
     await page.getByTestId('aidt-field-initial').fill(text('想了解校园午休时选择饮品的犹豫。'));
+    report.s1Navigation.operation = 'save-and-revise-initial';
     await saveStage(1);
-    await iterate(1, page.getByTestId('aidt-field-initial'), '原始命题', text('想了解校园午休中，赶课与闲暇两种情境如何影响饮品选择的犹豫。'));
+    await iterate(1, page.getByTestId('aidt-field-initial'), '原始命题', problemInitial);
+    assertSavedAidtProblemInput(await savedStage(1), problemRoute.entityId, problemInitial);
+    report.s1Navigation.savedInitialObserved = true;
     problemHref = page.url();
+    report.s1Navigation.operation = 'verify-draft-not-complete';
     await go(); await expect(page.getByTestId('aidt-stage-save-1')).not.toHaveAttribute('data-completed', 'true');
     await expect(page.getByTestId('aidt-stage-save-1')).toContainText('草稿');
+    problemDraftReady = true;
   }, '01-problem-draft-overview');
 
   state.s1 = await check('s1-confirmed-reentry', 1, async () => {
-    if (!problemHref) fail('S1_ENTITY_UNAVAILABLE');
-    await page.goto(owned(problemHref), { waitUntil: 'domcontentloaded' });
+    if (!problemDraftReady || !problemRoute || !problemHref) fail('S1_SAVED_DRAFT_REQUIRED');
+    report.s1Navigation.operation = 'reenter-saved-problem-outcome';
+    assertSavedAidtProblemInput(await savedStage(1), problemRoute.entityId, problemInitial);
+    await openProblem();
+    await expect(page.getByTestId('aidt-field-initial')).toHaveValue(problemInitial);
+    report.s1Navigation.reentrySavedInitialObserved = true;
+    report.s1Navigation.operation = 'confirm-problem-reflection';
     await page.getByTestId('aidt-problem-reflection-why').fill(text('练习把宽泛命题缩小成可研究的范围。'));
     await page.getByTestId('aidt-problem-source-guess').check();
     await page.getByTestId('aidt-problem-reflection-details').fill(text('仅为本次QA自拟情境，没有真实受访者或课堂证据。'));
@@ -215,18 +291,23 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     for (const [id, value] of Object.entries({ people: '合成场景中的校园学生；不代表已验证人群', scene: '校园午休的饮品选择，区分赶课与闲暇', activity: '先了解等待信息，再决定是否排队', discussion: text('本组自拟拆解：不确定犹豫来自口味、队列还是时间情境；先了解具体经过，不预设App方案。'), focus: '本轮优先研究时间情境与选择信息，其他方向保留。' })) await page.getByTestId(`aidt-field-${id}`).fill(value);
     await page.getByTestId('aidt-field-rewrittenTheme').fill(text('探索校园午休饮品选择中的情境差异，不预设解决方案。'));
     await saveStage(1);
-    await feedback(1);
+    report.s1Navigation.operation = 'native-teaching-feedback';
+    await requireAcceptedS1Feedback(() => feedback(1));
+    report.s1Navigation.teachingCheckpointAccepted = true;
     await observeInputs(1);
+    report.s1Navigation.operation = 'confirm-round-and-persist';
     await reviewAndSave(1, btn('确认本轮成果并保存'));
     // This one existing round control auto-saves; do not race it with a second CAS click.
     await expect(page.getByTestId('aidt-round-completion')).toContainText('本轮成果已确认并保存', { timeout: 30000 });
     step2Href = owned(await page.getByRole('link', { name: '继续第2步', exact: true }).getAttribute('href'));
     await shot('01-problem-confirmed', 1);
     await follow('返回产物列表');
+    report.s1Navigation.operation = 'verify-completed-overview-and-reload';
     await completed(1); await page.reload();
     await expect(page.getByTestId('aidt-stage-save-1')).toHaveAttribute('data-completed', 'true');
     await page.goto(owned(problemHref)); await expect(page.getByTestId('aidt-stage-output')).toContainText('方向已确认');
     await expect(page.getByTestId('aidt-stage-output')).toContainText('探索校园午休饮品选择中的情境差异');
+    report.s1Navigation.operation = 'completed';
   }, '01-problem-reentry');
 
   state.s2 = await check('s2-interview-handoff', 2, async () => {
