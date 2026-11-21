@@ -22,7 +22,7 @@ import { AidtIdeaDirectory } from "./aidt-idea-directory";
 import { AidtPrototypeDirectory } from "./aidt-prototype-directory";
 import { AidtTestGroupDirectory } from "./aidt-test-group-directory";
 import { listAidtConfirmedPrototypeEntities } from "../lib/aidt-prototype-handoff";
-import { readAidtInterviews } from "../lib/aidt-interviews";
+import { aidtInterviewHandoffReady, readAidtInterviews } from "../lib/aidt-interviews";
 import { readAidtDefinitionSelection } from "../lib/aidt-definition";
 import { AidtProblemDirectory } from "./aidt-problem-directory";
 import { readAidtProblemEntityDraft, updateAidtProblemEntity } from "../lib/aidt-problem-entities";
@@ -339,16 +339,20 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
           : step.id === 1 ? <><AidtProblemDirectory draft={draft} savedDraft={savedDraft} href={entityHref} update={update} readOnly={!canWrite} />{save}</>
           : step.id === 2 ? <>
               <AidtInterviewWorkspace projectId={projectId} draft={draft} update={update} readOnly={!canWrite} entityId={null}
+                problemEntityId={search.get("problemEntity") ?? undefined}
+                problemRevision={search.has("problemRevision") ? Number(search.get("problemRevision")) : undefined}
                 onCreate={() => undefined} onOpen={id => {
                   if (savedDraft && readAidtInterviews(savedDraft.fields).some(record => record.id === id)) router.push(entityHref(id));
                 }} />
               {save}
+              {savedDraft && aidtInterviewHandoffReady(savedDraft) && <Button asChild variant="outline"><Link href={aidtHref(projectId, 3)}>带入综合与定义</Link></Button>}
             </>
           : step.id === 3 ? <>
               <AidtDefinitionDirectory projectId={projectId} draft={draft} update={update} readOnly={!canWrite}
                 availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision}
                 discoveryCardFields={shared.stages[2]?.content.draft.fields} entityHref={entityHref} />
               {save}
+              {savedDraft && readAidtDefinitionSelection(savedDraft.fields) && <Button asChild variant="outline"><Link href={aidtHref(projectId, 4)}>带入创意发散</Link></Button>}
             </>
           : step.id === 4 ? <>
               <AidtIdeaDirectory draft={draft} saved={savedDraft} href={entityHref} update={update} readOnly={!canWrite} />

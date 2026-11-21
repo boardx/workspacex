@@ -73,4 +73,32 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(first);
   await page.getByRole("link", { name: /返回产物列表/ }).click();
   await expect(composer(page)).toHaveCount(0);
+
+  const versionsSaved = await page.evaluate(async ({ pathname, fields, firstId, ids }) => {
+    const endpoint = "/__fullstack_api/projects/" + pathname.split("/").pop() + "/aidt/stages/";
+    const headers = { "content-type": "application/json", authorization: "Bearer " + localStorage.getItem("wsx.sessionToken") };
+    const original = JSON.parse(fields["interviewRecord:" + firstId]!);
+    const nextFields = { ...fields, ["interviewRecord:" + firstId]: JSON.stringify({ ...original, code: "U01 最新标题" }) };
+    const next = await fetch(endpoint + "2", { method: "PUT", headers, body: JSON.stringify({
+      operationId: ids[0], expectedRevision: 1, sourceStageRevisions: [],
+      content: { schemaVersion: 1, draft: { fields: nextFields, ideas: [], selectedIdeaId: "" } },
+    }) });
+    const report = await fetch(endpoint + "6", { method: "PUT", headers, body: JSON.stringify({
+      operationId: ids[1], expectedRevision: 0, sourceStageRevisions: [],
+      content: { schemaVersion: 1, draft: { fields: {}, ideas: [], selectedIdeaId: "" },
+        summaryReport: { markdown: "# 访谈回顾", sourceStageRevisions: [{ stageId: 2, revision: 1 }], confirmedAtRevision: 1 } },
+    }) });
+    return [next.status, report.status];
+  }, { pathname, fields, firstId: ids[0]!, ids: [randomUUID(), randomUUID()] });
+  expect(versionsSaved).toEqual([200, 200]);
+  await page.goto(pathname + "?step=6&summary=1&entity=group-report&tool=report");
+  const reports = page.getByTestId("aidt-report-versions");
+  await reports.getByText("已确认版本与导出", { exact: true }).click();
+  await reports.getByRole("button", { name: "查看确认版 V1" }).click();
+  await reports.getByRole("button", { name: "查看第 2 步 V1" }).click();
+  await reports.getByRole("link", { name: "U01 · V1" }).click();
+  await expect(page.getByTestId("aidt-entity-history")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp("entity=" + ids[0] + ".*entityRevision=1"));
+  await expect(page.getByText("U01 最新标题", { exact: true })).toHaveCount(0);
+
 });
