@@ -62,6 +62,7 @@ describe("native AIDT project workspace", () => {
     try {
       const view = render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
       expect(await screen.findByRole("heading", { name: "先新建一个问题" })).toBeVisible();
+      expect(screen.queryByTestId("aidt-shared-save")).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "新建问题" }));
       const input = screen.getByRole("textbox", { name: "问题名称" });
       const create = screen.getByRole("button", { name: "创建问题" });

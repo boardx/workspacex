@@ -68,10 +68,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly }: {
 
   return <section aria-labelledby={headingId} className="space-y-4" data-testid="aidt-problem-directory">
     <header className="flex flex-wrap items-center justify-between gap-3">
-      <div className="min-w-0">
-        <h2 ref={heading} tabIndex={-1} id={headingId} className="text-xl font-semibold">问题列表</h2>
-        {items.length > 0 && <p className="mt-1 text-13 text-muted-foreground">打开问题卡片，进入对应的工作坊对话。</p>}
-      </div>
+      <h2 ref={heading} tabIndex={-1} id={headingId} className="text-xl font-semibold">问题列表</h2>
       {items.length > 0 && create}
     </header>
     {items.length === 0 ? <div className="flex flex-col items-center gap-4 rounded-container border border-dashed border-border bg-muted px-5 py-12 text-center" data-testid="empty">

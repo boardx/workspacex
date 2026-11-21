@@ -359,7 +359,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     const update = (mutate: (old: AidtUiStageDraft) => AidtUiStageDraft) => updateStage(step.id, mutate);
     const hasSummary = step.id === 6 && search.get("summary") === "1";
     const savedDraft = currentStage?.content.draft;
-    const save = <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite} />;
+    const save = <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite}
+      showSave={step.id !== 1 || (!shared.matchesServer && shared.canSave)} />;
     const groupReports = Object.keys(shared.stages[6]?.content.reports ?? {});
     return <section className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="aidt-step-entity-directory">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3">
