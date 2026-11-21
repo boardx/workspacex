@@ -195,7 +195,7 @@ export const AIDT_PROTOTYPE_DISCUSSION_FIELDS = proposalFields;
 type DiscussionTurn = { id: string; role: string; content?: unknown };
 type PrototypeProposalField = keyof typeof proposalFields;
 type PrototypeProposal = Partial<Record<PrototypeProposalField, string>>;
-const fieldForLabel = new Map(Object.entries(proposalFields).map(([field, label]) => [label, field as PrototypeProposalField]));
+const fieldForLabel = new Map<string, PrototypeProposalField>(Object.entries(proposalFields).map(([field, label]) => [label, field as PrototypeProposalField]));
 const proposalFieldNames = Object.keys(proposalFields) as PrototypeProposalField[];
 
 /** Project only known teaching fields, never IDs, evidence references or confirmation flags. */
