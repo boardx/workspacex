@@ -58,12 +58,13 @@ function currentStageQuery(projectId: string, stageId: number, entityId?: string
   return window.location.pathname === `/aidt/${encodeURIComponent(projectId)}` && query.get("step") === String(stageId) && query.get("entity") === (entityId ?? null) ? query : new URLSearchParams();
 }
 type AidtChatProps = {
+  interviewPhase?: "initial" | "revision" | "fieldwork";
   offerInitial?: (text: string) => ComposerOfferResult; hostPanel?: ChatHostPanel; referencePanel?: HTMLDivElement | null; taskHref?: string; purpose?: "report"; entityId?: string; entityRevision?: number; sourceEntityId?: string; sourceRevision?: number; projectId: string; step: AidtStep; thread: string | null; returnRevision?: string | null; savedContextRefs?: readonly AidtSavedContextReference[]; sharedContextRefs?: readonly AidtSharedContextReference[]; sharedContextReady?: boolean; onResolvedThread?: (threadId: string) => void };
 export function ProjectAidtChat(props: AidtChatProps) {
   if (!isAidtModuleEnabled()) return <p role="status" data-testid="aidt-chat-disabled" className="p-4 text-13 text-muted-foreground">教学模块未启用。</p>;
   return <EnabledAidtChat {...props} />;
 }
-function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContextRefs = [], sharedContextRefs = [], sharedContextReady = true, onResolvedThread, purpose, entityId, entityRevision, sourceEntityId, sourceRevision, taskHref, referencePanel, hostPanel, offerInitial }: AidtChatProps) {
+function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContextRefs = [], sharedContextRefs = [], sharedContextReady = true, onResolvedThread, purpose, entityId, entityRevision, sourceEntityId, sourceRevision, taskHref, referencePanel, hostPanel, offerInitial, interviewPhase }: AidtChatProps) {
   const { session } = useSession();
   const scope = JSON.stringify([session?.currentOrgId, session?.userId, session?.sessionToken, projectId, step.id, entityId ? null : thread, purpose, entityId]);
   const lifecycle = React.useRef({ scope, generation: 0 });
@@ -188,7 +189,7 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
     {purpose !== "report" && !sharedContextReady && <p role="status" className="border-b border-border px-4 py-2 text-12 text-muted-foreground" data-testid="aidt-chat-context-pending">小组保存版本尚未就绪。请完成材料读取或重试后发送，草稿已保留。</p>}
     {purpose === "report" && session?.currentOrgId && session.userId && session.sessionToken && <AidtSummaryChatContext scope={{ projectId, orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken, lifecycleKey: requestScope }} threadId={current.value.threadId} onSelectorChange={selectSummary} />}
     {referencePanel ? createPortal(references, referencePanel) : hostPanel ? null : references}
-    <FocusedSkillNameContext.Provider value={current.value.skillName}><CopilotKitV2Shell hostPanel={hostPanel} key={current.value.threadId} initialThreadId={current.value.threadId} projectId={projectId} singleConversation threadPath={path} threadFromLocation={fromLocation} projectReturnHref={aidtHref(projectId)} emptyState={() => purpose === "report" ? <div className="p-6 text-13 text-muted-foreground" data-testid="aidt-summary-empty">先读取本组报告材料，再审阅并发送生成请求；这里仍使用现有Chat输入框。</div> : <AidtChatEmptyState step={step} offerInitial={offerInitial} />} /></FocusedSkillNameContext.Provider>
+    <FocusedSkillNameContext.Provider value={current.value.skillName}><CopilotKitV2Shell hostPanel={hostPanel} key={current.value.threadId} initialThreadId={current.value.threadId} projectId={projectId} singleConversation threadPath={path} threadFromLocation={fromLocation} projectReturnHref={aidtHref(projectId)} emptyState={() => purpose === "report" ? <div className="p-6 text-13 text-muted-foreground" data-testid="aidt-summary-empty">先读取本组报告材料，再审阅并发送生成请求；这里仍使用现有Chat输入框。</div> : <AidtChatEmptyState interviewPhase={interviewPhase} step={step} offerInitial={offerInitial} />} /></FocusedSkillNameContext.Provider>
     </div>
   </CopilotKitV2Providers></CopilotKitV2AgentSelectionProvider></ChatHostNavigationProvider></HostRunContextProvider>;
 }

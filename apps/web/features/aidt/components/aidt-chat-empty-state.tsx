@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
+import interviewStarter from "../../../../../skills/aidt-methods/aidt-empathize/starter.json";
 import starter from "../../../../../skills/aidt-methods-candidates/1.4.1/aidt-understand/starter.json";
 import type { AidtStep } from "../lib/project-aidt";
 
@@ -15,8 +16,11 @@ const STUDENT_START: Partial<Record<AidtStep["id"], { hint: string; scaffold: st
 };
 
 /** Teaching copy belongs to this host; composer/messages remain canonical Chat. */
-export function AidtChatEmptyState({ step, offerInitial }: { step?: AidtStep; offerInitial?: (text: string) => ComposerOfferResult } = {}): JSX.Element {
+export function AidtChatEmptyState({ step, offerInitial, interviewPhase }: { interviewPhase?: keyof typeof interviewStarter; step?: AidtStep; offerInitial?: (text: string) => ComposerOfferResult } = {}): JSX.Element {
   const [status, setStatus] = useState("");
+  if (step?.id === 2 && interviewPhase) return <div data-testid="copilotkit-v2-empty" className="mx-auto w-full max-w-3xl px-4 py-6">
+    <p className="text-14 leading-relaxed" data-testid="aidt-chat-welcome">{interviewStarter[interviewPhase]}</p>
+  </div>;
   if (step?.id === 1) return <div data-testid="copilotkit-v2-empty" className="flex min-h-full flex-col items-center justify-center gap-4 px-5 py-6">
     <div className="space-y-2 text-center" data-testid="aidt-chat-welcome">
       <h2 className="text-24 font-semibold tracking-tight sm:text-30">{starter.heading}</h2>

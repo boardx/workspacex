@@ -41,9 +41,9 @@ export function printAidtUiText(text: string, options?: Parameters<typeof printR
   return printResearchPdf(root, "AIDT 小组草稿", options);
 }
 
-export function AidtStageOutput({ projectId, thread = null, entityId, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision, discoveryCardFields, activeDefinitionEntityId, ideaEntityId, ideaHandoff, activeTestEntityId, readTestPrototypeEntity }: {
+export function AidtStageOutput({ projectId, thread = null, entityId, conversationRef, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision, discoveryCardFields, activeDefinitionEntityId, ideaEntityId, ideaHandoff, activeTestEntityId, readTestPrototypeEntity }: {
   projectId: string; step: AidtStep; draft: AidtUiStageDraft;
-  thread?: string | null; entityId?: string | null;
+  thread?: string | null; entityId?: string | null; conversationRef?: (node: HTMLDivElement | null) => void;
   update: (mutate: (previous: AidtUiStageDraft) => AidtUiStageDraft) => void;
   readOnly: boolean; toolHref: (tool: string) => string;
   toChat?: (text: string) => ComposerOfferResult;
@@ -132,6 +132,9 @@ export function AidtStageOutput({ projectId, thread = null, entityId, step, draf
     } catch { setStatus("描述单打印未能启动或图片尚不可用，文字与选择仍保留。请重试读取图片后再导出。"); }
     finally { setPrinting(false); }
   }
+  if (step.id === 2 && entityId) return <section data-testid="aidt-stage-output" className="space-y-3">
+    <AidtInterviewWorkspace projectId={projectId} entityId={entityId} draft={draft} update={update} readOnly={readOnly} toChat={toChat} conversationRef={conversationRef} />
+  </section>;
   if (step.id === 6 && activeTestEntityId) {
     return <AidtTestGroups projectId={projectId} draft={draft} activeEntityId={activeTestEntityId} readPrototypeEntity={readTestPrototypeEntity} readOnly={readOnly} update={update} />;
   }
