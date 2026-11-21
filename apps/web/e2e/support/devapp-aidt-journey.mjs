@@ -9,7 +9,7 @@ import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 export const REQUIRED_CHECKS = Object.freeze([
   'overview', 's1-draft-not-complete', 's1-confirmed-reentry',
   's2-ten-card-chats', 's2-interview-handoff',
-  ...Array.from({ length: 9 }, (_, index) => `s2-guide-u${String(index + 2).padStart(2, '0')}`),
+  ...Array.from({ length: 10 }, (_, index) => `s2-interview-u${String(index + 1).padStart(2, '0')}`),
   's2-distinct-threads', 's2-card-management', 's3-definition-hmw-handoff',
   's4-three-distinct-descriptions', 's5-prototype-question-version',
   's6-test-reflection', 'report-confirmed-source-export',
@@ -423,7 +423,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect(page.getByTestId('aidt-round-completion')).toContainText('本轮成果已确认并保存', { timeout: 30000 });
     step2Href = owned(await page.getByRole('link', { name: '继续第2步', exact: true }).getAttribute('href'));
     await shot('01-problem-confirmed', 1);
-    await follow('返回问题列表');
+    await follow('返回产物列表');
     report.s1Navigation.operation = 'verify-completed-overview-and-reload';
     await completed(1); await page.reload();
     await expect(page.getByTestId('aidt-stage-save-1')).toHaveAttribute('data-completed', 'true');
@@ -471,6 +471,9 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect(inspector).toContainText(code);
     const initial = text(`${code}：请回忆最近一次午休选择饮品的经过。先做了什么，后来怎样决定？`);
     if (!await feedback(2, initial, code)) fail('S2_NATIVE_TEACHING_REPLY_REQUIRED');
+    await expect(page.getByTestId('aidt-interview-chat-question').first()).toBeVisible();
+    const revisionInput = text(`${code}：我想改得更具体，先问「上次到了哪个窗口」，再追问「哪一刻决定继续等或离开」。请据此调整我的问题清单草稿。`);
+    if (!await feedback(2, revisionInput, code)) fail('S2_NATIVE_TEACHING_REVISION_REQUIRED');
     const actions = page.getByTestId('aidt-interview-chat-actions');
     const rows = actions.getByTestId('aidt-interview-chat-question');
     await expect(rows.first()).toBeVisible();
@@ -486,7 +489,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const canonical = JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]);
     if (canonical.code !== code || canonical.original !== initial || canonical.adopted !== adopted || canonical.guideConfirmed !== true) fail('INTERVIEW_CHAT_GUIDE_NOT_SAVED');
     await expect(inspector.getByTestId('aidt-interview-question-list')).toContainText(adopted);
-    recordInterviewIteration(initial, adopted, `${code}问题清单`, target);
+    recordInterviewIteration(initial, revisionInput, `${code}问题初稿`, target);
+    recordInterviewIteration(revisionInput, adopted, `${code}问题清单`, target);
     await printOutput(2, `interview-guide-${code}`, inspector.getByTestId('aidt-interview-guide-print'), ['访谈问题清单', code, adopted]);
     return adopted;
   };
@@ -531,11 +535,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     }
   }, '02-ten-card-chats');
 
-  state.s2 = await check('s2-interview-handoff', 2, async () => {
-    if (!tenChatsOpened) fail('TEN_INTERVIEW_CHATS_REQUIRED');
-    const first = state.interviews[0], { code, target } = first;
+  const completeInterview = async interview => {
+    const { code, target } = interview;
     await output(target);
-    first.adopted = await confirmInterviewGuide(code, target);
+    interview.adopted = await confirmInterviewGuide(code, target);
     await click(page.getByTestId('chat-task-workbench-inspector-tab-materials'));
     const materials = page.getByRole('region', { name: '授权和访谈材料' });
     await expect(materials).toBeVisible();
@@ -569,23 +572,24 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     evidence(2).outputs.push({ name: `${code}人物发现卡`, format: 'native finding card; synthetic text, real-person photo missing', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}; software scope only` });
     await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(code + '的合成记录关注等待时间');
     recordInterviewIteration(firstFinding, text(`${code}的合成记录关注等待时间。`), `${code}人物发现卡`, target);
-    Object.assign(first, { quote, materialName: `qa-${unique}-${code}.txt`, hasMaterial: true });
-    await page.goto(interviewDirectory);
-    await expect(page.getByRole('button', { name: /^U01 .*发现卡已核对/ })).toBeVisible();
-    step3Href = owned(await page.getByRole('link', { name: '带入综合与定义', exact: true }).getAttribute('href'));
-    await shot('02-interview-directory', 2); await completed(2); await page.goto(interviewDirectory);
-  }, '02-empathy');
-
+    Object.assign(interview, { quote, materialName: `qa-${unique}-${code}.txt`, hasMaterial: true });
+  };
   if (tenChatsOpened) {
-    for (const interview of state.interviews.slice(1)) {
-      await check(`s2-guide-${interview.code.toLowerCase()}`, 2, async () => {
-        await output(interview.target);
-        interview.adopted = await confirmInterviewGuide(interview.code, interview.target);
-      });
+    for (const interview of state.interviews) {
+      await check(`s2-interview-${interview.code.toLowerCase()}`, 2, () => completeInterview(interview));
     }
   }
+  state.s2 = await check('s2-interview-handoff', 2, async () => {
+    if (!tenChatsOpened || state.interviews.some(interview => !interview.hasMaterial)) fail('TEN_CONFIRMED_INTERVIEWS_REQUIRED');
+    await page.goto(interviewDirectory);
+    for (const interview of state.interviews) {
+      await expect(page.getByRole('button', { name: new RegExp('^' + interview.code + '\\s.*发现卡已核对') })).toBeVisible();
+    }
+    step3Href = owned(await page.getByTestId('aidt-stage-next').getAttribute('href'));
+    await shot('02-interview-directory', 2); await completed(2); await page.goto(interviewDirectory);
+  }, '02-empathy');
   await check('s2-distinct-threads', 2, async () => {
-    if (!tenChatsOpened || state.interviews.some(interview => !interview.adopted)) fail('TEN_CONFIRMED_GUIDES_REQUIRED');
+    if (!tenChatsOpened || state.interviews.some(interview => !interview.adopted || !interview.hasMaterial)) fail('TEN_CONFIRMED_INTERVIEWS_REQUIRED');
     const observed = [];
     report.interviewIsolation = observed;
     for (const interview of [...state.interviews].reverse()) {
@@ -597,13 +601,34 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await page.reload(); await output(interview.target);
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(interview.threadId);
       await expect(page.getByTestId('aidt-interview-output')).toContainText(interview.code);
+      const timeline = page.getByTestId('copilotkit-v2-messages');
+      const ownTurns = report.teachingEvidence.filter(row => row.threadId === interview.threadId && row.stageId === 2 && row.status === 'passed');
+      if (ownTurns.length !== 3) fail('INTERVIEW_CHAT_HISTORY_UNVERIFIED');
+      const messages = await api(`/api/chat/threads/${encodeURIComponent(interview.threadId)}/messages?limit=100`);
+      const records = Array.isArray(messages.data) ? messages.data : messages.data?.messages;
+      if (messages.status !== 200 || !Array.isArray(records) || messages.data?.nextCursor) fail('INTERVIEW_CHAT_HISTORY_UNVERIFIED');
+      for (const proof of ownTurns) {
+        const ownReply = records.find(row => row.id === proof.assistantMessageId && row.authorKind === 'agent' && row.agentRunId === proof.runId);
+        if (ownReply?.text !== proof.assistantText || !records.some(row => row.id === proof.inputMessageId && row.text === proof.prompt)) fail('INTERVIEW_CHAT_HISTORY_UNVERIFIED');
+        await expect(timeline.getByTestId('chat-user-message-text').filter({ hasText: proof.prompt })).toBeVisible();
+        // Markdown punctuation is absent from the rendered bubble. Also verify the durable identity above.
+        const fragment = (ownReply.text.match(/[\p{Script=Han}]{4,}|[a-zA-Z]{5,}/gu) ?? []).sort((a,b) => b.length-a.length)[0];
+        if (!fragment) fail('INTERVIEW_REPLY_TEXT_NOT_VISIBLE');
+        await expect(timeline.getByTestId('copilot-assistant-message').filter({ hasText: fragment.slice(0, 35) }).first()).toBeVisible();
+      }
+      for (const sibling of report.teachingEvidence.filter(row => row.stageId === 2 && row.status === 'passed' && row.threadId !== interview.threadId)) {
+        await expect(timeline.getByTestId('chat-user-message-text').filter({ hasText: sibling.prompt })).toHaveCount(0);
+        if (records.some(row => row.id === sibling.inputMessageId || row.id === sibling.assistantMessageId)) fail('SIBLING_INTERVIEW_MESSAGE_VISIBLE');
+      }
       const inspector = await readOnlyInterviewOutput();
       await expect(inspector.getByTestId('aidt-interview-question-list')).toContainText(interview.adopted);
+      await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(interview.quote);
       for (const other of state.interviews.filter(other => other !== interview)) {
         await expect(inspector).not.toContainText(other.adopted);
+        await expect(inspector).not.toContainText(other.quote);
       }
       expect(new URL(page.url()).searchParams.get('entity')).toBe(new URL(interview.href).searchParams.get('entity'));
-      observed.push({ code: interview.code, stableThread: true, confirmedGuide: true, exportedPdf: true, rightInspector: true, directoryReentry: true, refresh: true });
+      observed.push({ code: interview.code, stableThread: true, savedStudentMessage: true, savedAssistantMessage: true, noSiblingMessages: true, confirmedGuide: true, exportedPdf: true, rightInspector: true, directoryReentry: true, refresh: true });
     }
     report.independentEntityThreadsVerified = true;
   }, '02-independent-chat');
@@ -883,8 +908,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
         const expectedRoute = ownedAidtEntityRoute(item.href, { origin, projectId: scope.projectId }, { stage, revision });
         const expectedInterview = stage === 2 ? state.interviews.find(row => row.target.entityId === expectedRoute.entityId) : undefined;
         if (stage === 2 && !expectedInterview) fail('FROZEN_INTERVIEW_EXPECTATION_MISSING');
-        const materialRequired = stage === 2 && expectedInterview.hasMaterial === true;
-        if (materialRequired && (!expectedInterview.quote || !expectedInterview.materialName)) fail('FROZEN_MATERIAL_EXPECTATION_MISSING');
+        const materialRequired = stage === 2;
+        if (materialRequired && (!expectedInterview.hasMaterial || !expectedInterview.quote || !expectedInterview.materialName)) fail('FROZEN_MATERIAL_EXPECTATION_MISSING');
         const target = await verifyAidtFrozenBacklink({ page, link, scope: { origin, projectId: scope.projectId }, stage, revision, waitForRoute: waitForEntity,
           materialRequired,
           assertVersion: async () => { const history = page.getByTestId('aidt-entity-history'); await expect(history).toBeVisible(); await expect(history.getByRole('heading', { level: 1 })).toHaveText(new RegExp(` · V${revision}$`)); await expect(history).toContainText('已保存的历史版本。'); await expect(history).toContainText(SYNTHETIC); },
@@ -894,7 +919,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
             await expect(material).toBeVisible(); await expect(material).toContainText(new URL(target.href).searchParams.get('sourceId'));
             const original = material.getByTestId('aidt-research-original-text'); await expect(original).toBeVisible(); await expect(original).toContainText(interview.quote); await expect(original).toContainText(SYNTHETIC);
           } });
-        item.clicked = true; item.frozenRevision = revision; item.entityId = target.entityId; item.materialVerified = materialRequired; item.guideOnly = stage === 2 && expectedInterview.hasMaterial === false;
+        item.clicked = true; item.frozenRevision = revision; item.entityId = target.entityId; item.materialVerified = materialRequired;
       }
       report.reportSourceLinks.push({ stage, revision, links });
     }

@@ -1,10 +1,11 @@
 import * as React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
-import { AidtDefinitionDirectory, AidtDefinitionEditor } from "@/features/aidt/components/aidt-definition";
+import { AidtDefinitionChatArtifact, AidtDefinitionDirectory, AidtDefinitionEditor, AidtDefinitionOutput } from "@/features/aidt/components/aidt-definition";
 import { addAidtDefinitionEntity, addAidtDefinitionSurprise, chooseAidtDefinitionHmw, confirmedAidtDefinitionSurprises, readAidtDefinition, readAidtDefinitionSelection, saveAidtDefinitionHmw, saveAidtDefinitionPersona, saveAidtDefinitionSurprise } from "@/features/aidt/lib/aidt-definition";
 import { emptyAidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { aidtRoundMissingOutput } from "@/features/aidt/lib/aidt-round-completion";
+import { allAidtDefinitionEntitiesConfirmed, latestAidtDefinitionCandidate } from "@/features/aidt/lib/aidt-definition-chat";
 import { StageContent } from "@repo/contracts/aidt-stages";
 
 const card = { id: "u1", participantCode: "U01", headline: "难以比较口味", headlineKind: "student-summary" as const, context: "午休点单", quote: "口味看不出差别", sourceRef: "校对转写 01:42", photoRef: "" };
@@ -82,4 +83,61 @@ it("preserves independent surprise records and requires review of dependent arti
   expect(readAidtDefinition(changed.fields).personas.map(persona => persona.confirmed)).toEqual([false, true]);
   expect(readAidtDefinitionSelection(changed.fields)).toBeNull();
   expect(readAidtDefinitionSelection(draft.fields)?.id).toBe("h1");
+});
+
+it("creates a primary surprise card and offers no workspace questions or forms", () => {
+  function Directory() {
+    const [draft, setDraft] = React.useState(blank);
+    return <AidtDefinitionDirectory {...context} draft={draft} update={setDraft} nativeChat entityHref={id => `/aidt/p?step=3&entity=${id}`} />;
+  }
+  render(<Directory />);
+  expect(screen.queryByRole("radio")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "新建意外发现" }));
+  expect(screen.getByRole("link", { name: "打开意外发现对话" })).toHaveAttribute("href", "/aidt/p?step=3&entity=primary-surprise");
+  expect(screen.getByRole("button", { name: "新建画像" })).toBeDisabled();
+});
+
+it("stages scoped Chat output, confirms it explicitly and keeps the inspector read only", () => {
+  let durable = addAidtDefinitionEntity(noSurprise(), "persona", "p1");
+  function Workspace() {
+    const [draft, setDraft] = React.useState(durable);
+    const [saved, setSaved] = React.useState(durable);
+    return <>
+      <AidtDefinitionChatArtifact {...context} entityId="p1" draft={draft} savedDraft={saved}
+        update={setDraft} requestSave={() => setDraft(value => { durable = value; setSaved(value); return value; })}
+        loading={false} running={false}
+        messages={[
+          { id: "human", role: "user", content: "这位学生午休会先比较口味。" },
+          { id: "reply", role: "assistant", content: "\n```aidt-definition\n" + JSON.stringify({ kind: "persona", name: "午休点单", situation: "食堂", behavior: "比较口味", need: "口味标签", cardIds: ["u1", "u2", "foreign"] }) + "\n```" },
+        ]} />
+      <AidtDefinitionOutput {...context} entityId="p1" draft={draft} update={setDraft} />
+    </>;
+  }
+  render(<Workspace />);
+  const output = screen.getByRole("region", { name: "当前产物" });
+  expect(output).toHaveTextContent("口味标签");
+  expect(within(output).queryByRole("textbox")).toBeNull();
+  expect(output).not.toHaveTextContent("U02");
+  expect(readAidtDefinition(durable.fields).personas[0]?.confirmed).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "确认当前产物" }));
+  expect(readAidtDefinition(durable.fields).personas[0]).toMatchObject({ id: "p1", confirmed: true, cardIds: ["u1"] });
+});
+
+it("keeps all active entities in the Stage 3 completion calculation", () => {
+  let draft = [persona("p1"), persona("p2")].reduce((state, value) => saveAidtDefinitionPersona(state, value, 2), noSurprise());
+  draft = chooseAidtDefinitionHmw(saveAidtDefinitionHmw(draft, hmw("h1"), 2), "h1", ids);
+  expect(allAidtDefinitionEntitiesConfirmed(draft)).toBe(true);
+  const inProgress = addAidtDefinitionEntity(draft, "persona", "p3");
+  expect(allAidtDefinitionEntitiesConfirmed(inProgress)).toBe(false);
+  const archived = readAidtDefinition(inProgress.fields).personas.find(value => value.id === "p3")!;
+  expect(allAidtDefinitionEntitiesConfirmed(saveAidtDefinitionPersona(inProgress, { ...archived, archived: true }, 2))).toBe(true);
+});
+
+it("requires a student turn and accepts 暂无 only from the student", () => {
+  const falseClaim = { id: "reply", role: "assistant", content: "```aidt-definition\n{\"kind\":\"surprise\",\"status\":\"none\"}\n```" };
+  expect(latestAidtDefinitionCandidate([falseClaim], "surprise", true)).toBeNull();
+  const unrelated = { id: "request", role: "user", content: "你好" };
+  expect(latestAidtDefinitionCandidate([unrelated, falseClaim], "surprise", true)).toBeNull();
+  const candidate = latestAidtDefinitionCandidate([{ ...unrelated, content: "暂无意外发现" }], "surprise", true);
+  expect(candidate?.proposal).toEqual({ kind: "surprise", status: "none" });
 });

@@ -230,7 +230,7 @@ export async function main() {
     report.stageIterations = [];
     report.systemArtifacts = [];
     report.teachingEvidence = [];
-    report.budgets = { homepageMinutes: 20, stageMinutes: 15, stage5Minutes: 20, overallMinutes: 82, stage5Reason: 'Existing Design request can take up to 900 seconds; allow native Chat and normal UI save/review overhead without unknown-write retry.' };
+    report.budgets = { homepageMinutes: 20, stageMinutes: 15, stage5Minutes: 20, overallMinutes: 142, stage5Reason: 'Existing Design request can take up to 900 seconds; allow native Chat and normal UI save/review overhead without unknown-write retry.' };
     report.independentPdfValidation = 'pending artifact download and independent parser/renderer; byte generation is not complete glyph acceptance';
     output = privateOutput(process.env, identity);
     const metadata = JSON.parse(readFileSync(new URL('../../../../acceptance-source.json', import.meta.url), 'utf8'));
@@ -482,9 +482,11 @@ export async function main() {
     };
     const teachingFeedback = async (stageId, prompt, interviewCode, interviewFinding = false, syntheticProblemFixture = false) => {
       if (interviewCode !== undefined && (stageId !== 2 || !/^U(?:0[1-9]|10)$/.test(interviewCode))) throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED');
-      if (interviewFinding && (stageId !== 2 || interviewCode !== 'U01')) throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED');
+      if (interviewFinding && (stageId !== 2 || !interviewCode)) throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED');
       const problemRevision = !syntheticProblemFixture && stageId === 1 && report.teachingEvidence.some(item => item.status === 'passed' && item.stageId === 1);
-      const suffix = syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : interviewFinding ? '-finding' : interviewCode && interviewCode !== 'U01' ? `-${interviewCode.toLowerCase()}` : '';
+      const interviewGuideRevision = stageId === 2 && !interviewFinding && report.teachingEvidence.some(item => item.status === 'passed' && item.interviewCode === interviewCode);
+      const codeSuffix = interviewCode && interviewCode !== 'U01' ? `-${interviewCode.toLowerCase()}` : '';
+      const suffix = syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : codeSuffix + (interviewFinding ? '-finding' : interviewGuideRevision ? '-revision' : '');
       const name = `teaching-chat-stage-${stageId}${suffix}`;
       let isolatedKnownS1Review = false;
       const accepted = await checkpoint(name, async () => {
@@ -515,7 +517,7 @@ export async function main() {
         await api(page, 'GET', `/api/chat/threads/${encodeURIComponent(threadId)}`);
         await api(page, 'GET', `/api/threads/${encodeURIComponent(threadId)}/skill-deviations?projectId=${encodeURIComponent(projectId)}`);
         const pin = guard.teachingPin(stageId, threadId, entityId ?? undefined); if (!pin) throw new ProbeFailure('TEACHING_SKILL_PIN_UNVERIFIED');
-        const scope = { origin: ORIGIN, projectId, stageId, threadId, actorId: guard.identity().actor, prompt, selector, interviewFinding, problemRevision, syntheticProblemFixture, ...pin, timeoutMs: 180000 };
+        const scope = { origin: ORIGIN, projectId, stageId, threadId, actorId: guard.identity().actor, prompt, selector, interviewFinding, interviewGuideRevision, problemRevision, syntheticProblemFixture, ...pin, timeoutMs: 180000 };
         const proof = await sendTeachingFeedback({ page, expect, scope, read: path => api(page, 'GET', path), armSend: current => guard.armTeachingSend(current),
           onEvent: event => recordTeachingEvent(event, scope, report.pendingTeachingReviews,
             text => sensitiveEvidence.assertSafe(text), value => console.log(JSON.stringify({ ...value, owner: 'root/aidt_ui_first_acceptance' }))),
@@ -538,12 +540,12 @@ export async function main() {
           } });
         sensitiveEvidence.assertSafe(proof.assistantText);
         guard.completeTeaching(proof);
-        report.teachingEvidence.push({ ...proof, checkpoint: name, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
+        report.teachingEvidence.push({ ...proof, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
         await capture(`${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}`, stageId);
       });
       if (!accepted) {
         if (!isolatedKnownS1Review) guard.stopTeaching();
-        report.teachingEvidence.push({ stageId, checkpoint: name, syntheticProblemFixture, status: 'blocked-or-failed', evidence: 'See exact teaching checkpoint; no automatic retry or tool approval', teachingQualityAccepted: false, providerIndependentlyVerified: false });
+        report.teachingEvidence.push({ stageId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'blocked-or-failed', evidence: 'See exact teaching checkpoint; no automatic retry or tool approval', teachingQualityAccepted: false, providerIndependentlyVerified: false });
       }
       return accepted;
     };
