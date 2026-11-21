@@ -197,7 +197,7 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
     if (claimIds.length === 0) return [];
     if(accounting?.orgId!==String(orgId))throw new Error("retrieval_accounting_tenant_mismatch");
     const model = { model: this.embeddings.model, modelVersion: this.embeddings.modelVersion };
-    const q = await this.embeddings.embed(query, accounting);
+    const q = await this.embeddings.embed(query,accounting);
     // pgvector 的文本输入格式就是 JSON 数组的写法。
     const vec = JSON.stringify(q);
     return this.db.withTenant(orgId, async (s) => {

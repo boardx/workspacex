@@ -97,7 +97,7 @@ describe("S9: 没配置 ≠ 故障", () => {
     expect(r.degraded).toEqual(["vector"]);
     expect(recallDegraded(r)).toBe(true);
     const m = buildKnowledgeContextMessage(r)!;
-    expect(m).toContain("[");
+    expect(m).toContain(r.items[0]!.claim.statement);
     expect(m).not.toContain("这次没能查全你的记忆");
   });
 
@@ -163,7 +163,7 @@ describe("S9: 应用层——向量通道并行、有时限、失败降级", () 
     expect(logs[0]!.detail).toEqual({ threadId: "t", code: "kg_vector_recall_failed" });
   });
 
-  it("问题的嵌入与读候选集并行：候选集还没读完，向量通道就已经开始；时限从候选集读完算起", async () => {
+  it("向量通道可接收待解析的候选集，时限从候选集读完算起", async () => {
     const order: string[] = [];
     let release!: () => void;
     const gate = new Promise<void>((r) => { release = r; });

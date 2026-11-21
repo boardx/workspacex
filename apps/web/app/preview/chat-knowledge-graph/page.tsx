@@ -186,16 +186,12 @@ export default function ChatKnowledgeGraphPreviewPage({
   } else if (scene === "promote-results" || scene === "nomination") {
     body = <PanelExtrasScene kind={scene} />;
   } else if (scene.startsWith("answer-")) {
-    // answer-* 场景：把 footer 放进 AI 气泡（数据形状即 `getTurnMemory` 的 recalled / recallDegraded）
-    const map: Record<string, { recalled: typeof recalledMemoriesNormal; degraded: boolean }> = {
-      "answer-normal": { recalled: recalledMemoriesNormal, degraded: false },
-      "answer-graph-down": { recalled: recalledMemoriesGraphDown, degraded: true },
-      "answer-vector-down": { recalled: recalledMemoriesGraphDown, degraded: false },
-      "answer-personal": { recalled: recalledMemoriesPersonal, degraded: false },
+    const recalledByScene: Record<string, typeof recalledMemoriesNormal> = {
+      "answer-graph-down": recalledMemoriesGraphDown,
+      "answer-vector-down": recalledMemoriesGraphDown,
+      "answer-personal": recalledMemoriesPersonal,
     };
-    const fallback = { recalled: recalledMemoriesNormal, degraded: false };
-    const a = map[scene] ?? fallback;
-    answerSlot = <AnswerKnowledgeFooter recalled={a.recalled} />;
+    answerSlot = <AnswerKnowledgeFooter recalled={recalledByScene[scene] ?? recalledMemoriesNormal} />;
     body = <PreviewKnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />;
   } else {
     // 对话里的记忆场景：价值出现在回答原位（U-1 / U-4 / U-5 / uc-18-6 C）
