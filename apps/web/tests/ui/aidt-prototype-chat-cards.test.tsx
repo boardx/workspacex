@@ -72,7 +72,7 @@ it("saves card create, rename and archive while retaining the native Design rela
     return <AidtPrototypeDirectory projectId="project" canWrite draft={draft} ideaRevision="8" saveDraft={async change => { setDraft(change); return true; }} />;
   }
   render(<Harness />);
-  fireEvent.click(screen.getByRole("button", { name: "新建原型" }));
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   fireEvent.change(screen.getByLabelText("原型名称"), { target: { value: "菜单卡" } });
   fireEvent.click(screen.getByRole("button", { name: "创建原型" }));
   expect(await screen.findByRole("link", { name: "菜单卡" })).toHaveAttribute("href", expect.stringContaining("ideaRevision=8"));

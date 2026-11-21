@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { AidtEntityCard } from "./aidt-entity-card";
+import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
-import { ArrowUpRight, MessageSquare, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowUpRight, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -62,10 +62,8 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly }: {
     } else setError(true);
   }
 
-  const create = !readOnly && <Button ref={createButton} type="button" variant="primary" disabled={mutationsDisabled || atCapacity}
-    onClick={event => open({ kind: "create", id: crypto.randomUUID(), original: "" }, event.currentTarget)}>
-    <Plus className="size-4" aria-hidden />新建问题
-  </Button>;
+  const create = !readOnly && <AidtNewEntityCardButton ref={createButton} disabled={mutationsDisabled || atCapacity}
+    onClick={event => open({ kind: "create", id: crypto.randomUUID(), original: "" }, event.currentTarget)} />;
 
   return <section aria-labelledby={headingId} className="space-y-4" data-testid="aidt-problem-directory">
     <header className="flex flex-wrap items-center justify-between gap-3">

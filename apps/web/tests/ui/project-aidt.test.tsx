@@ -63,7 +63,7 @@ describe("native AIDT project workspace", () => {
       const view = render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
       expect(await screen.findByRole("heading", { name: "先新建一个问题" })).toBeVisible();
       expect(screen.queryByTestId("aidt-shared-save")).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "新建问题" }));
+      fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
       const input = screen.getByRole("textbox", { name: "问题名称" });
       const create = screen.getByRole("button", { name: "创建问题" });
       expect(create).toBeDisabled();
@@ -103,7 +103,7 @@ describe("native AIDT project workspace", () => {
       view.unmount();
       render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite={false} />);
       expect(await screen.findByRole("heading", { name: "暂无问题" })).toBeVisible();
-      expect(screen.queryByRole("button", { name: "新建问题" })).toBeNull();
+      expect(screen.queryByTestId("aidt-new-entity-card")).toBeNull();
     } finally { read.mockRestore(); save.mockRestore(); vi.unstubAllEnvs(); }
   });
   it.each([true, false])("opens the first-party legacy report link with its saved manuscript (canWrite=%s)", async canWrite => {

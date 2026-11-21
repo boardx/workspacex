@@ -121,7 +121,7 @@ it("persists card names and tags, filters, and removes a card without recycling 
   fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "确认删除" }));
   expect(cards()).toHaveLength(9);
   expect(aidtInterviewDirectory(latest).find(item => item.id === before[0]!.id)?.archived).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   expect(cards()).toHaveLength(10);
   expect(screen.getByRole("button", { name: /^U11 / })).toBeEnabled();
 });

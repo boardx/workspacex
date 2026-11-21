@@ -116,17 +116,16 @@ test("AIDT testing entities bind an immutable Design and isolate parallel native
 
   await page.goto(`${pathname}?step=6&prototypeRevision=${prototype.revision}`);
   const directory = page.getByTestId("aidt-test-group-directory");
-  await expect(directory.getByText(/尚无测试/)).toBeVisible();
+  await expect(directory.getByTestId("aidt-entity-card")).toHaveCount(0);
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
   const hrefs: string[] = [];
   for (const name of ["A 赶课访谈", "B 非高峰问卷"]) {
-    await directory.getByRole("textbox", { name: "测试名称" }).fill(name);
-    await directory.getByRole("button", { name: "新建测试草稿" }).click();
-    const card = directory.getByRole("listitem").filter({ has: page.getByRole("heading", { name, exact: true }) });
-    await expect(card.getByText("保存后可以打开对话")).toBeVisible();
-    await expect(directory.getByTestId("aidt-test-reflection")).toBeVisible();
-    await directory.getByRole("button", { name: "保存本轮测试与反思" }).click();
-    const link = card.getByRole("link", { name: "打开测试", exact: true });
+    await directory.getByTestId("aidt-new-entity-card").click();
+    const dialog = page.getByRole("dialog", { name: "新建测试卡片" });
+    await dialog.getByRole("textbox", { name: "测试名称" }).fill(name);
+    await dialog.getByRole("button", { name: "创建测试卡片" }).click();
+    const card = directory.getByTestId("aidt-entity-card").filter({ has: page.getByRole("heading", { name, exact: true }) });
+    const link = card.getByRole("link", { name: `打开测试 ${name}`, exact: true });
     await expect(link).toBeVisible();
     hrefs.push(await link.evaluate(el => (el as HTMLAnchorElement).href));
   }

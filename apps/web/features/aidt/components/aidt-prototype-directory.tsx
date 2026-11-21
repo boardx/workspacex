@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { AidtEntityCard } from "./aidt-entity-card";
+import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
-import { ArrowUpRight, Palette, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowUpRight, Palette, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -113,9 +113,7 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
   return <section aria-label="原型列表" className="space-y-4" data-testid="aidt-prototype-directory">
     <header className="flex items-center justify-between gap-3">
       <h2 className="text-xl font-semibold">原型列表</h2>
-      {canWrite && <Button type="button" variant="primary" disabled={!allowed || busy} onClick={() => open({ kind: "create" })}>
-        <Plus className="size-4" aria-hidden />新建原型
-      </Button>}
+      {canWrite && <AidtNewEntityCardButton disabled={!allowed || busy} onClick={() => open({ kind: "create" })} />}
     </header>
     {listError ? <div role="alert"><p>暂时无法读取原型。</p><Button type="button" variant="outline" onClick={reload}>重试</Button></div>
       : !resources ? <p role="status">正在读取原型…</p>

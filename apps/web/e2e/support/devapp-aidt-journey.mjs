@@ -490,7 +490,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   await check('s1-draft-not-complete', undefined, async () => {
     report.s1Navigation.operation = 'create-problem';
-    await go(1); await click(btn('新建问题')); await fill('问题名称', problemName); await saveStage(1, btn('创建问题'));
+    await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', problemName); await saveStage(1, btn('创建问题'));
     const link = page.getByRole('link', { name: problemName, exact: true });
     await expect(link).toBeVisible();
     report.s1Navigation.operation = 'open-problem-outcome';
@@ -652,7 +652,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   if (!state.s1 && problemHref && hasPendingProblemReview(report.pendingTeachingReviews, problemHref, scope.projectId)) {
     state.syntheticHandoff = await check('synthetic-problem-for-interviews', undefined, async () => {
       const fixtureName = `QA独立访谈前置题 ${unique}`;
-      await go(1); await click(btn('新建问题')); await fill('问题名称', fixtureName); await saveStage(1, btn('创建问题'));
+      await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', fixtureName); await saveStage(1, btn('创建问题'));
       const fixture = await openAidtProblemOutcome({ page, link: page.getByRole('link', { name: fixtureName, exact: true }),
         scope: { origin, projectId: scope.projectId }, waitForRoute: waitForEntity,
         assertReady: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible() });
@@ -681,7 +681,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(topic).toBeVisible();
       if (await topic.locator('..').getAttribute('open') === null) await topic.click();
       await expect(topic.locator('..')).toContainText(confirmedProblem.rewrittenTheme);
-      await click(btn('新建访谈')); await saveStage(2);
+      await click(page.getByTestId('aidt-new-entity-card')); await saveStage(2);
       const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
       assertAidtS2Topic(JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]), confirmedProblem);
       await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
@@ -803,7 +803,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const grid = page.getByRole('list', { name: '访谈卡片', exact: true });
     const cards = grid.getByRole('listitem');
     await expect(cards).toHaveCount(10);
-    await click(btn('新建访谈')); await saveStage(2);
+    await click(page.getByTestId('aidt-new-entity-card')); await saveStage(2);
     await expect(cards).toHaveCount(11);
     const temporary = cards.filter({ has: page.getByRole('button', { name: /^U11(?:\s|$)/ }) });
     await expect(page.getByTestId('aidt-shared-save')).toHaveCount(0);
@@ -960,9 +960,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   state.s6 = await check('s6-test-reflection', 6, async () => {
     if (!state.s5 || !step6Href) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
-    await page.goto(owned(step6Href)); await fill('测试名称', `QA合成测试 ${unique}`); await click(btn('新建测试草稿'));
-    // Directory saves are normal non-confirming UI actions, not a seeded test entity.
-    await saveStage(6, btn('保存本轮测试与反思'));
+    await page.goto(owned(step6Href)); await click(page.getByTestId('aidt-new-entity-card'));
+    const creation = page.getByRole('dialog', { name: '新建测试卡片' });
+    await fill('测试名称', `QA合成测试 ${unique}`, creation);
+    await saveStage(6, btn('创建测试卡片', creation));
     const savedDirectoryHref = page.url();
     await follow('打开刚保存的测试'); await output();
     const detail = page.getByTestId('aidt-test-group-detail'); await expect(detail).toBeVisible();
