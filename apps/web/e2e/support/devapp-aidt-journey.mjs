@@ -526,7 +526,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     for (let index = 1; index <= 10; index++) {
       const code = `U${String(index).padStart(2, '0')}`;
       await page.goto(interviewDirectory);
-      await click(btn('新建访谈')); await saveStage(2);
+      await click(btn('新建访谈')); await click(btn('创建访谈')); await saveStage(2);
       const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
       await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
         assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), assertReady: () => entityReady(2) });
@@ -644,26 +644,30 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const grid = page.getByRole('list', { name: '访谈卡片', exact: true });
     const cards = grid.getByRole('listitem');
     await expect(cards).toHaveCount(10);
-    await click(btn('新建访谈')); await saveStage(2);
+    await click(btn('新建访谈'));
+    const creation = page.getByRole('dialog', { name: '新建访谈' });
+    await fill('受访者姓名或化名', '临时化名', creation);
+    await click(btn('创建访谈', creation)); await saveStage(2);
     await expect(cards).toHaveCount(11);
     const temporary = cards.filter({ has: page.getByRole('button', { name: /^U11(?:\s|$)/ }) });
-    await click(btn('编辑访谈卡', temporary));
+    await click(btn('改名与标签', temporary));
     const editor = page.getByRole('dialog', { name: '编辑访谈卡' });
     const name = `临时访谈 ${unique}`;
     const tags = [`QA午休 ${unique}`, `QA饮品 ${unique}`];
-    await fill('访谈名称', name, editor);
+    await fill('受访者姓名或化名', name, editor);
     const tagInput = editor.getByTestId('interview-tag-input');
     for (const tag of tags) { await tagInput.fill(tag); await tagInput.press('Enter'); }
     await click(btn('保存修改', editor)); await saveStage(2);
     await page.reload();
     await expect(temporary.getByText(name, { exact: true })).toBeVisible();
-    const filter = page.getByRole('combobox', { name: '筛选标签', exact: true });
+    const filter = page.getByRole('group', { name: '筛选标签', exact: true });
     for (const tag of tags) {
-      await filter.selectOption({ label: tag });
+      await click(btn(tag, filter));
+      await expect(btn(tag, filter)).toHaveAttribute('aria-pressed', 'true');
       await expect(cards).toHaveCount(1);
       await expect(temporary.getByText(tag, { exact: true })).toBeVisible();
     }
-    await filter.selectOption('');
+    await click(btn('全部', filter));
     await click(btn('删除访谈卡', temporary));
     await click(btn('确认删除', page.getByRole('dialog', { name: '删除访谈卡？' })));
     await saveStage(2); await page.reload();

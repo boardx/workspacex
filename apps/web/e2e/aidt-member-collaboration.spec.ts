@@ -505,3 +505,100 @@ test("saved AIDT report confirms a frozen version and exports that version after
   expect(bytes).toContain("第 1 步 V1");
   expect(bytes).not.toContain("后续草稿");
 });
+
+test("ordinary member names and retags an interview without replacing the native conversation", async ({ page, browser }) => {
+  test.setTimeout(180_000);
+  await login(page);
+  const projectId = await createProject(page, "访谈姓名与标签");
+  await addMember(page, projectId);
+  const first = { fields: { rewrittenTheme: "学生如何安排午间用餐？" }, ideas: [], selectedIdeaId: "" };
+  const { aidtRoundDigest, aidtRoundConfirmation, aidtRoundPayload } = await import("@/features/aidt/lib/aidt-round-completion");
+  const digest = await aidtRoundDigest(aidtRoundPayload(projectId, 1, first, []));
+  const topic = await request(page, `/projects/${projectId}/aidt/stages/1`, "PUT", {
+    operationId: randomUUID(), expectedRevision: 0, sourceStageRevisions: [],
+    content: { schemaVersion: 1, draft: { ...first, fields: { ...first.fields, roundCompletion: aidtRoundConfirmation(projectId, 1, digest) } } },
+  });
+  expect(topic.status).toBe(200);
+  const context = await browser.newContext({ baseURL: new URL(page.url()).origin, locale: "zh-CN" });
+  try {
+    const member = await context.newPage();
+    await login(member, "member");
+    const directory = `/aidt/${projectId}?step=2`;
+    const persist = async () => {
+      const [saved] = await Promise.all([
+        member.waitForResponse(value => value.request().method() === "PUT" && new URL(value.url()).pathname.endsWith(`/aidt/stages/2`)),
+        member.getByTestId("aidt-shared-save").click(),
+      ]);
+      expect(saved.status()).toBe(200);
+      expect(stages.operations.save.out.parse(await saved.json()).stage.updatedBy).toBe(FULLSTACK_E2E.collaborationMemberUserId);
+    };
+    await member.goto(directory);
+    await member.getByRole("button", { name: "新建访谈" }).click();
+    const dialog = member.getByRole("dialog");
+    await dialog.getByLabel("受访者姓名或化名").fill("小林");
+    await dialog.getByTestId("interview-tag-input").fill("午休");
+    await dialog.getByRole("button", { name: "创建访谈" }).click();
+    await persist();
+    const card = member.getByRole("list", { name: "访谈卡片" }).getByRole("listitem").first();
+    const open = async () => {
+      await card.getByRole("button", { name: /^U01 / }).click();
+      await expect.poll(() => new URL(member.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
+      return new URL(member.url()).searchParams;
+    };
+    const before = await open();
+    await expect(member.getByText("U01 · 小林", { exact: true }).first()).toBeVisible();
+    const withOutput = new URL(member.url());
+    withOutput.searchParams.set("tool", "outcome");
+    await member.goto(withOutput.toString());
+    await member.getByTestId("chat-task-workbench-inspector-tab-materials").click();
+    const rawName = "U01-合成访谈记录.txt";
+    await member.getByLabel("已获授权共享文字记录", { exact: true }).check();
+    await member.getByRole("button", { name: "更新授权记录" }).click();
+    await expect(member.getByTestId("aidt-interview-save-state")).toHaveText("已保存");
+    const upload = member.getByTestId("aidt-research-material-control").filter({ has: member.getByLabel("U01研究原件选择文件", { exact: true }) });
+    await upload.getByLabel("U01研究原件选择文件").setInputFiles({ name: rawName, mimeType: "text/plain", buffer: Buffer.from("合成记录，用于核对访谈改名后文件仍可读取。") });
+    await upload.getByRole("button", { name: "保存原始材料" }).click();
+    await expect(upload).toContainText("原件已保存并回读", { timeout: 60_000 });
+    await expect(member.getByTestId("aidt-interview-save-state")).toHaveText("已保存");
+    const sourcePrefix = "interviewMaterial:" + before.get("entity") + ":";
+    const readMaterials = async () => {
+      const response = await request(member, `/projects/${projectId}/aidt/stages/2`);
+      const saved = stages.operations.get.out.parse(response.data).stage!;
+      return Object.entries(saved.content.draft.fields).filter(([key]) => key.startsWith(sourcePrefix));
+    };
+    await expect.poll(async () => (await readMaterials()).length).toBe(1);
+    const source = await readMaterials();
+    await member.goto(directory);
+    await card.getByRole("button", { name: "改名与标签" }).click();
+    await expect(dialog.getByRole("group", { name: "已有标签" }).getByRole("button", { name: "午休" })).toHaveAttribute("aria-pressed", "true");
+    await dialog.getByLabel("受访者姓名或化名").fill("林同学");
+    await dialog.getByTestId("interview-tag-input").fill("走读生");
+    await dialog.getByRole("button", { name: "保存修改" }).click();
+    await persist();
+    await member.reload();
+    const filters = member.getByRole("group", { name: "筛选标签" });
+    await filters.getByRole("button", { name: "走读生" }).click();
+    await expect(filters.getByRole("button", { name: "走读生" })).toHaveAttribute("aria-pressed", "true");
+    await expect(card.getByRole("heading", { name: "林同学" })).toBeVisible();
+    await member.screenshot({ path: test.info().outputPath("interview-names-tag-filters.png") });
+    const after = await open();
+    expect(after.get("entity")).toBe(before.get("entity"));
+    expect(after.get("thread")).toBe(before.get("thread"));
+    await expect(member.getByText("U01 · 林同学", { exact: true }).first()).toBeVisible();
+    const rows = await audit(client => client.query("SELECT title FROM chat_threads WHERE org_id=$1 AND project_id=$2 AND id=$3", [FULLSTACK_E2E.collaborationOrgId, projectId, after.get("thread")]));
+    expect(rows.rows).toEqual([{ title: "U01 · 林同学" }]);
+    expect(await readMaterials()).toEqual(source);
+    await member.goto(directory);
+    await member.getByRole("button", { name: "新建访谈" }).click();
+    const candidate = dialog.getByRole("group", { name: "已有标签" }).getByRole("button", { name: "午休" });
+    await candidate.click();
+    await expect(candidate).toHaveAttribute("aria-pressed", "true");
+    await member.setViewportSize({ width: 390, height: 844 });
+    await expect(dialog).toBeInViewport();
+    expect(await member.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await member.screenshot({ path: test.info().outputPath("interview-create-tags.png") });
+    await dialog.getByRole("button", { name: "创建访谈" }).click();
+    await persist();
+    await expect(member.getByRole("button", { name: /^U02 / })).toBeEnabled();
+  } finally { await context.close(); }
+});

@@ -42,12 +42,14 @@ it("keeps per-person questions independent across directory and saved entity vie
   const view = render(<Workspace />);
   await screen.findByText("已确认研究问题 · 第 1 步 V2");
   fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
+  fireEvent.click(screen.getByRole("button", { name: "创建访谈" }));
   const guide = within(screen.getByRole("region", { name: "访谈提纲" }));
   fireEvent.change(guide.getByRole("textbox", { name: "学生提纲原稿" }), { target: { value: "U01 原稿" } });
   fireEvent.change(guide.getByRole("textbox", { name: "学生采纳清单" }), { target: { value: "U01 确认清单" } });
   fireEvent.click(guide.getByRole("button", { name: "确认此人的问题清单" }));
   fireEvent.click(screen.getByRole("button", { name: "返回访谈列表" }));
   fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
+  fireEvent.click(screen.getByRole("button", { name: "创建访谈" }));
   expect(screen.getByRole("textbox", { name: "学生提纲原稿" })).toHaveValue("");
   fireEvent.change(screen.getByRole("textbox", { name: "学生提纲原稿" }), { target: { value: "U02 原稿" } });
   const saved = StageDraft.parse(JSON.parse(JSON.stringify(latest)));
@@ -84,6 +86,7 @@ it("opens only the explicitly selected historical problem entity and persists bo
   const view = render(<Workspace problemEntityId={id} problemRevision={3} />);
   await screen.findByText("已确认研究问题 · 第 1 步 V3");
   fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
+  fireEvent.click(screen.getByRole("button", { name: "创建访谈" }));
   expect(screen.getByText("第 1 步 V3 · 第二个问题：怎样比较菜单上的口味？")).toBeInTheDocument();
   const record = JSON.parse(Object.entries(latest.fields).find(([key]) => key.startsWith("interviewRecord:"))![1]);
   expect(record).toMatchObject({ problemEntityId: id, topicRevision: 3, topic: confirmed.fields.rewrittenTheme });
@@ -98,13 +101,25 @@ it("persists card names and tags, filters, and removes a card without recycling 
   const view = render(<Workspace entityId={null} />);
   await screen.findByText("已确认研究问题 · 第 1 步 V2");
   const create = screen.getByRole("button", { name: "新建访谈" });
-  for (let n = 0; n < 10; n++) fireEvent.click(create);
+  for (let n = 0; n < 10; n++) {
+    fireEvent.click(create);
+    if (n === 0) {
+      fireEvent.change(screen.getByLabelText("受访者姓名或化名"), { target: { value: "小林" } });
+      fireEvent.change(screen.getByTestId("interview-tag-input"), { target: { value: "茶饮" } });
+    }
+    if (n === 1) {
+      const chip = within(screen.getByRole("group", { name: "已有标签" })).getByRole("button", { name: "茶饮" });
+      fireEvent.click(chip);
+      expect(chip).toHaveAttribute("aria-pressed", "true");
+    }
+    fireEvent.click(screen.getByRole("button", { name: "创建访谈" }));
+  }
   const cards = () => within(screen.getByRole("list", { name: "访谈卡片" })).getAllByRole("listitem");
   expect(cards()).toHaveLength(10);
   const before = aidtInterviewDirectory(latest);
-  fireEvent.click(within(cards()[0]!).getByRole("button", { name: "编辑访谈卡" }));
+  fireEvent.click(within(cards()[0]!).getByRole("button", { name: "改名与标签" }));
   const editor = within(screen.getByRole("dialog"));
-  fireEvent.change(editor.getByLabelText("访谈名称"), { target: { value: "校园茶饮访谈" } });
+  fireEvent.change(editor.getByLabelText("受访者姓名或化名"), { target: { value: "校园茶饮访谈" } });
   fireEvent.change(editor.getByTestId("interview-tag-input"), { target: { value: "午休" } });
   fireEvent.click(editor.getByRole("button", { name: "保存修改" }));
   const persisted = StageDraft.parse(JSON.parse(JSON.stringify(latest)));
@@ -112,7 +127,7 @@ it("persists card names and tags, filters, and removes a card without recycling 
   const onOpen = vi.fn();
   render(<Workspace initial={persisted} entityId={null} onOpen={onOpen} />);
   await screen.findByText("已确认研究问题 · 第 1 步 V2");
-  fireEvent.change(screen.getByLabelText("筛选标签"), { target: { value: "午休" } });
+  fireEvent.click(within(screen.getByRole("group", { name: "筛选标签" })).getByRole("button", { name: "午休" }));
   expect(cards()).toHaveLength(1);
   expect(cards()[0]).toHaveTextContent("校园茶饮访谈");
   fireEvent.click(within(cards()[0]!).getByRole("button", { name: /^U01 / }));
@@ -122,6 +137,7 @@ it("persists card names and tags, filters, and removes a card without recycling 
   expect(cards()).toHaveLength(9);
   expect(aidtInterviewDirectory(latest).find(item => item.id === before[0]!.id)?.archived).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
+  fireEvent.click(screen.getByRole("button", { name: "创建访谈" }));
   expect(cards()).toHaveLength(10);
   expect(screen.getByRole("button", { name: /^U11 / })).toBeEnabled();
 });
