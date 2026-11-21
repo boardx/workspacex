@@ -139,14 +139,46 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect(page).toHaveURL(new RegExp("entity=" + ids[0] + ".*entityRevision=1"));
   await expect(page.getByTestId("aidt-interview-output")).toContainText("U01 · 访谈产物");
 
-  await page.goto(urls[0]! + "&tool=outcome");
-  const actions = page.getByTestId("aidt-interview-chat-actions");
-  await expect(actions).toBeVisible();
-  await actions.getByRole("button", { name: "编辑这道问题" }).click();
+  const reconcileUrl = new RegExp("/aidt/stages/2/entities/" + ids[0] + "/reconcile$");
+  const unrelatedStageUrl = /\/aidt\/stages\/1$/;
+  let releaseReconcile!: () => void;
+  const reconcileGate = new Promise<void>(resolve => { releaseReconcile = resolve; });
+  let releaseUnrelatedStage!: () => void;
+  const unrelatedStageGate = new Promise<void>(resolve => { releaseUnrelatedStage = resolve; });
+  let reconciling = false;
+  await page.route(reconcileUrl, async route => {
+    await reconcileGate;
+    reconciling = true;
+    await route.continue();
+  });
+  await page.route(unrelatedStageUrl, async route => {
+    // If an interview readback reloads every stage, hold the unrelated request
+    // until after confirmation so the old editor-unmount race is reproducible.
+    if (reconciling) await unrelatedStageGate;
+    await route.continue();
+  });
   const question = "你上一次选新品时，哪一条信息影响了决定？";
-  await actions.getByLabel("修改问题").fill(question);
-  await actions.getByRole("button", { name: "确认这份问题清单" }).click();
-  await expect(page.getByTestId("aidt-interview-save-state")).toHaveText("已保存");
+  try {
+    const reconcileRequest = page.waitForRequest(reconcileUrl);
+    await page.goto(urls[0]! + "&tool=outcome");
+    const actions = page.getByTestId("aidt-interview-chat-actions");
+    await actions.getByRole("button", { name: "编辑这道问题" }).click();
+    const editor = actions.getByLabel("修改问题");
+    await editor.fill(question);
+    await reconcileRequest;
+    const stageReadback = page.waitForResponse(response => response.request().method() === "GET"
+      && /\/aidt\/stages\/2$/.test(response.url()));
+    releaseReconcile();
+    expect((await stageReadback).ok()).toBe(true);
+    await expect(editor).toHaveValue(question);
+    await actions.getByRole("button", { name: "确认这份问题清单" }).click();
+    await expect(page.getByTestId("aidt-interview-save-state")).toHaveText("已保存");
+  } finally {
+    releaseReconcile();
+    releaseUnrelatedStage();
+    await page.unroute(reconcileUrl);
+    await page.unroute(unrelatedStageUrl);
+  }
   await expect(page.getByTestId("aidt-interview-question-list")).toContainText(question);
   await page.reload();
   await expect(page.getByText(question, { exact: true }).first()).toBeVisible();
