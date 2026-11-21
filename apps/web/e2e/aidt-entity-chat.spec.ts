@@ -310,7 +310,7 @@ test("directory creation saves named problems, findings, ideas and native Design
     transform(draft);
     expect((await page.request.put(path, { headers, data: { operationId: randomUUID(), expectedRevision: stage.revision, sourceStageRevisions: stage.sourceStageRevisions, content: { ...stage.content, draft } } })).ok()).toBe(true);
   }
-  for (const [step, kind] of [[1, "问题"], [1, "问题"], [3, "意外发现"], [4, "点子"], [5, "原型"]] as const) {
+  for (const [step, kind] of [[1, "问题"], [1, "问题"], [3, "意外发现"], [4, "点子"], [4, "头脑风暴"], [5, "原型"]] as const) {
     const title = kind + randomUUID().slice(0, 6);
     const directory = pathname + "?step=" + step;
     if (step === 4) await seedSourceStage(3, draft => {
@@ -327,14 +327,21 @@ test("directory creation saves named problems, findings, ideas and native Design
       draft.fields.ideaHandoffIds = JSON.stringify(draft.ideas.map(idea => idea.id));
     });
     await page.goto(directory);
-    await page.getByTestId("aidt-new-entity-card").click();
+    if (kind === "点子") await page.getByRole("button", { name: "新建点子", exact: true }).click();
+    else await page.getByTestId("aidt-new-entity-card").click();
     if (step === 3) await page.getByRole("button", { name: "新建" + kind, exact: true }).click();
     {
       const dialog = page.getByRole("dialog");
       await dialog.getByRole("textbox", { name: /名称/ }).fill(title);
       await dialog.getByTestId("card-create-tag-input").fill("课堂 QA");
-      if (step === 4) await dialog.getByLabel("来源 HMW").selectOption("hmw-second");
-      await page.screenshot({ path: test.info().outputPath("stage-" + step + "-creation-dialog.png") });
+      if (kind === "点子") await dialog.getByLabel("来源 HMW").selectOption("hmw-second");
+      if (kind === "头脑风暴") {
+        await dialog.getByRole("combobox", { name: "HMW", exact: true }).selectOption("hmw-second");
+        await dialog.getByRole("combobox", { name: "发散方法" }).selectOption("reverse");
+        await dialog.getByRole("spinbutton", { name: "希望探索的点子数" }).fill("7");
+      }
+      const screenshot = kind === "头脑风暴" ? "stage-4-brainstorm-dialog.png" : "stage-" + step + "-creation-dialog.png";
+      await page.screenshot({ path: test.info().outputPath(screenshot) });
       const submit = dialog.locator('button[type="submit"]');
       if (!threads.size) {
         const pattern = "**/projects/*/aidt/stages/1";
@@ -362,7 +369,10 @@ test("directory creation saves named problems, findings, ideas and native Design
     if (step === 4) {
       const { stage } = await (await page.request.get("/__fullstack_api/projects/" + projectId + "/aidt/stages/4", { headers })).json();
       const definition = await (await page.request.get("/__fullstack_api/projects/" + projectId + "/aidt/stages/3", { headers })).json();
-      expect(JSON.parse(stage.content.draft.fields["ideaHmwSource:" + id])).toEqual({ id: "hmw-second", text: "如何预估等候时间？", revision: definition.stage.revision });
+      const hmw = { id: "hmw-second", text: "如何预估等候时间？", revision: definition.stage.revision };
+      if (kind === "头脑风暴") {
+        expect(JSON.parse(stage.content.draft.fields["ideaBrainstorm:" + id])).toMatchObject({ id, title, source: hmw, method: "reverse", count: 7 });
+      } else expect(JSON.parse(stage.content.draft.fields["ideaHmwSource:" + id])).toEqual(hmw);
     }
     expect(threads.has(thread)).toBe(false);
     threads.add(thread);
