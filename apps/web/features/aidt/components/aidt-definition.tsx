@@ -6,11 +6,12 @@ import { useOptionalSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  AIDT_DEFINITION_EVIDENCE_LIMIT, AIDT_DEFINITION_ITEM_LIMIT, addAidtDefinitionEntity, aidtDefinitionCards,
-  chooseAidtDefinitionHmw, isAidtDefinitionHmwReady, isAidtDefinitionPersonaReady, readAidtDefinition,
+  AIDT_DEFINITION_EVIDENCE_LIMIT, AIDT_DEFINITION_ITEM_LIMIT, addAidtDefinitionEntity, addAidtDefinitionSurprise, aidtDefinitionCards,
+  chooseAidtDefinitionHmw, confirmedAidtDefinitionSurprises, invalidateAidtDefinitionSurpriseLinks, isAidtDefinitionHmwReady,
+  isAidtDefinitionPersonaReady, isAidtDefinitionSurpriseReady, readAidtDefinition,
   readAidtDefinitionEntities, readAidtDefinitionEvidenceRevision, readAidtDefinitionSelection,
-  rebaseAidtDefinitionEvidence, saveAidtDefinitionHmw, saveAidtDefinitionPersona,
-  type AidtDefinitionHmw, type AidtDefinitionPersona,
+  rebaseAidtDefinitionEvidence, saveAidtDefinitionHmw, saveAidtDefinitionPersona, saveAidtDefinitionSurprise,
+  type AidtDefinitionHmw, type AidtDefinitionPersona, type AidtDefinitionSurprise,
 } from "../lib/aidt-definition";
 import { listAidtStageHistory, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { isAidtSurpriseConfirmed } from "../lib/aidt-surprise-reflection";
@@ -66,11 +67,13 @@ function useDefinitionEvidence({ projectId, draft, availableCards, availableCard
 }
 
 export function AidtDefinitionDirectory(props: DefinitionProps & { entityHref: (id: string) => string }) {
-  const { draft, update, readOnly, availableCardsRevision, entityHref } = props;
-  const { cards, revision, ready, stale, pinnedRevision, unavailable, failed, retry } = useDefinitionEvidence(props);
-  const { personas, hmws, invalid } = readAidtDefinition(draft.fields);
+  const { projectId, draft, update, readOnly, availableCardsRevision, entityHref } = props;
+  const { cards, revision, ready, stale, pinnedRevision, unavailable, failed, retry, unconfirmedCards, sourceFields } = useDefinitionEvidence(props);
+  const { personas, hmws, surprises, invalid } = readAidtDefinition(draft.fields);
   const entities = readAidtDefinitionEntities(draft.fields);
   const selected = readAidtDefinitionSelection(draft.fields);
+  const canRecord = ready && !readOnly && !unavailable && !invalid;
+  const hasPrimaryFinding = draft.fields.surpriseStatus === "found";
   const add = (kind: "persona" | "hmw") => {
     const id = crypto.randomUUID();
     update(old => addAidtDefinitionEntity(old, kind, id));
@@ -78,10 +81,27 @@ export function AidtDefinitionDirectory(props: DefinitionProps & { entityHref: (
   return <section className="space-y-4" aria-label="综合与定义产物" data-testid="aidt-definition-directory">
     <AidtSurpriseReflection draft={draft} onChange={next => {
       const changed = Object.entries(next.fields).filter(([key, value]) => draft.fields[key] !== value);
-      update(old => ({ ...old, fields: { ...old.fields, ...Object.fromEntries(changed) } }));
+      update(old => {
+        const next = { ...old, fields: { ...old.fields, ...Object.fromEntries(changed) } };
+        if (old.fields.surpriseConfirmed !== "true" || next.fields.surpriseConfirmed === "true") return next;
+        return confirmedAidtDefinitionSurprises(old.fields).reduce((result, record) => invalidateAidtDefinitionSurpriseLinks(result, record.id), next);
+      });
     }} availableCards={cards} availableCardsRevision={revision} readOnly={readOnly || unavailable} />
     {invalid && <p role="alert" className="text-13">部分产物格式无法读取。请在历史版本中核对，当前产物暂不可修改。</p>}
     {stale && <div className="space-y-2" role="status"><p className="text-13">本轮引用第 2 步 V{pinnedRevision}。{availableCardsRevision ? `第 2 步当前为 V${availableCardsRevision}。` : "当前材料暂不可读取。"}已保存的旧引用仍随历史版本保留。改用新版时，本轮须重新核对证据和 HMW。</p>{failed && <Button type="button" size="sm" variant="outline" onClick={retry}>重试读取原版本</Button>}{availableCardsRevision && <Button type="button" size="sm" variant="outline" disabled={readOnly || invalid} onClick={() => update(rebaseAidtDefinitionEvidence)}>以最新访谈重新核对引用</Button>}</div>}
+    {(hasPrimaryFinding || surprises.length > 0) && <section className="space-y-2" aria-label="其他意外发现">
+      <h3 className="text-14 font-semibold">其他意外发现</h3>
+      {surprises.map(record => <DefinitionSurpriseRecord key={record.id} record={record} disabled={!canRecord || !hasPrimaryFinding}
+        evidence={{ projectId, sourceFields, cards, revision, unconfirmedCards }}
+        onEdit={patch => update(old => {
+          const current = readAidtDefinition(old.fields).surprises.find(item => item.id === record.id);
+          return current && !current.archived ? saveAidtDefinitionSurprise(old, { ...current, confirmed: false, ...patch }, revision ?? null) : old;
+        })} />)}
+      {hasPrimaryFinding && <Button type="button" size="sm" variant="outline" disabled={!canRecord || surprises.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => {
+        const id = crypto.randomUUID();
+        update(old => addAidtDefinitionSurprise(old, id));
+      }}>记录另一条意外发现</Button>}
+    </section>}
     <div className="space-y-2"><h3 className="text-16 font-semibold">用户画像与 HMW</h3>
       {entities.length ? <ul className="space-y-2">{entities.map(entity => <li key={entity.id} className="rounded-lg border border-border p-3 text-13"><span className="mr-2 text-muted-foreground">{entity.kind === "persona" ? "画像" : "HMW"}</span>{entity.archived ? <span>{entity.title} · 已归档</span> : <Link className="font-medium text-primary underline" href={entityHref(entity.id)}>{entity.title}</Link>}{selected?.id === entity.id && <span className="ml-2 text-muted-foreground">本轮选用</span>}</li>)}</ul> : <p className="text-13 text-muted-foreground">还没有画像或 HMW。记录并确认意外发现后可新建画像。</p>}
       <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={readOnly || !ready || unavailable || invalid || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("persona")}>新建画像</Button><Button type="button" size="sm" variant="outline" disabled={readOnly || !ready || unavailable || invalid || !personas.some(persona => persona.confirmed && !persona.archived) || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("hmw")}>新建 HMW</Button></div>
@@ -109,7 +129,9 @@ function DefinitionEvidenceSource({ projectId, card, source }: { projectId?: str
   </details>;
 }
 
-function DefinitionEvidence({ projectId, sourceFields, cards, unconfirmedCards, revision, selected, disabled, onChange }: { projectId?: string; sourceFields: Readonly<Record<string, string>>; cards: readonly AidtDiscoveryCardDraft[]; unconfirmedCards: number; revision?: number; selected: string[]; disabled: boolean; onChange: (ids: string[]) => void }) {
+type EvidenceProps = { projectId?: string; sourceFields: Readonly<Record<string, string>>; cards: readonly AidtDiscoveryCardDraft[]; unconfirmedCards: number; revision?: number };
+
+function DefinitionEvidence({ projectId, sourceFields, cards, unconfirmedCards, revision, selected, disabled, onChange }: EvidenceProps & { selected: string[]; disabled: boolean; onChange: (ids: string[]) => void }) {
   return <fieldset className="space-y-2" disabled={disabled || !revision}>
     <legend className="text-13 font-medium">关联已确认的人物发现卡{revision ? ` · 第 2 步 V${revision}` : ""}</legend>
     {cards.length ? cards.map(card => <div key={card.id} className="rounded-lg border border-border p-2 text-13">
@@ -120,6 +142,34 @@ function DefinitionEvidence({ projectId, sourceFields, cards, unconfirmedCards, 
   </fieldset>;
 }
 
+function DefinitionSurpriseRecord({ record, disabled, evidence, onEdit }: {
+  record: AidtDefinitionSurprise; disabled: boolean; evidence: EvidenceProps; onEdit: (patch: Partial<AidtDefinitionSurprise>) => void;
+}) {
+  if (record.archived) return <p className="text-12 text-muted-foreground">{record.observation || "未填写的发现"} · 已归档</p>;
+  const valid = isAidtDefinitionSurpriseReady(record, new Set(evidence.cards.map(card => card.id)));
+  return <details className="space-y-3 rounded-lg border border-border p-3">
+    <summary className="cursor-pointer text-13 font-medium">{record.observation || "未填写的发现"} · {record.confirmed ? "已经核对" : "待核对"}</summary>
+    <DefinitionText label="原先的想法" value={record.priorBelief} disabled={disabled} onChange={priorBelief => onEdit({ priorBelief })} />
+    <DefinitionText label="观察到的差异" value={record.observation} disabled={disabled} onChange={observation => onEdit({ observation })} />
+    <DefinitionText label="学生解释" value={record.interpretation} disabled={disabled} onChange={interpretation => onEdit({ interpretation })} />
+    <DefinitionText label="仍待核实" value={record.unknowns} disabled={disabled} onChange={unknowns => onEdit({ unknowns })} />
+    <DefinitionEvidence {...evidence} disabled={disabled} selected={record.cardIds} onChange={cardIds => onEdit({ cardIds })} />
+    <div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={disabled || record.confirmed || !valid} onClick={() => onEdit({ confirmed: true })}>核对并确认这条发现</Button><Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onEdit({ archived: true })}>归档这条发现</Button></div>
+  </details>;
+}
+
+function DefinitionSurpriseLinks({ choices, selected, disabled, onChange }: {
+  choices: ReturnType<typeof confirmedAidtDefinitionSurprises>; selected: string[]; disabled: boolean; onChange: (ids: string[]) => void;
+}) {
+  const invalid = selected.filter(id => !choices.some(choice => choice.id === id));
+  if (!choices.length && !invalid.length) return null;
+  return <fieldset className="space-y-2" disabled={disabled}>
+    <legend className="text-13 font-medium">关联已确认的意外发现</legend>
+    {choices.map(choice => <label className="flex items-start gap-2 text-13" key={choice.id}><input type="checkbox" className="mt-1" checked={selected.includes(choice.id)} onChange={event => onChange(toggleId(selected, choice.id, event.currentTarget.checked))} /><span className="min-w-0 break-words">{choice.label}</span></label>)}
+    {invalid.length > 0 && <div className="space-y-2 text-12" role="status"><p>有 {invalid.length} 项原关联待重新核对或已归档。</p><Button type="button" size="sm" variant="outline" onClick={() => onChange(selected.filter(id => !invalid.includes(id)))}>移除失效关联</Button></div>}
+  </fieldset>;
+}
+
 export function AidtDefinitionEditor(props: DefinitionProps & { entityId: string }) {
   const { projectId, draft, update, readOnly, entityId } = props;
   const { cards, revision, ready, stale, pinnedRevision, unavailable, unconfirmedCards, sourceFields, failed, retry } = useDefinitionEvidence(props);
@@ -127,6 +177,8 @@ export function AidtDefinitionEditor(props: DefinitionProps & { entityId: string
   const persona = personas.find(item => item.id === entityId);
   const hmw = hmws.find(item => item.id === entityId);
   const availableCardIds = new Set(cards.map(card => card.id));
+  const surprises = ready ? confirmedAidtDefinitionSurprises(draft.fields) : [];
+  const confirmedSurpriseIds = new Set(surprises.map(record => record.id));
   if (!persona && !hmw) return <p role="status" className="text-13">这项产物未找到，请从综合与定义的目录重新打开。</p>;
   const disabled = readOnly || !ready || unavailable || invalid || Boolean(persona?.archived || hmw?.archived);
   const editPersona = (patch: Partial<AidtDefinitionPersona>) => {
@@ -144,7 +196,7 @@ export function AidtDefinitionEditor(props: DefinitionProps & { entityId: string
     });
   };
   const selected = readAidtDefinitionSelection(draft.fields)?.id === entityId;
-  const hmwReady = hmw && isAidtDefinitionHmwReady(hmw, personas, availableCardIds);
+  const hmwReady = hmw && isAidtDefinitionHmwReady(hmw, personas, availableCardIds, confirmedSurpriseIds);
   return <section className="space-y-4" data-testid="aidt-definition-editor">
     <h3 className="text-16 font-semibold">{persona ? "用户画像" : "我们如何……（HMW）"}</h3>
     {!ready && <p role="status" className="text-13">请先在综合与定义目录记录并确认意外发现或「暂无」。</p>}
@@ -156,13 +208,15 @@ export function AidtDefinitionEditor(props: DefinitionProps & { entityId: string
       <DefinitionText label="可观察的行为" value={persona.behavior} disabled={disabled} onChange={behavior => editPersona({ behavior })} />
       <DefinitionText label="需求" value={persona.need} disabled={disabled} onChange={need => editPersona({ need })} />
       <DefinitionText label="反例、适用范围或仍未知的地方" value={persona.limits} disabled={disabled} onChange={limits => editPersona({ limits })} />
+      <DefinitionSurpriseLinks choices={surprises} selected={persona.surpriseIds ?? []} disabled={disabled} onChange={surpriseIds => editPersona({ surpriseIds })} />
       <DefinitionEvidence projectId={projectId} sourceFields={sourceFields} cards={cards} unconfirmedCards={unconfirmedCards} revision={revision} selected={persona.cardIds} disabled={disabled} onChange={cardIds => editPersona({ cardIds })} />
-      <Button type="button" size="sm" disabled={disabled || persona.confirmed || !isAidtDefinitionPersonaReady(persona, availableCardIds)} onClick={() => editPersona({ confirmed: true })}>{persona.confirmed ? "画像已确认" : "确认画像"}</Button>
+      <Button type="button" size="sm" disabled={disabled || persona.confirmed || !isAidtDefinitionPersonaReady(persona, availableCardIds, confirmedSurpriseIds)} onClick={() => editPersona({ confirmed: true })}>{persona.confirmed ? "画像已确认" : "确认画像"}</Button>
     </>}
     {hmw && <>
       <DefinitionText label="我们如何……（HMW）" value={hmw.text} limit={220} disabled={disabled} onChange={text => editHmw({ text })} />
       <DefinitionText label="选择理由或待核实处" value={hmw.rationale} disabled={disabled} onChange={rationale => editHmw({ rationale })} />
       <fieldset disabled={disabled} className="space-y-2"><legend className="text-13 font-medium">关联已确认画像</legend>{personas.filter(item => !item.archived).map(item => <label className="flex items-center gap-2 text-13" key={item.id}><input type="checkbox" checked={hmw.personaIds.includes(item.id)} disabled={!item.confirmed && !hmw.personaIds.includes(item.id)} onChange={event => editHmw({ personaIds: toggleId(hmw.personaIds, item.id, event.currentTarget.checked) })} />{item.name || "未命名画像"}{!item.confirmed && " · 待确认"}</label>)}</fieldset>
+      <DefinitionSurpriseLinks choices={surprises} selected={hmw.surpriseIds ?? []} disabled={disabled} onChange={surpriseIds => editHmw({ surpriseIds })} />
       <DefinitionEvidence projectId={projectId} sourceFields={sourceFields} cards={cards} unconfirmedCards={unconfirmedCards} revision={revision} selected={hmw.cardIds} disabled={disabled} onChange={cardIds => editHmw({ cardIds })} />
       <div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={disabled || hmw.confirmed || !hmwReady} onClick={() => editHmw({ confirmed: true })}>{hmw.confirmed ? "HMW 已确认" : "确认 HMW"}</Button><Button type="button" size="sm" variant="outline" disabled={disabled || selected || !hmw.confirmed || !hmwReady} onClick={() => update(old => chooseAidtDefinitionHmw(old, entityId, availableCardIds))}>{selected ? "本轮选用" : "选为本轮 HMW"}</Button></div>
     </>}
