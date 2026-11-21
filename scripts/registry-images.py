@@ -66,7 +66,7 @@ def changed_build_services(baseline, source):
     shared = ('package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.json',
               'patches', 'packages', 'shared', 'skills/localizations', '.dockerignore')
     inputs = {
-        'web': (*shared, 'apps/web', 'tests/fixtures/cn-six-business'),
+        'web': (*shared, 'apps/web', 'skills/aidt-methods-candidates', 'tests/fixtures/cn-six-business'),
         'api': (*shared, 'apps/api', 'apps/local-asr-gateway', 'apps/skill-sandbox',
                 'apps/deep-agent-service/langgraph.json', 'skills/starter-packs',
                 'requirements/work-stack-v2/workflows', 'deploy/aliyun/images/api.tsconfig.json'),

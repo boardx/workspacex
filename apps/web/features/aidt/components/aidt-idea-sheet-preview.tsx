@@ -12,6 +12,7 @@ export function AidtIdeaSheetPreview({ sheets, printing, onPrint }: { sheets: re
       {/* eslint-disable-next-line @next/next/no-img-element -- only a validated native blob or a clearly labelled local preview */}
       <img src={sheet.imageSrc} alt={`${sheet.title}描述单图像`} className="max-h-64 w-full rounded-md object-contain" />
       <p className="whitespace-pre-wrap break-words text-13">{sheet.description}</p>
+      {sheet.hmw && <p className="text-12">{sheet.hmw}</p>}
       <p className="text-12">{sheet.categories}</p><p className="text-12">{sheet.categoryReason}</p>
       <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">来源与版本</summary><p className="mt-1 break-all">{sheet.source}</p></details>
       <Button type="button" size="sm" variant="outline" disabled={printing} data-testid={`aidt-idea-sheet-print-${index + 1}`} onClick={() => onPrint(sheet.id)}>打印候选 {index + 1} 描述单 PDF</Button>

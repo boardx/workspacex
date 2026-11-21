@@ -1,0 +1,137 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { createAidtTestGroup, readAidtTestGroups, updateAidtTestGroup } from "../lib/aidt-test-groups";
+import { readAidtTestPrototypeStage, type AidtReadPrototypeEntity } from "./aidt-test-prototype-source";
+import { resolveAidtPrototypeVersion } from "../lib/aidt-prototype-versions";
+import { aidtHref } from "../lib/project-aidt";
+import { createAidtQuestionSnapshot } from "../lib/aidt-verification-loop";
+import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
+
+type Props = {
+  projectId: string;
+  draft: AidtUiStageDraft;
+  savedDraft?: AidtUiStageDraft;
+  previousPrototype?: AidtUiStageDraft;
+  previousPrototypeRevision?: number;
+  prototypeRevision?: string | null;
+  prototypeEntity?: string | null;
+  prototypeEntities?: readonly { id: string; title: string; archived?: boolean }[];
+  readPrototypeEntity?: AidtReadPrototypeEntity;
+  readOnly: boolean;
+  canSave: boolean;
+  save: () => Promise<void>;
+  update: (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
+};
+
+export function AidtTestGroupDirectory(props: Props) {
+  const session = useOptionalSession()?.session;
+  if (!session?.sessionToken || !session.userId || !session.currentOrgId) return <p role="status">登录后查看本组测试。</p>;
+  const key = JSON.stringify([props.projectId, session.currentOrgId, session.userId, session.sessionToken, props.readOnly, props.prototypeRevision, props.prototypeEntity]);
+  return <TestGroupDirectory key={key} {...props} sessionToken={session.sessionToken} userId={session.userId} />;
+}
+
+function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, update, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
+  const [name, setName] = React.useState("");
+  const [chosenEntity, setChosenEntity] = React.useState("");
+  const [requestId, setRequestId] = React.useState<string>();
+  const [error, setError] = React.useState("");
+  const [checking, setChecking] = React.useState(false);
+  const request = React.useRef<AbortController | null>(null);
+  React.useEffect(() => () => request.current?.abort(), []);
+
+  const groups = readAidtTestGroups(draft.fields);
+  const savedGroups = readAidtTestGroups(savedDraft?.fields ?? {});
+  const savedIds = new Set(savedGroups.filter(item => !item.archived).map(item => item.id));
+  const available = groups.filter(group => !group.archived);
+  const archived = groups.filter(group => group.archived);
+  const exactRevision = prototypeRevision == null ? previousPrototypeRevision : /^\d{1,10}$/.test(prototypeRevision) ? Number(prototypeRevision) : undefined;
+  const id = prototypeEntity ?? (chosenEntity || undefined);
+  const candidates = prototypeEntities.filter(item => !item.archived);
+  const limit = Object.keys(draft.fields).length >= (draft.fields.questionSnapshot || draft.fields.version?.trim() ? 100 : 98);
+  const canCreate = Boolean(!readOnly && !checking && !limit && name.trim() && exactRevision && exactRevision > 0 && exactRevision < 2147483647 &&
+    (!id || readPrototypeEntity) && (!candidates.length || id));
+
+  async function create() {
+    if (!canCreate || !exactRevision || request.current) return;
+    const controller = new AbortController();
+    request.current = controller;
+    setChecking(true);
+    setError("");
+    try {
+      let stage5 = exactRevision === previousPrototypeRevision ? previousPrototype : undefined;
+      if (!stage5) {
+        stage5 = await readAidtTestPrototypeStage(projectId, exactRevision, sessionToken, controller.signal);
+      }
+      const source = stage5 && (id ? readPrototypeEntity?.(stage5, id) : stage5);
+      if (!source) throw new Error("source");
+      const binding = createAidtQuestionSnapshot(source, exactRevision);
+      const group = binding.ok ? createAidtTestGroup(binding.snapshot, crypto.randomUUID(), id) : null;
+      if (!group || !binding.ok) throw new Error("binding");
+      await resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, group.designId, group.versionId);
+      if (controller.signal.aborted) return;
+      update(current => {
+        const next = updateAidtTestGroup(current, { ...group, name: name.trim() });
+        if (next === current || current.fields.questionSnapshot || current.fields.version?.trim()) return next;
+        return { ...next, fields: { ...next.fields, version: binding.snapshot.prototypeRef, questionSnapshot: binding.serialized } };
+      });
+      setRequestId(group.id);
+      setName("");
+    } catch (failure) {
+      if (controller.signal.aborted) return;
+      const detail = failure instanceof Error ? failure.message : "";
+      setError(detail === "source" || detail === "binding"
+        ? "此版本没有同时确认的问题卡与实际 Design 原型。请回第 5 步核对后重试。"
+        : "无法核对原型或它的历史版本。请检查访问权限与项目关联后重试。");
+    } finally {
+      if (request.current === controller) request.current = null;
+      if (!controller.signal.aborted) setChecking(false);
+    }
+  }
+
+  function openHref(entity: string) {
+    return `${aidtHref(projectId, 6)}&entity=${encodeURIComponent(entity)}`;
+  }
+  return <section className="space-y-4" aria-label="本组测试" data-testid="aidt-test-group-directory">
+    <h1 className="text-18 font-semibold">测试与迭代</h1>
+    {!available.length && <p className="text-13 text-muted-foreground">尚无测试。请选用一个已确认的原型版本，开始记录访谈或问卷测试。</p>}
+    <ul className="grid gap-3 sm:grid-cols-2">
+      {available.map(group => <li key={group.id} className="space-y-2 rounded-lg border border-border p-3">
+        <h2 className="break-words text-14 font-semibold">{group.name || "测试组"}</h2>
+        <p className="text-12 text-muted-foreground">{group.method === "survey" ? "问卷" : "访谈"} · 第 5 步 V{group.stage5Revision}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          {savedIds.has(group.id)
+            ? <Button type="button" size="sm" variant="outline" asChild><Link href={openHref(group.id)}>打开测试</Link></Button>
+            : <span className="text-12 text-muted-foreground">保存后可以打开对话</span>}
+          {!readOnly && <Button type="button" size="sm" variant="ghost" onClick={() => update(current => {
+            const existing = readAidtTestGroups(current.fields).find(item => item.id === group.id);
+            return existing ? updateAidtTestGroup(current, { ...existing, archived: true }) : current;
+          })}>归档测试</Button>}
+        </div>
+      </li>)}
+    </ul>
+    {archived.length > 0 && <details className="text-12"><summary>已归档测试（{archived.length}）</summary>
+      <ul className="mt-2 space-y-2">{archived.map(group => <li key={group.id}>{group.name || "测试组"} · 第 5 步 V{group.stage5Revision}{!readOnly && <Button type="button" size="xs" variant="ghost" onClick={() => update(current => {
+        const existing = readAidtTestGroups(current.fields).find(item => item.id === group.id);
+        return existing ? updateAidtTestGroup(current, { ...existing, archived: false }) : current;
+      })}>恢复测试</Button>}</li>)}</ul>
+    </details>}
+    {!readOnly && <div className="space-y-3 border-t border-border pt-3">
+      {!!candidates.length && !prototypeEntity && <label className="block text-12">所用原型
+        <select className="mt-1 w-full rounded-md border border-border bg-background p-2" value={chosenEntity} onChange={event => setChosenEntity(event.currentTarget.value)}><option value="">请选择</option>{candidates.map(entity => <option key={entity.id} value={entity.id}>{entity.title}</option>)}</select>
+      </label>}
+      <label className="block space-y-1 text-12">测试名称<Input value={name} maxLength={80} onChange={event => setName(event.currentTarget.value)} /></label>
+      {prototypeRevision && <p className="text-12 text-muted-foreground">本次从第 5 步 V{prototypeRevision} 带入。</p>}
+      <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={!canCreate} onClick={() => void create()}>{checking ? "核对原型版本…" : "新建测试草稿"}</Button>
+        <Button type="button" size="sm" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>
+      </div>
+      {limit && <p role="status" className="text-12">本项目达到当前测试记录容量。归档记录仍保留。</p>}
+      {requestId && savedIds.has(requestId) && <Link href={openHref(requestId)} className="text-12 text-primary underline">打开刚保存的测试</Link>}
+      {error && <p role="alert" className="text-12">{error}</p>}
+    </div>}
+  </section>;
+}
