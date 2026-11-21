@@ -71,14 +71,14 @@ export function ProductCatalogSettings({ kind }: { kind: Product["kind"] }) {
     }
   }
 
-  const fields: ReadonlyArray<readonly [string, string, number, number]> = editing ? [
+  const fields: ReadonlyArray<readonly [string, string, number, number, boolean?]> = editing ? [
     ["price", `${zh ? "价格" : "Price"} (${editing.currency})`, editing.values.amountMinor / 100, 0.01],
-    ["base", zh ? "基础积分" : "Base credits", editing.values.baseCredits, 1],
-    ["bonus", zh ? "赠送积分" : "Bonus credits", editing.values.bonusCredits, 1],
+    ["base", zh ? "基础积分" : "Base credits", editing.values.baseCredits, 1, editing.values.teamTerms !== null],
+    ["bonus", zh ? "赠送积分" : "Bonus credits", editing.values.bonusCredits, 1, editing.values.teamTerms !== null],
     ...(editing.values.teamTerms ? [
-      ["seats", zh ? "包含席位" : "Included seats", editing.values.teamTerms.includedSeats, 1],
+      ["seats", zh ? "包含席位" : "Included seats", editing.values.teamTerms.includedSeats, 1, true],
       ["seatPrice", `${zh ? "额外席位价格" : "Additional seat price"} (${editing.currency})`, editing.values.teamTerms.additionalSeatAmountMinor / 100, 0.01],
-      ["seatCredits", zh ? "额外席位每月积分" : "Monthly credits per additional seat", editing.values.teamTerms.additionalSeatMonthlyCredits, 1],
+      ["seatCredits", zh ? "额外席位每月积分" : "Monthly credits per additional seat", editing.values.teamTerms.additionalSeatMonthlyCredits, 1, true],
     ] as const : []),
   ] as const : [];
 
@@ -119,13 +119,18 @@ export function ProductCatalogSettings({ kind }: { kind: Product["kind"] }) {
         <aside className="fixed inset-y-0 right-0 z-40 w-full max-w-md overflow-auto border-l border-border bg-card p-6 shadow-lg">
           <form key={editing.sku} onSubmit={save} className="space-y-4">
             <h2 className="text-lg font-semibold">{zh ? "编辑商品" : "Edit product"} · {editing.sku}</h2>
-            {fields.map(([name, label, value, step]) => (
+            {fields.map(([name, label, value, step, fixed]) => (
               <label key={name} className="grid gap-1 text-sm">
                 {label}
                 <Input name={name} type="number" step={step} min={name === "bonus" ? 0 : step}
-                  defaultValue={value} required disabled={busy} />
+                  defaultValue={value} required readOnly={fixed} disabled={busy} />
               </label>
             ))}
+            {editing.values.teamTerms && (
+              <p className="text-sm text-muted-foreground">
+                {zh ? "团队席位和积分额度由当前套餐规则固定。" : "Team seats and credits are fixed by the current plan policy."}
+              </p>
+            )}
             <label className="flex gap-2 text-sm">
               <input name="enabled" type="checkbox" defaultChecked={editing.values.enabled} disabled={busy} />
               {zh ? "上架" : "Enabled"}
