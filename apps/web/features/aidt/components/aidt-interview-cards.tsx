@@ -2,6 +2,7 @@
 
 import { aidtInterviewTitle } from "@repo/contracts/aidt-stages";
 import * as React from "react";
+import { AidtEntityCard } from "./aidt-entity-card";
 import { ArrowUpRight, ListChecks, MessagesSquare, Paperclip, Pencil, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -73,7 +74,7 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
       const saved = !savedIds || savedIds.has(record.id);
       const status = removed ? "已归档" : confirmed ? "发现卡已核对" : record.guideConfirmed ? "清单已确认 · 发现待核对" : "提纲草稿";
       const materials = readAidtInterviewMaterials(draft.fields, record.id, projectId).length;
-      return <li key={record.id} className="relative flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm">
+      return <AidtEntityCard key={record.id} entityId={record.id} className="relative gap-3 p-4" useSharedTags={false}>
         <div className="flex items-center justify-between gap-2"><span className="rounded-md bg-primary/10 px-2 py-1 text-12 font-semibold text-primary">{record.code}</span><span className="text-12 text-muted-foreground">{status}</span></div>
         <h5 className="break-words text-16 font-semibold">{record.displayName || ("受访者 " + record.code)}</h5>
         {record.goal && <p className="line-clamp-2 break-words text-13 text-muted-foreground">{record.goal}</p>}
@@ -86,7 +87,7 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
             <Button type="button" size="sm" variant="ghost" className="relative z-10" aria-label="删除访谈卡" title="删除访谈卡" onClick={() => setAction({ id: record.id, mode: "remove" })}><Trash2 aria-hidden className="size-4" /></Button>
           </>}
         </div>
-      </li>;
+      </AidtEntityCard>;
     })}</ul>
     {subject && !readOnly && action?.mode === "edit" && <InterviewCardEditor record={subject} knownTags={knownTags} save={details => update(old => {
       const current = readAidtInterviews(old.fields).find(row => row.id === subject.id);

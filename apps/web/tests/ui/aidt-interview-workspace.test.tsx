@@ -41,14 +41,14 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 it("keeps per-person questions independent across directory and saved entity views", async () => {
   const view = render(<Workspace />);
   await screen.findByText("已确认研究问题 · 第 1 步 V2");
-  fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   fireEvent.click(screen.getByRole("button", { name: "创建访谈" }));
   const guide = within(screen.getByRole("region", { name: "访谈提纲" }));
   fireEvent.change(guide.getByRole("textbox", { name: "学生提纲原稿" }), { target: { value: "U01 原稿" } });
   fireEvent.change(guide.getByRole("textbox", { name: "学生采纳清单" }), { target: { value: "U01 确认清单" } });
   fireEvent.click(guide.getByRole("button", { name: "确认此人的问题清单" }));
   fireEvent.click(screen.getByRole("button", { name: "返回访谈列表" }));
-  fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   fireEvent.click(screen.getByRole("button", { name: "创建访谈" }));
   expect(screen.getByRole("textbox", { name: "学生提纲原稿" })).toHaveValue("");
   fireEvent.change(screen.getByRole("textbox", { name: "学生提纲原稿" }), { target: { value: "U02 原稿" } });
@@ -85,7 +85,7 @@ it("opens only the explicitly selected historical problem entity and persists bo
   mocked.history.mockResolvedValue({ items: [stage] });
   const view = render(<Workspace problemEntityId={id} problemRevision={3} />);
   await screen.findByText("已确认研究问题 · 第 1 步 V3");
-  fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   fireEvent.click(screen.getByRole("button", { name: "创建访谈" }));
   expect(screen.getByText("第 1 步 V3 · 第二个问题：怎样比较菜单上的口味？")).toBeInTheDocument();
   const record = JSON.parse(Object.entries(latest.fields).find(([key]) => key.startsWith("interviewRecord:"))![1]);
@@ -94,13 +94,13 @@ it("opens only the explicitly selected historical problem entity and persists bo
 
   render(<Workspace problemEntityId="15c7b5e2-9d0e-4b10-bc47-000000000099" problemRevision={3} />);
   expect(await screen.findByRole("alert")).toHaveTextContent("研究问题读取失败");
-  expect(screen.getByRole("button", { name: "新建访谈" })).toBeDisabled();
+  expect(screen.getByTestId("aidt-new-entity-card")).toBeDisabled();
 });
 
 it("persists card names and tags, filters, and removes a card without recycling its thread or code", async () => {
   const view = render(<Workspace entityId={null} />);
   await screen.findByText("已确认研究问题 · 第 1 步 V2");
-  const create = screen.getByRole("button", { name: "新建访谈" });
+  const create = screen.getByTestId("aidt-new-entity-card");
   for (let n = 0; n < 10; n++) {
     fireEvent.click(create);
     if (n === 0) {
@@ -136,7 +136,7 @@ it("persists card names and tags, filters, and removes a card without recycling 
   fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "确认删除" }));
   expect(cards()).toHaveLength(9);
   expect(aidtInterviewDirectory(latest).find(item => item.id === before[0]!.id)?.archived).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   fireEvent.click(screen.getByRole("button", { name: "创建访谈" }));
   expect(cards()).toHaveLength(10);
   expect(screen.getByRole("button", { name: /^U11 / })).toBeEnabled();

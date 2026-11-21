@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
-import { ArrowUpRight, MessageSquare, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowUpRight, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -62,10 +63,8 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
     } else setError(true);
   }
 
-  const create = !readOnly && <Button ref={createButton} type="button" variant="primary" disabled={mutationsDisabled || atCapacity}
-    onClick={event => open({ kind: "create", id: crypto.randomUUID(), original: "" }, event.currentTarget)}>
-    <Plus className="size-4" aria-hidden />新建问题
-  </Button>;
+  const create = !readOnly && <AidtNewEntityCardButton ref={createButton} disabled={mutationsDisabled || atCapacity}
+    onClick={event => open({ kind: "create", id: crypto.randomUUID(), original: "" }, event.currentTarget)} />;
 
   return <section aria-labelledby={headingId} className="space-y-4" data-testid="aidt-problem-directory">
     <header className="flex flex-wrap items-center justify-between gap-3">
@@ -80,7 +79,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
       </div>
       {create}
     </div> : <ul className="grid gap-3 sm:grid-cols-2">
-      {items.map(item => <li key={item.id} className="flex min-w-0 flex-col rounded-container border border-border bg-card text-card-foreground">
+      {items.map(item => <AidtEntityCard key={item.id} entityId={item.id}>
         <Link id={`aidt-problem-card-${item.id}`} href={href(item.id)} aria-label={item.title}
           className="group flex flex-1 gap-3 rounded-container p-4 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
           <span className="grid size-9 shrink-0 place-items-center rounded-control bg-muted text-primary"><MessageSquare className="size-4" aria-hidden /></span>
@@ -96,7 +95,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
           <Button type="button" size="sm" variant="ghost" aria-label={`删除问题 ${item.title}`} disabled={mutationsDisabled}
             onClick={event => open({ kind: "delete", id: item.id, original: item.title }, event.currentTarget)}><Trash2 className="size-3.5" aria-hidden />删除</Button>
         </div>}
-      </li>)}
+      </AidtEntityCard>)}
     </ul>}
     {atCapacity && !readOnly && <p role="status" className="text-13 text-muted-foreground">本步已达到小组草稿容量上限。</p>}
     <Dialog open={Boolean(action && !readOnly)} onOpenChange={open => { if (!open && !saving) setAction(null); }}>

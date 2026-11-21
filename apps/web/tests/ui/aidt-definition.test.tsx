@@ -92,8 +92,10 @@ it("creates a primary surprise card and offers no workspace questions or forms",
   }
   render(<Directory />);
   expect(screen.queryByRole("radio")).toBeNull();
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   fireEvent.click(screen.getByRole("button", { name: "新建意外发现" }));
   expect(screen.getByRole("link", { name: "打开意外发现对话" })).toHaveAttribute("href", "/aidt/p?step=3&entity=primary-surprise");
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   expect(screen.getByRole("button", { name: "新建画像" })).toBeDisabled();
 });
 

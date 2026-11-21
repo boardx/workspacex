@@ -557,11 +557,12 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   await check('s1-draft-not-complete', undefined, async () => {
     report.s1Navigation.operation = 'create-problem';
-    await go(1); await click(btn('新建问题')); await fill('问题名称', problemName); await captureCardCreation(1, 'problem', () => click(btn('创建问题')));
-    const link = page.getByRole('link', { name: problemName, exact: true });
-    await expect(link).toBeVisible();
+    await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', problemName);
+    await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true });
     report.s1Navigation.operation = 'open-problem-outcome';
-    problemRoute = await openProblem(link); report.s1Navigation.entityOutcomeObserved = true;
+    await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
+    problemRoute = ownedAidtProblemRoute(page.url(), { origin, projectId: scope.projectId });
+    await openProblem(); report.s1Navigation.entityOutcomeObserved = true;
     await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
     problemHref = page.url();
     report.s1Navigation.operation = 'native-teaching-feedback';
@@ -719,8 +720,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   if (!state.s1 && problemHref && hasPendingProblemReview(report.pendingTeachingReviews, problemHref, scope.projectId)) {
     state.syntheticHandoff = await check('synthetic-problem-for-interviews', undefined, async () => {
       const fixtureName = `QA独立访谈前置题 ${unique}`;
-      await go(1); await click(btn('新建问题')); await fill('问题名称', fixtureName); await captureCardCreation(1, 'problem', () => click(btn('创建问题')));
-      const fixture = await openAidtProblemOutcome({ page, link: page.getByRole('link', { name: fixtureName, exact: true }),
+      await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', fixtureName);
+      await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true });
+      const fixtureRoute = ownedAidtProblemRoute(page.url(), { origin, projectId: scope.projectId });
+      const fixture = await openAidtProblemOutcome({ page, route: fixtureRoute,
         scope: { origin, projectId: scope.projectId }, waitForRoute: waitForEntity,
         assertReady: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible() });
       if (fixture.entityId === problemRoute.entityId) fail('INDEPENDENT_PROBLEM_REQUIRED');
@@ -748,11 +751,13 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(topic).toBeVisible();
       if (await topic.locator('..').getAttribute('open') === null) await topic.click();
       await expect(topic.locator('..')).toContainText(confirmedProblem.rewrittenTheme);
-      await click(btn('新建访谈')); await captureCardCreation(2, 'interview', () => click(btn('创建访谈')));
+      await click(page.getByTestId('aidt-new-entity-card'));
+      await captureCardCreation(2, 'interview', () => click(btn('创建访谈')), { reopen: true });
       const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
       assertAidtS2Topic(JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]), confirmedProblem);
-      await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
-        assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), assertReady: () => entityReady(2) });
+      await waitForEntity(() => matchesAidtEntityRoute(page.url(), target));
+      await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+      await output(target);
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
       await expect(page.getByTestId('aidt-interview-output')).toContainText(code);
       const threadId = new URL(page.url()).searchParams.get('thread');
@@ -880,12 +885,15 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const grid = page.getByRole('list', { name: '访谈卡片', exact: true });
     const cards = grid.getByRole('listitem');
     await expect(cards).toHaveCount(10);
-    await click(btn('新建访谈'));
+    await click(page.getByTestId('aidt-new-entity-card'));
     const creation = page.getByRole('dialog', { name: '新建访谈' });
     await fill('受访者姓名或化名', '临时化名', creation);
-    await captureCardCreation(2, 'interview', () => click(btn('创建访谈', creation)));
+    const { target: created } = await captureCardCreation(2, 'interview', () => click(btn('创建访谈', creation)));
+    const createdRecord = JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${created.entityId}`] ?? '{}');
+    if (createdRecord.code !== 'U11') fail('S2_CARD_AUTO_OPEN_MISMATCH');
     await expect(cards).toHaveCount(11);
     const temporary = cards.filter({ has: page.getByRole('button', { name: /^U11(?:\s|$)/ }) });
+    await expect(page.getByTestId('aidt-shared-save')).toHaveCount(0);
     await click(btn('改名与标签', temporary));
     const editor = page.getByRole('dialog', { name: '编辑访谈卡' });
     const name = `临时访谈 ${unique}`;
@@ -893,7 +901,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await fill('受访者姓名或化名', name, editor);
     const tagInput = editor.getByTestId('interview-tag-input');
     for (const tag of tags) { await tagInput.fill(tag); await tagInput.press('Enter'); }
-    await click(btn('保存修改', editor)); await saveStage(2);
+    await saveStage(2, btn('保存修改', editor));
     await page.reload();
     await expect(temporary.getByText(name, { exact: true })).toBeVisible();
     const filter = page.getByRole('group', { name: '筛选标签', exact: true });
@@ -905,8 +913,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     }
     await click(btn('全部', filter));
     await click(btn('删除访谈卡', temporary));
-    await click(btn('确认删除', page.getByRole('dialog', { name: '删除访谈卡？' })));
-    await saveStage(2); await page.reload();
+    await saveStage(2, btn('确认删除', page.getByRole('dialog', { name: '删除访谈卡？' })));
+    await page.reload();
     await expect(cards).toHaveCount(10);
     await expect(temporary).toHaveCount(0);
     await click(btn('查看已移除'));
@@ -917,11 +925,11 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   state.s3 = await check('s3-definition-hmw-handoff', 3, async () => {
     if (!state.s2 || !step3Href) { await go(3); fail('S2_CONFIRMED_HANDOFF_REQUIRED'); }
     await page.goto(owned(step3Href));
-    await captureCardCreation(3, 'surprise', () => click(btn('新建意外发现')), { reopen: true }); await output();
+    await click(page.getByTestId('aidt-new-entity-card')); await captureCardCreation(3, 'surprise', () => click(btn('新建意外发现')), { reopen: true }); await output();
     await page.getByRole('radio', { name: '暂无意外发现', exact: true }).check();
     await persistConfirmed(3, page.getByTestId('aidt-surprise-confirm'));
     await follow('返回产物列表');
-    await captureCardCreation(3, 'persona', () => click(btn('新建画像')), { reopen: true }); await output();
+    await click(page.getByTestId('aidt-new-entity-card')); await captureCardCreation(3, 'persona', () => click(btn('新建画像')), { reopen: true }); await output();
     await fill('画像名称', personaName); await fill('用户情境', text('午休时的饮品选择合成情境。'));
     await fill('可观察的行为', text('夹具中的人物先看队列。')); await fill('需求', text('了解等待信息，仍需真实研究。'));
     await fill('反例、适用范围或仍未知的地方', '只有QA合成材料，年龄、兴趣与真实行为均未知。');
@@ -931,7 +939,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await observeInputs(3);
     await persistConfirmed(3, btn('确认画像')); personaHref = page.url();
     evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
-    await follow('返回产物列表'); await captureCardCreation(3, 'hmw', () => click(btn('新建 HMW')), { reopen: true }); await output();
+    await follow('返回产物列表'); await click(page.getByTestId('aidt-new-entity-card')); await captureCardCreation(3, 'hmw', () => click(btn('新建 HMW')), { reopen: true }); await output();
     await fill('我们如何……（HMW）', text('我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？'));
     await fill('选择理由或待核实处', '来自本次合成发现卡；是否适用于真实学生仍待验证。');
     await page.getByRole('group', { name: '关联已确认画像', exact: true }).getByRole('checkbox', { name: personaName, exact: true }).check();
@@ -950,7 +958,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     if (!state.s3 || !step4Href) { await go(4); fail('S3_CONFIRMED_HANDOFF_REQUIRED'); }
     await page.goto(owned(step4Href));
     for (const name of ideaNames) {
-      await click(btn('新建点子'));
+      await click(page.getByTestId('aidt-new-entity-card'));
       const dialog = page.getByRole('dialog', { name: '新建点子' });
       await fill('点子名称', name, dialog);
       await captureCardCreation(4, 'idea', () => click(dialog.locator('button[type=submit]')));
@@ -999,7 +1007,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     if (!state.s4 || !step5Href) { await go(5); fail('S4_CONFIRMED_HANDOFF_REQUIRED'); }
     if (typeof armDesignGeneration !== 'function' || typeof armDesignCreate !== 'function') fail('BOUNDED_DESIGN_GENERATION_GUARD_REQUIRED');
     await page.goto(owned(step5Href));
-    await click(btn('新建原型'));
+    await click(page.getByTestId('aidt-new-entity-card'));
     const dialog = page.getByRole('dialog', { name: '新建原型' });
     await fill('原型名称', '未命名设计', dialog);
     const { target: designRoute } = await captureCardCreation(5, 'prototype', async () => {
@@ -1050,7 +1058,11 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   state.s6 = await check('s6-test-reflection', 6, async () => {
     if (!state.s5 || !step6Href) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
-    await page.goto(owned(step6Href)); await fill('测试名称', `QA合成测试 ${unique}`); const { directoryHref: savedDirectoryHref } = await captureCardCreation(6, 'test', () => click(btn('新建测试草稿')), { reopen: true });
+    await page.goto(owned(step6Href)); await click(page.getByTestId('aidt-new-entity-card'));
+    const creation = page.getByRole('dialog', { name: '新建测试卡片' });
+    await fill('测试名称', `QA合成测试 ${unique}`, creation);
+    const { directoryHref: savedDirectoryHref } = await captureCardCreation(6, 'test',
+      () => click(btn('创建测试卡片', creation)), { reopen: true });
     await output();
     const detail = page.getByTestId('aidt-test-group-detail'); await expect(detail).toBeVisible();
     await fill('参与者代号', `QA合成对象 ${unique}`, detail);
