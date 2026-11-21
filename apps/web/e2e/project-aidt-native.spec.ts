@@ -353,6 +353,11 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
   await page.getByTestId("aidt-tool-panel").evaluate((element) => { element.scrollTop = 0; });
   await page.screenshot({ path: test.info().outputPath("aidt-ui-v2-report-preview.png"), fullPage: true });
   await closeTools(page);
+  await expect.poll(() => {
+    const query = new URL(page.url()).searchParams;
+    return [query.get("step"), query.get("tool"), query.get("summary")];
+  }).toEqual(["6", "chat", "1"]);
+  await expect.poll(() => new URL(page.url()).searchParams.get("summaryThread")).toBeTruthy();
 
   await selectStage(page, 2);
   await openAssistant(page);

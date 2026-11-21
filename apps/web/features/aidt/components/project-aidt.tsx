@@ -218,14 +218,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite }: { project
     return `${url.pathname}${url.search}`;
   }
   const nextStep = AIDT_STEPS.find(({ id }) => id === step.id + 1);
-  function navigateWorkspace(event: React.MouseEvent<HTMLElement>) {
-    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
-    if (!(link instanceof HTMLAnchorElement) || link.target || link.hasAttribute("download")) return;
-    const target = new URL(link.href);
-    const current = new URL(window.location.href);
-    if (target.origin !== current.origin || target.pathname !== current.pathname || target.hash) return;
-    if (!link.hasAttribute("data-aidt-reset-thread") && target.searchParams.get("step") === current.searchParams.get("step")) {
+  function pushWorkspaceUrl(target: URL, current: URL, preserveThread = true) {
+    if (preserveThread && target.searchParams.get("step") === current.searchParams.get("step")) {
       for (const key of ["thread", ...(target.searchParams.has("summary") ? ["summaryThread"] : [])]) {
         const value = current.searchParams.get(key);
         if (value && !target.searchParams.has(key)) target.searchParams.set(key, value);
@@ -233,8 +227,22 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite }: { project
     }
     setToolsScope(null);
     // Commit same-page navigation before background Chat resolution can update the URL.
-    event.preventDefault();
     if (target.href !== current.href) window.history.pushState(null, "", target);
+  }
+  function navigateWorkspace(event: React.MouseEvent<HTMLElement>) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+    if (!(link instanceof HTMLAnchorElement) || link.target || link.hasAttribute("download")) return;
+    const target = new URL(link.href);
+    const current = new URL(window.location.href);
+    if (target.origin !== current.origin || target.pathname !== current.pathname || target.hash) return;
+    event.preventDefault();
+    pushWorkspaceUrl(target, current, !link.hasAttribute("data-aidt-reset-thread"));
+  }
+  function setWorkspaceToolsOpen(open: boolean) {
+    const current = new URL(window.location.href);
+    const target = new URL(href(open ? "outcome" : "chat"), current);
+    pushWorkspaceUrl(target, current);
   }
   const reportHref = canWrite ? aidtReportChatHref(projectId, { stageThread: step.id === 6 ? thread : null, threadId: summaryThread, returnRevision }) : aidtHref(projectId, 6, { tool: "report" });
   const sharedProblem = shared.available && (shared.read?.phase === "error" || shared.write.phase === "error" || shared.write.phase === "conflict");
@@ -302,7 +310,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite }: { project
                 hasInitial={Boolean(currentUi.drafts[1]!.fields.initial?.trim())} onUseInitial={(content, messageId) => updateStage(1, old =>
                   old.fields.initial?.trim() ? old : { ...old, fields: { ...old.fields, initial: content, initialChatMessageId: messageId } }
                 )} /> } : null}>
-              <Chat offerInitial={problemStep ? text => toChat(text, false) : undefined} key={`${uiScope}:${step.id}:${reportMode ? "report" : "stage"}`} projectId={projectId} step={step} thread={reportMode ? summaryThread : thread} purpose={reportMode ? "report" : undefined} returnRevision={returnRevision} taskHref={href(reportMode ? "report" : "outcome")} onResolvedThread={onResolvedThread} savedContextRefs={savedContextRefs} sharedContextRefs={sharedContextRefs} sharedContextReady={shared.read?.phase === "ready"} referencePanel={referencePanel} hostPanel={{ scope: `${uiLifecycleKey}:${step.id}`, title: problemStep ? "工作坊问题" : "成果", placement: problemStep ? "artifacts" : undefined, open: tool !== "chat", content: workspaceTools, onOpenChange: open => router.push(href(open ? "outcome" : "chat")) }} />
+              <Chat offerInitial={problemStep ? text => toChat(text, false) : undefined} key={`${uiScope}:${step.id}:${reportMode ? "report" : "stage"}`} projectId={projectId} step={step} thread={reportMode ? summaryThread : thread} purpose={reportMode ? "report" : undefined} returnRevision={returnRevision} taskHref={href(reportMode ? "report" : "outcome")} onResolvedThread={onResolvedThread} savedContextRefs={savedContextRefs} sharedContextRefs={sharedContextRefs} sharedContextReady={shared.read?.phase === "ready"} referencePanel={referencePanel} hostPanel={{ scope: `${uiLifecycleKey}:${step.id}`, title: problemStep ? "工作坊问题" : "成果", placement: problemStep ? "artifacts" : undefined, open: tool !== "chat", content: workspaceTools, onOpenChange: setWorkspaceToolsOpen }} />
               </ChatHostConversationContext.Provider>
             </div> : <ProjectConversations key={uiScope} projectId={projectId} canWrite={false} />}
           </AidtAssistantPanel>
