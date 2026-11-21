@@ -61,7 +61,7 @@ export function AidtProjectWorkspace({ projectId }: { projectId: string }) {
     const revision = /^\d{1,10}$/.test(revisionParam) ? Number(revisionParam) : 0;
     if (!entity.success || !selectedStep || revision < 1 || revision > 2147483647) return <p role="alert">产物版本链接无效。</p>;
     return <AidtEntityHistory key={JSON.stringify([key, selectedStep.id, entity.data, revision])}
-      projectId={projectId} step={selectedStep} entityId={entity.data} revision={revision} token={bearer} timestamp={search.get("timestamp")} />;
+      projectId={projectId} step={selectedStep} entityId={entity.data} revision={revision} token={bearer} timestamp={search.get("timestamp")} sourceId={search.get("sourceId")} />;
   }
   return <div className="flex h-full min-h-0 flex-col" data-testid="aidt-project-workspace">
     {!step && <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border/60 px-4 py-3 sm:px-8">
