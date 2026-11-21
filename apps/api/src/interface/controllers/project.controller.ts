@@ -205,12 +205,7 @@ type AddNonWorkshopMemberBody = z.infer<typeof C.operations.addNonWorkshopMember
 type AddMemberBody = z.infer<typeof C.operations.addProjectMember.in>;
 type ChangeRoleBody = z.infer<typeof C.operations.changeProjectRole.in>;
 
-type CreateBody = {
-  orgId: string;
-  name: string;
-  kind: string;
-  blueprintVersionId: string | null;
-};
+type CreateBody = z.infer<typeof CREATE_PROJECT_SCHEMA>;
 
 @Controller()
 export class ProjectController {
@@ -271,6 +266,7 @@ export class ProjectController {
           name: body.name,
           kind: body.kind,
           blueprintVersionId: body.blueprintVersionId,
+          ...(body.profile === undefined ? {} : { profile: body.profile }),
         },
       );
       // ⚠ `created`/`initialized` 都不进响应体：契约的 `out` 是 `.strict()` 四字段，
@@ -285,7 +281,9 @@ export class ProjectController {
         //   三值闭集把它拦成字段级 400。留着这一支不是死代码——用例的 `kind` 收的是
         //   `string`，任何不经 HTTP 的调用方（脚本、未来的队列消费者）都走那道门，
         //   而它们抛出来的码必须与契约对得上。
-        if (e.reasonCode === "INVALID_KIND") throw new BadRequestException({ reasonCode: e.reasonCode });
+        if (e.reasonCode === "INVALID_KIND" || e.reasonCode === "INVALID_CREATION_PROFILE") {
+          throw new BadRequestException({ reasonCode: e.reasonCode });
+        }
         if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
           // 503 而不是 403：判定服务不可用**不是**一个裁定。把它渲染成拒绝，
           // 用户会去找管理员要一个他本来就有的权限。

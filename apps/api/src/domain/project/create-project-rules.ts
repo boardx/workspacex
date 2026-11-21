@@ -36,6 +36,7 @@ export const PROJECT_KINDS = project.ProjectKind.options;
  * 而不是编译失败。`z.infer` 让契约成为类型的唯一出处（同 `domain/identity/roles.ts`）。
  */
 export type ProjectKind = z.infer<typeof project.ProjectKind>;
+export type ProjectCreationProfile = z.infer<typeof project.ProjectCreationProfile>;
 
 /** An ordinary member may create a project in their own organization. */
 export function canCreateProject(orgRole: OrgRole | null): boolean {
@@ -68,6 +69,7 @@ export interface CreationRequestIdentity {
   readonly kind: string;
   readonly name: string;
   readonly blueprintVersionId: string | null;
+  readonly profile?: ProjectCreationProfile;
 }
 
 /**
@@ -94,5 +96,7 @@ const SEP = "\u0000";
 export function creationFingerprint(req: CreationRequestIdentity): string {
   const blueprint = req.blueprintVersionId === null ? "null" : `id${req.blueprintVersionId}`;
   const parts = [req.orgId, req.actorId, req.kind, req.name, blueprint];
+  // Preserve the exact legacy byte sequence when profile is absent.
+  if (req.profile !== undefined) parts.push(req.profile);
   return createHash("sha256").update(parts.join(SEP), "utf8").digest("hex");
 }

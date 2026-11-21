@@ -23,13 +23,14 @@ import { project } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 import type { OrgRole } from "../../domain/identity/roles";
 import type { DurationTier, CategoryInitCount } from "../../domain/templates/apply-blueprint-init";
-import type { ProjectKind } from "../../domain/project/create-project-rules";
+import type { ProjectKind, ProjectCreationProfile } from "../../domain/project/create-project-rules";
 
 export interface CreateProjectCommand {
   readonly orgId: OrgId;
   readonly actorId: string;
   readonly name: string;
   readonly kind: ProjectKind;
+  readonly profile?: ProjectCreationProfile;
   /** null = 空白新建（Q-1 C）。⚠ 六类初始化**跳过**而非写空值，所以这里不造默认值。 */
   readonly blueprintVersionId: string | null;
   /** `domain/project/create-project-rules.ts` 算出来的指纹。仓储不自己算——两处算就是两份判据。 */

@@ -11,7 +11,7 @@ import AidtProjectPage from "@/app/aidt/[projectId]/page";
 
 const api = vi.hoisted(() => ({
   list: vi.fn(), create: vi.fn(), find: vi.fn(), tag: vi.fn(), push: vi.fn(), home: vi.fn(), workspace: vi.fn(), loadHome: vi.fn(), loadWorkspace: vi.fn(), search: "",
-  session: { userId: "student-a", currentOrgId: "org-a", sessionToken: "token-a" },
+  session: { userId: "student-a", currentOrgId: "org-a", sessionToken: "token-a" }, role: "lead",
 }));
 const aidtConfig = vi.hoisted(() => ({ enabled: true }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({
@@ -25,8 +25,8 @@ vi.mock("@/components/shell/app-shell", () => ({ AppShell: ({ children }: { chil
 vi.mock("@/features/aidt/entry/home", () => { api.loadHome(); return { AidtHome: () => { api.home(); return <div data-testid="enabled-aidt-home" />; } }; });
 vi.mock("@/features/aidt/entry/workspace", () => { api.loadWorkspace(); return { AidtProjectWorkspace: ({ projectId }: { projectId: string }) => { api.workspace(projectId); return <div data-testid="enabled-aidt-workspace" />; } }; });
 vi.mock("@/components/session/session-provider", () => ({
-  useSession: () => ({ session: api.session, identity: { orgRole: "lead" } }),
-  useOptionalSession: () => ({ session: api.session, identity: { orgRole: "lead" } }),
+  useSession: () => ({ session: api.session, identity: { orgRole: api.role } }),
+  useOptionalSession: () => ({ session: api.session, identity: { orgRole: api.role } }),
 }));
 vi.mock("@/lib/live-projects", async importOriginal => ({
   ...await importOriginal<typeof import("@/lib/live-projects")>(),
@@ -37,6 +37,7 @@ const regular = { ...tagged, id: "regular", name: "原有普通项目", tags: []
 beforeEach(() => {
   vi.clearAllMocks(); aidtConfig.enabled = false; localStorage.clear(); api.search = "";
   api.session = { userId: "student-a", currentOrgId: "org-a", sessionToken: "token-a" };
+  api.role = "lead";
   api.list.mockResolvedValue([tagged, regular]); api.create.mockResolvedValue({ id: "created" });
   api.find.mockResolvedValue({ ...tagged, id: "created" }); api.tag.mockResolvedValue({ tags: ["workspacex:aidt"] });
 });
@@ -106,7 +107,7 @@ it("does not retag a project when an unmounted AIDT creation finishes late", asy
   await act(async () => { finish({ id: "old-created" }); }); expect(api.find).not.toHaveBeenCalled(); expect(api.tag).not.toHaveBeenCalled(); expect(api.push).not.toHaveBeenCalled();
 });
 
-it("stops before saving AIDT tags when a metadata lookup returns for an old token", async () => {
+it("ignores a metadata lookup that returns for an old token", async () => {
   aidtConfig.enabled = true; let finish!: (value: typeof tagged) => void;
   api.find.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const { rerender } = render(<AidtCreateProjectForm cancel={<span />} />);
@@ -115,14 +116,14 @@ it("stops before saving AIDT tags when a metadata lookup returns for an old toke
   api.session = { ...api.session, sessionToken: "rotated-token" }; rerender(<AidtCreateProjectForm cancel={<span />} />);
   await act(async () => { finish(tagged); }); expect(api.tag).not.toHaveBeenCalled(); expect(api.push).not.toHaveBeenCalled();
 });
-it("ignores an old tag-save completion after the acting user changes", async () => {
-  aidtConfig.enabled = true; let finish!: (value: { tags: string[] }) => void;
-  api.tag.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+it("ignores an old profile readback after the acting user changes", async () => {
+  aidtConfig.enabled = true; let finish!: (value: typeof tagged) => void;
+  api.find.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const { rerender } = render(<AidtCreateProjectForm cancel={<span />} />);
   fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "A组" } }); fireEvent.click(screen.getByTestId("project-new-create"));
-  await waitFor(() => expect(api.tag).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(api.find).toHaveBeenCalledTimes(1));
   api.session = { ...api.session, userId: "another-student" }; rerender(<AidtCreateProjectForm cancel={<span />} />);
-  await act(async () => { finish({ tags: ["workspacex:aidt"] }); }); expect(api.push).not.toHaveBeenCalled(); expect(screen.getByTestId("project-new-name")).toHaveValue("");
+  await act(async () => { finish({ ...tagged, id: "created" }); }); expect(api.tag).not.toHaveBeenCalled(); expect(api.push).not.toHaveBeenCalled(); expect(screen.getByTestId("project-new-name")).toHaveValue("");
 });
 
 
@@ -135,5 +136,18 @@ it("does not revive an old creation after the actor leaves and returns to the sa
   api.session = original; rerender(<AidtCreateProjectForm cancel={<span />} />);
   await act(async () => { finish({ id: "old-created" }); });
   expect(api.find).not.toHaveBeenCalled(); expect(api.tag).not.toHaveBeenCalled(); expect(api.push).not.toHaveBeenCalled();
+  expect(screen.getByTestId("project-new-name")).toHaveValue("");
+});
+
+it("rejects a late creation readback after a same-token role change", async () => {
+  aidtConfig.enabled = true; let finish!: (value: typeof tagged) => void;
+  api.find.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const { rerender } = render(<AidtCreateProjectForm cancel={<span />} />);
+  fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "第三组" } });
+  fireEvent.click(screen.getByTestId("project-new-create"));
+  await waitFor(() => expect(api.find).toHaveBeenCalledTimes(1));
+  api.role = "compliance"; rerender(<AidtCreateProjectForm cancel={<span />} />);
+  await act(async () => { finish({ ...tagged, id: "created" }); });
+  expect(api.push).not.toHaveBeenCalled(); expect(api.tag).not.toHaveBeenCalled();
   expect(screen.getByTestId("project-new-name")).toHaveValue("");
 });

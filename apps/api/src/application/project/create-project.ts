@@ -72,6 +72,8 @@
  *   `ProvenanceEventType` 一旦长出项目生命周期的成员，那条断言当场变红，
  *   接手的人会被带到这里来补写入 + 补字段。原样报给签核人，本 feature 不选边。
  */
+import { project } from "@repo/contracts";
+import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import {
   canCreateProject,
@@ -102,6 +104,7 @@ export interface CreateProjectInput {
   readonly name: string;
   readonly kind: string;
   readonly blueprintVersionId: string | null;
+  readonly profile?: z.infer<typeof project.ProjectCreationProfile>;
 }
 
 export async function createProject(
@@ -111,6 +114,10 @@ export async function createProject(
   // kind 先判：一个非法的 kind 连「谁能建」都不该消耗一次库查询，
   // 且它与调用者是谁无关——把它放在角色之后，会让 INVALID_KIND 只有 lead 才看得见。
   if (!isProjectKind(input.kind)) throw new ProjectError("INVALID_KIND");
+  if (input.profile !== undefined && (!project.ProjectCreationProfile.safeParse(input.profile).success
+      || input.kind !== "general" || input.blueprintVersionId !== null)) {
+    throw new ProjectError("INVALID_CREATION_PROFILE");
+  }
 
   let orgRole: Awaited<ReturnType<IdentityRepository["findOrgMembership"]>>;
   try {
@@ -168,12 +175,14 @@ export async function createProject(
       name: input.name,
       kind: input.kind,
       blueprintVersionId: input.blueprintVersionId,
+      ...(input.profile === undefined ? {} : { profile: input.profile }),
       fingerprint: creationFingerprint({
         orgId: input.orgId,
         actorId: input.actorId,
         kind: input.kind,
         name: input.name,
         blueprintVersionId: input.blueprintVersionId,
+        ...(input.profile === undefined ? {} : { profile: input.profile }),
       }),
       blueprintBinding,
     });

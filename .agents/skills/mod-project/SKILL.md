@@ -58,6 +58,8 @@ description: >
 
 ## 踩坑与经验（append-only，最新在上）
 
+- 2026-11-21：AIDT 小组创建须与课程管理分开判断角色；普通成员用受控 creation profile 在原创建事务中落固定标签，不能创建后再调用管理专用 tags PATCH。重放只回原项目，不补标签、成员或归档状态；元数据回读失败保留创建回执，只重读不重复创建。（出处：[issue #6824](https://github.com/boardx/workspacex/issues/6824)）
+
 - 2026-11-21：AIDT 独立实体确认须校验实际实体 payload，不能用包含目录元数据的聚合文档重算摘要；阶段总览复用已保存的明确交接（画像/HMW、描述单、原型问题卡、测试反思）。原型有当前交接指针时只认该实体，失效时不回退旧候选；无指针旧数据仅兼容唯一有效候选。（出处：[issue #6818](https://github.com/boardx/workspacex/issues/6818)）
 
 - 2026-11-21：AIDT 六步卡片与阶段导航必须复用 `useAidtConfirmedStages` 的已保存确认结果；仅有共享草稿或版本号不能推出阶段完成。修改中的本页内容保留旧确认版本提示，下一步入口依据未确认阶段选择，读取或摘要核对未完成时不猜进度。（出处：[issue #6818](https://github.com/boardx/workspacex/issues/6818)）
