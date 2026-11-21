@@ -87,7 +87,7 @@ test('the interview lane permits ten independently bound interviews, denying rep
     assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
   }
   assert.equal(guard.summary().teachingRequests, 15);
-  assert.equal(guard.summary().teachingRequestsAllowed, 16);
+  assert.equal(guard.summary().teachingRequestsAllowed, 18);
 });
 
 test('a second turn is reserved for the first interview with its own accepted guide and saved confirmation', () => {
@@ -103,4 +103,55 @@ test('a second turn is reserved for the first interview with its own accepted gu
   guard.observe(request(guard,'GET',`/api/projects/${project}/aidt/stages/2`),200,{ stage:{ projectId:project, stageId:2, revision:2, content:{ draft:{ fields:{ [`interviewRecord:${record.id}`]:JSON.stringify(record) } } } } });
   assert.doesNotThrow(() => guard.armTeachingSend(finding));
   assert.throws(() => guard.armTeachingSend(finding), /TEACHING_SCOPE_NOT_VERIFIED/);
+});
+
+test('automatic reconcile is limited to saved QA entities in stages one and two and takes no payload', () => {
+  const entity = 'aaaa1111-1111-4111-8111-111111111111';
+  for (const stageId of [1,2]) {
+    const stagePath = `/api/projects/${project}/aidt/stages/${stageId}`, path = `${stagePath}/entities/${entity}/reconcile`;
+    const fields = { [`${stageId === 1 ? 'problemEntity' : 'interviewRecord'}:${entity}`]: JSON.stringify({ id: entity }) };
+    const ready = () => {
+      const guard = fixture();
+      guard.observe(request(guard, 'GET', stagePath), 200, { stage: { projectId:project, stageId, revision:2, content:{ draft:{ fields } } } });
+      return guard;
+    };
+    assert.equal(request(ready(), 'POST', path).kind, 'reconcile-entity');
+    assert.equal(request(fixture(), 'POST', path).allow, false);
+    assert.equal(request(ready(), 'POST', path, { confirmed:true }).allow, false);
+    assert.equal(request(ready(), 'POST', path + '?force=true').allow, false);
+    assert.equal(request(ready(), 'POST', path.replace(entity, 'bbbb1111-1111-4111-8111-111111111111')).allow, false);
+  }
+});
+
+test('a second S1 teaching request requires completed real feedback from the same problem and a substantive new input', () => {
+  const guard = fixture(), { scope, wire } = teaching(guard,1);
+  const revised = { ...scope, problemRevision:true, prompt:'QA合成，明确是午休时在窗口比较等待时间。' };
+  assert.throws(() => guard.armTeachingSend(revised), /TEACHING_PROBLEM_REVISION_NOT_VERIFIED/);
+  guard.armTeachingSend(scope); request(guard, 'POST','/api/copilotkit/agent/default/run',wire);
+  const row = { id:'owned-human', authorKind:'human', authorId:scope.actorId, text:scope.prompt, clientMessageId:'client-1', agentRunId:'owned-run' };
+  guard.observe(request(guard, 'GET',`/api/chat/threads/${scope.threadId}/messages?limit=100`),200,{ messages:[row], nextCursor:null });
+  const proof = { threadId:scope.threadId, inputMessageId:row.id, runId:row.agentRunId };
+  assert.throws(() => guard.completeTeaching({ ...proof, runId:'other' }), /TEACHING_COMPLETION_NOT_BOUND/);
+  assert.throws(() => guard.armTeachingSend(revised), /TEACHING_PROBLEM_REVISION_NOT_VERIFIED/);
+  guard.completeTeaching(proof);
+  assert.throws(() => guard.armTeachingSend({ ...revised, prompt:scope.prompt, knownMessages:[row] }), /TEACHING_PROBLEM_REVISION_NOT_VERIFIED/);
+  assert.throws(() => guard.armTeachingSend({ ...revised, threadId:'other', knownMessages:[row] }), /TEACHING_PROBLEM_REVISION_NOT_VERIFIED/);
+  assert.doesNotThrow(() => guard.armTeachingSend({ ...revised, knownMessages:[row] }));
+  assert.throws(() => guard.armTeachingSend({ ...revised, knownMessages:[row] }), /TEACHING_SCOPE_NOT_VERIFIED/);
+});
+
+test('a verified S1 pending receipt unlocks one separate QA problem only and never retries the unresolved thread', () => {
+  const guard=fixture(), original=teaching(guard,1), other=teaching(guard,1,'separate');
+  const synthetic={ ...other.scope, syntheticProblemFixture:true };
+  assert.throws(() => guard.armTeachingSend(synthetic), /SYNTHETIC_PREREQUISITE_NOT_BOUND/);
+  guard.armTeachingSend(original.scope);
+  request(guard,'POST','/api/copilotkit/agent/default/run',original.wire);
+  const input={ id:'initial', authorKind:'human', authorId:original.scope.actorId, text:original.scope.prompt, clientMessageId:'client-1', agentRunId:'owned-pending' };
+  guard.observe(request(guard,'GET',`/api/chat/threads/${original.scope.threadId}/messages?limit=100`),200,{ messages:[input], nextCursor:null });
+  const receipt={ stageId:1, projectId:project, threadId:original.scope.threadId, runId:input.agentRunId, inputMessageId:input.id, knownConfirmTaskIntent:true, toolName:'confirm_task_intent' };
+  assert.throws(() => guard.recordPendingProblem({ ...receipt, threadId:'foreign' }), /SYNTHETIC_PREREQUISITE_NOT_BOUND/);
+  guard.recordPendingProblem(receipt);
+  assert.throws(() => guard.armTeachingSend({ ...original.scope, syntheticProblemFixture:true }), /SYNTHETIC_PREREQUISITE_NOT_BOUND/);
+  assert.doesNotThrow(() => guard.armTeachingSend(synthetic));
+  assert.throws(() => guard.armTeachingSend(synthetic), /TEACHING_SCOPE_NOT_VERIFIED/);
 });

@@ -207,16 +207,16 @@ export function schematicPng(identity, ordinal) {
 }
 
 export async function runAidtJourney({ page, expect, scope, checkpoint, capture, api,
-  saveStage, reviewAndSave, report, registerFixture, armMaterialEdit, saveReport, saveDownload,
+  saveStage, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
   armDesignCreate, armDesignGeneration, createAnonymousPage, savePrint, teachingFeedback }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
   const root = `/aidt/${encodeURIComponent(scope.projectId)}`;
   const origin = new URL(page.url()).origin;
   const unique = `${scope.runId}-${scope.runAttempt}`.replace(/[^a-zA-Z0-9-]/g, '').slice(-28);
   const text = value => `${SYNTHETIC}。${value}`;
-  const feedback = async (stage, studentQuestion, code, finding) => {
+  const feedback = async (stage, studentQuestion, code, finding, fixture) => {
     if (typeof teachingFeedback !== 'function') fail('NATIVE_TEACHING_CHAT_UNAVAILABLE');
-    return teachingFeedback(stage, studentQuestion ?? `QA ${scope.runId} 合成软件验收，非真实采访或课堂。请以本步已保存的学生初稿为依据，这是单轮纯文字咨询，只指出一个可完善处并问一个开放问题，不执行方案，不需要任务计划。不要替学生做决定，不保存成果，不调用工具、不生成文件，不把合成资料当真人证据。第${stage}步。`, code, finding);
+    return teachingFeedback(stage, studentQuestion ?? `QA ${scope.runId} 合成软件验收，非真实采访或课堂。请以本步已保存的学生初稿为依据，这是单轮纯文字咨询，只指出一个可完善处并问一个开放问题，不执行方案，不需要任务计划。不要替学生做决定，不保存成果，不调用工具、不生成文件，不把合成资料当真人证据。第${stage}步。`, code, finding, fixture);
   };
   const stageEvidence = new Map();
   report.stageEvidence = [];
@@ -439,14 +439,14 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect(inspector.locator('textarea:not([readonly]):not(:disabled), input:not([readonly]):not(:disabled), select:not(:disabled), [contenteditable="true"], button[role="checkbox"]')).toHaveCount(0);
     return inspector;
   };
-  const updateInterviewMaterial = async operation => {
-    armMaterialEdit();
+  const saveInterviewEdit = async operation => {
+    armInterviewEdit();
     const [response] = await Promise.all([
       page.waitForResponse(response => response.request().method() === 'PUT'
         && new URL(response.url()).pathname === `/api/projects/${scope.projectId}/aidt/stages/2`, { timeout: 30000 }),
       operation(),
     ]);
-    if (response.status() !== 200) fail('INTERVIEW_MATERIAL_EDIT_NOT_PERSISTED');
+    if (response.status() !== 200) fail('INTERVIEW_EDIT_NOT_PERSISTED');
     await expect(page.getByTestId('aidt-interview-save-state')).toContainText('已保存');
   };
   const confirmInInterviewChat = async button => {
@@ -490,17 +490,23 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await printOutput(2, `interview-guide-${code}`, inspector.getByTestId('aidt-interview-guide-print'), ['访谈问题清单', code, adopted]);
     return adopted;
   };
-  // A verified pending S1 run stays pending. Exercise a student's independent
-  // manual confirmation only for the downstream fixture; do not pass S1.
-  if (!state.s1 && problemDraftReady && problemHref && report.s1Navigation.operation === 'native-teaching-feedback'
-      && hasPendingProblemReview(report.pendingTeachingReviews, problemHref, scope.projectId)) {
+  // Keep the pending problem untouched. This is a second QA entity and needs
+  // its own successful real answer and student's confirmation before handoff.
+  if (!state.s1 && problemHref && hasPendingProblemReview(report.pendingTeachingReviews, problemHref, scope.projectId)) {
     state.syntheticHandoff = await check('synthetic-problem-for-interviews', undefined, async () => {
-      await page.goto(owned(problemHref)); await openProblem();
-      assertSavedAidtProblemInput(await savedStage(1), problemRoute.entityId, problemInitial);
+      const fixtureName = `QA独立访谈前置题 ${unique}`;
+      await go(1); await fill('问题名称', fixtureName); await click(btn('新建问题')); await saveStage(1);
+      const fixture = await openAidtProblemOutcome({ page, link: page.getByRole('link', { name: fixtureName, exact: true }),
+        scope: { origin, projectId: scope.projectId }, waitForRoute: waitForEntity,
+        assertReady: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible() });
+      if (fixture.entityId === problemRoute.entityId) fail('INDEPENDENT_PROBLEM_REQUIRED');
+      const initial = text('独立问题：午休时，在食堂饮品窗口的学生如何判断是否排队？我们没有真正采访；课堂练习用的排队经历只是小组猜测。我们选择午休赶课的学生，以时间信息为研究范围，希望追问最近一次排队和放弃经历。我们仍不知道等待信息从哪里获得。请根据这份完整材料整理工作坊问题草稿，保留猜测和待验证项。');
+      if (!await feedback(1, initial, undefined, false, true)) fail('SYNTHETIC_PROBLEM_REAL_REPLY_REQUIRED');
       await reviewAndSave(1, btn('确认本轮成果并保存'));
-      await expect(page.getByTestId('aidt-round-completion')).toContainText('本轮成果已确认并保存', { timeout: 30000 });
       step2Href = owned(await page.getByRole('link', { name: '继续第2步', exact: true }).getAttribute('href'));
-      report.interviewPrerequisite = 'student-confirmed synthetic problem; S1 teaching unresolved';
+      const destination = new URL(step2Href);
+      if (destination.searchParams.get('problemEntity') !== fixture.entityId || !Number(destination.searchParams.get('problemRevision'))) fail('INDEPENDENT_CONFIRMED_SOURCE_UNVERIFIED');
+      report.interviewPrerequisite = { mode: 'separately confirmed synthetic problem; original teaching unresolved', entityId: fixture.entityId, revision: Number(destination.searchParams.get('problemRevision')) };
     });
   }
   const tenChatsOpened = await check('s2-ten-card-chats', 2, async () => {
@@ -533,23 +539,30 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await click(page.getByTestId('chat-task-workbench-inspector-tab-materials'));
     const materials = page.getByRole('region', { name: '授权和访谈材料' });
     await expect(materials).toBeVisible();
-    await page.getByLabel('已获授权共享文字记录', { exact: true }).check(); await updateInterviewMaterial(() => click(btn('更新授权记录')));
+    await page.getByLabel('已获授权共享文字记录', { exact: true }).check(); await saveInterviewEdit(() => click(btn('更新授权记录')));
     const quote = `QA-${code}：我在合成情境中先看队列，再决定是否等待。`;
-    await updateInterviewMaterial(() => uploaded(`${code}研究原件`, `qa-${unique}-${code}.txt`, Buffer.from(`${SYNTHETIC}。run=${unique}\n第1段 ${quote}\n`), 'text/plain'));
+    await saveInterviewEdit(() => uploaded(`${code}研究原件`, `qa-${unique}-${code}.txt`, Buffer.from(`${SYNTHETIC}。run=${unique}\n第1段 ${quote}\n`), 'text/plain'));
     const select = page.getByRole('combobox', { name: '转写原件', exact: true });
-    await expect(select.locator('option')).toHaveCount(2); await updateInterviewMaterial(() => select.selectOption({ index: 1 }));
-    await updateInterviewMaterial(() => fill('定位（如 01:42 或第 3 段）', '第1段'));
-    await updateInterviewMaterial(() => fill('校对后的摘录', quote));
-    await updateInterviewMaterial(() => page.getByLabel('已对照原始材料校对', { exact: true }).check());
+    await expect(select.locator('option')).toHaveCount(2); await saveInterviewEdit(() => select.selectOption({ index: 1 }));
+    await saveInterviewEdit(() => fill('定位（如 01:42 或第 3 段）', '第1段'));
+    await saveInterviewEdit(() => fill('校对后的摘录', quote));
+    await saveInterviewEdit(() => page.getByLabel('已对照原始材料校对', { exact: true }).check());
     const firstFinding = text(`我自己的发现是${code}关注等待时间。来源是第1段的「${quote}」。请帮我检查这个解释和证据的关系。`);
     if (!await feedback(2, firstFinding, code, true)) fail('S2_NATIVE_FINDING_REPLY_REQUIRED');
     const actions = page.getByTestId('aidt-interview-chat-actions');
     await disclosure('整理访谈发现');
-    await page.getByRole('combobox', { name: '标题来源', exact: true }).selectOption('student-summary');
-    await fill('一句发现', text(`${code}的合成记录关注等待时间。`));
-    await fill('学生记录的可观察情况', text('测试夹具仅包含文字情境，不代表实际观察。'));
-    await fill('学生的解释', text('等待与选择可能有关，此解释未验证。'));
-    await fill('可定位的受访者原话', quote);
+    const titleKind = actions.getByRole('combobox', { name: '标题来源', exact: true });
+    if (await titleKind.inputValue() !== 'student-summary') await saveInterviewEdit(() => titleKind.selectOption('student-summary'));
+    const discoveryEdits = [
+      ['一句发现', text(`${code}的合成记录关注等待时间。`)],
+      ['学生记录的可观察情况', text('测试夹具仅包含文字情境，不代表实际观察。')],
+      ['学生的解释', text('等待与选择可能有关，此解释未验证。')],
+      ['可定位的受访者原话', quote],
+    ];
+    for (const [label, value] of discoveryEdits) {
+      const field = actions.getByLabel(label, { exact: true });
+      if (await field.inputValue() !== value) await saveInterviewEdit(() => field.fill(value));
+    }
     await confirmInInterviewChat(btn('确认人物发现卡', actions));
     await output(target);
     const inspector = await readOnlyInterviewOutput();
