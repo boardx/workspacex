@@ -9,10 +9,13 @@ import { AIDT_PLATFORM_SKILL_PACK } from "../../src/infrastructure/aidt/aidt-mod
 describe("shipped AIDT teaching skills", () => {
   it("verifies the release digest and ships all six distinct, source-identical skills", () => {
     const raw = JSON.parse(readFileSync(new URL(`../../../../skills/starter-packs/${AIDT_PLATFORM_SKILL_PACK.packId}/${AIDT_PLATFORM_SKILL_PACK.packVersion}.json`, import.meta.url), "utf8"));
-    const pack = verifySkillStarterPack(raw, { packId: "aidt-methods", packVersion: "1.4.0" });
-    expect(AIDT_PLATFORM_SKILL_PACK).toEqual({ packId: "aidt-methods", packVersion: "1.4.0" });
+    const pack = verifySkillStarterPack(raw, { packId: "aidt-methods", packVersion: "1.4.1" });
+    expect(AIDT_PLATFORM_SKILL_PACK).toEqual({ packId: "aidt-methods", packVersion: "1.4.1" });
     expect(STANDARD_PLATFORM_PACKS).not.toContainEqual(AIDT_PLATFORM_SKILL_PACK);
     expect(pack.skills.map((s) => s.stableName).sort()).toEqual(["aidt-understand", "aidt-empathize", "aidt-define", "aidt-ideate", "aidt-prototype", "aidt-iterate"].sort());
+    const understand = pack.skills.find(skill => skill.stableName === "aidt-understand")!;
+    const starter = understand.files.find(file => file.path === "starter.json")!;
+    expect(Buffer.from(starter.contentBase64, "base64").toString("utf8")).toBe(readFileSync(join(AIDT_SKILL_SOURCE_ROOT, "aidt-understand", "starter.json"), "utf8"));
     for (const skill of pack.skills) {
       const content = Buffer.from(skill.files[0]!.contentBase64, "base64").toString("utf8");
       expect(content).toBe(readFileSync(join(AIDT_SKILL_SOURCE_ROOT, skill.stableName, "SKILL.md"), "utf8"));

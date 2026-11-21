@@ -26,8 +26,14 @@ export function buildAidtMethodsPack(sourceRoot = AIDT_SKILL_SOURCE_ROOT, coordi
     if (meta.semanticVersion !== coordinate.packVersion) throw new Error("AIDT source version differs from the requested release coordinate");
     const title = /^# (.+)$/m.exec(markdown)?.[1];
     if (!title?.trim()) throw new Error("AIDT Skill title missing");
+    const files = [{ path: "SKILL.md", mediaType: "text/markdown", digest: sha256(bytes), contentBase64: bytes.toString("base64") }];
+    const starter = join(sourceRoot, entry.name, "starter.json");
+    if (existsSync(starter)) {
+      const copy = readFileSync(starter);
+      files.push({ path: "starter.json", mediaType: "application/json", digest: sha256(copy), contentBase64: copy.toString("base64") });
+    }
     return { stableName: meta.stableName, name: `AIDT · ${title.trim()}`, semanticVersion: meta.semanticVersion,
-      manifest: { capabilityId: meta.capabilityId }, files: [{ path: "SKILL.md", mediaType: "text/markdown", digest: sha256(bytes), contentBase64: bytes.toString("base64") }] };
+      manifest: { capabilityId: meta.capabilityId }, files };
   });
   const unsigned = { schemaVersion: 1 as const, ...coordinate, skills };
   return verifySkillStarterPack({ ...unsigned, packDigest: sha256(JSON.stringify(unsigned)) }, coordinate);
