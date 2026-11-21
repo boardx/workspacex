@@ -139,7 +139,7 @@ test('synchronous guard arm failure creates no request waiter and never clicks s
   assert.equal(clickCount, 0);
 });
 
-function pendingHarness({ mutate = () => {}, changeAcceptedRun = false, callback = () => {} } = {}) {
+function pendingHarness({ mutate = () => {}, changeAcceptedRun = false, callback = () => {}, includeCallback = true, eventCallback = () => {}, approvalShown = false, dialogShown = false, visibilityThrows = false } = {}) {
   const s = scope(), e = evidence(s), r = request(s), events = [], reports = [];
   e.run.status = 'awaiting_tool_permission';
   e.run.pendingApproval = { permissionRequestId: 'permission-owned-1', toolName: 'confirm_task_intent', argsSummary: 'synthetic-private-summary', interrupt: { toolName: 'confirm_task_intent', args: { requestId: 'synthetic-private-arg-request', understanding: 'synthetic-private-understanding', assumptions: ['synthetic-private-assumption'] } } };
@@ -147,7 +147,9 @@ function pendingHarness({ mutate = () => {}, changeAcceptedRun = false, callback
   let sent = false, resolveRequest, messagePoll = 0;
   const page = {
     url: () => `${s.origin}/aidt/${s.projectId}?step=1&thread=${s.threadId}&entity=${s.selector.entityId}`,
-    getByTestId: name => name === 'copilotkit-v2-send' ? { click: async () => { sent = true; resolveRequest({ method: () => r.method, url: () => r.url, postDataJSON: () => r.body }); } } : { fill: async () => {}, count: async () => 0 },
+    getByTestId: name => name === 'copilotkit-v2-send' ? { click: async () => { sent = true; resolveRequest({ method: () => r.method, url: () => r.url, postDataJSON: () => r.body }); } }
+      : ['restored-run-approval', 'chat-tool-permission-dialog'].includes(name) ? { isVisible: async () => { if (visibilityThrows) throw new Error('private visibility failure'); return name === 'restored-run-approval' ? approvalShown : dialogShown; }, getByRole: () => { assert.fail('passive helper must not open or approve any modal'); } }
+      : { fill: async () => {}, count: async () => 0 },
     waitForRequest: () => new Promise(resolve => { resolveRequest = resolve; }),
   };
   const expect = () => ({ toBeVisible: async () => {}, toHaveCount: async () => {}, toBeEnabled: async () => {} });
@@ -163,7 +165,7 @@ function pendingHarness({ mutate = () => {}, changeAcceptedRun = false, callback
     if (path.includes('/agent-runs/')) return { status: 200, data: changeAcceptedRun && messagePoll === 1 ? { ...e.run, status: 'running' } : e.run };
     return { status: 200, data: { revision: 2 } };
   };
-  return { reports, events, result: () => sendTeachingFeedback({ page, expect, scope: s, read, armSend: () => {}, onEvent: event => events.push(event), onPendingReview: async receipt => { reports.push(receipt); return callback(receipt); } }) };
+  return { reports, events, result: () => sendTeachingFeedback({ page, expect, scope: s, read, armSend: () => {}, onEvent: async event => { events.push(event); return eventCallback(event); }, ...(includeCallback ? { onPendingReview: async receipt => { reports.push(receipt); return callback(receipt); } } : {}) }) };
 }
 
 test('pending review exports only owned coordinates and closed argument types once, and stays blocked', async () => {
@@ -212,5 +214,54 @@ test('throwing or rejecting passive review callback preserves the original tool-
     const h = pendingHarness({ callback });
     await assert.rejects(h.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED' && !String(error).includes('private'));
     assert.equal(h.reports.length, 1); assert.equal(h.events.some(event => event.event === 'durable-run-succeeded'), false);
+  }
+});
+
+test('upstream tool-review event preserves safe exact tool name and owned run coordinates after the passive callback', async () => {
+  let callbackFinished = false;
+  const h = pendingHarness({ mutate: run => { run.pendingApproval.toolName = 'write_todos'; }, callback: () => { callbackFinished = true; }, approvalShown: false, dialogShown: true, eventCallback: event => { if (event.event === 'teaching-tool-review-required') assert.equal(callbackFinished, true); } });
+  await assert.rejects(h.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED');
+  assert.equal(h.reports[0].toolName, 'other'); // The existing callback stays closed.
+  const events = h.events.filter(event => event.event === 'teaching-tool-review-required');
+  assert.deepEqual(events, [{ event: 'teaching-tool-review-required', stageId: 1, runId: 'backend-run-1', threadId: 'thr_aidt_owned', toolName: 'write_todos', approvalVisible: true, dialogOpened: true }]);
+  assert.equal(JSON.stringify(events).includes('synthetic-private'), false);
+});
+
+test('without the scope-bound UI callback tool-review diagnostics only read visibility and never open a modal', async () => {
+  const h = pendingHarness({ includeCallback: false, approvalShown: true, dialogShown: false });
+  await assert.rejects(h.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED');
+  assert.equal(h.reports.length, 0);
+  const event = h.events.find(event => event.event === 'teaching-tool-review-required');
+  assert.equal(event.approvalVisible, true); assert.equal(event.dialogOpened, false);
+});
+
+test('upstream exact tool-name diagnostic rejects unsafe or oversized strings and never exports args', async () => {
+  for (const toolName of ['https://secret.invalid?token=private', '<script>private</script>', 'a'.repeat(129), null]) {
+    const h = pendingHarness({ mutate: run => { run.pendingApproval.toolName = toolName; } });
+    await assert.rejects(h.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED');
+    const event = h.events.find(event => event.event === 'teaching-tool-review-required');
+    assert.equal(event.toolName, null);
+    assert.equal(JSON.stringify(event).includes('private'), false);
+    assert.equal('argsSummary' in event || 'argumentFields' in event, false);
+  }
+});
+
+test('foreign or changing run identity emits neither passive receipt nor upstream tool-review event', async () => {
+  for (const options of [{ mutate: run => { run.threadId = 'foreign-thread'; } }, { changeAcceptedRun: true }]) {
+    const h = pendingHarness(options);
+    await assert.rejects(h.result(), error => error.code === 'TEACHING_ACCEPTANCE_MISMATCH');
+    assert.equal(h.reports.length, 0); assert.equal(h.events.some(event => event.event === 'teaching-tool-review-required'), false);
+  }
+});
+
+test('visibility or diagnostic-event failure does not mask the original tool-review stop', async () => {
+  const unreadable = pendingHarness({ visibilityThrows: true });
+  await assert.rejects(unreadable.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED');
+  const event = unreadable.events.find(event => event.event === 'teaching-tool-review-required');
+  assert.equal(event.approvalVisible, null); assert.equal(event.dialogOpened, null);
+  for (const eventCallback of [event => { if (event.event === 'teaching-tool-review-required') throw new Error('private diagnostic error'); }, async event => { if (event.event === 'teaching-tool-review-required') throw new Error('private diagnostic error'); }]) {
+    const h = pendingHarness({ eventCallback });
+    await assert.rejects(h.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED');
+    assert.equal(h.events.some(event => event.event === 'durable-run-succeeded'), false);
   }
 });

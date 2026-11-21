@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, chmodSync, r
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
-import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
+import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
@@ -38,7 +38,7 @@ test('interview UI labels match spaces and newlines without template-string esca
     assert.equal(interviewCodePattern(code).test(`${code}3 unexpected code`), false);
     assert.equal(interviewCodePattern(code).test(`${code}s swallowed escape`), false);
   }
-  assert.throws(() => interviewCodePattern('U03'), /INTERVIEW_CODE_UNEXPECTED/);
+  for (const code of ['U11','U010','invalid']) assert.throws(() => interviewCodePattern(code), /INTERVIEW_CODE_UNEXPECTED/);
 });
 test('credential-bearing lane is manual develop only in the official repository', () => {
   const context = { GITHUB_REPOSITORY: 'boardx/workspacex', GITHUB_REF: 'refs/heads/develop', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_SHA: source };
@@ -485,4 +485,59 @@ test('privacy scan failure remains a fixed diagnostic without exporting sensitiv
   assert.equal(observed.captured, false); assert.equal(observed.code, 'TOOL_REVIEW_CAPTURE_UNAVAILABLE');
   assert.equal(JSON.stringify(observed).includes(secret), false);
   assert.equal(JSON.stringify(observed).includes('SCREENSHOT_SENSITIVE_CONTENT'), false);
+});
+
+const toolReviewEvent = () => ({ event: 'teaching-tool-review-required', runId: 'run-fixture', threadId: 'thr_aidt_fixture', stageId: 1, toolName: 'confirm_task_intent', approvalVisible: true, dialogOpened: true });
+
+test('owned tool diagnostic is privacy checked first and projected beside its unchanged receipt', () => {
+  const entry = { receipt: reviewReceipt(), capture: { captured: true } }, before = JSON.stringify(entry.receipt), calls = [];
+  assert.equal(recordTeachingEvent(toolReviewEvent(), reviewScope(), [entry], value => { assert.equal(typeof value, 'string'); calls.push('privacy'); }, value => { calls.push('console'); assert.deepEqual(value, toolReviewEvent()); }), true);
+  assert.deepEqual(calls, ['privacy','console']);
+  assert.equal(JSON.stringify(entry.receipt), before);
+  assert.equal(entry.observedToolName, 'confirm_task_intent'); assert.equal(entry.approvalVisible, true); assert.equal(entry.dialogOpened, true);
+});
+
+test('tool diagnostics cannot bind another run, thread, stage, project or absent receipt', () => {
+  for (const change of [e => { e.runId = 'foreign'; }, e => { e.threadId = 'foreign'; }, e => { e.stageId = 2; }]) {
+    const event = toolReviewEvent(); change(event); const entry = { receipt: reviewReceipt() }, before = JSON.stringify(entry), logged = [];
+    assert.equal(recordTeachingEvent(event, reviewScope(), [entry], () => {}, value => logged.push(value)), false);
+    assert.equal(JSON.stringify(entry), before); assert.equal(logged.length, 1);
+  }
+  for (const receipt of [undefined, { ...reviewReceipt(), projectId: 'foreign' }, { ...reviewReceipt(), threadId: 'foreign' }, { ...reviewReceipt(), stageId: 2 }]) {
+    const entry = { receipt }, before = JSON.stringify(entry);
+    assert.equal(recordTeachingEvent(toolReviewEvent(), reviewScope(), [entry], () => {}, () => {}), false);
+    assert.equal(JSON.stringify(entry), before);
+  }
+});
+
+test('a sensitive owned tool event is neither recorded nor emitted', () => {
+  const privacy = sensitiveEvidenceGuard(); privacy.remember('private-fixture');
+  const entry = { receipt: reviewReceipt() }, before = JSON.stringify(entry), event = { ...toolReviewEvent(), toolName: 'private-fixture' }; let emitted = false;
+  assert.throws(() => recordTeachingEvent(event, reviewScope(), [entry], text => privacy.assertSafe(text), () => { emitted = true; }), /SCREENSHOT_SENSITIVE_CONTENT/);
+  assert.equal(JSON.stringify(entry), before); assert.equal(emitted, false);
+});
+
+test('tool event projection refuses raw fields, non-ASCII/long names and invalid flags before console', () => {
+  for (const change of [e => { e.argsSummary = 'must-not-be-exported'; }, e => { e.toolName = '非ASCII'; }, e => { e.toolName = 'x'.repeat(129); }, e => { e.approvalVisible = 'true'; }, e => { e.dialogOpened = true; e.approvalVisible = false; }]) {
+    const event = toolReviewEvent(); change(event); const entry = { receipt: reviewReceipt() }, before = JSON.stringify(entry); let emitted = false;
+    assert.equal(recordTeachingEvent(event, reviewScope(), [entry], () => {}, () => { emitted = true; }), false);
+    assert.equal(JSON.stringify(entry), before); assert.equal(emitted, false);
+  }
+});
+
+test('a null or unknown valid tool name remains observation only; ordinary events still emit', () => {
+  for (const toolName of [null, 'unrecognized.tool']) {
+    const entry = { receipt: { ...reviewReceipt(), toolName: 'other', knownConfirmTaskIntent: false } };
+    assert.equal(recordTeachingEvent({ ...toolReviewEvent(), toolName }, reviewScope(), [entry], () => {}, () => {}), true);
+    assert.equal(entry.observedToolName, toolName); assert.equal(entry.receipt.toolName, 'other'); assert.equal('approved' in entry, false);
+  }
+  const events = [], entry = { receipt: reviewReceipt() }, before = JSON.stringify(entry);
+  assert.equal(recordTeachingEvent({ event: 'send-started', stageId: 1 }, reviewScope(), [entry], () => {}, event => events.push(event)), false);
+  assert.equal(JSON.stringify(entry), before); assert.deepEqual(events, [{ event: 'send-started', stageId: 1 }]);
+});
+
+test('unreadable approval visibility remains null rather than claiming it was hidden', () => {
+  const entry = { receipt: reviewReceipt() };
+  assert.equal(recordTeachingEvent({ ...toolReviewEvent(), approvalVisible: null, dialogOpened: null }, reviewScope(), [entry], () => {}, () => {}), true);
+  assert.equal(entry.approvalVisible, null); assert.equal(entry.dialogOpened, null);
 });

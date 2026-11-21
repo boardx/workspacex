@@ -129,13 +129,13 @@ export function assertSavedAidtHmwSource(stage, expected) {
   return true;
 }
 
-export async function verifyAidtFrozenBacklink({ page, link, scope, stage, revision, waitForRoute, assertVersion, assertMaterial }) {
+export async function verifyAidtFrozenBacklink({ page, link, scope, stage, revision, waitForRoute, assertVersion, assertMaterial, materialRequired = stage === 2 }) {
   const target = ownedAidtEntityRoute(await link.getAttribute('href'), scope, { stage, revision });
   await link.click();
   await waitForRoute(() => matchesAidtEntityRoute(page.url(), target));
   if (!matchesAidtEntityRoute(page.url(), target)) fail('FROZEN_SOURCE_NAVIGATION_UNVERIFIED');
   await assertVersion(target);
-  if (stage === 2) {
+  if (stage === 2 && materialRequired) {
     if (!new URL(target.href).searchParams.get('sourceId') || typeof assertMaterial !== 'function') fail('FROZEN_MATERIAL_EXPECTATION_MISSING');
     await assertMaterial(target);
   }
@@ -144,9 +144,28 @@ export async function verifyAidtFrozenBacklink({ page, link, scope, stage, revis
 
 
 export function interviewCodePattern(code) {
-  if (code === 'U01') return /^U01(?:\s|$)/;
-  if (code === 'U02') return /^U02(?:\s|$)/;
-  fail('INTERVIEW_CODE_UNEXPECTED');
+  if (typeof code !== 'string' || !/^U(?:0[1-9]|10)$/.test(code)) fail('INTERVIEW_CODE_UNEXPECTED');
+  return new RegExp(`^${code}(?:\\s|$)`);
+}
+
+export function requireConfirmedInterviewHandoff(state) {
+  if (state?.s1 !== true || state?.s2 !== true) fail('S2_CONFIRMED_HANDOFF_REQUIRED');
+}
+
+export function savedAidtInterviewRoute(stage, code, directory, scope) {
+  interviewCodePattern(code);
+  const fields = stage?.content?.draft?.fields ?? {}, records = [];
+  try {
+    for (const [key, raw] of Object.entries(fields)) if (key.startsWith('interviewRecord:')) {
+      const record = JSON.parse(raw);
+      if (record.code === code) records.push({ key, record });
+    }
+  } catch { fail('SAVED_INTERVIEW_ENTITY_UNVERIFIED'); }
+  const entry = records[0];
+  if (!Number.isInteger(stage?.revision) || stage.revision < 1 || records.length !== 1 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entry?.record.id ?? '')
+    || entry.key !== `interviewRecord:${entry.record.id}` || fields[`interviewArchived:${entry.record.id}`] === 'true') fail('SAVED_INTERVIEW_ENTITY_UNVERIFIED');
+  const url = new URL(directory, scope.origin); url.searchParams.set('entity', entry.record.id);
+  return ownedAidtEntityRoute(url.href, scope, { stage: 2, entityId: entry.record.id });
 }
 
 // A small, valid, run-specific schematic fixture. It is not a generated prototype or person photo.
@@ -313,6 +332,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     evidence(stage).completion = { confirmed: true, saved: savedRevision > 0, saved_revision: savedRevision, dashboard_marked: true, reload_persisted: true, screenshot_refs: [`${String(stage).padStart(2,'0')}-completed-overview.png`,`${String(stage).padStart(2,'0')}-completed-after-reload.png`] };
     evidence(stage).outputs.push({ name: `第${stage}步已确认成果`, format: 'WorkspaceX shared stage record', status: 'pass', evidence: `saved revision V${savedRevision}; normal UI confirmation, dashboard and reload observed` });
   };
+  let interviewDirectory;
   const state = { s1: false, s2: false, s3: false, s4: false, s5: false, s6: false, interviews: [] };
   let step2Href, step3Href, step4Href, step5Href, step6Href, problemHref, problemRoute, personaHref, designId;
   let problemDraftReady = false;
@@ -391,13 +411,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   state.s2 = await check('s2-interview-handoff', 2, async () => {
     if (!state.s1 || !step2Href) { await go(2); fail('S1_CONFIRMED_HANDOFF_REQUIRED'); }
     const directory = new URL(step2Href); directory.searchParams.delete('entity'); directory.searchParams.delete('tool');
+    interviewDirectory = owned(directory.href);
     for (let index = 1; index <= 2; index++) {
       await page.goto(owned(directory.href)); await click(btn('新建访谈')); await saveStage(2);
-      const code = `U0${index}`, saved = await savedStage(2);
-      const interviews = Object.entries(saved.content.draft.fields).filter(([key]) => key.startsWith('interviewRecord:')).map(([, raw]) => JSON.parse(raw)).filter(record => record.code === code);
-      if (interviews.length !== 1 || !/^[0-9a-f-]{36}$/i.test(interviews[0].id)) fail('SAVED_INTERVIEW_ENTITY_UNVERIFIED');
-      const targetUrl = new URL(directory.href); targetUrl.searchParams.set('entity', interviews[0].id);
-      const target = ownedAidtEntityRoute(targetUrl.href, { origin, projectId: scope.projectId }, { stage: 2, entityId: interviews[0].id });
+      const code = `U0${index}`, target = savedAidtInterviewRoute(await savedStage(2), code, directory.href, { origin, projectId: scope.projectId });
       await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
         assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), assertReady: () => entityReady(2) });
       await fill('想了解什么', text(`核对${code}所代表的合成情境差异。`));
@@ -422,7 +439,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await persistConfirmed(2, btn('确认人物发现卡'));
       evidence(2).outputs.push({ name: `${code}人物发现卡`, format: 'native finding card; synthetic text, real-person photo missing', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}; software scope only` });
       await observeInputs(2);
-      state.interviews.push({ href: page.url(), code, quote, materialName: `qa-${unique}-${code}.txt` });
+      state.interviews.push({ href: page.url(), target, code, quote, materialName: `qa-${unique}-${code}.txt`, storageOnly: false });
     }
     await page.goto(owned(directory.href));
     await expect(page.getByRole('button', { name: /^U01/ })).toContainText('发现卡已核对');
@@ -432,16 +449,48 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   }, '02-empathy');
 
   await check('s2-distinct-threads', 2, async () => {
-    if (state.interviews.length !== 2) fail('TWO_INTERVIEWS_REQUIRED');
-    const threadIds = [];
-    for (const interview of state.interviews) {
-      await page.goto(owned(interview.href)); await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
-      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr/);
-      threadIds.push(new URL(page.url()).searchParams.get('thread'));
+    // A failed real S1 teaching checkpoint must never be confirmed as a storage fallback.
+    requireConfirmedInterviewHandoff(state);
+    if (!interviewDirectory || state.interviews.length !== 2) fail('TWO_CONFIRMED_INTERVIEWS_REQUIRED');
+    for (let index = state.interviews.length + 1; index <= 10; index++) {
+      const code = `U${String(index).padStart(2, '0')}`;
+      await page.goto(interviewDirectory);
+      await expect(page.getByTestId('aidt-shared-save')).toBeVisible();
+      await click(btn('新建访谈')); await saveStage(2);
+      const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
+      await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
+        assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), assertReady: () => entityReady(2) });
+      state.interviews.push({ href: page.url(), target, code, storageOnly: true });
     }
-    expect(new Set(threadIds).size).toBe(2);
-    await page.goto(owned(state.interviews[0].href)); await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds[0]);
-    await page.reload(); await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds[0]);
+    const threadIds = new Map();
+    const observed = [];
+    const interviewGoal = code => /^U0[12]$/.test(code)
+      ? text(`核对${code}所代表的合成情境差异。`)
+      : text(`访谈 ${code} 的独立产物核对 ${unique}`);
+    for (const interview of state.interviews) {
+      await output(interview.target);
+      if (interview.storageOnly) {
+        await fill('想了解什么', interviewGoal(interview.code)); await saveStage(2);
+      }
+      await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
+      threadIds.set(interview.code, new URL(page.url()).searchParams.get('thread'));
+    }
+    expect(new Set(threadIds.values()).size).toBe(10);
+    for (const interview of [...state.interviews].reverse()) {
+      await page.goto(interviewDirectory);
+      await expect(page.getByTestId('copilotkit-v2-input')).toHaveCount(0);
+      await openAidtEntityOutcome({ page, target: interview.target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(interview.code) })), waitForRoute: waitForEntity,
+        assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), assertReady: () => entityReady(2) });
+      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds.get(interview.code));
+      await page.reload(); await output(interview.target);
+      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds.get(interview.code));
+      await expect(page.getByLabel('受访者代号', { exact: true })).toHaveValue(interview.code);
+      await expect(page.getByRole('textbox', { name: '想了解什么', exact: true })).toHaveValue(interviewGoal(interview.code));
+      expect(new URL(page.url()).searchParams.get('entity')).toBe(new URL(interview.href).searchParams.get('entity'));
+      observed.push({ code: interview.code, stableThread: true, rightInspector: true, directoryReentry: true, refresh: true });
+    }
+    report.interviewIsolation = observed;
     report.independentEntityThreadsVerified = true;
   }, '02-independent-chat');
 
@@ -681,16 +730,21 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
         const restored = await openFrozenSources(stage);
         if (restored.revision !== revision) fail('FROZEN_SOURCE_REVISION_CHANGED');
         const link = restored.details.getByRole('link', { name: item.title.trim(), exact: true });
+        const expectedRoute = ownedAidtEntityRoute(item.href, { origin, projectId: scope.projectId }, { stage, revision });
+        const expectedInterview = stage === 2 ? state.interviews.find(row => row.target.entityId === expectedRoute.entityId) : undefined;
+        if (stage === 2 && !expectedInterview) fail('FROZEN_INTERVIEW_EXPECTATION_MISSING');
+        const materialRequired = stage === 2 && expectedInterview.storageOnly === false;
+        if (materialRequired && (!expectedInterview.quote || !expectedInterview.materialName)) fail('FROZEN_MATERIAL_EXPECTATION_MISSING');
         const target = await verifyAidtFrozenBacklink({ page, link, scope: { origin, projectId: scope.projectId }, stage, revision, waitForRoute: waitForEntity,
+          materialRequired,
           assertVersion: async () => { const history = page.getByTestId('aidt-entity-history'); await expect(history).toBeVisible(); await expect(history.getByRole('heading', { level: 1 })).toHaveText(new RegExp(` · V${revision}$`)); await expect(history).toContainText('已保存的历史版本。'); await expect(history).toContainText(SYNTHETIC); },
           assertMaterial: async target => {
-            const interview = state.interviews.find(row => new URL(row.href).searchParams.get('entity') === target.entityId);
-            if (!interview) fail('FROZEN_INTERVIEW_EXPECTATION_MISSING');
+            const interview = expectedInterview;
             const material = page.getByTestId('aidt-research-material-preview').filter({ hasText: interview.materialName });
             await expect(material).toBeVisible(); await expect(material).toContainText(new URL(target.href).searchParams.get('sourceId'));
             const original = material.getByTestId('aidt-research-original-text'); await expect(original).toBeVisible(); await expect(original).toContainText(interview.quote); await expect(original).toContainText(SYNTHETIC);
           } });
-        item.clicked = true; item.frozenRevision = revision; item.entityId = target.entityId; item.materialVerified = stage === 2;
+        item.clicked = true; item.frozenRevision = revision; item.entityId = target.entityId; item.materialVerified = materialRequired; item.storageOnly = stage === 2 && expectedInterview.storageOnly === true;
       }
       report.reportSourceLinks.push({ stage, revision, links });
     }
