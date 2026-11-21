@@ -918,14 +918,24 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     report.interviewCardManagement = { created: true, editedAfterReload: true, retainedMultipleTags: true, filterMatchedEachTag: true, removedFromActiveAfterReload: true, retainedArchive: true };
   }, '02-interview-card-management');
 
+  async function createDefinitionCard(kind, typeButton, name, sourceGroup) {
+    await click(page.getByTestId('aidt-new-entity-card'));
+    const dialog = page.getByRole('dialog');
+    await click(btn(typeButton, dialog));
+    await fill('卡片名称', name, dialog);
+    await dialog.getByTestId('card-create-tag-input').fill('课程 QA');
+    if (sourceGroup) await dialog.getByRole('group', { name: sourceGroup }).getByRole('checkbox').first().check();
+    await captureCardCreation(3, kind, () => click(btn('创建' + ({surprise: '意外发现', persona: '画像', hmw: 'HMW'})[kind], dialog)), { reopen: true });
+  }
+
   state.s3 = await check('s3-definition-hmw-handoff', 3, async () => {
     if (!state.s2 || !step3Href) { await go(3); fail('S2_CONFIRMED_HANDOFF_REQUIRED'); }
     await page.goto(owned(step3Href));
-    await captureCardCreation(3, 'surprise', () => click(btn('新建意外发现')), { reopen: true }); await output();
+    await createDefinitionCard('surprise', '新建意外发现', 'QA 合成意外发现'); await output();
     await page.getByRole('radio', { name: '暂无意外发现', exact: true }).check();
     await persistConfirmed(3, page.getByTestId('aidt-surprise-confirm'));
     await follow('返回产物列表');
-    await captureCardCreation(3, 'persona', () => click(btn('新建画像')), { reopen: true }); await output();
+    await createDefinitionCard('persona', '新建画像', personaName, '来源访谈'); await output();
     await fill('画像名称', personaName); await fill('用户情境', text('午休时的饮品选择合成情境。'));
     await fill('可观察的行为', text('夹具中的人物先看队列。')); await fill('需求', text('了解等待信息，仍需真实研究。'));
     await fill('反例、适用范围或仍未知的地方', '只有QA合成材料，年龄、兴趣与真实行为均未知。');
@@ -935,7 +945,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await observeInputs(3);
     await persistConfirmed(3, btn('确认画像')); personaHref = page.url();
     evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
-    await follow('返回产物列表'); await captureCardCreation(3, 'hmw', () => click(btn('新建 HMW')), { reopen: true }); await output();
+    await follow('返回产物列表'); await createDefinitionCard('hmw', '新建 HMW', 'QA 合成 HMW', '来源画像'); await output();
     await fill('我们如何……（HMW）', text('我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？'));
     await fill('选择理由或待核实处', '来自本次合成发现卡；是否适用于真实学生仍待验证。');
     await page.getByRole('group', { name: '关联已确认画像', exact: true }).getByRole('checkbox', { name: personaName, exact: true }).check();
