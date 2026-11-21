@@ -258,7 +258,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const savedProblemStage = shared.stages[1];
   const savedProblem = savedProblemStage?.content.draft ?? emptyAidtUiDrafts()[1]!;
   const problemDraft = activeEntityId ? readAidtProblemEntityDraft(savedProblem, activeEntityId) : savedProblem;
-  const interviewReadback = useAidtInterviewReconcile(projectId, activeInterview?.id, canWrite ? identity?.sessionToken ?? undefined : undefined, shared.matchesServer && shared.read?.phase === "ready" && shared.write.phase !== "saving", shared.reload);
+  const interviewReadback = useAidtInterviewReconcile(projectId, activeInterview?.id, canWrite ? identity?.sessionToken ?? undefined : undefined, shared.matchesServer && shared.read?.phase === "ready" && shared.write.phase !== "saving", () => shared.refreshCurrentStage({ fallbackToReload: false }));
   const [testProposal, setTestProposal] = React.useState<{ scope: string; proposal: AidtTestProposal | null }>();
   const [reportProposal, setReportProposal] = React.useState<{ scope: string; markdown: string }>();
   const reportHistoryScope = checkpointScope ? { ...checkpointScope, lifecycleKey: uiLifecycleKey } : undefined;
@@ -580,7 +580,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
               } : step.id === 6 && activeEntityId ? {
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
-                  <AidtTestConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId}
+                  <AidtTestConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId} readPrototypeEntity={readAidtPrototypeEntityDraft}
                     draft={currentUi.drafts[6]!} savedDraft={shared.stages[6]?.content.draft} messages={messages}
                     loading={loading} running={running} update={mutate => updateStage(6, mutate)} readOnly={!canWrite}
                     canSave={shared.read?.phase === 'ready' && shared.write.phase !== 'saving' && !shared.needsBaseReview}

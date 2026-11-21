@@ -87,14 +87,18 @@ export async function loadAidtPrototypeVersions(context: AidtPrototypeReadContex
 }
 
 /** Revalidate association, ownership and actual immutable snapshot at the explicit selection. */
-export async function resolveAidtPrototypeVersion(context: AidtPrototypeReadContext, designId: string, versionId: string): Promise<AidtPrototypeVersionReference> {
-  if (!validId(versionId)) throw new Error("AIDT_PROTOTYPE_UNAVAILABLE");
-  const design = await requireLinkedOwnedDesign(context, designId);
+export async function resolveAidtPrototypeVersion(context: AidtPrototypeReadContext, designId: string, versionId: string, access: "owner" | "linked-reader" = "owner"): Promise<AidtPrototypeVersionReference> {
+  if (!validId(designId) || !validId(versionId)) throw new Error("AIDT_PROTOTYPE_UNAVAILABLE");
+  const designName = access === "owner"
+    ? (await requireLinkedOwnedDesign(context, designId)).name
+    : project.operations.listProjectResources.out.parse(await read(context, project.operations.listProjectResources.path))
+      .items.find(item => item.kind === "design" && item.id === designId)?.title;
+  if (designName === undefined) throw new Error("AIDT_PROTOTYPE_UNAVAILABLE");
   const raw = await read(context, designWorkbench.operations.getPrototypeVersion.path, designId, versionId);
   current(context);
   const { version } = designWorkbench.operations.getPrototypeVersion.out.extend({ version: nativeVersion }).parse(raw);
   if (version.id !== versionId || !version.frames.length || version.prototype.length !== version.frames.length || !version.prototype.some(Boolean)) throw new Error("AIDT_PROTOTYPE_INVALID_VERSION");
-  return { designId, versionId: version.id, designName: design.name, seq: version.seq, summary: version.summary, createdAt: version.createdAt, frameCount: version.frames.length, generatedFrameCount: version.prototype.filter(Boolean).length, source: version.source };
+  return { designId, versionId: version.id, designName, seq: version.seq, summary: version.summary, createdAt: version.createdAt, frameCount: version.frames.length, generatedFrameCount: version.prototype.filter(Boolean).length, source: version.source };
 }
 
 /** Compatibility export; keep the sole implementation on the pure formatting path. */
