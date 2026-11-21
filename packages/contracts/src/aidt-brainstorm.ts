@@ -8,6 +8,7 @@ export const AIDT_BRAINSTORM_CANDIDATE_LIMIT = 24;
 
 export const AidtBrainstorm = z.object({
   id: AidtEntityId.refine(id => id.startsWith("brainstorm-")),
+  name: z.string().trim().min(1).max(120).optional(),
   source: IdeaHmwSource,
   method: z.enum(["free", "reverse", "scamper"]),
   count: z.number().int().min(1).max(AIDT_BRAINSTORM_CANDIDATE_LIMIT),

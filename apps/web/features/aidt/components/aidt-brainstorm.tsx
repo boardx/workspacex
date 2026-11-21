@@ -5,25 +5,29 @@ import Link from "next/link";
 import { AIDT_BRAINSTORM_CANDIDATE_LIMIT, AIDT_BRAINSTORM_METHODS, readAidtBrainstorms, type AidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AidtEntityCard } from "./aidt-entity-card";
+import { useAidtCreateTags } from "./aidt-card-create-fields";
 import { addAidtBrainstormCandidates, confirmAidtBrainstormSelection, createAidtBrainstorm, readAidtBrainstormProposals, readAidtBrainstormSelection } from "../lib/aidt-brainstorm";
-import { readAidtDefinition } from "../lib/aidt-definition";
-import { readAidtIdeaDirectory } from "../lib/aidt-idea-handoff";
+import { readAidtIdeaDirectory, type AidtIdeaHmwSource } from "../lib/aidt-idea-handoff";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
-import type { AidtSharedStage } from "../lib/live-aidt-stages";
 
 type SaveDraft = (change: (old: AidtUiStageDraft) => AidtUiStageDraft) => Promise<boolean>;
 type Message = { id: string; role: string; content?: unknown };
 
-export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onOpen, saveDraft }: {
-  definition?: AidtSharedStage | null;
+export function AidtBrainstormDirectory({ choices, draft, open, close, readOnly, href, onOpen, saveDraft }: {
+  choices: readonly AidtIdeaHmwSource[];
+  open: boolean;
+  close: () => void;
   draft: AidtUiStageDraft;
   readOnly: boolean;
   href: (id: string) => string;
   onOpen: (id: string) => void;
   saveDraft: SaveDraft;
 }) {
-  const choices = definition ? readAidtDefinition(definition.content.draft.fields).hmws.filter(hmw => hmw.confirmed && !hmw.archived && hmw.text.trim()) : [];
+  const tags = useAidtCreateTags(draft);
   const sessions = readAidtBrainstorms(draft.fields);
+  const [name, setName] = React.useState("");
   const [hmw, setHmw] = React.useState("");
   const [method, setMethod] = React.useState<AidtBrainstorm["method"] | "">("");
   const [count, setCount] = React.useState("5");
@@ -32,58 +36,83 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
   const draftId = React.useRef<{ key: string; id: string } | null>(null);
   const selected = choices.find(choice => choice.id === hmw);
   const planned = Number(count);
-  const valid = Boolean(selected && method && Number.isInteger(planned) && planned >= 1 && planned <= AIDT_BRAINSTORM_CANDIDATE_LIMIT);
+  const valid = Boolean(name.trim() && selected && method && Number.isInteger(planned) && planned >= 1 && planned <= AIDT_BRAINSTORM_CANDIDATE_LIMIT);
   const style = "mt-1 w-full rounded-control border border-border bg-background p-2";
   const id = React.useId();
 
   async function start(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!definition || !selected || !method || !valid || saving || readOnly) return;
-    const key = JSON.stringify([selected.id, definition.revision, method, planned]);
+    if (!selected || !method || !valid || saving || readOnly) return;
+    const key = JSON.stringify([name.trim(), selected.id, selected.revision, method, planned]);
     if (draftId.current?.key !== key) draftId.current = { key, id: `brainstorm-${crypto.randomUUID()}` };
     const session: AidtBrainstorm = { id: draftId.current.id,
-      source: { id: selected.id, text: selected.text.trim(), revision: definition.revision },
+      name: name.trim(), source: selected,
       method, candidates: [], count: planned };
     setSaving(true);
     setFailed(false);
     try {
-      if (await saveDraft(old => createAidtBrainstorm(old, session))) {
-        draftId.current = null;
+      if (await saveDraft(old => tags.apply(createAidtBrainstorm(old, session), session.id))) {
+        dismiss();
         onOpen(session.id);
       } else setFailed(true);
     } catch { setFailed(true); }
     finally { setSaving(false); }
   }
 
-  return <section className="space-y-3 rounded-container border border-border bg-card p-4" aria-label="头脑风暴">
+  function dismiss() {
+    setName("");
+    setHmw("");
+    setMethod("");
+    setCount("5");
+    setFailed(false);
+    tags.reset();
+    draftId.current = null;
+    close();
+  }
+
+  return <section className="space-y-3" aria-label="头脑风暴">
     <h2 className="text-lg font-semibold">头脑风暴</h2>
-    {!readOnly && (choices.length ? <form className="space-y-3" onSubmit={start}>
-      <label className="block text-13">HMW
-        <select className={style} value={hmw} onChange={event => setHmw(event.target.value)} disabled={saving}>
-          <option value="">选择已确认的 HMW</option>
-          {choices.map(choice => <option key={choice.id} value={choice.id}>{choice.text}</option>)}
-        </select>
-      </label>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-13">发散方法
-          <select className={style} value={method} onChange={event => setMethod(event.target.value as typeof method)} disabled={saving}>
-            <option value="">选择一种方法</option>
-            {Object.entries(AIDT_BRAINSTORM_METHODS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <label className="block text-13" htmlFor={id}>希望探索的点子数
-          <Input className="mt-1" id={id} type="number" min={1} max={AIDT_BRAINSTORM_CANDIDATE_LIMIT} value={count} onChange={event => setCount(event.target.value)} disabled={saving} />
-        </label>
-      </div>
-      <Button type="submit" disabled={!valid || saving}>{saving ? "正在创建…" : "开始头脑风暴"}</Button>
-      {failed && <p role="alert" className="text-13 text-destructive">场次未能保存，请重试。</p>}
-    </form> : <p className="text-13 text-muted-foreground">先在第 3 步确认一个 HMW。</p>)}
-    {sessions.length > 0 && <ul className="space-y-2">{sessions.map(session => <li key={session.id}>
+    <Dialog open={open && !readOnly} onOpenChange={next => { if (!next && !saving) dismiss(); }}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>新建头脑风暴</DialogTitle>
+          <DialogDescription>从已确认的 HMW 发散出新的点子。</DialogDescription>
+        </DialogHeader>
+        <form className="space-y-3" onSubmit={start}>
+          <label className="block text-13">场次名称
+            <Input className="mt-1" value={name} maxLength={120} onChange={event => setName(event.currentTarget.value)} disabled={saving} autoFocus />
+          </label>
+          {tags.field}
+          <label className="block text-13">HMW
+            <select className={style} value={hmw} onChange={event => setHmw(event.target.value)} disabled={saving}>
+              <option value="">选择已确认的 HMW</option>
+              {choices.map(choice => <option key={choice.id} value={choice.id}>{choice.text}</option>)}
+            </select>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-13">发散方法
+              <select className={style} value={method} onChange={event => setMethod(event.target.value as typeof method)} disabled={saving}>
+                <option value="">选择一种方法</option>
+                {Object.entries(AIDT_BRAINSTORM_METHODS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <label className="block text-13" htmlFor={id}>希望探索的点子数
+              <Input className="mt-1" id={id} type="number" min={1} max={AIDT_BRAINSTORM_CANDIDATE_LIMIT} value={count} onChange={event => setCount(event.target.value)} disabled={saving} />
+            </label>
+          </div>
+          <DialogFooter><Button type="button" variant="ghost" disabled={saving} onClick={dismiss}>取消</Button>
+          <Button type="submit" disabled={!valid || saving}>{saving ? "正在创建…" : "开始头脑风暴"}</Button></DialogFooter>
+          {failed && <p role="alert" className="text-13 text-destructive">场次未能保存，请重试。</p>}
+          {!choices.length && <p className="text-13 text-muted-foreground">先在第 3 步确认一个 HMW。</p>}
+        </form>
+      </DialogContent>
+    </Dialog>
+    {sessions.length > 0 && <ul className="grid gap-3 sm:grid-cols-2">{sessions.map(session => <AidtEntityCard key={session.id} entityId={session.id}>
       <Link className="block rounded-control border border-border px-3 py-2 text-13 transition-colors hover:bg-muted" href={href(session.id)}>
-        <span className="block font-medium">{AIDT_BRAINSTORM_METHODS[session.method]} · {session.candidates.length}/{session.count} 个候选</span>
+        <span className="block font-medium">{session.name ?? AIDT_BRAINSTORM_METHODS[session.method]}</span>
+        <span className="block text-muted-foreground">{AIDT_BRAINSTORM_METHODS[session.method]} · {session.candidates.length}/{session.count} 个候选</span>
         <span className="block break-words text-muted-foreground">{session.source.text} · V{session.source.revision}</span>
       </Link>
-    </li>)}</ul>}
+    </AidtEntityCard>)}</ul>}
   </section>;
 }
 

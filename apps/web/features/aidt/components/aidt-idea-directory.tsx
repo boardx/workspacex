@@ -1,5 +1,6 @@
 "use client";
 
+import { AidtBrainstormDirectory } from "./aidt-brainstorm";
 import { useAidtCreateTags } from "./aidt-card-create-fields";
 import type { AidtIdeaHmwSource } from "../lib/aidt-idea-handoff";
 import * as React from "react";
@@ -17,7 +18,7 @@ type Action = { kind: "create" | "edit" | "delete"; id: string; title: string };
 type DraftChange = (old: AidtUiStageDraft) => AidtUiStageDraft;
 const actionName = { create: "新建点子", edit: "编辑点子", delete: "删除点子" };
 
-export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDraft, onCreated, sources = [], initialSource }: {
+export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDraft, onCreated, sources = [], initialSource, allowBrainstorm = false }: {
   draft: AidtUiStageDraft;
   saved: AidtUiStageDraft | undefined;
   href: (id: string) => string;
@@ -25,10 +26,14 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
   readOnly: boolean;
   sources?: readonly AidtIdeaHmwSource[];
   initialSource?: AidtIdeaHmwSource;
+  allowBrainstorm?: boolean;
   onCreated?: (id: string) => void;
   saveDraft?: (change: DraftChange) => Promise<boolean>;
 }) {
   const tags = useAidtCreateTags(draft);
+  const [chooseKind, setChooseKind] = React.useState(false);
+  const [brainstormOpen, setBrainstormOpen] = React.useState(false);
+  const hasBrainstorm = Boolean(allowBrainstorm && onCreated && saveDraft);
   const [sourceId, setSourceId] = React.useState("");
   const source = sources.find(item => item.id === sourceId);
   const [action, setAction] = React.useState<Action | null>(null);
@@ -81,8 +86,9 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     }
   }
 
-  const create = !readOnly && <AidtNewEntityCardButton disabled={saving || allItems.length >= 8}
-    onClick={() => open({ kind: "create", id: `idea-${crypto.randomUUID()}`, title: "" })} />;
+  const openIdea = () => open({ kind: "create", id: `idea-${crypto.randomUUID()}`, title: "" });
+  const create = !readOnly && <AidtNewEntityCardButton disabled={saving || (!hasBrainstorm && allItems.length >= 8)}
+    onClick={() => { if (hasBrainstorm) setChooseKind(true); else openIdea(); }} />;
 
   return <section aria-label="点子列表" className="space-y-4" data-testid="aidt-idea-directory">
     <header className="flex items-center justify-between gap-3">
@@ -110,6 +116,19 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     {archived.length > 0 && <details className="text-12"><summary className="cursor-pointer">已删除点子（{archived.length}）</summary>
       <ul className="mt-2 space-y-1">{archived.map(item => <li key={item.id}>{item.title}</li>)}</ul>
     </details>}
+    {hasBrainstorm && onCreated && saveDraft && <>
+      <AidtBrainstormDirectory choices={sources} draft={draft} open={brainstormOpen} close={() => setBrainstormOpen(false)}
+        readOnly={readOnly} href={href} onOpen={onCreated} saveDraft={saveDraft} />
+      <Dialog open={chooseKind && !readOnly} onOpenChange={setChooseKind}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>新建卡片</DialogTitle><DialogDescription>选择要创建的卡片类型。</DialogDescription></DialogHeader>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button variant="outline" onClick={() => { setChooseKind(false); setBrainstormOpen(true); }}>头脑风暴</Button>
+            <Button variant="outline" disabled={allItems.length >= 8} onClick={() => { setChooseKind(false); openIdea(); }}>点子</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>}
     <Dialog open={Boolean(action && !readOnly)} onOpenChange={open => { if (!open && !saving) setAction(null); }}>
       {action && <DialogContent>
         <DialogHeader><DialogTitle>{actionName[action.kind]}</DialogTitle>

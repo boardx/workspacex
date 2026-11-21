@@ -972,9 +972,11 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect(ideaDirectory).toBeVisible();
     for (const name of ideaNames) {
       await click(page.getByTestId('aidt-new-entity-card'));
+      await click(btn('点子', page.getByRole('dialog', { name: '新建卡片' })));
       const dialog = page.getByRole('dialog', { name: '新建点子' });
       await fill('点子名称', name, dialog);
       await captureCardCreation(4, 'idea', () => click(dialog.locator('button[type=submit]')));
+      await page.goto(directoryHref);
       await expect(ideaDirectory.getByRole('link', { name: `打开「${name}」对话`, exact: true })).toBeVisible();
     }
     const hmwStage = await savedStage(3), hmwId = hmwStage.content.draft.fields.definitionHmwId;
@@ -1061,13 +1063,18 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const methodSessions = new Set();
     const start = async (method, target) => {
       await page.goto(frozenUrl.href);
-      const directory = page.getByRole('region', { name: '头脑风暴', exact: true });
-      const hmw = directory.getByRole('combobox', { name: 'HMW', exact: true });
+      await click(page.getByTestId('aidt-new-entity-card'));
+      await click(btn('头脑风暴', page.getByRole('dialog', { name: '新建卡片' })));
+      const dialog = page.getByRole('dialog', { name: '新建头脑风暴' });
+      const name = method === 'reverse' ? '逆向发散试跑' : 'SCAMPER 发散试跑';
+      await fill('场次名称', name, dialog);
+      await dialog.getByTestId('card-create-tag-input').fill('课堂头脑风暴');
+      const hmw = dialog.getByRole('combobox', { name: 'HMW', exact: true });
       await expect.poll(() => hmw.locator('option').count()).toBeGreaterThanOrEqual(3);
       await hmw.selectOption(chosenHmw.id);
-      await directory.getByRole('combobox', { name: '发散方法' }).selectOption(method);
-      await directory.getByRole('spinbutton', { name: '希望探索的点子数' }).fill(String(target));
-      await saveStage(4, btn('开始头脑风暴', directory));
+      await dialog.getByRole('combobox', { name: '发散方法' }).selectOption(method);
+      await dialog.getByRole('spinbutton', { name: '希望探索的点子数' }).fill(String(target));
+      await saveStage(4, btn('开始头脑风暴', dialog));
       await expect.poll(() => new URL(page.url()).searchParams.get('entity')).toMatch(/^brainstorm-/);
       const entity = new URL(page.url()).searchParams.get('entity');
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
@@ -1077,7 +1084,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       const key = 'ideaBrainstorm:' + entity;
       const read = async () => JSON.parse((await savedStage(4)).content.draft.fields[key] ?? 'null');
       const session = await read();
-      if (session?.source?.id !== chosenHmw.id || session.source?.text !== chosenHmw.text || session.source?.revision !== stage3.revision
+      if (session?.name !== name || session.source?.id !== chosenHmw.id || session.source?.text !== chosenHmw.text || session.source?.revision !== stage3.revision
         || session.method !== method || session.count !== target) fail('S4_BRAINSTORM_SOURCE_UNVERIFIED');
       return { entity, threadId, read };
     };

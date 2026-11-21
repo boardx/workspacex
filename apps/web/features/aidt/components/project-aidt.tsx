@@ -26,7 +26,7 @@ import { AidtDefinitionChatArtifact, AidtDefinitionDirectory, AidtDefinitionOutp
 import { AidtIdeaConversation } from "./aidt-idea-conversation";
 import { AidtIdeaOutput } from "./aidt-idea-output";
 import { readAidtBrainstorm, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
-import { AidtBrainstormConversation, AidtBrainstormDirectory, AidtBrainstormOutput } from "./aidt-brainstorm";
+import { AidtBrainstormConversation, AidtBrainstormOutput } from "./aidt-brainstorm";
 import { AidtIdeaDirectory } from "./aidt-idea-directory";
 import { AidtPrototypeDirectory } from "./aidt-prototype-directory";
 import { AidtTestConversation, AidtTestGroupOutput } from "./aidt-test-conversation";
@@ -479,9 +479,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
 
             </>
           : step.id === 4 ? <>
-              <AidtBrainstormDirectory definition={hmwStage} draft={savedDraft ?? draft} readOnly={!canWrite}
-                href={entityHref} onOpen={openCreated} saveDraft={shared.saveDraft} />
-              <AidtIdeaDirectory initialSource={ideaHandoff.hmw} sources={hmwStage ? readAidtDefinition(hmwStage.content.draft.fields).hmws.filter(item => item.confirmed && !item.archived && item.text.trim()).map(item => ({ revision: hmwStage.revision, id: item.id, text: item.text })) : []} draft={draft} saved={savedDraft} href={entityHref} onCreated={openCreated} update={update} readOnly={!canWrite} saveDraft={shared.saveDraft} />
+              <AidtIdeaDirectory allowBrainstorm initialSource={ideaHandoff.hmw} sources={hmwStage ? readAidtDefinition(hmwStage.content.draft.fields).hmws.filter(item => item.confirmed && !item.archived && item.text.trim()).map(item => ({ revision: hmwStage.revision, id: item.id, text: item.text })) : []} draft={draft} saved={savedDraft} href={entityHref} onCreated={openCreated} update={update} readOnly={!canWrite} saveDraft={shared.saveDraft} />
               {save}
             </>
           : step.id === 5 ? <AidtPrototypeDirectory sourceIdeas={shared.stages[4]} onCreated={openCreated} projectId={projectId} canWrite={canWrite} ideaRevision={ideaRevision} draft={savedDraft ?? draft} saveDraft={shared.saveDraft} mutationBusy={shared.write.phase === "saving" || shared.needsBaseReview} />

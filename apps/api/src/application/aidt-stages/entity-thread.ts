@@ -60,7 +60,7 @@ export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: s
         ?? titleFor(fields, "definitionSurprise:", entityId, "observation", "意外发现");
     case 4: {
       const session = readAidtBrainstorm(fields, entityId);
-      if (session) return `头脑风暴 · ${AIDT_BRAINSTORM_METHODS[session.method]}`;
+      if (session) return session.name ?? `头脑风暴 · ${AIDT_BRAINSTORM_METHODS[session.method]}`;
       if (/^draft-[123]$/.test(entityId)) return null;
       let archived: unknown;
       try { archived = JSON.parse(fields.ideaArchivedIds || "[]"); } catch { return null; }
