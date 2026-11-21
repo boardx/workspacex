@@ -85,7 +85,13 @@ function CardTagsDialog({ context, entityId, tags, close }: { context: CardTags;
   const [failed, setFailed] = React.useState(false);
   const labels = [...new Set([...context.labels, ...draft])].sort();
   const added = entry.trim();
-  const next = added && !draft.includes(added) && draft.length < maxTags ? [...draft, added] : draft;
+  const canAdd = Boolean(added && !draft.includes(added) && draft.length < maxTags);
+  const next = canAdd ? [...draft, added] : draft;
+  function addTag() {
+    if (!canAdd) return;
+    setDraft(next);
+    setEntry("");
+  }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (saving) return;
@@ -110,7 +116,16 @@ function CardTagsDialog({ context, entityId, tags, close }: { context: CardTags;
             aria-pressed={draft.includes(label)} disabled={!draft.includes(label) && draft.length >= maxTags}
             onClick={() => setDraft(previous => previous.includes(label) ? previous.filter(item => item !== label) : [...previous, label])}>{label}</Button>)}
         </div>
-        <Input value={entry} onChange={event => setEntry(event.currentTarget.value)} maxLength={maxTagLength} disabled={saving || draft.length >= maxTags} aria-label="新标签" />
+        <div className="flex items-center gap-2">
+          <Input value={entry} onChange={event => setEntry(event.currentTarget.value)} maxLength={maxTagLength} disabled={saving || draft.length >= maxTags}
+            aria-label="新标签" onKeyDown={event => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                addTag();
+              }
+            }} />
+          <Button type="button" variant="outline" disabled={saving || !canAdd} onClick={addTag}>添加</Button>
+        </div>
         {failed && <p role="alert">标签未保存，核对小组版本后可重试。</p>}
         <Button type="submit" disabled={saving}>{saving ? "正在保存…" : "保存标签"}</Button>
       </form>

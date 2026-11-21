@@ -25,10 +25,15 @@ it("lists tags inline and filters cards, while one durable mutation edits only t
   fireEvent.click(screen.getByRole("button", { name: "编辑标签" }));
   const dialog = screen.getByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: "通勤" }));
+  const input = within(dialog).getByRole("textbox", { name: "新标签" });
+  fireEvent.change(input, { target: { value: "观察" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  fireEvent.change(input, { target: { value: "着眼未来" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "添加" }));
   fireEvent.click(within(dialog).getByRole("button", { name: "保存标签" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(saved).toHaveBeenCalledTimes(1);
-  expect(readAidtEntityCardTags(saved.mock.calls[0]![0].fields, "a")).toEqual(["校园", "通勤"]);
+  expect(readAidtEntityCardTags(saved.mock.calls[0]![0].fields, "a")).toEqual(["校园", "通勤", "观察", "着眼未来"]);
   expect(readAidtEntityCardTags(saved.mock.calls[0]![0].fields, "b")).toEqual(["通勤"]);
   fireEvent.click(within(filters).getByRole("button", { name: "通勤" }));
   expect(screen.getByRole("heading", { name: "第一张" })).toBeVisible();
