@@ -24,7 +24,7 @@ export function createSurveyCollectionGuard(run, trustedTemplate = '36567f1a9f65
   const reject = () => { throw new ProbeFailure('NATIVE_SURVEY_SCOPE_REJECTED'); };
   const take = kind => { if (spent.has(kind)) reject(); spent.add(kind); return { allow: true, kind }; };
   const questionId = i => template + '-q' + (i + 1);
-  function decide(method, url, body, projectId) {
+  function decide(method, url, body, projectId, audience) {
     if (!active || !projectId) return;
     const path = url.pathname;
     if (method === 'GET') {
@@ -37,6 +37,7 @@ export function createSurveyCollectionGuard(run, trustedTemplate = '36567f1a9f65
       return;
     }
     if (method !== 'POST' || url.search) return;
+    if (audience === 'survey-participant' && (!token || path !== '/api/public/surveys/' + token + '/responses')) reject();
     if (path === '/api/surveys') {
       if (!keys(body, 'questions,tags,template,title') || body.title !== fixture.title || !Array.isArray(body.tags) || body.tags.length
         || nativeSurveyTemplateDigest(body) !== trustedTemplate || body.template?.id !== template + '-report' || body.questions?.length !== titles.length
@@ -57,7 +58,7 @@ export function createSurveyCollectionGuard(run, trustedTemplate = '36567f1a9f65
       return take('survey-close');
     }
     if (token && path === '/api/public/surveys/' + token + '/responses') {
-      if (!keys(body, 'answers,durationSeconds,submissionId') || !uuidPattern.test(body.submissionId) || !Number.isInteger(body.durationSeconds)
+      if (audience !== 'survey-participant' || !keys(body, 'answers,durationSeconds,submissionId') || !uuidPattern.test(body.submissionId) || !Number.isInteger(body.durationSeconds)
         || body.durationSeconds < 0 || body.durationSeconds > 1800 || body.answers?.length !== titles.length) reject();
       for (let i=0; i<titles.length; i++) {
         const row = body.answers.find(answer => answer.questionId === questionId(i));
@@ -97,10 +98,10 @@ export function createSurveyCollectionGuard(run, trustedTemplate = '36567f1a9f65
       responseId = data.responseId;
     }
   }
-  return { arm() { if (active) reject(); active = true; }, decide, observe, receipt: () => ({ id, responseId }) };
+  return { arm() { if (active) reject(); active = true; }, decide, observe, publicLink: () => token ? '/surveys/' + token : null, receipt: () => ({ id, responseId }) };
 }
 
-export async function collectNativeSurvey({ page, expect, actions, saveSource, fixture, receipt }) {
+export async function collectNativeSurvey({ page, expect, actions, saveSource, fixture, receipt, createSurveyParticipant }) {
   const [studio] = await Promise.all([page.waitForEvent('popup'), actions.getByRole('link', { name: '在新标签页创建问卷' }).click()]);
   try {
     const dialog = studio.getByRole('dialog', { name: '新建问卷' });
@@ -124,8 +125,10 @@ export async function collectNativeSurvey({ page, expect, actions, saveSource, f
     await expect(stop).toBeVisible();
     try {
       await actions.getByRole('button', { name: '刷新答卷' }).click();
-      const [form] = await Promise.all([page.waitForEvent('popup'), actions.getByRole('link', { name: '打开填写链接' }).click()]);
+      const href = await actions.getByRole('link', { name: '打开填写链接' }).getAttribute('href');
+      const respondent = await createSurveyParticipant(href);
       try {
+        const form = respondent.page;
         await expect(form.getByRole('heading', { name: fixture.title })).toBeVisible();
         await form.getByRole('textbox', { name: titles[0] }).fill(fixture.title);
         await form.getByLabel(titles[1]).fill(fixture.values[1]);
@@ -135,7 +138,7 @@ export async function collectNativeSurvey({ page, expect, actions, saveSource, f
         await form.getByRole('button', { name: '提交答卷' }).click();
         await expect(form.getByRole('status')).toBeVisible();
         if (!receipt().responseId) throw new ProbeFailure('NATIVE_SURVEY_SUBMISSION_NOT_OBSERVED');
-      } finally { await form.close(); }
+      } finally { await respondent.close(); }
     } finally {
       await studio.reload();
       studio.once('dialog', confirmation => confirmation.message() === '停止回收后将不再接受新答卷，继续吗？' ? confirmation.accept() : confirmation.dismiss());
