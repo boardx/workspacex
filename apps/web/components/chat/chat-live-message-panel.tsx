@@ -1804,7 +1804,7 @@ export function ChatLiveMessagePanel({
               <Button
                 type="button"
                 size="icon"
-                variant={canStopSpeech ? "primary" : "outline"}
+                variant={canStopSpeech ? "destructive" : "outline"}
                 className={chatComposerAction}
                 data-testid="chat-mic-button"
                 data-mic-status={speech.status}
@@ -1872,8 +1872,7 @@ export function ChatLiveMessagePanel({
           {speech.listening ? (
             // #726 —— 转录进行中的可见反馈："正在听"，不是静默录音。文字实时通过
             // `onTranscript` 写回 `text`（见上面 `updateDraft` 的调用），这里只是状态提示。
-            <p className="mt-2 flex items-center gap-1.5 text-11 text-primary" data-testid="chat-mic-listening">
-              <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+            <p role="status" className="sr-only" data-testid="chat-mic-listening">
               正在听 · 实时转录
             </p>
           ) : null}

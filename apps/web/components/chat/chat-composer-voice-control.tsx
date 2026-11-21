@@ -183,15 +183,13 @@ export function ComposerVoiceControl({
     }, locale)
     : null;
 
-  const shell = inline && (listening || paused || reconnecting)
-    ? "border-primary/30 bg-primary/10 text-primary"
-    : listening
+  const shell = listening
     ? "border-destructive bg-destructive text-destructive-foreground"
     : paused
       ? "border-destructive bg-panel-alt text-destructive"
       : "border-border bg-panel-alt text-card-foreground";
-  const divider = listening && !inline ? "bg-destructive-foreground/30" : "bg-border";
-  const hover = listening && !inline ? "hover:bg-destructive/90" : "hover:bg-muted";
+  const divider = listening ? "bg-destructive-foreground/30" : "bg-border";
+  const hover = listening ? "hover:bg-destructive/90" : "hover:bg-muted";
   const connecting = phase === "connecting";
   const mainText = canStop ? t("chatComposer.stop")
     : connecting ? t("chatComposer.voiceConnectingShort")
@@ -279,8 +277,9 @@ export function ComposerVoiceControl({
               }
             }}
             className={`flex items-center text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover} ${
-              inline ? `justify-center gap-1 ${showTimer || done
-                ? "w-7 shrink-0 rounded-pill" : busy ? "min-w-0 flex-1 rounded-pill px-1" : "w-8 rounded-pill"}`
+              inline ? `justify-center gap-1 ${canStop ? "shrink-0 rounded-pill px-2"
+                : showTimer || done ? "w-7 shrink-0 rounded-pill"
+                : busy ? "min-w-0 flex-1 rounded-pill px-1" : "rounded-pill px-2.5"}`
                 : "gap-2 rounded-l-pill pl-3.5 pr-3"
             }`}
           >
@@ -293,10 +292,10 @@ export function ComposerVoiceControl({
             ) : (
               <Mic aria-hidden className="h-4 w-4 shrink-0" />
             )}
-            {!(inline && (showTimer || done)) ? (
+            {(!inline || canStop || (!showTimer && !done)) ? (
               <span
                 data-testid={inline && busy ? (connecting ? "chat-mic-connecting" : "chat-mic-stopping") : undefined}
-                className={inline ? (busy ? "truncate" : "sr-only") : undefined}
+                className={inline ? "truncate" : undefined}
               >
                 {mainText}
               </span>
