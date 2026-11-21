@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SharedStageValue } from "@repo/contracts/aidt-stages";
+import { aidtSavedEntityContext } from "../../src/application/aidt-stages/entity-thread";
 import { projectInterviewSkillDraft } from "../../src/application/aidt-stages/interview-skill-draft";
 
 type Draft = SharedStageValue["content"]["draft"];
@@ -34,6 +35,32 @@ describe("S2 durable Skill output", () => {
     const completed = { ...base, fields: { ...base.fields, [key]: JSON.stringify({ ...row, original: "原题", adopted: "学生最终稿", guideConfirmed: true }) } };
     expect(projectInterviewSkillDraft(completed, id, guideTurn)).toBeNull();
     expect(projectInterviewSkillDraft({ ...base, fields: { ...base.fields, ["interviewArchived:" + id]: "true" } }, id, guideTurn)).toBeNull();
+  });
+  it("carries only this interview's consented, checked excerpt into the Skill and the durable sourced draft", () => {
+    const sourceKey = "interviewMaterial:" + id + ":one";
+    const transcript = { sourceKey, checked: true, text: "我看不出口味差别。", locator: "01:42" };
+    const source = { projectId: "group", artifactId: "audio", versionId: "v1", mime: "audio/wav", name: "U01.wav" };
+    const fields = { ...base.fields, [key]: JSON.stringify({ ...row, consent: { notes: true, audio: true } }),
+      ["interviewTranscript:" + id]: JSON.stringify(transcript), [sourceKey]: JSON.stringify(source),
+      ["captured:" + sourceKey]: JSON.stringify({ draftTranscript: "未核对的整段转写" }) };
+    const stage: SharedStageValue = { stageId: 2, revision: 3, projectId: "group", updatedBy: "member", updatedAt: new Date().toISOString(),
+      sourceStageRevisions: [], content: { schemaVersion: 1, draft: { ...base, fields } } };
+    const context = (nextFields = fields, entity = id) => JSON.stringify(aidtSavedEntityContext({ ...stage,
+      content: { ...stage.content, draft: { ...base, fields: nextFields } } }, entity));
+    expect(context()).toContain(transcript.text);
+    expect(context()).not.toContain("未核对");
+    expect(context(fields, second)).not.toContain(transcript.text);
+    for (const changed of [
+      { [key]: JSON.stringify({ ...row, consent: { notes: false, audio: true } }) },
+      { [key]: JSON.stringify({ ...row, consent: { notes: true, audio: false } }) },
+      { [sourceKey]: JSON.stringify({ ...source, projectId: "another" }) },
+      { ["interviewTranscript:" + id]: JSON.stringify({ ...transcript, checked: false }) },
+      { ["interviewArchived:" + id]: "true" },
+    ]) expect(context({ ...fields, ...changed })).not.toContain(transcript.text);
+    const next = projectInterviewSkillDraft(stage.content.draft, id, { projectId: "group", user: "整理成卡片", messageId: "m03",
+      verifiedFindingText: ["比较口味"], assistant: "### 人物发现卡（草稿）\n一句发现：比较口味\n受访者原话：" + transcript.text })!;
+    expect(next.discoveryCards).toMatchObject([{ id, headline: "比较口味", quote: transcript.text, sourceRef: "U01.wav · 01:42" }]);
+    expect(next.fields["interviewConfirmed:" + id]).not.toBe("true");
   });
   it("only projects student-attributable findings after consent; an unverified quote never enters output", () => {
     const fields = { ...base.fields, [key]: JSON.stringify({ ...row, original: "原题", consent: { notes: true } }) };

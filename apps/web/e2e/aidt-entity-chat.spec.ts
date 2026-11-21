@@ -5,6 +5,9 @@ import { AidtContextReceipt, AidtContextSelector } from "@repo/contracts/aidt-ru
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { bearerOf, sendViaWorkbench } from "./chat-v2-send";
 
+test.use({ launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream",
+    ...(process.env.AIDT_RECORDING_TEST_WAV ? ["--use-file-for-fake-audio-capture=" + process.env.AIDT_RECORDING_TEST_WAV] : [])] } });
+
 const composer = (page: Page) => page.getByTestId("copilotkit-v2-input");
 
 async function openInterview(page: Page, path: string) {
@@ -29,10 +32,20 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
   const pathname = new URL(page.url()).pathname;
   const ids = Array.from({ length: 10 }, () => randomUUID());
+  const problemId=randomUUID();
+  const sourceProject=pathname.split("/").pop()!;
+  const upstreamQuestion="新手司机夜间如何确认施工区车道？";
+  const head=await page.request.put("/__fullstack_api/projects/"+sourceProject+"/aidt/stages/1",{
+    headers:{Authorization:"Bearer "+await bearerOf(page)},
+    data:{operationId:randomUUID(),expectedRevision:0,sourceStageRevisions:[],content:{schemaVersion:1,draft:{
+      fields:{problemHandoffEntity:problemId,["problemEntity:"+problemId]:JSON.stringify({id:problemId,title:"高速施工区",archived:false}),
+        ["problemDraft:"+problemId]:JSON.stringify({initial:upstreamQuestion,scene:"夜间高速",rewrittenTheme:upstreamQuestion})},ideas:[],selectedIdeaId:""}}}
+  });
+  expect(head.ok()).toBe(true);
   const fields = Object.fromEntries(ids.map((id, index) => {
     const code = "U" + (index + 1).toString().padStart(2, "0");
     return ["interviewRecord:" + id, JSON.stringify({
-      version: 1, id, code, topicRevision: null, topic: "", goal: "", original: "",
+      version: 1, id, code, topicRevision: index===0 ? 1 : null, topic: "", goal: "", original: "",
       adopted: index ? code + " 的测试清单" : "", guideConfirmed: false, consent: null,
     })];
   }));
@@ -91,6 +104,15 @@ test("ten interviews bind to ten native conversations and reopening never copies
   expect(receipt.ok()).toBe(true);
   expect(AidtContextReceipt.parse(await receipt.json()).stageRevisions).toEqual([{ stageId: 2, revision: 1 }]);
 
+  const parsed=AidtContextReceipt.parse(await receipt.json());
+  expect(parsed.entityReferences).toContainEqual({stageId:1,revision:1,entityId:problemId});
+  const sourceTab=await context.newPage();
+  await sourceTab.goto(pathname+"?step=1&entity="+problemId+"&entityRevision=1");
+  await expect(sourceTab.getByTestId("aidt-entity-history")).toContainText(upstreamQuestion);
+  await sourceTab.getByRole("link",{name:"查看此产物的对话"}).click();
+  await expect(composer(sourceTab)).toBeVisible();
+  await sourceTab.close();
+
   const threads = [first];
   for (const [index, url] of urls.slice(1).entries()) {
     threads.push(await openInterview(page, url + "&tool=outcome"));
@@ -139,14 +161,46 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect(page).toHaveURL(new RegExp("entity=" + ids[0] + ".*entityRevision=1"));
   await expect(page.getByTestId("aidt-interview-output")).toContainText("U01 · 访谈产物");
 
-  await page.goto(urls[0]! + "&tool=outcome");
-  const actions = page.getByTestId("aidt-interview-chat-actions");
-  await expect(actions).toBeVisible();
-  await actions.getByRole("button", { name: "编辑这道问题" }).click();
+  const reconcileUrl = new RegExp("/aidt/stages/2/entities/" + ids[0] + "/reconcile$");
+  const unrelatedStageUrl = /\/aidt\/stages\/1$/;
+  let releaseReconcile!: () => void;
+  const reconcileGate = new Promise<void>(resolve => { releaseReconcile = resolve; });
+  let releaseUnrelatedStage!: () => void;
+  const unrelatedStageGate = new Promise<void>(resolve => { releaseUnrelatedStage = resolve; });
+  let reconciling = false;
+  await page.route(reconcileUrl, async route => {
+    await reconcileGate;
+    reconciling = true;
+    await route.continue();
+  });
+  await page.route(unrelatedStageUrl, async route => {
+    // If an interview readback reloads every stage, hold the unrelated request
+    // until after confirmation so the old editor-unmount race is reproducible.
+    if (reconciling) await unrelatedStageGate;
+    await route.continue();
+  });
   const question = "你上一次选新品时，哪一条信息影响了决定？";
-  await actions.getByLabel("修改问题").fill(question);
-  await actions.getByRole("button", { name: "确认这份问题清单" }).click();
-  await expect(page.getByTestId("aidt-interview-save-state")).toHaveText("已保存");
+  try {
+    const reconcileRequest = page.waitForRequest(reconcileUrl);
+    await page.goto(urls[0]! + "&tool=outcome");
+    const actions = page.getByTestId("aidt-interview-chat-actions");
+    await actions.getByRole("button", { name: "编辑这道问题" }).click();
+    const editor = actions.getByLabel("修改问题");
+    await editor.fill(question);
+    await reconcileRequest;
+    const stageReadback = page.waitForResponse(response => response.request().method() === "GET"
+      && /\/aidt\/stages\/2$/.test(response.url()));
+    releaseReconcile();
+    expect((await stageReadback).ok()).toBe(true);
+    await expect(editor).toHaveValue(question);
+    await actions.getByRole("button", { name: "确认这份问题清单" }).click();
+    await expect(page.getByTestId("aidt-interview-save-state")).toHaveText("已保存");
+  } finally {
+    releaseReconcile();
+    releaseUnrelatedStage();
+    await page.unroute(reconcileUrl);
+    await page.unroute(unrelatedStageUrl);
+  }
   await expect(page.getByTestId("aidt-interview-question-list")).toContainText(question);
   await page.reload();
   await expect(page.getByText(question, { exact: true }).first()).toBeVisible();
@@ -171,6 +225,68 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(second);
 });
 
+test.describe("recording evidence in the interview Chat", () => {
+  test.use({ permissions: ["microphone"] });
+
+  test("a saved WAV and a checked excerpt become a sourced finding without entering the outcome form", async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.goto("/login");
+    await page.getByTestId("login-email").fill(FULLSTACK_E2E.leadEmail);
+    await page.getByTestId("login-password").fill(FULLSTACK_E2E.leadPassword);
+    await page.getByTestId("login-submit").click();
+    await expect(page).toHaveURL(/\/home$/);
+    await page.getByTestId("rail-aidt").click();
+    await page.getByTestId("aidt-new").click();
+    await page.getByTestId("project-new-name").fill("合成录音到发现卡 " + randomUUID().slice(0, 8));
+    await page.getByTestId("project-new-create").click();
+    await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
+    const path = new URL(page.url()).pathname, projectId = path.split("/").pop()!;
+    const first = randomUUID(), sibling = randomUUID();
+    const fields = Object.fromEntries([first, sibling].map((id, index) => ["interviewRecord:" + id,
+      JSON.stringify({ version: 1, id, code: "U0" + (index + 1), topicRevision: 1, topic: "合成音源验收", goal: "了解选择",
+        original: "怎么选饮料？", adopted: "上次怎么选的？", guideConfirmed: true,
+        consent: { notes: true, photos: false, audio: true, capture: true, asr: false, observedAt: new Date().toISOString() } })]));
+    const headers = { Authorization: "Bearer " + await bearerOf(page) };
+    const endpoint = "/__fullstack_api/projects/" + projectId + "/aidt/stages/2";
+    expect((await page.request.put(endpoint, { headers, data: { operationId: randomUUID(), expectedRevision: 0,
+      sourceStageRevisions: [], content: { schemaVersion: 1, draft: { fields, selectedIdeaId: "", ideas: [] } } } })).ok()).toBe(true);
+    const url = path + "?step=2&entity=" + first + "&tool=outcome";
+    await openInterview(page, url);
+    const materials = () => page.getByTestId("chat-task-workbench-inspector-tab-materials").click();
+    await materials();
+    await page.getByRole("button", { name: "开始录音", exact: true }).click();
+    await expect(page.getByRole("button", { name: "停止录音" })).toBeVisible();
+    // Keep the capture open long enough to contain the synthetic spoken sample.
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 1800)));
+    await page.getByRole("button", { name: "停止录音" }).click();
+    await expect(page.locator("audio").first()).toBeAttached();
+    await page.getByRole("button", { name: "保存本次录音原件" }).click();
+    const head = async () => (await (await page.request.get(endpoint, { headers })).json()).stage.content.draft;
+    await expect.poll(async () => Object.keys((await head()).fields).some(key => key.startsWith("captured:interviewMaterial:" + first + ":"))).toBe(true);
+    await page.reload();
+    await materials();
+    const select = page.getByLabel("转写原件", { exact: true });
+    await expect(select.locator("option")).toHaveCount(2);
+    await select.selectOption({ index: 1 });
+    await page.getByLabel("定位（如 01:42 或第 3 段）").fill("00:01");
+    await page.getByLabel("校对后的摘录").fill("我先看口味");
+    await page.getByLabel("已对照原始材料校对").check();
+    await expect.poll(async () => JSON.parse((await head()).fields["interviewTranscript:" + first] || "{}").checked).toBe(true);
+    await sendViaWorkbench(page, "合成访谈验收：她在菜单前比较口味。请整理本次发现。");
+    await expect.poll(async () => (await head()).discoveryCards?.[0]?.sourceRef, { timeout: 60_000 }).toContain("00:01");
+    await page.goto(url);
+    const output = page.getByTestId("aidt-interview-finding");
+    await output.getByText("发现详情与来源").click();
+    await expect(output).toContainText("她在菜单前比较口味");
+    await expect(output).toContainText("我先看口味");
+    await expect(output).toContainText("00:01");
+    await expect(output.getByRole("textbox")).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath("sourced-recording-finding.png") });
+    await openInterview(page, path + "?step=2&entity=" + sibling + "&tool=outcome");
+    await expect(page.getByTestId("aidt-interview-finding")).not.toContainText("我先看口味");
+  });
+});
+
 test("directory creation saves named problems, findings, ideas and native Design prototypes before opening their chat", async ({ page }) => {
   test.setTimeout(150_000);
   await page.goto("/login");
@@ -185,14 +301,40 @@ test("directory creation saves named problems, findings, ideas and native Design
   await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
   const pathname = new URL(page.url()).pathname;
   const threads = new Set<string>();
+  const projectId = pathname.split("/").at(-1)!;
+  const headers = { Authorization: "Bearer " + await bearerOf(page) };
+  async function seedSourceStage(stageId: number, transform: (previous: { fields: Record<string, string>; ideas: { id: string; title: string; description: string }[]; selectedIdeaId: string }) => void) {
+    const path = "/__fullstack_api/projects/" + projectId + "/aidt/stages/" + stageId;
+    const { stage } = await (await page.request.get(path, { headers })).json();
+    const draft = stage.content.draft;
+    transform(draft);
+    expect((await page.request.put(path, { headers, data: { operationId: randomUUID(), expectedRevision: stage.revision, sourceStageRevisions: stage.sourceStageRevisions, content: { ...stage.content, draft } } })).ok()).toBe(true);
+  }
   for (const [step, kind] of [[1, "问题"], [1, "问题"], [3, "意外发现"], [4, "点子"], [5, "原型"]] as const) {
     const title = kind + randomUUID().slice(0, 6);
     const directory = pathname + "?step=" + step;
+    if (step === 4) await seedSourceStage(3, draft => {
+      const persona = { id: "student", name: "午休赶课的学生", situation: "课间休息", behavior: "先看排队长度", need: "预估排队时间", limits: "合成来源", cardIds: [], confirmed: true, archived: false };
+      draft.fields["definitionPersona:" + persona.id] = JSON.stringify(persona);
+      for (const [id, text] of [["hmw-primary", "如何帮助学生挑选饮料？"], ["hmw-second", "如何预估等候时间？"]] as const) {
+        draft.fields["definitionHmw:" + id] = JSON.stringify({ id, text, rationale: "合成建卡来源", cardIds: [], personaIds: [persona.id], confirmed: true, archived: false });
+      }
+      draft.fields.definitionHmwId = "hmw-primary";
+      draft.fields.hmw = "如何帮助学生挑选饮料？";
+    });
+    if (step === 5) await seedSourceStage(4, draft => {
+      for (const idea of draft.ideas) idea.description = "制作比较卡";
+      draft.fields.ideaHandoffIds = JSON.stringify(draft.ideas.map(idea => idea.id));
+    });
     await page.goto(directory);
-    await page.getByRole("button", { name: "新建" + kind, exact: true }).click();
-    if (step !== 3) {
+    await page.getByTestId("aidt-new-entity-card").click();
+    if (step === 3) await page.getByRole("button", { name: "新建" + kind, exact: true }).click();
+    {
       const dialog = page.getByRole("dialog");
-      await dialog.getByRole("textbox").fill(title);
+      await dialog.getByRole("textbox", { name: /名称/ }).fill(title);
+      await dialog.getByTestId("card-create-tag-input").fill("课堂 QA");
+      if (step === 4) await dialog.getByLabel("来源 HMW").selectOption("hmw-second");
+      await page.screenshot({ path: test.info().outputPath("stage-" + step + "-creation-dialog.png") });
       const submit = dialog.locator('button[type="submit"]');
       if (!threads.size) {
         const pattern = "**/projects/*/aidt/stages/1";
@@ -217,11 +359,17 @@ test("directory creation saves named problems, findings, ideas and native Design
     const id = created.searchParams.get("entity")!;
     const thread = created.searchParams.get("thread")!;
     expect(id).toBeTruthy();
+    if (step === 4) {
+      const { stage } = await (await page.request.get("/__fullstack_api/projects/" + projectId + "/aidt/stages/4", { headers })).json();
+      const definition = await (await page.request.get("/__fullstack_api/projects/" + projectId + "/aidt/stages/3", { headers })).json();
+      expect(JSON.parse(stage.content.draft.fields["ideaHmwSource:" + id])).toEqual({ id: "hmw-second", text: "如何预估等候时间？", revision: definition.stage.revision });
+    }
     expect(threads.has(thread)).toBe(false);
     threads.add(thread);
     await page.goto(directory);
     const card = page.locator('a[href*="entity=' + id + '"]').first();
     await expect(card).toBeVisible();
+    await expect(card.locator("xpath=ancestor::li[1]").getByRole("list", { name: "卡片标签" })).toContainText("课堂 QA");
     await card.click();
     await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(thread);
     await page.reload();

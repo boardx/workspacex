@@ -92,8 +92,12 @@ it("creates a primary surprise card and offers no workspace questions or forms",
   }
   render(<Directory />);
   expect(screen.queryByRole("radio")).toBeNull();
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   fireEvent.click(screen.getByRole("button", { name: "新建意外发现" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "卡片名称" }), { target: { value: "午间发现" } });
+  fireEvent.click(screen.getByRole("button", { name: "创建意外发现" }));
   expect(screen.getByRole("link", { name: "打开意外发现对话" })).toHaveAttribute("href", "/aidt/p?step=3&entity=primary-surprise");
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   expect(screen.getByRole("button", { name: "新建画像" })).toBeDisabled();
 });
 
@@ -163,9 +167,11 @@ it("selects multiple confirmed interview discoveries as frozen evidence when cre
   }
   render(<Directory />);
   for (const [openLabel, createLabel] of [["新建画像", "创建画像"], ["新建 HMW", "创建HMW"]] as const) {
+    fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
     fireEvent.click(screen.getByRole("button", { name: openLabel }));
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.change(dialog.getByRole("textbox", { name: "卡片名称" }), { target: { value: createLabel } });
+    fireEvent.change(dialog.getByTestId("card-create-tag-input"), { target: { value: "课堂" } });
     if (createLabel === "创建HMW") fireEvent.click(within(dialog.getByRole("group", { name: "来源画像" })).getByRole("checkbox", { name: "p1" }));
     expect(dialog.queryByText("U02")).not.toBeInTheDocument();
     expect(dialog.queryByText(orphaned.headline)).not.toBeInTheDocument();
@@ -179,6 +185,7 @@ it("selects multiple confirmed interview discoveries as frozen evidence when cre
   expect(definition.hmws[0]).toMatchObject({ cardIds: [interviewId, secondId], personaIds: ["p1"], text: "", confirmed: false });
   expect(result.fields[`definitionCardName:${definition.hmws[0]!.id}`]).toBe("创建HMW");
   expect(definition.personas.at(-1)?.name).toBe("创建画像");
+  expect(result.fields[`cardTags:${definition.hmws[0]!.id}`]).toBe('["课堂"]');
   expect(readAidtDefinitionEvidenceRevision(result.fields)).toBe(2);
 
   const hypothesis = latestAidtDefinitionCandidate([
@@ -195,12 +202,20 @@ it("retries a failed create using the same entity and entered card name", async 
     .mockResolvedValueOnce(false).mockResolvedValueOnce(true);
   const update = vi.fn();
   const draft = noSurprise();
-  render(<AidtDefinitionDirectory {...context} draft={draft} savedDraft={draft} update={update} onCreate={onCreate}
+  const interviewId = "73e90275-e848-480f-8962-8d39d3b88b43";
+  const savedContext = { ...context, availableCards: [{ ...card, id: interviewId }], discoveryCardFields: {
+    [`interviewConfirmed:${interviewId}`]: "true",
+    [`interviewRecord:${interviewId}`]: JSON.stringify({ version: 1, id: interviewId, code: "U01",
+      topic: "", topicRevision: null, goal: "", original: "", adopted: "", guideConfirmed: false, consent: null }),
+  } };
+  render(<AidtDefinitionDirectory {...savedContext} draft={draft} savedDraft={draft} update={update} onCreate={onCreate}
     nativeChat entityHref={id => `/aidt/p?step=3&entity=${id}`} />);
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   fireEvent.click(screen.getByRole("button", { name: "新建画像" }));
   const dialog = within(screen.getByRole("dialog"));
   const name = dialog.getByRole("textbox", { name: "卡片名称" });
   fireEvent.change(name, { target: { value: "午间学生" } });
+  fireEvent.click(dialog.getByRole("checkbox", { name: /U01/ }));
   fireEvent.click(dialog.getByRole("button", { name: "创建画像" }));
   expect(await dialog.findByRole("alert")).toHaveTextContent("请重试创建此卡");
   expect(name).toHaveValue("午间学生");

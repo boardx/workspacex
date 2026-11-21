@@ -1,9 +1,11 @@
 "use client";
 
+import { AIDT_LEGACY_PROBLEM, isAidtLegacyProblem } from "@repo/contracts/aidt-stages";
 import * as React from "react";
 import Link from "next/link";
 import { AidtProblemWorkspace } from "./aidt-problem-workspace";
 import { AidtInterviewOutput } from "./aidt-interview-output";
+import { AidtTestGroupOutput } from "./aidt-test-conversation";
 import { AidtStageOutput } from "./aidt-stage-output";
 import { AidtPrototypeEntityOutput } from "./aidt-prototype-handoff";
 import { aidtHref, type AidtStep } from "../lib/project-aidt";
@@ -38,8 +40,9 @@ export function AidtEntityHistory({ projectId, entityId, step, revision, token, 
   const backHref = aidtHref(projectId, step.id);
   const draft = stage?.content.draft;
   const fields = draft?.fields ?? {};
+  const legacy = step.id === 1 && entityId === AIDT_LEGACY_PROBLEM && isAidtLegacyProblem(fields);
   const belongs = draft && (
-    (step.id === 1 && listAidtProblems(draft).some(row => row.id === entityId))
+    legacy || (step.id === 1 && listAidtProblems(draft).some(row => row.id === entityId))
     || (step.id === 2 && readAidtInterviews(fields).some(row => row.id === entityId))
     || (step.id === 3 && readAidtDefinitionEntities(fields).some(row => row.id === entityId))
     || (step.id === 4 && readAidtIdeaDirectory(draft).some(row => row.id === entityId))
@@ -57,21 +60,23 @@ export function AidtEntityHistory({ projectId, entityId, step, revision, token, 
         : stage === undefined
           ? <p role="status">正在读取历史版本…</p>
           : draft && <>
-            <p className="text-12 text-muted-foreground">已保存的历史版本。</p>
+            <p className="text-12 text-muted-foreground">已保存的历史版本。 <Link className="underline" href={backHref + (legacy ? "&history=1" : "&entity=" + encodeURIComponent(entityId))}>查看此产物的对话</Link></p>
             {timestamp && <p className="text-12">来源定位 {timestamp}</p>}
             {step.id === 1
-              ? <AidtProblemWorkspace draft={readAidtProblemEntityDraft(draft, entityId)} revision={revision} confirmed={Boolean(readAidtProblemEntityDraft(draft, entityId).fields.roundCompletion)} />
+              ? <AidtProblemWorkspace draft={legacy ? draft : readAidtProblemEntityDraft(draft, entityId)} revision={revision} confirmed={Boolean(readAidtProblemEntityDraft(draft, entityId).fields.roundCompletion)} />
               : step.id === 2
               ? <AidtInterviewOutput projectId={projectId} entityId={entityId} draft={draft} frozenSourceId={sourceId} />
               : step.id === 5
               ? <AidtPrototypeEntityOutput projectId={projectId} designId={entityId} stageDraft={draft}
                   update={() => undefined} workflow={{ matchesServer: false }} readOnly />
+              : step.id === 6
+              ? <AidtTestGroupOutput projectId={projectId} activeEntityId={entityId} draft={draft} savedDraft={draft} readPrototypeEntity={readAidtPrototypeEntityDraft} historical />
               : <AidtStageOutput projectId={projectId} step={step} draft={draft} readOnly
                   update={() => undefined} toolHref={() => backHref}
                   activeDefinitionEntityId={step.id === 3 ? entityId : undefined}
-                  ideaEntityId={step.id === 4 ? entityId : undefined} activeTestEntityId={step.id === 6 ? entityId : undefined}
+                  ideaEntityId={step.id === 4 ? entityId : undefined}
                   availableCardsRevision={stage?.sourceStageRevisions.find(source => source.stageId === 2)?.revision}
-                  readTestPrototypeEntity={readAidtPrototypeEntityDraft} />}
+                  />}
           </>}
     </div>
   </section>;

@@ -30,7 +30,7 @@ function put(target: Record<string, unknown>, path: Cell["path"], value: unknown
  * Full short teaching facts precede long/repeated metadata. Missing/partial paths are disclosed.
  * Exported so read-only QA can rebuild the projection from the exact authorized saved revision.
  */
-export function projectAidtSummaryExcerpt(stage: SharedStageValue, maxChars: number): AidtSummaryExcerpt {
+export function projectAidtSummaryExcerpt(stage: SharedStageValue, maxChars: number, lineage?: unknown): AidtSummaryExcerpt {
  const cells: Cell[] = [], policyOmitted: string[] = [];
  function visit(value: unknown, path: Cell["path"], priority: number): void {
   if (value !== null && typeof value === "object") {
@@ -39,6 +39,7 @@ export function projectAidtSummaryExcerpt(stage: SharedStageValue, maxChars: num
   }
   cells.push({ path, value, priority });
  }
+ if (lineage !== undefined) visit(lineage, ["引用链"], -1);
  for (const [key, raw] of Object.entries(stage.content.draft.fields).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
   const path = ["draft", "fields", key];
   if (repeatedConfirmation.has(key)) { policyOmitted.push(pathName(path)); continue; }

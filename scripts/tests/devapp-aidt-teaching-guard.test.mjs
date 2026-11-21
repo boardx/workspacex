@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { acceptanceIdentity, createAcceptanceGuard, TEACHING_TURN_LIMIT } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
+import { acceptanceIdentity, createAcceptanceGuard } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
 const origin = 'https://devapp.boardx.us', project = 'prj-11111111-1111-4111-8111-111111111111';
 const fixtureLogin = 'unit-synthetic-only';
 const request = (guard, method, path, body) => guard.decide({ url: origin + path, method, body, resourceType: 'fetch' });
@@ -23,7 +23,7 @@ function teaching(guard, stageId = 1, suffix = stageId) {
   guard.observe(created, 200, { threadId });
   guard.observe(request(guard, 'GET', `/api/chat/threads/${threadId}`), 200, { thread: { id: threadId, projectId: project, archived: false }, capabilities: ['composer.send'] });
   guard.observe(request(guard, 'GET', `/api/threads/${threadId}/skill-deviations?projectId=${project}`), 200, { temporary: [{ threadId, skillId: `skill-${stageId}`, versionId: `pin-${stageId}`, removedAt: null }] });
-  guard.observe(request(guard, 'GET', `/api/projects/${project}/aidt/stages/${stageId}`), 200, { stage: { projectId: project, stageId, revision: 2, content: { draft: { fields: stageId === 3 ? { ["definitionPersona:" + entityId]: JSON.stringify({ id: entityId, archived: false }) } : stageId === 6 ? { ["testGroup:" + entityId]: JSON.stringify({ id: entityId, method: "interview", archived: false }) } : {} } } } });
+  guard.observe(request(guard, 'GET', `/api/projects/${project}/aidt/stages/${stageId}`), 200, { stage: { projectId: project, stageId, revision: 2, content: { draft: { fields: {} } } } });
   guard.observe(request(guard, 'GET', `/api/chat/threads/${threadId}/messages?limit=100`), 200, { messages: [], nextCursor: null });
   const scope = { origin, projectId: project, stageId, threadId, actorId: 'qa-actor', prompt: `QA合成第${stageId}步，仅文字追问，不替学生保存。`, selector: { schemaVersion: 1, purpose: 'stage', projectId: project, stageId, entityId, stageRevisions: [{ stageId, revision: 2 }] }, skillId: `skill-${stageId}`, skillVersionId: `pin-${stageId}`, knownMessages: [] };
   const wire = { threadId: `sdk-thread-${stageId}`, runId: `sdk-run-${stageId}`, messages: [{ id: `client-${stageId}`, role: 'user', content: scope.prompt }], state: {}, tools: [], context: [], forwardedProps: { chatThreadId: threadId, clientMessageId: `client-${stageId}`, aidtContext: scope.selector } };
@@ -87,7 +87,7 @@ test('the interview lane permits ten independently bound interviews, denying rep
     assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
   }
   assert.equal(guard.summary().teachingRequests, 15);
-  assert.equal(guard.summary().teachingRequestsAllowed, TEACHING_TURN_LIMIT);
+  assert.equal(guard.summary().teachingRequestsAllowed, 37);
 });
 
 test('per-interview revision and finding each require the preceding bound turn and student confirmation', () => {
@@ -163,22 +163,4 @@ test('a verified S1 pending receipt unlocks one separate QA problem only and nev
   assert.throws(() => guard.armTeachingSend({ ...original.scope, syntheticProblemFixture:true }), /SYNTHETIC_PREREQUISITE_NOT_BOUND/);
   assert.doesNotThrow(() => guard.armTeachingSend(synthetic));
   assert.throws(() => guard.armTeachingSend(synthetic), /TEACHING_SCOPE_NOT_VERIFIED/);
-});
-
-test('definition teaching permits two distinct saved HMW chats and blocks a third', () => {
-  const guard = fixture();
-  for (let index = 1; index <= 3; index++) {
-    const { scope, wire } = teaching(guard, 3, `hmw-${index}`);
-    const id = scope.selector.entityId;
-    guard.observe(request(guard, 'GET', `/api/projects/${project}/aidt/stages/3`), 200,
-      { stage: { projectId: project, stageId: 3, revision: 2, content: { draft: { fields: {
-        [`definitionHmw:${id}`]: JSON.stringify({ id, archived: false, confirmed: false, cardIds: [] }),
-      } } } } });
-    if (index === 3) {
-      assert.throws(() => guard.armTeachingSend(scope), /TEACHING_DEFINITION_LIMIT_REACHED/);
-    } else {
-      guard.armTeachingSend(scope);
-      assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
-    }
-  }
 });

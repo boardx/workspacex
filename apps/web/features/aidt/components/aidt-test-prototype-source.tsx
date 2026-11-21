@@ -17,10 +17,11 @@ export async function readAidtTestPrototypeStage(projectId: string, revision: nu
   return items.find(item => item.revision === revision)?.content.draft;
 }
 
-export function AidtTestPrototypeSource({ group, context, readPrototypeEntity }: {
+export function AidtTestPrototypeSource({ group, context, readPrototypeEntity, showQuestion = false }: {
   group: AidtTestGroup;
   context: AidtPrototypeReadContext;
   readPrototypeEntity?: AidtReadPrototypeEntity;
+  showQuestion?: boolean;
 }) {
   const { projectId, sessionToken, userId } = context;
   const { stage5Revision, prototypeEntity, designId, versionId } = group;
@@ -29,7 +30,7 @@ export function AidtTestPrototypeSource({ group, context, readPrototypeEntity }:
   const [prototype, setPrototype] = React.useState<AidtPrototypeVersionReference | "failed" | null>();
   const [retry, refresh] = React.useReducer((value: number) => value + 1, 0);
   React.useEffect(() => {
-    if (!open) return;
+    if (!open && !showQuestion) return;
     const controller = new AbortController();
     setSnapshot(null);
     setPrototype(null);
@@ -40,22 +41,22 @@ export function AidtTestPrototypeSource({ group, context, readPrototypeEntity }:
       const exact = result && result.ok && result.snapshot.prototypeDesignId === designId && result.snapshot.prototypeVersionId === versionId;
       setSnapshot(exact ? result.snapshot : "failed");
     }).catch(() => { if (!controller.signal.aborted) setSnapshot("failed"); });
-    void resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, designId, versionId).then(reference => {
+    if (open) void resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, designId, versionId, "linked-reader").then(reference => {
       if (!controller.signal.aborted) setPrototype(reference);
     }, () => { if (!controller.signal.aborted) setPrototype("failed"); });
     return () => controller.abort();
-  }, [projectId, sessionToken, userId, open, readPrototypeEntity, stage5Revision, prototypeEntity, designId, versionId, retry]);
+  }, [projectId, sessionToken, userId, open, readPrototypeEntity, stage5Revision, prototypeEntity, designId, versionId, retry, showQuestion]);
 
   return <div className="space-y-2">
-    <p className="break-all text-12">第 5 步 V{stage5Revision} · Design {designId} · 版本 {versionId}</p>
+    <p className="break-all text-12">第 5 步 V{stage5Revision}{(!showQuestion || open) && ` · Design ${designId} · 版本 ${versionId}`}</p>
     <Button type="button" variant="outline" size="sm" aria-expanded={open} onClick={() => setOpen(value => !value)}>{open ? "收起被测原型依据" : "查看被测原型依据"}</Button>
-    {open && <div className="space-y-2 text-12">
+    {(open || showQuestion) && <div className="space-y-2 text-12">
       {snapshot === null ? <p role="status">正在读取第 5 步已保存的问题卡…</p>
         : snapshot === "failed" ? <p role="alert">无法核对这个历史问题卡，已保留测试的原引用。</p>
-        : <dl className="space-y-1"><dt className="font-semibold">原验证问题</dt><dd>{snapshot.question}</dd><dt className="font-semibold">测试前看法</dt><dd>{snapshot.beforeTestBelief || "未记录"}</dd><dt className="font-semibold">验证范围</dt><dd>{snapshot.verificationLimits || "未记录"}</dd></dl>}
-      {prototype === null ? <p role="status">正在核对 Design 历史版本…</p>
+        : <dl className="space-y-1"><dt className="font-semibold">原验证问题</dt><dd>{snapshot.question}</dd><dt className="font-semibold">测试前看法</dt><dd>{snapshot.beforeTestBelief || "未记录"}</dd>{snapshot.verificationBasis && <><dt className="font-semibold">测试前依据</dt><dd>{snapshot.verificationBasis}</dd></>}<dt className="font-semibold">验证范围</dt><dd>{snapshot.verificationLimits || "未记录"}</dd></dl>}
+      {open && (prototype === null ? <p role="status">正在核对 Design 历史版本…</p>
         : prototype === "failed" ? <p role="alert">当前无法读取该 Design 历史版本。</p>
-        : prototype && <p>{aidtPrototypeVersionLabel(prototype)} · {prototype.generatedFrameCount} 页已生成。 <Link className="text-primary underline" href={projectResourceHref("design", designId, projectId)}>进入 Design 查看对应历史版本</Link></p>}
+        : prototype && <p>{aidtPrototypeVersionLabel(prototype)} · {prototype.generatedFrameCount} 页已生成。 <Link className="text-primary underline" href={projectResourceHref("design", designId, projectId)}>进入 Design 查看对应历史版本</Link></p>)}
       {(snapshot === "failed" || prototype === "failed") && <Button type="button" variant="outline" size="xs" onClick={refresh}>重试核对</Button>}
     </div>}
   </div>;

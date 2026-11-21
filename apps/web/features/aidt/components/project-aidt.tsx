@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { AidtPersonalCheckpointPanel } from "./aidt-personal-checkpoint-panel";
+import { AidtEntityCardDirectory } from "./aidt-entity-card";
 import { AidtSharedStagePanel } from "./aidt-shared-stage-panel";
 import { useAidtSharedStages, aidtSharedDraftSignature } from "../lib/use-aidt-shared-stages";
 import { useAidtPersonalCheckpoints, aidtCheckpointKey } from "../lib/use-aidt-personal-checkpoints";
@@ -31,7 +32,7 @@ import type { AidtTestProposal } from "../lib/aidt-test-proposal";
 import { AidtTestGroupDirectory } from "./aidt-test-group-directory";
 import { listAidtConfirmedPrototypeEntities } from "../lib/aidt-prototype-handoff";
 import { aidtInterviewHandoffReady, isAidtInterviewArchived, readAidtInterviews, savedAidtInterviewArtifactTitle } from "../lib/aidt-interviews";
-import { readAidtDefinitionSelection } from "../lib/aidt-definition";
+import { readAidtDefinition, readAidtDefinitionSelection } from "../lib/aidt-definition";
 import { readAidtStageRevision, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { AidtProblemDirectory } from "./aidt-problem-directory";
 import { listAidtProblems, readAidtProblemEntityDraft, updateAidtProblemEntity } from "../lib/aidt-problem-entities";
@@ -257,7 +258,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const savedProblemStage = shared.stages[1];
   const savedProblem = savedProblemStage?.content.draft ?? emptyAidtUiDrafts()[1]!;
   const problemDraft = activeEntityId ? readAidtProblemEntityDraft(savedProblem, activeEntityId) : savedProblem;
-  const interviewReadback = useAidtInterviewReconcile(projectId, activeInterview?.id, canWrite ? identity?.sessionToken ?? undefined : undefined, shared.matchesServer && shared.read?.phase === "ready" && shared.write.phase !== "saving", shared.reload);
+  const interviewReadback = useAidtInterviewReconcile(projectId, activeInterview?.id, canWrite ? identity?.sessionToken ?? undefined : undefined, shared.matchesServer && shared.read?.phase === "ready" && shared.write.phase !== "saving", () => shared.refreshCurrentStage({ fallbackToReload: false }));
   const [testProposal, setTestProposal] = React.useState<{ scope: string; proposal: AidtTestProposal | null }>();
   const [reportProposal, setReportProposal] = React.useState<{ scope: string; markdown: string }>();
   const reportHistoryScope = checkpointScope ? { ...checkpointScope, lifecycleKey: uiLifecycleKey } : undefined;
@@ -426,7 +427,10 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const prototypeWorkflow = { ideas: shared.stages[4], savedPrototype: shared.stages[5], matchesServer: shared.matchesServer };
   if (!activeEntityId && search.get("history") !== "1" && !legacyReportEntry) {
     const draft = currentUi.drafts[step.id]!;
-    const update = (mutate: (old: AidtUiStageDraft) => AidtUiStageDraft) => updateStage(step.id, mutate);
+    const update = (mutate: (old: AidtUiStageDraft) => AidtUiStageDraft) => {
+      updateStage(step.id, mutate);
+      requestEntitySave();
+    };
     const hasSummary = step.id === 6 && search.get("summary") === "1";
     const savedDraft = currentStage?.content.draft;
     const openCreated = (id: string) => router.push(entityHref(id));
@@ -436,7 +440,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
       return true;
     };
     const save = <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite}
-      showSave={!shared.matchesServer && shared.canSave} />;
+      showSave={false} onSourceChange={requestEntitySave} />;
     return <section className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="aidt-step-entity-directory">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3">
         <Link href={aidtHref(projectId)} className="inline-flex items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted"><ArrowLeft aria-hidden className="h-4 w-4" />项目总览</Link>
@@ -448,7 +452,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
           : shared.read?.phase !== "ready" && <p role="status">正在读取小组产物…</p>}
         {shared.read?.phase === "ready" && (hasSummary
           ? <AidtReportDirectory stage={shared.stages[6]} href={entityHref} />
-          : step.id === 1 ? <><AidtProblemDirectory key={`problems:${shared.writeKey}`} draft={savedDraft ?? emptyAidtUiDrafts()[1]!} href={entityHref} onCreated={openCreated} controller={shared} readOnly={!canWrite} />{save}</>
+          : <AidtEntityCardDirectory key={shared.writeKey} draft={savedDraft ?? draft} readOnly={!canWrite} saveDraft={shared.saveDraft}>
+          {step.id === 1 ? <><AidtProblemDirectory key={`problems:${shared.writeKey}`} draft={savedDraft ?? emptyAidtUiDrafts()[1]!} href={entityHref} onCreated={openCreated} controller={shared} readOnly={!canWrite} />{save}</>
           : step.id === 2 ? <>
               <AidtInterviewWorkspace projectId={projectId} draft={draft} update={update} readOnly={!canWrite} entityId={null}
                 problemEntityId={search.get("problemEntity") ?? undefined}
@@ -468,16 +473,17 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
 
             </>
           : step.id === 4 ? <>
-              <AidtIdeaDirectory draft={draft} saved={savedDraft} href={entityHref} onCreated={openCreated} update={update} readOnly={!canWrite} saveDraft={shared.saveDraft} />
+              <AidtIdeaDirectory initialSource={ideaHandoff.hmw} sources={hmwStage ? readAidtDefinition(hmwStage.content.draft.fields).hmws.filter(item => item.confirmed && !item.archived && item.text.trim()).map(item => ({ revision: hmwStage.revision, id: item.id, text: item.text })) : []} draft={draft} saved={savedDraft} href={entityHref} onCreated={openCreated} update={update} readOnly={!canWrite} saveDraft={shared.saveDraft} />
               {save}
             </>
-          : step.id === 5 ? <AidtPrototypeDirectory onCreated={openCreated} projectId={projectId} canWrite={canWrite} ideaRevision={ideaRevision} draft={savedDraft ?? draft} saveDraft={shared.saveDraft} mutationBusy={shared.write.phase === "saving" || shared.needsBaseReview} />
+          : step.id === 5 ? <AidtPrototypeDirectory sourceIdeas={shared.stages[4]} onCreated={openCreated} projectId={projectId} canWrite={canWrite} ideaRevision={ideaRevision} draft={savedDraft ?? draft} saveDraft={shared.saveDraft} mutationBusy={shared.write.phase === "saving" || shared.needsBaseReview} />
           : <><AidtTestGroupDirectory onCreate={createAndOpen} projectId={projectId} draft={draft} savedDraft={savedDraft} update={update} readOnly={!canWrite}
-              canSave={shared.canSave} save={shared.saveCurrent} previousPrototype={shared.stages[5]?.content.draft}
+              canSave={shared.canSave} save={shared.saveCurrent} automaticSave previousPrototype={shared.stages[5]?.content.draft}
               previousPrototypeRevision={shared.stages[5]?.revision} prototypeRevision={search.get("prototypeRevision")}
               prototypeEntity={search.get("prototypeEntity")} readPrototypeEntity={readAidtPrototypeEntityDraft}
               prototypeEntities={listAidtConfirmedPrototypeEntities(currentUi.drafts[5]!)} />
-              </>)}
+              {save}</>}
+          </AidtEntityCardDirectory>)}
         {!hasSummary && (advance ?? <p role="status" className="text-12 text-muted-foreground">全部当前产物确认后可进入下一步。</p>)}
         <Link className="text-12 text-muted-foreground underline" href={aidtHref(projectId, step.id) + (hasSummary ? "&summary=1" : "") + "&history=1"}>打开早期阶段对话</Link>
       </div>
@@ -574,7 +580,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
               } : step.id === 6 && activeEntityId ? {
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
-                  <AidtTestConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId}
+                  <AidtTestConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId} readPrototypeEntity={readAidtPrototypeEntityDraft}
                     draft={currentUi.drafts[6]!} savedDraft={shared.stages[6]?.content.draft} messages={messages}
                     loading={loading} running={running} update={mutate => updateStage(6, mutate)} readOnly={!canWrite}
                     canSave={shared.read?.phase === 'ready' && shared.write.phase !== 'saving' && !shared.needsBaseReview}

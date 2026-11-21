@@ -7,6 +7,22 @@ const greeting = /^(?:(?:你|您)好(?:呀|啊)?|大家好|嗨|哈[喽啰]|hello
 /** Earlier clients sometimes copied the first Chat greeting into a problem draft. */
 export function isAidtGreetingText(value: string): boolean { return greeting.test(value.trim()); }
 
+export function isAidtProblemControlText(value: string): boolean {
+  return isAidtGreetingText(value) || /^(?:确认|已确认|确认无误|好的?|收到|同意|继续|可以|是的|ok)[\s!！。.?？~～]*$/iu.test(value.trim());
+}
+
+/** Read-only identity for the original single-problem stage format, before entity directories. */
+export const AIDT_LEGACY_PROBLEM = "legacy-stage-problem";
+export function isAidtLegacyProblem(fields:Record<string,string>) {
+  return !Object.keys(fields).some(key=>key==="problemHandoffEntity" || key.startsWith("problemEntity:") || key.startsWith("problemDraft:"))
+    && Boolean(fields.initial || fields.rewrittenTheme || fields.scene);
+}
+
+export function aidtEntitySourceHref(projectId: string, stageId: number, entity: string, revision: number) {
+  const query = new URLSearchParams({ step: String(stageId), entity, entityRevision: String(revision) });
+  return `/aidt/${encodeURIComponent(projectId)}?${query}`;
+}
+
 export function aidtInterviewTitle(code: string, displayName?: string): string {
   const name = displayName?.trim();
   return name && name !== code ? code + " · " + name : code;
@@ -39,6 +55,17 @@ export function readIdeaHmwSource(value?: string): z.infer<typeof IdeaHmwSource>
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
+  }
+}
+
+export function isAidtConfirmedHmwSource(stage: SharedStageValue | null, source: z.infer<typeof IdeaHmwSource>): boolean {
+  if (stage?.stageId !== 3 || stage.revision !== source.revision) return false;
+  try {
+    const hmw = JSON.parse(stage.content.draft.fields["definitionHmw:" + source.id] ?? "null");
+    return hmw?.id === source.id && hmw.confirmed === true && hmw.archived === false
+      && typeof hmw.text === "string" && hmw.text.trim() === source.text;
+  } catch {
+    return false;
   }
 }
 

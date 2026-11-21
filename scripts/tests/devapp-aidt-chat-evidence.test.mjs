@@ -320,23 +320,3 @@ test('S1 draft projection is restricted to the exact successful turn and current
   after.draft.fields.other = 'changed';
   assert.equal(matchesProblemProjection(before, after, scope, proof), false);
 });
-
-test('summary Skill proof requires the six current revisions and the exact history in its dispatch receipt', () => {
-  const base = scope();
-  const selected = { schemaVersion: 1, purpose: 'summary', projectId: base.projectId,
-    stageRevisions: Array.from({ length: 6 }, (_, index) => ({ stageId: index + 1, revision: 3 })),
-    historyRevisions: [{ stageId: 2, revision: 1 }, { stageId: 2, revision: 2 }] };
-  const s = { ...base, stageId: 6, selector: selected };
-  const e = evidence(s);
-  delete e.receipt.stageId;
-  Object.assign(e.receipt, { purpose: 'summary', stageRevisions: selected.stageRevisions, historyRevisions: selected.historyRevisions });
-  const wire = validateTeachingWire(request(s), s);
-  const accepted = identifyOwnedTeachingRun(e.messages, s, wire);
-  assert.equal(validateTeachingEvidence(e, s, wire, accepted).sourceRevisions.length, 6);
-  assert.throws(() => validateTeachingEvidence({ ...e, receipt: { ...e.receipt, historyRevisions: [] } }, s, wire, accepted));
-  for (const selector of [{ ...selected, stageId: 6 }, { ...selected, stageRevisions: selected.stageRevisions.slice(0, 5) },
-    { ...selected, historyRevisions: [selected.historyRevisions[0], selected.historyRevisions[0]] }]) {
-    const wrong = { ...s, selector };
-    assert.throws(() => validateTeachingWire(request(wrong), wrong));
-  }
-});

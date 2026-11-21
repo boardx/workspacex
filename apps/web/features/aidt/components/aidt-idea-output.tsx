@@ -21,7 +21,7 @@ export function AidtIdeaOutput({ projectId, entityId, draft, savedDraft, savedRe
   const proposal = getAidtIdeaChatProposal(draft, entityId);
   const reference = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", entityId)]);
   const material = reference?.projectId === projectId && isAidtResearchImage(reference) ? reference : null;
-  const hmw = readAidtIdeaHmwSource(draft);
+  const hmw = readAidtIdeaHmwSource(draft, entityId);
   const key = JSON.stringify([projectId, entityId, item?.title, item?.description, item?.imageAttachment, material, savedRevision, currentConfirmed]);
   const [image, setImage] = React.useState<{ key: string; image: AidtImageAttachmentState } | null>(null);
   const [status, setStatus] = React.useState<{ key: string; text: string } | null>(null);

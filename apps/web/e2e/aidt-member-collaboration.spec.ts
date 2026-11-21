@@ -412,7 +412,7 @@ test("named AIDT problem: two fixture members share normal directory edits acros
   };
   try {
     await page.goto(directoryUrl);
-    await page.getByRole("button", { name: "新建问题", exact: true }).click();
+    await page.getByTestId("aidt-new-entity-card").click();
     const dialog = page.getByRole("dialog", { name: "新建问题" });
     await dialog.getByLabel("问题名称", { exact: true }).fill(title);
     const [createdResponse] = await Promise.all([
@@ -525,16 +525,16 @@ test("ordinary member names and retags an interview without replacing the native
     const member = await context.newPage();
     await login(member, "member");
     const directory = `/aidt/${projectId}?step=2`;
-    const persist = async () => {
+    const persist = async (submit: () => Promise<void>) => {
       const [saved] = await Promise.all([
         member.waitForResponse(value => value.request().method() === "PUT" && new URL(value.url()).pathname.endsWith(`/aidt/stages/2`)),
-        member.getByTestId("aidt-shared-save").click(),
+        submit(),
       ]);
       expect(saved.status()).toBe(200);
       expect(stages.operations.save.out.parse(await saved.json()).stage.updatedBy).toBe(FULLSTACK_E2E.collaborationMemberUserId);
     };
     await member.goto(directory);
-    await member.getByRole("button", { name: "新建访谈" }).click();
+    await member.getByTestId("aidt-new-entity-card").click();
     const dialog = member.getByRole("dialog");
     await dialog.getByLabel("受访者姓名或化名").fill("小林");
     await dialog.getByTestId("interview-tag-input").fill("午休");
@@ -577,8 +577,7 @@ test("ordinary member names and retags an interview without replacing the native
     await expect(dialog.getByRole("group", { name: "已有标签" }).getByRole("button", { name: "午休" })).toHaveAttribute("aria-pressed", "true");
     await dialog.getByLabel("受访者姓名或化名").fill("林同学");
     await dialog.getByTestId("interview-tag-input").fill("走读生");
-    await dialog.getByRole("button", { name: "保存修改" }).click();
-    await persist();
+    await persist(() => dialog.getByRole("button", { name: "保存修改" }).click());
     await member.reload();
     const filters = member.getByRole("group", { name: "筛选标签" });
     await filters.getByRole("button", { name: "走读生" }).click();
@@ -593,7 +592,7 @@ test("ordinary member names and retags an interview without replacing the native
     expect(rows.rows).toEqual([{ title: "U01 · 林同学" }]);
     expect(await readMaterials()).toEqual(source);
     await member.goto(directory);
-    await member.getByRole("button", { name: "新建访谈" }).click();
+    await member.getByTestId("aidt-new-entity-card").click();
     const candidate = dialog.getByRole("group", { name: "已有标签" }).getByRole("button", { name: "午休" });
     await candidate.click();
     await expect(candidate).toHaveAttribute("aria-pressed", "true");

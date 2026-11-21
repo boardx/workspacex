@@ -1,6 +1,8 @@
 "use client";
 
+import { AidtCardSources, useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
+import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,7 @@ import {
   confirmAidtDefinitionChatEntity, enableAidtPrimarySurpriseEntity, hasAidtPrimarySurpriseEntity,
   latestAidtDefinitionCandidate, type AidtDefinitionTurn,
 } from "../lib/aidt-definition-chat";
-import { readAidtInterviews } from "../lib/aidt-interviews";
+import { isAidtInterviewArchived, readAidtInterviews } from "../lib/aidt-interviews";
 import type { AidtDiscoveryCardDraft, AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import { AidtSurpriseReflection } from "./aidt-surprise-reflection";
 import { AidtResearchMaterialPreview } from "./aidt-research-material";
@@ -135,54 +137,83 @@ const kindLabels = { surprise: "意外发现", persona: "用户画像", hmw: "HM
 function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCreate, ...props }: DirectoryProps) {
   const { draft, update, readOnly } = props;
   const evidence = useDefinitionEvidence(props);
-  const interviewIds = new Set(readAidtInterviews(evidence.sourceFields).map(interview => interview.id));
-  const interviewCards = evidence.cards.filter(card => interviewIds.has(card.id));
   const { personas, hmws, surprises, invalid } = readAidtDefinition(draft.fields);
   const [editing, setEditing] = React.useState<{ id: string; name: string } | null>(null);
-  const [definitionForm, setDefinitionForm] = React.useState<{ id: string; kind: "persona" | "hmw"; name: string; cardIds: string[]; personaIds: string[]; revision?: number } | null>(null);
   const [removing, setRemoving] = React.useState<string | null>(null);
   const [showArchived, setShowArchived] = React.useState(false);
+  const [choosingKind, setChoosingKind] = React.useState(false);
+  const kindOptionsId = React.useId();
   const active = [
     ...(hasAidtPrimarySurpriseEntity(draft) || draft.fields.surpriseConfirmed === "true" ? [{ id: AIDT_PRIMARY_SURPRISE_ID, title: "意外发现", kind: "surprise" as const, archived: false }] : []),
     ...surprises.map(item => ({ id: item.id, title: item.observation.trim() || "未命名发现", kind: "surprise" as const, archived: item.archived })),
     ...readAidtDefinitionEntities(draft.fields),
   ];
+  type CreateKind = "primary" | "surprise" | "persona" | "hmw";
+  const labels = { primary: "意外发现", surprise: "补充发现", persona: "画像", hmw: "HMW" };
+  const [kindToCreate, setKind] = React.useState<CreateKind | null>(null);
+  const [newName, setNewName] = React.useState("");
+  const [selected, setSelected] = React.useState<string[]>([]);
+  const [selectedPersonas, setSelectedPersonas] = React.useState<string[]>([]);
+  const [sourceRevision, setSourceRevision] = React.useState<number | undefined>();
+  const tags = useAidtCreateTags(draft);
+  const interviewOwners = new Set(readAidtInterviews(evidence.sourceFields).filter(item => !isAidtInterviewArchived(evidence.sourceFields, item.id)).map(item => item.id));
+  const interviewCards = evidence.cards.filter(card => interviewOwners.has(card.id));
+  const sourceChanged = kindToCreate !== null && sourceRevision !== evidence.revision;
+  const evidenceOptions = evidence.cards.map(card => ({ id: card.id, title: card.participantCode + " · " + (card.headline || "人物发现") }));
+  const personaOptions = personas.filter(item => item.confirmed && !item.archived).map(item => ({ id: item.id, title: draft.fields[aidtDefinitionCardNameKey(item.id)] || item.name }));
   const pending = React.useRef<{ kind: string; id: string } | null>(null);
-  const [createBusy, setCreateBusy] = React.useState(false);
+  const [creating, setCreating] = React.useState(false);
   const [createFailed, setCreateFailed] = React.useState(false);
-  const canEdit = !readOnly && !invalid && !createBusy;
+  const canEdit = !readOnly && !invalid && !creating;
   const canAdd = canEdit && !evidence.unavailable && evidence.ready;
-  const confirmedPersonas = personas.filter(item => item.confirmed && !item.archived);
   const title = (id: string, fallback: string) => draft.fields[aidtDefinitionCardNameKey(id)] || fallback;
   const save = (change: (old: AidtUiStageDraft) => AidtUiStageDraft) => { update(change); requestSave?.(); };
   const openAllowed = (id: string) => savedDraft ? Boolean(aidtDefinitionEntityKind(savedDraft, id)) : !requestSave;
-  async function commitCreation(id: string, change: (old: AidtUiStageDraft) => AidtUiStageDraft) {
-    if (!onCreate) { save(change); return true; }
-    setCreateBusy(true);
+  function start(kind: CreateKind) {
+    tags.reset();
+    setSelected([]);
+    setSelectedPersonas([]);
+    setNewName("");
+    setSourceRevision(evidence.revision);
     setCreateFailed(false);
-    try {
-      const success = await onCreate(id, change);
-      setCreateFailed(!success);
-      return success;
-    } catch {
-      setCreateFailed(true);
-      return false;
-    } finally {
-      setCreateBusy(false);
-    }
+    pending.current = null;
+    setKind(kind);
   }
-  function add(kind: "primary" | "surprise" | "persona" | "hmw") {
-    if (kind === "persona" || kind === "hmw") {
-      setCreateFailed(false);
-      setDefinitionForm({ id: crypto.randomUUID(), kind, name: "", cardIds: [], personaIds: [], revision: evidence.revision });
-      return;
-    }
+  async function add(kind: CreateKind) {
+    if (!canEdit || sourceChanged || !newName.trim()) return;
+    if ((kind === "persona" || kind === "hmw") && (!evidence.revision || !selected.length)) return;
+    if (kind === "hmw" && !selectedPersonas.length) return;
     if (pending.current?.kind !== kind) pending.current = { kind, id: kind === "primary" ? AIDT_PRIMARY_SURPRISE_ID : crypto.randomUUID() };
     const { id } = pending.current;
-    const change = (old: AidtUiStageDraft) => kind === "primary" ? enableAidtPrimarySurpriseEntity(old) : addAidtDefinitionSurprise(old, id);
-    void commitCreation(id, change).then(success => {
-      if (success && pending.current?.id === id) pending.current = null;
-    });
+    const change = (old: AidtUiStageDraft) => {
+      if (kind === "persona" || kind === "hmw") {
+        if (!evidence.revision) return old;
+        const next = addAidtDefinitionEntity(old, kind, id, {
+          name: newName,
+          personaIds: kind === "hmw" ? selectedPersonas : [],
+          source: { revision: evidence.revision, cardIds: selected, available: new Set(interviewCards.map(card => card.id)) },
+        });
+        return next !== old ? tags.apply(next, id) : old;
+      }
+      let next = kind === "primary" ? enableAidtPrimarySurpriseEntity(old) : addAidtDefinitionSurprise(old, id);
+      if (next === old) return old;
+      if (kind === "surprise") {
+        const surprise = readAidtDefinition(next.fields).surprises.find(item => item.id === id);
+        if (!surprise) return old;
+        next = saveAidtDefinitionSurprise(next, { ...surprise, cardIds: selected }, evidence.revision ?? null);
+      } else if (selected.length && evidence.revision) {
+        next = { ...next, fields: { ...next.fields, surpriseCardIds: JSON.stringify(selected), surpriseSourceRevision: String(evidence.revision) } };
+      }
+      return tags.apply({ ...next, fields: { ...next.fields, [aidtDefinitionCardNameKey(id)]: newName.trim() } }, id);
+    };
+    setCreating(true);
+    try {
+      let success = true;
+      if (onCreate) success = await onCreate(id, change);
+      else save(change);
+      setCreateFailed(!success);
+      if (success) { pending.current = null; setKind(null); }
+    } catch { setCreateFailed(true); } finally { setCreating(false); }
   }
   const archive = (id: string) => {
     save(old => {
@@ -200,13 +231,37 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
 
   return <section className="space-y-4" aria-label="综合与定义产物" data-testid="aidt-definition-directory">
     <div className="flex flex-wrap gap-2">
-      {!hasAidtPrimarySurpriseEntity(draft) && <Button type="button" disabled={!canEdit} onClick={() => void add("primary")}>{draft.fields.surpriseConfirmed === "true" ? "开启意外发现对话" : "新建意外发现"}</Button>}
-      {draft.fields.surpriseStatus === "found" && <Button type="button" variant="outline" disabled={!canAdd || surprises.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => void add("surprise")}>新建补充发现</Button>}
-      <Button type="button" variant="outline" disabled={!canAdd || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("persona")}>新建画像</Button>
-      <Button type="button" variant="outline" disabled={!canAdd || !confirmedPersonas.length || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("hmw")}>新建 HMW</Button>
+      {!readOnly && <AidtNewEntityCardButton disabled={!canEdit} aria-expanded={choosingKind} aria-controls={kindOptionsId} onClick={() => setChoosingKind(value => !value)} />}
       {active.some(item => item.archived) && <Button type="button" variant="ghost" onClick={() => setShowArchived(value => !value)}>{showArchived ? "返回产物" : "查看已移除"}</Button>}
     </div>
-    {createFailed && !definitionForm && <p role="alert">创建未完成。请重试创建此卡。</p>}
+    {(choosingKind || kindToCreate) && <Dialog open onOpenChange={open => { if (!open && !creating) { setChoosingKind(false); setKind(null); } }}><DialogContent>
+      <DialogTitle>{kindToCreate ? "新建" + labels[kindToCreate] : "新建卡片"}</DialogTitle>
+      <DialogDescription>{kindToCreate ? "保存后将打开这张卡的对话。" : "选择要创建的卡片类型。"}</DialogDescription>
+    <div id={kindOptionsId} role="group" aria-label="选择卡片类型" hidden={Boolean(kindToCreate)}>
+      <div className="flex flex-wrap gap-2">
+        {!hasAidtPrimarySurpriseEntity(draft) && <Button type="button" disabled={!canEdit} onClick={() => { setChoosingKind(false); start("primary"); }}>{draft.fields.surpriseConfirmed === "true" ? "开启意外发现对话" : "新建意外发现"}</Button>}
+        {draft.fields.surpriseStatus === "found" && <Button type="button" variant="outline" disabled={!canAdd || surprises.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("surprise"); }}>新建补充发现</Button>}
+        <Button type="button" variant="outline" disabled={!canAdd || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("persona"); }}>新建画像</Button>
+        <Button type="button" variant="outline" disabled={!canAdd || !personas.some(item => item.confirmed && !item.archived) || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("hmw"); }}>新建 HMW</Button>
+      </div>
+    </div>
+      {kindToCreate && <form className="space-y-4" onSubmit={event => { event.preventDefault(); void add(kindToCreate); }}>
+        <label className="block text-13">卡片名称<Input value={newName} maxLength={80} required onChange={event => setNewName(event.target.value)} /></label>
+        {tags.field}
+        {kindToCreate === "hmw" && <AidtCardSources label="来源画像" options={personaOptions} selected={selectedPersonas}
+          select={values => { if (values.length <= AIDT_DEFINITION_EVIDENCE_LIMIT) setSelectedPersonas(values); }} />}
+        {kindToCreate === "persona" || kindToCreate === "hmw"
+          ? <fieldset className="space-y-2"><legend className="text-13 font-medium">来源访谈</legend>
+              <DefinitionEvidence projectId={props.projectId} {...evidence} cards={interviewCards} selected={selected}
+                disabled={!canAdd || sourceChanged} onChange={setSelected} groupByInterview />
+            </fieldset>
+          : <AidtCardSources label="来源访谈" options={evidenceOptions} selected={selected}
+              select={values => { if (values.length <= AIDT_DEFINITION_EVIDENCE_LIMIT) setSelected(values); }} />}
+        {sourceChanged && <p role="status" className="text-13">访谈版本已更新，请重新打开并选择。</p>}
+        {createFailed && <p role="alert">创建未完成。请重试创建此卡。</p>}
+        <div className="flex justify-end gap-2"><Button type="button" variant="ghost" disabled={creating} onClick={() => setKind(null)}>取消</Button>
+          <Button type="submit" disabled={creating || sourceChanged || !newName.trim() || (kindToCreate !== "primary" && !selected.length) || (kindToCreate === "hmw" && !selectedPersonas.length)}>创建{labels[kindToCreate]}</Button></div>
+      </form>}</DialogContent></Dialog>}
     {!evidence.ready && !evidence.unavailable && <p className="text-13 text-muted-foreground">先在意外发现的 Chat 中记录并确认发现或「暂无」。</p>}
     {invalid && <p role="alert" className="text-13">部分产物读取失败。</p>}
     {evidence.stale && <div role="status" className="flex flex-wrap items-center gap-2 text-13">
@@ -218,7 +273,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
       {active.filter(item => item.archived === showArchived).map(item => {
         const name = title(item.id, item.title);
         const confirmed = aidtDefinitionEntityConfirmed(savedDraft ?? (!requestSave ? draft : undefined), item.id, evidence.cards, evidence.revision);
-        return <li key={item.id} className="space-y-3 rounded-2xl border border-border bg-card p-4">
+        return <AidtEntityCard key={item.id} entityId={item.id} className="gap-3 p-4" useSharedTags={!item.archived}>
           <p className="text-12 text-muted-foreground">{kindLabels[item.kind]} · {item.archived ? "已移除" : confirmed ? "已确认" : "待确认"}</p>
           <h3 className="break-words text-16 font-semibold">{name}</h3>
           {!item.archived && <div className="flex flex-wrap items-center gap-2">
@@ -226,38 +281,9 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
             {canEdit && <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ id: item.id, name })}>改名</Button>}
             {canEdit && item.id !== AIDT_PRIMARY_SURPRISE_ID && <Button type="button" size="sm" variant="ghost" onClick={() => setRemoving(item.id)}>删除</Button>}
           </div>}
-        </li>;
+        </AidtEntityCard>;
       })}
     </ul>
-    {definitionForm && <Dialog open onOpenChange={open => { if (!open && !createBusy) { setDefinitionForm(null); setCreateFailed(false); } }}>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto">
-        <DialogTitle>{definitionForm.kind === "persona" ? "新建画像" : "新建 HMW"}</DialogTitle>
-        <DialogDescription>选择本次对话要参考的访谈发现卡。每张卡引用当前显示的版本。</DialogDescription>
-        <form className="space-y-3" onSubmit={event => {
-          event.preventDefault();
-          if (!canAdd || definitionForm.revision !== evidence.revision || (definitionForm.cardIds.length && !evidence.revision)) return;
-          const source = evidence.revision ? { revision: evidence.revision, cardIds: definitionForm.cardIds, available: new Set(interviewCards.map(card => card.id)) } : undefined;
-          const { id, kind, name, personaIds } = definitionForm;
-          void commitCreation(id, old => addAidtDefinitionEntity(old, kind, id, { source, name, personaIds }))
-            .then(success => { if (success) setDefinitionForm(value => value?.id === id ? null : value); });
-        }}>
-          <Input aria-label="卡片名称" placeholder="卡片名称（可选）" value={definitionForm.name} maxLength={80} disabled={createBusy} onChange={event => setDefinitionForm({ ...definitionForm, name: event.target.value })} />
-          {definitionForm.kind === "hmw" && <fieldset disabled={createBusy} className="space-y-2 text-13">
-            <legend className="font-medium">来源画像</legend>
-            {confirmedPersonas.map(persona => <label key={persona.id} className="flex items-center gap-2">
-              <input type="checkbox" checked={definitionForm.personaIds.includes(persona.id)} onChange={event => setDefinitionForm({
-                ...definitionForm, personaIds: toggleId(definitionForm.personaIds, persona.id, event.target.checked),
-              })} />
-              {persona.name}
-            </label>)}
-          </fieldset>}
-          <DefinitionEvidence projectId={props.projectId} {...evidence} cards={interviewCards} selected={definitionForm.cardIds} disabled={!canAdd} onChange={cardIds => setDefinitionForm({ ...definitionForm, cardIds })} groupByInterview />
-          {definitionForm.revision !== evidence.revision && <p role="status" className="text-13">访谈版本已更新，请重新打开并选择。</p>}
-          {createFailed && <p role="alert">创建未完成。请重试创建此卡。</p>}
-          <Button type="submit" disabled={!canAdd || definitionForm.revision !== evidence.revision}>创建{definitionForm.kind === "persona" ? "画像" : "HMW"}</Button>
-        </form>
-      </DialogContent>
-    </Dialog>}
     {editing && <Dialog open onOpenChange={open => { if (!open) setEditing(null); }}>
       <DialogContent><DialogTitle>修改卡片名称</DialogTitle><DialogDescription>该名称用于卡片列表。</DialogDescription>
         <form className="space-y-3" onSubmit={event => {

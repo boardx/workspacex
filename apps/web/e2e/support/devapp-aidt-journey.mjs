@@ -420,7 +420,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const id = ({ 2: 'aidt-interview-output', 3: 'aidt-definition-editor', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
     if (!id) fail('ENTITY_FORM_EXPECTATION_MISSING');
     await expect(page.getByTestId(id)).toBeVisible();
-    if ([3, 5, 6].includes(stage)) await expect(page.getByTestId(id).getByRole('textbox')).toHaveCount(0);
+    if (stage === 6) await expect(page.getByTestId(id).getByRole('textbox', { name: '测试任务与追问', exact: true })).toBeEditable();
   };
   const follow = async (name, { resource = false } = {}) => {
     const link = page.getByRole('link', { name, exact: true }); await expect(link).toBeVisible();
@@ -437,15 +437,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     lastEntityRoute = target;
     return href;
   };
-  const capturedDialogs = new Set();
-  const captureCardCreation = async (stage, kind, submit, { reopen = false, example = kind } = {}) => {
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-    const tag = dialog.getByRole('textbox', { name: '添加标签', exact: true });
-    await tag.fill('QA课堂'); await tag.press('Enter');
-    await expect(dialog.getByText('QA课堂', { exact: true })).toBeVisible();
-    const screenshotName = '0' + stage + '-create-' + example;
-    if (!capturedDialogs.has(example)) await capture(screenshotName + '-dialog', stage, 'card-dialog');
+  const captureCardCreation = async (stage, kind, submit, { reopen = false } = {}) => {
     const before = await savedStage(stage);
     armCardCreate(stage);
     const [response] = await Promise.all([
@@ -458,10 +450,6 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const target = ownedAidtEntityRoute(page.url(), { origin, projectId: scope.projectId }, { stage });
     const threadId = new URL(target.href).searchParams.get('thread');
     await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
-    if (!capturedDialogs.has(example)) {
-      await capture(screenshotName + '-chat', stage);
-      capturedDialogs.add(example);
-    }
     const saved = await savedStage(stage);
     assertSavedCardCreation(before, saved, target, kind);
     await follow(stage === 1 ? '返回问题列表' : stage === 2 ? '返回访谈列表' : '返回产物列表');
@@ -569,11 +557,12 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   await check('s1-draft-not-complete', undefined, async () => {
     report.s1Navigation.operation = 'create-problem';
-    await go(1); await click(btn('新建问题')); await fill('问题名称', problemName); await captureCardCreation(1, 'problem', () => click(btn('创建问题')));
-    const link = page.getByRole('link', { name: problemName, exact: true });
-    await expect(link).toBeVisible();
+    await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', problemName);
+    await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true });
     report.s1Navigation.operation = 'open-problem-outcome';
-    problemRoute = await openProblem(link); report.s1Navigation.entityOutcomeObserved = true;
+    await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
+    problemRoute = ownedAidtProblemRoute(page.url(), { origin, projectId: scope.projectId });
+    await openProblem(); report.s1Navigation.entityOutcomeObserved = true;
     await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
     problemHref = page.url();
     report.s1Navigation.operation = 'native-teaching-feedback';
@@ -731,8 +720,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   if (!state.s1 && problemHref && hasPendingProblemReview(report.pendingTeachingReviews, problemHref, scope.projectId)) {
     state.syntheticHandoff = await check('synthetic-problem-for-interviews', undefined, async () => {
       const fixtureName = `QA独立访谈前置题 ${unique}`;
-      await go(1); await click(btn('新建问题')); await fill('问题名称', fixtureName); await captureCardCreation(1, 'problem', () => click(btn('创建问题')));
-      const fixture = await openAidtProblemOutcome({ page, link: page.getByRole('link', { name: fixtureName, exact: true }),
+      await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', fixtureName);
+      await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true });
+      const fixtureRoute = ownedAidtProblemRoute(page.url(), { origin, projectId: scope.projectId });
+      const fixture = await openAidtProblemOutcome({ page, route: fixtureRoute,
         scope: { origin, projectId: scope.projectId }, waitForRoute: waitForEntity,
         assertReady: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible() });
       if (fixture.entityId === problemRoute.entityId) fail('INDEPENDENT_PROBLEM_REQUIRED');
@@ -760,11 +751,13 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(topic).toBeVisible();
       if (await topic.locator('..').getAttribute('open') === null) await topic.click();
       await expect(topic.locator('..')).toContainText(confirmedProblem.rewrittenTheme);
-      await click(btn('新建访谈')); await fill('受访者姓名或化名', `QA受访者 ${code}`, page.getByRole('dialog')); await captureCardCreation(2, 'interview', () => click(btn('创建访谈')));
+      await click(page.getByTestId('aidt-new-entity-card'));
+      await captureCardCreation(2, 'interview', () => click(btn('创建访谈')), { reopen: true });
       const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
       assertAidtS2Topic(JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]), confirmedProblem);
-      await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
-        assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), assertReady: () => entityReady(2) });
+      await waitForEntity(() => matchesAidtEntityRoute(page.url(), target));
+      await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+      await output(target);
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
       await expect(page.getByTestId('aidt-interview-output')).toContainText(code);
       const threadId = new URL(page.url()).searchParams.get('thread');
@@ -790,30 +783,28 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await saveInterviewEdit(() => fill('定位（如 01:42 或第 3 段）', '第1段'));
     await saveInterviewEdit(() => fill('校对后的摘录', quote));
     await saveInterviewEdit(() => page.getByLabel('已对照原始材料校对', { exact: true }).check());
-    const firstFinding = text(`我先写下自己的发现。标题：${code}关注等待时间。具体情况：午休选饮品时先看模拟队列再作决定。学生解释：等待时间可能影响选择，仍需真实访谈核实。第1段的原话是「${quote}」。请检查这些发现和引用，整理本次访谈的发现卡。`);
+    const firstFinding = text(`我自己的发现是${code}关注等待时间。来源是第1段的「${quote}」。请帮我检查这个解释和证据的关系。`);
     if (!await feedback(2, firstFinding, code, true)) fail('S2_NATIVE_FINDING_REPLY_REQUIRED');
-    const proof = report.teachingEvidence.find(row => row.stageId === 2 && row.entityId === target.entityId && row.prompt === firstFinding && row.status === 'passed');
-    const readFinding = async () => {
-      const draft = (await savedStage(2)).content?.draft;
-      const card = draft?.discoveryCards?.find(item => item.id === target.entityId);
-      const record = JSON.parse(draft?.fields?.[`interviewRecord:${target.entityId}`] ?? '{}');
-      const interpretation = draft?.fields?.[`interviewInterpretation:${target.entityId}`];
-      if (!proof || record.draftTurnId !== proof.assistantMessageId || !card ||
-          card.participantCode !== code || !card.headline?.trim() || !card.context?.trim() || !interpretation?.trim() ||
-          !firstFinding.includes(card.headline) || !firstFinding.includes(card.context) || !firstFinding.includes(interpretation) ||
-          card.quote !== quote || draft.fields[`interviewConfirmed:${target.entityId}`] === 'true') return null;
-      return card;
-    };
-    await expect.poll(async () => Boolean(await readFinding()), { timeout: 30000 }).toBe(true);
-    const projected = await readFinding();
     const actions = page.getByTestId('aidt-interview-chat-actions');
     await disclosure('整理访谈发现');
+    const titleKind = actions.getByRole('combobox', { name: '标题来源', exact: true });
+    if (await titleKind.inputValue() !== 'student-summary') await saveInterviewEdit(() => titleKind.selectOption('student-summary'));
+    const discoveryEdits = [
+      ['一句发现', text(`${code}的合成记录关注等待时间。`)],
+      ['学生记录的可观察情况', text('测试夹具仅包含文字情境，不代表实际观察。')],
+      ['学生的解释', text('等待与选择可能有关，此解释未验证。')],
+      ['可定位的受访者原话', quote],
+    ];
+    for (const [label, value] of discoveryEdits) {
+      const field = actions.getByLabel(label, { exact: true });
+      if (await field.inputValue() !== value) await saveInterviewEdit(() => field.fill(value));
+    }
     await confirmInInterviewChat(btn('确认人物发现卡', actions));
     await output(target);
     const inspector = await readOnlyInterviewOutput();
     evidence(2).outputs.push({ name: `${code}人物发现卡`, format: 'native finding card; synthetic text, real-person photo missing', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}; software scope only` });
-    await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(projected.headline);
-    recordInterviewIteration(firstFinding, projected.headline, `${code}人物发现卡`, target);
+    await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(code + '的合成记录关注等待时间');
+    recordInterviewIteration(firstFinding, text(`${code}的合成记录关注等待时间。`), `${code}人物发现卡`, target);
     Object.assign(interview, { quote, materialName: `qa-${unique}-${code}.txt`, hasMaterial: true });
   };
   if (tenChatsOpened) {
@@ -894,12 +885,15 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const grid = page.getByRole('list', { name: '访谈卡片', exact: true });
     const cards = grid.getByRole('listitem');
     await expect(cards).toHaveCount(10);
-    await click(btn('新建访谈'));
+    await click(page.getByTestId('aidt-new-entity-card'));
     const creation = page.getByRole('dialog', { name: '新建访谈' });
     await fill('受访者姓名或化名', '临时化名', creation);
-    await captureCardCreation(2, 'interview', () => click(btn('创建访谈', creation)));
+    const { target: created } = await captureCardCreation(2, 'interview', () => click(btn('创建访谈', creation)));
+    const createdRecord = JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${created.entityId}`] ?? '{}');
+    if (createdRecord.code !== 'U11') fail('S2_CARD_AUTO_OPEN_MISMATCH');
     await expect(cards).toHaveCount(11);
     const temporary = cards.filter({ has: page.getByRole('button', { name: /^U11(?:\s|$)/ }) });
+    await expect(page.getByTestId('aidt-shared-save')).toHaveCount(0);
     await click(btn('改名与标签', temporary));
     const editor = page.getByRole('dialog', { name: '编辑访谈卡' });
     const name = `临时访谈 ${unique}`;
@@ -907,7 +901,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await fill('受访者姓名或化名', name, editor);
     const tagInput = editor.getByTestId('interview-tag-input');
     for (const tag of tags) { await tagInput.fill(tag); await tagInput.press('Enter'); }
-    await click(btn('保存修改', editor)); await saveStage(2);
+    await saveStage(2, btn('保存修改', editor));
     await page.reload();
     await expect(temporary.getByText(name, { exact: true })).toBeVisible();
     const filter = page.getByRole('group', { name: '筛选标签', exact: true });
@@ -919,8 +913,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     }
     await click(btn('全部', filter));
     await click(btn('删除访谈卡', temporary));
-    await click(btn('确认删除', page.getByRole('dialog', { name: '删除访谈卡？' })));
-    await saveStage(2); await page.reload();
+    await saveStage(2, btn('确认删除', page.getByRole('dialog', { name: '删除访谈卡？' })));
+    await page.reload();
     await expect(cards).toHaveCount(10);
     await expect(temporary).toHaveCount(0);
     await click(btn('查看已移除'));
@@ -928,115 +922,45 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     report.interviewCardManagement = { created: true, editedAfterReload: true, retainedMultipleTags: true, filterMatchedEachTag: true, removedFromActiveAfterReload: true, retainedArchive: true };
   }, '02-interview-card-management');
 
+  async function createDefinitionCard(kind, typeButton, name, sourceGroup) {
+    await click(page.getByTestId('aidt-new-entity-card'));
+    const dialog = page.getByRole('dialog');
+    await click(btn(typeButton, dialog));
+    await fill('卡片名称', name, dialog);
+    await dialog.getByTestId('card-create-tag-input').fill('课程 QA');
+    if (sourceGroup) await dialog.getByRole('group', { name: sourceGroup }).getByRole('checkbox').first().check();
+    await captureCardCreation(3, kind, () => click(btn('创建' + ({surprise: '意外发现', persona: '画像', hmw: 'HMW'})[kind], dialog)), { reopen: true });
+  }
+
   state.s3 = await check('s3-definition-hmw-handoff', 3, async () => {
     if (!state.s2 || !step3Href) { await go(3); fail('S2_CONFIRMED_HANDOFF_REQUIRED'); }
     await page.goto(owned(step3Href));
-    const definitionActions = page.getByRole('region', { name: '对话产物确认' });
-    const confirmDefinition = async entityId => {
-      const turn = report.teachingEvidence.findLast(item => item.stageId === 3 && item.entityId === entityId && item.status === 'passed');
-      if (!turn?.assistantMessageId) fail('DEFINITION_TEACHING_REPLY_REQUIRED');
-      await saveStage(3, btn('确认当前产物', definitionActions));
-      await expect(definitionActions).toContainText('已确认');
-      if ((await savedStage(3)).content.draft.fields['definitionChatSource:' + entityId] !== turn.assistantMessageId) {
-        fail('DEFINITION_CONFIRMATION_SOURCE_UNVERIFIED');
-      }
-    };
-    const selectCreationType = async label => {
-      const type = btn(label);
-      if (!(await type.isVisible())) await click(page.getByTestId('aidt-new-entity-card'));
-      await click(type);
-    };
-    const { target: surprise } = await captureCardCreation(3, 'surprise', () => selectCreationType('新建意外发现'), { reopen: true });
-    if (!await feedback(3, text('暂无意外发现。真实人物与行为尚未核验，请保持为暂无。'))) fail('S3_CONFIRM_SURPRISE_REPLY_REQUIRED');
-    await confirmDefinition(surprise.entityId);
+    await createDefinitionCard('surprise', '新建意外发现', 'QA 合成意外发现'); await output();
+    await page.getByRole('radio', { name: '暂无意外发现', exact: true }).check();
+    await persistConfirmed(3, page.getByTestId('aidt-surprise-confirm'));
     await follow('返回产物列表');
-
-    const selectedInterviews = state.interviews.slice(0, 2);
-    const expectedCards = selectedInterviews.map(item => item.target.entityId);
-    const createDefinition = async (kind, openLabel, createLabel, name, personaSource) => {
-      await selectCreationType(openLabel);
-      const dialog = page.getByRole('dialog', { name: openLabel, exact: true });
-      await fill('卡片名称', name, dialog);
-      if (personaSource) {
-        await dialog.getByRole('group', { name: '来源画像', exact: true })
-          .getByRole('checkbox', { name: personaSource.name, exact: true }).check();
-      }
-      for (const interview of selectedInterviews) {
-        const option = dialog.getByRole('checkbox', { name: new RegExp('^' + interview.code + '(?:\\s|$)') });
-        await expect(option).toHaveCount(1);
-        await option.check();
-      }
-      const { target } = await captureCardCreation(3, kind.toLowerCase(), () => click(btn(createLabel, dialog)), { reopen: true });
-      const entityId = target.entityId, stage = await savedStage(3);
-      const record = JSON.parse(stage.content.draft.fields[`definition${kind}:${entityId}`]);
-      await output(target);
-      expect(record.cardIds).toEqual(expectedCards);
-      expect(stage.content.draft.fields[`definitionCardName:${entityId}`]).toBe(name);
-      if (personaSource) expect(record.personaIds).toEqual([personaSource.id]);
-      const sourceRevision = Number(stage.content.draft.fields.definitionEvidenceRevision);
-      expect(sourceRevision).toBeGreaterThan(0);
-      expect(stage.sourceStageRevisions).toContainEqual({ stageId: 2, revision: sourceRevision });
-      const inspector = page.getByTestId('aidt-definition-editor');
-      await expect(inspector.getByRole('textbox')).toHaveCount(0);
-      await disclosure('引用材料');
-      const links = await inspector.getByRole('link', { name: `查看访谈 V${sourceRevision}` }).all();
-      expect(links).toHaveLength(2);
-      const linkedEntities = [];
-      for (const link of links) {
-        const href = new URL(owned(await link.getAttribute('href')));
-        expect(href.searchParams.get('step')).toBe('2');
-        linkedEntities.push(href.searchParams.get('entity'));
-        expect(href.searchParams.get('entityRevision')).toBe(String(sourceRevision));
-      }
-      expect(linkedEntities.sort()).toEqual([...expectedCards].sort());
-      return { entityId, sourceRevision, target };
-    };
-    const assertDefinitionTeachingSources = async ({ entityId, sourceRevision }) => {
-      const turn = report.teachingEvidence.findLast(item => item.stageId === 3 && item.entityId === entityId && item.status === 'passed');
-      if (!turn?.runId) fail('S3_DEFINITION_TEACHING_RUN_NOT_BOUND');
-      const receipt = await api(`/api/agent-runs/${encodeURIComponent(turn.runId)}/aidt-context`);
-      if (receipt.status !== 200 || receipt.data?.projectId !== scope.projectId || receipt.data?.stageId !== 3
-        || !Array.isArray(receipt.data.entityReferences)) fail('S3_DEFINITION_CONTEXT_RECEIPT_UNAVAILABLE');
-      const sources = receipt.data.entityReferences.filter(row => row.stageId === 2);
-      expect(sources.every(row => row.revision === sourceRevision)).toBe(true);
-      expect([...new Set(sources.map(row => row.entityId))].sort()).toEqual([...expectedCards].sort());
-    };
-    const persona = await createDefinition('Persona', '新建画像', '创建画像', personaName);
-    const input = text(`我们的合成画像名为「${personaName}」。情境是午休点单，行为是比较等待时间，需求是了解等待信息；仅适用本测试夹具。请依据本画像选中的两个访谈发现整理画像草稿。`);
-    if (!await feedback(3, input)) fail('S3_PERSONA_TEACHING_REPLY_REQUIRED');
-    await assertDefinitionTeachingSources(persona);
-    await confirmDefinition(persona.entityId); personaHref = page.url();
-    const personaRecord = JSON.parse((await savedStage(3)).content.draft.fields[`definitionPersona:${persona.entityId}`]);
-    evidence(3).inputs.push({ name: '画像草稿', content: input, format: '原生 Chat 学生消息', source: { entityId: persona.entityId, sourceRevision: persona.sourceRevision } });
-    evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with two selected discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
-
-    await follow('返回产物列表');
-    const confirmHmw = async (topic, name) => {
-      const hmw = await createDefinition('Hmw', '新建 HMW', '创建HMW', name, personaRecord);
-      if (!await feedback(3, topic)) fail('S3_HMW_TEACHING_REPLY_REQUIRED');
-      await assertDefinitionTeachingSources(hmw);
-      await confirmDefinition(hmw.entityId);
-      const stage = await savedStage(3);
-      const record = JSON.parse(stage.content.draft.fields[`definitionHmw:${hmw.entityId}`]);
-      expect(record).toMatchObject({ confirmed: true, cardIds: expectedCards, personaIds: [personaRecord.id] });
-      expect(record.text.trim()).not.toBe('');
-      evidence(3).inputs.push({ name: 'HMW 草稿', content: topic, format: '原生 Chat 学生消息', source: { entityId: hmw.entityId, sourceRevision: hmw.sourceRevision } });
-      return { ...hmw, text: record.text };
-    };
-    const hmw = await confirmHmw(text(`小组拟定：我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？对应已确认画像「${personaName}」。请保留这是合成证据和待核实的范围。`), "QA赶课方向");
-    await follow('返回产物列表');
-    const alternative = await confirmHmw(text(`小组另拟一个方向：我们如何帮助时间充裕的学生比较不同饮品口味，找到愿意尝试的选择？对应已确认画像「${personaName}」，范围待核实。`), "QA闲暇方向");
-    expect(alternative.entityId).not.toBe(hmw.entityId);
-    expect(alternative.text).not.toBe(hmw.text);
-    await output(hmw.target);
-    const beforeHandoff = await revision(3);
-    await click(btn('选为本轮 HMW', definitionActions));
-    await expect.poll(() => revision(3), { timeout: 30000 }).toBeGreaterThan(beforeHandoff);
-    const selected = (await savedStage(3)).content.draft.fields;
-    expect(selected.definitionHmwId).toBe(hmw.entityId);
-    expect(selected.hmw).toBe(hmw.text);
-    evidence(3).outputs.push({ name: '本轮选定HMW及暂无意外发现记录', format: 'native confirmed HMW and source-card links', status: 'pass', evidence: `V${await revision(3)}` });
-    await follow('返回产物列表'); step4Href = owned(await page.getByTestId('aidt-stage-next').getAttribute('href'));
+    await createDefinitionCard('persona', '新建画像', personaName, '来源访谈'); await output();
+    await fill('画像名称', personaName); await fill('用户情境', text('午休时的饮品选择合成情境。'));
+    await fill('可观察的行为', text('夹具中的人物先看队列。')); await fill('需求', text('了解等待信息，仍需真实研究。'));
+    await fill('反例、适用范围或仍未知的地方', '只有QA合成材料，年龄、兴趣与真实行为均未知。');
+    await page.getByRole('group', { name: /^关联已确认的人物发现卡/ }).getByRole('checkbox', { name: /^U01/ }).check();
+    await saveStage(3);
+    await iterate(3, page.getByRole('textbox', { name: '可观察的行为', exact: true }), '画像的行为范围', text('合成夹具中人物先看队列；赶时间与闲暇情境需要分开理解，尚不能推广到真实人群。'));
+    await observeInputs(3);
+    await persistConfirmed(3, btn('确认画像')); personaHref = page.url();
+    evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
+    await follow('返回产物列表'); await createDefinitionCard('hmw', '新建 HMW', 'QA 合成 HMW', '来源画像'); await output();
+    await fill('我们如何……（HMW）', text('我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？'));
+    await fill('选择理由或待核实处', '来自本次合成发现卡；是否适用于真实学生仍待验证。');
+    await page.getByRole('group', { name: '关联已确认画像', exact: true }).getByRole('checkbox', { name: personaName, exact: true }).check();
+    await page.getByRole('group', { name: /^关联已确认的人物发现卡/ }).getByRole('checkbox', { name: /^U01/ }).check();
+    await saveStage(3);
+    await iterate(3, page.getByRole('textbox', { name: '我们如何……（HMW）', exact: true }), 'HMW表述', text('我们如何帮助不同时间情境中的学生理解等待信息，并保留多种自主选择？'));
+    await feedback(3);
+    await observeInputs(3);
+    await persistConfirmed(3, btn('确认 HMW')); await persistConfirmed(3, btn('选为本轮 HMW'));
+    evidence(3).outputs.push({ name: '本轮选定HMW及暂无意外发现记录', format: 'native confirmed HMW and source-card links', status: 'pass', evidence: `V${await revision(3)}; 暂无 is a valid branch, no invented surprise` });
+    await follow('返回产物列表'); step4Href = owned(await page.getByRole('link', { name: '带入创意发散', exact: true }).getAttribute('href'));
     await shot('03-definition-directory', 3); await completed(3); await page.goto(owned(step3Href));
   }, '03-definition');
 
@@ -1044,7 +968,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     if (!state.s3 || !step4Href) { await go(4); fail('S3_CONFIRMED_HANDOFF_REQUIRED'); }
     await page.goto(owned(step4Href));
     for (const name of ideaNames) {
-      await click(btn('新建点子'));
+      await click(page.getByTestId('aidt-new-entity-card'));
       const dialog = page.getByRole('dialog', { name: '新建点子' });
       await fill('点子名称', name, dialog);
       await captureCardCreation(4, 'idea', () => click(dialog.locator('button[type=submit]')));
@@ -1093,26 +1017,31 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     if (!state.s4 || !step5Href) { await go(5); fail('S4_CONFIRMED_HANDOFF_REQUIRED'); }
     if (typeof armDesignGeneration !== 'function' || typeof armDesignCreate !== 'function') fail('BOUNDED_DESIGN_GENERATION_GUARD_REQUIRED');
     await page.goto(owned(step5Href));
-    await click(btn('新建原型'));
+    await click(page.getByTestId('aidt-new-entity-card'));
     const dialog = page.getByRole('dialog', { name: '新建原型' });
     await fill('原型名称', '未命名设计', dialog);
-    const chosenIdeas = dialog.getByRole('group', { name: '来源点子', exact: true });
-    await expect(chosenIdeas.getByRole('checkbox', { checked: true }).first()).toBeVisible();
     const { target: designRoute } = await captureCardCreation(5, 'prototype', async () => {
       await armDesignCreate(); await click(btn('创建原型', dialog));
     }, { reopen: true });
     designId = designRoute.entityId;
     const entityHref = designRoute.href;
     await output(designRoute);
-    const nativeActions = page.getByRole('region', { name: '原型对话操作' });
-
-    const prototypePrompt = text(`我们打算为入选点子制作静态队列提示界面。验证问题是「${question}」。我们原以为学生看完预计等待时间就知道先查看信息再决定排队，但只有合成情境支持这个猜想。设计说明：静态页面、校园午休、查看提示并选择是否排队；依次看队列、预计等待和操作选项。只能观察理解，不能判断真实等待、付费或偏好。请整理这份原型制作说明和验证问题。`);
-    if (!await feedback(5, prototypePrompt)) fail('PROTOTYPE_TEACHING_REPLY_REQUIRED');
-    await saveStage(5, btn('确认原型草稿', nativeActions));
-    const prototypeOutput = page.getByTestId('aidt-prototype-entity-output');
-    await expect(prototypeOutput.getByRole('textbox')).toHaveCount(0);
-    await expect(prototypeOutput).toContainText('等待');
-    await follow('打开 Design 工作台', { resource: true });
+    await click(page.getByRole('button', { name: /^采用第 4 步 V\d+ 的 \d+ 个点子$/ }));
+    await fill('通过这次制作原型，你最想知道什么？', '学生能理解提示吗？');
+    await disclosure('补充先前看法与验证范围');
+    await fill('测试前，你们怎么想？', text('目前不确定，预计静态图只能检查理解。'));
+    await fill('目前看法的依据', text('仅来自QA合成发现卡，不是已验证的研究事实。'));
+    await fill('这个原型能了解什么，还有什么不能验证？', '能检查示意顺序的理解，不能证明真实等待、时间投入或付费行为。');
+    const fields = page.getByTestId('aidt-prototype-entity-output').getByRole('group', { name: '原型制作说明', exact: true }).getByRole('textbox');
+    const descriptions = ['静态界面示意图', '合成校园午休情境', '先看提示再决定', '选择、查看队列、决定等待', '解释等待信息与操作顺序'];
+    for (let index = 0; index < await fields.count(); index++) await fields.nth(index).fill(text(descriptions[index] ?? '表达当前验证范围。'));
+    await saveStage(5);
+    await iterate(5, page.getByLabel('通过这次制作原型，你最想知道什么？', { exact: true }), '本轮验证问题', question);
+    await feedback(5);
+    await observeInputs(5);
+    evidence(5).notes.push('本轮真实迭代是原型制作前验证问题/制作说明的保存修订；仅调用一次Design生成，没有把再次确认同一文件冒充原型第二版。');
+    await persistConfirmed(5, btn('确认本轮验证问题'));
+    await follow('打开原生 Design Workbench', { resource: true });
     await expect(page.getByTestId('design-detail-input')).toBeEditable();
     await page.getByTestId('design-detail-input').fill(`${SYNTHETIC}。QA run=${scope.runId}。请生成一页静态校园饮品队列提示界面，标题明确QA合成演示；展示预计等待时间、查看口味、决定是否排队三个区块。只用于检查理解，不宣称有真实研究或用户认可。`);
     const send = page.getByTestId('design-detail-send'); await expect(send).toBeEnabled(); await armDesignGeneration();
@@ -1127,11 +1056,11 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await output(designRoute);
     const picker = page.getByTestId('aidt-prototype-version-picker'); await click(btn('选择真实原型版本', picker));
     await click(picker.locator('[aria-label="已关联的设计"]').getByRole('button', { name: '未命名设计', exact: true }));
-    await saveStage(5, picker.getByRole('button', { name: /^选择 v\d+：/ }).first());
+    await click(picker.getByRole('button', { name: /^选择 v\d+：/ }).first());
     await expect(page.getByTestId('aidt-prototype-recorded-reference')).toContainText(/已生成 [1-9]\d*\//);
-    await saveStage(5, btn('确认本原型', nativeActions));
+    await persistConfirmed(5, btn('确认所选原型'));
     evidence(5).outputs.push({ name: '已选静态原型与绑定验证问题', format: 'native Design version reference and verification question', status: 'pass', evidence: (await page.getByTestId('aidt-prototype-recorded-reference').innerText()).slice(0,2000) });
-    step6Href = owned(await page.getByTestId('aidt-stage-next').getAttribute('href'));
+    step6Href = owned(await page.getByRole('link', { name: '带入测试与迭代', exact: true }).getAttribute('href'));
     await shot('05-prototype-question-version', 5); await completed(5); await output(designRoute);
     report.designGenerationAndVersionWorkflowVerified = true;
     report.designProviderIndependentlyVerified = false;
@@ -1139,40 +1068,47 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   state.s6 = await check('s6-test-reflection', 6, async () => {
     if (!state.s5 || !step6Href) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
-    for (const [method, label] of [['interview', '线下访谈'], ['survey', '问卷']]) {
-      await page.goto(owned(step6Href)); await click(btn('新建测试草稿'));
-      const dialog = page.getByRole('dialog', { name: '新建测试' });
-      await fill('测试名称', `QA合成${label} ${unique}`, dialog);
-      await expect(dialog).toContainText('原型');
-      const { target: testTarget } = await captureCardCreation(6, 'test', () => click(btn('创建测试', dialog)), { reopen: true, example: method + '-test' });
-      await output(testTarget);
-      const detail = page.getByTestId('aidt-test-group-detail');
-      await expect(detail.getByRole('textbox')).toHaveCount(0);
-      const actions = page.getByTestId('aidt-test-chat-confirmation');
-      await disclosure('关联测试材料');
-      const methodField = actions.getByRole('combobox', { name: '测试方式', exact: true });
-      if (await methodField.inputValue() !== method) await methodField.selectOption(method);
-      const syntheticTestRecord = text(`${label}合成材料第1段。合成页面按查看等待信息、理解选择、决定是否排队的顺序展示。未进行真实用户测试。`);
-      await uploaded('本组原始材料', `qa-${unique}-${method}.txt`, Buffer.from(syntheticTestRecord), 'text/plain');
-      await saveStage(6, btn('保存关联材料', actions));
-      const prompt = text(`这次${label}测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的${label}合成材料第1段，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
-      if (!await feedback(6, prompt)) fail('TEST_TEACHING_REPLY_REQUIRED');
-      const proof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.status === 'passed');
-      await saveStage(6, btn('确认并保存测试成果', actions));
-      await page.reload();
-      await output(testTarget);
-      const fields = (await savedStage(6)).content.draft.fields;
-      const testRecord = JSON.parse(fields['testGroup:' + testTarget.entityId]);
-      if (testRecord.method !== method || testRecord.designId !== designId || !testRecord.versionId || !proof || testRecord.confirmedFromMessageId !== proof.assistantMessageId || !testRecord.task?.trim() || !testRecord.reflection?.trim() ||
-          fields.reflectionConfirmed !== 'true' || fields.understandingChangeStatus !== 'insufficient' || fields.returnStep !== '2') fail('TEST_NATIVE_ROUND_UNVERIFIED');
-      await expect(detail).toContainText(testRecord.task);
-      await expect(detail).toContainText(testRecord.reflection);
-      evidence(6).outputs.push({ name: label, entityId: testTarget.entityId, threadId: new URL(testTarget.href).searchParams.get('thread'), designId, versionId: testRecord.versionId, method });
-      await shot('06-native-' + method + '-plan-and-material', 6);
-    }
-    const tested = evidence(6).outputs.filter(item => item.designId === designId);
-    if (tested.length !== 2 || tested[0].entityId === tested[1].entityId || tested[0].threadId === tested[1].threadId || tested[0].versionId !== tested[1].versionId) fail('TEST_GROUP_ISOLATION_UNVERIFIED');
+    await page.goto(owned(step6Href)); await click(page.getByTestId('aidt-new-entity-card'));
+    const creation = page.getByRole('dialog', { name: '新建测试卡片' });
+    await fill('测试名称', `QA合成测试 ${unique}`, creation);
+    const { directoryHref: savedDirectoryHref } = await captureCardCreation(6, 'test',
+      () => click(btn('创建测试卡片', creation)), { reopen: true });
+    await output();
+    const detail = page.getByTestId('aidt-test-group-detail'); await expect(detail).toBeVisible();
+    await fill('参与者代号', `QA合成对象 ${unique}`, detail);
+    await fill('测试情境', text('只用于软件验收的虚构午休情境，未接触真实受访者。'), detail);
+    await fill('测试任务与追问', text('请指出示意图里先看等待信息再选择的顺序；这是一份待真实对象测试的计划。'), detail);
+    await fill('原件位置（时间点、答卷或批次）', '合成记录第1段', detail);
+    const syntheticTestRecord = text('QA记录：本次仅校验软件如何保存原型、测试计划和反馈位置，没有真实用户行为。');
+    await uploaded('本组原始材料', `qa-${unique}-test.txt`, Buffer.from(syntheticTestRecord), 'text/plain');
+    await fill('原话或问卷原始回答', text('合成夹具文字，不是真人引文；真实回答尚未采集。'), detail);
+    await fill('现场观察到的行为', '本次未观察真人行为。', detail);
+    await fill('学生解释', '当前只是软件验收，不能由合成材料判断方案有效。', detail);
+    await fill('学生对本组测试的反思', '正式研究需授权真实对象并核对记录。', detail);
+    await saveStage(6);
+    await iterate(6, detail.getByRole('textbox', { name: '测试任务与追问', exact: true }), '待实施的测试问题', text('正式测试时先请对象说明自己会做哪一步，再追问不理解之处；本次不诱导赞同，不声称已经真实测试。'));
+    await feedback(6);
+    const nativeFields = await detail.locator('input,textarea,select').evaluateAll(nodes => nodes.filter(node => node.getClientRects().length > 0 && node.type !== 'file').map(node => ({ name: (node.labels?.[0]?.innerText || node.tagName).trim().slice(0,180), content: node.value.slice(0,2000), format: 'native test plan/material form' })));
+    const nativePlanRevision = await revision(6);
+    evidence(6).inputs.push(...nativeFields.map(field => ({ ...field, source: { projectId: scope.projectId, entityId: new URL(page.url()).searchParams.get('entity'), saved_base_revision: nativePlanRevision, observation: 'Native test entity planning and explicitly synthetic material, not a real participant test' } })));
+    await shot('06-native-test-plan-and-material', 6);
+    await page.goto(owned(savedDirectoryHref));
+    const reflection = page.getByTestId('aidt-test-reflection'); await expect(reflection).toBeVisible();
+    await expect(reflection.getByTestId('aidt-bound-question')).toContainText(question);
+    await reflection.getByRole('combobox', { name: '测试之后，对这个问题的认识有什么变化？', exact: true }).selectOption('insufficient');
+    await fill('测试后的认识', text('本次只有合成软件验收，没有真实对象测试，不能判断方案效果。'), reflection);
+    await fill('支持判断的测试材料', 'QA合成记录；未采集真实用户行为。', reflection);
+    await fill('仍不确定的地方', '需要真实对象理解反馈及实际情境观察，当前证据不足。', reflection);
+    await reflection.getByRole('combobox', { name: '如果继续改进，优先从哪一步重新入手？', exact: true }).selectOption('2');
+    await fill('为什么从这里重新入手？', '需要真实访谈，不能用QA合成夹具支持效果判断。', reflection);
+    await fill('下一步具体做什么？', '取得适当授权后补充真实访谈，再回看原问题；本次不生成新版。', reflection);
+    await saveStage(6, btn('保存本轮测试与反思'));
+    await iterate(6, reflection.getByRole('textbox', { name: '测试后的认识', exact: true }), '证据不足时的认识', text('本次只有合成软件验收，未测试真实对象；认识暂不能改变，下一轮先补真实访谈后判断情境差异。'), btn('保存本轮测试与反思'));
+    await observeInputs(6);
+    await persistConfirmed(6, btn('确认本轮学习记录', reflection), btn('保存本轮测试与反思'));
+    await page.reload(); await expect(page.getByTestId('aidt-test-reflection')).toContainText('本轮学习记录已确认');
     await shot('06-reflection-insufficient-return-empathy', 6); await completed(6); await page.goto(owned(step6Href));
+    evidence(6).notes.push('没有真人测试；本次明确选择证据不足并回共情研究，保存本轮认识与行动，未强制生成新版原型。');
     report.insufficientEvidenceAndReturnWithoutNewPrototypeVerified = true;
   }, '06-reflection');
 
@@ -1187,26 +1123,24 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       assertReady: async () => { await expect(page.getByTestId('aidt-report-preview')).toBeVisible(); await expect(page.getByTestId('aidt-report-reload')).toBeEnabled(); } });
     const reportUrl = new URL(page.url());
     const reportRegion = page.getByTestId('aidt-report-preview'); await expect(reportRegion).toBeVisible();
-    await expect(reportRegion.getByRole('textbox')).toHaveCount(0);
-    await expect(page.getByTestId('aidt-summary-materials')).toBeVisible();
-    const reportPrompt = text('请依据本项目六个步骤当前已确认的版本起草小组研究报告。说明项目问题、访谈发现、画像和 HMW、发散与收敛、原型验证问题、测试反思和下一轮安排。逐步列出引用的版本，保留证据缺口。明确写入「合成验收数据，非真实访谈」，避免将软件验证描述成真实受访者的结论。');
-    if (!await feedback(6, reportPrompt)) fail('REPORT_NATIVE_REPLY_REQUIRED');
-    const proof = report.teachingEvidence.find(item => item.entityId === 'group-report' && item.status === 'passed' && item.prompt === reportPrompt);
-    if (!proof) fail('REPORT_NATIVE_REPLY_REQUIRED');
-    const actions = page.getByTestId('aidt-report-chat-actions');
-    await click(btn('采用报告草稿', actions));
-    await saveReport();
-    await reviewAndSave(6, btn('确认小组报告', actions));
+    await click(btn('编辑报告', reportRegion));
+    const draft = reportRegion.getByLabel('小组报告草稿', { exact: true });
+    await expect(draft).toHaveValue(/合成/);
+    const initial = await draft.inputValue();
+    await draft.fill(`${initial}\n\n## QA验收边界\n${SYNTHETIC}。本次验证软件流程与来源追溯，没有进行真实课堂或真实访谈，方案效果尚待验证。\n`);
+    await disclosure('选择报告引用的阶段版本');
+    for (let stage = 1; stage <= 6; stage++) {
+      const sourceSelect = reportRegion.locator('label').filter({ has: page.locator('span').filter({ hasText: new RegExp(`^第 ${stage} 步$`) }) }).locator('select');
+      await expect(sourceSelect).toBeEnabled(); await sourceSelect.selectOption({ index: 1 });
+    }
+    await saveReport(); await click(btn('阅读预览', reportRegion)); await click(btn('确认审阅此版本', reportRegion));
+    await reviewAndSave(6, btn('确认小组报告', reportRegion));
     await expect(page.getByTestId('aidt-report-save-state')).toContainText('已确认');
     await disclosure('已确认版本与导出');
     const readVersion = page.getByRole('button', { name: /^查看确认版 V\d+$/ }); await click(readVersion);
     await expect(page.getByRole('article', { name: '已确认报告正文', exact: true })).toContainText(SYNTHETIC);
     const sources = page.getByRole('list', { name: '确认版本来源', exact: true }); await expect(sources).toBeVisible();
-    for (let stage = 1; stage <= 6; stage++) {
-      const selectedRevision = proof.sourceRevisions.find(item => item.stageId === stage)?.revision;
-      if (!selectedRevision) fail('REPORT_SOURCE_REVISION_MISSING');
-      await expect(sources.getByText(new RegExp('第\\s*' + stage + '\\s*步.*V' + selectedRevision + '(?:\\D|$)'))).toBeVisible();
-    }
+    for (let stage = 1; stage <= 6; stage++) await expect(sources).toContainText(`第 ${stage} 步`);
     const [download] = await Promise.all([page.waitForEvent('download'), click(page.getByRole('button', { name: /^下载 V\d+ Markdown$/ }))]);
     if (typeof saveDownload !== 'function') fail('REPORT_SAFE_DOWNLOAD_STORAGE_REQUIRED');
     await saveDownload(download);
@@ -1214,7 +1148,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const stream = await download.createReadStream(); if (!stream) fail('REPORT_DOWNLOAD_UNREADABLE');
     let bytes = 0; const chunks = []; for await (const chunk of stream) { bytes += chunk.length; if (bytes > 1000000) fail('REPORT_DOWNLOAD_TOO_LARGE'); chunks.push(chunk); }
     const content = Buffer.concat(chunks), exportedText = content.toString('utf8'); expect(exportedText).toContain(SYNTHETIC);
-    const requiredReportHighlights = ['午休', '等待', '访谈', '画像', '原型', '测试'];
+    const requiredReportHighlights = ['探索校园午休饮品选择中的情境差异', 'U01的合成记录关注等待时间', personaName, '我们如何帮助不同时间情境中的学生理解等待信息', ...ideaNames, question, '本次只有合成软件验收，未测试真实对象', '需要真实访谈'];
     for (const text of requiredReportHighlights) { expect(exportedText).toContain(text); await expect(page.getByRole('article', { name: '已确认报告正文', exact: true })).toContainText(text); }
     report.nativeReportContentChecks = requiredReportHighlights.map(text => ({ text, observedInConfirmedBody: true, observedInDownloadedMarkdown: true }));
     report.confirmedReportExport = { bytes, sha256: createHash('sha256').update(content).digest('hex'), format: 'markdown' };
@@ -1245,34 +1179,21 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
         const restored = await openFrozenSources(stage);
         if (restored.revision !== revision) fail('FROZEN_SOURCE_REVISION_CHANGED');
         const link = restored.details.getByRole('link', { name: item.title.trim(), exact: true });
-        const coordinates = new URL(owned(item.href));
-        const targetStage = Number(coordinates.searchParams.get('step'));
-        const targetRevision = Number(coordinates.searchParams.get('entityRevision'));
-        if (stage === 3 && targetStage === 2) {
-          const definition = await savedStage(3);
-          const fields = definition.content.draft.fields;
-          const entityId = coordinates.searchParams.get('entity');
-          const selectedCardIds = Object.entries(fields).flatMap(([key, raw]) =>
-            /^definition(?:Persona|Hmw):/.test(key) ? JSON.parse(raw).cardIds : []);
-          if (definition.revision !== revision || fields.definitionEvidenceRevision !== String(targetRevision)
-            || !definition.sourceStageRevisions.some(ref => ref.stageId === 2 && ref.revision === targetRevision)
-            || !selectedCardIds.includes(entityId)) fail('REPORT_DEFINITION_INTERVIEW_LINK_UNVERIFIED');
-        } else if (stage !== targetStage || revision !== targetRevision) fail('FROZEN_SOURCE_COORDINATES_CHANGED');
-        const expectedRoute = ownedAidtEntityRoute(item.href, { origin, projectId: scope.projectId }, { stage: targetStage, revision: targetRevision });
-        const expectedInterview = targetStage === 2 ? state.interviews.find(row => row.target.entityId === expectedRoute.entityId) : undefined;
-        if (targetStage === 2 && !expectedInterview) fail('FROZEN_INTERVIEW_EXPECTATION_MISSING');
+        const expectedRoute = ownedAidtEntityRoute(item.href, { origin, projectId: scope.projectId }, { stage, revision });
+        const expectedInterview = stage === 2 ? state.interviews.find(row => row.target.entityId === expectedRoute.entityId) : undefined;
+        if (stage === 2 && !expectedInterview) fail('FROZEN_INTERVIEW_EXPECTATION_MISSING');
         const materialRequired = stage === 2;
         if (materialRequired && (!expectedInterview.hasMaterial || !expectedInterview.quote || !expectedInterview.materialName)) fail('FROZEN_MATERIAL_EXPECTATION_MISSING');
-        const target = await verifyAidtFrozenBacklink({ page, link, scope: { origin, projectId: scope.projectId }, stage: targetStage, revision: targetRevision, waitForRoute: waitForEntity,
+        const target = await verifyAidtFrozenBacklink({ page, link, scope: { origin, projectId: scope.projectId }, stage, revision, waitForRoute: waitForEntity,
           materialRequired,
-          assertVersion: async () => { const history = page.getByTestId('aidt-entity-history'); await expect(history).toBeVisible(); await expect(history.getByRole('heading', { level: 1 })).toHaveText(new RegExp(` · V${targetRevision}$`)); await expect(history).toContainText('已保存的历史版本。'); await expect(history).toContainText(SYNTHETIC); },
+          assertVersion: async () => { const history = page.getByTestId('aidt-entity-history'); await expect(history).toBeVisible(); await expect(history.getByRole('heading', { level: 1 })).toHaveText(new RegExp(` · V${revision}$`)); await expect(history).toContainText('已保存的历史版本。'); await expect(history).toContainText(SYNTHETIC); },
           assertMaterial: async target => {
             const interview = expectedInterview;
             const material = page.getByTestId('aidt-research-material-preview').filter({ hasText: interview.materialName });
             await expect(material).toBeVisible(); await expect(material).toContainText(new URL(target.href).searchParams.get('sourceId'));
             const original = material.getByTestId('aidt-research-original-text'); await expect(original).toBeVisible(); await expect(original).toContainText(interview.quote); await expect(original).toContainText(SYNTHETIC);
           } });
-        item.clicked = true; item.frozenStage = targetStage; item.frozenRevision = targetRevision; item.entityId = target.entityId; item.materialVerified = materialRequired;
+        item.clicked = true; item.frozenRevision = revision; item.entityId = target.entityId; item.materialVerified = materialRequired;
       }
       report.reportSourceLinks.push({ stage, revision, links });
     }

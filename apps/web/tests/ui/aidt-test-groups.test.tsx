@@ -12,6 +12,7 @@ import { AidtTestGroups } from "@/features/aidt/components/aidt-test-groups";
 import { readAidtTestGroups, updateAidtTestGroup, createAidtTestGroup } from "@/features/aidt/lib/aidt-test-groups";
 import { emptyAidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { confirmAidtVerificationQuestion, createAidtQuestionSnapshot } from "@/features/aidt/lib/aidt-verification-loop";
+import { confirmAidtPrototypeHandoff } from "@/features/aidt/lib/aidt-prototype-handoff";
 import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
 
 const mock = vi.hoisted(() => ({ history: vi.fn(), resolve: vi.fn(), resources: vi.fn() }));
@@ -32,9 +33,11 @@ vi.mock("@/features/aidt/components/aidt-research-material", () => ({
 
 const earlier = { designId: "design-a", versionId: "v1", designName: "菜单", seq: 1, summary: "起点", source: "user" as const, createdAt: "2026-11-21", frameCount: 1, generatedFrameCount: 1 };
 function prototype(versionId: string) {
-  return confirmAidtVerificationQuestion(updateAidtPrototypeReference({
-    ...emptyAidtUiDrafts()[5]!, fields: { verificationQuestion: "能否比较口味？", beforeTestBelief: "并排更清楚" },
-  }, { ...earlier, versionId }))!;
+  return confirmAidtPrototypeHandoff(confirmAidtVerificationQuestion(updateAidtPrototypeReference({
+    ...emptyAidtUiDrafts()[5]!, fields: { verificationQuestion: "能否比较口味？", beforeTestBelief: "并排更清楚", verificationBasis: "之前的点单观察",
+      verificationLimits: "只评估读懂标签", type: "纸质比较卡", situation: "午休点单", task: "阅读比较卡",
+      prototypeIdeaSource: JSON.stringify({ revision: 2, ideaIds: ["menu"] }) },
+  }, { ...earlier, versionId }))!)!;
 }
 
 it("pins the test version and preserves its Chat identity through rename and deletion", async () => {
@@ -54,7 +57,7 @@ it("pins the test version and preserves its Chat identity through rename and del
   await screen.findByRole("heading", { name: "午休组" });
   expect(mock.history).toHaveBeenCalledWith("project", 5, "session", { beforeRevision: 5, limit: 1 }, expect.any(AbortSignal));
   expect(readPrototypeEntity).toHaveBeenCalledWith(old, "design-a");
-  expect(mock.resolve).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project", userId: "user" }), "design-a", "v1");
+  expect(mock.resolve).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project", userId: "user" }), "design-a", "v1", "linked-reader");
   expect(screen.queryByRole("link", { name: "打开测试 午休组" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "保存测试列表" }));
   const link = await screen.findByRole("link", { name: "打开测试 午休组" });

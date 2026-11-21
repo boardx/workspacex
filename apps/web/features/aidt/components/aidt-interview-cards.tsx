@@ -2,6 +2,7 @@
 
 import { aidtInterviewTitle } from "@repo/contracts/aidt-stages";
 import * as React from "react";
+import { AidtEntityCard } from "./aidt-entity-card";
 import { ArrowUpRight, ListChecks, MessagesSquare, Paperclip, Pencil, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -13,7 +14,7 @@ import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 type Update = (change: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 
 export interface InterviewDetails { displayName: string; tags: string[] }
-export function InterviewCardEditor({ record, knownTags, close, save }: { record?: AidtInterview; knownTags: Map<string, number>; close: () => void; save: (details: InterviewDetails) => void | Promise<boolean> }) {
+export function InterviewCardEditor({ record, knownTags, close, save, source }: { source?: string; record?: AidtInterview; knownTags: Map<string, number>; close: () => void; save: (details: InterviewDetails) => void | Promise<boolean> }) {
   const [name, setName] = React.useState(record?.displayName ?? "");
   const [tags, setTags] = React.useState<readonly string[]>(record?.tags ?? []);
   const [draftTag, setDraftTag] = React.useState("");
@@ -35,6 +36,7 @@ export function InterviewCardEditor({ record, knownTags, close, save }: { record
     <DialogDescription>{record ? record.code + " · 受访者资料" : "可以使用化名，留空则显示受访者编号。"}</DialogDescription>
     <form className="space-y-5" onSubmit={submit}>
       <label className="block text-13 font-medium">受访者姓名或化名<input className="mt-2 w-full rounded-control border border-border bg-background px-3 py-2" value={name} maxLength={80} placeholder="例如：小林" onChange={event => setName(event.target.value)} /></label>
+      {source && <div className="text-13"><p className="font-medium">来源研究问题</p><p>{source}</p></div>}
       {knownTags.size > 0 && <div role="group" aria-label="已有标签" className="flex flex-wrap gap-2">{[...knownTags.keys()].map(tag => {
         const selected = hasTag(tags, tag);
         return <Button type="button" key={tag} variant={selected ? "primary" : "outline"} size="xs" className="h-auto max-w-full whitespace-normal break-all rounded-full py-1.5" aria-pressed={selected} disabled={!selected && tags.length >= interviewTagsLimit.maxTags} onClick={() => setTags(selected ? tags.filter(value => !sameTag(value, tag)) : [...tags, tag])}>{tag}</Button>;
@@ -73,7 +75,7 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
       const saved = !savedIds || savedIds.has(record.id);
       const status = removed ? "已归档" : confirmed ? "发现卡已核对" : record.guideConfirmed ? "清单已确认 · 发现待核对" : "提纲草稿";
       const materials = readAidtInterviewMaterials(draft.fields, record.id, projectId).length;
-      return <li key={record.id} className="relative flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm">
+      return <AidtEntityCard key={record.id} entityId={record.id} className="relative gap-3 p-4" useSharedTags={false}>
         <div className="flex items-center justify-between gap-2"><span className="rounded-md bg-primary/10 px-2 py-1 text-12 font-semibold text-primary">{record.code}</span><span className="text-12 text-muted-foreground">{status}</span></div>
         <h5 className="break-words text-16 font-semibold">{record.displayName || ("受访者 " + record.code)}</h5>
         {record.goal && <p className="line-clamp-2 break-words text-13 text-muted-foreground">{record.goal}</p>}
@@ -86,7 +88,7 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
             <Button type="button" size="sm" variant="ghost" className="relative z-10" aria-label="删除访谈卡" title="删除访谈卡" onClick={() => setAction({ id: record.id, mode: "remove" })}><Trash2 aria-hidden className="size-4" /></Button>
           </>}
         </div>
-      </li>;
+      </AidtEntityCard>;
     })}</ul>
     {subject && !readOnly && action?.mode === "edit" && <InterviewCardEditor record={subject} knownTags={knownTags} save={details => update(old => {
       const current = readAidtInterviews(old.fields).find(row => row.id === subject.id);

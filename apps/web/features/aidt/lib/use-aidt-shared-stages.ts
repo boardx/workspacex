@@ -153,7 +153,7 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   currentSnapshot.current = currentRead;
   const stageRefresh = React.useRef<AbortController | null>(null);
   React.useEffect(() => () => stageRefresh.current?.abort(), [writeKey]);
-  async function refreshCurrentStage() {
+  async function refreshCurrentStage({ fallbackToReload = true } = {}) {
     if (!scope || !stageId || latest.current.writeKey !== writeKey) return;
     stageRefresh.current?.abort();
     const controller = new AbortController();
@@ -166,8 +166,10 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
       const local = latest.current.drafts[stageId];
       if (local && (previous ? aidtSharedDraftSignature(local) === aidtSharedDraftSignature(previous.content.draft) : !aidtUiStageSummary(stageId, local))) latest.current.onHydrate(stageId, clone(stage.content.draft));
       setRead(old => old?.key === key && (old.stages[stageId]?.revision ?? 0) < stage.revision ? { ...old, stages: { ...old.stages, [stageId]: stage } } : old);
-    } catch {
-      if (!controller.signal.aborted && latest.current.writeKey === writeKey) reload();
+    } catch (error) {
+      if (controller.signal.aborted || latest.current.writeKey !== writeKey) return;
+      if (!fallbackToReload) throw error;
+      reload();
     }
   }
   function setStageSources(values: Source[]) {
@@ -195,7 +197,8 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
     if (latest.current.writeKey !== writeKey || !latest.current.canWrite || !canWriteDraft || !scope || !stageId || !draft || inFlight.current) return false;
     // An explicit directory action writes against the saved head. Other edits in the local form stay local.
     const base = change ? server?.content.draft ?? emptyAidtUiDrafts()[stageId]! : draft;
-    const next = change ? change(base) : base;
+    let next: AidtUiStageDraft;
+    try { next = change ? change(base) : base; } catch { return false; }
     if ((change && next === base) || (!change && !server && !aidtUiStageSummary(stageId, next))) return false;
     const nextSignature = change ? aidtSharedDraftSignature(next) : signature;
     const revision = change ? server?.revision ?? 0 : expectedRevision;
