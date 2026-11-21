@@ -1,4 +1,5 @@
 import { aidtDefinitionSummary } from "./aidt-definition";
+import { countAidtInterviewRecords } from "./aidt-interviews";
 import { formatAidtProblemReflectionMarkdown } from "./aidt-problem-reflection";
 import { formatAidtSurpriseMarkdown } from "./aidt-surprise-reflection";
 import { aidtIdeaClassificationLines } from "./aidt-idea-classification";
@@ -96,6 +97,8 @@ export function aidtUiStageMarkdown(stageNumber: number, draft: AidtUiStageDraft
 /** Current student-authored work, without manufacturing values for empty fields. */
 export function aidtUiStageSummary(stageNumber: number, draft: AidtUiStageDraft): string {
   const lines = AIDT_OUTPUTS[stageNumber]!.fields.flatMap((field) => draft.fields[field.id]?.trim() ? [`${field.label}：${draft.fields[field.id]}`] : []);
+  const interviewCount = stageNumber === 2 ? countAidtInterviewRecords(draft) : 0;
+  if (interviewCount > 0) lines.push(`访谈记录：${interviewCount} 份`);
   if (stageNumber === 2 && draft.discoveryCards?.length) lines.push(...discoveryCardLines(draft.discoveryCards, draft.fields));
   if (stageNumber === 2) lines.push(...aidtResearchMaterialsFromFields(draft.fields).filter(item => item.key.startsWith("researchFile:")).map(item => `已关联研究原件（待学生核实）：${aidtResearchMaterialLabel(item.material)}`));
   if (stageNumber === 4) for (const [index, idea] of draft.ideas.entries()) {
