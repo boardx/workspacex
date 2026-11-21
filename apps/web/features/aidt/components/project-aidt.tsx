@@ -1,4 +1,5 @@
 "use client";
+import { aidtInterviewTitle } from "@repo/contracts/aidt-stages";
 import * as React from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -394,6 +395,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const currentStage = shared.stages[step.id];
   const activeProblem = problemStep && activeEntityId && currentStage
     ? listAidtProblems(currentStage.content.draft).find(item => item.id === activeEntityId && !item.archived) : undefined;
+  const entityHeading = activeInterview ? aidtInterviewTitle(activeInterview.code, activeInterview.displayName) : activeProblem?.title ?? projectName;
   const hmwStage = hmwRevision === null || String(latestHmwStage?.revision) === hmwRevision
     ? latestHmwStage : historicalHmw?.scope === hmwScope ? historicalHmw.stage : undefined;
   const selectedHmw = hmwStage && readAidtDefinitionSelection(hmwStage.content.draft.fields);
@@ -431,6 +433,12 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     };
     const hasSummary = step.id === 6 && search.get("summary") === "1";
     const savedDraft = currentStage?.content.draft;
+    const openCreated = (id: string) => router.push(entityHref(id));
+    const createAndOpen = async (id: string, change: (old: AidtUiStageDraft) => AidtUiStageDraft) => {
+      if (!await shared.saveDraft(change)) return false;
+      openCreated(id);
+      return true;
+    };
     const save = <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite}
       showSave={false} onSourceChange={requestEntitySave} />;
     return <section className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="aidt-step-entity-directory">
@@ -445,31 +453,31 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
         {shared.read?.phase === "ready" && (hasSummary
           ? <AidtReportDirectory stage={shared.stages[6]} href={entityHref} />
           : <AidtEntityCardDirectory key={shared.writeKey} draft={savedDraft ?? draft} readOnly={!canWrite} saveDraft={shared.saveDraft}>
-          {step.id === 1 ? <><AidtProblemDirectory key={`problems:${shared.writeKey}`} draft={savedDraft ?? emptyAidtUiDrafts()[1]!} href={entityHref} controller={shared} readOnly={!canWrite} />{save}</>
+          {step.id === 1 ? <><AidtProblemDirectory key={`problems:${shared.writeKey}`} draft={savedDraft ?? emptyAidtUiDrafts()[1]!} href={entityHref} onCreated={openCreated} controller={shared} readOnly={!canWrite} />{save}</>
           : step.id === 2 ? <>
               <AidtInterviewWorkspace projectId={projectId} draft={draft} update={update} readOnly={!canWrite} entityId={null}
                 problemEntityId={search.get("problemEntity") ?? undefined}
                 problemRevision={search.has("problemRevision") ? Number(search.get("problemRevision")) : undefined}
                 savedIds={new Set(readAidtInterviews(savedDraft?.fields ?? {}).map(record => record.id))}
-                onCreate={() => undefined} onOpen={id => {
+                onCreate={createAndOpen} onOpen={id => {
                   if (savedDraft && readAidtInterviews(savedDraft.fields).some(record => record.id === id)) router.push(entityHref(id));
                 }} />
               {save}
 
             </>
           : step.id === 3 ? <>
-              <AidtDefinitionDirectory projectId={projectId} draft={draft} savedDraft={savedDraft} update={update} readOnly={!canWrite} nativeChat requestSave={requestEntitySave}
+              <AidtDefinitionDirectory projectId={projectId} draft={draft} savedDraft={savedDraft} update={update} readOnly={!canWrite} nativeChat onCreate={createAndOpen} requestSave={requestEntitySave}
                 availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision}
                 discoveryCardFields={shared.stages[2]?.content.draft.fields} entityHref={entityHref} />
               {save}
 
             </>
           : step.id === 4 ? <>
-              <AidtIdeaDirectory draft={draft} saved={savedDraft} href={entityHref} update={update} readOnly={!canWrite} saveDraft={shared.saveDraft} />
+              <AidtIdeaDirectory draft={draft} saved={savedDraft} href={entityHref} onCreated={openCreated} update={update} readOnly={!canWrite} saveDraft={shared.saveDraft} />
               {save}
             </>
-          : step.id === 5 ? <AidtPrototypeDirectory projectId={projectId} canWrite={canWrite} ideaRevision={ideaRevision} draft={savedDraft ?? draft} saveDraft={shared.saveDraft} mutationBusy={shared.write.phase === "saving" || shared.needsBaseReview} />
-          : <><AidtTestGroupDirectory projectId={projectId} draft={draft} savedDraft={savedDraft} update={update} readOnly={!canWrite}
+          : step.id === 5 ? <AidtPrototypeDirectory onCreated={openCreated} projectId={projectId} canWrite={canWrite} ideaRevision={ideaRevision} draft={savedDraft ?? draft} saveDraft={shared.saveDraft} mutationBusy={shared.write.phase === "saving" || shared.needsBaseReview} />
+          : <><AidtTestGroupDirectory onCreate={createAndOpen} projectId={projectId} draft={draft} savedDraft={savedDraft} update={update} readOnly={!canWrite}
               canSave={shared.canSave} save={shared.saveCurrent} automaticSave previousPrototype={shared.stages[5]?.content.draft}
               previousPrototypeRevision={shared.stages[5]?.revision} prototypeRevision={search.get("prototypeRevision")}
               prototypeEntity={search.get("prototypeEntity")} readPrototypeEntity={readAidtPrototypeEntityDraft}
@@ -533,7 +541,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     <div className={problemStep || activeEntityId ? "flex min-h-0 flex-1 flex-col" : "flex min-h-0 flex-1 flex-col xl:flex-row xl:gap-3 xl:p-3"}>
       <div className={problemStep || activeEntityId ? "flex shrink-0 items-center gap-2 border-b border-border-subtle px-4 py-2 lg:px-6" : "shrink-0 px-3 xl:w-44 xl:px-0"}>
         <Link href={activeEntityId ? directoryHref : aidtHref(projectId)} className="inline-flex shrink-0 items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ArrowLeft aria-hidden className="h-3.5 w-3.5" />{activeInterview ? "返回访谈列表" : activeEntityId ? problemStep ? "返回问题列表" : "返回产物列表" : "项目总览"}</Link>
-        {problemStep || activeEntityId ? (activeProblem?.title ?? projectName) && <span className="truncate border-l border-border-subtle pl-3 text-13 font-medium">{activeProblem?.title ?? projectName}</span>
+        {problemStep || activeEntityId ? entityHeading && <span className="truncate border-l border-border-subtle pl-3 text-13 font-medium">{entityHeading}</span>
           : <AidtStageNavigation stageNumber={step.id} href={id => aidtHref(projectId, id) + (search.get("history") === "1" ? "&history=1" : "")} reportHref={reportHref} reportActive={tool === "report" || reportMode} completed={completedStages} />}
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">

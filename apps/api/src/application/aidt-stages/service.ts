@@ -48,7 +48,7 @@ export class AidtStagesService {
         : aidtSavedEntityTitle(saved, entityId, purpose);
       if (title === null) throw new AidtStageError("AIDT_STAGE_NOT_FOUND");
       const threadId = aidtEntityThreadId(actor, stageId, entityId, purpose);
-      return unwrap(await tx.ensureEntityThread(threadId, title), decision);
+      return unwrap(await tx.ensureEntityThread(threadId, title, stageId === 2 && purpose === "stage"), decision);
     });
   }
   get(actor:StageActor,stageId:number) { const input=operations.get.in.safeParse({projectId:actor.projectId,stageId}); if(!input.success) throw new AidtStageError("AIDT_STAGE_INVALID"); return this.access(actor,false,async(tx,d)=>({stage:unwrap(await tx.current(stageId),d)})); }

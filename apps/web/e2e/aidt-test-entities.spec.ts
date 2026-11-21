@@ -96,7 +96,7 @@ async function openTest(page: Page, href: string) {
   return routeThread(page)!;
 }
 
-test("AIDT testing entities bind an immutable Design and isolate parallel native Chats and survey feedback", async ({ page, context }, info) => {
+test("AIDT test groups bind an immutable Design and isolate parallel native Chats and survey feedback", async ({ page, context }, info) => {
   test.skip(!isAidtModuleEnabled(), "Run with the explicit AIDT full-stack configuration.");
   test.setTimeout(180_000);
   await page.goto("/login");
@@ -116,7 +116,7 @@ test("AIDT testing entities bind an immutable Design and isolate parallel native
 
   await page.goto(`${pathname}?step=6&prototypeRevision=${prototype.revision}`);
   const directory = page.getByTestId("aidt-test-group-directory");
-  await expect(directory.getByTestId("aidt-entity-card")).toHaveCount(0);
+  await expect(directory.getByText(/选一个已确认的原型/)).toBeVisible();
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
   const hrefs: string[] = [];
   for (const name of ["A 赶课访谈", "B 非高峰问卷"]) {
@@ -124,10 +124,10 @@ test("AIDT testing entities bind an immutable Design and isolate parallel native
     const dialog = page.getByRole("dialog", { name: "新建测试卡片" });
     await dialog.getByRole("textbox", { name: "测试名称" }).fill(name);
     await dialog.getByRole("button", { name: "创建测试卡片" }).click();
-    const card = directory.getByTestId("aidt-entity-card").filter({ has: page.getByRole("heading", { name, exact: true }) });
-    const link = card.getByRole("link", { name: `打开测试 ${name}`, exact: true });
-    await expect(link).toBeVisible();
-    hrefs.push(await link.evaluate(el => (el as HTMLAnchorElement).href));
+    await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
+    hrefs.push(page.url());
+    await page.goto(`${pathname}?step=6&prototypeRevision=${prototype.revision}`);
+    await expect(directory.getByRole("link", { name: `打开测试 ${name}` })).toBeVisible();
   }
   expect(hrefs).toHaveLength(2);
   const tabs = await Promise.all([context.newPage(), context.newPage(), context.newPage()]);

@@ -26,6 +26,7 @@ type Props = {
   prototypeEntities?: readonly { id: string; title: string; archived?: boolean }[];
   readPrototypeEntity?: AidtReadPrototypeEntity;
   readOnly: boolean;
+  onCreate?: (id: string, change: (old: AidtUiStageDraft) => AidtUiStageDraft) => Promise<boolean>;
   canSave: boolean;
   automaticSave?: boolean;
   save: () => Promise<void>;
@@ -39,7 +40,7 @@ export function AidtTestGroupDirectory(props: Props) {
   return <TestGroupDirectory key={key} {...props} sessionToken={session.sessionToken} userId={session.userId} />;
 }
 
-function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, automaticSave, update, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
+function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, automaticSave, update, onCreate, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
   const [name, setName] = React.useState("");
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<{ id: string; name: string }>();
@@ -48,6 +49,7 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
   const [requestId, setRequestId] = React.useState<string>();
   const [error, setError] = React.useState("");
   const [checking, setChecking] = React.useState(false);
+  const creationId = React.useRef<string | null>(null);
   const request = React.useRef<AbortController | null>(null);
   React.useEffect(() => () => request.current?.abort(), []);
 
@@ -78,16 +80,19 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
       const source = stage5 && (id ? readPrototypeEntity?.(stage5, id) : stage5);
       if (!source) throw new Error("source");
       const binding = createAidtQuestionSnapshot(source, exactRevision);
-      const group = binding.ok ? createAidtTestGroup(binding.snapshot, crypto.randomUUID(), id) : null;
+      const group = binding.ok ? createAidtTestGroup(binding.snapshot, creationId.current ??= crypto.randomUUID(), id) : null;
       if (!group || !binding.ok) throw new Error("binding");
       await resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, group.designId, group.versionId);
       if (controller.signal.aborted) return;
-      update(current => {
+      const change = (current: AidtUiStageDraft) => {
         const next = updateAidtTestGroup(current, { ...group, name: name.trim() });
         if (next === current || current.fields.questionSnapshot || current.fields.version?.trim()) return next;
         return { ...next, fields: { ...next.fields, version: binding.snapshot.prototypeRef, questionSnapshot: binding.serialized } };
-      });
-      setRequestId(group.id);
+      };
+      if (onCreate) {
+        if (!await onCreate(group.id, change)) { setError("测试未能保存。请重试创建。"); return; }
+      } else { update(change); setRequestId(group.id); }
+      creationId.current = null;
       setName("");
       setCreateOpen(false);
     } catch (failure) {
