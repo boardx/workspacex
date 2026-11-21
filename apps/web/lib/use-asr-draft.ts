@@ -39,7 +39,7 @@ export interface UseAsrDraftOptions {
    * 传给采音层——所以空闲时换设备，下次点开始即生效。空/未传 = 系统默认设备。
    */
   readonly deviceId?: string;
-  /** Opt in only for interview input; chat retains its existing terminal-error behavior. */
+  /** Resume live dictation after transient failures, retaining confirmed text. */
   readonly autoReconnect?: boolean;
 }
 

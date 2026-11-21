@@ -540,7 +540,7 @@ export async function main() {
           } });
         sensitiveEvidence.assertSafe(proof.assistantText);
         guard.completeTeaching(proof);
-        report.teachingEvidence.push({ ...proof, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
+        report.teachingEvidence.push({ ...proof, projectId, entityId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
         await capture(`${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}`, stageId);
       });
       if (!accepted) {

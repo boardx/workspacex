@@ -106,43 +106,20 @@ describe("useComposerVoiceSession", () => {
     expect(speech.stop).toHaveBeenCalledTimes(1);
   });
 
-  it("中途报错但已有 committedText/partialText ⇒ 收敛为 done，不再展示错误", () => {
-    let draft = "前文";
-    const opts = { setDraft: (t: string) => { draft = t; }, getDraft: () => draft };
+  it.each([
+    { committedText: "已有确认文字", partialText: "" },
+    { committedText: "", partialText: "未确认文字" },
+  ])("shows an interruption even when the draft already contains speech text", (text) => {
+    const opts = { setDraft: vi.fn(), getDraft: () => "原文" };
     let speech = makeSpeech();
     const { result, rerender } = renderHook(() => useComposerVoiceSession(speech, opts));
-
     act(() => result.current.start());
-    speech = withStatus(speech, "listening", { baseText: "前文", committedText: "已经转录的内容", elapsedSeconds: 4 });
-    draft = "前文 已经转录的内容";
+    speech = withStatus(speech, "listening", { ...text, elapsedSeconds: 4 });
     rerender();
-    expect(result.current.phase).toBe("listening");
-
-    // 上游中途报错（比如连接抖动）——底层直接跳到 error，不经过 idle。
-    speech = withStatus(speech, "error", { committedText: "已经转录的内容" });
+    speech = withStatus(speech, "error", { errorReason: "ASR_PROVIDER_UNAVAILABLE" });
     rerender();
-    expect(result.current.phase).toBe("done");
-    expect(result.current.transcribedChars).toBeGreaterThan(0);
-  });
-
-  it("中途报错但只有 partialText（还没落定成 committedText）⇒ 同样收敛为 done", () => {
-    // 2026-09-03 同作者复核评论指出的小缺口：上一条用例只实例化了 committedText，
-    // 没有单独覆盖"最后一段还停在 partial、还没等到 asr.final 就报错"这个真实时序
-    // （`useAsrDraft` 的 `onPartial` 先到、`onFinal` 还没到，上游连接就断了）。
-    let draft = "前文";
-    const opts = { setDraft: (t: string) => { draft = t; }, getDraft: () => draft };
-    let speech = makeSpeech();
-    const { result, rerender } = renderHook(() => useComposerVoiceSession(speech, opts));
-
-    act(() => result.current.start());
-    speech = withStatus(speech, "listening", { baseText: "前文", elapsedSeconds: 2 });
-    rerender();
-    expect(result.current.phase).toBe("listening");
-
-    // 只有 partialText 到达过，committedText 从未落定。
-    speech = withStatus(speech, "error", { committedText: "", partialText: "还在识别中的一段" });
-    rerender();
-    expect(result.current.phase).toBe("done");
+    expect(result.current.phase).toBe("error");
+    expect(opts.setDraft).not.toHaveBeenCalled();
   });
 
   it("中途报错且 committedText/partialText 均为空（哪怕草稿被手动改过）⇒ 仍如实报错", () => {
@@ -190,6 +167,20 @@ describe("useComposerVoiceSession", () => {
     speech = withStatus(speech, "error");
     rerender();
     expect(result.current.phase).toBe("error");
+  });
+
+  it("keeps dictating during sustained audio with unchanged RMS even with auto pause enabled", () => {
+    const opts = { setDraft: vi.fn(), getDraft: () => "" };
+    let speech = makeSpeech({ level: 0.5 });
+    const { result, rerender } = renderHook(() => useComposerVoiceSession(speech, opts));
+    act(() => result.current.setAutoPause(true));
+    act(() => result.current.start());
+    speech = withStatus(speech, "listening");
+    rerender();
+    act(() => vi.advanceTimersByTime(18_000));
+    expect(result.current.phase).toBe("listening");
+    expect(result.current.silenceHint).toBe(false);
+    expect(speech.stop).not.toHaveBeenCalled();
   });
 
   it("有声音就重置静音计时；关掉自动暂停则只提示不暂停", () => {

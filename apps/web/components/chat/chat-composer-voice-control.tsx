@@ -198,7 +198,7 @@ export function ComposerVoiceControl({
     : t("chatComposer.voiceInput");
 
   // Size the live capsule against the toolbar, including when chat is embedded in a narrow panel.
-  const inlineWidth = showTimer ? "w-[clamp(9rem,50cqw,14rem)]" : done || busy ? "w-36" : "";
+  const inlineWidth = showTimer ? "w-[clamp(9rem,50cqw,14rem)]" : "";
 
   return (
     <div ref={containerRef} className={`relative flex h-8 items-stretch overflow-visible rounded-pill border transition-colors duration-fast ${shell} ${inline ? `shrink-0 ${inlineWidth}` : ""}`}>
@@ -247,10 +247,10 @@ export function ComposerVoiceControl({
         <span
           data-testid="chat-task-workbench-composer-transcribed"
           title={statusMessage || undefined}
-          className="flex min-w-0 flex-1 items-center gap-1 pl-2 text-11 text-success"
+          className="flex shrink-0 items-center gap-1 whitespace-nowrap pl-2 pr-1 text-11 text-success"
         >
           <Check aria-hidden className="h-3 w-3 shrink-0" />
-          <span className="truncate">{t("chatComposer.voiceTranscribedShort")}</span>
+          <span>{t("chatComposer.voiceTranscribedShort")}</span>
         </span>
       ) : null}
       <TooltipProvider delayDuration={200}>
@@ -279,7 +279,7 @@ export function ComposerVoiceControl({
             className={`flex items-center text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover} ${
               inline ? `justify-center gap-1 ${canStop ? "shrink-0 rounded-pill px-2"
                 : showTimer || done ? "w-7 shrink-0 rounded-pill"
-                : busy ? "min-w-0 flex-1 rounded-pill px-1" : "rounded-pill px-2.5"}`
+                : "rounded-pill px-2.5"}`
                 : "gap-2 rounded-l-pill pl-3.5 pr-3"
             }`}
           >
@@ -295,7 +295,7 @@ export function ComposerVoiceControl({
             {(!inline || canStop || (!showTimer && !done)) ? (
               <span
                 data-testid={inline && busy ? (connecting ? "chat-mic-connecting" : "chat-mic-stopping") : undefined}
-                className={inline ? "truncate" : undefined}
+                className={inline ? (canStop ? "whitespace-nowrap [@container(max-width:25rem)]:sr-only" : "whitespace-nowrap") : undefined}
               >
                 {mainText}
               </span>

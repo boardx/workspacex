@@ -36,13 +36,18 @@ export function AidtInterviewOutput({ projectId, entityId, draft, frozenSourceId
     <section data-testid="aidt-interview-finding" className="space-y-2 border-t border-border pt-4">
       <article ref={printable}><h4 className="font-medium">{interview.code} · 人物发现卡</h4>{hasFinding ? <>
         <p className="text-12 text-muted-foreground">{confirmed ? "已核对" : "草稿"}</p>
-        <dl>{fields.filter(([, value]) => value).map(([label, value]) => <div key={label} className="mt-3"><dt className="text-12 text-muted-foreground">{label}</dt><dd className="whitespace-pre-wrap text-13">{value}</dd></div>)}</dl>
+        {finding.headline && <p className="whitespace-pre-wrap break-words text-13">{finding.headline}</p>}
+        <details className="mt-2 text-13"><summary className="cursor-pointer">发现详情与来源</summary>
+          <dl>{fields.filter(([label, value]) => label !== "一句发现" && value).map(([label, value]) => <div key={label} className="mt-2"><dt className="text-12 text-muted-foreground">{label}</dt><dd className="whitespace-pre-wrap break-words">{value}</dd></div>)}</dl>
+        </details>
       </> : <p className="text-13 text-muted-foreground">尚无访谈发现。</p>}</article>
       {confirmed && <Button variant="outline" size="sm" onClick={async () => {
         const element = printable.current;
         if (!element) return;
         setError("");
-        try { await printResearchPdf(element, interview.code + " 人物发现卡", { isCurrent: () => printable.current === element && draft === live.current }); }
+        const document = element.cloneNode(true) as HTMLElement;
+        document.querySelectorAll("details").forEach(detail => { detail.open = true; });
+        try { await printResearchPdf(document, interview.code + " 人物发现卡", { isCurrent: () => printable.current === element && draft === live.current }); }
         catch { setError("打印预览未能打开，请重试。"); }
       }}>导出人物发现卡 PDF</Button>}
       {error && <p role="alert">{error}</p>}

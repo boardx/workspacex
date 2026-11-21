@@ -122,6 +122,8 @@ export function AidtTestGroupOutput({ projectId, draft, activeEntityId, savedDra
   const proposed = proposal?.result.entityId === group.id && proposal.messageId !== group.confirmedFromMessageId;
   const shown = proposed && proposal ? { ...group, ...proposal.result } : group;
   const fields = visibleFields.filter(([key]) => shown[key]?.trim());
+  const primaryFields = fields.filter(([key]) => key === "task" || key === "reflection" || key === "evidenceGap");
+  const evidenceFields = fields.filter(([key]) => !primaryFields.some(([field]) => field === key));
   const saved = readAidtTestGroups(savedDraft?.fields ?? {}).find(item => item.id === activeEntityId && !item.archived);
   const confirmed = isAidtTestGroupConfirmed(group);
   const status = proposed ? "AI 草稿 · 待确认" : confirmed
@@ -133,13 +135,14 @@ export function AidtTestGroupOutput({ projectId, draft, activeEntityId, savedDra
       <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground">{status}</span>
     </div>
     {!fields.length && <p className="text-13 text-muted-foreground">讨论后，测试草稿会出现在这里。</p>}
-    {fields.length > 0 && <dl className="space-y-3">{fields.map(([key, title]) => <div key={key}>
+    {primaryFields.length > 0 && <dl className="space-y-3">{primaryFields.map(([key, title]) => <div key={key}>
       <dt className="text-12 font-medium">{title}</dt>
       <dd className="whitespace-pre-wrap break-words text-13">{shown[key]}</dd>
     </div>)}</dl>}
     {proposal && proposed && proposal.result.round && <p className="text-12 text-muted-foreground">下一动作草稿 · {proposal.result.round.nextAction || proposal.result.round.returnReason}</p>}
     <details className="border-t border-border pt-2 text-12">
       <summary className="cursor-pointer text-muted-foreground">原型版本与来源</summary>
+      {evidenceFields.length > 0 && <dl className="mt-2 space-y-2">{evidenceFields.map(([key, title]) => <div key={key}><dt className="font-medium">{title}</dt><dd className="whitespace-pre-wrap break-words">{shown[key]}</dd></div>)}</dl>}
       {session?.sessionToken && session.userId && <AidtTestPrototypeSource group={group} context={{ projectId, sessionToken: session.sessionToken, userId: session.userId }} readPrototypeEntity={readPrototypeEntity} />}
       {group.source && access?.source && <Link className="text-primary underline" href={projectResourceHref(group.source.kind, group.source.id, projectId)}>打开关联资料</Link>}
       {group.material && access?.material && <AidtResearchMaterialPreview projectId={projectId} reference={group.material} quote={group.said} />}

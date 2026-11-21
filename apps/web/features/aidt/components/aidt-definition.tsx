@@ -238,14 +238,14 @@ function DefinitionChatView({ props, entityId }: { props: AidtDefinitionProps; e
     {!filled.length ? <p className="text-13 text-muted-foreground">还没有产物草稿。</p> : <dl className="space-y-2 text-13">
       {filled.map(([label, value]) => <div key={label}><dt className="font-medium">{label}</dt><dd className="whitespace-pre-wrap break-words">{value}</dd></div>)}
     </dl>}
-    {selected.length > 0 && <section aria-label="引用材料" className="space-y-2 text-13">
-      <h4 className="font-medium">引用材料{evidence.revision ? ` · 第 2 步 V${evidence.revision}` : ""}</h4>
+    {selected.length > 0 && <details className="space-y-2 text-13">
+      <summary className="cursor-pointer font-medium">引用材料{evidence.revision ? ` · 第 2 步 V${evidence.revision}` : ""}</summary>
       {evidence.cards.filter(card => selected.includes(card.id)).map(card => <div key={card.id}>
         <p>{card.participantCode} · {card.headline || "人物发现"}</p>
         <DefinitionEvidenceSource projectId={projectId} card={card} source={evidence.sourceFields[researchMaterialKey("source", card.id)]} />
       </div>)}
       {evidence.unavailable && <p role="status">暂无法读取原版本。</p>}
-    </section>}
+    </details>}
   </section>;
 }
 

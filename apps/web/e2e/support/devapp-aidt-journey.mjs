@@ -84,6 +84,126 @@ export async function requireAcceptedS1Feedback(feedback) {
   if (await feedback() !== true) fail('S1_TEACHING_FEEDBACK_REQUIRED');
 }
 
+const textHash = value => createHash('sha256').update(value, 'utf8').digest('hex');
+const uuid = value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value ?? '');
+const textWithin = (value, limit = 6000) => typeof value === 'string' && Boolean(value.trim()) && value.length <= limit;
+
+/** Select the precise original turn, never the first passed S1 or a diagnostic fixture. */
+export function aidtS1Question(proofs, scope) {
+  if (!scope || !textWithin(scope.projectId, 256) || !uuid(scope.entityId) || !/^thr[A-Za-z0-9_.:-]{1,252}$/.test(scope.threadId ?? '')
+    || !/^[a-f0-9]{40}$/.test(scope.source ?? '') || !/^[0-9]+-[0-9]+$/.test(scope.tag ?? '')
+    || !['teaching-chat-stage-1', 'teaching-chat-stage-1-revision'].includes(scope.checkpoint)
+    || !textWithin(scope.prompt, 5000) || !Number.isSafeInteger(scope.revision) || scope.revision < 1) fail('S1_ACTUAL_QUESTION_UNVERIFIED');
+  const rows = Array.isArray(proofs) ? proofs.filter(row => row?.stageId === 1 && row.checkpoint === scope.checkpoint && row.syntheticProblemFixture === false) : [];
+  const proof = rows[0];
+  if (rows.length !== 1 || proof.status !== 'passed' || proof.projectId !== scope.projectId || proof.entityId !== scope.entityId
+    || proof.threadId !== scope.threadId || proof.source !== scope.source || proof.tag !== scope.tag || proof.prompt !== scope.prompt
+    || !textWithin(proof.assistantText) || proof.assistantTextSha256 !== textHash(proof.assistantText)
+    || proof.studentTextSha256 !== textHash(scope.prompt)
+    || ['runId','inputMessageId','assistantMessageId'].some(key => !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$/.test(proof[key] ?? ''))
+    || !Array.isArray(proof.sourceRevisions) || proof.sourceRevisions.length !== 1
+    || proof.sourceRevisions[0]?.stageId !== 1 || proof.sourceRevisions[0]?.revision !== scope.revision) fail('S1_ACTUAL_QUESTION_UNVERIFIED');
+  return Object.freeze({ projectId: scope.projectId, entityId: scope.entityId, threadId: scope.threadId,
+    runId: proof.runId, inputMessageId: proof.inputMessageId, assistantMessageId: proof.assistantMessageId,
+    assistantText: proof.assistantText, assistantTextSha256: proof.assistantTextSha256,
+    studentPrompt: scope.prompt, revision: scope.revision });
+}
+
+/** No default answer and no form-write fallback. This hook is not H03 dialogue signoff. */
+export async function prepareAidtS1NativeResponse(question, reviewStudentResponse) {
+  if (typeof reviewStudentResponse !== 'function') fail('S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED');
+  const review = await reviewStudentResponse(question);
+  if (review?.approved !== true || ['projectId','entityId','threadId','runId','inputMessageId','assistantMessageId','assistantTextSha256']
+    .some(key => review[key] !== question[key]) || !textWithin(review.response, 3000)
+    || review.response.trim() === question.assistantText.trim() || !textWithin(review.selectedDirection, 120)
+    || !textWithin(review.choiceReason, 650) || !textWithin(review.rewrittenTheme, 650)) fail('S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED');
+  const prompt = `${SYNTHETIC}。\n上次引导师的追问（仅供对照）：\n${question.assistantText}\n\n学生的回答：\n${review.response}\n本组选择的研究方向：${review.selectedDirection}\n选择及取舍理由：${review.choiceReason}\n学生重写命题：${review.rewrittenTheme}\n请按学生自己的选择更新工作坊草稿，逐字保留原始命题、研究范围和学生重写命题；仍未知的地方保留未知。只整理草稿，不确认成果，不调用工具、不生成文件。`;
+  if (prompt.length > 5000) fail('S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED');
+  return Object.freeze({ prompt, response: review.response, selectedDirection: review.selectedDirection,
+    choiceReason: review.choiceReason, rewrittenTheme: review.rewrittenTheme, question,
+    h03ConversationSignoff: false, teachingQualityAccepted: false });
+}
+
+/** One existing second native turn; no form mutation, retry, confirmation or extra send. */
+export async function runAidtS1NativeRevision({ question, original, reviewStudentResponse,
+  sendStudentResponse, readReply, readSaved, reload, assertUi }) {
+  const review = await prepareAidtS1NativeResponse(question, reviewStudentResponse);
+  await requireAcceptedS1Feedback(() => sendStudentResponse(review.prompt));
+  const reply = await readReply(review.prompt);
+  if (reply.projectId !== question.projectId || reply.entityId !== question.entityId || reply.threadId !== question.threadId
+    || reply.studentPrompt !== review.prompt || reply.revision !== original.revision
+    || ['runId','inputMessageId','assistantMessageId'].some(key => reply[key] === question[key])) fail('S1_NATIVE_RESPONSE_UNVERIFIED');
+  const draft = assertSavedAidtS1NativeDraft(await readSaved(), reply,
+    { initial: original.fields.initial, rewrittenTheme: review.rewrittenTheme, focus: review.selectedDirection });
+  await reload();
+  assertSavedAidtS1Revision(await readSaved(), draft);
+  await assertUi(draft);
+  return { draft, review, reply, h03ConversationSignoff: false, teachingQualityAccepted: false };
+}
+
+/** The reply must produce a new persisted draft for this exact entity, not a local preview. */
+export function assertSavedAidtS1NativeDraft(stage, proof, expected = {}) {
+  const fields = stage?.content?.draft?.fields;
+  let entity, draft; try { entity = JSON.parse(fields?.[`problemEntity:${proof.entityId}`]); draft = JSON.parse(fields?.[`problemDraft:${proof.entityId}`]); } catch { fail('S1_NATIVE_DRAFT_UNVERIFIED'); }
+  if (stage.projectId !== proof.projectId || stage.stageId !== 1 || !Number.isSafeInteger(stage.revision) || stage.revision <= proof.revision
+    || entity?.id !== proof.entityId || entity.archived !== false || !draft || Array.isArray(draft)
+    || !Array.isArray(stage.sourceStageRevisions) || stage.sourceStageRevisions.length
+    || Object.values(draft).some(value => typeof value !== 'string') || !textWithin(draft.initial)
+    || draft.draftTurnId !== proof.assistantMessageId || draft.roundCompletion || draft.problemReflectionConfirmed
+    || (expected.initial !== undefined ? draft.initial !== expected.initial : !proof.studentPrompt.includes(draft.initial))
+    || (expected.rewrittenTheme !== undefined && draft.rewrittenTheme !== expected.rewrittenTheme)
+    || (expected.focus !== undefined && draft.focus !== expected.focus)) fail('S1_NATIVE_DRAFT_UNVERIFIED');
+  if (expected.focus !== undefined && draft.problemDirections) {
+    let directions; try { directions = JSON.parse(draft.problemDirections); } catch { fail('S1_NATIVE_DRAFT_UNVERIFIED'); }
+    if (!Array.isArray(directions) || (directions.length && !directions.some(direction => direction?.id === draft.problemDirectionId
+      && direction.title === expected.focus && ['group','ai'].includes(direction.source)))) fail('S1_NATIVE_DRAFT_UNVERIFIED');
+  }
+  return { projectId: stage.projectId, entityId: proof.entityId, revision: stage.revision, fields: { ...draft } };
+}
+
+/** Confirmation changes only reflection/round flags; the reviewed saved content stays exact. */
+export function assertSavedAidtS1Revision(stage, expected, { revision, confirmed = false } = {}) {
+  const fields = stage?.content?.draft?.fields;
+  let entity, draft; try { entity = JSON.parse(fields?.[`problemEntity:${expected.entityId}`]); draft = JSON.parse(fields?.[`problemDraft:${expected.entityId}`]); } catch { fail('S1_REVIEWED_REVISION_UNVERIFIED'); }
+  if (stage.projectId !== expected.projectId || stage.stageId !== 1 || entity?.id !== expected.entityId || entity.archived !== false
+    || !draft || typeof draft !== 'object' || Array.isArray(draft) || !expected.fields || !textWithin(expected.fields.initial)
+    || Object.values(draft).some(value => typeof value !== 'string') || !Number.isSafeInteger(expected.revision) || expected.revision < 1
+    || !Number.isSafeInteger(stage.revision) || stage.revision < 1
+    || (confirmed && stage.revision <= expected.revision)
+    || (revision !== undefined ? stage.revision !== revision : confirmed ? stage.revision <= expected.revision : stage.revision !== expected.revision)) fail('S1_REVIEWED_REVISION_UNVERIFIED');
+  const { roundCompletion, ...actualFields } = draft;
+  const expectedFields = { ...expected.fields, ...(confirmed ? { problemReflectionConfirmed: 'true' } : {}) };
+  const canonical = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
+    ? Object.fromEntries(Object.entries(item).sort(([a],[b]) => a.localeCompare(b))) : item);
+  if (canonical(actualFields) !== canonical(expectedFields)) fail('S1_REVIEWED_REVISION_UNVERIFIED');
+  if (confirmed) {
+    if (!Array.isArray(stage.sourceStageRevisions) || stage.sourceStageRevisions.length) fail('S1_CONFIRMED_REVISION_UNVERIFIED');
+    const digest = textHash(canonical({ projectId: expected.projectId, stageId: 1,
+      draft: { fields: expectedFields, ideas: [], selectedIdeaId: '' }, sources: [] }));
+    const record = JSON.stringify({ schemaVersion: 1, projectId: expected.projectId, stageId: 1, digest });
+    if (fields.problemHandoffEntity !== expected.entityId || roundCompletion !== record || fields.roundCompletion !== record
+      || Object.entries(expectedFields).some(([key, value]) => fields[key] !== value)) fail('S1_CONFIRMED_REVISION_UNVERIFIED');
+  } else if (roundCompletion) fail('S1_REVIEWED_REVISION_UNVERIFIED');
+  return stage.revision;
+}
+
+export function assertAidtS1Handoff(href, scope, confirmed) {
+  let url; try { url = new URL(href, scope.origin); } catch { fail('S1_CONFIRMED_HANDOFF_UNVERIFIED'); }
+  if (!uuid(confirmed?.entityId) || !Number.isSafeInteger(confirmed.revision) || confirmed.revision < 1
+    || typeof href !== 'string' || url.origin !== scope.origin || url.username || url.password || url.hash
+    || url.pathname !== `/aidt/${encodeURIComponent(scope.projectId)}` || url.searchParams.getAll('step').length !== 1 || url.searchParams.get('step') !== '2'
+    || url.searchParams.getAll('problemEntity').length !== 1 || url.searchParams.get('problemEntity') !== confirmed.entityId
+    || url.searchParams.getAll('problemRevision').length !== 1 || url.searchParams.get('problemRevision') !== String(confirmed.revision)
+    || ['entity','history','summary'].some(key => url.searchParams.has(key))) fail('S1_CONFIRMED_HANDOFF_UNVERIFIED');
+  return url.href;
+}
+
+export function assertAidtS2Topic(record, confirmed) {
+  if (!uuid(confirmed?.entityId) || !Number.isSafeInteger(confirmed.revision) || confirmed.revision < 1
+    || !textWithin(confirmed.rewrittenTheme, 650) || record?.problemEntityId !== confirmed.entityId
+    || record?.topicRevision !== confirmed.revision || record?.topic !== confirmed.rewrittenTheme) fail('S2_CONFIRMED_TOPIC_UNVERIFIED');
+}
+
 export function ownedAidtEntityRoute(href, scope, { stage, entityId, report = false, revision } = {}) {
   let url;
   try { url = new URL(href, scope.origin); } catch { fail('ENTITY_ROUTE_INVALID'); }
@@ -150,8 +270,9 @@ export function interviewCodePattern(code) {
   return new RegExp(`^${code}(?:\\s|$)`);
 }
 
-export function hasInterviewPrerequisite({ s1, syntheticHandoff }) {
-  return s1 === true || syntheticHandoff === true;
+export function hasInterviewPrerequisite({ s1 }) {
+  // A separately confirmed problem is diagnostic evidence, never the original S1 handoff.
+  return s1 === true;
 }
 
 export function hasPendingProblemReview(reviews, problemHref, projectId) {
@@ -208,7 +329,7 @@ export function schematicPng(identity, ordinal) {
 
 export async function runAidtJourney({ page, expect, scope, checkpoint, capture, api,
   saveStage, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
-  armDesignCreate, armDesignGeneration, createAnonymousPage, savePrint, teachingFeedback }) {
+  armDesignCreate, armDesignGeneration, createAnonymousPage, savePrint, teachingFeedback, reviewS1StudentResponse }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
   const root = `/aidt/${encodeURIComponent(scope.projectId)}`;
   const origin = new URL(page.url()).origin;
@@ -345,6 +466,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   let interviewDirectory;
   const state = { s1: false, s2: false, s3: false, s4: false, s5: false, s6: false, interviews: [] };
   let step2Href, step3Href, step4Href, step5Href, step6Href, problemHref, problemRoute, personaHref, designId;
+  let firstQuestion, originalProblemDraft, confirmedProblem, diagnosticStep2Href;
   let problemDraftReady = false;
   const problemInitial = text('想了解校园午休中，赶课与闲暇两种情境如何影响饮品选择的犹豫。');
   // Fixed enum/booleans only: no request, URL query, account or error-stack material.
@@ -376,17 +498,19 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
     problemHref = page.url();
     report.s1Navigation.operation = 'native-teaching-feedback';
+    const initialRevision = await revision(1);
     await requireAcceptedS1Feedback(() => feedback(1, problemInitial));
-    const first = report.teachingEvidence.find(row => row.stageId === 1 && row.status === 'passed' && row.prompt === problemInitial);
-    if (!first?.assistantMessageId) fail('S1_INITIAL_TEACHING_RECEIPT_REQUIRED');
+    firstQuestion = aidtS1Question(report.teachingEvidence, { ...scope, entityId: problemRoute.entityId,
+      threadId: new URL(page.url()).searchParams.get('thread'), prompt: problemInitial, revision: initialRevision, checkpoint: 'teaching-chat-stage-1' });
     await expect.poll(async () => {
       const saved = await savedStage(1);
       const fields = JSON.parse(saved?.content?.draft?.fields?.[`problemDraft:${problemRoute.entityId}`] ?? '{}');
-      return fields.draftTurnId === first.assistantMessageId && !!fields.initial?.trim() && !fields.roundCompletion;
+      return fields.draftTurnId === firstQuestion.assistantMessageId && !!fields.initial?.trim() && !fields.roundCompletion;
     }, { timeout: 30000 }).toBe(true);
-    const savedInitial = JSON.parse((await savedStage(1)).content.draft.fields[`problemDraft:${problemRoute.entityId}`]).initial;
+    originalProblemDraft = assertSavedAidtS1NativeDraft(await savedStage(1), firstQuestion);
+    const savedInitial = originalProblemDraft.fields.initial;
     await expect(page.getByTestId('aidt-stage-output')).toContainText(savedInitial);
-    evidence(1).inputs.push({ name: '学生初始命题', content: problemInitial, format: '原生 Chat 学生消息', source: { entityId: problemRoute.entityId, inputMessageId: first.inputMessageId, runId: first.runId } });
+    evidence(1).inputs.push({ name: '学生初始命题', content: problemInitial, format: '原生 Chat 学生消息', source: { entityId: problemRoute.entityId, inputMessageId: firstQuestion.inputMessageId, runId: firstQuestion.runId } });
     report.s1Navigation.savedInitialObserved = true;
     report.s1Navigation.operation = 'verify-draft-not-complete';
     await go(); await expect(page.getByTestId('aidt-stage-save-1')).not.toHaveAttribute('data-completed', 'true');
@@ -395,40 +519,63 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   }, '01-problem-draft-overview');
 
   state.s1 = await check('s1-confirmed-reentry', 1, async () => {
-    if (!problemDraftReady || !problemRoute || !problemHref) fail('S1_SAVED_DRAFT_REQUIRED');
+    if (!problemDraftReady || !problemRoute || !problemHref || !firstQuestion || !originalProblemDraft) fail('S1_SAVED_DRAFT_REQUIRED');
     report.s1Navigation.operation = 'reenter-saved-problem-outcome';
-    const previous = await savedStage(1);
-    const original = JSON.parse(previous.content.draft.fields[`problemDraft:${problemRoute.entityId}`]);
+    assertSavedAidtS1Revision(await savedStage(1), originalProblemDraft);
     await openProblem();
-    await expect(page.getByTestId('aidt-stage-output')).toContainText(original.initial);
+    await expect(page.getByTestId('aidt-stage-output')).toContainText(originalProblemDraft.fields.initial);
     report.s1Navigation.reentrySavedInitialObserved = true;
-    report.s1Navigation.operation = 'native-teaching-feedback';
-    const clarification = text('我们想知道时间压力怎样影响午休的饮品选择，因为犹豫会影响用餐和上课时间。这只是小组猜测，还没有真实观察或访谈。我们选定赶课的学生，想了解他们如何决定是否排队。我们重写的研究问题是：赶课的学生在午休时如何决定是否排队买饮品？下一步想访谈两位学生，核对是否真的存在犹豫。请根据我们刚才的讨论更新工作坊问题草稿，保留未知。');
-    await requireAcceptedS1Feedback(() => feedback(1, clarification));
+    report.s1Navigation.operation = 'student-response-before-rewrite';
+    report.s1I3Review = { status: 'manual-response-review-required', h03ConversationSignoff: false, teachingQualityAccepted: false,
+      questionRunId: firstQuestion.runId, questionMessageId: firstQuestion.assistantMessageId, questionSha256: firstQuestion.assistantTextSha256,
+      prematureModelRewrite: Boolean(originalProblemDraft.fields.rewrittenTheme), prematureModelSelection: Boolean(originalProblemDraft.fields.problemDirectionId) };
+    let secondNativeReply;
+    const revised = await runAidtS1NativeRevision({ question: firstQuestion, original: originalProblemDraft,
+      reviewStudentResponse: reviewS1StudentResponse, sendStudentResponse: prompt => feedback(1, prompt),
+      readReply: async prompt => { secondNativeReply = aidtS1Question(report.teachingEvidence, { ...scope, entityId: problemRoute.entityId,
+        threadId: new URL(page.url()).searchParams.get('thread'), prompt, revision: originalProblemDraft.revision, checkpoint: 'teaching-chat-stage-1-revision' }); return secondNativeReply; },
+      readSaved: async () => { await expect.poll(async () => {
+        const saved = await savedStage(1);
+        const fields = JSON.parse(saved?.content?.draft?.fields?.[`problemDraft:${problemRoute.entityId}`] ?? '{}');
+        return saved.revision > originalProblemDraft.revision && fields.draftTurnId === secondNativeReply?.assistantMessageId;
+      }, { timeout: 30000 }).toBe(true); return savedStage(1); },
+      reload: () => openProblem(), assertUi: async draft => {
+        if (!matchesAidtProblemRoute(page.url(), problemRoute, true)) fail('S1_RESPONSE_ENTITY_CHANGED');
+        await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(firstQuestion.threadId);
+        await expect(page.getByTestId('aidt-stage-output')).toContainText(draft.fields.initial);
+        await expect(page.getByTestId('aidt-stage-output')).toContainText(draft.fields.rewrittenTheme);
+      } });
     report.s1Navigation.teachingCheckpointAccepted = true;
-    const last = report.teachingEvidence.find(row => row.stageId === 1 && row.status === 'passed' && row.prompt === clarification);
-    if (!last?.assistantMessageId) fail('S1_REVISED_TEACHING_RECEIPT_REQUIRED');
-    await expect.poll(async () => {
-      const stage = await savedStage(1);
-      const raw = JSON.parse(stage?.content?.draft?.fields?.[`problemDraft:${problemRoute.entityId}`] ?? '{}');
-      return stage.revision > previous.revision && raw.draftTurnId === last.assistantMessageId && !!raw.rewrittenTheme && !raw.roundCompletion;
-    }, { timeout: 30000 }).toBe(true);
-    const revised = await savedStage(1);
-    const proposed = JSON.parse(revised.content.draft.fields[`problemDraft:${problemRoute.entityId}`]);
-    await expect(page.getByTestId('aidt-stage-output')).toContainText(proposed.rewrittenTheme);
-    evidence(1).iterations.push({ action: '学生在原生 Chat 补充理由和来源并改写命题', before: original.initial, after: proposed.rewrittenTheme, before_revision: previous.revision, after_revision: revised.revision, entityId: problemRoute.entityId, inputMessageId: last.inputMessageId, assistantMessageId: last.assistantMessageId });
+    report.s1I3Review.status = 'native-student-response-and-rewrite-saved';
+    report.s1I3Review.responseInputMessageId = revised.reply.inputMessageId;
+    report.s1I3Review.responseRunId = revised.reply.runId;
+    evidence(1).iterations.push({ action: '学生回应实际追问并选择方向，在原生Chat改写命题', before: originalProblemDraft.fields.initial,
+      after: revised.draft.fields.rewrittenTheme, reason: revised.review.choiceReason, response: revised.review.response,
+      questionMessageId: firstQuestion.assistantMessageId, questionSha256: firstQuestion.assistantTextSha256,
+      before_revision: originalProblemDraft.revision, after_revision: revised.draft.revision, entityId: problemRoute.entityId,
+      inputMessageId: revised.reply.inputMessageId, assistantMessageId: revised.reply.assistantMessageId, h03ConversationSignoff: false });
     report.s1Navigation.operation = 'confirm-round-and-persist';
-    await reviewAndSave(1, btn('确认本轮成果并保存'));
-    // This one existing round control auto-saves; do not race it with a second CAS click.
-    await expect(page.getByTestId('aidt-round-completion')).toContainText('本轮成果已确认并保存', { timeout: 30000 });
-    step2Href = owned(await page.getByRole('link', { name: '继续第2步', exact: true }).getAttribute('href'));
+    const chatReview = page.getByRole('region', { name: '对话中的成果确认', exact: true });
+    await expect(chatReview).toContainText(revised.draft.fields.rewrittenTheme);
+    const [confirmationResponse] = await Promise.all([
+      page.waitForResponse(response => response.request().method() === 'PUT' && new URL(response.url()).pathname === `/api/projects/${scope.projectId}/aidt/stages/1`, { timeout: 30000 }),
+      reviewAndSave(1, btn('确认本轮成果并保存', chatReview)),
+    ]);
+    if (confirmationResponse.status() !== 200) fail('S1_CONFIRMATION_NOT_PERSISTED');
+    await expect(chatReview).toContainText('本轮成果已确认并保存', { timeout: 30000 });
+    const confirmedStage = await savedStage(1);
+    const confirmedRevision = assertSavedAidtS1Revision(confirmedStage, revised.draft, { confirmed: true });
+    confirmedProblem = { entityId: problemRoute.entityId, revision: confirmedRevision, rewrittenTheme: revised.draft.fields.rewrittenTheme };
+    report.s1I3Review.confirmedRevision = confirmedRevision;
+    step2Href = assertAidtS1Handoff(await chatReview.getByRole('link', { name: '继续第2步', exact: true }).getAttribute('href'), { origin, projectId: scope.projectId }, confirmedProblem);
     await shot('01-problem-confirmed', 1);
-    await follow('返回产物列表');
+    await follow('返回问题列表');
     report.s1Navigation.operation = 'verify-completed-overview-and-reload';
     await completed(1); await page.reload();
     await expect(page.getByTestId('aidt-stage-save-1')).toHaveAttribute('data-completed', 'true');
+    assertSavedAidtS1Revision(await savedStage(1), revised.draft, { revision: confirmedRevision, confirmed: true });
     await page.goto(owned(problemHref)); await expect(page.getByTestId('aidt-stage-output')).toContainText('方向已确认');
-    await expect(page.getByTestId('aidt-stage-output')).toContainText(proposed.rewrittenTheme);
+    await expect(page.getByTestId('aidt-stage-output')).toContainText(revised.draft.fields.rewrittenTheme);
     report.s1Navigation.operation = 'completed';
   }, '01-problem-reentry');
 
@@ -493,6 +640,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await confirmInInterviewChat(btn('确认这份问题清单', actions));
     const canonical = await readRecord();
     if (canonical?.code !== code || canonical.original !== initial || canonical.adopted !== adopted || canonical.guideConfirmed !== true) fail('INTERVIEW_CHAT_GUIDE_NOT_SAVED');
+    assertAidtS2Topic(canonical, confirmedProblem);
     await expect(inspector.getByTestId('aidt-interview-question-list')).toContainText(adopted);
     recordInterviewIteration(initial, revisionInput, `${code}问题初稿`, target);
     recordInterviewIteration(revisionInput, adopted, `${code}问题清单`, target);
@@ -512,22 +660,30 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       const initial = text('独立问题：午休时，在食堂饮品窗口的学生如何判断是否排队？我们没有真正采访；课堂练习用的排队经历只是小组猜测。我们选择午休赶课的学生，以时间信息为研究范围，希望追问最近一次排队和放弃经历。我们仍不知道等待信息从哪里获得。请根据这份完整材料整理工作坊问题草稿，保留猜测和待验证项。');
       if (!await feedback(1, initial, undefined, false, true)) fail('SYNTHETIC_PROBLEM_REAL_REPLY_REQUIRED');
       await reviewAndSave(1, btn('确认本轮成果并保存'));
-      step2Href = owned(await page.getByRole('link', { name: '继续第2步', exact: true }).getAttribute('href'));
-      const destination = new URL(step2Href);
+      diagnosticStep2Href = owned(await page.getByRole('link', { name: '继续第2步', exact: true }).getAttribute('href'));
+      const destination = new URL(diagnosticStep2Href);
       if (destination.searchParams.get('problemEntity') !== fixture.entityId || !Number(destination.searchParams.get('problemRevision'))) fail('INDEPENDENT_CONFIRMED_SOURCE_UNVERIFIED');
-      report.interviewPrerequisite = { mode: 'separately confirmed synthetic problem; original teaching unresolved', entityId: fixture.entityId, revision: Number(destination.searchParams.get('problemRevision')) };
+      report.diagnosticInterviewPrerequisite = { mode: 'diagnostic only; original teaching unresolved', entityId: fixture.entityId,
+        revision: Number(destination.searchParams.get('problemRevision')), href: diagnosticStep2Href, originalS1Passed: false,
+        formalContinuationAllowed: false, h03ConversationSignoff: false };
     });
   }
   const tenChatsOpened = await check('s2-ten-card-chats', 2, async () => {
-    if (!hasInterviewPrerequisite(state) || !step2Href) fail('S1_CONFIRMED_HANDOFF_REQUIRED');
+    if (!hasInterviewPrerequisite(state) || !step2Href || !confirmedProblem) fail('S1_CONFIRMED_HANDOFF_REQUIRED');
+    assertAidtS1Handoff(step2Href, { origin, projectId: scope.projectId }, confirmedProblem);
     const directory = new URL(step2Href); directory.searchParams.delete('entity'); directory.searchParams.delete('tool');
     interviewDirectory = owned(directory.href);
     report.interviewCardChats = [];
     for (let index = 1; index <= 10; index++) {
       const code = `U${String(index).padStart(2, '0')}`;
       await page.goto(interviewDirectory);
+      const topic = page.locator('summary').filter({ hasText: `已确认研究问题 · 第 1 步 V${confirmedProblem.revision}` });
+      await expect(topic).toBeVisible();
+      if (await topic.locator('..').getAttribute('open') === null) await topic.click();
+      await expect(topic.locator('..')).toContainText(confirmedProblem.rewrittenTheme);
       await click(btn('新建访谈')); await click(btn('创建访谈')); await saveStage(2);
       const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
+      assertAidtS2Topic(JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]), confirmedProblem);
       await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
         assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), assertReady: () => entityReady(2) });
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
@@ -585,7 +741,9 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     }
   }
   state.s2 = await check('s2-interview-handoff', 2, async () => {
-    if (!tenChatsOpened || state.interviews.some(interview => !interview.hasMaterial)) fail('TEN_CONFIRMED_INTERVIEWS_REQUIRED');
+    if (!state.s1 || !confirmedProblem || !step2Href) fail('S1_CONFIRMED_HANDOFF_REQUIRED');
+    assertAidtS1Handoff(step2Href, { origin, projectId: scope.projectId }, confirmedProblem);
+    if (!tenChatsOpened || state.interviews.length !== 10 || state.interviews.some(interview => !interview.hasMaterial)) fail('TEN_CONFIRMED_INTERVIEWS_REQUIRED');
     await page.goto(interviewDirectory);
     for (const interview of state.interviews) {
       await expect(page.getByRole('button', { name: new RegExp('^' + interview.code + '\\s.*发现卡已核对') })).toBeVisible();
@@ -604,6 +762,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
         assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), assertReady: () => entityReady(2) });
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(interview.threadId);
       await page.reload(); await output(interview.target);
+      assertAidtS2Topic(JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${interview.target.entityId}`]), confirmedProblem);
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(interview.threadId);
       await expect(page.getByTestId('aidt-interview-output')).toContainText(interview.code);
       const timeline = page.getByTestId('copilotkit-v2-messages');

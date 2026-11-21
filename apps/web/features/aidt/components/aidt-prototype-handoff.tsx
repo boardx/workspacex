@@ -109,7 +109,7 @@ export function AidtPrototypeEntityOutput({ stageDraft, presentationOnly, ...pro
       if (!readOnly) update(previous => updateAidtPrototypeEntityDraft(previous, designId, change));
     },
   };
-  if (presentationOnly) return <PrototypeArtifact {...entity} stageDraft={stageDraft} />;
+  if (presentationOnly) return <PrototypeArtifact {...entity} />;
   const fields = AIDT_OUTPUTS[5]!.fields.filter(field => !["idea", "hypothesis", "version"].includes(field.id));
   return <section className="space-y-4" data-testid="aidt-prototype-entity-output">
     <AidtPrototypeInputs {...entity} />
@@ -134,23 +134,27 @@ export function AidtPrototypeEntityOutput({ stageDraft, presentationOnly, ...pro
 }
 
 
-function PrototypeArtifact({ draft, designId, projectId, ideaRevision, workflow, stageDraft }: Props & { stageDraft: AidtUiStageDraft }) {
+function PrototypeArtifact({ draft, designId, projectId, ideaRevision, workflow }: Props) {
   const reference = readAidtPrototypeReference(draft);
   const confirmed = isAidtPrototypeHandoffConfirmed(draft);
   const proposal = readAidtSavedPrototypeDiscussion(draft);
-  const selected = readAidtConfirmedPrototypeHandoff(stageDraft);
-  const ready = workflow.matchesServer && workflow.savedPrototype && selected && aidtAllActivePrototypeEntitiesConfirmed(stageDraft);
   const canOpen = !aidtPrototypePreparationError(draft) && !!readAidtPrototypeInputSelection(draft) && workflow.matchesServer;
   return <section data-testid="aidt-prototype-entity-output" aria-label="当前原型产物" className="space-y-4">
     <div className="flex items-center justify-between gap-2"><h3 className="text-16 font-semibold">原型产物</h3><span className="text-12 text-muted-foreground">{confirmed && workflow.matchesServer ? "已确认" : "未完成"}</span></div>
-    <AidtPrototypeInputs workflow={workflow} projectId={projectId} designId={designId} ideaRevision={ideaRevision} draft={draft} readOnly update={() => undefined} />
-    {Object.entries(AIDT_PROTOTYPE_DISCUSSION_FIELDS).map(([key, label]) => {
-      const value = proposal?.[key as keyof typeof proposal] ?? draft.fields[key];
-      return value ? <div key={key}><h4 className="text-12 font-semibold">{label}</h4><p className="whitespace-pre-wrap break-words text-13">{value}</p></div> : null;
+    {["verificationQuestion", "beforeTestBelief"].map(key => {
+      const field = key as keyof typeof AIDT_PROTOTYPE_DISCUSSION_FIELDS;
+      const value = proposal?.[field] ?? draft.fields[field];
+      return value ? <div key={key}><h4 className="text-12 font-semibold">{AIDT_PROTOTYPE_DISCUSSION_FIELDS[field]}</h4><p className="whitespace-pre-wrap break-words text-13">{value}</p></div> : null;
     })}
+    <details className="space-y-2 text-13"><summary className="cursor-pointer font-medium">设计说明与来源</summary>
+      <AidtPrototypeInputs workflow={workflow} projectId={projectId} designId={designId} ideaRevision={ideaRevision} draft={draft} readOnly update={() => undefined} />
+      {Object.entries(AIDT_PROTOTYPE_DISCUSSION_FIELDS).filter(([key]) => key !== "verificationQuestion" && key !== "beforeTestBelief").map(([key, label]) => {
+        const value = proposal?.[key as keyof typeof proposal] ?? draft.fields[key];
+        return value ? <div key={key}><h4 className="text-12 font-semibold">{label}</h4><p className="whitespace-pre-wrap break-words">{value}</p></div> : null;
+      })}
+    </details>
     {reference && <p className="text-13" data-testid="aidt-prototype-recorded-reference">{aidtPrototypeVersionLabel(reference)}</p>}
     {canOpen && <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design", ideaRevision)}>打开 Design 工作台</Link></Button>}
-    {ready && <Button asChild variant="primary"><Link href={`${aidtHref(projectId, 6)}&${new URLSearchParams({ prototypeRevision: String(workflow.savedPrototype!.revision), prototypeEntity: selected.id })}`}>进入测试与迭代</Link></Button>}
   </section>;
 }
 
