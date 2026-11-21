@@ -936,12 +936,12 @@ export function CapabilityPicker({
         title={selected ? [t("chatPicker.currentTitle", { name: selected.name }), abilityHint].filter(Boolean).join("\n") : t("chatPicker.autoTitle")}
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-7 max-w-[11rem] min-w-0 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2.5 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
+        className="flex h-7 min-w-0 max-w-[min(100%,11rem)] items-center gap-1.5 whitespace-nowrap rounded-pill px-1.5 text-12 text-muted-foreground sm:px-2.5 transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
       >
         {selected ? <Avatar initials={selectedCard?.initials || abbrFor(selected)} avatarKey={selectedCard?.avatar?.key ?? null} tone="ai" size="xs" /> : null}
         {/* 复审 r1：芯片只放肖像 + 名字，能力清单移进 title 提示，不再两段截断。 */}
         <span data-testid="chat-task-workbench-capability-picker-name" className="truncate">{selected ? selected.name : t("chatPicker.autoTrigger")}</span>
-        <span aria-hidden className="text-9">▾</span>
+        <span aria-hidden className="shrink-0 text-9">▾</span>
       </button>
       <CapabilityPopover
         listings={listings}

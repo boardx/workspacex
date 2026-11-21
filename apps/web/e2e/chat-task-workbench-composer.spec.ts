@@ -75,6 +75,13 @@ test("TW-P0-5①②：Composer 是统一的两行结构，第一行为多行任�
   ] as const) {
     await expectAnchor(page, `chat-task-workbench-composer-${suffix}`, "TW-P0-5②", `Composer 缺少${what}`, 15_000);
   }
+  const draft = (await page.getByTestId("copilotkit-v2-input").boundingBox())!;
+  const materials = (await page.getByTestId("chat-attachment-input").boundingBox())!;
+  const send = (await page.getByTestId("copilotkit-v2-send").boundingBox())!;
+  expect(draft.y + draft.height).toBeLessThan(materials.y);
+  expect(Math.abs(materials.y - send.y)).toBeLessThan(4);
+  expect(draft.width).toBeGreaterThanOrEqual(send.x + send.width - materials.x - 1);
+
   // issue #2770 —— 「任务模式」「每次都先计划」两个手动开关不得再出现：要不要先计划
   // 由内核 `TaskClassifierMiddleware` 自动判（Phase 14 F02），不是用户点开关。
   for (const removed of ["task-mode", "always-plan-first"] as const) {
@@ -186,8 +193,13 @@ test("TW-P0-5⑥：设备选择是语音按钮的二级菜单，录音时显示�
   ] as const) {
     await expectAnchor(page, `chat-task-workbench-composer-recording-${suffix}`, "TW-P0-5⑥", `录音态缺少${what}`, 15_000);
   }
+  const level = page.getByTestId("chat-task-workbench-composer-recording-level");
+  const desktopLevelWidth = (await level.boundingBox())!.width;
   await page.setViewportSize(narrowViewport);
   expect(await composerChromeHeight()).toBeCloseTo(narrowChromeHeight);
+  expect(desktopLevelWidth).toBeGreaterThan((await level.boundingBox())!.width);
+  const timer = page.getByTestId("chat-task-workbench-composer-recording-timer");
+  expect(await timer.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
   await page.getByTestId("chat-task-workbench-composer-recording-pause").click();
   await expectAnchor(page, "chat-task-workbench-composer-paused", "TW-P0-5⑥", "点「暂停」后没有暂停态", 30_000);
   await expect(mic).toHaveAccessibleName("继续语音输入");
