@@ -898,9 +898,20 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       expect(linkedEntities.sort()).toEqual([...expectedCards].sort());
       return { entityId, sourceRevision, target };
     };
+    const assertDefinitionTeachingSources = async ({ entityId, sourceRevision }) => {
+      const turn = report.teachingEvidence.findLast(item => item.stageId === 3 && item.entityId === entityId && item.status === 'passed');
+      if (!turn?.runId) fail('S3_DEFINITION_TEACHING_RUN_NOT_BOUND');
+      const receipt = await api(`/api/agent-runs/${encodeURIComponent(turn.runId)}/aidt-context`);
+      if (receipt.status !== 200 || receipt.data?.projectId !== scope.projectId || receipt.data?.stageId !== 3
+        || !Array.isArray(receipt.data.entityReferences)) fail('S3_DEFINITION_CONTEXT_RECEIPT_UNAVAILABLE');
+      const sources = receipt.data.entityReferences.filter(row => row.stageId === 2);
+      expect(sources.every(row => row.revision === sourceRevision)).toBe(true);
+      expect([...new Set(sources.map(row => row.entityId))].sort()).toEqual([...expectedCards].sort());
+    };
     const persona = await createDefinition('Persona', '新建画像', '创建画像', '打开用户画像对话');
     const input = text(`我们的合成画像名为「${personaName}」。情境是午休点单，行为是比较等待时间，需求是了解等待信息；仅适用本测试夹具。请依据本画像选中的两个访谈发现整理画像草稿。`);
     if (!await feedback(3, input)) fail('S3_PERSONA_TEACHING_REPLY_REQUIRED');
+    await assertDefinitionTeachingSources(persona);
     await confirmDefinition(); personaHref = page.url();
     evidence(3).inputs.push({ name: '画像草稿', content: input, format: '原生 Chat 学生消息', source: { entityId: persona.entityId, sourceRevision: persona.sourceRevision } });
     evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with two selected discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
@@ -909,6 +920,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const confirmHmw = async topic => {
       const hmw = await createDefinition('Hmw', '新建 HMW', '创建HMW', '打开HMW对话');
       if (!await feedback(3, topic)) fail('S3_HMW_TEACHING_REPLY_REQUIRED');
+      await assertDefinitionTeachingSources(hmw);
       await click(btn('核对草稿和来源', definitionActions));
       const personaGroup = definitionActions.getByRole('group', { name: '关联已确认画像', exact: true });
       const personaChoice = personaGroup.getByRole('checkbox');
