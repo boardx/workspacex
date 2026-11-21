@@ -351,21 +351,32 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   }, '02-empathy');
 
   await check('s2-distinct-threads', 2, async () => {
-    if (!state.s2 || !interviewDirectory || state.interviews.length !== 2) fail('S2_CONFIRMED_HANDOFF_REQUIRED');
-    for (let index = 3; index <= 10; index++) {
+    // This storage and navigation check remains meaningful if upstream teaching fails.
+    // The full journey still requires the independent confirmed S1→S2 handoff check.
+    if (!state.s2) {
+      await go(2);
+      interviewDirectory = owned(page.url());
+      state.interviews = [];
+    }
+    for (let index = state.interviews.length + 1; index <= 10; index++) {
       const code = `U${String(index).padStart(2, '0')}`;
-      await page.goto(interviewDirectory); await click(btn('新建访谈')); await saveStage(2);
-      await click(page.getByRole('button', { name: interviewCodePattern(code) }));
+      await page.goto(interviewDirectory);
+      await expect(page.getByTestId('aidt-shared-save')).toBeVisible();
+      const entry = page.getByRole('button', { name: interviewCodePattern(code) });
+      if (!await entry.isVisible()) {
+        await click(btn('新建访谈')); await saveStage(2);
+      }
+      await click(entry);
       state.interviews.push({ href: page.url(), code });
     }
     const threadIds = new Map();
     const observed = [];
-    const interviewGoal = code => /^U0[12]$/.test(code)
+    const interviewGoal = code => state.s2 && /^U0[12]$/.test(code)
       ? text(`核对${code}所代表的合成情境差异。`)
       : text(`访谈 ${code} 的独立产物核对 ${unique}`);
     for (const interview of state.interviews) {
       await page.goto(owned(interview.href)); await output();
-      if (!/^U0[12]$/.test(interview.code)) {
+      if (!state.s2 || !/^U0[12]$/.test(interview.code)) {
         await fill('想了解什么', interviewGoal(interview.code)); await saveStage(2);
       }
       await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
