@@ -235,6 +235,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     evidence(stage).completion = { confirmed: true, saved: savedRevision > 0, saved_revision: savedRevision, dashboard_marked: true, reload_persisted: true, screenshot_refs: [`${String(stage).padStart(2,'0')}-completed-overview.png`,`${String(stage).padStart(2,'0')}-completed-after-reload.png`] };
     evidence(stage).outputs.push({ name: `第${stage}步已确认成果`, format: 'WorkspaceX shared stage record', status: 'pass', evidence: `saved revision V${savedRevision}; normal UI confirmation, dashboard and reload observed` });
   };
+  let interviewDirectory;
   const state = { s1: false, s2: false, s3: false, s4: false, s5: false, s6: false, interviews: [] };
   let step2Href, step3Href, step4Href, step5Href, step6Href, problemHref, problemRoute, personaHref, designId;
   let problemDraftReady = false;
@@ -313,6 +314,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   state.s2 = await check('s2-interview-handoff', 2, async () => {
     if (!state.s1 || !step2Href) { await go(2); fail('S1_CONFIRMED_HANDOFF_REQUIRED'); }
     const directory = new URL(step2Href); directory.searchParams.delete('entity'); directory.searchParams.delete('tool');
+    interviewDirectory = owned(directory.href);
     for (let index = 1; index <= 2; index++) {
       await page.goto(owned(directory.href)); await click(btn('新建访谈')); await saveStage(2);
       const code = `U0${index}`; await click(page.getByRole('button', { name: interviewCodePattern(code) }));
@@ -349,16 +351,41 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   }, '02-empathy');
 
   await check('s2-distinct-threads', 2, async () => {
-    if (state.interviews.length !== 2) fail('TWO_INTERVIEWS_REQUIRED');
-    const threadIds = [];
-    for (const interview of state.interviews) {
-      await page.goto(owned(interview.href)); await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
-      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr/);
-      threadIds.push(new URL(page.url()).searchParams.get('thread'));
+    if (!state.s2 || !interviewDirectory || state.interviews.length !== 2) fail('S2_CONFIRMED_HANDOFF_REQUIRED');
+    for (let index = 3; index <= 10; index++) {
+      const code = `U${String(index).padStart(2, '0')}`;
+      await page.goto(interviewDirectory); await click(btn('新建访谈')); await saveStage(2);
+      await click(page.getByRole('button', { name: interviewCodePattern(code) }));
+      state.interviews.push({ href: page.url(), code });
     }
-    expect(new Set(threadIds).size).toBe(2);
-    await page.goto(owned(state.interviews[0].href)); await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds[0]);
-    await page.reload(); await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds[0]);
+    const threadIds = new Map();
+    const observed = [];
+    const interviewGoal = code => /^U0[12]$/.test(code)
+      ? text(`核对${code}所代表的合成情境差异。`)
+      : text(`访谈 ${code} 的独立产物核对 ${unique}`);
+    for (const interview of state.interviews) {
+      await page.goto(owned(interview.href)); await output();
+      if (!/^U0[12]$/.test(interview.code)) {
+        await fill('想了解什么', interviewGoal(interview.code)); await saveStage(2);
+      }
+      await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
+      threadIds.set(interview.code, new URL(page.url()).searchParams.get('thread'));
+    }
+    expect(new Set(threadIds.values()).size).toBe(10);
+    for (const interview of [...state.interviews].reverse()) {
+      await page.goto(interviewDirectory);
+      await expect(page.getByTestId('copilotkit-v2-input')).toHaveCount(0);
+      await click(page.getByRole('button', { name: interviewCodePattern(interview.code) }));
+      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds.get(interview.code));
+      await page.reload(); await output();
+      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(threadIds.get(interview.code));
+      await expect(page.getByLabel('受访者代号', { exact: true })).toHaveValue(interview.code);
+      await expect(page.getByRole('textbox', { name: '想了解什么', exact: true })).toHaveValue(interviewGoal(interview.code));
+      expect(new URL(page.url()).searchParams.get('entity')).toBe(new URL(interview.href).searchParams.get('entity'));
+      observed.push({ code: interview.code, stableThread: true, rightInspector: true, directoryReentry: true, refresh: true });
+    }
+    report.interviewIsolation = observed;
     report.independentEntityThreadsVerified = true;
   }, '02-independent-chat');
 
