@@ -35,32 +35,39 @@ export function AidtInterviewConversation({ interview, messages, loading, runnin
 }) {
   const turns = React.useMemo(() => messages.filter((turn): turn is Turn & { content: string } =>
     (turn.role === "assistant" || turn.role === "user") && typeof turn.content === "string" && !!turn.content.trim()), [messages]);
-  const initial = turns.find(turn => turn.role === "user")?.content.trim() ?? "";
+  const studentDrafts = turns.filter(turn => turn.role === "user");
+  const initial = studentDrafts.find(turn => turn.content.trim().length <= 1000)?.content.trim() ?? "";
+  const oversized = !initial && studentDrafts.length > 0;
   const last = turns.at(-1);
   const [selected, setSelected] = React.useState("");
   const [edited, setEdited] = React.useState<string | null>(null);
   const [findingMessage, setFindingMessage] = React.useState("");
   const recorded = Boolean(interview.original.trim());
+  const guideBoundary = turns.findIndex(turn => turn.id === interview.guideConfirmedAfterMessageId);
 
   React.useEffect(() => {
     if (readOnly || loading || running || interview.guideConfirmed) return;
-    if (!recorded && initial && initial.length <= 1000) onApply({ original: initial });
-    if (interview.adopted || last?.role !== "assistant") return;
-    const proposal = readAidtInterviewGuideDraft(last.content);
-    if (proposal) onApply({ adopted: proposal });
-  }, [initial, loading, running, recorded, readOnly, interview.adopted, interview.guideConfirmed, last?.role, last?.content, onApply]);
+    const original = !recorded && initial ? initial : undefined;
+    const mayRefresh = edited === null && (!interview.adopted || Boolean(interview.guideProposalMessageId));
+    const proposal = mayRefresh && last?.role === "assistant" && last.id !== interview.guideProposalMessageId
+      ? readAidtInterviewGuideDraft(last.content) : "";
+    if (original || proposal) onApply({
+      ...(original ? { original } : {}),
+      ...(proposal && last ? { adopted: proposal, guideProposalMessageId: last.id } : {}),
+    });
+  }, [initial, loading, running, recorded, readOnly, edited, interview.adopted, interview.guideConfirmed, interview.guideProposalMessageId, last, onApply]);
 
   React.useEffect(() => {
     if (readOnly || loading || !interview.guideConfirmed || !interview.consent?.notes || !draft || !update) return;
     const transcript = readAidtInterviewTranscript(draft.fields, interview.id);
-    if (!transcript?.checked || getAidtInterviewFinding(draft, interview).headline) return;
-    const studentObservation = [...turns].reverse().filter(turn => turn.role === "user")
+    if (!transcript?.checked || guideBoundary < 0 || getAidtInterviewFinding(draft, interview).headline) return;
+    const studentObservation = turns.slice(guideBoundary + 1).reverse().filter(turn => turn.role === "user")
       .map(turn => /^(?:访谈发现|发现|观察)[：:]\s*([\s\S]+)$/u.exec(turn.content.trim())?.[1]?.trim())
       .find(value => value && value.length <= 1700);
     if (studentObservation) update(old => writeAidtInterviewFinding(old, interview, {
       headlineKind: "student-summary", headline: Array.from(studentObservation).slice(0, 500).join(""), context: studentObservation, quote: "",
     }));
-  }, [draft, interview, loading, readOnly, turns, update]);
+  }, [draft, guideBoundary, interview, loading, readOnly, turns, update]);
 
   if (loading || readOnly) return null;
   if (interview.guideConfirmed && draft && update && projectId) {
@@ -70,7 +77,7 @@ export function AidtInterviewConversation({ interview, messages, loading, runnin
     const finding = getAidtInterviewFinding(draft, interview);
     const ready = aidtInterviewFindingReady(draft, interview, projectId);
     const confirmed = isAidtInterviewConfirmed(draft.fields, interview.id);
-    const findings = turns.filter(turn => turn.role === "user" && turn.content.trim() !== interview.original.trim() && turn.content.trim().length <= 1700);
+    const findings = turns.slice(guideBoundary + 1).filter(turn => turn.role === "user" && turn.content.trim() !== interview.original.trim() && turn.content.trim().length <= 1700);
     return <section aria-label="访谈进度" className="space-y-3 rounded-container border border-border p-3 text-13">
       <p role="status">{savedFinding && confirmed ? "访谈已完成" : savedGuide ? "问题清单已确认" : "问题清单等待保存"}</p>
       <details className="space-y-3">
@@ -107,7 +114,7 @@ export function AidtInterviewConversation({ interview, messages, loading, runnin
   if (running || !turns.length || interview.guideConfirmed) return null;
   const text = edited ?? interview.adopted;
   return <section aria-label="从对话整理清单" className="space-y-2 rounded-container border border-border p-3 text-13">
-    {!recorded && initial.length > 1000 && <p>请在聊天里发一份 1000 字以内的问题。</p>}
+    {!recorded && oversized && <p>请在聊天里发一份 1000 字以内的问题。</p>}
     <label className="block">从对话选取问题
       <select className="mt-1 w-full rounded-control border border-border bg-background p-2" value={selected} onChange={event => {
         const id = event.currentTarget.value;
@@ -122,7 +129,7 @@ export function AidtInterviewConversation({ interview, messages, loading, runnin
       <label className="block">保留要问的问题，每行一题<textarea className="mt-1 w-full rounded-control border border-border bg-background p-2" rows={4} value={text} onChange={event => setEdited(event.currentTarget.value)} /></label>
       {text.trim().length > 1000 && <p role="status">请将问题清单整理到 1000 字以内。</p>}
       <Button size="sm" variant="primary" type="button" disabled={!recorded || !text.trim() || text.trim().length > 1000} onClick={() => {
-        onApply({ adopted: text.trim(), guideConfirmed: true });
+        onApply({ adopted: text.trim(), guideConfirmed: true, guideConfirmedAfterMessageId: last?.id, ...(interview.guideProposalMessageId ? { guideProposalMessageId: undefined } : {}) });
         requestSave?.();
         setSelected("");
         setEdited(null);

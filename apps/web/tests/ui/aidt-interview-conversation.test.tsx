@@ -29,7 +29,7 @@ it("retains the student's opening and lets them edit and explicitly adopt a turn
   expect(apply).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", {name:"确认这份问题清单"}));
   expect(save).toHaveBeenCalledTimes(1);
-  expect(apply).toHaveBeenLastCalledWith({ adopted: "上次看到新品时，你怎样作出选择？", guideConfirmed: true });
+  expect(apply).toHaveBeenLastCalledWith({ adopted: "上次看到新品时，你怎样作出选择？", guideConfirmed: true, guideConfirmedAfterMessageId: "2" });
 });
 
 it("projects an assistant guide as a draft and leaves confirmation to the student", () => {
@@ -39,6 +39,21 @@ it("projects an assistant guide as a draft and leaves confirmation to the studen
   render(<AidtInterviewConversation interview={{ ...interview, original: messages[0]!.content }}
     messages={[messages[0]!, reply]} loading={false} running={false} onApply={apply} requestSave={save} />);
   expect(apply).toHaveBeenCalledOnce();
-  expect(apply).toHaveBeenCalledWith({ adopted: proposal });
+  expect(apply).toHaveBeenCalledWith({ adopted: proposal, guideProposalMessageId: reply.id });
   expect(save).not.toHaveBeenCalled();
+});
+
+it("refreshes an untouched generated guide without overwriting an in-chat edit", () => {
+  const apply = vi.fn();
+  const draft = { ...interview, original: messages[0]!.content, adopted: "初稿", guideProposalMessageId: "2" };
+  const newer = { id: "3", role: "assistant", content: "1. 当时你先注意到什么？\n2. 你怎么选择？" };
+  const view = render(<AidtInterviewConversation interview={draft} messages={messages} loading={false} running={false} onApply={apply} />);
+  expect(apply).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "学生修改稿" } });
+  view.rerender(<AidtInterviewConversation interview={draft} messages={[...messages, newer]} loading={false} running={false} onApply={apply} />);
+  expect(apply).not.toHaveBeenCalled();
+  expect(screen.getByRole("textbox")).toHaveValue("学生修改稿");
+  view.unmount();
+  render(<AidtInterviewConversation interview={draft} messages={[...messages, newer]} loading={false} running={false} onApply={apply} />);
+  expect(apply).toHaveBeenCalledWith({ adopted: newer.content, guideProposalMessageId: newer.id });
 });

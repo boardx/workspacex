@@ -175,7 +175,7 @@ export function AidtInterviewOutput({ interview, draft, projectId }: { interview
     </div>
     {finding.headline && <div className="space-y-1">
       <h5 className="text-14 font-semibold">人物发现卡 · {confirmed ? "已确认" : "草稿"}</h5>
-      <p className="whitespace-pre-wrap break-words text-13">{finding.headline}</p>
+      <p className="whitespace-pre-wrap break-words text-13">{finding.headlineKind === "quote" ? "受访者原话" : "学生概括"} · {finding.headline}</p>
       <p className="whitespace-pre-wrap break-words text-13">{finding.context}</p>
       {finding.quote && <blockquote className="border-l border-border pl-2 text-12">{finding.quote}</blockquote>}
       {finding.sourceRef && <p className="text-12 text-muted-foreground">{finding.sourceRef}</p>}

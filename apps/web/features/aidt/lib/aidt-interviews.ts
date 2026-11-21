@@ -22,6 +22,8 @@ const Interview = z.object({
   goal: z.string().max(250),
   original: z.string().max(1000),
   adopted: z.string().max(1000),
+  guideProposalMessageId: z.string().min(1).max(256).optional(),
+  guideConfirmedAfterMessageId: z.string().min(1).max(256).optional(),
   guideConfirmed: z.boolean(),
   consent: z.object({ observedAt: z.string().datetime(), notes: z.boolean(), photos: z.boolean(), audio: z.boolean().default(false), capture: z.boolean().optional(), asr: z.boolean().optional() }).nullable(),
 });
