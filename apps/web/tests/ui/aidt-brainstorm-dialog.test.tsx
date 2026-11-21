@@ -24,7 +24,7 @@ it("creates a named, tagged brainstorm with the selected frozen HMW before openi
   expect(submit).toBeDisabled();
   fireEvent.change(dialog.getByRole("textbox", { name: "场次名称" }), { target: { value: "午休排队发散" } });
   fireEvent.change(dialog.getByTestId("card-create-tag-input"), { target: { value: "课堂" } });
-  fireEvent.change(dialog.getByRole("combobox", { name: "HMW", exact: true }), { target: { value: source.id } });
+  fireEvent.change(dialog.getByRole("combobox", { name: "HMW" }), { target: { value: source.id } });
   fireEvent.change(dialog.getByRole("combobox", { name: "发散方法" }), { target: { value: "reverse" } });
   fireEvent.change(dialog.getByRole("spinbutton", { name: "希望探索的点子数" }), { target: { value: "7" } });
   fireEvent.click(submit);
