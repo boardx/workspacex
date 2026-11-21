@@ -187,8 +187,8 @@ jobs:
           set -euo pipefail
           cd "$AIDT_ACCEPTANCE_ROOT/source"
           [[ "$(node -p 'require("./acceptance-source.json").controlSource')" == "$GITHUB_SHA" ]]
-          touch "$AIDT_ACCEPTANCE_ROOT/npmrc"
-          npm install --ignore-scripts --omit=optional --no-audit --no-fund --userconfig "$AIDT_ACCEPTANCE_ROOT/npmrc" --globalconfig "$AIDT_ACCEPTANCE_ROOT/npmrc" --cache "$AIDT_ACCEPTANCE_ROOT/npm-cache" > "$AIDT_ACCEPTANCE_ROOT/install.log" 2>&1
+          touch "$AIDT_ACCEPTANCE_ROOT/npm-user-config" "$AIDT_ACCEPTANCE_ROOT/npm-global-config"
+          npm install --ignore-scripts --omit=optional --no-audit --no-fund --userconfig "$AIDT_ACCEPTANCE_ROOT/npm-user-config" --globalconfig "$AIDT_ACCEPTANCE_ROOT/npm-global-config" --cache "$AIDT_ACCEPTANCE_ROOT/npm-cache" > "$AIDT_ACCEPTANCE_ROOT/install.log" 2>&1
           node node_modules/playwright/cli.js install chromium > "$AIDT_ACCEPTANCE_ROOT/browser-install.log" 2>&1
       - name: Run bounded live Dev acceptance and safe screenshots
         id: live
