@@ -347,7 +347,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     const groupReports = Object.keys(shared.stages[6]?.content.reports ?? {});
     return <section className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="aidt-step-entity-directory">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3">
-        <Link href={aidtHref(projectId)} className="inline-flex items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground hover:bg-muted"><ArrowLeft aria-hidden className="h-4 w-4" />项目总览</Link>
+        <Link href={aidtHref(projectId)} className="inline-flex items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted"><ArrowLeft aria-hidden className="h-4 w-4" />项目总览</Link>
         <h1 className="text-16 font-semibold">{hasSummary ? "小组报告" : step.title}</h1>
       </header>
       <div className="mx-auto w-full max-w-4xl space-y-5 p-4 sm:p-6">
