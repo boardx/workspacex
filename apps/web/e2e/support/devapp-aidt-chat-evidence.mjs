@@ -115,9 +115,12 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
       if (run.status === 'awaiting_tool_permission') {
         const requestedTool = run.pendingApproval?.toolName;
         const toolName = typeof requestedTool === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(requestedTool) ? requestedTool : null;
-        const approvalVisible = (await page.getByTestId('restored-run-approval').isVisible())
-          || (await page.getByTestId('chat-tool-permission-dialog').isVisible());
-        onEvent({ event: 'teaching-tool-review-required', stageId: scope.stageId, toolName, approvalVisible });
+        const approval = page.getByTestId('restored-run-approval');
+        const dialog = page.getByTestId('chat-tool-permission-dialog');
+        const open = approval.getByRole('button', { name: '打开待确认请求', exact: true });
+        if (await open.isVisible()) await open.click();
+        const approvalVisible = (await approval.isVisible()) || (await dialog.isVisible());
+        onEvent({ event: 'teaching-tool-review-required', stageId: scope.stageId, toolName, approvalVisible, dialogOpened: await dialog.isVisible() });
         fail('TEACHING_TOOL_REVIEW_REQUIRED');
       }
       if (run.status !== 'succeeded') return false;
