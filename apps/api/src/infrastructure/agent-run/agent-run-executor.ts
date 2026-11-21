@@ -245,7 +245,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       kick: (o) => this.kick(o),
     }, { orgId });
     await writeBackPendingRuns(
-      { runs: this.runs, clock: this.clock, log: this.log, events: this.events, citations: this.citations },
+      { runs: this.runs, clock: this.clock, log: this.log, events: this.events, citations: this.citations, aidtContexts: this.aidtContexts },
       { orgId },
     );
     /*
@@ -281,7 +281,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
           kick: (o) => this.kick(o),
         }, { orgId });
         await writeBackPendingRuns(
-          { runs: this.runs, clock: this.clock, log: this.log, events: this.events, citations: this.citations },
+          { runs: this.runs, clock: this.clock, log: this.log, events: this.events, citations: this.citations, aidtContexts: this.aidtContexts },
           { orgId },
         );
       }

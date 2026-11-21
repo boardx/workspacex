@@ -64,6 +64,7 @@ export const SaveInput = location.extend({ operationId: z.string().uuid(), expec
   if (isStageRequestTooLarge(v)) ctx.addIssue({code:"custom",message:"Stage request too large"});
 });
 export const operations = {
+  reconcileEntity: { method:"POST", path:"/projects/:projectId/aidt/stages/:stageId/entities/:entityId/reconcile", in:location.extend({stageId:z.union([z.literal(1),z.literal(2)]),entityId:AidtEntityId}).strict(),out:z.object({updated:z.boolean()}),err:StageError },
   entityThread: { method: "PUT", path: "/projects/:projectId/aidt/stages/:stageId/entities/:entityId/thread", in: entityLocation, out: z.object({ threadId: z.string().min(1) }), err: StageError },
   revision: { method: "GET", path: "/projects/:projectId/aidt/stages/:stageId/revision/:revision", in: location.extend({ revision: revision.positive() }), out: z.object({ stage: SharedStage.nullable() }), err: StageError },
   list: { method:"GET", path:"/projects/:projectId/aidt/stages", in:z.object({projectId:z.string().min(1)}), out:z.object({items:z.array(StageSummary)}), err:StageError },

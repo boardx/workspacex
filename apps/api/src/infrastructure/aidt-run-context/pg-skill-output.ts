@@ -1,0 +1,65 @@
+import { createHash } from "node:crypto";
+import type { TenantSession } from "../../application/ports/database.port";
+import type { AidtContextActor } from "../../application/aidt-run-context/ports";
+import type { AidtStagesService } from "../../application/aidt-stages/service";
+import { aidtEntityThreadId, aidtSavedEntityTitle } from "../../application/aidt-stages/entity-thread";
+import { projectProblemSkillDraft } from "../../application/aidt-stages/problem-skill-draft";
+import { projectInterviewSkillDraft } from "../../application/aidt-stages/interview-skill-draft";
+
+type Row = { run_id:string; message_id:string; user_text:string; assistant_text:string; source_revision:number|null; requested_by:string; };
+/** Receipt key in the normal append-only stage ledger. Version/variant bits follow UUID v5. */
+function operationId(runId:string) {
+  const b=createHash("sha256").update("aidt-skill-draft:"+runId).digest().subarray(0,16);
+  b[6]=(b[6]! & 15)|80; b[8]=(b[8]! & 63)|128;
+  const h=b.toString("hex");
+  return [h.slice(0,8),h.slice(8,12),h.slice(12,16),h.slice(16,20),h.slice(20)].join("-");
+}
+
+/** Called after accessIn locks and authorizes the current project/thread. The immutable selector
+ * binds the finished model answer to its real input message and the selected mounted Skill.
+ * Never use text, entity IDs or version numbers supplied by the browser to create an outcome. */
+export async function projectSavedSkillOutput(s:TenantSession, stages:AidtStagesService, actor:AidtContextActor,
+  stageId:number, entityId:string, runId?:string):Promise<boolean> {
+  if ((stageId!==1 && stageId!==2) || aidtEntityThreadId(actor,stageId,entityId,"stage")!==actor.threadId) return false;
+  const current=(await stages.get(actor,stageId)).stage;
+  if (!current || !aidtSavedEntityTitle(current,entityId,"stage")) return false;
+  const rows=await s.query<Row>(`
+    SELECT snap.run_id, snap.requested_by, human.body AS user_text, reply.body AS assistant_text, reply.id AS message_id,
+      (SELECT (ref->>'revision')::integer FROM jsonb_array_elements(snap.selector_json->'stageRevisions') ref
+        WHERE (ref->>'stageId')::integer=$4 LIMIT 1) AS source_revision
+    FROM aidt_run_context_snapshots snap
+    JOIN agent_runs r ON r.org_id=snap.org_id AND r.id=snap.run_id AND r.status='succeeded'
+      AND r.aidt_selector_hash=snap.selector_hash AND r.input_message_id=snap.input_message_id AND r.thread_id=snap.thread_id
+    JOIN chat_threads t ON t.org_id=snap.org_id AND t.id=snap.thread_id AND t.project_id=snap.project_id
+      AND t.visibility_scope='plenary' AND t.ownership_layer='project' AND NOT t.agent_private AND t.group_id IS NULL
+    JOIN chat_messages human ON human.org_id=t.org_id AND human.thread_id=t.id AND human.id=snap.input_message_id
+      AND human.author_kind='human' AND human.author_id=snap.requested_by
+      AND NOT human.raw_transcript AND COALESCE(human.visibility_scope,t.visibility_scope)='plenary'
+    JOIN chat_messages reply ON reply.org_id=t.org_id AND reply.thread_id=t.id AND reply.agent_run_id=r.id
+      AND reply.author_kind='agent' AND reply.reply_to_message_id=human.id AND NOT reply.raw_transcript
+      AND COALESCE(reply.visibility_scope,t.visibility_scope)='plenary'
+    WHERE snap.org_id=$1 AND snap.project_id=$2 AND snap.thread_id=$3 AND snap.selector_json->>'purpose'='stage'
+      AND (snap.selector_json->>'stageId')::integer=$4 AND snap.selector_json->>'entityId'=$5
+      AND snap.snapshot_json->'focus'->>'skillStableName'=$6
+      AND ($7::text IS NULL OR snap.run_id=$7)
+    ORDER BY human.created_at DESC,human.id DESC LIMIT 32`,
+  [actor.orgId,actor.projectId,actor.threadId,stageId,entityId,stageId===1?"aidt-understand":"aidt-empathize",runId??null]);
+  const recordKey=(stageId===1?"problemDraft:":"interviewRecord:")+entityId;
+  for (const row of rows.rows) {
+    const op=operationId(row.run_id);
+    const receipt=await s.query("SELECT 1 FROM aidt_stage_revisions WHERE org_id=$1 AND project_id=$2 AND stage_id=$3 AND operation_id=$4",
+      [actor.orgId,actor.projectId,stageId,op]);
+    if (receipt.rows.length) return false;
+    if (row.source_revision && row.source_revision!==current.revision) {
+      const base=(await stages.getRevision(actor,stageId,row.source_revision)).stage;
+      if (!base || base.content.draft.fields[recordKey]!==current.content.draft.fields[recordKey]) continue;
+    }
+    const project=stageId===1?projectProblemSkillDraft:projectInterviewSkillDraft;
+    const next=project(current.content.draft,entityId,{user:row.user_text,assistant:row.assistant_text,messageId:row.message_id});
+    if (!next) continue;
+    await stages.save(actor,{projectId:actor.projectId,stageId,operationId:op,expectedRevision:current.revision,
+      content:{schemaVersion:1,draft:next},sourceStageRevisions:current.sourceStageRevisions});
+    return true;
+  }
+  return false;
+}
