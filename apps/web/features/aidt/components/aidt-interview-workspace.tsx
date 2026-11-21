@@ -330,7 +330,7 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
         } />
         <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={transcript.checked} disabled={!editableEvidence || !transcript.text.trim() || !transcript.locator.trim()} onChange={event => {
           const checked = event.currentTarget.checked;
-          update(old => writeAidtInterviewTranscript(old, id, { ...transcript, checked }));
+          update(old => writeAidtInterviewTranscript(old, id, { ...transcript, checked }, projectId));
         }} />已对照原始材料校对</label>
       </>}
     </section>
