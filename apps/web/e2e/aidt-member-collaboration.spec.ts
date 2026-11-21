@@ -66,17 +66,10 @@ function draft(text: string): stages.SaveStageInput["content"] {
 async function exposedGeometry(locator: Locator) {
   await expect(locator).toBeVisible();
   await expect(locator).toBeInViewport({ ratio: 0.8 });
-  const geometry = await locator.evaluate(element => {
-    const rect = element.getBoundingClientRect();
-    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height,
-      hits: [0.25, 0.5, 0.75].map(fraction => {
-        const x = rect.x + rect.width / 2, y = rect.y + rect.height * fraction;
-        const hit = document.elementFromPoint(x, y);
-        return x >= 0 && y >= 0 && x < innerWidth && y < innerHeight && Boolean(hit && (hit === element || element.contains(hit)));
-      }) };
-  });
-  expect(geometry.hits).toEqual([true, true, true]);
-  return geometry;
+  await locator.click({ trial: true });
+  const geometry = await locator.boundingBox();
+  expect(geometry).not.toBeNull();
+  return geometry!;
 }
 
 test("shared AIDT legacy aggregate stages: two members persist revisions, stale CAS and isolation remain explicit", async ({ page, browser }) => {

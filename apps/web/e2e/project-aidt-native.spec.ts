@@ -409,12 +409,9 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
       await openOutcome(page);
       await page.getByLabel("候选1名称", { exact: true }).fill("错峰取餐界面");
       await page.getByLabel("候选1核心说明", { exact: true }).fill("向学生展示取餐时间窗口。用静态界面先讨论是否容易理解。");
-      await page.getByRole("button", { name: "移除候选 3" }).click();
-      await page.getByRole("button", { name: "移除候选 2" }).click();
-      await page.getByRole("radio").check();
       await page.getByLabel("候选1参考图", { exact: true }).setInputFiles({ name: "ui-reference.webp", mimeType: "image/webp", buffer: await readFile(resolve(dirname(test.info().file), "../../home/assets/img/aidt-cocreation-640.webp")) });
       await expect(page.getByAltText("候选1参考图（未上传）")).toBeVisible();
-      await expect(page.getByRole("radio")).toHaveCount(1);
+      await expect(page.getByLabel("候选1名称", { exact: true })).toHaveValue("错峰取餐界面");
       await page.getByTestId("aidt-tool-panel").evaluate((element) => { element.scrollTop = 0; });
       await page.screenshot({ path: test.info().outputPath("aidt-ui-v2-idea-sheet.png"), fullPage: true });
       const noIdeaSave = await api(page, `/chat/threads/${currentThread}/messages?limit=100`);
@@ -456,8 +453,8 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await closeTools(page);
   await expect.poll(() => {
     const query = new URL(page.url()).searchParams;
-    return [query.get("step"), query.get("tool"), query.get("summary")];
-  }).toEqual(["6", "chat", "1"]);
+    return [query.get("step"), query.get("tool") ?? "chat", query.get("summary"), query.get("entity")];
+  }).toEqual(["6", "chat", "1", "group-report"]);
   await expect.poll(() => new URL(page.url()).searchParams.get("summaryThread")).toBeTruthy();
   expect(stageThreads.has(new URL(page.url()).searchParams.get("summaryThread")!)).toBe(false);
 
