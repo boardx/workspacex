@@ -31,6 +31,7 @@ type Props = {
   ideaRevision?: string | null;
   draft?: AidtUiStageDraft;
   saveDraft?: SaveDraft;
+  onCreated?: (id: string) => void;
   mutationBusy?: boolean;
 };
 
@@ -40,7 +41,7 @@ export function AidtPrototypeDirectory(props: Props) {
   return <PrototypeCards key={scope} {...props} />;
 }
 
-function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft, saveDraft, mutationBusy }: Props) {
+function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft, saveDraft, mutationBusy, onCreated }: Props) {
   const [resources, setResources] = React.useState<ProjectResourceItem[] | null>(null);
   const [listError, setListError] = React.useState(false);
   const [refresh, reload] = React.useReducer((count: number) => count + 1, 0);
@@ -100,6 +101,7 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
         }
         if (!await saveDraft(old => updateAidtPrototypeCard(old, resource.id, name))) throw new Error("prototype card not saved");
         pending.current = null;
+        onCreated?.(resource.id);
       } else {
         const id = action.id;
         if (!await saveDraft(old => action.kind === "delete" ? archiveAidtPrototypeCard(old, id) : updateAidtPrototypeCard(old, id, name))) throw new Error("prototype card not saved");

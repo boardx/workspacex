@@ -27,7 +27,6 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   await expect(composer).toHaveCount(0);
   await expect(directory.getByRole("button", { name: "新建画像" })).toBeDisabled();
   await directory.getByRole("button", { name: "新建意外发现" }).click();
-  await directory.getByRole("link", { name: "打开意外发现对话" }).click();
   await expect(composer).toBeVisible();
   await sendViaWorkbench(page, "暂无意外发现");
   const artifact = page.getByRole("region", { name: "对话产物确认" });
@@ -38,9 +37,13 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   const personas = directory.getByRole("link", { name: "打开用户画像对话" });
   await newPersona.click();
   await page.getByRole("dialog").getByRole("button", { name: "创建画像" }).click();
+  await expect.poll(() => routeId(page, "thread")).toMatch(/^thr_aidt_/);
+  await page.getByRole("link", { name: "返回产物列表" }).click();
   await expect(personas).toHaveCount(1);
   await newPersona.click();
   await page.getByRole("dialog").getByRole("button", { name: "创建画像" }).click();
+  await expect.poll(() => routeId(page, "thread")).toMatch(/^thr_aidt_/);
+  await page.getByRole("link", { name: "返回产物列表" }).click();
   await expect(personas).toHaveCount(2);
   const first = (await personas.nth(0).getAttribute("href"))!;
   const second = (await personas.nth(1).getAttribute("href"))!;

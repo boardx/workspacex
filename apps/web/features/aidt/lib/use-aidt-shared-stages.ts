@@ -34,6 +34,25 @@ function aidtReportSignature(report: AidtSharedStage["content"]["summaryReport"]
 }
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 /** Server working drafts, never a completion/confirmation flag. Reads never replace an edited form. */
+function resolveDraftSources(stageId: number | null, draft: AidtUiStageDraft | undefined, chosenSourceStageRevisions: Source[]) {
+  // A captured test question stays attached to the historical saved prototype
+  // revision, even if the fifth-stage head advances. The API checks it exists.
+  const questionRevision = stageId === 6 && draft ? readAidtQuestionSnapshot(draft)?.sourceStageRevision : null;
+  const surpriseRevisionValue = draft ? readAidtSurpriseSourceRevision(draft) : null;
+  const surprise = stageId === 3 && draft ? parseAidtSurpriseReflection(draft) : null;
+  const surpriseRevision = surprise?.status === "found" && surprise.cardIds.length > 0 && !surprise.invalidCardIds && draft?.fields.surpriseConfirmed === "true" && surpriseRevisionValue !== null && Number.isSafeInteger(surpriseRevisionValue) && surpriseRevisionValue > 0 ? surpriseRevisionValue : null;
+  const definitionRevision = (stageId === 3 && draft ? readAidtDefinitionEvidenceRevision(draft.fields) : null) ?? surpriseRevision;
+  const ideaHmwRevision = stageId === 4 && draft ? readAidtIdeaHmwSource(draft)?.revision : null;
+  const lockedSourceStage = ideaHmwRevision ? { stageId: 3, revision: ideaHmwRevision }
+    : questionRevision ? { stageId: 5, revision: questionRevision }
+    : definitionRevision ? { stageId: 2, revision: definitionRevision }
+    : null;
+  const sourceStageRevisions = lockedSourceStage
+    ? [...chosenSourceStageRevisions.filter(source => source.stageId !== lockedSourceStage.stageId), lockedSourceStage].sort((a, b) => a.stageId - b.stageId)
+    : chosenSourceStageRevisions;
+  return { questionRevision, lockedSourceStage, sourceStageRevisions };
+}
+
 export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, drafts, canWrite, onHydrate, reportText = null, onHydrateReport, reportEntityId }: {
   enabled: boolean; scope: Scope | null; lifecycleKey: string; stageId: number | null;
   drafts: AidtUiDrafts; canWrite: boolean; onHydrate: (stageId: number, draft: AidtUiStageDraft) => void;
@@ -76,21 +95,7 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const draft = stageId ? drafts[stageId] : undefined;
   const signature = draft ? aidtSharedDraftSignature(draft) : "";
   const chosenSourceStageRevisions = stageId && sources?.key === editKey && sources.stages[stageId] !== undefined ? sources.stages[stageId]! : server?.sourceStageRevisions ?? [];
-  // A captured test question stays attached to the historical saved prototype
-  // revision, even if the fifth-stage head advances. The API checks it exists.
-  const questionRevision = stageId === 6 && draft ? readAidtQuestionSnapshot(draft)?.sourceStageRevision : null;
-  const surpriseRevisionValue = draft ? readAidtSurpriseSourceRevision(draft) : null;
-  const surprise = stageId === 3 && draft ? parseAidtSurpriseReflection(draft) : null;
-  const surpriseRevision = surprise?.status === "found" && surprise.cardIds.length > 0 && !surprise.invalidCardIds && draft?.fields.surpriseConfirmed === "true" && surpriseRevisionValue !== null && Number.isSafeInteger(surpriseRevisionValue) && surpriseRevisionValue > 0 ? surpriseRevisionValue : null;
-  const definitionRevision = (stageId === 3 && draft ? readAidtDefinitionEvidenceRevision(draft.fields) : null) ?? surpriseRevision;
-  const ideaHmwRevision = stageId === 4 && draft ? readAidtIdeaHmwSource(draft)?.revision : null;
-  const lockedSourceStage = ideaHmwRevision ? { stageId: 3, revision: ideaHmwRevision }
-    : questionRevision ? { stageId: 5, revision: questionRevision }
-    : definitionRevision ? { stageId: 2, revision: definitionRevision }
-    : null;
-  const sourceStageRevisions = lockedSourceStage
-    ? [...chosenSourceStageRevisions.filter(source => source.stageId !== lockedSourceStage.stageId), lockedSourceStage].sort((a, b) => a.stageId - b.stageId)
-    : chosenSourceStageRevisions;
+  const { questionRevision, lockedSourceStage, sourceStageRevisions } = resolveDraftSources(stageId, draft, chosenSourceStageRevisions);
   const conflicted = currentWrite.phase === "conflict";
   const needsBaseReview = conflicted && baseChoice?.key !== writeKey;
   const expectedRevision = baseChoice?.key === writeKey ? baseChoice.revision : server?.revision ?? 0;
@@ -191,12 +196,12 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
     // An explicit directory action writes against the saved head. Other edits in the local form stay local.
     const base = change ? server?.content.draft ?? emptyAidtUiDrafts()[stageId]! : draft;
     const next = change ? change(base) : base;
-    if ((change && next === base) || (!server && !aidtUiStageSummary(stageId, next))) return false;
+    if ((change && next === base) || (!change && !server && !aidtUiStageSummary(stageId, next))) return false;
     const nextSignature = change ? aidtSharedDraftSignature(next) : signature;
     const revision = change ? server?.revision ?? 0 : expectedRevision;
     const legacyReport = server?.content.summaryReport;
     const content = { schemaVersion: 1 as const, draft: clone(next), ...(legacyReport ? { summaryReport: legacyReport } : {}) };
-    const refs = clone(sourceStageRevisions);
+    const refs = clone(change ? resolveDraftSources(stageId, next, server?.sourceStageRevisions ?? []).sourceStageRevisions : sourceStageRevisions);
     const requestSignature = JSON.stringify([scope.projectId, stageId, revision, nextSignature, refs, legacyReport]);
     if (attempt.current?.key !== writeKey || attempt.current.signature !== requestSignature) attempt.current = { key: writeKey, signature: requestSignature, operationId: crypto.randomUUID() };
     const controller = new AbortController(); inFlight.current = { key: writeKey, controller };
@@ -210,7 +215,15 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
         const current = latest.current.drafts[stageId]!;
         const changedFields = { ...current.fields };
         for (const [field, value] of Object.entries(next.fields)) if (value !== base.fields[field]) changedFields[field] = value;
-        latest.current.onHydrate(stageId, { ...current, fields: changedFields });
+        const merged = { ...current, fields: changedFields };
+        if (next.ideas !== base.ideas) {
+          const previous = new Map(base.ideas.map(idea => [idea.id, idea]));
+          const local = new Map(current.ideas.map(idea => [idea.id, idea]));
+          merged.ideas = next.ideas.map(idea => idea === previous.get(idea.id) ? local.get(idea.id) ?? idea : idea);
+          merged.ideas.push(...current.ideas.filter(idea => !previous.has(idea.id) && !merged.ideas.some(item => item.id === idea.id)));
+        }
+        if (next.selectedIdeaId !== base.selectedIdeaId) merged.selectedIdeaId = next.selectedIdeaId;
+        latest.current.onHydrate(stageId, merged);
       }
       setWrite({ key: writeKey, phase: "saved", stage: result.stage, signature: nextSignature });
       setBaseChoice({ key: writeKey, revision: result.stage.revision });
@@ -227,6 +240,7 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
           setRead(old => { const values = { ...(old?.key === key ? old.stages : {}) }; if (result.stage) values[stageId] = result.stage; else delete values[stageId]; return { key, phase: "ready", stages: values }; });
           setWrite({ key: writeKey, phase: "conflict", error: "另一位成员已更新本步。本页内容保留，请比较服务器版本后再决定。", signature });
           if (change && latest.current.drafts[stageId] === draft && (matchesServer || (!server && !aidtUiStageSummary(stageId, draft)))) {
+            setBaseChoice({ key: writeKey, revision: result.stage?.revision ?? 0 });
             latest.current.onHydrate(stageId, clone(result.stage?.content.draft ?? emptyAidtUiDrafts()[stageId]!));
           }
         } catch { if (latest.current.writeKey === writeKey) { setRead(old => ({ key, phase: "error", stages: old?.key === key ? old.stages : {}, error: "检测到版本冲突，但最新版本读取失败。请重试读取后再保存。" })); setWrite({ key: writeKey, phase: "conflict", error: "本页内容保留，尚未覆盖服务器版本。", signature }); } }
