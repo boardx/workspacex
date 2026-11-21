@@ -58,8 +58,13 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
     if (!action || !canSubmit) return;
     setError(false);
     const { kind, id } = action;
-    const saved = await controller.saveDraft(old => kind === "create" ? tags.apply(addAidtProblem(old, id, trimmedTitle), id)
-      : kind === "edit" ? renameAidtProblem(old, id, trimmedTitle) : archiveAidtProblem(old, id));
+    const saved = await controller.saveDraft(old => {
+      if (kind === "create") {
+        const next = addAidtProblem(old, id, trimmedTitle);
+        return next === old ? old : tags.apply(next, id);
+      }
+      return kind === "edit" ? renameAidtProblem(old, id, trimmedTitle) : archiveAidtProblem(old, id);
+    });
     if (saved) {
       if (kind === "create") { focusCard.current = id; onCreated?.(id); }
       setAction(null);

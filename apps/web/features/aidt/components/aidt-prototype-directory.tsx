@@ -88,6 +88,7 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!action || !allowed || busy || !saveDraft || (action.kind !== "delete" && !name.trim())) return;
+    if (action.kind === "create" && onCreated && (!source || !selectedIdeas.length)) return;
     setBusy(true);
     setSaveError(false);
     try {
