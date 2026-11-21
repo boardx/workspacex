@@ -155,7 +155,8 @@ test("AIDT test groups bind an immutable Design and isolate parallel native Chat
     await sources.getByRole("combobox", { name: "测试方式" }).selectOption("survey");
     await sources.getByRole("combobox", { name: "关联项目问卷" }).selectOption(survey.id);
     await b!.getByRole("button", { name: "保存关联材料" }).click();
-    await expect(detail.getByRole("link", { name: "打开关联资料" })).toBeAttached();
+    await detail.getByText("原型版本与来源", { exact: true }).click();
+    await expect(detail.getByRole("link", { name: "打开关联资料" })).toBeVisible();
     await expect.poll(async () => {
       const { stage } = stageOperations.get.out.parse(await api(page, `/projects/${projectId}/aidt/stages/6`));
       return readAidtTestGroups(stage!.content.draft.fields).find(group => group.name === "B 非高峰问卷")?.source?.id;
