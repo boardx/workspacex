@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
 import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
-import { interviewCodePattern } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+import { interviewCodePattern, schematicPng } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
 const syntheticLoginValue = 'synthetic-only'; // Unit fixture, never an account credential.
@@ -271,6 +271,37 @@ test('normal first Design send preserves default service page count without clai
   assert.equal(request(guard, 'POST', '/api/pm-designs/design-qa/chat', { text: 'QA 456 normal first UI send' }).allow, true);
   assert.equal(guard.summary().designRequestedScreens, 'service-default');
   assert.equal(guard.summary().modelRequests, 1);
+});
+
+test('allows only the exact armed static PNG on the linked owned Design after question confirmation', () => {
+  const fileName = 'qa-456-prototype.png';
+  const bytes = schematicPng('456-1', 5);
+  const png = 'data:image/png;base64,' + bytes.toString('base64');
+  const body = { summary: 'AIDT 图片原型 · ' + createHash('sha256').update(png).digest('hex'),
+    ops: [{ op: 'addScreen', at: 0, frame: '图片原型', root: { type: 'image', props: { alt: fileName, src: png } } }] };
+  function setup() {
+    const { guard, bind } = owned(); bind(); guard.armDesignCreate();
+    const create = request(guard, 'POST', '/api/pm-designs', { name: '未命名设计', template: 'ui' });
+    guard.observe(create, 201, { project: { id: 'design-qa', name: '未命名设计', template: 'ui', ownerId: 'qa-user', frames: [], share: null } });
+    const link = request(guard, 'POST', `/api/projects/${project}/resources`, { projectId: project, kind: 'design', resourceId: 'design-qa' });
+    guard.observe(link, 200, {});
+    assert.throws(() => guard.armDesignImage({ id: 'design-qa', fileName, bytes }), /DESIGN_IMAGE_ARM_REJECTED/);
+    const stage = request(guard, 'GET', `/api/projects/${project}/aidt/stages/5`);
+    guard.observe(stage, 200, { stage: { projectId: project, stageId: 5, revision: 2, content: { draft: { fields: {
+      'prototypeEntity:design-qa': JSON.stringify({ verificationQuestionConfirmed: 'true', verificationQuestion: '验证理解？', prototypeIdeaSource: 'fixture' }),
+    } } } } });
+    assert.throws(() => guard.armDesignImage({ id: 'design-foreign', fileName, bytes }), /DESIGN_IMAGE_ARM_REJECTED/);
+    guard.armDesignImage({ id: 'design-qa', fileName, bytes });
+    return guard;
+  }
+  const path = '/api/pm-designs/design-qa/prototype/patch';
+  const allowed = setup();
+  assert.equal(request(allowed, 'POST', path, body).kind, 'design-image');
+  assert.equal(request(allowed, 'POST', path, body).allow, false);
+  const changed = structuredClone(body);
+  changed.ops[0].root.props.src += 'AAAA';
+  assert.equal(request(setup(), 'POST', path, changed).code, 'DESIGN_IMAGE_NOT_ARMED');
+  assert.equal(request(setup(), 'POST', '/api/pm-designs/design-foreign/prototype/patch', body).allow, false);
 });
 
 test('ordinary role is verified before UI creation and lead/admin never count as ordinary', () => {

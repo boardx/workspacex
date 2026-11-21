@@ -31,6 +31,7 @@ const validId = (id: string) => !!id.trim() && id !== "." && id !== ".." && !/[\
 const nativeLinks = designPrototype.PrototypeLink.array().array().optional();
 const nativeSummary = designWorkbench.PrototypeVersionSummary.extend({ links: nativeLinks }).strict();
 const nativeVersion = designWorkbench.PrototypeVersion.extend({ links: nativeLinks }).strict();
+const imageVersionPrefix = "AIDT 图片原型 · ";
 function current(context: AidtPrototypeReadContext) {
   if (!isAidtModuleEnabled() || context.signal?.aborted) throw new Error("AIDT_CONTEXT_CHANGED");
   if (![context.projectId, context.userId].every(validId) || !context.sessionToken) throw new Error("AIDT_PROTOTYPE_UNAVAILABLE");
@@ -99,6 +100,62 @@ export async function resolveAidtPrototypeVersion(context: AidtPrototypeReadCont
   const { version } = designWorkbench.operations.getPrototypeVersion.out.extend({ version: nativeVersion }).parse(raw);
   if (version.id !== versionId || !version.frames.length || version.prototype.length !== version.frames.length || !version.prototype.some(Boolean)) throw new Error("AIDT_PROTOTYPE_INVALID_VERSION");
   return { designId, versionId: version.id, designName, seq: version.seq, summary: version.summary, createdAt: version.createdAt, frameCount: version.frames.length, generatedFrameCount: version.prototype.filter(Boolean).length, source: version.source };
+}
+
+/** Create an ordinary Design snapshot containing a student-selected raster image. */
+export async function saveAidtPrototypeImage(
+  context: AidtPrototypeReadContext,
+  designId: string,
+  source: string,
+  name: string,
+): Promise<AidtPrototypeVersionReference> {
+  await requireLinkedOwnedDesign(context, designId);
+  const image = designPrototype.PrototypeNode.parse({
+    type: "image", props: { alt: name.trim().slice(0, 120) || "图片原型", src: source },
+  });
+  const sha = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source))),
+    byte => byte.toString(16).padStart(2, "0")).join("");
+  const summary = imageVersionPrefix + sha;
+
+  async function findVersion() {
+    const versions = await loadAidtPrototypeVersions(context, designId);
+    const candidate = versions.find(version => version.source === "user" && version.summary === summary);
+    if (!candidate) return null;
+    const raw = await read(context, designWorkbench.operations.getPrototypeVersion.path, designId, candidate.id);
+    const { version } = designWorkbench.operations.getPrototypeVersion.out.extend({ version: nativeVersion }).parse(raw);
+    if (!version.prototype.some(node => node?.type === "image" && node.props.src === source)) return null;
+    return resolveAidtPrototypeVersion(context, designId, candidate.id);
+  }
+
+  const saved = await findVersion();
+  if (saved) return saved;
+  const operation = designWorkbench.operations.patchPrototype;
+  const path = operation.path.replace(":projectId", encodeURIComponent(designId));
+  const body = operation.in.omit({ projectId: true }).parse({
+    summary,
+    ops: [{ op: "addScreen", at: 0, frame: "图片原型", root: image }],
+  });
+  current(context);
+  await apiRequest<unknown>(path, { method: "POST", body, sessionToken: context.sessionToken, signal: context.signal });
+  current(context);
+  const confirmed = await findVersion();
+  if (!confirmed) throw new Error("AIDT_PROTOTYPE_IMAGE_VERSION_UNAVAILABLE");
+  return confirmed;
+}
+
+export function isAidtImagePrototypeVersion(reference: AidtPrototypeVersionReference) {
+  return reference.source === "user" && reference.summary.startsWith(imageVersionPrefix);
+}
+
+export async function loadAidtPrototypeImagePreview(context: AidtPrototypeReadContext, reference: AidtPrototypeVersionReference) {
+  if (!isAidtImagePrototypeVersion(reference)) return null;
+  await requireLinkedOwnedDesign(context, reference.designId);
+  const raw = await read(context, designWorkbench.operations.getPrototypeVersion.path, reference.designId, reference.versionId);
+  current(context);
+  const { version } = designWorkbench.operations.getPrototypeVersion.out.extend({ version: nativeVersion }).parse(raw);
+  if (version.id !== reference.versionId || version.summary !== reference.summary || version.source !== "user") return null;
+  const image = version.prototype[0];
+  return image?.type === "image" && image.props.src ? { src: image.props.src, alt: image.props.alt } : null;
 }
 
 /** Compatibility export; keep the sole implementation on the pure formatting path. */
