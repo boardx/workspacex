@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { artifactFileName } from "@/lib/chat-workbench/artifact-download";
 import { MarkdownProse } from "@/components/chat/markdown-prose";
 import { printAidtUiText } from "./aidt-stage-output";
 import { listAidtStageHistory, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { isConfirmedReportVersion, readConfirmedReportForExport, readExactReportSource, reportInStage } from "../lib/aidt-report-versions";
+import { aidtReportSourceLinks } from "../lib/aidt-report-source-links";
 import { aidtUiStageSummary } from "../lib/aidt-ui-drafts";
 import type { AidtReportHistoryScope } from "../lib/aidt-report-history";
 
@@ -27,6 +29,7 @@ function Versions({ scope, confirmedRevision, reportEntityId }: Props) {
   React.useEffect(() => () => { pending.current?.abort(); }, []);
   const selectedReport = selected ? reportInStage(selected, reportEntityId) : undefined;
   const exportRevision = selected?.revision ?? confirmedRevision;
+  const sourceLinks = source ? aidtReportSourceLinks(source) : [];
 
   async function run(operation: (signal: AbortSignal) => Promise<void>, failure: string) {
     if (pending.current) return;
@@ -114,7 +117,13 @@ function Versions({ scope, confirmedRevision, reportEntityId }: Props) {
         }}>查看第 {item.stageId} 步 V{item.revision}</Button></li>)}
       </ul> : <p>尚未关联已保存的阶段版本。</p>}
     </div>}
-    {source && <div aria-label="来源版本详情"><p>第 {source.stageId} 步 V{source.revision} · {source.updatedAt} · 保存者 {source.updatedBy}</p><pre className="whitespace-pre-wrap break-words font-sans">{aidtUiStageSummary(source.stageId, source.content.draft) || "该来源没有已填写的阶段摘要。"}</pre></div>}
+    {source && <div aria-label="来源版本详情" className="space-y-2">
+      <p>第 {source.stageId} 步 V{source.revision} · {source.updatedAt} · 保存者 {source.updatedBy}</p>
+      <pre className="whitespace-pre-wrap break-words font-sans">{aidtUiStageSummary(source.stageId, source.content.draft) || "该来源没有已填写的阶段摘要。"}</pre>
+      {sourceLinks.length > 0 && <ul aria-label="该版本内的实体">
+        {sourceLinks.map(link => <li key={link.id}><Link href={link.href} className="text-primary underline">{link.title} · V{source.revision}</Link></li>)}
+      </ul>}
+    </div>}
     <p role="status" aria-live="polite">{busy ? "正在读取确认版本或核对来源…" : status}</p>
   </details>;
 }

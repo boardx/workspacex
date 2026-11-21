@@ -45,3 +45,47 @@ describe("confirmed AIDT report exports", () => {
     await expect(readConfirmedReportForExport("project", 4, "token", signal, "report-a")).resolves.toContain("报告 V4");
   });
 });
+
+describe("exact AIDT report source links", () => {
+  it("opens the saved interview version and scopes the transcript location to its own material", async () => {
+    const { aidtReportSourceLinks } = await import("@/features/aidt/lib/aidt-report-source-links");
+    const id = "73990275-e848-480f-8962-8d39d3b88b43";
+    const saved = stage(2, 9);
+    const sourceKey = `interviewMaterial:${id}:clip`;
+    const material = {
+      projectId: "project", runId: "run", artifactId: "quote-file", versionId: "file-v2",
+      name: "转写", mime: "text/plain", sha256: "1".repeat(64), bytes: 120,
+    };
+    saved.content.draft.fields = {
+      [`interviewRecord:${id}`]: JSON.stringify({ version: 1, id, code: "U01" }),
+      [`interviewTranscript:${id}`]: JSON.stringify({ sourceKey, locator: "01:42", checked: true }),
+      [sourceKey]: JSON.stringify(material),
+    };
+    const href = aidtReportSourceLinks(saved)[0]?.href ?? "";
+    const url = new URL(href, "https://local.example");
+    expect(url.pathname).toBe("/aidt/project");
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      step: "2", entity: id, entityRevision: "9", sourceId: "quote-file", timestamp: "01:42",
+    });
+    saved.content.draft.fields[sourceKey] = JSON.stringify({ ...material, projectId: "another-group" });
+    expect(aidtReportSourceLinks(saved)[0]?.href).not.toContain("quote-file");
+  });
+
+  it("keeps legacy cards and contradictory entity identifiers at stage-revision fallback", async () => {
+    const { aidtReportSourceLinks } = await import("@/features/aidt/lib/aidt-report-source-links");
+    const legacy = stage(2, 5);
+    const id = "783bb5b5-794b-47a2-a59d-57d29d7e6931";
+    legacy.content.draft.fields = {
+      "interviewRecord:other-id": JSON.stringify({ version: 1, id, code: "U01" }),
+      definitionHmwId: id,
+    };
+    expect(aidtReportSourceLinks(legacy)).toEqual([]);
+    const def = stage(3, 8);
+    const common = { id, confirmed: true, archived: false, cardIds: [] };
+    def.content.draft.fields = {
+      [`definitionPersona:${id}`]: JSON.stringify({ ...common, name: "画像" }),
+      [`definitionHmw:${id}`]: JSON.stringify({ ...common, text: "问题" }),
+    };
+    expect(aidtReportSourceLinks(def)).toEqual([]);
+  });
+});
