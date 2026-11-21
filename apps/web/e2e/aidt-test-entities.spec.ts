@@ -161,7 +161,6 @@ test("AIDT test groups bind an immutable Design and isolate parallel native Chat
     await expect(sources.getByRole("link", { name: "打开问卷发布" })).toHaveAttribute("href", new RegExp(`/studio/survey/${survey.id}/publish`));
     await expect(sources.getByRole("link", { name: "打开填写链接" })).toHaveAttribute("href", /\/surveys\//);
     await sources.getByRole("combobox", { name: "选择本测试的答卷证据" }).selectOption(survey.responseId);
-    await expect(detail.getByRole("link", { name: "打开关联资料" })).toBeAttached();
     await expect.poll(async () => {
       const { stage } = stageOperations.get.out.parse(await api(page, `/projects/${projectId}/aidt/stages/6`));
       return readAidtTestGroups(stage!.content.draft.fields).find(group => group.name === "B 非高峰问卷")?.surveyResponseId;
@@ -169,6 +168,7 @@ test("AIDT test groups bind an immutable Design and isolate parallel native Chat
     await b!.reload();
     await detail.getByText("原型版本与来源", { exact: true }).click();
     await expect(detail).toContainText(prototype.versionId);
+    await expect(detail.getByRole("link", { name: "打开关联资料" })).toHaveAttribute("href", `/studio/survey/${survey.id}?projectId=${projectId}`);
     await expect(detail.getByRole("link", { name: "查看原生答卷" })).toHaveAttribute("href", new RegExp(`/studio/survey/${survey.id}/responses`));
     await expect(detail.getByText(`已定位答卷 ${survey.responseId}`, { exact: true })).toBeVisible();
     await detail.getByText("查看所选答卷的原始回答", { exact: true }).click();
