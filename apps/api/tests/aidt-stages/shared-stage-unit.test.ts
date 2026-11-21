@@ -23,6 +23,7 @@ function fixture(){
     const ref={kind:"project" as const,id:who.projectId};const own=()=>records.filter(r=>r.stage.projectId===who.projectId&&who.orgId===actor.orgId);
     return await fn({identity,project:who.projectId===actor.projectId&&who.orgId===actor.orgId?state:null,
       current:async stageId=>guard(ref,own().filter(r=>r.stage.stageId===stageId).at(-1)?.stage??null),
+      revision:async(stageId,revision)=>guard(ref,own().find(r=>r.stage.stageId===stageId&&r.stage.revision===revision)?.stage??null),
       history:async(stageId,before,limit)=>guard(ref,own().filter(r=>r.stage.stageId===stageId&&(!before||r.stage.revision<before)).map(r=>r.stage).reverse().slice(0,limit)),
       receipt:async operationId=>{const v=own().find(r=>r.actor===who.userId&&r.operationId===operationId);return guard(ref,v?{stage:v.stage,requestKey:v.requestKey}:null);},
       hasImageAttachment:async ref=>ref.attachmentId==="sent-image"&&ref.threadId==="plenary"&&ref.name==="photo.png",
@@ -47,6 +48,27 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
   it("non AIDT project and cross project return same inaccessible response",async()=>{const f=fixture();f.setState({aidt:false});await expect(f.service.get(actor,1)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_NOT_FOUND"});await expect(f.service.get({...actor,projectId:"other"},1)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_NOT_FOUND"});});
   it("cross tenant cannot see stage",async()=>{await expect(fixture().service.get({...actor,orgId:toOrgId("org-b")},1)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_NOT_FOUND"});});
   it("validates explicit earlier revision sources, never creates missing material",async()=>{const f=fixture();const v=input(2);v.sourceStageRevisions=[{stageId:1,revision:1}];await expect(f.service.save(actor,v)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_INVALID"});await f.service.save(actor,input());await expect(f.service.save(actor,v)).resolves.toMatchObject({stage:{sourceStageRevisions:v.sourceStageRevisions}});});
+  it("pins the actual selected HMW at the authorized historical stage-3 revision", async () => {
+    const f = fixture();
+    const definition = input(3);
+    definition.content.draft.fields = { definitionHmwId: "h-1", hmw: "我们如何理解校园菜单？" };
+    await f.service.save(actor, definition);
+    const newer = input(3, 1);
+    newer.content.draft.fields = { definitionHmwId: "h-2", hmw: "我们如何比较口味？" };
+    await f.service.save(actor, newer);
+    const ideate = input(4);
+    const hmw = { id: "h-1", text: "我们如何理解校园菜单？", revision: 1 };
+    ideate.content.draft.fields.ideaHmwSource = JSON.stringify(hmw);
+    await expect(f.service.save(actor, ideate)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    ideate.sourceStageRevisions = [{ stageId: 3, revision: 1 }];
+    ideate.content.draft.fields.ideaHmwSource = JSON.stringify({ ...hmw, id: "h-2" });
+    await expect(f.service.save(actor, ideate)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    ideate.content.draft.fields.ideaHmwSource = JSON.stringify({ ...hmw, text: "篡改文字" });
+    await expect(f.service.save(actor, ideate)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_INVALID" });
+    ideate.content.draft.fields.ideaHmwSource = JSON.stringify(hmw);
+    const saved = await f.service.save(actor, ideate);
+    expect(saved.stage.sourceStageRevisions).toEqual([{ stageId: 3, revision: 1 }]);
+  });
   it("history is immutable and paginates descending without overlap",async()=>{const f=fixture();for(let n=0;n<3;n++)await f.service.save(actor,input(1,n));const page=await f.service.history(actor,1,undefined,2);expect(page.items.map(r=>r.revision)).toEqual([3,2]);expect(page.nextBeforeRevision).toBe(2);expect((await f.service.history(actor,1,page.nextBeforeRevision!,2)).items.map(r=>r.revision)).toEqual([1]);});
   it("writes the last PostgreSQL integer revision and rejects another append before storage",async()=>{
     const f=fixture(),max=2147483647,prior=input(1,max-2);
