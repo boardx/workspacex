@@ -70,7 +70,19 @@ const refs = value => {
   if (!Array.isArray(value) || value.length > 6 || value.some(row => !object(row) || Object.keys(row).sort().join(',') !== 'revision,stageId' || !Number.isInteger(row.stageId) || row.stageId < 1 || row.stageId > 6 || !Number.isSafeInteger(row.revision) || row.revision < 1) || new Set(value.map(row => row.stageId)).size !== value.length) fail('TEACHING_SOURCE_REFERENCES_INVALID');
   return [...value].sort((a, b) => a.stageId - b.stageId);
 };
+function summaryHistory(value) {
+  if (!Array.isArray(value) || value.length > 60) fail('TEACHING_SOURCE_REFERENCES_INVALID');
+  const rows = value.map(row => refs([row])[0]).sort((a,b) => a.stageId - b.stageId || a.revision - b.revision);
+  if (new Set(rows.map(row => row.stageId + ':' + row.revision)).size !== rows.length || rows.some(row => rows.filter(item => item.stageId === row.stageId).length > 10)) fail('TEACHING_SOURCE_REFERENCES_INVALID');
+  return rows;
+}
 function selector(value) {
+  if (value?.purpose === 'summary') {
+    if (Object.keys(value).sort().join(',') !== 'historyRevisions,projectId,purpose,schemaVersion,stageRevisions' || value.schemaVersion !== 1 || !id(value.projectId)) fail('TEACHING_SELECTOR_INVALID');
+    const stageRevisions = refs(value.stageRevisions);
+    if (stageRevisions.length !== 6) fail('TEACHING_SELECTOR_INVALID');
+    return { ...value, stageRevisions, historyRevisions: summaryHistory(value.historyRevisions) };
+  }
   if (!object(value) || Object.keys(value).some(key => !['schemaVersion', 'purpose', 'projectId', 'stageId', 'stageRevisions', 'entityId', 'sourceEntityId', 'returnRevision'].includes(key)) || value.schemaVersion !== 1 || value.purpose !== 'stage' || !id(value.projectId) || !Number.isInteger(value.stageId) || value.stageId < 1 || value.stageId > 6 || ['entityId', 'sourceEntityId'].some(key => value[key] !== undefined && !id(value[key])) || value.returnRevision !== undefined && (!Number.isSafeInteger(value.returnRevision) || value.returnRevision < 1)) fail('TEACHING_SELECTOR_INVALID');
   const stageRevisions = refs(value.stageRevisions);
   if (stageRevisions.some(row => row.stageId > value.stageId)) fail('TEACHING_SELECTOR_INVALID');
@@ -79,7 +91,7 @@ function selector(value) {
 export function validateTeachingScope(scope) {
   if (!object(scope) || scope.origin !== 'https://devapp.boardx.us' || !id(scope.projectId) || !id(scope.threadId) || !id(scope.actorId) || !id(scope.skillId) || !id(scope.skillVersionId) || typeof scope.prompt !== 'string' || !/合成|QA/.test(scope.prompt) || scope.prompt.length < 12 || scope.prompt.length > 5000) fail('TEACHING_SCOPE_INVALID');
   const selected = selector(scope.selector);
-  if (selected.projectId !== scope.projectId || selected.stageId !== scope.stageId) fail('TEACHING_SCOPE_MISMATCH');
+  if (selected.projectId !== scope.projectId || (selected.purpose === 'summary' ? scope.stageId !== 6 : selected.stageId !== scope.stageId)) fail('TEACHING_SCOPE_MISMATCH');
   return selected;
 }
 function messageText(message) {
@@ -127,7 +139,7 @@ export function validateTeachingEvidence({ messages, run, receipt }, scope, wire
   if (replies.length !== 1 || (scope.knownMessages ?? []).some(row => row.id === replies[0].id)) fail('TEACHING_DURABLE_REPLY_MISSING');
   // Receipt schema intentionally does not expose entityId/sourceEntityId. Check only real fields;
   // entity selection is checked separately against the full browser wire + the server-owned thread.
-  if (!object(receipt) || receipt.runId !== run.runId || receipt.projectId !== scope.projectId || receipt.purpose !== 'stage' || receipt.stageId !== scope.stageId || receipt.skillVersionId !== scope.skillVersionId || !HEX.test(receipt.snapshotHash ?? '') || canonical(refs(receipt.stageRevisions)) !== canonical(chosen.stageRevisions) || !Array.isArray(receipt.historyRevisions) || receipt.historyRevisions.length !== 0 || receipt.returnRevision !== chosen.returnRevision) fail('TEACHING_CONTEXT_RECEIPT_MISMATCH');
+  if (!object(receipt) || receipt.runId !== run.runId || receipt.projectId !== scope.projectId || receipt.purpose !== chosen.purpose || receipt.stageId !== chosen.stageId || receipt.skillVersionId !== scope.skillVersionId || !HEX.test(receipt.snapshotHash ?? '') || canonical(refs(receipt.stageRevisions)) !== canonical(chosen.stageRevisions) || canonical(summaryHistory(receipt.historyRevisions)) !== canonical(chosen.historyRevisions ?? []) || receipt.returnRevision !== chosen.returnRevision) fail('TEACHING_CONTEXT_RECEIPT_MISMATCH');
   if (frozenSnapshotHash !== undefined && receipt.snapshotHash !== frozenSnapshotHash) fail('TEACHING_CONTEXT_SNAPSHOT_CHANGED');
   const application = receipt.application;
   if (!object(application) || application.state !== 'message-dispatch-observed' || typeof application.attemptId !== 'string' || !application.attemptId.startsWith(`${run.runId}:`) || !/^(0|[1-9][0-9]*)$/.test(application.attemptId.slice(run.runId.length + 1)) || !HEX.test(application.assembledContextHash ?? '') || !Number.isFinite(Date.parse(application.assembledAt)) || !Number.isFinite(Date.parse(application.messageDispatchedAt))) fail('TEACHING_CONTEXT_DISPATCH_UNPROVEN');
@@ -137,7 +149,7 @@ export function validateTeachingEvidence({ messages, run, receipt }, scope, wire
 export async function sendTeachingFeedback({ page, expect, scope, read, armSend, onEvent = () => {}, onPendingReview }) {
   validateTeachingScope(scope);
   const url = new URL(page.url());
-  if (url.origin !== scope.origin || url.pathname !== `/aidt/${scope.projectId}` || url.searchParams.get('step') !== String(scope.stageId) || url.searchParams.get('thread') !== scope.threadId || scope.selector.entityId !== undefined && url.searchParams.get('entity') !== scope.selector.entityId) fail('TEACHING_UI_SCOPE_MISMATCH');
+  if (url.origin !== scope.origin || url.pathname !== `/aidt/${scope.projectId}` || url.searchParams.get('step') !== String(scope.stageId) || url.searchParams.get(scope.selector.purpose === 'summary' ? 'summaryThread' : 'thread') !== scope.threadId || scope.selector.purpose === 'summary' && (url.searchParams.get('summary') !== '1' || url.searchParams.get('entity') !== 'group-report') || scope.selector.entityId !== undefined && url.searchParams.get('entity') !== scope.selector.entityId) fail('TEACHING_UI_SCOPE_MISMATCH');
   const readData = async path => { const response = await read(path); if (response?.status !== 200) fail('TEACHING_READ_NOT_SUCCESSFUL'); return response.data; };
   const messagePath = `/api/chat/threads/${encodeURIComponent(scope.threadId)}/messages?limit=100`;
   const knownMessages = messageRows(await readData(messagePath));
@@ -166,7 +178,7 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
       observedRunId = accepted.runId;
       if (frozenSnapshotHash === null) {
         const firstReceipt = await readData(`/api/agent-runs/${encodeURIComponent(accepted.runId)}/aidt-context`);
-        if (!object(firstReceipt) || firstReceipt.runId !== accepted.runId || firstReceipt.projectId !== scope.projectId || firstReceipt.stageId !== scope.stageId || firstReceipt.purpose !== 'stage' || firstReceipt.skillVersionId !== scope.skillVersionId || !HEX.test(firstReceipt.snapshotHash ?? '') || canonical(refs(firstReceipt.stageRevisions)) !== canonical(selector(scope.selector).stageRevisions)) fail('TEACHING_CONTEXT_RECEIPT_MISMATCH');
+        if (!object(firstReceipt) || firstReceipt.runId !== accepted.runId || firstReceipt.projectId !== scope.projectId || firstReceipt.stageId !== scope.selector.stageId || firstReceipt.purpose !== scope.selector.purpose || firstReceipt.skillVersionId !== scope.skillVersionId || !HEX.test(firstReceipt.snapshotHash ?? '') || canonical(refs(firstReceipt.stageRevisions)) !== canonical(selector(scope.selector).stageRevisions)) fail('TEACHING_CONTEXT_RECEIPT_MISMATCH');
         frozenSnapshotHash = firstReceipt.snapshotHash;
       }
       const run = await readData(`/api/agent-runs/${encodeURIComponent(accepted.runId)}`);

@@ -420,7 +420,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const id = ({ 2: 'aidt-interview-output', 3: 'aidt-definition-editor', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
     if (!id) fail('ENTITY_FORM_EXPECTATION_MISSING');
     await expect(page.getByTestId(id)).toBeVisible();
-    if (stage === 6) await expect(page.getByTestId(id).getByRole('textbox', { name: '测试任务与追问', exact: true })).toBeEditable();
+    if ([3, 5, 6].includes(stage)) await expect(page.getByTestId(id).getByRole('textbox')).toHaveCount(0);
   };
   const follow = async (name, { resource = false } = {}) => {
     const link = page.getByRole('link', { name, exact: true }); await expect(link).toBeVisible();
@@ -778,28 +778,30 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await saveInterviewEdit(() => fill('定位（如 01:42 或第 3 段）', '第1段'));
     await saveInterviewEdit(() => fill('校对后的摘录', quote));
     await saveInterviewEdit(() => page.getByLabel('已对照原始材料校对', { exact: true }).check());
-    const firstFinding = text(`我自己的发现是${code}关注等待时间。来源是第1段的「${quote}」。请帮我检查这个解释和证据的关系。`);
+    const firstFinding = text(`我先写下自己的发现。标题：${code}关注等待时间。具体情况：午休选饮品时先看模拟队列再作决定。学生解释：等待时间可能影响选择，仍需真实访谈核实。第1段的原话是「${quote}」。请检查这些发现和引用，整理本次访谈的发现卡。`);
     if (!await feedback(2, firstFinding, code, true)) fail('S2_NATIVE_FINDING_REPLY_REQUIRED');
+    const proof = report.teachingEvidence.find(row => row.stageId === 2 && row.entityId === target.entityId && row.prompt === firstFinding && row.status === 'passed');
+    const readFinding = async () => {
+      const draft = (await savedStage(2)).content?.draft;
+      const card = draft?.discoveryCards?.find(item => item.id === target.entityId);
+      const record = JSON.parse(draft?.fields?.[`interviewRecord:${target.entityId}`] ?? '{}');
+      const interpretation = draft?.fields?.[`interviewInterpretation:${target.entityId}`];
+      if (!proof || record.draftTurnId !== proof.assistantMessageId || !card ||
+          card.participantCode !== code || !card.headline?.trim() || !card.context?.trim() || !interpretation?.trim() ||
+          !firstFinding.includes(card.headline) || !firstFinding.includes(card.context) || !firstFinding.includes(interpretation) ||
+          card.quote !== quote || draft.fields[`interviewConfirmed:${target.entityId}`] === 'true') return null;
+      return card;
+    };
+    await expect.poll(async () => Boolean(await readFinding()), { timeout: 30000 }).toBe(true);
+    const projected = await readFinding();
     const actions = page.getByTestId('aidt-interview-chat-actions');
     await disclosure('整理访谈发现');
-    const titleKind = actions.getByRole('combobox', { name: '标题来源', exact: true });
-    if (await titleKind.inputValue() !== 'student-summary') await saveInterviewEdit(() => titleKind.selectOption('student-summary'));
-    const discoveryEdits = [
-      ['一句发现', text(`${code}的合成记录关注等待时间。`)],
-      ['学生记录的可观察情况', text('测试夹具仅包含文字情境，不代表实际观察。')],
-      ['学生的解释', text('等待与选择可能有关，此解释未验证。')],
-      ['可定位的受访者原话', quote],
-    ];
-    for (const [label, value] of discoveryEdits) {
-      const field = actions.getByLabel(label, { exact: true });
-      if (await field.inputValue() !== value) await saveInterviewEdit(() => field.fill(value));
-    }
     await confirmInInterviewChat(btn('确认人物发现卡', actions));
     await output(target);
     const inspector = await readOnlyInterviewOutput();
     evidence(2).outputs.push({ name: `${code}人物发现卡`, format: 'native finding card; synthetic text, real-person photo missing', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}; software scope only` });
-    await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(code + '的合成记录关注等待时间');
-    recordInterviewIteration(firstFinding, text(`${code}的合成记录关注等待时间。`), `${code}人物发现卡`, target);
+    await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(projected.headline);
+    recordInterviewIteration(firstFinding, projected.headline, `${code}人物发现卡`, target);
     Object.assign(interview, { quote, materialName: `qa-${unique}-${code}.txt`, hasMaterial: true });
   };
   if (tenChatsOpened) {
@@ -907,32 +909,40 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   state.s3 = await check('s3-definition-hmw-handoff', 3, async () => {
     if (!state.s2 || !step3Href) { await go(3); fail('S2_CONFIRMED_HANDOFF_REQUIRED'); }
     await page.goto(owned(step3Href));
-    await captureCardCreation(3, 'surprise', () => click(btn('新建意外发现')), { reopen: true }); await output();
-    await page.getByRole('radio', { name: '暂无意外发现', exact: true }).check();
-    await persistConfirmed(3, page.getByTestId('aidt-surprise-confirm'));
+    const source = state.interviews[0];
+    const context = `使用已确认的 ${source.code} 发现卡（记录 ${source.target.entityId}）。`;
+    const confirmDefinition = async (target, prompt) => {
+      if (!await feedback(3, text(prompt))) fail('DEFINITION_TEACHING_REPLY_REQUIRED');
+      const proof = report.teachingEvidence.find(item => item.stageId === 3 && item.entityId === target.entityId && item.status === 'passed');
+      if (!proof) fail('DEFINITION_TEACHING_REPLY_REQUIRED');
+      await saveStage(3, btn('确认当前产物'));
+      const stage = await savedStage(3);
+      if (stage.content.draft.fields['definitionChatSource:' + target.entityId] !== proof.assistantMessageId) fail('DEFINITION_CONFIRMATION_SOURCE_UNVERIFIED');
+      await output(target);
+      const panel = page.getByTestId('aidt-definition-editor');
+      await expect(panel.getByRole('textbox')).toHaveCount(0);
+      return { panel, draft: stage.content.draft };
+    };
+    const { target: surprise } = await captureCardCreation(3, 'surprise', () => click(btn('新建意外发现')), { reopen: true });
+    const noSurprise = await confirmDefinition(surprise, '我们重新读了合成材料，暂无与原先想法冲突的证据。请如实记录「暂无意外发现」。');
+    await expect(noSurprise.panel).toContainText('暂无');
     await follow('返回产物列表');
-    await captureCardCreation(3, 'persona', () => click(btn('新建画像')), { reopen: true }); await output();
-    await fill('画像名称', personaName); await fill('用户情境', text('午休时的饮品选择合成情境。'));
-    await fill('可观察的行为', text('夹具中的人物先看队列。')); await fill('需求', text('了解等待信息，仍需真实研究。'));
-    await fill('反例、适用范围或仍未知的地方', '只有QA合成材料，年龄、兴趣与真实行为均未知。');
-    await page.getByRole('group', { name: /^关联已确认的人物发现卡/ }).getByRole('checkbox', { name: /^U01/ }).check();
-    await saveStage(3);
-    await iterate(3, page.getByRole('textbox', { name: '可观察的行为', exact: true }), '画像的行为范围', text('合成夹具中人物先看队列；赶时间与闲暇情境需要分开理解，尚不能推广到真实人群。'));
-    await observeInputs(3);
-    await persistConfirmed(3, btn('确认画像')); personaHref = page.url();
-    evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
-    await follow('返回产物列表'); await captureCardCreation(3, 'hmw', () => click(btn('新建 HMW')), { reopen: true }); await output();
-    await fill('我们如何……（HMW）', text('我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？'));
-    await fill('选择理由或待核实处', '来自本次合成发现卡；是否适用于真实学生仍待验证。');
-    await page.getByRole('group', { name: '关联已确认画像', exact: true }).getByRole('checkbox', { name: personaName, exact: true }).check();
-    await page.getByRole('group', { name: /^关联已确认的人物发现卡/ }).getByRole('checkbox', { name: /^U01/ }).check();
-    await saveStage(3);
-    await iterate(3, page.getByRole('textbox', { name: '我们如何……（HMW）', exact: true }), 'HMW表述', text('我们如何帮助不同时间情境中的学生理解等待信息，并保留多种自主选择？'));
-    await feedback(3);
-    await observeInputs(3);
-    await persistConfirmed(3, btn('确认 HMW')); await persistConfirmed(3, btn('选为本轮 HMW'));
-    evidence(3).outputs.push({ name: '本轮选定HMW及暂无意外发现记录', format: 'native confirmed HMW and source-card links', status: 'pass', evidence: `V${await revision(3)}; 暂无 is a valid branch, no invented surprise` });
-    await follow('返回产物列表'); step4Href = owned(await page.getByRole('link', { name: '带入创意发散', exact: true }).getAttribute('href'));
+    const { target: persona } = await captureCardCreation(3, 'persona', () => click(btn('新建画像')), { reopen: true });
+    const personaProjection = await confirmDefinition(persona, `${context} 我们将画像命名为「${personaName}」。午休赶课的学生先看队列，希望了解等待时间。只有合成记录，不能推广到真实人群。请整理为画像并引用这张发现卡。`);
+    const personaRecord = JSON.parse(personaProjection.draft.fields['definitionPersona:' + persona.entityId]);
+    if (!personaRecord.confirmed || !personaRecord.cardIds.includes(source.target.entityId)) fail('PERSONA_FINDING_LINK_UNVERIFIED');
+    personaHref = persona.href;
+    await expect(personaProjection.panel).toContainText(personaRecord.name);
+    await follow('返回产物列表');
+    const { target: hmw } = await captureCardCreation(3, 'hmw', () => click(btn('新建 HMW')), { reopen: true });
+    const hmwProjection = await confirmDefinition(hmw, `${context} 关联已确认画像「${personaRecord.name}」（记录 ${persona.entityId}）。我们如何帮助不同时间情境中的学生理解等待信息，并保留自主选择？请整理这个方向，标注现有依据只是合成记录。`);
+    const hmwRecord = JSON.parse(hmwProjection.draft.fields['definitionHmw:' + hmw.entityId]);
+    if (!hmwRecord.confirmed || !hmwRecord.personaIds.includes(persona.entityId) || !hmwRecord.cardIds.includes(source.target.entityId)) fail('HMW_REFERENCE_UNVERIFIED');
+    await expect(hmwProjection.panel).toContainText(hmwRecord.text);
+    await saveStage(3, btn('选为本轮 HMW'));
+    step4Href = owned(await page.getByTestId('aidt-stage-next').getAttribute('href'));
+    evidence(3).outputs.push({ name: personaRecord.name, format: 'confirmed Chat persona with linked interview', status: 'pass' }, { name: hmwRecord.text, format: 'confirmed HMW with persona and interview source', status: 'pass' });
+    await follow('返回产物列表');
     await shot('03-definition-directory', 3); await completed(3); await page.goto(owned(step3Href));
   }, '03-definition');
 
@@ -998,22 +1008,15 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     designId = designRoute.entityId;
     const entityHref = designRoute.href;
     await output(designRoute);
-    await click(page.getByRole('button', { name: /^采用第 4 步 V\d+ 的 \d+ 个点子$/ }));
-    await fill('通过这次制作原型，你最想知道什么？', '学生能理解提示吗？');
-    await disclosure('补充先前看法与验证范围');
-    await fill('测试前，你们怎么想？', text('目前不确定，预计静态图只能检查理解。'));
-    await fill('目前看法的依据', text('仅来自QA合成发现卡，不是已验证的研究事实。'));
-    await fill('这个原型能了解什么，还有什么不能验证？', '能检查示意顺序的理解，不能证明真实等待、时间投入或付费行为。');
-    const fields = page.getByTestId('aidt-prototype-entity-output').getByRole('group', { name: '原型制作说明', exact: true }).getByRole('textbox');
-    const descriptions = ['静态界面示意图', '合成校园午休情境', '先看提示再决定', '选择、查看队列、决定等待', '解释等待信息与操作顺序'];
-    for (let index = 0; index < await fields.count(); index++) await fields.nth(index).fill(text(descriptions[index] ?? '表达当前验证范围。'));
-    await saveStage(5);
-    await iterate(5, page.getByLabel('通过这次制作原型，你最想知道什么？', { exact: true }), '本轮验证问题', question);
-    await feedback(5);
-    await observeInputs(5);
-    evidence(5).notes.push('本轮真实迭代是原型制作前验证问题/制作说明的保存修订；仅调用一次Design生成，没有把再次确认同一文件冒充原型第二版。');
-    await persistConfirmed(5, btn('确认本轮验证问题'));
-    await follow('打开原生 Design Workbench', { resource: true });
+    const nativeActions = page.getByRole('region', { name: '原型对话操作' });
+    await saveStage(5, btn('采用入选点子', nativeActions));
+    const prototypePrompt = text(`我们打算为入选点子制作静态队列提示界面。验证问题是「${question}」。我们原以为学生看完预计等待时间就知道先查看信息再决定排队，但只有合成情境支持这个猜想。设计说明：静态页面、校园午休、查看提示并选择是否排队；依次看队列、预计等待和操作选项。只能观察理解，不能判断真实等待、付费或偏好。请整理这份原型制作说明和验证问题。`);
+    if (!await feedback(5, prototypePrompt)) fail('PROTOTYPE_TEACHING_REPLY_REQUIRED');
+    await saveStage(5, btn('确认原型草稿', nativeActions));
+    const prototypeOutput = page.getByTestId('aidt-prototype-entity-output');
+    await expect(prototypeOutput.getByRole('textbox')).toHaveCount(0);
+    await expect(prototypeOutput).toContainText('等待');
+    await follow('打开 Design 工作台', { resource: true });
     await expect(page.getByTestId('design-detail-input')).toBeEditable();
     await page.getByTestId('design-detail-input').fill(`${SYNTHETIC}。QA run=${scope.runId}。请生成一页静态校园饮品队列提示界面，标题明确QA合成演示；展示预计等待时间、查看口味、决定是否排队三个区块。只用于检查理解，不宣称有真实研究或用户认可。`);
     const send = page.getByTestId('design-detail-send'); await expect(send).toBeEnabled(); await armDesignGeneration();
@@ -1028,11 +1031,11 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await output(designRoute);
     const picker = page.getByTestId('aidt-prototype-version-picker'); await click(btn('选择真实原型版本', picker));
     await click(picker.locator('[aria-label="已关联的设计"]').getByRole('button', { name: '未命名设计', exact: true }));
-    await click(picker.getByRole('button', { name: /^选择 v\d+：/ }).first());
+    await saveStage(5, picker.getByRole('button', { name: /^选择 v\d+：/ }).first());
     await expect(page.getByTestId('aidt-prototype-recorded-reference')).toContainText(/已生成 [1-9]\d*\//);
-    await persistConfirmed(5, btn('确认所选原型'));
+    await saveStage(5, btn('确认本原型', nativeActions));
     evidence(5).outputs.push({ name: '已选静态原型与绑定验证问题', format: 'native Design version reference and verification question', status: 'pass', evidence: (await page.getByTestId('aidt-prototype-recorded-reference').innerText()).slice(0,2000) });
-    step6Href = owned(await page.getByRole('link', { name: '带入测试与迭代', exact: true }).getAttribute('href'));
+    step6Href = owned(await page.getByTestId('aidt-stage-next').getAttribute('href'));
     await shot('05-prototype-question-version', 5); await completed(5); await output(designRoute);
     report.designGenerationAndVersionWorkflowVerified = true;
     report.designProviderIndependentlyVerified = false;
@@ -1040,43 +1043,29 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   state.s6 = await check('s6-test-reflection', 6, async () => {
     if (!state.s5 || !step6Href) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
-    await page.goto(owned(step6Href)); await fill('测试名称', `QA合成测试 ${unique}`); const { directoryHref: savedDirectoryHref } = await captureCardCreation(6, 'test', () => click(btn('新建测试草稿')), { reopen: true });
-    await output();
-    const detail = page.getByTestId('aidt-test-group-detail'); await expect(detail).toBeVisible();
-    await fill('参与者代号', `QA合成对象 ${unique}`, detail);
-    await fill('测试情境', text('只用于软件验收的虚构午休情境，未接触真实受访者。'), detail);
-    await fill('测试任务与追问', text('请指出示意图里先看等待信息再选择的顺序；这是一份待真实对象测试的计划。'), detail);
-    await fill('原件位置（时间点、答卷或批次）', '合成记录第1段', detail);
-    const syntheticTestRecord = text('QA记录：本次仅校验软件如何保存原型、测试计划和反馈位置，没有真实用户行为。');
+    await page.goto(owned(step6Href)); await fill('测试名称', `QA合成测试 ${unique}`); const { target: testTarget } = await captureCardCreation(6, 'test', () => click(btn('新建测试草稿')), { reopen: true });
+    await output(testTarget);
+    const detail = page.getByTestId('aidt-test-group-detail');
+    await expect(detail.getByRole('textbox')).toHaveCount(0);
+    const actions = page.getByTestId('aidt-test-chat-confirmation');
+    await disclosure('关联测试材料');
+    const syntheticTestRecord = text('QA记录第1段。合成页面按查看等待信息、理解选择、决定是否排队的顺序展示。未进行真实用户测试。');
     await uploaded('本组原始材料', `qa-${unique}-test.txt`, Buffer.from(syntheticTestRecord), 'text/plain');
-    await fill('原话或问卷原始回答', text('合成夹具文字，不是真人引文；真实回答尚未采集。'), detail);
-    await fill('现场观察到的行为', '本次未观察真人行为。', detail);
-    await fill('学生解释', '当前只是软件验收，不能由合成材料判断方案有效。', detail);
-    await fill('学生对本组测试的反思', '正式研究需授权真实对象并核对记录。', detail);
-    await saveStage(6);
-    await iterate(6, detail.getByRole('textbox', { name: '测试任务与追问', exact: true }), '待实施的测试问题', text('正式测试时先请对象说明自己会做哪一步，再追问不理解之处；本次不诱导赞同，不声称已经真实测试。'));
-    await feedback(6);
-    const nativeFields = await detail.locator('input,textarea,select').evaluateAll(nodes => nodes.filter(node => node.getClientRects().length > 0 && node.type !== 'file').map(node => ({ name: (node.labels?.[0]?.innerText || node.tagName).trim().slice(0,180), content: node.value.slice(0,2000), format: 'native test plan/material form' })));
-    const nativePlanRevision = await revision(6);
-    evidence(6).inputs.push(...nativeFields.map(field => ({ ...field, source: { projectId: scope.projectId, entityId: new URL(page.url()).searchParams.get('entity'), saved_base_revision: nativePlanRevision, observation: 'Native test entity planning and explicitly synthetic material, not a real participant test' } })));
+    await saveStage(6, btn('保存关联材料', actions));
+    const prompt = text(`这次测试针对当前原型（测试实体 ${testTarget.entityId}）。任务是请参与者指出在页面哪里先了解等待信息、如何决定下一步。只用刚关联的 QA记录第1段，未测试真实对象，未观察到真人行为或原话。学生反思：现有材料只能检查界面的顺序，证据不足。暂不能改变最初判断，实际学生是否看懂仍不清楚。下一轮回第2步，原因是需要真实访谈。先取得授权，再听学生结合页面说明选择。请整理本轮测试、反思和回溯方向。`);
+    if (!await feedback(6, prompt)) fail('TEST_TEACHING_REPLY_REQUIRED');
+    const proof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.status === 'passed');
+    await saveStage(6, btn('确认并保存测试成果', actions));
+    await page.reload();
+    await output(testTarget);
+    const fields = (await savedStage(6)).content.draft.fields;
+    const testRecord = JSON.parse(fields['testGroup:' + testTarget.entityId]);
+    if (!proof || testRecord.confirmedFromMessageId !== proof.assistantMessageId || !testRecord.task?.trim() || !testRecord.reflection?.trim() ||
+        fields.reflectionConfirmed !== 'true' || fields.understandingChangeStatus !== 'insufficient' || fields.returnStep !== '2') fail('TEST_NATIVE_ROUND_UNVERIFIED');
+    await expect(detail).toContainText(testRecord.task);
+    await expect(detail).toContainText(testRecord.reflection);
     await shot('06-native-test-plan-and-material', 6);
-    await page.goto(owned(savedDirectoryHref));
-    const reflection = page.getByTestId('aidt-test-reflection'); await expect(reflection).toBeVisible();
-    await expect(reflection.getByTestId('aidt-bound-question')).toContainText(question);
-    await reflection.getByRole('combobox', { name: '测试之后，对这个问题的认识有什么变化？', exact: true }).selectOption('insufficient');
-    await fill('测试后的认识', text('本次只有合成软件验收，没有真实对象测试，不能判断方案效果。'), reflection);
-    await fill('支持判断的测试材料', 'QA合成记录；未采集真实用户行为。', reflection);
-    await fill('仍不确定的地方', '需要真实对象理解反馈及实际情境观察，当前证据不足。', reflection);
-    await reflection.getByRole('combobox', { name: '如果继续改进，优先从哪一步重新入手？', exact: true }).selectOption('2');
-    await fill('为什么从这里重新入手？', '需要真实访谈，不能用QA合成夹具支持效果判断。', reflection);
-    await fill('下一步具体做什么？', '取得适当授权后补充真实访谈，再回看原问题；本次不生成新版。', reflection);
-    await saveStage(6, btn('保存本轮测试与反思'));
-    await iterate(6, reflection.getByRole('textbox', { name: '测试后的认识', exact: true }), '证据不足时的认识', text('本次只有合成软件验收，未测试真实对象；认识暂不能改变，下一轮先补真实访谈后判断情境差异。'), btn('保存本轮测试与反思'));
-    await observeInputs(6);
-    await persistConfirmed(6, btn('确认本轮学习记录', reflection), btn('保存本轮测试与反思'));
-    await page.reload(); await expect(page.getByTestId('aidt-test-reflection')).toContainText('本轮学习记录已确认');
     await shot('06-reflection-insufficient-return-empathy', 6); await completed(6); await page.goto(owned(step6Href));
-    evidence(6).notes.push('没有真人测试；本次明确选择证据不足并回共情研究，保存本轮认识与行动，未强制生成新版原型。');
     report.insufficientEvidenceAndReturnWithoutNewPrototypeVerified = true;
   }, '06-reflection');
 
@@ -1091,24 +1080,25 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       assertReady: async () => { await expect(page.getByTestId('aidt-report-preview')).toBeVisible(); await expect(page.getByTestId('aidt-report-reload')).toBeEnabled(); } });
     const reportUrl = new URL(page.url());
     const reportRegion = page.getByTestId('aidt-report-preview'); await expect(reportRegion).toBeVisible();
-    await click(btn('编辑报告', reportRegion));
-    const draft = reportRegion.getByLabel('小组报告草稿', { exact: true });
-    await expect(draft).toHaveValue(/合成/);
-    const initial = await draft.inputValue();
-    await draft.fill(`${initial}\n\n## QA验收边界\n${SYNTHETIC}。本次验证软件流程与来源追溯，没有进行真实课堂或真实访谈，方案效果尚待验证。\n`);
-    await disclosure('选择报告引用的阶段版本');
-    for (let stage = 1; stage <= 6; stage++) {
-      const sourceSelect = reportRegion.locator('label').filter({ has: page.locator('span').filter({ hasText: new RegExp(`^第 ${stage} 步$`) }) }).locator('select');
-      await expect(sourceSelect).toBeEnabled(); await sourceSelect.selectOption({ index: 1 });
-    }
-    await saveReport(); await click(btn('阅读预览', reportRegion)); await click(btn('确认审阅此版本', reportRegion));
-    await reviewAndSave(6, btn('确认小组报告', reportRegion));
+    await expect(reportRegion.getByRole('textbox')).toHaveCount(0);
+    await expect(page.getByTestId('aidt-summary-materials')).toBeVisible();
+    const reportPrompt = text('请依据本项目六个步骤当前已确认的版本起草小组研究报告。说明项目问题、访谈发现、画像和 HMW、发散与收敛、原型验证问题、测试反思和下一轮安排。逐步列出引用的版本，保留证据缺口。明确写入「合成验收数据，非真实访谈」，避免将软件验证描述成真实受访者的结论。');
+    if (!await feedback(6, reportPrompt)) fail('REPORT_NATIVE_REPLY_REQUIRED');
+    const proof = report.teachingEvidence.find(item => item.entityId === 'group-report' && item.status === 'passed' && item.prompt === reportPrompt);
+    if (!proof) fail('REPORT_NATIVE_REPLY_REQUIRED');
+    const actions = page.getByTestId('aidt-report-chat-actions');
+    await click(btn('采用报告草稿', actions));
+    await saveReport();
+    await reviewAndSave(6, btn('确认小组报告', actions));
     await expect(page.getByTestId('aidt-report-save-state')).toContainText('已确认');
     await disclosure('已确认版本与导出');
     const readVersion = page.getByRole('button', { name: /^查看确认版 V\d+$/ }); await click(readVersion);
     await expect(page.getByRole('article', { name: '已确认报告正文', exact: true })).toContainText(SYNTHETIC);
     const sources = page.getByRole('list', { name: '确认版本来源', exact: true }); await expect(sources).toBeVisible();
-    for (let stage = 1; stage <= 6; stage++) await expect(sources).toContainText(`第 ${stage} 步`);
+    for (let stage = 1; stage <= 6; stage++) {
+      const selectedRevision = await revision(stage);
+      await expect(sources.getByText(new RegExp('第\\s*' + stage + '\\s*步.*V' + selectedRevision + '(?:\\D|$)'))).toBeVisible();
+    }
     const [download] = await Promise.all([page.waitForEvent('download'), click(page.getByRole('button', { name: /^下载 V\d+ Markdown$/ }))]);
     if (typeof saveDownload !== 'function') fail('REPORT_SAFE_DOWNLOAD_STORAGE_REQUIRED');
     await saveDownload(download);
@@ -1116,7 +1106,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const stream = await download.createReadStream(); if (!stream) fail('REPORT_DOWNLOAD_UNREADABLE');
     let bytes = 0; const chunks = []; for await (const chunk of stream) { bytes += chunk.length; if (bytes > 1000000) fail('REPORT_DOWNLOAD_TOO_LARGE'); chunks.push(chunk); }
     const content = Buffer.concat(chunks), exportedText = content.toString('utf8'); expect(exportedText).toContain(SYNTHETIC);
-    const requiredReportHighlights = ['探索校园午休饮品选择中的情境差异', 'U01的合成记录关注等待时间', personaName, '我们如何帮助不同时间情境中的学生理解等待信息', ...ideaNames, question, '本次只有合成软件验收，未测试真实对象', '需要真实访谈'];
+    const requiredReportHighlights = ['午休', '等待', '访谈', '画像', '原型', '测试'];
     for (const text of requiredReportHighlights) { expect(exportedText).toContain(text); await expect(page.getByRole('article', { name: '已确认报告正文', exact: true })).toContainText(text); }
     report.nativeReportContentChecks = requiredReportHighlights.map(text => ({ text, observedInConfirmedBody: true, observedInDownloadedMarkdown: true }));
     report.confirmedReportExport = { bytes, sha256: createHash('sha256').update(content).digest('hex'), format: 'markdown' };
