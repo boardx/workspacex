@@ -265,9 +265,12 @@ test.describe("recording evidence in the interview Chat", () => {
     await expect.poll(async () => Object.keys((await head()).fields).some(key => key.startsWith("captured:interviewMaterial:" + first + ":"))).toBe(true);
     await page.reload();
     await materials();
-    const select = page.getByLabel("转写原件", { exact: true });
-    await expect(select.locator("option")).toHaveCount(2);
+    const select = page.getByRole("combobox", { name: "转写原件", exact: true });
+    await expect(select.getByRole("option")).toHaveCount(2);
+    const recording = select.getByRole("option", { name: /^U01-.*\.wav$/ });
+    await expect(recording).toHaveCount(1);
     await select.selectOption({ index: 1 });
+    await expect(select.locator("option:checked")).toHaveText(/^U01-.*\.wav$/);
     await page.getByLabel("定位（如 01:42 或第 3 段）").fill("00:01");
     await page.getByLabel("校对后的摘录").fill("我先看口味");
     await page.getByLabel("已对照原始材料校对").check();
