@@ -267,6 +267,7 @@ export class ProjectController {
           kind: body.kind,
           blueprintVersionId: body.blueprintVersionId,
           ...(body.profile === undefined ? {} : { profile: body.profile }),
+          ...(body.courseTag === undefined ? {} : { courseTag: body.courseTag }),
         },
       );
       // ⚠ `created`/`initialized` 都不进响应体：契约的 `out` 是 `.strict()` 四字段，

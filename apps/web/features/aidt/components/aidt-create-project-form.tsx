@@ -1,4 +1,6 @@
 "use client";
+import { project as projectContract } from "@repo/contracts";
+import { Input } from "@/components/ui/input";
 import * as React from "react";
 import { CreateProjectForm } from "@/components/project/create-project-form";
 import { useSession } from "@/components/session/session-provider";
@@ -7,7 +9,9 @@ import { aidtHref, isAidtProject } from "@/features/aidt/lib/project-aidt";
 import { createProject, findProject } from "@/lib/live-projects";
 
 /** Module-local profile orchestration; the shared form only owns native form controls. */
-export function AidtCreateProjectForm({ cancel }: { cancel: React.ReactNode }) {
+export function AidtCreateProjectForm({ cancel, courseTags = [] }: { cancel: React.ReactNode; courseTags?: readonly string[] }) {
+  const [courseTag, setCourseTag] = React.useState("");
+  const listId = React.useId();
   const { session, identity } = useSession();
   const scope = JSON.stringify([session?.userId, session?.currentOrgId, session?.sessionToken, identity?.orgRole]);
   const lifecycle = React.useRef({ scope, generation: 0 });
@@ -21,7 +25,7 @@ export function AidtCreateProjectForm({ cancel }: { cancel: React.ReactNode }) {
     const current = () => mounted.current && lifecycle.current.scope === scope && lifecycle.current.generation === generation && isAidtModuleEnabled();
     if (!current() || !session?.userId || !session.currentOrgId || !session.sessionToken || input.orgId !== session.currentOrgId) return null;
     try {
-      const out = savedProject ?? await createProject({ ...input, profile: "aidt" });
+      const out = savedProject ?? await createProject({ ...input, profile: "aidt", ...(courseTag.trim() ? { courseTag: courseTag.trim() } : {}) });
       if (!current()) return null;
       setCreated({ scope, generation, id: out.id });
       const project = await findProject(input.orgId, out.id);
@@ -32,8 +36,13 @@ export function AidtCreateProjectForm({ cancel }: { cancel: React.ReactNode }) {
       if (!current()) return null;
       throw error;
     }
-  }, [scope, generation, savedProject, session]);
+  }, [scope, generation, savedProject, session, courseTag]);
   if (!isAidtModuleEnabled()) return <section role="status" data-testid="aidt-create-disabled"><p>教学模块尚未启用。</p>{cancel}</section>;
   if (!session?.userId || !session.currentOrgId || !session.sessionToken) return <section role="status" data-testid="aidt-create-identity-required"><p>请先登录并选择组织。</p>{cancel}</section>;
-  return <CreateProjectForm key={scope} className="flex flex-col gap-5 [&_input]:h-12 [&_input]:rounded-xl [&_input]:text-16 [&_button]:h-11 [&_button]:rounded-full [&_button]:px-5" cancel={cancel} createProjectAction={create} createdHref={aidtHref} nameLabel="小组名称" namePlaceholder="例如：第三组" nameLocked={savedProject !== null} submitLabel={savedProject ? "重试打开小组" : "创建小组"} failurePrefix={savedProject ? "已收到创建回执，小组资料尚未核实。重试不会重复创建。" : undefined} />;
+  return <CreateProjectForm key={scope} className="flex flex-col gap-5 [&_input]:h-12 [&_input]:rounded-xl [&_input]:text-16 [&_button]:h-11 [&_button]:rounded-full [&_button]:px-5" additionalFields={(disabled) => <label className="flex flex-col gap-1.5">
+    <span className="text-12 text-muted-foreground">课程标签（可选）</span>
+    <Input list={listId} value={courseTag} onChange={event => setCourseTag(event.target.value)} maxLength={projectContract.AIDT_COURSE_TAG_MAX}
+      placeholder="选择或输入课程名称" disabled={disabled} />
+    <datalist id={listId}>{courseTags.map(tag => <option key={tag} value={tag} />)}</datalist>
+  </label>} cancel={cancel} createProjectAction={create} createdHref={aidtHref} nameLabel="小组名称" namePlaceholder="例如：第三组" nameLocked={savedProject !== null} submitLabel={savedProject ? "重试打开小组" : "创建小组"} failurePrefix={savedProject ? "已收到创建回执，小组资料尚未核实。重试不会重复创建。" : undefined} />;
 }

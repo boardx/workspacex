@@ -23,6 +23,19 @@ describe("controlled AIDT project creation", () => {
     expect(create.mock.calls[0]![0]).not.toHaveProperty("profile");
   });
 
+  it("normalizes a course label for AIDT and isolates same-name groups of other courses", async () => {
+    const { deps, create } = setup();
+    await expect(createProject(deps, { ...base, courseTag: "设计" })).rejects.toThrow("INVALID_CREATION_PROFILE");
+    for (const label of ["  设计  ", "设计", "工程"]) {
+      await createProject(deps, { ...base, profile: "aidt", courseTag: label });
+    }
+    const [first, retry, different] = create.mock.calls.map(([cmd]) => cmd);
+    expect(first?.courseTag).toBe("设计");
+    expect(first?.fingerprint).toBe(retry?.fingerprint);
+    expect(first?.fingerprint).not.toBe(different?.fingerprint);
+    expect(project.AidtCourseTag.safeParse("a".repeat(project.AIDT_COURSE_TAG_MAX + 1)).success).toBe(false);
+  });
+
   it("accepts the single controlled profile and rejects arbitrary fields", () => {
     const { actorId: _actor, ...body } = base;
     expect(project.operations.createProject.in.parse({ ...body, profile: "aidt" }).profile).toBe("aidt");
