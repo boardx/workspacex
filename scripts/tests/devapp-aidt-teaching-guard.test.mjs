@@ -17,8 +17,8 @@ function fixture() {
   guard.observe(catalog, 200, { items: identity.teachingSkillNames.map((platformStableName, index) => ({ platformStableName, skillId: `skill-${index+1}`, currentVersionId: `pin-${index+1}`, status: '已启用' })) });
   return guard;
 }
-function teaching(guard, stageId = 1) {
-  const threadId = `thr_qa-${stageId}`, entityId = `entity-${stageId}`;
+function teaching(guard, stageId = 1, suffix = stageId) {
+  const threadId = `thr_qa-${suffix}`, entityId = `entity-${suffix}`;
   const created = request(guard, 'PUT', `/api/projects/${project}/aidt/stages/${stageId}/entities/${entityId}/thread`, { purpose: 'stage' });
   guard.observe(created, 200, { threadId });
   guard.observe(request(guard, 'GET', `/api/chat/threads/${threadId}`), 200, { thread: { id: threadId, projectId: project, archived: false }, capabilities: ['composer.send'] });
@@ -57,7 +57,7 @@ test('another author, project/entity/version or wrong stage pin cannot create a 
   assert.throws(() => guard.observe(messages,200,{messages:[{id:'another-human',authorKind:'human',authorId:'not-qa',text:scope.prompt,clientMessageId:'client-1',agentRunId:'private-run'}],nextCursor:null}), /TEACHING_ACCEPTANCE_MISMATCH/);
   assert.equal(request(guard,'GET','/api/agent-runs/private-run').allow,false);
 });
-test('six-stage ledger admits at most six sends and a stopped/unknown lane cannot start another model', () => {
+test('each stage can send and an unresolved or unknown outcome still stops the lane', () => {
   const guard = fixture();
   for (let n=1;n<=6;n++) { const {scope,wire}=teaching(guard,n); guard.armTeachingSend(scope); assert.equal(request(guard,'POST','/api/copilotkit/agent/default/run',wire).allow,true); }
   assert.equal(guard.summary().teachingRequests,6);
@@ -70,4 +70,21 @@ test('SDK optional suggestions are aborted without spending model budget or fabr
   assert.equal(request(guard,'POST','/api/copilotkit/agent/default/suggest',{}).kind,'optional-suggestion-blocked');
   assert.equal(request(guard,'POST','/api/copilotkit/agent/default/run',{forwardedProps:{toolChoice:{function:{name:'copilotkitSuggest'}}}}).allow,false);
   assert.equal(guard.fatal(),null); assert.equal(guard.summary().teachingRequests,0); assert.equal(guard.summary().suggestionsBlocked,2);
+});
+
+test('the interview lane permits ten independently bound interviews, denying repeated entities and an eleventh', () => {
+  const guard = fixture();
+  for (let index = 1; index <= 10; index++) {
+    const { scope, wire } = teaching(guard, 2, `interview-${index}`);
+    guard.armTeachingSend(scope);
+    assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
+    assert.throws(() => guard.armTeachingSend(scope), /TEACHING_SCOPE_NOT_VERIFIED/);
+  }
+  assert.throws(() => guard.armTeachingSend(teaching(guard, 2, 'overflow').scope), /TEACHING_SCOPE_NOT_VERIFIED/);
+  for (const stage of [1,3,4,5,6]) {
+    const { scope, wire } = teaching(guard, stage);
+    guard.armTeachingSend(scope);
+    assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
+  }
+  assert.equal(guard.summary().teachingRequests, guard.summary().teachingRequestsAllowed);
 });
