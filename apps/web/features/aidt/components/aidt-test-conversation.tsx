@@ -95,6 +95,7 @@ export function AidtTestConversation({ projectId, entityId, draft, savedDraft, m
     {!readOnly && <details className="text-12">
       <summary className="cursor-pointer text-muted-foreground">关联测试材料</summary>
       <AidtTestGroups projectId={projectId} activeEntityId={entityId} draft={draft} readOnly={readOnly} update={update} sourcesOnly />
+      <Button type="button" size="sm" variant="outline" disabled={!canSave} onClick={requestSave}>保存关联材料</Button>
     </details>}
     {(proposal || completed) && <div className="flex flex-wrap items-center gap-2">
       {proposal && !readOnly && saved?.confirmedFromMessageId !== proposal.messageId && <Button type="button" variant="primary" disabled={!canSave || !proposed} onClick={() => {
