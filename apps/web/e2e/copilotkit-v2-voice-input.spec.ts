@@ -90,10 +90,23 @@ test("DA-19g 真实实测：copilotkit-v2 面板麦克风实时转录进输入�
     .poll(transcribedBytes, { timeout: 20_000, intervals: [200, 500] })
     .toBeGreaterThan(midRecordingBytes);
 
+  // Observe more than a short startup burst and verify the user-visible mirror keeps updating.
+  const liveText = page.getByTestId("chat-task-workbench-composer-live-transcript");
+  await expect.poll(transcribedBytes, { timeout: 30_000 }).toBeGreaterThanOrEqual(16_000 * 2 * 15);
+  await expect(micButton).toHaveAttribute("data-voice-phase", "listening");
+  await expect(liveText).toContainText(CHAT_READ_E2E.asrTranscriptPrefix);
+
   // ── ③ 停止录音：转录文字仍在（不是被清空），且可编辑 ──────────────────
   await micButton.click();
   await expect(page.getByTestId("chat-mic-listening")).toHaveCount(0, { timeout: 15_000 });
   await expect(micButton).toHaveAttribute("data-mic-status", "idle", { timeout: 15_000 });
+
+  const receipt = page.getByTestId("chat-task-workbench-composer-transcribed");
+  await expect(receipt).toBeVisible();
+  expect(await receipt.evaluate((node) => {
+    const label = node.lastElementChild;
+    return label instanceof HTMLElement && label.scrollWidth <= label.clientWidth;
+  })).toBe(true);
 
   const stoppedValue = await input.inputValue();
   expect(stoppedValue).toContain(CHAT_READ_E2E.asrTranscriptPrefix);

@@ -75,6 +75,13 @@ test("TW-P0-5①②：Composer 是统一的两行结构，第一行为多行任�
   ] as const) {
     await expectAnchor(page, `chat-task-workbench-composer-${suffix}`, "TW-P0-5②", `Composer 缺少${what}`, 15_000);
   }
+  const input = page.getByTestId("copilotkit-v2-input");
+  await input.focus();
+  expect(await input.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return node.matches(":focus-visible") && style.getPropertyValue("--tw-ring-offset-width").trim() === "0px";
+  })).toBe(true);
+
   const draft = (await page.getByTestId("copilotkit-v2-input").boundingBox())!;
   const materials = (await page.getByTestId("chat-attachment-input").boundingBox())!;
   const send = (await page.getByTestId("copilotkit-v2-send").boundingBox())!;

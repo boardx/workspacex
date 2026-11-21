@@ -117,9 +117,8 @@ return (<div
                 className={[
                   // 2026-09-08 人类反馈「选中的时候，不要有新的边框出来」——内层
                   // `<textarea>` 聚焦不再画任何 ring（`focus-visible:ring-0`），焦点由
-                  // 外层卡片常驻边框 + 光标承载；`ring-0` 同时满足 `lint-design.sh`
-                  // U7b（`outline-none` 须与 `focus-visible:ring-*` 同行）的机械判据。
-                  "block w-full min-w-0 resize-none overflow-y-auto rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground",
+                  // 外层卡片常驻边框 + 光标承载，焦点环的全局 offset 也要一起清除。
+                  "block w-full min-w-0 resize-none overflow-y-auto rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:text-disabled-foreground",
                   dictating ? "text-transparent caret-transparent" : "text-card-foreground",
                 ].join(" ")}
                 disabled={archived}
