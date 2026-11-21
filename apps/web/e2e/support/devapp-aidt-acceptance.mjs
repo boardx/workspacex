@@ -487,21 +487,27 @@ export async function main() {
       const interviewGuideRevision = stageId === 2 && !interviewFinding && report.teachingEvidence.some(item => item.status === 'passed' && item.interviewCode === interviewCode);
       const codeSuffix = interviewCode && interviewCode !== 'U01' ? `-${interviewCode.toLowerCase()}` : '';
       const suffix = syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : codeSuffix + (interviewFinding ? '-finding' : interviewGuideRevision ? '-revision' : '');
-      const definitionCount = stageId === 3 ? report.teachingEvidence.filter(item => item.stageId === 3).length : 0;
-      const definitionSuffix = definitionCount > 0 ? `-definition-${definitionCount + 1}` : '';
-      const name = `teaching-chat-stage-${stageId}${suffix}${definitionSuffix}`;
+      const definitionTurn = stageId === 3 ? report.teachingEvidence.filter(item => item.stageId === 3 && item.status === 'passed').length : 0;
+      const summary = stageId === 6 && new URL(page.url()).searchParams.get('summary') === '1';
+      const threadParam = summary ? 'summaryThread' : 'thread';
+      const name = summary ? 'teaching-chat-final-report' : `teaching-chat-stage-${stageId}${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}`;
       let isolatedKnownS1Review = false;
       const accepted = await checkpoint(name, async () => {
         if (guard.teachingStopped()) throw new ProbeFailure('TEACHING_PREVIOUS_OUTCOME_UNRESOLVED');
         const url = new URL(page.url());
-        await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr/);
+        await expect.poll(() => new URL(page.url()).searchParams.get(threadParam)).toMatch(/^thr/);
         const entityId = url.searchParams.get('entity');
-        await expect.poll(() => { const id = new URL(page.url()).searchParams.get('thread'); return id && guard.teachingPin(stageId, id, entityId ?? undefined) ? true : false; }, { timeout: 30000 }).toBe(true);
-        const threadId = new URL(page.url()).searchParams.get('thread');
+        await expect.poll(() => { const id = new URL(page.url()).searchParams.get(threadParam); return id && guard.teachingPin(stageId, id, entityId ?? undefined) ? true : false; }, { timeout: 30000 }).toBe(true);
+        const threadId = new URL(page.url()).searchParams.get(threadParam);
         const stages = {};
         for (let n = 1; n <= stageId; n++) { const got = await api(page, 'GET', `/api/projects/${projectId}/aidt/stages/${n}`); if (got.status !== 200) throw new ProbeFailure('TEACHING_SOURCE_READ_FAILED'); if (got.data?.stage) stages[n] = got.data.stage; }
         let selector;
-        if (entityId) {
+        if (summary) {
+          if (entityId !== 'group-report') throw new ProbeFailure('REPORT_SCOPE_UNVERIFIED');
+          const history = page.getByTestId('aidt-summary-materials').locator('p').filter({ hasText: /^历史选择/ });
+          const historyRevisions = [...(await history.textContent()).matchAll(/第(\d+)步 V(\d+)/g)].map(match => ({ stageId: Number(match[1]), revision: Number(match[2]) }));
+          selector = { schemaVersion: 1, projectId, purpose: 'summary', stageRevisions: Object.values(stages).map(({stageId,revision}) => ({stageId,revision})), historyRevisions };
+        } else if (entityId) {
           selector = { schemaVersion: 1, projectId, purpose: 'stage', stageId, entityId, stageRevisions: stages[stageId] ? [{ stageId, revision: stages[stageId].revision }] : [] };
           if (stageId === 2) {
             const raw = stages[2]?.content?.draft?.fields?.[`interviewRecord:${entityId}`];
@@ -543,7 +549,7 @@ export async function main() {
         sensitiveEvidence.assertSafe(proof.assistantText);
         guard.completeTeaching(proof);
         report.teachingEvidence.push({ ...proof, projectId, entityId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
-        await capture(`${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionSuffix}`, stageId);
+        await capture(summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}`, stageId);
       });
       if (!accepted) {
         if (!isolatedKnownS1Review) guard.stopTeaching();
@@ -578,7 +584,7 @@ export async function main() {
     });
     await runAidtJourney({ page, context, expect, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
       checkpoint, capture, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
-      armInterviewEdit: () => guard.armStageSave(2, false),
+      armInterviewEdit: () => guard.armStageSave(2, false), armCardCreate: stage => guard.armStageSave(stage, false),
       registerFixture: fixture => guard.registerFixture(fixture), armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), createAnonymousPage, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');

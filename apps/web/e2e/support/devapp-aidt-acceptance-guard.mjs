@@ -70,9 +70,9 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
   }
 }
 
-// Two S1 turns, one optional independent S1 fixture, thirty S2 turns, four later stages.
+// Three bounded S1 turns, thirty S2 turns, four S3 turns, S4–6 and the report.
 const MAX_DEFINITION_HMW_TURNS = 2;
-export const TEACHING_TURN_LIMIT = 37 + 1 + MAX_DEFINITION_HMW_TURNS;
+export const TEACHING_TURN_LIMIT = 3 + 30 + 1 + 1 + MAX_DEFINITION_HMW_TURNS + 3 + 1;
 
 function definitionTeachingSlot(fields, id) {
   if (!fields || typeof id !== 'string' || !id) return null;
@@ -302,8 +302,9 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     teachingReadsToBind: () => [...teachingLedger.values()].filter(entry => entry.wire && !entry.accepted).map(entry => `/api/chat/threads/${encodeURIComponent(entry.scope.threadId)}/messages?limit=100`),
     teachingPin: (stageId, threadId, entityId) => {
       const coordinates = threadCoordinates.get(threadId);
-      if (!coordinates || coordinates.stageId !== stageId || coordinates.purpose !== 'stage' || (entityId !== undefined && coordinates.entityId !== entityId)) return null;
-      const expected = identity.teachingSkillNames?.[stageId - 1];
+      const isReport = stageId === 6 && entityId === 'group-report';
+      if (!coordinates || coordinates.stageId !== stageId || coordinates.purpose !== (isReport ? 'report' : 'stage') || (entityId !== undefined && coordinates.entityId !== entityId)) return null;
+      const expected = identity.teachingSkillNames?.[isReport ? 6 : stageId - 1];
       const pins = (threadPins.get(threadId) ?? []).filter(pin => skillCatalog.get(pin.skillId)?.stableName === expected);
       return pins.length === 1 ? { skillId: pins[0].skillId, skillVersionId: pins[0].versionId } : null;
     },
@@ -337,7 +338,8 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       const revisionKey = `revision:${scope.selector.entityId}`;
       if (guideRevision && (scope.stageId !== 2 || finding || !teachingLedger.get(guideKey)?.completed
         || teachingLedger.get(guideKey).scope.threadId !== scope.threadId || teachingLedger.get(guideKey).scope.prompt === scope.prompt)) throw new ProbeFailure('TEACHING_GUIDE_REVISION_NOT_VERIFIED');
-      const key = synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? `finding:${scope.selector.entityId}` : guideRevision ? revisionKey : scope.stageId === 2 ? guideKey : scope.stageId;
+      const summary = scope.selector.purpose === 'summary';
+      const key = summary ? 'group-report' : synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? `finding:${scope.selector.entityId}` : guideRevision ? revisionKey : scope.stageId === 2 ? guideKey : scope.stageId;
       const interviews = [...teachingLedger.keys()].filter(id => typeof id === 'string' && id.startsWith('interview:'));
       if (scope.stageId === 2 && (!scope.selector.entityId || (!finding && !guideRevision && interviews.length >= 10))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       if (finding) {
@@ -360,9 +362,9 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         if (used.length >= limit) throw new ProbeFailure('TEACHING_DEFINITION_LIMIT_REACHED');
       }
       if (teachingStopped || !ordinaryVerified || scope.projectId !== projectId || scope.actorId !== actor || teachingLedger.has(trackedKey) || teachingRequests >= TEACHING_TURN_LIMIT
-        || !coordinates || coordinates.purpose !== 'stage' || coordinates.stageId !== scope.stageId || coordinates.entityId !== scope.selector.entityId
+        || !coordinates || coordinates.purpose !== (summary ? 'report' : 'stage') || coordinates.stageId !== scope.stageId || coordinates.entityId !== (summary ? 'group-report' : scope.selector.entityId)
         || !threadFacts.get(scope.threadId)?.writable || !pins.some(pin => pin.skillId === scope.skillId && pin.versionId === scope.skillVersionId)
-        || skillCatalog.get(scope.skillId)?.stableName !== identity.teachingSkillNames?.[scope.stageId - 1]
+        || skillCatalog.get(scope.skillId)?.stableName !== identity.teachingSkillNames?.[summary ? 6 : scope.stageId - 1]
         || scope.selector.stageRevisions.some(ref => stageStates.get(ref.stageId)?.revision !== ref.revision)
         || JSON.stringify(scope.knownMessages) !== JSON.stringify(messageSnapshots.get(scope.threadId))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       arm = null;
