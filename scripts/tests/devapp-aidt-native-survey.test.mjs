@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createSurveyCollectionGuard, surveyFixture } from '../../apps/web/e2e/support/devapp-aidt-survey.mjs';
+import { createSurveyCollectionGuard, nativeSurveyTemplateDigest, surveyFixture } from '../../apps/web/e2e/support/devapp-aidt-survey.mjs';
 
-const project = 'prj-synthetic', id = 'sv-synthetic', token = 'fake-local-test-token', run = '123';
+const project = 'prj-synthetic', id = 'sv-synthetic', token = 'synthetic.' + 'x'.repeat(43), run = '123';
 const fixture = surveyFixture(run);
-const survey = createSurveyCollectionGuard;
+const survey = value => createSurveyCollectionGuard(value, nativeSurveyTemplateDigest(draft));
 const titles = ['会议名称','会议日期','会议目标和议程清晰。','会议内容与我的工作相关。','参会者有足够机会表达意见。','会议时长是否合适？','会后行动项、负责人和时间明确。','下次会议最值得改进的地方是什么？'];
 const types = ['short','date','scale','scale','scale','single','scale','open'];
 const questions = titles.map((title, i) => ({id: 'meeting-feedback-q' + (i + 1), title, type: types[i], options: i === 5 ? ['过短','合适'] : ['1','2','3','4','5'], provenance: {source:'template',sourceId:'builtin-survey-meeting-feedback'}}));
@@ -25,7 +25,7 @@ test('ordinary UI publication admits exactly one synthetic response and can clos
   assert.equal(req(g, '/surveys/' + token, undefined, 'GET').allow,true);
   assert.equal(req(g, '/api/public/surveys/unknown/responses', submit),undefined);
   const path = '/api/public/surveys/' + token + '/responses';
-  g.observe(req(g,path,submit).kind,201,{responseId:'owned-response'});
+  g.observe(req(g,path,submit).kind,201,{responseId:'owned-response',replayed:false});
   assert.deepEqual(g.receipt(),{id,responseId:'owned-response'});
   assert.throws(()=>req(g,path,submit),/NATIVE_SURVEY/);
   g.observe(req(g,'/api/surveys/' + id + '/close',{expectedVersion:2}).kind,200,{id,publication:{status:'closed'}});
@@ -36,6 +36,7 @@ test('foreign survey, template, publication version, participant content, and un
   assert.equal(req(g,'/api/surveys',draft),undefined);
   g.arm();
   assert.throws(()=>req(g,'/api/surveys',{...draft,title:'someone else'}),/NATIVE_SURVEY/);
+  assert.throws(()=>req(g,'/api/surveys',{...draft,template:{...draft.template,extra:'foreign content'}}),/NATIVE_SURVEY/);
   g.observe(req(g,'/api/surveys',draft).kind,201,created);
   assert.throws(()=>req(g,'/api/projects/' + project + '/resources',{...link,resourceId:'foreign'}),/NATIVE_SURVEY/);
   assert.throws(()=>req(g,'/api/surveys/' + id + '/publish',{expectedVersion:1}),/NATIVE_SURVEY/);

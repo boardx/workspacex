@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 
 const template = 'meeting-feedback';
 const idPattern = /^[A-Za-z0-9_-]{1,128}$/;
+const publicationToken = /^[A-Za-z0-9_-]{1,512}\.[A-Za-z0-9_-]{43}$/;
 const uuidPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const titles = ['会议名称', '会议日期', '会议目标和议程清晰。', '会议内容与我的工作相关。', '参会者有足够机会表达意见。', '会议时长是否合适？', '会后行动项、负责人和时间明确。', '下次会议最值得改进的地方是什么？'];
 const types = ['short','date','scale','scale','scale','single','scale','open'];
@@ -11,7 +13,10 @@ export function surveyFixture(run) {
   const answer = 'QA 合成答卷 ' + run + '：队列提示可读，希望增加口味差异说明。';
   return { title, answer, values: [title, '2026-11-01', '4', '4', '4', '合适', '4', answer] };
 }
-export function createSurveyCollectionGuard(run) {
+// Pin the draft emitted by the native meeting-feedback template, including nested Markdown,
+// question settings and report sections. A template change requires reviewing the new payload.
+export const nativeSurveyTemplateDigest = body => createHash('sha256').update(JSON.stringify([body.questions, body.template])).digest('hex');
+export function createSurveyCollectionGuard(run, trustedTemplate = '36567f1a9f6588b1e8933a75a3072043eb40cb9855cf48318dc2149b19d720b0') {
   const fixture = surveyFixture(run);
   let active = false, id, version, token, responseId;
   const expectedValues = [...fixture.values];
@@ -34,7 +39,7 @@ export function createSurveyCollectionGuard(run) {
     if (method !== 'POST' || url.search) return;
     if (path === '/api/surveys') {
       if (!keys(body, 'questions,tags,template,title') || body.title !== fixture.title || !Array.isArray(body.tags) || body.tags.length
-        || body.template?.id !== template + '-report' || body.questions?.length !== titles.length
+        || nativeSurveyTemplateDigest(body) !== trustedTemplate || body.template?.id !== template + '-report' || body.questions?.length !== titles.length
         || !body.questions.every((q,i) => q.id === questionId(i) && q.title === titles[i] && q.type === types[i]
           && q.provenance?.source === 'template' && q.provenance.sourceId === 'builtin-survey-' + template)) reject();
       return take('survey-create');
@@ -78,7 +83,7 @@ export function createSurveyCollectionGuard(run) {
     }
     if (kind === 'survey-link') spent.add('survey-linked');
     if (kind === 'survey-publish') {
-      if (data?.id !== id || data.publication?.status !== 'collecting' || !idPattern.test(data.publication.token ?? '')) reject();
+      if (data?.id !== id || data.publication?.status !== 'collecting' || !publicationToken.test(data.publication.token ?? '')) reject();
       token = data.publication.token; version = data.version;
       for (const i of [2,3,4,5,6]) {
         const question = data.publication.questions.find(q => q.id === questionId(i));
@@ -88,7 +93,7 @@ export function createSurveyCollectionGuard(run) {
       }
     }
     if (kind === 'survey-submit') {
-      if (!idPattern.test(data?.responseId ?? '')) reject();
+      if (!idPattern.test(data?.responseId ?? '') || data.replayed !== false) reject();
       responseId = data.responseId;
     }
   }
