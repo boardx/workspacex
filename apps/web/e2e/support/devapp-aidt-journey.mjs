@@ -681,7 +681,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(topic).toBeVisible();
       if (await topic.locator('..').getAttribute('open') === null) await topic.click();
       await expect(topic.locator('..')).toContainText(confirmedProblem.rewrittenTheme);
-      await click(btn('新建访谈')); await saveStage(2);
+      await click(btn('新建访谈')); await click(btn('创建访谈')); await saveStage(2);
       const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
       assertAidtS2Topic(JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]), confirmedProblem);
       await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
@@ -784,6 +784,16 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
         await expect(timeline.getByTestId('chat-user-message-text').filter({ hasText: sibling.prompt })).toHaveCount(0);
         if (records.some(row => row.id === sibling.inputMessageId || row.id === sibling.assistantMessageId)) fail('SIBLING_INTERVIEW_MESSAGE_VISIBLE');
       }
+      await click(page.getByRole('button', { name: /产物列表/ }));
+      const nativeArtifacts = page.getByTestId('chat-artifacts-panel');
+      const interviewArtifact = nativeArtifacts.getByTestId('chat-host-artifact');
+      await expect(interviewArtifact).toHaveText(`${interview.code} · 访谈产物`);
+      await expect(nativeArtifacts.getByTestId('chat-artifacts-empty')).toHaveCount(0);
+      for (const sibling of state.interviews.filter(other => other !== interview)) {
+        await expect(nativeArtifacts.getByRole('button', { name: `${sibling.code} · 访谈产物`, exact: true })).toHaveCount(0);
+      }
+      await click(interviewArtifact);
+      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(interview.threadId);
       const inspector = await readOnlyInterviewOutput();
       await expect(inspector.getByTestId('aidt-interview-question-list')).toContainText(interview.adopted);
       await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(interview.quote);
@@ -792,7 +802,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
         await expect(inspector).not.toContainText(other.quote);
       }
       expect(new URL(page.url()).searchParams.get('entity')).toBe(new URL(interview.href).searchParams.get('entity'));
-      observed.push({ code: interview.code, stableThread: true, savedStudentMessage: true, savedAssistantMessage: true, noSiblingMessages: true, confirmedGuide: true, exportedPdf: true, rightInspector: true, directoryReentry: true, refresh: true });
+      observed.push({ code: interview.code, stableThread: true, savedStudentMessage: true, savedAssistantMessage: true, noSiblingMessages: true, confirmedGuide: true, exportedPdf: true, rightInspector: true, nativeArtifactListReentry: true, directoryReentry: true, refresh: true });
     }
     report.independentEntityThreadsVerified = true;
   }, '02-independent-chat');
@@ -803,27 +813,31 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const grid = page.getByRole('list', { name: '访谈卡片', exact: true });
     const cards = grid.getByRole('listitem');
     await expect(cards).toHaveCount(10);
-    await click(btn('新建访谈')); await saveStage(2);
+    await click(btn('新建访谈'));
+    const creation = page.getByRole('dialog', { name: '新建访谈' });
+    await fill('受访者姓名或化名', '临时化名', creation);
+    await click(btn('创建访谈', creation)); await saveStage(2);
     await expect(cards).toHaveCount(11);
     const temporary = cards.filter({ has: page.getByRole('button', { name: /^U11(?:\s|$)/ }) });
     await expect(page.getByTestId('aidt-shared-save')).toHaveCount(0);
-    await click(btn('编辑访谈卡', temporary));
+    await click(btn('改名与标签', temporary));
     const editor = page.getByRole('dialog', { name: '编辑访谈卡' });
     const name = `临时访谈 ${unique}`;
     const tags = [`QA午休 ${unique}`, `QA饮品 ${unique}`];
-    await fill('访谈名称', name, editor);
+    await fill('受访者姓名或化名', name, editor);
     const tagInput = editor.getByTestId('interview-tag-input');
     for (const tag of tags) { await tagInput.fill(tag); await tagInput.press('Enter'); }
     await saveStage(2, btn('保存修改', editor));
     await page.reload();
     await expect(temporary.getByText(name, { exact: true })).toBeVisible();
-    const filter = page.getByRole('combobox', { name: '筛选标签', exact: true });
+    const filter = page.getByRole('group', { name: '筛选标签', exact: true });
     for (const tag of tags) {
-      await filter.selectOption({ label: tag });
+      await click(btn(tag, filter));
+      await expect(btn(tag, filter)).toHaveAttribute('aria-pressed', 'true');
       await expect(cards).toHaveCount(1);
       await expect(temporary.getByText(tag, { exact: true })).toBeVisible();
     }
-    await filter.selectOption('');
+    await click(btn('全部', filter));
     await click(btn('删除访谈卡', temporary));
     await saveStage(2, btn('确认删除', page.getByRole('dialog', { name: '删除访谈卡？' })));
     await page.reload();
