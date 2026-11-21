@@ -41,7 +41,7 @@ it("bounds a missing terminal ACK at 20 seconds without erasing confirmed text o
   await stopped;
 });
 
-it("preserves an actual provider completion while bounding stalled capture cleanup", async () => {
+it("bounds stalled capture cleanup without accepting an ACK before sending finish", async () => {
   vi.useFakeTimers();
   const f = fixture();
   f.stop.mockImplementation(() => new Promise<undefined>(() => undefined));
@@ -51,8 +51,8 @@ it("preserves an actual provider completion while bounding stalled capture clean
   await vi.advanceTimersByTimeAsync(20000);
   await stopped;
   expect(FakeSocket.current.readyState).toBe(3);
-  expect(f.handlers.onFinished).toHaveBeenCalledTimes(1);
-  expect(f.handlers.onError).not.toHaveBeenCalled();
+  expect(f.handlers.onFinished).not.toHaveBeenCalled();
+  expect(f.handlers.onError).toHaveBeenCalledWith("ASR_PROVIDER_UNAVAILABLE");
 });
 
 it.each(["finished", "error", "close", "malformed"])("releases capture on server %s before UI discards its handle", async (kind) => {
@@ -63,7 +63,21 @@ it.each(["finished", "error", "close", "malformed"])("releases capture on server
     : kind === "error" ? { type: "asr.error", reason: "ASR_PROVIDER_UNAVAILABLE" } : {});
   await vi.waitFor(() => expect(f.stop).toHaveBeenCalledTimes(1));
   await vi.waitFor(() => expect(FakeSocket.current.readyState).toBe(3));
-  expect(f.handlers.onFinished.mock.calls.length + f.handlers.onError.mock.calls.length).toBe(1);
+  expect(f.handlers.onFinished).not.toHaveBeenCalled();
+  expect(f.handlers.onError).toHaveBeenCalledTimes(1);
+  expect(f.handlers.onError).toHaveBeenCalledWith("ASR_PROVIDER_UNAVAILABLE");
+});
+
+it("does not report completion when the socket closes before acknowledging stop", async () => {
+  const f = fixture();
+  const handle = await openAsrDraftStream(f.handlers, { sessionToken: "test", capture: async () => f.capture });
+  const stopped = handle.stop();
+  await vi.waitFor(() => expect(FakeSocket.current.sent).toContain(JSON.stringify({ type: "asr.finish" })));
+  FakeSocket.current.close();
+  await stopped;
+  expect(f.handlers.onFinished).not.toHaveBeenCalled();
+  expect(f.handlers.onError).toHaveBeenCalledTimes(1);
+  expect(f.handlers.onError).toHaveBeenCalledWith("ASR_PROVIDER_UNAVAILABLE");
 });
 
 it("deduplicates stop and preserves final transcription while waiting for terminal ACK", async () => {

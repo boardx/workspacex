@@ -102,7 +102,7 @@ export async function openAsrDraftStream(
   const stopCapture = () => captureStopped ??= capturePromise.then((capture) => capture.stop());
   let terminal = false;
   let captureFailed = false;
-  let stopRequested = false;
+  let finishSent = false;
   let notified = false;
   let terminalReason: AsrDraftErrorReason | undefined;
   let resolveTerminal!: () => void;
@@ -134,9 +134,11 @@ export async function openAsrDraftStream(
     if (frame.type === "asr.partial") return handlers.onPartial(frame.text);
     if (frame.type === "asr.final") return handlers.onFinal(frame.text);
     if (frame.type === "asr.error") { notifyCreditFailure(frame.credit ?? {code:frame.reason}); return finish(frame.reason); }
-    finish();
+    // The gateway only acknowledges an explicit finish. An unsolicited terminal frame
+    // is a lost connection and must go through the same recovery path as a socket close.
+    finish(finishSent ? undefined : "ASR_PROVIDER_UNAVAILABLE");
   });
-  socket.addEventListener("close", () => finish(stopRequested ? undefined : "ASR_PROVIDER_UNAVAILABLE"));
+  socket.addEventListener("close", () => finish("ASR_PROVIDER_UNAVAILABLE"));
   socket.addEventListener("error", () => finish("ASR_PROVIDER_UNAVAILABLE"));
 
   let capture: CaptureHandle;
@@ -174,21 +176,19 @@ export async function openAsrDraftStream(
         notify();
       }, ASR_DRAFT_STOP_TIMEOUT_MS);
       const operation = (async () => {
-      stopRequested = true;
-      try {
-        await stopCapture();
-      } catch {
-        finish("ASR_PROVIDER_UNAVAILABLE");
+        try {
+          await stopCapture();
+          if (!terminal && socket.readyState === WebSocket.OPEN) {
+            // Set the flag before sending so even a synchronous ACK belongs to this request.
+            finishSent = true;
+            socket.send(JSON.stringify({ type: "asr.finish" }));
+          } else {
+            finish("ASR_PROVIDER_UNAVAILABLE");
+          }
+        } catch {
+          finish("ASR_PROVIDER_UNAVAILABLE");
+        }
         await terminalDone;
-        return;
-      }
-      if (!terminal && socket.readyState === WebSocket.OPEN) {
-        // The terminal listener is installed before send, so even an immediate ACK is retained.
-        socket.send(JSON.stringify({ type: "asr.finish" }));
-      } else {
-        finish();
-      }
-      await terminalDone;
       })();
       stopping = Promise.race([operation, terminalDone]).finally(() => clearTimeout(timeout));
       return stopping;

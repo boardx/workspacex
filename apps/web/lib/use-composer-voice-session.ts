@@ -111,46 +111,21 @@ export function useComposerVoiceSession(
       setCarriedSeconds((s) => s + speech.elapsedSeconds);
       setCarriedChars((c) => c + speech.committedText.replace(/\s/g, "").length);
       if (intent === "pause") setSettled("paused");
-      else setSettled(speech.committedText.trim() === "" && intent !== "finish" ? null : "done");
+      else if (intent === "finish") setSettled("done");
     }
     if (speech.status === "error" || speech.status === "denied" || speech.status === "unsupported") {
+      const intent = endIntentRef.current;
       endIntentRef.current = null;
+      // Keep the existing completion receipt when the user explicitly stops with confirmed text.
+      // A failure during dictation must remain visible even when the draft already contains text.
+      const confirmedChars = speech.committedText.replace(/\s/g, "").length;
+      if (speech.status === "error" && intent === "finish" && confirmedChars > 0) {
+        setCarriedSeconds((s) => s + speech.elapsedSeconds);
+        setCarriedChars((c) => c + confirmedChars);
+        setSettled("done");
+      }
     }
   }, [speech.status, speech.committedText, speech.elapsedSeconds]);
-
-  /**
-   * 2026-09-03 人类反馈（真栈截图）「录音停止以后不应该出现这条 warning，是多余的」——
-   * 根因：`useAsrDraft` 一旦中途报错（比如上游连接抖动），状态机会直接把 `status`
-   * 钉在 `"error"`（`onFinished` 也如实保留它，见该文件头注），不管这段录音**已经**
-   * 转录出了多少内容、也不管用户之后是不是已经点了「停止」。结果是转录明明成功
-   * 写进了输入框，卡片底部却永久挂着一条「语音识别暂时不可用」——内容已经到手，
-   * 这条提示对用户已经没有任何可执行的价值，纯粹是噪音。
-   *
-   * 只在**这段会话确实转出过内容**时收敛：把它当成跟正常「完成」一样落到 `done`，
-   * 警告条自然不再渲染（下方 `phase` 的优先级）。真正"一开始就连不上、什么都没
-   * 录到"的失败不受影响，仍然如实报错——不是把所有错误都吞掉，只是不为一个已经
-   * 不影响结果的错误继续报警。
-   *
-   * ⚠ 2026-09-03 同作者诊断评论（PR #2626）指出的真实 bug：第一版这里用
-   * `opts.getDraft() !== sessionBaseRef.current`（整个可编辑 composer 草稿相对
-   * 会话开始前的差异）判断"是否转出过内容"——草稿是用户可编辑的整个输入框，
-   * 录音期间手动改字/插入 `@mention`/技能提及都会改变它，与"ASR 到底转出了什么"
-   * 是两件事：一次真正零转录的错误（比如连接从未建立成功）也会被误判成
-   * `done`，把"语音识别暂时不可用"这条本该出现的提示吞掉。改为只认
-   * `speech.committedText`/`speech.partialText`——这两个字段只由 `useAsrDraft`
-   * 内部的 `onFinal`/`onPartial` 回调写入（见该文件），`onError` 不会清空也不会
-   * 写入它们，所以在这里读到的就是"这段会话报错前，ASR 上游真的确认过的转录"，
-   * 与草稿被怎么编辑过无关。
-   */
-  React.useEffect(() => {
-    if (speech.status !== "error") return;
-    if (settled === "done") return;
-    if (sessionBaseRef.current === null) return; // 没有进行中的会话（比如 start() 本身就失败），如实报错。
-    if (speech.committedText.trim() === "" && speech.partialText.trim() === "") return; // 真的什么都没转到，如实报错。
-    setCarriedSeconds((s) => s + speech.elapsedSeconds);
-    setCarriedChars((c) => c + speech.committedText.replace(/\s/g, "").length);
-    setSettled("done");
-  }, [speech.status, speech.elapsedSeconds, speech.committedText, speech.partialText, settled]);
 
   const start = React.useCallback(() => {
     setCompletionDismissed(false);
@@ -204,6 +179,8 @@ export function useComposerVoiceSession(
   // 静音检测：listening 期间每秒看一次"最近一次有声音是什么时候"。
   const lastLoudAtRef = React.useRef<number>(Date.now());
   const [silentSeconds, setSilentSeconds] = React.useState(0);
+  const levelRef = React.useRef(speech.level);
+  levelRef.current = speech.level;
   React.useEffect(() => {
     if (speech.level > SILENCE_LEVEL_THRESHOLD) lastLoudAtRef.current = Date.now();
   }, [speech.level]);
@@ -211,7 +188,9 @@ export function useComposerVoiceSession(
     if (!speech.listening) { setSilentSeconds(0); return; }
     lastLoudAtRef.current = Date.now();
     const timer = window.setInterval(() => {
-      setSilentSeconds(Math.floor((Date.now() - lastLoudAtRef.current) / 1_000));
+      const now = Date.now();
+      if (levelRef.current > SILENCE_LEVEL_THRESHOLD) lastLoudAtRef.current = now;
+      setSilentSeconds(Math.floor((now - lastLoudAtRef.current) / 1_000));
     }, 1_000);
     return () => window.clearInterval(timer);
   }, [speech.listening]);
