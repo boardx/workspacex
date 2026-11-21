@@ -1,3 +1,4 @@
+import {recoverProblemFraming} from "../../src/infrastructure/aidt-run-context/pg-skill-output";
 import {randomUUID} from "node:crypto";
 import {afterAll,beforeAll,expect,it} from "vitest";
 import {writeBackPendingRuns} from "../../src/application/agent-run/writeback";
@@ -57,6 +58,12 @@ it("committed reply updates only its entity without a browser; receipt replay an
   await run("我们亲自观察到这个问题","### 原始命题\n新手司机夜间高速公路开车\n### 来源类型\n亲自观察\n### 已知\n施工路段标识变化",false);
   expect(await contexts.reconcileEntity(actor,1,entityId)).toBe(true);
   expect(JSON.parse((await read()).content.draft.fields["problemDraft:"+entityId]!)).toMatchObject({problemSources:'["observation"]',known:"施工路段标识变化"});
+  const frozen = await f.save(1,{...first.content.draft.fields,["problemDraft:"+entityId]:JSON.stringify({initial:"你好",rewrittenTheme:"确认",roundCompletion:"旧记录"})});
+  const historical = (source:typeof frozen,id:string)=>asApp(f.orgId,s=>recoverProblemFraming(s,actor,source,id));
+  expect(await historical(frozen,entityId)).toBe("新手司机夜间高速公路开车");
+  expect(await historical(frozen,other)).toBeUndefined();
+  expect(await historical(initial,entityId)).toBeUndefined();
+  expect((await read()).revision).toBe(frozen.revision);
   await expect(contexts.reconcileEntity({...actor,userId:f.outsiderId},1,entityId)).rejects.toThrow();
  } finally {await f.cleanup();}
 });

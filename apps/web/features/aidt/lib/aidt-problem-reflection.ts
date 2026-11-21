@@ -1,4 +1,4 @@
-import { isAidtGreetingText } from "@repo/contracts/aidt-stages";
+import { isAidtProblemControlText } from "@repo/contracts/aidt-stages";
 import { readAidtProblemDirections } from "./aidt-problem-directions";
 /** Source labels describe student-reported provenance, never proof of a claim. */
 export const PROBLEM_SOURCE_OPTIONS = [
@@ -27,10 +27,10 @@ export function problemReflectionMissingFields(draft: AidtUiStageDraft): string[
   const fields = draft.fields;
   const sources = readProblemSources(fields.problemSources);
   return [
-    (!fields.initial?.trim() || isAidtGreetingText(fields.initial)) && "原始命题",
-    !fields.whyWorthStudying?.trim() && "选题理由",
+    (!fields.initial?.trim() || isAidtProblemControlText(fields.initial)) && "原始命题",
+    (!fields.whyWorthStudying?.trim() || isAidtProblemControlText(fields.whyWorthStudying)) && "选题理由",
     (!sources.selected.length || sources.invalid) && "问题来源",
-    !fields.sourceDetails?.trim() && "来源描述",
+    (!fields.sourceDetails?.trim() || isAidtProblemControlText(fields.sourceDetails)) && "来源描述",
   ].filter((label): label is string => Boolean(label));
 }
 
@@ -47,7 +47,7 @@ export function formatAidtProblemReflectionMarkdown(draft: AidtUiStageDraft): st
   const directions = readAidtProblemDirections(fields.problemDirections);
   return [
     "### 问题反思记录",
-    `原始命题：${fields.initial?.trim() && !isAidtGreetingText(fields.initial) ? fields.initial.trim() : "待补充"}`,
+    `原始命题：${fields.initial?.trim() && !isAidtProblemControlText(fields.initial) ? fields.initial.trim() : "待补充"}`,
     `学生重写命题：${fields.rewrittenTheme?.trim() || "待补充"}`,
     `为什么值得研究：${fields.whyWorthStudying?.trim() || "待补充"}`,
     `学生标注的问题来源：${sourceLabels.join("、") || "待补充"}${sources.invalid ? "（来源数据待核对）" : ""}`,

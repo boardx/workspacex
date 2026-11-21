@@ -120,8 +120,10 @@ test("AIDT test groups bind an immutable Design and isolate parallel native Chat
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
   const hrefs: string[] = [];
   for (const name of ["A 赶课访谈", "B 非高峰问卷"]) {
-    await directory.getByRole("textbox", { name: "测试名称" }).fill(name);
-    await directory.getByRole("button", { name: "新建测试草稿" }).click();
+    await directory.getByTestId("aidt-new-entity-card").click();
+    const dialog = page.getByRole("dialog", { name: "新建测试卡片" });
+    await dialog.getByRole("textbox", { name: "测试名称" }).fill(name);
+    await dialog.getByRole("button", { name: "创建测试卡片" }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
     hrefs.push(page.url());
     await page.goto(`${pathname}?step=6&prototypeRevision=${prototype.revision}`);

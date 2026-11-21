@@ -1,7 +1,8 @@
+import { entityLineage, problemReference } from "../../application/aidt-run-context/entity-lineage";
+import { recoverProblemFraming, projectSavedSkillOutput } from "./pg-skill-output";
 import { checkedInterviewExcerpt } from "../../application/aidt-stages/interview-skill-draft";
-import { projectSavedSkillOutput } from "./pg-skill-output";
 import { AIDT_ENTITY_THREAD_PREFIX } from "@repo/contracts/aidt-stages";
-import { aidtEntityThreadId, aidtSavedEntityContext } from "../../application/aidt-stages/entity-thread";
+import { aidtEntityThreadId, aidtSavedEntityContext, aidtSavedEntityTitle } from "../../application/aidt-stages/entity-thread";
 import { randomUUID } from "node:crypto";
 import { AidtContextSelector, AidtStoredContextSnapshot, AidtContextReceipt, AIDT_STAGE_IDENTITIES, AIDT_SUMMARY_STABLE_NAME, AIDT_CONTEXT_LIMITS, aidtContextSelectorJson, type AidtContextSnapshot } from "@repo/contracts/aidt-run-context";
 import { readConfirmedAidtReturn } from "@repo/contracts/aidt-return-reflection";
@@ -98,18 +99,43 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
   return this.timed(session,async s=>{
    const scope=await this.accessIn(s,actor,true),focus=await this.focusIn(s,actor,selector,run.skillVersionIds,scope.db);
    const heads=new Map((await scope.stages.list(actor)).items.map(row=>[row.stageId,row.revision]));const loaded:LoadedAidtContextSource[]=[];
+   const revisions = new Map<string, SharedStageValue>();
+   const exact = async (step:number,revision:number) => {
+     const key = step + ":" + revision;
+     const cached = revisions.get(key);
+     if (cached) return cached;
+     const value = await this.exact(scope.stages,actor,step,revision);
+     revisions.set(key,value);
+     return value;
+   };
    for (const ref of selector.stageRevisions) {
-     const stage = await this.exact(scope.stages, actor, ref.stageId, ref.revision);
+     const stage = await exact(ref.stageId, ref.revision);
      if (selector.purpose === "stage" && selector.entityId && ref.stageId === selector.stageId) {
        if (stage.stageId === 2 && heads.get(2) !== stage.revision) await this.checkExcerpt(scope.stages, actor, stage, selector.entityId);
-       loaded.push({ kind: "stage", stage, payload: aidtSavedEntityContext(stage, selector.entityId) });
+       const current = aidtSavedEntityContext(stage, selector.entityId);
+       const lineage = await entityLineage(stage,selector.entityId,exact,(source,id) => recoverProblemFraming(s,actor,source,id));
+       loaded.push({ kind: "stage", stage, entityReferences:lineage.map(({step,revision,entityId})=>({stageId:step,revision,entityId})), payload: { ...current, ...(stage.stageId === 1 ? { fields:problemReference(current.fields ?? {}) } : {}), ...(lineage.length ? { upstream:lineage } : {}) } });
+       continue;
+     }
+     if (selector.purpose === "summary" && stage.stageId === 6) {
+       const ids = Object.keys(stage.content.draft.fields).filter(key=>key.startsWith("testGroup:")).map(key=>key.slice("testGroup:".length));
+       const tests = [];
+       const entityReferences = [];
+       for (const id of ids) {
+         if (!aidtSavedEntityTitle(stage,id,"stage")) continue;
+         const sources = await entityLineage(stage,id,exact,(source,entity) => recoverProblemFraming(s,actor,source,entity));
+         tests.push({测试:id,来源:sources});
+         entityReferences.push(...sources.map(({step,revision,entityId})=>({stageId:step,revision,entityId})));
+       }
+       loaded.push({kind:"stage",stage,...(tests.length ? {lineage:tests,entityReferences} : {})});
        continue;
      }
      if (selector.purpose !== "stage" || !selector.sourceEntityId) {
        loaded.push({ kind: "stage", stage });
        continue;
      }
-     const interview = (await scope.stages.get(actor, 2)).stage;
+     const interviewRevision = selector.stageRevisions.find(ref => ref.stageId === 2)?.revision;
+     const interview = interviewRevision ? await exact(2,interviewRevision) : null;
      const provenance = interview?.content.draft.fields["interviewRecord:" + selector.entityId];
      const savedProblem = stage.content.draft.fields["problemDraft:" + selector.sourceEntityId];
      if (!provenance || !savedProblem) return unavailable();
@@ -122,7 +148,7 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
      if (interviewRecord?.id !== selector.entityId || interviewRecord.topicRevision !== ref.revision
        || interviewRecord.problemEntityId !== selector.sourceEntityId || !problemFields?.roundCompletion
        || !problemFields.rewrittenTheme?.trim()) return unavailable();
-     loaded.push({ kind: "stage", stage, payload: { draft: { fields: problemFields }, entityId: selector.sourceEntityId } });
+     loaded.push({ kind: "stage", stage, payload: { draft: { fields: problemReference(problemFields) }, entityId: selector.sourceEntityId } });
    }
    const reflection=await this.checkReturn(scope.stages,actor,selector);if(reflection)loaded.push({kind:"return",stage:reflection.row,payload:reflection.payload});
    if(selector.purpose==="summary")for(const ref of selector.historyRevisions)loaded.push({kind:"history",stage:await this.exact(scope.stages,actor,ref.stageId,ref.revision)});
@@ -176,7 +202,7 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
  }
  async receipt(actor:{orgId:OrgId;userId:string},runId:string){return this.db.withTenant(actor.orgId,s=>this.timed(s,async tx=>{
   const facts=await this.store.readScopeIn(tx,actor.orgId,runId);if(!facts)return unavailable();const who={...actor,projectId:facts.projectId,threadId:facts.threadId},scope=await this.accessIn(tx,who,false),guarded=await this.store.readIn(tx,actor.orgId,runId);if(!guarded)return unavailable();const stored=this.disclose(guarded,who,scope.decision),events=await this.store.eventsIn(tx,actor.orgId,runId),selector=stored.snapshot.selector;
-  return AidtContextReceipt.parse({runId,projectId:stored.projectId,purpose:selector.purpose,...(selector.purpose==="stage"?{stageId:selector.stageId,...(selector.returnRevision!==undefined?{returnRevision:selector.returnRevision}:{})}:{}),skillVersionId:stored.snapshot.focus.skillVersionId,snapshotHash:stored.snapshotHash,preparedAt:stored.preparedAt,stageRevisions:selector.stageRevisions,historyRevisions:selector.purpose==="summary"?selector.historyRevisions:[],omissions:stored.snapshot.omissions,truncated:stored.snapshot.truncated,application:reduceAidtApplication(runId,events)});
+  return AidtContextReceipt.parse({runId,projectId:stored.projectId,purpose:selector.purpose,...(selector.purpose==="stage"?{stageId:selector.stageId,...(selector.returnRevision!==undefined?{returnRevision:selector.returnRevision}:{})}:{}),skillVersionId:stored.snapshot.focus.skillVersionId,snapshotHash:stored.snapshotHash,preparedAt:stored.preparedAt,stageRevisions:selector.stageRevisions,entityReferences:stored.snapshot.entityReferences,historyRevisions:selector.purpose==="summary"?selector.historyRevisions:[],omissions:stored.snapshot.omissions,truncated:stored.snapshot.truncated,application:reduceAidtApplication(runId,events)});
  }));}
 }
 import { aidtContextSnapshotJson as importSnapshotJson } from "@repo/contracts/aidt-run-context";

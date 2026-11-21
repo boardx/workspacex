@@ -1,3 +1,5 @@
+import { aidtEntityThreadId } from "../../src/application/aidt-stages/entity-thread";
+import { addChatThread } from "../support/chat-db";
 import { createHash, randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
@@ -83,6 +85,27 @@ async function receipt(runId: string) { return AidtContextReceipt.parse(await co
 async function revokeStudent() { return removeNonWorkshopMember({ identity: new PgIdentityRepository(db), ids: { next: randomUUID }, members: new PgNonWorkshopMemberRepository(db), provenance: new PgProvenanceRepository(db) }, { orgId: fixture.orgId, projectId: fixture.projectId, actorId: fixture.ownerId, userId: fixture.studentId }); }
 
 describe("approved AIDT bridge: real database to actual adapter without supplier fees", () => {
+  it("entity Chat actually sends the pinned interview problem and scene without sibling fields or control turns", async () => {
+    const problem=randomUUID(), other=randomUUID(), interview=randomUUID();
+    const question="新手如何确认夜间施工区的车道？";
+    const problemFields={initial:"你好",rewrittenTheme:question,whyWorthStudying:"确认",scene:"夜间高速施工区",roundCompletion:"saved"};
+    const s1=await fixture.save(1,{["problemDraft:"+problem]:JSON.stringify(problemFields),
+      ["problemDraft:"+other]:JSON.stringify({rewrittenTheme:"同组无关记录"}),problemHandoffEntity:problem});
+    const s2=await fixture.save(2,{["interviewRecord:"+interview]:JSON.stringify({id:interview,code:"U01",problemEntityId:problem,topicRevision:s1.revision})});
+    await fixture.save(1,{["problemDraft:"+problem]:JSON.stringify({...problemFields,rewrittenTheme:"新版主题"})});
+    const threadId=aidtEntityThreadId(fixture.actor,2,interview,"stage");
+    await addChatThread({orgId:fixture.orgId,id:threadId,projectId:fixture.projectId,createdBy:fixture.studentId,visibilityScope:"plenary"});
+    const mount=await fixture.mountApprovedSkill("aidt-methods","1.3.0",AIDT_STAGE_IDENTITIES[1].skill,threadId);
+    agent=await fixture.publishAgent([mount.versionId]);
+    const request={...input({schemaVersion:1,purpose:"stage",stageId:2,projectId:fixture.projectId,entityId:interview,stageRevisions:[{stageId:2,revision:s2.revision}]}),threadId};
+    expect((await acceptValue(commands,request)).kind).toBe("created");
+    await execute();
+    const body=recorder.submissions[0]!.body as {input:{messages:{content:string}[]}};
+    const content=body.input.messages.find(row=>typeof row.content==="string" && row.content.includes("AIDT SAVED STUDENT REFERENCE"))!.content;
+    expect(content).toContain(question); expect(content).toContain("夜间高速施工区");
+    expect(content).toContain("entityRevision="+s1.revision); expect(content).toContain(problem);
+    for (const unrelated of ["同组无关记录","新版主题","whyWorthStudying","你好"]) expect(content).not.toContain(unrelated);
+  });
   it("CTX-P01/N01/I03: atomic source snapshot reaches exact actual HTTP history slot; human remains exact", async () => {
     const request = { ...input(), context: { forged: fixture.markers.forged }, state: { teacherComment: fixture.markers.forged } };
     expect((await acceptValue(commands, request)).kind).toBe("created");

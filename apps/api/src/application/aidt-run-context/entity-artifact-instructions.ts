@@ -10,5 +10,5 @@ const outputFormat: Readonly<Record<string, string>> = {
 export function aidtEntityArtifactInstructions(skillStableName: string): string {
   const format = outputFormat[skillStableName];
   if (!format) return "";
-  return `\n\n在原生 Chat 内向学生提出一个简短问题。学生提供了足够内容时，从当前实体的对话整理可审阅草稿，等待学生点击确认。问候、缺少材料或仅回答「继续」时请追问，保持产物为空。不要代填确认、编造事实或替学生保存。格式：${format}`;
+  return `\n\n学生询问先前步骤时，优先回答引用链所载的真实研究问题、对象和场景，并使用材料中的 href 以「第几步 · V几」链接所引用的版本。只引用记录中实际存在的内容，遗失时说明缺少哪项，可回到来源核对。使用中文教学用语。仅在需要推进讨论时向学生提出一个简短问题。学生提供了足够内容时，从当前实体的对话整理可审阅草稿，等待学生点击确认。问候、缺少材料或仅回答「继续」时请追问，保持产物为空。不要代填确认、编造事实或替学生保存。格式：${format}`;
 }

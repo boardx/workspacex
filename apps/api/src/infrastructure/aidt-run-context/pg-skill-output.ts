@@ -1,3 +1,4 @@
+import { isAidtProblemControlText, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { createHash } from "node:crypto";
 import type { PermissionDecision } from "../../domain/identity/permission-decision";
 import { guard, discloseDecided, isDisclosed } from "../../application/security/permission-filter";
@@ -89,4 +90,31 @@ export async function projectSavedSkillOutput(s:TenantSession, stages:AidtStages
     return true;
   }
   return false;
+}
+
+/** Read the student's literal original framing only when a successful matching Skill
+ * named that framing and the same shared thread contains it before the pinned revision. */
+export async function recoverProblemFraming(s:TenantSession, actor:AidtContextActor, source:SharedStageValue, entityId:string) {
+  const thread = aidtEntityThreadId(actor,1,entityId,"stage");
+  const result = await s.query<{body:string}>(`
+    SELECT reply.body FROM aidt_run_context_snapshots snap
+    JOIN agent_runs r ON r.org_id=snap.org_id AND r.id=snap.run_id AND r.thread_id=snap.thread_id
+      AND r.status='succeeded' AND r.input_message_id=snap.input_message_id AND r.aidt_selector_hash=snap.selector_hash
+    JOIN chat_threads t ON t.org_id=r.org_id AND t.id=r.thread_id AND t.project_id=snap.project_id
+      AND t.visibility_scope='plenary' AND t.ownership_layer='project' AND NOT t.agent_private AND t.group_id IS NULL
+    JOIN chat_messages reply ON reply.org_id=t.org_id AND reply.thread_id=t.id AND reply.agent_run_id=r.id
+      AND reply.author_kind='agent' AND reply.reply_to_message_id=r.input_message_id AND NOT reply.raw_transcript
+      AND COALESCE(reply.visibility_scope,t.visibility_scope)='plenary'
+    WHERE snap.org_id=$1 AND snap.project_id=$2 AND snap.thread_id=$3 AND snap.selector_json->>'entityId'=$4
+      AND snap.selector_json->>'stageId'='1' AND snap.selector_json->>'purpose'='stage'
+      AND snap.snapshot_json->'focus'->>'skillStableName'='aidt-understand' AND reply.created_at <= $5
+    ORDER BY reply.created_at DESC,reply.id DESC LIMIT 12`,[actor.orgId,actor.projectId,thread,entityId,source.updatedAt]);
+  const candidates = [...new Set(result.rows.map(row=>problemSkillFields(row.body).initial)
+    .filter((v):v is string=>!!v && !isAidtProblemControlText(v)))];
+  if (!candidates.length) return;
+  const verified=await s.query<{original:string}>(`SELECT original FROM unnest($3::text[]) WITH ORDINALITY candidates(original,idx)
+    WHERE EXISTS (SELECT 1 FROM chat_messages m WHERE m.org_id=$1 AND m.thread_id=$2 AND m.author_kind='human'
+      AND NOT m.raw_transcript AND COALESCE(m.visibility_scope,'plenary')='plenary' AND m.created_at <= $4
+      AND strpos(m.body,original)>0) ORDER BY idx LIMIT 1`,[actor.orgId,thread,candidates,source.updatedAt]);
+  return verified.rows[0]?.original;
 }

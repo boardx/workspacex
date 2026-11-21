@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ProjectAidt } from "@/features/aidt/components/project-aidt";
 import { AidtDashboard } from "@/features/aidt/components/project-aidt-dashboard";
+import { readAidtInterviews } from "@/features/aidt/lib/aidt-interviews";
 import { listAidtProblems } from "@/features/aidt/lib/aidt-problem-entities";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { aidtHref } from "@/lib/project-aidt";
@@ -63,7 +64,7 @@ describe("native AIDT project workspace", () => {
       const view = render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
       expect(await screen.findByRole("heading", { name: "先新建一个问题" })).toBeVisible();
       expect(screen.queryByTestId("aidt-shared-save")).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "新建问题" }));
+      fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
       const input = screen.getByRole("textbox", { name: "问题名称" });
       const create = screen.getByRole("button", { name: "创建问题" });
       expect(create).toBeDisabled();
@@ -103,7 +104,39 @@ describe("native AIDT project workspace", () => {
       view.unmount();
       render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite={false} />);
       expect(await screen.findByRole("heading", { name: "暂无问题" })).toBeVisible();
-      expect(screen.queryByRole("button", { name: "新建问题" })).toBeNull();
+      expect(screen.queryByTestId("aidt-new-entity-card")).toBeNull();
+    } finally { read.mockRestore(); save.mockRestore(); vi.unstubAllEnvs(); }
+  });
+  it("automatically saves a renamed interview without saving again at the stage level", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true");
+    const stages = await import("@/features/aidt/lib/live-aidt-stages");
+    const id = "1759ccdf-7523-4372-b86f-ea093212b169";
+    const saved: AidtSharedStage = { projectId: "p1", stageId: 2, revision: 4, updatedBy: "student-test",
+      updatedAt: "2026-11-21T00:00:00.000Z", sourceStageRevisions: [], content: { schemaVersion: 1, draft: {
+        fields: { [`interviewRecord:${id}`]: JSON.stringify({
+          version: 1, id, code: "U01", displayName: "原名", tags: ["校园"], topicRevision: null, topic: "",
+          goal: "", original: "", adopted: "", guideConfirmed: false, consent: null,
+        }) }, ideas: [], selectedIdeaId: "",
+      } },
+    };
+    const read = vi.spyOn(stages, "readAidtStage").mockImplementation(async (_, stageId) => ({ stage: stageId === 2 ? saved : null }));
+    const save = vi.spyOn(stages, "saveAidtStage").mockImplementation(async input => {
+      expect(input.expectedRevision).toBe(4);
+      return { stage: { ...saved, content: input.content, revision: 5 }, replayed: false };
+    });
+    try {
+      mocks.search = "step=2";
+      render(<ProjectAidt projectId="p1" sub="aidt-2" canWrite />);
+      expect(await screen.findByText("原名")).toBeVisible();
+      expect(screen.queryByTestId("aidt-shared-save")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "改名与标签" }));
+      fireEvent.change(screen.getByRole("textbox", { name: "受访者姓名或化名" }), { target: { value: "新化名" } });
+      fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+      expect(await screen.findByTestId("aidt-shared-receipt")).toHaveTextContent("V5");
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(readAidtInterviews(save.mock.calls[0]![0].content.draft.fields)).toEqual([expect.objectContaining({
+        id, displayName: "新化名", tags: ["校园"], guideConfirmed: false,
+      })]);
     } finally { read.mockRestore(); save.mockRestore(); vi.unstubAllEnvs(); }
   });
   it.each([true, false])("opens the first-party legacy report link with its saved manuscript (canWrite=%s)", async canWrite => {

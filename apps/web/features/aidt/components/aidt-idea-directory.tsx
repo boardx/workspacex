@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
-import { ArrowUpRight, MessageSquare, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowUpRight, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -64,8 +65,8 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     }
   }
 
-  const create = !readOnly && <Button type="button" variant="primary" disabled={saving || allItems.length >= 8}
-    onClick={() => open({ kind: "create", id: `idea-${crypto.randomUUID()}`, title: "" })}><Plus className="size-4" aria-hidden />新建点子</Button>;
+  const create = !readOnly && <AidtNewEntityCardButton disabled={saving || allItems.length >= 8}
+    onClick={() => open({ kind: "create", id: `idea-${crypto.randomUUID()}`, title: "" })} />;
 
   return <section aria-label="点子列表" className="space-y-4" data-testid="aidt-idea-directory">
     <header className="flex items-center justify-between gap-3">
@@ -75,7 +76,7 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     {items.length === 0 ? <div className="space-y-4 rounded-container border border-dashed border-border bg-muted p-8 text-center">
       <p className="text-13 text-muted-foreground">暂无点子</p>{create}
     </div> : <ul className="grid gap-3 sm:grid-cols-2">
-      {items.map(item => <li key={item.id} className="flex min-w-0 flex-col rounded-container border border-border bg-card">
+      {items.map(item => <AidtEntityCard key={item.id} entityId={item.id}>
         {savedIds.has(item.id) ? <Link className="flex flex-1 items-start gap-3 rounded-container p-4 transition-colors hover:bg-muted" href={href(item.id)} aria-label={`打开「${item.title}」对话`}>
           <MessageSquare aria-hidden className="size-5 shrink-0 text-primary" />
           <div className="min-w-0 flex-1"><h3 className="break-words text-16 font-semibold">{item.title}</h3>
@@ -88,7 +89,7 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
           <Button type="button" size="sm" variant="ghost" aria-label={`删除点子 ${item.title}`} disabled={saving}
             onClick={() => open({ kind: "delete", id: item.id, title: item.title })}><Trash2 aria-hidden className="size-4" />删除</Button>
         </div>}
-      </li>)}
+      </AidtEntityCard>)}
     </ul>}
     {archived.length > 0 && <details className="text-12"><summary className="cursor-pointer">已删除点子（{archived.length}）</summary>
       <ul className="mt-2 space-y-1">{archived.map(item => <li key={item.id}>{item.title}</li>)}</ul>

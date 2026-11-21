@@ -548,11 +548,12 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   await check('s1-draft-not-complete', undefined, async () => {
     report.s1Navigation.operation = 'create-problem';
-    await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', problemName); await captureCardCreation(1, 'problem', () => click(btn('创建问题')));
-    const link = page.getByRole('link', { name: problemName, exact: true });
-    await expect(link).toBeVisible();
+    await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', problemName);
+    await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true });
     report.s1Navigation.operation = 'open-problem-outcome';
-    problemRoute = await openProblem(link); report.s1Navigation.entityOutcomeObserved = true;
+    await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
+    problemRoute = ownedAidtProblemRoute(page.url(), { origin, projectId: scope.projectId });
+    await openProblem(); report.s1Navigation.entityOutcomeObserved = true;
     await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
     problemHref = page.url();
     report.s1Navigation.operation = 'native-teaching-feedback';
@@ -710,8 +711,10 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   if (!state.s1 && problemHref && hasPendingProblemReview(report.pendingTeachingReviews, problemHref, scope.projectId)) {
     state.syntheticHandoff = await check('synthetic-problem-for-interviews', undefined, async () => {
       const fixtureName = `QA独立访谈前置题 ${unique}`;
-      await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', fixtureName); await captureCardCreation(1, 'problem', () => click(btn('创建问题')));
-      const fixture = await openAidtProblemOutcome({ page, link: page.getByRole('link', { name: fixtureName, exact: true }),
+      await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', fixtureName);
+      await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true });
+      const fixtureRoute = ownedAidtProblemRoute(page.url(), { origin, projectId: scope.projectId });
+      const fixture = await openAidtProblemOutcome({ page, route: fixtureRoute,
         scope: { origin, projectId: scope.projectId }, waitForRoute: waitForEntity,
         assertReady: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible() });
       if (fixture.entityId === problemRoute.entityId) fail('INDEPENDENT_PROBLEM_REQUIRED');
@@ -739,11 +742,14 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await expect(topic).toBeVisible();
       if (await topic.locator('..').getAttribute('open') === null) await topic.click();
       await expect(topic.locator('..')).toContainText(confirmedProblem.rewrittenTheme);
-      await click(page.getByTestId('aidt-new-entity-card')); await fill('受访者姓名或化名', `QA受访者 ${code}`, page.getByRole('dialog')); await captureCardCreation(2, 'interview', () => click(btn('创建访谈')));
+      await click(page.getByTestId('aidt-new-entity-card'));
+      await fill('受访者姓名或化名', `QA受访者 ${code}`, page.getByRole('dialog'));
+      await captureCardCreation(2, 'interview', () => click(btn('创建访谈')), { reopen: true });
       const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
       assertAidtS2Topic(JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]), confirmedProblem);
-      await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
-        assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), assertReady: () => entityReady(2) });
+      await waitForEntity(() => matchesAidtEntityRoute(page.url(), target));
+      await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+      await output(target);
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
       await expect(page.getByTestId('aidt-interview-output')).toContainText(code);
       const threadId = new URL(page.url()).searchParams.get('thread');
@@ -876,9 +882,12 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await click(page.getByTestId('aidt-new-entity-card'));
     const creation = page.getByRole('dialog', { name: '新建访谈' });
     await fill('受访者姓名或化名', '临时化名', creation);
-    await captureCardCreation(2, 'interview', () => click(btn('创建访谈', creation)));
+    const { target: created } = await captureCardCreation(2, 'interview', () => click(btn('创建访谈', creation)));
+    const createdRecord = JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${created.entityId}`] ?? '{}');
+    if (createdRecord.code !== 'U11') fail('S2_CARD_AUTO_OPEN_MISMATCH');
     await expect(cards).toHaveCount(11);
     const temporary = cards.filter({ has: page.getByRole('button', { name: /^U11(?:\s|$)/ }) });
+    await expect(page.getByTestId('aidt-shared-save')).toHaveCount(0);
     await click(btn('改名与标签', temporary));
     const editor = page.getByRole('dialog', { name: '编辑访谈卡' });
     const name = `临时访谈 ${unique}`;
