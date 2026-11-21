@@ -1,5 +1,6 @@
 "use client";
 
+import { aidtInterviewTitle } from "@repo/contracts/aidt-stages";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { printResearchPdf } from "@/lib/research-report-export";
@@ -30,7 +31,7 @@ export function AidtInterviewOutput({ projectId, entityId, draft, frozenSourceId
   const frozenSource = material && material.reference.artifactId === frozenSourceId && interview.consent?.notes
     && (!material.reference.mime.startsWith("audio/") || interview.consent.audio) && (!material.reference.mime.startsWith("image/") || interview.consent.photos) ? material.reference : null;
   return <section aria-label="本次访谈产物" data-testid="aidt-interview-output" className="space-y-5">
-    <h3 className="text-16 font-semibold">{interview.code} · 访谈产物</h3>
+    <h3 className="text-16 font-semibold">{aidtInterviewTitle(interview.code, interview.displayName)} · 访谈产物</h3>
     {frozenSourceId && (frozenSource ? <AidtResearchMaterialPreview projectId={projectId} reference={frozenSource} quote={quote} /> : <p role="alert">此访谈版本无法查看该原件。</p>)}
     <section data-testid="aidt-interview-question-list" className="space-y-2"><h4 className="font-medium">访谈问题清单</h4>
       <p className="text-12 text-muted-foreground">{interview.guideConfirmed ? "学生已确认" : "草稿"}</p>

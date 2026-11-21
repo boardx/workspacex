@@ -9,7 +9,7 @@ export interface StageTransaction {
   project: { status: string; orgStatus: string; aidt: boolean } | null;
   revision?(stageId: number, revision: number): Promise<Guarded<SharedStageValue | null>>;
   projectResources?(): Promise<Guarded<readonly ProjectResourceRow[] | null>>;
-  ensureEntityThread?(threadId: string, title: string): Promise<Guarded<{ threadId: string }>>;
+  ensureEntityThread?(threadId: string, title: string, syncInterviewTitle?: boolean): Promise<Guarded<{ threadId: string }>>;
   current(stageId: number): Promise<Guarded<SharedStageValue | null>>;
   history(stageId:number,beforeRevision:number|undefined,limit:number):Promise<Guarded<SharedStageValue[]>>;
   receipt(operationId:string):Promise<Guarded<{requestKey:string;stage:SharedStageValue}|null>>;

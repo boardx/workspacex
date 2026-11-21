@@ -731,28 +731,26 @@ export function CopilotKitV2Shell({
     setRosterMutateFailure(null); // 换线程 ⇒ 上一条线程的错误提示作废
   }, [rightKey, loadRoster]);
 
-  const [agentCatalog, setAgentCatalog] = React.useState<CapabilityListing[] | null>(null);
-  const [agentCatalogErrorNotice, setAgentCatalogError] = React.useState<{ cause: unknown } | null>(null);
-  const agentCatalogError = agentCatalogErrorNotice ? (agentCatalogErrorNotice.cause instanceof Error ? agentCatalogErrorNotice.cause.message : t("chatErrors.catalog")) : null;
+  const [agentCatalogLoad, setAgentCatalogLoad] = React.useState<
+    { key: string; listings: CapabilityListing[] } | { key: string; cause: unknown } | null
+  >(null);
   const currentOrgId = session?.currentOrgId ?? null;
+  const agentCatalogKey = currentOrgId && bearer ? JSON.stringify([currentOrgId, bearer]) : null;
+  const currentCatalog = agentCatalogLoad?.key === agentCatalogKey ? agentCatalogLoad : null;
+  const agentCatalog = currentCatalog && "listings" in currentCatalog ? currentCatalog.listings : null;
+  const agentCatalogError = currentCatalog && "cause" in currentCatalog
+    ? (currentCatalog.cause instanceof Error ? currentCatalog.cause.message : t("chatErrors.catalog"))
+    : null;
 
   React.useEffect(() => {
-    if (!currentOrgId || !bearer) return;
+    if (!currentOrgId || !agentCatalogKey) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const result = await listCapabilities(currentOrgId, "agent");
-        if (cancelled) return;
-        setAgentCatalog(result);
-        setAgentCatalogError(null);
-      } catch (failure) {
-        if (cancelled) return;
-        setAgentCatalog(null);
-        setAgentCatalogError({ cause: failure });
-      }
-    })();
+    void listCapabilities(currentOrgId, "agent").then(
+      (listings) => { if (!cancelled) setAgentCatalogLoad({ key: agentCatalogKey, listings }); },
+      (cause: unknown) => { if (!cancelled) setAgentCatalogLoad({ key: agentCatalogKey, cause }); },
+    );
     return () => { cancelled = true; };
-  }, [currentOrgId, bearer]);
+  }, [currentOrgId, agentCatalogKey]);
 
   const agentCandidates = React.useMemo(() => {
     const mounted = new Set((roster?.agents ?? []).map((agent) => agent.id));
@@ -1503,6 +1501,7 @@ export function CopilotKitV2Shell({
           pending: rosterPending,
           mutateFailure: rosterMutateFailure,
           candidates: agentCandidates,
+          candidatesLoading: agentCatalogKey !== null && currentCatalog === null,
           candidatesError: agentCatalogError,
           onAdd: (agentId) => {
             const trimmed = agentId.trim();

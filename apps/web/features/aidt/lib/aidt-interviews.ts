@@ -1,3 +1,4 @@
+import { aidtInterviewTitle } from "@repo/contracts/aidt-stages";
 import { z } from "zod";
 import type { AidtDiscoveryCardDraft, AidtUiStageDraft } from "./aidt-ui-drafts";
 import { isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey, type AidtResearchMaterialReference } from "./aidt-research-material-reference";
@@ -234,7 +235,7 @@ export function aidtInterviewHandoffReady(draft: AidtUiStageDraft) {
 export function aidtInterviewDirectory(draft: AidtUiStageDraft) {
   return readAidtInterviews(draft.fields).map(record => ({
     id: record.id,
-    title: record.code,
+    title: aidtInterviewTitle(record.code, record.displayName),
     archived: isAidtInterviewArchived(draft.fields, record.id),
   }));
 }
