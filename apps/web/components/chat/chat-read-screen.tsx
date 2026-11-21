@@ -522,6 +522,7 @@ export function ChatReadScreen({
                 // ⚠ 这两个 prop 必须跟着 `RosterPanel` 走——它在仓里只有**一个**渲染点，
                 //   rebase 时若把它们落在旧的右栏实例上，`candidates` 就是 undefined。
                 candidates={agentCandidates}
+                candidatesLoading={agentCatalogKey !== null && agentCatalog === null && agentCatalogError === null}
                 candidatesError={agentCatalogError}
                 onAdd={handleRosterAdd}
                 onRemove={handleRosterRemove}

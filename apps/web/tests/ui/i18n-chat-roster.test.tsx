@@ -8,7 +8,7 @@ function LocaleControl() { const { setLocale } = useI18n(); return <button onCli
 afterEach(cleanup);
 const agent = { id: "raw-agent", name: "组织原名 {name}", abbr: "OR", duty: "职责原文 {duty}", roleLabel: "组织头衔", presence: "present" as const };
 const candidate = identity.CapabilityListing.parse({ id: "raw-candidate", orgId: "raw-org", kind: "agent", name: "候选原名 {name}", scope: "org-wide", enabled: true, endpoint: null, abbr: "CA", duty: "候选职责", disabledReason: null });
-function props(): RosterPanelProps { return { roster: { agents: [agent], rosterCount: 1, presentCount: 1, rosterVersion: 7, marketEntry: null }, loading: false, error: null, hasSelection: true, canMutate: true, pending: false, mutateFailure: null, candidates: [candidate], candidatesError: null, onAdd: vi.fn(), onRemove: vi.fn(), onRetry: vi.fn() }; }
+function props(): RosterPanelProps { return { roster: { agents: [agent], rosterCount: 1, presentCount: 1, rosterVersion: 7, marketEntry: null }, loading: false, error: null, hasSelection: true, canMutate: true, pending: false, mutateFailure: null, candidates: [candidate], candidatesLoading: false, candidatesError: null, onAdd: vi.fn(), onRemove: vi.fn(), onRetry: vi.fn() }; }
 it("keeps org names, duties and selected canonical candidate while changing roster chrome", () => {
   const p = props();
   render(<I18nProvider initialLocale="en"><LocaleControl /><RosterPanel {...p} /></I18nProvider>);

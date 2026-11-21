@@ -24,8 +24,8 @@ function fixture(){
     } as unknown as IdentityRepository;
     const ref={kind:"project" as const,id:who.projectId};const own=()=>records.filter(r=>r.stage.projectId===who.projectId&&who.orgId===actor.orgId);
     return await fn({identity,project:who.projectId===actor.projectId&&who.orgId===actor.orgId?state:null,
-      ensureEntityThread: async (threadId, title) => {
-        if (!entityThreads.has(threadId)) entityThreads.set(threadId, title);
+      ensureEntityThread: async (threadId, title, syncInterviewTitle) => {
+        if (syncInterviewTitle || !entityThreads.has(threadId)) entityThreads.set(threadId, title);
         return guard(ref, { threadId });
       },
       current:async stageId=>guard(ref,own().filter(r=>r.stage.stageId===stageId).at(-1)?.stage??null),
@@ -61,10 +61,11 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
 
     const changed = input(2, 1);
     changed.content.draft.fields = { ...saved.content.draft.fields };
-    changed.content.draft.fields["interviewRecord:" + ids[0]!] = JSON.stringify({ version: 1, id: ids[0], code: "更名" });
+    changed.content.draft.fields["interviewRecord:" + ids[0]!] = JSON.stringify({ version: 1, id: ids[0], code: "U01", displayName: "小林" });
     changed.content.draft.fields["interviewArchived:" + ids[1]!] = "true";
     await f.service.save(actor, changed);
     expect(await open(ids[0]!)).toEqual({ threadId: bindings[0] });
+    expect(f.entityThreads.get(bindings[0]!)).toBe("U01 · 小林");
     await expect(open(ids[1]!)).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
     await expect(open("absent")).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
     await expect(open(ids[0]!, { ...actor, userId: "outsider" })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
