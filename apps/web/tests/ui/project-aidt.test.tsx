@@ -219,19 +219,13 @@ it("lets people choose an iteration destination within the same group", async ()
   expect(link).toHaveAttribute("href", "/aidt/group-a?step=2&history=1");
 });
 
-it("keeps UI outcome drafts during tool navigation and clears them on a different group", async () => {
+it("keeps first-step output read-only across tools and projects", async () => {
   mocks.search = "tool=outcome&history=1";
-  const { rerender } = render(<ProjectAidt projectId="group-a" sub="aidt-1" canWrite />);
-  const input = screen.getByLabelText("初始问题");
-  fireEvent.change(input, { target: { value: "只属于A组的本页草稿" } });
-  mocks.search = "tool=chat&history=1";
-  rerender(<ProjectAidt projectId="group-a" sub="aidt-1" canWrite />);
+  const view = render(<ProjectAidt projectId="group-a" sub="aidt-1" canWrite />);
+  await screen.findByTestId("aidt-stage-output");
   expect(screen.queryByLabelText("初始问题")).toBeNull();
-  mocks.search = "tool=outcome&history=1";
-  rerender(<ProjectAidt projectId="group-a" sub="aidt-1" canWrite />);
-  expect(screen.getByLabelText("初始问题")).toHaveValue("只属于A组的本页草稿");
-  rerender(<ProjectAidt projectId="group-b" sub="aidt-1" canWrite />);
-  expect(screen.getByLabelText("初始问题")).toHaveValue("");
+  view.rerender(<ProjectAidt projectId="group-b" sub="aidt-1" canWrite />);
+  expect(screen.getByTestId("aidt-stage-output").querySelector("input,textarea")).toBeNull();
 });
 it("the student UI does not surface simulated interviews or deep research as first-edition study evidence", async () => {
   mocks.search = "tool=itv&history=1";
@@ -270,13 +264,6 @@ it("keeps failed shared reads visible and actionable on Chat without restoring t
     mocks.search = "thread=real-thread&history=1"; render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); const alert = await screen.findByTestId("aidt-shared-chat-alert"); expect(alert).toHaveAttribute("role", "alert"); expect(alert).toHaveTextContent("读取失败"); expect(screen.getByRole("link", { name: "进入成果核对" })).toHaveAttribute("href", "/aidt/p1?step=1&tool=outcome&thread=real-thread&history=1"); expect(screen.queryByTestId("aidt-shared-stage")).toBeNull(); expect(screen.getByRole("button", { name: "重试读取" })).toBeVisible();
   } finally { read.mockRestore(); vi.unstubAllEnvs(); }
 });
-it("retains the complete save and restore controls where the student edits stage outcomes", async () => {
-  vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true"); const client = await import("@/features/aidt/lib/live-aidt-stages"); const read = vi.spyOn(client, "readAidtStage").mockResolvedValue({ stage: null });
-  try {
-    mocks.search = "tool=outcome&history=1"; render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />); await waitFor(() => expect(screen.getByTestId("aidt-shared-status")).toHaveTextContent("尚未保存")); expect(screen.getByTestId("aidt-shared-stage")).toBeVisible(); expect(screen.getByTestId("aidt-shared-save")).toBeVisible(); expect(screen.getByTestId("native-chat")).toBeVisible(); expect(screen.getByLabelText("初始问题")).toBeVisible();
-  } finally { read.mockRestore(); vi.unstubAllEnvs(); }
-});
-
 it("keeps the saved learning round across tools and native resources but clears it on manual stage changes", async () => {
   mocks.search = "tool=whiteboard&thread=t1&returnRevision=3&history=1";
   render(<ProjectAidt projectId="p1" sub="aidt-3" canWrite />);
@@ -322,46 +309,17 @@ it("closes the native tools menu when workspace navigation commits before the me
 });
 
 
-it("confirms one workshop problem through the native inspector and marks completion after the saved version", async () => {
+it("reads the stored workshop problem without teaching or save controls in the inspector", async () => {
   vi.stubEnv("NEXT_PUBLIC_ENABLE_AIDT", "true");
   const stages = await import("@/features/aidt/lib/live-aidt-stages");
   const read = vi.spyOn(stages, "readAidtStage").mockResolvedValue({ stage: null });
-  const save = vi.spyOn(stages, "saveAidtStage").mockImplementation(async input => ({
-    replayed: false, stage: {
-      projectId: input.projectId, stageId: 1, revision: 1, content: input.content,
-      sourceStageRevisions: input.sourceStageRevisions,
-      updatedBy: "student-test", updatedAt: "2026-11-20T00:00:00.000Z",
-    },
-  }));
   try {
     mocks.search = "tool=outcome&history=1";
     render(<ProjectAidt projectId="p1" sub="aidt-1" canWrite />);
     await screen.findByTestId("native-chat");
-    const ask = screen.getByRole("button", { name: "用 AI 追问" });
-    const confirm = screen.getByRole("button", { name: "确认本轮成果并保存" });
-    expect(ask).toBeDisabled();
-    expect(confirm).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("初始问题"), { target: { value: "新生为什么很少去借设备？" } });
-    expect(ask).toBeEnabled();
-    fireEvent.change(screen.getByTestId("aidt-problem-reflection-why"), { target: { value: "影响新生完成作业" } });
-    fireEvent.click(screen.getByTestId("aidt-problem-source-observation"));
-    fireEvent.change(screen.getByTestId("aidt-problem-reflection-details"), { target: { value: "看到两位同学在设备室门口停留后离开" } });
-    fireEvent.click(screen.getByTestId("aidt-problem-reflection-confirm"));
-    fireEvent.change(screen.getByLabelText("拟确认的工作坊问题"), { target: { value: "新生第一次借设备时遇到哪些困难？" } });
-    expect(screen.queryByRole("link", { name: "继续第2步" })).toBeNull();
-    await waitFor(() => expect(confirm).toBeEnabled());
-    fireEvent.click(confirm);
-    expect(await screen.findByRole("link", { name: "继续第2步" })).toHaveAttribute("href", "/aidt/p1?step=2");
-    expect(save).toHaveBeenCalledTimes(1);
-    expect(save.mock.calls[0]![0].content.draft.fields.rewrittenTheme).toBe("新生第一次借设备时遇到哪些困难？");
-    expect(screen.getByTestId("aidt-round-completion")).toHaveTextContent("已确认并保存");
-    fireEvent.click(await screen.findByRole("button", { name: "修订问题" }));
-    fireEvent.change(screen.getByLabelText("拟确认的工作坊问题"), { target: { value: "准备再考虑借设备和归还设备" } });
-    expect(screen.queryByRole("link", { name: "继续第2步" })).toBeNull();
-    expect(await screen.findByTestId("aidt-last-confirmed-problem")).toHaveTextContent("新生第一次借设备时遇到哪些困难？");
-  } finally {
-    read.mockRestore();
-    save.mockRestore();
-    vi.unstubAllEnvs();
-  }
+    expect(screen.getByTestId("aidt-stage-output").querySelector("input,textarea")).toBeNull();
+    expect(screen.queryByTestId("aidt-shared-save")).toBeNull();
+    expect(screen.queryByRole("button", { name: "确认本轮成果并保存" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "用 AI 追问" })).toBeNull();
+  } finally { read.mockRestore(); vi.unstubAllEnvs(); }
 });

@@ -51,6 +51,8 @@ export function formatAidtProblemReflectionMarkdown(draft: AidtUiStageDraft): st
     `为什么值得研究：${fields.whyWorthStudying?.trim() || "待补充"}`,
     `学生标注的问题来源：${sourceLabels.join("、") || "待补充"}${sources.invalid ? "（来源数据待核对）" : ""}`,
     `来源描述：${fields.sourceDetails?.trim() || "待补充"}`,
+    ...(fields.known?.trim() ? [`已知：${fields.known.trim()}`] : []),
+    ...(fields.nextAction?.trim() ? [`下一步行动：${fields.nextAction.trim()}`] : []),
     `尚不确定：${fields.sourceUncertainty?.trim() || "尚未填写；不表示没有不确定性"}`,
     ...directions.map(direction => `候选方向：${direction.title}（${direction.source === "group" ? "小组讨论" : "AI 补充，待验证"}${direction.id === fields.problemDirectionId ? "；本轮选择" : ""}）`),
     `反思确认：${isProblemReflectionConfirmed(draft) ? "本组编辑者已确认" : "待学生确认"}${missing.length ? `；待补充：${missing.join("、")}` : ""}`,

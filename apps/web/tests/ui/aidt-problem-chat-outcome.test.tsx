@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { StageContent } from "@repo/contracts/aidt-stages";
 import { beforeEach, expect, it, vi } from "vitest";
 import { AidtProblemWorkspace } from "@/features/aidt/components/aidt-problem-workspace";
 import { AidtProblemChatReview } from "@/features/aidt/components/aidt-problem-chat-review";
@@ -15,7 +16,7 @@ function stage(): AidtSharedStage {
   const empty = emptyAidtUiDrafts()[1]!;
   const directory = addAidtProblem(addAidtProblem(empty, entity, "午休"), other, "其他研究");
   const draft = updateAidtProblemEntity(directory, entity, () => ({ ...empty, fields: formed }));
-  return { projectId: "p1", stageId: 1, revision: 5, sourceStageRevisions: [], content: { schemaVersion: 1, draft } } as AidtSharedStage;
+  return { projectId: "p1", stageId: 1, revision: 5, sourceStageRevisions: [], content: StageContent.parse({ schemaVersion: 1, draft }), updatedBy: "qa", updatedAt: new Date().toISOString() };
 }
 const props = { projectId: "p1", entityId: entity, stage: stage(), sessionToken: "qa", threadId: "thr_a", loading: false, running: false, messages: [], onRefresh: vi.fn() };
 beforeEach(() => vi.clearAllMocks());

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { StageContent } from "@repo/contracts/aidt-stages";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { aidtRoundConfirmation, aidtRoundDigest, aidtRoundMissingOutput, aidtRoundPayload } from "../lib/aidt-round-completion";
@@ -56,7 +57,7 @@ export function AidtProblemChatReview({ projectId, entityId, stage, sessionToken
         ? updateAidtProblemEntity(stage.content.draft, entityId, old => ({ ...old, fields }))
         : { ...stage.content.draft, fields };
       await saveAidtStage({ projectId, stageId: 1, expectedRevision: stage.revision, operationId: crypto.randomUUID(),
-        content: { ...stage.content, draft: confirmedDraft }, sourceStageRevisions: stage.sourceStageRevisions }, sessionToken, controller.signal);
+        content: StageContent.parse({ ...stage.content, draft: confirmedDraft }), sourceStageRevisions: stage.sourceStageRevisions }, sessionToken, controller.signal);
       if (!controller.signal.aborted) refresh.current();
     } catch (error) {
       if (!controller.signal.aborted) {
@@ -71,7 +72,7 @@ export function AidtProblemChatReview({ projectId, entityId, stage, sessionToken
   const confirmed = Boolean(draft.fields.roundCompletion && draft.fields.problemReflectionConfirmed === "true");
   return <section aria-label="对话中的成果确认" data-testid="aidt-round-completion" className="mx-auto w-full max-w-2xl space-y-2 px-4 py-2 text-13">
     {confirmed ? <><p>本轮成果已确认并保存</p><Button asChild size="sm" variant="outline"><Link href={next}>继续第2步</Link></Button></> :
-      <><p className="whitespace-pre-wrap break-words">{reviewed.fields.rewrittenTheme}</p>
+      <><p className="whitespace-pre-wrap break-words">{draft.fields.rewrittenTheme}</p>
         <Button type="button" size="sm" disabled={saving || running || loading} onClick={() => void confirm()}>{saving ? "正在保存确认…" : "确认本轮成果并保存"}</Button></>}
     {status && <p role="status">{status}</p>}
   </section>;
