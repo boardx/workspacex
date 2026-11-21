@@ -69,10 +69,10 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
         {!!record.tags?.length && <div className="flex flex-wrap gap-1">{record.tags.map(value => <span key={value} className="max-w-full truncate rounded-full bg-muted px-2 py-0.5 text-11">{value}</span>)}</div>}
         <div className="mt-auto flex flex-wrap items-center gap-3 text-12 text-muted-foreground"><span className="inline-flex items-center gap-1"><ListChecks aria-hidden className="size-4" />{record.guideConfirmed ? "提纲已确认" : record.original ? "提纲已起草" : "待写提纲"}</span><span className="inline-flex items-center gap-1"><Paperclip aria-hidden className="size-4" />{materials} 份材料</span></div>
         <div className="flex items-center gap-1 border-t border-border pt-3">
-          {!removed && <Button type="button" size="sm" disabled={!saved} title={saved ? undefined : "保存到小组后可打开对话"} variant="secondary" className="mr-auto" aria-label={record.code + " 打开访谈 · " + status} onClick={() => onOpen(record.id)}><MessagesSquare aria-hidden className="size-4" />{saved ? "打开访谈" : "先保存到小组"}<ArrowUpRight aria-hidden className="size-3" /></Button>}
+          {!removed && <Button type="button" size="sm" disabled={!saved} title={saved ? undefined : "保存到小组后可打开对话"} variant="secondary" className="mr-auto after:absolute after:inset-0 after:rounded-2xl after:content-['']" aria-label={record.code + " 打开访谈 · " + status} onClick={() => onOpen(record.id)}><MessagesSquare aria-hidden className="size-4" />{saved ? "打开访谈" : "先保存到小组"}<ArrowUpRight aria-hidden className="size-3" /></Button>}
           {!readOnly && !removed && <>
-            <Button type="button" size="sm" variant="ghost" aria-label="编辑访谈卡" title="编辑访谈卡" onClick={() => setAction({ id: record.id, mode: "edit" })}><Pencil aria-hidden className="size-4" /></Button>
-            <Button type="button" size="sm" variant="ghost" aria-label="删除访谈卡" title="删除访谈卡" onClick={() => setAction({ id: record.id, mode: "remove" })}><Trash2 aria-hidden className="size-4" /></Button>
+            <Button type="button" size="sm" variant="ghost" className="relative z-10" aria-label="编辑访谈卡" title="编辑访谈卡" onClick={() => setAction({ id: record.id, mode: "edit" })}><Pencil aria-hidden className="size-4" /></Button>
+            <Button type="button" size="sm" variant="ghost" className="relative z-10" aria-label="删除访谈卡" title="删除访谈卡" onClick={() => setAction({ id: record.id, mode: "remove" })}><Trash2 aria-hidden className="size-4" /></Button>
           </>}
         </div>
       </li>;
