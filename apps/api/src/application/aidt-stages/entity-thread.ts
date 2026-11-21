@@ -26,6 +26,10 @@ function titleFor(fields: Record<string, string>, key: string, id: string, name:
   return typeof title === "string" && title.trim() ? title.trim().slice(0, 200) : fallback;
 }
 
+export function isAidtPrototypeEntityArchived(stage: SharedStageValue | null, entityId: string) {
+  return readObject(stage?.content.draft.fields["prototypeEntity:" + entityId])?.prototypeArchived === "true";
+}
+
 export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: string, purpose: "stage" | "report"): string | null {
   if (purpose === "report") {
     if (entityId === "group-report") return "小组研究报告";
@@ -80,18 +84,26 @@ export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string
         finding: card ? { headline: card.headline, headlineKind: card.headlineKind, context: card.context } : undefined };
     }
     case 3:
-      return { entityId, persona: read("definitionPersona:", ["name", "situation", "behavior", "need", "limits", "confirmed"]),
-        hmw: read("definitionHmw:", ["text", "rationale", "confirmed"]) };
+      if (entityId === "primary-surprise") {
+        return { entityId, kind: "surprise", fields: list(fields, [
+          "surpriseStatus", "priorBelief", "surprisingFinding", "surpriseInterpretation",
+        ]) };
+      }
+      if (Object.hasOwn(fields, "definitionPersona:" + entityId)) {
+        return { entityId, kind: "persona", fields: read("definitionPersona:", ["name", "situation", "behavior", "need", "limits", "confirmed"]) };
+      }
+      if (Object.hasOwn(fields, "definitionHmw:" + entityId)) {
+        return { entityId, kind: "hmw", fields: read("definitionHmw:", ["text", "rationale", "confirmed"]) };
+      }
+      return { entityId, kind: "surprise", fields: read("definitionSurprise:", ["priorBelief", "observation", "interpretation", "unknowns", "confirmed"]) };
     case 4: {
       const idea = ideas.find(item => item.id === entityId);
       return { entityId, idea: idea ? { title: idea.title, description: idea.description } : undefined };
     }
-    case 5: {
-      const prototype = readObject(fields["prototypeEntity:" + entityId]);
-      const content = prototype?.fields;
-      return { entityId, fields: list(content && typeof content === "object" ? content as Record<string, unknown> : null,
-        ["verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits", "designBrief", "version"]) };
-    }
+    case 5:
+      return { entityId, fields: read("prototypeEntity:", [
+        "verificationQuestion", "beforeTestBelief", "verificationBasis", "verificationLimits", "designBrief", "version",
+      ]) };
     case 6:
       return { entityId, fields: read("testGroup:", ["name", "task", "situation", "method", "reflection", "interpretation", "decision", "decisionReason"]) };
     default:
