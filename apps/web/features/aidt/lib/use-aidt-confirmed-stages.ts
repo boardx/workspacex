@@ -5,10 +5,11 @@ import type { AidtSharedStage } from "./live-aidt-stages";
 import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload, aidtRoundMissingOutput } from "./aidt-round-completion";
 import { listAidtProblems, readAidtProblemEntityDraft, readAidtProblemHandoffDraft } from "./aidt-problem-entities";
 import { areAidtInterviewsComplete } from "./aidt-interviews";
+import { allAidtDefinitionEntitiesConfirmed } from "./aidt-definition-chat";
 import { readAidtDefinition, readAidtDefinitionSelection } from "./aidt-definition";
 import { allAidtIdeasConfirmed } from "./aidt-idea-chat";
 import { readAidtIdeaDirectory, readAidtIdeaHandoff } from "./aidt-idea-handoff";
-import { readAidtConfirmedPrototypeHandoff } from "./aidt-prototype-handoff";
+import { aidtAllActivePrototypeEntitiesConfirmed } from "./aidt-prototype-handoff";
 import { isAidtReflectionConfirmed } from "./aidt-verification-loop";
 import { readAidtTestGroups } from "./aidt-test-groups";
 
@@ -33,7 +34,7 @@ export async function aidtStageHasConfirmation(stage: AidtSharedStage, stages?: 
   if (stage.stageId === 3) {
     const definition = readAidtDefinition(saved.fields);
     if (definition.invalid || definition.personas.length || definition.hmws.length || definition.surprises.length) {
-      return Boolean(readAidtDefinitionSelection(saved.fields)) && aidtRoundMissingOutput(3, saved, {
+      return allAidtDefinitionEntitiesConfirmed(saved) && Boolean(readAidtDefinitionSelection(saved.fields)) && aidtRoundMissingOutput(3, saved, {
         projectId: stage.projectId, cards: stages?.[2]?.content.draft.discoveryCards, cardsRevision: stages?.[2]?.revision,
       }) === null;
     }
@@ -43,7 +44,7 @@ export async function aidtStageHasConfirmation(stage: AidtSharedStage, stages?: 
     return Boolean(handoff && (!readAidtIdeaDirectory(saved).length || allAidtIdeasConfirmed(saved)));
   }
   if (stage.stageId === 5 && Object.keys(saved.fields).some(key => key.startsWith("prototypeEntity:") || key === "prototypeHandoffEntity")) {
-    return Boolean(readAidtConfirmedPrototypeHandoff(saved));
+    return aidtAllActivePrototypeEntitiesConfirmed(saved);
   }
   if (stage.stageId === 6 && Object.keys(saved.fields).some(key => key.startsWith("testGroup:"))) {
     return readAidtTestGroups(saved.fields).some(group => !group.archived) && isAidtReflectionConfirmed(saved);
