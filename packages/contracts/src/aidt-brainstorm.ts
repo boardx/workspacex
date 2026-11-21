@@ -43,7 +43,9 @@ export function isAidtConfirmedHmwSource(stage: SharedStageValue | null, source:
   }
 }
 
-export function readAidtBrainstormSelection(draft: SharedStageValue["content"]["draft"]) {
+export function readAidtBrainstormSelection<Idea extends { id: string; title: string; description: string }>(
+  draft: { fields: Record<string, string>; ideas: readonly Idea[] },
+) {
   try {
     const selected = z.object({ sessionId: z.string(), ids: z.array(z.string()).min(1).max(8) }).strict()
       .parse(JSON.parse(draft.fields[AIDT_BRAINSTORM_SELECTION_FIELD] ?? ""));
