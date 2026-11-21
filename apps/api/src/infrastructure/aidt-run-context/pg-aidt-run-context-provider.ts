@@ -1,4 +1,3 @@
-import { definitionInterviewCoordinates, definitionInterviewEvidence } from "../../application/aidt-stages/definition-interview-evidence";
 import { projectSavedSkillOutput } from "./pg-skill-output";
 import { AIDT_ENTITY_THREAD_PREFIX } from "@repo/contracts/aidt-stages";
 import { aidtEntityThreadId, aidtSavedEntityContext } from "../../application/aidt-stages/entity-thread";
@@ -92,11 +91,7 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
    for (const ref of selector.stageRevisions) {
      const stage = await this.exact(scope.stages, actor, ref.stageId, ref.revision);
      if (selector.purpose === "stage" && selector.entityId && ref.stageId === selector.stageId) {
-       const coordinates = definitionInterviewCoordinates(stage, selector.entityId);
-       const interviewEvidence = coordinates
-         ? definitionInterviewEvidence(stage, selector.entityId, await this.exact(scope.stages, actor, 2, coordinates.revision))
-         : undefined;
-       loaded.push({ kind: "stage", stage, payload: { ...aidtSavedEntityContext(stage, selector.entityId), interviewEvidence } });
+       loaded.push({ kind: "stage", stage, payload: aidtSavedEntityContext(stage, selector.entityId) });
        continue;
      }
      if (selector.purpose !== "stage" || !selector.sourceEntityId) {

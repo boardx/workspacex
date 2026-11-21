@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { acceptanceIdentity, createAcceptanceGuard } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
+import { acceptanceIdentity, createAcceptanceGuard, TEACHING_TURN_LIMIT } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
 const origin = 'https://devapp.boardx.us', project = 'prj-11111111-1111-4111-8111-111111111111';
 const fixtureLogin = 'unit-synthetic-only';
 const request = (guard, method, path, body) => guard.decide({ url: origin + path, method, body, resourceType: 'fetch' });
@@ -87,7 +87,7 @@ test('the interview lane permits ten independently bound interviews, denying rep
     assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
   }
   assert.equal(guard.summary().teachingRequests, 15);
-  assert.equal(guard.summary().teachingRequestsAllowed, 37);
+  assert.equal(guard.summary().teachingRequestsAllowed, TEACHING_TURN_LIMIT);
 });
 
 test('per-interview revision and finding each require the preceding bound turn and student confirmation', () => {
@@ -163,4 +163,22 @@ test('a verified S1 pending receipt unlocks one separate QA problem only and nev
   assert.throws(() => guard.armTeachingSend({ ...original.scope, syntheticProblemFixture:true }), /SYNTHETIC_PREREQUISITE_NOT_BOUND/);
   assert.doesNotThrow(() => guard.armTeachingSend(synthetic));
   assert.throws(() => guard.armTeachingSend(synthetic), /TEACHING_SCOPE_NOT_VERIFIED/);
+});
+
+test('definition teaching permits two distinct saved HMW chats and blocks a third', () => {
+  const guard = fixture();
+  for (let index = 1; index <= 3; index++) {
+    const { scope, wire } = teaching(guard, 3, `hmw-${index}`);
+    const id = scope.selector.entityId;
+    guard.observe(request(guard, 'GET', `/api/projects/${project}/aidt/stages/3`), 200,
+      { stage: { projectId: project, stageId: 3, revision: 2, content: { draft: { fields: {
+        [`definitionHmw:${id}`]: JSON.stringify({ id, archived: false, confirmed: false, cardIds: [] }),
+      } } } } });
+    if (index === 3) {
+      assert.throws(() => guard.armTeachingSend(scope), /TEACHING_DEFINITION_LIMIT_REACHED/);
+    } else {
+      guard.armTeachingSend(scope);
+      assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
+    }
+  }
 });

@@ -71,7 +71,20 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
 }
 
 // Two S1 turns, one optional independent S1 fixture, thirty S2 turns, four later stages.
-export const TEACHING_TURN_LIMIT = 37;
+const MAX_DEFINITION_HMW_TURNS = 2;
+export const TEACHING_TURN_LIMIT = 37 + 1 + MAX_DEFINITION_HMW_TURNS;
+
+function definitionTeachingSlot(fields, id) {
+  if (!fields || typeof id !== 'string' || !id) return null;
+  if (id === 'primary-surprise' && fields.definitionPrimaryEntity === 'true') return 'surprise';
+  for (const [prefix, type] of [['definitionPersona:', 'persona'], ['definitionHmw:', 'hmw']]) {
+    try {
+      const entity = JSON.parse(fields[prefix + id]);
+      if (entity?.id === id && entity.archived === false) return type;
+    } catch { /* No canonical saved entity with this prefix. */ }
+  }
+  return null;
+}
 // Nine additional interviews each save a guide, consent, a transcript and the confirmed finding.
 const WRITE_LIMIT = 128 + 9 * 15;
 
@@ -333,14 +346,27 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         if (scope.stageId !== 2 || record?.id !== scope.selector.entityId || !/^U(?:0[1-9]|10)$/.test(record.code) || !record.guideConfirmed
           || teachingLedger.get(revisionKey)?.scope.threadId !== scope.threadId || !teachingLedger.get(revisionKey)?.completed) throw new ProbeFailure('TEACHING_FINDING_SCOPE_NOT_VERIFIED');
       }
-      if (teachingStopped || !ordinaryVerified || scope.projectId !== projectId || scope.actorId !== actor || teachingLedger.has(key) || teachingRequests >= TEACHING_TURN_LIMIT
+      const definitionFields = scope.stageId === 3 ? stageStates.get(3)?.content?.draft?.fields : undefined;
+      const definitionSlot = definitionTeachingSlot(definitionFields, scope.selector.entityId);
+      if (!definitionSlot && definitionFields && Object.keys(definitionFields).some(
+        field => /^(?:definitionPrimaryEntity$|definitionPersona:|definitionHmw:)/.test(field))) {
+        throw new ProbeFailure('TEACHING_DEFINITION_ENTITY_NOT_VERIFIED');
+      }
+      const definitionPrefix = definitionSlot ? `definition:${definitionSlot}:` : null;
+      const trackedKey = definitionPrefix ? definitionPrefix + scope.selector.entityId : key;
+      if (definitionPrefix) {
+        const used = [...teachingLedger.keys()].filter(entry => typeof entry === 'string' && entry.startsWith(definitionPrefix));
+        const limit = definitionSlot === 'hmw' ? MAX_DEFINITION_HMW_TURNS : 1;
+        if (used.length >= limit) throw new ProbeFailure('TEACHING_DEFINITION_LIMIT_REACHED');
+      }
+      if (teachingStopped || !ordinaryVerified || scope.projectId !== projectId || scope.actorId !== actor || teachingLedger.has(trackedKey) || teachingRequests >= TEACHING_TURN_LIMIT
         || !coordinates || coordinates.purpose !== 'stage' || coordinates.stageId !== scope.stageId || coordinates.entityId !== scope.selector.entityId
         || !threadFacts.get(scope.threadId)?.writable || !pins.some(pin => pin.skillId === scope.skillId && pin.versionId === scope.skillVersionId)
         || skillCatalog.get(scope.skillId)?.stableName !== identity.teachingSkillNames?.[scope.stageId - 1]
         || scope.selector.stageRevisions.some(ref => stageStates.get(ref.stageId)?.revision !== ref.revision)
         || JSON.stringify(scope.knownMessages) !== JSON.stringify(messageSnapshots.get(scope.threadId))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       arm = null;
-      teachingLedger.set(key, { scope, wire: null, accepted: null, until: now() + 15000 });
+      teachingLedger.set(trackedKey, { scope, wire: null, accepted: null, until: now() + 15000 });
     },
 
     armDesignCreate: () => { if (!projectId || designId) throw new ProbeFailure('DESIGN_CREATE_ARM_REJECTED'); designArm = now() + 15000; },

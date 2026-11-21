@@ -487,7 +487,9 @@ export async function main() {
       const interviewGuideRevision = stageId === 2 && !interviewFinding && report.teachingEvidence.some(item => item.status === 'passed' && item.interviewCode === interviewCode);
       const codeSuffix = interviewCode && interviewCode !== 'U01' ? `-${interviewCode.toLowerCase()}` : '';
       const suffix = syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : codeSuffix + (interviewFinding ? '-finding' : interviewGuideRevision ? '-revision' : '');
-      const name = `teaching-chat-stage-${stageId}${suffix}`;
+      const definitionCount = stageId === 3 ? report.teachingEvidence.filter(item => item.stageId === 3).length : 0;
+      const definitionSuffix = definitionCount > 0 ? `-definition-${definitionCount + 1}` : '';
+      const name = `teaching-chat-stage-${stageId}${suffix}${definitionSuffix}`;
       let isolatedKnownS1Review = false;
       const accepted = await checkpoint(name, async () => {
         if (guard.teachingStopped()) throw new ProbeFailure('TEACHING_PREVIOUS_OUTCOME_UNRESOLVED');
@@ -541,7 +543,7 @@ export async function main() {
         sensitiveEvidence.assertSafe(proof.assistantText);
         guard.completeTeaching(proof);
         report.teachingEvidence.push({ ...proof, projectId, entityId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
-        await capture(`${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}`, stageId);
+        await capture(`${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionSuffix}`, stageId);
       });
       if (!accepted) {
         if (!isolatedKnownS1Review) guard.stopTeaching();
