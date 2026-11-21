@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import { aidtEntitySourceHref } from "@repo/contracts/aidt-stages";
 import * as React from "react";
 import type { AidtContextReceipt } from "@repo/contracts/aidt-run-context";
 import { Button } from "@/components/ui/button";
@@ -61,6 +63,11 @@ function Receipt({ projectId, runId, sessionToken, expected }: AidtRunContextRec
         <p>{LABEL[receipt.application.state]}。{receipt.application.state === "prepared" ? "这只表示来源已保存到本轮快照，尚未确认交给模型。" : receipt.application.state === "assembled" ? "尚未取得向原生服务派发的回执。" : "派发或续跑回执不代表模型判断正确、研究有效或小组已确认结论。"}</p>
         <ul className="space-y-1" aria-label="本轮实际使用的保存版本">
           {receipt.stageRevisions.map(source => <li key={`current-${source.stageId}`}>第 {source.stageId} 步 · V{source.revision}</li>)}
+          {receipt.entityReferences?.map((ref,index) => <li key={JSON.stringify(ref)}>
+            <Link className="underline" href={aidtEntitySourceHref(projectId,ref.stageId,ref.entityId,ref.revision)}>
+              查看第 {ref.stageId} 步来源 · V{ref.revision}（{index+1}）
+            </Link>
+          </li>)}
           {receipt.historyRevisions.map(source => <li key={`history-${source.stageId}-${source.revision}`}>历史第 {source.stageId} 步 · V{source.revision}</li>)}
           {receipt.returnRevision !== undefined && <li>返工记录 · 第 6 步 V{receipt.returnRevision}</li>}
         </ul>

@@ -1,6 +1,6 @@
 "use client";
 
-import { isAidtGreetingText } from "@repo/contracts/aidt-stages";
+import { isAidtProblemControlText } from "@repo/contracts/aidt-stages";
 import { FileText } from "lucide-react";
 import { readAidtProblemDirections } from "../lib/aidt-problem-directions";
 import { PROBLEM_SOURCE_OPTIONS, readProblemSources } from "../lib/aidt-problem-reflection";
@@ -13,7 +13,7 @@ export function AidtProblemWorkspace({ draft, revision, confirmed }: {
   const { fields } = draft;
   const sources = readProblemSources(fields.problemSources).selected;
   const directions = readAidtProblemDirections(fields.problemDirections);
-  const original = fields.initial && !isAidtGreetingText(fields.initial) ? fields.initial : undefined;
+  const original = fields.initial && !isAidtProblemControlText(fields.initial) ? fields.initial : undefined;
   const rows = [
     ["研究价值", fields.whyWorthStudying],
     ["问题来源", PROBLEM_SOURCE_OPTIONS.filter(source => sources.includes(source.value)).map(source => source.label).join("、")],

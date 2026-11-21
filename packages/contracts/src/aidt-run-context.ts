@@ -48,9 +48,10 @@ export type AidtContextOmission=z.infer<typeof AidtContextOmission>;
 export const AidtContextSource=z.object({kind:z.enum(["stage","history","return"]),stageId:StageId,revision,updatedBy:identifier,updatedAt:z.string().datetime(),truncated:z.boolean(),lineage:z.literal("unknown")}).strict();
 export type AidtContextSource=z.infer<typeof AidtContextSource>;
 export const AidtContextFocus=z.object({skillId:identifier,skillVersionId:identifier,skillStableName:identifier,title:z.string().min(1).max(200)}).strict();
+const entityReferences = z.array(z.object({stageId:StageId,revision,entityId:AidtEntityId}).strict()).max(256).optional();
 export const AidtContextSnapshot=z.object({
   schemaVersion:z.literal(1),selector:AidtContextSelector,focus:AidtContextFocus,
-  sources:z.array(AidtContextSource).max(67),omissions:z.array(AidtContextOmission).max(100),
+  sources:z.array(AidtContextSource).max(67),entityReferences,omissions:z.array(AidtContextOmission).max(100),
   formatterVersion:z.literal(1),modelReferenceBlock:z.string().min(1).refine(v=>new TextEncoder().encode(JSON.stringify({role:"user",content:v})).length<=AIDT_CONTEXT_LIMITS.referenceMessageBytes-AIDT_CONTEXT_LIMITS.referenceEnvelopeReserveBytes,"Final reference message exceeds byte budget"),
   modelReferenceBlockHash:AidtContextHash,truncated:z.boolean(),
 }).strict();
@@ -73,7 +74,7 @@ export const AidtContextApplicationEvent=z.object({runId:identifier,seq:z.number
 export type AidtContextApplicationEvent=z.infer<typeof AidtContextApplicationEvent>;
 export const AidtContextReceipt=z.object({
   runId:identifier,projectId:identifier,purpose:z.enum(["stage","summary"]),stageId:StageId.optional(),skillVersionId:identifier,
-  snapshotHash:AidtContextHash,preparedAt:z.string().datetime(),stageRevisions:stageRefs,
+  snapshotHash:AidtContextHash,preparedAt:z.string().datetime(),stageRevisions:stageRefs,entityReferences,
   historyRevisions:z.array(AidtContextStageRevision).max(AIDT_CONTEXT_LIMITS.historyReferences),returnRevision:revision.optional(),
   omissions:z.array(AidtContextOmission).max(100),truncated:z.boolean(),
   application:z.object({state:z.enum(["prepared","assembled","message-dispatch-observed","checkpoint-resume-observed","failed-before-dispatch","unknown"]),attemptId:identifier.nullable(),assembledContextHash:AidtContextHash.nullable(),assembledAt:z.string().datetime().nullable(),messageDispatchedAt:z.string().datetime().nullable(),checkpointResumedAt:z.string().datetime().nullable(),inheritedMessageDispatchAttemptId:identifier.nullable()}).strict(),
