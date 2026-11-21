@@ -285,10 +285,11 @@ export function AidtDefinitionChatArtifact({ entityId, messages, loading, runnin
   return <section aria-label="对话产物确认" className="space-y-3 rounded-xl border border-border bg-card p-4">
     <p className="text-13 font-medium">{kindLabels[entityKind]} · {saved && localConfirmed ? "已确认" : "草稿"}</p>
     {historicalWithoutSource && canApply && candidate && <Button type="button" size="sm" variant="outline" onClick={() => update(old => applyAidtDefinitionCandidate(old, entityId, candidate, cards, revision))}>采用本轮新稿</Button>}
-    {next !== draft && !running && !loading ? <Button type="button" onClick={() => {
+    {!localConfirmed && <Button type="button" disabled={next === draft || running || loading} onClick={() => {
       update(old => confirmAidtDefinitionChatEntity(old, entityId, cards, revision));
       requestSave();
-    }}>确认当前产物</Button> : localConfirmed && !saved && !running && !loading && <Button type="button" onClick={requestSave}>重试保存确认</Button>}
+    }}>确认当前产物</Button>}
+    {localConfirmed && !saved && !running && !loading && <Button type="button" onClick={requestSave}>重试保存确认</Button>}
     {!localConfirmed && !running && !loading && <Button type="button" size="sm" variant="ghost" onClick={() => setManualDraft(value => !value)}>{manualDraft ? "收起来源核对" : "核对草稿和来源"}</Button>}
     {manualDraft && <AidtDefinitionChatEvidence {...props} entityId={entityId} cards={cards} revision={revision} />}
     {entityKind === "hmw" && saved && localConfirmed && readAidtDefinitionSelection(draft.fields)?.id !== entityId && <Button type="button" size="sm" variant="secondary" onClick={() => {
