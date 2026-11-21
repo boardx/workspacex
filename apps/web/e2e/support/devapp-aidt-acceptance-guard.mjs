@@ -55,7 +55,7 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
     for (const [key, entry] of Object.entries(value)) {
       if (['projectId', 'sourceProjectId', 'teachingProjectId'].includes(key) && entry !== null && entry !== '' && entry !== projectId) throw new ProbeFailure('FOREIGN_PROJECT_REFERENCE');
       if (key === 'threadId' && entry !== null && entry !== '' && !threads.has(entry)) throw new ProbeFailure('FOREIGN_THREAD_REFERENCE');
-      if (/^(artifactId|versionId|prototypeVersionId|designId|designProjectId|surveyId|resourceId|fileId)$/.test(key) && entry && !resources.has(entry)) throw new ProbeFailure('FOREIGN_RESOURCE_REFERENCE');
+      if (/^(artifactId|versionId|prototypeVersionId|prototypeDesignId|designId|designProjectId|surveyId|resourceId|fileId)$/.test(key) && entry && !resources.has(entry)) throw new ProbeFailure('FOREIGN_RESOURCE_REFERENCE');
       if (key === 'runId' && value.artifactId && entry && !resources.has(entry)) throw new ProbeFailure('FOREIGN_RESOURCE_REFERENCE');
       checkReferences(entry, projectId, threads, resources, depth + 1);
     }
@@ -66,7 +66,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
   let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0;
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
-  let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null;
+  let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null, modelRequestedScreens = null;
   const stop = code => { fatal ??= code; return { allow: false, kind: 'rejected', code }; };
   function decide({ url, method, resourceType, body }) {
     if (fatal) return { allow: false, kind: 'stopped', code: fatal };
@@ -93,6 +93,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       const projectChatList = projectId && path === '/api/chat/threads' && target.searchParams.get('projectId') === projectId;
       // Only metadata for a freshly generated, deliberately nonexistent ID is read for the denial check.
       const deniedProbe = identity.deniedProject && path === `/api/projects/${identity.deniedProject}/overview`;
+      if (deniedProbe) return { allow: true, kind: 'denied-probe' };
       if (projectId && path === '/api/pm-designs' && !target.search) return { allow: true, kind: 'design-list' };
       const versions = designId && new RegExp(`^/api/pm-designs/${designId}/versions(?:/([^/]+))?$`).exec(path);
       if (versions && (!versions[1] || resources.has(versions[1])) && !target.search) return { allow: true, kind: 'design-versions', designId };
@@ -120,6 +121,9 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     }
     if (method === 'POST' && designId && path === `/api/pm-designs/${designId}/chat` && !target.search) {
       if (!modelArm || now() > modelArm || modelCount !== 0 || !object(body) || Object.keys(body).some(key => !['text', 'maxScreens'].includes(key)) || typeof body.text !== 'string' || !body.text.includes('QA') || !body.text.includes(identity.run) || body.text.length > 4000 || (body.maxScreens !== undefined && body.maxScreens !== 1)) return stop('DESIGN_GENERATION_NOT_ARMED');
+      // The normal first-send UI omits maxScreens. Root approved that one request
+      // with the service's default page count; no request body is rewritten here.
+      modelRequestedScreens = body.maxScreens ?? 'service-default';
       modelCount++; modelArm = null; allowedWrites++; return { allow: true, kind: 'design-generation', designId };
     }
     if (method === 'POST' && path === `/api/projects/${projectId}/artifacts/upload`) {
@@ -219,12 +223,12 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       projectId = candidate;
     },
     identity: () => ({ actor, org, candidate, projectId }),
-    summary: () => ({ loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
+    summary: () => ({ loginRequests: loginCount, projectCreates: createCount, allowedWrites, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
   };
 }
 
 export function assertScreenshotSafe(text, secrets) {
-  if (secrets.some(secret => typeof secret === 'string' && secret.length >= 3 && text.includes(secret))) throw new ProbeFailure('SCREENSHOT_SENSITIVE_CONTENT');
+  if (secrets.some(secret => typeof secret === 'string' && secret.length > 0 && text.includes(secret))) throw new ProbeFailure('SCREENSHOT_SENSITIVE_CONTENT');
 }
 
 export function assertCaptureScope(rawUrl, ownedProjectId, expectedStage) {

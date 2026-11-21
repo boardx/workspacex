@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
+import { enforceDeniedProbeStatus } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
+import { interviewCodePattern } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
 const identity = () => acceptanceIdentity({ EXPECTED_SOURCE_SHA: source, EXPECTED_RELEASE_TAG: '123-1', GITHUB_RUN_ID: '456', GITHUB_RUN_ATTEMPT: '1' });
@@ -23,6 +25,15 @@ test('identity requires explicit deployed SHA/tag and positive run identity', ()
   for (const patch of [{ EXPECTED_SOURCE_SHA: 'main' }, { EXPECTED_RELEASE_TAG: 'latest' }, { GITHUB_RUN_ID: '0' }, { GITHUB_RUN_ATTEMPT: 'x' }]) {
     assert.throws(() => acceptanceIdentity({ EXPECTED_SOURCE_SHA: source, EXPECTED_RELEASE_TAG: '123-1', GITHUB_RUN_ID: '456', GITHUB_RUN_ATTEMPT: '1', ...patch }), /ACCEPTANCE_IDENTITY_INVALID/);
   }
+});
+test('interview UI labels match spaces and newlines without template-string escape loss', () => {
+  for (const code of ['U01', 'U02']) {
+    assert.equal(interviewCodePattern(code).test(`${code} 合成受访者`), true);
+    assert.equal(interviewCodePattern(code).test(`${code}\n发现卡已核对`), true);
+    assert.equal(interviewCodePattern(code).test(`${code}3 unexpected code`), false);
+    assert.equal(interviewCodePattern(code).test(`${code}s swallowed escape`), false);
+  }
+  assert.throws(() => interviewCodePattern('U03'), /INTERVIEW_CODE_UNEXPECTED/);
 });
 test('credential-bearing lane is manual develop only in the official repository', () => {
   const context = { GITHUB_REPOSITORY: 'boardx/workspacex', GITHUB_REF: 'refs/heads/develop', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_SHA: source };
@@ -59,6 +70,16 @@ test('cross-origin and encoded path escapes stop all future requests', () => {
 test('duplicate scope query cannot select a foreign project or org through parser disagreement', () => {
   const { guard, bind } = owned(); bind();
   assert.equal(request(guard, 'GET', `/api/projects/${project}/overview?projectId=${project}&projectId=foreign`).code, 'DUPLICATE_QUERY_REJECTED');
+});
+test('random unknown project probe aborts unexpected success before reading or fulfilling its body', async () => {
+  const { guard, bind } = owned({ deniedProject: 'prj-22222222-2222-4222-8222-222222222222' }); bind();
+  const decision = request(guard, 'GET', '/api/projects/prj-22222222-2222-4222-8222-222222222222/overview');
+  assert.equal(decision.kind, 'denied-probe');
+  let disposed = false, bodyRead = false;
+  const response = { status: () => 200, dispose: async () => { disposed = true; }, body: async () => { bodyRead = true; return Buffer.from('must never read'); } };
+  await assert.rejects(enforceDeniedProbeStatus(decision, response), /UNKNOWN_PROJECT_UNEXPECTED_RESPONSE/);
+  assert.equal(disposed, true); assert.equal(bodyRead, false);
+  for (const status of [403, 404]) await enforceDeniedProbeStatus(decision, { status: () => status, dispose: async () => assert.fail('should not dispose expected denial') });
 });
 test('DELETE, permissions, courses and arbitrary skill approval writes cannot run', () => {
   for (const [method, path] of [['DELETE', `/api/projects/${project}`], ['POST', `/api/projects/${project}/collaborators`], ['POST', '/api/aidt/courses'], ['POST', '/api/threads/thr_qa/skill-mounts/policy']]) {
@@ -122,6 +143,7 @@ test('duplicate upload receipt and redirects fail closed', () => {
 test('screenshot secret checks reject actual secret values, not innocent field labels', () => {
   assertScreenshotSafe('The word password is not a credential', ['specific-secret']);
   assert.throws(() => assertScreenshotSafe('input value specific-secret', ['specific-secret']), /SCREENSHOT_SENSITIVE_CONTENT/);
+  assert.throws(() => assertScreenshotSafe('short=ab', ['ab']), /SCREENSHOT_SENSITIVE_CONTENT/);
 });
 test('capture rejects login, homepage, foreign or unbound projects before any bytes are written', () => {
   assertCaptureScope(`https://devapp.boardx.us/aidt/${project}?step=2`, project, 2);
@@ -148,4 +170,13 @@ test('one bounded Design model request; fallback or failure cannot silently retr
   assert.equal(guard.summary().modelRequests, 1); assert.equal(guard.summary().designModel.replySource, 'fallback');
   assert.throws(() => guard.armDesignGeneration(), /DESIGN_GENERATION_ARM_REJECTED/);
   assert.equal(request(guard, 'POST', '/api/pm-designs/design-qa/chat', { text: 'QA 456 retry' }).allow, false);
+});
+test('normal first Design send preserves default service page count without claiming one-page enforcement', () => {
+  const { guard, bind } = owned(); bind(); guard.armDesignCreate();
+  const create = request(guard, 'POST', '/api/pm-designs', { name: '未命名设计', template: 'ui' });
+  guard.observe(create, 201, { project: { id: 'design-qa', name: '未命名设计', template: 'ui', ownerId: 'qa-user', frames: [], share: null } });
+  guard.armDesignGeneration();
+  assert.equal(request(guard, 'POST', '/api/pm-designs/design-qa/chat', { text: 'QA 456 normal first UI send' }).allow, true);
+  assert.equal(guard.summary().designRequestedScreens, 'service-default');
+  assert.equal(guard.summary().modelRequests, 1);
 });

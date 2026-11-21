@@ -9,6 +9,13 @@ import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, creat
 
 function safeCode(error) { return error instanceof ProbeFailure && /^[A-Z0-9_]{1,90}$/.test(error.code) ? error.code : 'UI_ACCEPTANCE_STEP_FAILED'; }
 
+export async function enforceDeniedProbeStatus(decision, response) {
+  if (decision.kind === 'denied-probe' && ![403, 404].includes(response.status())) {
+    await response.dispose();
+    throw new ProbeFailure('UNKNOWN_PROJECT_UNEXPECTED_RESPONSE');
+  }
+}
+
 export function privateOutput(env, identity) {
   if (!env.RUNNER_TEMP?.startsWith('/') || /[\r\n]/.test(env.RUNNER_TEMP) || !SHA.test(env.GITHUB_SHA ?? '')) throw new ProbeFailure('PRIVATE_ROOT_INVALID');
   const root = resolve(env.RUNNER_TEMP, '..', `wsx-aidt-acceptance-${identity.run}-${identity.attempt}`);
@@ -81,7 +88,9 @@ export async function main() {
   const report = { kind: 'devapp-aidt-ui-acceptance-v1', target: ORIGIN, passed: false, syntheticData: true,
     classroomValidated: false, realModelVerified: false, crossUserIsolationVerified: false,
     controlSource: null, deployedRuntime: null, deploymentLockHeld: false, runtimeRechecks: 0,
-    checkpoints: [], screenshots: [], scope: 'new-owned-QA-project-only' };
+    checkpoints: [], screenshots: [], scope: 'writes and screenshots: new owned QA project only',
+    authorizedMetadataReads: 'Native clients also read the QA-authorized identity, course/project/Skill catalogs and Design list in memory. No raw lists or unrelated projects are exported.',
+    designRequestLimit: 'At most one normal UI Design chat request; default page count is decided by the existing service, not capped to one page.' };
   let browser, context, output, identity, guard, credentials, timer, stage = 'preflight';
   try {
     if (process.argv.length !== 2) throw new ProbeFailure('ARGUMENTS_REJECTED');
@@ -122,13 +131,14 @@ export async function main() {
         const decision = guard.decide({ url: request.url(), method: request.method(), body, resourceType: request.resourceType() });
         if (!decision.allow) return await route.abort('blockedbyclient');
         const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: decision.kind === 'design-generation' ? 900000 : 30000 });
+        await enforceDeniedProbeStatus(decision, response);
         if (response.status() >= 300 && response.status() < 400) throw new ProbeFailure('REDIRECT_REJECTED');
         let parsed;
         if (decision.kind === 'upload-content') {
           const bytes = await response.body();
           if (bytes.length > 262144) throw new ProbeFailure('RESPONSE_BOUND');
           guard.observeContent(decision, response.status(), response.headers(), bytes);
-        } else if (!['read', 'aidt-tag', 'mount-owned-thread'].includes(decision.kind)) {
+        } else if (!['read', 'denied-probe', 'aidt-tag', 'mount-owned-thread'].includes(decision.kind)) {
           const bytes = await response.body();
           if (bytes.length > 1048576) throw new ProbeFailure('RESPONSE_BOUND');
           try { parsed = JSON.parse(bytes.toString('utf8')); } catch { throw new ProbeFailure('RESPONSE_SCHEMA_INVALID'); }
@@ -174,7 +184,7 @@ export async function main() {
         const visible = node => node instanceof HTMLElement && node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
         const values = [document.body.innerText, ...[...document.querySelectorAll('input,textarea,[contenteditable="true"]')].filter(visible).map(node => 'value' in node ? node.value : node.innerText)].join('\n');
         const token = localStorage.getItem('wsx.sessionToken');
-        return [email, password, token].some(secret => typeof secret === 'string' && secret.length >= 3 && values.includes(secret)) || /Bearer\s+[A-Za-z0-9._~-]{12,}|\bsk-[A-Za-z0-9]{16,}/.test(values);
+        return [email, password, token].some(secret => typeof secret === 'string' && secret.length > 0 && values.includes(secret)) || /Bearer\s+[A-Za-z0-9._~-]{12,}|\bsk-[A-Za-z0-9]{16,}/.test(values);
       }, { email: credentials.email, password: credentials.password });
       if (sensitive) throw new ProbeFailure('SCREENSHOT_SENSITIVE_CONTENT');
       const bytes = await workspace.screenshot({ type: 'png', animations: 'disabled' });

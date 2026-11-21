@@ -16,6 +16,12 @@ export const REQUIRED_CHECKS = Object.freeze([
 const fail = code => { throw new ProbeFailure(code); };
 const SYNTHETIC = '合成验收数据，非真实访谈';
 
+export function interviewCodePattern(code) {
+  if (code === 'U01') return /^U01(?:\s|$)/;
+  if (code === 'U02') return /^U02(?:\s|$)/;
+  fail('INTERVIEW_CODE_UNEXPECTED');
+}
+
 // A small, valid, run-specific schematic fixture. It is not a generated prototype or person photo.
 export function schematicPng(identity, ordinal) {
   const width = 240, height = 120;
@@ -154,7 +160,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const directory = new URL(step2Href); directory.searchParams.delete('entity'); directory.searchParams.delete('tool');
     for (let index = 1; index <= 2; index++) {
       await page.goto(owned(directory.href)); await click(btn('新建访谈')); await saveStage(2);
-      const code = `U0${index}`; await click(page.getByRole('button', { name: new RegExp(`^${code}(?:\s|$)`) }));
+      const code = `U0${index}`; await click(page.getByRole('button', { name: interviewCodePattern(code) }));
       await output();
       await fill('想了解什么', text(`核对${code}所代表的合成情境差异。`));
       await fill('学生提纲原稿', '请回忆最近一次做选择的经过？');
@@ -273,6 +279,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     if (!generationReceipt.ok()) fail('DESIGN_GENERATION_NOT_SUCCESSFUL');
     // The actual version picker below must verify generated frames; an HTTP response alone is insufficient.
     await expect(send).toBeEnabled({ timeout: 930000 });
+    await shot('05-design-generated', 5);
     await page.goto(owned(entityHref)); await output();
     const picker = page.getByTestId('aidt-prototype-version-picker'); await click(btn('选择真实原型版本', picker));
     await click(picker.locator('[aria-label="已关联的设计"]').getByRole('button', { name: '未命名设计', exact: true }));
@@ -281,14 +288,15 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await persistConfirmed(5, btn('确认所选原型'));
     step6Href = owned(await page.getByRole('link', { name: '带入测试与迭代', exact: true }).getAttribute('href'));
     await shot('05-prototype-question-version', 5); await completed(5); await page.goto(owned(entityHref)); await output();
-    report.realDesignGenerationAndVersionVerified = true;
+    report.designGenerationAndVersionWorkflowVerified = true;
+    report.designProviderIndependentlyVerified = false;
   }, '05-prototype');
 
   state.s6 = await check('s6-test-reflection', 6, async () => {
     if (!state.s5 || !step6Href) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
     await page.goto(owned(step6Href)); await fill('测试名称', `QA合成测试 ${unique}`); await click(btn('新建测试草稿'));
     // Directory saves are normal non-confirming UI actions, not a seeded test entity.
-    await saveStage(6, btn('保存测试列表'));
+    await saveStage(6, btn('保存本轮测试与反思'));
     const reflection = page.getByTestId('aidt-test-reflection'); await expect(reflection).toBeVisible();
     await expect(reflection.getByTestId('aidt-bound-question')).toContainText(question);
     await reflection.getByLabel('测试之后，对这个问题的认识有什么变化？', { exact: true }).selectOption('insufficient');
