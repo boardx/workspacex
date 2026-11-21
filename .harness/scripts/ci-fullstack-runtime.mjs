@@ -26,7 +26,40 @@ export function pnpmPackageRoot(executable) {
   throw new Error('PNPM_PACKAGE_ENTRYPOINT_NOT_FOUND');
 }
 
-export function runtimeCommand(geometry, sticky = false, directory = false, coreLoop = false, partition) {
+export const AIDT_NATIVE_FLAGS = ['ENABLE_AIDT_MODULE', 'ENABLE_PROJECT_MEMBER_CHAT', 'NEXT_PUBLIC_ENABLE_AIDT', 'NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT'];
+
+export function assertAidtNativeEnvironment(env) {
+  if (env.CI !== 'true' || env.GITHUB_ACTIONS !== 'true' || env.RUNNER_ENVIRONMENT !== 'github-hosted') throw new Error('AIDT_NATIVE_HOSTED_CI_REQUIRED');
+  if (env.GITHUB_REPOSITORY !== 'boardx/workspacex' || env.GITHUB_REF !== 'refs/heads/develop' || env.GITHUB_EVENT_NAME !== 'workflow_dispatch') throw new Error('AIDT_NATIVE_MANUAL_DEVELOP_REQUIRED');
+  if (!/^[a-f0-9]{40}$/.test(env.AIDT_NATIVE_EXPECTED_SOURCE_SHA ?? '') || !/^[a-f0-9]{40}$/.test(env.GITHUB_SHA ?? '')) throw new Error('AIDT_NATIVE_SOURCE_REQUIRED');
+  if (!/^[1-9]\d*$/.test(env.GITHUB_RUN_ID ?? '') || !/^[1-9]\d*$/.test(env.GITHUB_RUN_ATTEMPT ?? '')) throw new Error('AIDT_NATIVE_RUN_IDENTITY_REQUIRED');
+  if (AIDT_NATIVE_FLAGS.some(key => env[key] !== '1')) throw new Error('AIDT_NATIVE_FLAGS_REQUIRED');
+}
+
+export function assertAidtNativeSource(env, actual, mergedAncestor) {
+  assertAidtNativeEnvironment(env);
+  if (actual !== env.AIDT_NATIVE_EXPECTED_SOURCE_SHA) throw new Error('AIDT_NATIVE_SOURCE_MISMATCH');
+  if (mergedAncestor !== true) throw new Error('AIDT_NATIVE_SOURCE_NOT_MERGED');
+}
+
+export function verifyAidtNativeCheckout(root, env) {
+  assertAidtNativeEnvironment(env);
+  const git = args => spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', timeout: 15_000 });
+  const head = git(['rev-parse', 'HEAD']);
+  if (head.error || head.status !== 0) throw new Error('AIDT_NATIVE_CHECKOUT_UNAVAILABLE');
+  const actual = head.stdout.trim();
+  const merged = git(['merge-base', '--is-ancestor', env.AIDT_NATIVE_EXPECTED_SOURCE_SHA, env.GITHUB_SHA]);
+  assertAidtNativeSource(env, actual, !merged.error && merged.status === 0);
+  const dirty = git(['status', '--porcelain', '--untracked-files=no']);
+  if (dirty.error || dirty.status !== 0 || dirty.stdout.trim()) throw new Error('AIDT_NATIVE_SOURCE_DIRTY');
+  return actual;
+}
+
+export function runtimeCommand(geometry, sticky = false, directory = false, coreLoop = false, partition, aidtNative = false) {
+  if (aidtNative) {
+    if (geometry || sticky || directory || coreLoop || partition) throw new Error('INVALID_AIDT_NATIVE_MODE_COMBINATION');
+    return ['pnpm', 'exec', 'tsx', '.harness/scripts/with-test-isolation.ts', '--', 'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.aidt-native.config.ts'];
+  }
   if (partition) {
     if (!['product', 'board'].includes(partition) || geometry || sticky || directory || coreLoop) throw new Error('INVALID_SMOKE_PARTITION');
     return ['pnpm', 'run', `verify:fullstack-${partition}`];
@@ -38,11 +71,13 @@ export function runtimeCommand(geometry, sticky = false, directory = false, core
 }
 
 export function assertRuntimeCommand(mode, argv) {
-  const expected = ['--', ...runtimeCommand(mode === 'geometry', mode === 'sticky', mode === 'directory', mode === 'core-loop', ['product', 'board'].includes(mode) ? mode : undefined)];
+  if (!['run', 'geometry', 'sticky', 'directory', 'core-loop', 'product', 'board', 'aidt-native'].includes(mode)) throw new Error('UNKNOWN_RUNTIME_MODE');
+  const expected = ['--', ...runtimeCommand(mode === 'geometry', mode === 'sticky', mode === 'directory', mode === 'core-loop', ['product', 'board'].includes(mode) ? mode : undefined, mode === 'aidt-native')];
   if (JSON.stringify(argv) !== JSON.stringify(expected)) throw new Error('RUNTIME_COMMAND_CONTRACT_MISMATCH');
 }
 
-export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, docker, compose, unzip, socketGid, env, geometry = false, sticky = false, directory = false, coreLoop = false, partition }) {
+export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, docker, compose, unzip, socketGid, env, geometry = false, sticky = false, directory = false, coreLoop = false, partition, aidtNative = false }) {
+  if (aidtNative) assertAidtNativeEnvironment(env);
   if (![uid, gid].every(v => Number.isInteger(v) && v >= 0)) throw new Error('INVALID_RUNTIME_IDENTITY');
   if (!/^mcr\.microsoft\.com\/playwright@sha256:[a-f0-9]{64}$/.test(image)) throw new Error('UNSEALED_RUNTIME_IMAGE');
   if (!Number.isInteger(socketGid) || socketGid < 0) throw new Error('INVALID_DOCKER_SOCKET_GROUP');
@@ -58,12 +93,15 @@ export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, do
   for (const key of ['CI', 'GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'FULLSTACK_E2E_SERVER_TIMEOUT_MS']) {
     if (env[key]) args.push('--env', `${key}=${env[key]}`);
   }
+  if (aidtNative) {
+    for (const key of [...AIDT_NATIVE_FLAGS, 'AIDT_NATIVE_EXPECTED_SOURCE_SHA']) args.push('--env', `${key}=${env[key]}`);
+  }
   // Public-repository read credential only; Docker inherits the value without exposing it in argv.
-  if (!geometry && !sticky && !directory && !coreLoop && partition !== 'board' && env.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN) {
+  if (!aidtNative && !geometry && !sticky && !directory && !coreLoop && partition !== 'board' && env.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN) {
     args.push('--env', 'WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN');
   }
   args.push(image, 'bash', '-euc',
-    'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + runtimeCommand(geometry, sticky, directory, coreLoop, partition).join(' '));
+    'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + runtimeCommand(geometry, sticky, directory, coreLoop, partition, aidtNative).join(' '));
   return args;
 }
 
@@ -75,6 +113,10 @@ function command(cmd, args, options = {}) {
 
 async function main(mode) {
   const root = realpathSync(process.cwd());
+  if (mode === 'aidt-native') {
+    assertRuntimeCommand(mode, process.argv.slice(3));
+    verifyAidtNativeCheckout(root, process.env);
+  }
   const req = createRequire(resolve(root, 'apps/web/package.json'));
   const version = req('@playwright/test/package.json').version;
   if (req('playwright-core/package.json').version !== version) throw new Error('PLAYWRIGHT_VERSION_MISMATCH');
@@ -92,7 +134,7 @@ async function main(mode) {
     } finally { await browser.close(); }
     return;
   }
-  if (!['run', 'geometry', 'sticky', 'directory', 'core-loop', 'product', 'board'].includes(mode) || process.platform !== 'linux' || process.arch !== 'x64') throw new Error('LINUX_AMD64_RUNNER_REQUIRED');
+  if (!['run', 'geometry', 'sticky', 'directory', 'core-loop', 'product', 'board', 'aidt-native'].includes(mode) || process.platform !== 'linux' || process.arch !== 'x64') throw new Error('LINUX_AMD64_RUNNER_REQUIRED');
   assertRuntimeCommand(mode, process.argv.slice(3));
   const catalog = JSON.parse(readFileSync(new URL('../playwright-runtime-images.json', import.meta.url), 'utf8'));
   const image = sealedImage(version, catalog);
@@ -116,7 +158,7 @@ async function main(mode) {
   for (const path of ['bin/node', 'bin/docker', 'bin/unzip']) writeFileSync(resolve(tools, path), '', { mode: 0o600 });
   console.log(JSON.stringify({ runtimeImage: image, playwrightVersion: version, network: 'host', uid: process.getuid(), aptInstall: false }));
   const args = runtimeArgs({ root, home, tools, uid: process.getuid(), gid: process.getgid(), image,
-    node: realpathSync(process.execPath), pnpm, docker, compose, unzip: which('unzip'), socketGid: statSync('/var/run/docker.sock').gid, env: process.env, geometry: mode === 'geometry', sticky: mode === 'sticky', directory: mode === 'directory', coreLoop: mode === 'core-loop', partition: ['product', 'board'].includes(mode) ? mode : undefined });
+    node: realpathSync(process.execPath), pnpm, docker, compose, unzip: which('unzip'), socketGid: statSync('/var/run/docker.sock').gid, env: process.env, geometry: mode === 'geometry', sticky: mode === 'sticky', directory: mode === 'directory', coreLoop: mode === 'core-loop', partition: ['product', 'board'].includes(mode) ? mode : undefined, aidtNative: mode === 'aidt-native' });
   const child = spawn(docker, args, { stdio: 'inherit' });
   const forward = signal => child.kill(signal);
   const term = () => forward('SIGTERM');

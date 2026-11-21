@@ -1,0 +1,224 @@
+name: aidt-devapp-acceptance
+run-name: AIDT acceptance · ${{ inputs.expected_release_tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_source_sha:
+        description: Exact deployed application source (40 lowercase hex)
+        type: string
+        required: true
+      expected_release_tag:
+        description: Exact deployed immutable image tag (run-attempt)
+        type: string
+        required: true
+      live_dev:
+        description: Opt in to new owned synthetic QA project + screenshots on Dev (one bounded Design generation)
+        type: boolean
+        default: false
+      isolated_native:
+        description: Run native scenarios against exact candidate in isolated hosted services (models are loopback)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# Shares the designated QA account with the existing read-only/real-model workflow.
+concurrency:
+  group: real-model-chat-evidence
+  cancel-in-progress: false
+
+jobs:
+  controls:
+    if: ${{ github.ref == 'refs/heads/develop' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+      EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Validate exact application identity and test control guards
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SOURCE_SHA" =~ ^[a-f0-9]{40}$ && "$EXPECTED_RELEASE_TAG" =~ ^[0-9]+-[0-9]+$ ]]
+          node --test scripts/tests/devapp-aidt-acceptance.test.mjs scripts/tests/devapp-aidt-auth-readonly.test.mjs
+          node --test .harness/scripts/ci-aidt-native.test.mjs
+          node --check apps/web/e2e/support/devapp-aidt-acceptance.mjs
+          node --check apps/web/e2e/support/devapp-aidt-journey.mjs
+      - name: Package only audited acceptance tools
+        if: ${{ inputs.live_dev }}
+        run: node scripts/build-aidt-acceptance-bundle.mjs "$RUNNER_TEMP/aidt-acceptance-tools"
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.live_dev }}
+        with:
+          name: aidt-acceptance-tools
+          path: ${{ runner.temp }}/aidt-acceptance-tools/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+
+  isolated-native:
+    if: ${{ inputs.isolated_native && github.ref == 'refs/heads/develop' }}
+    needs: controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      CI: 'true'
+      GITHUB_ACTIONS: 'true'
+      RUNNER_ENVIRONMENT: github-hosted
+      AIDT_NATIVE_EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+      NEXT_PUBLIC_ENABLE_AIDT: '1'
+      ENABLE_AIDT_MODULE: '1'
+      NEXT_PUBLIC_ENABLE_PROJECT_MEMBER_CHAT: '1'
+      ENABLE_PROJECT_MEMBER_CHAT: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: candidate
+          ref: ${{ inputs.expected_source_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@v5
+        with:
+          path: control
+          persist-credentials: false
+          fetch-depth: 0
+          sparse-checkout: .harness
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: candidate/.nvmrc
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: candidate/package.json
+      - name: Install isolated candidate dependencies
+        working-directory: candidate
+        run: pnpm install --frozen-lockfile
+      - name: Verify candidate and prepare exact native scenarios
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          git cat-file -e "$GITHUB_SHA^{commit}" || git fetch --no-tags origin "$GITHUB_SHA"
+          node "$GITHUB_WORKSPACE/control/.harness/scripts/ci-aidt-native.mjs" prepare
+      - name: Run native UI in isolated services
+        id: native
+        working-directory: candidate
+        continue-on-error: true
+        run: node "$GITHUB_WORKSPACE/control/.harness/scripts/ci-fullstack-runtime.mjs" aidt-native -- pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.aidt-native.config.ts
+      - name: Verify every declared native case
+        if: ${{ always() }}
+        working-directory: candidate
+        env:
+          AIDT_NATIVE_TEST_OUTCOME: ${{ steps.native.outcome }}
+        run: node "$GITHUB_WORKSPACE/control/.harness/scripts/ci-aidt-native.mjs" verdict
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: aidt-isolated-native-evidence
+          path: |
+            candidate/apps/web/test-results/aidt-native/
+            candidate/apps/web/test-results/aidt-native-control/
+          retention-days: 7
+
+  live-dev:
+    if: ${{ inputs.live_dev && github.ref == 'refs/heads/develop' }}
+    needs: controls
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 45
+    env:
+      EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+      EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+      DEBUG: ''
+      PWDEBUG: ''
+      NODE_DEBUG: ''
+      NODE_DEBUG_NATIVE: ''
+      NODE_OPTIONS: ''
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      # No checkout, arbitrary shell entry point, credential copy, or source install on the Dev host.
+      - name: Create this attempt's private directory
+        id: private
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ && "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ && "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$EXPECTED_SOURCE_SHA" =~ ^[a-f0-9]{40}$ && "$EXPECTED_RELEASE_TAG" =~ ^[0-9]+-[0-9]+$ ]]
+          [[ "$RUNNER_TEMP" == /* && "$RUNNER_TEMP" != *$'\n'* && "$RUNNER_TEMP" != *$'\r'* ]]
+          AIDT_ACCEPTANCE_ROOT="$RUNNER_TEMP/../wsx-aidt-acceptance-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          [[ ! -e "$AIDT_ACCEPTANCE_ROOT" && ! -L "$AIDT_ACCEPTANCE_ROOT" ]]
+          mkdir -m 700 "$AIDT_ACCEPTANCE_ROOT"
+          printf '%s' "$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT:$GITHUB_SHA" > "$AIDT_ACCEPTANCE_ROOT/.owner"
+          mkdir -m 700 "$AIDT_ACCEPTANCE_ROOT/source"
+          printf 'AIDT_ACCEPTANCE_ROOT=%s\nPLAYWRIGHT_BROWSERS_PATH=%s/browsers\n' "$AIDT_ACCEPTANCE_ROOT" "$AIDT_ACCEPTANCE_ROOT" >> "$GITHUB_ENV"
+          printf 'owned=true\n' >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          name: aidt-acceptance-tools
+          path: ${{ env.AIDT_ACCEPTANCE_ROOT }}/source
+      - name: Verify bounded bundle and declared Node version
+        id: bundle
+        working-directory: ${{ runner.temp }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$AIDT_ACCEPTANCE_ROOT/source"
+          [[ -z "$(find . -type l -print -quit)" ]]
+          [[ "$(find . -type f | wc -l)" -eq 9 ]]
+          sha256sum --check --strict SHA256SUMS
+          AIDT_NODE_VERSION="$(cat .nvmrc)"
+          [[ "$AIDT_NODE_VERSION" =~ ^[1-9][0-9]*(\.[0-9]+\.[0-9]+)?$ ]]
+          printf 'node-version=%s\n' "$AIDT_NODE_VERSION" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.bundle.outputs.node-version }}
+      - name: Install only pinned browser test tools
+        working-directory: ${{ runner.temp }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$AIDT_ACCEPTANCE_ROOT/source"
+          [[ "$(node -p 'require("./acceptance-source.json").controlSource')" == "$GITHUB_SHA" ]]
+          touch "$AIDT_ACCEPTANCE_ROOT/npmrc"
+          npm install --ignore-scripts --omit=optional --no-audit --no-fund --userconfig "$AIDT_ACCEPTANCE_ROOT/npmrc" --globalconfig "$AIDT_ACCEPTANCE_ROOT/npmrc" --cache "$AIDT_ACCEPTANCE_ROOT/npm-cache" > "$AIDT_ACCEPTANCE_ROOT/install.log" 2>&1
+          node node_modules/playwright/cli.js install chromium > "$AIDT_ACCEPTANCE_ROOT/browser-install.log" 2>&1
+      - name: Run bounded live Dev acceptance and safe screenshots
+        id: live
+        continue-on-error: true
+        working-directory: ${{ runner.temp }}
+        run: node "$AIDT_ACCEPTANCE_ROOT/source/apps/web/e2e/support/devapp-aidt-acceptance.mjs"
+      - name: Upload only explicit safe evidence types
+        if: ${{ always() && steps.private.outputs.owned == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: aidt-live-dev-evidence
+          path: |
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/acceptance.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/*.png
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/qa-report-*.md
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Preserve acceptance failure
+        if: ${{ always() }}
+        env:
+          LIVE_OUTCOME: ${{ steps.live.outcome }}
+        run: test "$LIVE_OUTCOME" = success
+      - name: Remove only this attempt's private directory
+        if: ${{ always() && steps.private.outputs.owned == 'true' }}
+        working-directory: ${{ runner.temp }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ && "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ && "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          AIDT_ACCEPTANCE_ROOT="$RUNNER_TEMP/../wsx-aidt-acceptance-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          [[ -d "$AIDT_ACCEPTANCE_ROOT" && ! -L "$AIDT_ACCEPTANCE_ROOT" && -f "$AIDT_ACCEPTANCE_ROOT/.owner" && ! -L "$AIDT_ACCEPTANCE_ROOT/.owner" ]]
+          [[ "$(cat "$AIDT_ACCEPTANCE_ROOT/.owner")" == "$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT:$GITHUB_SHA" ]]
+          rm -rf -- "$AIDT_ACCEPTANCE_ROOT"
