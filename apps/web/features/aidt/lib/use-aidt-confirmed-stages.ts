@@ -2,14 +2,46 @@
 
 import * as React from "react";
 import type { AidtSharedStage } from "./live-aidt-stages";
-import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload } from "./aidt-round-completion";
+import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload, aidtRoundMissingOutput } from "./aidt-round-completion";
+import { readAidtProblemHandoffDraft } from "./aidt-problem-entities";
+import { aidtInterviewFindingReady, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviews } from "./aidt-interviews";
+import { readAidtDefinition, readAidtDefinitionSelection } from "./aidt-definition";
+import { readAidtIdeaHandoff } from "./aidt-idea-handoff";
+import { readAidtConfirmedPrototypeHandoff } from "./aidt-prototype-handoff";
+import { isAidtReflectionConfirmed } from "./aidt-verification-loop";
+import { readAidtTestGroups } from "./aidt-test-groups";
 
 const EMPTY: ReadonlySet<number> = new Set();
 
-export async function aidtStageHasConfirmation(stage: AidtSharedStage): Promise<boolean> {
-  const record = stage.content.draft.fields[AIDT_ROUND_COMPLETION_FIELD];
+export async function aidtStageHasConfirmation(stage: AidtSharedStage, stages?: Readonly<Record<number, AidtSharedStage>>): Promise<boolean> {
+  const saved = stage.content.draft;
+  if (stage.stageId === 2 && Object.keys(saved.fields).some(key => key.startsWith("interviewRecord:"))) {
+    return readAidtInterviews(saved.fields).some(interview => !isAidtInterviewArchived(saved.fields, interview.id)
+      && isAidtInterviewConfirmed(saved.fields, interview.id) && aidtInterviewFindingReady(saved, interview, stage.projectId));
+  }
+  if (stage.stageId === 3) {
+    const definition = readAidtDefinition(saved.fields);
+    if (definition.invalid || definition.personas.length || definition.hmws.length || definition.surprises.length) {
+      return Boolean(readAidtDefinitionSelection(saved.fields)) && aidtRoundMissingOutput(3, saved, {
+        projectId: stage.projectId, cards: stages?.[2]?.content.draft.discoveryCards, cardsRevision: stages?.[2]?.revision,
+      }) === null;
+    }
+  }
+  if (stage.stageId === 4 && ["ideaHmwSource", "ideaSheetIds", "ideaHandoffIds"].some(key => Object.hasOwn(saved.fields, key))) {
+    return Boolean(readAidtIdeaHandoff(saved, stage.projectId));
+  }
+  if (stage.stageId === 5 && Object.keys(saved.fields).some(key => key.startsWith("prototypeEntity:") || key === "prototypeHandoffEntity")) {
+    return Boolean(readAidtConfirmedPrototypeHandoff(saved));
+  }
+  if (stage.stageId === 6 && Object.keys(saved.fields).some(key => key.startsWith("testGroup:"))) {
+    return readAidtTestGroups(saved.fields).some(group => !group.archived) && isAidtReflectionConfirmed(saved);
+  }
+  const draft = stage.stageId === 1 ? readAidtProblemHandoffDraft(stage.content.draft) : undefined;
+  if (draft === null) return false;
+  const selected = draft ?? stage.content.draft;
+  const record = selected.fields[AIDT_ROUND_COMPLETION_FIELD];
   if (!record) return false;
-  const payload = aidtRoundPayload(stage.projectId, stage.stageId, stage.content.draft, stage.sourceStageRevisions);
+  const payload = aidtRoundPayload(stage.projectId, stage.stageId, selected, stage.sourceStageRevisions);
   const digest = await aidtRoundDigest(payload);
   return record === aidtRoundConfirmation(stage.projectId, stage.stageId, digest, stage.stageId === 4 || stage.stageId === 5);
 }
@@ -21,7 +53,7 @@ export function useAidtConfirmedStages(stages: Readonly<Record<number, AidtShare
     if (!scope) return;
     let active = true;
     const candidates = Object.values(stages);
-    void Promise.all(candidates.map(async stage => (await aidtStageHasConfirmation(stage)) ? stage.stageId : null)).then(ids => {
+    void Promise.all(candidates.map(async stage => (await aidtStageHasConfirmation(stage, stages)) ? stage.stageId : null)).then(ids => {
       if (active) setResult({ stages, scope, completed: new Set(ids.filter(id => id !== null)) });
     }).catch(() => { if (active) setResult(null); });
     return () => { active = false; };

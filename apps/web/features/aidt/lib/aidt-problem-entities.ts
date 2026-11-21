@@ -39,6 +39,17 @@ export function readAidtProblemEntityDraft(draft: AidtUiStageDraft, id: string):
   return { fields: parse(fields, draft.fields["problemDraft:" + id]) ?? {}, ideas: [], selectedIdeaId: "" };
 }
 
+/** Undefined preserves legacy stage documents; null rejects an incomplete entity handoff. */
+export function readAidtProblemHandoffDraft(draft: AidtUiStageDraft): AidtUiStageDraft | null | undefined {
+  const hasDirectory = Object.keys(draft.fields).some(key => key === "problemHandoffEntity" || key.startsWith(prefix) || key.startsWith("problemDraft:"));
+  if (!hasDirectory) return undefined;
+  const id = draft.fields.problemHandoffEntity;
+  if (!id || !listAidtProblems(draft).some(entry => entry.id === id && !entry.archived)) return null;
+  const selected = readAidtProblemEntityDraft(draft, id);
+  if (!selected.fields.roundCompletion || selected.fields.roundCompletion !== draft.fields.roundCompletion) return null;
+  return selected;
+}
+
 export function updateAidtProblemEntity(
   draft: AidtUiStageDraft,
   id: string,
