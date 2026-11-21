@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
-  AIDT_DEFINITION_EVIDENCE_LIMIT, AIDT_DEFINITION_ITEM_LIMIT, addAidtDefinitionEntity, addAidtDefinitionSurprise, aidtDefinitionCards,
+  AIDT_DEFINITION_EVIDENCE_LIMIT, AIDT_DEFINITION_ITEM_LIMIT, AIDT_PRIMARY_SURPRISE_ID, addAidtDefinitionEntity, addAidtDefinitionSurprise, aidtDefinitionCards,
   chooseAidtDefinitionHmw, confirmedAidtDefinitionSurprises, invalidateAidtDefinitionSurpriseLinks, isAidtDefinitionHmwReady,
   isAidtDefinitionPersonaReady, isAidtDefinitionSurpriseReady, readAidtDefinition,
   readAidtDefinitionEntities, readAidtDefinitionEvidenceRevision, readAidtDefinitionSelection,
@@ -14,13 +16,18 @@ import {
   type AidtDefinitionHmw, type AidtDefinitionPersona, type AidtDefinitionSurprise,
 } from "../lib/aidt-definition";
 import { listAidtStageHistory, type AidtSharedStage } from "../lib/live-aidt-stages";
-import { isAidtSurpriseConfirmed } from "../lib/aidt-surprise-reflection";
+import { isAidtSurpriseConfirmed, parseAidtSurpriseReflection } from "../lib/aidt-surprise-reflection";
+import {
+  aidtDefinitionChatMessageKey, aidtDefinitionEntityConfirmed, aidtDefinitionEntityKind, applyAidtDefinitionCandidate,
+  confirmAidtDefinitionChatEntity, enableAidtPrimarySurpriseEntity, hasAidtPrimarySurpriseEntity,
+  latestAidtDefinitionCandidate, type AidtDefinitionTurn,
+} from "../lib/aidt-definition-chat";
 import type { AidtDiscoveryCardDraft, AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import { AidtSurpriseReflection } from "./aidt-surprise-reflection";
 import { AidtResearchMaterialPreview } from "./aidt-research-material";
 import { parseAidtResearchMaterial, researchMaterialKey } from "../lib/aidt-research-material-reference";
 
-type DefinitionProps = {
+export type AidtDefinitionProps = {
   projectId?: string;
   draft: AidtUiStageDraft;
   update: (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
@@ -30,7 +37,7 @@ type DefinitionProps = {
   discoveryCardFields?: Readonly<Record<string, string>>;
 };
 
-function useDefinitionEvidence({ projectId, draft, availableCards, availableCardsRevision, discoveryCardFields }: DefinitionProps) {
+function useDefinitionEvidence({ projectId, draft, availableCards, availableCardsRevision, discoveryCardFields }: AidtDefinitionProps) {
   const session = useOptionalSession()?.session;
   const pinnedRevision = readAidtDefinitionEvidenceRevision(draft.fields);
   const stale = pinnedRevision !== null && availableCardsRevision !== pinnedRevision;
@@ -66,7 +73,18 @@ function useDefinitionEvidence({ projectId, draft, availableCards, availableCard
   };
 }
 
-export function AidtDefinitionDirectory(props: DefinitionProps & { entityHref: (id: string) => string }) {
+type DirectoryProps = AidtDefinitionProps & {
+  entityHref: (id: string) => string;
+  nativeChat?: boolean;
+  requestSave?: () => void;
+  savedDraft?: AidtUiStageDraft;
+};
+
+export function AidtDefinitionDirectory(props: DirectoryProps) {
+  return props.nativeChat ? <AidtDefinitionCardDirectory {...props} /> : <LegacyDefinitionDirectory {...props} />;
+}
+
+function LegacyDefinitionDirectory(props: DirectoryProps) {
   const { projectId, draft, update, readOnly, availableCardsRevision, entityHref } = props;
   const { cards, revision, ready, stale, pinnedRevision, unavailable, failed, retry, unconfirmedCards, sourceFields } = useDefinitionEvidence(props);
   const { personas, hmws, surprises, invalid } = readAidtDefinition(draft.fields);
@@ -108,6 +126,195 @@ export function AidtDefinitionDirectory(props: DefinitionProps & { entityHref: (
       <p className="text-12 text-muted-foreground">新建的草稿使用「保存到小组」共享；每项有独立对话。归档会保留已保存的历史版本。</p>
     </div>
   </section>;
+}
+
+const kindLabels = { surprise: "意外发现", persona: "用户画像", hmw: "HMW" } as const;
+const nameKey = (id: string) => "definitionCardName:" + id;
+
+function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...props }: DirectoryProps) {
+  const { draft, update, readOnly } = props;
+  const evidence = useDefinitionEvidence(props);
+  const { personas, hmws, surprises, invalid } = readAidtDefinition(draft.fields);
+  const [editing, setEditing] = React.useState<{ id: string; name: string } | null>(null);
+  const [removing, setRemoving] = React.useState<string | null>(null);
+  const [showArchived, setShowArchived] = React.useState(false);
+  const active = [
+    ...(hasAidtPrimarySurpriseEntity(draft) || draft.fields.surpriseConfirmed === "true" ? [{ id: AIDT_PRIMARY_SURPRISE_ID, title: "意外发现", kind: "surprise" as const, archived: false }] : []),
+    ...surprises.map(item => ({ id: item.id, title: item.observation.trim() || "未命名发现", kind: "surprise" as const, archived: item.archived })),
+    ...readAidtDefinitionEntities(draft.fields),
+  ];
+  const canEdit = !readOnly && !invalid;
+  const canAdd = canEdit && !evidence.unavailable && evidence.ready;
+  const title = (id: string, fallback: string) => draft.fields[nameKey(id)] || fallback;
+  const save = (change: (old: AidtUiStageDraft) => AidtUiStageDraft) => { update(change); requestSave?.(); };
+  const openAllowed = (id: string) => savedDraft ? Boolean(aidtDefinitionEntityKind(savedDraft, id)) : !requestSave;
+  const add = (kind: "persona" | "hmw") => save(old => addAidtDefinitionEntity(old, kind, crypto.randomUUID()));
+  const archive = (id: string) => {
+    save(old => {
+      const definition = readAidtDefinition(old.fields);
+      const persona = definition.personas.find(item => item.id === id && !item.archived);
+      const hmw = definition.hmws.find(item => item.id === id && !item.archived);
+      const surprise = definition.surprises.find(item => item.id === id && !item.archived);
+      if (persona) return saveAidtDefinitionPersona(old, { ...persona, archived: true }, null);
+      if (hmw) return saveAidtDefinitionHmw(old, { ...hmw, archived: true }, null);
+      if (surprise) return saveAidtDefinitionSurprise(old, { ...surprise, archived: true }, null);
+      return old;
+    });
+    setRemoving(null);
+  };
+
+  return <section className="space-y-4" aria-label="综合与定义产物" data-testid="aidt-definition-directory">
+    <div className="flex flex-wrap gap-2">
+      {!hasAidtPrimarySurpriseEntity(draft) && <Button type="button" disabled={!canEdit} onClick={() => save(enableAidtPrimarySurpriseEntity)}>{draft.fields.surpriseConfirmed === "true" ? "开启意外发现对话" : "新建意外发现"}</Button>}
+      {draft.fields.surpriseStatus === "found" && <Button type="button" variant="outline" disabled={!canAdd || surprises.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => save(old => addAidtDefinitionSurprise(old, crypto.randomUUID()))}>新建补充发现</Button>}
+      <Button type="button" variant="outline" disabled={!canAdd || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("persona")}>新建画像</Button>
+      <Button type="button" variant="outline" disabled={!canAdd || !personas.some(item => item.confirmed && !item.archived) || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("hmw")}>新建 HMW</Button>
+      {active.some(item => item.archived) && <Button type="button" variant="ghost" onClick={() => setShowArchived(value => !value)}>{showArchived ? "返回产物" : "查看已移除"}</Button>}
+    </div>
+    {!evidence.ready && !evidence.unavailable && <p className="text-13 text-muted-foreground">先在意外发现的 Chat 中记录并确认发现或「暂无」。</p>}
+    {invalid && <p role="alert" className="text-13">部分产物读取失败。</p>}
+    {evidence.stale && <div role="status" className="flex flex-wrap items-center gap-2 text-13">
+      <p>引用第 2 步 V{evidence.pinnedRevision}。</p>
+      {evidence.failed && <Button type="button" size="sm" variant="outline" onClick={evidence.retry}>重试读取</Button>}
+      {props.availableCardsRevision && <Button type="button" size="sm" variant="outline" disabled={!canEdit} onClick={() => save(rebaseAidtDefinitionEvidence)}>改用新版证据</Button>}
+    </div>}
+    <ul aria-label="综合与定义卡片" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {active.filter(item => item.archived === showArchived).map(item => {
+        const name = title(item.id, item.title);
+        const confirmed = aidtDefinitionEntityConfirmed(savedDraft ?? (!requestSave ? draft : undefined), item.id, evidence.cards, evidence.revision);
+        return <li key={item.id} className="space-y-3 rounded-2xl border border-border bg-card p-4">
+          <p className="text-12 text-muted-foreground">{kindLabels[item.kind]} · {item.archived ? "已移除" : confirmed ? "已确认" : "待确认"}</p>
+          <h3 className="break-words text-16 font-semibold">{name}</h3>
+          {!item.archived && <div className="flex flex-wrap items-center gap-2">
+            {openAllowed(item.id) ? <Button asChild size="sm" variant="secondary"><Link href={entityHref(item.id)}>打开{kindLabels[item.kind]}对话</Link></Button> : <p className="text-12 text-muted-foreground">保存后可打开</p>}
+            {canEdit && <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ id: item.id, name })}>改名</Button>}
+            {canEdit && item.id !== AIDT_PRIMARY_SURPRISE_ID && <Button type="button" size="sm" variant="ghost" onClick={() => setRemoving(item.id)}>删除</Button>}
+          </div>}
+        </li>;
+      })}
+    </ul>
+    {editing && <Dialog open onOpenChange={open => { if (!open) setEditing(null); }}>
+      <DialogContent><DialogTitle>修改卡片名称</DialogTitle><DialogDescription>该名称用于卡片列表。</DialogDescription>
+        <form className="space-y-3" onSubmit={event => {
+          event.preventDefault();
+          const value = editing.name.trim();
+          if (!value) return;
+          save(old => aidtDefinitionEntityKind(old, editing.id) && (Object.hasOwn(old.fields, nameKey(editing.id)) || Object.keys(old.fields).length < 95)
+            ? { ...old, fields: { ...old.fields, [nameKey(editing.id)]: value } } : old);
+          setEditing(null);
+        }}>
+          <Input aria-label="卡片名称" value={editing.name} maxLength={80} onChange={event => setEditing({ ...editing, name: event.target.value })} />
+          <Button type="submit" disabled={!editing.name.trim()}>保存名称</Button>
+        </form>
+      </DialogContent>
+    </Dialog>}
+    {removing && <Dialog open onOpenChange={open => { if (!open) setRemoving(null); }}>
+      <DialogContent><DialogTitle>删除卡片？</DialogTitle><DialogDescription>卡片将移至「已移除」，已有版本和引用仍可查看。</DialogDescription>
+        <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setRemoving(null)}>取消</Button><Button type="button" variant="destructive" onClick={() => archive(removing)}>确认删除</Button></div>
+      </DialogContent>
+    </Dialog>}
+  </section>;
+}
+
+function DefinitionChatView({ props, entityId }: { props: AidtDefinitionProps; entityId: string }) {
+  const evidence = useDefinitionEvidence(props);
+  const { draft, projectId } = props;
+  const { personas, hmws, surprises } = readAidtDefinition(draft.fields);
+  const persona = personas.find(item => item.id === entityId);
+  const hmw = hmws.find(item => item.id === entityId);
+  const primary = entityId === AIDT_PRIMARY_SURPRISE_ID ? parseAidtSurpriseReflection(draft, evidence.cards, evidence.revision) : null;
+  const surprise = surprises.find(item => item.id === entityId);
+  const entityKind = aidtDefinitionEntityKind(draft, entityId);
+  const selected = persona?.cardIds ?? hmw?.cardIds ?? primary?.cardIds ?? surprise?.cardIds ?? [];
+  const entries: [string, string | undefined][] = persona ? [
+    ["画像名称", persona.name], ["情境", persona.situation], ["行为", persona.behavior], ["需求", persona.need], ["仍待核实", persona.limits],
+  ] : hmw ? [["研究方向", hmw.text], ["说明", hmw.rationale], ["关联画像", hmw.personaIds.map(id => personas.find(item => item.id === id)?.name).filter(Boolean).join("、")]]
+    : primary?.status === "none" ? [["意外发现", "暂无"]]
+      : [["原先想法", primary?.priorBelief ?? surprise?.priorBelief], ["观察到的差异", primary?.surprisingFinding ?? surprise?.observation], ["学生解释", primary?.interpretation ?? surprise?.interpretation], ["仍待核实", surprise?.unknowns]];
+  const filled = entries.filter(([, value]) => value?.trim());
+  if (!entityKind) return <p role="status">找不到这项产物。</p>;
+  return <section className="space-y-3" data-testid="aidt-definition-editor" aria-label="当前产物">
+    <h3 className="text-16 font-semibold">{kindLabels[entityKind]}</h3>
+    {!filled.length ? <p className="text-13 text-muted-foreground">还没有产物草稿。</p> : <dl className="space-y-2 text-13">
+      {filled.map(([label, value]) => <div key={label}><dt className="font-medium">{label}</dt><dd className="whitespace-pre-wrap break-words">{value}</dd></div>)}
+    </dl>}
+    {selected.length > 0 && <section aria-label="引用材料" className="space-y-2 text-13">
+      <h4 className="font-medium">引用材料{evidence.revision ? ` · 第 2 步 V${evidence.revision}` : ""}</h4>
+      {evidence.cards.filter(card => selected.includes(card.id)).map(card => <div key={card.id}>
+        <p>{card.participantCode} · {card.headline || "人物发现"}</p>
+        <DefinitionEvidenceSource projectId={projectId} card={card} source={evidence.sourceFields[researchMaterialKey("source", card.id)]} />
+      </div>)}
+      {evidence.unavailable && <p role="status">暂无法读取原版本。</p>}
+    </section>}
+  </section>;
+}
+
+export function AidtDefinitionOutput(props: AidtDefinitionProps & { entityId: string }) {
+  return <DefinitionChatView props={props} entityId={props.entityId} />;
+}
+
+export function AidtDefinitionChatArtifact({ entityId, messages, loading, running, savedDraft, requestSave, ...props }: AidtDefinitionProps & {
+  entityId: string;
+  messages: readonly AidtDefinitionTurn[];
+  loading: boolean;
+  running: boolean;
+  savedDraft?: AidtUiStageDraft;
+  requestSave: () => void;
+}) {
+  const { draft, update, readOnly } = props;
+  const { cards, revision, unavailable } = useDefinitionEvidence(props);
+  const entityKind = aidtDefinitionEntityKind(draft, entityId);
+  const candidate = entityKind && !loading && !running ? latestAidtDefinitionCandidate(messages, entityKind, entityId === AIDT_PRIMARY_SURPRISE_ID) : null;
+  const saved = aidtDefinitionEntityConfirmed(savedDraft, entityId, cards, revision);
+  const localConfirmed = aidtDefinitionEntityConfirmed(draft, entityId, cards, revision);
+  const historicalWithoutSource = localConfirmed && !draft.fields[aidtDefinitionChatMessageKey(entityId)];
+  const staged = draft.fields[aidtDefinitionChatMessageKey(entityId)] === candidate?.messageId;
+  const canApply = candidate && !readOnly && !unavailable && !staged;
+  const [manualDraft, setManualDraft] = React.useState(false);
+  const applied = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!canApply || !candidate || historicalWithoutSource) return;
+    const key = JSON.stringify([entityId, candidate.messageId, revision, cards.map(card => card.id)]);
+    if (applied.current === key) return;
+    applied.current = key;
+    update(old => applyAidtDefinitionCandidate(old, entityId, candidate, cards, revision));
+  }, [canApply, candidate, cards, entityId, historicalWithoutSource, revision, update]);
+  const next = confirmAidtDefinitionChatEntity(draft, entityId, cards, revision);
+  if (!entityKind || readOnly) return null;
+
+  return <section aria-label="对话产物确认" className="space-y-3 rounded-xl border border-border bg-card p-4">
+    <p className="text-13 font-medium">{kindLabels[entityKind]} · {saved && localConfirmed ? "已确认" : "草稿"}</p>
+    {historicalWithoutSource && canApply && candidate && <Button type="button" size="sm" variant="outline" onClick={() => update(old => applyAidtDefinitionCandidate(old, entityId, candidate, cards, revision))}>采用本轮新稿</Button>}
+    {next !== draft && !running && !loading ? <Button type="button" onClick={() => {
+      update(old => confirmAidtDefinitionChatEntity(old, entityId, cards, revision));
+      requestSave();
+    }}>确认当前产物</Button> : localConfirmed && !saved && !running && !loading && <Button type="button" onClick={requestSave}>重试保存确认</Button>}
+    {!localConfirmed && !running && !loading && <Button type="button" size="sm" variant="ghost" onClick={() => setManualDraft(value => !value)}>{manualDraft ? "收起来源核对" : "核对草稿和来源"}</Button>}
+    {manualDraft && <AidtDefinitionChatEvidence {...props} entityId={entityId} cards={cards} revision={revision} />}
+    {entityKind === "hmw" && saved && localConfirmed && readAidtDefinitionSelection(draft.fields)?.id !== entityId && <Button type="button" size="sm" variant="secondary" onClick={() => {
+      update(old => chooseAidtDefinitionHmw(old, entityId, new Set(cards.map(card => card.id))));
+      requestSave();
+    }}>选为本轮 HMW</Button>}
+  </section>;
+}
+
+function AidtDefinitionChatEvidence({ draft, update, entityId, cards, revision, readOnly }: AidtDefinitionProps & {
+  entityId: string; cards: readonly AidtDiscoveryCardDraft[]; revision?: number;
+}) {
+  const entityKind = aidtDefinitionEntityKind(draft, entityId);
+  if (!entityKind) return null;
+  // Existing draft editors are embedded in the native Chat for clearing or repairing a source.
+  if (entityKind !== "surprise") return <AidtDefinitionEditor projectId={undefined} draft={draft} update={update} entityId={entityId} availableCards={cards}
+    availableCardsRevision={revision} discoveryCardFields={Object.fromEntries(cards.map(card => [`interviewConfirmed:${card.id}`, "true"]))} readOnly={readOnly} sourcesOnly />;
+  const primary = entityId === AIDT_PRIMARY_SURPRISE_ID;
+  if (primary) return <AidtSurpriseReflection draft={draft} availableCards={cards} availableCardsRevision={revision} readOnly={readOnly}
+    onChange={next => update(old => ({ ...old, fields: { ...old.fields, ...Object.fromEntries(Object.entries(next.fields).filter(([key, value]) => value !== draft.fields[key])) } }))} />;
+  const surprise = readAidtDefinition(draft.fields).surprises.find(item => item.id === entityId);
+  return surprise ? <DefinitionSurpriseRecord record={surprise} disabled={readOnly} evidence={{ cards, revision, unconfirmedCards: 0, sourceFields: {} }}
+    onEdit={patch => update(old => {
+      const record = readAidtDefinition(old.fields).surprises.find(item => item.id === entityId);
+      return record ? saveAidtDefinitionSurprise(old, { ...record, confirmed: false, ...patch }, revision ?? null) : old;
+    })} /> : null;
 }
 
 function DefinitionText({ label, value, limit = 400, disabled, onChange }: { label: string; value: string; limit?: number; disabled: boolean; onChange: (value: string) => void }) {
@@ -170,7 +377,7 @@ function DefinitionSurpriseLinks({ choices, selected, disabled, onChange }: {
   </fieldset>;
 }
 
-export function AidtDefinitionEditor(props: DefinitionProps & { entityId: string }) {
+export function AidtDefinitionEditor(props: AidtDefinitionProps & { entityId: string; sourcesOnly?: boolean }) {
   const { projectId, draft, update, readOnly, entityId } = props;
   const { cards, revision, ready, stale, pinnedRevision, unavailable, unconfirmedCards, sourceFields, failed, retry } = useDefinitionEvidence(props);
   const { personas, hmws, invalid } = readAidtDefinition(draft.fields);
@@ -203,24 +410,24 @@ export function AidtDefinitionEditor(props: DefinitionProps & { entityId: string
     {stale && <p role="status" className="text-13">{unavailable ? `暂无法读取本轮引用的第 2 步 V${pinnedRevision}，请从目录核对材料。` : `本轮继续使用第 2 步 V${pinnedRevision}。可从目录核对后改用新版。`}</p>}
     {failed && <Button type="button" size="sm" variant="outline" onClick={retry}>重试读取原版本</Button>}
     {persona && <>
-      <DefinitionText label="画像名称" value={persona.name} limit={220} disabled={disabled} onChange={name => editPersona({ name })} />
+      {!props.sourcesOnly && <><DefinitionText label="画像名称" value={persona.name} limit={220} disabled={disabled} onChange={name => editPersona({ name })} />
       <DefinitionText label="用户情境" value={persona.situation} disabled={disabled} onChange={situation => editPersona({ situation })} />
       <DefinitionText label="可观察的行为" value={persona.behavior} disabled={disabled} onChange={behavior => editPersona({ behavior })} />
       <DefinitionText label="需求" value={persona.need} disabled={disabled} onChange={need => editPersona({ need })} />
-      <DefinitionText label="反例、适用范围或仍未知的地方" value={persona.limits} disabled={disabled} onChange={limits => editPersona({ limits })} />
+      <DefinitionText label="反例、适用范围或仍未知的地方" value={persona.limits} disabled={disabled} onChange={limits => editPersona({ limits })} /></>}
       <DefinitionSurpriseLinks choices={surprises} selected={persona.surpriseIds ?? []} disabled={disabled} onChange={surpriseIds => editPersona({ surpriseIds })} />
       <DefinitionEvidence projectId={projectId} sourceFields={sourceFields} cards={cards} unconfirmedCards={unconfirmedCards} revision={revision} selected={persona.cardIds} disabled={disabled} onChange={cardIds => editPersona({ cardIds })} />
-      <Button type="button" size="sm" disabled={disabled || persona.confirmed || !isAidtDefinitionPersonaReady(persona, availableCardIds, confirmedSurpriseIds)} onClick={() => editPersona({ confirmed: true })}>{persona.confirmed ? "画像已确认" : "确认画像"}</Button>
+      {!props.sourcesOnly && <Button type="button" size="sm" disabled={disabled || persona.confirmed || !isAidtDefinitionPersonaReady(persona, availableCardIds, confirmedSurpriseIds)} onClick={() => editPersona({ confirmed: true })}>{persona.confirmed ? "画像已确认" : "确认画像"}</Button>}
     </>}
     {hmw && <>
-      <DefinitionText label="我们如何……（HMW）" value={hmw.text} limit={220} disabled={disabled} onChange={text => editHmw({ text })} />
-      <DefinitionText label="选择理由或待核实处" value={hmw.rationale} disabled={disabled} onChange={rationale => editHmw({ rationale })} />
+      {!props.sourcesOnly && <><DefinitionText label="我们如何……（HMW）" value={hmw.text} limit={220} disabled={disabled} onChange={text => editHmw({ text })} />
+      <DefinitionText label="选择理由或待核实处" value={hmw.rationale} disabled={disabled} onChange={rationale => editHmw({ rationale })} /></>}
       <fieldset disabled={disabled} className="space-y-2"><legend className="text-13 font-medium">关联已确认画像</legend>{personas.filter(item => !item.archived).map(item => <label className="flex items-center gap-2 text-13" key={item.id}><input type="checkbox" checked={hmw.personaIds.includes(item.id)} disabled={!item.confirmed && !hmw.personaIds.includes(item.id)} onChange={event => editHmw({ personaIds: toggleId(hmw.personaIds, item.id, event.currentTarget.checked) })} />{item.name || "未命名画像"}{!item.confirmed && " · 待确认"}</label>)}</fieldset>
       <DefinitionSurpriseLinks choices={surprises} selected={hmw.surpriseIds ?? []} disabled={disabled} onChange={surpriseIds => editHmw({ surpriseIds })} />
       <DefinitionEvidence projectId={projectId} sourceFields={sourceFields} cards={cards} unconfirmedCards={unconfirmedCards} revision={revision} selected={hmw.cardIds} disabled={disabled} onChange={cardIds => editHmw({ cardIds })} />
-      <div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={disabled || hmw.confirmed || !hmwReady} onClick={() => editHmw({ confirmed: true })}>{hmw.confirmed ? "HMW 已确认" : "确认 HMW"}</Button><Button type="button" size="sm" variant="outline" disabled={disabled || selected || !hmw.confirmed || !hmwReady} onClick={() => update(old => chooseAidtDefinitionHmw(old, entityId, availableCardIds))}>{selected ? "本轮选用" : "选为本轮 HMW"}</Button></div>
+      {!props.sourcesOnly && <div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={disabled || hmw.confirmed || !hmwReady} onClick={() => editHmw({ confirmed: true })}>{hmw.confirmed ? "HMW 已确认" : "确认 HMW"}</Button><Button type="button" size="sm" variant="outline" disabled={disabled || selected || !hmw.confirmed || !hmwReady} onClick={() => update(old => chooseAidtDefinitionHmw(old, entityId, availableCardIds))}>{selected ? "本轮选用" : "选为本轮 HMW"}</Button></div>}
     </>}
-    <details className="border-t border-border pt-2 text-12"><summary className="cursor-pointer">归档这项产物</summary><p className="my-2 text-muted-foreground">归档后停止本轮使用，现有历史版本和下游引用仍可回查。</p><Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => persona ? editPersona({ archived: true }) : editHmw({ archived: true })}>确认归档</Button></details>
-    <p className="text-12 text-muted-foreground">确认或归档后请保存到小组。创意发散承接本轮保存的 HMW 版本。</p>
+    {!props.sourcesOnly && <><details className="border-t border-border pt-2 text-12"><summary className="cursor-pointer">归档这项产物</summary><p className="my-2 text-muted-foreground">归档后停止本轮使用，现有历史版本和下游引用仍可回查。</p><Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => persona ? editPersona({ archived: true }) : editHmw({ archived: true })}>确认归档</Button></details>
+    <p className="text-12 text-muted-foreground">确认或归档后请保存到小组。创意发散承接本轮保存的 HMW 版本。</p></>}
   </section>;
 }
