@@ -3,10 +3,11 @@
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import { chatRosterZhCN } from "@/lib/i18n/namespaces/chat-roster";
-import Link from "next/link";
-import { Store } from "lucide-react";
+import { Search, Store } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { ErrorState } from "@/components/chat/chat-error-state";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 import type { GetAgentPanelOut } from "@/lib/live-chat";
@@ -48,6 +49,7 @@ export interface RosterPanelProps {
   pending: boolean;
   mutateFailure: string | null;
   candidates: readonly CapabilityListing[];
+  candidatesLoading: boolean;
   candidatesError: string | null;
   onAdd: (agentId: string) => void;
   onRemove: (agentId: string) => void;
@@ -56,7 +58,7 @@ export interface RosterPanelProps {
 
 export function RosterPanel({
   roster, loading, error, hasSelection, canMutate, pending, mutateFailure,
-  candidates, candidatesError, onAdd, onRemove, onRetry,
+  candidates, candidatesLoading, candidatesError, onAdd, onRemove, onRetry,
 }: RosterPanelProps) {
   const { t } = useI18n();
   const [draft, setDraft] = React.useState("");
@@ -126,11 +128,6 @@ export function RosterPanel({
               {t(pending ? "chatRoster.pending" : "chatRoster.add")}
             </Button>
           </div>
-          {/* #619：候选来自 `GET /capabilities?kind=agent`（`org_agents` 收敛进
-              `capability_listings` 之后，这就是"列出本线程可加的 agent"那个此前
-              缺失的读端口），不再是自由文本框。
-              ⚠ 原型的「从 Agent 市场加入」仍是另一个缺口：`marketEntry` 是服务端下发的
-              可空入口，下发了才渲染，不自己造一个死链。 */}
           {/* #787 —— 诚实提示，纯 UI 措辞，不改数据流：
               这份候选列表读的是 `capability_listings`（目录），与实际执行读的
               `agents`/`agent_versions`（见 `resolvePublished`）不是同一张表。经后台
@@ -205,15 +202,92 @@ export function RosterPanel({
               </li>
             ))}
           </ul>
-          {roster.marketEntry ? (
-            <Button asChild size="xs" variant="outline" className="w-full">
-              <Link href={roster.marketEntry} data-testid="chat-roster-market-entry">
-                <Store aria-hidden className="h-3 w-3" />{t("chatRoster.market")}</Link>
-            </Button>
+          {writable && roster.marketEntry ? (
+            <RosterMarket
+              candidates={candidates}
+              candidatesLoading={candidatesLoading}
+              candidatesError={candidatesError}
+              pending={pending}
+              mutateFailure={mutateFailure}
+              onAdd={onAdd}
+            />
           ) : null}
         </>
       ) : null}
     </div>
+  );
+}
+
+function RosterMarket({
+  candidates, candidatesLoading, candidatesError, pending, mutateFailure, onAdd,
+}: Pick<RosterPanelProps, "candidates" | "candidatesLoading" | "candidatesError" | "pending" | "mutateFailure" | "onAdd">) {
+  const { t } = useI18n();
+  const [query, setQuery] = React.useState("");
+  const search = query.trim().toLowerCase();
+  const matches = candidates.filter((candidate) =>
+    [candidate.name, candidate.abbr, candidate.duty]
+      .some((value) => value?.toLowerCase().includes(search)),
+  );
+
+  return (
+    <Dialog onOpenChange={(open) => { if (!open) setQuery(""); }}>
+      <DialogTrigger asChild>
+        <Button type="button" size="xs" variant="outline" className="w-full" data-testid="chat-roster-market-entry">
+          <Store aria-hidden className="h-3 w-3" />
+          {t("chatRoster.market")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85dvh] max-w-lg" data-testid="chat-agent-market-dialog" closeTestId="chat-agent-market-close">
+        <DialogHeader className="shrink-0 pr-8">
+          <DialogTitle>{t("chatRoster.market")}</DialogTitle>
+          <DialogDescription>{t("chatRoster.marketDescription")}</DialogDescription>
+        </DialogHeader>
+        <div className="relative shrink-0">
+          <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label={t("chatRoster.marketSearch")}
+            placeholder={t("chatRoster.marketSearch")}
+            className="pl-9"
+          />
+        </div>
+        {mutateFailure ? <p role="alert" className="text-12 text-destructive">{mutateFailure}</p> : null}
+        {candidatesError ? (
+          <p role="alert" className="text-12 text-destructive">{t("chatRoster.directoryFailure")}{candidatesError}</p>
+        ) : candidatesLoading ? (
+          <p role="status" className="py-4 text-center text-13 text-muted-foreground">{t("chatRoster.marketLoading")}</p>
+        ) : matches.length === 0 ? (
+          <p role="status" className="py-4 text-center text-13 text-muted-foreground">
+            {t(candidates.length === 0 ? "chatRoster.marketEmpty" : "chatRoster.marketNoMatch")}
+          </p>
+        ) : (
+          <ul className="min-h-0 divide-y divide-border-subtle overflow-y-auto overscroll-contain" aria-busy={pending}>
+            {matches.map((agent) => (
+              <li key={agent.id} className="flex items-center gap-3 px-1 py-2.5">
+                <Avatar initials={(agent.abbr || agent.name).slice(0, 2)} tone="ai" />
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-13 font-medium">{agent.name}</p>
+                  {agent.duty ? <p className="line-clamp-2 text-12 text-muted-foreground">{agent.duty}</p> : null}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => onAdd(agent.id)}
+                  aria-label={t("chatRoster.marketAdd", { name: agent.name })}
+                  data-testid={`chat-agent-market-add-${agent.id}`}
+                >
+                  {t("chatRoster.add")}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

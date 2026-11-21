@@ -1,6 +1,6 @@
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ApiError } from "@/lib/api-client";
 
 /**
@@ -216,6 +216,41 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     // ① 的落点：重读发生过，且界面上的行来自重读的响应。
     await waitFor(() => expect(getAgentPanel).toHaveBeenCalledTimes(2));
     expect(await screen.findByTestId("chat-roster-agent-agent-new")).toBeTruthy();
+  });
+
+  it("从市场打开数字人列表，在当前线程中搜索并加入", async () => {
+    getAgentPanel.mockResolvedValue({ ...panel(["a1"]), marketEntry: "/admin/agent" });
+    listCapabilities.mockResolvedValue([
+      ...ALL_TEST_CANDIDATES,
+      { ...agentListing("agent-disabled"), enabled: false },
+    ]);
+    renderScreen();
+
+    const trigger = await screen.findByTestId("chat-roster-market-entry");
+    fireEvent.click(trigger);
+    const market = within(await screen.findByRole("dialog", { name: "从 Agent 市场加入" }));
+    expect(market.getByText("目录 agent-new")).toBeVisible();
+    expect(market.getByText("目录 a2")).toBeVisible();
+    expect(market.queryByText("目录 a1")).toBeNull();
+    expect(market.queryByText("目录 agent-disabled")).toBeNull();
+    expect(replace).not.toHaveBeenCalled();
+
+    fireEvent.change(market.getByRole("searchbox"), { target: { value: "agent-new" } });
+    expect(market.queryByText("目录 a2")).toBeNull();
+
+    getAgentPanel.mockResolvedValue({ ...panel(["a1", "agent-new"], 6), marketEntry: "/admin/agent" });
+    fireEvent.click(market.getByRole("button", { name: "加入 目录 agent-new" }));
+    await waitFor(() => expect(market.queryByText("目录 agent-new")).toBeNull());
+    expect(updateAgentRoster).toHaveBeenCalledWith(
+      "thread-a", "project-real",
+      { add: ["agent-new"], remove: [], expectedRosterVersion: 5 },
+      "provider-bearer",
+    );
+
+    fireEvent.click(market.getByTestId("chat-agent-market-close"));
+    expect(await screen.findByTestId("chat-roster-agent-agent-new")).toBeVisible();
+    fireEvent.click(trigger);
+    expect(within(await screen.findByRole("dialog")).getByText("目录 a2")).toBeVisible();
   });
 
   it("#787 —— 编制写入口展示诚实提示：候选来自目录，不代表一定可执行", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { AidtEntityCard } from "./aidt-entity-card";
 import Link from "next/link";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -199,7 +200,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
       {active.filter(item => item.archived === showArchived).map(item => {
         const name = title(item.id, item.title);
         const confirmed = aidtDefinitionEntityConfirmed(savedDraft ?? (!requestSave ? draft : undefined), item.id, evidence.cards, evidence.revision);
-        return <li key={item.id} className="space-y-3 rounded-2xl border border-border bg-card p-4">
+        return <AidtEntityCard key={item.id} entityId={item.id} className="gap-3 p-4" useSharedTags={!item.archived}>
           <p className="text-12 text-muted-foreground">{kindLabels[item.kind]} · {item.archived ? "已移除" : confirmed ? "已确认" : "待确认"}</p>
           <h3 className="break-words text-16 font-semibold">{name}</h3>
           {!item.archived && <div className="flex flex-wrap items-center gap-2">
@@ -207,7 +208,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
             {canEdit && <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ id: item.id, name })}>改名</Button>}
             {canEdit && item.id !== AIDT_PRIMARY_SURPRISE_ID && <Button type="button" size="sm" variant="ghost" onClick={() => setRemoving(item.id)}>删除</Button>}
           </div>}
-        </li>;
+        </AidtEntityCard>;
       })}
     </ul>
     {editing && <Dialog open onOpenChange={open => { if (!open) setEditing(null); }}>

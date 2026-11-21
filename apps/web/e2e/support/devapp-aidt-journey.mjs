@@ -809,6 +809,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await click(btn('创建访谈', creation)); await saveStage(2);
     await expect(cards).toHaveCount(11);
     const temporary = cards.filter({ has: page.getByRole('button', { name: /^U11(?:\s|$)/ }) });
+    await expect(page.getByTestId('aidt-shared-save')).toHaveCount(0);
     await click(btn('改名与标签', temporary));
     const editor = page.getByRole('dialog', { name: '编辑访谈卡' });
     const name = `临时访谈 ${unique}`;
@@ -816,7 +817,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await fill('受访者姓名或化名', name, editor);
     const tagInput = editor.getByTestId('interview-tag-input');
     for (const tag of tags) { await tagInput.fill(tag); await tagInput.press('Enter'); }
-    await click(btn('保存修改', editor)); await saveStage(2);
+    await saveStage(2, btn('保存修改', editor));
     await page.reload();
     await expect(temporary.getByText(name, { exact: true })).toBeVisible();
     const filter = page.getByRole('group', { name: '筛选标签', exact: true });
@@ -828,8 +829,8 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     }
     await click(btn('全部', filter));
     await click(btn('删除访谈卡', temporary));
-    await click(btn('确认删除', page.getByRole('dialog', { name: '删除访谈卡？' })));
-    await saveStage(2); await page.reload();
+    await saveStage(2, btn('确认删除', page.getByRole('dialog', { name: '删除访谈卡？' })));
+    await page.reload();
     await expect(cards).toHaveCount(10);
     await expect(temporary).toHaveCount(0);
     await click(btn('查看已移除'));
