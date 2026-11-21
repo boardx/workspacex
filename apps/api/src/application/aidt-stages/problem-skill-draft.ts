@@ -16,8 +16,15 @@ export function problemSkillFields(answer: string): Record<string, string> {
   const fields: Record<string, string> = {};
   let current: string | undefined;
   for (const line of answer.split(/\r?\n/)) {
-    const label = line.trim().replace(/^#{1,6}\s+/, "").replaceAll("**", "").replace(/[：:]$/, "").replace(/\s*[／/]\s*/g, "/");
-    if (Object.hasOwn(sections, label)) { current = sections[label]; continue; }
+    const text = line.trim().replace(/^#{1,6}\s+/, "").replace(/^[-*]\s+/, "").replaceAll("**", "");
+    const separator = text.search(/[：:]/);
+    const label = (separator < 0 ? text : text.slice(0, separator)).trim().replace(/\s*[／/]\s*/g, "/");
+    if (Object.hasOwn(sections, label)) {
+      current = sections[label];
+      const inline = separator < 0 ? "" : text.slice(separator + 1).trim();
+      if (current && inline) fields[current] = inline.slice(0, 650);
+      continue;
+    }
     if (/^\s*(?:---+|#{1,6}\s|\*\*[^*]+\*\*\s*$)/.test(line)) { current = undefined; continue; }
     // One contiguous paragraph or list per field. Later teaching prose is not artifact content.
     if (!line.trim() && current && fields[current]) { current = undefined; continue; }
@@ -31,6 +38,15 @@ export function problemSkillFields(answer: string): Record<string, string> {
     else delete fields.problemSources;
   }
   return fields;
+}
+
+function studentProblemStatement(text: string): string | undefined {
+  const value = text.trim();
+  if (value.length < 12 || value.length > 650 || isAidtGreetingText(value)) return undefined;
+  // Preserve the student's literal input when a substantive research statement is explicit.
+  const clauses = value.split(/[。\n]/u).map(clause => clause.trim());
+  const hasStatement = clauses.some(clause => /^(?:(?:原始命题|初始问题)[：:]\s*\S|(?:我们|我)?(?:想了解|想研究|希望了解|希望研究|想弄清|想探索).{6,}|我在.{4,}希望.{4,})/u.test(clause));
+  return hasStatement ? value : undefined;
 }
 
 export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: { user:string; assistant:string; messageId:string; verifiedInitial?: string }): Draft | null {
@@ -47,7 +63,11 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
     if ((existing && !isAidtGreetingText(existing)) ||
         (!turn.user.includes(output.initial) && turn.verifiedInitial !== output.initial)) delete output.initial;
   }
-  if (!output.initial && (!previous.initial?.trim() || isAidtGreetingText(previous.initial.trim()))) return null;
+  if (!output.initial && (!previous.initial?.trim() || isAidtGreetingText(previous.initial.trim()))) {
+    const initial = studentProblemStatement(turn.user);
+    if (!initial) return null;
+    output.initial = initial;
+  }
   const {directionsText,selectedText,...patch}=output;
   type Direction = { id:string; title:string; source:string };
   let priorDirections: Direction[] = [];

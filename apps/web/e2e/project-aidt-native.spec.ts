@@ -681,6 +681,7 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   await expect(page.getByTestId("aidt-step-entity-directory")).toBeVisible();
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
   await page.getByRole("button", { name: "新建访谈" }).click();
+  await page.getByRole("button", { name: "创建访谈" }).click();
   await page.getByTestId("aidt-shared-save").click();
   await expect(page.getByTestId("aidt-shared-receipt")).toBeVisible();
   const storedInterview = await api(page, `/projects/${projectId}/aidt/stages/2`);

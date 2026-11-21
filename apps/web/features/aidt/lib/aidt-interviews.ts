@@ -1,3 +1,4 @@
+import { aidtInterviewTitle } from "@repo/contracts/aidt-stages";
 import { z } from "zod";
 import type { AidtDiscoveryCardDraft, AidtUiStageDraft } from "./aidt-ui-drafts";
 import { isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey, type AidtResearchMaterialReference } from "./aidt-research-material-reference";
@@ -151,6 +152,18 @@ export function getAidtInterviewFinding(draft: AidtUiStageDraft, interview: Aidt
   };
 }
 
+export function hasAidtInterviewFinding(draft: AidtUiStageDraft, interview: AidtInterview) {
+  const finding = getAidtInterviewFinding(draft, interview);
+  return Boolean(interview.consent?.notes && (finding.headline || finding.context || finding.quote || draft.fields["interviewInterpretation:" + interview.id]));
+}
+
+export function savedAidtInterviewArtifactTitle(draft: AidtUiStageDraft | undefined, id: string | undefined) {
+  if (!draft || !id || isAidtInterviewArchived(draft.fields, id)) return undefined;
+  const interview = readAidtInterviews(draft.fields).find(item => item.id === id);
+  return interview && (interview.adopted.trim() || hasAidtInterviewFinding(draft, interview))
+    ? `${interview.code} · 访谈产物` : undefined;
+}
+
 export function writeAidtInterviewFinding(draft: AidtUiStageDraft, interview: AidtInterview, patch: Partial<AidtDiscoveryCardDraft>) {
   const card = { ...getAidtInterviewFinding(draft, interview), ...patch, id: interview.id, participantCode: interview.code };
   return {
@@ -226,7 +239,7 @@ export function aidtInterviewHandoffReady(draft: AidtUiStageDraft) {
 export function aidtInterviewDirectory(draft: AidtUiStageDraft) {
   return readAidtInterviews(draft.fields).map(record => ({
     id: record.id,
-    title: record.code,
+    title: aidtInterviewTitle(record.code, record.displayName),
     archived: isAidtInterviewArchived(draft.fields, record.id),
   }));
 }

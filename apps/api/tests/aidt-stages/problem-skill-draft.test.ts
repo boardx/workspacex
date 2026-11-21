@@ -33,3 +33,10 @@ it("keeps a student's original question and omits the teaching follow-up in the 
  const next=projectProblemSkillDraft(base,"p",turn("学生在哪里停下？","### 原始命题\n学生在哪里停下？\n\n你们是在哪里观察到这个情况的？"))!;
  expect(JSON.parse(next.fields["problemDraft:p"]!).initial).toBe("学生在哪里停下？");
 });
+
+it("writes back an explicit student statement even when the Skill replies with plain prose", () => {
+ const original = "合成验收数据，非真实访谈。想了解校园午休中，赶课与闲暇两种情境如何影响饮品选择的犹豫。";
+ const next = projectProblemSkillDraft(base, "p", turn(original, "你们目前了解到了哪些情况？"))!;
+ expect(JSON.parse(next.fields["problemDraft:p"]!)).toMatchObject({ initial: original, draftTurnId: "m1" });
+ expect(projectProblemSkillDraft(base, "p", turn("你可以给我们生成一份研究产物吗？", "请先补充命题。"))).toBeNull();
+});
