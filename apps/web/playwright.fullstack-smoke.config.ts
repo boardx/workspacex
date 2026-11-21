@@ -409,6 +409,9 @@ export default defineConfig({
         "project-hub-b3-walkthrough.spec.ts",
         "project-aidt-native.spec.ts",
         "aidt-member-collaboration.spec.ts",
+        "aidt-entity-chat.spec.ts",
+        "aidt-definition-entities.spec.ts",
+        "aidt-test-entities.spec.ts",
         "project-invited-list-persistence.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
         "rewrite-coverage-live-smoke.spec.ts",
