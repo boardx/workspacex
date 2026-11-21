@@ -187,7 +187,8 @@ test.describe("recording evidence in the interview Chat", () => {
     await materials();
     await page.getByRole("button", { name: "开始录音", exact: true }).click();
     await expect(page.getByRole("button", { name: "停止录音" })).toBeVisible();
-    await expect.poll(async () => page.evaluate(() => performance.now()), { intervals: [1200] }).toBeGreaterThan(await page.evaluate(() => performance.now() + 1100));
+    // Keep the capture open long enough to contain the synthetic spoken sample.
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 1800)));
     await page.getByRole("button", { name: "停止录音" }).click();
     await expect(page.locator("audio").first()).toBeAttached();
     await page.getByRole("button", { name: "保存本次录音原件" }).click();

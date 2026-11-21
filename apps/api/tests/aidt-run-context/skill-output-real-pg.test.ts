@@ -103,5 +103,12 @@ it("uses the reviewed recording excerpt and same-thread student observations whe
   const draft = (await read()).content.draft;
   expect(draft.discoveryCards).toMatchObject([{ id, headline: observation, context: "午休时在食堂窗口", quote, sourceRef: "U01.wav · 01:42" }]);
   expect(draft.fields["interviewConfirmed:" + id]).not.toBe("true");
+  const beforeWithdrawal = (await read()).revision;
+  await f.save(2, { ...draft.fields, ["interviewRecord:" + id]: JSON.stringify({ ...row, consent: { notes: false, audio: false } }) });
+  await expect(commands.accept(f.orgId, { projectId, threadId, actorId: f.studentId, clientMessageId: randomUUID(), messageId: randomUUID(),
+    runId: randomUUID(), selectedAgentId: snapshot.agentId, text: "继续讨论", snapshot,
+    aidtContext: { schemaVersion: 1, purpose: "stage", stageId: 2, projectId, entityId: id,
+      stageRevisions: [{ stageId: 2, revision: beforeWithdrawal }] } })).rejects.toThrow();
+
  } finally { await f.cleanup(); }
 });
