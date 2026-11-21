@@ -8,6 +8,7 @@ import { project } from "@repo/contracts";
 import * as stages from "@repo/contracts/aidt-stages";
 import * as memberChat from "@repo/contracts/project-member-chat";
 import { isAidtModuleEnabled } from "@/lib/aidt-module-config";
+import { aidtRoundDigest, aidtRoundConfirmation, aidtRoundPayload } from "@/features/aidt/lib/aidt-round-completion";
 import { readAidtProblemEntityDraft } from "@/features/aidt/lib/aidt-problem-entities";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
@@ -512,7 +513,6 @@ test("ordinary member names and retags an interview without replacing the native
   const projectId = await createProject(page, "访谈姓名与标签");
   await addMember(page, projectId);
   const first = { fields: { rewrittenTheme: "学生如何安排午间用餐？" }, ideas: [], selectedIdeaId: "" };
-  const { aidtRoundDigest, aidtRoundConfirmation, aidtRoundPayload } = await import("@/features/aidt/lib/aidt-round-completion");
   const digest = await aidtRoundDigest(aidtRoundPayload(projectId, 1, first, []));
   const topic = await request(page, `/projects/${projectId}/aidt/stages/1`, "PUT", {
     operationId: randomUUID(), expectedRevision: 0, sourceStageRevisions: [],
