@@ -370,27 +370,6 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   };
   const savedStage = async stage => { const result = await api(`/api/projects/${scope.projectId}/aidt/stages/${stage}`); if (result.status !== 200 || (result.data?.stage && (result.data.stage.projectId !== scope.projectId || result.data.stage.stageId !== stage || !Number.isInteger(result.data.stage.revision)))) fail('STAGE_REVISION_UNVERIFIED'); return result.data?.stage ?? { revision: 0, content: null }; };
   const revision = async stage => (await savedStage(stage)).revision;
-  const observeInputs = async stage => {
-    const candidates = stage === 6 ? ['aidt-test-reflection'] : stage === 5 ? ['aidt-prototype-entity-output','aidt-stage-output'] : stage === 4 ? ['aidt-stage-output','aidt-idea-directory'] : stage === 3 ? ['aidt-definition-editor','aidt-stage-output'] : ['aidt-stage-output'];
-    let host; for (const id of candidates) { const candidate = page.getByTestId(id); if (await candidate.isVisible()) { host = candidate; break; } }
-    if (!host) fail('STAGE_INPUT_OBSERVATION_UNAVAILABLE');
-    const fields = await host.evaluate(root => [...root.querySelectorAll('textarea,input:not([type=file]):not([type=password]),select')].filter(node => node.getClientRects().length > 0).map(node => ({ name: (node.labels?.[0]?.innerText || node.getAttribute('aria-label') || node.getAttribute('data-testid') || node.name || node.tagName).trim().slice(0,180), content: node.type === 'checkbox' || node.type === 'radio' ? String(node.checked) : node.value.slice(0,2000), format: node.tagName === 'SELECT' || ['checkbox','radio'].includes(node.type) ? 'student choice in native UI' : 'plain text in native UI' })));
-    if (!fields.length) fail('STAGE_INPUT_FIELDS_NOT_OBSERVED');
-    const source = { projectId: scope.projectId, entityId: new URL(page.url()).searchParams.get('entity'), tool: new URL(page.url()).searchParams.get('tool'), saved_base_revision: await revision(stage), observation: 'Current native form values; some edits may be confirmed in the next save' };
-    for (const field of fields) { const item = { ...field, source }; if (!evidence(stage).inputs.some(existing => JSON.stringify(existing) === JSON.stringify(item))) evidence(stage).inputs.push(item); }
-  };
-  const iterate = async (stage, field, label, next, saveButton) => {
-    const before = await field.inputValue(), beforeRevision = await revision(stage);
-    if (before === next) fail('ITERATION_REQUIRES_ACTUAL_INPUT_CHANGE');
-    await field.fill(next); await saveStage(stage, saveButton);
-    await expect.poll(async () => { const saved = await savedStage(stage); return saved.revision > beforeRevision && hasExactSavedInput(saved.content, next); }, { timeout: 30000 }).toBe(true);
-    await page.reload();
-    if (stage === 4) await disclosure('分类与描述单');
-    await expect(field).toHaveValue(next);
-    const after = await field.inputValue(), afterRevision = await revision(stage);
-    if (after !== next) fail('ITERATION_INPUT_NOT_RETAINED');
-    evidence(stage).iterations.push({ action: `学生编辑${label}并正常保存`, before, after, reason: '学生先保留初稿，再补充更明确的范围；这是软件验收中的合成修订，不是AI或真实研究结论。', reload_value_matched: true, before_revision: beforeRevision, after_revision: afterRevision });
-  };
   const printOutput = async (stage, name, button, texts, imageHashes = []) => {
     if (typeof savePrint !== 'function') fail('PRINT_EVIDENCE_CAPTURE_UNAVAILABLE');
     const out = await savePrint({ stage, name, button, requiredTexts: texts, imageHashes });
@@ -500,19 +479,6 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     if (!target) fail('CAPTURED_ENTITY_REQUIRED');
     return openAidtEntityOutcome({ page, target, waitForRoute: waitForEntity,
       assertReady: () => entityReady(target.stage) });
-  };
-  const persistConfirmed = async (stage, control, saveControl) => {
-    await reviewAndSave(stage, control);
-    // Explicit entity confirmation is a local UI action; persist through the normal CAS button.
-    const save = saveControl ?? page.getByTestId('aidt-shared-save');
-    if (await save.isVisible() && await save.isEnabled()) {
-      const [pending] = await Promise.all([
-        page.waitForResponse(response => new URL(response.url()).pathname === `/api/projects/${scope.projectId}/aidt/stages/${stage}` && response.request().method() === 'PUT', { timeout: 30000 }),
-        click(save),
-      ]);
-      if (pending.status() !== 200) fail('CONFIRMED_UI_SAVE_NOT_ACKNOWLEDGED');
-    }
-    if (!saveControl) await expect(page.getByTestId('aidt-shared-status')).toContainText('小组已保存', { timeout: 30000 });
   };
   const shot = async (name, stage) => {
     const url = new URL(page.url());
@@ -1076,7 +1042,6 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await armDesignCreate(); await click(btn('创建原型', dialog));
     }, { reopen: true });
     designId = designRoute.entityId;
-    const entityHref = designRoute.href;
     await output(designRoute);
     const actions = page.getByRole('region', { name: '原型对话操作' });
     await expect(actions.getByRole('link', { name: '打开 Design 工作台' })).toHaveCount(0);
