@@ -8,9 +8,11 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 
-const prefix = "cardTags:";
+export const cardTagPrefix = "cardTags:";
+const prefix = cardTagPrefix;
 const maxTags = 8;
 const maxTagLength = 24;
+export const aidtCardTagLimits = { maxTags, maxTagLength };
 
 export function readAidtEntityCardTags(fields: AidtUiStageDraft["fields"], id: string): string[] {
   try {

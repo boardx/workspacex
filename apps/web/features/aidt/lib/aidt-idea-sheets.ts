@@ -6,11 +6,11 @@ import { aidtResearchMaterialLabel, isAidtResearchImage, parseAidtResearchMateri
 
 export function aidtIdeaSheets(draft: AidtUiStageDraft, resolvedImages: Readonly<Record<string, string>>, ids?: readonly string[], projectId?: string) {
   const materialFor = (id: string) => { const reference = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", id)]); return reference && (!projectId || reference.projectId === projectId) && isAidtResearchImage(reference) ? reference : null; };
-  const hmw = readAidtIdeaHmwSource(draft);
   const selected = draft.ideas.filter(idea => !ids || ids.includes(idea.id));
   if (!aidtIdeaReadiness(selected, idea => !!materialFor(idea.id)).ready) throw new Error("AIDT_IDEA_SHEETS_INCOMPLETE");
   return aidtCompleteIdeas(selected, idea => !!materialFor(idea.id)).map((idea, index) => {
     const material = materialFor(idea.id);
+    const hmw = readAidtIdeaHmwSource(draft, idea.id);
     const imageSrc = material || idea.imageAttachment ? resolvedImages[idea.id] : idea.image;
     if (!imageSrc) throw new Error("AIDT_IDEA_IMAGE_UNAVAILABLE");
     const classification = aidtIdeaClassificationFor(draft, idea.id);

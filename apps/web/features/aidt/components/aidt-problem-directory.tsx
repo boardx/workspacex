@@ -1,5 +1,6 @@
 "use client";
 
+import { useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
 import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
@@ -21,6 +22,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
   onCreated?: (id: string) => void;
   readOnly: boolean;
 }) {
+  const tags = useAidtCreateTags(draft);
   const [action, setAction] = React.useState<ProblemAction | null>(null);
   const [title, setTitle] = React.useState("");
   const [error, setError] = React.useState(false);
@@ -44,6 +46,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
     : Boolean(current && (deleting || (trimmedTitle && trimmedTitle !== current.title))));
 
   function open(next: ProblemAction, target: HTMLButtonElement) {
+    tags.reset();
     trigger.current = target;
     setAction(next);
     setTitle(next.original);
@@ -55,8 +58,13 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
     if (!action || !canSubmit) return;
     setError(false);
     const { kind, id } = action;
-    const saved = await controller.saveDraft(old => kind === "create" ? addAidtProblem(old, id, trimmedTitle)
-      : kind === "edit" ? renameAidtProblem(old, id, trimmedTitle) : archiveAidtProblem(old, id));
+    const saved = await controller.saveDraft(old => {
+      if (kind === "create") {
+        const next = addAidtProblem(old, id, trimmedTitle);
+        return next === old ? old : tags.apply(next, id);
+      }
+      return kind === "edit" ? renameAidtProblem(old, id, trimmedTitle) : archiveAidtProblem(old, id);
+    });
     if (saved) {
       if (kind === "create") { focusCard.current = id; onCreated?.(id); }
       setAction(null);
@@ -119,6 +127,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
               placeholder={creating ? "例如：新同学如何找到合适的自习空间？" : undefined}
               onChange={event => setTitle(event.currentTarget.value)} />
           </div>}
+          {creating && tags.field}
           {error && <p role="alert" className="text-13 text-destructive" data-testid="err-aidt-problem-save">{controller.needsBaseReview
             ? "另一位成员更新了问题列表。请关闭弹窗，核对最新版本后再操作。"
             : "操作尚未确认，请重试。"}</p>}
