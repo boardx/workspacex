@@ -91,3 +91,35 @@ it("opens only the explicitly selected historical problem entity and persists bo
   expect(await screen.findByRole("alert")).toHaveTextContent("研究问题读取失败");
   expect(screen.getByRole("button", { name: "新建访谈" })).toBeDisabled();
 });
+
+it("persists card names and tags, filters, and removes a card without recycling its thread or code", async () => {
+  const view = render(<Workspace entityId={null} />);
+  await screen.findByText("已确认研究问题 · 第 1 步 V2");
+  const create = screen.getByRole("button", { name: "新建访谈" });
+  for (let n = 0; n < 10; n++) fireEvent.click(create);
+  const cards = () => within(screen.getByRole("list", { name: "访谈卡片" })).getAllByRole("listitem");
+  expect(cards()).toHaveLength(10);
+  const before = aidtInterviewDirectory(latest);
+  fireEvent.click(within(cards()[0]!).getByRole("button", { name: "编辑访谈卡" }));
+  const editor = within(screen.getByRole("dialog"));
+  fireEvent.change(editor.getByLabelText("访谈名称"), { target: { value: "校园茶饮访谈" } });
+  fireEvent.change(editor.getByTestId("interview-tag-input"), { target: { value: "午休" } });
+  fireEvent.click(editor.getByRole("button", { name: "保存修改" }));
+  const persisted = StageDraft.parse(JSON.parse(JSON.stringify(latest)));
+  view.unmount();
+  const onOpen = vi.fn();
+  render(<Workspace initial={persisted} entityId={null} onOpen={onOpen} />);
+  await screen.findByText("已确认研究问题 · 第 1 步 V2");
+  fireEvent.change(screen.getByLabelText("筛选标签"), { target: { value: "午休" } });
+  expect(cards()).toHaveLength(1);
+  expect(cards()[0]).toHaveTextContent("校园茶饮访谈");
+  fireEvent.click(within(cards()[0]!).getByRole("button", { name: /^U01 / }));
+  expect(onOpen).toHaveBeenLastCalledWith(before[0]!.id);
+  fireEvent.click(within(cards()[0]!).getByRole("button", { name: "删除访谈卡" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "确认删除" }));
+  expect(cards()).toHaveLength(9);
+  expect(aidtInterviewDirectory(latest).find(item => item.id === before[0]!.id)?.archived).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "新建访谈" }));
+  expect(cards()).toHaveLength(10);
+  expect(screen.getByRole("button", { name: /^U11 / })).toBeEnabled();
+});

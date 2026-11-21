@@ -128,6 +128,21 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
             await onPendingReview({ projectId: current.projectId, stageId: current.stageId, threadId: current.threadId, runId: accepted.runId, inputMessageId: accepted.inputMessageId, permissionRequestId: id(pending?.permissionRequestId) ? pending.permissionRequestId : null, toolName: knownConfirmTaskIntent ? 'confirm_task_intent' : 'other', knownConfirmTaskIntent, argumentFields, argumentShapeKnown });
           } catch { /* Passive diagnostics cannot replace the original tool-review stop. */ }
         }
+        // The scope-bound callback owns any read-only UI expansion. Never open a
+        // second modal here, and never turn diagnostics into an approval or result.
+        const requestedTool = run.pendingApproval?.toolName;
+        const toolName = typeof requestedTool === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(requestedTool) ? requestedTool : null;
+        let approvalVisible = null, dialogOpened = null;
+        try {
+          const approval = page.getByTestId('restored-run-approval');
+          const dialog = page.getByTestId('chat-tool-permission-dialog');
+          const approvalShown = await approval.isVisible();
+          dialogOpened = await dialog.isVisible();
+          approvalVisible = approvalShown || dialogOpened;
+        } catch { /* A failed passive visibility read is unknown, not proof of absence. */ }
+        try {
+          await onEvent({ event: 'teaching-tool-review-required', stageId: scope.stageId, runId: accepted.runId, threadId: current.threadId, toolName, approvalVisible, dialogOpened });
+        } catch { /* Diagnostic callbacks cannot replace the tool-review stop. */ }
         fail('TEACHING_TOOL_REVIEW_REQUIRED');
       }
       if (run.status !== 'succeeded') return false;

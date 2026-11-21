@@ -181,6 +181,31 @@ export async function observePendingTeachingReview({ page, capture }) {
   } catch { return blocked('TOOL_REVIEW_CAPTURE_UNAVAILABLE'); }
 }
 
+/** Keep the upstream owned-run diagnostic beside, never inside, the safe receipt. */
+export function recordTeachingEvent(event, scope, pendingReviews, assertSafe, emit) {
+  assertSafe(JSON.stringify(event));
+  let matched = false;
+  if (event?.event === 'teaching-tool-review-required') {
+    const keys = ['event','runId','threadId','stageId','toolName','approvalVisible','dialogOpened'];
+    // This event has no argument values. Refuse unexpected fields rather than log them.
+    if (Object.keys(event).length !== keys.length || !keys.every(key => Object.hasOwn(event, key))
+      || event.toolName !== null && (typeof event.toolName !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/.test(event.toolName))
+      || ![true,false,null].includes(event.approvalVisible) || ![true,false,null].includes(event.dialogOpened)
+      || event.dialogOpened === true && event.approvalVisible === false) return false;
+    const entry = pendingReviews.find(item => item.receipt?.projectId === scope.projectId
+      && item.receipt.stageId === scope.stageId && item.receipt.threadId === scope.threadId
+      && item.receipt.runId === event.runId && event.stageId === scope.stageId && event.threadId === scope.threadId);
+    if (entry) {
+      entry.observedToolName = event.toolName;
+      entry.approvalVisible = event.approvalVisible;
+      entry.dialogOpened = event.dialogOpened;
+      matched = true;
+    }
+  }
+  emit(event);
+  return matched;
+}
+
 export async function main() {
   // These variables can expose Playwright fill arguments; remove before importing its API.
   for (const key of ['DEBUG', 'PWDEBUG', 'NODE_DEBUG', 'NODE_DEBUG_NATIVE', 'NODE_OPTIONS']) delete process.env[key];
@@ -486,7 +511,9 @@ export async function main() {
         await api(page, 'GET', `/api/threads/${encodeURIComponent(threadId)}/skill-deviations?projectId=${encodeURIComponent(projectId)}`);
         const pin = guard.teachingPin(stageId, threadId, entityId ?? undefined); if (!pin) throw new ProbeFailure('TEACHING_SKILL_PIN_UNVERIFIED');
         const scope = { origin: ORIGIN, projectId, stageId, threadId, actorId: guard.identity().actor, prompt, selector, ...pin, timeoutMs: 180000 };
-        const proof = await sendTeachingFeedback({ page, expect, scope, read: path => api(page, 'GET', path), armSend: current => guard.armTeachingSend(current), onEvent: event => console.log(JSON.stringify({ ...event, owner: 'root/aidt_ui_first_acceptance' })),
+        const proof = await sendTeachingFeedback({ page, expect, scope, read: path => api(page, 'GET', path), armSend: current => guard.armTeachingSend(current),
+          onEvent: event => recordTeachingEvent(event, scope, report.pendingTeachingReviews,
+            text => sensitiveEvidence.assertSafe(text), value => console.log(JSON.stringify({ ...value, owner: 'root/aidt_ui_first_acceptance' }))),
           onPendingReview: async receipt => {
             const entry = { stageId, capture: { status: 'not-captured', code: 'TOOL_REVIEW_SCOPE_UNVERIFIED', dialogObserved: false, captured: false, domRequestIdentityVerified: false } };
             if (report.pendingTeachingReviews.length >= 6) return;

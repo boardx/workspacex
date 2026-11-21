@@ -14,14 +14,14 @@ vi.mock("@/features/aidt/components/aidt-create-project-form", () => ({ AidtCrea
 const group = (id = "g1"): AidtCourseGroup => ({ project: { id, name: `小组${id}`, kind: "general", status: "active", readOnlyReason: null, tags: ["workspacex:aidt", "course:unverified"] }, members: [{ userId: "student", displayName: "学生甲" }, { userId: "teacher", displayName: "指导者" }] });
 beforeEach(() => { vi.resetAllMocks(); mock.enabled = true; mock.session = { currentOrgId: "org", userId: "student", sessionToken: "token" }; mock.load.mockResolvedValue([group()]); });
 it("renders real member names and native group destinations without pretending tags are course enrollment", () => {
-  const { container } = render(<AidtCourseEntry groups={[group()]} />);
+  const { container } = render(<AidtCourseEntry courseTags={[]} groups={[group()]} />);
   expect(screen.getByRole("link", { name: /小组g1/ })).toHaveAttribute("href", "/aidt/g1");
   expect(screen.getByTestId("aidt-group-members-g1")).toHaveTextContent("学生甲、指导者");
   expect(container).not.toHaveTextContent("unverified"); expect(container).not.toHaveTextContent("已加入课程");
 });
 it("preserves native archived and organization-disabled readonly facts", () => {
   const archived = group("archived"), disabled = group("disabled"); archived.project.status = "archived"; disabled.project.readOnlyReason = "org-disabled";
-  render(<AidtCourseEntry groups={[archived, disabled]} />);
+  render(<AidtCourseEntry courseTags={[]} groups={[archived, disabled]} />);
   expect(screen.getByTestId("aidt-project-archived")).toHaveTextContent("已归档 · 只读");
   expect(screen.getByTestId("aidt-project-disabled")).toHaveTextContent("组织已停用 · 只读");
 });
@@ -48,4 +48,23 @@ it("keeps the optional module off and clears/aborts reads on unmount", async () 
   mock.enabled = false; const { rerender, unmount } = render(<AidtHome />); expect(mock.load).not.toHaveBeenCalled();
   mock.enabled = true; rerender(<AidtHome />); await screen.findByTestId("aidt-project-g1");
   const signal = mock.load.mock.calls[0]![0].signal as AbortSignal; unmount(); expect(signal.aborted).toBe(true);
+});
+
+it("filters only visible group cards by course tag and keeps legacy groups under unassigned", async () => {
+  const first = group("first"), second = group("second");
+  first.project.tags.push("课程：设计思维");
+  second.project.tags.push("课程：视觉传播");
+  mock.load.mockResolvedValue([first, second, group("legacy")]);
+  render(<AidtHome />);
+  const select = await screen.findByRole("combobox", { name: "按课程筛选" });
+  fireEvent.change(select, { target: { value: "tag:设计思维" } });
+  expect(screen.getByTestId("aidt-project-first")).toHaveTextContent("设计思维");
+  expect(screen.queryByTestId("aidt-project-second")).toBeNull();
+  expect(screen.queryByTestId("aidt-project-legacy")).toBeNull();
+  fireEvent.change(select, { target: { value: "untagged" } });
+  expect(screen.getByTestId("aidt-project-legacy")).toBeVisible();
+  expect(screen.queryByTestId("aidt-project-first")).toBeNull();
+  fireEvent.change(select, { target: { value: "" } });
+  expect(screen.getByTestId("aidt-project-second")).toBeVisible();
+  expect(screen.getByTestId("aidt-project-first")).toBeVisible();
 });

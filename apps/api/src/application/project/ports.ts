@@ -30,6 +30,7 @@ export interface CreateProjectCommand {
   readonly actorId: string;
   readonly name: string;
   readonly kind: ProjectKind;
+  readonly courseTag?: string;
   readonly profile?: ProjectCreationProfile;
   /** null = 空白新建（Q-1 C）。⚠ 六类初始化**跳过**而非写空值，所以这里不造默认值。 */
   readonly blueprintVersionId: string | null;

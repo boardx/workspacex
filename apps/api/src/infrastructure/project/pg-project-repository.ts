@@ -144,6 +144,12 @@ export class PgProjectRepository implements ProjectRepository, SampleProjectMark
           `INSERT INTO project_tags (project_id, org_id, tag) VALUES ($1, $2, $3)`,
           [id, cmd.orgId, project.PROJECT_CREATION_PROFILE_TAGS[cmd.profile]],
         );
+        if (cmd.courseTag !== undefined) {
+          await s.query(
+            `INSERT INTO project_tags (project_id, org_id, tag) VALUES ($1, $2, $3)`,
+            [id, cmd.orgId, project.encodeAidtCourseTag(cmd.courseTag)],
+          );
+        }
       }
 
       // ⚠ `blueprintVersionId` 本身到此为止：**没有任何一列存得下它**。

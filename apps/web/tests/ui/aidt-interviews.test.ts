@@ -64,7 +64,10 @@ describe("AIDT interview entity snapshots", () => {
 it("makes a new directory saveable and stores captured media only with that participant's capture grant", () => {
   const student = interview(1);
   const draft = writeAidtInterview(emptyAidtUiDrafts()[2]!, student);
-  expect(aidtUiStageSummary(2, draft)).toBe("访谈记录：1 份");
+  const summary = aidtUiStageSummary(2, draft).split("\n");
+  expect(summary[0]).toBe("访谈记录：1 份");
+  expect(summary).toContain("### 访谈记录：" + student.code);
+  expect(summary.join("\n")).toContain(student.id);
   const material = { projectId: "group-A", runId: "run", artifactId: "capture", versionId: "v1", name: "U01.wav",
     mime: "audio/wav", sha256: "a".repeat(64), bytes: 32044 };
   const metadata = { startedAt: "2026-11-20T04:12:00Z", finishedAt: "2026-11-20T04:12:01Z", durationMs: 1000, draftTranscript: "临时转写" };

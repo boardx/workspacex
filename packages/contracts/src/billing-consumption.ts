@@ -4,7 +4,21 @@ import {BillingOwnerType} from "./billing-credits";
 
 export const CREDIT_ADMISSION_POLICY="enterprise_member_allowance_then_personal_strict" as const;
 /** Legacy flag is retained for compatibility/audit; the fixed policy governs every new request. */
+export const CreditRateBps = z.number().int().min(1).max(1_000_000);
 export const CreditConsumptionSettings=z.object({creditPreflightEnabled:z.boolean(),admissionPolicy:z.enum([CREDIT_ADMISSION_POLICY,"personal_nonnegative_enterprise_overdraft"]).optional()}).strict();
+const RateMarket = z.enum(["cn", "us"]);
+const MarketRateSetting = z.object({ overrideBps: CreditRateBps.nullable(), effectiveBps: CreditRateBps });
+export const PlatformCreditConsumptionSettings = CreditConsumptionSettings.extend({
+ creditRateBps: CreditRateBps.nullable().optional(),
+ effectiveCreditRateBps: CreditRateBps.optional(),
+ marketRates: z.object({ cn: MarketRateSetting, us: MarketRateSetting }).optional(),
+});
+export const CreditConsumptionSettingsPatch = CreditConsumptionSettings.partial().extend({
+ creditRateBps: CreditRateBps.nullable().optional(),
+ market: RateMarket.optional(),
+}).refine(input => input.market === undefined || input.creditRateBps !== undefined)
+ .refine(input => input.creditPreflightEnabled !== undefined || input.creditRateBps !== undefined);
+
 export const CreditConsumptionErrorCode=z.enum(["credit_required","credit_accounting_unavailable"]);
 export const CreditRequiredReason=z.enum(["member_monthly_limit"]);
 export type CreditRequiredReason=z.infer<typeof CreditRequiredReason>;
@@ -13,8 +27,8 @@ export const CreditRequiredBody=z.object({code:z.literal("credit_required"),owne
  ownerId:z.string().min(1),rechargePath:z.string().regex(/^\/billing(?:\?[^#]*)?$/),reason:CreditRequiredReason.optional(),traceId:z.string().optional()}).strict();
 export const operations={
  getSettings:{method:"GET",path:"/billing/consumption/settings",in:z.object({}).strict(),out:CreditConsumptionSettings},
- getPlatformSettings:{method:"GET",path:"/platform/billing/consumption/settings",in:z.object({}).strict(),out:CreditConsumptionSettings},
- updatePlatformSettings:{method:"PATCH",path:"/platform/billing/consumption/settings",in:CreditConsumptionSettings,out:CreditConsumptionSettings},
+ getPlatformSettings:{method:"GET",path:"/platform/billing/consumption/settings",in:z.object({}).strict(),out:PlatformCreditConsumptionSettings},
+ updatePlatformSettings:{method:"PATCH",path:"/platform/billing/consumption/settings",in:CreditConsumptionSettingsPatch,out:PlatformCreditConsumptionSettings},
 } as const;
 
 /** Native quantities retain their real unit; these are configured credit tariffs, never invented tokens. */

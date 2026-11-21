@@ -202,3 +202,12 @@ it("retains the name after a rejected create and requires an explicit retry", as
   await waitFor(() => expect(api.push).toHaveBeenCalledWith("/aidt/p1"));
   expect(api.create).toHaveBeenCalledTimes(2); expect(api.tag).not.toHaveBeenCalled();
 });
+
+it("submits the optional normalized course tag with the AIDT creation request", async () => {
+  render(<AidtCreateProjectForm cancel={<span />} />);
+  fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "第三组" } });
+  fireEvent.change(screen.getByLabelText("课程标签（可选）"), { target: { value: "  设计思维  " } });
+  fireEvent.click(screen.getByTestId("project-new-create"));
+  await waitFor(() => expect(api.push).toHaveBeenCalledWith("/aidt/p1"));
+  expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ name: "第三组", courseTag: "设计思维" }));
+});
