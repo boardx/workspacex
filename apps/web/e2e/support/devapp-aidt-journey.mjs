@@ -998,7 +998,6 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     const start = async (method, target) => {
       await page.goto(frozenUrl.href);
       await click(page.getByTestId('aidt-new-entity-card'));
-      await click(btn('头脑风暴', page.getByRole('dialog', { name: '新建卡片' })));
       const dialog = page.getByRole('dialog', { name: '新建头脑风暴' });
       const name = 'QA头脑风暴 ' + method + ' ' + unique;
       await dialog.getByRole('textbox', { name: '场次名称', exact: true }).fill(name);
@@ -1017,7 +1016,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
       const key = 'ideaBrainstorm:' + entity;
       const read = async () => JSON.parse((await savedStage(4)).content.draft.fields[key] ?? 'null');
       const session = await read();
-      if (session?.source?.id !== chosenHmw.id || session.source?.text !== chosenHmw.text || session.source?.revision !== stage3.revision
+      if (session?.title !== name || session.source?.id !== chosenHmw.id || session.source?.text !== chosenHmw.text || session.source?.revision !== stage3.revision
         || session.method !== method || session.count !== target) fail('S4_BRAINSTORM_SOURCE_UNVERIFIED');
       return { entity, threadId, read };
     };
