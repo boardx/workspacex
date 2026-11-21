@@ -59,7 +59,7 @@ import { AidtRoundCompletion } from "./aidt-round-completion";
 import { aidtStageContextReferences } from "../lib/aidt-native-context-selector";
 import { getAidtPrototypeGenerationReadiness } from "../lib/aidt-verification-loop";
 import { AidtPrototypeEntityOutput } from "./aidt-prototype-handoff";
-import { aidtPrototypePreparationError, readAidtPrototypeEntityDraft } from "../lib/aidt-prototype-handoff";
+import { aidtPrototypePreparationError, readAidtConfirmedPrototypeHandoff, readAidtPrototypeEntityDraft } from "../lib/aidt-prototype-handoff";
 
 const loading = () => <p role="status" className="p-4 text-12 text-muted-foreground">正在加载工作区…</p>;
 const Chat = dynamic(() => import("@/features/aidt/components/project-aidt-chat").then((m) => m.ProjectAidtChat), { loading });
@@ -381,11 +381,23 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const ideaHandoff = {
     hmw: selectedHmw && hmwStage ? { revision: hmwStage.revision, ...selectedHmw } : undefined,
     savedRevision: shared.stages[4]?.revision,
-    matchesServer: shared.matchesServer,
+    matchesServer: shared.matchesServer && Boolean(completedStages?.has(4)),
     nextHref: aidtHref(projectId, 5) + (shared.stages[4] ? "&ideaRevision=" + shared.stages[4].revision : ""),
   };
   // Existing first-party report links select the shared report directly, without an entity.
   const legacyReportEntry = step.id === 6 && tool === "report" && search.get("summary") !== "1";
+  const stageFinished = Boolean(completedStages?.has(step.id));
+  const prototypeHandoff = step.id === 5 && currentStage ? readAidtConfirmedPrototypeHandoff(currentStage.content.draft) : null;
+  const nextStageHref = !stageFinished || !currentStage || reportMode ? null
+    : step.id === 1
+      ? currentStage.content.draft.fields.problemHandoffEntity
+        ? aidtHref(projectId, 2) + "&" + new URLSearchParams({ problemEntity: currentStage.content.draft.fields.problemHandoffEntity, problemRevision: String(currentStage.revision) })
+        : aidtHref(projectId, 2)
+      : step.id === 3 ? aidtHref(projectId, 4) + "&hmwRevision=" + currentStage.revision
+      : step.id === 4 ? aidtHref(projectId, 5) + "&ideaRevision=" + currentStage.revision
+      : step.id === 5 ? prototypeHandoff ? aidtHref(projectId, 6) + "&" + new URLSearchParams({ prototypeEntity: prototypeHandoff.id, prototypeRevision: String(currentStage.revision) }) : null
+      : step.id === 6 ? reportHref : aidtHref(projectId, 3);
+  const advance = nextStageHref ? <Button asChild variant="primary"><Link href={nextStageHref} data-testid="aidt-stage-next">{step.id === 6 ? "进入小组报告" : "进入下一步"}</Link></Button> : null;
   if (!activeEntityId && search.get("history") !== "1" && !legacyReportEntry) {
     const draft = currentUi.drafts[step.id]!;
     const update = (mutate: (old: AidtUiStageDraft) => AidtUiStageDraft) => updateStage(step.id, mutate);
@@ -416,14 +428,14 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                   if (savedDraft && readAidtInterviews(savedDraft.fields).some(record => record.id === id)) router.push(entityHref(id));
                 }} />
               {save}
-              {savedDraft && aidtInterviewHandoffReady(savedDraft) && <Button asChild variant="outline"><Link href={aidtHref(projectId, 3)}>带入综合与定义</Link></Button>}
+
             </>
           : step.id === 3 ? <>
               <AidtDefinitionDirectory projectId={projectId} draft={draft} update={update} readOnly={!canWrite}
                 availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision}
                 discoveryCardFields={shared.stages[2]?.content.draft.fields} entityHref={entityHref} />
               {save}
-              {currentStage && savedDraft && readAidtDefinitionSelection(savedDraft.fields) && <Button asChild variant="outline"><Link href={aidtHref(projectId, 4) + "&hmwRevision=" + currentStage.revision}>带入创意发散</Link></Button>}
+
             </>
           : step.id === 4 ? <>
               <AidtIdeaDirectory draft={draft} saved={savedDraft} href={entityHref} update={update} readOnly={!canWrite} />
@@ -439,7 +451,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
               previousPrototypeRevision={shared.stages[5]?.revision} prototypeRevision={search.get("prototypeRevision")}
               prototypeEntity={search.get("prototypeEntity")} readPrototypeEntity={readAidtPrototypeEntityDraft}
               prototypeEntities={listAidtConfirmedPrototypeEntities(currentUi.drafts[5]!)} />
-              <Button asChild variant="outline"><Link href={reportHref}>小组报告</Link></Button></>)}
+              </>)}
+        {!hasSummary && (advance ?? <p role="status" className="text-12 text-muted-foreground">全部当前产物确认后可进入下一步。</p>)}
         <Link className="text-12 text-muted-foreground underline" href={aidtHref(projectId, step.id) + (hasSummary ? "&summary=1" : "") + "&history=1"}>打开早期阶段对话</Link>
       </div>
     </section>;
@@ -454,9 +467,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
           {prototypeEntityId ? <AidtPrototypeEntityOutput key={prototypeEntityId} projectId={projectId} designId={prototypeEntityId} ideaRevision={ideaRevision} stageDraft={prototypeDraft} update={mutate => updateStage(5, mutate)} workflow={{ ideas: shared.stages[4], savedPrototype: shared.stages[5], matchesServer: shared.matchesServer }} readOnly={!canWrite} /> : <>
           {problemStep ? <AidtProblemWorkspace key={uiLifecycleKey} draft={problemDraft} manualEdit={requested === "outcome"} confirmRevision={shared.matchesServer && (activeEntityId ? Boolean(problemDraft.fields.roundCompletion) : completedStages?.has(1)) ? shared.stages[1]?.revision : undefined} previousConfirmed={!activeEntityId && !shared.matchesServer && completedStages?.has(1) ? shared.stages[1] : undefined} update={mutate => updateStage(1, mutate)} readOnly={!canWrite} ask={text => toChat(text, !wide)} conversationRef={setConversationTarget} /> : <AidtStageOutput conversationRef={activeInterview ? setConversationTarget : undefined} key={`${uiScope}:${step.id}:${activeEntityId ?? ""}`} entityId={step.id === 2 ? activeEntityId : undefined} ideaEntityId={step.id === 4 ? activeEntityId : undefined} ideaHandoff={step.id === 4 ? ideaHandoff : undefined} activeTestEntityId={step.id === 6 ? activeEntityId : undefined} readTestPrototypeEntity={readAidtPrototypeEntityDraft} projectId={projectId} thread={checkpointThread} step={step} draft={currentUi.drafts[step.id]!} availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision} discoveryCardFields={shared.stages[2]?.content.draft.fields} activeDefinitionEntityId={step.id === 3 ? activeEntityId : null} previousPrototype={shared.stages[5]?.content.draft} previousPrototypeRevision={shared.stages[5]?.revision} update={(mutate) => updateStage(step.id, mutate)} readOnly={!canWrite} toolHref={(key) => href(key as Tool)} toChat={toChat} />}
           {activeInterview && <AidtSharedStagePanel entityPreview={serverInterview ? [serverInterview.code, serverInterview.original, serverInterview.adopted].filter(Boolean).join("\n") : ""} key={shared.writeKey} stageNumber={2} controller={shared} readOnly={!canWrite} />}
-          {(!activeEntityId || problemStep) && <AidtRoundCompletion key={shared.writeKey} projectId={projectId} step={step} draft={problemStep ? problemDraft : currentUi.drafts[step.id]!} controller={shared} readOnly={!canWrite} onConfirm={record => updateStage(step.id, old => ({ ...old, fields: { ...old.fields, roundCompletion: record } }))} nextHref={problemStep && activeEntityId && shared.stages[1]
-              ? aidtHref(projectId, 2) + "&" + new URLSearchParams({ problemEntity: activeEntityId, problemRevision: String(shared.stages[1].revision) })
-              : nextStep ? aidtHref(projectId, nextStep.id) : reportHref} />}
+          {(!activeEntityId || problemStep) && <AidtRoundCompletion key={shared.writeKey} projectId={projectId} step={step} draft={problemStep ? problemDraft : currentUi.drafts[step.id]!} controller={shared} readOnly={!canWrite} onConfirm={record => updateStage(step.id, old => ({ ...old, fields: { ...old.fields, roundCompletion: record } }))} nextHref={activeEntityId ? nextStageHref : nextStep ? aidtHref(projectId, nextStep.id) : reportHref} />}
           {problemStep && <AidtSharedStagePanel key={`save:${shared.writeKey}`} stageNumber={1} controller={shared} readOnly={!canWrite} />}
           </>}
           {!activeEntityId && <AidtRoundNavigation projectId={projectId} stageNumber={step.id} draft={currentUi.drafts[step.id]!} savedRound={shared.stages[6]} matchesServer={shared.matchesServer} returnRevision={search.get("returnRevision")} sessionToken={checkpointScope?.sessionToken ?? null} />}
