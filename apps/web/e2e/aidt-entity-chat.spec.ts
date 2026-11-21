@@ -31,12 +31,12 @@ test("ten interviews bind to ten native conversations and reopening never copies
   const ids = Array.from({ length: 10 }, () => randomUUID());
   const problemId=randomUUID();
   const sourceProject=pathname.split("/").pop()!;
-  const question="新手司机夜间如何确认施工区车道？";
+  const upstreamQuestion="新手司机夜间如何确认施工区车道？";
   const head=await page.request.put("/__fullstack_api/projects/"+sourceProject+"/aidt/stages/1",{
     headers:{Authorization:"Bearer "+await bearerOf(page)},
     data:{operationId:randomUUID(),expectedRevision:0,sourceStageRevisions:[],content:{schemaVersion:1,draft:{
       fields:{problemHandoffEntity:problemId,["problemEntity:"+problemId]:JSON.stringify({id:problemId,title:"高速施工区",archived:false}),
-        ["problemDraft:"+problemId]:JSON.stringify({initial:question,scene:"夜间高速",rewrittenTheme:question})},ideas:[],selectedIdeaId:""}}}
+        ["problemDraft:"+problemId]:JSON.stringify({initial:upstreamQuestion,scene:"夜间高速",rewrittenTheme:upstreamQuestion})},ideas:[],selectedIdeaId:""}}}
   });
   expect(head.ok()).toBe(true);
   const fields = Object.fromEntries(ids.map((id, index) => {
@@ -105,7 +105,7 @@ test("ten interviews bind to ten native conversations and reopening never copies
   expect(parsed.entityReferences).toContainEqual({stageId:1,revision:1,entityId:problemId});
   const sourceTab=await context.newPage();
   await sourceTab.goto(pathname+"?step=1&entity="+problemId+"&entityRevision=1");
-  await expect(sourceTab.getByTestId("aidt-entity-history")).toContainText(question);
+  await expect(sourceTab.getByTestId("aidt-entity-history")).toContainText(upstreamQuestion);
   await sourceTab.getByRole("link",{name:"查看此产物的对话"}).click();
   await expect(composer(sourceTab)).toBeVisible();
   await sourceTab.close();
