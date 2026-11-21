@@ -20,6 +20,10 @@ on:
         description: Read-only login/ordinary-role/home-entry evidence; never create a project or run the journey
         type: boolean
         default: false
+      provision_ordinary_qa:
+        description: Explicitly create one dedicated consultant QA through normal one-use organization invitation APIs; credentials remain in memory
+        type: boolean
+        default: false
       isolated_native:
         description: Run native scenarios against exact candidate in isolated hosted services (models are loopback)
         type: boolean
@@ -41,6 +45,9 @@ jobs:
     env:
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+      AIDT_LIVE_DEV: ${{ inputs.live_dev }}
+      AIDT_PROVISION_ORDINARY_QA: ${{ inputs.provision_ordinary_qa }}
+      AIDT_ENTRY_DIAGNOSTIC_ONLY: ${{ inputs.entry_diagnostic_only }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -52,7 +59,8 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$EXPECTED_SOURCE_SHA" =~ ^[a-f0-9]{40}$ && "$EXPECTED_RELEASE_TAG" =~ ^[0-9]+-[0-9]+$ ]]
-          node --test scripts/tests/devapp-aidt-acceptance.test.mjs scripts/tests/devapp-aidt-auth-readonly.test.mjs scripts/tests/devapp-aidt-print-evidence.test.mjs scripts/tests/devapp-aidt-chat-evidence.test.mjs scripts/tests/devapp-aidt-teaching-guard.test.mjs
+          node --input-type=module -e 'import {ordinaryQaProvisioningRequested} from "./apps/web/e2e/support/devapp-aidt-acceptance.mjs"; ordinaryQaProvisioningRequested(process.env, {entryDiagnosticOnly:process.env.AIDT_ENTRY_DIAGNOSTIC_ONLY==="true"});'
+          node --test scripts/tests/devapp-aidt-acceptance.test.mjs scripts/tests/devapp-aidt-auth-readonly.test.mjs scripts/tests/devapp-aidt-print-evidence.test.mjs scripts/tests/devapp-aidt-chat-evidence.test.mjs scripts/tests/devapp-aidt-teaching-guard.test.mjs scripts/tests/devapp-aidt-qa-identity.test.mjs
           node --test .harness/scripts/ci-aidt-native.test.mjs
           node --check apps/web/e2e/support/devapp-aidt-acceptance.mjs
           node --check apps/web/e2e/support/devapp-aidt-journey.mjs
@@ -139,6 +147,8 @@ jobs:
     env:
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+      AIDT_LIVE_DEV: ${{ inputs.live_dev }}
+      AIDT_PROVISION_ORDINARY_QA: ${{ inputs.provision_ordinary_qa }}
       AIDT_ENTRY_DIAGNOSTIC_ONLY: ${{ inputs.entry_diagnostic_only }}
       DEBUG: ''
       PWDEBUG: ''
@@ -177,7 +187,7 @@ jobs:
           set -euo pipefail
           cd "$AIDT_ACCEPTANCE_ROOT/source"
           [[ -z "$(find . -type l -print -quit)" ]]
-          [[ "$(find . -type f | wc -l)" -eq 11 ]]
+          [[ "$(find . -type f | wc -l)" -eq 12 ]]
           sha256sum --check --strict SHA256SUMS
           AIDT_NODE_VERSION="$(cat .nvmrc)"
           [[ "$AIDT_NODE_VERSION" =~ ^[1-9][0-9]*(\.[0-9]+\.[0-9]+)?$ ]]

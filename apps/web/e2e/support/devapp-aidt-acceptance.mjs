@@ -106,6 +106,34 @@ export function publicEntryDiagnostic(report) {
   return result;
 }
 
+export function ordinaryQaProvisioningRequested(env, identity) {
+  const choice = env.AIDT_PROVISION_ORDINARY_QA;
+  if (choice !== undefined && !['false', 'true'].includes(choice)) throw new ProbeFailure('QA_IDENTITY_OPT_IN_INVALID');
+  if (choice !== 'true') return false;
+  if (env.AIDT_LIVE_DEV !== 'true' || identity.entryDiagnosticOnly) throw new ProbeFailure('QA_IDENTITY_OPT_IN_SCOPE_INVALID');
+  return true;
+}
+
+/** Secrets stay in memory and all evidence producers share the same collection. */
+export function sensitiveEvidenceGuard() {
+  const secrets = new Set();
+  return Object.freeze({
+    remember(value) {
+      if (typeof value !== 'string' || !value || value.length > 16384 || (!secrets.has(value) && secrets.size >= 128)) throw new ProbeFailure('QA_SECRET_COLLECTION_BOUND');
+      secrets.add(value);
+    },
+    values: () => [...secrets],
+    assertSafe: text => assertScreenshotSafe(text, [...secrets]),
+  });
+}
+
+export function assertProvisionedOrdinaryQa(expected, loginIdentity, status, me) {
+  if (!expected || !['userId','adminUserId','orgId'].every(key => typeof expected[key] === 'string' && expected[key].length > 0 && expected[key].length <= 256)
+      || expected.userId === expected.adminUserId || loginIdentity.actor !== expected.userId || loginIdentity.actor === expected.adminUserId
+      || loginIdentity.org !== expected.orgId || status !== 200 || me?.org?.id !== expected.orgId || me?.orgRole !== 'consultant') throw new ProbeFailure('QA_IDENTITY_UI_BINDING_MISMATCH');
+  return true;
+}
+
 export async function main() {
   // These variables can expose Playwright fill arguments; remove before importing its API.
   for (const key of ['DEBUG', 'PWDEBUG', 'NODE_DEBUG', 'NODE_DEBUG_NATIVE', 'NODE_OPTIONS']) delete process.env[key];
@@ -115,11 +143,14 @@ export async function main() {
     checkpoints: [], screenshots: [], scope: 'writes and screenshots: new owned QA project only',
     authorizedMetadataReads: 'Native clients also read the QA-authorized identity, course/project/Skill catalogs and Design list in memory. No raw lists or unrelated projects are exported.',
     designRequestLimit: 'At most one normal UI Design chat request; default page count is decided by the existing service, not capped to one page.' };
-  let browser, context, page, output, identity, guard, credentials, timer, stage = 'preflight';
+  let browser, context, page, output, identity, guard, credentials, provisionedIdentity, timer, stage = 'preflight';
+  const sensitiveEvidence = sensitiveEvidenceGuard();
   try {
     if (process.argv.length !== 2) throw new ProbeFailure('ARGUMENTS_REJECTED');
     assertAcceptanceWorkflow(process.env);
     identity = acceptanceIdentity(process.env);
+    const provisionOrdinaryQa = ordinaryQaProvisioningRequested(process.env, identity);
+    if (provisionOrdinaryQa) report.scope = 'Setup: one dedicated synthetic consultant account through one bounded organization invitation lifecycle. Student business writes and screenshots: new owned QA project only; setup counts are separate.';
     report.controlSource = process.env.GITHUB_SHA;
     report.executionMode = identity.entryDiagnosticOnly ? 'entry-diagnostic-readonly' : 'ordinary-ui-first-full';
     report.fullAcceptancePassed = false;
@@ -136,7 +167,29 @@ export async function main() {
     identity.deniedProject = `prj-${randomUUID()}`;
     report.deployedRuntime = runtimeProof(identity);
     credentials = readQaCredentials();
-    const { chromium, expect } = await import('@playwright/test');
+    sensitiveEvidence.remember(credentials.email); sensitiveEvidence.remember(credentials.password);
+    const { chromium, expect, request } = await import('@playwright/test');
+    if (provisionOrdinaryQa) {
+      stage = 'ordinary-qa-bootstrap';
+      const { bootstrapOrdinaryQaIdentity } = await import('./devapp-aidt-qa-identity.mjs');
+      const setupStartedUTC = new Date().toISOString(), setupTick = performance.now();
+      try {
+        const created = await bootstrapOrdinaryQaIdentity({ origin: ORIGIN, adminCredentials: credentials,
+          createContext: options => request.newContext(options),
+          onSecret: value => sensitiveEvidence.remember(value),
+          onReceipt: receipt => { report.qaProvisioning = receipt; },
+        });
+        // Setup identities never enter the browser or the exported report. The
+        // new student must independently authenticate through the normal UI.
+        provisionedIdentity = created.identity; credentials = created.credentials;
+        sensitiveEvidence.remember(credentials.email); sensitiveEvidence.remember(credentials.password);
+        report.qaProvisioning = created.receipt;
+        report.provisionedUiIdentityVerified = false;
+      } finally {
+        report.qaProvisioningTiming = { owner: 'root/aidt_atomic_backend', startedUTC: setupStartedUTC,
+          finishedUTC: new Date().toISOString(), durationMs: Math.round(performance.now() - setupTick) };
+      }
+    }
     guard = createAcceptanceGuard(identity);
     timer = setTimeout(() => { guard.fail('ACCEPTANCE_TIMEOUT'); void context?.close(); }, 55 * 60 * 1000);
     const browserEnv = Object.fromEntries(['PATH', 'HOME', 'LANG', 'TZ', 'PLAYWRIGHT_BROWSERS_PATH'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
@@ -183,6 +236,7 @@ export async function main() {
           if (bytes.length > 1048576) throw new ProbeFailure('RESPONSE_BOUND');
           try { parsed = JSON.parse(bytes.toString('utf8')); } catch { throw new ProbeFailure('RESPONSE_SCHEMA_INVALID'); }
         }
+        if (decision.kind === 'login' && typeof parsed?.sessionToken === 'string') sensitiveEvidence.remember(parsed.sessionToken);
         guard.observe(decision, response.status(), parsed);
         // Bind only the actual created candidate before the normal UI resumes.
         if (decision.kind === 'create-project' && [200, 201].includes(response.status())) {
@@ -219,12 +273,17 @@ export async function main() {
       const workspace = region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') });
       await workspace.waitFor({ state: 'visible' });
       if (region === 'workspace') await page.keyboard.press('Escape');
-      const sensitive = await workspace.evaluate((root, { email, password }) => {
+      const visibleText = await workspace.evaluate(root => {
         const visible = node => node instanceof HTMLElement && node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
-        const values = [root.innerText, ...[...root.querySelectorAll('input,textarea,[contenteditable="true"]')].filter(visible).map(node => 'value' in node ? node.value : node.innerText)].join('\n');
+        return [root.innerText, ...[...root.querySelectorAll('input,textarea,[contenteditable="true"]')].filter(visible).map(node => 'value' in node ? node.value : node.innerText)].join('\n');
+      });
+      if (Buffer.byteLength(visibleText) > 1048576) throw new ProbeFailure('SCREENSHOT_CONTENT_BOUND');
+      // Keep setup/admin credentials out of the student browser altogether.
+      sensitiveEvidence.assertSafe(visibleText);
+      const sensitive = await page.evaluate(values => {
         const token = localStorage.getItem('wsx.sessionToken');
-        return [email, password, token].some(secret => typeof secret === 'string' && secret.length > 0 && values.includes(secret)) || /Bearer\s+[A-Za-z0-9._~-]{12,}|\bsk-[A-Za-z0-9]{16,}/.test(values);
-      }, { email: credentials.email, password: credentials.password });
+        return Boolean(token && values.includes(token)) || /Bearer\s+[A-Za-z0-9._~-]{12,}|\bsk-[A-Za-z0-9]{16,}/.test(values);
+      }, visibleText);
       if (sensitive) throw new ProbeFailure('SCREENSHOT_SENSITIVE_CONTENT');
       const bytes = await workspace.screenshot({ type: 'png', animations: 'disabled' });
       const dimensions = await verifyPng(browser, bytes, region === 'workspace' ? 200 : 24), filename = `${name}.png`;
@@ -258,6 +317,7 @@ export async function main() {
       report.passed = true;
       return;
     }
+    if (provisionedIdentity) { assertProvisionedOrdinaryQa(provisionedIdentity, guard.identity(), me.status, me.data); report.provisionedUiIdentityVerified = true; }
     guard.verifyOrdinaryIdentity(me.status, me.data);
     const homeCreated = await checkpoint('homepage-ui-create-persist', async () => {
       await capture('00-home-create-actions', undefined, 'home-create-actions');
@@ -319,7 +379,7 @@ export async function main() {
       if (!path || !download.suggestedFilename().endsWith('.md')) throw new ProbeFailure('REPORT_DOWNLOAD_INVALID');
       const info = lstatSync(path); if (!info.isFile() || info.size < 80 || info.size > 1048576) throw new ProbeFailure('REPORT_DOWNLOAD_INVALID');
       const bytes = readFileSync(path), text = bytes.toString('utf8');
-      assertScreenshotSafe(text, [credentials.email, credentials.password]);
+      sensitiveEvidence.assertSafe(text);
       const leakedToken = await page.evaluate(text => { const token = localStorage.getItem('wsx.sessionToken'); return Boolean(token && text.includes(token)); }, text);
       if (leakedToken || !text.includes('合成') || /Bearer\s+[A-Za-z0-9._~-]{12,}|\bsk-[A-Za-z0-9]{16,}/.test(text)) throw new ProbeFailure('REPORT_DOWNLOAD_SENSITIVE');
       const filename = `qa-report-${identity.run}.md`;
@@ -359,7 +419,7 @@ export async function main() {
         const pin = guard.teachingPin(stageId, threadId, entityId ?? undefined); if (!pin) throw new ProbeFailure('TEACHING_SKILL_PIN_UNVERIFIED');
         const scope = { origin: ORIGIN, projectId, stageId, threadId, actorId: guard.identity().actor, prompt, selector, ...pin, timeoutMs: 180000 };
         const proof = await sendTeachingFeedback({ page, expect, scope, read: path => api(page, 'GET', path), armSend: current => guard.armTeachingSend(current), onEvent: event => console.log(JSON.stringify({ ...event, owner: 'root/aidt_ui_first_acceptance' })) });
-        assertScreenshotSafe(proof.assistantText, [credentials.email, credentials.password]);
+        sensitiveEvidence.assertSafe(proof.assistantText);
         report.teachingEvidence.push({ ...proof, status: 'passed', prompt, source: identity.source, tag: identity.tag });
         await capture(`${String(stageId).padStart(2,'0')}-native-teaching-chat`, stageId);
       });
@@ -371,7 +431,7 @@ export async function main() {
       if (!/^[a-z0-9-]{1,80}$/.test(key) || !Number.isInteger(stage) || stage < 1 || stage > 6 || report.systemArtifacts.filter(row => row.format === 'pdf').length >= 8) throw new ProbeFailure('PRINT_ARTIFACT_BOUND');
       assertCaptureScope(page.url(), projectId, stage); recheckRuntime();
       const assertSafe = async text => {
-        assertScreenshotSafe(text, [credentials.email, credentials.password]);
+        sensitiveEvidence.assertSafe(text);
         const tokenPresent = await page.evaluate(text => { const token = localStorage.getItem('wsx.sessionToken'); return Boolean(token && text.includes(token)); }, text);
         if (tokenPresent || /Bearer\s+[A-Za-z0-9._~-]{12,}|\bsk-[A-Za-z0-9]{16,}/.test(text)) throw new ProbeFailure('PRINT_ARTIFACT_SENSITIVE');
       };
@@ -411,7 +471,7 @@ export async function main() {
     let privateEvidenceSafe = true;
     try {
       if (credentials) {
-        const encoded = JSON.stringify(report); assertScreenshotSafe(encoded, [credentials.email, credentials.password]);
+        const encoded = JSON.stringify(report); sensitiveEvidence.assertSafe(encoded);
         if ((report.stageEvidence?.length || report.teachingEvidence?.length) && (!page || page.isClosed())) throw new ProbeFailure('EVIDENCE_PRIVACY_REVIEW_UNAVAILABLE');
         if (page && !page.isClosed()) {
           const checked = await page.evaluate(text => { const token = localStorage.getItem('wsx.sessionToken'); return { available: Boolean(token), leaked: Boolean(token && text.includes(token)) }; }, encoded);

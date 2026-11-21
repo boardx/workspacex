@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, chmodSync, r
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
-import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
+import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
@@ -295,4 +295,36 @@ test('collector uses the physical parent while preserving direct root symlink re
     assert.throws(() => privateOutput({ ...env, AIDT_ACCEPTANCE_ROOT: root }, identity()), /PRIVATE_ROOT_INVALID/);
     assert.equal(existsSync(join(target, 'output')), false);
   } finally { rmSync(base, { recursive: true, force: true }); }
+});
+
+
+test('ordinary QA setup is explicit and allowed only for the full live lane, never readonly diagnostic or isolated mode', () => {
+  assert.equal(ordinaryQaProvisioningRequested({}, identity()), false);
+  assert.equal(ordinaryQaProvisioningRequested({ AIDT_PROVISION_ORDINARY_QA: 'false' }, identity()), false);
+  assert.equal(ordinaryQaProvisioningRequested({ AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'true' }, identity()), true);
+  for (const env of [{ AIDT_PROVISION_ORDINARY_QA: 'yes' }, { AIDT_PROVISION_ORDINARY_QA: 'true' }, { AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'false' }]) assert.throws(() => ordinaryQaProvisioningRequested(env, identity()), /QA_IDENTITY_OPT_IN_/);
+  assert.throws(() => ordinaryQaProvisioningRequested({ AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'true' }, { ...identity(), entryDiagnosticOnly: true }), /QA_IDENTITY_OPT_IN_SCOPE_INVALID/);
+});
+
+test('all setup and student secrets remain in memory and are rejected from every shared evidence scanner', () => {
+  const guard = sensitiveEvidenceGuard();
+  const values = ['unit-admin-identity', 'unit-admin-session', 'unit-invite-token', 'https://qa.invalid/invite/unit-private-link', 'unit-new-identity', 'unit-new-session'];
+  for (const value of values) guard.remember(value);
+  assert.deepEqual(guard.values(), values);
+  assert.equal(JSON.stringify(guard), '{}');
+  for (const secret of values) assert.throws(() => guard.assertSafe(`evidence accidentally contains ${secret}`), /SCREENSHOT_SENSITIVE_CONTENT/);
+  assert.doesNotThrow(() => guard.assertSafe('safe closed receipt: consultant true'));
+  assert.throws(() => guard.remember(''), /QA_SECRET_COLLECTION_BOUND/);
+});
+
+test('provisioned student must independently UI-login as the same new consultant and organization, never the admin', () => {
+  const setup = { userId: 'new-student', adminUserId: 'setup-admin', orgId: 'same-organization' };
+  const current = { actor: setup.userId, org: setup.orgId };
+  const me = { org: { id: setup.orgId }, orgRole: 'consultant' };
+  assert.equal(assertProvisionedOrdinaryQa(setup, current, 200, me), true);
+  for (const actor of [setup.adminUserId, 'different-consultant']) assert.throws(() => assertProvisionedOrdinaryQa(setup, { ...current, actor }, 200, me), /QA_IDENTITY_UI_BINDING_MISMATCH/);
+  for (const other of [{ ...me, orgRole: 'admin' }, { ...me, org: { id: 'different-org' } }]) assert.throws(() => assertProvisionedOrdinaryQa(setup, current, 200, other), /QA_IDENTITY_UI_BINDING_MISMATCH/);
+  assert.throws(() => assertProvisionedOrdinaryQa({ ...setup, userId: setup.adminUserId }, current, 200, me), /QA_IDENTITY_UI_BINDING_MISMATCH/);
+  assert.throws(() => assertProvisionedOrdinaryQa(setup, { ...current, org: 'different-org' }, 200, me), /QA_IDENTITY_UI_BINDING_MISMATCH/);
+  assert.throws(() => assertProvisionedOrdinaryQa(setup, current, 403, me), /QA_IDENTITY_UI_BINDING_MISMATCH/);
 });
