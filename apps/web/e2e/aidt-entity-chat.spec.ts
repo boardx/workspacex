@@ -29,10 +29,20 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
   const pathname = new URL(page.url()).pathname;
   const ids = Array.from({ length: 10 }, () => randomUUID());
+  const problemId=randomUUID();
+  const sourceProject=pathname.split("/").pop()!;
+  const question="新手司机夜间如何确认施工区车道？";
+  const head=await page.request.put("/__fullstack_api/projects/"+sourceProject+"/aidt/stages/1",{
+    headers:{Authorization:"Bearer "+await bearerOf(page)},
+    data:{operationId:randomUUID(),expectedRevision:0,sourceStageRevisions:[],content:{schemaVersion:1,draft:{
+      fields:{problemHandoffEntity:problemId,["problemEntity:"+problemId]:JSON.stringify({id:problemId,title:"高速施工区",archived:false}),
+        ["problemDraft:"+problemId]:JSON.stringify({initial:question,scene:"夜间高速",rewrittenTheme:question})},ideas:[],selectedIdeaId:""}}}
+  });
+  expect(head.ok()).toBe(true);
   const fields = Object.fromEntries(ids.map((id, index) => {
     const code = "U" + (index + 1).toString().padStart(2, "0");
     return ["interviewRecord:" + id, JSON.stringify({
-      version: 1, id, code, topicRevision: null, topic: "", goal: "", original: "",
+      version: 1, id, code, topicRevision: index===0 ? 1 : null, topic: "", goal: "", original: "",
       adopted: index ? code + " 的测试清单" : "", guideConfirmed: false, consent: null,
     })];
   }));
@@ -90,6 +100,15 @@ test("ten interviews bind to ten native conversations and reopening never copies
   const receipt = await page.request.get("/__fullstack_api/agent-runs/" + encodeURIComponent(runId!) + "/aidt-context", { headers });
   expect(receipt.ok()).toBe(true);
   expect(AidtContextReceipt.parse(await receipt.json()).stageRevisions).toEqual([{ stageId: 2, revision: 1 }]);
+
+  const parsed=AidtContextReceipt.parse(await receipt.json());
+  expect(parsed.entityReferences).toContainEqual({stageId:1,revision:1,entityId:problemId});
+  const sourceTab=await context.newPage();
+  await sourceTab.goto(pathname+"?step=1&entity="+problemId+"&entityRevision=1");
+  await expect(sourceTab.getByTestId("aidt-entity-history")).toContainText(question);
+  await sourceTab.getByRole("link",{name:"查看此产物的对话"}).click();
+  await expect(composer(sourceTab)).toBeVisible();
+  await sourceTab.close();
 
   const threads = [first];
   for (const [index, url] of urls.slice(1).entries()) {
