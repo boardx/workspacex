@@ -13,10 +13,11 @@ import type { useAidtSharedStages } from "../lib/use-aidt-shared-stages";
 type ProblemAction = { kind: "create" | "edit" | "delete"; id: string; original: string };
 const actionTitles = { create: "新建问题", edit: "编辑问题", delete: "删除问题" };
 
-export function AidtProblemDirectory({ draft, href, controller, readOnly }: {
+export function AidtProblemDirectory({ draft, href, controller, readOnly, onCreated }: {
   draft: AidtUiStageDraft;
   href: (id: string) => string;
   controller: Pick<ReturnType<typeof useAidtSharedStages>, "write" | "needsBaseReview" | "saveDraft">;
+  onCreated?: (id: string) => void;
   readOnly: boolean;
 }) {
   const [action, setAction] = React.useState<ProblemAction | null>(null);
@@ -56,7 +57,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly }: {
     const saved = await controller.saveDraft(old => kind === "create" ? addAidtProblem(old, id, trimmedTitle)
       : kind === "edit" ? renameAidtProblem(old, id, trimmedTitle) : archiveAidtProblem(old, id));
     if (saved) {
-      if (kind === "create") focusCard.current = id;
+      if (kind === "create") { focusCard.current = id; onCreated?.(id); }
       setAction(null);
     } else setError(true);
   }

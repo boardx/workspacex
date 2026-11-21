@@ -26,6 +26,7 @@ type Props = {
   prototypeEntities?: readonly { id: string; title: string; archived?: boolean }[];
   readPrototypeEntity?: AidtReadPrototypeEntity;
   readOnly: boolean;
+  onCreate?: (id: string, change: (old: AidtUiStageDraft) => AidtUiStageDraft) => Promise<boolean>;
   canSave: boolean;
   save: () => Promise<void>;
   update: (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
@@ -38,7 +39,7 @@ export function AidtTestGroupDirectory(props: Props) {
   return <TestGroupDirectory key={key} {...props} sessionToken={session.sessionToken} userId={session.userId} />;
 }
 
-function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, update, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
+function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, update, onCreate, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
   const [name, setName] = React.useState("");
   const [editing, setEditing] = React.useState<{ id: string; name: string }>();
   const [removing, setRemoving] = React.useState<string>();
@@ -46,6 +47,7 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
   const [requestId, setRequestId] = React.useState<string>();
   const [error, setError] = React.useState("");
   const [checking, setChecking] = React.useState(false);
+  const creationId = React.useRef<string | null>(null);
   const request = React.useRef<AbortController | null>(null);
   React.useEffect(() => () => request.current?.abort(), []);
 
@@ -76,16 +78,19 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
       const source = stage5 && (id ? readPrototypeEntity?.(stage5, id) : stage5);
       if (!source || (id && !isAidtPrototypeHandoffConfirmed(source))) throw new Error("source");
       const binding = createAidtQuestionSnapshot(source, exactRevision);
-      const group = binding.ok ? createAidtTestGroup(binding.snapshot, crypto.randomUUID(), id) : null;
+      const group = binding.ok ? createAidtTestGroup(binding.snapshot, creationId.current ??= crypto.randomUUID(), id) : null;
       if (!group || !binding.ok) throw new Error("binding");
       await resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, group.designId, group.versionId, "linked-reader");
       if (controller.signal.aborted) return;
-      update(current => {
+      const change = (current: AidtUiStageDraft) => {
         const next = updateAidtTestGroup(current, { ...group, name: name.trim() });
         if (next === current || current.fields.questionSnapshot || current.fields.version?.trim()) return next;
         return { ...next, fields: { ...next.fields, version: binding.snapshot.prototypeRef, questionSnapshot: binding.serialized } };
-      });
-      setRequestId(group.id);
+      };
+      if (onCreate) {
+        if (!await onCreate(group.id, change)) { setError("测试未能保存。请重试创建。"); return; }
+      } else { update(change); setRequestId(group.id); }
+      creationId.current = null;
       setName("");
     } catch (failure) {
       if (controller.signal.aborted) return;
@@ -157,7 +162,7 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
       </label>}
       <label className="block space-y-1 text-12">测试名称<Input value={name} maxLength={80} onChange={event => setName(event.currentTarget.value)} /></label>
       <div className="flex flex-wrap items-center gap-2"><Button type="button" size="sm" variant="outline" disabled={!canCreate} onClick={() => void create()}>{checking ? "核对版本…" : "新建测试草稿"}</Button>
-        <Button type="button" size="sm" variant="primary" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>
+        {(!onCreate || canSave) && <Button type="button" size="sm" variant="primary" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>}
         {requestId && savedIds.has(requestId) && <Link href={openHref(requestId)} className="text-12 text-primary underline">打开刚保存的测试</Link>}
       </div>
       {limit && <p role="status" className="text-12">测试记录已达上限。</p>}
