@@ -1245,21 +1245,34 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
         const restored = await openFrozenSources(stage);
         if (restored.revision !== revision) fail('FROZEN_SOURCE_REVISION_CHANGED');
         const link = restored.details.getByRole('link', { name: item.title.trim(), exact: true });
-        const expectedRoute = ownedAidtEntityRoute(item.href, { origin, projectId: scope.projectId }, { stage, revision });
-        const expectedInterview = stage === 2 ? state.interviews.find(row => row.target.entityId === expectedRoute.entityId) : undefined;
-        if (stage === 2 && !expectedInterview) fail('FROZEN_INTERVIEW_EXPECTATION_MISSING');
+        const coordinates = new URL(owned(item.href));
+        const targetStage = Number(coordinates.searchParams.get('step'));
+        const targetRevision = Number(coordinates.searchParams.get('entityRevision'));
+        if (stage === 3 && targetStage === 2) {
+          const definition = await savedStage(3);
+          const fields = definition.content.draft.fields;
+          const entityId = coordinates.searchParams.get('entity');
+          const selectedCardIds = Object.entries(fields).flatMap(([key, raw]) =>
+            /^definition(?:Persona|Hmw):/.test(key) ? JSON.parse(raw).cardIds : []);
+          if (definition.revision !== revision || fields.definitionEvidenceRevision !== String(targetRevision)
+            || !definition.sourceStageRevisions.some(ref => ref.stageId === 2 && ref.revision === targetRevision)
+            || !selectedCardIds.includes(entityId)) fail('REPORT_DEFINITION_INTERVIEW_LINK_UNVERIFIED');
+        } else if (stage !== targetStage || revision !== targetRevision) fail('FROZEN_SOURCE_COORDINATES_CHANGED');
+        const expectedRoute = ownedAidtEntityRoute(item.href, { origin, projectId: scope.projectId }, { stage: targetStage, revision: targetRevision });
+        const expectedInterview = targetStage === 2 ? state.interviews.find(row => row.target.entityId === expectedRoute.entityId) : undefined;
+        if (targetStage === 2 && !expectedInterview) fail('FROZEN_INTERVIEW_EXPECTATION_MISSING');
         const materialRequired = stage === 2;
         if (materialRequired && (!expectedInterview.hasMaterial || !expectedInterview.quote || !expectedInterview.materialName)) fail('FROZEN_MATERIAL_EXPECTATION_MISSING');
-        const target = await verifyAidtFrozenBacklink({ page, link, scope: { origin, projectId: scope.projectId }, stage, revision, waitForRoute: waitForEntity,
+        const target = await verifyAidtFrozenBacklink({ page, link, scope: { origin, projectId: scope.projectId }, stage: targetStage, revision: targetRevision, waitForRoute: waitForEntity,
           materialRequired,
-          assertVersion: async () => { const history = page.getByTestId('aidt-entity-history'); await expect(history).toBeVisible(); await expect(history.getByRole('heading', { level: 1 })).toHaveText(new RegExp(` · V${revision}$`)); await expect(history).toContainText('已保存的历史版本。'); await expect(history).toContainText(SYNTHETIC); },
+          assertVersion: async () => { const history = page.getByTestId('aidt-entity-history'); await expect(history).toBeVisible(); await expect(history.getByRole('heading', { level: 1 })).toHaveText(new RegExp(` · V${targetRevision}$`)); await expect(history).toContainText('已保存的历史版本。'); await expect(history).toContainText(SYNTHETIC); },
           assertMaterial: async target => {
             const interview = expectedInterview;
             const material = page.getByTestId('aidt-research-material-preview').filter({ hasText: interview.materialName });
             await expect(material).toBeVisible(); await expect(material).toContainText(new URL(target.href).searchParams.get('sourceId'));
             const original = material.getByTestId('aidt-research-original-text'); await expect(original).toBeVisible(); await expect(original).toContainText(interview.quote); await expect(original).toContainText(SYNTHETIC);
           } });
-        item.clicked = true; item.frozenRevision = revision; item.entityId = target.entityId; item.materialVerified = materialRequired;
+        item.clicked = true; item.frozenStage = targetStage; item.frozenRevision = targetRevision; item.entityId = target.entityId; item.materialVerified = materialRequired;
       }
       report.reportSourceLinks.push({ stage, revision, links });
     }

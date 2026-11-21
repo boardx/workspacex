@@ -56,10 +56,10 @@ export function aidtReportSourceLinks(stage: AidtSharedStage): { id: string; tit
   const stage2Revision = stage.stageId === 3 ? readAidtDefinitionEvidenceRevision(fields) : null;
   const linkDefinitionEvidence = (entry: { id: string; cardIds: string[] }, title: string) => {
     if (!stage2Revision || !stage.sourceStageRevisions.some(ref => ref.stageId === 2 && ref.revision === stage2Revision)) return;
-    for (const id of new Set(entry.cardIds)) {
+    for (const [index, id] of [...new Set(entry.cardIds)].entries()) {
       if (!uuid.safeParse(id).success) continue;
       const key = `${entry.id}:${id}`;
-      links.set(key, { id: key, title: `${title} · 访谈发现（第 2 步 V${stage2Revision}）`,
+      links.set(key, { id: key, title: `${title} · 访谈发现 ${index + 1}（第 2 步 V${stage2Revision}）`,
         href: sourceHref({ ...stage, stageId: 2, revision: stage2Revision }, id) });
     }
   };
