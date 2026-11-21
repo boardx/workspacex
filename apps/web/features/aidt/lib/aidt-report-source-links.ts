@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AidtSharedStage } from "./live-aidt-stages";
 import { parseAidtPrototypeReference } from "./aidt-prototype-reference";
 import { parseAidtResearchMaterial } from "./aidt-research-material-reference";
+import { readAidtDefinitionEvidenceRevision } from "./aidt-definition";
 import { readAidtIdeaDirectory } from "./aidt-idea-handoff";
 
 const entityId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/u);
@@ -49,6 +50,16 @@ export function aidtReportSourceLinks(stage: AidtSharedStage): { id: string; tit
     if (!entityId.safeParse(id).success) return;
     links.set(id, links.has(id) ? null : { id, title, href: sourceHref(stage, id, locator) });
   };
+  const stage2Revision = stage.stageId === 3 ? readAidtDefinitionEvidenceRevision(fields) : null;
+  const linkDefinitionEvidence = (entry: { id: string; cardIds: string[] }, title: string) => {
+    if (!stage2Revision || !stage.sourceStageRevisions.some(ref => ref.stageId === 2 && ref.revision === stage2Revision)) return;
+    for (const [index, id] of [...new Set(entry.cardIds)].entries()) {
+      if (!uuid.safeParse(id).success) continue;
+      const key = `${entry.id}:${id}`;
+      links.set(key, { id: key, title: `${title} · 访谈发现 ${index + 1}（第 2 步 V${stage2Revision}）`,
+        href: sourceHref({ ...stage, stageId: 2, revision: stage2Revision }, id) });
+    }
+  };
   for (const [key, value] of Object.entries(fields)) {
     if (stage.stageId === 1 && key.startsWith("problemEntity:")) {
       const record = read(z.object({ id: uuid, title: z.string().trim().min(1).max(120) }), value);
@@ -68,11 +79,19 @@ export function aidtReportSourceLinks(stage: AidtSharedStage): { id: string; tit
     }
     if (stage.stageId === 3 && key.startsWith("definitionPersona:")) {
       const record = read(personaRecord, value);
-      if (record && key === `definitionPersona:${record.id}`) add(record.id, record.name || "未命名画像");
+      if (record && key === `definitionPersona:${record.id}`) {
+        const title = record.name || "未命名画像";
+        add(record.id, title);
+        linkDefinitionEvidence(record, title);
+      }
     }
     if (stage.stageId === 3 && key.startsWith("definitionHmw:")) {
       const record = read(hmwRecord, value);
-      if (record && key === `definitionHmw:${record.id}`) add(record.id, record.text || "未命名 HMW");
+      if (record && key === `definitionHmw:${record.id}`) {
+        const title = record.text || "未命名 HMW";
+        add(record.id, title);
+        linkDefinitionEvidence(record, title);
+      }
     }
     if (stage.stageId === 5 && key.startsWith("prototypeEntity:")) {
       const id = key.slice("prototypeEntity:".length);

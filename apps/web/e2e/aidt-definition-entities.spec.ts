@@ -25,7 +25,13 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   const seeded = await page.request.put("/__fullstack_api/projects/" + projectId + "/aidt/stages/2", {
     headers: { Authorization: "Bearer " + await bearerOf(page) },
     data: { operationId: randomUUID(), expectedRevision: 0, sourceStageRevisions: [], content: { schemaVersion: 1, draft: {
-      fields: { ["interviewConfirmed:" + evidenceId]: "true" }, ideas: [], selectedIdeaId: "", discoveryCards: [{ id: evidenceId, participantCode: "U01", headlineKind: "student-summary", headline: "难以比较口味", context: "午间点单", quote: "不清楚差别", sourceRef: "QA 转写 00:12", photoRef: "" }],
+      fields: {
+        ["interviewConfirmed:" + evidenceId]: "true",
+        ["interviewRecord:" + evidenceId]: JSON.stringify({
+          version: 1, id: evidenceId, code: "U01", displayName: "午间学生",
+          topic: "", topicRevision: null, goal: "", original: "", adopted: "", guideConfirmed: false, consent: null,
+        }),
+      }, ideas: [], selectedIdeaId: "", discoveryCards: [{ id: evidenceId, participantCode: "U01", headlineKind: "student-summary", headline: "难以比较口味", context: "午间点单", quote: "不清楚差别", sourceRef: "QA 转写 00:12", photoRef: "" }],
     } } },
   });
   expect(seeded.ok()).toBe(true);
