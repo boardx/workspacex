@@ -1,7 +1,9 @@
 "use client";
 
 /** Shared canonical composer surface. Controllers keep all transport, voice, permission and queue state. */
+import { chatComposerSurface } from "@/components/chat/chat-composer-style";
 import { useContext } from "react";
+import { cn } from "@/lib/utils";
 
 import { useI18n } from "@/lib/i18n/provider";
 import { ComposerStatusBar } from "./chat-composer-status-bar";
@@ -26,12 +28,13 @@ export function NativeChatComposer({EMPTY_INPUT_REASON, actingAgentId, agent, ag
   const { t } = useI18n();
   const dictating = speech.listening || speech.connecting;
 return (<div
-          className={[
-            "flex min-w-0 flex-col rounded-xl border shadow-sm transition-colors duration-fast",
+          className={cn(
+            chatComposerSurface,
+            "flex flex-col transition-colors duration-fast",
             // 2026-09-08 人类反馈（真栈截图）「选中的时候，不要有新的边框出来，就保持就可以了」——
             // 去掉 `focus-within:border-primary/60`：聚焦前后外框颜色一致，光标本身就是焦点提示。
-            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-card",
-          ].join(" ")}
+            archived && "bg-disabled",
+          )}
           data-testid="chat-task-workbench-composer"
           data-voice-phase={voice.phase}
         >

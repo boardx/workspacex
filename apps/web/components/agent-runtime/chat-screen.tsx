@@ -1,4 +1,5 @@
 "use client";
+import { chatComposerAction, chatComposerInput, chatComposerSurface } from "@/components/chat/chat-composer-style";
 import * as React from "react";
 import { Boxes, Share2, Lock, Users, X, Send } from "lucide-react";
 import { RuntimeShell, DecisionNote } from "./runtime-shell";
@@ -214,12 +215,12 @@ function ChatDrawer({
               <Button key={q} size="xs" variant="outline" onClick={onSend} data-testid={`chat-quick-${agent.key}-${q}`}>{q}</Button>
             ))}
           </div>
-          <div className="rounded-lg border border-border-subtle bg-card p-2">
-            <Textarea rows={2} placeholder={agent.placeholder} aria-label="私聊输入" className="border-0 bg-transparent p-0" data-testid="chat-drawer-input" />
+          <div className={`p-2 ${chatComposerSurface}`}>
+            <Textarea rows={1} placeholder={agent.placeholder} aria-label="私聊输入" className={chatComposerInput} data-testid="chat-drawer-input" />
             <div className="mt-1 flex items-center gap-2">
               <span className="font-mono text-9 text-muted-foreground">只和这个 agent 单聊，不进主线程</span>
-              <Button size="sm" variant="primary" className="ml-auto" onClick={onSend} data-testid="chat-drawer-send">
-                <Send aria-hidden className="h-3 w-3" /> 发送
+              <Button size="icon" variant="primary" aria-label="发送" className={`ml-auto ${chatComposerAction}`} onClick={onSend} data-testid="chat-drawer-send">
+                <Send aria-hidden className="h-4 w-4" />
               </Button>
             </div>
           </div>
