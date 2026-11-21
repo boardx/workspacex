@@ -50,10 +50,12 @@ describe("personal pricing contract design", () => {
     expect(PersonalCheckoutResult.safeParse(result).success).toBe(true);
     expect(PersonalCheckoutResult.safeParse({ ...result, grantedCredits: 20000 }).success).toBe(false);
   });
-  it("welcome credits expire exactly 30 days after grant and expired grants have zero remaining", () => {
+  it("welcome credits validate the recorded amount and expiry instead of the current offer", () => {
     const grant = { credits: 1000, remainingCredits: 1000, grantedAt: "2026-11-01T10:00:00Z", expiresAt: "2026-12-01T10:00:00Z" };
     expect(WelcomeCreditGrant.safeParse({ status: "granted", grant }).success).toBe(true);
-    expect(WelcomeCreditGrant.safeParse({ status: "granted", grant: { ...grant, expiresAt: "2026-12-02T10:00:00Z" } }).success).toBe(false);
+    expect(WelcomeCreditGrant.safeParse({ status: "granted", grant: { ...grant, credits: 1200, expiresAt: "2026-12-16T10:00:00Z" } }).success).toBe(true);
+    expect(WelcomeCreditGrant.safeParse({ status: "granted", grant: { ...grant, expiresAt: grant.grantedAt } }).success).toBe(false);
+    expect(WelcomeCreditGrant.safeParse({ status: "granted", grant: { ...grant, remainingCredits: 1001 } }).success).toBe(false);
     expect(WelcomeCreditGrant.safeParse({ status: "expired", grant }).success).toBe(false);
     expect(WelcomeCreditGrant.safeParse({ status: "expired", grant: { ...grant, remainingCredits: 0 } }).success).toBe(true);
     expect(WelcomeCreditGrant.safeParse({ status: "none", grant }).success).toBe(false);
