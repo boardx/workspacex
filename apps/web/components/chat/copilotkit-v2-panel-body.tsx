@@ -1,4 +1,6 @@
 "use client";
+import { createPortal } from "react-dom";
+import { ChatHostConversationContext } from "./chat-host-panel";
 import { ownedRunError, restoredRunPhaseLabel, renderChatDisplayText, type ChatDisplayText, type ChatOwnedMessage } from "@/lib/chat-runtime-display";
 import { useI18n } from "@/lib/i18n/provider";
 import { CopilotKitV2PanelView } from "./copilotkit-v2-panel-view";
@@ -1948,5 +1950,10 @@ function useCopilotKitV2PanelController({
 
 export type CopilotKitV2PanelViewProps = ReturnType<typeof useCopilotKitV2PanelController>;
 export function CopilotKitV2PanelBody(props: Parameters<typeof useCopilotKitV2PanelController>[0]): JSX.Element {
-  return <CopilotKitV2PanelView {...useCopilotKitV2PanelController(props)} />;
+  const view = useCopilotKitV2PanelController(props);
+  const conversation = React.useContext(ChatHostConversationContext);
+  return <>
+    <CopilotKitV2PanelView {...view} />
+    {conversation && createPortal(conversation.render(view.projectedMessages, view.historyLoading, view.agent.isRunning), conversation.target)}
+  </>;
 }

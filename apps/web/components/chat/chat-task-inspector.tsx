@@ -303,6 +303,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const inspectorRef = React.useRef<HTMLElement>(null);
   const hostPanelId = React.useId();
   const hostOpen = hostPanel?.open === true;
+  const hostInArtifacts = hostPanel?.placement === "artifacts";
   const collapsed = !hostOpen && override !== "expanded";
   const hostMobileOpen = mobile && Boolean(hostPanel) && !collapsed;
   React.useEffect(() => {
@@ -486,7 +487,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
           collapsed ? "flex-col gap-1 py-2" : "flex-row justify-center gap-1 px-2 py-2.5",
         )}
       >
-        {hostPanel && <button ref={hostTrigger} type="button" role="tab"
+        {hostPanel && !hostInArtifacts && <button ref={hostTrigger} type="button" role="tab"
           id={`${hostPanelId}-tab`} aria-controls={`${hostPanelId}-panel`} aria-selected={hostOpen}
           aria-label={hostPanel.title} title={hostPanel.title} data-testid="chat-task-workbench-host-open"
           onClick={() => { setOverride("collapsed"); hostPanel.onOpenChange(true); }}
@@ -496,12 +497,16 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         {visibleTabs.map((tab) => {
           const { labelKey, Icon } = TAB_META[tab];
           const label = t(labelKey);
-          const selected = tab === activeTab && !collapsed && !hostOpen;
+          const projectArtifact = hostInArtifacts && tab === "artifacts";
+          const selected = !collapsed && (hostOpen ? projectArtifact : tab === activeTab);
           return (
             <button
               key={tab}
               type="button"
               role="tab"
+              ref={projectArtifact ? hostTrigger : undefined}
+              id={projectArtifact && hostOpen ? `${hostPanelId}-tab` : undefined}
+              aria-controls={projectArtifact && hostOpen ? `${hostPanelId}-panel` : undefined}
               aria-selected={selected}
               /*
                 2026-09-03 人类反馈（真栈截图）「右边的 tabs 要简约，默认是 icon，
@@ -513,7 +518,15 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               aria-label={label}
               title={label}
               data-testid={`chat-task-workbench-inspector-tab-${tab}`}
-              onClick={() => { if (hostOpen) hostPanel?.onOpenChange(false); selectTab(tab); }}
+              onClick={() => {
+                if (projectArtifact && !hostOpen) {
+                  setOverride("collapsed");
+                  hostPanel.onOpenChange(true);
+                } else {
+                  if (hostOpen) hostPanel?.onOpenChange(false);
+                  selectTab(tab);
+                }
+              }}
               className={cn(
                 "relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast",
                 // 2026-09-03 人类反馈（真栈截图）「右边的 tab，样式不对」—— 原来是
@@ -580,7 +593,13 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
           aria-labelledby={hostOpen ? `${hostPanelId}-tab` : undefined}
           className="flex min-h-0 flex-1 flex-col overflow-y-auto"
         >
-          {hostOpen ? hostPanel?.content : activeTab === "materials" ? (
+          {hostOpen ? <>
+            {hostInArtifacts && <button type="button" className="self-start px-4 pt-3 text-12 text-muted-foreground transition-colors hover:text-panel-alt-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => {
+              hostPanel.onOpenChange(false);
+              selectTab("artifacts");
+            }}>‹ 产物列表</button>}
+            {hostPanel?.content}
+          </> : activeTab === "materials" ? (
             <ChatMaterialsPanel
               hasSelection={hasSelection}
               threadId={threadId}

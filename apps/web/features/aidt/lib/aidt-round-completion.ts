@@ -1,4 +1,5 @@
 import type { AidtUiStageDraft, AidtDiscoveryCardDraft, AidtIdeaDraft } from "./aidt-ui-drafts";
+import { readAidtProblemDirections } from "./aidt-problem-directions";
 import { isProblemReflectionConfirmed } from "./aidt-problem-reflection";
 import { isAidtSurpriseConfirmed } from "./aidt-surprise-reflection";
 import { readAidtIdeaClassification } from "./aidt-idea-classification";
@@ -13,7 +14,11 @@ export const AIDT_ROUND_COMPLETION_FIELD = "roundCompletion";
 /** Student review in the existing working document; never a permission or teacher-grade authority. */
 export function aidtRoundMissingOutput(stageId: number, draft: AidtUiStageDraft, context?: { projectId: string; cards?: readonly AidtDiscoveryCardDraft[]; cardsRevision?: number }): string | null {
   const has = (...keys: string[]) => keys.every(key => Boolean(draft.fields[key]?.trim()));
-  if (stageId === 1 && (!has("rewrittenTheme") || !isProblemReflectionConfirmed(draft))) return "先核对重写主题与选题反思。";
+  if (stageId === 1) {
+    if (!has("rewrittenTheme") || !isProblemReflectionConfirmed(draft)) return "先核对重写主题与选题反思。";
+    const directions = readAidtProblemDirections(draft.fields.problemDirections);
+    if (directions.length && !directions.some(direction => direction.id === draft.fields.problemDirectionId)) return "请选择本轮研究方向。";
+  }
   if (stageId === 2) {
     const ready = aidtInterviewHandoffReady(draft);
     const legacyReady = has("adoptedGuide") && draft.discoveryCards?.length && draft.discoveryCards.every(
