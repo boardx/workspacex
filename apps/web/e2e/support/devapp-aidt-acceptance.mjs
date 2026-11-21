@@ -154,7 +154,7 @@ export async function main() {
     report.controlSource = process.env.GITHUB_SHA;
     report.executionMode = identity.entryDiagnosticOnly ? 'entry-diagnostic-readonly' : 'ordinary-ui-first-full';
     report.fullAcceptancePassed = false;
-    report.requirements = { source: 'docs/requirements/aidt-v2-full.md', declaredVersion: 'V2 with 2026-11-15 FR15-FR19', independentVrOriginal: 'not located; do not infer VR compliance' };
+    report.requirements = { source: 'docs/requirements/aidt-v2-full.md', declaredVersion: 'V2 with 2026-11-15 FR15-FR19' };
     report.stageIterations = [];
     report.systemArtifacts = [];
     report.teachingEvidence = [];
