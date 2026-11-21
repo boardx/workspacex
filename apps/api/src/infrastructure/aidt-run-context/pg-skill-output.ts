@@ -3,10 +3,10 @@ import type { TenantSession } from "../../application/ports/database.port";
 import type { AidtContextActor } from "../../application/aidt-run-context/ports";
 import type { AidtStagesService } from "../../application/aidt-stages/service";
 import { aidtEntityThreadId, aidtSavedEntityTitle } from "../../application/aidt-stages/entity-thread";
-import { projectProblemSkillDraft } from "../../application/aidt-stages/problem-skill-draft";
+import { problemSkillFields, projectProblemSkillDraft } from "../../application/aidt-stages/problem-skill-draft";
 import { projectInterviewSkillDraft } from "../../application/aidt-stages/interview-skill-draft";
 
-type Row = { run_id:string; message_id:string; user_text:string; assistant_text:string; source_revision:number|null; requested_by:string; };
+type Row = { run_id:string; message_id:string; user_text:string; assistant_text:string; source_revision:number|null; requested_by:string; input_at:Date; };
 /** Receipt key in the normal append-only stage ledger. Version/variant bits follow UUID v5. */
 function operationId(runId:string) {
   const b=createHash("sha256").update("aidt-skill-draft:"+runId).digest().subarray(0,16);
@@ -24,7 +24,7 @@ export async function projectSavedSkillOutput(s:TenantSession, stages:AidtStages
   const current=(await stages.get(actor,stageId)).stage;
   if (!current || !aidtSavedEntityTitle(current,entityId,"stage")) return false;
   const rows=await s.query<Row>(`
-    SELECT snap.run_id, snap.requested_by, human.body AS user_text, reply.body AS assistant_text, reply.id AS message_id,
+    SELECT snap.run_id, snap.requested_by, human.created_at AS input_at, human.body AS user_text, reply.body AS assistant_text, reply.id AS message_id,
       (SELECT (ref->>'revision')::integer FROM jsonb_array_elements(snap.selector_json->'stageRevisions') ref
         WHERE (ref->>'stageId')::integer=$4 LIMIT 1) AS source_revision
     FROM aidt_run_context_snapshots snap
@@ -54,8 +54,19 @@ export async function projectSavedSkillOutput(s:TenantSession, stages:AidtStages
       const base=(await stages.getRevision(actor,stageId,row.source_revision)).stage;
       if (!base || base.content.draft.fields[recordKey]!==current.content.draft.fields[recordKey]) continue;
     }
+    const proposed = stageId === 1 ? problemSkillFields(row.assistant_text).initial : undefined;
+    // Historical summaries may quote the student's earlier framing. Verify the literal
+    // wording in this same shared thread before admitting it as their original question.
+    let verifiedInitial: string | undefined;
+    if (proposed && !row.user_text.includes(proposed)) {
+      const evidence = await s.query(`SELECT 1 FROM chat_messages
+        WHERE org_id=$1 AND thread_id=$2 AND author_kind='human' AND NOT raw_transcript
+          AND COALESCE(visibility_scope,'plenary')='plenary' AND created_at <= $3
+          AND strpos(body,$4)>0 LIMIT 1`, [actor.orgId,actor.threadId,row.input_at,proposed]);
+      if (evidence.rows.length) verifiedInitial = proposed;
+    }
     const project=stageId===1?projectProblemSkillDraft:projectInterviewSkillDraft;
-    const next=project(current.content.draft,entityId,{user:row.user_text,assistant:row.assistant_text,messageId:row.message_id});
+    const next=project(current.content.draft,entityId,{user:row.user_text,assistant:row.assistant_text,messageId:row.message_id,verifiedInitial});
     if (!next) continue;
     await stages.save(actor,{projectId:actor.projectId,stageId,operationId:op,expectedRevision:current.revision,
       content:{schemaVersion:1,draft:next},sourceStageRevisions:current.sourceStageRevisions});

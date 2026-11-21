@@ -20,3 +20,11 @@ it("keeps the previous confirmed group handoff when material discussion produces
  expect(next.fields.roundCompletion).toBe("old");
  expect(JSON.parse(next.fields["problemDraft:p"]!)).toEqual({initial:"夜间通勤",sourceUncertainty:"下雨会否改变结论",draftTurnId:"m1"});
 });
+
+it("accepts only student-authored initial wording and reuses an existing choice id across incremental replies",()=>{
+ expect(projectProblemSkillDraft(base,"p",turn("商场照明","### 原始命题\n节目排期"))).toBeNull();
+ const earlier={initial:"商场照明",problemDirections:JSON.stringify([{id:"old",source:"group",title:"夜间照明"}])};
+ const prior={...base,fields:{"problemDraft:p":JSON.stringify(earlier)}};
+ const next=projectProblemSkillDraft(prior,"p",turn("选夜间照明","### 本轮选定方向\n夜间照明"))!;
+ expect(JSON.parse(next.fields["problemDraft:p"]!)).toMatchObject({initial:"商场照明",problemDirectionId:"old",focus:"夜间照明"});
+});
