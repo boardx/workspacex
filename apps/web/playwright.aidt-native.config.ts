@@ -10,7 +10,7 @@ export default defineConfig({
   reporter: [["list"], ["json", { outputFile: `${outputDir}/results.json` }]],
   projects: fullstack.projects?.filter(project => project.name === "seeded").map(project => ({
     ...project,
-    testMatch: ["project-aidt-native.spec.ts", "aidt-member-collaboration.spec.ts", "aidt-entity-chat.spec.ts", "aidt-definition-entities.spec.ts", "aidt-test-entities.spec.ts"],
+    testMatch: ["project-aidt-native.spec.ts", "aidt-member-collaboration.spec.ts", "aidt-entity-chat.spec.ts", "aidt-interview-recording-scroll.spec.ts", "aidt-definition-entities.spec.ts", "aidt-test-entities.spec.ts"],
     dependencies: [],
   })),
   webServer: (Array.isArray(fullstack.webServer) ? fullstack.webServer : fullstack.webServer ? [fullstack.webServer] : []).map(server => ({
