@@ -38,7 +38,7 @@ type Props = {
   readOnly: boolean;
 };
 
-function useAidtPrototypeIdeas({ workflow, projectId, draft, ideaRevision }: Pick<Props, "workflow" | "projectId" | "draft" | "ideaRevision">) {
+export function useAidtPrototypeIdeas({ workflow, projectId, draft, ideaRevision }: Pick<Props, "workflow" | "projectId" | "draft" | "ideaRevision">) {
   const selection = readAidtPrototypeInputSelection(draft);
   const latest = workflow.ideas?.projectId === projectId ? workflow.ideas : undefined;
   const revision = selection?.revision ?? readAidtPrototypeIdeaRevision(ideaRevision);

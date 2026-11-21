@@ -143,3 +143,26 @@ it("requires a student turn and accepts 暂无 only from the student", () => {
   const candidate = latestAidtDefinitionCandidate([{ ...unrelated, content: "暂无意外发现" }], "surprise", true);
   expect(candidate?.proposal).toEqual({ kind: "surprise", status: "none" });
 });
+
+it.each(["persona", "hmw"] as const)("saves a new %s card's name, tags and chosen source together", async kind => {
+  const initial = saveAidtDefinitionPersona(noSurprise(), persona("p1"), 2);
+  let durable = initial;
+  let entityId = "";
+  const label = kind === "persona" ? "画像" : "HMW";
+  render(<AidtDefinitionDirectory {...context} draft={initial} savedDraft={initial} update={() => undefined} nativeChat entityHref={id => "/" + id}
+    onCreate={async (id, change) => { entityId = id; durable = change(initial); return true; }} />);
+  fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
+  const dialog = within(screen.getByRole("dialog"));
+  fireEvent.click(dialog.getByRole("button", { name: kind === "persona" ? "新建画像" : "新建 HMW" }));
+  fireEvent.change(dialog.getByLabelText("卡片名称"), { target: { value: "午休" + label } });
+  fireEvent.change(dialog.getByTestId("card-create-tag-input"), { target: { value: "课堂" } });
+  const submit = dialog.getByRole("button", { name: "创建" + label });
+  expect(submit).toBeDisabled();
+  fireEvent.click(dialog.getByRole("checkbox", { name: kind === "persona" ? /U01/ : /p1/ }));
+  fireEvent.click(submit);
+  expect(durable.fields["definitionCardName:" + entityId]).toBe("午休" + label);
+  expect(durable.fields["cardTags:" + entityId]).toBe('["课堂"]');
+  const content = readAidtDefinition(durable.fields);
+  if (kind === "persona") expect(content.personas.find(record => record.id === entityId)).toMatchObject({ confirmed: false, cardIds: ["u1"] });
+  else expect(content.hmws.find(record => record.id === entityId)).toMatchObject({ confirmed: false, personaIds: ["p1"] });
+});

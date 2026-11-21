@@ -15,7 +15,7 @@ export function ideaChatEntity(draft: AidtUiStageDraft | undefined, id: string) 
 }
 
 function confirmationContents(draft: AidtUiStageDraft, idea: AidtIdeaDraft) {
-  const hmw = readAidtIdeaHmwSource(draft);
+  const hmw = readAidtIdeaHmwSource(draft, idea.id);
   return [idea.title, idea.description, idea.imageAttachment?.attachmentId, idea.imageAttachment?.threadId,
     draft.fields[researchMaterialKey("idea", idea.id)] ?? "", hmw?.id, hmw?.revision];
 }

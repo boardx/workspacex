@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
-import { sendViaWorkbench } from "./chat-v2-send";
+import { bearerOf, sendViaWorkbench } from "./chat-v2-send";
 
 function routeId(page: Page, key: string) {
   return new URL(page.url()).searchParams.get(key);
@@ -20,6 +20,15 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   await page.getByTestId("project-new-create").click();
   await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
   const projectUrl = page.url();
+  const projectId = new URL(projectUrl).pathname.split("/").at(-1)!;
+  const evidenceId = randomUUID();
+  const seeded = await page.request.put("/__fullstack_api/projects/" + projectId + "/aidt/stages/2", {
+    headers: { Authorization: "Bearer " + await bearerOf(page) },
+    data: { operationId: randomUUID(), expectedRevision: 0, sourceStageRevisions: [], content: { schemaVersion: 1, draft: {
+      fields: { ["interviewConfirmed:" + evidenceId]: "true" }, ideas: [], selectedIdeaId: "", discoveryCards: [{ id: evidenceId, participantCode: "U01", headlineKind: "student-summary", headline: "难以比较口味", context: "午间点单", quote: "不清楚差别", sourceRef: "QA 转写 00:12", photoRef: "" }],
+    } } },
+  });
+  expect(seeded.ok()).toBe(true);
   await page.getByTestId("aidt-step-3").click();
   const directory = page.getByTestId("aidt-definition-directory");
   await expect(directory).toBeVisible();
@@ -27,23 +36,32 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   await expect(composer).toHaveCount(0);
   const newCard = directory.getByTestId("aidt-new-entity-card");
   await newCard.click();
-  await expect(directory.getByRole("button", { name: "新建画像" })).toBeDisabled();
-  await directory.getByRole("button", { name: "新建意外发现" }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "新建画像" })).toBeDisabled();
+  await page.getByRole("dialog").getByRole("button", { name: "新建意外发现" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox", { name: "卡片名称" }).fill("午休发现");
+  await dialog.getByRole("button", { name: "创建意外发现" }).click();
   await expect(composer).toBeVisible();
   await sendViaWorkbench(page, "暂无意外发现");
   const artifact = page.getByRole("region", { name: "对话产物确认" });
   await artifact.getByRole("button", { name: "确认当前产物" }).click();
   await expect(artifact).toContainText("已确认");
   await page.getByRole("link", { name: "返回产物列表" }).click();
-  const newPersona = directory.getByRole("button", { name: "新建画像" });
+  const newPersona = page.getByRole("dialog").getByRole("button", { name: "新建画像" });
   const personas = directory.getByRole("link", { name: "打开用户画像对话" });
   await newCard.click();
   await newPersona.click();
+  await dialog.getByLabel("卡片名称").fill("访谈画像 " + randomUUID().slice(0, 5));
+  await dialog.getByRole("checkbox", { name: /U01/ }).check();
+  await dialog.getByRole("button", { name: "创建画像" }).click();
   await expect.poll(() => routeId(page, "thread")).toMatch(/^thr_aidt_/);
   await page.getByRole("link", { name: "返回产物列表" }).click();
   await expect(personas).toHaveCount(1);
   await newCard.click();
   await newPersona.click();
+  await dialog.getByLabel("卡片名称").fill("访谈画像 " + randomUUID().slice(0, 5));
+  await dialog.getByRole("checkbox", { name: /U01/ }).check();
+  await dialog.getByRole("button", { name: "创建画像" }).click();
   await expect.poll(() => routeId(page, "thread")).toMatch(/^thr_aidt_/);
   await page.getByRole("link", { name: "返回产物列表" }).click();
   await expect(personas).toHaveCount(2);

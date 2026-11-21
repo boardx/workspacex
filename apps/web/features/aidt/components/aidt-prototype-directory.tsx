@@ -1,5 +1,8 @@
 "use client";
 
+import { useAidtPrototypeIdeas } from "./aidt-prototype-handoff";
+import { AidtCardSources, useAidtCreateTags } from "./aidt-card-create-fields";
+import type { AidtSharedStage } from "../lib/live-aidt-stages";
 import * as React from "react";
 import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
@@ -11,7 +14,7 @@ import { useOptionalSession } from "@/components/session/session-provider";
 import { createProject as createDesign } from "@/lib/live-design-workbench";
 import { linkProjectResource, listProjectResources, type ProjectResourceItem } from "@/lib/live-project-resources";
 import { aidtHref } from "../lib/project-aidt";
-import { archiveAidtPrototypeCard, isAidtPrototypeHandoffConfirmed, readAidtPrototypeEntityDraft, updateAidtPrototypeCard } from "../lib/aidt-prototype-handoff";
+import { pinAidtPrototypeInputs, updateAidtPrototypeEntityDraft, archiveAidtPrototypeCard, isAidtPrototypeHandoffConfirmed, readAidtPrototypeEntityDraft, updateAidtPrototypeCard } from "../lib/aidt-prototype-handoff";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 
 const emptyDraft: AidtUiStageDraft = { fields: {}, ideas: [], selectedIdeaId: "" };
@@ -32,6 +35,7 @@ type Props = {
   ideaRevision?: string | null;
   draft?: AidtUiStageDraft;
   saveDraft?: SaveDraft;
+  sourceIdeas?: AidtSharedStage;
   onCreated?: (id: string) => void;
   mutationBusy?: boolean;
 };
@@ -42,7 +46,10 @@ export function AidtPrototypeDirectory(props: Props) {
   return <PrototypeCards key={scope} {...props} />;
 }
 
-function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft, saveDraft, mutationBusy, onCreated }: Props) {
+function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft, saveDraft, mutationBusy, onCreated, sourceIdeas }: Props) {
+  const tags = useAidtCreateTags(draft);
+  const { adoptionSource: source, adoptionIdeas: choices } = useAidtPrototypeIdeas({ projectId, ideaRevision, draft: emptyDraft, workflow: { ideas: sourceIdeas, matchesServer: true } });
+  const [selectedIdeas, selectIdeas] = React.useState<string[]>([]);
   const [resources, setResources] = React.useState<ProjectResourceItem[] | null>(null);
   const [listError, setListError] = React.useState(false);
   const [refresh, reload] = React.useReducer((count: number) => count + 1, 0);
@@ -71,6 +78,8 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
   const target = action && action.kind !== "create" ? cards.find(card => card.id === action.id) : null;
   const allowed = canWrite && Boolean(saveDraft) && !mutationBusy;
   function open(next: Action, title = "") {
+    tags.reset();
+    selectIdeas(choices.map(idea => idea.id));
     setAction(next);
     setName(title);
     setSaveError(false);
@@ -79,6 +88,7 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!action || !allowed || busy || !saveDraft || (action.kind !== "delete" && !name.trim())) return;
+    if (action.kind === "create" && onCreated && (!source || !selectedIdeas.length)) return;
     setBusy(true);
     setSaveError(false);
     try {
@@ -100,7 +110,12 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
           if (!mounted.current) return;
           resource.linked = true;
         }
-        if (!await saveDraft(old => updateAidtPrototypeCard(old, resource.id, name))) throw new Error("prototype card not saved");
+        if (!await saveDraft(old => {
+          const named = updateAidtPrototypeCard(old, resource.id, name);
+          if (named === old || (onCreated && (!source || !selectedIdeas.length))) return old;
+          const linked = source ? updateAidtPrototypeEntityDraft(named, resource.id, entity => pinAidtPrototypeInputs(entity, source, selectedIdeas)) : named;
+          return tags.apply(linked, resource.id);
+        })) throw new Error("prototype card not saved");
         pending.current = null;
         onCreated?.(resource.id);
       } else {
@@ -138,10 +153,11 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
           <DialogDescription>{action.kind === "delete" ? `删除「${target?.name ?? "原型"}」卡片，已保存的 Design 版本与引用会保留。` : "在卡片中打开原生对话和 Design。"}</DialogDescription></DialogHeader>
         <form className="space-y-4" onSubmit={event => void submit(event)}>
           {action.kind !== "delete" && <div className="space-y-2"><label htmlFor={nameId}>原型名称</label><Input id={nameId} value={name} maxLength={80} disabled={busy} onChange={event => setName(event.target.value)} /></div>}
+          {action.kind === "create" && <>{tags.field}<AidtCardSources label="来源点子" options={choices} selected={selectedIdeas} select={selectIdeas} /></>}
           {saveError && <p role="alert" className="text-13 text-destructive">原型卡片尚未保存，请重试。</p>}
           <DialogFooter>
             <Button type="button" variant="outline" disabled={busy} onClick={() => setAction(null)}>取消</Button>
-            <Button type="submit" variant={action.kind === "delete" ? "destructive" : "primary"} disabled={!allowed || busy || (action.kind !== "delete" && !name.trim())}>{busy ? "正在保存…" : action.kind === "create" ? "创建原型" : action.kind === "delete" ? "确认删除" : "保存修改"}</Button>
+            <Button type="submit" variant={action.kind === "delete" ? "destructive" : "primary"} disabled={!allowed || busy || (action.kind === "create" && Boolean(onCreated) && !selectedIdeas.length) || (action.kind !== "delete" && !name.trim())}>{busy ? "正在保存…" : action.kind === "create" ? "创建原型" : action.kind === "delete" ? "确认删除" : "保存修改"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

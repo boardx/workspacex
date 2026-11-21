@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { operations, SaveInput, isStageRequestTooLarge, readIdeaHmwSource, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { operations, SaveInput, isStageRequestTooLarge, isAidtConfirmedHmwSource, readIdeaHmwSource, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { authorize } from "../identity/authorize";
 import { discloseDecided, isDisclosed, type Guarded } from "../security/permission-filter";
 import { AidtStageError } from "../../domain/aidt-stages/errors";
@@ -76,15 +76,32 @@ export class AidtStagesService {
       const current=unwrap(await tx.current(input.stageId),d);
       if((current?.revision??0)!==input.expectedRevision) throw new AidtStageError("AIDT_STAGE_REVISION_CONFLICT",current);
       for(const source of input.sourceStageRevisions) if(!await tx.hasRevision(source.stageId,source.revision)) throw new AidtStageError("AIDT_STAGE_INVALID");
-      const rawHmw = input.stageId === 4 ? input.content.draft.fields.ideaHmwSource : undefined;
-      if (rawHmw) {
-        const hmw = readIdeaHmwSource(rawHmw);
-        if (!hmw || !input.sourceStageRevisions.some(source => source.stageId === 3 && source.revision === hmw.revision)) throw new AidtStageError("AIDT_STAGE_INVALID");
-        if (!tx.revision) throw new AidtStageError("AIDT_STAGE_UNAVAILABLE");
-        const source = unwrap(await tx.revision(3, hmw.revision), d);
-        if (!source || source.projectId !== actor.projectId || source.stageId !== 3 || source.revision !== hmw.revision ||
-          source.content.draft.fields.definitionHmwId !== hmw.id || source.content.draft.fields.hmw?.trim() !== hmw.text) {
-          throw new AidtStageError("AIDT_STAGE_INVALID");
+      if (input.stageId === 4) {
+        const { fields, ideas } = input.content.draft;
+        const definitions = new Map<number, SharedStageValue>();
+        const getDefinition = async (revision: number) => {
+          const cached = definitions.get(revision);
+          if (cached) return cached;
+          if (!tx.revision) throw new AidtStageError("AIDT_STAGE_UNAVAILABLE");
+          const source = unwrap(await tx.revision(3, revision), d);
+          if (!source || source.projectId !== actor.projectId || source.stageId !== 3 || source.revision !== revision) throw new AidtStageError("AIDT_STAGE_INVALID");
+          definitions.set(revision, source);
+          return source;
+        };
+        const ideaIds = new Set(ideas.map(idea => idea.id));
+        for (const [key, value] of Object.entries(fields)) {
+          if (!key.startsWith("ideaHmwSource:")) continue;
+          const source = readIdeaHmwSource(value);
+          if (!source || !ideaIds.has(key.slice("ideaHmwSource:".length))) throw new AidtStageError("AIDT_STAGE_INVALID");
+          const definition = await getDefinition(source.revision);
+          if (!isAidtConfirmedHmwSource(definition, source)) throw new AidtStageError("AIDT_STAGE_INVALID");
+        }
+        if (fields.ideaHmwSource) {
+          const hmw = readIdeaHmwSource(fields.ideaHmwSource);
+          if (!hmw || !input.sourceStageRevisions.some(source => source.stageId === 3 && source.revision === hmw.revision)) throw new AidtStageError("AIDT_STAGE_INVALID");
+          const definition = await getDefinition(hmw.revision);
+          const historical = definition.content.draft.fields;
+          if (!isAidtConfirmedHmwSource(definition, hmw) && (historical.definitionHmwId !== hmw.id || historical.hmw?.trim() !== hmw.text)) throw new AidtStageError("AIDT_STAGE_INVALID");
         }
       }
 
