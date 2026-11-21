@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, chmodSync, realpathSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
-import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
+import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
@@ -246,4 +249,50 @@ test('diagnostic or full pass is revoked if a concurrent request tripped the saf
     assert.equal(report.failure, 'ENTRY_DIAGNOSTIC_READONLY');
   }
   const ok = { passed: true }; finalizeGuardVerdict(ok, { fatal: () => null }); assert.equal(ok.passed, true);
+});
+
+
+test('private output rejects the legacy collector dot-segment path before creating output, accepts the canonical owned directory', () => {
+  const base = mkdtempSync(join(tmpdir(), 'aidt-private-path-'));
+  try {
+    const runnerTemp = join(base, 'runner-temp'); mkdirSync(runnerTemp, { mode: 0o700 });
+    const root = resolve(realpathSync(resolve(runnerTemp, '..')), 'wsx-aidt-acceptance-456-1'); mkdirSync(root, { mode: 0o700 }); chmodSync(root, 0o700);
+    writeFileSync(join(root, '.owner'), `456:1:${source}`, { mode: 0o600 });
+    const env = { RUNNER_TEMP: runnerTemp, GITHUB_SHA: source, AIDT_ACCEPTANCE_ROOT: `${runnerTemp}/../wsx-aidt-acceptance-456-1` };
+    assert.throws(() => privateOutput(env, identity()), /PRIVATE_ROOT_COLLECTOR_MISMATCH/);
+    assert.equal(existsSync(join(root, 'output')), false);
+    assert.throws(() => privateOutput({ ...env, AIDT_ACCEPTANCE_ROOT: undefined }, identity()), /PRIVATE_ROOT_COLLECTOR_MISMATCH/);
+    assert.deepEqual(privateOutput({ ...env, AIDT_ACCEPTANCE_ROOT: root }, identity()), { root, out: join(root, 'output') });
+    assert.equal(existsSync(join(root, 'output')), true);
+  } finally { rmSync(base, { recursive: true, force: true }); }
+});
+
+test('stdout entry evidence retains only observed closed role and booleans, never raw actor or diagnostic fields', () => {
+  const privateReport = { actor: { orgRole: 'consultant', orgId: 'private-org', email: 'private-account' }, entryDiagnostic: { completed: true, creationEntryVisible: false, secret: syntheticLoginValue } };
+  assert.deepEqual(publicEntryDiagnostic(privateReport), { orgRole: 'consultant', ordinaryQaSuitable: true, creationEntryVisible: false });
+  for (const role of ['lead', 'admin', 'compliance']) assert.deepEqual(publicEntryDiagnostic({ actor: { orgRole: role } }), { orgRole: role, ordinaryQaSuitable: false });
+  assert.deepEqual(publicEntryDiagnostic({ actor: { orgRole: 'raw-arbitrary-string' }, entryDiagnostic: { completed: true, creationEntryVisible: 'true' } }), {});
+  assert.deepEqual(publicEntryDiagnostic({}), {});
+});
+
+
+test('collector uses the physical parent while preserving direct root symlink rejection', () => {
+  const base = mkdtempSync(join(tmpdir(), 'aidt-physical-parent-'));
+  try {
+    const physicalParent = join(realpathSync(base), 'physical'); mkdirSync(physicalParent, { mode: 0o700 });
+    mkdirSync(join(physicalParent, 'runner-temp'), { mode: 0o700 });
+    const aliasParent = join(base, 'alias'); symlinkSync(physicalParent, aliasParent, 'dir');
+    const runnerTemp = join(aliasParent, 'runner-temp');
+    const root = join(physicalParent, 'wsx-aidt-acceptance-456-1'); mkdirSync(root, { mode: 0o700 }); chmodSync(root, 0o700);
+    writeFileSync(join(root, '.owner'), `456:1:${source}`, { mode: 0o600 });
+    const env = { RUNNER_TEMP: runnerTemp, GITHUB_SHA: source };
+    for (const unphysical of [join(aliasParent, 'wsx-aidt-acceptance-456-1'), `${runnerTemp}/../wsx-aidt-acceptance-456-1`]) assert.throws(() => privateOutput({ ...env, AIDT_ACCEPTANCE_ROOT: unphysical }, identity()), /PRIVATE_ROOT_COLLECTOR_MISMATCH/);
+    assert.equal(existsSync(join(root, 'output')), false);
+    assert.deepEqual(privateOutput({ ...env, AIDT_ACCEPTANCE_ROOT: root }, identity()), { root, out: join(root, 'output') });
+    rmSync(root, { recursive: true, force: true });
+    const target = join(physicalParent, 'other-root'); mkdirSync(target, { mode: 0o700 });
+    symlinkSync(target, root, 'dir');
+    assert.throws(() => privateOutput({ ...env, AIDT_ACCEPTANCE_ROOT: root }, identity()), /PRIVATE_ROOT_INVALID/);
+    assert.equal(existsSync(join(target, 'output')), false);
+  } finally { rmSync(base, { recursive: true, force: true }); }
 });
