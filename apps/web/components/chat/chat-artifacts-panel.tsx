@@ -34,7 +34,7 @@ import type { ListThreadArtifactsOut } from "@/lib/live-chat";
  * 组件本身。
  */
 export function ChatArtifactsPanel({
-  hasSelection, artifacts, loading, error, onRetry, onOpen, versions, versionsCount, onRefresh,
+  hasSelection, artifacts, loading, error, onRetry, onOpen, versions, versionsCount, onRefresh, hostArtifact,
 }: {
   hasSelection: boolean;
   artifacts: ListThreadArtifactsOut | null;
@@ -53,14 +53,16 @@ export function ChatArtifactsPanel({
   /** `versions` 里的条目数；`null` = 还在读，此时不下"没有产物"的结论。 */
   versionsCount?: number | null;
   onRefresh?: () => void;
+  hostArtifact?: { title: string; onOpen: () => void };
 }) {
   const { t } = useI18n();
   const unified = versions !== undefined;
   const listCount = artifacts?.items.length ?? null;
-  const total = unified
+  const nativeCount = unified
     ? (listCount === null || versionsCount == null ? null : listCount + versionsCount)
     : listCount;
-  const showEmpty = artifacts !== null && artifacts.items.length === 0 && (!unified || versionsCount === 0);
+  const total = nativeCount === null ? null : nativeCount + (hostArtifact ? 1 : 0);
+  const showEmpty = !hostArtifact && artifacts !== null && artifacts.items.length === 0 && (!unified || versionsCount === 0);
   return (
     <div className="flex flex-col" data-testid="chat-artifacts-panel">
       <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
@@ -74,6 +76,11 @@ export function ChatArtifactsPanel({
           </Button>
         ) : null}
       </div>
+      {hostArtifact && <div className="px-3 pt-3">
+        <button type="button" onClick={hostArtifact.onOpen}
+          className="w-full rounded-md border border-border-subtle p-2 text-left text-12 font-medium transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          data-testid="chat-host-artifact">{hostArtifact.title}</button>
+      </div>}
       {unified ? <div className="p-3 empty:hidden">{versions}</div> : null}
       {/* 未选线程与加载中是互斥状态，同一时刻只显一态（UI 评分 b10-entry 截图：两态并存）。
           文案不带「真实」——那是区别于 mock 的开发者词汇，不该出现在用户可见文案里。 */}

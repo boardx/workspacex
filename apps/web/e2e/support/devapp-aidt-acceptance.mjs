@@ -340,7 +340,7 @@ export async function main() {
     let pendingReviewCapture = null;
     const capture = async (name, expectedStage, region = 'workspace', pendingReceipt) => {
       if (!/^[a-z0-9][a-z0-9-]{0,85}$/.test(name)) throw new ProbeFailure('SCREENSHOT_NAME_INVALID');
-      if (region === 'workspace' || region === 'owned-tool-review') assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
+      if (region === 'workspace' || region === 'owned-tool-review' || region === 'card-dialog') assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
       else { const url = new URL(page.url()); if (url.origin !== ORIGIN || url.pathname !== '/aidt' || !['home-create-actions', 'create-dialog'].includes(region)) throw new ProbeFailure('SCREENSHOT_SCOPE_REJECTED'); }
       if (region === 'owned-tool-review') {
         if (!pendingReviewCapture || pendingReviewCapture.receipt !== pendingReceipt || pendingReceipt.stageId !== expectedStage) throw new ProbeFailure('TOOL_REVIEW_SCOPE_UNVERIFIED');
@@ -348,8 +348,12 @@ export async function main() {
         pendingTeachingReviewReceipt(pendingReceipt, scope, page.url(), guard.teachingPin(scope.stageId, scope.threadId, scope.selector.entityId));
         if (await page.getByTestId('aidt-project-workspace').getByTestId('restored-run-approval').count() !== 1 || await page.getByTestId('chat-tool-permission-dialog').count() !== 1) throw new ProbeFailure('TOOL_REVIEW_DIALOG_NOT_UNIQUE');
       }
+      if (region === 'card-dialog') {
+        const url = new URL(page.url());
+        if (url.searchParams.has('entity') || await page.getByRole('dialog').count() !== 1 || !await page.getByRole('dialog').getByRole('textbox', { name: '添加标签', exact: true }).isVisible()) throw new ProbeFailure('CARD_DIALOG_SCOPE_UNVERIFIED');
+      }
       recheckRuntime();
-      const workspace = region === 'owned-tool-review' ? page.getByTestId('chat-tool-permission-dialog') : region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') });
+      const workspace = region === 'card-dialog' ? page.getByRole('dialog') : region === 'owned-tool-review' ? page.getByTestId('chat-tool-permission-dialog') : region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') });
       await workspace.waitFor({ state: 'visible' });
       // Workspace captures dismiss unrelated overlays; owned review evidence must keep its modal open.
       if (region === 'workspace') await page.keyboard.press('Escape');
@@ -489,8 +493,9 @@ export async function main() {
       const suffix = syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : codeSuffix + (interviewFinding ? '-finding' : interviewGuideRevision ? '-revision' : '');
       const definitionTurn = stageId === 3 ? report.teachingEvidence.filter(item => item.stageId === 3 && item.status === 'passed').length : 0;
       const summary = stageId === 6 && new URL(page.url()).searchParams.get('summary') === '1';
+      const testTurn = !summary && stageId === 6 && report.teachingEvidence.some(item => item.stageId === 6 && item.status === 'passed') ? '-survey' : '';
       const threadParam = summary ? 'summaryThread' : 'thread';
-      const name = summary ? 'teaching-chat-final-report' : `teaching-chat-stage-${stageId}${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}`;
+      const name = summary ? 'teaching-chat-final-report' : `teaching-chat-stage-${stageId}${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}`;
       let isolatedKnownS1Review = false;
       const accepted = await checkpoint(name, async () => {
         if (guard.teachingStopped()) throw new ProbeFailure('TEACHING_PREVIOUS_OUTCOME_UNRESOLVED');
@@ -549,7 +554,7 @@ export async function main() {
         sensitiveEvidence.assertSafe(proof.assistantText);
         guard.completeTeaching(proof);
         report.teachingEvidence.push({ ...proof, projectId, entityId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
-        await capture(summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}`, stageId);
+        await capture(summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}`, stageId);
       });
       if (!accepted) {
         if (!isolatedKnownS1Review) guard.stopTeaching();

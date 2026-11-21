@@ -72,7 +72,7 @@ function checkReferences(value, projectId, threads, resources, depth = 0) {
 
 // Three bounded S1 turns, thirty S2 turns, four S3 turns, S4–6 and the report.
 const MAX_DEFINITION_HMW_TURNS = 2;
-export const TEACHING_TURN_LIMIT = 3 + 30 + 1 + 1 + MAX_DEFINITION_HMW_TURNS + 3 + 1;
+export const TEACHING_TURN_LIMIT = 3 + 30 + 1 + 1 + MAX_DEFINITION_HMW_TURNS + 4 + 1;
 
 function definitionTeachingSlot(fields, id) {
   if (!fields || typeof id !== 'string' || !id) return null;
@@ -339,7 +339,14 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       if (guideRevision && (scope.stageId !== 2 || finding || !teachingLedger.get(guideKey)?.completed
         || teachingLedger.get(guideKey).scope.threadId !== scope.threadId || teachingLedger.get(guideKey).scope.prompt === scope.prompt)) throw new ProbeFailure('TEACHING_GUIDE_REVISION_NOT_VERIFIED');
       const summary = scope.selector.purpose === 'summary';
-      const key = summary ? 'group-report' : synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? `finding:${scope.selector.entityId}` : guideRevision ? revisionKey : scope.stageId === 2 ? guideKey : scope.stageId;
+      let testMethod;
+      if (scope.stageId === 6 && !summary && scope.selector.entityId) {
+        let group;
+        try { group = JSON.parse(stageStates.get(6)?.content?.draft?.fields['testGroup:' + scope.selector.entityId]); } catch { /* Not a saved test group. */ }
+        if (group?.id !== scope.selector.entityId || group.archived || !['interview', 'survey'].includes(group.method)) throw new ProbeFailure('TEACHING_TEST_ENTITY_UNVERIFIED');
+        testMethod = group.method;
+      }
+      const key = summary ? 'group-report' : testMethod ? 'test:' + testMethod : synthetic ? 'synthetic-problem' : revising ? 'problem-revision' : finding ? `finding:${scope.selector.entityId}` : guideRevision ? revisionKey : scope.stageId === 2 ? guideKey : scope.stageId;
       const interviews = [...teachingLedger.keys()].filter(id => typeof id === 'string' && id.startsWith('interview:'));
       if (scope.stageId === 2 && (!scope.selector.entityId || (!finding && !guideRevision && interviews.length >= 10))) throw new ProbeFailure('TEACHING_SCOPE_NOT_VERIFIED');
       if (finding) {
