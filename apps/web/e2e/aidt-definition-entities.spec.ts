@@ -36,8 +36,8 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   await expect(composer).toHaveCount(0);
   const newCard = directory.getByTestId("aidt-new-entity-card");
   await newCard.click();
-  await expect(directory.getByRole("button", { name: "新建画像" })).toBeDisabled();
-  await directory.getByRole("button", { name: "新建意外发现" }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "新建画像" })).toBeDisabled();
+  await page.getByRole("dialog").getByRole("button", { name: "新建意外发现" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("textbox", { name: "卡片名称" }).fill("午休发现");
   await dialog.getByRole("button", { name: "创建意外发现" }).click();
@@ -47,7 +47,7 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   await artifact.getByRole("button", { name: "确认当前产物" }).click();
   await expect(artifact).toContainText("已确认");
   await page.getByRole("link", { name: "返回产物列表" }).click();
-  const newPersona = directory.getByRole("button", { name: "新建画像" });
+  const newPersona = page.getByRole("dialog").getByRole("button", { name: "新建画像" });
   const personas = directory.getByRole("link", { name: "打开用户画像对话" });
   await newCard.click();
   await newPersona.click();

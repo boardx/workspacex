@@ -42,6 +42,7 @@ export function AidtTestGroupDirectory(props: Props) {
 }
 
 function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, automaticSave, update, onCreate, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
+  const tags = useAidtCreateTags(draft);
   const [name, setName] = React.useState("");
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<{ id: string; name: string }>();

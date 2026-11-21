@@ -220,7 +220,10 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
       {!readOnly && <AidtNewEntityCardButton disabled={!canEdit} aria-expanded={choosingKind} aria-controls={kindOptionsId} onClick={() => setChoosingKind(value => !value)} />}
       {active.some(item => item.archived) && <Button type="button" variant="ghost" onClick={() => setShowArchived(value => !value)}>{showArchived ? "返回产物" : "查看已移除"}</Button>}
     </div>
-    <div id={kindOptionsId} role="group" aria-label="选择卡片类型" hidden={!choosingKind}>
+    {(choosingKind || kindToCreate) && <Dialog open onOpenChange={open => { if (!open && !creating) { setChoosingKind(false); setKind(null); } }}><DialogContent>
+      <DialogTitle>{kindToCreate ? "新建" + labels[kindToCreate] : "新建卡片"}</DialogTitle>
+      <DialogDescription>{kindToCreate ? "保存后将打开这张卡的对话。" : "选择要创建的卡片类型。"}</DialogDescription>
+    <div id={kindOptionsId} role="group" aria-label="选择卡片类型" hidden={Boolean(kindToCreate)}>
       <div className="flex flex-wrap gap-2">
         {!hasAidtPrimarySurpriseEntity(draft) && <Button type="button" disabled={!canEdit} onClick={() => { setChoosingKind(false); start("primary"); }}>{draft.fields.surpriseConfirmed === "true" ? "开启意外发现对话" : "新建意外发现"}</Button>}
         {draft.fields.surpriseStatus === "found" && <Button type="button" variant="outline" disabled={!canAdd || surprises.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("surprise"); }}>新建补充发现</Button>}
@@ -228,9 +231,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
         <Button type="button" variant="outline" disabled={!canAdd || !personas.some(item => item.confirmed && !item.archived) || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => { setChoosingKind(false); start("hmw"); }}>新建 HMW</Button>
       </div>
     </div>
-    {kindToCreate && <Dialog open onOpenChange={open => { if (!open && !creating) setKind(null); }}><DialogContent>
-      <DialogTitle>新建{labels[kindToCreate]}</DialogTitle><DialogDescription>保存后将打开这张卡的对话。</DialogDescription>
-      <form className="space-y-4" onSubmit={event => { event.preventDefault(); void add(kindToCreate); }}>
+      {kindToCreate && <form className="space-y-4" onSubmit={event => { event.preventDefault(); void add(kindToCreate); }}>
         <label className="block text-13">卡片名称<Input value={newName} maxLength={80} required onChange={event => setNewName(event.target.value)} /></label>
         {tags.field}
         <AidtCardSources label={kindToCreate === "hmw" ? "来源画像" : "来源访谈"} options={kindToCreate === "hmw" ? personaOptions : evidenceOptions} selected={selected}
@@ -238,7 +239,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
         {createFailed && <p role="alert">创建未完成。请重试创建此卡。</p>}
         <div className="flex justify-end gap-2"><Button type="button" variant="ghost" disabled={creating} onClick={() => setKind(null)}>取消</Button>
           <Button type="submit" disabled={creating || !newName.trim() || (kindToCreate !== "primary" && !selected.length)}>创建{labels[kindToCreate]}</Button></div>
-      </form></DialogContent></Dialog>}
+      </form>}</DialogContent></Dialog>}
     {!evidence.ready && !evidence.unavailable && <p className="text-13 text-muted-foreground">先在意外发现的 Chat 中记录并确认发现或「暂无」。</p>}
     {invalid && <p role="alert" className="text-13">部分产物读取失败。</p>}
     {evidence.stale && <div role="status" className="flex flex-wrap items-center gap-2 text-13">
