@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
+import { chat } from "@repo/contracts";
 import { AidtContextReceipt, AidtContextSelector } from "@repo/contracts/aidt-run-context";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
-import { bearerOf, listPersistedMessages, sendViaWorkbench } from "./chat-v2-send";
+import { bearerOf, sendViaWorkbench } from "./chat-v2-send";
 
 const composer = (page: Page) => page.getByTestId("copilotkit-v2-input");
 
@@ -70,15 +71,16 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await expect(page.getByText(message, { exact: true }).first()).toBeVisible();
 
   const bearer = await bearerOf(page);
+  const headers = { Authorization: "Bearer " + bearer };
   let runId: string | null | undefined;
   await expect.poll(async () => {
-    const messages = await listPersistedMessages(page, first, bearer);
+    const response = await page.request.get("/__fullstack_api/chat/threads/" + encodeURIComponent(first) + "/messages?limit=100", { headers });
+    expect(response.ok()).toBe(true);
+    const { messages } = chat.operations.listMessages.out.parse(await response.json());
     runId = messages.find(row => row.authorKind === "human" && row.text === message)?.agentRunId;
     return runId;
   }).toBeTruthy();
-  const receipt = await page.request.get("/agent-runs/" + encodeURIComponent(runId!) + "/aidt-context", {
-    headers: { Authorization: "Bearer " + bearer },
-  });
+  const receipt = await page.request.get("/__fullstack_api/agent-runs/" + encodeURIComponent(runId!) + "/aidt-context", { headers });
   expect(receipt.ok()).toBe(true);
   expect(AidtContextReceipt.parse(await receipt.json()).stageRevisions).toEqual([{ stageId: 2, revision: 1 }]);
 
