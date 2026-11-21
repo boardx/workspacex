@@ -2,138 +2,52 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  aidtInterviewFindingReady,
-  confirmAidtInterviewFinding,
-  getAidtInterviewFinding,
-  isAidtInterviewConfirmed,
-  readAidtInterviews,
-  readAidtInterviewTranscript,
-  writeAidtInterviewFinding,
-  type AidtInterview,
-} from "../lib/aidt-interviews";
+import { isAidtInterviewArchived, readAidtInterviews, writeAidtInterview, type AidtInterview } from "../lib/aidt-interviews";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
-import { AidtInterviewFieldwork } from "./aidt-interview-workspace";
+import { AidtInterviewWorkspace } from "./aidt-interview-workspace";
 
-type Turn = { id: string; role: string; content?: unknown };
-type UpdateDraft = (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
+type InterviewChatTurn = { id: string; role: string; content?: unknown };
+type Update = (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 
-/** Prefer explicitly framed guides. A conversational follow-up alone is never a guide. */
-export function readAidtInterviewGuideDraft(message: string) {
-  const block = /(?:^|\n)```aidt-interview-guide[ \t]*\n([\s\S]*?)\n```(?=\n|$)/u.exec(message);
-  const lines = block?.[1]?.split("\n") ?? message.split("\n").filter(line => /^\s*\d+[.、)）]\s*.+[?？]\s*$/u.test(line));
-  const questions = lines.map(line => line.trim()).filter(Boolean);
-  const guide = questions.join("\n");
-  return questions.length >= (block ? 1 : 2) && guide.length <= 1000 ? guide : "";
+function GuideDecision({ interview, update }: { interview: AidtInterview; update: Update }) {
+  const [items, setItems] = React.useState(() => interview.adopted.split(/\n+/).filter(Boolean).map(text => ({ text, selected: true })));
+  const [editing, setEditing] = React.useState<number | null>(null);
+  if (!items.length) return null;
+  const chosen = items.filter(item => item.selected).map(item => item.text.trim()).filter(Boolean).join("\n");
+  return <section aria-label="核对访谈问题" className="space-y-2 text-13"><h4 className="font-semibold">访谈问题清单</h4>
+    {items.map((item, i) => <div key={i} data-testid="aidt-interview-chat-question" className="flex flex-wrap items-start gap-2">
+      <label className="flex min-w-0 flex-1 items-start gap-2"><input type="checkbox" className="mt-1" checked={item.selected} onChange={event => {
+        const selected = event.currentTarget.checked; setItems(items => items.map((value, index) => index === i ? { ...value, selected } : value));
+      }} /><span>{item.text}</span></label>
+      <Button size="xs" variant="ghost" onClick={() => setEditing(editing === i ? null : i)}>编辑这道问题</Button>
+      {editing === i && <label className="w-full">修改问题<textarea className="mt-1 w-full rounded-control border border-border bg-background p-2" maxLength={1000} value={item.text} onChange={event => {
+        const text = event.currentTarget.value; setItems(items => items.map((value, index) => index === i ? { ...value, text } : value));
+      }} /></label>}
+    </div>)}
+    {chosen.length > 1000 && <p role="status">请将清单整理到 1000 字以内。</p>}
+    <Button size="sm" disabled={!chosen || chosen.length > 1000 || (interview.guideConfirmed && chosen === interview.adopted)} onClick={() => update(draft => {
+      const current = readAidtInterviews(draft.fields).find(item => item.id === interview.id);
+      return current && current.adopted === interview.adopted && !isAidtInterviewArchived(draft.fields, current.id) ? writeAidtInterview(draft, { ...current, adopted: chosen, guideConfirmed: true }) : draft;
+    })}>{interview.guideConfirmed && chosen === interview.adopted ? "已确认问题清单" : "确认这份问题清单"}</Button>
+    {interview.guideConfirmed && <Button type="button" size="sm" variant="ghost" onClick={() => update(draft => {
+      const current = readAidtInterviews(draft.fields).find(item => item.id === interview.id);
+      return current && current.guideConfirmed && !isAidtInterviewArchived(draft.fields, current.id) ? writeAidtInterview(draft, { ...current, guideConfirmed: false }) : draft;
+    })}>继续迭代问题</Button>}
+  </section>;
 }
 
-export function AidtInterviewConversation({ interview, messages, loading, running, onApply, draft, savedDraft, projectId, readOnly = false, requestSave, update }: {
-  interview: AidtInterview; messages: readonly Turn[]; loading: boolean; running: boolean;
-  onApply: (patch: Partial<AidtInterview>) => void;
-  draft?: AidtUiStageDraft; savedDraft?: AidtUiStageDraft; projectId?: string; readOnly?: boolean;
-  requestSave?: () => void; update?: UpdateDraft;
+export function AidtInterviewConversation({ projectId, interview, draft, messages, loading, running, update, onSettled }: {
+  projectId: string; interview: AidtInterview; draft: AidtUiStageDraft; messages: readonly InterviewChatTurn[]; loading: boolean; running: boolean;
+  update: Update; onSettled: (messageId: string) => void;
 }) {
-  const turns = React.useMemo(() => messages.filter((turn): turn is Turn & { content: string } =>
-    (turn.role === "assistant" || turn.role === "user") && typeof turn.content === "string" && !!turn.content.trim()), [messages]);
-  const studentDrafts = turns.filter(turn => turn.role === "user");
-  const initial = studentDrafts.find(turn => turn.content.trim().length <= 1000)?.content.trim() ?? "";
-  const oversized = !initial && studentDrafts.length > 0;
-  const last = turns.at(-1);
-  const [selected, setSelected] = React.useState("");
-  const [edited, setEdited] = React.useState<string | null>(null);
-  const [findingMessage, setFindingMessage] = React.useState("");
-  const recorded = Boolean(interview.original.trim());
-  const guideBoundary = turns.findIndex(turn => turn.id === interview.guideConfirmedAfterMessageId);
-
   React.useEffect(() => {
-    if (readOnly || loading || running || interview.guideConfirmed) return;
-    const original = !recorded && initial ? initial : undefined;
-    const mayRefresh = edited === null && (!interview.adopted || Boolean(interview.guideProposalMessageId));
-    const proposal = mayRefresh && last?.role === "assistant" && last.id !== interview.guideProposalMessageId
-      ? readAidtInterviewGuideDraft(last.content) : "";
-    if (original || proposal) onApply({
-      ...(original ? { original } : {}),
-      ...(proposal && last ? { adopted: proposal, guideProposalMessageId: last.id } : {}),
-    });
-  }, [initial, loading, running, recorded, readOnly, edited, interview.adopted, interview.guideConfirmed, interview.guideProposalMessageId, last, onApply]);
-
-  React.useEffect(() => {
-    if (readOnly || loading || !interview.guideConfirmed || !interview.consent?.notes || !draft || !update) return;
-    const transcript = readAidtInterviewTranscript(draft.fields, interview.id);
-    if (!transcript?.checked || guideBoundary < 0 || getAidtInterviewFinding(draft, interview).headline) return;
-    const studentObservation = turns.slice(guideBoundary + 1).reverse().filter(turn => turn.role === "user")
-      .map(turn => /^(?:访谈发现|发现|观察)[：:]\s*([\s\S]+)$/u.exec(turn.content.trim())?.[1]?.trim())
-      .find(value => value && value.length <= 1700);
-    if (studentObservation) update(old => writeAidtInterviewFinding(old, interview, {
-      headlineKind: "student-summary", headline: Array.from(studentObservation).slice(0, 500).join(""), context: studentObservation, quote: "",
-    }));
-  }, [draft, guideBoundary, interview, loading, readOnly, turns, update]);
-
-  if (loading || readOnly) return null;
-  if (interview.guideConfirmed && draft && update && projectId) {
-    const persisted = savedDraft && readAidtInterviews(savedDraft.fields).find(item => item.id === interview.id);
-    const savedGuide = persisted?.guideConfirmed && persisted.adopted === interview.adopted;
-    const savedFinding = savedDraft && isAidtInterviewConfirmed(savedDraft.fields, interview.id);
-    const finding = getAidtInterviewFinding(draft, interview);
-    const ready = aidtInterviewFindingReady(draft, interview, projectId);
-    const confirmed = isAidtInterviewConfirmed(draft.fields, interview.id);
-    const findings = turns.slice(guideBoundary + 1).filter(turn => turn.role === "user" && turn.content.trim() !== interview.original.trim() && turn.content.trim().length <= 1700);
-    return <section aria-label="访谈进度" className="space-y-3 rounded-container border border-border p-3 text-13">
-      <p role="status">{savedFinding && confirmed ? "访谈已完成" : savedGuide ? "问题清单已确认" : "问题清单等待保存"}</p>
-      <details className="space-y-3">
-        <summary className="cursor-pointer font-medium">访谈材料与授权</summary>
-        <AidtInterviewFieldwork interview={interview} draft={draft} update={update} projectId={projectId} readOnly={readOnly} />
-        {requestSave && <Button type="button" variant="outline" size="sm" onClick={requestSave}>保存材料</Button>}
-      </details>
-      {interview.consent?.notes && !confirmed && <div className="space-y-2">
-        <label className="block">从聊天选择学生观察
-          <select className="mt-1 w-full rounded-control border border-border bg-background p-2" value={findingMessage} onChange={event => {
-            const id = event.currentTarget.value;
-            setFindingMessage(id);
-            const observation = findings.find(turn => turn.id === id)?.content.trim();
-            if (observation) update(old => writeAidtInterviewFinding(old, interview, {
-              headlineKind: "student-summary", headline: Array.from(observation).slice(0, 500).join(""), context: observation, quote: "",
-            }));
-          }}>
-            <option value="">选择发在此访谈的观察</option>
-            {findings.map(turn => <option key={turn.id} value={turn.id}>{turn.content.slice(0, 60)}</option>)}
-          </select>
-        </label>
-        {finding.headline && <Button type="button" size="sm" variant="primary" disabled={!ready || running} onClick={() => {
-          update(old => confirmAidtInterviewFinding(old, interview.id, projectId));
-          requestSave?.();
-        }}>确认并完成访谈</Button>}
-      </div>}
-      {confirmed && !savedFinding && requestSave && <Button type="button" size="sm" variant="primary" onClick={requestSave}>保存确认</Button>}
-      {savedFinding && confirmed && <Button type="button" size="sm" variant="outline" onClick={() => update(old => writeAidtInterviewFinding(old, interview, {}))}>修改发现</Button>}
-      {!savedGuide && requestSave && <Button type="button" size="sm" variant="primary" onClick={requestSave}>保存清单</Button>}
-      {savedGuide && <Button type="button" size="sm" variant="outline" onClick={() => onApply({ guideConfirmed: false })}>修改清单</Button>}
-    </section>;
-  }
-
-  if (running || !turns.length || interview.guideConfirmed) return null;
-  const text = edited ?? interview.adopted;
-  return <section aria-label="从对话整理清单" className="space-y-2 rounded-container border border-border p-3 text-13">
-    {!recorded && oversized && <p>请在聊天里发一份 1000 字以内的问题。</p>}
-    <label className="block">从对话选取问题
-      <select className="mt-1 w-full rounded-control border border-border bg-background p-2" value={selected} onChange={event => {
-        const id = event.currentTarget.value;
-        setSelected(id);
-        setEdited(turns.find(turn => turn.id === id)?.content ?? null);
-      }}>
-        <option value="">选择一条消息</option>
-        {turns.map(turn => <option key={turn.id} value={turn.id}>{turn.role === "user" ? "小组" : "AI"} · {turn.content.slice(0, 60)}</option>)}
-      </select>
-    </label>
-    {(selected || text) && <>
-      <label className="block">保留要问的问题，每行一题<textarea className="mt-1 w-full rounded-control border border-border bg-background p-2" rows={4} value={text} onChange={event => setEdited(event.currentTarget.value)} /></label>
-      {text.trim().length > 1000 && <p role="status">请将问题清单整理到 1000 字以内。</p>}
-      <Button size="sm" variant="primary" type="button" disabled={!recorded || !text.trim() || text.trim().length > 1000} onClick={() => {
-        onApply({ adopted: text.trim(), guideConfirmed: true, guideConfirmedAfterMessageId: last?.id, ...(interview.guideProposalMessageId ? { guideProposalMessageId: undefined } : {}) });
-        requestSave?.();
-        setSelected("");
-        setEdited(null);
-      }}>确认这份问题清单</Button>
-    </>}
+    if (loading || running) return;
+    const last = messages.findLast(message => message.role === "assistant" || message.role === "user");
+    if (last?.role === "assistant" && last.id) onSettled(last.id);
+  }, [loading, running, messages, onSettled]);
+  if (loading || running || (!interview.original && !interview.adopted && !interview.consent)) return null;
+  return <section data-testid="aidt-interview-chat-actions" aria-label="本次访谈的对话操作" className="mx-auto w-full max-w-3xl space-y-3 px-4 py-2">
+    <GuideDecision key={JSON.stringify([interview.id, interview.adopted])} interview={interview} update={update} />
+    {interview.consent?.notes && <AidtInterviewWorkspace projectId={projectId} entityId={interview.id} draft={draft} update={update} readOnly={false} surface="finding" />}
   </section>;
 }

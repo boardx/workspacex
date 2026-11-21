@@ -16,6 +16,8 @@ import { aidtDraftScope, aidtResourceScope, hasAidtIdentity } from "@/features/a
 import { AidtStageJourney, type AidtReviewCheckpoint } from "@/features/aidt/components/aidt-stage-journey";
 import { AidtStageNavigation } from "@/features/aidt/components/aidt-stage-navigation";
 import { AidtAssistantPanel } from "@/features/aidt/components/aidt-assistant-panel";
+import { useAidtInterviewReconcile } from "../lib/use-aidt-interview-reconcile";
+import { AidtInterviewSaveState } from "./aidt-interview-save-state";
 import { AidtInterviewConversation } from "./aidt-interview-conversation";
 import { AidtInterviewWorkspace } from "./aidt-interview-workspace";
 import { AidtDefinitionChatArtifact, AidtDefinitionDirectory, AidtDefinitionOutput } from "./aidt-definition";
@@ -27,7 +29,7 @@ import { AidtTestConversation, AidtTestGroupOutput } from "./aidt-test-conversat
 import type { AidtTestProposal } from "../lib/aidt-test-proposal";
 import { AidtTestGroupDirectory } from "./aidt-test-group-directory";
 import { listAidtConfirmedPrototypeEntities } from "../lib/aidt-prototype-handoff";
-import { aidtInterviewHandoffReady, isAidtInterviewArchived, readAidtInterviews, writeAidtInterview } from "../lib/aidt-interviews";
+import { aidtInterviewHandoffReady, isAidtInterviewArchived, readAidtInterviews } from "../lib/aidt-interviews";
 import { readAidtDefinitionSelection } from "../lib/aidt-definition";
 import { readAidtStageRevision, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { AidtProblemDirectory } from "./aidt-problem-directory";
@@ -188,6 +190,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const problemStep = step?.id === 1;
 
   const wide = React.useSyncExternalStore(subscribeViewport, isWide, serverViewport);
+  const [interviewEditScope, setInterviewEditScope] = React.useState<string | null>(null);
   const thread = search.get("thread");
   const resource = search.get("resource");
   const returnRevision = search.get("returnRevision");
@@ -253,6 +256,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const savedProblemStage = shared.stages[1];
   const savedProblem = savedProblemStage?.content.draft ?? emptyAidtUiDrafts()[1]!;
   const problemDraft = activeEntityId ? readAidtProblemEntityDraft(savedProblem, activeEntityId) : savedProblem;
+  const interviewReadback = useAidtInterviewReconcile(projectId, activeInterview?.id, canWrite ? identity?.sessionToken ?? undefined : undefined, shared.matchesServer && shared.read?.phase === "ready" && shared.write.phase !== "saving", shared.reload);
   const [testProposal, setTestProposal] = React.useState<{ scope: string; proposal: AidtTestProposal | null }>();
   const [reportProposal, setReportProposal] = React.useState<{ scope: string; markdown: string }>();
   const reportHistoryScope = checkpointScope ? { ...checkpointScope, lifecycleKey: uiLifecycleKey } : undefined;
@@ -473,6 +477,12 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   }
   const sharedProblem = shared.available && (shared.read?.phase === "error" || shared.write.phase === "error" || shared.write.phase === "conflict");
 
+  const interviewScope = JSON.stringify([uiLifecycleKey, activeInterview?.id]);
+  const updateInterview = (mutate: (old: AidtUiStageDraft) => AidtUiStageDraft) => {
+    if (!activeInterview || !canWrite || shared.read?.phase !== "ready") return;
+    setInterviewEditScope(interviewScope);
+    updateStage(2, old => isAidtInterviewArchived(old.fields, activeInterview.id) ? old : mutate(old));
+  };
   const toolContent = <div className="space-y-4 p-4" data-testid="aidt-tool-panel">
     {tool === "outcome" && !problemStep && !activeEntityId && <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite} />}
         {(tool === "sources" || tool === "transcript" || tool === "record") && <AidtEvidenceGuide />}
@@ -523,6 +533,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className={canWrite ? "sr-only" : "flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 py-2"} data-testid="aidt-workspace-toolbar"><h1 className="text-16 font-semibold">{reportMode || tool === "report" ? "小组报告" : activeProblem?.title ?? step.title}</h1>{!canWrite && <><Button asChild size="sm" variant="ghost"><Link href={href("outcome")}>查看成果</Link></Button><p role="status" className="w-full text-12 text-muted-foreground" data-testid="aidt-readonly">当前项目只读，可查看已关联资料。</p></>}</header>
         {tool !== "outcome" && tool !== "report" && sharedProblem && <div role="alert" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-12" data-testid="aidt-shared-chat-alert"><span>{shared.read?.phase === "error" ? "本步成果读取失败。" : shared.write.phase === "conflict" ? "本步成果有版本冲突，本页修改仍保留。" : "本步成果保存尚未确认，本页修改仍保留。"}</span><Link className="text-primary underline" href={href("outcome")}>进入成果核对</Link>{shared.read?.phase === "error" && <Button size="sm" variant="outline" onClick={shared.reload}>重试读取</Button>}</div>}
+        {activeInterview && interviewReadback.failed && <p role="alert" className="px-4 text-12">访谈产物暂未同步。<Button size="xs" variant="ghost" onClick={interviewReadback.retry}>重试同步</Button></p>}
+        {activeInterview && canWrite && <AidtInterviewSaveState key={interviewScope} controller={shared} editPending={interviewEditScope === interviewScope} signature={aidtSharedDraftSignature(currentUi.drafts[2]!)} />}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <AidtAssistantPanel open fullPage onClose={() => undefined}>
             {canWrite ? <div className="min-h-0 flex-1" data-testid="aidt-native-chat">
@@ -571,18 +583,14 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                     messages={messages} loading={loading} running={running} update={mutate => updateStage(4, mutate)}
                     requestSave={requestEntitySave} handoff={ideaHandoff} onProposalReady={() => setWorkspaceToolsOpen(true)} />
                 </>,
-              } : problemStep && canWrite && checkpointScope ? { target: null, render: (messages, loading, running) => <AidtProblemChatReview key={threadResolutionScope} projectId={projectId} entityId={activeEntityId} stage={savedProblemStage} sessionToken={checkpointScope.sessionToken} threadId={checkpointThread} messages={messages} loading={loading} running={running} onRefresh={shared.refreshCurrentStage} /> } : activeInterview && !isAidtInterviewArchived(currentUi.drafts[2]!.fields, activeInterview.id) ? {
-                render: (messages, loading, running) => <>
+              } : problemStep && canWrite && checkpointScope ? { target: null, render: (messages, loading, running) => <AidtProblemChatReview key={threadResolutionScope} projectId={projectId} entityId={activeEntityId} stage={savedProblemStage} sessionToken={checkpointScope.sessionToken} threadId={checkpointThread} messages={messages} loading={loading} running={running} onRefresh={shared.refreshCurrentStage} /> } : activeInterview && shared.read?.phase === "ready" && !isAidtInterviewArchived(currentUi.drafts[2]!.fields, activeInterview.id) ? {
+                target: null, render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
-                  <AidtInterviewConversation key={activeInterview.id} interview={activeInterview} messages={messages} loading={loading} running={running} draft={currentUi.drafts[2]!} savedDraft={shared.stages[2]?.content.draft} projectId={projectId} readOnly={!canWrite} requestSave={requestEntitySave} update={mutate => updateStage(2, mutate)} onApply={patch => updateStage(2, old => {
-                  const current = readAidtInterviews(old.fields).find(item => item.id === activeInterview.id);
-                  if (!current || isAidtInterviewArchived(old.fields, current.id) || (patch.original && current.original)) return old;
-                  return writeAidtInterview(old, { ...current, ...patch });
-                })} />
+                  <AidtInterviewConversation key={activeInterview.id} interview={activeInterview} projectId={projectId} draft={currentUi.drafts[2]!} messages={messages} loading={loading} running={running} update={updateInterview} onSettled={interviewReadback.onSettled} />
                   {advance}
                 </>
               } : null}>
-              <Chat interviewPhase={activeInterview ? activeInterview.guideConfirmed || activeInterview.consent ? "fieldwork" : activeInterview.original ? "revision" : "initial" : undefined} offerInitial={problemStep ? text => toChat(text, false) : undefined} key={`${uiScope}:${step.id}:${reportMode ? "report" : "stage"}:${activeEntityId ?? ""}`} entityId={activeEntityId} entityRevision={activeEntityId ? shared.stages[step.id]?.revision : undefined} sourceEntityId={sourceProblem?.id} sourceRevision={sourceProblem?.revision} projectId={projectId} step={step} thread={reportMode ? summaryThread : thread} purpose={reportMode ? "report" : undefined} returnRevision={returnRevision} taskHref={href(reportMode ? "report" : "outcome")} onResolvedThread={onResolvedThread} savedContextRefs={activeEntityId ? [] : savedContextRefs} sharedContextRefs={sharedContextRefs} sharedContextReady={shared.read?.phase === "ready"} referencePanel={referencePanel} hostPanel={{ scope: `${uiLifecycleKey}:${step.id}:${activeEntityId ?? ""}`, title: problemStep ? "工作坊问题" : "成果", placement: problemStep || activeEntityId ? "artifacts" : undefined, open: tool !== "chat", content: workspaceTools, onOpenChange: setWorkspaceToolsOpen }} />
+              <Chat interviewPhase={activeInterview ? activeInterview.guideConfirmed || activeInterview.consent ? "fieldwork" : activeInterview.original ? "revision" : "initial" : undefined} offerInitial={problemStep ? text => toChat(text, false) : undefined} key={`${uiScope}:${step.id}:${reportMode ? "report" : "stage"}:${activeEntityId ?? ""}`} entityId={activeEntityId} entityRevision={activeEntityId ? shared.stages[step.id]?.revision : undefined} sourceEntityId={sourceProblem?.id} sourceRevision={sourceProblem?.revision} projectId={projectId} step={step} thread={reportMode ? summaryThread : thread} purpose={reportMode ? "report" : undefined} returnRevision={returnRevision} taskHref={href(reportMode ? "report" : "outcome")} onResolvedThread={onResolvedThread} savedContextRefs={activeEntityId ? [] : savedContextRefs} sharedContextRefs={sharedContextRefs} sharedContextReady={shared.read?.phase === "ready"} referencePanel={referencePanel} hostPanel={{ scope: `${uiLifecycleKey}:${step.id}:${activeEntityId ?? ""}`, title: problemStep ? "工作坊问题" : "成果", placement: problemStep || activeEntityId ? "artifacts" : undefined, open: tool !== "chat", content: workspaceTools, materialsContent: activeInterview ? <div className="p-4"><AidtInterviewWorkspace projectId={projectId} draft={currentUi.drafts[2]!} entityId={activeInterview.id} readOnly={!canWrite} surface="materials" update={updateInterview} /></div> : undefined, onOpenChange: setWorkspaceToolsOpen }} />
               </ChatHostConversationContext.Provider>
             </div> : <ProjectConversations key={uiScope} projectId={projectId} canWrite={false} />}
           </AidtAssistantPanel>

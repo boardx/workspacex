@@ -14,6 +14,7 @@ const Interview = z.object({
   version: z.literal(1),
   id: z.string().uuid(),
   code: z.string().trim().min(1).max(32),
+  draftTurnId: z.string().min(1).max(256).optional(),
   displayName: z.string().trim().max(80).optional(),
   tags: z.array(z.string().trim().min(1).max(interviewTagsLimit.maxTagLength)).max(interviewTagsLimit.maxTags).optional(),
   problemEntityId: z.string().uuid().optional(),
