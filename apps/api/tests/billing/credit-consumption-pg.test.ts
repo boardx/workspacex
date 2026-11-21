@@ -25,7 +25,7 @@ const policy=(enabled:boolean)=>asApp(org,c=>c.query("UPDATE credit_consumption_
 const wallet=()=>asApp(org,async c=>(await c.query("SELECT balance::text,held_hundredths::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0]);
 beforeAll(async()=>{ensureDatabase();await migrateOnce();await seedOrg({orgId:org,projectId:"credit-ledger-test-project"});await asApp(org,c=>c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin')",[user,org]));await asApp(org,c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,$2,$3)",[org,user,generation]));await policy(false);});
 afterAll(async()=>{await policy(false);await asOwner(async c=>{await c.query("DELETE FROM credit_global_native_tariffs WHERE model_provider=$1 AND model_id=$2",["test","test-model"]);await c.query("DELETE FROM credit_consumption_requests WHERE org_id=$1",[org]);});await db.close();});
-it("rounds every request up in exact hundredths",()=>{expect([0,1,10,11,1000].map(tokenCreditHundredths)).toEqual([0n,1n,1n,2n,100n]);});
+it("rounds every request up in exact hundredths",()=>{expect([0,1,10,11,1000].map(tokens=>tokenCreditHundredths(tokens))).toEqual([0n,1n,1n,2n,100n]);});
 it("OFF records debt, replay debits once, mismatched receipt rejected",async()=>{await reserve("credit-ledger-test-debt");await settle("credit-ledger-test-debt");await settle("credit-ledger-test-debt");expect(await wallet()).toMatchObject({balance:"-0.02",held_hundredths:"0"});await expect(settle("credit-ledger-test-debt",12)).rejects.toThrow("credit_receipt_replay_mismatch");});
 it("enterprise debt and concurrent starts remain admitted independently of the legacy preflight flag",async()=>{
  await policy(true);await reserve("credit-ledger-test-empty");await settle("credit-ledger-test-empty",0);
@@ -84,7 +84,7 @@ it("modern financial precision preserves balances holds and current schema const
  expect(await wallet()).toEqual(before);
 });
 
-it("wallet read model exposes fractional available credits and active holds",async()=>{await reserve("credit-ledger-test-wallet-read",100);const repo=new PgBillingWalletRepository(db);expect((await repo.wallet({orgId:org,ownerType:"team",ownerId:org})).wallet).toMatchObject({balance:99.81,reservedCredits:0.1,availableBalance:99.81});await settle("credit-ledger-test-wallet-read",0);expect((await repo.wallet({orgId:org,ownerType:"team",ownerId:org})).wallet).toMatchObject({balance:99.81,reservedCredits:0,availableBalance:99.81});});
+it("wallet read model exposes fractional available credits and active holds",async()=>{await reserve("credit-ledger-test-wallet-read",100);const repo=new PgBillingWalletRepository(db);expect((await repo.wallet({orgId:org,ownerType:"team",ownerId:org})).wallet).toMatchObject({balance:99.81,reservedCredits:0.1,availableBalance:99.71});await settle("credit-ledger-test-wallet-read",0);expect((await repo.wallet({orgId:org,ownerType:"team",ownerId:org})).wallet).toMatchObject({balance:99.81,reservedCredits:0,availableBalance:99.81});});
 
 it("next physical request uses personal capacity while team unknown usage remains held",async()=>{
  await policy(false);const id="credit-ledger-test-unbounded";
@@ -106,3 +106,30 @@ it("enterprise hybrid image admission does not require a positive balance or a s
 it("accepts monotonic late token dimensions without another debit and rejects known conflicts",async()=>{const id="credit-ledger-test-enrichment",before=Number((await wallet()).balance);await reserve(id,1000);const partial={...usage(id,1000),promptTokens:null,completionTokens:null};await db.withTenant(org,s=>store.settleInSession(s,org,partial));const enriched={...usage(id,1000),promptTokens:400,completionTokens:600};await store.reconcile(org,enriched);await store.reconcile(org,partial);expect(Number((await wallet()).balance)).toBeCloseTo(before-1,2);const trace=await asApp(org,async c=>(await c.query("SELECT usage_facts FROM credit_consumption_requests WHERE request_id=$1",[id])).rows[0]);expect(trace.usage_facts).toMatchObject({tokens:1000,prompt:400,completion:600});expect(await asApp(org,async c=>(await c.query("SELECT count(*)::int AS n FROM credit_transactions WHERE source_type='model_request' AND source_id=$1",[id])).rows[0].n)).toBe(1);await expect(store.reconcile(org,{...enriched,promptTokens:500,completionTokens:500})).rejects.toThrow("credit_receipt_replay_mismatch");expect(Number((await wallet()).balance)).toBeCloseTo(before-1,2);});
 
 it("durably replays enriched diagnostics after outage with exactly one financial debit",async()=>{const directory=await mkdtemp(join(tmpdir(),"credit-pg-outbox-")),id="credit-ledger-test-outbox-enrichment";let offline=false;const delegate={startRequest:async(_org:typeof org,input:ReturnType<typeof start>)=>db.withTenant(org,s=>store.reserveInSession(s,org,input)),record:async(_org:typeof org,input:TokenUsageRecord)=>{if(offline)throw new Error("offline");await db.withTenant(org,s=>store.settleInSession(s,org,input));}};try{const meter=new DurableCreditUsageMeter(delegate,{directory});await meter.startRequest(org,start(id,1000));await meter.record(org,{...usage(id,1000),promptTokens:null,completionTokens:null});offline=true;await expect(meter.record(org,{...usage(id,1000),promptTokens:400,completionTokens:600})).rejects.toThrow("offline");offline=false;expect(await new DurableCreditUsageMeter(delegate,{directory}).replayPending()).toEqual({settled:1,pending:0});expect(await asApp(org,async c=>(await c.query("SELECT count(*)::int AS n FROM credit_transactions WHERE source_id=$1 AND type='consume'",[id])).rows[0].n)).toBe(1);expect(await asApp(org,async c=>(await c.query("SELECT usage_facts FROM credit_consumption_requests WHERE request_id=$1",[id])).rows[0].usage_facts)).toMatchObject({tokens:1000,prompt:400,completion:600});}finally{await rm(directory,{recursive:true,force:true});}});
+
+it("snapshots the environment rate across token and native settlement, even after a config change", async () => {
+ const previous=process.env.WORKSPACEX_CREDIT_RATE_BPS;
+ const tokenId="credit-ledger-test-rated-token",nativeId="credit-ledger-test-rated-native";
+ const before=Number((await wallet()).balance);
+ try {
+  process.env.WORKSPACEX_CREDIT_RATE_BPS="15000";
+  await reserve(tokenId,100);
+  await db.withTenant(org,s=>store.reserveInSession(s,org,{...start(nativeId),nativeMaximum:{unit:"image",quantity:1n},callPurpose:"native-image"}));
+  expect(await wallet()).toMatchObject({held_hundredths:"38"});
+  process.env.WORKSPACEX_CREDIT_RATE_BPS="5000";
+  await reserve(tokenId,100);
+  await settle(tokenId,20);await settle(tokenId,20);
+  await db.withTenant(org,s=>store.settleInSession(s,org,{...usage(nativeId,0),totalSource:"not-applicable",nativeUsage:{unit:"image",source:"reported",quantity:1n}}));
+  expect(Number((await wallet()).balance)).toBeCloseTo(before-0.26,2);
+  expect(await wallet()).toMatchObject({held_hundredths:"0"});
+  await reserve("credit-ledger-test-half-rate",100);
+  expect(await wallet()).toMatchObject({held_hundredths:"5"});
+  await settle("credit-ledger-test-half-rate",100);
+  expect(Number((await wallet()).balance)).toBeCloseTo(before-0.31,2);
+  process.env.WORKSPACEX_CREDIT_RATE_BPS="0";
+  await expect(reserve("invalid-rate")).rejects.toMatchObject({code:"credit_accounting_unavailable",message:"invalid_credit_rate_bps"});
+ } finally {
+  if(previous===undefined)delete process.env.WORKSPACEX_CREDIT_RATE_BPS;
+  else process.env.WORKSPACEX_CREDIT_RATE_BPS=previous;
+ }
+});

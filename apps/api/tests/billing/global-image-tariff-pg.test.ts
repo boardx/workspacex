@@ -62,16 +62,22 @@ it('existing/new org rows are unnecessary and old markup cannot override either 
 });
 it('a global price update leaves replay and settlement on the original snapshot with one debit',async()=>{
  const before=await repo.list(),oldRate=before.items.find(r=>r.modelId==='qwen-image-3.0')!.hundredthsPerQuantum;
- await asOwner(c=>c.query("UPDATE credit_packages SET total_credits=total_credits+100,base_credits=base_credits+100 WHERE enabled=true AND region='cn' AND product_kind='credit_topup'"));
+ const changed=await asOwner(async c=>(await c.query<{package_id:string}>("UPDATE credit_packages SET total_credits=total_credits+100,base_credits=base_credits+100 WHERE enabled=true AND region='cn' AND product_kind='credit_topup' RETURNING package_id")).rows);
+ let activatedRevision: string|null=null;
+ try {
  const newVersion=(await new PgNativeCreditTariffRepository(reader).readCnyCatalog(personal)).version;
  await expect(repo.activate('operator',{expectedRevision:before.revision,expectedCatalogVersion:catalogVersion})).rejects.toThrow();
- const updated=await repo.activate('operator',{expectedRevision:before.revision,expectedCatalogVersion:newVersion});expect(updated.revision).not.toBe(before.revision);
+ const updated=await repo.activate('operator',{expectedRevision:before.revision,expectedCatalogVersion:newVersion});activatedRevision=updated.revision;expect(updated.revision).not.toBe(before.revision);
  const input=start('personal');await reader.withTenant(personal,s=>credits.reserveInSession(s,personal,input));
  const usage={eventId:input.requestId,userId:user,runId:null,modelProvider:input.modelProvider,modelId:input.modelId,tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:'not-applicable' as const,outcome:'succeeded' as const,nativeUsage:{unit:'image' as const,quantity:1n,source:'reported' as const}};
  await reader.withTenant(personal,s=>credits.settleInSession(s,personal,usage));await reader.withTenant(personal,s=>credits.settleInSession(s,personal,usage));
  expect(await asOwner(async c=>(await c.query('SELECT native_rate::text rate,state FROM credit_consumption_requests WHERE request_id=$1',[input.requestId])).rows[0])).toEqual({rate:oldRate,state:'settled'});
  const debit=await asApp(personal,async c=>(await c.query("SELECT count(*)::int n,sum(credits*100)::bigint::text hundredths FROM credit_transactions WHERE source_type='model_request' AND source_id=$1",[input.requestId])).rows[0]);
  expect(debit.n).toBe(1);expect(BigInt(debit.hundredths)).toBe(BigInt(oldRate));
+ } finally {
+  await asOwner(c=>c.query("UPDATE credit_packages SET total_credits=total_credits-100,base_credits=base_credits-100 WHERE package_id=ANY($1::text[])",[changed.map(row=>row.package_id)]));
+  if(activatedRevision)await repo.activate('operator',{expectedRevision:activatedRevision,expectedCatalogVersion:catalogVersion});
+ }
 });
 
 it('database constraints reject malformed prices, duplicate models, zero rates and mixed bases through the actual writer',async()=>{
@@ -87,10 +93,14 @@ it('writer rejects empty and oversized revision and basis values',async()=>{
 
 it('provisioning rejects both membership directions before granting login',async()=>{
  await asOwner(c=>c.query('CREATE ROLE global_tariff_test_group NOLOGIN'));
+ try {
  for(const statement of ['GRANT global_tariff_test_group TO app_billing_tariff_writer','GRANT app_billing_tariff_writer TO app_rw']){
   await asOwner(c=>c.query(statement));
   try{await expect(provisionBillingTariffWriter('isolated-test-writer-password-6268')).rejects.toThrow('UNSAFE_WRITER_MEMBERSHIP');}
   finally{await asOwner(c=>c.query(statement.replace('GRANT','REVOKE').replace(' TO ',' FROM ')));}
+ }
+ } finally {
+  await asOwner(c=>c.query('DROP ROLE global_tariff_test_group'));
  }
 });
 

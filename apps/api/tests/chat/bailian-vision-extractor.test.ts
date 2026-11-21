@@ -88,9 +88,10 @@ describe("BailianVisionExtractor（真实 HTTP，stub 上游）", () => {
     expect(requests).toHaveLength(1); // 只发了一次——没有"再试另一个模型名"的隐藏回落
   });
 
-  it("401 → visionNotConfigured（key 无效），不是可重试的传输故障", async () => {
-    nextReply = { status: 401, body: { message: "Invalid API-key provided." } };
+  it.each([[401,{message: "Invalid API-key provided.", usage: {total_tokens:100}}],[403,null]] as const)("%s → visionNotConfigured，结算零用量", async (status,body) => {
+    nextReply = { status,body };
     expect(await extractor().describeImage(PNG, "image/png")).toEqual({ ok: false, code: "visionNotConfigured" });
+    expect(usage.record).toHaveBeenCalledWith(creditSubject.orgId,expect.objectContaining({tokensTotal:0,totalSource:"reported",outcome:"failed"}));
   });
 
   it("500 / 429 → visionTransport（可重试）", async () => {

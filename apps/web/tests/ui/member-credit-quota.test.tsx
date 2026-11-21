@@ -48,10 +48,10 @@ it('ordinary scoped wallet errors retain their original recharge action',()=>{
  fireEvent(window,new CustomEvent('workspacex:credit-failure',{detail:{code:'credit_required',ownerType:'team',ownerId:'org',rechargePath:'/billing?ownerType=team&ownerId=org&purchase=1'}}));
  expect(screen.getByRole('link',{name:'为组织充值'})).toHaveAttribute('href','/billing?ownerType=team&ownerId=org&purchase=1');
 });
-it('keeps enterprise budget unlimited and filters actual member usage',async()=>{
+it('keeps enterprise budgets unlimited and subtracts outstanding holds from member availability',async()=>{
  show();await screen.findByTestId('member-credit-usage-u');
  expect(screen.getByText('Unlimited')).toBeTruthy();
- expect(screen.getByText('4,987.66')).toBeTruthy();
+ expect(screen.getByText('4,984.45')).toBeTruthy();
  expect(screen.getByRole('progressbar')).toHaveAttribute('value','12.34');
  fireEvent.change(screen.getByLabelText('Search members by name or email'),{target:{value:'missing'}});
  expect(screen.queryByTestId('member-credit-usage-u')).toBeNull();

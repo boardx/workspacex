@@ -20,14 +20,14 @@ function parseCursor(value:unknown):Cursor {
   if(!Number.isFinite(time.getTime()) || time.toISOString()!==`${row.timestamp.slice(0,23)}Z`) throw new BillingWalletCursorError();
   return {ownerType:ownerType.data,ownerId:row.ownerId,type:type.data,timestamp:row.timestamp,txnId:row.txnId};
 }
-type WalletRow = {wallet_id:string;owner_type:string;owner_id:string;balance:string;held_hundredths:string;total_purchased:number;total_granted:string;updated_at:Date};
+type WalletRow = {wallet_id:string;owner_type:string;owner_id:string;balance:string;held_hundredths:string;remaining_held_hundredths:string;total_purchased:number;total_granted:string;updated_at:Date};
 type TransactionRow = {txn_id:string;type:string;direction:number;credits:number;balance_after:number;source_type:string;source_id:string;operator_id:string|null;reason:string|null;created_at:Date;cursor_timestamp:string};
 export class PgBillingWalletRepository implements BillingWalletRepository {
   constructor(private readonly db: DatabasePort) {}
   async wallet(owner: BillingOwner) {
     return this.db.withTenant(owner.orgId, async s => {
       if(owner.ownerType === "user") await grantDuePersonalTerms(s,owner.ownerId);
-      const r=await s.query<WalletRow>(`SELECT wallet_id,owner_type,owner_id,balance::text,held_hundredths::text,total_purchased,total_granted::text,updated_at
+      const r=await s.query<WalletRow>(`SELECT wallet_id,owner_type,owner_id,balance::text,held_hundredths::text,remaining_held_hundredths::text,total_purchased,total_granted::text,updated_at
         FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[owner.ownerType,owner.ownerId]);
       const row=r.rows[0];
       let subscription={hundredths:0n,welcomeHundredths:0n,expiresAt:null as string|null};
@@ -38,7 +38,7 @@ export class PgBillingWalletRepository implements BillingWalletRepository {
         subscription=await creditPeriodSnapshot(s,row.wallet_id);
       }
       return {wallet:CreditWallet.parse(row ? {
-        ownerType:row.owner_type,ownerId:row.owner_id,balance:Number(row.balance),permanentBalance:Number(creditDecimal(creditHundredths(row.balance)-subscription.hundredths-subscription.welcomeHundredths)),subscriptionCredits:Number(creditDecimal(subscription.hundredths)),subscriptionExpiresAt:subscription.expiresAt,reservedCredits:Number(row.held_hundredths)/100,availableBalance:Number(row.balance),totalPurchased:Number(row.total_purchased),totalGranted:Number(row.total_granted),updatedAt:row.updated_at.toISOString(),
+        ownerType:row.owner_type,ownerId:row.owner_id,balance:Number(row.balance),permanentBalance:Number(creditDecimal(creditHundredths(row.balance)-subscription.hundredths-subscription.welcomeHundredths)),subscriptionCredits:Number(creditDecimal(subscription.hundredths)),subscriptionExpiresAt:subscription.expiresAt,reservedCredits:Number(row.held_hundredths)/100,availableBalance:Number(creditDecimal(creditHundredths(row.balance)-BigInt(row.remaining_held_hundredths))),totalPurchased:Number(row.total_purchased),totalGranted:Number(row.total_granted),updatedAt:row.updated_at.toISOString(),
       } : {ownerType:owner.ownerType,ownerId:owner.ownerId,balance:0,permanentBalance:0,subscriptionCredits:0,subscriptionExpiresAt:null,reservedCredits:0,availableBalance:0,totalPurchased:0,totalGranted:0,updatedAt:new Date().toISOString()})};
     });
   }

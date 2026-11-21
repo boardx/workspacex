@@ -11,3 +11,9 @@ The `.admission-lock` protects cross-process capacity admission. If the process 
 Changing the preflight setting does not erase receipts or holds. Enabling preflight rejects new usage when an earlier unbounded request has no confirmed settlement, even if the wallet was subsequently funded. Reconcile its authoritative usage first.
 
 These changes to `deploy.sh` require the normal reviewed trusted-script installation after merge (`devapp-install-trusted-scripts`) before deployment; merging alone does not update the protected VM helper. No live server changes are performed by this PR.
+
+## Credit debit rate
+
+Set `WORKSPACEX_CREDIT_RATE_BPS` in the API environment used by devapp, CN, or US. Set it in the runtime `api.env` for image-based deployments and in `/opt/workspacex/deploy.env` for VM systemd deployments. Each environment can set its own positive integer from 1 to 1,000,000. The default is 10000 (100% of the existing tariff), 5000 is 50%, and 15000 is 150%. Both tokens and native units use the same rate and round up to a hundredth of a Credit after applying it. Restart the API to load environment changes. New requests snapshot the rate at admission, and settlement uses that snapshot for streaming and replay. Historical requests without a snapshot use 100%.
+
+Upgrade all API workers that admit or settle requests before setting a non-default value. Return the environment setting to 10000 and drain outstanding requests with non-default snapshots before rolling back to an API version that predates this setting.

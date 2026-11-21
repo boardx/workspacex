@@ -19,10 +19,9 @@ export class PgMemberCreditQuotaRepository implements MemberCreditQuotaRepositor
     WHERE m.org_id=$1 ORDER BY m.joined_at,m.user_id`,[orgId])).rows;
    const rows=[];
    for(const m of members){
-    const used=await readMemberCreditUsage(s,orgId,m.user_id);
-    // Keep the response field for older clients. Member quota now counts only settled debits.
+    const usage=await readMemberCreditUsage(s,orgId,m.user_id);
     rows.push({userId:m.user_id,displayName:m.display_name,email:m.email,monthlyLimit:m.monthly_limit===null?DEFAULT_MEMBER_MONTHLY_CREDITS:Number(m.monthly_limit),
-     overridden:m.monthly_limit!==null,usedCredits:Number(used)/100,heldCredits:0});
+     overridden:m.monthly_limit!==null,usedCredits:Number(usage.used)/100,heldCredits:Number(usage.held)/100});
    }
    return {enterprise,month,defaultMonthlyLimit:DEFAULT_MEMBER_MONTHLY_CREDITS,members:rows};
   });
@@ -45,8 +44,8 @@ export class PgMemberCreditQuotaRepository implements MemberCreditQuotaRepositor
    if(!await enterpriseCreditPlan(s,orgId))throw new EnterpriseCreditPlanRequired();
    for(const {userId,monthlyLimit} of updates){
     if(!(await s.query('SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2 FOR KEY SHARE',[orgId,userId])).rows.length)throw new MemberNotFoundError();
-    const used=await readMemberCreditUsage(s,orgId,userId);
-    if(BigInt(monthlyLimit)*100n<used)throw new MemberCreditQuotaBelowUsage();
+    const {used,held}=await readMemberCreditUsage(s,orgId,userId);
+    if(BigInt(monthlyLimit)*100n<used+held)throw new MemberCreditQuotaBelowUsage();
    }
    for(const {userId,monthlyLimit} of updates){
     await s.query(`INSERT INTO member_credit_quota(org_id,user_id,monthly_limit,updated_by) VALUES($1,$2,$3,$4)

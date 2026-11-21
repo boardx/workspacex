@@ -6,7 +6,7 @@ import {isLocalOrg} from "../../domain/identity/local-org";
 import type {DatabasePort,TenantSession} from "../../application/ports/database.port";
 import type {OrgId} from "../../domain/org-id";
 import type {TokenUsageMeterPort,TokenUsageRecord} from "../../application/agent-run/ports";
-import {CreditConsumptionError,creditFacts as facts,creditHundredths,tokenCreditHundredths} from "../../application/billing/credit-consumption";
+import {CreditConsumptionError,creditFacts as facts,creditHundredths,DEFAULT_CREDIT_RATE_BPS,creditRateBps,ratedCreditHundredths,tokenCreditHundredths} from "../../application/billing/credit-consumption";
 import {grantDuePersonalTerms} from "./personal-credit-terms";
 import {normalizeCreditPeriods} from "./pg-credit-periods";
 import {settleCreditReceipt} from "./pg-credit-receipt";
@@ -34,7 +34,7 @@ export class PgCreditConsumption {
   const old=(await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1",[input.requestId])).rows[0];
   if(old){
    const prior=old.start_facts as Record<string,unknown>;
-   const {maximumTokenBound,nativeMaximumBound,tokenBoundRequired,...identity}=prior;
+   const {maximumTokenBound,nativeMaximumBound,tokenBoundRequired,creditRateBps: _rate,...identity}=prior;
    const boundInput=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};
    if(facts(identity)!==facts(immutable)||(boundInput.maximumTokens!==undefined&&maximumTokenBound!==boundInput.maximumTokens)||(boundInput.nativeMaximum!==undefined&&facts(nativeMaximumBound)!==facts(boundInput.nativeMaximum))||(boundInput.tokenBoundRequired!==undefined&&tokenBoundRequired!==boundInput.tokenBoundRequired))throw this.error(p,"credit_start_replay_mismatch");
    // The persisted request owns its payer; current balance or license cannot select it again.
@@ -51,7 +51,6 @@ export class PgCreditConsumption {
   };
   let wallet:Awaited<ReturnType<typeof loadWallet>>|undefined;
   if(p.ownerType==="team"){
-   await assertMemberCreditQuota(s,orgId,input.userId);
    let eligibility:Awaited<ReturnType<typeof prepareTeamCreditAdmission>>;
    try{eligibility=await prepareTeamCreditAdmission(s,orgId,at);}catch{throw this.error(p,"team_license_accounting_unavailable");}
    if(eligibility.decision==="unavailable")throw this.error(p,"team_license_accounting_unavailable");
@@ -70,28 +69,37 @@ export class PgCreditConsumption {
   const admission=(await s.query<{maximum_tokens:string;billing_kind:string;native_unit:string|null;max_native_quantity:string|null}>("SELECT maximum_tokens::text,billing_kind,native_unit,max_native_quantity::text FROM ai_request_reservations WHERE id=$1 AND org_id=$2 AND user_id=$3",[input.requestId,orgId,input.userId])).rows[0];
   const extended=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};
   const native=extended.nativeMaximum??(admission?.billing_kind==="native"&&admission.native_unit&&admission.max_native_quantity?{unit:admission.native_unit,quantity:BigInt(admission.max_native_quantity)}:undefined);
+  let bps: number;
+  try {bps=creditRateBps(process.env.WORKSPACEX_CREDIT_RATE_BPS);} catch {throw this.error(p,"invalid_credit_rate_bps");}
   let reserved=0n,version="token-v1-1000-per-credit",quantum:bigint|null=null,rate:bigint|null=null;
   if(native){
    const tariff=await resolveNativeCreditTariff(s,orgId,input.modelProvider,input.modelId,native.unit);
    if(!tariff||native.quantity<0n)throw this.error(p,"credit_native_tariff_missing");
-   quantum=BigInt(tariff.quantum);rate=BigInt(tariff.hundredths_per_quantum);version=tariff.version;reserved=(native.quantity*rate+quantum-1n)/quantum;
-   if(extended.maximumTokens!=null){const tokenBound=tokenCreditHundredths(extended.maximumTokens);if(tokenBound>reserved)reserved=tokenBound;}
+   quantum=BigInt(tariff.quantum);rate=BigInt(tariff.hundredths_per_quantum);version=tariff.version;reserved=ratedCreditHundredths(native.quantity*rate,quantum,bps);
+   if(extended.maximumTokens!=null){const tokenBound=tokenCreditHundredths(extended.maximumTokens,bps);if(tokenBound>reserved)reserved=tokenBound;}
   }else{
    const maximum=extended.maximumTokens??(admission?Number(admission.maximum_tokens):null);
-   if(maximum!==null)reserved=tokenCreditHundredths(maximum);
+   if(maximum!==null)reserved=tokenCreditHundredths(maximum,bps);
    if(input.callPurpose==="native-image"||input.callPurpose==="native-asr")throw this.error(p,"credit_native_bound_missing");
   }
   if(reserved>limit)throw this.error(p,"credit_request_bound_unrepresentable");
   const hasTokenBound=extended.maximumTokens!=null||admission?.maximum_tokens!=null;
   const hasCreditBound=(native!==undefined||hasTokenBound)&&(!extended.tokenBoundRequired||hasTokenBound);
-  if(p.ownerType==="team")reserved=0n;
+  if(p.ownerType==="team"){
+   try { reserved=await assertMemberCreditQuota(s,orgId,input.userId,reserved,hasCreditBound); }
+   catch(error){
+    if(!(error instanceof CreditConsumptionError)||error.code!=="credit_required"||error.reason!=="member_monthly_limit")throw error;
+    p={ownerType:"user",ownerId:input.userId};
+    await grantDuePersonalTerms(s,p.ownerId);wallet=await loadWallet(p);
+   }
+  }
   if(p.ownerType==="user"){
    const available=creditHundredths(wallet.balance)-BigInt(wallet.remaining_held_hundredths);
    if(BigInt(wallet.unbounded_requests)>0n||available<=0n||(hasCreditBound&&reserved>available))throw this.error(p,"insufficient_credit","credit_required");
    // Unknown-cost requests hold remaining spending capacity, never fabricated usage.
    if(!hasCreditBound)reserved=available;
   }
-  const inserted=await s.query(`INSERT INTO credit_consumption_requests(request_id,org_id,user_id,wallet_id,model_provider,model_id,run_id,start_facts,reserved_hundredths,tariff_version,native_unit,native_quantum,native_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13) ON CONFLICT(request_id) DO NOTHING RETURNING request_id`,[input.requestId,orgId,input.userId,wallet.wallet_id,input.modelProvider,input.modelId,input.runId,facts({...immutable,maximumTokenBound:extended.maximumTokens??null,nativeMaximumBound:extended.nativeMaximum??null,tokenBoundRequired:extended.tokenBoundRequired??false}),reserved.toString(),version,native?.unit??null,quantum?.toString()??null,rate?.toString()??null]);
+  const inserted=await s.query(`INSERT INTO credit_consumption_requests(request_id,org_id,user_id,wallet_id,model_provider,model_id,run_id,start_facts,reserved_hundredths,tariff_version,native_unit,native_quantum,native_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13) ON CONFLICT(request_id) DO NOTHING RETURNING request_id`,[input.requestId,orgId,input.userId,wallet.wallet_id,input.modelProvider,input.modelId,input.runId,facts({...immutable,creditRateBps:bps===DEFAULT_CREDIT_RATE_BPS?undefined:bps,maximumTokenBound:extended.maximumTokens??null,nativeMaximumBound:extended.nativeMaximum??null,tokenBoundRequired:extended.tokenBoundRequired??false}),reserved.toString(),version,native?.unit??null,quantum?.toString()??null,rate?.toString()??null]);
   if(!inserted.rows.length)throw this.error(p,"credit_start_replay_mismatch");
   await s.query("UPDATE credit_wallets SET held_hundredths=held_hundredths+$2,unbounded_requests=unbounded_requests+$3 WHERE wallet_id=$1",[wallet.wallet_id,reserved.toString(),reserved===0n?1:0]);
  }

@@ -98,7 +98,7 @@ it("native tariff rejects fractional native quantum without changing stored fee"
 });
 import { WalletAvailability } from "@/components/billing/wallet-availability";
 it("temporary held credits are distinct from posted consumption and unavailable data stays absent",()=>{
- const view=render(<WalletAvailability reservedCredits={0.03} availableBalance={0.07}/>);expect(screen.getByText("调用中预估额度")).toBeTruthy();expect(screen.getByText("0.03")).toBeTruthy();expect(screen.getByText(/不从当前可用余额扣除/)).toBeTruthy();view.rerender(<WalletAvailability/>);expect(screen.queryByText("可用额度")).toBeNull();
+ const view=render(<WalletAvailability reservedCredits={0.03} availableBalance={0.07}/>);expect(screen.getByText("调用中预估额度")).toBeTruthy();expect(screen.getByText("0.03")).toBeTruthy();expect(screen.getByText(/已扣除调用中的未结预占/)).toBeTruthy();view.rerender(<WalletAvailability/>);expect(screen.queryByText("可用额度")).toBeNull();
 });
 it("organization recharge mounts real cashier and queries only the selected organization's account",async()=>{
  const fetcher=vi.fn().mockImplementation((url:string)=>{const path=new URL(url).pathname;const body=path.endsWith("/wallet")?{wallet:{ownerType:"team",ownerId:"org-a",balance:1.23,reservedCredits:0.03,availableBalance:1.2,totalPurchased:0,totalGranted:0,updatedAt:"2026-10-22T00:00:00Z"}}:path.endsWith("/config")?{enabledProviders:["wechat"]}:path.endsWith("/packages")?{items:[]}:{items:[],nextCursor:null};return Promise.resolve(new Response(JSON.stringify(body)));});vi.stubGlobal("fetch",fetcher);
