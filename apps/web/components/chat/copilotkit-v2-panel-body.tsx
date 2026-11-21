@@ -1942,8 +1942,10 @@ export function CopilotKitV2PanelBody(props: Parameters<typeof useCopilotKitV2Pa
   const view = useCopilotKitV2PanelController(props);
   const conversation = React.useContext(ChatHostConversationContext);
   const contribution = conversation?.render(view.projectedMessages, view.historyLoading, view.agent.isRunning);
+  const timeline = conversation?.target === null && view.projectedMessages.length > 0;
+  const streamSlots = timeline ? { ...view.streamSlots, tail: <>{view.streamSlots.tail}{contribution}</> } : view.streamSlots;
   return <>
-    <CopilotKitV2PanelView {...view} conversationControls={conversation?.target ? undefined : contribution} />
+    <CopilotKitV2PanelView {...view} streamSlots={streamSlots} conversationControls={timeline || conversation?.target ? undefined : contribution} />
     {conversation?.target && createPortal(contribution, conversation.target)}
   </>;
 }

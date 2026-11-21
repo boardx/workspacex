@@ -7,6 +7,7 @@ import { AIDT_OUTPUTS, aidtUiStageMarkdown, type AidtUiStageDraft, type AidtIdea
 import { aidtHref, type AidtStep } from "@/features/aidt/lib/project-aidt";
 import { printResearchPdf, preparePrintImages } from "@/lib/research-report-export";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
+import { AidtInterviewOutput } from "./aidt-interview-output";
 import { AidtInterviewWorkspace } from "./aidt-interview-workspace";
 import { readAidtInterviews } from "../lib/aidt-interviews";
 import { AidtTestGroups } from "./aidt-test-groups";
@@ -41,9 +42,9 @@ export function printAidtUiText(text: string, options?: Parameters<typeof printR
   return printResearchPdf(root, "AIDT 小组草稿", options);
 }
 
-export function AidtStageOutput({ projectId, thread = null, entityId, conversationRef, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision, discoveryCardFields, activeDefinitionEntityId, ideaEntityId, ideaHandoff, activeTestEntityId, readTestPrototypeEntity }: {
+export function AidtStageOutput({ projectId, thread = null, entityId, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision, discoveryCardFields, activeDefinitionEntityId, ideaEntityId, ideaHandoff, activeTestEntityId, readTestPrototypeEntity }: {
   projectId: string; step: AidtStep; draft: AidtUiStageDraft;
-  thread?: string | null; entityId?: string | null; conversationRef?: (node: HTMLDivElement | null) => void;
+  thread?: string | null; entityId?: string | null;
   update: (mutate: (previous: AidtUiStageDraft) => AidtUiStageDraft) => void;
   readOnly: boolean; toolHref: (tool: string) => string;
   toChat?: (text: string) => ComposerOfferResult;
@@ -133,7 +134,7 @@ export function AidtStageOutput({ projectId, thread = null, entityId, conversati
     finally { setPrinting(false); }
   }
   if (step.id === 2 && entityId) return <section data-testid="aidt-stage-output" className="space-y-3">
-    <AidtInterviewWorkspace projectId={projectId} entityId={entityId} draft={draft} update={update} readOnly={readOnly} toChat={toChat} conversationRef={conversationRef} />
+    <AidtInterviewOutput projectId={projectId} entityId={entityId} draft={draft} />
   </section>;
   if (step.id === 6 && activeTestEntityId) {
     return <AidtTestGroups projectId={projectId} draft={draft} activeEntityId={activeTestEntityId} readPrototypeEntity={readTestPrototypeEntity} readOnly={readOnly} update={update} />;
