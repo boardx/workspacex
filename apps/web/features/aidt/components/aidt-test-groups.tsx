@@ -21,6 +21,7 @@ type Props = {
   activeEntityId: string;
   readPrototypeEntity?: AidtReadPrototypeEntity;
   readOnly: boolean;
+  sourcesOnly?: boolean;
   update: (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 };
 
@@ -43,7 +44,7 @@ export function AidtTestGroups(props: Props) {
   return <TestGroups key={key} {...props} sessionToken={session.sessionToken} userId={session.userId} />;
 }
 
-function TestGroups({ projectId, draft, readOnly, update, activeEntityId, readPrototypeEntity, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
+function TestGroups({ projectId, draft, readOnly, sourcesOnly, update, activeEntityId, readPrototypeEntity, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
   const [retry, refresh] = React.useReducer((value: number) => value + 1, 0);
   const [resources, setResources] = React.useState<ProjectResourceItem[] | "failed" | null>(null);
   const group = readAidtTestGroups(draft.fields).find(item => item.id === activeEntityId && !item.archived);
@@ -98,8 +99,8 @@ function TestGroups({ projectId, draft, readOnly, update, activeEntityId, readPr
   return <section aria-label="本轮分组测试" className="space-y-3 rounded-lg border border-border p-3" data-testid="aidt-test-groups">
     <h4 className="text-14 font-semibold">{group?.name || "测试详情"}</h4>
     {!group && <p role="status" className="text-12">测试记录不存在或已归档。</p>}
-    {group && <div className="space-y-3 border-t border-border pt-3" data-testid="aidt-test-group-detail">
-      <AidtTestPrototypeSource group={group} context={{ projectId, sessionToken, userId }} readPrototypeEntity={readPrototypeEntity} />
+    {group && <div className="space-y-3 border-t border-border pt-3" data-testid={sourcesOnly ? "aidt-test-group-sources" : "aidt-test-group-detail"}>
+      {!sourcesOnly && <AidtTestPrototypeSource group={group} context={{ projectId, sessionToken, userId }} readPrototypeEntity={readPrototypeEntity} />}
       <label className="block text-12">测试方式
         <select className="mt-1 w-full rounded-md border border-border bg-background p-2" disabled={readOnly} value={group.method} onChange={event => {
           const method = event.currentTarget.value === "survey" ? "survey" : "interview";
@@ -122,16 +123,16 @@ function TestGroups({ projectId, draft, readOnly, update, activeEntityId, readPr
         {resourceLinkFailed && <p role="alert" className="text-12">未能打开资料创建入口。可从项目内容进入对应工具。</p>}
         {!options.length && <p className="text-12 text-muted-foreground">新建并关联后，刷新并选择项目中的真实资料。</p>}
       </>}
-      {groupFields.map(([field, label, maxLength]) => <label key={field} className="block space-y-1 text-12">
+      {!sourcesOnly && groupFields.map(([field, label, maxLength]) => <label key={field} className="block space-y-1 text-12">
         <span>{label}</span>
         {maxLength <= 80
           ? <Input value={group[field]} maxLength={maxLength} disabled={readOnly} onChange={event => change(group.id, { [field]: event.currentTarget.value })} />
           : <Textarea rows={2} value={group[field]} maxLength={maxLength} disabled={readOnly} onChange={event => change(group.id, { [field]: event.currentTarget.value })} />}
       </label>)}
-      {group.method === "survey" && <p className="text-12 text-muted-foreground">问卷自报写在原始回答；只有现场实际观察才填写行为。</p>}
+      {!sourcesOnly && group.method === "survey" && <p className="text-12 text-muted-foreground">问卷自报写在原始回答；只有现场实际观察才填写行为。</p>}
       <AidtResearchMaterialControl projectId={projectId} label="本组原始材料" value={group.material} readOnly={readOnly} selectionScope={group.id} onChange={material => change(group.id, { material })} />
       {group.material?.projectId === projectId && <AidtResearchMaterialPreview projectId={projectId} reference={group.material} quote={group.said} />}
-      <label className="block text-12">反馈处理
+      {!sourcesOnly && <><label className="block text-12">反馈处理
         <select className="mt-1 w-full rounded-md border border-border bg-background p-2" disabled={readOnly} value={group.decision} onChange={event => {
           const value = event.currentTarget.value;
           change(group.id, { decision: value === "adopted" || value === "declined" ? value : "pending" });
@@ -145,7 +146,7 @@ function TestGroups({ projectId, draft, readOnly, update, activeEntityId, readPr
         if (previous.split("\n").includes(line)) return current;
         const next = [previous, line].filter(Boolean).join("\n");
         return next.length <= 5000 ? updateAidtReflectionField(current, "understandingEvidence", next) : current;
-      })}>引用到本轮反思</Button>}
+      })}>引用到本轮反思</Button>}</>}
     </div>}
   </section>;
 }

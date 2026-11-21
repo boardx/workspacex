@@ -29,6 +29,8 @@
  * the provider again would break §5's single-call rule through the back door, and would
  * make a writeback failure silently change the answer a human eventually reads.
  */
+import { AIDT_ENTITY_THREAD_PREFIX } from "@repo/contracts/aidt-stages";
+import type { AidtRunContextExecutionPort } from "../aidt-run-context/ports";
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type { AgentRunClock, AgentRunStore, PendingWriteback } from "./ports";
@@ -62,6 +64,7 @@ export interface WritebackDeps {
    * 引用写入发生在消息事务提交**之后**、且失败只记日志：引用落不下来不能让已经写好的回答
    * 变成失败（重试会重放同一批引用，写入本身幂等）。
    */
+  readonly aidtContexts?: Pick<AidtRunContextExecutionPort,"projectCompleted">;
   readonly citations?: PersistAssistantCitationsDeps;
   /** Server-side only. The database's own words go here and never into a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
@@ -107,6 +110,10 @@ async function writeBackOne(
           runId: pending.runId, detail: e instanceof Error ? e.message : "unknown",
         });
       }
+    }
+    if (pending.threadId.startsWith(AIDT_ENTITY_THREAD_PREFIX) && deps.aidtContexts?.projectCompleted) {
+      try { await deps.aidtContexts.projectCompleted(orgId,pending.runId); }
+      catch { deps.log("AIDT outcome projection pending reconciliation",{runId:pending.runId}); }
     }
     publishStatusChange(deps, orgId, pending.runId, "succeeded");
     return;

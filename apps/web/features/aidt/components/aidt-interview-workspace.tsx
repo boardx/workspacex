@@ -9,6 +9,7 @@ import { AidtInterviewCards } from "./aidt-interview-cards";
 import { Plus } from "lucide-react";
 import { AidtInterviewRecorder } from "./aidt-interview-recorder";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
+import { AidtInterviewOutput } from "./aidt-interview-output";
 import { AidtResearchMaterialControl, AidtResearchMaterialPreview } from "./aidt-research-material";
 import { listAidtStageHistory, readAidtStage, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload } from "../lib/aidt-round-completion";
@@ -71,11 +72,11 @@ function InterviewField({ label, value, maxLength, disabled, onChange, rows = 1 
     : <input className={inputClass} maxLength={maxLength} disabled={disabled} value={value} onChange={event => onChange(event.currentTarget.value)} />}</label>;
 }
 
-export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate, conversationRef, savedIds, problemEntityId, problemRevision }: {
+export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate, surface = "legacy", savedIds, problemEntityId, problemRevision }: {
   projectId: string; draft: AidtUiStageDraft; update: UpdateDraft; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
   problemEntityId?: string; problemRevision?: number;
-  conversationRef?: (node: HTMLDivElement | null) => void;
+  surface?: "materials" | "finding" | "legacy";
   savedIds?: ReadonlySet<string>;
   entityId?: string | null; onOpen?: (id: string) => void; onCreate?: (id: string) => void;
 }) {
@@ -147,7 +148,7 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
 
   return <section className="space-y-4" aria-label="访谈工作区">
     {entityId && !interview ? <p role="status">找不到此访谈。请返回访谈列表查找其最新状态。</p> : interview
-      ? <InterviewDetail conversationRef={conversationRef} compact={Boolean(entityId)} key={interview.id} {...{ interview, draft, update, projectId, topic, toChat }} readOnly={readOnly || isAidtInterviewArchived(draft.fields, interview.id)} onBack={entityId ? undefined : back} />
+      ? entityId && surface === "legacy" ? <AidtInterviewOutput entityId={entityId} draft={draft} projectId={projectId} /> : <InterviewDetail surface={surface} compact={Boolean(entityId)} key={interview.id} {...{ interview, draft, update, projectId, topic, toChat }} readOnly={readOnly || isAidtInterviewArchived(draft.fields, interview.id)} onBack={entityId ? undefined : back} />
       : <>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-16 font-semibold" ref={listFocus} tabIndex={-1}>访谈列表</h4>
@@ -165,8 +166,8 @@ function InterviewSection({ compact, title, children }: { compact: boolean; titl
   return compact ? <details className="space-y-3 border-t border-border pt-3"><summary className="cursor-pointer text-13 font-medium">{title}</summary>{children}</details> : <>{children}</>;
 }
 
-function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack, topic, toChat, conversationRef, compact }: {
-  conversationRef?: (node: HTMLDivElement | null) => void; compact: boolean;
+function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack, topic, toChat, surface, compact }: {
+  surface: "materials" | "finding" | "legacy"; compact: boolean;
   interview: AidtInterview; draft: AidtUiStageDraft; update: UpdateDraft; projectId: string;
   readOnly: boolean; onBack?: () => void; topic: Topic; toChat?: (text: string) => ComposerOfferResult;
 }) {
@@ -194,7 +195,7 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
   const [asr, setAsr] = React.useState(interview.consent?.asr ?? false);
   const [photos, setPhotos] = React.useState(interview.consent?.photos ?? false);
   const heading = React.useRef<HTMLHeadingElement>(null);
-  React.useEffect(() => { heading.current?.focus(); }, []);
+  React.useEffect(() => { if (surface === "legacy") heading.current?.focus(); }, [surface]);
   const record = (patch: Partial<AidtInterview>) => {
     if (readOnly) return;
     update(old => {
@@ -216,20 +217,10 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
   );
 
   return <div className="space-y-4">
-    <div className="flex flex-wrap items-center justify-between gap-2">
+    {surface === "legacy" && <><div className="flex flex-wrap items-center justify-between gap-2">
       {onBack && <Button type="button" size="xs" variant="ghost" onClick={onBack}>返回访谈列表</Button>}
       <h4 className="text-16 font-semibold" ref={heading} tabIndex={-1}>{code} · 访谈详情</h4>
     </div>
-    {compact && <section className="space-y-3" aria-label="本次访谈产物">
-      <h5 className="text-16 font-semibold">访谈问题清单</h5>
-      {interview.adopted ? <p className="whitespace-pre-wrap break-words text-14">{interview.adopted}</p> : <p className="text-13 text-muted-foreground">等待在对话中整理问题。</p>}
-      <div ref={conversationRef} />
-      {interview.guideConfirmed && <AidtInterviewGuideExport scopeKey={id} guide={interview.original} adoptedGuide={[code, topicText, interview.adopted].filter(Boolean).join("\n\n")} />}
-      {finding.headline && <div className="space-y-1"><h5 className="text-14 font-semibold">人物发现卡</h5>
-        <p className="text-13">{finding.headlineKind === "quote" ? "受访者原话" : "学生概括"} · {finding.headline}</p>
-        <p className="text-12 text-muted-foreground">{confirmedFinding ? "已核对" : "草稿"}</p>
-      </div>}
-    </section>}
     <InterviewSection compact={compact} title="访谈设置与研究问题">
     <div className="flex items-end gap-2">
       <InterviewField label="受访者代号" value={newCode} maxLength={32} disabled={readOnly} onChange={setNewCode} />
@@ -265,7 +256,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
       {!compact && <AidtInterviewGuideExport scopeKey={id} guide={interview.original} adoptedGuide={interview.guideConfirmed ? [code, topicText, interview.adopted].filter(Boolean).join("\n\n") : ""} />}
     </section>
     </InterviewSection>
-    <InterviewSection compact={compact} title="访谈材料与授权">
+    </>}
+    {surface !== "finding" && <InterviewSection compact={false} title="访谈材料与授权">
     <section className="space-y-3 border-t border-border pt-3" aria-label="授权和访谈材料">
       <h5 className="text-14 font-semibold">授权和材料</h5>
       <p className="text-12 text-muted-foreground">{interview.consent ? `学生记录于 ${new Date(interview.consent.observedAt).toLocaleString()}` : "尚未记录可共享的材料授权。"}请按实际授权勾选。</p>
@@ -334,7 +326,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
       </>}
     </section>
     </InterviewSection>
-    <InterviewSection compact={compact} title="整理访谈发现">
+    }
+    {surface !== "materials" && <InterviewSection compact={compact} title="整理访谈发现">
     <section aria-label="人物发现卡" className="space-y-3 border-t border-border pt-3">
       <h5 className="text-14 font-semibold">人物发现卡</h5>
       <label className="block text-12">标题来源<select className={inputClass} value={finding.headlineKind} disabled={!editableEvidence} onChange={event => {
@@ -361,7 +354,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
       <Button type="button" size="sm" disabled={!editableEvidence || confirmedFinding || !aidtInterviewFindingReady(draft, interview, projectId)} onClick={() => update(old => confirmAidtInterviewFinding(old, id, projectId))}>确认人物发现卡</Button>
     </section>
     </InterviewSection>
-    {!readOnly && !compact && <div className="space-y-2 border-t border-border pt-3">{archiving ? <>
+    }
+    {!readOnly && !compact && surface === "legacy" && <div className="space-y-2 border-t border-border pt-3">{archiving ? <>
       <p className="text-12">归档后从待交接列表移除，历史版本和原件可按权限回查。</p>
       <Button type="button" size="xs" variant="outline" onClick={() => { update(old => archiveAidtInterview(old, id)); onBack?.(); setArchiving(false); }}>确认归档</Button>
       <Button type="button" size="xs" variant="ghost" onClick={() => setArchiving(false)}>取消</Button>

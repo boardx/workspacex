@@ -3,38 +3,51 @@
 import * as React from "react";
 import type { AidtSharedStage } from "./live-aidt-stages";
 import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload, aidtRoundMissingOutput } from "./aidt-round-completion";
-import { readAidtProblemHandoffDraft } from "./aidt-problem-entities";
-import { aidtInterviewFindingReady, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviews } from "./aidt-interviews";
+import { listAidtProblems, readAidtProblemEntityDraft, readAidtProblemHandoffDraft } from "./aidt-problem-entities";
+import { areAidtInterviewsComplete } from "./aidt-interviews";
+import { allAidtDefinitionEntitiesConfirmed } from "./aidt-definition-chat";
 import { readAidtDefinition, readAidtDefinitionSelection } from "./aidt-definition";
+import { allAidtIdeasConfirmed, hasAidtIdeaChatConfirmations } from "./aidt-idea-chat";
 import { readAidtIdeaHandoff } from "./aidt-idea-handoff";
-import { readAidtConfirmedPrototypeHandoff } from "./aidt-prototype-handoff";
+import { aidtAllActivePrototypeEntitiesConfirmed } from "./aidt-prototype-handoff";
 import { isAidtReflectionConfirmed } from "./aidt-verification-loop";
-import { readAidtTestGroups } from "./aidt-test-groups";
+import { aidtTestGroupsComplete } from "./aidt-test-groups";
 
 const EMPTY: ReadonlySet<number> = new Set();
 
 export async function aidtStageHasConfirmation(stage: AidtSharedStage, stages?: Readonly<Record<number, AidtSharedStage>>): Promise<boolean> {
   const saved = stage.content.draft;
+  if (stage.stageId === 1 && readAidtProblemHandoffDraft(saved) !== undefined) {
+    const active = listAidtProblems(saved).filter(problem => !problem.archived);
+    if (!active.length || !readAidtProblemHandoffDraft(saved)) return false;
+    const confirmations = await Promise.all(active.map(async problem => {
+      const draft = readAidtProblemEntityDraft(saved, problem.id);
+      if (aidtRoundMissingOutput(1, draft) !== null) return false;
+      const digest = await aidtRoundDigest(aidtRoundPayload(stage.projectId, 1, draft, stage.sourceStageRevisions));
+      return draft.fields[AIDT_ROUND_COMPLETION_FIELD] === aidtRoundConfirmation(stage.projectId, 1, digest, false);
+    }));
+    return confirmations.every(Boolean);
+  }
   if (stage.stageId === 2 && Object.keys(saved.fields).some(key => key.startsWith("interviewRecord:"))) {
-    return readAidtInterviews(saved.fields).some(interview => !isAidtInterviewArchived(saved.fields, interview.id)
-      && isAidtInterviewConfirmed(saved.fields, interview.id) && aidtInterviewFindingReady(saved, interview, stage.projectId));
+    return areAidtInterviewsComplete(saved, stage.projectId);
   }
   if (stage.stageId === 3) {
     const definition = readAidtDefinition(saved.fields);
     if (definition.invalid || definition.personas.length || definition.hmws.length || definition.surprises.length) {
-      return Boolean(readAidtDefinitionSelection(saved.fields)) && aidtRoundMissingOutput(3, saved, {
+      return allAidtDefinitionEntitiesConfirmed(saved) && Boolean(readAidtDefinitionSelection(saved.fields)) && aidtRoundMissingOutput(3, saved, {
         projectId: stage.projectId, cards: stages?.[2]?.content.draft.discoveryCards, cardsRevision: stages?.[2]?.revision,
       }) === null;
     }
   }
   if (stage.stageId === 4 && ["ideaHmwSource", "ideaSheetIds", "ideaHandoffIds"].some(key => Object.hasOwn(saved.fields, key))) {
-    return Boolean(readAidtIdeaHandoff(saved, stage.projectId));
+    const handoff = readAidtIdeaHandoff(saved, stage.projectId);
+    return Boolean(handoff && (!hasAidtIdeaChatConfirmations(saved) || allAidtIdeasConfirmed(saved)));
   }
   if (stage.stageId === 5 && Object.keys(saved.fields).some(key => key.startsWith("prototypeEntity:") || key === "prototypeHandoffEntity")) {
-    return Boolean(readAidtConfirmedPrototypeHandoff(saved));
+    return aidtAllActivePrototypeEntitiesConfirmed(saved);
   }
   if (stage.stageId === 6 && Object.keys(saved.fields).some(key => key.startsWith("testGroup:"))) {
-    return readAidtTestGroups(saved.fields).some(group => !group.archived) && isAidtReflectionConfirmed(saved);
+    return aidtTestGroupsComplete(saved) && isAidtReflectionConfirmed(saved);
   }
   const draft = stage.stageId === 1 ? readAidtProblemHandoffDraft(stage.content.draft) : undefined;
   if (draft === null) return false;

@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Put, Inject, Param, Query, HttpException } from "@nestjs/common";
+import { Body, Controller, Get, Post, Put, Inject, Optional, Param, Query, HttpException } from "@nestjs/common";
 import { operations as C, isStageRequestTooLarge } from "@repo/contracts/aidt-stages";
+import { aidtEntityThreadId } from "../../application/aidt-stages/entity-thread";
+import { AIDT_RUN_CONTEXT_EXECUTION, type AidtRunContextExecutionPort } from "../../application/aidt-run-context/ports";
 import { AIDT_STAGES_SERVICE, AidtStagesService } from "../../application/aidt-stages/service";
 import { AidtStageError } from "../../domain/aidt-stages/errors";
 import { assertPrincipal, type Principal } from "../../domain/principal";
@@ -9,7 +11,19 @@ async function respond<T>(fn:()=>Promise<T>):Promise<T> {try{return await fn();}
 function parse<T>(schema:{safeParse(v:unknown):{success:true;data:T}|{success:false}},v:unknown):T {if(isStageRequestTooLarge(v))throw new HttpException({reasonCode:"AIDT_STAGE_TOO_LARGE"},413);const p=schema.safeParse(v);if(!p.success)throw new HttpException({reasonCode:"AIDT_STAGE_INVALID"},422);return p.data;}
 @Controller()
 export class AidtStagesController {
-  constructor(@Inject(AIDT_STAGES_SERVICE) private readonly service:AidtStagesService) {}
+  constructor(@Inject(AIDT_STAGES_SERVICE) private readonly service:AidtStagesService,
+    @Optional() @Inject(AIDT_RUN_CONTEXT_EXECUTION) private readonly projection?:AidtRunContextExecutionPort) {}
+  @Post(C.reconcileEntity.path)
+  reconcile(@CurrentPrincipal() principal:Principal,@Param("projectId") projectId:string,@Param("stageId") rawStage:string,@Param("entityId") entityId:string) {
+    assertPrincipal(principal);
+    const input=parse(C.reconcileEntity.in,{projectId,stageId:Number(rawStage),entityId});
+    const actor={...principal,projectId};
+    return respond(async()=>{
+      if (!this.projection?.reconcileEntity) throw new AidtStageError("AIDT_STAGE_UNAVAILABLE");
+      const threadId=aidtEntityThreadId(actor,input.stageId,entityId,"stage");
+      return {updated:await this.projection.reconcileEntity({...actor,threadId},input.stageId,entityId)};
+    });
+  }
   @Put(C.entityThread.path)
   entityThread(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string,
     @Param("stageId") stageId: string, @Param("entityId") entityId: string, @Body() body: unknown) {

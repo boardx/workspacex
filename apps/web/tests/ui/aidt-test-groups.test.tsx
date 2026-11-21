@@ -1,11 +1,13 @@
 import { StageDraft } from "@repo/contracts/aidt-stages";
 import * as React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { AidtDashboard } from "@/features/aidt/components/project-aidt-dashboard";
 import { useAidtConfirmedStages } from "@/features/aidt/lib/use-aidt-confirmed-stages";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { AidtTestGroupDirectory } from "@/features/aidt/components/aidt-test-group-directory";
+import { AidtTestConversation, AidtTestGroupOutput } from "@/features/aidt/components/aidt-test-conversation";
+import { readAidtTestProposal } from "@/features/aidt/lib/aidt-test-proposal";
 import { AidtTestGroups } from "@/features/aidt/components/aidt-test-groups";
 import { readAidtTestGroups, updateAidtTestGroup, createAidtTestGroup } from "@/features/aidt/lib/aidt-test-groups";
 import { emptyAidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
@@ -35,7 +37,7 @@ function prototype(versionId: string) {
   }, { ...earlier, versionId }))!;
 }
 
-it("checks the requested historical entity and opens its chat only after group save", async () => {
+it("pins the test version and preserves its Chat identity through rename and deletion", async () => {
   const old = prototype("v1"), newer = prototype("v2");
   mock.history.mockResolvedValue({ items: [{ revision: 4, content: { draft: old } }] });
   mock.resolve.mockResolvedValue(earlier);
@@ -53,9 +55,21 @@ it("checks the requested historical entity and opens its chat only after group s
   expect(mock.history).toHaveBeenCalledWith("project", 5, "session", { beforeRevision: 5, limit: 1 }, expect.any(AbortSignal));
   expect(readPrototypeEntity).toHaveBeenCalledWith(old, "design-a");
   expect(mock.resolve).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project", userId: "user" }), "design-a", "v1");
-  expect(screen.queryByRole("link", { name: "打开测试" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "保存本轮测试与反思" }));
-  expect(await screen.findByRole("link", { name: "打开测试" })).toHaveAttribute("href", expect.stringMatching(/^\/aidt\/project\?step=6&entity=[0-9a-f-]+$/));
+  expect(screen.queryByRole("link", { name: "打开测试 午休组" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "保存测试列表" }));
+  const link = await screen.findByRole("link", { name: "打开测试 午休组" });
+  const address = link.getAttribute("href");
+  expect(address).toMatch(/^\/aidt\/project\?step=6&entity=[0-9a-f-]+$/);
+  fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+  const edit = within(screen.getByRole("dialog", { name: "编辑测试卡" }));
+  fireEvent.change(edit.getByLabelText("测试名称"), { target: { value: "午休再测" } });
+  fireEvent.click(edit.getByRole("button", { name: "保存修改" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存测试列表" }));
+  expect(await screen.findByRole("link", { name: "打开测试 午休再测" })).toHaveAttribute("href", address);
+  fireEvent.click(screen.getByRole("button", { name: "删除" }));
+  fireEvent.click(within(screen.getByRole("dialog", { name: "删除测试卡？" })).getByRole("button", { name: "确认删除" }));
+  expect(within(screen.getByRole("list", { name: "测试卡片" })).queryByRole("listitem")).toBeNull();
+  expect(screen.getByText("已移除（1）")).toBeInTheDocument();
 });
 
 it("keeps feedback and source links isolated to the selected test", async () => {
@@ -86,11 +100,19 @@ it("keeps feedback and source links isolated to the selected test", async () => 
   expect(screen.getByTestId("records")).toHaveTextContent("看懂了两种奶感");
 });
 
-it("makes the directory learning confirmation saveable and restores its completed Dashboard state without generating another prototype", async () => {
+it("uses an explicit Chat confirmation and keeps the output free of editing fields", async () => {
   const binding = createAidtQuestionSnapshot(prototype("v1"), 4);
   if (!binding.ok) throw new Error(binding.reason);
   const group = createAidtTestGroup(binding.snapshot, "8d806f0e-516e-4a40-97f9-fcd3991df967")!;
-  const initial = updateAidtTestGroup({ ...emptyAidtUiDrafts()[6]!, fields: { questionSnapshot: binding.serialized, version: binding.snapshot.prototypeRef } }, { ...group, name: "午休组", reflection: "普通文字不等于确认" });
+  const initial = updateAidtTestGroup({ ...emptyAidtUiDrafts()[6]!, fields: { questionSnapshot: binding.serialized, version: binding.snapshot.prototypeRef } }, { ...group, name: "午休组" });
+  const content = [
+    "```aidt-test-result",
+    JSON.stringify({ entityId: group.id, task: "比较两张标签", reflection: "尚需观察", evidenceGap: "尚无实际行为记录",
+      round: { understandingChangeStatus: "insufficient", unresolvedQuestions: "尚无实际行为证据", returnStep: "undecided", returnReason: "请老师协助选择补访对象" } }),
+    "```",
+  ].join("\n");
+  const messages = [{ id: "student-turn", role: "user", content: "本轮没有行为记录" }, { id: "assistant-turn", role: "assistant", content }];
+  const proposal = readAidtTestProposal(messages, group.id);
   let receipt: AidtSharedStage | undefined;
   function Host({ restored }: { restored?: AidtSharedStage }) {
     const [draft, update] = React.useState(restored?.content.draft ?? initial);
@@ -98,25 +120,22 @@ it("makes the directory learning confirmation saveable and restores its complete
     const stages = React.useMemo(() => { const records: Record<number, AidtSharedStage> = {}; if (saved) records[6] = saved; return records; }, [saved]);
     const completed = useAidtConfirmedStages(stages, "project");
     return <><AidtDashboard href={id => `/aidt/project?step=${id}`} completed={completed} shared={{ phase: "ready", stages }} drafts={{ ...emptyAidtUiDrafts(), 6: draft }} />
-      <AidtTestGroupDirectory projectId="project" draft={draft} savedDraft={saved?.content.draft} readOnly={false} canSave={saved?.content.draft !== draft} update={update}
-        save={async () => { receipt = { projectId: "project", stageId: 6, revision: (saved?.revision ?? 0) + 1, sourceStageRevisions: [{ stageId: 5, revision: 4 }], content: { schemaVersion: 1, draft: StageDraft.parse(draft) }, updatedBy: "student", updatedAt: "2026-11-21T00:00:00Z" }; setSaved(receipt); }} /></>;
+      <AidtTestGroupOutput projectId="project" draft={draft} activeEntityId={group.id} savedDraft={saved?.content.draft} proposal={proposal} />
+      <AidtTestConversation projectId="project" entityId={group.id} draft={draft} savedDraft={saved?.content.draft} readOnly={false}
+        messages={messages} loading={false} running={false} update={update}
+        requestSave={() => { receipt = { projectId: "project", stageId: 6, revision: (saved?.revision ?? 0) + 1, sourceStageRevisions: [{ stageId: 5, revision: 4 }], content: { schemaVersion: 1, draft: StageDraft.parse(draft) }, updatedBy: "student", updatedAt: "2026-11-21T00:00:00Z" }; setSaved(receipt); }} /></>;
   }
   const view = render(<Host />);
+  const output = screen.getByTestId("aidt-test-group-detail");
+  expect(output).toHaveTextContent("AI 草稿");
+  expect(output).toHaveTextContent("比较两张标签");
+  expect(output.querySelector("input,textarea,select")).toBeNull();
   expect(screen.queryByText(/已完成/)).toBeNull();
-  fireEvent.change(screen.getByLabelText("测试之后，对这个问题的认识有什么变化？"), { target: { value: "insufficient" } });
-  fireEvent.change(screen.getByLabelText("仍不确定的地方"), { target: { value: "尚无实际行为证据" } });
-  fireEvent.change(screen.getByLabelText("如果继续改进，优先从哪一步重新入手？"), { target: { value: "undecided" } });
-  fireEvent.change(screen.getByLabelText("需要什么支持才能继续？"), { target: { value: "请老师协助选择补访对象" } });
-  fireEvent.click(screen.getByRole("button", { name: "确认本轮学习记录" }));
-  expect(screen.queryByText(/已完成/)).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "保存本轮测试与反思" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认并保存测试成果" }));
   expect(await screen.findByText("已完成 · V1")).toBeVisible();
   expect(receipt?.content.draft.fields.newVersion).toBeFalsy();
   view.unmount();
   render(<Host restored={structuredClone(receipt)} />);
   expect(await screen.findByText("已完成 · V1")).toBeVisible();
-  fireEvent.change(screen.getByLabelText("仍不确定的地方"), { target: { value: "新的待验证问题" } });
-  expect(await screen.findByText("已确认 V1 · 有修改待确认")).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "保存本轮测试与反思" }));
-  await waitFor(() => expect(screen.getByTestId("aidt-stage-save-6")).toHaveTextContent("已保存草稿 · V2"));
+  expect(screen.queryByRole("button", { name: "确认并保存测试成果" })).toBeNull();
 });

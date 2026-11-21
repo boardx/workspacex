@@ -519,7 +519,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               title={label}
               data-testid={`chat-task-workbench-inspector-tab-${tab}`}
               onClick={() => {
-                if (projectArtifact && !hostOpen) {
+                if (projectArtifact) {
+                  if (hostOpen) return;
                   setOverride("collapsed");
                   hostPanel.onOpenChange(true);
                 } else {
@@ -600,7 +601,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             }}>‹ 产物列表</button>}
             {hostPanel?.content}
           </> : activeTab === "materials" ? (
-            <ChatMaterialsPanel
+            <>{hostPanel?.materialsContent}<ChatMaterialsPanel
               hasSelection={hasSelection}
               threadId={threadId}
               materials={materials}
@@ -613,7 +614,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               pendingCount={pendingMaterialsCount}
               uploadingCount={uploadingMaterialsCount}
               dropActive={dropActive}
-            />
+            /></>
           ) : activeTab === "artifacts" ? (
             <>
             {openInPanel && threadId ? (

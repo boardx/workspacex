@@ -157,7 +157,7 @@ describe("F13: 回答下方的记忆引用", () => {
       recordTurn: (...a) => port.recordTurn(...a),
     };
     const { memory, answerId } = await turn(fx.B, "run-f13-down", "u-owner", graphDown);
-    expect(memory).toContain("这次没能查全你的记忆");
+    expect(memory).not.toContain("这次没能查全你的记忆");
     const out = await read(fx.B, answerId);
     expect(out.recallDegraded).toBe(true);
     expect(out.recalled.map((r) => r.channels)).toEqual([["fts"]]);

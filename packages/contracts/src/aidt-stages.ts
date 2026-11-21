@@ -2,6 +2,11 @@
 import { z } from "zod";
 export const STAGE_REQUEST_BODY_LIMIT_BYTES = 256 * 1024;
 export function isStageRequestTooLarge(value: unknown): boolean { return new TextEncoder().encode(JSON.stringify(value)).length > STAGE_REQUEST_BODY_LIMIT_BYTES; }
+const greeting = /^(?:(?:你|您)好(?:呀|啊)?|大家好|嗨|哈[喽啰]|hello|hi|hey)[\s!！。.?？~～]*$/iu;
+
+/** Earlier clients sometimes copied the first Chat greeting into a problem draft. */
+export function isAidtGreetingText(value: string): boolean { return greeting.test(value.trim()); }
+
 export const StageId = z.number().int().min(1).max(6);
 // Persisted revisions and SQL pagination parameters use PostgreSQL integer columns.
 const maxStageRevision = 2147483647;
@@ -64,6 +69,7 @@ export const SaveInput = location.extend({ operationId: z.string().uuid(), expec
   if (isStageRequestTooLarge(v)) ctx.addIssue({code:"custom",message:"Stage request too large"});
 });
 export const operations = {
+  reconcileEntity: { method:"POST", path:"/projects/:projectId/aidt/stages/:stageId/entities/:entityId/reconcile", in:location.extend({stageId:z.union([z.literal(1),z.literal(2)]),entityId:AidtEntityId}).strict(),out:z.object({updated:z.boolean()}),err:StageError },
   entityThread: { method: "PUT", path: "/projects/:projectId/aidt/stages/:stageId/entities/:entityId/thread", in: entityLocation, out: z.object({ threadId: z.string().min(1) }), err: StageError },
   revision: { method: "GET", path: "/projects/:projectId/aidt/stages/:stageId/revision/:revision", in: location.extend({ revision: revision.positive() }), out: z.object({ stage: SharedStage.nullable() }), err: StageError },
   list: { method:"GET", path:"/projects/:projectId/aidt/stages", in:z.object({projectId:z.string().min(1)}), out:z.object({items:z.array(StageSummary)}), err:StageError },

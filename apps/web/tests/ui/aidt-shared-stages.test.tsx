@@ -4,8 +4,9 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { ApiError } from "@/lib/api-client";
 import { StageDraft } from "@repo/contracts/aidt-stages";
 import { AidtSharedStagePanel } from "@/features/aidt/components/aidt-shared-stage-panel";
+import { addAidtProblem, listAidtProblems } from "@/features/aidt/lib/aidt-problem-entities";
 import { useAidtSharedStages } from "@/features/aidt/lib/use-aidt-shared-stages";
-import { aidtUiReportMarkdown, emptyAidtUiDrafts, type AidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
+import { aidtUiReportMarkdown, emptyAidtUiDrafts, type AidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtSharedStage, AidtSaveStageInput } from "@/features/aidt/lib/live-aidt-stages";
 
 const mocks = vi.hoisted(() => ({ read: vi.fn(), save: vi.fn(), hydrate: vi.fn() }));
@@ -69,6 +70,30 @@ it("detects CAS conflict, reads the actual server version and requires deliberat
   fireEvent.click(screen.getByTestId("aidt-shared-save")); await screen.findByTestId("aidt-shared-conflict"); expect(screen.getByLabelText("学生本页内容")).toHaveValue("本页学生问题"); expect(screen.getByTestId("aidt-shared-save")).toBeDisabled();
   openDetails(); expect(screen.getByTestId("aidt-shared-server-preview")).toHaveTextContent("成员B更新后的稿"); fireEvent.click(screen.getByTestId("aidt-shared-use-server-base")); expect(screen.getByLabelText("学生本页内容")).toHaveValue("本页学生问题");
   fireEvent.click(screen.getByTestId("aidt-shared-save")); await screen.findByTestId("aidt-shared-receipt"); expect((mocks.save.mock.calls[1]![0] as AidtSaveStageInput).expectedRevision).toBe(2);
+});
+it("saves a directory action against the group's latest draft without publishing local form edits", async () => {
+  const mine = "7eb11d00-2933-4370-8a26-43223e3153f1";
+  const theirs = "7eb11d00-2933-4370-8a26-43223e3153f2";
+  const change = (value: AidtUiStageDraft) => addAidtProblem(value, mine, "自习空间");
+  let current = saved("小组已保存的问题", 1);
+  mocks.read.mockImplementation(async (_p, id) => ({ stage: id === 1 ? current : null }));
+  mocks.save.mockRejectedValueOnce(new ApiError(409, "AIDT_STAGE_REVISION_CONFLICT", {}));
+  render(<Harness />);
+  await ready();
+  current = saved("另一位成员已更新的问题", 2);
+  current.content.draft = StageDraft.parse(addAidtProblem(current.content.draft, theirs, "食堂排队"));
+
+  await act(async () => { expect(await exposed.saveDraft(change)).toBe(false); });
+  expect(exposed.needsBaseReview).toBe(true);
+  expect(screen.getByLabelText("学生本页内容")).toHaveValue("本页学生问题");
+  fireEvent.click(screen.getByTestId("aidt-shared-use-server-base"));
+  await act(async () => { expect(await exposed.saveDraft(change)).toBe(true); });
+
+  const request = mocks.save.mock.calls[1]![0] as AidtSaveStageInput;
+  expect(request.expectedRevision).toBe(2);
+  expect(request.content.draft.fields.initial).toBe("另一位成员已更新的问题");
+  expect(listAidtProblems(request.content.draft).map(item => item.id)).toEqual([theirs, mine]);
+  expect(screen.getByLabelText("学生本页内容")).toHaveValue("本页学生问题");
 });
 it("treats load failure as failure instead of an empty group and disables writes until a successful retry", async () => {
   mocks.read.mockRejectedValue(new Error("503")); render(<Harness />); await screen.findByTestId("aidt-shared-load-error"); expect(screen.getByTestId("aidt-shared-save")).toBeDisabled(); expect(screen.getByLabelText("学生本页内容")).toHaveValue("本页学生问题");

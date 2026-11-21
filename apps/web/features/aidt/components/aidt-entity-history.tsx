@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { AidtProblemWorkspace } from "./aidt-problem-workspace";
+import { AidtInterviewOutput } from "./aidt-interview-output";
 import { AidtStageOutput } from "./aidt-stage-output";
 import { AidtPrototypeEntityOutput } from "./aidt-prototype-handoff";
 import { aidtHref, type AidtStep } from "../lib/project-aidt";
@@ -14,13 +15,14 @@ import { readAidtPrototypeEntityDraft } from "../lib/aidt-prototype-handoff";
 import { readAidtTestGroups } from "../lib/aidt-test-groups";
 import { readAidtStageRevision, type AidtSharedStage } from "../lib/live-aidt-stages";
 
-export function AidtEntityHistory({ projectId, entityId, step, revision, token, timestamp }: {
+export function AidtEntityHistory({ projectId, entityId, step, revision, token, timestamp, sourceId }: {
   projectId: string;
   entityId: string;
   step: AidtStep;
   revision: number;
   token: string;
   timestamp: string | null;
+  sourceId: string | null;
 }) {
   const [stage, setStage] = React.useState<AidtSharedStage | null>();
   const [failed, setFailed] = React.useState(false);
@@ -58,14 +60,15 @@ export function AidtEntityHistory({ projectId, entityId, step, revision, token, 
             <p className="text-12 text-muted-foreground">已保存的历史版本。</p>
             {timestamp && <p className="text-12">来源定位 {timestamp}</p>}
             {step.id === 1
-              ? <AidtProblemWorkspace draft={readAidtProblemEntityDraft(draft, entityId)} readOnly manualEdit={false}
-                  confirmRevision={revision} update={() => undefined} ask={() => "unavailable"} conversationRef={() => undefined} />
+              ? <AidtProblemWorkspace draft={readAidtProblemEntityDraft(draft, entityId)} revision={revision} confirmed={Boolean(readAidtProblemEntityDraft(draft, entityId).fields.roundCompletion)} />
+              : step.id === 2
+              ? <AidtInterviewOutput projectId={projectId} entityId={entityId} draft={draft} frozenSourceId={sourceId} />
               : step.id === 5
               ? <AidtPrototypeEntityOutput projectId={projectId} designId={entityId} stageDraft={draft}
                   update={() => undefined} workflow={{ matchesServer: false }} readOnly />
               : <AidtStageOutput projectId={projectId} step={step} draft={draft} readOnly
                   update={() => undefined} toolHref={() => backHref}
-                  entityId={step.id === 2 ? entityId : undefined} activeDefinitionEntityId={step.id === 3 ? entityId : undefined}
+                  activeDefinitionEntityId={step.id === 3 ? entityId : undefined}
                   ideaEntityId={step.id === 4 ? entityId : undefined} activeTestEntityId={step.id === 6 ? entityId : undefined}
                   availableCardsRevision={stage?.sourceStageRevisions.find(source => source.stageId === 2)?.revision}
                   readTestPrototypeEntity={readAidtPrototypeEntityDraft} />}

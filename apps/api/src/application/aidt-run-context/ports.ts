@@ -17,6 +17,8 @@ export interface AidtRunContextSnapshotStore {
   eventsIn(session: TenantSession, orgId: OrgId, runId: string): Promise<readonly AidtContextApplicationEvent[]>;
 }
 export interface AidtRunContextExecutionPort {
+  projectCompleted?(orgId: OrgId, runId: string): Promise<void>;
+  reconcileEntity?(actor: AidtContextActor, stageId: number, entityId: string): Promise<boolean>;
   resolve(orgId: OrgId, actor: Omit<AidtContextActor, "orgId">, guarded: Guarded<AidtStoredContextSnapshot>): Promise<AidtStoredContextSnapshot>;
   revalidate(orgId: OrgId, actor: Omit<AidtContextActor, "orgId">, snapshot: AidtStoredContextSnapshot): Promise<void>;
   append(orgId: OrgId, runId: string, event: AidtContextApplicationInput): Promise<void>;

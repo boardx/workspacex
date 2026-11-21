@@ -1,3 +1,4 @@
+import { projectSavedSkillOutput } from "./pg-skill-output";
 import { AIDT_ENTITY_THREAD_PREFIX } from "@repo/contracts/aidt-stages";
 import { aidtEntityThreadId, aidtSavedEntityContext } from "../../application/aidt-stages/entity-thread";
 import { randomUUID } from "node:crypto";
@@ -137,6 +138,27 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
  resolve(orgId:OrgId,actor:Omit<AidtContextActor,"orgId">,guarded:Guarded<Stored>){return this.db.withTenant(orgId,s=>this.timed(s,async tx=>{const who={...actor,orgId},scope=await this.accessIn(tx,who,true),stored=this.disclose(guarded,who,scope.decision);if(stored.requestedBy!==actor.userId)return unavailable();await this.verifyFrozenIn(tx,who,stored,scope);return stored;}));}
  revalidate(orgId:OrgId,actor:Omit<AidtContextActor,"orgId">,stored:Stored){return this.db.withTenant(orgId,s=>this.revalidateIn(s,{...actor,orgId},stored));}
  append(orgId:OrgId,runId:string,event:import("@repo/contracts/aidt-run-context").AidtContextApplicationInput){if(!this.enabled())return Promise.reject(new AidtContextError("AIDT_CONTEXT_NOT_AVAILABLE"));return this.db.withTenant(orgId,s=>this.store.appendIn(s,orgId,runId,event));}
+ async projectCompleted(orgId:OrgId,runId:string) {
+  if (!this.enabled()) return;
+  await this.db.withTenant(orgId,async s=>{
+   const facts=await this.store.readScopeIn(s,orgId,runId);
+   if (!facts) return;
+   const actor={orgId,userId:facts.requestedBy,projectId:facts.projectId,threadId:facts.threadId};
+   const scope=await this.accessIn(s,actor,true);
+   const guarded=await this.store.readIn(s,orgId,runId);
+   if (!guarded) return;
+   const selector=this.disclose(guarded,actor,scope.decision).snapshot.selector;
+   if (selector.purpose==="stage" && selector.entityId)
+    await projectSavedSkillOutput(s,scope.stages,actor,scope.decision,selector.stageId,selector.entityId,runId);
+  });
+ }
+ async reconcileEntity(actor:AidtContextActor,stageId:number,entityId:string) {
+  if (!this.enabled()) return unavailable();
+  return this.db.withTenant(actor.orgId,async s=>{
+   const scope=await this.accessIn(s,actor,true);
+   return projectSavedSkillOutput(s,scope.stages,actor,scope.decision,stageId,entityId);
+  });
+ }
  async receipt(actor:{orgId:OrgId;userId:string},runId:string){return this.db.withTenant(actor.orgId,s=>this.timed(s,async tx=>{
   const facts=await this.store.readScopeIn(tx,actor.orgId,runId);if(!facts)return unavailable();const who={...actor,projectId:facts.projectId,threadId:facts.threadId},scope=await this.accessIn(tx,who,false),guarded=await this.store.readIn(tx,actor.orgId,runId);if(!guarded)return unavailable();const stored=this.disclose(guarded,who,scope.decision),events=await this.store.eventsIn(tx,actor.orgId,runId),selector=stored.snapshot.selector;
   return AidtContextReceipt.parse({runId,projectId:stored.projectId,purpose:selector.purpose,...(selector.purpose==="stage"?{stageId:selector.stageId,...(selector.returnRevision!==undefined?{returnRevision:selector.returnRevision}:{})}:{}),skillVersionId:stored.snapshot.focus.skillVersionId,snapshotHash:stored.snapshotHash,preparedAt:stored.preparedAt,stageRevisions:selector.stageRevisions,historyRevisions:selector.purpose==="summary"?selector.historyRevisions:[],omissions:stored.snapshot.omissions,truncated:stored.snapshot.truncated,application:reduceAidtApplication(runId,events)});

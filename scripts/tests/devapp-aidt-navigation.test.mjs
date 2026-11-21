@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { ownedAidtProblemRoute, matchesAidtProblemRoute, openAidtProblemOutcome, assertSavedAidtProblemInput, requireAcceptedS1Feedback } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 import { ownedAidtEntityRoute, matchesAidtEntityRoute, openAidtEntityOutcome, assertSavedAidtHmwSource, verifyAidtFrozenBacklink } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
-import { interviewCodePattern, savedAidtInterviewRoute, requireConfirmedInterviewHandoff } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
-import { aidtS1Question, applyAidtS1StudentRevision, assertSavedAidtS1Revision, assertAidtS1Handoff, assertAidtS2Topic } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+import { interviewCodePattern, savedAidtInterviewRoute, hasInterviewPrerequisite, hasPendingProblemReview } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+
+import { aidtS1Question, prepareAidtS1NativeResponse, runAidtS1NativeRevision, assertSavedAidtS1NativeDraft, assertSavedAidtS1Revision, assertAidtS1Handoff, assertAidtS2Topic } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const origin = 'https://devapp.boardx.us';
 const projectId = 'prj-navigation-fixture';
@@ -166,7 +167,7 @@ for (const accepted of [false, undefined]) test(`S1 cannot confirm or hand off w
   ]);
 });
 
-test('literal true passes the transport feedback gate only; this helper alone does not review S1 I3', async () => {
+test('literal true passes only the feedback transport gate and does not itself confirm S1 I3', async () => {
   const events = [];
   await requireAcceptedS1Feedback(async () => { events.push('native-feedback'); return true; });
   events.push('feedback-gate-returned');
@@ -245,13 +246,17 @@ test('all ten interview codes have exact suffix boundaries without admitting ext
   for (const invalid of ['U00', 'U11', 'U010', 'U1', 'u01', ' U01', 'U01 ', null]) assert.throws(() => interviewCodePattern(invalid), /INTERVIEW_CODE_UNEXPECTED/);
 });
 
-test('ten-entry isolation cannot confirm or execute after failed upstream teaching/handoff', () => {
-  for (const state of [{ s1: false, s2: false }, { s1: false, s2: true }, { s1: true, s2: false }, { s1: 1, s2: true }]) {
-    let executed = false;
-    assert.throws(() => { requireConfirmedInterviewHandoff(state); executed = true; }, /S2_CONFIRMED_HANDOFF_REQUIRED/);
-    assert.equal(executed, false);
+test('only the original S1 acceptance opens formal interviews; diagnostic success never supplies its prerequisite', () => {
+  for (const value of [undefined, false, 1, 'true']) {
+    assert.equal(hasInterviewPrerequisite({ s1: value, syntheticHandoff: value }), false);
   }
-  assert.doesNotThrow(() => requireConfirmedInterviewHandoff({ s1: true, s2: true }));
+  assert.equal(hasInterviewPrerequisite({ s1: true }), true);
+  assert.equal(hasInterviewPrerequisite({ s1: false, syntheticHandoff: true }), false);
+  const state = { s1: false, syntheticHandoff: true, s2: false, s3: false, s4: false, s5: false, s6: false };
+  let formalWrites = 0;
+  if (hasInterviewPrerequisite(state)) { formalWrites++; state.s2 = true; }
+  assert.equal(formalWrites, 0); assert.equal(state.s1, false); assert.equal(state.s2, false);
+  assert.equal([state.s1, state.s2, state.s3, state.s4, state.s5, state.s6].every(Boolean), false);
 });
 
 test('each interview target comes from its exact saved code and ID, never the current URL', () => {
@@ -275,142 +280,211 @@ test('storage-only frozen interviews still require actual historical navigation 
   assert.equal(clicked && viewed, true); assert.equal(material, false);
 });
 
-const hash = text => createHash('sha256').update(text, 'utf8').digest('hex');
-const questionScope = { projectId, entityId, threadId: 'thr_aidt_question', source: 'a'.repeat(40), tag: '12345678-1', prompt: '合成学生请求：请问一个开放问题。', revision: 4 };
-const questionProof = () => ({ ...questionScope, stageId: 1, status: 'passed', assistantText: '你们亲自观察到了哪件事，还没有看到什么？', runId: 'run-question', inputMessageId: 'message-student', assistantMessageId: 'message-assistant',
-  sourceRevisions: [{ stageId: 1, revision: 4 }], studentTextSha256: hash(questionScope.prompt), assistantTextSha256: hash('你们亲自观察到了哪件事，还没有看到什么？') });
-const actualQuestion = () => aidtS1Question([questionProof()], questionScope);
-const initialInput = '合成初稿：想了解午间饮品选择的犹豫。';
-const answerInput = '追问：你们亲自观察到了哪件事，还没有看到什么？\n学生回应：尚未观察，只是本组猜测；需要了解一次具体选择过程。';
-const choiceInput = '选择研究午休时间情境；暂不采纳直接制作推荐App，因为缺少观察依据。';
-const rewrittenInput = '我们想了解不同午休时间情境如何影响一次具体饮品选择。';
-function revisionStage(revision, fields, confirmed = false) {
+test('a pending S1 receipt identifies the independent diagnostic only, without accepting the original S1', () => {
+  const href = 'https://devapp.boardx.us/aidt/prj-owned?step=1&entity=problem&thread=thr_current';
+  const receipt = { stageId: 1, projectId: 'prj-owned', threadId: 'thr_current', knownConfirmTaskIntent: true, toolName: 'confirm_task_intent' };
+  assert.equal(hasPendingProblemReview([{ receipt }], href, 'prj-owned'), true);
+  for (const patch of [{ stageId: 2 }, { projectId: 'prj-other' }, { threadId: 'thr_other' }, { knownConfirmTaskIntent: false }, { toolName: 'other' }]) {
+    assert.equal(hasPendingProblemReview([{ receipt: { ...receipt, ...patch } }], href, 'prj-owned'), false);
+  }
+  assert.equal(hasPendingProblemReview([], href, 'prj-owned'), false);
+});
+
+
+const sha = value => createHash('sha256').update(value, 'utf8').digest('hex');
+const canonical = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
+  ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+const initial = '原生合成学生命题：了解午间饮品选择的犹豫。';
+const firstPrompt = `合成软件验收。${initial} 尚无真实观察，问题来源是猜测。请先问一个开放问题。`;
+const firstAssistant = '你们猜测的依据是什么，还需要了解哪一次具体经历？';
+function proofFor({ checkpoint = 'teaching-chat-stage-1', prompt = firstPrompt, revision = 3, assistantText = firstAssistant, sequence = 1, ...patch } = {}) {
+  return { stageId: 1, checkpoint, syntheticProblemFixture: false, status: 'passed', projectId, entityId,
+    threadId: 'thr-native-s1', source: 'a'.repeat(40), tag: '12345678-1', prompt,
+    runId: `run-${sequence}`, inputMessageId: `student-${sequence}`, assistantMessageId: `assistant-${sequence}`,
+    sourceRevisions: [{ stageId: 1, revision }], studentTextSha256: sha(prompt), assistantTextSha256: sha(assistantText), assistantText, ...patch };
+}
+function questionFor(proof = proofFor(), proofs = [proof]) {
+  return aidtS1Question(proofs, { projectId, entityId, threadId: proof.threadId, source: proof.source, tag: proof.tag,
+    checkpoint: proof.checkpoint, prompt: proof.prompt, revision: proof.sourceRevisions[0].revision });
+}
+function nativeStage(revision, fields, { confirmed = false } = {}) {
   const draft = { ...fields };
-  const aggregate = { [`problemEntity:${entityId}`]: JSON.stringify({ id: entityId, title: '合成问题', archived: false }) };
+  const aggregate = { [`problemEntity:${entityId}`]: JSON.stringify({ id: entityId, title: '原生合成问题', archived: false }) };
   if (confirmed) {
-    const payload = JSON.stringify({ projectId, stageId: 1, draft: { fields: draft, ideas: [], selectedIdeaId: '' }, sources: [] },
-      (_key, value) => value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value);
-    draft.roundCompletion = JSON.stringify({ schemaVersion: 1, projectId, stageId: 1, digest: hash(payload) });
+    draft.problemReflectionConfirmed = 'true';
+    const digest = sha(canonical({ projectId, stageId: 1, draft: { fields: draft, ideas: [], selectedIdeaId: '' }, sources: [] }));
+    draft.roundCompletion = JSON.stringify({ schemaVersion: 1, projectId, stageId: 1, digest });
     Object.assign(aggregate, draft, { problemHandoffEntity: entityId });
   }
   aggregate[`problemDraft:${entityId}`] = JSON.stringify(draft);
   return { projectId, stageId: 1, revision, sourceStageRevisions: [], content: { draft: { fields: aggregate } } };
 }
-function studentUi(overrides = {}) {
-  const question = actualQuestion(), events = [];
-  let input = { initial: initialInput, followupAnswers: '', focus: '', rewrittenTheme: '' };
-  let stage = revisionStage(4, input);
-  const review = { ...question, approved: true, rewrittenTheme: rewrittenInput, responseSha256: hash(answerInput), choiceSha256: hash(choiceInput), h03ConversationSignoff: true, teachingQualityAccepted: true };
-  const args = { question, initial: initialInput,
-    reviewStudentResponse: async received => { events.push('operator-sees-actual-question'); assert.equal(received, question); input = { ...input, followupAnswers: answerInput, focus: choiceInput }; return review; },
-    readInputs: async () => { events.push('read-existing-ui-fields'); return { ...input }; },
-    saveResponse: async () => { events.push('save-response'); stage = revisionStage(stage.revision + 1, input); },
-    rewriteAndSave: async text => { events.push('rewrite-and-save'); input = { ...input, rewrittenTheme: text }; stage = revisionStage(stage.revision + 1, input); },
-    reload: async () => { events.push('reload-exact-entity'); input = JSON.parse(stage.content.draft.fields[`problemDraft:${entityId}`]); },
-    readSaved: async () => { events.push('read-server-version'); return structuredClone(stage); },
-    ...overrides,
+function nativeFixture() {
+  const question = questionFor();
+  const firstFields = { initial, people: '合成学生', scene: '午间', activity: '选择饮品', whyWorth: '理解犹豫', problemSources: 'guess', draftTurnId: question.assistantMessageId };
+  const original = assertSavedAidtS1NativeDraft(nativeStage(4, firstFields), question);
+  const review = { ...question, approved: true, response: '目前只是本组猜测，还没有观察具体购买经过。', selectedDirection: '午休时间情境与选择',
+    choiceReason: '先理解一次具体经过，暂不直接制作推荐App；需要真实研究。', rewrittenTheme: '我们想了解午休时间情境如何影响一次饮品选择。', h03ConversationSignoff: true, teachingQualityAccepted: true };
+  const events = [];
+  let stage = nativeStage(4, firstFields), reply;
+  const args = { question, original,
+    reviewStudentResponse: async q => { events.push('operator-review'); assert.equal(q, question); return review; },
+    sendStudentResponse: async prompt => { events.push('send-one-native-response');
+      const proof = proofFor({ checkpoint: 'teaching-chat-stage-1-revision', prompt, revision: original.revision, sequence: 2, assistantText: '依据学生回应整理了待确认的工作坊草稿，仍待真实研究。' });
+      reply = questionFor(proof);
+      stage = nativeStage(5, { ...firstFields, focus: review.selectedDirection, rewrittenTheme: review.rewrittenTheme, draftTurnId: reply.assistantMessageId }); return true; },
+    readReply: async prompt => { events.push('read-precise-reply'); assert.equal(reply.studentPrompt, prompt); return reply; },
+    readSaved: async () => { events.push('read-native-server-draft'); return structuredClone(stage); },
+    reload: async () => { events.push('reload-exact-entity'); },
+    assertUi: async snapshot => { events.push('assert-native-ui'); assert.deepEqual(snapshot.fields, JSON.parse(stage.content.draft.fields[`problemDraft:${entityId}`])); },
   };
-  return { args, events, review, input: () => input, stage: () => stage, changeStage: next => { stage = next; } };
+  return { question, original, review, events, args, stage: () => stage, setStage: value => { stage = value; } };
 }
 
-test('one actual question is bound to exact project, entity, thread, source/tag, prompt, messages, hashes and source revision', () => {
-  const proof = questionProof(), result = aidtS1Question([proof], questionScope);
-  assert.equal(result.assistantText, proof.assistantText); assert.equal(result.runId, proof.runId); assert.equal(Object.isFrozen(result), true);
-  for (const key of ['projectId', 'entityId', 'threadId', 'source', 'tag', 'prompt', 'assistantTextSha256', 'studentTextSha256']) assert.throws(() => aidtS1Question([{ ...proof, [key]: 'wrong' }], questionScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
-  for (const key of ['runId', 'inputMessageId', 'assistantMessageId', 'assistantText']) assert.throws(() => aidtS1Question([{ ...proof, [key]: '' }], questionScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
-  for (const revisions of [[], [{ stageId: 1, revision: 3 }], [{ stageId: 2, revision: 4 }], [{ stageId: 1, revision: 4 }, { stageId: 2, revision: 1 }]]) assert.throws(() => aidtS1Question([{ ...proof, sourceRevisions: revisions }], questionScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
-  for (const proofs of [[], [proof, proof], [{ ...proof, status: 'unknown' }], [{ ...proof, assistantText: proof.assistantText + '篡改' }]]) assert.throws(() => aidtS1Question(proofs, questionScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
-  for (const changed of [{ entityId: '' }, { entityId: 'not-an-entity' }, { threadId: '' }, { source: 'A'.repeat(40) }, { tag: 'not-a-build' }, { revision: 0 }, { revision: 4.5 }, { prompt: '' }]) {
-    const badScope = { ...questionScope, ...changed };
-    assert.throws(() => aidtS1Question([{ ...proof, ...changed, sourceRevisions: [{ stageId: 1, revision: badScope.revision }] }], badScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
-  }
-  for (const id of ['has whitespace', 'x'.repeat(257)]) assert.throws(() => aidtS1Question([{ ...proof, runId: id }], questionScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
+test('S1 selects exactly the requested original checkpoint among fixture and revision proofs, never the first passed row', () => {
+  const original = proofFor(), revision = proofFor({ checkpoint: 'teaching-chat-stage-1-revision', prompt: '另一个已验证的第二轮原生输入', revision: 4, sequence: 2 });
+  const fixture = proofFor({ syntheticProblemFixture: true, checkpoint: 'teaching-chat-stage-1-fixture', entityId: otherEntity, threadId: 'thr-diagnostic', sequence: 3 });
+  assert.equal(questionFor(original, [fixture, revision, original]).runId, original.runId);
+  assert.equal(questionFor(revision, [fixture, original, revision]).runId, revision.runId);
+  assert.equal(Object.isFrozen(questionFor()), true);
+  for (const rows of [[], [fixture], [revision], [original, original], [{ ...original, status: 'failed' }], [{ ...original, syntheticProblemFixture: undefined }]]) assert.throws(() => questionFor(original, rows), /S1_ACTUAL_QUESTION_UNVERIFIED/);
+  for (const key of ['projectId', 'entityId', 'threadId', 'source', 'tag', 'prompt', 'assistantTextSha256', 'studentTextSha256']) assert.throws(() => questionFor(original, [{ ...original, [key]: 'wrong' }]), /S1_ACTUAL_QUESTION_UNVERIFIED/);
+  for (const key of ['runId', 'inputMessageId', 'assistantMessageId']) assert.throws(() => questionFor(original, [{ ...original, [key]: '' }]), /S1_ACTUAL_QUESTION_UNVERIFIED/);
+  for (const refs of [[], [{ stageId: 1, revision: 2 }], [{ stageId: 2, revision: 3 }], [{ stageId: 1, revision: 3 }, { stageId: 2, revision: 1 }]]) assert.throws(() => questionFor(original, [{ ...original, sourceRevisions: refs }]), /S1_ACTUAL_QUESTION_UNVERIFIED/);
 });
 
-test('operator response is saved before rewriting; both server revisions and exact reloaded entity are checked; H03 stays false', async () => {
-  const ui = studentUi(), out = await applyAidtS1StudentRevision(ui.args);
-  assert.deepEqual(ui.events, ['operator-sees-actual-question', 'read-existing-ui-fields', 'save-response', 'read-server-version', 'rewrite-and-save', 'read-server-version', 'reload-exact-entity', 'read-existing-ui-fields', 'read-server-version']);
-  assert.equal(out.responseRevision, 5); assert.equal(out.revision, 6);
-  assert.deepEqual(ui.input(), { initial: initialInput, followupAnswers: answerInput, focus: choiceInput, rewrittenTheme: rewrittenInput });
-  assert.equal(out.h03ConversationSignoff, false); assert.equal(out.teachingQualityAccepted, false);
-});
-
-test('missing, false, unknown or mismatched operator reviews cannot save or rewrite, and no default answer is generated', async () => {
-  const missing = studentUi({ reviewStudentResponse: undefined });
-  await assert.rejects(applyAidtS1StudentRevision(missing.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/); assert.deepEqual(missing.events, []);
-  for (const review of [false, null, undefined, {}, { approved: 'true' }]) {
-    const ui = studentUi({ reviewStudentResponse: async () => review });
-    await assert.rejects(applyAidtS1StudentRevision(ui.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
-    assert.equal(ui.events.includes('save-response'), false); assert.equal(ui.events.includes('rewrite-and-save'), false); assert.equal(ui.input().followupAnswers, '');
-  }
-  for (const key of ['projectId', 'entityId', 'threadId', 'runId', 'inputMessageId', 'assistantMessageId', 'assistantTextSha256', 'responseSha256', 'choiceSha256']) {
-    const ui = studentUi(); const original = ui.args.reviewStudentResponse;
-    ui.args.reviewStudentResponse = async q => ({ ...await original(q), [key]: 'wrong' });
-    await assert.rejects(applyAidtS1StudentRevision(ui.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
-    assert.equal(ui.events.includes('save-response'), false); assert.equal(ui.events.includes('rewrite-and-save'), false);
-  }
-});
-
-test('blank responses, copied assistant prose, prewritten theme or changed initial input cannot advance', async () => {
-  for (const changed of [{ followupAnswers: '' }, { focus: '' }, { followupAnswers: actualQuestion().assistantText }, { rewrittenTheme: rewrittenInput }, { initial: 'another entity input' }]) {
-    const ui = studentUi(); ui.args.readInputs = async () => ({ initial: initialInput, followupAnswers: answerInput, focus: choiceInput, rewrittenTheme: '', ...changed });
-    await assert.rejects(applyAidtS1StudentRevision(ui.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
-    assert.equal(ui.events.includes('save-response'), false); assert.equal(ui.events.includes('rewrite-and-save'), false);
-  }
-});
-
-test('no-op/failed response saves, no-op rewrite, wrong saved entity and changed reload never become reviewed revisions', async () => {
-  const noSave = studentUi({ saveResponse: async () => {} });
-  await assert.rejects(applyAidtS1StudentRevision(noSave.args), /S1_REVIEWED_REVISION_UNVERIFIED/); assert.equal(noSave.events.includes('rewrite-and-save'), false);
-  const saveFailure = studentUi({ saveResponse: async () => { throw Error('CAS_SAVE_FAILED'); } });
-  await assert.rejects(applyAidtS1StudentRevision(saveFailure.args), /CAS_SAVE_FAILED/); assert.equal(saveFailure.events.includes('rewrite-and-save'), false);
-  const noRewrite = studentUi({ rewriteAndSave: async () => {} }); await assert.rejects(applyAidtS1StudentRevision(noRewrite.args), /S1_REVIEWED_REVISION_UNVERIFIED/);
-  const wrongEntity = studentUi(); wrongEntity.args.readSaved = async () => { const stage = structuredClone(wrongEntity.stage()); stage.projectId = 'other-project'; return stage; };
-  await assert.rejects(applyAidtS1StudentRevision(wrongEntity.args), /S1_REVIEWED_REVISION_UNVERIFIED/);
-  const lost = studentUi();
-  // Callbacks are captured by the source function; represent reentry through its captured readInputs callback.
-  let afterReload = false; lost.args.reload = async () => { afterReload = true; };
-  lost.args.readInputs = async () => ({ ...lost.input(), ...(afterReload ? { focus: 'lost choice' } : {}) });
-  await assert.rejects(applyAidtS1StudentRevision(lost.args), /S1_REVIEWED_INPUT_NOT_RETAINED/);
-});
-
-test('this full-text fixture accepts a 650-character topic and stops before saving a 651-character rewrite', async () => {
-  const accepted = studentUi(); accepted.review.rewrittenTheme = '题'.repeat(650);
-  const result = await applyAidtS1StudentRevision(accepted.args);
-  assert.equal(result.expected.rewrittenTheme.length, 650);
+test('native revision uses one actual student response turn, exact persisted draftTurnId, reload and UI readback; never confirms', async () => {
+  const fixture = nativeFixture(), result = await runAidtS1NativeRevision(fixture.args);
+  assert.deepEqual(fixture.events, ['operator-review', 'send-one-native-response', 'read-precise-reply', 'read-native-server-draft', 'reload-exact-entity', 'read-native-server-draft', 'assert-native-ui']);
+  assert.equal(result.draft.revision, 5); assert.equal(result.draft.fields.initial, initial);
+  assert.equal(result.draft.fields.focus, fixture.review.selectedDirection); assert.equal(result.draft.fields.rewrittenTheme, fixture.review.rewrittenTheme);
+  assert.equal(result.draft.fields.draftTurnId, result.reply.assistantMessageId);
+  assert.equal(result.draft.fields.roundCompletion, undefined); assert.equal(result.draft.fields.problemReflectionConfirmed, undefined);
   assert.equal(result.h03ConversationSignoff, false); assert.equal(result.teachingQualityAccepted, false);
-  assert.doesNotThrow(() => assertAidtS2Topic({ problemEntityId: entityId, topicRevision: result.revision, topic: result.expected.rewrittenTheme }, { entityId, revision: result.revision, rewrittenTheme: result.expected.rewrittenTheme }));
-  const rejected = studentUi(); rejected.review.rewrittenTheme = '题'.repeat(651);
-  await assert.rejects(applyAidtS1StudentRevision(rejected.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
-  assert.equal(rejected.events.includes('save-response'), false); assert.equal(rejected.events.includes('rewrite-and-save'), false);
-  const tooLong = { entityId, revision: 7, rewrittenTheme: '题'.repeat(651) };
-  assert.throws(() => assertAidtS2Topic({ problemEntityId: entityId, topicRevision: 7, topic: tooLong.rewrittenTheme }, tooLong), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
-  assert.throws(() => assertAidtS2Topic({ problemEntityId: entityId, topicRevision: 7, topic: tooLong.rewrittenTheme.slice(0, 650) }, tooLong), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
+  assert.equal(result.review.h03ConversationSignoff, false); assert.equal(result.review.teachingQualityAccepted, false);
+  for (const text of [fixture.question.assistantText, fixture.review.response, fixture.review.selectedDirection, fixture.review.choiceReason, fixture.review.rewrittenTheme]) assert.ok(result.review.prompt.includes(text));
 });
 
-test('confirmed S1 requires exact post-response revision, entity handoff and a digest of final response/choice/theme', () => {
-  const expected = { projectId, entityId, initial: initialInput, followupAnswers: answerInput, focus: choiceInput, rewrittenTheme: rewrittenInput };
-  const stage = revisionStage(7, { initial: initialInput, followupAnswers: answerInput, focus: choiceInput, rewrittenTheme: rewrittenInput }, true);
-  assert.equal(assertSavedAidtS1Revision(stage, expected, { revision: 7, afterRevision: 6, confirmed: true }), 7);
-  for (const broken of [revisionStage(6, JSON.parse(stage.content.draft.fields[`problemDraft:${entityId}`])), { ...stage, revision: 6 }, { ...stage, projectId: 'foreign' }, { ...stage, stageId: 2 }, { ...stage, sourceStageRevisions: [{ stageId: 2, revision: 1 }] }]) assert.throws(() => assertSavedAidtS1Revision(broken, expected, { revision: 7, afterRevision: 6, confirmed: true }), /S1_.*UNVERIFIED/);
-  for (const key of ['followupAnswers', 'focus', 'rewrittenTheme']) {
-    const broken = structuredClone(stage), fields = JSON.parse(broken.content.draft.fields[`problemDraft:${entityId}`]); fields[key] = 'changed after confirmation';
-    broken.content.draft.fields[`problemDraft:${entityId}`] = JSON.stringify(fields);
-    assert.throws(() => assertSavedAidtS1Revision(broken, { ...expected, [key]: fields[key] }, { revision: 7, confirmed: true }), /S1_CONFIRMED_REVISION_UNVERIFIED/);
+test('missing/false/unknown/foreign reviews cannot send, save, rewrite, confirm or manufacture a generic answer', async () => {
+  const missing = nativeFixture(); delete missing.args.reviewStudentResponse;
+  await assert.rejects(runAidtS1NativeRevision(missing.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/); assert.deepEqual(missing.events, []);
+  for (const value of [false, null, undefined, {}, { approved: 'true' }]) {
+    const fixture = nativeFixture(); fixture.args.reviewStudentResponse = async () => value;
+    await assert.rejects(runAidtS1NativeRevision(fixture.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/); assert.deepEqual(fixture.events, []);
+    assert.equal(fixture.stage().revision, 4);
   }
-  const broken = structuredClone(stage); broken.content.draft.fields.problemHandoffEntity = otherEntity;
-  assert.throws(() => assertSavedAidtS1Revision(broken, expected, { confirmed: true }), /S1_CONFIRMED_REVISION_UNVERIFIED/);
+  for (const key of ['projectId', 'entityId', 'threadId', 'runId', 'inputMessageId', 'assistantMessageId', 'assistantTextSha256']) {
+    const fixture = nativeFixture(); fixture.review[key] = 'foreign';
+    await assert.rejects(runAidtS1NativeRevision(fixture.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
+    assert.deepEqual(fixture.events, ['operator-review']); assert.equal(fixture.stage().revision, 4);
+  }
 });
 
-test('S2 href and topic must use the exact final S1 entity/revision/theme, never empty or another scope', () => {
-  const confirmed = { entityId, revision: 7, rewrittenTheme: rewrittenInput };
-  const href = `${origin}/aidt/${projectId}?step=2&problemEntity=${entityId}&problemRevision=7`;
-  assert.equal(assertAidtS1Handoff(href, scope, confirmed), href);
-  const record = { problemEntityId: entityId, topicRevision: 7, topic: rewrittenInput };
-  assert.doesNotThrow(() => assertAidtS2Topic(record, confirmed));
-  for (const bad of [href.replace(entityId, otherEntity), href.replace('problemRevision=7', 'problemRevision=6'), href.replace(projectId, 'other-project'), href + '&problemRevision=7', href + '&entity=' + entityId, href.replace('step=2', 'step=1')]) assert.throws(() => assertAidtS1Handoff(bad, scope, confirmed), /S1_CONFIRMED_HANDOFF_UNVERIFIED/);
-  for (const bad of [null, { ...record, problemEntityId: otherEntity }, { ...record, topicRevision: 6 }, { ...record, topic: '' }, { ...record, topic: 'other theme' }]) assert.throws(() => assertAidtS2Topic(bad, confirmed), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
-  assert.throws(() => assertAidtS1Handoff(href.replace(entityId, ''), scope, { ...confirmed, entityId: '' }), /S1_CONFIRMED_HANDOFF_UNVERIFIED/);
-  assert.throws(() => assertAidtS2Topic({ ...record, topic: '' }, { ...confirmed, rewrittenTheme: '' }), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
-  assert.throws(() => assertAidtS2Topic({ problemEntityId: '', topicRevision: 0, topic: '' }, { entityId: '', revision: 0, rewrittenTheme: '' }), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
+test('copy-only or missing student work and out-of-bounds response/choice/theme stop before any native send', async () => {
+  for (const patch of [{ response: '' }, { response: firstAssistant }, { selectedDirection: '' }, { choiceReason: '' }, { rewrittenTheme: '' }, { response: '答'.repeat(3001) }, { selectedDirection: '向'.repeat(121) }, { choiceReason: '由'.repeat(651) }, { rewrittenTheme: '题'.repeat(651) }]) {
+    const fixture = nativeFixture(); Object.assign(fixture.review, patch);
+    await assert.rejects(runAidtS1NativeRevision(fixture.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
+    assert.deepEqual(fixture.events, ['operator-review']); assert.equal(fixture.stage().revision, 4);
+  }
+});
+
+test('650-character native rewrite is retained in full; composed second prompt accepts 5000 and rejects 5001 without truncation', async () => {
+  const fixture = nativeFixture(); fixture.review.rewrittenTheme = '题'.repeat(650);
+  const result = await runAidtS1NativeRevision(fixture.args); assert.equal(result.draft.fields.rewrittenTheme.length, 650);
+  assert.doesNotThrow(() => assertAidtS2Topic({ problemEntityId: entityId, topicRevision: 6, topic: fixture.review.rewrittenTheme }, { entityId, revision: 6, rewrittenTheme: fixture.review.rewrittenTheme }));
+  const base = nativeFixture(), short = await prepareAidtS1NativeResponse(base.question, async () => base.review);
+  for (const length of [5000, 5001]) {
+    const proof = proofFor({ assistantText: '问'.repeat(firstAssistant.length + length - short.prompt.length) }), question = questionFor(proof);
+    const review = { ...base.review, ...question };
+    if (length === 5000) { const prepared = await prepareAidtS1NativeResponse(question, async () => review); assert.equal(prepared.prompt.length, 5000); assert.equal(prepared.h03ConversationSignoff, false); }
+    else await assert.rejects(prepareAidtS1NativeResponse(question, async () => review), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
+  }
+});
+
+test('native send false/unknown/error or reused reply scope/run/message IDs cannot reach reload or UI confirmation', async () => {
+  for (const returned of [false, undefined, 1, 'true']) {
+    const fixture = nativeFixture(); fixture.args.sendStudentResponse = async () => returned;
+    await assert.rejects(runAidtS1NativeRevision(fixture.args), /S1_TEACHING_FEEDBACK_REQUIRED/); assert.deepEqual(fixture.events, ['operator-review']);
+  }
+  const failed = nativeFixture(); failed.args.sendStudentResponse = async () => { throw Error('NATIVE_SEND_FAILED'); };
+  await assert.rejects(runAidtS1NativeRevision(failed.args), /NATIVE_SEND_FAILED/); assert.deepEqual(failed.events, ['operator-review']);
+  for (const key of ['projectId', 'entityId', 'threadId', 'studentPrompt', 'revision', 'runId', 'inputMessageId', 'assistantMessageId']) {
+    const fixture = nativeFixture(), originalRead = fixture.args.readReply;
+    fixture.args.readReply = async prompt => ({ ...await originalRead(prompt), [key]: ['runId','inputMessageId','assistantMessageId'].includes(key) ? fixture.question[key] : key === 'revision' ? 3 : 'foreign' });
+    await assert.rejects(runAidtS1NativeRevision(fixture.args), /S1_NATIVE_RESPONSE_UNVERIFIED/);
+    assert.equal(fixture.events.includes('reload-exact-entity'), false); assert.equal(fixture.events.includes('assert-native-ui'), false);
+  }
+});
+
+test('first native draft must preserve the original student input and a newly saved exact assistant projection', () => {
+  const question = questionFor(), fields = { initial, draftTurnId: question.assistantMessageId };
+  assert.equal(assertSavedAidtS1NativeDraft(nativeStage(4, fields), question).revision, 4);
+  for (const patch of [{ initial: 'invented initial not in submitted prompt' }, { initial: '' }, { draftTurnId: 'other-assistant' }, { roundCompletion: 'true' }, { problemReflectionConfirmed: 'true' }, { nested: {} }]) assert.throws(() => assertSavedAidtS1NativeDraft(nativeStage(4, { ...fields, ...patch }), question), /S1_NATIVE_DRAFT_UNVERIFIED/);
+  for (const broken of [{ ...nativeStage(4, fields), revision: 3 }, { ...nativeStage(4, fields), projectId: 'other' }, { ...nativeStage(4, fields), stageId: 2 }]) assert.throws(() => assertSavedAidtS1NativeDraft(broken, question), /S1_NATIVE_DRAFT_UNVERIFIED/);
+  const archived = nativeStage(4, fields); archived.content.draft.fields[`problemEntity:${entityId}`] = JSON.stringify({ id: entityId, archived: true });
+  assert.throws(() => assertSavedAidtS1NativeDraft(archived, question), /S1_NATIVE_DRAFT_UNVERIFIED/);
+});
+
+test('wrong or local-only native projection, edited student initial/theme/focus or changed reload cannot count as a saved response', async () => {
+  for (const patch of [{ draftTurnId: 'unrelated' }, { initial: 'changed initial' }, { rewrittenTheme: 'model substituted theme' }, { focus: 'model substituted direction' }]) {
+    const fixture = nativeFixture(), old = fixture.args.readSaved;
+    fixture.args.readSaved = async () => { const stage = await old(); const fields = JSON.parse(stage.content.draft.fields[`problemDraft:${entityId}`]); Object.assign(fields, patch); stage.content.draft.fields[`problemDraft:${entityId}`] = JSON.stringify(fields); return stage; };
+    await assert.rejects(runAidtS1NativeRevision(fixture.args), /S1_NATIVE_DRAFT_UNVERIFIED/); assert.equal(fixture.events.includes('reload-exact-entity'), false);
+  }
+  const localOnly = nativeFixture(); localOnly.args.readSaved = async () => nativeStage(4, localOnly.original.fields);
+  await assert.rejects(runAidtS1NativeRevision(localOnly.args), /S1_NATIVE_DRAFT_UNVERIFIED/);
+  const reentry = nativeFixture(), old = reentry.args.reload;
+  reentry.args.reload = async () => { await old(); const stage = structuredClone(reentry.stage()), fields = JSON.parse(stage.content.draft.fields[`problemDraft:${entityId}`]); fields.scene = 'changed after reload'; stage.content.draft.fields[`problemDraft:${entityId}`] = JSON.stringify(fields); reentry.setStage(stage); };
+  await assert.rejects(runAidtS1NativeRevision(reentry.args), /S1_REVIEWED_REVISION_UNVERIFIED/); assert.equal(reentry.events.includes('assert-native-ui'), false);
+});
+
+test('native confirmation permits only the new reflection flag and exact round digest on an incremented persisted revision', async () => {
+  const fixture = nativeFixture(), { draft } = await runAidtS1NativeRevision(fixture.args), confirmed = nativeStage(6, draft.fields, { confirmed: true });
+  assert.equal(assertSavedAidtS1Revision(confirmed, draft, { confirmed: true }), 6);
+  assert.equal(assertSavedAidtS1Revision(confirmed, draft, { confirmed: true, revision: 6 }), 6);
+  assert.throws(() => assertSavedAidtS1Revision(nativeStage(5, draft.fields), draft, { confirmed: true }), /S1_.*UNVERIFIED/);
+  assert.throws(() => assertSavedAidtS1Revision({ ...confirmed, revision: 5 }, draft, { confirmed: true }), /S1_.*UNVERIFIED/);
+  assert.throws(() => assertSavedAidtS1Revision({ ...confirmed, revision: 5 }, draft, { confirmed: true, revision: 5 }), /S1_.*UNVERIFIED/);
+  for (const key of Object.keys(draft.fields)) {
+    const mutated = structuredClone(confirmed), fields = JSON.parse(mutated.content.draft.fields[`problemDraft:${entityId}`]); fields[key] += ' changed'; mutated.content.draft.fields[`problemDraft:${entityId}`] = JSON.stringify(fields);
+    assert.throws(() => assertSavedAidtS1Revision(mutated, draft, { confirmed: true }), /S1_REVIEWED_REVISION_UNVERIFIED/);
+  }
+  for (const patch of [{ problemHandoffEntity: otherEntity }, { roundCompletion: 'true' }]) {
+    const mutated = structuredClone(confirmed); Object.assign(mutated.content.draft.fields, patch);
+    assert.throws(() => assertSavedAidtS1Revision(mutated, draft, { confirmed: true }), /S1_CONFIRMED_REVISION_UNVERIFIED/);
+  }
+  const mirror = structuredClone(confirmed); mirror.content.draft.fields.focus = 'foreign mirror direction';
+  assert.throws(() => assertSavedAidtS1Revision(mirror, draft, { confirmed: true }), /S1_.*UNVERIFIED/);
+  const forged = nativeStage(6, { ...draft.fields, problemReflectionConfirmed: 'true', roundCompletion: 'true' });
+  assert.throws(() => assertSavedAidtS1Revision(forged, draft, { confirmed: true }), /S1_.*UNVERIFIED/);
+});
+
+test('formal S2 href and interview topic must use the exact confirmed original entity/revision/full theme', () => {
+  const confirmed = { entityId, revision: 6, rewrittenTheme: '学生确认的命题全文' }, href = `${origin}/aidt/${projectId}?step=2&problemEntity=${entityId}&problemRevision=6`;
+  const record = { problemEntityId: entityId, topicRevision: 6, topic: confirmed.rewrittenTheme };
+  assert.equal(assertAidtS1Handoff(href, scope, confirmed), href); assert.doesNotThrow(() => assertAidtS2Topic(record, confirmed));
+  for (const bad of [href.replace(entityId, otherEntity), href.replace('problemRevision=6', 'problemRevision=5'), href.replace(projectId, 'other-project'), href + '&problemRevision=6', href + '&entity=' + entityId, href.replace('step=2', 'step=1'), href.replace(origin, 'https://foreign.example')]) assert.throws(() => assertAidtS1Handoff(bad, scope, confirmed), /S1_CONFIRMED_HANDOFF_UNVERIFIED/);
+  for (const bad of [null, { ...record, problemEntityId: otherEntity }, { ...record, topicRevision: 5 }, { ...record, topic: '' }, { ...record, topic: 'different theme' }]) assert.throws(() => assertAidtS2Topic(bad, confirmed), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
+  for (const patch of [{ entityId: '' }, { revision: 0 }, { rewrittenTheme: '' }, { rewrittenTheme: '题'.repeat(651) }]) assert.throws(() => assertAidtS2Topic(record, { ...confirmed, ...patch }), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
+});
+
+
+test('native selected direction must bind its exact ID and title to the student choice, including an explicitly adopted AI suggestion', () => {
+  const proof = questionFor(proofFor({ checkpoint: 'teaching-chat-stage-1-revision', prompt: '合成学生回应与明确方向选择', revision: 4, sequence: 2 }));
+  const focus = '学生选择的时间情境方向';
+  const fields = { initial, focus, rewrittenTheme: '学生自己的重写命题', draftTurnId: proof.assistantMessageId, problemDirectionId: 'chosen' };
+  for (const source of ['group', 'ai']) {
+    const directions = [{ id: 'old', title: '第一轮的另一个方向', source: 'ai' }, { id: 'chosen', title: focus, source }];
+    const saved = assertSavedAidtS1NativeDraft(nativeStage(5, { ...fields, problemDirections: JSON.stringify(directions) }), proof, { initial, focus, rewrittenTheme: fields.rewrittenTheme });
+    assert.equal(saved.fields.problemDirectionId, 'chosen'); assert.equal(saved.fields.focus, focus);
+  }
+  const validDirections = [{ id: 'old', title: '第一轮的另一个方向', source: 'ai' }, { id: 'chosen', title: focus, source: 'group' }];
+  for (const patch of [
+    { problemDirectionId: 'old', problemDirections: JSON.stringify(validDirections) },
+    { problemDirectionId: 'missing', problemDirections: JSON.stringify(validDirections) },
+    { problemDirections: JSON.stringify([{ id: 'chosen', title: '不同的方向标题', source: 'group' }]) },
+    { problemDirections: JSON.stringify([{ id: 'chosen', title: focus, source: 'unknown' }]) },
+    { problemDirections: '{bad-json' },
+    { problemDirections: JSON.stringify({ id: 'chosen', title: focus, source: 'group' }) },
+  ]) assert.throws(() => assertSavedAidtS1NativeDraft(nativeStage(5, { ...fields, ...patch }), proof, { initial, focus, rewrittenTheme: fields.rewrittenTheme }), /S1_NATIVE_DRAFT_UNVERIFIED/);
 });

@@ -7,13 +7,14 @@ export interface ChatHostPanel {
   readonly scope: string;
   readonly title: string;
   readonly placement?: "artifacts";
+  readonly materialsContent?: ReactNode;
   readonly open: boolean;
   readonly content: ReactNode;
   readonly onOpenChange: (open: boolean) => void;
 }
 
-/** Optional read-only projection of the same messages shown in the Chat timeline. */
+/** Optional workspace controls powered by the native Chat timeline. */
 export const ChatHostConversationContext = createContext<{
-  target: HTMLElement;
+  target?: HTMLElement | null;
   render: (messages: readonly { id: string; role: string; content?: unknown }[], loading: boolean, running: boolean) => ReactNode;
 } | null>(null);

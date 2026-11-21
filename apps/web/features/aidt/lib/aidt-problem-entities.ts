@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
 
-const problem = z.object({ id: z.string().uuid(), title: z.string().trim().min(1).max(120), archived: z.boolean() });
+export const AIDT_PROBLEM_TITLE_MAX_LENGTH = 120;
+const problem = z.object({ id: z.string().uuid(), title: z.string().trim().min(1).max(AIDT_PROBLEM_TITLE_MAX_LENGTH), archived: z.boolean() });
 const fields = z.record(z.string());
 const prefix = "problemEntity:";
 
@@ -23,10 +24,23 @@ export function listAidtProblems(draft: AidtUiStageDraft) {
   });
 }
 
+export function canAddAidtProblem(draft: AidtUiStageDraft) {
+  return Object.keys(draft.fields).length <= 95;
+}
+
 export function addAidtProblem(draft: AidtUiStageDraft, id: string, title: string) {
   const entry = problem.safeParse({ id, title, archived: false });
-  if (!entry.success || draft.fields[prefix + id] || Object.keys(draft.fields).length > 95) return draft;
+  if (!entry.success || draft.fields[prefix + id] || !canAddAidtProblem(draft)) return draft;
   return { ...draft, fields: { ...draft.fields, [prefix + id]: JSON.stringify(entry.data) } };
+}
+
+export function renameAidtProblem(draft: AidtUiStageDraft, id: string, title: string) {
+  const key = prefix + id;
+  const current = parse(problem, draft.fields[key]);
+  if (!current || current.id !== id || current.archived) return draft;
+  const renamed = problem.safeParse({ ...current, title });
+  if (!renamed.success || renamed.data.title === current.title) return draft;
+  return { ...draft, fields: { ...draft.fields, [key]: JSON.stringify(renamed.data) } };
 }
 
 export function archiveAidtProblem(draft: AidtUiStageDraft, id: string) {
