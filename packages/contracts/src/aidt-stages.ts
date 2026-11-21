@@ -16,6 +16,22 @@ export const StageDraft = z.object({
   selectedIdeaId: text, selectionReasons: z.record(text).optional(), unboundReason: text.optional(), discoveryCards: z.array(DiscoveryCard).max(100).optional(),
 }).strict();
 export const SourceStageRevision = z.object({ stageId: StageId, revision: revision.positive() }).strict();
+export const IdeaHmwSource = z.object({
+  revision: revision.positive(),
+  id: z.string().trim().min(1).max(256),
+  text: z.string().trim().min(1).max(2000),
+}).strict();
+
+export function readIdeaHmwSource(value?: string): z.infer<typeof IdeaHmwSource> | null {
+  if (!value || value.length > 6000) return null;
+  try {
+    const parsed = IdeaHmwSource.safeParse(JSON.parse(value));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export const SummaryReport = z.object({ markdown: z.string().max(100000), sourceStageRevisions: z.array(SourceStageRevision).max(6).refine((refs) => new Set(refs.map((r) => r.stageId)).size === refs.length, "Use one source revision per stage") }).strict();
 export const StageContent = z.object({ schemaVersion: z.literal(1), draft: StageDraft, summaryReport: SummaryReport.optional() }).strict();
 export const SharedStage = z.object({ projectId: z.string().min(1), stageId: StageId, revision: revision.positive(), content: StageContent, sourceStageRevisions: z.array(SourceStageRevision), updatedBy: z.string().min(1), updatedAt: z.string().datetime() });
