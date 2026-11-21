@@ -30,9 +30,10 @@ export function aidtSummarySourceReviewLines(review: AidtSummarySourceReview): s
 }
 const check = (signal: AbortSignal) => { if (signal.aborted) throw new Error("AIDT_CONTEXT_CHANGED"); };
 /** Read only the mounted SUM thread. Human text and unlinked artifacts are never AI report results. */
-export async function loadAidtSummaryChoices(scope: AidtReportHistoryScope, threadId: string, signal: AbortSignal) {
+export async function loadAidtSummaryChoices(scope: AidtReportHistoryScope, threadId: string, signal: AbortSignal, entityId?: string) {
   check(signal);
-  await resolveAidtStepChat({ ...scope, step: AIDT_STEPS[5], purpose: "report", thread: threadId, signal }); check(signal);
+  const verified = await resolveAidtStepChat({ ...scope, step: AIDT_STEPS[5], purpose: "report", thread: threadId, entityId, signal }); check(signal);
+  if (entityId && verified.threadId !== threadId) throw new Error("AIDT_SUMMARY_THREAD_MISMATCH");
   const messages: ReturnType<typeof chat.operations.listMessages.out.parse>["messages"] = [];
   let cursor: string | undefined; const seen = new Set<string>(); let truncated = false;
   for (let page = 0; page < 3; page++) {
@@ -64,8 +65,8 @@ export async function loadAidtSummaryChoices(scope: AidtReportHistoryScope, thre
   return { choices, truncated, artifactsUnavailable };
 }
 /** Explicit selection is reauthorized/read back before import; this operation never lands/saves anything. */
-export async function readAidtSummaryChoice(scope: AidtReportHistoryScope, threadId: string, selected: AidtSummaryChoice, signal: AbortSignal) {
-  const current = await loadAidtSummaryChoices(scope, threadId, signal); check(signal);
+export async function readAidtSummaryChoice(scope: AidtReportHistoryScope, threadId: string, selected: AidtSummaryChoice, signal: AbortSignal, entityId?: string) {
+  const current = await loadAidtSummaryChoices(scope, threadId, signal, entityId); check(signal);
   const choice = current.choices.find(item => item.kind === selected.kind && item.id === selected.id && item.messageId === selected.messageId && item.runId === selected.runId);
   if (!choice) throw new Error("AIDT_SUMMARY_RESULT_CHANGED");
   let markdown: string, immutableRevision: string | null = null;
@@ -94,4 +95,20 @@ export async function readAidtSummaryChoice(scope: AidtReportHistoryScope, threa
 }
 export function aidtSummaryImportMarkdown(threadId: string, result: Awaited<ReturnType<typeof readAidtSummaryChoice>>) {
   return ["## AI报告草稿 · 学生选择导入", "", "以下内容来自已保存的总结对话，尚待学生核对和修改；模型陈述不是原始证据、教师点评或文件导出回执。阶段来源请核对该对话的生成请求与材料范围。", `对话：${threadId}；消息：${result.choice.messageId}；运行：${result.choice.runId}${result.immutableRevision ? `；产物：${result.choice.id}；修订：${result.immutableRevision}` : ""}`, "", "### 软件记录的来源范围（不是AI报告正文）", ...aidtSummarySourceReviewLines(result.sourceReview).map(line => `- ${line}`), "", "### 所选AI原文（未经软件改写）", "", result.markdown, ""].join("\n");
+}
+
+/** A teaching question or welcome reply is not a report document. */
+export function isAidtReportDraft(markdown: string) {
+  const lines = markdown.trim().split(/\r?\n/);
+  return /^#{1,6}\s+.*报告/.test(lines[0] ?? "") && lines.slice(1).some(line => line.trim());
+}
+
+export async function readAidtChatReportDraft(scope: AidtReportHistoryScope, entityId: string, threadId: string, messageId: string, signal: AbortSignal) {
+  const { choices } = await loadAidtSummaryChoices(scope, threadId, signal, entityId);
+  const linked = choices.filter(choice => choice.messageId === messageId);
+  const artifact = linked.find(choice => choice.kind === "artifact" && /报告/.test(choice.title));
+  const message = linked.find(choice => choice.kind === "message" && isAidtReportDraft(choice.markdown ?? ""));
+  const selected = artifact ?? message;
+  if (!selected) return null;
+  return readAidtSummaryChoice(scope, threadId, selected, signal, entityId);
 }
