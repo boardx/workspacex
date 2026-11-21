@@ -836,30 +836,78 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   state.s3 = await check('s3-definition-hmw-handoff', 3, async () => {
     if (!state.s2 || !step3Href) { await go(3); fail('S2_CONFIRMED_HANDOFF_REQUIRED'); }
     await page.goto(owned(step3Href));
-    await page.getByRole('radio', { name: '暂无意外发现', exact: true }).check();
-    await persistConfirmed(3, page.getByTestId('aidt-surprise-confirm'));
-    await click(btn('新建画像')); await saveStage(3); await follow('未命名画像'); await output();
-    await fill('画像名称', personaName); await fill('用户情境', text('午休时的饮品选择合成情境。'));
-    await fill('可观察的行为', text('夹具中的人物先看队列。')); await fill('需求', text('了解等待信息，仍需真实研究。'));
-    await fill('反例、适用范围或仍未知的地方', '只有QA合成材料，年龄、兴趣与真实行为均未知。');
-    await page.getByRole('group', { name: /^关联已确认的人物发现卡/ }).getByRole('checkbox', { name: /^U01/ }).check();
-    await saveStage(3);
-    await iterate(3, page.getByRole('textbox', { name: '可观察的行为', exact: true }), '画像的行为范围', text('合成夹具中人物先看队列；赶时间与闲暇情境需要分开理解，尚不能推广到真实人群。'));
-    await observeInputs(3);
-    await persistConfirmed(3, btn('确认画像')); personaHref = page.url();
-    evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
-    await follow('返回产物列表'); await click(btn('新建 HMW')); await saveStage(3); await follow('未命名 HMW'); await output();
-    await fill('我们如何……（HMW）', text('我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？'));
-    await fill('选择理由或待核实处', '来自本次合成发现卡；是否适用于真实学生仍待验证。');
-    await page.getByRole('group', { name: '关联已确认画像', exact: true }).getByRole('checkbox', { name: personaName, exact: true }).check();
-    await page.getByRole('group', { name: /^关联已确认的人物发现卡/ }).getByRole('checkbox', { name: /^U01/ }).check();
-    await saveStage(3);
-    await iterate(3, page.getByRole('textbox', { name: '我们如何……（HMW）', exact: true }), 'HMW表述', text('我们如何帮助不同时间情境中的学生理解等待信息，并保留多种自主选择？'));
-    await feedback(3);
-    await observeInputs(3);
-    await persistConfirmed(3, btn('确认 HMW')); await persistConfirmed(3, btn('选为本轮 HMW'));
-    evidence(3).outputs.push({ name: '本轮选定HMW及暂无意外发现记录', format: 'native confirmed HMW and source-card links', status: 'pass', evidence: `V${await revision(3)}; 暂无 is a valid branch, no invented surprise` });
-    await follow('返回产物列表'); step4Href = owned(await page.getByRole('link', { name: '带入创意发散', exact: true }).getAttribute('href'));
+    const definitionActions = page.getByRole('region', { name: '对话产物确认' });
+    const confirmDefinition = async () => {
+      const before = await revision(3);
+      await click(btn('确认当前产物', definitionActions));
+      await expect.poll(() => revision(3), { timeout: 30000 }).toBeGreaterThan(before);
+      await expect(definitionActions).toContainText('已确认');
+    };
+    await click(btn('新建意外发现'));
+    await follow('打开意外发现对话');
+    if (!await feedback(3, text('暂无意外发现。真实人物与行为尚未核验，请保持为暂无。'))) fail('S3_CONFIRM_SURPRISE_REPLY_REQUIRED');
+    await confirmDefinition();
+    await follow('返回产物列表');
+
+    const selectedInterviews = state.interviews.slice(0, 2);
+    const expectedCards = selectedInterviews.map(item => item.target.entityId);
+    const createDefinition = async (kind, openLabel, createLabel, linkLabel) => {
+      const before = await revision(3);
+      await click(btn(openLabel));
+      const dialog = page.getByRole('dialog', { name: openLabel, exact: true });
+      for (const interview of selectedInterviews) {
+        const option = dialog.getByRole('checkbox', { name: new RegExp(`${interview.code}.*关注等待时间`) });
+        await expect(option).toHaveCount(1);
+        await option.check();
+      }
+      await click(btn(createLabel, dialog));
+      await expect.poll(() => revision(3), { timeout: 30000 }).toBeGreaterThan(before);
+      await follow(linkLabel);
+      const entityId = lastEntityRoute.entityId, stage = await savedStage(3);
+      const record = JSON.parse(stage.content.draft.fields[`definition${kind}:${entityId}`]);
+      expect(record.cardIds).toEqual(expectedCards);
+      const sourceRevision = Number(stage.content.draft.fields.definitionEvidenceRevision);
+      expect(sourceRevision).toBeGreaterThan(0);
+      expect(stage.sourceStageRevisions).toContainEqual({ stageId: 2, revision: sourceRevision });
+      await output();
+      const inspector = page.getByTestId('aidt-definition-editor');
+      await expect(inspector.getByRole('textbox')).toHaveCount(0);
+      await disclosure('引用材料');
+      const links = await inspector.getByRole('link', { name: `查看访谈 V${sourceRevision}` }).all();
+      expect(links).toHaveLength(2);
+      const linkedEntities = [];
+      for (const link of links) {
+        const href = new URL(owned(await link.getAttribute('href')));
+        expect(href.searchParams.get('step')).toBe('2');
+        linkedEntities.push(href.searchParams.get('entity'));
+        expect(href.searchParams.get('entityRevision')).toBe(String(sourceRevision));
+      }
+      expect(linkedEntities.sort()).toEqual([...expectedCards].sort());
+      return { entityId, sourceRevision };
+    };
+    const persona = await createDefinition('Persona', '新建画像', '创建画像', '打开用户画像对话');
+    const input = text(`我们的合成画像名为「${personaName}」。情境是午休点单，行为是比较等待时间，需求是了解等待信息；仅适用本测试夹具。请依据本画像选中的两个访谈发现整理画像草稿。`);
+    if (!await feedback(3, input)) fail('S3_PERSONA_TEACHING_REPLY_REQUIRED');
+    await confirmDefinition(); personaHref = page.url();
+    evidence(3).inputs.push({ name: '画像草稿', content: input, format: '原生 Chat 学生消息', source: persona });
+    evidence(3).outputs.push({ name: personaName, format: 'native confirmed persona with two selected discovery-card references', status: 'pass', evidence: `V${await revision(3)}` });
+
+    await follow('返回产物列表');
+    const hmw = await createDefinition('Hmw', '新建 HMW', '创建HMW', '打开HMW对话');
+    const topic = text(`小组拟定：我们如何帮助午休赶时间的学生理解等待信息，同时保留不同选择？对应已确认画像「${personaName}」。请保留这是合成证据和待核实的范围。`);
+    if (!await feedback(3, topic)) fail('S3_HMW_TEACHING_REPLY_REQUIRED');
+    await click(btn('核对草稿和来源', definitionActions));
+    const personaGroup = definitionActions.getByRole('group', { name: '关联已确认画像', exact: true });
+    const personaChoice = personaGroup.getByRole('checkbox');
+    await expect(personaChoice).toHaveCount(1);
+    if (!(await personaChoice.isChecked())) await personaChoice.check();
+    await confirmDefinition();
+    const beforeHandoff = await revision(3);
+    await click(btn('选为本轮 HMW', definitionActions));
+    await expect.poll(() => revision(3), { timeout: 30000 }).toBeGreaterThan(beforeHandoff);
+    evidence(3).inputs.push({ name: 'HMW 草稿', content: topic, format: '原生 Chat 学生消息', source: hmw });
+    evidence(3).outputs.push({ name: '本轮选定HMW及暂无意外发现记录', format: 'native confirmed HMW and source-card links', status: 'pass', evidence: `V${await revision(3)}` });
+    await follow('返回产物列表'); step4Href = owned(await page.getByTestId('aidt-stage-next').getAttribute('href'));
     await shot('03-definition-directory', 3); await completed(3); await page.goto(owned(step3Href));
   }, '03-definition');
 

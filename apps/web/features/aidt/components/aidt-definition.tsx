@@ -22,6 +22,7 @@ import {
   confirmAidtDefinitionChatEntity, enableAidtPrimarySurpriseEntity, hasAidtPrimarySurpriseEntity,
   latestAidtDefinitionCandidate, type AidtDefinitionTurn,
 } from "../lib/aidt-definition-chat";
+import { readAidtInterviews } from "../lib/aidt-interviews";
 import type { AidtDiscoveryCardDraft, AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import { AidtSurpriseReflection } from "./aidt-surprise-reflection";
 import { AidtResearchMaterialPreview } from "./aidt-research-material";
@@ -136,6 +137,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...p
   const evidence = useDefinitionEvidence(props);
   const { personas, hmws, surprises, invalid } = readAidtDefinition(draft.fields);
   const [editing, setEditing] = React.useState<{ id: string; name: string } | null>(null);
+  const [creating, setCreating] = React.useState<{ kind: "persona" | "hmw"; cardIds: string[]; revision?: number } | null>(null);
   const [removing, setRemoving] = React.useState<string | null>(null);
   const [showArchived, setShowArchived] = React.useState(false);
   const active = [
@@ -148,7 +150,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...p
   const title = (id: string, fallback: string) => draft.fields[nameKey(id)] || fallback;
   const save = (change: (old: AidtUiStageDraft) => AidtUiStageDraft) => { update(change); requestSave?.(); };
   const openAllowed = (id: string) => savedDraft ? Boolean(aidtDefinitionEntityKind(savedDraft, id)) : !requestSave;
-  const add = (kind: "persona" | "hmw") => save(old => addAidtDefinitionEntity(old, kind, crypto.randomUUID()));
+  const add = (kind: "persona" | "hmw") => setCreating({ kind, cardIds: [], revision: evidence.revision });
   const archive = (id: string) => {
     save(old => {
       const definition = readAidtDefinition(old.fields);
@@ -193,6 +195,24 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, ...p
         </li>;
       })}
     </ul>
+    {creating && <Dialog open onOpenChange={open => { if (!open) setCreating(null); }}>
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
+        <DialogTitle>{creating.kind === "persona" ? "新建画像" : "新建 HMW"}</DialogTitle>
+        <DialogDescription>选择本次对话要参考的访谈发现卡。每张卡引用当前显示的版本。</DialogDescription>
+        <form className="space-y-3" onSubmit={event => {
+          event.preventDefault();
+          if (!canAdd || creating.revision !== evidence.revision || (creating.cardIds.length && !evidence.revision)) return;
+          const id = crypto.randomUUID();
+          const source = evidence.revision ? { revision: evidence.revision, cardIds: creating.cardIds, available: new Set(evidence.cards.map(card => card.id)) } : undefined;
+          save(old => addAidtDefinitionEntity(old, creating.kind, id, source));
+          setCreating(null);
+        }}>
+          <DefinitionEvidence projectId={props.projectId} {...evidence} selected={creating.cardIds} disabled={!canAdd} onChange={cardIds => setCreating({ ...creating, cardIds })} groupByInterview />
+          {creating.revision !== evidence.revision && <p role="status" className="text-13">访谈版本已更新，请重新打开并选择。</p>}
+          <Button type="submit" disabled={!canAdd || creating.revision !== evidence.revision}>创建{creating.kind === "persona" ? "画像" : "HMW"}</Button>
+        </form>
+      </DialogContent>
+    </Dialog>}
     {editing && <Dialog open onOpenChange={open => { if (!open) setEditing(null); }}>
       <DialogContent><DialogTitle>修改卡片名称</DialogTitle><DialogDescription>该名称用于卡片列表。</DialogDescription>
         <form className="space-y-3" onSubmit={event => {
@@ -242,6 +262,7 @@ function DefinitionChatView({ props, entityId }: { props: AidtDefinitionProps; e
       <summary className="cursor-pointer font-medium">引用材料{evidence.revision ? ` · 第 2 步 V${evidence.revision}` : ""}</summary>
       {evidence.cards.filter(card => selected.includes(card.id)).map(card => <div key={card.id}>
         <p>{card.participantCode} · {card.headline || "人物发现"}</p>
+        {projectId && evidence.revision && <Link className="text-primary underline" href={`/aidt/${encodeURIComponent(projectId)}?${new URLSearchParams({ step: "2", entity: card.id, entityRevision: String(evidence.revision) })}`}>查看访谈 V{evidence.revision}</Link>}
         <DefinitionEvidenceSource projectId={projectId} card={card} source={evidence.sourceFields[researchMaterialKey("source", card.id)]} />
       </div>)}
       {evidence.unavailable && <p role="status">暂无法读取原版本。</p>}
@@ -339,13 +360,20 @@ function DefinitionEvidenceSource({ projectId, card, source }: { projectId?: str
 
 type EvidenceProps = { projectId?: string; sourceFields: Readonly<Record<string, string>>; cards: readonly AidtDiscoveryCardDraft[]; unconfirmedCards: number; revision?: number };
 
-function DefinitionEvidence({ projectId, sourceFields, cards, unconfirmedCards, revision, selected, disabled, onChange }: EvidenceProps & { selected: string[]; disabled: boolean; onChange: (ids: string[]) => void }) {
+function DefinitionEvidence({ projectId, sourceFields, cards, unconfirmedCards, revision, selected, disabled, onChange, groupByInterview }: EvidenceProps & { selected: string[]; disabled: boolean; onChange: (ids: string[]) => void; groupByInterview?: boolean }) {
+  const interviews = groupByInterview ? new Map(readAidtInterviews(sourceFields).map(item => [item.id, item])) : null;
+  const cardControl = (card: AidtDiscoveryCardDraft) => {
+    const interview = interviews?.get(card.id);
+    const name = interview?.displayName ? `${interview.code} · ${interview.displayName}` : interview?.code || card.participantCode;
+    return <div key={card.id} className="rounded-lg border border-border p-2 text-13">
+      {groupByInterview && name && <p className="mb-1 font-semibold">{name}</p>}
+      <label className="flex items-start gap-2"><input className="mt-1" type="checkbox" checked={selected.includes(card.id)} disabled={!selected.includes(card.id) && selected.length >= AIDT_DEFINITION_EVIDENCE_LIMIT} onChange={event => onChange(toggleId(selected, card.id, event.currentTarget.checked))} /><span className="min-w-0 break-words">{groupByInterview ? card.headline || "人物发现卡" : `${card.participantCode} · ${card.headline || "人物发现"}`}</span></label>
+      <DefinitionEvidenceSource projectId={projectId} card={card} source={sourceFields[researchMaterialKey("source", card.id)]} />
+    </div>;
+  };
   return <fieldset className="space-y-2" disabled={disabled || !revision}>
     <legend className="text-13 font-medium">关联已确认的人物发现卡{revision ? ` · 第 2 步 V${revision}` : ""}</legend>
-    {cards.length ? cards.map(card => <div key={card.id} className="rounded-lg border border-border p-2 text-13">
-      <label className="flex items-start gap-2"><input className="mt-1" type="checkbox" checked={selected.includes(card.id)} disabled={!selected.includes(card.id) && selected.length >= AIDT_DEFINITION_EVIDENCE_LIMIT} onChange={event => onChange(toggleId(selected, card.id, event.currentTarget.checked))} /><span className="min-w-0 break-words">{card.participantCode} · {card.headline || "人物发现"}</span></label>
-      <DefinitionEvidenceSource projectId={projectId} card={card} source={sourceFields[researchMaterialKey("source", card.id)]} />
-    </div>) : <p className="text-12 text-muted-foreground">当前没有可选的已确认人物发现卡。</p>}
+    {cards.length ? cards.map(cardControl) : <p className="text-12 text-muted-foreground">当前没有可选的已确认人物发现卡。</p>}
     {unconfirmedCards > 0 && <p className="text-12 text-muted-foreground">另有 {unconfirmedCards} 张卡尚未确认或已归档，可回第 2 步核对。</p>}
   </fieldset>;
 }

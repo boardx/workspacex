@@ -37,8 +37,10 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   const newPersona = directory.getByRole("button", { name: "新建画像" });
   const personas = directory.getByRole("link", { name: "打开用户画像对话" });
   await newPersona.click();
+  await page.getByRole("dialog").getByRole("button", { name: "创建画像" }).click();
   await expect(personas).toHaveCount(1);
   await newPersona.click();
+  await page.getByRole("dialog").getByRole("button", { name: "创建画像" }).click();
   await expect(personas).toHaveCount(2);
   const first = (await personas.nth(0).getAttribute("href"))!;
   const second = (await personas.nth(1).getAttribute("href"))!;

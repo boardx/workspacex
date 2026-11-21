@@ -2,7 +2,7 @@ import * as React from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { AidtDefinitionChatArtifact, AidtDefinitionDirectory, AidtDefinitionEditor, AidtDefinitionOutput } from "@/features/aidt/components/aidt-definition";
-import { addAidtDefinitionEntity, addAidtDefinitionSurprise, chooseAidtDefinitionHmw, confirmedAidtDefinitionSurprises, readAidtDefinition, readAidtDefinitionSelection, saveAidtDefinitionHmw, saveAidtDefinitionPersona, saveAidtDefinitionSurprise } from "@/features/aidt/lib/aidt-definition";
+import { addAidtDefinitionEntity, addAidtDefinitionSurprise, chooseAidtDefinitionHmw, confirmedAidtDefinitionSurprises, readAidtDefinition, readAidtDefinitionEvidenceRevision, readAidtDefinitionSelection, saveAidtDefinitionHmw, saveAidtDefinitionPersona, saveAidtDefinitionSurprise } from "@/features/aidt/lib/aidt-definition";
 import { emptyAidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { aidtRoundMissingOutput } from "@/features/aidt/lib/aidt-round-completion";
 import { allAidtDefinitionEntitiesConfirmed, latestAidtDefinitionCandidate } from "@/features/aidt/lib/aidt-definition-chat";
@@ -140,4 +140,32 @@ it("requires a student turn and accepts 暂无 only from the student", () => {
   expect(latestAidtDefinitionCandidate([unrelated, falseClaim], "surprise", true)).toBeNull();
   const candidate = latestAidtDefinitionCandidate([{ ...unrelated, content: "暂无意外发现" }], "surprise", true);
   expect(candidate?.proposal).toEqual({ kind: "surprise", status: "none" });
+});
+
+it("selects multiple confirmed interview discoveries as frozen evidence when creating a Persona or HMW", () => {
+  const second = { ...card, id: "u3", participantCode: "U03", headline: "先看排队长度" };
+  const source = { ...context, availableCards: [card, unconfirmed, second], discoveryCardFields: {
+    ...context.discoveryCardFields, "interviewConfirmed:u3": "true",
+    "interviewRecord:u1": JSON.stringify({ version: 1, id: "u1", code: "U01", displayName: "阿岚",
+      topic: "", topicRevision: null, goal: "", original: "", adopted: "", guideConfirmed: false, consent: null }),
+  } };
+  let result = saveAidtDefinitionPersona(noSurprise(), persona("p1"), 2);
+  function Directory() {
+    const [draft, setDraft] = React.useState(result);
+    return <AidtDefinitionDirectory {...source} draft={draft} update={mutate => setDraft(old => { result = mutate(old); return result; })}
+      nativeChat entityHref={id => `/aidt/p?step=3&entity=${id}`} />;
+  }
+  render(<Directory />);
+  for (const [openLabel, createLabel] of [["新建画像", "创建画像"], ["新建 HMW", "创建HMW"]] as const) {
+    fireEvent.click(screen.getByRole("button", { name: openLabel }));
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.queryByText("U02")).not.toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("checkbox", { name: "难以比较口味" }));
+    fireEvent.click(dialog.getByRole("checkbox", { name: "先看排队长度" }));
+    fireEvent.click(dialog.getByRole("button", { name: createLabel }));
+  }
+  const definition = readAidtDefinition(result.fields);
+  expect(definition.personas.at(-1)?.cardIds).toEqual(["u1", "u3"]);
+  expect(definition.hmws[0]?.cardIds).toEqual(["u1", "u3"]);
+  expect(readAidtDefinitionEvidenceRevision(result.fields)).toBe(2);
 });

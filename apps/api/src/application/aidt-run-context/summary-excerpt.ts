@@ -44,7 +44,7 @@ export function projectAidtSummaryExcerpt(stage: SharedStageValue, maxChars: num
   if (repeatedConfirmation.has(key)) { policyOmitted.push(pathName(path)); continue; }
   const rank = important.indexOf(key), priority = rank < 0 ? 70 : rank;
   let value: unknown = raw;
-  if (expanded.has(key)) { try { const decoded: unknown = JSON.parse(raw); if (decoded !== null && typeof decoded === "object") value = decoded; } catch { /* Keep malformed student data verbatim; do not repair or infer it. */ } }
+  if (expanded.has(key) || (stage.stageId === 3 && /^definition(?:Persona|Hmw):/u.test(key))) { try { const decoded: unknown = JSON.parse(raw); if (decoded !== null && typeof decoded === "object") value = decoded; } catch { /* Keep malformed student data verbatim; do not repair or infer it. */ } }
   visit(value, path, priority);
  }
  visit(stage.sourceStageRevisions, ["sourceStageRevisions"], 45);
