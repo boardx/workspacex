@@ -60,12 +60,12 @@ const LABEL_BY_STATUS: Record<AsrDraftStatus, MessageKey> = {
 };
 
 /** 5 根音量条：每根按自己的门槛亮起，高度随 level 平滑变化——读的是真实 RMS。 */
-function LevelBars({ level }: { level: number }): JSX.Element {
+function LevelBars({ level, expanded = false }: { level: number; expanded?: boolean }): JSX.Element {
   const bars = [0.05, 0.15, 0.3, 0.5, 0.7];
   return (
     <span
       aria-hidden
-      className="flex h-4 items-end gap-0.5"
+      className={`flex h-4 items-end gap-0.5 ${expanded ? "min-w-0 flex-1 justify-evenly" : ""}`}
       data-testid="chat-task-workbench-composer-recording-level"
       data-level={level.toFixed(3)}
     >
@@ -199,8 +199,11 @@ export function ComposerVoiceControl({
     : paused ? t("chatComposer.continue")
     : t("chatComposer.voiceInput");
 
+  // Size the live capsule against the toolbar, including when chat is embedded in a narrow panel.
+  const inlineWidth = showTimer ? "w-[clamp(9rem,50cqw,14rem)]" : done || busy ? "w-36" : "";
+
   return (
-    <div ref={containerRef} className={`relative flex h-8 items-stretch overflow-visible rounded-pill border transition-colors duration-fast ${shell} ${inline ? (showTimer || done || busy ? "w-36 shrink-0" : "shrink-0") : ""}`}>
+    <div ref={containerRef} className={`relative flex h-8 items-stretch overflow-visible rounded-pill border transition-colors duration-fast ${shell} ${inline ? `shrink-0 ${inlineWidth}` : ""}`}>
       {inline ? <span role="status" className="sr-only">{error?.title ?? statusMessage}</span> : null}
       {inline && (paused || (connecting && !reconnecting)) ? (
         <button
@@ -218,13 +221,13 @@ export function ComposerVoiceControl({
         <span
           data-testid={listening ? "chat-mic-listening" : paused ? "chat-task-workbench-composer-paused" : "chat-mic-connecting"}
           title={silenceHint ?? (reconnecting ? t("voice.reconnecting") : t(listening ? "chatComposer.voiceListening" : "chatComposer.voicePaused", { elapsed }))}
-          className={`flex min-w-0 flex-1 items-center gap-1 ${paused ? "" : "pl-1"}`}
+          className={`flex min-w-0 flex-1 items-center gap-1 ${paused ? "" : "pl-2"}`}
         >
-          {silenceHint ? <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" /> : listening ? <LevelBars level={level} /> : null}
+          {silenceHint ? <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" /> : listening ? <LevelBars level={level} expanded /> : null}
           {reconnecting ? <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin" /> : null}
           <span
             data-testid="chat-task-workbench-composer-recording-timer"
-            className="truncate font-mono text-10 tabular-nums"
+            className="shrink-0 whitespace-nowrap font-mono text-11 tabular-nums"
           >
             {elapsed}
           </span>

@@ -38,7 +38,7 @@ return (<div
           data-testid="chat-task-workbench-composer"
           data-voice-phase={voice.phase}
         >
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 px-3 py-2">
+          <div className="flex min-w-0 flex-col gap-4 px-3 pb-3 pt-5 sm:px-5">
             {/*
               issue #3373 —— 待发附件住进 composer 卡片内部、输入框正上方，视觉上属于
               「我正在写的这条消息」；此前它是浮在卡片上方的一张独立宽卡片，图片没有缩略图、
@@ -50,17 +50,15 @@ return (<div
               一条已归档的线程若还留着没发出去的附件，直接让它凭空消失比禁用更难理解。
             */}
             {attach.attachments.length > 0 ? (
-              <div className="order-first min-w-0 basis-full">
-                <ChatComposerAttachmentStrip
-                  ctl={attach}
-                  canRetry={canWrite && !archived}
-                  disabled={archived || agent.isRunning}
-                  disabledReason={archived ? t("chatComposer.archivedAttachments") : undefined}
-                />
-              </div>
+              <ChatComposerAttachmentStrip
+                ctl={attach}
+                canRetry={canWrite && !archived}
+                disabled={archived || agent.isRunning}
+                disabledReason={archived ? t("chatComposer.archivedAttachments") : undefined}
+              />
             ) : null}
             {agentOptions.status === "error" ? (
-              <span className="order-first basis-full text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
+              <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
                 {agentOptions.message}
                 <button
                   type="button"
@@ -73,7 +71,7 @@ return (<div
               </span>
             ) : null}
             {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
-              <span className="order-first basis-full text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
+              <span className="text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
                 {t("chatComposer.noAgentsBefore")}
                 <a href="/platform-admin/agent" className="mx-1 text-primary underline">{t("chatComposer.createAgent")}</a>
                 {t("chatComposer.noAgentsAfter")}
@@ -85,7 +83,7 @@ return (<div
               （深色 = 基线 ⊕ 已落定，浅灰 = 识别中 + 闪烁光标），textarea 自己的文字透明；
               textarea 仍是真实值的唯一载体（e2e 读的是 `inputValue()`），镜像只是颜色。
             */}
-            <div className="relative w-full basis-full lg:w-auto lg:min-w-32 lg:flex-1 lg:basis-0">
+            <div className="relative">
               {dictating ? (() => {
                 const dark = appendTranscript(speech.baseText, speech.committedText);
                 const full = appendTranscript(dark, speech.partialText);
@@ -161,10 +159,10 @@ return (<div
                 }}
               />
             </div>
-            <div className="contents">
+            <div className="flex min-w-0 items-center justify-between gap-2 [container-type:inline-size] sm:gap-3">
               {/* 左：三颗圆形图标按钮 + 已挂载 skill chip；`relative` 让技能候选浮层从这个角落向上开。 */}
-              <div className="relative flex min-w-0 flex-wrap items-center gap-1.5 lg:order-first">
-                <span data-testid="chat-task-workbench-composer-attach">
+              <div className="relative flex min-w-0 items-center gap-1.5 sm:gap-2.5">
+                <span className="shrink-0" data-testid="chat-task-workbench-composer-attach">
                   <ComposerIconButton
                     label={t("chatComposer.materials")}
                     title={sessionToken === null ? t("chatComposer.materialsLogin") : t("chatComposer.materials")}
@@ -182,8 +180,8 @@ return (<div
                 {/* issue #2130（TW-P0-5②「/技能」入口）—— 触发 `ChatSkillMountPanel` 的候选浮层；
                     新对话还没有线程时如实禁用（`data-placeholder-reason`），不渲染一个
                     "看起来能挂、提交必然 404"的假入口。输入框里敲 `/` 同样能打开。 */}
-                {focusedSkill ? <span className="text-12 text-muted-foreground">{focusedSkill}</span> : <>
-                <span data-testid="chat-task-workbench-composer-mention-skill">
+                {focusedSkill ? <span className="truncate text-12 text-muted-foreground" title={focusedSkill}>{focusedSkill}</span> : <>
+                <span className="shrink-0" data-testid="chat-task-workbench-composer-mention-skill">
                   <ComposerIconButton
                     label={t("chatComposer.skills")}
                     title={
@@ -215,7 +213,7 @@ return (<div
                     要求；本次调整是另一轮直接人类指令，覆盖那次取舍，不是随手改动。
                     锚点与行为不变：`chat-task-workbench-composer-mention-agent` 外层
                     testid、`CapabilityPicker` 组件本体、`data-auto-match` 逐字保留。 */}
-                <span data-testid="chat-task-workbench-composer-mention-agent">
+                <span className="min-w-0" data-testid="chat-task-workbench-composer-mention-agent">
                   <CapabilityPicker
                     listings={agentOptions.status === "ready" ? agentOptions.listings : null}
                     status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
@@ -244,7 +242,7 @@ return (<div
                 </>}
               </div>
               {/* 右：语音分段胶囊（唯一麦克风入口，设备菜单在它右侧箭头）+ 发送 / 停止。 */}
-              <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5">
+              <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
                 {/* Temporarily hidden:
                 <ChatRealtimeVoiceEntry
                   disabled={!canWrite || archived || agent.isRunning || sessionToken === null}
