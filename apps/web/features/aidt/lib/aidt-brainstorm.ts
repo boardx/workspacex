@@ -40,7 +40,9 @@ export function readAidtBrainstormProposals(turns: readonly Turn[], sessionId: s
 export function addAidtBrainstormCandidates(draft: AidtUiStageDraft, sessionId: string, proposals: readonly Proposal[]) {
   const session = readAidtBrainstorm(draft.fields, sessionId);
   if (!session || session.candidates.length >= session.count) return draft;
-  const titles = new Set(draft.ideas.filter(idea => session.candidates.includes(idea.id)).map(idea => stableTitle(idea.title)));
+  const existing = draft.ideas.filter(idea => session.candidates.includes(idea.id));
+  const titles = new Set(existing.map(idea => stableTitle(idea.title)));
+  const descriptions = new Set(existing.map(idea => stableTitle(idea.description)));
   const usedIds = new Set(draft.ideas.map(idea => idea.id));
   const ideas: AidtUiStageDraft["ideas"] = [];
   for (const proposal of proposals) {
@@ -49,8 +51,10 @@ export function addAidtBrainstormCandidates(draft: AidtUiStageDraft, sessionId: 
       const suffix = proposal.messageId.replace(/[^\w-]/g, "").slice(-48);
       if (!suffix) continue;
       const id = `${sessionId}-${suffix}-${index}`;
-      if (usedIds.has(id) || titles.has(stableTitle(item.title)) || !stableTitle(item.title)) continue;
-      titles.add(stableTitle(item.title));
+      const title = stableTitle(item.title), description = stableTitle(item.description);
+      if (usedIds.has(id) || !title || !description || titles.has(title) || descriptions.has(description)) continue;
+      titles.add(title);
+      descriptions.add(description);
       usedIds.add(id);
       ideas.push({ id, ...item });
     }

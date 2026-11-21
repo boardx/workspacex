@@ -417,7 +417,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
   let lastEntityRoute = null;
   const waitForEntity = predicate => expect.poll(predicate, { timeout: 30000 }).toBe(true);
   const entityReady = async stage => {
-    const id = ({ 2: 'aidt-interview-output', 3: 'aidt-definition-editor', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
+    const id = ({ 2: 'aidt-interview-output', 3: 'aidt-definition-editor', 4: 'aidt-idea-output', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
     if (!id) fail('ENTITY_FORM_EXPECTATION_MISSING');
     await expect(page.getByTestId(id)).toBeVisible();
     if (stage === 6) await expect(page.getByTestId(id).getByRole('textbox', { name: '测试任务与追问', exact: true })).toBeEditable();
@@ -956,48 +956,81 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   state.s4 = await check('s4-three-distinct-descriptions', 4, async () => {
     if (!state.s3 || !step4Href) { await go(4); fail('S3_CONFIRMED_HANDOFF_REQUIRED'); }
-    await page.goto(owned(step4Href));
+    const directoryHref = owned(step4Href);
+    await page.goto(directoryHref);
+    const ideaDirectory = page.getByTestId('aidt-idea-directory');
+    await expect(ideaDirectory).toBeVisible();
     for (const name of ideaNames) {
       await click(page.getByTestId('aidt-new-entity-card'));
       const dialog = page.getByRole('dialog', { name: '新建点子' });
       await fill('点子名称', name, dialog);
       await captureCardCreation(4, 'idea', () => click(dialog.locator('button[type=submit]')));
+      await expect(ideaDirectory.getByRole('link', { name: `打开「${name}」对话`, exact: true })).toBeVisible();
     }
-    await disclosure('分类与描述单');
     const hmwStage = await savedStage(3), hmwId = hmwStage.content.draft.fields.definitionHmwId;
     let hmw; try { hmw = JSON.parse(hmwStage.content.draft.fields[`definitionHmw:${hmwId}`]); } catch { fail('SELECTED_HMW_UNVERIFIED'); }
     if (hmw?.id !== hmwId || !hmw.confirmed || hmw.archived || typeof hmw.text !== 'string' || !hmw.text.trim() || String(hmwStage.revision) !== new URL(step4Href).searchParams.get('hmwRevision')) fail('SELECTED_HMW_UNVERIFIED');
     const expectedHmw = { id: hmwId, revision: hmwStage.revision, text: hmw.text };
-    let pinned; try { pinned = JSON.parse((await savedStage(4)).content.draft.fields.ideaHmwSource); } catch { /* Must use the visible adoption action. */ }
-    if (!pinned) { await click(btn('将此 HMW 用于本轮')); await saveStage(4); }
-    assertSavedAidtHmwSource(await savedStage(4), expectedHmw);
-    for (let index = 1; index <= 3; index++) {
-      await page.getByLabel(`候选${index}核心说明`, { exact: true }).fill(`${SYNTHETIC}\n${['用纸质提示展示队列和预计等待，让学生先了解信息。学生可以据此自主决定是否加入队列，实际效果仍待真实测试。', '用分时预约说明不同可选时段和领取顺序。它帮助学生比较时间安排，是否减少等待需要真实服务测试。', '用同伴口味对照记录展示不同人的偏好和具体描述。学生可据此比较选择，但不能把少数意见当成所有人的偏好。'][index-1]}`);
-      await uploaded(`候选${index}原始图片`, `qa-${unique}-idea-${index}.png`, schematicPng(unique, index), 'image/png');
+    const descriptions = [
+      text('用纸质提示展示队列和预计等待。学生据此自主决定是否加入队列，实际效果仍待真实测试。'),
+      text('用分时预约说明不同的领取顺序。是否减少等待需要真实服务测试。'),
+      text('用同伴口味对照展示不同人的具体偏好。少数意见不能代表所有学生。'),
+    ];
+    const ownDraft = async name => (await savedStage(4)).content.draft.ideas.find(idea => idea.title === name);
+    const verifiedRoutes = [];
+    for (const [index, name] of ideaNames.entries()) {
+      await page.goto(directoryHref);
+      await follow(`打开「${name}」对话`);
+      const target = lastEntityRoute;
+      verifiedRoutes.push(target);
+      const review = page.getByRole('region', { name: '点子确认' });
+      await expect(review).toBeVisible();
+      if (index === 0) {
+        if (!await feedback(4)) fail('S4_NATIVE_TEACHING_FEEDBACK_REQUIRED');
+        await click(btn('将此 HMW 用于本轮', review));
+      }
+      await disclosure('添加描述单配图');
+      await uploaded('点子配图', `qa-${unique}-idea-${index + 1}.png`, schematicPng(unique, index + 1), 'image/png');
+      const control = review.getByRole('textbox', { name: '点子描述草稿' });
+      await control.fill(descriptions[index]);
+      await reviewAndSave(4, btn('确认点子产物', review));
+      await expect.poll(async () => (await ownDraft(name))?.description, { timeout: 30000 }).toBe(descriptions[index]);
+      await expect(review.getByText('点子已确认', { exact: true })).toBeVisible();
+      if (index === 0) {
+        assertSavedAidtHmwSource(await savedStage(4), expectedHmw);
+        const previous = descriptions[index];
+        const beforeRevision = await revision(4);
+        descriptions[index] = text('纸质提示同时展示预计等待和可选口味，学生先看再自主决定。它只解释信息，不证明真实等待已经改善。');
+        await click(btn('改写描述', review)); await control.fill(descriptions[index]);
+        await reviewAndSave(4, btn('确认点子产物', review));
+        await expect.poll(async () => (await ownDraft(name))?.description, { timeout: 30000 }).toBe(descriptions[index]);
+        const afterRevision = await revision(4);
+        if (afterRevision <= beforeRevision) fail('ITERATION_INPUT_NOT_RETAINED');
+        evidence(4).iterations.push({ name: '首个点子的核心说明', before: previous, after: descriptions[index], beforeRevision, afterRevision });
+      }
+      evidence(4).inputs.push({ name, content: descriptions[index], format: 'student-reviewed description in native Chat', source: { entityId: target.entityId } });
     }
-    await saveStage(4);
-    await iterate(4, page.getByLabel('候选1核心说明', { exact: true }), '首个点子的核心说明', `${SYNTHETIC}。纸质提示展示队列与预计等待，学生先看再自主决定。它只解释信息，不证明真实等待或偏好已得到改善。`);
+    if (new Set(descriptions).size !== 3 || new Set(verifiedRoutes.map(route => route.entityId)).size !== 3) fail('S4_DISTINCT_DESCRIPTIONS_REQUIRED');
     const categories = ['最容易实现的', '最具突破性的', '最有趣的'];
-    for (let index = 0; index < 3; index++) {
-      await page.getByLabel(`${ideaNames[index]} · ${categories[index]}`, { exact: true }).check();
-      await page.getByLabel(`${ideaNames[index]} · 分类理由`, { exact: true }).fill(text('这是本次QA学生选择，不是AI自动决定。'));
+    const compare = page.getByRole('region', { name: '点子确认' });
+    await disclosure('确认分类与原型交接');
+    for (const [index, name] of ideaNames.entries()) {
+      await compare.getByLabel(`${name} · ${categories[index]}`, { exact: true }).check();
+      await fill(`${name} · 分类理由`, text('这是本次QA学生选择，课堂效果未知。'), compare);
     }
-    await saveStage(4);
-    const ideaDirectoryHref = page.url();
-    await follow(`打开「${ideaNames[0]}」对话`); await feedback(4);
-    await page.goto(owned(ideaDirectoryHref)); await disclosure('分类与描述单');
-    await persistConfirmed(4, btn('确认本组分类'));
-    await page.getByRole('checkbox', { name: '本组已比较：这些是不同点子，说明讲清做什么及如何帮助用户。', exact: true }).check();
-    await click(page.getByTestId('aidt-idea-sheets-open'));
-    await expect(page.getByTestId('aidt-idea-sheet')).toHaveCount(3);
-    for (const name of ideaNames) await expect(page.getByTestId('aidt-idea-sheets-preview')).toContainText(name);
-    await persistConfirmed(4, btn('确认本轮描述单'));
-    for (let i = 1; i <= 3; i++) { const core = await page.getByLabel(`候选${i}核心说明`, { exact: true }).inputValue(); await printOutput(4, `idea-description-${i}`, page.getByTestId(`aidt-idea-sheet-print-${i}`), [ideaNames[i-1], core], [createHash('sha256').update(schematicPng(unique,i)).digest('hex')]); }
-    await page.getByRole('group', { name: '带入原型的点子', exact: true }).getByRole('checkbox', { name: ideaNames[0], exact: true }).check();
-    await saveStage(4);
-    step5Href = owned(await page.getByRole('link', { name: '带入原型制作', exact: true }).getAttribute('href'));
-    await observeInputs(4);
-    await shot('04-three-idea-descriptions', 4); await completed(4); await page.goto(owned(step4Href));
+    await click(btn('确认本组分类', compare));
+    await compare.getByRole('group', { name: '选择带入原型的点子' }).getByRole('checkbox', { name: ideaNames[0], exact: true }).check();
+    await reviewAndSave(4, btn('确认完成本阶段', compare));
+    await expect.poll(async () => JSON.parse((await savedStage(4)).content.draft.fields.ideaSheetIds || '[]').length, { timeout: 30000 }).toBe(3);
+    step5Href = owned(await compare.getByRole('link', { name: '进入原型制作', exact: true }).getAttribute('href'));
+    for (const [index, target] of verifiedRoutes.entries()) {
+      await page.goto(target.href);
+      await output(target);
+      const artifact = page.getByTestId('aidt-idea-output');
+      await expect(artifact).toContainText(descriptions[index]);
+      await printOutput(4, `idea-description-${index + 1}`, btn('导出描述单 PDF', artifact), [ideaNames[index], descriptions[index]], [createHash('sha256').update(schematicPng(unique, index + 1)).digest('hex')]);
+    }
+    await shot('04-three-idea-descriptions', 4); await completed(4); await page.goto(directoryHref);
     report.threeDistinctDescriptionPreviewsVerified = true;
     report.descriptionPdfBytesGenerated = true;
     report.descriptionPdfIndependentGlyphValidation = 'pending artifact download';

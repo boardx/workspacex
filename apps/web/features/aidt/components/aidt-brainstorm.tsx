@@ -79,7 +79,7 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
       {failed && <p role="alert" className="text-13 text-destructive">场次未能保存，请重试。</p>}
     </form> : <p className="text-13 text-muted-foreground">先在第 3 步确认一个 HMW。</p>)}
     {sessions.length > 0 && <ul className="space-y-2">{sessions.map(session => <li key={session.id}>
-      <Link className="block rounded-control border border-border px-3 py-2 text-13 hover:bg-muted" href={href(session.id)}>
+      <Link className="block rounded-control border border-border px-3 py-2 text-13 transition-colors hover:bg-muted" href={href(session.id)}>
         <span className="block font-medium">{AIDT_BRAINSTORM_METHODS[session.method]} · {session.candidates.length}/{session.count} 个候选</span>
         <span className="block break-words text-muted-foreground">{session.source.text} · V{session.source.revision}</span>
       </Link>

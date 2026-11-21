@@ -25,7 +25,7 @@ import { AidtInterviewWorkspace } from "./aidt-interview-workspace";
 import { AidtDefinitionChatArtifact, AidtDefinitionDirectory, AidtDefinitionOutput } from "./aidt-definition";
 import { AidtIdeaConversation } from "./aidt-idea-conversation";
 import { AidtIdeaOutput } from "./aidt-idea-output";
-import { readAidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
+import { readAidtBrainstorm, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { AidtBrainstormConversation, AidtBrainstormDirectory, AidtBrainstormOutput } from "./aidt-brainstorm";
 import { AidtIdeaDirectory } from "./aidt-idea-directory";
 import { AidtPrototypeDirectory } from "./aidt-prototype-directory";
@@ -395,8 +395,10 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const directoryHref = directoryContext.size ? directoryUrl + "&" + directoryContext : directoryUrl;
   const entityHref = (id: string) => directoryHref + "&entity=" + encodeURIComponent(id);
   const currentStage = shared.stages[step.id];
-  const activeBrainstorm = step.id === 4 && activeEntityId && currentStage
-    ? readAidtBrainstorm(currentStage.content.draft.fields, activeEntityId) : null;
+  const brainstormFields = step.id === 4 ? currentStage?.content.draft.fields : undefined;
+  const activeBrainstorm = brainstormFields && activeEntityId ? readAidtBrainstorm(brainstormFields, activeEntityId) : null;
+  const isBrainstormCandidate = brainstormFields && activeEntityId
+    ? readAidtBrainstorms(brainstormFields).some(session => session.candidates.includes(activeEntityId)) : false;
   const activeProblem = problemStep && activeEntityId && currentStage
     ? listAidtProblems(currentStage.content.draft).find(item => item.id === activeEntityId && !item.archived) : undefined;
   const entityHeading = activeInterview ? aidtInterviewTitle(activeInterview.code, activeInterview.displayName) : activeProblem?.title ?? projectName;
@@ -607,7 +609,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                   <AidtIdeaConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId}
                     draft={currentUi.drafts[4]!} savedDraft={shared.stages[4]?.content.draft} readOnly={!canWrite}
                     messages={messages} loading={loading} running={running} update={mutate => updateStage(4, mutate)}
-                    requestSave={requestEntitySave} handoff={ideaHandoff} onProposalReady={() => setWorkspaceToolsOpen(true)} />
+                    requestSave={requestEntitySave} handoff={isBrainstormCandidate ? undefined : ideaHandoff} onProposalReady={() => setWorkspaceToolsOpen(true)} />
                 </>,
               } : problemStep && canWrite && checkpointScope ? { target: null, render: (messages, loading, running) => <AidtProblemChatReview key={threadResolutionScope} projectId={projectId} entityId={activeEntityId} stage={savedProblemStage} sessionToken={checkpointScope.sessionToken} threadId={checkpointThread} messages={messages} loading={loading} running={running} onRefresh={shared.refreshCurrentStage} /> } : activeInterview && shared.read?.phase === "ready" && !isAidtInterviewArchived(currentUi.drafts[2]!.fields, activeInterview.id) ? {
                 target: null, render: (messages, loading, running) => <>
