@@ -79,7 +79,7 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
   problemEntityId?: string; problemRevision?: number;
   surface?: "materials" | "finding" | "legacy";
   savedIds?: ReadonlySet<string>;
-  entityId?: string | null; onOpen?: (id: string) => void; onCreate?: (id: string) => void;
+  entityId?: string | null; onOpen?: (id: string) => void; onCreate?: (id: string, change: Parameters<UpdateDraft>[0]) => Promise<boolean>;
 }) {
   const token = useOptionalSession()?.session?.sessionToken;
   const [selected, setSelected] = React.useState<string | null>(null);
@@ -125,23 +125,30 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
   const validTopic = !explicit || (topic.problemEntityId === problemEntityId && topic.revision === problemRevision);
   const canAdd = !readOnly && validTopic && topic.revision !== null && Object.keys(draft.fields).length < 90;
   const [creating, setCreating] = React.useState(false);
-  const add = (details: InterviewDetails) => {
-    if (!canAdd) return;
-    let number = 1;
-    const codes = new Set(records.map(record => record.code.normalize("NFKC").toUpperCase()));
-    while (codes.has(`U${String(number).padStart(2, "0")}`)) number += 1;
+  const createId = React.useRef("");
+  const add = async (details: InterviewDetails) => {
+    if (!canAdd) return false;
+    const id = createId.current;
     const record: AidtInterview = {
       version: 1, ...details,
-      id: crypto.randomUUID(),
-      code: `U${String(number).padStart(2, "0")}`,
+      id, code: "",
       topicRevision: topic.revision,
       ...(topic.problemEntityId ? { problemEntityId: topic.problemEntityId } : {}),
       topic: topic.text.slice(0, 650),
       goal: "", original: "", adopted: "", guideConfirmed: false, consent: null,
     };
-    update(old => writeAidtInterview(old, record));
-    if (onCreate) onCreate(record.id);
-    else if (entityId === undefined) setSelected(record.id);
+    const change = (old: AidtUiStageDraft) => {
+      const existing = readAidtInterviews(old.fields);
+      if (existing.some(row => row.id === id) || Object.keys(old.fields).length >= 90) return old;
+      const codes = new Set(existing.map(row => row.code.normalize("NFKC").toUpperCase()));
+      let number = 1;
+      while (codes.has(`U${String(number).padStart(2, "0")}`)) number += 1;
+      return writeAidtInterview(old, { ...record, code: `U${String(number).padStart(2, "0")}` });
+    };
+    if (onCreate) return onCreate(id, change);
+    update(change);
+    if (entityId === undefined) setSelected(id);
+    return true;
   };
   const back = () => {
     setSelected(null);
@@ -154,7 +161,7 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
       : <>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-16 font-semibold" ref={listFocus} tabIndex={-1}>访谈列表</h4>
-          <Button type="button" size="sm" variant="primary" disabled={!canAdd} onClick={() => setCreating(true)}><Plus aria-hidden="true" />新建访谈</Button>
+          <Button type="button" size="sm" variant="primary" disabled={!canAdd} onClick={() => { createId.current = crypto.randomUUID(); setCreating(true); }}><Plus aria-hidden="true" />新建访谈</Button>
         </div>
         {topic.revision && <details className="text-12"><summary className="cursor-pointer">已确认研究问题 · 第 1 步 V{topic.revision}</summary><p className="mt-2 whitespace-pre-wrap">{topic.text}</p></details>}
         {!topic.revision && !topicError && <p className="text-12 text-muted-foreground">确认并保存第 1 步的研究问题后可新建访谈。</p>}

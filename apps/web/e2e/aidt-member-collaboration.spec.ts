@@ -539,7 +539,9 @@ test("ordinary member names and retags an interview without replacing the native
     await dialog.getByLabel("受访者姓名或化名").fill("小林");
     await dialog.getByTestId("interview-tag-input").fill("午休");
     await dialog.getByRole("button", { name: "创建访谈" }).click();
-    await persist();
+    await expect.poll(() => new URL(member.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
+    const created = new URL(member.url()).searchParams;
+    await member.goto(directory);
     const card = member.getByRole("list", { name: "访谈卡片" }).getByRole("listitem").first();
     const open = async () => {
       await card.getByRole("button", { name: /^U01 / }).click();
@@ -547,6 +549,7 @@ test("ordinary member names and retags an interview without replacing the native
       return new URL(member.url()).searchParams;
     };
     const before = await open();
+    expect(before.get("thread")).toBe(created.get("thread"));
     await expect(member.getByText("U01 · 小林", { exact: true }).first()).toBeVisible();
     const withOutput = new URL(member.url());
     withOutput.searchParams.set("tool", "outcome");
@@ -599,7 +602,9 @@ test("ordinary member names and retags an interview without replacing the native
     expect(await member.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
     await member.screenshot({ path: test.info().outputPath("interview-create-tags.png") });
     await dialog.getByRole("button", { name: "创建访谈" }).click();
-    await persist();
+    await expect.poll(() => new URL(member.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
+    expect(new URL(member.url()).searchParams.get("thread")).not.toBe(before.get("thread"));
+    await member.goto(directory);
     await expect(member.getByRole("button", { name: /^U02 / })).toBeEnabled();
   } finally { await context.close(); }
 });

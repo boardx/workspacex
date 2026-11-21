@@ -13,16 +13,24 @@ import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 type Update = (change: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 
 export interface InterviewDetails { displayName: string; tags: string[] }
-export function InterviewCardEditor({ record, knownTags, close, save }: { record?: AidtInterview; knownTags: Map<string, number>; close: () => void; save: (details: InterviewDetails) => void }) {
+export function InterviewCardEditor({ record, knownTags, close, save }: { record?: AidtInterview; knownTags: Map<string, number>; close: () => void; save: (details: InterviewDetails) => void | Promise<boolean> }) {
   const [name, setName] = React.useState(record?.displayName ?? "");
   const [tags, setTags] = React.useState<readonly string[]>(record?.tags ?? []);
   const [draftTag, setDraftTag] = React.useState("");
-  const submit = (event: React.FormEvent) => {
+  const [busy, setBusy] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    save({ displayName: name.trim(), tags: [...commitDraft(tags, draftTag, interviewTagsLimit)] });
-    close();
+    if (busy) return;
+    setBusy(true);
+    setFailed(false);
+    try {
+      const saved = await save({ displayName: name.trim(), tags: [...commitDraft(tags, draftTag, interviewTagsLimit)] });
+      if (saved === false) setFailed(true);
+      else close();
+    } catch { setFailed(true); } finally { setBusy(false); }
   };
-  return <Dialog open onOpenChange={open => { if (!open) close(); }}><DialogContent>
+  return <Dialog open onOpenChange={open => { if (!open && !busy) close(); }}><DialogContent>
     <DialogTitle>{record ? "编辑访谈卡" : "新建访谈"}</DialogTitle>
     <DialogDescription>{record ? record.code + " · 受访者资料" : "可以使用化名，留空则显示受访者编号。"}</DialogDescription>
     <form className="space-y-5" onSubmit={submit}>
@@ -32,7 +40,8 @@ export function InterviewCardEditor({ record, knownTags, close, save }: { record
         return <Button type="button" key={tag} variant={selected ? "primary" : "outline"} size="xs" className="h-auto max-w-full whitespace-normal break-all rounded-full py-1.5" aria-pressed={selected} disabled={!selected && tags.length >= interviewTagsLimit.maxTags} onClick={() => setTags(selected ? tags.filter(value => !sameTag(value, tag)) : [...tags, tag])}>{tag}</Button>;
       })}</div>}
       <TagField label="访谈标签" {...interviewTagsLimit} value={tags} onChange={setTags} knownTags={knownTags} draft={draftTag} onDraftChange={setDraftTag} noteFor={count => count + " 个访谈"} testIdPrefix="interview-tag" />
-      <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={close}>取消</Button><Button type="submit">{record ? "保存修改" : "创建访谈"}</Button></div>
+      {failed && <p role="alert">访谈未能保存。请重试创建。</p>}
+      <div className="flex justify-end gap-2"><Button type="button" variant="ghost" disabled={busy} onClick={close}>取消</Button><Button type="submit" disabled={busy}>{record ? "保存修改" : "创建访谈"}</Button></div>
     </form>
   </DialogContent></Dialog>;
 }
