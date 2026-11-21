@@ -1063,7 +1063,8 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     if (!state.s4 || !step5Href) { await go(5); fail('S4_CONFIRMED_HANDOFF_REQUIRED'); }
     if (typeof armDesignGeneration !== 'function' || typeof armDesignCreate !== 'function') fail('BOUNDED_DESIGN_GENERATION_GUARD_REQUIRED');
     await page.goto(owned(step5Href));
-    await click(page.getByTestId('aidt-new-entity-card'));
+    const cardDirectory = page.getByTestId('aidt-prototype-directory');
+    await click(cardDirectory.getByTestId('aidt-new-entity-card'));
     const dialog = page.getByRole('dialog', { name: '新建原型' });
     await fill('原型名称', '未命名设计', dialog);
     const chosenIdeas = dialog.getByRole('group', { name: '来源点子', exact: true });
@@ -1098,8 +1099,12 @@ ${JSON.stringify(studentInputs)}`);
     if (bound.verificationQuestion !== question || bound.beforeTestBelief !== studentInputs.beforeTestBelief
       || bound.verificationBasis !== studentInputs.verificationBasis || bound.verificationQuestionConfirmed !== 'true') fail('S5_QUESTION_NOT_EXACTLY_CONFIRMED');
     const selectedIdeas = JSON.parse(bound.prototypeIdeaSource ?? '{}');
-    const priorStage = await savedStage(4);
-    if (JSON.stringify(selectedIdeas.ideaIds) !== JSON.stringify(report.brainstormHandoff.selectedIds) || selectedIdeas.revision !== report.brainstormHandoff.stage4Revision || selectedIdeas.revision !== priorStage.revision || JSON.stringify(selectedIdeas.ideaIds) !== priorStage.content.draft.fields.ideaHandoffIds) fail('S5_IDEA_SOURCE_MISMATCH');
+    const ideaRevision = Number(new URL(step5Href).searchParams.get('ideaRevision'));
+    if (JSON.stringify(selectedIdeas.ideaIds) !== JSON.stringify(report.brainstormHandoff.selectedIds) || ideaRevision !== report.brainstormHandoff.stage4Revision || !Number.isSafeInteger(ideaRevision) || ideaRevision < 1 || selectedIdeas.revision !== ideaRevision) fail('S5_IDEA_SOURCE_MISMATCH');
+    const priorResult = await api(`/api/projects/${scope.projectId}/aidt/stages/4/revision/${ideaRevision}`);
+    const priorStage = priorResult.data?.stage;
+    if (priorResult.status !== 200 || priorStage?.projectId !== scope.projectId || priorStage.stageId !== 4
+      || priorStage.revision !== ideaRevision || JSON.stringify(selectedIdeas.ideaIds) !== priorStage.content.draft.fields.ideaHandoffIds) fail('S5_IDEA_SOURCE_MISMATCH');
     evidence(5).inputs.push({ name: '确认后的验证问题', content: question, format: 'native Chat and saved entity', source: { entityId: designId, ideaRevision: selectedIdeas.revision } });
     const workbenchLink = actions.getByRole('link', { name: '打开 Design 工作台', exact: true });
     await expect(workbenchLink).toBeVisible();

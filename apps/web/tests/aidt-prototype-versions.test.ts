@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { loadAidtPrototypeDesigns, loadAidtPrototypeVersions, resolveAidtPrototypeVersion } from "@/features/aidt/lib/aidt-prototype-versions";
+import { loadAidtPrototypeDesigns, loadAidtPrototypeVersions, resolveAidtPrototypeVersion, saveAidtPrototypeImage } from "@/features/aidt/lib/aidt-prototype-versions";
 const mocks = vi.hoisted(() => ({ enabled: true, request: vi.fn() }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mocks.enabled }));
 vi.mock("@/lib/api-client", () => ({ apiRequest: mocks.request }));
@@ -67,4 +67,34 @@ it("does not start or continue requests after module disable, cancellation or mi
   await expect(loadAidtPrototypeDesigns({ ...context, signal: controller.signal })).rejects.toThrow("AIDT_CONTEXT_CHANGED");
   expect(mocks.request).toHaveBeenCalledTimes(1);
   expect(mocks.request.mock.calls[0]?.[1].signal).toBe(controller.signal);
+});
+
+
+it("saves an image as an exact immutable native version without overwriting existing screens", async () => {
+  const source = "data:image/png;base64,aGVsbG8=";
+  const originalRequest = mocks.request.getMockImplementation()!;
+  const patch = vi.fn(async (options) => {
+    const { summary: title, ops } = options.body;
+    expect(ops).toEqual([{ op: "addScreen", at: 0, frame: "图片原型", root: { type: "image", props: { alt: "菜单", src: source } } }]);
+    const receipt = { ...summary("image-v2"), seq: 2, source: "user" as const, summary: title, frames: ["图片原型", "首页"], links: [[], []] };
+    versions = [receipt, summary()];
+    version = { ...receipt, prototype: [ops[0].root, snapshot().prototype[0]] };
+    return {};
+  });
+  mocks.request.mockImplementation(async (path, options) => {
+    if (path === "/pm-designs/design/prototype/patch") return patch(options);
+    if (path === "/pm-designs/design/versions/image-v2") return { version };
+    return originalRequest(path, options);
+  });
+
+  const saved = await saveAidtPrototypeImage(context, "design", source, "菜单");
+  expect(saved).toMatchObject({ designId: "design", versionId: "image-v2", seq: 2, frameCount: 2, source: "user" });
+  expect(await saveAidtPrototypeImage(context, "design", source, "菜单")).toEqual(saved);
+  expect(patch).toHaveBeenCalledTimes(1);
+});
+
+it("rejects an unlinked design before writing or accepting an image reference", async () => {
+  resources = [];
+  await expect(saveAidtPrototypeImage(context, "design", "data:image/png;base64,aGVsbG8=", "菜单")).rejects.toThrow("AIDT_PROTOTYPE_UNAVAILABLE");
+  expect(mocks.request.mock.calls.some(([path, options]) => path.includes("/prototype/patch") || options.method === "POST")).toBe(false);
 });

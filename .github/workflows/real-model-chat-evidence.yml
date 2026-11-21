@@ -276,12 +276,12 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ && "$GITHUB_RUN_ID" =~ ^[0-9]+$ && "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
-          [[ "$RUNNER_TEMP" == /* && "$RUNNER_TEMP" != *$'\n'* && "$RUNNER_TEMP" != *$'\r'* ]]
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ && "$GITHUB_RUN_ID" =~ ^[0-9]+$ && "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]] || { echo PRIVATE_DIRECTORY_SCOPE_REJECTED >&2; exit 1; }
+          [[ "$RUNNER_TEMP" == /* && "$RUNNER_TEMP" != *$'\n'* && "$RUNNER_TEMP" != *$'\r'* ]] || { echo PRIVATE_DIRECTORY_SCOPE_REJECTED >&2; exit 1; }
           AIDT_AUTH_ROOT="$RUNNER_TEMP/../wsx-aidt-auth-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           [[ ! -L "$AIDT_AUTH_ROOT" ]] || exit 1
           if [[ -d "$AIDT_AUTH_ROOT" ]]; then
-            [[ -f "$AIDT_AUTH_ROOT/.owner" && ! -L "$AIDT_AUTH_ROOT/.owner" ]]
-            [[ "$(cat "$AIDT_AUTH_ROOT/.owner")" == "$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT:$GITHUB_SHA" ]]
+            [[ -f "$AIDT_AUTH_ROOT/.owner" && ! -L "$AIDT_AUTH_ROOT/.owner" ]] || { echo PRIVATE_DIRECTORY_SCOPE_REJECTED >&2; exit 1; }
+            [[ "$(cat "$AIDT_AUTH_ROOT/.owner")" == "$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT:$GITHUB_SHA" ]] || { echo PRIVATE_DIRECTORY_OWNER_MISMATCH >&2; exit 1; }
             rm -rf -- "$AIDT_AUTH_ROOT"
           fi

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { confirmAidtVerificationQuestion, isVerificationQuestionConfirmed } from "../lib/aidt-verification-loop";
 import { aidtPrototypeVersionLabel } from "../lib/aidt-prototype-label";
 import { AidtVerificationQuestion } from "./aidt-verification-question";
+import { AidtPrototypeImage, AidtPrototypeImagePreview } from "./aidt-prototype-image";
 import { AidtPrototypeVersionPicker } from "./aidt-prototype-version-picker";
 import { readAidtPrototypeReference, updateAidtPrototypeReference } from "../lib/aidt-prototype-reference";
 import { aidtPrototypeEntityHref } from "./aidt-prototype-directory";
@@ -153,7 +154,10 @@ function PrototypeArtifact({ draft, designId, projectId, ideaRevision, workflow 
         return value ? <div key={key}><h4 className="text-12 font-semibold">{label}</h4><p className="whitespace-pre-wrap break-words">{value}</p></div> : null;
       })}
     </details>
-    {reference && <p className="text-13" data-testid="aidt-prototype-recorded-reference">{aidtPrototypeVersionLabel(reference)}</p>}
+    {reference && <>
+      <p className="text-13" data-testid="aidt-prototype-recorded-reference">{aidtPrototypeVersionLabel(reference)}</p>
+      <AidtPrototypeImagePreview projectId={projectId} reference={reference} />
+    </>}
     {canOpen && <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design", ideaRevision)}>打开 Design 工作台</Link></Button>}
   </section>;
 }
@@ -183,11 +187,14 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
     })));
   }, [archived, designId, loading, readOnly, running, serialized, storedProposal, update]);
 
-  const { selection, adoptionSource: ideaSource, adoptionIdeas } = useAidtPrototypeIdeas({ workflow, projectId, draft, ideaRevision: props.ideaRevision });
+  const { selection, ideas, adoptionSource: ideaSource, adoptionIdeas } = useAidtPrototypeIdeas({ workflow, projectId, draft, ideaRevision: props.ideaRevision });
   const pending = readAidtSavedPrototypeDiscussion(draft);
   const confirmed = isAidtPrototypeHandoffConfirmed(draft);
-  const ready = !aidtPrototypePreparationError(draft) && !!selection;
+  const ready = Boolean(selection && ideas.length === selection.ideaIds.length && !aidtPrototypePreparationError(draft));
   const pendingMatches = pending && Object.entries(pending).every(([key, value]) => draft.fields[key] === value);
+  const pendingDraft = pending && { ...draft, fields: { ...draft.fields, ...pending } };
+  const canConfirmQuestion = Boolean(pendingDraft && pendingDraft.fields.beforeTestBelief?.trim()
+    && pendingDraft.fields.verificationBasis?.trim() && confirmAidtVerificationQuestion(pendingDraft));
   const saveEntity = (change: (previous: AidtUiStageDraft) => AidtUiStageDraft) => {
     update(previous => updateAidtPrototypeEntityDraft(previous, designId, change));
     requestSave();
@@ -197,9 +204,10 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
     {!selection && ideaSource && adoptionIdeas.length > 0 && <Button type="button" variant="outline" onClick={() => saveEntity(current => pinAidtPrototypeInputs(current, ideaSource))}>采用入选点子</Button>}
     {pending && (!pendingMatches || !isVerificationQuestionConfirmed(draft)) && <Button type="button" variant="primary" onClick={() => saveEntity(current => {
       const next = { ...current, fields: { ...current.fields, ...pending } };
-      return confirmAidtVerificationQuestion(next) ?? next;
-    })}>确认原型草稿</Button>}
+      return canConfirmQuestion ? confirmAidtVerificationQuestion(next) ?? next : next;
+    })}>{canConfirmQuestion ? "确认验证问题" : "保存原型草稿"}</Button>}
     {ready && workflow.matchesServer && <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design", props.ideaRevision)}>打开 Design 工作台</Link></Button>}
+    {ready && workflow.matchesServer && <AidtPrototypeImage projectId={projectId} designId={designId} onSaved={reference => saveEntity(current => updateAidtPrototypeReference(current, reference))} />}
     {ready && <AidtPrototypeVersionPicker projectId={projectId} designEntityId={designId} value={readAidtPrototypeReference(draft)}
       onChange={reference => { if (!reference || reference.designId === designId) saveEntity(current => updateAidtPrototypeReference(current, reference)); }} />}
     {Boolean(confirmAidtPrototypeHandoff(draft)) && (!confirmed || readAidtConfirmedPrototypeHandoff(stageDraft)?.id !== designId) && <Button type="button" variant="primary" onClick={() => {
