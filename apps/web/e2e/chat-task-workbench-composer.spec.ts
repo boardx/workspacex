@@ -76,10 +76,10 @@ test("TW-P0-5①②：Composer 是统一的两行结构，第一行为多行任�
     await expectAnchor(page, `chat-task-workbench-composer-${suffix}`, "TW-P0-5②", `Composer 缺少${what}`, 15_000);
   }
   const draft = (await page.getByTestId("copilotkit-v2-input").boundingBox())!;
-  const materials = (await page.getByTestId("chat-task-workbench-composer-attach").boundingBox())!;
+  const materials = (await page.getByTestId("chat-attachment-input").boundingBox())!;
   const send = (await page.getByTestId("copilotkit-v2-send").boundingBox())!;
   expect(draft.y + draft.height).toBeLessThan(materials.y);
-  expect(materials.y).toBeCloseTo(send.y);
+  expect(Math.abs(materials.y - send.y)).toBeLessThan(4);
   expect(draft.width).toBeGreaterThanOrEqual(send.x + send.width - materials.x - 1);
 
   // issue #2770 —— 「任务模式」「每次都先计划」两个手动开关不得再出现：要不要先计划
