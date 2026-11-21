@@ -140,7 +140,7 @@ export function listAidtConfirmedPrototypeEntities(stageDraft: AidtUiStageDraft)
     const id = key.slice(entityPrefix.length);
     const draft = readAidtPrototypeEntityDraft(stageDraft, id);
     const reference = draft ? readAidtPrototypeReference(draft) : null;
-    return draft && reference && isAidtPrototypeHandoffConfirmed(draft) ? [{ id, title: reference.designName, draft }] : [];
+    return draft && draft.fields.prototypeArchived !== "true" && reference && isAidtPrototypeHandoffConfirmed(draft) ? [{ id, title: reference.designName, draft }] : [];
   });
 }
 
@@ -160,4 +160,86 @@ export function readAidtConfirmedPrototypeHandoff(stageDraft: AidtUiStageDraft) 
   }
   // Older documents had no selection pointer. Multiple candidates cannot imply a choice.
   return candidates.length === 1 ? candidates[0]! : null;
+}
+
+/** Card metadata uses the same stage document as its version and confirmation. */
+export function updateAidtPrototypeCard(draft: AidtUiStageDraft, id: string, name: string) {
+  const title = name.trim().slice(0, 80);
+  if (!title || !validPrototypeEntity(id)) return draft;
+  return updateAidtPrototypeEntityDraft(draft, id, previous => ({ ...previous, fields: { ...previous.fields, prototypeCardTitle: title } }));
+}
+
+export function archiveAidtPrototypeCard(draft: AidtUiStageDraft, id: string) {
+  if (!validPrototypeEntity(id)) return draft;
+  const next = updateAidtPrototypeEntityDraft(draft, id, previous => ({ ...previous, fields: { ...previous.fields, prototypeArchived: "true" } }));
+  if (draft.fields.prototypeHandoffEntity !== id) return next;
+  const replacement = listAidtConfirmedPrototypeEntities(next)[0];
+  return { ...next, fields: { ...next.fields, prototypeHandoffEntity: replacement?.id ?? "" } };
+}
+
+export function aidtAllActivePrototypeEntitiesConfirmed(draft: AidtUiStageDraft) {
+  const active = Object.keys(draft.fields).filter(key => key.startsWith(entityPrefix)).flatMap(key => {
+    const candidate = readAidtPrototypeEntityDraft(draft, key.slice(entityPrefix.length));
+    return candidate && candidate.fields.prototypeArchived !== "true" ? [candidate] : [];
+  });
+  return active.length > 0 && active.every(isAidtPrototypeHandoffConfirmed) && Boolean(readAidtConfirmedPrototypeHandoff(draft));
+}
+
+const proposalFields = {
+  verificationQuestion: "验证问题", beforeTestBelief: "测试前看法", verificationBasis: "已有依据",
+  verificationLimits: "验证范围", type: "原型形式", situation: "使用情境", task: "可观察的任务",
+  touchpoints: "用户接触点", operations: "用户操作步骤", requirements: "制作要求",
+} as const;
+export const AIDT_PROTOTYPE_DISCUSSION_FIELDS = proposalFields;
+
+type DiscussionTurn = { id: string; role: string; content?: unknown };
+type PrototypeProposalField = keyof typeof proposalFields;
+type PrototypeProposal = Partial<Record<PrototypeProposalField, string>>;
+const fieldForLabel = new Map(Object.entries(proposalFields).map(([field, label]) => [label, field as PrototypeProposalField]));
+const proposalFieldNames = Object.keys(proposalFields) as PrototypeProposalField[];
+
+/** Project only known teaching fields, never IDs, evidence references or confirmation flags. */
+export function readAidtPrototypeDiscussionProposal(messages: readonly DiscussionTurn[]): PrototypeProposal | null {
+  const result: PrototypeProposal = {};
+  let studentSeen = false;
+  for (const message of messages) {
+    const content = typeof message.content === "string" ? message.content.trim() : "";
+    if (!content || content.length > 12000) continue;
+    if (message.role === "user") studentSeen = true;
+    if (!studentSeen || (message.role !== "user" && message.role !== "assistant")) continue;
+    const block = /\x60\x60\x60aidt-prototype\s*\n([\s\S]+?)\n\x60\x60\x60/i.exec(content)?.[1];
+    if (block) {
+      try {
+        const candidate: unknown = JSON.parse(block);
+        if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+          const values = candidate as Record<string, unknown>;
+          for (const key of proposalFieldNames) {
+            const value = values[key];
+            if (typeof value === "string" && value.trim() && value.length <= 400) result[key] = value.trim();
+          }
+        }
+      } catch { /* A malformed proposal leaves valid prior fields available. */ }
+    }
+    for (const raw of content.split("\n")) {
+      const line = raw.trim().replace(/^[-*]\s+/, "").replace(/\*\*/g, "");
+      const match = /^([^：:]+)[：:]\s*(.+)$/.exec(line);
+      const name = match?.[1]?.trim(), value = match?.[2]?.trim();
+      const field = name && fieldForLabel.get(name);
+      if (field && value && value.length <= 400) result[field] = value;
+    }
+  }
+  return studentSeen && Object.keys(result).length ? result : null;
+}
+
+export function readAidtSavedPrototypeDiscussion(draft: AidtUiStageDraft): PrototypeProposal | null {
+  try {
+    const record: unknown = JSON.parse(draft.fields.prototypeDiscussionProposal ?? "");
+    if (!record || typeof record !== "object" || Array.isArray(record)) return null;
+    const result: PrototypeProposal = {};
+    for (const field of proposalFieldNames) {
+      const value = (record as Record<string, unknown>)[field];
+      if (typeof value === "string" && value.trim() && value.length <= 400) result[field] = value.trim();
+    }
+    return Object.keys(result).length ? result : null;
+  } catch { return null; }
 }
