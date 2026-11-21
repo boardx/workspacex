@@ -27,7 +27,7 @@ import { aidtInterviewHandoffReady, isAidtInterviewArchived, readAidtInterviews,
 import { readAidtDefinitionSelection } from "../lib/aidt-definition";
 import { readAidtStageRevision, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { AidtProblemDirectory } from "./aidt-problem-directory";
-import { readAidtProblemEntityDraft, updateAidtProblemEntity } from "../lib/aidt-problem-entities";
+import { listAidtProblems, readAidtProblemEntityDraft, updateAidtProblemEntity } from "../lib/aidt-problem-entities";
 import { AidtStageOutput } from "@/features/aidt/components/aidt-stage-output";
 import { AidtReportPreview } from "@/features/aidt/components/aidt-report-preview";
 import { aidtReportChatHref } from "../lib/aidt-report-task";
@@ -341,6 +341,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   const directoryHref = directoryContext.size ? directoryUrl + "&" + directoryContext : directoryUrl;
   const entityHref = (id: string) => directoryHref + "&entity=" + encodeURIComponent(id);
   const currentStage = shared.stages[step.id];
+  const activeProblem = problemStep && activeEntityId && currentStage
+    ? listAidtProblems(currentStage.content.draft).find(item => item.id === activeEntityId && !item.archived) : undefined;
   const hmwStage = hmwRevision === null || String(latestHmwStage?.revision) === hmwRevision
     ? latestHmwStage : historicalHmw?.scope === hmwScope ? historicalHmw.stage : undefined;
   const selectedHmw = hmwStage && readAidtDefinitionSelection(hmwStage.content.draft.fields);
@@ -357,7 +359,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     const update = (mutate: (old: AidtUiStageDraft) => AidtUiStageDraft) => updateStage(step.id, mutate);
     const hasSummary = step.id === 6 && search.get("summary") === "1";
     const savedDraft = currentStage?.content.draft;
-    const save = <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite} />;
+    const save = <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite}
+      showSave={step.id !== 1 || (!shared.matchesServer && shared.canSave)} />;
     const groupReports = Object.keys(shared.stages[6]?.content.reports ?? {});
     return <section className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="aidt-step-entity-directory">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3">
@@ -371,7 +374,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
         {shared.read?.phase === "ready" && (hasSummary
           ? <ul className="space-y-3">{["group-report", ...groupReports.filter(id => id !== "group-report")].map(id =>
               <li key={id}><Button asChild variant="outline"><Link href={entityHref(id)}>{id === "group-report" ? "打开小组研究报告" : "打开报告 " + id}</Link></Button></li>)}</ul>
-          : step.id === 1 ? <><AidtProblemDirectory draft={draft} savedDraft={savedDraft} href={entityHref} update={update} readOnly={!canWrite} />{save}</>
+          : step.id === 1 ? <><AidtProblemDirectory key={`problems:${shared.writeKey}`} draft={savedDraft ?? emptyAidtUiDrafts()[1]!} href={entityHref} controller={shared} readOnly={!canWrite} />{save}</>
           : step.id === 2 ? <>
               <AidtInterviewWorkspace projectId={projectId} draft={draft} update={update} readOnly={!canWrite} entityId={null}
                 problemEntityId={search.get("problemEntity") ?? undefined}
@@ -466,12 +469,12 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   return <section className="flex min-h-0 flex-1 flex-col" data-testid="aidt-workspace" onClickCapture={navigateWorkspace}>
     <div className={problemStep || activeEntityId ? "flex min-h-0 flex-1 flex-col" : "flex min-h-0 flex-1 flex-col xl:flex-row xl:gap-3 xl:p-3"}>
       <div className={problemStep || activeEntityId ? "flex shrink-0 items-center gap-2 border-b border-border-subtle px-4 py-2 lg:px-6" : "shrink-0 px-3 xl:w-44 xl:px-0"}>
-        <Link href={activeEntityId ? directoryHref : aidtHref(projectId)} className="inline-flex items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ArrowLeft aria-hidden className="h-3.5 w-3.5" />{activeInterview ? "返回访谈列表" : activeEntityId ? "返回产物列表" : "项目总览"}</Link>
-        {problemStep || activeEntityId ? projectName && <span className="truncate border-l border-border-subtle pl-3 text-13 font-medium">{projectName}</span>
+        <Link href={activeEntityId ? directoryHref : aidtHref(projectId)} className="inline-flex shrink-0 items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ArrowLeft aria-hidden className="h-3.5 w-3.5" />{activeInterview ? "返回访谈列表" : activeEntityId ? problemStep ? "返回问题列表" : "返回产物列表" : "项目总览"}</Link>
+        {problemStep || activeEntityId ? (activeProblem?.title ?? projectName) && <span className="truncate border-l border-border-subtle pl-3 text-13 font-medium">{activeProblem?.title ?? projectName}</span>
           : <AidtStageNavigation stageNumber={step.id} href={id => aidtHref(projectId, id) + (search.get("history") === "1" ? "&history=1" : "")} reportHref={reportHref} reportActive={tool === "report" || reportMode} completed={completedStages} />}
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className={canWrite ? "sr-only" : "flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 py-2"} data-testid="aidt-workspace-toolbar"><h1 className="text-16 font-semibold">{reportMode || tool === "report" ? "小组报告" : step.title}</h1>{!canWrite && <><Button asChild size="sm" variant="ghost"><Link href={href("outcome")}>查看成果</Link></Button><p role="status" className="w-full text-12 text-muted-foreground" data-testid="aidt-readonly">当前项目只读，可查看已关联资料。</p></>}</header>
+        <header className={canWrite ? "sr-only" : "flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 py-2"} data-testid="aidt-workspace-toolbar"><h1 className="text-16 font-semibold">{reportMode || tool === "report" ? "小组报告" : activeProblem?.title ?? step.title}</h1>{!canWrite && <><Button asChild size="sm" variant="ghost"><Link href={href("outcome")}>查看成果</Link></Button><p role="status" className="w-full text-12 text-muted-foreground" data-testid="aidt-readonly">当前项目只读，可查看已关联资料。</p></>}</header>
         {tool !== "outcome" && tool !== "report" && sharedProblem && <div role="alert" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-12" data-testid="aidt-shared-chat-alert"><span>{shared.read?.phase === "error" ? "本步成果读取失败。" : shared.write.phase === "conflict" ? "本步成果有版本冲突，本页修改仍保留。" : "本步成果保存尚未确认，本页修改仍保留。"}</span><Link className="text-primary underline" href={href("outcome")}>进入成果核对</Link>{shared.read?.phase === "error" && <Button size="sm" variant="outline" onClick={shared.reload}>重试读取</Button>}</div>}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <AidtAssistantPanel open fullPage onClose={() => undefined}>
