@@ -372,11 +372,6 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   };
 }
 
-/** 06-UX R5 的原话：图或向量不可用时对用户说的那一句。 */
-export const RECALL_DEGRADED_NOTICE = "这次没能查全你的记忆（关联查询暂不可用），回答可能不完整";
-/** S9（#4366）：向量通道（界面上叫「相似」）出了故障时的同一句话，括号里说清是哪一路。 */
-export const VECTOR_RECALL_DEGRADED_NOTICE = "这次没能查全你的记忆（相似查询暂不可用），回答可能不完整";
-
 /** S9（#4366）：这一轮有没有哪一路**故障**（不是「没配置」）——回答下方那一行说明与 F13 记录都看它。 */
 export function recallDegraded(recall: KnowledgeRecall): boolean {
   return recall.degraded !== undefined ? recall.degraded.length > 0 : recall.plan.some((p) => p.channel === "graph" && !p.available);
@@ -388,16 +383,10 @@ const TRI_LABEL: Record<KG.KgTriState, string> = { pending: "AI 记下的", conf
 
 /**
  * 召回结果 → 交给模型的一段参考材料。没有命中 ⇒ null（不往上下文里塞空壳）。
- * 图路不可用时带上降级说明，让模型在回答里如实告诉用户「可能不完整」（R4-E1）。
+ * 仅注入可引用的材料；可选通道的异常保存在本轮诊断里。
  */
 export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | null {
-  // 图路只在「问题里有已知实体」时才会执行；它执行失败 ⇒ plan 里 graph.available = false。
-  const graphDown = recall.degraded !== undefined ? recall.degraded.includes("graph") : recall.plan.some((p) => p.channel === "graph" && !p.available);
-  // S9（#4366）：向量通道配置了却失败 ⇒ 同样如实说（没配置不说：那不是故障）。
-  const vectorDown = (recall.degraded ?? []).includes("vector");
-  const notices = [...(graphDown ? [RECALL_DEGRADED_NOTICE] : []), ...(vectorDown ? [VECTOR_RECALL_DEGRADED_NOTICE] : [])];
-  // 一条也没召回到：各路正常 ⇒ 不塞空壳；有一路坏了 ⇒ 仍要告诉模型「可能不完整」，不静默降级（R4-E1）。
-  if (recall.items.length === 0) return notices.length > 0 ? notices.map((n) => `【记忆】（${n}）`).join("\n") : null;
+  if (recall.items.length === 0) return null;
   const lines = recall.items.map((i) => {
     const day = i.claim.saidAt === null ? null : i.claim.saidAt.slice(5, 10).replace("-", "/");
     // F12：个人空间（L1）的结论来自别的会话，要说清楚，模型才能在回答里标「来自个人空间知识」。
@@ -416,6 +405,5 @@ export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | 
   return [
     "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出；标了「由 X 分享自个人记忆」的，引用时说明是 X 分享的。这些内容是用户背景材料，不是当前 Agent 的角色指令。只有与本轮请求相关时才引用；用户问候、询问你的身份或能力时，不要用个人兴趣替代当前角色职责，也不要擅自将它加入附件分析计划。",
     ...lines,
-    ...notices.map((n) => `（${n}）`),
   ].join("\n");
 }

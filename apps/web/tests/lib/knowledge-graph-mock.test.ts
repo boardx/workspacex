@@ -7,7 +7,6 @@ import {
   KG_CLAIM_KIND_LABEL_ZH,
   KG_OBJECT_KIND_LABEL_ZH,
   KG_VISIBILITY_LABEL_ZH,
-  KG_RELATED_QUERY_DEGRADED_ZH,
   RETRIEVAL_CHANNEL_LABEL_ZH,
   KG_BANNED_USER_FACING_WORDS,
   recalledMemoriesNormal,
@@ -89,7 +88,6 @@ describe("回答用到的记忆（F13）mock 即契约形状", () => {
     }
     expect(recalledMemoriesPersonal.every((m) => m.scope === "personal")).toBe(true);
     expect(recalledMemoriesGraphDown.some((m) => m.channels.includes("graph") || m.graphPath !== null)).toBe(false);
-    expect(KG_RELATED_QUERY_DEGRADED_ZH).toContain("没能查全你的记忆");
   });
 });
 
@@ -100,7 +98,6 @@ describe("E6 说人话：界面文案不含内部术语", () => {
     ...Object.values(KG_CLAIM_KIND_LABEL_ZH),
     ...Object.values(KG_OBJECT_KIND_LABEL_ZH),
     ...Object.values(RETRIEVAL_CHANNEL_LABEL_ZH),
-    KG_RELATED_QUERY_DEGRADED_ZH,
     ...Object.values(KG_RELATION_LABEL_ZH),
   ];
 
