@@ -211,7 +211,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     if (result === "accepted" && closePanel && tool !== "chat") router.push(reportMode ? aidtReportChatHref(projectId, { threadId: currentThread, stageThread: thread, returnRevision }) : aidtHref(projectId, step.id, { tool: "chat", thread: currentThread, returnRevision }));
     return result;
   }
-  if (!step) return <div className="min-h-0 flex-1 overflow-y-auto"><AidtDashboard href={(id) => aidtHref(projectId, id)} drafts={currentUi.drafts} shared={{ phase: shared.read?.phase ?? (shared.available ? "loading" : "error"), stages: shared.stages, error: shared.read?.error ?? (shared.available ? undefined : "登录后可读取本组已保存成果。"), reload: shared.reload }} /></div>;
+  if (!step) return <div className="min-h-0 flex-1 overflow-y-auto"><AidtDashboard href={(id) => aidtHref(projectId, id)} drafts={currentUi.drafts} completed={completedStages} shared={{ phase: shared.read?.phase ?? (shared.available ? "loading" : "error"), stages: shared.stages, error: shared.read?.error ?? (shared.available ? undefined : "登录后可读取本组已保存成果。"), reload: shared.reload }} /></div>;
   function resourceHref(kind: ProjectResourceKind, id: string) {
     if (kind === "design") return href("design", id);
     if (kind === "personal_transcription") return href("transcript", id);
