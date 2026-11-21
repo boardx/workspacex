@@ -57,6 +57,8 @@ function Conversation({ messages, loading, running, projectId, entityId, threadI
   if (readOnly) return null;
   const current = !pending && result?.messageId === assistant?.id ? result : null;
   const proposal = current?.draft?.markdown.trim();
+  const review = current?.draft?.sourceReview;
+  const hasSourceReceipt = review?.status === "available" && review.receipt.application.state === "message-dispatch-observed";
   const canSave = !pending && text !== null && shared.canSave && !shared.saving;
   const canConfirm = !pending && text !== null && shared.canConfirm && !shared.saving;
   function adopt(markdown: string, model: boolean) {
@@ -80,6 +82,7 @@ function Conversation({ messages, loading, running, projectId, entityId, threadI
       {current?.failed && <Button size="sm" variant="outline" onClick={() => setRetry(count => count + 1)}>重新读取报告草稿</Button>}
       {shared.needsBaseReview && <Button size="sm" variant="outline" onClick={shared.reviewBase} disabled={shared.loading || shared.saving}>已核对服务器版本，继续保存</Button>}
     </div>
+    {proposal && !hasSourceReceipt && <p role="status" className="text-12 text-muted-foreground">未核实这份草稿的材料范围。</p>}
     {(shared.error || shared.loadError) && <p role="alert" className="text-12">{shared.error ?? shared.loadError}</p>}
     {shared.needsBaseReview && <details><summary className="cursor-pointer text-12">查看服务器报告</summary><p className="text-12 whitespace-pre-wrap">{shared.serverMarkdown ?? "暂无报告"}</p></details>}
     {shared.saving && <p role="status" className="text-12">正在保存…</p>}
