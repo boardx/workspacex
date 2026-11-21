@@ -8,6 +8,7 @@ import { aidtHref, type AidtStep } from "@/features/aidt/lib/project-aidt";
 import { printResearchPdf, preparePrintImages } from "@/lib/research-report-export";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
+import { AidtDefinitionDirectory, AidtDefinitionEditor } from "./aidt-definition";
 import { AidtStageFields } from "@/features/aidt/components/aidt-stage-fields";
 import { aidtIdeaSentenceCount, aidtIdeaReadiness, aidtCompleteIdeas } from "@/features/aidt/lib/aidt-idea-readiness";
 import { aidtIdeaSheets, buildAidtIdeaSheetsDocument } from "../lib/aidt-idea-sheets";
@@ -34,13 +35,14 @@ export function printAidtUiText(text: string, options?: Parameters<typeof printR
   return printResearchPdf(root, "AIDT 小组草稿", options);
 }
 
-export function AidtStageOutput({ projectId, thread = null, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision }: {
+export function AidtStageOutput({ projectId, thread = null, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision, discoveryCardFields, activeDefinitionEntityId }: {
   projectId: string; step: AidtStep; draft: AidtUiStageDraft;
   thread?: string | null;
   update: (mutate: (previous: AidtUiStageDraft) => AidtUiStageDraft) => void;
   readOnly: boolean; toolHref: (tool: string) => string;
   toChat?: (text: string) => ComposerOfferResult;
   availableCards?: readonly AidtDiscoveryCardDraft[]; availableCardsRevision?: number;
+  discoveryCardFields?: Readonly<Record<string, string>>; activeDefinitionEntityId?: string | null;
   previousPrototype?: AidtUiStageDraft; previousPrototypeRevision?: number;
 }) {
   const output = AIDT_OUTPUTS[step.id]!;
@@ -142,7 +144,10 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
     </div>}
     {step.id === 4 && previewOpen && (sheets.length ? <AidtIdeaSheetPreview sheets={sheets} printing={printing} onPrint={(id) => void printIdeas(id)} /> : <p role="status" className="text-12 text-muted-foreground">图文或审阅状态已变化，请重新核对后预览。</p>)}
     {step.id === 4 && <AidtIdeaClassification draft={draft} readOnly={readOnly} onChange={(next) => { if (!readOnly) update((old) => ({ ...old, fields: { ...old.fields, ...Object.fromEntries(Object.values(AIDT_IDEA_CLASSIFICATION_FIELDS).map((key) => [key, next.fields[key] ?? ""])) } })); }} />}
-    <AidtStageFields projectId={projectId} stageNumber={step.id} draft={draft} onChange={field} onDraftChange={(next) => { if (!readOnly) update(() => next); }} availableCards={availableCards} availableCardsRevision={availableCardsRevision} previousPrototype={previousPrototype} previousPrototypeRevision={previousPrototypeRevision} readOnly={readOnly} />
+    {step.id === 3 ? activeDefinitionEntityId
+      ? <AidtDefinitionEditor projectId={projectId} draft={draft} update={update} readOnly={readOnly} availableCards={availableCards} availableCardsRevision={availableCardsRevision} discoveryCardFields={discoveryCardFields} entityId={activeDefinitionEntityId} />
+      : <AidtDefinitionDirectory projectId={projectId} draft={draft} update={update} readOnly={readOnly} availableCards={availableCards} availableCardsRevision={availableCardsRevision} discoveryCardFields={discoveryCardFields} entityHref={id => `${toolHref("outcome")}&entity=${encodeURIComponent(id)}`} />
+      : <AidtStageFields projectId={projectId} stageNumber={step.id} draft={draft} onChange={field} onDraftChange={(next) => { if (!readOnly) update(() => next); }} availableCards={availableCards} availableCardsRevision={availableCardsRevision} previousPrototype={previousPrototype} previousPrototypeRevision={previousPrototypeRevision} readOnly={readOnly} />}
     {step.id === 2 && <AidtInterviewGuideExport scopeKey={printScope} guide={draft.fields.guide ?? ""} adoptedGuide={draft.fields.adoptedGuide ?? ""} />}
     {(step.id === 2 || step.id === 6) && <div className="space-y-3" data-testid="aidt-research-materials"><AidtResearchMaterialControl projectId={projectId} label={step.id === 6 ? "测试原始材料" : "研究原始材料"} readOnly={readOnly} onChange={reference => { if (!readOnly && reference) field(`researchFile:${crypto.randomUUID()}`, JSON.stringify(reference)); }} />{aidtResearchMaterialsFromFields(draft.fields, projectId).filter(item => item.key.startsWith("researchFile:")).map(({ key, material }) => <div key={key} className="space-y-2"><AidtResearchMaterialPreview projectId={projectId} reference={material} /><Button type="button" size="xs" variant="ghost" disabled={readOnly} onClick={() => field(key, "")}>移除本步材料关联（保留原件）</Button></div>)}</div>}
     {step.id === 2 && <AidtDiscoveryCards projectId={projectId} thread={thread} cards={draft.discoveryCards ?? []} fields={draft.fields} onFieldChange={field} readOnly={readOnly} onChange={(mutate) => update((old) => { const cards = mutate(old.discoveryCards ?? []); return { ...old, discoveryCards: cards, fields: removeAidtDiscoveryAssociations(old.fields, (old.discoveryCards ?? []).filter(card => !cards.some(current => current.id === card.id)).map(card => card.id)) }; })} />}
@@ -150,7 +155,7 @@ export function AidtStageOutput({ projectId, thread = null, step, draft, update,
     {(step.id === 5 || step.id === 6) && identity?.currentOrgId && identity.userId && identity.sessionToken && <AidtPrototypeVersionPicker projectId={projectId} selectionScope={JSON.stringify([draft.fields.version ?? "", draft.fields.questionSnapshot ?? ""])} value={readAidtPrototypeReference(draft)} readOnly={readOnly} onChange={(reference) => { if (!readOnly) update((old) => updateAidtPrototypeReference(old, reference)); }} />}
     {step.id === 5 && <div className="space-y-2">{prototypeReadiness.ready ? <Button asChild variant="outline" className="w-full"><Link href={toolHref("design")}>打开原生 Design Workbench</Link></Button> : <><Button variant="outline" className="w-full" disabled>打开原生 Design Workbench</Button><p role="status" className="text-12 text-muted-foreground">{prototypeReadiness.reason}</p></>}</div>}
     {step.id === 2 && <Button asChild variant="outline" className="w-full"><Link href={toolHref("sources")}>查看与关联真实研究资料</Link></Button>}
-    <div className="space-y-2 border-t border-border bg-background py-3" data-testid="aidt-stage-output-actions">{toChat && <Button variant="outline" className="w-full sm:w-auto" disabled={readOnly} onClick={() => {
+    <div className="space-y-2 border-t border-border bg-background py-3" data-testid="aidt-stage-output-actions">{step.id !== 3 && toChat && <Button variant="outline" className="w-full sm:w-auto" disabled={readOnly} onClick={() => {
       const result = toChat(aidtUiStageMarkdown(step.id, draft, availableCards, availableCardsRevision));
       setStatus(result === "accepted" ? "已放入对话输入框，请检查后发送。成果需另外保存到小组。" : result === "occupied" ? "聊天输入框已有未发送内容，未覆盖。请先处理原草稿，或使用复制。" : "本步聊天尚未就绪，请稍后重试；本栏草稿仍保留。");
     }}>带入对话草稿</Button>}<div className="flex flex-wrap gap-2"><Button variant="ghost" size="sm" onClick={() => void copy()}>复制内容</Button>{step.id === 6 && <Button asChild variant="outline" size="sm"><Link href={aidtHref(projectId, 6, { tool: "report" })}>预览小组报告</Link></Button>}</div><p role="status" aria-live="polite" className="text-12 text-muted-foreground">{status}</p></div>

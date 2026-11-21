@@ -1,3 +1,4 @@
+import { readAidtDefinition, readAidtDefinitionSelection } from "./aidt-definition";
 import type { AidtUiStageDraft, AidtDiscoveryCardDraft, AidtIdeaDraft } from "./aidt-ui-drafts";
 import { isProblemReflectionConfirmed } from "./aidt-problem-reflection";
 import { isAidtSurpriseConfirmed } from "./aidt-surprise-reflection";
@@ -14,7 +15,12 @@ export function aidtRoundMissingOutput(stageId: number, draft: AidtUiStageDraft,
   const has = (...keys: string[]) => keys.every(key => Boolean(draft.fields[key]?.trim()));
   if (stageId === 1 && (!has("rewrittenTheme") || !isProblemReflectionConfirmed(draft))) return "先核对重写主题与选题反思。";
   if (stageId === 2 && (!has("adoptedGuide") || !draft.discoveryCards?.length || draft.discoveryCards.some(card => !card.participantCode.trim() || !card.headline.trim() || !card.context.trim() || !card.sourceRef.trim()))) return "先核对采纳后的访谈清单与带来源的人物发现卡。";
-  if (stageId === 3 && (!has("hmw") || !["personaAge", "personaInterests", "personaLifestyle", "personaBehavior"].some(key => draft.fields[key]?.trim()) || !isAidtSurpriseConfirmed(draft, context?.cards, context?.cardsRevision))) return "先核对意外发现或暂无、画像与选定HMW。";
+  if (stageId === 3) {
+    const definition = readAidtDefinition(draft.fields);
+    const hasStructuredDraft = definition.personas.length || definition.hmws.length || definition.invalid;
+    const selectedHmw = hasStructuredDraft ? readAidtDefinitionSelection(draft.fields) : has("hmw") && ["personaAge", "personaInterests", "personaLifestyle", "personaBehavior"].some(key => draft.fields[key]?.trim());
+    if (!selectedHmw || !isAidtSurpriseConfirmed(draft, context?.cards, context?.cardsRevision)) return "先核对意外发现或暂无、画像与选定HMW。";
+  }
   if (stageId === 4) {
     const hasOriginalImage = (idea: AidtIdeaDraft) => { const material = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]); return Boolean(material && material.projectId === context?.projectId && isAidtResearchImage(material)); };
     const readiness = aidtIdeaReadiness(draft.ideas, hasOriginalImage);
