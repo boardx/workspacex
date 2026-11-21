@@ -25,8 +25,10 @@ it("presents only formed results in Output and keeps chat input and operations o
   const result = readAidtProblemEntityDraft(stage().content.draft, entity);
   const { rerender } = render(<AidtProblemWorkspace draft={result} confirmed={false} revision={5} />);
   const panel = within(screen.getByRole("region", { name: "工作坊问题产物" }));
-  expect(panel.getByText(formed.known)).toBeVisible();
-  expect(panel.getByText(formed.nextAction)).toBeVisible();
+  expect(panel.getByText(formed.rewrittenTheme)).toBeVisible();
+  expect(panel.getByText(formed.known)).not.toBeVisible();
+  expect(panel.getByText("选题反思").closest("details")).not.toHaveAttribute("open");
+  expect(panel.queryByText(formed.nextAction)).toBeNull();
   expect(panel.queryByRole("textbox")).toBeNull();
   expect(panel.queryByRole("button")).toBeNull();
   expect(panel.queryByRole("checkbox")).toBeNull();

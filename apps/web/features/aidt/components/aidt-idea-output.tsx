@@ -68,7 +68,7 @@ export function AidtIdeaOutput({ projectId, entityId, draft, savedDraft, savedRe
   return <section aria-label="点子产物" className="space-y-4" data-testid="aidt-idea-output">
     <div className="flex items-baseline justify-between gap-2"><h3 className="text-16 font-semibold">{item.title}</h3>
       <span className="shrink-0 text-12 text-muted-foreground">{persisted ? `已确认${savedRevision ? ` V${savedRevision}` : ""}` : currentConfirmed ? "待保存" : "待确认"}</span></div>
-    {item.description && <p className="whitespace-pre-wrap break-words text-13">{item.description}</p>}
+    {item.description && (!proposal || proposal.description === item.description) && <p className="whitespace-pre-wrap break-words text-13">{item.description}</p>}
     {proposal && proposal.description !== item.description && <div className="space-y-1">
       <h4 className="text-13 font-medium">AI 草稿</h4><p className="whitespace-pre-wrap break-words text-13">{proposal.description}</p>
     </div>}
@@ -79,6 +79,7 @@ export function AidtIdeaOutput({ projectId, entityId, draft, savedDraft, savedRe
       {printing ? "正在准备…" : "导出描述单 PDF"}
     </Button>}
     {status?.key === key && <p role="status" className="text-12">{status.text}</p>}
+    {proposal && item.description && proposal.description !== item.description && <details className="text-12"><summary className="cursor-pointer">查看当前记录</summary><p className="mt-2 whitespace-pre-wrap break-words">{item.description}</p></details>}
     {hmw && <details className="text-12"><summary className="cursor-pointer">查看 HMW V{hmw.revision}</summary><p className="mt-2">{hmw.text}</p></details>}
   </section>;
 }
