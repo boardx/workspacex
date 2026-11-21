@@ -519,7 +519,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               title={label}
               data-testid={`chat-task-workbench-inspector-tab-${tab}`}
               onClick={() => {
-                if (projectArtifact && !hostOpen) {
+                if (projectArtifact) {
+                  if (hostOpen) return;
                   setOverride("collapsed");
                   hostPanel.onOpenChange(true);
                 } else {

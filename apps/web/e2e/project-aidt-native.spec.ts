@@ -647,7 +647,8 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   await expect(output).toContainText("两位同学看菜单后离开");
   await expect(output.getByRole("button")).toHaveCount(0);
   await page.reload();
-  await openOutcome(page);
+  await expect(output).toContainText(confirmed);
+  await page.getByRole("tab", { name: "产物" }).click();
   await expect(output).toContainText(confirmed);
   const confirmation = page.getByTestId("aidt-round-completion").getByRole("button", { name: "确认本轮成果并保存" });
   await confirmation.click();
