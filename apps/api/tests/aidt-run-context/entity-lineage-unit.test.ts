@@ -11,7 +11,7 @@ it("follows two interviews to the selected historic questions through test, prot
   const problem=make(1,7,{"problemDraft:q":json({initial:"你好",rewrittenTheme:"如何确认车道？",scene:"高速施工区"}),"problemDraft:other":json({rewrittenTheme:"无关问题"})});
   const two=make(2,9,{"interviewRecord:a":json({id:"a",topicRevision:7,problemEntityId:"q",code:"U01"}),"interviewRecord:b":json({id:"b",topicRevision:7,problemEntityId:"q",code:"U02"})});
   const three=make(3,5,{definitionEvidenceRevision:"9","definitionHmw:h":json({id:"h",text:"怎样帮助辨认车道",personaIds:["p"],cardIds:["b"]}),"definitionPersona:p":json({id:"p",cardIds:["a"],name:"新手"})});
-  const four=make(4,4,{ideaHmwSource:json({id:"h",text:"怎样帮助辨认车道",revision:5})});
+  const four=make(4,4,{"ideaHmwSource:i":json({id:"h",text:"怎样帮助辨认车道",revision:5}),ideaHmwSource:json({id:"other-hmw",text:"其他点子的问题",revision:6})});
   four.content.draft.ideas.push({id:"i",title:"提示牌",description:"路线提示"});
   const five=make(5,3,{"prototypeEntity:d":json({prototypeIdeaSource:json({revision:4,ideaIds:["i"]})})});
   const six=make(6,2,{"testGroup:t":json({id:"t",prototypeEntity:"d",stage5Revision:3})});

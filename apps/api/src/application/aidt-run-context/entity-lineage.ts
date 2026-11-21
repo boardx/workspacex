@@ -45,7 +45,7 @@ function parents(stage: SharedStageValue, id: string): Ref[] {
     }
     case 4: {
       if (!stage.content.draft.ideas.some(idea => idea.id === id)) return [];
-      const hmw = readIdeaHmwSource(fields.ideaHmwSource);
+      const hmw = readIdeaHmwSource(fields["ideaHmwSource:" + id] ?? fields.ideaHmwSource);
       return hmw ? refs(3,hmw.revision,[hmw.id]) : [];
     }
     case 5: {
