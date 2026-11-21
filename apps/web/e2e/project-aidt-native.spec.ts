@@ -29,6 +29,8 @@ async function createProblem(page: Page, title: string) {
   const dialog = page.getByRole("dialog", { name: "新建问题" });
   await dialog.getByRole("textbox", { name: "问题名称", exact: true }).fill(title);
   await dialog.getByRole("button", { name: "创建问题", exact: true }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
+  await page.getByRole("link", { name: "返回问题列表" }).click();
   const card = page.getByRole("link", { name: title, exact: true });
   await expect(card).toBeVisible();
   return card;
@@ -681,8 +683,8 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   await expect(page.getByTestId("aidt-step-entity-directory")).toBeVisible();
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
   await page.getByRole("button", { name: "新建访谈" }).click();
-  await page.getByTestId("aidt-shared-save").click();
-  await expect(page.getByTestId("aidt-shared-receipt")).toBeVisible();
+  await page.getByRole("button", { name: "创建访谈" }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
   const storedInterview = await api(page, `/projects/${projectId}/aidt/stages/2`);
   expect(storedInterview.status).toBe(200);
   const interviewFields: Record<string, string> = storedInterview.data.stage.content.draft.fields;
@@ -693,7 +695,7 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   expect(JSON.parse(content)).toMatchObject({
     id: interviewId, problemEntityId: problemId, topicRevision: stored.data.stage.revision, topic: confirmed,
   });
-  await page.getByRole("button", { name: /U01/ }).click();
+  expect(new URL(page.url()).searchParams.get("entity")).toBe(interviewId);
   await expect(page).toHaveURL(/step=2.*entity=/);
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
   expect(new URL(page.url()).searchParams.get("thread")).not.toBe(problemThread);

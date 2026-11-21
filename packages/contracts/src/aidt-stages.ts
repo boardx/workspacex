@@ -7,6 +7,11 @@ const greeting = /^(?:(?:你|您)好(?:呀|啊)?|大家好|嗨|哈[喽啰]|hello
 /** Earlier clients sometimes copied the first Chat greeting into a problem draft. */
 export function isAidtGreetingText(value: string): boolean { return greeting.test(value.trim()); }
 
+export function aidtInterviewTitle(code: string, displayName?: string): string {
+  const name = displayName?.trim();
+  return name && name !== code ? code + " · " + name : code;
+}
+
 export const StageId = z.number().int().min(1).max(6);
 // Persisted revisions and SQL pagination parameters use PostgreSQL integer columns.
 const maxStageRevision = 2147483647;

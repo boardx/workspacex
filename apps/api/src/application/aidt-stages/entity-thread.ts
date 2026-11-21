@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
-import { AIDT_ENTITY_THREAD_PREFIX, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { AIDT_ENTITY_THREAD_PREFIX, aidtInterviewTitle, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { readAidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
+import { checkedInterviewExcerpt } from "./interview-skill-draft";
 import type { StageActor } from "./ports";
 
 export function aidtEntityThreadId(actor: StageActor, stageId: number, entityId: string, purpose: "stage" | "report") {
@@ -44,9 +45,13 @@ export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: s
   switch (stage.stageId) {
     case 1:
       return titleFor(fields, "problemEntity:", entityId, "title", "理解与提出问题");
-    case 2:
+    case 2: {
       if (fields["interviewArchived:" + entityId] === "true") return null;
-      return titleFor(fields, "interviewRecord:", entityId, "code", "访谈");
+      const code = titleFor(fields, "interviewRecord:", entityId, "code", "访谈");
+      if (code === null) return null;
+      const name = readObject(fields["interviewRecord:" + entityId])?.displayName;
+      return aidtInterviewTitle(code, typeof name === "string" ? name.slice(0, 80) : undefined);
+    }
     case 3:
       if (entityId === "primary-surprise" && fields.definitionPrimaryEntity === "true") return "意外发现";
       return titleFor(fields, "definitionPersona:", entityId, "name", "用户画像")
@@ -83,6 +88,7 @@ export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string
     case 2: {
       const card = discoveryCards?.find(item => item.id === entityId);
       return { entityId, fields: read("interviewRecord:", ["code", "topic", "goal", "original", "adopted", "guideConfirmed"]),
+        checkedExcerpt: checkedInterviewExcerpt(fields, entityId, stage.projectId),
         finding: card ? { headline: card.headline, headlineKind: card.headlineKind, context: card.context } : undefined };
     }
     case 3:
