@@ -4,7 +4,7 @@ import * as React from "react";
 import type { AidtSharedStage } from "./live-aidt-stages";
 import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload, aidtRoundMissingOutput } from "./aidt-round-completion";
 import { listAidtProblems, readAidtProblemEntityDraft, readAidtProblemHandoffDraft } from "./aidt-problem-entities";
-import { aidtInterviewFindingReady, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviews } from "./aidt-interviews";
+import { areAidtInterviewsComplete } from "./aidt-interviews";
 import { readAidtDefinition, readAidtDefinitionSelection } from "./aidt-definition";
 import { readAidtIdeaHandoff } from "./aidt-idea-handoff";
 import { readAidtConfirmedPrototypeHandoff } from "./aidt-prototype-handoff";
@@ -27,9 +27,7 @@ export async function aidtStageHasConfirmation(stage: AidtSharedStage, stages?: 
     return confirmations.every(Boolean);
   }
   if (stage.stageId === 2 && Object.keys(saved.fields).some(key => key.startsWith("interviewRecord:"))) {
-    const active = readAidtInterviews(saved.fields).filter(interview => !isAidtInterviewArchived(saved.fields, interview.id));
-    return active.length > 0 && active.every(interview => isAidtInterviewConfirmed(saved.fields, interview.id)
-      && aidtInterviewFindingReady(saved, interview, stage.projectId));
+    return areAidtInterviewsComplete(saved, stage.projectId);
   }
   if (stage.stageId === 3) {
     const definition = readAidtDefinition(saved.fields);
