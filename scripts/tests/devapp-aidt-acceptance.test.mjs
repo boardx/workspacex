@@ -76,6 +76,89 @@ test('duplicate scope query cannot select a foreign project or org through parse
   const { guard, bind } = owned(); bind();
   assert.equal(request(guard, 'GET', `/api/projects/${project}/overview?projectId=${project}&projectId=foreign`).code, 'DUPLICATE_QUERY_REJECTED');
 });
+test('native agent catalog requires the verified ordinary actor and bound owned QA project', () => {
+  const path = '/api/capabilities?orgId=qa-org&kind=agent';
+  const unauthenticated = createAcceptanceGuard(identity());
+  assert.equal(request(unauthenticated, 'GET', path).allow, false);
+  const unverified = createAcceptanceGuard(identity()); unverified.armLogin();
+  const login = request(unverified, 'POST', '/api/auth/login', { email: syntheticLoginValue, password: syntheticLoginValue });
+  unverified.observe(login, 200, { userId: 'qa-user', orgs: ['qa-org'], sessionToken: 'synthetic-token', expiresAt: '2099-01-01T00:00:00Z' });
+  unverified.readIdentityRole(200, { org: { id: 'qa-org' }, orgRole: 'admin' });
+  assert.equal(request(unverified, 'GET', path).allow, false);
+  const { guard, bind } = owned();
+  assert.equal(request(guard, 'GET', path).allow, false); // Receipt alone is not an ownership binding.
+  bind();
+  assert.deepEqual(request(guard, 'GET', path), { allow: true, kind: 'native-agent-catalog', readCategory: 'nativeAgentCatalog' });
+  assert.deepEqual(request(guard, 'GET', '/api/capabilities?kind=agent&orgId=qa-org'), { allow: true, kind: 'native-agent-catalog', readCategory: 'nativeAgentCatalog' });
+  assert.deepEqual(guard.summary().readCategories, { nativeAgentCatalog: 2, runtimeMetadata: 0, other: 0 });
+  assert.equal(guard.summary().allowedWrites, 1); assert.equal(guard.summary().modelRequests, 0); assert.equal(guard.summary().teachingRequests, 0);
+});
+test('native agent catalog rejects foreign, missing, extra and duplicate query scope', () => {
+  for (const query of ['orgId=foreign&kind=agent', 'orgId=qa-org&kind=skill', 'orgId=qa-org&kind=Agent', 'orgId=qa-org', 'kind=agent', '', 'orgId=qa-org&kind=agent&entry=library', 'orgId=qa-org&kind=agent&orgId=foreign', 'orgId=qa-org&kind=agent&kind=agent']) {
+    const { guard, bind } = owned(); bind();
+    assert.equal(request(guard, 'GET', `/api/capabilities${query ? `?${query}` : ''}`).allow, false, query);
+    assert.deepEqual(guard.summary().readCategories, { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 });
+  }
+});
+test('catalog permission does not authorize capability mutations or change safety budgets', () => {
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']) {
+    const { guard, bind } = owned(); bind();
+    assert.equal(request(guard, method, '/api/capabilities?orgId=qa-org&kind=agent', { orgId: 'qa-org', kind: 'agent', op: 'add' }).allow, false);
+    assert.equal(guard.summary().allowedWrites, 1); assert.equal(guard.summary().roleWritesAllowed, 0); assert.equal(guard.summary().deletesAllowed, 0);
+    assert.equal(guard.summary().modelRequestsAllowed, 1); assert.equal(guard.summary().teachingRequestsAllowed, 6);
+  }
+});
+test('allowed read evidence uses detached closed category counts with no request data', () => {
+  const { guard, bind } = owned(); bind();
+  request(guard, 'GET', '/api/capabilities?orgId=qa-org&kind=agent');
+  assert.equal(request(guard, 'GET', '/api/copilotkit/info').kind, 'read');
+  request(guard, 'GET', '/aidt');
+  assert.equal(request(guard, 'GET', '/api/copilotkit').allow, false);
+  assert.equal(request(guard, 'GET', '/api/copilotkit/info?extra=value').allow, false);
+  const counts = guard.summary().readCategories;
+  assert.deepEqual(counts, { nativeAgentCatalog: 1, runtimeMetadata: 1, other: 1 });
+  assert.equal(/qa-org|https|api|token|secret/.test(JSON.stringify(counts)), false);
+  counts.nativeAgentCatalog = 999;
+  assert.equal(guard.summary().readCategories.nativeAgentCatalog, 1);
+});
+test('read diagnostics count classifications without exporting denied query secrets or granting reads', () => {
+  const { guard, bind } = owned(); bind();
+  const marker = 'synthetic-private-query';
+  const denied = request(guard, 'GET', `/api/capabilities?orgId=qa-org&kind=agent&private=${marker}`);
+  assert.equal(denied.allow, false); assert.equal(denied.readCategory, 'nativeAgentCatalog');
+  request(guard, 'GET', `/api/copilotkit?private=${marker}`);
+  request(guard, 'GET', `/api/unknown?private=${marker}`);
+  assert.deepEqual(guard.summary().readDenials, { nativeAgentCatalog: 1, runtimeMetadata: 1, other: 1 });
+  assert.equal(JSON.stringify(guard.summary()).includes(marker), false);
+  assert.equal(JSON.stringify(denied).includes(marker), false);
+  const copy = guard.summary().readDenials; copy.other = 999;
+  assert.equal(guard.summary().readDenials.other, 1);
+});
+test('metadata HTTP statuses require observed allowed read responses and reject unknown values', () => {
+  const { guard, bind } = owned(); bind();
+  const catalog = request(guard, 'GET', '/api/capabilities?orgId=qa-org&kind=agent');
+  const runtime = request(guard, 'GET', '/api/copilotkit/info');
+  assert.deepEqual(guard.summary().metadataHttpStatuses, { items: [], truncated: false });
+  guard.observe(catalog, 200, { private: 'synthetic-response-secret' }); guard.observe(runtime, 503, { private: 'synthetic-response-secret' });
+  for (const status of [undefined, null, '200', 'synthetic-status-secret', NaN, Infinity, 99, 600, 200.5]) guard.observe(catalog, status);
+  guard.observe({ allow: true, kind: 'read', readCategory: 'synthetic-category-secret' }, 200);
+  guard.observe({ allow: false, readCategory: 'nativeAgentCatalog' }, 401);
+  assert.deepEqual(guard.summary().metadataHttpStatuses, { items: [{ category: 'nativeAgentCatalog', status: 200 }, { category: 'runtimeMetadata', status: 503 }], truncated: false });
+  assert.equal(JSON.stringify(guard.summary()).includes('secret'), false);
+  const copy = guard.summary().metadataHttpStatuses; copy.items[0].status = 999; copy.items.push({ category: 'secret', status: 999 });
+  assert.equal(guard.summary().metadataHttpStatuses.items.length, 2); assert.equal(guard.summary().metadataHttpStatuses.items[0].status, 200);
+});
+test('metadata HTTP diagnostics truncate at 128 observed responses without retaining extra fields', () => {
+  const { guard, bind } = owned(); bind();
+  const catalog = request(guard, 'GET', '/api/capabilities?orgId=qa-org&kind=agent');
+  for (let index = 0; index < 128; index++) guard.observe(catalog, 200);
+  assert.equal(guard.summary().metadataHttpStatuses.truncated, false);
+  guard.observe(catalog, 401); guard.observe(catalog, 599);
+  const receipt = guard.summary().metadataHttpStatuses;
+  assert.equal(receipt.items.length, 128); assert.equal(receipt.truncated, true);
+  assert.deepEqual(Object.keys(receipt.items[0]), ['category', 'status']);
+  assert.equal(guard.summary().readCategories.nativeAgentCatalog, 1); // Decisions are not response counts.
+});
 test('random unknown project probe aborts unexpected success before reading or fulfilling its body', async () => {
   const { guard, bind } = owned({ deniedProject: 'prj-22222222-2222-4222-8222-222222222222' }); bind();
   const decision = request(guard, 'GET', '/api/projects/prj-22222222-2222-4222-8222-222222222222/overview');
