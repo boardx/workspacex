@@ -481,7 +481,9 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps & { conv
             {renderChatDisplayText(personaFailure, locale)}
           </span>
         ) : null}
-        {props.conversationControls}
+        {props.conversationControls && <ProducedFilesCtx.Provider value={producedFilesContextValue}>
+          {props.conversationControls}
+        </ProducedFilesCtx.Provider>}
         {/* chat-parity-attachments (issue #2022) -- composer 附件区：就地报错横幅 + 预览条，
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}
