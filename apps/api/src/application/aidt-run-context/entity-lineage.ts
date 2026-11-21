@@ -1,7 +1,8 @@
+import { isAidtConfirmedHmwSource, readAidtBrainstorm, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { AidtEntityId, AIDT_LEGACY_PROBLEM, isAidtLegacyProblem, aidtEntitySourceHref, isAidtProblemControlText, readIdeaHmwSource, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { aidtSavedEntityContext } from "../aidt-stages/entity-thread";
 
-type Ref = { stageId: number; revision: number; entityId: string };
+type Ref = { stageId: number; revision: number; entityId: string; expectedHmwText?: string };
 type Fields = Record<string, unknown>;
 function object(raw: unknown): Fields {
   if (typeof raw !== "string") return {};
@@ -44,7 +45,14 @@ function parents(stage: SharedStageValue, id: string): Ref[] {
       return row ? [...refs(2,fields.definitionEvidenceRevision,row.cardIds),...refs(3,stage.revision,row.personaIds),...refs(3,stage.revision,row.surpriseIds)] : [];
     }
     case 4: {
-      if (!stage.content.draft.ideas.some(idea => idea.id === id)) return [];
+      const isIdea = stage.content.draft.ideas.some(idea => idea.id === id);
+      const session = readAidtBrainstorm(fields, id) ?? (isIdea ? readAidtBrainstorms(fields).find(row => row.candidates.includes(id)) : undefined);
+      if (session) {
+        const { id: hmwId, text: expectedHmwText, revision } = session.source;
+        return [{ stageId: 3, revision, entityId: hmwId, expectedHmwText }];
+      }
+      // Generated idea IDs are bound to their owning brainstorm even if its record cannot be read.
+      if (!isIdea || id.startsWith("brainstorm-")) return [];
       const hmw = readIdeaHmwSource(fields["ideaHmwSource:" + id] ?? fields.ideaHmwSource);
       return hmw ? refs(3,hmw.revision,[hmw.id]) : [];
     }
@@ -87,6 +95,8 @@ export async function entityLineage(stage: SharedStageValue, entityId: string,
     if (visited.has(key)) continue;
     visited.add(key);
     const upstream = await exact(ref.stageId,ref.revision);
+    if (ref.expectedHmwText !== undefined && (upstream.projectId !== stage.projectId
+      || !isAidtConfirmedHmwSource(upstream, { id: ref.entityId, revision: ref.revision, text: ref.expectedHmwText }))) continue;
     const fields = upstream.content.draft.fields;
     const legacy = ref.stageId === 1 && ref.entityId === AIDT_LEGACY_PROBLEM && isAidtLegacyProblem(fields);
     if (ref.stageId === 1 && !legacy && !fields["problemDraft:"+ref.entityId]) continue;

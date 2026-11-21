@@ -62,4 +62,3 @@ export function readAidtBrainstormSelection<Idea extends { id: string; title: st
     return { session, selectedIds: selected.ids, ideas: ideas.filter(idea => idea !== undefined) };
   } catch { return null; }
 }
-
