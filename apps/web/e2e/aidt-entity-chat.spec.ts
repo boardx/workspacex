@@ -5,6 +5,9 @@ import { AidtContextReceipt, AidtContextSelector } from "@repo/contracts/aidt-ru
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { bearerOf, sendViaWorkbench } from "./chat-v2-send";
 
+test.use({ launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream",
+    ...(process.env.AIDT_RECORDING_TEST_WAV ? ["--use-file-for-fake-audio-capture=" + process.env.AIDT_RECORDING_TEST_WAV] : [])] } });
+
 const composer = (page: Page) => page.getByTestId("copilotkit-v2-input");
 
 async function openInterview(page: Page, path: string) {
@@ -156,8 +159,7 @@ test("ten interviews bind to ten native conversations and reopening never copies
 });
 
 test.describe("recording evidence in the interview Chat", () => {
-  test.use({ permissions: ["microphone"], launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream",
-    ...(process.env.AIDT_RECORDING_TEST_WAV ? ["--use-file-for-fake-audio-capture=" + process.env.AIDT_RECORDING_TEST_WAV] : [])] } });
+  test.use({ permissions: ["microphone"] });
 
   test("a saved WAV and a checked excerpt become a sourced finding without entering the outcome form", async ({ page }) => {
     test.setTimeout(180_000);
