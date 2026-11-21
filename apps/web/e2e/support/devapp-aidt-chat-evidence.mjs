@@ -31,7 +31,7 @@ export function matchesInterviewProjection(previous, next, scope, assistantId) {
   if (!same(clean(before, changeable), clean(after, changeable))) return false;
   if (before.draftTurnId !== after.draftTurnId && (!id(after.draftTurnId) || assistantId && after.draftTurnId !== assistantId)) return false;
   if (!finding) {
-    return before.guideConfirmed === false && after.original === scope.prompt && bounded(after.goal, 250) && bounded(after.adopted, 1000)
+    return before.guideConfirmed === false && after.original === (scope.interviewGuideRevision ? before.original : scope.prompt) && bounded(after.goal, 250) && bounded(after.adopted, 1000)
       && (!before.original || before.original === after.original) && same(left.discoveryCards, right.discoveryCards);
   }
   if (before.guideConfirmed !== true || right.fields[interpretation] !== undefined && !bounded(right.fields[interpretation], 1000)) return false;
