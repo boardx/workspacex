@@ -354,7 +354,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
 
   await check('s1-draft-not-complete', undefined, async () => {
     report.s1Navigation.operation = 'create-problem';
-    await go(1); await fill('问题名称', problemName); await click(btn('新建问题')); await saveStage(1);
+    await go(1); await click(btn('新建问题')); await fill('问题名称', problemName); await click(btn('创建问题'));
     const link = page.getByRole('link', { name: problemName, exact: true });
     await expect(link).toBeVisible();
     report.s1Navigation.operation = 'open-problem-outcome';
@@ -400,7 +400,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect(page.getByTestId('aidt-round-completion')).toContainText('本轮成果已确认并保存', { timeout: 30000 });
     step2Href = owned(await page.getByRole('link', { name: '继续第2步', exact: true }).getAttribute('href'));
     await shot('01-problem-confirmed', 1);
-    await follow('返回产物列表');
+    await follow('返回问题列表');
     report.s1Navigation.operation = 'verify-completed-overview-and-reload';
     await completed(1); await page.reload();
     await expect(page.getByTestId('aidt-stage-save-1')).toHaveAttribute('data-completed', 'true');

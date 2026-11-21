@@ -23,6 +23,16 @@ async function login(page: Page, member = false) {
   await expect(page).toHaveURL(/\/home$/);
 }
 
+async function createProblem(page: Page, title: string) {
+  await page.getByRole("button", { name: "新建问题", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "新建问题" });
+  await dialog.getByRole("textbox", { name: "问题名称", exact: true }).fill(title);
+  await dialog.getByRole("button", { name: "创建问题", exact: true }).click();
+  const card = page.getByRole("link", { name: title, exact: true });
+  await expect(card).toBeVisible();
+  return card;
+}
+
 /** Legacy aggregate tools have an explicit product entry; entity routes are tested separately. */
 async function openHistoryTools(page: Page) {
   if (new URL(page.url()).searchParams.get("history") === "1") {
@@ -38,7 +48,7 @@ async function openHistoryTools(page: Page) {
 /** Preserve compact/mobile navigation while explicitly entering supported aggregate tools. */
 async function selectHistoryStage(page: Page, stage: number) {
   if (new URL(page.url()).searchParams.has("entity")) {
-    await page.getByRole("link", { name: /^返回(产物|访谈)列表$/ }).click();
+    await page.getByRole("link", { name: /^返回(产物|访谈|问题)列表$/ }).click();
     await expect(page.getByTestId("aidt-step-entity-directory")).toBeVisible();
     await page.getByRole("link", { name: "项目总览", exact: true }).click();
     await page.getByTestId(`aidt-step-${stage}`).click();
@@ -150,13 +160,18 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   await page.getByTestId("aidt-step-1").click();
   await expect(page.getByTestId("aidt-problem-directory")).toBeVisible();
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "先新建一个问题" })).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("aidt-native-problem-directory.png"), fullPage: true });
   const nativeProblemName = "本次原生入口的合成问题";
-  await page.getByRole("textbox", { name: "问题名称", exact: true }).fill(nativeProblemName);
-  await page.getByRole("button", { name: "新建问题", exact: true }).click();
-  await page.getByTestId("aidt-shared-save").click();
+  const problemCard = await createProblem(page, nativeProblemName);
   await expect(page.getByTestId("aidt-shared-status")).toContainText("小组已保存");
-  await page.getByRole("link", { name: nativeProblemName, exact: true }).click();
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(problemCard).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`aidt-problem-cards-${width}.png`), fullPage: true });
+  }
+  await problemCard.click();
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
   const nativeProblemId = new URL(page.url()).searchParams.get("entity")!;
@@ -174,7 +189,23 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   expect(projectList.data.some((item: { id: string }) => item.id === FULLSTACK_E2E.projectId)).toBe(true);
   expect((await api(page, `${nativeThreadPath}?projectId=${encodeURIComponent(FULLSTACK_E2E.projectId)}`)).status).toBe(404);
   await page.screenshot({ path: test.info().outputPath("aidt-native-problem-entity-chat.png"), fullPage: true });
-  await page.getByRole("link", { name: /^返回(产物|访谈)列表$/ }).click();
+  await page.getByRole("link", { name: "返回问题列表" }).click();
+  const renamed = "修订后的合成问题";
+  await page.getByRole("button", { name: `编辑问题 ${nativeProblemName}` }).click();
+  const edit = page.getByRole("dialog", { name: "编辑问题" });
+  await edit.getByRole("textbox", { name: "问题名称" }).fill(renamed);
+  await edit.getByRole("button", { name: "保存修改" }).click();
+  const renamedCard = page.getByRole("link", { name: renamed, exact: true });
+  await expect(renamedCard).toHaveAttribute("href", `/aidt/${projectId}?step=1&entity=${nativeProblemId}`);
+  await page.reload();
+  await renamedCard.click();
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(nativeProblemThread);
+  await page.getByRole("link", { name: "返回问题列表" }).click();
+  await page.getByRole("button", { name: `删除问题 ${renamed}` }).click();
+  await page.getByRole("dialog", { name: "删除问题" }).getByRole("button", { name: "确认删除" }).click();
+  await expect(page.getByRole("heading", { name: "先新建一个问题" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "先新建一个问题" })).toBeVisible();
   // The history link is deliberately existing-only and never creates new
   // aggregate conversations. Build explicit, persisted compatibility fixtures
   // using the same native create/mount APIs exercised by the privacy checks.
@@ -600,10 +631,7 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   await expect(page.getByTestId("aidt-problem-directory")).toBeVisible();
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
   const problemTitle = "校园奶茶新品";
-  await page.getByRole("textbox", { name: "问题名称" }).fill(problemTitle);
-  await page.getByRole("button", { name: "新建问题" }).click();
-  await page.getByTestId("aidt-shared-save").click();
-  await page.getByRole("link", { name: problemTitle, exact: true }).click();
+  await (await createProblem(page, problemTitle)).click();
   await expect(page).toHaveURL(/step=1.*entity=/);
   const problemId = new URL(page.url()).searchParams.get("entity")!;
   await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
