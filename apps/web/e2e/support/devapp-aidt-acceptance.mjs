@@ -644,7 +644,7 @@ export async function main() {
       if (![403, 404].includes(result.status)) throw new ProbeFailure('UNKNOWN_PROJECT_NOT_DENIED');
       report.unknownProjectGate = { passed: true, status: result.status, crossUserIsolation: false };
     });
-    await runAidtJourney({ page, context, expect, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
+    await runAidtJourney({ page, context, expect, interviewStarter: metadata.interviewStarter, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
       checkpoint, capture, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
       armInterviewEdit: () => guard.armStageSave(2, false), armCardCreate: stage => guard.armStageSave(stage, false),
       registerFixture: fixture => guard.registerFixture(fixture), armSurvey: id => guard.armSurvey(id), surveyReceipt: guard.surveyReceipt, armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, createSurveyParticipant, report });

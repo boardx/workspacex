@@ -351,7 +351,7 @@ export function assertSavedCardCreation(before, after, target, kind) {
       new Set(ids).size !== ids.length || oldIds.some(id => !ids.includes(id))) fail('CARD_CREATION_ENTITY_UNVERIFIED');
 }
 
-export async function runAidtJourney({ page, expect, scope, checkpoint, capture, api,
+export async function runAidtJourney({ page, expect, interviewStarter, scope, checkpoint, capture, api,
   saveStage, armCardCreate, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
   armSurvey, surveyReceipt, armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, createSurveyParticipant, savePrint, teachingFeedback, reviewS1StudentResponse }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
@@ -753,6 +753,11 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await output(target);
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
       await expect(page.getByTestId('aidt-interview-output')).toContainText(code);
+      if (typeof interviewStarter !== 'string' || !interviewStarter.trim()) fail('INTERVIEW_SKILL_STARTER_MISSING');
+      await expect(page.getByTestId('aidt-chat-welcome')).toHaveText(interviewStarter);
+      await expect(page.getByTestId('copilotkit-v2-input')).toHaveCount(1);
+      await expect(page.getByTestId('copilotkit-v2-input')).toBeEditable();
+      await expect(page.getByRole('heading', { name: '先说说你们的想法' })).toHaveCount(0);
       const threadId = new URL(page.url()).searchParams.get('thread');
       expect(state.interviews.some(item => item.threadId === threadId || item.target.entityId === target.entityId)).toBe(false);
       state.interviews.push({ code, threadId, target, href: page.url(), hasMaterial: false });
@@ -942,6 +947,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await fill('卡片名称', title, dialog);
       const source = dialog.getByRole('group', { name: sourceLabel, exact: true }).getByRole('checkbox', { name: sourceName });
       await source.check();
+      if (kind === 'hmw') await dialog.getByRole('group', { name: '来源访谈', exact: true }).getByRole('checkbox', { name: /U01/ }).check();
       if (kind === 'persona') await dialog.getByRole('group', { name: sourceLabel, exact: true }).getByRole('checkbox', { name: /U02/ }).check();
       return captureCardCreation(3, kind, () => click(btn('创建' + label, dialog)), { reopen: true, expectedName: title });
     };
@@ -992,16 +998,16 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const start = async (method, target) => {
       await page.goto(frozenUrl.href);
       await click(page.getByTestId('aidt-new-entity-card'));
-      const dialog = page.getByRole('dialog');
-      await expect(dialog).toBeVisible();
+      await click(btn('头脑风暴', page.getByRole('dialog', { name: '新建卡片' })));
+      const dialog = page.getByRole('dialog', { name: '新建头脑风暴' });
       const name = 'QA头脑风暴 ' + method + ' ' + unique;
-      await dialog.getByRole('textbox', { name: /场次名称|卡片名称|头脑风暴名称/ }).fill(name);
-      const hmw = dialog.getByRole('combobox', { name: /HMW/ });
+      await dialog.getByRole('textbox', { name: '场次名称', exact: true }).fill(name);
+      const hmw = dialog.getByRole('combobox', { name: 'HMW', exact: true });
       await expect.poll(() => hmw.locator('option').count()).toBeGreaterThanOrEqual(3);
       await hmw.selectOption(chosenHmw.id);
       await dialog.getByRole('combobox', { name: '发散方法' }).selectOption(method);
       await dialog.getByRole('spinbutton', { name: '希望探索的点子数' }).fill(String(target));
-      await captureCardCreation(4, 'brainstorm', () => click(dialog.getByRole('button', { name: /^(开始头脑风暴|创建头脑风暴场次|创建场次|创建头脑风暴)$/ })), { reopen: true, example: 'brainstorm-' + method, expectedName: name });
+      await captureCardCreation(4, 'brainstorm', () => click(btn('开始头脑风暴', dialog)), { reopen: true, example: 'brainstorm-' + method, expectedName: name });
       await expect.poll(() => new URL(page.url()).searchParams.get('entity')).toMatch(/^brainstorm-/);
       const entity = new URL(page.url()).searchParams.get('entity');
       await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
