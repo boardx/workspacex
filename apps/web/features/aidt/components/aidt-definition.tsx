@@ -35,20 +35,22 @@ function useDefinitionEvidence({ projectId, draft, availableCards, availableCard
   const stale = pinnedRevision !== null && availableCardsRevision !== pinnedRevision;
   const token = session?.sessionToken;
   const key = JSON.stringify([projectId, session?.currentOrgId, session?.userId, token, pinnedRevision, stale]);
-  const [history, setHistory] = React.useState<{ key: string; stage: AidtSharedStage | null } | null>(null);
+  const [attempt, retry] = React.useReducer(value => value + 1, 0);
+  const [history, setHistory] = React.useState<{ key: string; attempt: number; stage: AidtSharedStage | null } | null>(null);
   React.useEffect(() => {
     if (!stale || pinnedRevision === null || !projectId || !token) return;
     const cancellation = new AbortController();
     void listAidtStageHistory(projectId, 2, token, { beforeRevision: pinnedRevision + 1, limit: 1 }, cancellation.signal).then(result => {
       if (cancellation.signal.aborted) return;
       const stage = result.items[0];
-      setHistory({ key, stage: stage?.revision === pinnedRevision ? stage : null });
+      setHistory({ key, attempt, stage: stage?.revision === pinnedRevision ? stage : null });
     }).catch(() => {
-      if (!cancellation.signal.aborted) setHistory({ key, stage: null });
+      if (!cancellation.signal.aborted) setHistory({ key, attempt, stage: null });
     });
     return () => cancellation.abort();
-  }, [key, pinnedRevision, projectId, stale, token]);
-  const historicalStage = stale && history?.key === key ? history.stage : null;
+  }, [attempt, key, pinnedRevision, projectId, stale, token]);
+  const currentHistory = stale && history?.key === key && history.attempt === attempt ? history : null;
+  const historicalStage = currentHistory?.stage ?? null;
   const source = stale ? historicalStage?.content.draft : { fields: discoveryCardFields ?? {}, discoveryCards: availableCards };
   const revision = stale ? historicalStage?.revision : availableCardsRevision;
   const sources = source?.discoveryCards ?? [];
@@ -59,12 +61,13 @@ function useDefinitionEvidence({ projectId, draft, availableCards, availableCard
     sourceFields: source?.fields ?? {},
     ready: isAidtSurpriseConfirmed(draft, cards, revision),
     unavailable: stale && !historicalStage,
+    failed: currentHistory?.stage === null, retry,
   };
 }
 
 export function AidtDefinitionDirectory(props: DefinitionProps & { entityHref: (id: string) => string }) {
   const { draft, update, readOnly, availableCardsRevision, entityHref } = props;
-  const { cards, revision, ready, stale, pinnedRevision, unavailable } = useDefinitionEvidence(props);
+  const { cards, revision, ready, stale, pinnedRevision, unavailable, failed, retry } = useDefinitionEvidence(props);
   const { personas, hmws, invalid } = readAidtDefinition(draft.fields);
   const entities = readAidtDefinitionEntities(draft.fields);
   const selected = readAidtDefinitionSelection(draft.fields);
@@ -78,7 +81,7 @@ export function AidtDefinitionDirectory(props: DefinitionProps & { entityHref: (
       update(old => ({ ...old, fields: { ...old.fields, ...Object.fromEntries(changed) } }));
     }} availableCards={cards} availableCardsRevision={revision} readOnly={readOnly || unavailable} />
     {invalid && <p role="alert" className="text-13">部分产物格式无法读取。请在历史版本中核对，当前产物暂不可修改。</p>}
-    {stale && <div className="space-y-2" role="status"><p className="text-13">本轮引用第 2 步 V{pinnedRevision}。{availableCardsRevision ? `第 2 步当前为 V${availableCardsRevision}。` : "当前材料暂不可读取。"}已保存的旧引用仍随历史版本保留。改用新版时，本轮须重新核对证据和 HMW。</p>{availableCardsRevision && <Button type="button" size="sm" variant="outline" disabled={readOnly || invalid} onClick={() => update(rebaseAidtDefinitionEvidence)}>以最新访谈重新核对引用</Button>}</div>}
+    {stale && <div className="space-y-2" role="status"><p className="text-13">本轮引用第 2 步 V{pinnedRevision}。{availableCardsRevision ? `第 2 步当前为 V${availableCardsRevision}。` : "当前材料暂不可读取。"}已保存的旧引用仍随历史版本保留。改用新版时，本轮须重新核对证据和 HMW。</p>{failed && <Button type="button" size="sm" variant="outline" onClick={retry}>重试读取原版本</Button>}{availableCardsRevision && <Button type="button" size="sm" variant="outline" disabled={readOnly || invalid} onClick={() => update(rebaseAidtDefinitionEvidence)}>以最新访谈重新核对引用</Button>}</div>}
     <div className="space-y-2"><h3 className="text-16 font-semibold">用户画像与 HMW</h3>
       {entities.length ? <ul className="space-y-2">{entities.map(entity => <li key={entity.id} className="rounded-lg border border-border p-3 text-13"><span className="mr-2 text-muted-foreground">{entity.kind === "persona" ? "画像" : "HMW"}</span>{entity.archived ? <span>{entity.title} · 已归档</span> : <Link className="font-medium text-primary underline" href={entityHref(entity.id)}>{entity.title}</Link>}{selected?.id === entity.id && <span className="ml-2 text-muted-foreground">本轮选用</span>}</li>)}</ul> : <p className="text-13 text-muted-foreground">还没有画像或 HMW。记录并确认意外发现后可新建画像。</p>}
       <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={readOnly || !ready || unavailable || invalid || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("persona")}>新建画像</Button><Button type="button" size="sm" variant="outline" disabled={readOnly || !ready || unavailable || invalid || !personas.some(persona => persona.confirmed && !persona.archived) || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} onClick={() => add("hmw")}>新建 HMW</Button></div>
@@ -119,7 +122,7 @@ function DefinitionEvidence({ projectId, sourceFields, cards, unconfirmedCards, 
 
 export function AidtDefinitionEditor(props: DefinitionProps & { entityId: string }) {
   const { projectId, draft, update, readOnly, entityId } = props;
-  const { cards, revision, ready, stale, pinnedRevision, unavailable, unconfirmedCards, sourceFields } = useDefinitionEvidence(props);
+  const { cards, revision, ready, stale, pinnedRevision, unavailable, unconfirmedCards, sourceFields, failed, retry } = useDefinitionEvidence(props);
   const { personas, hmws, invalid } = readAidtDefinition(draft.fields);
   const persona = personas.find(item => item.id === entityId);
   const hmw = hmws.find(item => item.id === entityId);
@@ -146,6 +149,7 @@ export function AidtDefinitionEditor(props: DefinitionProps & { entityId: string
     <h3 className="text-16 font-semibold">{persona ? "用户画像" : "我们如何……（HMW）"}</h3>
     {!ready && <p role="status" className="text-13">请先在综合与定义目录记录并确认意外发现或「暂无」。</p>}
     {stale && <p role="status" className="text-13">{unavailable ? `暂无法读取本轮引用的第 2 步 V${pinnedRevision}，请从目录核对材料。` : `本轮继续使用第 2 步 V${pinnedRevision}。可从目录核对后改用新版。`}</p>}
+    {failed && <Button type="button" size="sm" variant="outline" onClick={retry}>重试读取原版本</Button>}
     {persona && <>
       <DefinitionText label="画像名称" value={persona.name} limit={220} disabled={disabled} onChange={name => editPersona({ name })} />
       <DefinitionText label="用户情境" value={persona.situation} disabled={disabled} onChange={situation => editPersona({ situation })} />

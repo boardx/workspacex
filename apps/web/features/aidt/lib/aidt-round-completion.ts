@@ -1,7 +1,7 @@
-import { readAidtDefinition, readAidtDefinitionSelection } from "./aidt-definition";
+import { readAidtDefinition, readAidtDefinitionEvidenceRevision, readAidtDefinitionSelection } from "./aidt-definition";
 import type { AidtUiStageDraft, AidtDiscoveryCardDraft, AidtIdeaDraft } from "./aidt-ui-drafts";
 import { isProblemReflectionConfirmed } from "./aidt-problem-reflection";
-import { isAidtSurpriseConfirmed } from "./aidt-surprise-reflection";
+import { parseAidtSurpriseReflection } from "./aidt-surprise-reflection";
 import { readAidtIdeaClassification } from "./aidt-idea-classification";
 import { aidtIdeaReadiness, aidtCompleteIdeas } from "./aidt-idea-readiness";
 import { isAidtReflectionConfirmed, isVerificationQuestionConfirmed } from "./aidt-verification-loop";
@@ -19,7 +19,12 @@ export function aidtRoundMissingOutput(stageId: number, draft: AidtUiStageDraft,
     const definition = readAidtDefinition(draft.fields);
     const hasStructuredDraft = definition.personas.length || definition.hmws.length || definition.invalid;
     const selectedHmw = hasStructuredDraft ? readAidtDefinitionSelection(draft.fields) : has("hmw") && ["personaAge", "personaInterests", "personaLifestyle", "personaBehavior"].some(key => draft.fields[key]?.trim());
-    if (!selectedHmw || !isAidtSurpriseConfirmed(draft, context?.cards, context?.cardsRevision)) return "先核对意外发现或暂无、画像与选定HMW。";
+    const surprise = parseAidtSurpriseReflection(draft, context?.cards, context?.cardsRevision);
+    const pinned = readAidtDefinitionEvidenceRevision(draft.fields);
+    const confirmedHistoricalSource = hasStructuredDraft && pinned && pinned !== context?.cardsRevision && surprise.sourceRevision === pinned
+      && surprise.requiresCardRevision && !surprise.invalidCardIds && draft.fields.surpriseConfirmed === "true"
+      && Boolean(surprise.priorBelief.trim() && surprise.surprisingFinding.trim());
+    if (!selectedHmw || (!surprise.confirmed && !confirmedHistoricalSource)) return "先核对意外发现或暂无、画像与选定HMW。";
   }
   if (stageId === 4) {
     const hasOriginalImage = (idea: AidtIdeaDraft) => { const material = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]); return Boolean(material && material.projectId === context?.projectId && isAidtResearchImage(material)); };
