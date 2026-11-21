@@ -20,6 +20,8 @@ const TestGroup = z.object({
   archived: z.boolean().default(false),
   prototypeEntity: AidtPrototypeIdentifierSchema.optional(),
   reflection: z.string().max(400).default(""),
+  evidenceGap: z.string().max(400).optional(),
+  confirmedFromMessageId: z.string().min(1).max(200).optional(),
   task: z.string().max(300).default(""),
   participant: z.string().max(80),
   situation: z.string().max(300),
@@ -69,9 +71,33 @@ export function updateAidtTestGroup(draft: AidtUiStageDraft, group: AidtTestGrou
   const key = prefix + id;
   if (prior && (prior.designId !== designId || prior.versionId !== versionId || prior.stage5Revision !== stage5Revision || prior.prototypeEntity !== group.prototypeEntity)) return draft;
   if (!prior && (key in draft.fields || Object.keys(draft.fields).length >= 100)) return draft;
-  const value = JSON.stringify(TestGroup.parse(group));
+  const updated = TestGroup.parse(group);
+  if (prior && updated.confirmedFromMessageId === prior.confirmedFromMessageId
+    && testWorkChanged(prior, updated)) {
+    delete updated.confirmedFromMessageId;
+  }
+  const value = JSON.stringify(updated);
   if (value.length > 6000 || value === draft.fields[key]) return draft;
-  return { ...draft, fields: { ...draft.fields, [key]: value, reflectionConfirmed: "" } };
+  const reflectionChanged = !prior || prior.archived !== updated.archived || testWorkChanged(prior, updated);
+  return { ...draft, fields: { ...draft.fields, [key]: value, ...(reflectionChanged ? { reflectionConfirmed: "" } : {}) } };
+}
+
+function testWorkChanged(before: AidtTestGroup, after: AidtTestGroup): boolean {
+  const { name: _beforeName, archived: _beforeArchived, confirmedFromMessageId: _beforeConfirmation, ...beforeWork } = before;
+  const { name: _afterName, archived: _afterArchived, confirmedFromMessageId: _afterConfirmation, ...afterWork } = after;
+  return JSON.stringify(beforeWork) !== JSON.stringify(afterWork);
+}
+
+export function isAidtTestGroupConfirmed(group: AidtTestGroup): boolean {
+  return Boolean(group.confirmedFromMessageId && group.task.trim() && group.reflection.trim()
+    && (group.evidenceGap?.trim() || ((group.source || group.material) && group.sourceLocation.trim() && (group.said.trim() || group.did.trim()))));
+}
+
+export function aidtTestGroupsComplete(draft: AidtUiStageDraft): boolean {
+  const keys = Object.keys(draft.fields).filter(key => key.startsWith(prefix));
+  const groups = readAidtTestGroups(draft.fields);
+  const active = groups.filter(group => !group.archived);
+  return keys.length === groups.length && active.length > 0 && active.every(isAidtTestGroupConfirmed);
 }
 
 export function aidtTestGroupHasEvidence(group: AidtTestGroup, projectId: string, sourceAccessible: boolean, materialAccessible = false): boolean {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { aidtTestGroupDirectory, aidtTestGroupHasEvidence, createAidtTestGroup, readAidtTestGroups, resetAidtTestRound, updateAidtTestGroup } from "@/features/aidt/lib/aidt-test-groups";
+import { aidtTestGroupsComplete, isAidtTestGroupConfirmed, aidtTestGroupDirectory, aidtTestGroupHasEvidence, createAidtTestGroup, readAidtTestGroups, resetAidtTestRound, updateAidtTestGroup } from "@/features/aidt/lib/aidt-test-groups";
+import { confirmAidtTestProposal, readAidtTestProposal } from "@/features/aidt/lib/aidt-test-proposal";
 import { emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtQuestionSnapshot } from "@/features/aidt/lib/aidt-verification-loop";
 
@@ -31,6 +32,38 @@ describe("AIDT grouped test records", () => {
       { id: one, title: "赶课", archived: true },
       { id: two, title: "闲时", archived: false },
     ]);
+  });
+
+  it("requires all active cards to be confirmed and invalidates edits to the teaching record", () => {
+    const a = createAidtTestGroup(snapshot, one)!;
+    const b = createAidtTestGroup(snapshot, two)!;
+    const initial = updateAidtTestGroup(updateAidtTestGroup(emptyAidtUiDrafts()[6]!, a), b);
+    const proposal = { messageId: "turn-a", result: { entityId: one, task: "读标签", reflection: "尚需复测", evidenceGap: "没观察到行为" } };
+    const confirmed = confirmAidtTestProposal(initial, proposal, false);
+    const first = readAidtTestGroups(confirmed.fields).find(group => group.id === one)!;
+    expect(isAidtTestGroupConfirmed(first)).toBe(true);
+    expect(aidtTestGroupsComplete(confirmed)).toBe(false);
+    expect(aidtTestGroupsComplete(updateAidtTestGroup(confirmed, { ...b, archived: true }))).toBe(true);
+    expect(aidtTestGroupsComplete(confirmAidtTestProposal(confirmed, { ...proposal, messageId: "turn-b", result: { ...proposal.result, entityId: two } }, false))).toBe(true);
+    const renamed = updateAidtTestGroup(confirmed, { ...first, name: "午休分组" });
+    expect(readAidtTestGroups(renamed.fields)[0]?.confirmedFromMessageId).toBe("turn-a");
+    const changed = updateAidtTestGroup(renamed, { ...first, task: "比较标签" });
+    expect(isAidtTestGroupConfirmed(readAidtTestGroups(changed.fields)[0]!)).toBe(false);
+    expect(updateAidtTestGroup(changed, { ...first, versionId: "later-version" })).toBe(changed);
+    expect(aidtTestGroupsComplete({ ...confirmed, fields: { ...confirmed.fields, "testGroup:broken": "invalid" } })).toBe(false);
+  });
+
+  it("rejects sibling, student-authored and stale payloads and checks access before accepting evidence", () => {
+    const group = createAidtTestGroup(snapshot, one)!;
+    const initial = updateAidtTestGroup(emptyAidtUiDrafts()[6]!, group);
+    const wire = { entityId: one, task: "读标签", reflection: "继续观察", sourceLocation: "01:42", said: "看懂了", evidenceGap: "行为未观察" };
+    const assistant = { id: "assistant", role: "assistant", content: ["```aidt-test-result", JSON.stringify(wire), "```"].join("\n") };
+    expect(readAidtTestProposal([assistant], two)).toBeNull();
+    expect(readAidtTestProposal([{ ...assistant, role: "user" }], one)).toBeNull();
+    expect(readAidtTestProposal([assistant, { id: "new-question", role: "user" }], one)).toBeNull();
+    const parsed = readAidtTestProposal([assistant], one)!;
+    expect(parsed).toMatchObject({ result: wire });
+    expect(confirmAidtTestProposal(initial, parsed, false)).toBe(initial);
   });
 
   it("ignores malformed or differently keyed values and never equates source text with evidence", () => {

@@ -4,14 +4,15 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useOptionalSession } from "@/components/session/session-provider";
-import { createAidtTestGroup, readAidtTestGroups, updateAidtTestGroup } from "../lib/aidt-test-groups";
+import { createAidtTestGroup, isAidtTestGroupConfirmed, readAidtTestGroups, updateAidtTestGroup } from "../lib/aidt-test-groups";
 import { readAidtTestPrototypeStage, type AidtReadPrototypeEntity } from "./aidt-test-prototype-source";
 import { resolveAidtPrototypeVersion } from "../lib/aidt-prototype-versions";
 import { aidtHref } from "../lib/project-aidt";
 import { createAidtQuestionSnapshot } from "../lib/aidt-verification-loop";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
-import { AidtTestReflection } from "./aidt-test-reflection";
+
 
 type Props = {
   projectId: string;
@@ -38,6 +39,8 @@ export function AidtTestGroupDirectory(props: Props) {
 
 function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, update, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
   const [name, setName] = React.useState("");
+  const [editing, setEditing] = React.useState<{ id: string; name: string }>();
+  const [removing, setRemoving] = React.useState<string>();
   const [chosenEntity, setChosenEntity] = React.useState("");
   const [requestId, setRequestId] = React.useState<string>();
   const [error, setError] = React.useState("");
@@ -48,6 +51,7 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
   const groups = readAidtTestGroups(draft.fields);
   const savedGroups = readAidtTestGroups(savedDraft?.fields ?? {});
   const savedIds = new Set(savedGroups.filter(item => !item.archived).map(item => item.id));
+  const savedById = new Map(savedGroups.map(group => [group.id, group]));
   const available = groups.filter(group => !group.archived);
   const archived = groups.filter(group => group.archived);
   const exactRevision = prototypeRevision == null ? previousPrototypeRevision : /^\d{1,10}$/.test(prototypeRevision) ? Number(prototypeRevision) : undefined;
@@ -97,46 +101,66 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
   function openHref(entity: string) {
     return `${aidtHref(projectId, 6)}&entity=${encodeURIComponent(entity)}`;
   }
+  function changeCard(id: string, patch: { name: string } | { archived: boolean }) {
+    if (readOnly) return;
+    update(current => {
+      const existing = readAidtTestGroups(current.fields).find(item => item.id === id);
+      return existing ? updateAidtTestGroup(current, { ...existing, ...patch }) : current;
+    });
+  }
+  const removalName = available.find(group => group.id === removing)?.name;
   return <section className="space-y-4" aria-label="本组测试" data-testid="aidt-test-group-directory">
-    <h1 className="text-18 font-semibold">测试与迭代</h1>
-    {!available.length && <p className="text-13 text-muted-foreground">尚无测试。请选用一个已确认的原型版本，开始记录访谈或问卷测试。</p>}
-    <ul className="grid gap-3 sm:grid-cols-2">
-      {available.map(group => <li key={group.id} className="space-y-2 rounded-lg border border-border p-3">
-        <h2 className="break-words text-14 font-semibold">{group.name || "测试组"}</h2>
-        <p className="text-12 text-muted-foreground">{group.method === "survey" ? "问卷" : "访谈"} · 第 5 步 V{group.stage5Revision}</p>
-        <div className="flex flex-wrap items-center gap-2">
-          {savedIds.has(group.id)
-            ? <Button type="button" size="sm" variant="outline" asChild><Link href={openHref(group.id)}>打开测试</Link></Button>
-            : <span className="text-12 text-muted-foreground">保存后可以打开对话</span>}
-          {!readOnly && <Button type="button" size="sm" variant="ghost" onClick={() => update(current => {
-            const existing = readAidtTestGroups(current.fields).find(item => item.id === group.id);
-            return existing ? updateAidtTestGroup(current, { ...existing, archived: true }) : current;
-          })}>归档测试</Button>}
-        </div>
-      </li>)}
+    {!available.length && <p className="text-13 text-muted-foreground">选一个已确认的原型，创建测试。</p>}
+    <ul aria-label="测试卡片" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {available.map(group => {
+        const saved = savedById.get(group.id);
+        const confirmed = Boolean(saved && !saved.archived && isAidtTestGroupConfirmed(saved));
+        return <li key={group.id} className="flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="break-words text-16 font-semibold">{group.name || "测试组"}</h2>
+            <span className={confirmed ? "shrink-0 rounded-full bg-primary/10 px-2 py-1 text-11 text-primary" : "shrink-0 rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground"}>{confirmed ? "已确认" : "待确认"}</span>
+          </div>
+          <p className="text-12 text-muted-foreground">{group.method === "survey" ? "问卷" : "访谈"} · 原型 V{group.stage5Revision}</p>
+          <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            {savedIds.has(group.id)
+              ? <Button size="sm" variant="secondary" asChild><Link href={openHref(group.id)} aria-label={`打开测试 ${group.name || "测试组"}`}>打开测试</Link></Button>
+              : <span className="text-12 text-muted-foreground">保存后打开对话</span>}
+            {!readOnly && <>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ id: group.id, name: group.name })}>编辑</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setRemoving(group.id)}>删除</Button>
+            </>}
+          </div>
+        </li>;
+      })}
     </ul>
-    {archived.length > 0 && <details className="text-12"><summary>已归档测试（{archived.length}）</summary>
-      <ul className="mt-2 space-y-2">{archived.map(group => <li key={group.id}>{group.name || "测试组"} · 第 5 步 V{group.stage5Revision}{!readOnly && <Button type="button" size="xs" variant="ghost" onClick={() => update(current => {
-        const existing = readAidtTestGroups(current.fields).find(item => item.id === group.id);
-        return existing ? updateAidtTestGroup(current, { ...existing, archived: false }) : current;
-      })}>恢复测试</Button>}</li>)}</ul>
+    {editing && !readOnly && <Dialog open onOpenChange={open => { if (!open) setEditing(undefined); }}><DialogContent>
+      <DialogTitle>编辑测试卡</DialogTitle><DialogDescription>更改显示名称。</DialogDescription>
+      <form className="space-y-3" onSubmit={event => { event.preventDefault(); if (editing.name.trim()) { changeCard(editing.id, { name: editing.name.trim() }); setEditing(undefined); } }}>
+        <label className="block space-y-1 text-13">测试名称<Input value={editing.name} maxLength={80} onChange={event => setEditing({ ...editing, name: event.currentTarget.value })} /></label>
+        <Button type="submit" variant="primary" disabled={!editing.name.trim()}>保存修改</Button>
+      </form>
+    </DialogContent></Dialog>}
+    {removing && !readOnly && <Dialog open onOpenChange={open => { if (!open) setRemoving(undefined); }}><DialogContent>
+      <DialogTitle>删除测试卡？</DialogTitle><DialogDescription>{removalName || "测试组"}将移至已移除，历史引用保留。</DialogDescription>
+      <div className="flex gap-2">
+        <Button type="button" variant="ghost" onClick={() => setRemoving(undefined)}>取消</Button>
+        <Button type="button" variant="destructive" onClick={() => { changeCard(removing, { archived: true }); setRemoving(undefined); }}>确认删除</Button>
+      </div>
+    </DialogContent></Dialog>}
+    {archived.length > 0 && <details className="text-12"><summary>已移除（{archived.length}）</summary>
+      <ul className="mt-2 space-y-2">{archived.map(group => <li key={group.id}>{group.name || "测试组"}{!readOnly && <Button type="button" size="xs" variant="ghost" onClick={() => changeCard(group.id, { archived: false })}>恢复</Button>}</li>)}</ul>
     </details>}
     {!readOnly && <div className="space-y-3 border-t border-border pt-3">
       {!!candidates.length && !prototypeEntity && <label className="block text-12">所用原型
         <select className="mt-1 w-full rounded-md border border-border bg-background p-2" value={chosenEntity} onChange={event => setChosenEntity(event.currentTarget.value)}><option value="">请选择</option>{candidates.map(entity => <option key={entity.id} value={entity.id}>{entity.title}</option>)}</select>
       </label>}
       <label className="block space-y-1 text-12">测试名称<Input value={name} maxLength={80} onChange={event => setName(event.currentTarget.value)} /></label>
-      {prototypeRevision && <p className="text-12 text-muted-foreground">本次从第 5 步 V{prototypeRevision} 带入。</p>}
-      <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={!canCreate} onClick={() => void create()}>{checking ? "核对原型版本…" : "新建测试草稿"}</Button>
-        {!draft.fields.questionSnapshot && <Button type="button" size="sm" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>}
+      <div className="flex flex-wrap items-center gap-2"><Button type="button" size="sm" variant="outline" disabled={!canCreate} onClick={() => void create()}>{checking ? "核对版本…" : "新建测试草稿"}</Button>
+        <Button type="button" size="sm" variant="primary" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>
+        {requestId && savedIds.has(requestId) && <Link href={openHref(requestId)} className="text-12 text-primary underline">打开刚保存的测试</Link>}
       </div>
-      {limit && <p role="status" className="text-12">本项目达到当前测试记录容量。归档记录仍保留。</p>}
-      {requestId && savedIds.has(requestId) && <Link href={openHref(requestId)} className="text-12 text-primary underline">打开刚保存的测试</Link>}
+      {limit && <p role="status" className="text-12">测试记录已达上限。</p>}
       {error && <p role="alert" className="text-12">{error}</p>}
-    </div>}
-    {draft.fields.questionSnapshot && <div className="space-y-4 border-t border-border pt-4">
-      <AidtTestReflection draft={draft} readOnly={readOnly} onChange={next => update(() => next)} />
-      {!readOnly && <Button type="button" size="sm" disabled={!canSave} onClick={() => void save()}>保存本轮测试与反思</Button>}
     </div>}
   </section>;
 }
