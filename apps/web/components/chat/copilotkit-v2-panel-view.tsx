@@ -203,6 +203,7 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps & { conv
         <div
           ref={messagesContainerRef}
           onScroll={handleMessagesScroll}
+          tabIndex={0}
           onWheel={handleUserScrollIntent}
           onTouchMove={handleUserScrollIntent}
           onKeyDown={handleUserScrollIntent}
