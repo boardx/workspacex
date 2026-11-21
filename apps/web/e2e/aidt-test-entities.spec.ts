@@ -124,6 +124,7 @@ test("AIDT test groups bind an immutable Design and isolate parallel native Chat
     const dialog = page.getByRole("dialog", { name: "新建测试卡片" });
     await dialog.getByRole("textbox", { name: "测试名称" }).fill(name);
     await dialog.getByTestId("card-create-tag-input").fill("用户测试");
+    await page.screenshot({ path: test.info().outputPath("stage-6-test-creation.png") });
     await dialog.getByRole("button", { name: "创建测试卡片" }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
     hrefs.push(page.url());

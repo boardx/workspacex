@@ -212,6 +212,7 @@ test("directory creation saves named problems, findings, ideas and native Design
       const dialog = page.getByRole("dialog");
       await dialog.getByRole("textbox", { name: /名称/ }).fill(title);
       await dialog.getByTestId("card-create-tag-input").fill("课堂 QA");
+      await page.screenshot({ path: test.info().outputPath("stage-" + step + "-creation-dialog.png") });
       const submit = dialog.locator('button[type="submit"]');
       if (!threads.size) {
         const pattern = "**/projects/*/aidt/stages/1";
