@@ -599,4 +599,10 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   const context = AidtContextSelector.parse(interview.postDataJSON().forwardedProps?.aidtContext);
   await page.screenshot({ path: test.info().outputPath("aidt-interview-handoff.png"), fullPage: true });
   expect(context).toMatchObject({ projectId, stageId: 2, entityId: interviewId, sourceEntityId: problemId, stageRevisions: [{ stageId: 1, revision: stored.data.stage.revision }, { stageId: 2, revision: 1 }] });
+  await page.getByRole("link", { name: "返回产物列表" }).click();
+  await expect(page.getByTestId("aidt-step-entity-directory")).toBeVisible();
+  const back = new URL(page.url()).searchParams;
+  expect(back.get("problemEntity")).toBe(problemId);
+  expect(back.get("problemRevision")).toBe(String(stored.data.stage.revision));
+  expect(back.has("entity")).toBe(false);
 });

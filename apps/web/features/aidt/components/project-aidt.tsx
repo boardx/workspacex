@@ -320,13 +320,14 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     pushWorkspaceUrl(target, current);
   }
   const reportHref = search.get("history") !== "1" ? aidtHref(projectId, 6) + "&summary=1" : canWrite ? aidtReportChatHref(projectId, { stageThread: step.id === 6 ? thread : null, threadId: summaryThread, returnRevision }) : aidtHref(projectId, 6, { tool: "report" });
-  const entityHref = (id: string) => aidtHref(projectId, step.id) + "&" + new URLSearchParams({
-    entity: id, ...(search.get("summary") === "1" ? { summary: "1" } : {}),
-    ...(hmwRevision === null ? {} : { hmwRevision }),
-    ...(step.id === 2 && search.get("problemEntity") && search.get("problemRevision") ? {
-      problemEntity: search.get("problemEntity")!, problemRevision: search.get("problemRevision")!,
-    } : {}),
-  });
+  const directoryContext = new URLSearchParams();
+  for (const key of ["summary", "problemEntity", "problemRevision", "hmwRevision", "ideaRevision", "prototypeEntity", "prototypeRevision"]) {
+    const value = search.get(key);
+    if (value) directoryContext.set(key, value);
+  }
+  const directoryUrl = aidtHref(projectId, step.id);
+  const directoryHref = directoryContext.size ? directoryUrl + "&" + directoryContext : directoryUrl;
+  const entityHref = (id: string) => directoryHref + "&entity=" + encodeURIComponent(id);
   const currentStage = shared.stages[step.id];
   const hmwStage = hmwRevision === null || String(latestHmwStage?.revision) === hmwRevision
     ? latestHmwStage : historicalHmw?.scope === hmwScope ? historicalHmw.stage : undefined;
@@ -448,7 +449,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   return <section className="flex min-h-0 flex-1 flex-col" data-testid="aidt-workspace" onClickCapture={navigateWorkspace}>
     <div className={problemStep || activeEntityId ? "flex min-h-0 flex-1 flex-col" : "flex min-h-0 flex-1 flex-col xl:flex-row xl:gap-3 xl:p-3"}>
       <div className={problemStep || activeEntityId ? "flex shrink-0 items-center gap-2 border-b border-border-subtle px-4 py-2 lg:px-6" : "shrink-0 px-3 xl:w-44 xl:px-0"}>
-        <Link href={activeEntityId ? aidtHref(projectId, step.id) + (reportMode ? "&summary=1" : "") : aidtHref(projectId)} className="inline-flex items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ArrowLeft aria-hidden className="h-3.5 w-3.5" />{activeEntityId ? "返回产物列表" : "项目总览"}</Link>
+        <Link href={activeEntityId ? directoryHref : aidtHref(projectId)} className="inline-flex items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ArrowLeft aria-hidden className="h-3.5 w-3.5" />{activeEntityId ? "返回产物列表" : "项目总览"}</Link>
         {problemStep || activeEntityId ? projectName && <span className="truncate border-l border-border-subtle pl-3 text-13 font-medium">{projectName}</span>
           : <AidtStageNavigation stageNumber={step.id} href={id => aidtHref(projectId, id) + (search.get("history") === "1" ? "&history=1" : "")} reportHref={reportHref} reportActive={tool === "report" || reportMode} completed={completedStages} />}
       </div>
