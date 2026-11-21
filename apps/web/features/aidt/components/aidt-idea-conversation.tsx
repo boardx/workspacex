@@ -52,7 +52,7 @@ export function AidtIdeaConversation({ projectId, entityId, draft, savedDraft, r
   const savedHandoff = savedDraft && allAidtIdeasConfirmed(savedDraft) && readAidtIdeaHandoff(savedDraft, projectId);
   const imageKey = researchMaterialKey("idea", entityId);
   return <section aria-label="点子确认" className="space-y-3 rounded-container border border-border bg-card p-3">
-    {handoff && !readAidtIdeaHmwSource(draft) && <AidtIdeaHmw context={handoff} draft={draft} readOnly={false} update={update} />}
+    {handoff && !readAidtIdeaHmwSource(draft, entityId) && <AidtIdeaHmw context={handoff} draft={draft} readOnly={false} update={update} />}
     {!running && (!saved || revising) && <>
       <label className="block space-y-1 text-13">点子描述草稿
         <Textarea value={description} maxLength={2000} rows={3} onChange={event => setEdited({ base, value: event.currentTarget.value })} placeholder="两三句说明你想做什么、怎样帮助用户" />

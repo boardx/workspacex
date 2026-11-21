@@ -1,5 +1,7 @@
 "use client";
 
+import { useAidtCreateTags } from "./aidt-card-create-fields";
+import type { AidtIdeaHmwSource } from "../lib/aidt-idea-handoff";
 import * as React from "react";
 import { AidtEntityCard } from "./aidt-entity-card";
 import Link from "next/link";
@@ -15,15 +17,20 @@ type Action = { kind: "create" | "edit" | "delete"; id: string; title: string };
 type DraftChange = (old: AidtUiStageDraft) => AidtUiStageDraft;
 const actionName = { create: "新建点子", edit: "编辑点子", delete: "删除点子" };
 
-export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDraft, onCreated }: {
+export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDraft, onCreated, sources = [], initialSource }: {
   draft: AidtUiStageDraft;
   saved: AidtUiStageDraft | undefined;
   href: (id: string) => string;
   update: (change: DraftChange) => void;
   readOnly: boolean;
+  sources?: readonly AidtIdeaHmwSource[];
+  initialSource?: AidtIdeaHmwSource;
   onCreated?: (id: string) => void;
   saveDraft?: (change: DraftChange) => Promise<boolean>;
 }) {
+  const tags = useAidtCreateTags(draft);
+  const [sourceId, setSourceId] = React.useState("");
+  const source = sources.find(item => item.id === sourceId);
   const [action, setAction] = React.useState<Action | null>(null);
   const [title, setTitle] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -37,6 +44,8 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     || (Boolean(title.trim()) && title.trim() !== action.title && (action.kind !== "create" || allItems.length < 8)));
 
   function open(next: Action) {
+    tags.reset();
+    setSourceId(initialSource?.id ?? (sources.length === 1 ? sources[0]!.id : ""));
     setTitle(next.title);
     setError(false);
     setAction(next);
@@ -46,8 +55,15 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     event.preventDefault();
     if (!canSubmit || !action) return;
     const { kind, id } = action;
-    const change: DraftChange = old => kind === "create" ? createAidtIdea(old, id, title) :
-      kind === "edit" ? renameAidtIdea(old, id, title) : archiveAidtIdea(old, id);
+    const change: DraftChange = old => {
+      if (kind === "create") {
+        const created = createAidtIdea(old, id, title);
+        if (created === old || (onCreated && !source)) return old;
+        const fields = source ? { ...created.fields, [`ideaHmwSource:${id}`]: JSON.stringify(source), ideaHmwSource: created.fields.ideaHmwSource || JSON.stringify(source) } : created.fields;
+        return tags.apply({ ...created, fields }, id);
+      }
+      return kind === "edit" ? renameAidtIdea(old, id, title) : archiveAidtIdea(old, id);
+    };
     if (!saveDraft) {
       update(change);
       setAction(null);
@@ -103,9 +119,10 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
           {action.kind !== "delete" && <div className="space-y-2"><label htmlFor={titleId} className="text-13">点子名称</label>
             <Input id={titleId} maxLength={120} value={title} onChange={event => setTitle(event.currentTarget.value)} disabled={saving} autoFocus />
           </div>}
+          {action.kind === "create" && <>{tags.field}<label className="block text-13">来源 HMW<select className="mt-1 block w-full rounded-control border border-border bg-background p-2" value={sourceId} onChange={event => setSourceId(event.target.value)}><option value="">请选择已确认的 HMW</option>{sources.map(item => <option key={item.id} value={item.id}>第 3 步 V{item.revision} · {item.text}</option>)}</select></label></>}
           {error && <p role="alert" className="text-13 text-destructive">保存失败，请重试。</p>}
           <DialogFooter><Button type="button" variant="ghost" disabled={saving} onClick={() => setAction(null)}>取消</Button>
-            <Button type="submit" variant={action.kind === "delete" ? "destructive" : "primary"} disabled={!canSubmit}>
+            <Button type="submit" variant={action.kind === "delete" ? "destructive" : "primary"} disabled={!canSubmit || (action.kind === "create" && Boolean(onCreated) && !source)}>
               {saving ? "正在保存…" : action.kind === "delete" ? "确认删除" : "保存点子"}
             </Button>
           </DialogFooter>

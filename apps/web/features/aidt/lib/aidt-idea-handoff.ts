@@ -20,8 +20,8 @@ function parse<T>(schema: z.ZodType<T>, raw?: string): T | null {
   }
 }
 
-export function readAidtIdeaHmwSource(draft: AidtUiStageDraft): AidtIdeaHmwSource | null {
-  return readIdeaHmwSource(draft.fields.ideaHmwSource);
+export function readAidtIdeaHmwSource(draft: AidtUiStageDraft, entityId?: string): AidtIdeaHmwSource | null {
+  return readIdeaHmwSource((entityId && draft.fields[`ideaHmwSource:${entityId}`]) || draft.fields.ideaHmwSource);
 }
 
 export function readAidtIdeaSheetIds(draft: AidtUiStageDraft): string[] {

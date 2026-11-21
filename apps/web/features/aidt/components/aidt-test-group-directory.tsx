@@ -1,5 +1,6 @@
 "use client";
 
+import { useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
 import { AidtEntityCard } from "./aidt-entity-card";
 import Link from "next/link";
@@ -41,6 +42,8 @@ export function AidtTestGroupDirectory(props: Props) {
 }
 
 function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, previousPrototypeRevision, prototypeRevision, prototypeEntity, prototypeEntities = [], readPrototypeEntity, readOnly, canSave, save, automaticSave, onCreate, update, sessionToken, userId }: Props & { sessionToken: string; userId: string }) {
+  const tags = useAidtCreateTags(draft);
+  const [newCard, showNewCard] = React.useState(false);
   const [name, setName] = React.useState("");
   const [editing, setEditing] = React.useState<{ id: string; name: string }>();
   const [removing, setRemoving] = React.useState<string>();
@@ -84,7 +87,9 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
       await resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, group.designId, group.versionId);
       if (controller.signal.aborted) return;
       const change = (current: AidtUiStageDraft) => {
-        const next = updateAidtTestGroup(current, { ...group, name: name.trim() });
+        const created = updateAidtTestGroup(current, { ...group, name: name.trim() });
+        if (created === current) return current;
+        const next = tags.apply(created, group.id);
         if (next === current || current.fields.questionSnapshot || current.fields.version?.trim()) return next;
         return { ...next, fields: { ...next.fields, version: binding.snapshot.prototypeRef, questionSnapshot: binding.serialized } };
       };
@@ -93,6 +98,7 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
       } else { update(change); setRequestId(group.id); }
       creationId.current = null;
       setName("");
+      showNewCard(false);
     } catch (failure) {
       if (controller.signal.aborted) return;
       const detail = failure instanceof Error ? failure.message : "";
@@ -158,16 +164,21 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
       <ul className="mt-2 space-y-2">{archived.map(group => <li key={group.id}>{group.name || "测试组"}{!readOnly && <Button type="button" size="xs" variant="ghost" onClick={() => changeCard(group.id, { archived: false })}>恢复</Button>}</li>)}</ul>
     </details>}
     {!readOnly && <div className="space-y-3 border-t border-border pt-3">
+      <Button type="button" disabled={limit} onClick={() => { setName(""); setError(""); tags.reset(); creationId.current = null; showNewCard(true); }}>新建测试草稿</Button>
+      {newCard && <Dialog open onOpenChange={open => { if (!open && !checking) showNewCard(false); }}><DialogContent><DialogTitle>新建测试</DialogTitle><DialogDescription>选择本次测试对应的原型。</DialogDescription>
+        <form className="space-y-4" onSubmit={event => { event.preventDefault(); void create(); }}>
       {!!candidates.length && !prototypeEntity && <label className="block text-12">所用原型
         <select className="mt-1 w-full rounded-md border border-border bg-background p-2" value={chosenEntity} onChange={event => setChosenEntity(event.currentTarget.value)}><option value="">请选择</option>{candidates.map(entity => <option key={entity.id} value={entity.id}>{entity.title}</option>)}</select>
       </label>}
       <label className="block space-y-1 text-12">测试名称<Input value={name} maxLength={80} onChange={event => setName(event.currentTarget.value)} /></label>
-      <div className="flex flex-wrap items-center gap-2"><Button type="button" size="sm" variant="outline" disabled={!canCreate} onClick={() => void create()}>{checking ? "核对版本…" : "新建测试草稿"}</Button>
-        {!automaticSave && <Button type="button" size="sm" variant="primary" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>}
-        {requestId && savedIds.has(requestId) && <Link href={openHref(requestId)} className="text-12 text-primary underline">打开刚保存的测试</Link>}
-      </div>
+        {tags.field}
+        {prototypeEntity || !candidates.length ? <p className="text-13">来源原型 · {candidates.find(item => item.id === id)?.title || previousPrototype?.fields.designName || "本轮原型"}{exactRevision ? " · 第 5 步 V" + exactRevision : " · 待确认"}</p> : null}
+        {error && <p role="alert" className="text-12">{error}</p>}
+        <div className="flex justify-end gap-2"><Button type="button" variant="ghost" disabled={checking} onClick={() => showNewCard(false)}>取消</Button><Button type="submit" disabled={!canCreate}>{checking ? "核对版本…" : "创建测试"}</Button></div>
+        </form></DialogContent></Dialog>}
+      {!automaticSave && <Button type="button" disabled={!canSave} onClick={() => void save()}>保存测试列表</Button>}
+      {requestId && savedIds.has(requestId) && <Link href={openHref(requestId)}>打开刚保存的测试</Link>}
       {limit && <p role="status" className="text-12">测试记录已达上限。</p>}
-      {error && <p role="alert" className="text-12">{error}</p>}
     </div>}
   </section>;
 }

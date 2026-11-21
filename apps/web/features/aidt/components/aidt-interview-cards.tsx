@@ -14,7 +14,7 @@ import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 type Update = (change: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 
 export interface InterviewDetails { displayName: string; tags: string[] }
-export function InterviewCardEditor({ record, knownTags, close, save }: { record?: AidtInterview; knownTags: Map<string, number>; close: () => void; save: (details: InterviewDetails) => void | Promise<boolean> }) {
+export function InterviewCardEditor({ record, knownTags, close, save, source }: { source?: string; record?: AidtInterview; knownTags: Map<string, number>; close: () => void; save: (details: InterviewDetails) => void | Promise<boolean> }) {
   const [name, setName] = React.useState(record?.displayName ?? "");
   const [tags, setTags] = React.useState<readonly string[]>(record?.tags ?? []);
   const [draftTag, setDraftTag] = React.useState("");
@@ -36,6 +36,7 @@ export function InterviewCardEditor({ record, knownTags, close, save }: { record
     <DialogDescription>{record ? record.code + " · 受访者资料" : "可以使用化名，留空则显示受访者编号。"}</DialogDescription>
     <form className="space-y-5" onSubmit={submit}>
       <label className="block text-13 font-medium">受访者姓名或化名<input className="mt-2 w-full rounded-control border border-border bg-background px-3 py-2" value={name} maxLength={80} placeholder="例如：小林" onChange={event => setName(event.target.value)} /></label>
+      {source && <div className="text-13"><p className="font-medium">来源研究问题</p><p>{source}</p></div>}
       {knownTags.size > 0 && <div role="group" aria-label="已有标签" className="flex flex-wrap gap-2">{[...knownTags.keys()].map(tag => {
         const selected = hasTag(tags, tag);
         return <Button type="button" key={tag} variant={selected ? "primary" : "outline"} size="xs" className="h-auto max-w-full whitespace-normal break-all rounded-full py-1.5" aria-pressed={selected} disabled={!selected && tags.length >= interviewTagsLimit.maxTags} onClick={() => setTags(selected ? tags.filter(value => !sameTag(value, tag)) : [...tags, tag])}>{tag}</Button>;
