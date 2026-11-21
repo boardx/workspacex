@@ -14,6 +14,7 @@ it.each([
   ["aidt-methods", "1.3.1", "aidt-empathize"],
   ["aidt-methods", "1.3.2", "aidt-understand"],
   ["aidt-methods", "1.4.0", "aidt-understand"],
+  ["aidt-methods", "1.4.1", "aidt-understand"],
   ["aidt-project-summary", "1.0.1", "dt-summarize-project"],
   ["aidt-project-summary", "1.0.2", "dt-summarize-project"],
   ["aidt-project-summary", "1.0.3", "dt-summarize-project"],

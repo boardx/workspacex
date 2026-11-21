@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
+import starter from "../../../../../skills/aidt-methods-candidates/1.4.1/aidt-understand/starter.json";
 import type { AidtStep } from "../lib/project-aidt";
 
-const STUDENT_START: Record<AidtStep["id"], { hint: string; scaffold: string; outcome: string }> = {
-  1: { hint: "先用一句原始命题，说说你们想研究的事。接着讨论为什么值得研究、想法从哪来。", scaffold: "原始命题：____\n选题理由：____\n来源（观察／听到抱怨／猜测，可多选）：____\n还不清楚：____", outcome: "学生重写的研究主题、选题理由与来源；确认方向仍不代表已验证。" },
+const STUDENT_START: Partial<Record<AidtStep["id"], { hint: string; scaffold: string; outcome: string }>> = {
   2: { hint: "先贴出你们自己拟的访谈问题初稿；已有真实材料，也可以直接从自己的发现继续。", scaffold: "想了解：____\n访谈问题初稿：____\n已有材料时：受访者代号 ____；原话与位置 ____；我的发现 ____", outcome: "采纳后的访谈清单、每位受访者一张人物发现卡；缺失材料明确保留。" },
   3: { hint: "先回看发现卡：什么与你们先前想法不同？暂无也可以，再继续画像与HMW。", scaffold: "原先想法：____\n意外发现＋材料位置，或“暂无”：____\n画像初稿：____（未知可留未知）\n我们如何帮助 ____ 改善 ____？", outcome: "意外发现或暂无、学生确认的画像与HMW，以及材料引用。" },
   4: { hint: "围绕选定的HMW，贴出你们自己的第一轮想法。一个点子一行，还粗糙也可以。", scaffold: "本轮HMW：____\n点子名｜做什么｜怎样帮助用户\n____｜____｜____", outcome: "至少三个不同点子的描述单、学生分类与原型选择；打印后可另存PDF。" },
@@ -12,7 +15,24 @@ const STUDENT_START: Record<AidtStep["id"], { hint: string; scaffold: string; ou
 };
 
 /** Teaching copy belongs to this host; composer/messages remain canonical Chat. */
-export function AidtChatEmptyState({ step }: { step?: AidtStep } = {}): JSX.Element {
+export function AidtChatEmptyState({ step, offerInitial }: { step?: AidtStep; offerInitial?: (text: string) => ComposerOfferResult } = {}): JSX.Element {
+  const [status, setStatus] = useState("");
+  if (step?.id === 1) return <div data-testid="copilotkit-v2-empty" className="flex min-h-full flex-col items-center justify-center gap-4 px-5 py-6">
+    <div className="space-y-2 text-center" data-testid="aidt-chat-welcome">
+      <h2 className="text-24 font-semibold tracking-tight sm:text-30">{starter.heading}</h2>
+      <p className="text-14 text-muted-foreground">{starter.intro}</p>
+    </div>
+    <dl className="space-y-2 rounded-container bg-muted px-4 py-3 text-13" data-testid="aidt-input-scaffold">
+      {starter.prompts.map(prompt => <div key={prompt.label} className="flex flex-wrap gap-x-2">
+        <dt className="font-semibold">{prompt.label}</dt><dd>{prompt.hint}</dd>
+      </div>)}
+    </dl>
+    {offerInitial && <Button type="button" variant="outline" onClick={() => {
+      const result = offerInitial(starter.draftTemplate);
+      setStatus(result === "accepted" ? "提纲已放入输入框。填写后可发送。" : result === "occupied" ? "保留了你正在输入的内容。" : "输入框正在准备，请稍后再试。");
+    }}>填入回答提纲</Button>}
+    <p role="status" className="text-12 text-muted-foreground empty:hidden">{status}</p>
+  </div>;
   const start = step ? STUDENT_START[step.id] : null;
   return <div data-testid="copilotkit-v2-empty" className="flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6">
     <div className="flex flex-col items-center gap-2" data-testid="aidt-chat-welcome">

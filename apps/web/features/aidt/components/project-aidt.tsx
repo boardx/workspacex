@@ -37,6 +37,10 @@ import { AidtArtifactShelf } from "./aidt-artifact-shelf";
 import { AidtStageHistory } from "./aidt-stage-history";
 import { AidtNextRound } from "./aidt-next-round";
 import { AidtRoundNavigation } from "./aidt-round-navigation";
+import { ArrowLeft } from "lucide-react";
+import { ChatHostConversationContext } from "@/components/chat/chat-host-panel";
+import { AidtProblemConversation, AidtProblemWorkspace } from "./aidt-problem-workspace";
+import { useAidtConfirmedStages } from "../lib/use-aidt-confirmed-stages";
 import { AidtRoundCompletion } from "./aidt-round-completion";
 import { aidtStageContextReferences } from "../lib/aidt-native-context-selector";
 import { getAidtPrototypeGenerationReadiness } from "../lib/aidt-verification-loop";
@@ -45,6 +49,15 @@ const loading = () => <p role="status" className="p-4 text-12 text-muted-foregro
 const Chat = dynamic(() => import("@/features/aidt/components/project-aidt-chat").then((m) => m.ProjectAidtChat), { loading });
 const Transcription = dynamic(() => import("@/components/rec/transcription-history").then((m) => m.TranscriptionHistory), { loading });
 const Design = dynamic(() => import("@/features/aidt/components/aidt-design-workspace").then((m) => m.AidtDesignWorkspace), { loading });
+
+const wideViewport = "(min-width: 1024px)";
+function subscribeViewport(listener: () => void) {
+  const query = window.matchMedia?.(wideViewport);
+  query?.addEventListener("change", listener);
+  return () => query?.removeEventListener("change", listener);
+}
+const isWide = () => Boolean(window.matchMedia?.(wideViewport).matches);
+const serverViewport = () => false;
 
 const TOOLS = {
   outcome: "成果", context: "资料", report: "小组报告", chat: "讨论与产出物", sources: "真实证据", transcript: "转录资料", record: "个人录音笔记",
@@ -60,7 +73,7 @@ const STEP_TOOLS: Record<number, readonly Tool[]> = {
   6: ["chat", "outcome", "context", "report", "sources", "transcript", "record", "design"],
 };
 
-export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; sub: string | null; canWrite: boolean }) {
+export function ProjectAidt({ projectId, projectName, sub, canWrite }: { projectId: string; projectName?: string; sub: string | null; canWrite: boolean }) {
   const identity = useOptionalSession()?.session;
   const authenticated = hasAidtIdentity(identity);
   const uiScope = aidtDraftScope(identity, projectId);
@@ -111,13 +124,16 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
   const search = useSearchParams();
   const router = useRouter();
   const step = aidtStep(sub);
+  const problemStep = step?.id === 1;
+  const wide = React.useSyncExternalStore(subscribeViewport, isWide, serverViewport);
+  const [conversationTarget, setConversationTarget] = React.useState<HTMLDivElement | null>(null);
   const thread = search.get("thread");
   const resource = search.get("resource");
   const returnRevision = search.get("returnRevision");
   const allowed = step ? STEP_TOOLS[step.id] ?? ["chat"] : [];
   const requested = search.get("tool") as Tool | null;
   const explicitResourceView = Boolean(resource && (requested === "design" || requested === "transcript"));
-  const tool: Tool = !canWrite && requested === "record" && allowed.includes("transcript") ? "transcript" : requested && (allowed.includes(requested) || requested === "sources" || explicitResourceView) ? requested : "chat";
+  const tool: Tool = !canWrite && requested === "record" && allowed.includes("transcript") ? "transcript" : requested && (allowed.includes(requested) || requested === "sources" || explicitResourceView) ? requested : problemStep && canWrite && !requested && wide ? "outcome" : "chat";
   const reportMode = step?.id === 6 && (tool === "chat" || tool === "report") && search.get("summary") === "1";
   const summaryThread = search.get("summaryThread");
   const prototypeGate = getAidtPrototypeGenerationReadiness(currentUi.drafts[5]!);
@@ -175,11 +191,12 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
     return () => { active = false; };
   }, [projectId, tool, selected, accessKey, retry, authenticated]);
 
-  function toChat(text: string): ComposerOfferResult {
+  const completedStages = useAidtConfirmedStages(shared.stages, shared.read?.phase === "ready" ? uiLifecycleKey : null);
+  function toChat(text: string, closePanel = true): ComposerOfferResult {
     if (!canWrite || !latestCanWrite.current || latestUiScope.current !== uiScope || uiLifecycle.current.generation !== uiGeneration || !identity || !step) return "unavailable";
     const currentThread = new URLSearchParams(window.location.search).get(reportMode ? "summaryThread" : "thread");
     const result = offerComposerDraft({ orgId: identity.currentOrgId, userId: identity.userId, projectId, threadId: currentThread }, text);
-    if (result === "accepted" && tool !== "chat") router.push(reportMode ? aidtReportChatHref(projectId, { threadId: currentThread, stageThread: thread, returnRevision }) : aidtHref(projectId, step.id, { tool: "chat", thread: currentThread, returnRevision }));
+    if (result === "accepted" && closePanel && tool !== "chat") router.push(reportMode ? aidtReportChatHref(projectId, { threadId: currentThread, stageThread: thread, returnRevision }) : aidtHref(projectId, step.id, { tool: "chat", thread: currentThread, returnRevision }));
     return result;
   }
   if (!step) return <div className="min-h-0 flex-1 overflow-y-auto"><AidtDashboard href={(id) => aidtHref(projectId, id)} drafts={currentUi.drafts} shared={{ phase: shared.read?.phase ?? (shared.available ? "loading" : "error"), stages: shared.stages, error: shared.read?.error ?? (shared.available ? undefined : "登录后可读取本组已保存成果。"), reload: shared.reload }} /></div>;
@@ -201,14 +218,8 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
     return `${url.pathname}${url.search}`;
   }
   const nextStep = AIDT_STEPS.find(({ id }) => id === step.id + 1);
-  function navigateWorkspace(event: React.MouseEvent<HTMLElement>) {
-    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
-    if (!(link instanceof HTMLAnchorElement) || link.target || link.hasAttribute("download")) return;
-    const target = new URL(link.href);
-    const current = new URL(window.location.href);
-    if (target.origin !== current.origin || target.pathname !== current.pathname || target.hash) return;
-    if (!link.hasAttribute("data-aidt-reset-thread") && target.searchParams.get("step") === current.searchParams.get("step")) {
+  function pushWorkspaceUrl(target: URL, current: URL, preserveThread = true) {
+    if (preserveThread && target.searchParams.get("step") === current.searchParams.get("step")) {
       for (const key of ["thread", ...(target.searchParams.has("summary") ? ["summaryThread"] : [])]) {
         const value = current.searchParams.get(key);
         if (value && !target.searchParams.has(key)) target.searchParams.set(key, value);
@@ -216,26 +227,49 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
     }
     setToolsScope(null);
     // Commit same-page navigation before background Chat resolution can update the URL.
-    event.preventDefault();
     if (target.href !== current.href) window.history.pushState(null, "", target);
+  }
+  function navigateWorkspace(event: React.MouseEvent<HTMLElement>) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+    if (!(link instanceof HTMLAnchorElement) || link.target || link.hasAttribute("download")) return;
+    const target = new URL(link.href);
+    const current = new URL(window.location.href);
+    if (target.origin !== current.origin || target.pathname !== current.pathname || target.hash) return;
+    event.preventDefault();
+    pushWorkspaceUrl(target, current, !link.hasAttribute("data-aidt-reset-thread"));
+  }
+  function setWorkspaceToolsOpen(open: boolean) {
+    const current = new URL(window.location.href);
+    const target = new URL(href(open ? "outcome" : "chat"), current);
+    pushWorkspaceUrl(target, current);
   }
   const reportHref = canWrite ? aidtReportChatHref(projectId, { stageThread: step.id === 6 ? thread : null, threadId: summaryThread, returnRevision }) : aidtHref(projectId, 6, { tool: "report" });
   const sharedProblem = shared.available && (shared.read?.phase === "error" || shared.write.phase === "error" || shared.write.phase === "conflict");
 
   const toolContent = <div className="space-y-4 p-4" data-testid="aidt-tool-panel">
-    {tool === "outcome" && <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite} />}
+    {tool === "outcome" && !problemStep && <AidtSharedStagePanel key={shared.writeKey} stageNumber={step.id} controller={shared} readOnly={!canWrite} />}
         {(tool === "sources" || tool === "transcript" || tool === "record") && <AidtEvidenceGuide />}
         {tool === "outcome" ? <>
-          <AidtStageOutput key={`${uiScope}:${step.id}`} projectId={projectId} thread={checkpointThread} step={step} draft={currentUi.drafts[step.id]!} availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision} discoveryCardFields={shared.stages[2]?.content.draft.fields} activeDefinitionEntityId={step.id === 3 ? search.get("entity") : null} previousPrototype={shared.stages[5]?.content.draft} previousPrototypeRevision={shared.stages[5]?.revision} update={(mutate) => updateStage(step.id, mutate)} readOnly={!canWrite} toolHref={(key) => href(key as Tool)} toChat={toChat} />
+          {problemStep ? <AidtProblemWorkspace key={uiLifecycleKey} draft={currentUi.drafts[1]!} manualEdit={requested === "outcome"} confirmRevision={shared.matchesServer && completedStages?.has(1) ? shared.stages[1]?.revision : undefined} previousConfirmed={!shared.matchesServer && completedStages?.has(1) ? shared.stages[1] : undefined} update={mutate => updateStage(1, mutate)} readOnly={!canWrite} ask={text => toChat(text, !wide)} conversationRef={setConversationTarget} /> : <AidtStageOutput key={`${uiScope}:${step.id}`} projectId={projectId} thread={checkpointThread} step={step} draft={currentUi.drafts[step.id]!} availableCards={shared.stages[2]?.content.draft.discoveryCards ?? []} availableCardsRevision={shared.stages[2]?.revision} discoveryCardFields={shared.stages[2]?.content.draft.fields} activeDefinitionEntityId={step.id === 3 ? search.get("entity") : null} previousPrototype={shared.stages[5]?.content.draft} previousPrototypeRevision={shared.stages[5]?.revision} update={(mutate) => updateStage(step.id, mutate)} readOnly={!canWrite} toolHref={(key) => href(key as Tool)} toChat={toChat} />}
           <AidtRoundCompletion key={shared.writeKey} projectId={projectId} step={step} draft={currentUi.drafts[step.id]!} controller={shared} readOnly={!canWrite} onConfirm={record => updateStage(step.id, old => ({ ...old, fields: { ...old.fields, roundCompletion: record } }))} nextHref={nextStep ? aidtHref(projectId, nextStep.id) : reportHref} />
+          {problemStep && <AidtSharedStagePanel key={`save:${shared.writeKey}`} stageNumber={1} controller={shared} readOnly={!canWrite} />}
           <AidtRoundNavigation projectId={projectId} stageNumber={step.id} draft={currentUi.drafts[step.id]!} savedRound={shared.stages[6]} matchesServer={shared.matchesServer} returnRevision={search.get("returnRevision")} sessionToken={checkpointScope?.sessionToken ?? null} />
           {step.id === 6 && <AidtNextRound draft={currentUi.drafts[6]!} savedRevision={shared.stages[6]?.revision} matchesServer={shared.matchesServer} readOnly={!canWrite} onStart={() => updateStage(6, old => ({ ...old, fields: {} }))} />}
           <details className="mt-4 border-t border-border pt-3 text-12" onToggle={event => setHistoryScope(event.currentTarget.open ? `${uiLifecycleKey}:${step.id}` : null)} data-testid="aidt-history-disclosure"><summary className="cursor-pointer font-medium">查看本步历史版本</summary>{historyScope === `${uiLifecycleKey}:${step.id}` && <AidtStageHistory projectId={projectId} stageId={step.id} sessionToken={checkpointScope?.sessionToken ?? null} currentRevision={shared.stages[step.id]?.revision} />}</details>
-          <AidtStageJourney key={`journey:${uiScope}:${step.id}`} stageNumber={step.id}
+          {problemStep && <details className="text-12">
+            <summary className="cursor-pointer font-medium">本页回顾记录</summary>
+            <AidtStageJourney key={`journey:${uiScope}:1`} stageNumber={1}
+              inputText="先记录本组自己的观察、问题、人群与场景。"
+              currentOutput={aidtUiStageSummary(1, currentUi.drafts[1]!)} checkpoints={currentUi.checkpoints[1] ?? []}
+              onKeepCheckpoint={() => keepCheckpoint(1)} readOnly={!canWrite}
+              reportNote="回顾记录保留在本页。" />
+          </details>}
+          {!problemStep && <AidtStageJourney key={`journey:${uiScope}:${step.id}`} stageNumber={step.id}
           inputText={step.id > 1 ? `前序当前草稿（供参考，未自动继承或验证）：\n${aidtUiStageSummary(step.id - 1, currentUi.drafts[step.id - 1]!) || "尚缺前序填写"}` : "先记录本组自己的观察、问题、人群与场景。聊天内容由学生主动整理进成果。"}
           currentOutput={aidtUiStageSummary(step.id, currentUi.drafts[step.id]!)} checkpoints={currentUi.checkpoints[step.id] ?? []}
           onKeepCheckpoint={() => keepCheckpoint(step.id)} readOnly={!canWrite}
-          reportNote="原生报告当前整理本页最新草稿；这里的对照记录未自动写入共享报告。" />
+          reportNote="原生报告当前整理本页最新草稿；这里的对照记录未自动写入共享报告。" />}
 </>
         : tool === "context" ? <><AidtStageBridge key={`${uiScope}:${step.id}`} projectId={projectId} stageNumber={step.id} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} toChat={toChat} readOnly={!canWrite} /><AidtMaterials key={uiScope} projectId={projectId} stageNumber={step.id} thread={thread} returnRevision={returnRevision} /></>
         : tool === "report" ? <AidtReportPreview initialPreview={reportMode} key={uiScope} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} text={currentUi.report?.text ?? null} sourceRevision={currentUi.report?.sourceRevision ?? currentUi.revision} revision={currentUi.revision} onChange={(text) => changeReport(text)} regenerate={() => changeReport()} readOnly={!canWrite} toChat={toChat} shared={shared.report} onOpenSummary={() => router.push(aidtReportChatHref(projectId, { threadId: summaryThread, stageThread: thread, returnRevision }))} summaryThread={reportMode ? summaryThread : null} historyScope={checkpointScope ? { ...checkpointScope, lifecycleKey: uiLifecycleKey } : undefined} />
@@ -249,7 +283,7 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
   </div>;
   const workspaceTools = <>
     <nav className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle p-3" aria-label="学习工具">
-      <Button asChild size="sm" variant={tool === "outcome" ? "secondary" : "ghost"}><Link href={href("outcome")} data-testid="aidt-open-output">成果</Link></Button>
+      <Button asChild size="sm" variant={tool === "outcome" ? "secondary" : "ghost"}><Link href={href("outcome")} data-testid="aidt-open-output">{problemStep ? "问题与依据" : "成果"}</Link></Button>
       <Button asChild size="sm" variant={tool === "context" ? "secondary" : "ghost"}><Link href={href("context")}>资料</Link></Button>
       <DropdownMenu open={toolsScope === `${uiLifecycleKey}:${step.id}`} onOpenChange={open => setToolsScope(open ? `${uiLifecycleKey}:${step.id}` : null)}><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" data-testid="aidt-tools">更多工具</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{allowed.filter(key => !["chat", "outcome", "context"].includes(key) && (canWrite || key !== "record")).map(key => <DropdownMenuItem asChild key={key}><Link href={key === "report" ? aidtReportChatHref(projectId, {tool:"report",stageThread:thread,threadId:summaryThread,returnRevision}) : href(key)}>{TOOLS[key]}</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
     </nav>
@@ -260,17 +294,25 @@ export function ProjectAidt({ projectId, sub, canWrite }: { projectId: string; s
     </div>}
   </>;
   return <section className="flex min-h-0 flex-1 flex-col" data-testid="aidt-workspace" onClickCapture={navigateWorkspace}>
-    <div className="flex min-h-0 flex-1 flex-col xl:flex-row xl:gap-3 xl:p-3">
-      <div className="shrink-0 px-3 xl:w-44 xl:px-0">
-        <Link href={aidtHref(projectId)} className="block rounded-control px-2 py-2 text-12 text-muted-foreground transition-colors hover:bg-muted">← 六步研究</Link>
-        <AidtStageNavigation stageNumber={step.id} href={id => aidtHref(projectId, id)} reportHref={reportHref} reportActive={tool === "report" || reportMode} />
+    <div className={problemStep ? "flex min-h-0 flex-1 flex-col" : "flex min-h-0 flex-1 flex-col xl:flex-row xl:gap-3 xl:p-3"}>
+      <div className={problemStep ? "flex shrink-0 items-center gap-2 border-b border-border-subtle px-4 py-2 lg:px-6" : "shrink-0 px-3 xl:w-44 xl:px-0"}>
+        <Link href={aidtHref(projectId)} className="inline-flex items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ArrowLeft aria-hidden className="h-3.5 w-3.5" />项目总览</Link>
+        {problemStep ? projectName && <span className="truncate border-l border-border-subtle pl-3 text-13 font-medium">{projectName}</span>
+          : <AidtStageNavigation stageNumber={step.id} href={id => aidtHref(projectId, id)} reportHref={reportHref} reportActive={tool === "report" || reportMode} completed={completedStages} />}
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className={canWrite ? "sr-only" : "flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 py-2"} data-testid="aidt-workspace-toolbar"><h1 className="text-16 font-semibold">{reportMode || tool === "report" ? "小组报告" : step.title}</h1>{!canWrite && <><Button asChild size="sm" variant="ghost"><Link href={href("outcome")}>查看成果</Link></Button><p role="status" className="w-full text-12 text-muted-foreground" data-testid="aidt-readonly">当前项目只读，可查看已关联资料。</p></>}</header>
         {tool !== "outcome" && tool !== "report" && sharedProblem && <div role="alert" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-12" data-testid="aidt-shared-chat-alert"><span>{shared.read?.phase === "error" ? "本步成果读取失败。" : shared.write.phase === "conflict" ? "本步成果有版本冲突，本页修改仍保留。" : "本步成果保存尚未确认，本页修改仍保留。"}</span><Link className="text-primary underline" href={href("outcome")}>进入成果核对</Link>{shared.read?.phase === "error" && <Button size="sm" variant="outline" onClick={shared.reload}>重试读取</Button>}</div>}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <AidtAssistantPanel open fullPage onClose={() => undefined}>
-            {canWrite ? <div className="min-h-0 flex-1" data-testid="aidt-native-chat"><Chat key={`${uiScope}:${step.id}:${reportMode ? "report" : "stage"}`} projectId={projectId} step={step} thread={reportMode ? summaryThread : thread} purpose={reportMode ? "report" : undefined} returnRevision={returnRevision} taskHref={href(reportMode ? "report" : "outcome")} onResolvedThread={onResolvedThread} savedContextRefs={savedContextRefs} sharedContextRefs={sharedContextRefs} sharedContextReady={shared.read?.phase === "ready"} referencePanel={referencePanel} hostPanel={{ scope: `${uiLifecycleKey}:${step.id}`, title: "成果", open: tool !== "chat", content: workspaceTools, onOpenChange: open => router.push(href(open ? "outcome" : "chat")) }} /></div> : <ProjectConversations key={uiScope} projectId={projectId} canWrite={false} />}
+            {canWrite ? <div className="min-h-0 flex-1" data-testid="aidt-native-chat">
+              <ChatHostConversationContext.Provider value={problemStep && tool === "outcome" && conversationTarget ? { target: conversationTarget, render: (messages, loading, running) => <AidtProblemConversation messages={messages} loading={loading} running={running}
+                hasInitial={Boolean(currentUi.drafts[1]!.fields.initial?.trim())} onUseInitial={(content, messageId) => updateStage(1, old =>
+                  old.fields.initial?.trim() ? old : { ...old, fields: { ...old.fields, initial: content, initialChatMessageId: messageId } }
+                )} /> } : null}>
+              <Chat offerInitial={problemStep ? text => toChat(text, false) : undefined} key={`${uiScope}:${step.id}:${reportMode ? "report" : "stage"}`} projectId={projectId} step={step} thread={reportMode ? summaryThread : thread} purpose={reportMode ? "report" : undefined} returnRevision={returnRevision} taskHref={href(reportMode ? "report" : "outcome")} onResolvedThread={onResolvedThread} savedContextRefs={savedContextRefs} sharedContextRefs={sharedContextRefs} sharedContextReady={shared.read?.phase === "ready"} referencePanel={referencePanel} hostPanel={{ scope: `${uiLifecycleKey}:${step.id}`, title: problemStep ? "工作坊问题" : "成果", placement: problemStep ? "artifacts" : undefined, open: tool !== "chat", content: workspaceTools, onOpenChange: setWorkspaceToolsOpen }} />
+              </ChatHostConversationContext.Provider>
+            </div> : <ProjectConversations key={uiScope} projectId={projectId} canWrite={false} />}
           </AidtAssistantPanel>
           {!canWrite && tool !== "chat" && <aside className="w-full max-w-lg shrink-0 overflow-y-auto border-l border-border bg-card" aria-label={TOOLS[tool]}><Link href={href("chat")} className="block border-b border-border-subtle px-4 py-3 text-12 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">返回对话</Link>{workspaceTools}</aside>}
         </div>

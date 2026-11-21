@@ -1,10 +1,19 @@
+import { createContext } from "react";
+
 import type { ReactNode } from "react";
 
 /** Optional workspace tools share the native Inspector; ordinary Chat has no host panel. */
 export interface ChatHostPanel {
   readonly scope: string;
   readonly title: string;
+  readonly placement?: "artifacts";
   readonly open: boolean;
   readonly content: ReactNode;
   readonly onOpenChange: (open: boolean) => void;
 }
+
+/** Optional read-only projection of the same messages shown in the Chat timeline. */
+export const ChatHostConversationContext = createContext<{
+  target: HTMLElement;
+  render: (messages: readonly { id: string; role: string; content?: unknown }[], loading: boolean, running: boolean) => ReactNode;
+} | null>(null);
