@@ -52,6 +52,10 @@ export const SharedStage = z.object({ projectId: z.string().min(1), stageId: Sta
 export const StageSummary = z.object({ stageId: StageId, revision: revision.nonnegative(), updatedBy: z.string().nullable(), updatedAt: z.string().datetime().nullable() });
 export const StageError = z.enum(["AIDT_STAGE_NOT_FOUND", "AIDT_STAGE_READONLY", "AIDT_STAGE_REVISION_CONFLICT", "AIDT_STAGE_OPERATION_CONFLICT", "AIDT_STAGE_INVALID", "AIDT_STAGE_TOO_LARGE", "AIDT_STAGE_UNAVAILABLE"]);
 const location = z.object({ projectId: z.string().min(1), stageId: StageId });
+export const AIDT_ENTITY_THREAD_PREFIX = "thr_aidt_";
+export const AidtEntityId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/);
+const entityLocation = location.extend({ entityId: AidtEntityId, purpose: z.enum(["stage", "report"]) }).strict()
+  .refine(value => value.purpose !== "report" || value.stageId === 6);
 // Saving appends expectedRevision + 1, so the base must leave room for that new row.
 export const SaveInput = location.extend({ operationId: z.string().uuid(), expectedRevision: revision.nonnegative().max(maxStageRevision - 1), content: StageContent, sourceStageRevisions: z.array(SourceStageRevision).max(5), reportEntityId: ReportEntityId.optional() }).strict().superRefine((v,ctx) => {
   if (new Set(v.sourceStageRevisions.map((r)=>r.stageId)).size !== v.sourceStageRevisions.length || v.sourceStageRevisions.some((r)=>r.stageId >= v.stageId)) ctx.addIssue({code:"custom",path:["sourceStageRevisions"],message:"Use distinct earlier stages"});
@@ -60,6 +64,8 @@ export const SaveInput = location.extend({ operationId: z.string().uuid(), expec
   if (isStageRequestTooLarge(v)) ctx.addIssue({code:"custom",message:"Stage request too large"});
 });
 export const operations = {
+  entityThread: { method: "PUT", path: "/projects/:projectId/aidt/stages/:stageId/entities/:entityId/thread", in: entityLocation, out: z.object({ threadId: z.string().min(1) }), err: StageError },
+  revision: { method: "GET", path: "/projects/:projectId/aidt/stages/:stageId/revision/:revision", in: location.extend({ revision: revision.positive() }), out: z.object({ stage: SharedStage.nullable() }), err: StageError },
   list: { method:"GET", path:"/projects/:projectId/aidt/stages", in:z.object({projectId:z.string().min(1)}), out:z.object({items:z.array(StageSummary)}), err:StageError },
   get: { method:"GET", path:"/projects/:projectId/aidt/stages/:stageId", in:location, out:z.object({stage:SharedStage.nullable()}), err:StageError },
   save: { method:"PUT", path:"/projects/:projectId/aidt/stages/:stageId", in:SaveInput, out:z.object({stage:SharedStage,replayed:z.boolean()}), err:StageError },

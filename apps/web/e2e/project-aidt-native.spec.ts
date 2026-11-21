@@ -497,6 +497,7 @@ test("AIDT native project: dashboard, durable Chat, real resource association, r
 
 
 test("AIDT first step starts in native Chat and hands a confirmed issue and reflection to interviews", async ({ page }) => {
+  test.setTimeout(150_000);
   await login(page);
   await page.getByTestId("rail-aidt").click();
   await expect(page.getByRole("heading", { name: "设计思维工作坊" })).toBeVisible();
@@ -511,6 +512,17 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
   const projectId = new URL(page.url()).pathname.split("/").pop()!;
   await page.getByTestId("aidt-step-1").click();
+  await expect(page.getByTestId("aidt-problem-directory")).toBeVisible();
+  await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
+  const problemTitle = "校园奶茶新品";
+  await page.getByRole("textbox", { name: "问题名称" }).fill(problemTitle);
+  await page.getByRole("button", { name: "新建问题" }).click();
+  await page.getByTestId("aidt-shared-save").click();
+  await page.getByRole("link", { name: problemTitle, exact: true }).click();
+  await expect(page).toHaveURL(/step=1.*entity=/);
+  const problemId = new URL(page.url()).searchParams.get("entity")!;
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
+  const problemThread = new URL(page.url()).searchParams.get("thread")!;
   await expect(page.getByTestId("aidt-stage-navigation")).toHaveCount(0);
   await expect(logo).toHaveCount(0);
   await expect(page.getByText("你们想研究什么？")).toBeVisible();
@@ -521,7 +533,7 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
 
   const initial = "我们想了解大学生在校园食堂买奶茶的体验。";
   const request = await sendViaWorkbench(page, initial);
-  expect(AidtContextSelector.parse(request.postDataJSON().forwardedProps?.aidtContext)).toMatchObject({ projectId, stageId: 1 });
+  expect(AidtContextSelector.parse(request.postDataJSON().forwardedProps?.aidtContext)).toMatchObject({ projectId, stageId: 1, entityId: problemId });
   await openOutcome(page);
   await page.getByRole("button", { name: "用作初始问题" }).click();
   await expect(page.getByTestId("aidt-field-initial")).toHaveValue(initial);
@@ -550,7 +562,9 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   await expect(next).toBeVisible();
   const stored = await api(page, `/projects/${projectId}/aidt/stages/1`);
   expect(stored.status).toBe(200);
-  expect(stored.data.stage.content.draft.fields).toMatchObject({
+  const stage1Fields = stored.data.stage.content.draft.fields;
+  expect(stage1Fields.problemHandoffEntity).toBe(problemId);
+  expect(JSON.parse(stage1Fields["problemDraft:" + problemId])).toMatchObject({
     initial, rewrittenTheme: confirmed, focus: "菜单选择", problemReflectionConfirmed: "true",
     sourceUncertainty: "离开的原因仍待核实",
   });
@@ -558,7 +572,37 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
 
   await next.click();
   await expect(page).toHaveURL(/step=2/);
+  const directory = new URL(page.url()).searchParams;
+  expect(directory.get("problemEntity")).toBe(problemId);
+  expect(directory.get("problemRevision")).toBe(String(stored.data.stage.revision));
+  await expect(page.getByTestId("aidt-step-entity-directory")).toBeVisible();
+  await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
+  await page.getByRole("button", { name: "新建访谈" }).click();
+  await page.getByTestId("aidt-shared-save").click();
+  await expect(page.getByTestId("aidt-shared-receipt")).toBeVisible();
+  const storedInterview = await api(page, `/projects/${projectId}/aidt/stages/2`);
+  expect(storedInterview.status).toBe(200);
+  const interviewFields: Record<string, string> = storedInterview.data.stage.content.draft.fields;
+  const records = Object.entries(interviewFields).filter(([key]) => key.startsWith("interviewRecord:"));
+  expect(records).toHaveLength(1);
+  const [key, content] = records[0]!;
+  const interviewId = key.slice("interviewRecord:".length);
+  expect(JSON.parse(content)).toMatchObject({
+    id: interviewId, problemEntityId: problemId, topicRevision: stored.data.stage.revision, topic: confirmed,
+  });
+  await page.getByRole("button", { name: /U01/ }).click();
+  await expect(page).toHaveURL(/step=2.*entity=/);
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
+  expect(new URL(page.url()).searchParams.get("thread")).not.toBe(problemThread);
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
   const interview = await sendViaWorkbench(page, "我先拟一道访谈问题：请回想最近一次你看见新品菜单时发生了什么。");
   const context = AidtContextSelector.parse(interview.postDataJSON().forwardedProps?.aidtContext);
-  expect(context).toMatchObject({ projectId, stageId: 2, stageRevisions: [{ stageId: 1, revision: stored.data.stage.revision }] });
+  await page.screenshot({ path: test.info().outputPath("aidt-interview-handoff.png"), fullPage: true });
+  expect(context).toMatchObject({ projectId, stageId: 2, entityId: interviewId, sourceEntityId: problemId, stageRevisions: [{ stageId: 1, revision: stored.data.stage.revision }, { stageId: 2, revision: 1 }] });
+  await page.getByRole("link", { name: "返回产物列表" }).click();
+  await expect(page.getByTestId("aidt-step-entity-directory")).toBeVisible();
+  const back = new URL(page.url()).searchParams;
+  expect(back.get("problemEntity")).toBe(problemId);
+  expect(back.get("problemRevision")).toBe(String(stored.data.stage.revision));
+  expect(back.has("entity")).toBe(false);
 });

@@ -1,6 +1,6 @@
 /** User-approved AIDT server-selected run context. Client selectors never grant authority. */
 import { z } from "zod";
-import { StageId, SourceStageRevision } from "./aidt-stages";
+import { AidtEntityId, StageId, SourceStageRevision } from "./aidt-stages";
 
 export const AIDT_STAGE_IDENTITIES = [
   { id: 1, skill: "aidt-understand", title: "理解与提出问题" },
@@ -22,14 +22,15 @@ const revision = z.number().int().positive().safe().max(Number.MAX_SAFE_INTEGER 
 export const AidtContextStageRevision = SourceStageRevision.extend({revision});
 export type AidtContextStageRevision = z.infer<typeof AidtContextStageRevision>;
 const stageRefs=z.array(AidtContextStageRevision).max(AIDT_CONTEXT_LIMITS.stageReferences);
-const selectorBase={schemaVersion:z.literal(1),projectId:identifier,stageRevisions:stageRefs};
+const selectorBase={schemaVersion:z.literal(1),projectId:identifier,stageRevisions:stageRefs,entityId:AidtEntityId.optional()};
 export const AidtContextSelector=z.discriminatedUnion("purpose",[
-  z.object({...selectorBase,purpose:z.literal("stage"),stageId:StageId,returnRevision:revision.optional()}).strict(),
+  z.object({...selectorBase,purpose:z.literal("stage"),stageId:StageId,returnRevision:revision.optional(),sourceEntityId:AidtEntityId.optional()}).strict(),
   z.object({...selectorBase,purpose:z.literal("summary"),historyRevisions:z.array(AidtContextStageRevision).max(AIDT_CONTEXT_LIMITS.historyReferences).default([])}).strict(),
 ]).superRefine((v,ctx)=>{
   if(new Set(v.stageRevisions.map(r=>r.stageId)).size!==v.stageRevisions.length)ctx.addIssue({code:z.ZodIssueCode.custom,message:"One selected current revision per stage"});
   if(v.purpose==="stage") {
     if(v.stageRevisions.some(r=>r.stageId>v.stageId))ctx.addIssue({code:z.ZodIssueCode.custom,message:"Future stages are not current-stage input"});
+    if(v.sourceEntityId && (!v.entityId || v.stageId !== 2 || !v.stageRevisions.some(ref => ref.stageId === 1)))ctx.addIssue({code:z.ZodIssueCode.custom,message:"An interview can explicitly select one problem version"});
     if(v.stageId===6 && v.returnRevision!==undefined)ctx.addIssue({code:z.ZodIssueCode.custom,message:"A return target is one of stages one through five"});
   } else {
     const keys=v.historyRevisions.map(r=>`${r.stageId}:${r.revision}`);

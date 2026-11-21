@@ -1,5 +1,6 @@
-import { countAidtPrototypeEntityDrafts } from "./aidt-prototype-handoff";
+import { listAidtProblems } from "./aidt-problem-entities";
 import { aidtDefinitionSummary } from "./aidt-definition";
+import { countAidtPrototypeEntityDrafts } from "./aidt-prototype-handoff";
 import { countAidtInterviewRecords } from "./aidt-interviews";
 import { formatAidtProblemReflectionMarkdown } from "./aidt-problem-reflection";
 import { formatAidtSurpriseMarkdown } from "./aidt-surprise-reflection";
@@ -98,6 +99,10 @@ export function aidtUiStageMarkdown(stageNumber: number, draft: AidtUiStageDraft
 /** Current student-authored work, without manufacturing values for empty fields. */
 export function aidtUiStageSummary(stageNumber: number, draft: AidtUiStageDraft): string {
   const lines = AIDT_OUTPUTS[stageNumber]!.fields.flatMap((field) => draft.fields[field.id]?.trim() ? [`${field.label}：${draft.fields[field.id]}`] : []);
+  if (stageNumber === 1) {
+    const problems = listAidtProblems(draft);
+    if (problems.length) lines.push(`本组问题记录：${problems.length} 个。`);
+  }
   const interviewCount = stageNumber === 2 ? countAidtInterviewRecords(draft) : 0;
   if (interviewCount > 0) lines.push(`访谈记录：${interviewCount} 份`);
   if (stageNumber === 2 && draft.discoveryCards?.length) lines.push(...discoveryCardLines(draft.discoveryCards, draft.fields));
@@ -107,11 +112,11 @@ export function aidtUiStageSummary(stageNumber: number, draft: AidtUiStageDraft)
     const original = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]);
     lines.push(`候选 ${index + 1}${draft.selectedIdeaId === idea.id ? "（拟选，非投票）" : ""}：${idea.title || "待命名"}`, idea.description, original ? `原始图片：${aidtResearchMaterialLabel(original)}（待核对）` : idea.imageAttachment ? `图片引用：${idea.imageAttachment.name} · 对话 ${idea.imageAttachment.threadId} · 附件 ${idea.imageAttachment.attachmentId}` : idea.imageName ? `参考图：${idea.imageName}（仅本页）` : "参考图尚缺");
   }
+  if (stageNumber === 3) lines.push(...aidtDefinitionSummary(draft.fields));
   if (stageNumber === 5) {
     const prototypes = countAidtPrototypeEntityDrafts(draft);
     if (prototypes) lines.push(`本组原型记录：${prototypes} 个。打开对应原型查看验证问题与已关联版本。`);
   }
-  if (stageNumber === 3) lines.push(...aidtDefinitionSummary(draft.fields));
   if (hasAidtV2Data(stageNumber, draft)) lines.push(...aidtV2StageLines(stageNumber, draft));
   return lines.filter(Boolean).join("\n");
 }

@@ -53,19 +53,19 @@ function AidtSkillUpdate({ projectId, step, current, identity, threadHref, purpo
   </div>;
 }
 /** Keep navigation hints only inside the same project and teaching stage. */
-function currentStageQuery(projectId: string, stageId: number): URLSearchParams {
+function currentStageQuery(projectId: string, stageId: number, entityId?: string): URLSearchParams {
   const query = new URLSearchParams(window.location.search);
-  return window.location.pathname === `/aidt/${encodeURIComponent(projectId)}` && query.get("step") === String(stageId) ? query : new URLSearchParams();
+  return window.location.pathname === `/aidt/${encodeURIComponent(projectId)}` && query.get("step") === String(stageId) && query.get("entity") === (entityId ?? null) ? query : new URLSearchParams();
 }
 type AidtChatProps = {
-  offerInitial?: (text: string) => ComposerOfferResult; hostPanel?: ChatHostPanel; referencePanel?: HTMLDivElement | null; taskHref?: string; purpose?: "report"; projectId: string; step: AidtStep; thread: string | null; returnRevision?: string | null; savedContextRefs?: readonly AidtSavedContextReference[]; sharedContextRefs?: readonly AidtSharedContextReference[]; sharedContextReady?: boolean; onResolvedThread?: (threadId: string) => void };
+  offerInitial?: (text: string) => ComposerOfferResult; hostPanel?: ChatHostPanel; referencePanel?: HTMLDivElement | null; taskHref?: string; purpose?: "report"; entityId?: string; entityRevision?: number; sourceEntityId?: string; sourceRevision?: number; projectId: string; step: AidtStep; thread: string | null; returnRevision?: string | null; savedContextRefs?: readonly AidtSavedContextReference[]; sharedContextRefs?: readonly AidtSharedContextReference[]; sharedContextReady?: boolean; onResolvedThread?: (threadId: string) => void };
 export function ProjectAidtChat(props: AidtChatProps) {
   if (!isAidtModuleEnabled()) return <p role="status" data-testid="aidt-chat-disabled" className="p-4 text-13 text-muted-foreground">教学模块未启用。</p>;
   return <EnabledAidtChat {...props} />;
 }
-function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContextRefs = [], sharedContextRefs = [], sharedContextReady = true, onResolvedThread, purpose, taskHref, referencePanel, hostPanel, offerInitial }: AidtChatProps) {
+function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContextRefs = [], sharedContextRefs = [], sharedContextReady = true, onResolvedThread, purpose, entityId, entityRevision, sourceEntityId, sourceRevision, taskHref, referencePanel, hostPanel, offerInitial }: AidtChatProps) {
   const { session } = useSession();
-  const scope = JSON.stringify([session?.currentOrgId, session?.userId, session?.sessionToken, projectId, step.id, thread, purpose]);
+  const scope = JSON.stringify([session?.currentOrgId, session?.userId, session?.sessionToken, projectId, step.id, entityId ? null : thread, purpose, entityId]);
   const lifecycle = React.useRef({ scope, generation: 0 });
   if (lifecycle.current.scope !== scope) lifecycle.current = { scope, generation: lifecycle.current.generation + 1 };
   const generation = lifecycle.current.generation;
@@ -79,7 +79,17 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
   const selectSummary = React.useCallback((selector:AidtContextSelector|null) => { setSummarySelection({scope:requestScope,selector}); }, [requestScope]);
   const acceptRun = React.useCallback((observation:HostRunObservation) => { if (lifecycle.current.scope === scope && lifecycle.current.generation === generation && (attemptOwner.current?.scope !== requestScope || attemptOwner.current.clientMessageId === observation.clientMessageId)) setAcceptedRun({scope:requestScope,runId:observation.runId}); }, [scope,generation,requestScope]);
   let contextSelector:AidtContextSelector|null = null;
-  try { contextSelector = purpose === "report" ? summarySelection?.scope === requestScope ? summarySelection.selector : null : sharedContextReady ? aidtStageContextSelector(projectId,step.id,sharedContextRefs,returnRevision) : null; } catch { /* Invalid selectors stay blocked, never ordinary Chat. */ }
+  try { contextSelector = purpose === "report" ? summarySelection?.scope === requestScope ? summarySelection.selector : null : sharedContextReady ? aidtStageContextSelector(projectId,step.id,entityId ? [] : sharedContextRefs,entityId ? null : returnRevision) : null; if (entityId && contextSelector) contextSelector = { ...contextSelector, entityId };
+  if (entityId && contextSelector?.purpose === "stage") {
+    contextSelector = {
+      ...contextSelector,
+      ...(sourceEntityId && sourceRevision ? { sourceEntityId } : {}),
+      stageRevisions: [
+        ...(sourceEntityId && sourceRevision ? [{ stageId: 1 as const, revision: sourceRevision }] : []),
+        ...(entityRevision ? [{ stageId: step.id, revision: entityRevision }] : []),
+      ],
+    };
+  } } catch { /* Invalid selectors stay blocked, never ordinary Chat. */ }
   const resolvedCallback = React.useRef({ scope, generation, callback: onResolvedThread }); resolvedCallback.current = { scope, generation, callback: onResolvedThread };
   const referenceKey = JSON.stringify(savedContextRefs);
   const sharedReferenceKey = JSON.stringify(sharedContextRefs);
@@ -133,26 +143,37 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
     let active = true;
     const cancellation = new AbortController();
     setState(null);
-    void resolveAidtStepChat({ orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken, projectId, step, thread, ...(purpose ? { purpose } : {}), signal: cancellation.signal }).then((value) => {
+    const existingOnly = currentStageQuery(projectId, step.id, entityId).get("history") === "1";
+    void resolveAidtStepChat({ orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken, projectId, step, thread: entityId ? null : thread, existingOnly, ...(entityId ? { entityId } : {}), ...(purpose ? { purpose } : {}), signal: cancellation.signal }).then((value) => {
       if (!active || lifecycle.current.generation !== generation || lifecycle.current.scope !== scope) return;
-      const query = currentStageQuery(projectId, step.id);
+      const query = currentStageQuery(projectId, step.id, entityId);
       const threadParameter = purpose === "report" ? "summaryThread" : "thread";
       // A second resolution of the same thread must not compete with a Next.js tool navigation.
       if (query.has("step") && (query.get("summary") === "1") === (purpose === "report") && query.get(threadParameter) !== value.threadId) {
-        window.history.replaceState(null, "", purpose === "report" ? aidtReportChatHref(projectId, { threadId: value.threadId, stageThread: query.get("thread"), tool: query.get("tool") === "report" ? "report" : "chat", returnRevision: query.get("returnRevision") }) : aidtHref(projectId, step.id, { thread: value.threadId, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision") }));
+        if (entityId || query.get("history") === "1") {
+          const url = new URL(window.location.href);
+          url.searchParams.set(threadParameter, value.threadId);
+          window.history.replaceState(null, "", url);
+        } else window.history.replaceState(null, "", purpose === "report" ? aidtReportChatHref(projectId, { threadId: value.threadId, stageThread: query.get("thread"), tool: query.get("tool") === "report" ? "report" : "chat", returnRevision: query.get("returnRevision") }) : aidtHref(projectId, step.id, { thread: value.threadId, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision") }));
       }
       setState({ scope: requestScope, value });
       if (resolvedCallback.current.scope === scope && resolvedCallback.current.generation === generation) resolvedCallback.current.callback?.(value.threadId);
     }).catch((error: unknown) => { if (active && lifecycle.current.generation === generation && lifecycle.current.scope === scope) setState({ scope: requestScope, error: error instanceof Error ? error.message : "步骤对话读取失败，请重试。", choices: error instanceof AidtStepChatChoiceError ? error.choices : undefined }); });
     return () => { active = false; cancellation.abort(); };
-  }, [scope, generation, requestScope, session, projectId, step, thread, retry, purpose]);
+  }, [scope, generation, requestScope, session, projectId, step, thread, retry, purpose, entityId]);
   const path = React.useCallback((id: string | null) => {
-    const query = currentStageQuery(projectId, step.id);
+    const query = currentStageQuery(projectId, step.id, entityId);
+    if ((entityId || query.get("history") === "1") && query.has("step")) {
+      const parameter = purpose === "report" ? "summaryThread" : "thread";
+      if (id) query.set(parameter, id);
+      else query.delete(parameter);
+      return aidtHref(projectId) + "?" + query.toString();
+    }
     return purpose === "report" ? aidtReportChatHref(projectId, { threadId: id, stageThread: query.get("thread"), tool: query.get("tool") === "report" ? "report" : "chat", returnRevision: query.get("returnRevision") }) : aidtHref(projectId, step.id, { thread: id, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision") });
-  }, [projectId, step.id, purpose]);
+  }, [projectId, step.id, purpose, entityId]);
   const fromLocation = React.useCallback(() => new URLSearchParams(window.location.search).get(purpose === "report" ? "summaryThread" : "thread"), [purpose]);
   const current = state?.scope === requestScope ? state : null;
-  const fallback = (content: React.ReactNode) => hostPanel ? <div className="flex h-full min-h-0"><div className="min-w-0 flex-1">{content}</div><ChatTaskInspector hostPanel={hostPanel} projectId={projectId} threadId={null} hasSelection={false} artifacts={null} materials={null} loading={false} artifactsError={null} materialsError={null} onRetry={() => setRetry(value => value + 1)} pendingMaterialsCount={0} planTodos={null} isRunning={false} runPhaseLabel={null} runStartedAt={null} /></div> : content;
+  const fallback = (content: React.ReactNode) => hostPanel && !entityId ? <div className="flex h-full min-h-0"><div className="min-w-0 flex-1">{content}</div><ChatTaskInspector hostPanel={hostPanel} projectId={projectId} threadId={null} hasSelection={false} artifacts={null} materials={null} loading={false} artifactsError={null} materialsError={null} onRetry={() => setRetry(value => value + 1)} pendingMaterialsCount={0} planTodos={null} isRunning={false} runPhaseLabel={null} runStartedAt={null} /></div> : content;
   if (!current) return fallback(<p role="status" className="p-4">正在准备本步对话与 Skill…</p>);
   if (current.error || !current.value) return fallback(<div role="alert" className="p-4" data-testid="aidt-chat-error"><p>{current.error}</p>{current.choices && <ul className="my-3 space-y-2">{current.choices.map((choice) => <li key={choice.id}><a className="text-primary underline" href={path(choice.id)}>{choice.title} · 继续这条对话</a></li>)}</ul>}<Button variant="outline" onClick={() => setRetry((n) => n + 1)}>重试</Button><a className="ml-3 text-primary underline" href={taskHref ?? aidtHref(projectId, step.id, { tool: "outcome", returnRevision: currentStageQuery(projectId, step.id).get("returnRevision") })}>{purpose === "report" ? "返回小组报告" : "打开本步任务"}</a>{thread && !current.choices && <a className="ml-3 text-primary underline" href={path(null)} data-aidt-reset-thread>选择本步对话</a>}</div>);
   const references = <>
@@ -161,7 +182,7 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
     {purpose !== "report" && returnRevision != null && <details className="border-b border-border px-4 py-2 text-12 text-muted-foreground" data-testid="aidt-chat-return-context"><summary className="cursor-pointer">历史返工反思 · {returnContext.status === "loading" ? "读取中" : returnContext.status === "ready" ? `第6步 V${returnContext.items[0]?.revision}` : "尚未带入AI"}</summary><p className="mt-2">仅参考与本步匹配的已保存历史修订。编辑者确认不代表全组同意或证据已核实；学生保有方向选择与讨论主导权。</p>{returnContext.items.map((item) => <div key={item.revision} className="mt-2"><p>第6步 V{item.revision} → 第{item.targetStage}步{item.truncated ? " · 内容已截断" : ""}</p><p className="mt-1">原问题来源（学生记录，尚未核实）：{item.questionSourceStageRevision == null ? "未绑定共享版本" : `第5步 V${item.questionSourceStageRevision}`}；不替换为当前第5步版本。</p><pre aria-label="AI参考的历史返工反思" className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-sans text-12">{JSON.stringify(item.fields, null, 2)}</pre></div>)}{returnContext.issues.length > 0 && <div role="status" className="mt-2"><p>这份反思尚未用于AI：可能读取失败、无权限、修订不匹配，或学生尚未确认返回本步。请核对第6步历史后重试；所选反思不可用时本次发送不会降级丢弃它。</p><Button size="sm" variant="outline" onClick={() => setReturnRetry((value) => value + 1)}>重新读取返工反思</Button></div>}</details>}
     {session?.sessionToken && <AidtRunContextReceipt projectId={projectId} threadId={current.value.threadId} runId={acceptedRun?.scope === requestScope ? acceptedRun.runId : null} sessionToken={session.sessionToken} lifecycleKey={requestScope} expected={purpose === "report" ? {purpose:"summary"} : {purpose:"stage",stageId:step.id as 1|2|3|4|5|6}} />}
   </>;
-  return <HostRunContextProvider scope={{orgId:session?.currentOrgId ?? "",userId:session?.userId ?? "",sessionToken:session?.sessionToken ?? "",projectId,threadId:current.value.threadId,task:JSON.stringify([requestScope,purpose ?? "stage",step.id])}} forwardedProps={contextSelector ? {aidtContext:contextSelector} : null} onRunAccepted={acceptRun} onAttemptStarted={beginRun}><ChatHostNavigationProvider value={{ projectId, returnHref: purpose === "report" ? aidtReportChatHref(projectId, { tool: "report", threadId: current.value.threadId, stageThread: currentStageQuery(projectId, step.id).get("thread"), returnRevision: currentStageQuery(projectId, step.id).get("returnRevision") }) : aidtHref(projectId, step.id, { tool: "whiteboard", thread: current.value.threadId, returnRevision: currentStageQuery(projectId, step.id).get("returnRevision") }) }}><CopilotKitV2AgentSelectionProvider><CopilotKitV2Providers>
+  return <HostRunContextProvider scope={{orgId:session?.currentOrgId ?? "",userId:session?.userId ?? "",sessionToken:session?.sessionToken ?? "",projectId,threadId:current.value.threadId,task:JSON.stringify([requestScope,purpose ?? "stage",step.id])}} forwardedProps={contextSelector ? {aidtContext:contextSelector} : null} onRunAccepted={acceptRun} onAttemptStarted={beginRun}><ChatHostNavigationProvider value={{ projectId, returnHref: entityId && taskHref ? taskHref : purpose === "report" ? aidtReportChatHref(projectId, { tool: "report", threadId: current.value.threadId, stageThread: currentStageQuery(projectId, step.id).get("thread"), returnRevision: currentStageQuery(projectId, step.id).get("returnRevision") }) : aidtHref(projectId, step.id, { tool: "whiteboard", thread: current.value.threadId, returnRevision: currentStageQuery(projectId, step.id).get("returnRevision") }) }}><CopilotKitV2AgentSelectionProvider><CopilotKitV2Providers>
     <div className="flex h-full min-h-0 flex-col"><p className="sr-only" data-testid="aidt-step-skill">{current.value.skillName}</p>
     {current.value.latestVersionId && current.value.latestVersionId !== current.value.versionId && session?.currentOrgId && session.userId && session.sessionToken && <AidtSkillUpdate key={JSON.stringify([requestScope, current.value.versionId, current.value.latestVersionId])} projectId={projectId} step={step} current={current.value} identity={{ orgId: session.currentOrgId, userId: session.userId, sessionToken: session.sessionToken }} threadHref={path} purpose={purpose} />}
     {purpose !== "report" && !sharedContextReady && <p role="status" className="border-b border-border px-4 py-2 text-12 text-muted-foreground" data-testid="aidt-chat-context-pending">小组保存版本尚未就绪。请完成材料读取或重试后发送，草稿已保留。</p>}
