@@ -255,7 +255,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     if (!canWrite || !latestCanWrite.current || latestUiScope.current !== uiScope || uiLifecycle.current.generation !== uiGeneration || !identity || !step) return "unavailable";
     const currentThread = new URLSearchParams(window.location.search).get(reportMode ? "summaryThread" : "thread");
     const result = offerComposerDraft({ orgId: identity.currentOrgId, userId: identity.userId, projectId, threadId: currentThread }, text);
-    if (result === "accepted" && closePanel && tool !== "chat") router.push(reportMode ? aidtReportChatHref(projectId, { threadId: currentThread, stageThread: thread, entityId: reportEntityId, returnRevision }) : aidtHref(projectId, step.id, { tool: "chat", thread: currentThread, returnRevision }));
+    if (result === "accepted" && closePanel && tool !== "chat") setWorkspaceToolsOpen(false);
     return result;
   }
   if (!step) return <div className="min-h-0 flex-1 overflow-y-auto"><AidtDashboard href={(id) => aidtHref(projectId, id)} drafts={currentUi.drafts} shared={{ phase: shared.read?.phase ?? (shared.available ? "loading" : "error"), stages: shared.stages, error: shared.read?.error ?? (shared.available ? undefined : "登录后可读取本组已保存成果。"), reload: shared.reload }} /></div>;
@@ -332,7 +332,9 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
         <h1 className="text-16 font-semibold">{hasSummary ? "小组报告" : step.title}</h1>
       </header>
       <div className="mx-auto w-full max-w-4xl space-y-5 p-4 sm:p-6">
-        {shared.read?.phase !== "ready" && <p role="status">正在读取小组产物…</p>}
+        {shared.read?.phase === "error"
+          ? <div role="alert" className="space-y-2"><p>小组产物读取失败。</p><Button variant="outline" onClick={shared.reload}>重试</Button></div>
+          : shared.read?.phase !== "ready" && <p role="status">正在读取小组产物…</p>}
         {shared.read?.phase === "ready" && (hasSummary
           ? <ul className="space-y-3">{["group-report", ...groupReports.filter(id => id !== "group-report")].map(id =>
               <li key={id}><Button asChild variant="outline"><Link href={entityHref(id)}>{id === "group-report" ? "打开小组研究报告" : "打开报告 " + id}</Link></Button></li>)}</ul>
