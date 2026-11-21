@@ -77,7 +77,7 @@ export function validateTeachingEvidence({ messages, run, receipt }, scope, wire
   return { stageId: scope.stageId, threadId: scope.threadId, runId: run.runId, inputMessageId: accepted.inputMessageId, assistantMessageId: replies[0].id, skillId: scope.skillId, skillVersionId: scope.skillVersionId, agentVersionId: id(run.agentVersionId) ? run.agentVersionId : null, modelProvider: typeof run.modelProvider === 'string' && /^[A-Za-z0-9_.:-]{1,160}$/.test(run.modelProvider) ? run.modelProvider : null, modelId: typeof run.modelId === 'string' && /^[A-Za-z0-9_./:-]{1,200}$/.test(run.modelId) ? run.modelId : null, sourceRevisions: chosen.stageRevisions, snapshotHash: receipt.snapshotHash, assembledContextHash: application.assembledContextHash, studentTextSha256: sha(scope.prompt), assistantTextSha256: sha(replies[0].text), assistantText: replies[0].text, providerIndependentlyVerified: false, teachingQualityAccepted: false };
 }
 /** One normal UI send. Caller/guard enforce the shared six-turn ledger and own all HTTP authorization. */
-export async function sendTeachingFeedback({ page, expect, scope, read, armSend, onEvent = () => {} }) {
+export async function sendTeachingFeedback({ page, expect, scope, read, armSend, onEvent = () => {}, onPendingReview }) {
   validateTeachingScope(scope);
   const url = new URL(page.url());
   if (url.origin !== scope.origin || url.pathname !== `/aidt/${scope.projectId}` || url.searchParams.get('step') !== String(scope.stageId) || url.searchParams.get('thread') !== scope.threadId || scope.selector.entityId !== undefined && url.searchParams.get('entity') !== scope.selector.entityId) fail('TEACHING_UI_SCOPE_MISMATCH');
@@ -96,7 +96,7 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
   const requestReady = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === SEND_PATH, { timeout: 60000 });
   const [request] = await Promise.all([requestReady, send.click()]);
   const wire = validateTeachingWire({ method: request.method(), url: request.url(), body: request.postDataJSON() }, current);
-  let proof, observedRunId = null, terminalError = null, frozenSnapshotHash = null;
+  let proof, observedRunId = null, terminalError = null, frozenSnapshotHash = null, pendingReviewReported = false;
   const timeout = Number.isInteger(scope.timeoutMs) && scope.timeoutMs >= 1000 && scope.timeoutMs <= 600000 ? scope.timeoutMs : 120000;
   try {
     await expect.poll(async () => {
@@ -104,6 +104,7 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
       if (await page.getByTestId('copilotkit-v2-error').count()) fail('TEACHING_UI_ERROR');
       const messages = await readData(messagePath), accepted = identifyOwnedTeachingRun(messages, current, wire);
       if (!accepted) return false;
+      if (observedRunId !== null && observedRunId !== accepted.runId) fail('TEACHING_ACCEPTANCE_MISMATCH');
       observedRunId = accepted.runId;
       if (frozenSnapshotHash === null) {
         const firstReceipt = await readData(`/api/agent-runs/${encodeURIComponent(accepted.runId)}/aidt-context`);
@@ -112,7 +113,23 @@ export async function sendTeachingFeedback({ page, expect, scope, read, armSend,
       }
       const run = await readData(`/api/agent-runs/${encodeURIComponent(accepted.runId)}`);
       if (['failed', 'cancelled', 'paused'].includes(run.status)) fail('TEACHING_NATIVE_RUN_FAILED');
-      if (run.status === 'awaiting_tool_permission') fail('TEACHING_TOOL_REVIEW_REQUIRED');
+      if (run.status === 'awaiting_tool_permission') {
+        if (run.runId !== accepted.runId || run.threadId !== current.threadId || run.inputMessageId !== accepted.inputMessageId || canonical(run.skillVersionIds) !== canonical([current.skillVersionId])) fail('TEACHING_ACCEPTANCE_MISMATCH');
+        if (typeof onPendingReview === 'function' && !pendingReviewReported) {
+          pendingReviewReported = true;
+          const pending = object(run.pendingApproval) ? run.pendingApproval : null;
+          const knownConfirmTaskIntent = pending?.toolName === 'confirm_task_intent';
+          const args = knownConfirmTaskIntent && pending?.interrupt?.toolName === 'confirm_task_intent' && object(pending.interrupt.args) ? pending.interrupt.args : null;
+          const argumentFields = args ? ['requestId', 'understanding', 'assumptions'].filter(name => Object.hasOwn(args, name)).map(name => ({
+            name, type: typeof args[name] === 'string' && args[name].length <= 10000 ? 'string' : name === 'assumptions' && Array.isArray(args[name]) && args[name].length <= 64 && args[name].every(value => typeof value === 'string' && value.length > 0 && value.length <= 10000) ? 'array-of-strings' : 'other',
+          })) : [];
+          const argumentShapeKnown = Boolean(args && Object.keys(args).sort().join(',') === 'assumptions,requestId,understanding' && typeof args.requestId === 'string' && args.requestId.length > 0 && typeof args.understanding === 'string' && args.understanding.length > 0 && argumentFields.every(field => field.type === (field.name === 'assumptions' ? 'array-of-strings' : 'string')));
+          try {
+            await onPendingReview({ projectId: current.projectId, stageId: current.stageId, threadId: current.threadId, runId: accepted.runId, inputMessageId: accepted.inputMessageId, permissionRequestId: id(pending?.permissionRequestId) ? pending.permissionRequestId : null, toolName: knownConfirmTaskIntent ? 'confirm_task_intent' : 'other', knownConfirmTaskIntent, argumentFields, argumentShapeKnown });
+          } catch { /* Passive diagnostics cannot replace the original tool-review stop. */ }
+        }
+        fail('TEACHING_TOOL_REVIEW_REQUIRED');
+      }
       if (run.status !== 'succeeded') return false;
       const receipt = await readData(`/api/agent-runs/${encodeURIComponent(accepted.runId)}/aidt-context`);
       proof = validateTeachingEvidence({ messages, run, receipt }, current, wire, accepted, frozenSnapshotHash);

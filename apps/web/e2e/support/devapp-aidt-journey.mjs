@@ -82,6 +82,66 @@ export async function requireAcceptedS1Feedback(feedback) {
   if (await feedback() !== true) fail('S1_TEACHING_FEEDBACK_REQUIRED');
 }
 
+export function ownedAidtEntityRoute(href, scope, { stage, entityId, report = false, revision } = {}) {
+  let url;
+  try { url = new URL(href, scope.origin); } catch { fail('ENTITY_ROUTE_INVALID'); }
+  const id = url.searchParams.get('entity');
+  if (typeof href !== 'string' || !href || url.origin !== scope.origin || url.username || url.password || url.hash
+    || url.pathname !== `/aidt/${encodeURIComponent(scope.projectId)}` || !Number.isInteger(stage) || stage < 1 || stage > 6
+    || url.searchParams.getAll('step').length !== 1 || url.searchParams.get('step') !== String(stage)
+    || url.searchParams.getAll('entity').length !== 1 || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(id ?? '')
+    || (entityId && id !== entityId) || url.searchParams.has('history')
+    || (report ? stage !== 6 || id !== 'group-report' || url.searchParams.getAll('summary').length !== 1 || url.searchParams.get('summary') !== '1' : url.searchParams.has('summary'))
+    || (revision === undefined ? url.searchParams.has('entityRevision') : !Number.isInteger(revision) || revision < 1 || revision > 2147483647 || url.searchParams.getAll('entityRevision').length !== 1 || url.searchParams.get('entityRevision') !== String(revision))) fail('ENTITY_ROUTE_INVALID');
+  for (const key of ['sourceId', 'timestamp', 'hmwRevision', 'ideaRevision', 'prototypeEntity', 'prototypeRevision', 'problemEntity', 'problemRevision']) if (url.searchParams.getAll(key).length > 1) fail('ENTITY_ROUTE_INVALID');
+  return Object.freeze({ href: url.href, ...scope, stage, entityId: id, report, revision });
+}
+
+export function matchesAidtEntityRoute(href, target, tool) {
+  try {
+    ownedAidtEntityRoute(href, target, target);
+    const actual = new URL(href, target.origin);
+    const expected = new URL(target.href);
+    return ['sourceId', 'timestamp', 'hmwRevision', 'ideaRevision', 'prototypeEntity', 'prototypeRevision', 'problemEntity', 'problemRevision'].every(key => actual.searchParams.get(key) === expected.searchParams.get(key))
+      && (!tool || actual.searchParams.getAll('tool').length === 1 && actual.searchParams.get('tool') === tool);
+  } catch { return false; }
+}
+
+export async function openAidtEntityOutcome({ page, target, activate, waitForRoute, assertDetail, assertReady, tool = 'outcome' }) {
+  const route = ownedAidtEntityRoute(target.href, target, target);
+  if (activate) {
+    await activate();
+    await waitForRoute(() => matchesAidtEntityRoute(page.url(), route));
+    if (!matchesAidtEntityRoute(page.url(), route)) fail('ENTITY_NAVIGATION_UNVERIFIED');
+    await assertDetail();
+  }
+  const url = new URL(route.href); url.searchParams.set('tool', tool);
+  await page.goto(url.href, { waitUntil: 'domcontentloaded' });
+  await waitForRoute(() => matchesAidtEntityRoute(page.url(), route, tool));
+  if (!matchesAidtEntityRoute(page.url(), route, tool)) fail('ENTITY_OUTCOME_UNVERIFIED');
+  await assertReady();
+  return route;
+}
+
+export function assertSavedAidtHmwSource(stage, expected) {
+  let actual; try { actual = JSON.parse(stage?.content?.draft?.fields?.ideaHmwSource); } catch { fail('HMW_SOURCE_NOT_SAVED'); }
+  if (!Number.isInteger(stage?.revision) || stage.revision < 1 || actual?.id !== expected.id || actual?.revision !== expected.revision || actual?.text !== expected.text) fail('HMW_SOURCE_NOT_SAVED');
+  return true;
+}
+
+export async function verifyAidtFrozenBacklink({ page, link, scope, stage, revision, waitForRoute, assertVersion, assertMaterial }) {
+  const target = ownedAidtEntityRoute(await link.getAttribute('href'), scope, { stage, revision });
+  await link.click();
+  await waitForRoute(() => matchesAidtEntityRoute(page.url(), target));
+  if (!matchesAidtEntityRoute(page.url(), target)) fail('FROZEN_SOURCE_NAVIGATION_UNVERIFIED');
+  await assertVersion(target);
+  if (stage === 2) {
+    if (!new URL(target.href).searchParams.get('sourceId') || typeof assertMaterial !== 'function') fail('FROZEN_MATERIAL_EXPECTATION_MISSING');
+    await assertMaterial(target);
+  }
+  return target;
+}
+
 
 export function interviewCodePattern(code) {
   if (code === 'U01') return /^U01(?:\s|$)/;
@@ -180,16 +240,34 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await expect(summary).toBeVisible();
     if (await summary.locator('..').getAttribute('open') === null) await summary.click();
   };
-  const follow = async name => {
+  let lastEntityRoute = null;
+  const waitForEntity = predicate => expect.poll(predicate, { timeout: 30000 }).toBe(true);
+  const entityReady = async stage => {
+    const id = ({ 2: 'aidt-stage-output', 3: 'aidt-definition-editor', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
+    if (!id) fail('ENTITY_FORM_EXPECTATION_MISSING');
+    await expect(page.getByTestId(id)).toBeVisible();
+    if (stage === 2) await expect(page.getByRole('textbox', { name: '学生提纲原稿', exact: true })).toBeEditable();
+    if (stage === 6) await expect(page.getByTestId(id).getByRole('textbox', { name: '测试任务与追问', exact: true })).toBeEditable();
+  };
+  const follow = async (name, { resource = false } = {}) => {
     const link = page.getByRole('link', { name, exact: true }); await expect(link).toBeVisible();
-    const href = owned(await link.getAttribute('href')); await link.click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe(root);
+    const href = owned(await link.getAttribute('href')), expected = new URL(href);
+    const stage = Number(expected.searchParams.get('step'));
+    if (!Number.isInteger(stage) || stage < 1 || stage > 6) fail('ENTITY_ROUTE_INVALID');
+    const target = expected.searchParams.has('entity') ? ownedAidtEntityRoute(href, { origin, projectId: scope.projectId }, { stage, report: expected.searchParams.get('summary') === '1' }) : null;
+    await link.click();
+    await waitForEntity(() => target ? matchesAidtEntityRoute(page.url(), target) : new URL(page.url()).pathname === root && new URL(page.url()).searchParams.get('step') === String(stage) && !new URL(page.url()).searchParams.has('entity') && new URL(page.url()).searchParams.get('summary') === expected.searchParams.get('summary'));
+    if (target) {
+      if (!matchesAidtEntityRoute(page.url(), target)) fail('ENTITY_NAVIGATION_UNVERIFIED');
+      await expect(page.getByTestId(resource ? 'design-detail-input' : 'copilotkit-v2-input')).toBeVisible();
+    } else await expect(page.getByTestId('aidt-step-entity-directory')).toBeVisible();
+    lastEntityRoute = target;
     return href;
   };
-  const output = async () => {
-    const url = new URL(page.url()); url.searchParams.set('tool', 'outcome');
-    await page.goto(owned(url.href), { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('aidt-shared-save')).toBeVisible();
+  const output = async (target = lastEntityRoute) => {
+    if (!target) fail('CAPTURED_ENTITY_REQUIRED');
+    return openAidtEntityOutcome({ page, target, waitForRoute: waitForEntity,
+      assertReady: () => entityReady(target.stage) });
   };
   const persistConfirmed = async (stage, control, saveControl) => {
     await reviewAndSave(stage, control);
@@ -315,8 +393,13 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const directory = new URL(step2Href); directory.searchParams.delete('entity'); directory.searchParams.delete('tool');
     for (let index = 1; index <= 2; index++) {
       await page.goto(owned(directory.href)); await click(btn('新建访谈')); await saveStage(2);
-      const code = `U0${index}`; await click(page.getByRole('button', { name: interviewCodePattern(code) }));
-      await output();
+      const code = `U0${index}`, saved = await savedStage(2);
+      const interviews = Object.entries(saved.content.draft.fields).filter(([key]) => key.startsWith('interviewRecord:')).map(([, raw]) => JSON.parse(raw)).filter(record => record.code === code);
+      if (interviews.length !== 1 || !/^[0-9a-f-]{36}$/i.test(interviews[0].id)) fail('SAVED_INTERVIEW_ENTITY_UNVERIFIED');
+      const targetUrl = new URL(directory.href); targetUrl.searchParams.set('entity', interviews[0].id);
+      const target = ownedAidtEntityRoute(targetUrl.href, { origin, projectId: scope.projectId }, { stage: 2, entityId: interviews[0].id });
+      await openAidtEntityOutcome({ page, target, activate: () => click(page.getByRole('button', { name: interviewCodePattern(code) })), waitForRoute: waitForEntity,
+        assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), assertReady: () => entityReady(2) });
       await fill('想了解什么', text(`核对${code}所代表的合成情境差异。`));
       await fill('学生提纲原稿', '请回忆最近一次做选择的经过？');
       await fill('学生采纳清单', text('请说说选择时的想法。')); await saveStage(2);
@@ -339,7 +422,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
       await persistConfirmed(2, btn('确认人物发现卡'));
       evidence(2).outputs.push({ name: `${code}人物发现卡`, format: 'native finding card; synthetic text, real-person photo missing', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}; software scope only` });
       await observeInputs(2);
-      state.interviews.push({ href: page.url(), code });
+      state.interviews.push({ href: page.url(), code, quote, materialName: `qa-${unique}-${code}.txt` });
     }
     await page.goto(owned(directory.href));
     await expect(page.getByRole('button', { name: /^U01/ })).toContainText('发现卡已核对');
@@ -397,7 +480,13 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await page.goto(owned(step4Href));
     for (const name of ideaNames) { await fill('点子名称', name); await click(btn('新建点子')); await saveStage(4); }
     await disclosure('分类与描述单');
-    const adopt = btn('将此 HMW 用于本轮'); if (await adopt.isVisible()) { await click(adopt); await saveStage(4); }
+    const hmwStage = await savedStage(3), hmwId = hmwStage.content.draft.fields.definitionHmwId;
+    let hmw; try { hmw = JSON.parse(hmwStage.content.draft.fields[`definitionHmw:${hmwId}`]); } catch { fail('SELECTED_HMW_UNVERIFIED'); }
+    if (hmw?.id !== hmwId || !hmw.confirmed || hmw.archived || typeof hmw.text !== 'string' || !hmw.text.trim() || String(hmwStage.revision) !== new URL(step4Href).searchParams.get('hmwRevision')) fail('SELECTED_HMW_UNVERIFIED');
+    const expectedHmw = { id: hmwId, revision: hmwStage.revision, text: hmw.text };
+    let pinned; try { pinned = JSON.parse((await savedStage(4)).content.draft.fields.ideaHmwSource); } catch { /* Must use the visible adoption action. */ }
+    if (!pinned) { await click(btn('将此 HMW 用于本轮')); await saveStage(4); }
+    assertSavedAidtHmwSource(await savedStage(4), expectedHmw);
     for (let index = 1; index <= 3; index++) {
       await page.getByLabel(`候选${index}核心说明`, { exact: true }).fill(`${SYNTHETIC}\n${['用纸质提示展示队列和预计等待，让学生先了解信息。学生可以据此自主决定是否加入队列，实际效果仍待真实测试。', '用分时预约说明不同可选时段和领取顺序。它帮助学生比较时间安排，是否减少等待需要真实服务测试。', '用同伴口味对照记录展示不同人的偏好和具体描述。学生可据此比较选择，但不能把少数意见当成所有人的偏好。'][index-1]}`);
       await uploaded(`候选${index}原始图片`, `qa-${unique}-idea-${index}.png`, schematicPng(unique, index), 'image/png');
@@ -437,7 +526,9 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     const createDesign = page.getByTestId('project-resources-new'); await expect(createDesign).toBeVisible(); await expect(createDesign).toBeEnabled();
     await armDesignCreate(); await createDesign.click();
     await expect.poll(() => new URL(page.url()).searchParams.get('entity')).toBeTruthy();
-    designId = new URL(page.url()).searchParams.get('entity'); const entityHref = page.url(); await output();
+    designId = new URL(page.url()).searchParams.get('entity'); const entityHref = page.url();
+    const designRoute = ownedAidtEntityRoute(entityHref, { origin, projectId: scope.projectId }, { stage: 5, entityId: designId });
+    await output(designRoute);
     await click(page.getByRole('button', { name: /^采用第 4 步 V\d+ 的 \d+ 个点子$/ }));
     await fill('通过这次制作原型，你最想知道什么？', '学生能理解提示吗？');
     await disclosure('补充先前看法与验证范围');
@@ -453,7 +544,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await observeInputs(5);
     evidence(5).notes.push('本轮真实迭代是原型制作前验证问题/制作说明的保存修订；仅调用一次Design生成，没有把再次确认同一文件冒充原型第二版。');
     await persistConfirmed(5, btn('确认本轮验证问题'));
-    await follow('打开原生 Design Workbench');
+    await follow('打开原生 Design Workbench', { resource: true });
     await expect(page.getByTestId('design-detail-input')).toBeEditable();
     await page.getByTestId('design-detail-input').fill(`${SYNTHETIC}。QA run=${scope.runId}。请生成一页静态校园饮品队列提示界面，标题明确QA合成演示；展示预计等待时间、查看口味、决定是否排队三个区块。只用于检查理解，不宣称有真实研究或用户认可。`);
     const send = page.getByTestId('design-detail-send'); await expect(send).toBeEnabled(); await armDesignGeneration();
@@ -465,7 +556,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     // The actual version picker below must verify generated frames; an HTTP response alone is insufficient.
     await expect(send).toBeEnabled({ timeout: 930000 });
     await shot('05-design-generated', 5);
-    await page.goto(owned(entityHref)); await output();
+    await output(designRoute);
     const picker = page.getByTestId('aidt-prototype-version-picker'); await click(btn('选择真实原型版本', picker));
     await click(picker.locator('[aria-label="已关联的设计"]').getByRole('button', { name: '未命名设计', exact: true }));
     await click(picker.getByRole('button', { name: /^选择 v\d+：/ }).first());
@@ -473,7 +564,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     await persistConfirmed(5, btn('确认所选原型'));
     evidence(5).outputs.push({ name: '已选静态原型与绑定验证问题', format: 'native Design version reference and verification question', status: 'pass', evidence: (await page.getByTestId('aidt-prototype-recorded-reference').innerText()).slice(0,2000) });
     step6Href = owned(await page.getByRole('link', { name: '带入测试与迭代', exact: true }).getAttribute('href'));
-    await shot('05-prototype-question-version', 5); await completed(5); await page.goto(owned(entityHref)); await output();
+    await shot('05-prototype-question-version', 5); await completed(5); await output(designRoute);
     report.designGenerationAndVersionWorkflowVerified = true;
     report.designProviderIndependentlyVerified = false;
   }, '05-prototype');
@@ -527,9 +618,12 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     if (!state.s6) { await go(6, '&summary=1'); fail('S6_REFLECTION_REQUIRED'); }
     if (typeof saveReport !== 'function') fail('REPORT_NORMAL_SAVE_GUARD_REQUIRED');
     await go(6, '&summary=1');
-    const open = page.getByRole('link', { name: '打开小组研究报告', exact: true }); if (await open.isVisible()) await follow('打开小组研究报告');
-    const reportUrl = new URL(page.url()); reportUrl.searchParams.set('tool', 'report');
-    await page.goto(owned(reportUrl.href), { waitUntil: 'domcontentloaded' });
+    const open = page.getByRole('link', { name: '打开小组研究报告', exact: true }); await expect(open).toBeVisible();
+    const reportTarget = ownedAidtEntityRoute(await open.getAttribute('href'), { origin, projectId: scope.projectId }, { stage: 6, entityId: 'group-report', report: true });
+    await openAidtEntityOutcome({ page, target: reportTarget, activate: () => click(open), waitForRoute: waitForEntity,
+      assertDetail: () => expect(page.getByTestId('copilotkit-v2-input')).toBeVisible(), tool: 'report',
+      assertReady: async () => { await expect(page.getByTestId('aidt-report-preview')).toBeVisible(); await expect(page.getByTestId('aidt-report-reload')).toBeEnabled(); } });
+    const reportUrl = new URL(page.url());
     const reportRegion = page.getByTestId('aidt-report-preview'); await expect(reportRegion).toBeVisible();
     await click(btn('编辑报告', reportRegion));
     const draft = reportRegion.getByLabel('小组报告草稿', { exact: true });
@@ -561,15 +655,46 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
     report.nativeReportContentChecks = requiredReportHighlights.map(text => ({ text, observedInConfirmedBody: true, observedInDownloadedMarkdown: true }));
     report.confirmedReportExport = { bytes, sha256: createHash('sha256').update(content).digest('hex'), format: 'markdown' };
     await printOutput(6, 'confirmed-group-report', page.getByRole('button', { name: /^打印 V\d+ PDF$/ }), [SYNTHETIC, 'QA验收边界']);
+    const confirmedState = await page.getByTestId('aidt-report-save-state').innerText();
+    const confirmedMatch = confirmedState.match(/已确认 · V(\d+)/); if (!confirmedMatch) fail('CONFIRMED_REPORT_REVISION_MISSING');
+    const confirmedRevision = Number(confirmedMatch[1]);
+    const openFrozenSources = async stage => {
+      await page.goto(owned(reportUrl.href), { waitUntil: 'domcontentloaded' });
+      await expect(page.getByTestId('aidt-report-reload')).toBeEnabled();
+      await disclosure('已确认版本与导出');
+      await click(page.getByRole('button', { name: `查看确认版 V${confirmedRevision}`, exact: true }));
+      await expect(page.getByRole('article', { name: '已确认报告正文', exact: true })).toContainText(SYNTHETIC);
+      const source = page.getByRole('list', { name: '确认版本来源', exact: true });
+      const button = source.getByRole('button', { name: new RegExp(`^查看第 ${stage} 步 V\\d+$`) });
+      await expect(button).toBeVisible(); const match = (await button.innerText()).match(/V(\d+)$/);
+      if (!match) fail('REPORT_SOURCE_REVISION_MISSING');
+      const revision = Number(match[1]); await click(button);
+      const details = page.locator('[aria-label="来源版本详情"]'); await expect(details).toContainText(`第 ${stage} 步 V${revision}`);
+      return { details, revision };
+    };
     report.reportSourceLinks = [];
     for (let stage = 1; stage <= 6; stage++) {
-      const sourceButton = sources.getByRole('button', { name: new RegExp(`第 ${stage} 步`) }).first(); await click(sourceButton);
-      const details = page.locator('[aria-label="来源版本详情"]'); await expect(details).toContainText(`第 ${stage} 步`);
+      const { details, revision } = await openFrozenSources(stage);
       const links = await details.getByRole('link').evaluateAll(nodes => nodes.map(node => ({ title: node.textContent, href: node.getAttribute('href') })));
       if (!links.length) fail('REPORT_ENTITY_BACKLINK_MISSING');
-      for (const link of links) owned(link.href);
-      report.reportSourceLinks.push({ stage, links });
+      for (const item of links) {
+        const restored = await openFrozenSources(stage);
+        if (restored.revision !== revision) fail('FROZEN_SOURCE_REVISION_CHANGED');
+        const link = restored.details.getByRole('link', { name: item.title.trim(), exact: true });
+        const target = await verifyAidtFrozenBacklink({ page, link, scope: { origin, projectId: scope.projectId }, stage, revision, waitForRoute: waitForEntity,
+          assertVersion: async () => { const history = page.getByTestId('aidt-entity-history'); await expect(history).toBeVisible(); await expect(history.getByRole('heading', { level: 1 })).toHaveText(new RegExp(` · V${revision}$`)); await expect(history).toContainText('已保存的历史版本。'); await expect(history).toContainText(SYNTHETIC); },
+          assertMaterial: async target => {
+            const interview = state.interviews.find(row => new URL(row.href).searchParams.get('entity') === target.entityId);
+            if (!interview) fail('FROZEN_INTERVIEW_EXPECTATION_MISSING');
+            const material = page.getByTestId('aidt-research-material-preview').filter({ hasText: interview.materialName });
+            await expect(material).toBeVisible(); await expect(material).toContainText(new URL(target.href).searchParams.get('sourceId'));
+            const original = material.getByTestId('aidt-research-original-text'); await expect(original).toBeVisible(); await expect(original).toContainText(interview.quote); await expect(original).toContainText(SYNTHETIC);
+          } });
+        item.clicked = true; item.frozenRevision = revision; item.entityId = target.entityId; item.materialVerified = stage === 2;
+      }
+      report.reportSourceLinks.push({ stage, revision, links });
     }
+    await openFrozenSources(6);
   }, '07-confirmed-report');
 
   await check('six-stage-completion', undefined, async () => {

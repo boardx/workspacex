@@ -138,3 +138,79 @@ test('synchronous guard arm failure creates no request waiter and never clicks s
   assert.equal(waiterCount, 0, 'failed guard must not leave a future rejecting request waiter');
   assert.equal(clickCount, 0);
 });
+
+function pendingHarness({ mutate = () => {}, changeAcceptedRun = false, callback = () => {} } = {}) {
+  const s = scope(), e = evidence(s), r = request(s), events = [], reports = [];
+  e.run.status = 'awaiting_tool_permission';
+  e.run.pendingApproval = { permissionRequestId: 'permission-owned-1', toolName: 'confirm_task_intent', argsSummary: 'synthetic-private-summary', interrupt: { toolName: 'confirm_task_intent', args: { requestId: 'synthetic-private-arg-request', understanding: 'synthetic-private-understanding', assumptions: ['synthetic-private-assumption'] } } };
+  mutate(e.run);
+  let sent = false, resolveRequest, messagePoll = 0;
+  const page = {
+    url: () => `${s.origin}/aidt/${s.projectId}?step=1&thread=${s.threadId}&entity=${s.selector.entityId}`,
+    getByTestId: name => name === 'copilotkit-v2-send' ? { click: async () => { sent = true; resolveRequest({ method: () => r.method, url: () => r.url, postDataJSON: () => r.body }); } } : { fill: async () => {}, count: async () => 0 },
+    waitForRequest: () => new Promise(resolve => { resolveRequest = resolve; }),
+  };
+  const expect = () => ({ toBeVisible: async () => {}, toHaveCount: async () => {}, toBeEnabled: async () => {} });
+  expect.poll = fn => ({ toBe: async expected => { for (let attempt = 0; attempt < 3; attempt++) if (await fn() === expected) return; assert.fail('bounded fixture poll did not terminate'); } });
+  const read = async path => {
+    if (path.includes('/messages?')) {
+      if (!sent) return { status: 200, data: { messages: [], nextCursor: null } };
+      messagePoll++;
+      if (changeAcceptedRun && messagePoll > 1) e.messages.messages[0].agentRunId = 'changed-backend-run';
+      return { status: 200, data: e.messages };
+    }
+    if (path.endsWith('/aidt-context')) return { status: 200, data: e.receipt };
+    if (path.includes('/agent-runs/')) return { status: 200, data: changeAcceptedRun && messagePoll === 1 ? { ...e.run, status: 'running' } : e.run };
+    return { status: 200, data: { revision: 2 } };
+  };
+  return { reports, events, result: () => sendTeachingFeedback({ page, expect, scope: s, read, armSend: () => {}, onEvent: event => events.push(event), onPendingReview: async receipt => { reports.push(receipt); return callback(receipt); } }) };
+}
+
+test('pending review exports only owned coordinates and closed argument types once, and stays blocked', async () => {
+  const h = pendingHarness({ callback: () => false });
+  await assert.rejects(h.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED');
+  assert.equal(h.reports.length, 1);
+  assert.deepEqual(h.reports[0], { projectId: 'prj-owned', stageId: 1, threadId: 'thr_aidt_owned', runId: 'backend-run-1', inputMessageId: 'msg-human', permissionRequestId: 'permission-owned-1', toolName: 'confirm_task_intent', knownConfirmTaskIntent: true, argumentFields: [{ name: 'requestId', type: 'string' }, { name: 'understanding', type: 'string' }, { name: 'assumptions', type: 'array-of-strings' }], argumentShapeKnown: true });
+  assert.equal(JSON.stringify(h.reports).includes('synthetic-private'), false);
+  assert.equal(h.events.some(event => event.event === 'durable-run-succeeded'), false);
+});
+
+test('foreign run, thread, input or skill identity cannot emit pending review metadata', async () => {
+  for (const [key, value] of [['runId', 'foreign-run'], ['threadId', 'foreign-thread'], ['inputMessageId', 'foreign-input'], ['skillVersionIds', ['foreign-skill']]]) {
+    const h = pendingHarness({ mutate: run => { run[key] = value; } });
+    await assert.rejects(h.result(), error => error.code === 'TEACHING_ACCEPTANCE_MISMATCH');
+    assert.equal(h.reports.length, 0);
+  }
+  const changed = pendingHarness({ changeAcceptedRun: true });
+  await assert.rejects(changed.result(), error => error.code === 'TEACHING_ACCEPTANCE_MISMATCH');
+  assert.equal(changed.reports.length, 0);
+});
+
+test('unknown or malicious tool names and arbitrary args do not leak into passive review', async () => {
+  for (const toolName of ['write_todos', 'unknown-secret-tool', 'https://private.invalid/secret?token=secret', '<script>secret</script>']) {
+    const h = pendingHarness({ mutate: run => { run.pendingApproval.toolName = toolName; run.pendingApproval.permissionRequestId = 'bad/token?secret'; run.pendingApproval.interrupt = { toolName, args: { 'secret-field': 'secret-value' } }; } });
+    await assert.rejects(h.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED');
+    assert.equal(h.reports.length, 1);
+    assert.equal(h.reports[0].toolName, 'other'); assert.equal(h.reports[0].knownConfirmTaskIntent, false);
+    assert.deepEqual(h.reports[0].argumentFields, []); assert.equal(h.reports[0].argumentShapeKnown, false); assert.equal(h.reports[0].permissionRequestId, null);
+    assert.equal(JSON.stringify(h.reports).includes('secret'), false);
+  }
+});
+
+test('extra argument keys and malformed or unbounded known values cannot claim a known argument shape', async () => {
+  for (const change of [args => { args['private-extra-key'] = 'private-extra-value'; }, args => { args.assumptions = ['ok', { token: 'private-extra-value' }]; }, args => { args.assumptions = Array(65).fill('ok'); }, args => { args.assumptions = ['x'.repeat(10001)]; }, args => { args.assumptions = ['']; }, args => { args.understanding = 'x'.repeat(10001); }, args => { delete args.requestId; }]) {
+    const h = pendingHarness({ mutate: run => change(run.pendingApproval.interrupt.args) });
+    await assert.rejects(h.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED');
+    assert.equal(h.reports[0].argumentShapeKnown, false);
+    assert.equal(JSON.stringify(h.reports).includes('private-extra'), false);
+    assert.equal(h.reports[0].argumentFields.every(field => ['requestId', 'understanding', 'assumptions'].includes(field.name) && ['string', 'array-of-strings', 'other'].includes(field.type)), true);
+  }
+});
+
+test('throwing or rejecting passive review callback preserves the original tool-review failure', async () => {
+  for (const callback of [() => { throw new Error('private callback details'); }, async () => { throw new Error('private callback details'); }]) {
+    const h = pendingHarness({ callback });
+    await assert.rejects(h.result(), error => error.code === 'TEACHING_TOOL_REVIEW_REQUIRED' && !String(error).includes('private'));
+    assert.equal(h.reports.length, 1); assert.equal(h.events.some(event => event.event === 'durable-run-succeeded'), false);
+  }
+});
