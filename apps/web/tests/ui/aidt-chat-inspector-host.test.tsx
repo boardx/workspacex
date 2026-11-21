@@ -5,6 +5,8 @@ import { ChatTaskInspector, type ChatTaskInspectorProps } from "@/components/cha
 import { ProjectMemberChatLauncher } from "@/components/project/project-member-chat-launcher";
 import { requestOpenInRightPanel, requestOpenFileInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { requestOpenKnowledgePanel } from "@/lib/knowledge-graph-events";
+import { savedAidtInterviewArtifactTitle } from "@/features/aidt/lib/aidt-interviews";
+import type { AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 const mocks = vi.hoisted(() => ({ mobile: false, request: vi.fn() }));
 vi.mock("@/lib/api-client", async original => ({...await original<typeof import("@/lib/api-client")>(), apiRequest: mocks.request}));
 vi.mock("@/lib/project-member-chat-config", () => ({ isProjectMemberChatEnabled: () => true }));
@@ -48,6 +50,38 @@ it("keeps the current entity output selected until the user explicitly returns t
   fireEvent.click(screen.getByRole("button", { name: /产物列表/ }));
   expect(screen.queryByTestId("learning-form")).toBeNull();
   expect(tab).toHaveAttribute("aria-selected", "true");
+});
+it("counts a saved interview product, reopens it within the inspector, and scopes it after remount and entity change", async () => {
+  const idA = "10000000-0000-4000-8000-000000000001";
+  const idB = "10000000-0000-4000-8000-000000000002";
+  const record = { version: 1, topicRevision: null, topic: "", goal: "", original: "", guideConfirmed: false, consent: null };
+  const draft: AidtUiStageDraft = { fields: {
+    ["interviewRecord:" + idA]: JSON.stringify({ ...record, id: idA, code: "U01", adopted: "实际问题清单" }),
+    ["interviewRecord:" + idB]: JSON.stringify({ ...record, id: idB, code: "U02", adopted: "" }),
+  }, ideas: [], selectedIdeaId: "" };
+  function InterviewInspector({ id }: { id: string }) {
+    const [open, setOpen] = React.useState(true);
+    const title = savedAidtInterviewArtifactTitle(draft, id);
+    return <ChatTaskInspector {...base} threadId={null} artifacts={{ items: [] }} hostPanel={{
+      scope: id, title: "产物", placement: "artifacts", open, onOpenChange: setOpen, savedArtifactTitle: title,
+      content: <p data-testid="interview-inspector-detail">{title ?? "尚无访谈产物"}</p>,
+    }} />;
+  }
+  const back = () => fireEvent.click(screen.getByRole("button", { name: /产物列表/ }));
+  const first = render(<InterviewInspector id={idA} />);
+  back();
+  expect(screen.getByTestId("chat-artifacts-panel-title")).toHaveTextContent("产物（1）");
+  expect(screen.queryByTestId("chat-artifacts-empty")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "U01 · 访谈产物" }));
+  expect(screen.getByTestId("interview-inspector-detail")).toHaveTextContent("U01 · 访谈产物");
+  first.unmount();
+  const refreshed = render(<InterviewInspector id={idA} />);
+  back();
+  expect(screen.getByRole("button", { name: "U01 · 访谈产物" })).toBeVisible();
+  refreshed.rerender(<InterviewInspector key={idB} id={idB} />);
+  back();
+  expect(screen.getByTestId("chat-artifacts-panel-title")).toHaveTextContent("产物（0）");
+  expect(screen.queryByRole("button", { name: "U01 · 访谈产物" })).toBeNull();
 });
 it.each(["result","file","knowledge"] as const)("hands an open learning panel back to native %s events",async kind=>{
   render(<Workspace />);fireEvent.click(screen.getByTestId("chat-task-workbench-host-open"));

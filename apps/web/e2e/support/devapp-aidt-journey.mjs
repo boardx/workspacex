@@ -784,6 +784,16 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
         await expect(timeline.getByTestId('chat-user-message-text').filter({ hasText: sibling.prompt })).toHaveCount(0);
         if (records.some(row => row.id === sibling.inputMessageId || row.id === sibling.assistantMessageId)) fail('SIBLING_INTERVIEW_MESSAGE_VISIBLE');
       }
+      await click(page.getByRole('button', { name: /产物列表/ }));
+      const nativeArtifacts = page.getByTestId('chat-artifacts-panel');
+      const interviewArtifact = nativeArtifacts.getByTestId('chat-host-artifact');
+      await expect(interviewArtifact).toHaveText(`${interview.code} · 访谈产物`);
+      await expect(nativeArtifacts.getByTestId('chat-artifacts-empty')).toHaveCount(0);
+      for (const sibling of state.interviews.filter(other => other !== interview)) {
+        await expect(nativeArtifacts.getByRole('button', { name: `${sibling.code} · 访谈产物`, exact: true })).toHaveCount(0);
+      }
+      await click(interviewArtifact);
+      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(interview.threadId);
       const inspector = await readOnlyInterviewOutput();
       await expect(inspector.getByTestId('aidt-interview-question-list')).toContainText(interview.adopted);
       await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(interview.quote);
@@ -792,7 +802,7 @@ export async function runAidtJourney({ page, expect, scope, checkpoint, capture,
         await expect(inspector).not.toContainText(other.quote);
       }
       expect(new URL(page.url()).searchParams.get('entity')).toBe(new URL(interview.href).searchParams.get('entity'));
-      observed.push({ code: interview.code, stableThread: true, savedStudentMessage: true, savedAssistantMessage: true, noSiblingMessages: true, confirmedGuide: true, exportedPdf: true, rightInspector: true, directoryReentry: true, refresh: true });
+      observed.push({ code: interview.code, stableThread: true, savedStudentMessage: true, savedAssistantMessage: true, noSiblingMessages: true, confirmedGuide: true, exportedPdf: true, rightInspector: true, nativeArtifactListReentry: true, directoryReentry: true, refresh: true });
     }
     report.independentEntityThreadsVerified = true;
   }, '02-independent-chat');

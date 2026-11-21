@@ -151,6 +151,22 @@ test("ten interviews bind to ten native conversations and reopening never copies
   await page.reload();
   await expect(page.getByText(question, { exact: true }).first()).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("interview-chat-confirmed.png") });
-  await openInterview(page, urls[1]! + "&tool=outcome");
+  const artifactList = page.getByTestId("chat-artifacts-panel");
+  const backToArtifacts = () => page.getByRole("button", { name: /产物列表/ }).click();
+  await backToArtifacts();
+  await expect(artifactList.getByTestId("chat-host-artifact")).toContainText("U01");
+  await expect(artifactList.getByTestId("chat-artifacts-empty")).toHaveCount(0);
+  await artifactList.getByTestId("chat-host-artifact").click();
+  await expect(page.getByTestId("aidt-interview-question-list")).toContainText(question);
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(first);
+
+  const second = await openInterview(page, urls[1]! + "&tool=outcome");
+  expect(second).not.toBe(first);
   await expect(page.getByText(question, { exact: true })).toHaveCount(0);
+  await backToArtifacts();
+  await expect(artifactList.getByTestId("chat-host-artifact")).toContainText("U02");
+  await expect(artifactList).not.toContainText("U01");
+  await artifactList.getByTestId("chat-host-artifact").click();
+  await expect(page.getByTestId("aidt-interview-question-list")).toContainText("U02 的测试清单");
+  await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(second);
 });
