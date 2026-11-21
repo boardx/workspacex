@@ -6,6 +6,7 @@ import { aidtUiReportMarkdown, aidtUiStageSummary, emptyAidtUiDrafts, type AidtU
 import { readAidtStage, saveAidtStage, type AidtSharedStage } from "./live-aidt-stages";
 
 import { parseAidtSurpriseReflection, readAidtSurpriseSourceRevision } from "./aidt-surprise-reflection";
+import { readAidtIdeaHmwSource } from "./aidt-idea-handoff";
 import { readAidtQuestionSnapshot } from "./aidt-verification-loop";
 
 type Scope = { projectId: string; orgId: string; userId: string; sessionToken: string };
@@ -71,7 +72,8 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   const surpriseRevisionValue = draft ? readAidtSurpriseSourceRevision(draft) : null;
   const surprise = stageId === 3 && draft ? parseAidtSurpriseReflection(draft) : null;
   const surpriseRevision = surprise?.status === "found" && surprise.cardIds.length > 0 && !surprise.invalidCardIds && draft?.fields.surpriseConfirmed === "true" && surpriseRevisionValue !== null && Number.isSafeInteger(surpriseRevisionValue) && surpriseRevisionValue > 0 ? surpriseRevisionValue : null;
-  const lockedSourceStage = questionRevision ? { stageId: 5, revision: questionRevision } : surpriseRevision ? { stageId: 2, revision: surpriseRevision } : null;
+  const ideaHmwRevision = stageId === 4 && draft ? readAidtIdeaHmwSource(draft)?.revision : null;
+  const lockedSourceStage = ideaHmwRevision ? { stageId: 3, revision: ideaHmwRevision } : questionRevision ? { stageId: 5, revision: questionRevision } : surpriseRevision ? { stageId: 2, revision: surpriseRevision } : null;
   const sourceStageRevisions = lockedSourceStage
     ? [...chosenSourceStageRevisions.filter(source => source.stageId !== lockedSourceStage.stageId), lockedSourceStage].sort((a, b) => a.stageId - b.stageId)
     : chosenSourceStageRevisions;
