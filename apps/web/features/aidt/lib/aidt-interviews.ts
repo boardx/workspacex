@@ -9,10 +9,13 @@ const archivedKey = (id: string) => `interviewArchived:${id}`;
 const materialPrefix = (id: string) => `interviewMaterial:${id}:`;
 const transcriptKey = (id: string) => `interviewTranscript:${id}`;
 
+export const interviewTagsLimit = { maxTags: 8, maxTagLength: 24 };
 const Interview = z.object({
   version: z.literal(1),
   id: z.string().uuid(),
   code: z.string().trim().min(1).max(32),
+  displayName: z.string().trim().max(80).optional(),
+  tags: z.array(z.string().trim().min(1).max(interviewTagsLimit.maxTagLength)).max(interviewTagsLimit.maxTags).optional(),
   problemEntityId: z.string().uuid().optional(),
   topicRevision: z.number().int().positive().nullable(),
   topic: z.string().max(650),
