@@ -7,7 +7,7 @@ import type { AidtContextActor } from "../../application/aidt-run-context/ports"
 import type { AidtStagesService } from "../../application/aidt-stages/service";
 import { aidtEntityThreadId, aidtSavedEntityTitle } from "../../application/aidt-stages/entity-thread";
 import { problemSkillFields, projectProblemSkillDraft } from "../../application/aidt-stages/problem-skill-draft";
-import { projectInterviewSkillDraft } from "../../application/aidt-stages/interview-skill-draft";
+import { projectInterviewSkillDraft, readInterviewChatDraft } from "../../application/aidt-stages/interview-skill-draft";
 
 type Row = { run_id:string; message_id:string; user_text:string; assistant_text:string; source_revision:number|null; requested_by:string; input_at:Date; };
 /** Receipt key in the normal append-only stage ledger. Version/variant bits follow UUID v5. */
@@ -70,8 +70,20 @@ export async function projectSavedSkillOutput(s:TenantSession, stages:AidtStages
           AND strpos(body,$4)>0 LIMIT 1`, [actor.orgId,actor.threadId,row.input_at,proposed]);
       if (evidence.rows.length) verifiedInitial = proposed;
     }
+    const finding = stageId === 2 ? readInterviewChatDraft(row.assistant_text)?.finding : undefined;
+    const candidates = [finding?.headline, finding?.context, finding?.interpretation].filter((value): value is string =>
+      Boolean(value && !row.user_text.includes(value)));
+    let verifiedFindingText: string[] = [];
+    if (candidates.length) {
+      const evidence = await s.query<{ candidate: string }>(`SELECT DISTINCT candidate FROM unnest($4::text[]) AS terms(candidate)
+        WHERE EXISTS (SELECT 1 FROM chat_messages
+          WHERE org_id=$1 AND thread_id=$2 AND author_kind='human' AND NOT raw_transcript
+            AND COALESCE(visibility_scope,'plenary')='plenary' AND created_at <= $3
+            AND strpos(body,candidate)>0)`, [actor.orgId,actor.threadId,row.input_at,candidates]);
+      verifiedFindingText = evidence.rows.map(item => item.candidate);
+    }
     const project=stageId===1?projectProblemSkillDraft:projectInterviewSkillDraft;
-    const next=project(current.content.draft,entityId,{user:row.user_text,assistant:row.assistant_text,messageId:row.message_id,verifiedInitial});
+    const next=project(current.content.draft,entityId,{verifiedFindingText,projectId:actor.projectId,user:row.user_text,assistant:row.assistant_text,messageId:row.message_id,verifiedInitial});
     if (!next) continue;
     await stages.save(actor,{projectId:actor.projectId,stageId,operationId:op,expectedRevision:current.revision,
       content:{schemaVersion:1,draft:next},sourceStageRevisions:current.sourceStageRevisions});

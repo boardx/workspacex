@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { AIDT_ENTITY_THREAD_PREFIX, aidtInterviewTitle, isAidtProblemControlText, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { readAidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
+import { checkedInterviewExcerpt } from "./interview-skill-draft";
 import type { StageActor } from "./ports";
 
 export function aidtEntityThreadId(actor: StageActor, stageId: number, entityId: string, purpose: "stage" | "report") {
@@ -72,7 +73,7 @@ export function aidtSavedEntityTitle(stage: SharedStageValue | null, entityId: s
 }
 
 /** Read only the selected entity's saved teaching fields. Native attachments use their own authorized tools. */
-export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string) {
+export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string, includeCheckedExcerpt = true) {
   const { fields, ideas, discoveryCards } = stage.content.draft;
   const list = (value: Record<string, unknown> | null, keys: readonly string[]) =>
     value ? Object.fromEntries(keys.flatMap(key => {
@@ -88,6 +89,7 @@ export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string
     case 2: {
       const card = discoveryCards?.find(item => item.id === entityId);
       return { entityId, fields: read("interviewRecord:", ["code", "topic", "goal", "original", "adopted", "guideConfirmed"]),
+        checkedExcerpt: includeCheckedExcerpt ? checkedInterviewExcerpt(fields, entityId, stage.projectId) : undefined,
         finding: card ? { headline: card.headline, headlineKind: card.headlineKind, context: card.context } : undefined };
     }
     case 3:

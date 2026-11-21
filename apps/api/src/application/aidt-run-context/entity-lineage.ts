@@ -95,7 +95,7 @@ export async function entityLineage(stage: SharedStageValue, entityId: string,
       const original = await recover(upstream,ref.entityId);
       if (original) problem["原始命题（同一对话已核对）"] = original;
     }
-    const content = problem ?? aidtSavedEntityContext(upstream,ref.entityId);
+    const content = problem ?? aidtSavedEntityContext(upstream,ref.entityId,false);
     sources.push({step:ref.stageId,entityId:ref.entityId,revision:ref.revision,href:aidtEntitySourceHref(stage.projectId,ref.stageId,ref.entityId,ref.revision),content});
     queue.push(...parents(upstream,ref.entityId));
     await addLegacyInterview(upstream,ref.entityId);

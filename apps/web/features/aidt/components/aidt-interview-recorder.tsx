@@ -180,7 +180,7 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
       onAttached({ source: reference, startedAt: preview.startedAt, finishedAt: preview.finishedAt, durationMs: preview.durationMs, draftTranscript: preview.draftTranscript });
       clear();
       setPreview(null);
-      setMessage("原件已上传并回读，已关联此访谈。请保存本步成果。");
+      setMessage("原件已上传并回读，访谈关联会自动保存。");
     } catch {
       if (mounted.current && !controller.signal.aborted) setMessage("录音保存或回读未通过。本页仍可回听原件，也可重试。");
     } finally {
