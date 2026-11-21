@@ -16,6 +16,10 @@ on:
         description: Opt in to new owned synthetic QA project + screenshots on Dev (one bounded Design generation)
         type: boolean
         default: false
+      entry_diagnostic_only:
+        description: Read-only login/ordinary-role/home-entry evidence; never create a project or run the journey
+        type: boolean
+        default: false
       isolated_native:
         description: Run native scenarios against exact candidate in isolated hosted services (models are loopback)
         type: boolean
@@ -65,7 +69,7 @@ jobs:
           retention-days: 3
 
   isolated-native:
-    if: ${{ inputs.isolated_native && github.ref == 'refs/heads/develop' }}
+    if: ${{ inputs.isolated_native && !inputs.entry_diagnostic_only && github.ref == 'refs/heads/develop' }}
     needs: controls
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -135,6 +139,7 @@ jobs:
     env:
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+      AIDT_ENTRY_DIAGNOSTIC_ONLY: ${{ inputs.entry_diagnostic_only }}
       DEBUG: ''
       PWDEBUG: ''
       NODE_DEBUG: ''

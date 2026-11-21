@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
-import { enforceDeniedProbeStatus } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
+import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
+import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
@@ -14,7 +14,8 @@ function owned(options = {}) {
   guard.armLogin();
   const login = request(guard, 'POST', '/api/auth/login', { email: syntheticLoginValue, password: syntheticLoginValue });
   guard.observe(login, 200, { userId: 'qa-user', orgs: ['qa-org'], sessionToken: 'synthetic-token', expiresAt: '2099-01-01T00:00:00Z' });
-  const create = request(guard, 'POST', '/api/projects', { orgId: 'qa-org', name: id.projectName, kind: 'general', blueprintVersionId: null });
+  guard.verifyOrdinaryIdentity(200, { org: { id: 'qa-org' }, orgRole: 'consultant' }); guard.armProjectCreate();
+  const create = request(guard, 'POST', '/api/projects', { orgId: 'qa-org', name: id.projectName, kind: 'general', blueprintVersionId: null, profile: 'aidt' });
   assert.equal(create.allow, true);
   guard.observe(create, 201, { id: project, kind: 'general', status: 'active', provenanceEventId: 'qa-event' });
   return { guard, bind: () => guard.bindOwnedProject({ projectId: project, name: id.projectName }, [{ userId: 'qa-user', role: 'owner' }]) };
@@ -59,7 +60,7 @@ test('new project requires response receipt plus matching name and actual QA own
   const fresh = owned();
   assert.throws(() => fresh.guard.bindOwnedProject({ projectId: project, name: identity().projectName }, [{ userId: 'qa-user', role: 'collaborator' }]), /PROJECT_OWNERSHIP_UNVERIFIED/);
   fresh.bind();
-  assert.equal(request(fresh.guard, 'PATCH', `/api/projects/${project}/tags`, { projectId: project, tags: ['workspacex:aidt'] }).allow, true);
+  assert.equal(request(fresh.guard, 'PATCH', `/api/projects/${project}/tags`, { projectId: project, tags: ['workspacex:aidt'] }).allow, false);
 });
 test('cross-origin and encoded path escapes stop all future requests', () => {
   for (const url of ['https://app.workspacex.cn/aidt', `https://devapp.boardx.us/api/projects/${project}/%2e%2e/other`, 'https://user@devapp.boardx.us/aidt']) {
@@ -180,4 +181,69 @@ test('normal first Design send preserves default service page count without clai
   assert.equal(request(guard, 'POST', '/api/pm-designs/design-qa/chat', { text: 'QA 456 normal first UI send' }).allow, true);
   assert.equal(guard.summary().designRequestedScreens, 'service-default');
   assert.equal(guard.summary().modelRequests, 1);
+});
+
+test('ordinary role is verified before UI creation and lead/admin never count as ordinary', () => {
+  for (const role of ['lead', 'admin', 'compliance', undefined]) {
+    const guard = createAcceptanceGuard(identity()); guard.armLogin();
+    const login = request(guard, 'POST', '/api/auth/login', { email: syntheticLoginValue, password: syntheticLoginValue });
+    guard.observe(login, 200, { userId: 'qa-user', orgs: ['qa-org'], sessionToken: 'synthetic-token', expiresAt: '2099-01-01T00:00:00Z' });
+    assert.throws(() => guard.verifyOrdinaryIdentity(200, { org: { id: 'qa-org' }, orgRole: role }), /ORDINARY_QA_CONSULTANT_REQUIRED/);
+    assert.throws(() => guard.armProjectCreate(), /PROJECT_CREATE_ARM_REJECTED/);
+    assert.equal(guard.summary().projectCreates, 0);
+  }
+});
+test('new creation requires the strict atomic profile and short-lived ordinary UI arm', () => {
+  for (const patch of [{ profile: undefined }, { profile: 'other' }, { tags: ['workspacex:aidt'] }]) {
+    const guard = createAcceptanceGuard(identity()); guard.armLogin();
+    const login = request(guard, 'POST', '/api/auth/login', { email: syntheticLoginValue, password: syntheticLoginValue });
+    guard.observe(login, 200, { userId: 'qa-user', orgs: ['qa-org'], sessionToken: 'synthetic-token', expiresAt: '2099-01-01T00:00:00Z' });
+    guard.verifyOrdinaryIdentity(200, { org: { id: 'qa-org' }, orgRole: 'consultant' }); guard.armProjectCreate();
+    assert.equal(request(guard, 'POST', '/api/projects', { orgId: 'qa-org', name: identity().projectName, kind: 'general', blueprintVersionId: null, profile: 'aidt', ...patch }).allow, false);
+  }
+});
+
+test('entry diagnostic allows only login and reads, even if identity is consultant', () => {
+  for (const [method, path, body] of [
+    ['POST', '/api/projects', { profile: 'aidt' }],
+    ['PUT', `/api/projects/${project}/aidt/stages/1`, stageBody()],
+    ['POST', '/api/pm-designs', { name: '未命名设计', template: 'ui' }],
+    ['PATCH', `/api/projects/${project}/tags`, {}],
+  ]) {
+    const guard = createAcceptanceGuard({ ...identity(), entryDiagnosticOnly: true }); guard.armLogin();
+    const login = request(guard, 'POST', '/api/auth/login', { email: syntheticLoginValue, password: syntheticLoginValue });
+    guard.observe(login, 200, { userId: 'qa-user', orgs: ['qa-org'], sessionToken: 'synthetic-token', expiresAt: '2099-01-01T00:00:00Z' });
+    assert.deepEqual(guard.readIdentityRole(200, { org: { id: 'qa-org' }, orgRole: 'consultant' }), { orgRole: 'consultant', organizationMatched: true, ordinaryConsultant: true });
+    guard.verifyOrdinaryIdentity(200, { org: { id: 'qa-org' }, orgRole: 'consultant' });
+    assert.throws(() => guard.armProjectCreate(), /PROJECT_CREATE_ARM_REJECTED/);
+    assert.equal(request(guard, method, path, body).code, 'ENTRY_DIAGNOSTIC_READONLY');
+    assert.equal(guard.summary().projectCreates, 0);
+    assert.equal(guard.summary().modelRequests, 0);
+  }
+});
+
+test('PNG validation opens its own page and cleans that context without touching the acceptance page', async () => {
+  let opened = 0, closed = 0; const bytes = Buffer.alloc(600); Buffer.from('89504e470d0a1a0a', 'hex').copy(bytes);
+  const browser = { newContext: async () => ({ route: async () => {}, newPage: async () => { opened++; return { evaluate: async () => ({ width: 1440, height: 40, sampledColors: 20 }) }; }, close: async () => { closed++; } }) };
+  assert.equal((await verifyPng(browser, bytes, 24)).height, 40);
+  await assert.rejects(verifyPng(browser, bytes), /SCREENSHOT_EMPTY_OR_UNREADABLE/);
+  assert.equal(opened, 2); assert.equal(closed, 2);
+});
+
+test('homepage image proxy only accepts the two known local images and normal bounded dimensions', () => {
+  for (const source of ['/aidt/design-thinking-school.png', '/aidt/workshop-materials.png']) {
+    assert.equal(approvedHomeImage(new URL(`https://devapp.boardx.us${source}`)), true);
+    assert.equal(approvedHomeImage(new URL(`https://devapp.boardx.us/_next/image?url=${encodeURIComponent(source)}&w=750&q=75`)), true);
+  }
+  for (const query of ['url=https://evil.example/pixel&w=750&q=75', 'url=/api/private&w=750&q=75', 'url=/aidt/workshop-materials.png&w=999999&q=75', 'url=/aidt/workshop-materials.png&w=750&q=75&extra=1']) assert.equal(approvedHomeImage(new URL(`https://devapp.boardx.us/_next/image?${query}`)), false);
+});
+
+test('diagnostic or full pass is revoked if a concurrent request tripped the safety guard', () => {
+  for (const executionMode of ['entry-diagnostic-readonly', 'ordinary-ui-first-full']) {
+    const report = { executionMode, passed: true, fullAcceptancePassed: true };
+    finalizeGuardVerdict(report, { fatal: () => 'ENTRY_DIAGNOSTIC_READONLY' });
+    assert.equal(report.passed, false); assert.equal(report.fullAcceptancePassed, false);
+    assert.equal(report.failure, 'ENTRY_DIAGNOSTIC_READONLY');
+  }
+  const ok = { passed: true }; finalizeGuardVerdict(ok, { fatal: () => null }); assert.equal(ok.passed, true);
 });
