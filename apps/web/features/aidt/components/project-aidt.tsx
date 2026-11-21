@@ -53,6 +53,7 @@ import { ArrowLeft } from "lucide-react";
 import { ChatHostConversationContext } from "@/components/chat/chat-host-panel";
 import { AidtProblemConversation, AidtProblemWorkspace } from "./aidt-problem-workspace";
 import { useAidtConfirmedStages } from "../lib/use-aidt-confirmed-stages";
+import { useAidtReportReview } from "../lib/use-aidt-report-review";
 import { AidtRoundCompletion } from "./aidt-round-completion";
 import { aidtStageContextReferences } from "../lib/aidt-native-context-selector";
 import { getAidtPrototypeGenerationReadiness } from "../lib/aidt-verification-loop";
@@ -225,6 +226,15 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
   } });
   const latestHmwStage = shared.stages[3];
   const hmwSessionToken = checkpointScope?.sessionToken;
+  const reportReview = useAidtReportReview({
+    scope: JSON.stringify([uiLifecycleKey, identity?.sessionToken ?? null, reportDraftKey, activeEntityId ?? null, tool === "report", canWrite]),
+    serverRevision: shared.report.serverRevision,
+    markdown: currentUi.reports[reportDraftKey]?.text ?? aidtUiReportMarkdown(currentUi.drafts, {
+      discoveryCardsRevision: shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined,
+    }),
+    sources: shared.report.sourceStageRevisions ?? [], selectedSources: shared.report.selectedSources ?? [],
+    canConfirm: Boolean(shared.report.canConfirm), initialPreview: reportMode,
+  });
   const hmwScope = JSON.stringify([uiLifecycleKey, hmwSessionToken, hmwRevision]);
   const [historicalHmw, setHistoricalHmw] = React.useState<{ scope: string; stage: AidtSharedStage | null }>();
   React.useEffect(() => {
@@ -427,7 +437,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
           reportNote="原生报告当前整理本页最新草稿；这里的对照记录未自动写入共享报告。" />}
 </>
         : tool === "context" ? <><AidtStageBridge key={`${uiScope}:${step.id}`} projectId={projectId} stageNumber={step.id} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} toChat={toChat} readOnly={!canWrite} /><AidtMaterials key={uiScope} projectId={projectId} stageNumber={step.id} thread={thread} returnRevision={returnRevision} /></>
-        : tool === "report" ? <AidtReportPreview initialPreview={reportMode} key={reportDraftKey + uiScope} reportEntityId={reportEntityId} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} text={currentUi.reports[reportDraftKey]?.text ?? null} sourceRevision={currentUi.reports[reportDraftKey]?.sourceRevision ?? currentUi.revision} revision={currentUi.revision} onChange={(text) => changeReport(text)} regenerate={() => changeReport()} readOnly={!canWrite} toChat={toChat} shared={shared.report} onOpenSummary={() => router.push(aidtReportChatHref(projectId, { threadId: summaryThread, stageThread: thread, entityId: reportEntityId, returnRevision }))} summaryThread={reportMode ? summaryThread : null} historyScope={checkpointScope ? { ...checkpointScope, lifecycleKey: uiLifecycleKey } : undefined} />
+        : tool === "report" ? <AidtReportPreview reviewView={reportReview} initialPreview={reportMode} key={reportDraftKey + uiScope} reportEntityId={reportEntityId} drafts={currentUi.drafts} discoveryCardsRevision={shared.stages[2] && aidtSharedDraftSignature(currentUi.drafts[2]!) === aidtSharedDraftSignature(shared.stages[2].content.draft) ? shared.stages[2].revision : undefined} text={currentUi.reports[reportDraftKey]?.text ?? null} sourceRevision={currentUi.reports[reportDraftKey]?.sourceRevision ?? currentUi.revision} revision={currentUi.revision} onChange={(text) => changeReport(text)} regenerate={() => changeReport()} readOnly={!canWrite} toChat={toChat} shared={shared.report} onOpenSummary={() => router.push(aidtReportChatHref(projectId, { threadId: summaryThread, stageThread: thread, entityId: reportEntityId, returnRevision }))} summaryThread={reportMode ? summaryThread : null} historyScope={checkpointScope ? { ...checkpointScope, lifecycleKey: uiLifecycleKey } : undefined} />
         : tool === "sources" ? <ProjectEvidenceSection key={uiScope} projectId={projectId} />
         : tool === "record" ? canWrite ? <div data-testid="aidt-native-recording"><p className="px-4 text-12 text-muted-foreground">个人录音笔记只用于自己的思考。不得借此绕过项目访谈的参与者同意校验；项目访谈同意采集入口尚未集成。</p><Transcription key={uiScope} uiState="default" projectId={projectId} /></div> : null
         : selected ? !authenticated ? <p role="status" className="p-4 text-12 text-muted-foreground">登录后可查看关联资源。</p> : access?.key !== accessKey ? loading() : access.error ? <div role="alert" data-testid="aidt-resource-error" className="p-4"><p>{access.error}</p><Button variant="outline" onClick={() => setRetry((n) => n + 1)}>重试</Button></div>

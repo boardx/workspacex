@@ -12,19 +12,26 @@ import { AidtReportHistory } from "./aidt-report-history";
 import type { AidtReportHistoryScope } from "../lib/aidt-report-history";
 import { AidtReportVersions } from "./aidt-report-versions";
 import { AidtSummaryImport } from "./aidt-summary-import";
+import type { AidtReportReviewView } from "../lib/use-aidt-report-review";
 
-export function AidtReportPreview({ drafts, text, sourceRevision, revision, onChange, regenerate, readOnly, toChat, shared, discoveryCardsRevision, historyScope, onOpenSummary, summaryThread, reportEntityId, initialPreview = false }: {
+export function AidtReportPreview({ drafts, text, sourceRevision, revision, onChange, regenerate, readOnly, toChat, shared, discoveryCardsRevision, historyScope, onOpenSummary, summaryThread, reportEntityId, initialPreview = false, reviewView }: {
   drafts: AidtUiDrafts; discoveryCardsRevision?: number; text: string | null; sourceRevision: number; revision: number;
   onChange: (text: string) => void; regenerate: () => void; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
   shared?: AidtSharedReportController;
   historyScope?: AidtReportHistoryScope;
-  onOpenSummary?: () => void; summaryThread?: string | null; reportEntityId?: string; initialPreview?: boolean;
+  onOpenSummary?: () => void; summaryThread?: string | null; reportEntityId?: string; initialPreview?: boolean; reviewView?: AidtReportReviewView;
 }) {
   const [status, setStatus] = React.useState("");
   const [confirmReplace, setConfirmReplace] = React.useState(false);
-  const [preview, setPreview] = React.useState(initialPreview);
-  const [reviewRevision, setReviewRevision] = React.useState<number | null>(null);
+  const [localPreview, setLocalPreview] = React.useState(initialPreview);
+  const [localReviewRevision, setLocalReviewRevision] = React.useState<number | null>(null);
+  const preview = reviewView?.preview ?? localPreview;
+  const reviewRevision = reviewView ? reviewView.reviewRevision : localReviewRevision;
+  const setPreview = reviewView?.setPreview ?? setLocalPreview;
+  const setReviewRevision = (value: number | null) => reviewView
+    ? value === null ? reviewView.clearReview() : reviewView.review()
+    : setLocalReviewRevision(value);
   const [confirmRestore, setConfirmRestore] = React.useState(false);
   const [printing, setPrinting] = React.useState(false);
   const session = useOptionalSession()?.session;
@@ -66,7 +73,7 @@ export function AidtReportPreview({ drafts, text, sourceRevision, revision, onCh
       <Button size="sm" disabled={readOnly || !shared.canConfirm} onClick={() => setReviewRevision(shared.serverRevision)}>确认审阅此版本</Button>
       {reviewRevision !== null && reviewRevision === shared.serverRevision && <div role="alert" className="space-y-2">
         <p>确认后冻结当前正文和来源版本。后续修改可另存新版本。</p>
-        <Button size="sm" disabled={readOnly || !shared.canConfirm} onClick={() => { setReviewRevision(null); void shared.confirm?.(); }}>确认小组报告</Button>
+        <Button size="sm" disabled={readOnly || !shared.canConfirm} onClick={() => { if (reviewView && !reviewView.takeReview()) return; if (!reviewView) setReviewRevision(null); void shared.confirm?.(); }}>确认小组报告</Button>
         <Button size="sm" variant="ghost" onClick={() => setReviewRevision(null)}>继续审阅</Button>
       </div>}
     </div>}

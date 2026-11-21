@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ProjectAidt } from "@/features/aidt/components/project-aidt";
 import { AidtDashboard } from "@/features/aidt/components/project-aidt-dashboard";
 import { aidtHref } from "@/lib/project-aidt";
-const mocks = vi.hoisted(() => ({ search: "", list: vi.fn(), chat: vi.fn(), rec: vi.fn(), design: vi.fn(), resources: vi.fn() }));
+const mocks = vi.hoisted(() => ({ search: "", chatMount: "fallback", list: vi.fn(), chat: vi.fn(), rec: vi.fn(), design: vi.fn(), resources: vi.fn() }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: { currentOrgId: "org-test", userId: "student-test", sessionToken: "token-test" } }) }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(mocks.search), useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("next/dynamic", () => ({ default: (load: () => Promise<{ default: React.ComponentType<any> }>) => {
@@ -12,7 +12,7 @@ vi.mock("next/dynamic", () => ({ default: (load: () => Promise<{ default: React.
   return function Dynamic(props: any) { return <React.Suspense fallback={<p>加载中</p>}><Lazy {...props} /></React.Suspense>; };
 } }));
 vi.mock("@/lib/live-project-resources", () => ({ listProjectResources: mocks.list }));
-vi.mock("@/features/aidt/components/project-aidt-chat", () => ({ ProjectAidtChat: (props: any) => { mocks.chat(props); return <div data-testid="native-chat">{props.hostPanel?.open && props.hostPanel.content}</div>; } }));
+vi.mock("@/features/aidt/components/project-aidt-chat", () => ({ ProjectAidtChat: (props: any) => { mocks.chat(props); return <div key={mocks.chatMount} data-testid="native-chat">{props.hostPanel?.open && props.hostPanel.content}</div>; } }));
 vi.mock("@/components/rec/transcription-history", () => ({ TranscriptionHistory: (props: any) => { mocks.rec(props); return <div data-testid="native-rec" />; } }));
 vi.mock("@/components/design-loop/detail-screen", () => ({ DesignDetailScreen: (props: any) => { mocks.design(props); return <div data-testid="native-design" />; } }));
 vi.mock("@/features/aidt/components/aidt-design-workspace", () => ({ AidtDesignWorkspace: (props: any) => { mocks.design(props); return <div data-testid="native-design" />; } }));
@@ -23,7 +23,7 @@ vi.mock("@/components/project/project-resource-section", () => ({
   describeProjectResourceFailure: () => "资源加载失败",
   projectResourceHref: (_kind: string, id: string, project: string) => `/studio/board/${id}?projectId=${project}`,
 }));
-beforeEach(() => { vi.clearAllMocks(); mocks.search = ""; mocks.list.mockResolvedValue({ items: [] }); });
+beforeEach(() => { vi.clearAllMocks(); mocks.search = ""; mocks.chatMount = "fallback"; mocks.list.mockResolvedValue({ items: [] }); });
 describe("native AIDT project workspace", () => {
   it("shows six steps with project-safe URLs and no fictional progress", () => {
     render(<AidtDashboard href={(id) => aidtHref("p/1", id)} />);
@@ -72,6 +72,36 @@ describe("native AIDT project workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "阅读预览" }));
       expect(screen.getByRole("article", { name: "小组报告阅读预览" })).toHaveTextContent("QA人工修订正文");
       expect(save).not.toHaveBeenCalled();
+    } finally { read.mockRestore(); save.mockRestore(); }
+  });
+  it.each(["resolved", "failed"])("preserves actual project report review when a delayed Chat host remounts (%s)", async host => {
+    const stages = await import("@/features/aidt/lib/live-aidt-stages");
+    const markdown = "# 服务器已保存正文\n本次仍未开展真实测试。";
+    const sources = [{ stageId: 1 as const, revision: 1 }];
+    const stage6 = { projectId: "p1", stageId: 6 as const, revision: 1, updatedBy: "student-test", updatedAt: "2026-11-21T00:00:00.000Z", sourceStageRevisions: [],
+      content: { schemaVersion: 1 as const, draft: { fields: {}, ideas: [], selectedIdeaId: "" }, summaryReport: { markdown, sourceStageRevisions: sources } } };
+    const stage1 = { ...stage6, stageId: 1 as const, content: { schemaVersion: 1 as const, draft: { fields: { initial: "已保存的问题来源" }, ideas: [], selectedIdeaId: "" } } };
+    const read = vi.spyOn(stages, "readAidtStage").mockImplementation(async (_project, stageId) => ({ stage: stageId === 6 ? stage6 : stageId === 1 ? stage1 : null }));
+    const save = vi.spyOn(stages, "saveAidtStage").mockImplementation(async input => ({ stage: { ...stage6, revision: 2, content: input.content, sourceStageRevisions: input.sourceStageRevisions }, replayed: false }));
+    try {
+      mocks.search = "step=6&tool=report";
+      const page = render(<ProjectAidt projectId="p1" sub="aidt-6" canWrite />);
+      await waitFor(() => expect(screen.getByLabelText("小组报告草稿")).toHaveValue(markdown));
+      await waitFor(() => expect(screen.getByTestId("aidt-report-save-state")).toHaveTextContent("小组报告已保存 · 待确认"));
+      fireEvent.click(screen.getByRole("button", { name: "阅读预览" }));
+      fireEvent.click(screen.getByRole("button", { name: "确认审阅此版本" }));
+      const previous = screen.getByRole("button", { name: "确认小组报告" });
+      expect(save).not.toHaveBeenCalled();
+      mocks.chatMount = host;
+      page.rerender(<ProjectAidt projectId="p1" sub="aidt-6" canWrite />);
+      const current = screen.getByRole("button", { name: "确认小组报告" });
+      expect(current).not.toBe(previous);
+      expect(screen.getByRole("article", { name: "小组报告阅读预览" })).toHaveTextContent("本次仍未开展真实测试");
+      fireEvent.click(current);
+      await waitFor(() => expect(screen.getByTestId("aidt-report-save-state")).toHaveTextContent("小组报告已确认 · V2"));
+      expect(save).toHaveBeenCalledOnce();
+      expect(save.mock.calls[0]![0]).toMatchObject({ projectId: "p1", stageId: 6, expectedRevision: 1,
+        content: { summaryReport: { markdown, sourceStageRevisions: sources, confirmedAtRevision: 2 } } });
     } finally { read.mockRestore(); save.mockRestore(); }
   });
   it("follows the existing visible preview-report link into the report instead of the test directory", async () => {

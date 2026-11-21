@@ -162,9 +162,17 @@ test("AIDT native entity entry and explicit history tools: durable Chat, mobile,
   const nativeProblemId = new URL(page.url()).searchParams.get("entity")!;
   const nativeProblemThread = new URL(page.url()).searchParams.get("thread")!;
   expect(nativeProblemId).toBeTruthy();
-  const nativeThread = await api(page, `/chat/threads/${nativeProblemThread}`);
+  const nativeThreadPath = `/chat/threads/${encodeURIComponent(nativeProblemThread)}`;
+  const nativeThread = await api(page, `${nativeThreadPath}?projectId=${encodeURIComponent(projectId)}`);
   expect(nativeThread.status).toBe(200);
+  expect(nativeThread.data.thread.id).toBe(nativeProblemThread);
   expect(nativeThread.data.thread.projectId).toBe(projectId);
+  // Missing scope is the personal-thread branch, not permission to infer the owning project.
+  expect((await api(page, nativeThreadPath)).status).toBe(404);
+  // This other project is the visible synthetic seed fixture, not an arbitrary or real project.
+  expect(projectId).not.toBe(FULLSTACK_E2E.projectId);
+  expect(projectList.data.some((item: { id: string }) => item.id === FULLSTACK_E2E.projectId)).toBe(true);
+  expect((await api(page, `${nativeThreadPath}?projectId=${encodeURIComponent(FULLSTACK_E2E.projectId)}`)).status).toBe(404);
   await page.screenshot({ path: test.info().outputPath("aidt-native-problem-entity-chat.png"), fullPage: true });
   await page.getByRole("link", { name: "返回产物列表", exact: true }).click();
   // The history link is deliberately existing-only and never creates new
