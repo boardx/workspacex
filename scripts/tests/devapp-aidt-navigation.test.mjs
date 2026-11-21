@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { ownedAidtProblemRoute, matchesAidtProblemRoute, openAidtProblemOutcome, assertSavedAidtProblemInput, requireAcceptedS1Feedback } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 import { ownedAidtEntityRoute, matchesAidtEntityRoute, openAidtEntityOutcome, assertSavedAidtHmwSource, verifyAidtFrozenBacklink } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 import { interviewCodePattern, savedAidtInterviewRoute, requireConfirmedInterviewHandoff } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+import { aidtS1Question, applyAidtS1StudentRevision, assertSavedAidtS1Revision, assertAidtS1Handoff, assertAidtS2Topic } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const origin = 'https://devapp.boardx.us';
 const projectId = 'prj-navigation-fixture';
@@ -164,11 +166,11 @@ for (const accepted of [false, undefined]) test(`S1 cannot confirm or hand off w
   ]);
 });
 
-test('literal true native teaching acceptance permits S1 confirmation exactly once', async () => {
+test('literal true passes the transport feedback gate only; this helper alone does not review S1 I3', async () => {
   const events = [];
   await requireAcceptedS1Feedback(async () => { events.push('native-feedback'); return true; });
-  events.push('confirm-round', 'saved-handoff');
-  assert.deepEqual(events, ['native-feedback', 'confirm-round', 'saved-handoff']);
+  events.push('feedback-gate-returned');
+  assert.deepEqual(events, ['native-feedback', 'feedback-gate-returned']);
   for (const value of [1, 'true', {}, null]) await assert.rejects(requireAcceptedS1Feedback(async () => value), /S1_TEACHING_FEEDBACK_REQUIRED/);
 });
 
@@ -271,4 +273,144 @@ test('storage-only frozen interviews still require actual historical navigation 
     link: { getAttribute: async () => href, click: async () => { clicked = true; current = href; } }, waitForRoute: async check => assert.equal(check(), true),
     assertVersion: async () => { viewed = true; }, assertMaterial: async () => { material = true; } });
   assert.equal(clicked && viewed, true); assert.equal(material, false);
+});
+
+const hash = text => createHash('sha256').update(text, 'utf8').digest('hex');
+const questionScope = { projectId, entityId, threadId: 'thr_aidt_question', source: 'a'.repeat(40), tag: '12345678-1', prompt: '合成学生请求：请问一个开放问题。', revision: 4 };
+const questionProof = () => ({ ...questionScope, stageId: 1, status: 'passed', assistantText: '你们亲自观察到了哪件事，还没有看到什么？', runId: 'run-question', inputMessageId: 'message-student', assistantMessageId: 'message-assistant',
+  sourceRevisions: [{ stageId: 1, revision: 4 }], studentTextSha256: hash(questionScope.prompt), assistantTextSha256: hash('你们亲自观察到了哪件事，还没有看到什么？') });
+const actualQuestion = () => aidtS1Question([questionProof()], questionScope);
+const initialInput = '合成初稿：想了解午间饮品选择的犹豫。';
+const answerInput = '追问：你们亲自观察到了哪件事，还没有看到什么？\n学生回应：尚未观察，只是本组猜测；需要了解一次具体选择过程。';
+const choiceInput = '选择研究午休时间情境；暂不采纳直接制作推荐App，因为缺少观察依据。';
+const rewrittenInput = '我们想了解不同午休时间情境如何影响一次具体饮品选择。';
+function revisionStage(revision, fields, confirmed = false) {
+  const draft = { ...fields };
+  const aggregate = { [`problemEntity:${entityId}`]: JSON.stringify({ id: entityId, title: '合成问题', archived: false }) };
+  if (confirmed) {
+    const payload = JSON.stringify({ projectId, stageId: 1, draft: { fields: draft, ideas: [], selectedIdeaId: '' }, sources: [] },
+      (_key, value) => value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value);
+    draft.roundCompletion = JSON.stringify({ schemaVersion: 1, projectId, stageId: 1, digest: hash(payload) });
+    Object.assign(aggregate, draft, { problemHandoffEntity: entityId });
+  }
+  aggregate[`problemDraft:${entityId}`] = JSON.stringify(draft);
+  return { projectId, stageId: 1, revision, sourceStageRevisions: [], content: { draft: { fields: aggregate } } };
+}
+function studentUi(overrides = {}) {
+  const question = actualQuestion(), events = [];
+  let input = { initial: initialInput, followupAnswers: '', focus: '', rewrittenTheme: '' };
+  let stage = revisionStage(4, input);
+  const review = { ...question, approved: true, rewrittenTheme: rewrittenInput, responseSha256: hash(answerInput), choiceSha256: hash(choiceInput), h03ConversationSignoff: true, teachingQualityAccepted: true };
+  const args = { question, initial: initialInput,
+    reviewStudentResponse: async received => { events.push('operator-sees-actual-question'); assert.equal(received, question); input = { ...input, followupAnswers: answerInput, focus: choiceInput }; return review; },
+    readInputs: async () => { events.push('read-existing-ui-fields'); return { ...input }; },
+    saveResponse: async () => { events.push('save-response'); stage = revisionStage(stage.revision + 1, input); },
+    rewriteAndSave: async text => { events.push('rewrite-and-save'); input = { ...input, rewrittenTheme: text }; stage = revisionStage(stage.revision + 1, input); },
+    reload: async () => { events.push('reload-exact-entity'); input = JSON.parse(stage.content.draft.fields[`problemDraft:${entityId}`]); },
+    readSaved: async () => { events.push('read-server-version'); return structuredClone(stage); },
+    ...overrides,
+  };
+  return { args, events, review, input: () => input, stage: () => stage, changeStage: next => { stage = next; } };
+}
+
+test('one actual question is bound to exact project, entity, thread, source/tag, prompt, messages, hashes and source revision', () => {
+  const proof = questionProof(), result = aidtS1Question([proof], questionScope);
+  assert.equal(result.assistantText, proof.assistantText); assert.equal(result.runId, proof.runId); assert.equal(Object.isFrozen(result), true);
+  for (const key of ['projectId', 'entityId', 'threadId', 'source', 'tag', 'prompt', 'assistantTextSha256', 'studentTextSha256']) assert.throws(() => aidtS1Question([{ ...proof, [key]: 'wrong' }], questionScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
+  for (const key of ['runId', 'inputMessageId', 'assistantMessageId', 'assistantText']) assert.throws(() => aidtS1Question([{ ...proof, [key]: '' }], questionScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
+  for (const revisions of [[], [{ stageId: 1, revision: 3 }], [{ stageId: 2, revision: 4 }], [{ stageId: 1, revision: 4 }, { stageId: 2, revision: 1 }]]) assert.throws(() => aidtS1Question([{ ...proof, sourceRevisions: revisions }], questionScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
+  for (const proofs of [[], [proof, proof], [{ ...proof, status: 'unknown' }], [{ ...proof, assistantText: proof.assistantText + '篡改' }]]) assert.throws(() => aidtS1Question(proofs, questionScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
+  for (const changed of [{ entityId: '' }, { entityId: 'not-an-entity' }, { threadId: '' }, { source: 'A'.repeat(40) }, { tag: 'not-a-build' }, { revision: 0 }, { revision: 4.5 }, { prompt: '' }]) {
+    const badScope = { ...questionScope, ...changed };
+    assert.throws(() => aidtS1Question([{ ...proof, ...changed, sourceRevisions: [{ stageId: 1, revision: badScope.revision }] }], badScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
+  }
+  for (const id of ['has whitespace', 'x'.repeat(257)]) assert.throws(() => aidtS1Question([{ ...proof, runId: id }], questionScope), /S1_ACTUAL_QUESTION_UNVERIFIED/);
+});
+
+test('operator response is saved before rewriting; both server revisions and exact reloaded entity are checked; H03 stays false', async () => {
+  const ui = studentUi(), out = await applyAidtS1StudentRevision(ui.args);
+  assert.deepEqual(ui.events, ['operator-sees-actual-question', 'read-existing-ui-fields', 'save-response', 'read-server-version', 'rewrite-and-save', 'read-server-version', 'reload-exact-entity', 'read-existing-ui-fields', 'read-server-version']);
+  assert.equal(out.responseRevision, 5); assert.equal(out.revision, 6);
+  assert.deepEqual(ui.input(), { initial: initialInput, followupAnswers: answerInput, focus: choiceInput, rewrittenTheme: rewrittenInput });
+  assert.equal(out.h03ConversationSignoff, false); assert.equal(out.teachingQualityAccepted, false);
+});
+
+test('missing, false, unknown or mismatched operator reviews cannot save or rewrite, and no default answer is generated', async () => {
+  const missing = studentUi({ reviewStudentResponse: undefined });
+  await assert.rejects(applyAidtS1StudentRevision(missing.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/); assert.deepEqual(missing.events, []);
+  for (const review of [false, null, undefined, {}, { approved: 'true' }]) {
+    const ui = studentUi({ reviewStudentResponse: async () => review });
+    await assert.rejects(applyAidtS1StudentRevision(ui.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
+    assert.equal(ui.events.includes('save-response'), false); assert.equal(ui.events.includes('rewrite-and-save'), false); assert.equal(ui.input().followupAnswers, '');
+  }
+  for (const key of ['projectId', 'entityId', 'threadId', 'runId', 'inputMessageId', 'assistantMessageId', 'assistantTextSha256', 'responseSha256', 'choiceSha256']) {
+    const ui = studentUi(); const original = ui.args.reviewStudentResponse;
+    ui.args.reviewStudentResponse = async q => ({ ...await original(q), [key]: 'wrong' });
+    await assert.rejects(applyAidtS1StudentRevision(ui.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
+    assert.equal(ui.events.includes('save-response'), false); assert.equal(ui.events.includes('rewrite-and-save'), false);
+  }
+});
+
+test('blank responses, copied assistant prose, prewritten theme or changed initial input cannot advance', async () => {
+  for (const changed of [{ followupAnswers: '' }, { focus: '' }, { followupAnswers: actualQuestion().assistantText }, { rewrittenTheme: rewrittenInput }, { initial: 'another entity input' }]) {
+    const ui = studentUi(); ui.args.readInputs = async () => ({ initial: initialInput, followupAnswers: answerInput, focus: choiceInput, rewrittenTheme: '', ...changed });
+    await assert.rejects(applyAidtS1StudentRevision(ui.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
+    assert.equal(ui.events.includes('save-response'), false); assert.equal(ui.events.includes('rewrite-and-save'), false);
+  }
+});
+
+test('no-op/failed response saves, no-op rewrite, wrong saved entity and changed reload never become reviewed revisions', async () => {
+  const noSave = studentUi({ saveResponse: async () => {} });
+  await assert.rejects(applyAidtS1StudentRevision(noSave.args), /S1_REVIEWED_REVISION_UNVERIFIED/); assert.equal(noSave.events.includes('rewrite-and-save'), false);
+  const saveFailure = studentUi({ saveResponse: async () => { throw Error('CAS_SAVE_FAILED'); } });
+  await assert.rejects(applyAidtS1StudentRevision(saveFailure.args), /CAS_SAVE_FAILED/); assert.equal(saveFailure.events.includes('rewrite-and-save'), false);
+  const noRewrite = studentUi({ rewriteAndSave: async () => {} }); await assert.rejects(applyAidtS1StudentRevision(noRewrite.args), /S1_REVIEWED_REVISION_UNVERIFIED/);
+  const wrongEntity = studentUi(); wrongEntity.args.readSaved = async () => { const stage = structuredClone(wrongEntity.stage()); stage.projectId = 'other-project'; return stage; };
+  await assert.rejects(applyAidtS1StudentRevision(wrongEntity.args), /S1_REVIEWED_REVISION_UNVERIFIED/);
+  const lost = studentUi();
+  // Callbacks are captured by the source function; represent reentry through its captured readInputs callback.
+  let afterReload = false; lost.args.reload = async () => { afterReload = true; };
+  lost.args.readInputs = async () => ({ ...lost.input(), ...(afterReload ? { focus: 'lost choice' } : {}) });
+  await assert.rejects(applyAidtS1StudentRevision(lost.args), /S1_REVIEWED_INPUT_NOT_RETAINED/);
+});
+
+test('this full-text fixture accepts a 650-character topic and stops before saving a 651-character rewrite', async () => {
+  const accepted = studentUi(); accepted.review.rewrittenTheme = '题'.repeat(650);
+  const result = await applyAidtS1StudentRevision(accepted.args);
+  assert.equal(result.expected.rewrittenTheme.length, 650);
+  assert.equal(result.h03ConversationSignoff, false); assert.equal(result.teachingQualityAccepted, false);
+  assert.doesNotThrow(() => assertAidtS2Topic({ problemEntityId: entityId, topicRevision: result.revision, topic: result.expected.rewrittenTheme }, { entityId, revision: result.revision, rewrittenTheme: result.expected.rewrittenTheme }));
+  const rejected = studentUi(); rejected.review.rewrittenTheme = '题'.repeat(651);
+  await assert.rejects(applyAidtS1StudentRevision(rejected.args), /S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED/);
+  assert.equal(rejected.events.includes('save-response'), false); assert.equal(rejected.events.includes('rewrite-and-save'), false);
+  const tooLong = { entityId, revision: 7, rewrittenTheme: '题'.repeat(651) };
+  assert.throws(() => assertAidtS2Topic({ problemEntityId: entityId, topicRevision: 7, topic: tooLong.rewrittenTheme }, tooLong), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
+  assert.throws(() => assertAidtS2Topic({ problemEntityId: entityId, topicRevision: 7, topic: tooLong.rewrittenTheme.slice(0, 650) }, tooLong), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
+});
+
+test('confirmed S1 requires exact post-response revision, entity handoff and a digest of final response/choice/theme', () => {
+  const expected = { projectId, entityId, initial: initialInput, followupAnswers: answerInput, focus: choiceInput, rewrittenTheme: rewrittenInput };
+  const stage = revisionStage(7, { initial: initialInput, followupAnswers: answerInput, focus: choiceInput, rewrittenTheme: rewrittenInput }, true);
+  assert.equal(assertSavedAidtS1Revision(stage, expected, { revision: 7, afterRevision: 6, confirmed: true }), 7);
+  for (const broken of [revisionStage(6, JSON.parse(stage.content.draft.fields[`problemDraft:${entityId}`])), { ...stage, revision: 6 }, { ...stage, projectId: 'foreign' }, { ...stage, stageId: 2 }, { ...stage, sourceStageRevisions: [{ stageId: 2, revision: 1 }] }]) assert.throws(() => assertSavedAidtS1Revision(broken, expected, { revision: 7, afterRevision: 6, confirmed: true }), /S1_.*UNVERIFIED/);
+  for (const key of ['followupAnswers', 'focus', 'rewrittenTheme']) {
+    const broken = structuredClone(stage), fields = JSON.parse(broken.content.draft.fields[`problemDraft:${entityId}`]); fields[key] = 'changed after confirmation';
+    broken.content.draft.fields[`problemDraft:${entityId}`] = JSON.stringify(fields);
+    assert.throws(() => assertSavedAidtS1Revision(broken, { ...expected, [key]: fields[key] }, { revision: 7, confirmed: true }), /S1_CONFIRMED_REVISION_UNVERIFIED/);
+  }
+  const broken = structuredClone(stage); broken.content.draft.fields.problemHandoffEntity = otherEntity;
+  assert.throws(() => assertSavedAidtS1Revision(broken, expected, { confirmed: true }), /S1_CONFIRMED_REVISION_UNVERIFIED/);
+});
+
+test('S2 href and topic must use the exact final S1 entity/revision/theme, never empty or another scope', () => {
+  const confirmed = { entityId, revision: 7, rewrittenTheme: rewrittenInput };
+  const href = `${origin}/aidt/${projectId}?step=2&problemEntity=${entityId}&problemRevision=7`;
+  assert.equal(assertAidtS1Handoff(href, scope, confirmed), href);
+  const record = { problemEntityId: entityId, topicRevision: 7, topic: rewrittenInput };
+  assert.doesNotThrow(() => assertAidtS2Topic(record, confirmed));
+  for (const bad of [href.replace(entityId, otherEntity), href.replace('problemRevision=7', 'problemRevision=6'), href.replace(projectId, 'other-project'), href + '&problemRevision=7', href + '&entity=' + entityId, href.replace('step=2', 'step=1')]) assert.throws(() => assertAidtS1Handoff(bad, scope, confirmed), /S1_CONFIRMED_HANDOFF_UNVERIFIED/);
+  for (const bad of [null, { ...record, problemEntityId: otherEntity }, { ...record, topicRevision: 6 }, { ...record, topic: '' }, { ...record, topic: 'other theme' }]) assert.throws(() => assertAidtS2Topic(bad, confirmed), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
+  assert.throws(() => assertAidtS1Handoff(href.replace(entityId, ''), scope, { ...confirmed, entityId: '' }), /S1_CONFIRMED_HANDOFF_UNVERIFIED/);
+  assert.throws(() => assertAidtS2Topic({ ...record, topic: '' }, { ...confirmed, rewrittenTheme: '' }), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
+  assert.throws(() => assertAidtS2Topic({ problemEntityId: '', topicRevision: 0, topic: '' }, { entityId: '', revision: 0, rewrittenTheme: '' }), /S2_CONFIRMED_TOPIC_UNVERIFIED/);
 });

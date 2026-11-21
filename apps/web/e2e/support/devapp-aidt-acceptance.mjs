@@ -528,7 +528,7 @@ export async function main() {
             finally { pendingReviewCapture = null; }
           } });
         sensitiveEvidence.assertSafe(proof.assistantText);
-        report.teachingEvidence.push({ ...proof, status: 'passed', prompt, source: identity.source, tag: identity.tag });
+        report.teachingEvidence.push({ ...proof, projectId, entityId, status: 'passed', prompt, source: identity.source, tag: identity.tag });
         await capture(`${String(stageId).padStart(2,'0')}-native-teaching-chat`, stageId);
       });
       if (!accepted) { guard.stopTeaching(); report.teachingEvidence.push({ stageId, status: 'blocked-or-failed', evidence: 'See exact teaching checkpoint; no automatic retry or tool approval', teachingQualityAccepted: false, providerIndependentlyVerified: false }); }
