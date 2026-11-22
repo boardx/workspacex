@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, chmodSync, r
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
-import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, reusableQaIdentityFingerprint, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
+import { stageTextReadbackRequestAllowed, enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, reusableQaIdentityFingerprint, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern, schematicPng } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
@@ -667,4 +667,21 @@ test('reusable identity matches both enrolled actor and organization and refuses
   assert.throws(() => reusableQaIdentityFingerprint(identity, '', false), /QA_REUSABLE_IDENTITY_CONFIGURATION_INVALID/);
   assert.throws(() => reusableQaIdentityFingerprint({ ...identity, org: 'other' }, digest, false), /QA_REUSABLE_IDENTITY_MISMATCH/);
   assert.throws(() => reusableQaIdentityFingerprint({ ...identity, actor: 'other' }, digest, false), /QA_REUSABLE_IDENTITY_MISMATCH/);
+});
+
+test('fresh stage-file view permits reads and only the existing native entity-thread resolution', () => {
+  const origin = 'https://devapp.boardx.us';
+  const resolution = `/api/projects/${project}/aidt/stages/1/entities/current/thread`;
+  const allows = (method, url, body) => stageTextReadbackRequestAllowed({
+    method: () => method, url: () => url, postDataJSON: () => body,
+  }, resolution);
+  assert.equal(allows('GET', origin + resolution), true);
+  assert.equal(allows('PUT', origin + resolution, { purpose: 'stage' }), true);
+  assert.equal(allows('PUT', origin + resolution, { purpose: 'stage', send: true }), false);
+  assert.equal(allows('PUT', origin + resolution, { purpose: 'report' }), false);
+  assert.equal(allows('PUT', origin + resolution + '?retry=1', { purpose: 'stage' }), false);
+  assert.equal(allows('PUT', origin + resolution.replace('current', 'sibling'), { purpose: 'stage' }), false);
+  assert.equal(allows('PUT', origin + `/api/projects/${project}/aidt/stages/1`), false);
+  assert.equal(allows('POST', origin + resolution, { purpose: 'stage' }), false);
+  assert.equal(allows('PUT', 'https://other.invalid' + resolution, { purpose: 'stage' }), false);
 });

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { acceptanceIdentity, createAcceptanceGuard } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
 const origin = 'https://devapp.boardx.us', project = 'prj-11111111-1111-4111-8111-111111111111';
 const fixtureLogin = 'unit-synthetic-only';
@@ -187,4 +188,69 @@ test('a recorded Stage4 teaching send authorizes only one append for its exact b
   assert.equal(request(unrelated.guard, 'POST', '/api/copilotkit/agent/default/run', unrelated.wire).allow, true);
   unrelated.body.content.draft.fields.ideaHandoffIds = '["foreign"]';
   assert.equal(request(unrelated.guard, 'PUT', unrelated.path, unrelated.body).code, 'STAGE_SAVE_NOT_ARMED');
+});
+
+function stageTextUpload(guard, scope) {
+  const source = guard.armStageText(scope);
+  const path = `/api/chat/threads/${scope.threadId}/attachments`;
+  const payload = { __multipart: true, files: [{
+    filename: source.filename, mime: source.mime, sizeBytes: source.bytes.length,
+    sha256: createHash('sha256').update(source.bytes).digest('hex'),
+  }] };
+  return { source, path, payload };
+}
+
+test('each stage binds the exact chat TXT fixture to its current durable message and original bytes', () => {
+  const guard = fixture();
+  const observed = new Set();
+  for (let stageId = 1; stageId <= 6; stageId++) {
+    const sibling = teaching(guard, stageId, `sibling-${stageId}`);
+    const { scope, wire } = teaching(guard, stageId);
+    const { source, path, payload } = stageTextUpload(guard, scope);
+    const sent = request(guard, 'POST', path, payload);
+    assert.equal(sent.kind, 'qa-stage-text-upload');
+    const id = `attachment-${stageId}`, messageId = `human-${stageId}`;
+    const attachment = { id, filename: source.filename, bytes: source.bytes.length, mime: source.mime };
+    guard.observe(sent, 201, attachment);
+    scope.stageFile = guard.stageTextReceipt(stageId);
+    wire.forwardedProps.attachmentIds = [id];
+    assert.equal(scope.stageFile.contentVerified, false);
+    assert.equal(request(guard, 'GET', `${path}/${id}/content`).allow, false);
+    guard.armTeachingSend(scope);
+    assert.equal(request(guard, 'POST', '/api/copilotkit/agent/default/run', wire).allow, true);
+    const messages = request(guard, 'GET', `/api/chat/threads/${scope.threadId}/messages?limit=100`);
+    guard.observe(messages, 200, { messages: [{ id: messageId, authorKind: 'human', authorId: scope.actorId,
+      text: scope.prompt, clientMessageId: wire.forwardedProps.clientMessageId, agentRunId: `backend-${stageId}`, attachments: [attachment] }], nextCursor: null });
+    assert.equal(request(guard, 'GET', `/api/chat/threads/${sibling.scope.threadId}/attachments/${id}/content`).allow, false);
+    const authorized = request(guard, 'GET', `${path}/${id}/content`);
+    assert.equal(authorized.kind, 'qa-stage-text-content');
+    assert.throws(() => guard.observeContent(authorized, 200, { 'content-type': source.mime }, Buffer.alloc(source.bytes.length)), /STAGE_TEXT_CONTENT_UNVERIFIED/);
+    guard.observeContent(authorized, 200, { 'content-type': source.mime }, source.bytes);
+    assert.equal(guard.stageTextReceipt(stageId).contentVerified, true);
+    assert.equal(guard.stageTextReceipt(stageId).messageId, messageId);
+    observed.add(scope.stageFile.sha256);
+    assert.throws(() => guard.armStageText(scope), /STAGE_TEXT_UPLOAD_ARM_REJECTED/);
+  }
+  assert.equal(observed.size, 6);
+  assert.equal(guard.summary().teachingRequests, 6);
+});
+
+test('stage TXT uploads reject the wrong thread, fixture, extra field and replay', () => {
+  for (const mutate of [
+    data => { data.path = '/api/chat/threads/thr_foreign/attachments'; },
+    data => { data.payload.files[0].sha256 = 'z'.repeat(64); },
+    data => { data.payload.files[0].mime = 'image/png'; },
+    data => { data.payload.meta = {}; },
+    data => { data.path += '?stage=1'; },
+  ]) {
+    const guard = fixture(), { scope } = teaching(guard);
+    assert.throws(() => guard.armStageText({ ...scope, threadId: 'thr_foreign' }), /STAGE_TEXT_UPLOAD_ARM_REJECTED/);
+    const data = stageTextUpload(guard, scope);
+    mutate(data);
+    assert.equal(request(guard, 'POST', data.path, data.payload).code, 'STAGE_TEXT_UPLOAD_SCOPE_REJECTED');
+  }
+  const guard = fixture(), { scope } = teaching(guard);
+  const { path, payload } = stageTextUpload(guard, scope);
+  assert.equal(request(guard, 'POST', path, payload).allow, true);
+  assert.equal(request(guard, 'POST', path, payload).allow, false);
 });
