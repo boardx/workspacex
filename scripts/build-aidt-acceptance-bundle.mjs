@@ -18,6 +18,7 @@ export const BASELINE_BUNDLE_FILES = Object.freeze([
   'apps/web/e2e/support/devapp-aidt-chat-evidence.mjs',
   'apps/web/e2e/support/devapp-aidt-qa-identity.mjs',
   'apps/web/e2e/support/devapp-aidt-agent-review.mjs',
+  'apps/web/e2e/support/devapp-aidt-agent-interview-review.mjs',
   'scripts/image-release-host-permissions.py',
 ]);
 // These helpers contain no product implementation, credentials, storage state or traces.

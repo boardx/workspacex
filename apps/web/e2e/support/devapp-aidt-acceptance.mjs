@@ -110,11 +110,13 @@ export function runtimeProof(identity, env = process.env) {
   return assertRuntimeProof(proof, identity);
 }
 
-async function api(page, method, path, body) {
+async function api(page, method, path, body, expectedSessionFingerprint = null) {
   if (!path.startsWith('/api/') || path.startsWith('//') || /[\r\n#]/.test(path)) throw new ProbeFailure('API_PATH_REJECTED');
-  return page.evaluate(async ({ method, path, body }) => {
+  return page.evaluate(async ({ method, path, body, expectedSessionFingerprint }) => {
     const token = localStorage.getItem('wsx.sessionToken');
-    if (!token) throw new Error('SESSION_MISSING');
+    if (!token) throw new Error(expectedSessionFingerprint === null ? 'SESSION_MISSING' : 'AGENT_QA_INTERVIEW_ACTOR_CHANGED');
+    const fingerprint = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), byte => byte.toString(16).padStart(2, '0')).join('');
+    if (expectedSessionFingerprint !== null && (!/^[a-f0-9]{64}$/.test(expectedSessionFingerprint) || await fingerprint(token) !== expectedSessionFingerprint)) throw new Error('AGENT_QA_INTERVIEW_ACTOR_CHANGED');
     const response = await fetch(path, { method, redirect: 'error', cache: 'no-store', credentials: 'include',
       headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -125,8 +127,13 @@ async function api(page, method, path, body) {
       text += decoder.decode(value, { stream: true });
     }
     text += decoder.decode(); let data = null; try { data = JSON.parse(text); } catch { /* Fail through status/schema check. */ }
+    if (expectedSessionFingerprint !== null) {
+      const currentToken = localStorage.getItem('wsx.sessionToken');
+      if (!currentToken || currentToken !== token || await fingerprint(currentToken) !== expectedSessionFingerprint) throw new Error('AGENT_QA_INTERVIEW_ACTOR_CHANGED');
+      if (localStorage.getItem('wsx.sessionToken') !== token) throw new Error('AGENT_QA_INTERVIEW_ACTOR_CHANGED');
+    }
     return { status: response.status, data };
-  }, { method, path, body });
+  }, { method, path, body, expectedSessionFingerprint });
 }
 
 export async function verifyPng(browser, bytes, minimumHeight = 200) {
@@ -416,6 +423,7 @@ export async function main() {
     designRequestLimit: 'At most one normal UI Design chat request; default page count is decided by the existing service, not capped to one page.' };
   let browser, context, page, output, identity, guard, credentials, provisionedIdentity, timer, agentReviewer, stage = 'preflight';
   let profile, plan, ledger, v2Scope, nativeDriver, nativeRuntime, actionWindow, asrReviewer;
+  let normalLoginFingerprint = null;
   const runtimeScope = () => { if (!v2Scope) throw new ProbeFailure('V2_RUNTIME_SCOPE_UNVERIFIED'); return { ...v2Scope }; };
   const sensitiveEvidence = sensitiveEvidenceGuard();
   try {
@@ -576,6 +584,12 @@ export async function main() {
         if (decision.kind === 'login' && typeof parsed?.sessionToken === 'string') sensitiveEvidence.remember(parsed.sessionToken);
         if (decision.kind === 'survey-publish' && typeof parsed?.publication?.token === 'string') sensitiveEvidence.remember(parsed.publication.token);
         guard.observe(decision, response.status(), parsed);
+        if (decision.kind === 'login') {
+          const owned = guard.identity();
+          if (normalLoginFingerprint !== null || response.status() !== 200 || typeof parsed?.sessionToken !== 'string' || !parsed.sessionToken
+            || parsed.userId !== owned.actor || !parsed.orgs?.includes(owned.org)) throw new ProbeFailure('AGENT_QA_INTERVIEW_ACTOR_CHANGED');
+          normalLoginFingerprint = createHash('sha256').update(parsed.sessionToken).digest('hex');
+        }
         if(actionWindowArmed)actionWindow.observeResponse(descriptor,response.status(),parsed);
         // Bind only the actual created candidate before the normal UI resumes.
         if (decision.kind === 'create-project' && [200, 201].includes(response.status())) {
@@ -1113,6 +1127,39 @@ export async function main() {
         if (result.status !== 200) throw new ProbeFailure('AGENT_QA_MESSAGES_CHANGED');
         return result.data;
       } });
+    const interviewActor = guard.identity();
+    const readInterviewPort = async (question, path, code) => {
+      if (question.projectId !== projectId) throw new ProbeFailure('AGENT_QA_INTERVIEW_PAGE_CHANGED');
+      const result = await api(page, 'GET', path);
+      if (result.status !== 200) throw new ProbeFailure(code);
+      return result.data;
+    };
+    const reviewS2StudentResponse = agentReviewer?.bindInterviewPage({ page, context,
+      actor: { actorId: interviewActor.actor, orgId: interviewActor.org },
+      readActor: async () => {
+        const owned = guard.identity();
+        if (owned.actor !== interviewActor.actor || owned.org !== interviewActor.org || owned.ordinaryVerified !== true) throw new ProbeFailure('AGENT_QA_INTERVIEW_ACTOR_CHANGED');
+        if (normalLoginFingerprint === null) throw new ProbeFailure('AGENT_QA_INTERVIEW_ACTOR_CHANGED');
+        const sessionMatches = await page.evaluate(expected => {
+          try {
+            const value = JSON.parse(localStorage.getItem('wsx.session') ?? 'null');
+            return Boolean(localStorage.getItem('wsx.sessionToken')) && value?.userId === expected.actor && value.currentOrgId === expected.org
+              && Array.isArray(value.orgs) && value.orgs.includes(expected.org) && Date.parse(value.expiresAt) > Date.now()
+              && (value.version === 1 || value.version === 2 && typeof value.revision === 'string' && value.revision.length > 0 && localStorage.getItem('wsx.sessionCommit') === value.revision);
+          } catch { return false; }
+        }, { actor: owned.actor, org: owned.org });
+        if (!sessionMatches) throw new ProbeFailure('AGENT_QA_INTERVIEW_ACTOR_CHANGED');
+        const current = await api(page, 'GET', `/api/identity/me?orgId=${encodeURIComponent(owned.org)}`, undefined, normalLoginFingerprint);
+        if (current.status !== 200 || current.data?.org?.id !== owned.org || current.data.orgRole !== 'consultant') throw new ProbeFailure('AGENT_QA_INTERVIEW_ACTOR_CHANGED');
+        return { actorId: owned.actor, orgId: owned.org, orgRole: 'consultant', ordinaryVerified: true };
+      },
+      ownedPin: question => guard.teachingPin(2, question.threadId, question.entityId),
+      readStage: async question => (await readInterviewPort(question, `/api/projects/${projectId}/aidt/stages/2`, 'AGENT_QA_INTERVIEW_SAVED_VERSION_CHANGED'))?.stage,
+      readSource: async question => (await readInterviewPort(question, `/api/projects/${projectId}/aidt/stages/1/revision/${question.sourceProblemRevision}`, 'AGENT_QA_INTERVIEW_SAVED_VERSION_CHANGED'))?.stage,
+      readMessages: question => readInterviewPort(question, `/api/chat/threads/${encodeURIComponent(question.threadId)}/messages?limit=100`, 'AGENT_QA_INTERVIEW_MESSAGES_CHANGED'),
+      readRun: question => readInterviewPort(question, `/api/agent-runs/${encodeURIComponent(question.runId)}`, 'AGENT_QA_INTERVIEW_RUN_CHANGED'),
+      readReceipt: question => readInterviewPort(question, `/api/agent-runs/${encodeURIComponent(question.runId)}/aidt-context`, 'AGENT_QA_INTERVIEW_CONTEXT_CHANGED'),
+    });
     const asrPorts=profile===V2_VOICE_PROFILE&&asrReviewer?asrReviewer.bindPage({page,context,armToolDecision,
       readRun:async q=>{const value=await api(page,'GET',`/api/agent-runs/${encodeURIComponent(q.runId)}`);if(value.status!==200)throw new ProbeFailure('V2_ASR_REVIEW_RUN_UNAVAILABLE');return value.data;},
       readStage:async q=>{if(q.projectId!==projectId||![2,6].includes(q.stageId))throw new ProbeFailure('V2_ASR_REVIEW_STAGE_SCOPE_CHANGED');const value=await api(page,'GET',`/api/projects/${projectId}/aidt/stages/${q.stageId}`);if(value.status!==200)throw new ProbeFailure('V2_ASR_REVIEW_STAGE_UNAVAILABLE');return value.data?.stage;}}):{};
@@ -1121,7 +1168,7 @@ export async function main() {
       checkpoint, capture, outcomeDiagnosticOrgId: guard.identity().org, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
       ...(profile === V2_VOICE_PROFILE ? { plan, ledger, runtimeScope, nativeActionObserver, observeNativeAction: nativeActionObserver, runNativeOperation, prepareSourceImages, runV2UIAction, armToolDecision, completeAsrOperation, ...asrPorts, printFormal, readResearchDocument, audioFixture:readV2SyntheticAudioFixture(metadata,identity), surveyPublication:()=>guard.surveyPublication(), armStageSave: (stageId, confirmation) => guard.armStageSave(stageId, confirmation) } : {}),
       armInterviewEdit: () => guard.armStageSave(2, false), armCardCreate: stage => guard.armStageSave(stage, false),
-      registerFixture: fixture => guard.registerFixture(fixture), armSurvey: id => guard.armSurvey(id), surveyReceipt: guard.surveyReceipt, armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, createSurveyParticipant, reviewS1StudentResponse, report });
+      registerFixture: fixture => guard.registerFixture(fixture), armSurvey: id => guard.armSurvey(id), surveyReceipt: guard.surveyReceipt, armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, createSurveyParticipant, reviewS1StudentResponse, reviewS2StudentResponse, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
     if (profile === V2_VOICE_PROFILE) {
@@ -1147,6 +1194,7 @@ export async function main() {
   } catch (error) { report.failure = safeCode(error); report.failedStage = stage; }
   finally {
     clearTimeout(timer);
+    normalLoginFingerprint = null;
     if (ledger) {
       report.asrReview = asrReviewer?.summary();
       report.v2Acceptance = ledger.summary();

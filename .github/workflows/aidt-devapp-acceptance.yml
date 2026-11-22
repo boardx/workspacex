@@ -92,6 +92,7 @@ jobs:
           node --test scripts/tests/devapp-aidt-v2-profile.test.mjs scripts/tests/devapp-aidt-v2-print.test.mjs scripts/tests/devapp-aidt-v2-integration.test.mjs scripts/tests/devapp-aidt-v2-request-guard.test.mjs scripts/tests/devapp-aidt-v2-action-window.test.mjs scripts/tests/devapp-aidt-v2-ui.test.mjs scripts/tests/devapp-aidt-v2-asr-review.test.mjs scripts/tests/devapp-aidt-v2-s2-asr.test.mjs scripts/tests/devapp-aidt-v2-negative.test.mjs apps/web/e2e/support/devapp-aidt-v2-survey-eight-guard-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-design-source-images-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-crud-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-virtual-normal-flow-independent.test.mjs
           node --test .harness/scripts/ci-aidt-native.test.mjs
           node --test scripts/tests/devapp-aidt-agent-review.test.mjs scripts/tests/devapp-aidt-entry-proof.test.mjs
+          node --test scripts/tests/devapp-aidt-agent-interview-independent.test.mjs scripts/tests/devapp-aidt-agent-interview-identity-independent.test.mjs
           node --check apps/web/e2e/support/devapp-aidt-acceptance.mjs
           node --check apps/web/e2e/support/devapp-aidt-journey.mjs
           node --check apps/web/e2e/support/devapp-aidt-agent-review.mjs
@@ -325,6 +326,16 @@ jobs:
             ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/qa-system-*.html
             ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-preflight-request.json
             ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-student-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U01-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U02-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U03-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U04-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U05-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U06-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U07-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U08-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U09-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U10-request.json
           if-no-files-found: warn
           retention-days: 7
       - name: Preserve acceptance failure
