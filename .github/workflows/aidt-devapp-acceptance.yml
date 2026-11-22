@@ -24,6 +24,10 @@ on:
         description: Explicitly create one dedicated consultant QA through normal one-use organization invitation APIs; credentials remain in memory
         type: boolean
         default: false
+      reusable_ordinary_qa:
+        description: Use the dedicated ordinary QA credentials from the protected Devapp QA environment
+        type: boolean
+        default: false
       agent_qa_review:
         description: Explicit agent-operated software QA review through the fixed source-bound review issue; not human classroom acceptance
         type: boolean
@@ -53,6 +57,7 @@ jobs:
       EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
       AIDT_LIVE_DEV: ${{ inputs.live_dev }}
       AIDT_PROVISION_ORDINARY_QA: ${{ inputs.provision_ordinary_qa }}
+      AIDT_REUSABLE_ORDINARY_QA: ${{ inputs.reusable_ordinary_qa }}
       AIDT_ENTRY_DIAGNOSTIC_ONLY: ${{ inputs.entry_diagnostic_only }}
       AIDT_AGENT_QA_REVIEW: ${{ inputs.agent_qa_review }}
     steps:
@@ -159,6 +164,7 @@ jobs:
     if: ${{ inputs.live_dev && github.ref == 'refs/heads/develop' }}
     needs: controls
     runs-on: [self-hosted, linux, x64, workspacex]
+    environment: aidt-devapp-qa
     # Ten interviews each exercise the initial draft, revision and finding in a real entity-scoped model run.
     timeout-minutes: 152
     env:
@@ -166,6 +172,7 @@ jobs:
       EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
       AIDT_LIVE_DEV: ${{ inputs.live_dev }}
       AIDT_PROVISION_ORDINARY_QA: ${{ inputs.provision_ordinary_qa }}
+      AIDT_REUSABLE_ORDINARY_QA: ${{ inputs.reusable_ordinary_qa }}
       AIDT_ENTRY_DIAGNOSTIC_ONLY: ${{ inputs.entry_diagnostic_only }}
       AIDT_AGENT_QA_REVIEW: ${{ inputs.agent_qa_review }}
       DEBUG: ''
@@ -234,6 +241,9 @@ jobs:
         continue-on-error: true
         # A JavaScript action receives the runner's artifact authority in memory; shell steps do not.
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        env:
+          AIDT_REUSABLE_QA_EMAIL: ${{ inputs.reusable_ordinary_qa && secrets.AIDT_REUSABLE_QA_EMAIL || '' }}
+          AIDT_REUSABLE_QA_PASSWORD: ${{ inputs.reusable_ordinary_qa && secrets.AIDT_REUSABLE_QA_PASSWORD || '' }}
         with:
           debug: false
           script: |
@@ -261,9 +271,11 @@ jobs:
             }
             const childEnv = { ...process.env };
             for (const key of ['INPUT_GITHUB-TOKEN', 'INPUT_GITHUB_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN']) delete childEnv[key];
+            const probeEnv = { ...childEnv };
+            for (const key of ['AIDT_REUSABLE_QA_EMAIL', 'AIDT_REUSABLE_QA_PASSWORD']) delete probeEnv[key];
             const declared = fs.readFileSync(path.join(source, '.nvmrc'), 'utf8').trim();
             const probe = spawnSync('node', ['-p', 'JSON.stringify({version:process.versions.node,executable:process.execPath})'], {
-              cwd: source, env: childEnv, encoding: 'utf8', timeout: 10000, maxBuffer: 1024, shell: false,
+              cwd: source, env: probeEnv, encoding: 'utf8', timeout: 10000, maxBuffer: 1024, shell: false,
             });
             let selected;
             try { selected = JSON.parse(probe.stdout); } catch { throw new Error('AIDT_DECLARED_NODE_UNAVAILABLE'); }

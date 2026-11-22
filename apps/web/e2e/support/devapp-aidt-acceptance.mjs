@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { ORIGIN, ProbeFailure, readQaCredentials } from './devapp-aidt-auth-readonly.mjs';
+import { consumeReusableQaCredentials, reusableQaRequested } from './devapp-aidt-qa-identity.mjs';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, SHA } from './devapp-aidt-acceptance-guard.mjs';
 import { captureApplicationPrint } from './devapp-aidt-print-evidence.mjs';
 import { sendTeachingFeedback } from './devapp-aidt-chat-evidence.mjs';
@@ -149,7 +150,7 @@ export function ordinaryQaProvisioningRequested(env, identity) {
   const choice = env.AIDT_PROVISION_ORDINARY_QA;
   if (choice !== undefined && !['false', 'true'].includes(choice)) throw new ProbeFailure('QA_IDENTITY_OPT_IN_INVALID');
   if (choice !== 'true') return false;
-  if (env.AIDT_LIVE_DEV !== 'true' || identity.entryDiagnosticOnly) throw new ProbeFailure('QA_IDENTITY_OPT_IN_SCOPE_INVALID');
+  if (env.AIDT_LIVE_DEV !== 'true' || (identity.entryDiagnosticOnly && !reusableQaRequested(env))) throw new ProbeFailure('QA_IDENTITY_OPT_IN_SCOPE_INVALID');
   return true;
 }
 
@@ -264,6 +265,12 @@ export async function main() {
     // A full writer may not spend an account or model call before its actual reviewer channel is ready.
     if (!identity.entryDiagnosticOnly && !agentQaRequested) throw new ProbeFailure('S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED');
     const provisionOrdinaryQa = ordinaryQaProvisioningRequested(process.env, identity);
+    const reusableCredentials = consumeReusableQaCredentials(process.env);
+    if (reusableCredentials) {
+      sensitiveEvidence.remember(reusableCredentials.email);
+      sensitiveEvidence.remember(reusableCredentials.password);
+      report.qaCredentialSource = 'protected-devapp-environment';
+    }
     if (provisionOrdinaryQa) report.scope = 'Setup: one dedicated synthetic consultant account through one bounded organization invitation lifecycle. Student business writes and screenshots: new owned QA project only; setup counts are separate.';
     report.controlSource = process.env.GITHUB_SHA;
     report.executionMode = identity.entryDiagnosticOnly ? 'entry-diagnostic-readonly' : 'agent-operated-software-qa';
@@ -290,7 +297,7 @@ export async function main() {
       if (JSON.stringify(afterReviewPreflight) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
       report.runtimeRechecks++;
     }
-    credentials = readQaCredentials();
+    credentials = reusableCredentials && !provisionOrdinaryQa ? reusableCredentials : readQaCredentials();
     sensitiveEvidence.remember(credentials.email); sensitiveEvidence.remember(credentials.password);
     const { chromium, expect, request } = await import('@playwright/test');
     if (provisionOrdinaryQa) {
@@ -298,7 +305,7 @@ export async function main() {
       const { bootstrapOrdinaryQaIdentity } = await import('./devapp-aidt-qa-identity.mjs');
       const setupStartedUTC = new Date().toISOString(), setupTick = performance.now();
       try {
-        const created = await bootstrapOrdinaryQaIdentity({ origin: ORIGIN, adminCredentials: credentials,
+        const created = await bootstrapOrdinaryQaIdentity({ origin: ORIGIN, adminCredentials: credentials, reusableCredentials: reusableCredentials ?? undefined,
           createContext: options => request.newContext(options),
           onSecret: value => sensitiveEvidence.remember(value),
           onReceipt: receipt => { report.qaProvisioning = receipt; },
@@ -447,17 +454,20 @@ export async function main() {
     const me = await api(page, 'GET', `/api/identity/me?orgId=${encodeURIComponent(guard.identity().org)}`);
     report.actor = guard.readIdentityRole(me.status, me.data);
     await expect(page.getByTestId('aidt-home')).toBeVisible();
+    if (provisionedIdentity) { assertProvisionedOrdinaryQa(provisionedIdentity, guard.identity(), me.status, me.data); report.provisionedUiIdentityVerified = true; }
+    if (reusableCredentials && (!report.actor.ordinaryConsultant || me.data?.org?.kind !== 'organization')) {
+      throw new ProbeFailure('ORDINARY_QA_CONSULTANT_REQUIRED');
+    }
     if (identity.entryDiagnosticOnly) {
       report.kind = 'devapp-aidt-entry-diagnostic-v1';
       const visible = await page.getByTestId('aidt-new').isVisible();
       await capture('00-home-create-actions', undefined, 'home-create-actions');
       report.entryDiagnostic = { completed: true, orgRole: report.actor.orgRole, creationEntryVisible: visible,
         ordinaryQaSuitable: report.actor.ordinaryConsultant, missingEntryReproduced: report.actor.ordinaryConsultant && !visible,
-        writesOtherThanLogin: 0, scope: 'read-only entry observation; not creation or six-stage acceptance' };
+        projectWrites: 0, writesOtherThanLogin: 0, scope: provisionOrdinaryQa ? 'one invitation setup, followed by read-only project home' : 'read-only entry observation; not creation or six-stage acceptance' };
       report.passed = true;
       return;
     }
-    if (provisionedIdentity) { assertProvisionedOrdinaryQa(provisionedIdentity, guard.identity(), me.status, me.data); report.provisionedUiIdentityVerified = true; }
     guard.verifyOrdinaryIdentity(me.status, me.data);
     const homeCreated = await checkpoint('homepage-ui-create-persist', async () => {
       await capture('00-home-create-actions', undefined, 'home-create-actions');

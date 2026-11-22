@@ -437,6 +437,7 @@ test('ordinary QA setup is explicit and allowed only for the full live lane, nev
   assert.equal(ordinaryQaProvisioningRequested({ AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'true' }, identity()), true);
   for (const env of [{ AIDT_PROVISION_ORDINARY_QA: 'yes' }, { AIDT_PROVISION_ORDINARY_QA: 'true' }, { AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'false' }]) assert.throws(() => ordinaryQaProvisioningRequested(env, identity()), /QA_IDENTITY_OPT_IN_/);
   assert.throws(() => ordinaryQaProvisioningRequested({ AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'true' }, { ...identity(), entryDiagnosticOnly: true }), /QA_IDENTITY_OPT_IN_SCOPE_INVALID/);
+  assert.equal(ordinaryQaProvisioningRequested({ AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'true', AIDT_REUSABLE_ORDINARY_QA: 'true' }, { ...identity(), entryDiagnosticOnly: true }), true);
 });
 
 test('all setup and student secrets remain in memory and are rejected from every shared evidence scanner', () => {
