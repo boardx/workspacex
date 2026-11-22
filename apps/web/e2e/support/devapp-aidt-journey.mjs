@@ -7,6 +7,8 @@ import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 import { aidtSyntheticInterviewAudio } from './devapp-aidt-acceptance-guard.mjs';
+import { ownedAidtProblemRoute, matchesAidtProblemRoute, matchesAidtProblemNativeContext, openAidtProblemNativeOutcome } from './devapp-aidt-problem-navigation.mjs';
+export { ownedAidtProblemRoute, matchesAidtProblemRoute, matchesAidtProblemNativeContext, openAidtProblemNativeOutcome };
 
 export const REQUIRED_CHECKS = Object.freeze([
   'overview', 's1-draft-not-complete', 's1-confirmed-reentry',
@@ -30,36 +32,13 @@ export function hasExactSavedInput(value, expected, depth = 0) {
   return Boolean(value && typeof value === 'object' && Object.values(value).some(item => hasExactSavedInput(item, expected, depth + 1)));
 }
 
-// Capture the destination before Next Link starts navigating. A matching pathname alone
-// cannot distinguish the directory from an entity because both share that pathname.
-export function ownedAidtProblemRoute(href, { origin, projectId }) {
-  let url;
-  try { url = new URL(href, origin); } catch { fail('S1_ENTITY_ROUTE_INVALID'); }
-  if (typeof href !== 'string' || !href || url.origin !== origin || url.username || url.password
-    || url.pathname !== `/aidt/${encodeURIComponent(projectId)}` || url.hash
-    || url.searchParams.getAll('step').length !== 1 || url.searchParams.get('step') !== '1'
-    || url.searchParams.getAll('entity').length !== 1
-    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(url.searchParams.get('entity') ?? '')
-    || url.searchParams.has('history') || url.searchParams.has('summary')) fail('S1_ENTITY_ROUTE_INVALID');
-  return Object.freeze({ href: url.href, origin, projectId, entityId: url.searchParams.get('entity') });
-}
-
-export function matchesAidtProblemRoute(href, route, outcome = false) {
-  try {
-    const actual = ownedAidtProblemRoute(href, route);
-    const url = new URL(actual.href);
-    return actual.entityId === route.entityId && (!outcome
-      || (url.searchParams.getAll('tool').length === 1 && url.searchParams.get('tool') === 'outcome'));
-  } catch { return false; }
-}
-
 /** Fixed metadata only; observing a failed wait never changes its verdict or retries it. */
 export function observeAidtProblemOutcomeWait({ page, scope }) {
   let closed = false, target;
-  const phases = ['before-thread-wait', 'owned-route', 'goto', 'route-bound', 'readonly-panel', 'editors', 'buttons', 'after-thread-wait', 'ready'];
+  const phases = ['before-thread-wait', 'owned-route', 'goto', 'route-bound', 'native-shell', 'native-tab', 'readonly-panel', 'editors', 'buttons', 'after-thread-wait', 'ready'];
   const data = { phase: 'owned-route', failed: false, failureKind: null, ownedRouteCaptured: false,
     gotoCompleted: false, routeBound: false, threadPredicate: null, projectMatches: null,
-    entityMatches: null, toolMatches: null, readonlyPanelVisible: null, editorCount: null,
+    entityMatches: null, threadMatches: null, sourceMatches: null, toolMatches: null, composerReady: false, artifactTabReady: false, readonlyPanelVisible: null, editorCount: null,
     buttonCount: null, printButtonCount: null };
   const count = value => Number.isSafeInteger(value) && value >= 0 && value <= 1000 ? value : null;
   const routeSnapshot = () => {
@@ -68,6 +47,8 @@ export function observeAidtProblemOutcomeWait({ page, scope }) {
       data.threadPredicate = url.searchParams.get('thread')?.startsWith('thr_aidt_') === true;
       data.projectMatches = url.origin === scope.origin && url.pathname === `/aidt/${encodeURIComponent(scope.projectId)}`;
       data.entityMatches = target ? matchesAidtProblemRoute(url.href, target) : null;
+      data.threadMatches = target ? url.searchParams.getAll('thread').length === 1 && url.searchParams.get('thread') === new URL(target.href).searchParams.get('thread') : null;
+      data.sourceMatches = target ? matchesAidtProblemNativeContext(url.href, target) : null;
       data.toolMatches = url.searchParams.getAll('tool').length === 1 && url.searchParams.get('tool') === 'outcome';
     } catch { /* An unavailable route observation stays unknown. */ }
   };
@@ -79,7 +60,7 @@ export function observeAidtProblemOutcomeWait({ page, scope }) {
       data.ownedRouteCaptured = true;
     },
     passed(value) {
-      if (!closed && ['gotoCompleted', 'routeBound'].includes(value)) data[value] = true;
+      if (!closed && ['gotoCompleted', 'routeBound', 'composerReady', 'artifactTabReady'].includes(value)) data[value] = true;
     },
     async failed(error) {
       if (closed) return;
@@ -839,8 +820,8 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
   const openProblem = async (link, existingObservation) => {
     const navigation = existingObservation ?? problemObservation();
     try {
-      const result = await openAidtProblemOutcome({ page, route: problemRoute, link, navigation,
-        scope: { origin, projectId: scope.projectId }, waitForRoute: predicate => expect.poll(predicate, { timeout: 30000 }).toBe(true),
+      const result = await openAidtProblemNativeOutcome({ page, route: problemRoute, link, navigation,
+        scope: { origin, projectId: scope.projectId }, waitForRoute: (predicate, { timeout = 30000 } = {}) => expect.poll(predicate, { timeout }).toBe(true),
         assertReady: async () => {
           const panel = page.getByRole('region', { name: '工作坊问题产物' });
           await assertAidtReadOnlyProblemOutput(panel, expect, navigation);
@@ -924,7 +905,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
         const fields = JSON.parse(saved?.content?.draft?.fields?.[`problemDraft:${problemRoute.entityId}`] ?? '{}');
         return saved.revision > originalProblemDraft.revision && fields.draftTurnId === secondNativeReply?.assistantMessageId;
       }, { timeout: 30000 }).toBe(true); return savedStage(1); },
-      reload: () => openProblem(), assertUi: async draft => {
+      reload: async () => { await page.reload({ waitUntil: 'domcontentloaded' }); await openProblem(); }, assertUi: async draft => {
         if (!matchesAidtProblemRoute(page.url(), problemRoute, true)) fail('S1_RESPONSE_ENTITY_CHANGED');
         await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(firstQuestion.threadId);
         await expect(page.getByTestId('aidt-stage-output')).toContainText(draft.fields.initial);
