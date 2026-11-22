@@ -12,7 +12,7 @@ const sections: Record<string, string> = {
 
 /** Parse the named sections of the Skill's visible draft, including pre-protocol Markdown.
  * Never take the first chat message or a teaching question as a saved answer. */
-export function problemSkillFields(answer: string, unwrapVerbatimQuote = false): Record<string, string> {
+export function problemSkillFields(answer: string, unwrapVerbatimQuote = true): Record<string, string> {
   if (answer.length > 100_000) return {};
   const fields: Record<string, string> = {};
   let current: string | undefined;
@@ -95,7 +95,7 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   if (!previous || typeof previous !== "object" || Array.isArray(previous) || Object.values(previous).some(v=>typeof v!=="string")
     || previous.draftTurnId === turn.messageId) return null;
   const student = studentRevisionText(turn.user);
-  const output = problemSkillFields(turn.assistant, true);
+  const output = problemSkillFields(turn.assistant);
   if (output.initial) {
     const existing = previous.initial?.trim();
     // Students' first framing stays intact. A later reformulation has its own field.
@@ -117,9 +117,9 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   // comparison permits suggestions, not a selected direction or a student rewrite.
   if (!statedRewrite || statedRewrite !== patch.rewrittenTheme) delete patch.rewrittenTheme;
   if (!statedSelection) delete patch.focus;
-  const studentFields = problemSkillFields(student);
+  const studentFields = problemSkillFields(student, false);
   const sourceTypeLine = /^来源类型[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
-  const statedSourceType = sourceTypeLine ? problemSkillFields("来源类型：" + sourceTypeLine).problemSources : studentFields.problemSources;
+  const statedSourceType = sourceTypeLine ? problemSkillFields("来源类型：" + sourceTypeLine, false).problemSources : studentFields.problemSources;
   const statedSourceDetails = /^(?:命题来源反思|来源说明)[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim() || studentFields.sourceDetails;
   const hypothesis = explicitlyStatedHypothesis(student);
   if (hypothesis) {
