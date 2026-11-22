@@ -143,6 +143,58 @@ function messageText(message) {
   if (Array.isArray(message.content) && message.content.every(part => object(part) && part.type === 'text' && typeof part.text === 'string')) return message.content.map(part => part.text).join('');
   fail('TEACHING_NON_TEXT_MESSAGE');
 }
+const HISTORY_DIAGNOSTIC_KEYS = Object.freeze(['messageCount', 'historyCount', 'firstBadIndex', 'idMatchesDurable',
+  'idMatchesKnownClientAlias', 'roleMatches', 'textExact', 'textTrimEqual', 'anyCanonicalTextExact', 'contentShape']);
+const HISTORY_DIAGNOSTIC_BOOLEANS = Object.freeze(['idMatchesDurable', 'idMatchesKnownClientAlias', 'roleMatches',
+  'textExact', 'textTrimEqual', 'anyCanonicalTextExact']);
+
+/** Fixed-size diagnostic only: no message, identifier, request or error text leaves this function. */
+function safeHistoryDiagnostic(value) {
+  try {
+    if (!object(value)) return;
+    const keys = Reflect.ownKeys(value), descriptors = Object.getOwnPropertyDescriptors(value);
+    if (keys.some(key => typeof key !== 'string') || keys.sort().join(',') !== [...HISTORY_DIAGNOSTIC_KEYS].sort().join(',')
+      || HISTORY_DIAGNOSTIC_KEYS.some(key => !Object.hasOwn(descriptors[key], 'value'))) return;
+    const data = Object.fromEntries(HISTORY_DIAGNOSTIC_KEYS.map(key => [key, descriptors[key].value]));
+    if (!Number.isInteger(data.messageCount) || data.messageCount < 2 || data.messageCount > 100
+      || !Number.isInteger(data.historyCount) || data.historyCount < 0 || data.historyCount > 100
+      || !Number.isInteger(data.firstBadIndex) || data.firstBadIndex < 0 || data.firstBadIndex >= data.messageCount - 1
+      || HISTORY_DIAGNOSTIC_BOOLEANS.some(key => typeof data[key] !== 'boolean')
+      || !['text', 'text-parts', 'nontext', 'other'].includes(data.contentShape)) return;
+    return Object.freeze(data);
+  } catch { return; }
+}
+
+export function teachingHistoryFailureDiagnostic(messages, history, firstBadIndex) {
+  try {
+    if (!Array.isArray(messages) || messages.length < 2 || messages.length > 100 || !Array.isArray(history) || history.length > 100
+      || !Number.isInteger(firstBadIndex) || firstBadIndex < 0 || firstBadIndex >= messages.length - 1) return;
+    const message = messages[firstBadIndex], content = message?.content;
+    const textParts = Array.isArray(content) && content.every(part => object(part) && part.type === 'text' && typeof part.text === 'string');
+    const contentShape = typeof content === 'string' ? 'text' : Array.isArray(content) ? textParts ? 'text-parts' : 'nontext' : 'other';
+    const text = typeof content === 'string' ? content : textParts ? content.map(part => part.text).join('') : undefined;
+    const durable = history.filter(row => object(row) && typeof message?.id === 'string' && row.id === message.id);
+    const aliases = history.filter(row => object(row) && typeof message?.id === 'string' && typeof row.clientMessageId === 'string' && row.clientMessageId === message.id);
+    const matched = [...durable, ...aliases];
+    return safeHistoryDiagnostic({ messageCount: messages.length, historyCount: history.length, firstBadIndex,
+      idMatchesDurable: durable.length > 0, idMatchesKnownClientAlias: aliases.length > 0,
+      roleMatches: matched.some(row => row.authorKind === 'human' ? ['user', 'human'].includes(message?.role) : row.authorKind === 'agent' && message?.role === 'assistant'),
+      textExact: typeof text === 'string' && matched.some(row => row.text === text),
+      textTrimEqual: typeof text === 'string' && matched.some(row => typeof row.text === 'string' && row.text.trim() === text.trim()),
+      anyCanonicalTextExact: typeof text === 'string' && history.some(row => object(row) && row.text === text), contentShape });
+  } catch { return; }
+}
+
+/** Read only the closed schema from this exact failure; malformed diagnostics are discarded. */
+export function readTeachingHistoryFailureDiagnostic(error) {
+  try {
+    if (!(error instanceof ProbeFailure) || error.code !== 'TEACHING_HISTORY_NOT_CANONICAL') return;
+    const descriptor = Object.getOwnPropertyDescriptor(error, 'teachingHistoryDiagnostic');
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) return;
+    return safeHistoryDiagnostic(descriptor.value);
+  } catch { return; }
+}
+
 /** SDK IDs are transport coordinates only. The backend ID comes from the accepted human row. */
 export function validateTeachingWire(request, scope) {
   const expected = validateTeachingScope(scope); let url;
@@ -157,8 +209,16 @@ export function validateTeachingWire(request, scope) {
   const messages = body.messages, latest = messages.at(-1);
   if (!object(latest) || !['user', 'human'].includes(latest.role) || latest.id !== forwarded.clientMessageId || messageText(latest) !== scope.prompt) fail('TEACHING_STUDENT_TEXT_MISMATCH');
   const history = scope.knownMessages ?? [];
-  for (const message of messages.slice(0, -1)) {
-    if (!object(message) || !history.some(row => row.id === message.id && (row.authorKind === 'human' ? ['user', 'human'].includes(message.role) : row.authorKind === 'agent' && message.role === 'assistant') && row.text === messageText(message))) fail('TEACHING_HISTORY_NOT_CANONICAL');
+  for (const [index, message] of messages.slice(0, -1).entries()) {
+    try {
+      if (!object(message) || !history.some(row => row.id === message.id && (row.authorKind === 'human' ? ['user', 'human'].includes(message.role) : row.authorKind === 'agent' && message.role === 'assistant') && row.text === messageText(message))) fail('TEACHING_HISTORY_NOT_CANONICAL');
+    } catch (error) {
+      if (error instanceof ProbeFailure && error.code === 'TEACHING_HISTORY_NOT_CANONICAL') {
+        const diagnostic = teachingHistoryFailureDiagnostic(messages, history, index);
+        if (diagnostic) Object.defineProperty(error, 'teachingHistoryDiagnostic', { value: diagnostic });
+      }
+      throw error;
+    }
   }
   return { clientMessageId: forwarded.clientMessageId, sdkRunId: body.runId, sdkThreadId: body.threadId };
 }
