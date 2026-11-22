@@ -53,31 +53,86 @@ export function matchesAidtProblemRoute(href, route, outcome = false) {
   } catch { return false; }
 }
 
-export async function assertAidtReadOnlyProblemOutput(panel, expect) {
+/** Fixed metadata only; observing a failed wait never changes its verdict or retries it. */
+export function observeAidtProblemOutcomeWait({ page, scope }) {
+  let closed = false, target;
+  const phases = ['before-thread-wait', 'owned-route', 'goto', 'route-bound', 'readonly-panel', 'editors', 'buttons', 'after-thread-wait', 'ready'];
+  const data = { phase: 'owned-route', failed: false, failureKind: null, ownedRouteCaptured: false,
+    gotoCompleted: false, routeBound: false, threadPredicate: null, projectMatches: null,
+    entityMatches: null, toolMatches: null, readonlyPanelVisible: null, editorCount: null,
+    buttonCount: null, printButtonCount: null };
+  const count = value => Number.isSafeInteger(value) && value >= 0 && value <= 1000 ? value : null;
+  const routeSnapshot = () => {
+    try {
+      const url = new URL(page.url());
+      data.threadPredicate = url.searchParams.get('thread')?.startsWith('thr_aidt_') === true;
+      data.projectMatches = url.origin === scope.origin && url.pathname === `/aidt/${encodeURIComponent(scope.projectId)}`;
+      data.entityMatches = target ? matchesAidtProblemRoute(url.href, target) : null;
+      data.toolMatches = url.searchParams.getAll('tool').length === 1 && url.searchParams.get('tool') === 'outcome';
+    } catch { /* An unavailable route observation stays unknown. */ }
+  };
+  return { data,
+    phase(value) { if (!closed && phases.includes(value)) data.phase = value; },
+    bind(value) {
+      if (closed) return;
+      target = ownedAidtProblemRoute(value.href, scope);
+      data.ownedRouteCaptured = true;
+    },
+    passed(value) {
+      if (!closed && ['gotoCompleted', 'routeBound'].includes(value)) data[value] = true;
+    },
+    async failed(error) {
+      if (closed) return;
+      data.failed = true; data.failureKind = 'other';
+      try { if (error?.name === 'TimeoutError') data.failureKind = 'timeout'; } catch { /* Never retain or surface arbitrary error properties. */ }
+      routeSnapshot();
+      try {
+        const panel = page.getByRole('region', { name: '工作坊问题产物' });
+        const [visible, editors, buttons, print] = await Promise.all([
+          panel.isVisible(), panel.locator('input,textarea,select,[contenteditable]:not([contenteditable="false"])').count(),
+          panel.locator('button,[role="button"]').count(),
+          panel.getByRole('button', { name: '打印', exact: true }).and(panel.locator('button[type="button"]')).count(),
+        ]);
+        if (!closed) Object.assign(data, { readonlyPanelVisible: visible === true,
+          editorCount: count(editors), buttonCount: count(buttons), printButtonCount: count(print) });
+      } catch { /* Probes are passive and must not replace the original failed wait. */ }
+    },
+    close() { if (!closed) { routeSnapshot(); closed = true; Object.freeze(data); } },
+  };
+}
+
+export async function assertAidtReadOnlyProblemOutput(panel, expect, navigation) {
+  navigation?.phase('readonly-panel');
   await expect(panel).toBeVisible();
+  navigation?.phase('editors');
   const editors = panel.locator('input,textarea,select,[contenteditable]:not([contenteditable="false"])');
   await expect(editors).toHaveCount(0);
   const buttons = panel.locator('button,[role="button"]');
   const print = panel.getByRole('button', { name: '打印', exact: true }).and(panel.locator('button[type="button"]'));
+  navigation?.phase('buttons');
   await expect.poll(async () => {
     const printCount = await print.count();
     return printCount <= 1 && await buttons.count() === printCount;
   }).toBe(true);
 }
 
-export async function openAidtProblemOutcome({ page, route, link, scope, waitForRoute, assertReady }) {
+export async function openAidtProblemOutcome({ page, route, link, scope, waitForRoute, assertReady, navigation }) {
   // Reentry receives the original captured target, never the possibly stale current URL.
   const target = ownedAidtProblemRoute(link ? await link.getAttribute('href') : route?.href, scope);
   if (route && target.entityId !== route.entityId) fail('S1_ENTITY_ROUTE_CHANGED');
+  navigation?.bind(target);
   if (link) {
     await link.click();
     await waitForRoute(() => matchesAidtProblemRoute(page.url(), target));
     if (!matchesAidtProblemRoute(page.url(), target)) fail('S1_ENTITY_NAVIGATION_UNVERIFIED');
   }
   const outcome = new URL(target.href); outcome.searchParams.set('tool', 'outcome');
+  navigation?.phase('goto');
   await page.goto(outcome.href, { waitUntil: 'domcontentloaded' });
+  navigation?.passed('gotoCompleted'); navigation?.phase('route-bound');
   await waitForRoute(() => matchesAidtProblemRoute(page.url(), target, true));
   if (!matchesAidtProblemRoute(page.url(), target, true)) fail('S1_OUTCOME_NAVIGATION_UNVERIFIED');
+  navigation?.passed('routeBound');
   // Must observe the actual entity input; the directory also has aidt-shared-save.
   await assertReady();
   return target;
@@ -774,14 +829,29 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
   let firstQuestion, originalProblemDraft, confirmedProblem, diagnosticStep2Href;
   let problemDraftReady = false;
   const problemInitial = text('想了解校园午休中，赶课与闲暇两种情境如何影响饮品选择的犹豫。');
-  // Fixed enum/booleans only: no request, URL query, account or error-stack material.
-  report.s1Navigation = { operation: 'not-started', entityOutcomeObserved: false, savedInitialObserved: false, reentrySavedInitialObserved: false, teachingCheckpointAccepted: false };
-  const openProblem = async link => openAidtProblemOutcome({ page, route: problemRoute, link,
-    scope: { origin, projectId: scope.projectId }, waitForRoute: predicate => expect.poll(predicate, { timeout: 30000 }).toBe(true),
-    assertReady: async () => {
-      const panel = page.getByRole('region', { name: '工作坊问题产物' });
-      await assertAidtReadOnlyProblemOutput(panel, expect);
-    } });
+  // Fixed enums/booleans/bounded counts only: no request, URL query, account or error-stack material.
+  report.s1Navigation = { operation: 'not-started', entityOutcomeObserved: false, savedInitialObserved: false, reentrySavedInitialObserved: false, teachingCheckpointAccepted: false, outcomeWaits: [] };
+  const problemObservation = () => {
+    const observation = observeAidtProblemOutcomeWait({ page, scope: { origin, projectId: scope.projectId } });
+    if (report.s1Navigation.outcomeWaits.length < 8) report.s1Navigation.outcomeWaits.push(observation.data);
+    return observation;
+  };
+  const openProblem = async (link, existingObservation) => {
+    const navigation = existingObservation ?? problemObservation();
+    try {
+      const result = await openAidtProblemOutcome({ page, route: problemRoute, link, navigation,
+        scope: { origin, projectId: scope.projectId }, waitForRoute: predicate => expect.poll(predicate, { timeout: 30000 }).toBe(true),
+        assertReady: async () => {
+          const panel = page.getByRole('region', { name: '工作坊问题产物' });
+          await assertAidtReadOnlyProblemOutput(panel, expect, navigation);
+        } });
+      if (!existingObservation) navigation.phase('ready');
+      return result;
+    } catch (error) {
+      if (!existingObservation) await navigation.failed(error);
+      throw error;
+    } finally { if (!existingObservation) navigation.close(); }
+  };
   const problemName = `QA合成选题 ${unique}`;
   const personaName = `QA合成画像 ${unique}`;
   const question = '合成情境中，学生能否从静态队列示意中理解先看等待时间再决定的顺序？';
@@ -797,11 +867,20 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     await go(1); await click(page.getByTestId('aidt-new-entity-card')); await fill('问题名称', problemName);
     await captureCardCreation(1, 'problem', () => click(btn('创建问题')), { reopen: true, expectedName: problemName });
     report.s1Navigation.operation = 'open-problem-outcome';
-    await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
-    problemRoute = ownedAidtProblemRoute(page.url(), { origin, projectId: scope.projectId });
-    await openProblem(); report.s1Navigation.entityOutcomeObserved = true;
-    await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
-    problemHref = page.url();
+    const navigation = problemObservation();
+    try {
+      navigation.phase('before-thread-wait');
+      await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
+      navigation.phase('owned-route');
+      problemRoute = ownedAidtProblemRoute(page.url(), { origin, projectId: scope.projectId });
+      navigation.bind(problemRoute);
+      await openProblem(undefined, navigation); report.s1Navigation.entityOutcomeObserved = true;
+      navigation.phase('after-thread-wait');
+      await page.waitForURL(url => url.searchParams.get('thread')?.startsWith('thr_aidt_'));
+      problemHref = page.url();
+      navigation.phase('ready');
+    } catch (error) { await navigation.failed(error); throw error; }
+    finally { navigation.close(); }
     report.s1Navigation.operation = 'native-teaching-feedback';
     const initialRevision = await revision(1);
     await requireAcceptedS1Feedback(() => feedback(1, problemInitial));
