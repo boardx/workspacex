@@ -843,6 +843,106 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
         btn('导出人物发现卡 PDF', finding),
         [code, '人物发现卡', quote, projected.context, photoFile || '暂无授权照片。'], imageHashes);
     }
+    if (photoFile) {
+      const frozen = await savedStage(2), frozenDraft = frozen.content.draft;
+      const photoKey = `discoveryPhoto:${target.entityId}`, transcriptKey = `interviewTranscript:${target.entityId}`;
+      const referenceIdentity = reference => reference && typeof reference === 'object'
+        ? Object.fromEntries(['projectId', 'runId', 'artifactId', 'versionId', 'name', 'mime', 'sha256', 'bytes'].map(key => [key, reference[key]])) : null;
+      const materialReferences = draft => Object.fromEntries(Object.entries(draft.fields)
+        .filter(([key]) => key.startsWith(`interviewMaterial:${target.entityId}:`))
+        .map(([key, raw]) => [key, referenceIdentity(JSON.parse(raw))]));
+      const originalPhoto = JSON.parse(frozenDraft.fields[photoKey] ?? 'null');
+      const originalTranscript = JSON.parse(frozenDraft.fields[transcriptKey] ?? 'null');
+      const originalMaterials = materialReferences(frozenDraft);
+      if (!originalPhoto?.artifactId || !originalPhoto.versionId || originalPhoto.projectId !== scope.projectId
+        || originalPhoto.sha256 !== createHash('sha256').update(schematicPng(unique, 14)).digest('hex')
+        || !originalTranscript?.checked || !originalMaterials[originalTranscript.sourceKey]
+        || !Object.values(originalMaterials).some(reference => reference?.artifactId === originalPhoto.artifactId && reference.versionId === originalPhoto.versionId)
+        || frozenDraft.fields[`interviewConfirmed:${target.entityId}`] !== 'true') fail('PHOTO_AUTHORIZATION_BASELINE_UNVERIFIED');
+      const stableCard = draft => {
+        const card = draft.discoveryCards?.find(item => item.id === target.entityId);
+        return card && { headline: card.headline, headlineKind: card.headlineKind, context: card.context, quote: card.quote };
+      };
+      const stableGuide = draft => {
+        const record = JSON.parse(draft.fields[`interviewRecord:${target.entityId}`] ?? '{}');
+        return { topicRevision: record.topicRevision, original: record.original, adopted: record.adopted,
+          guideConfirmed: record.guideConfirmed, draftTurnId: record.draftTurnId };
+      };
+      const assertPreserved = draft => {
+        expect(stableCard(draft)).toEqual(stableCard(frozenDraft));
+        expect(stableGuide(draft)).toEqual(stableGuide(frozenDraft));
+        expect(JSON.parse(draft.fields[transcriptKey] ?? 'null')).toEqual(originalTranscript);
+        expect(draft.fields[`interviewInterpretation:${target.entityId}`]).toBe(frozenDraft.fields[`interviewInterpretation:${target.entityId}`]);
+        expect(materialReferences(draft)).toEqual(originalMaterials);
+      };
+      // Four normal UI saves exercise revocation and restoration; no upload, teaching turn or extra PDF.
+      await saveInterviewEdit(() => editor.getByRole('checkbox', { name: '已获受访者授权共享照片', exact: true }).uncheck());
+      const revoked = await savedStage(2);
+      expect(revoked.revision).toBeGreaterThan(frozen.revision);
+      assertPreserved(revoked.content.draft);
+      expect(revoked.content.draft.fields[photoKey] || '').toBe('');
+      expect(revoked.content.draft.fields[`interviewConfirmed:${target.entityId}`]).not.toBe('true');
+      expect(JSON.parse(revoked.content.draft.fields[`interviewRecord:${target.entityId}`]).consent.photos).toBe(false);
+      await page.reload();
+      await readOnlyInterviewOutput();
+      await expect(finding.getByText('暂无授权照片。', { exact: true })).toBeVisible();
+      await expect(finding.getByRole('img')).toHaveCount(0);
+      await expect(finding).toContainText(quote);
+      await expect(finding.getByText(projected.context, { exact: true })).toBeVisible();
+
+      const historyUrl = new URL(target.href);
+      historyUrl.searchParams.set('entityRevision', String(frozen.revision));
+      historyUrl.searchParams.set('sourceId', originalPhoto.artifactId);
+      const history = ownedAidtEntityRoute(historyUrl.href, { origin, projectId: scope.projectId }, { stage: 2, entityId: target.entityId, revision: frozen.revision });
+      const consentRead = page.waitForResponse(response => response.request().method() === 'GET'
+        && new URL(response.url()).origin === origin
+        && new URL(response.url()).pathname === `/api/projects/${scope.projectId}/aidt/stages/2`, { timeout: 30000 });
+      await page.goto(history.href);
+      await waitForEntity(() => matchesAidtEntityRoute(page.url(), history));
+      const currentConsentResponse = await consentRead;
+      expect(currentConsentResponse.status()).toBe(200);
+      const currentConsentStage = (await currentConsentResponse.json()).stage;
+      if (currentConsentStage?.projectId !== scope.projectId || currentConsentStage.stageId !== 2
+        || JSON.parse(currentConsentStage.content.draft.fields[`interviewRecord:${target.entityId}`] ?? '{}').consent?.photos !== false) fail('HISTORICAL_PHOTO_REVOCATION_UNVERIFIED');
+      const historical = page.getByTestId('aidt-entity-history');
+      await expect(historical.getByRole('heading', { level: 1 })).toContainText(` · V${frozen.revision}`);
+      await expect(historical.getByRole('alert')).toHaveText('此访谈版本无法查看该原件。');
+      const historicalFinding = historical.getByTestId('aidt-interview-finding');
+      await expect(historicalFinding.getByText('暂无授权照片。', { exact: true })).toBeVisible();
+      await expect(historicalFinding.getByRole('img')).toHaveCount(0);
+      await expect(historicalFinding).toContainText(quote);
+      await expect(historicalFinding.getByText(projected.context, { exact: true })).toBeVisible();
+      assertPreserved((await savedStage(2)).content.draft);
+
+      await output(target);
+      await saveInterviewEdit(() => editor.getByRole('checkbox', { name: '已获受访者授权共享照片', exact: true }).check());
+      const existingPhotos = editor.getByTestId('aidt-photo-upload');
+      await click(existingPhotos.locator('summary').filter({ hasText: /^使用此访谈已有照片$/ }));
+      const existingPhoto = btn(photoFile, existingPhotos);
+      await expect(existingPhoto).toHaveCount(1);
+      await saveInterviewEdit(() => click(existingPhoto));
+      await expect(existingPhotos).toContainText('原件已保存并回读', { timeout: 60000 });
+      const rebound = await savedStage(2);
+      assertPreserved(rebound.content.draft);
+      expect(referenceIdentity(JSON.parse(rebound.content.draft.fields[photoKey] ?? 'null'))).toEqual(referenceIdentity(originalPhoto));
+      expect(JSON.parse(rebound.content.draft.fields[`interviewRecord:${target.entityId}`]).consent.photos).toBe(true);
+      expect(rebound.content.draft.fields[`interviewConfirmed:${target.entityId}`]).not.toBe('true');
+      await confirmInInterviewChat(btn('确认人物发现卡', actions));
+      await page.reload();
+      await readOnlyInterviewOutput();
+      await expect.poll(async () => (await savedStage(2)).content.draft.fields[`interviewConfirmed:${target.entityId}`]).toBe('true');
+      const restored = await savedStage(2);
+      expect(restored.revision).toBeGreaterThan(rebound.revision);
+      assertPreserved(restored.content.draft);
+      expect(referenceIdentity(JSON.parse(restored.content.draft.fields[photoKey] ?? 'null'))).toEqual(referenceIdentity(originalPhoto));
+      await expect.poll(() => finding.getByRole('img', { name: `${code} 的授权访谈照片`, exact: true }).evaluate(element => element.naturalWidth)).toBe(240);
+      await expect(finding).toContainText(quote);
+      await expect(finding.getByText(projected.context, { exact: true })).toBeVisible();
+      report.interviewPhotoAuthorization = { entityId: target.entityId, frozenRevision: frozen.revision, revokedRevision: revoked.revision,
+        restoredRevision: restored.revision, artifactId: originalPhoto.artifactId, versionId: originalPhoto.versionId, sha256: originalPhoto.sha256,
+        currentHiddenAfterReload: true, historicalHiddenAfterRevocation: true, originalTextAndMaterialsPreserved: true,
+        sameOriginalReused: true, normallyReconfirmed: true };
+    }
     evidence(2).outputs.push({ name: `${code}人物发现卡`, format: photoFile ? 'native finding card; synthetic text and schematic' : 'native finding card; synthetic text, photo missing', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}; software scope only` });
     recordInterviewIteration(firstFinding, projected.headline, `${code}人物发现卡`, target);
     Object.assign(interview, { quote, materialName: `qa-${unique}-${code}.txt`, hasMaterial: true });
