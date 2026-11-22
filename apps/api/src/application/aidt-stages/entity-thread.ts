@@ -1,4 +1,4 @@
-import { aidtBrainstormTitle, AIDT_BRAINSTORM_METHODS, readAidtBrainstorm, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
+import { aidtBrainstormTitle, AIDT_BRAINSTORM_METHODS, AIDT_BRAINSTORM_METHOD_GUIDES, readAidtBrainstorm, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { createHash } from "node:crypto";
 import { AIDT_ENTITY_THREAD_PREFIX, aidtInterviewTitle, isAidtProblemControlText, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { readAidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
@@ -111,8 +111,11 @@ export function aidtSavedEntityContext(stage: SharedStageValue, entityId: string
     case 4: {
       const session = readAidtBrainstorm(fields, entityId);
       if (session) return { entityId, brainstorm: {
-        hmw: session.source, method: AIDT_BRAINSTORM_METHODS[session.method], targetCount: session.count,
-        generatedCount: session.candidates.length,
+        // Canonical context JSON sorts keys. Keep the current activity ahead of
+        // potentially long HMW/student text so its guide survives the existing cap.
+        activity: { methodKey: session.method, methodGuide: AIDT_BRAINSTORM_METHOD_GUIDES[session.method] },
+        method: AIDT_BRAINSTORM_METHODS[session.method],
+        targetCount: session.count, generatedCount: session.candidates.length, hmw: session.source,
       }, existingCandidateTitles: ideas.filter(idea => session.candidates.includes(idea.id)).map(idea => idea.title) };
       const idea = ideas.find(item => item.id === entityId);
       const owner = readAidtBrainstorms(fields).find(record => record.candidates.includes(entityId));

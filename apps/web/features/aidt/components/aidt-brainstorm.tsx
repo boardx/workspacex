@@ -2,15 +2,19 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { AIDT_BRAINSTORM_CANDIDATE_LIMIT, AIDT_BRAINSTORM_METHODS, AIDT_BRAINSTORM_PREFIX, aidtBrainstormTitle, readAidtBrainstorm, readAidtBrainstorms, type AidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
+import { AIDT_BRAINSTORM_CANDIDATE_LIMIT, AIDT_BRAINSTORM_METHODS, AIDT_BRAINSTORM_METHOD_GUIDES, AIDT_BRAINSTORM_PREFIX, aidtBrainstormTitle, readAidtBrainstorm, readAidtBrainstorms, type AidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import { useAidtCreateTags } from "./aidt-card-create-fields";
 import { Input } from "@/components/ui/input";
-import { addAidtBrainstormCandidates, confirmAidtBrainstormSelection, createAidtBrainstorm, readAidtBrainstormProposals, readAidtBrainstormSelection } from "../lib/aidt-brainstorm";
+import { addAidtBrainstormCandidates, confirmAidtBrainstormCompletion, confirmAidtBrainstormSelection, createAidtBrainstorm, readAidtBrainstormProposals, readAidtBrainstormSelection } from "../lib/aidt-brainstorm";
 import { readAidtDefinition } from "../lib/aidt-definition";
-import { readAidtIdeaDirectory } from "../lib/aidt-idea-handoff";
+import { canConfirmAidtIdeaSheets, invalidateAidtIdeaSheets, readAidtIdeaDirectory, readAidtIdeaHandoff, readAidtIdeaHmwSource, readAidtIdeaSheetIds } from "../lib/aidt-idea-handoff";
+import { isAidtIdeaChatConfirmed } from "../lib/aidt-idea-chat";
+import { isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey } from "../lib/aidt-research-material-reference";
+import { AIDT_IDEA_CLASSIFICATION_FIELDS } from "../lib/aidt-idea-classification";
+import { AidtIdeaClassification } from "./aidt-idea-classification";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import type { AidtSharedStage } from "../lib/live-aidt-stages";
 
@@ -38,6 +42,7 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
   const draftId = React.useRef<{ key: string; id: string } | null>(null);
   const selected = choices.find(choice => choice.id === hmw);
   const planned = Number(count);
+  const methodGuide = method ? AIDT_BRAINSTORM_METHOD_GUIDES[method] : undefined;
   const name = title.trim();
   const valid = action?.kind === "delete" || Boolean(name && (action?.kind === "edit" ? name !== action.session.title
     : selected && method && Number.isInteger(planned) && planned >= 1 && planned <= AIDT_BRAINSTORM_CANDIDATE_LIMIT));
@@ -127,7 +132,10 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-13">发散方法
-                <select className={style} value={method} onChange={event => setMethod(event.target.value as typeof method)} disabled={saving}>
+                <select className={style} value={method} onChange={event => {
+                  const next = event.target.value as typeof method;
+                  setMethod(next);
+                }} disabled={saving}>
                   <option value="">选择一种方法</option>
                   {Object.entries(AIDT_BRAINSTORM_METHODS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
@@ -136,6 +144,7 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
                 <Input className="mt-1" id={id} type="number" min={1} max={AIDT_BRAINSTORM_CANDIDATE_LIMIT} value={count} onChange={event => setCount(event.target.value)} disabled={saving} />
               </label>
             </div>
+            {methodGuide && <div className="space-y-1 text-12 text-muted-foreground" data-testid="aidt-brainstorm-method-guide"><p>{methodGuide.description}</p><p>{methodGuide.startPrompt}</p></div>}
           </>}
           {failed && <p role="alert" className="text-13 text-destructive">场次未能保存，请重试。</p>}
           <DialogFooter>
@@ -170,7 +179,8 @@ export function AidtBrainstormOutput({ projectId, session, draft }: { projectId:
   </section>;
 }
 
-export function AidtBrainstormConversation({ session, draft, messages, loading, running, readOnly, saveDraft, nextHref }: {
+export function AidtBrainstormConversation({ projectId, session, draft, messages, loading, running, readOnly, saveDraft, nextHref }: {
+  projectId: string;
   session: AidtBrainstorm;
   draft: AidtUiStageDraft;
   messages: readonly Message[];
@@ -185,6 +195,8 @@ export function AidtBrainstormConversation({ session, draft, messages, loading, 
   const saved = readAidtBrainstormSelection(draft);
   const savedIds = saved?.session.id === session.id ? saved.selectedIds : [];
   const [picked, setPicked] = React.useState<string[] | null>(null);
+  const [reviewed, setReviewed] = React.useState<string[] | null>(null);
+  const [classificationEdit, setClassificationEdit] = React.useState<{ base: string; fields: Record<string, string> } | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
   const attempted = React.useRef<string | null>(null);
@@ -192,6 +204,26 @@ export function AidtBrainstormConversation({ session, draft, messages, loading, 
   const proposalKey = JSON.stringify(proposals);
   const selected = (picked ?? savedIds).filter(id => ideas.some(idea => idea.id === id));
   const unchanged = selected.length === savedIds.length && selected.every(id => savedIds.includes(id));
+  const classificationBase = JSON.stringify([Object.values(AIDT_IDEA_CLASSIFICATION_FIELDS).map(key => draft.fields[key]), ideas.map(idea => [idea.id, idea.title, idea.description])]);
+  const editingClassification = classificationEdit?.base === classificationBase ? classificationEdit.fields : null;
+  const classificationDraft = editingClassification ? { ...draft, fields: { ...draft.fields, ...editingClassification } } : draft;
+  const activeIds = new Set(readAidtIdeaDirectory(draft).filter(idea => !idea.archived).map(idea => idea.id));
+  const descriptionIdeas = draft.ideas.filter(idea => {
+    const source = readAidtIdeaHmwSource(draft, idea.id);
+    const owner = readAidtBrainstorms(draft.fields).find(record => record.candidates.includes(idea.id));
+    return !owner?.archived && activeIds.has(idea.id) && source?.id === session.source.id && source.revision === session.source.revision && source.text === session.source.text;
+  });
+  const imageReady = (ideaId: string) => {
+    const image = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", ideaId)]);
+    return image?.projectId === projectId && isAidtResearchImage(image);
+  };
+  const reviewableIds = descriptionIdeas.filter(idea => isAidtIdeaChatConfirmed(draft, idea.id) && imageReady(idea.id)).map(idea => idea.id);
+  const savedSheetIds = readAidtIdeaSheetIds(draft);
+  const reviewedIds = (reviewed ?? savedSheetIds).filter(id => reviewableIds.includes(id));
+  const sameReviewed = reviewedIds.length === savedSheetIds.length && reviewedIds.every(id => savedSheetIds.includes(id));
+  const completed = saved?.session.id === session.id && unchanged && sameReviewed && !editingClassification && Boolean(readAidtIdeaHandoff(draft, projectId));
+  const canComplete = saved?.session.id === session.id && unchanged && savedIds.every(id => reviewedIds.includes(id))
+    && !editingClassification && canConfirmAidtIdeaSheets(draft, reviewedIds, projectId);
 
   const persistCandidates = React.useCallback(async () => {
     setBusy(true);
@@ -219,6 +251,16 @@ export function AidtBrainstormConversation({ session, draft, messages, loading, 
     finally { setBusy(false); }
   }
 
+  async function complete() {
+    if (!canComplete || busy || running || readOnly || archived) return;
+    setBusy(true); setFailed(false);
+    try {
+      if (await saveDraft(old => confirmAidtBrainstormCompletion(old, session.id, reviewedIds, projectId))) setReviewed(null);
+      else setFailed(true);
+    } catch { setFailed(true); }
+    finally { setBusy(false); }
+  }
+
   return <section className="space-y-2 rounded-container border border-border p-3 text-13" aria-label="筛选点子">
     <p>{AIDT_BRAINSTORM_METHODS[session.method]} · {ideas.length}/{session.count} 个候选</p>
     {ideas.length > 0 && <details>
@@ -231,9 +273,35 @@ export function AidtBrainstormConversation({ session, draft, messages, loading, 
       </label></li>)}</ul>
       {!readOnly && !archived && <Button className="mt-3" size="sm" disabled={busy || selected.length === 0 || unchanged} onClick={() => void confirm()}>确认入选点子</Button>}
     </details>}
+    {savedIds.length > 0 && <section className="space-y-3 border-t border-border pt-3" aria-label="完成描述单与分类">
+      <p className="text-12 text-muted-foreground">入选选择已保存为草稿。先逐份完善并审阅至少三份不同的图文描述单，再确认学生分类；同一版本 HMW 下可跨方法整理，未入选的其他候选可以保留草稿，不必全部制作。</p>
+      <ul className="space-y-2">{descriptionIdeas.map(idea => <li key={idea.id} className="space-y-1">
+        <Link className="text-primary underline" href={`/aidt/${encodeURIComponent(projectId)}?${new URLSearchParams({ step: "4", entity: idea.id })}`}>完善描述单：{idea.title}</Link>
+        <label className="flex items-center gap-2"><input type="checkbox" aria-label={`已审阅描述单：${idea.title}`}
+          checked={reviewedIds.includes(idea.id)} disabled={readOnly || archived || busy || running || !reviewableIds.includes(idea.id) || !reviewedIds.includes(idea.id) && reviewedIds.length >= 8}
+          onChange={event => setReviewed(event.target.checked ? [...reviewedIds, idea.id] : reviewedIds.filter(id => id !== idea.id))} />
+          {reviewableIds.includes(idea.id) ? "已核对名称、原图及两三句描述" : "先在该点子中补图并确认两三句描述"}</label>
+      </li>)}</ul>
+      <AidtIdeaClassification draft={classificationDraft} readOnly={readOnly || archived || busy || running} onChange={next => {
+        if (readOnly || archived || busy || running) return;
+        const fields = Object.fromEntries(Object.values(AIDT_IDEA_CLASSIFICATION_FIELDS).map(key => [key, next.fields[key] ?? ""]));
+        setClassificationEdit({ base: classificationBase, fields });
+        // Keep typing/checkbox changes local; the existing explicit classification
+        // confirmation persists the whole review once, without locking each keypress.
+        if (fields[AIDT_IDEA_CLASSIFICATION_FIELDS.confirmed] !== "true") return;
+        setBusy(true); setFailed(false);
+        const failedReview = () => { setFailed(true); setClassificationEdit({ base: classificationBase,
+          fields: { ...fields, [AIDT_IDEA_CLASSIFICATION_FIELDS.confirmed]: "" } }); };
+        void saveDraft(old => invalidateAidtIdeaSheets({ ...old, fields: { ...old.fields,
+          ...fields,
+        } })).then(ok => { if (ok) setClassificationEdit(null); else failedReview(); }).catch(failedReview).finally(() => setBusy(false));
+      }} />
+      <p role="status">{completed ? "本阶段已确认完成。" : `已审阅 ${reviewedIds.length} 份描述单；至少需要三份，且入选点子须包含在其中。`}</p>
+      {!readOnly && !archived && <Button size="sm" disabled={busy || running || !canComplete || completed} onClick={() => void complete()}>确认完成本阶段</Button>}
+    </section>}
     {busy && <p role="status">正在保存…</p>}
     {failed && <p role="alert">保存失败。{addAidtBrainstormCandidates(draft, session.id, proposals) !== draft &&
       <Button variant="ghost" size="sm" onClick={() => void persistCandidates()}>重试保存候选</Button>}</p>}
-    {nextHref && savedIds.length > 0 && unchanged && <Button asChild size="sm"><Link href={nextHref}>进入原型制作</Link></Button>}
+    {nextHref && completed && unchanged && <Button asChild size="sm"><Link href={nextHref}>进入原型制作</Link></Button>}
   </section>;
 }

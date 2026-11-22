@@ -601,7 +601,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
               } : activeBrainstorm && currentStage ? {
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
-                  <AidtBrainstormConversation key={activeBrainstorm.id} session={activeBrainstorm} draft={currentStage.content.draft}
+                  <AidtBrainstormConversation key={activeBrainstorm.id} projectId={projectId} session={activeBrainstorm} draft={currentStage.content.draft}
                     messages={messages} loading={loading} running={running} readOnly={!canWrite} saveDraft={shared.saveDraft} nextHref={nextStageHref ?? undefined} />
                 </>,
               } : step.id === 4 && activeEntityId ? {

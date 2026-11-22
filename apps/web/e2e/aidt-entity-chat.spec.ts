@@ -432,6 +432,102 @@ test.describe("recording evidence in the interview Chat", () => {
   });
 });
 
+test("six brainstorm methods keep their explicit method, frozen HMW and independent Chat without completing the stage", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.leadEmail);
+  await page.getByTestId("login-password").fill(FULLSTACK_E2E.leadPassword);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/home$/);
+  await page.getByTestId("rail-aidt").click();
+  await page.getByTestId("aidt-new").click();
+  await page.getByTestId("project-new-name").fill("六种发散方法 " + randomUUID().slice(0, 8));
+  await page.getByTestId("project-new-create").click();
+  await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
+  const path = new URL(page.url()).pathname, projectId = path.split("/").pop()!;
+  const headers = { Authorization: "Bearer " + await bearerOf(page) };
+  const stagePath = "/__fullstack_api/projects/" + projectId + "/aidt/stages/";
+  const selectedHmw = { id: "method-hmw", text: "如何帮助午休赶课的学生预估等候时间？" };
+  // Only seed the normal upstream HMW fixture; no Stage 4 output or completion is manufactured.
+  const seeded = await page.request.put(stagePath + "3", { headers, data: {
+    operationId: randomUUID(), expectedRevision: 0, sourceStageRevisions: [],
+    content: { schemaVersion: 1, draft: { fields: {
+      ["definitionHmw:" + selectedHmw.id]: JSON.stringify({ ...selectedHmw, rationale: "合成方法交互验收来源", cardIds: [], personaIds: [], confirmed: true, archived: false }),
+      definitionHmwId: selectedHmw.id, hmw: selectedHmw.text,
+    }, ideas: [], selectedIdeaId: "" } },
+  } });
+  expect(seeded.ok()).toBe(true);
+  const definition = (await (await page.request.get(stagePath + "3", { headers })).json()).stage;
+  const source = { ...selectedHmw, revision: definition.revision };
+  const methods = [
+    { id: "free", label: "自由联想", prompt: /联想/ },
+    { id: "reverse", label: "逆向思考", prompt: /更糟/ },
+    { id: "scamper", label: "SCAMPER", prompt: /替代/ },
+    { id: "analogy", label: "类比迁移", prompt: /其他领域|不同场景/ },
+    { id: "role", label: "换位思考", prompt: /待验证|猜测/ },
+    { id: "brainwriting", label: "静默脑写", prompt: /独立|安静/ },
+  ] as const;
+  const entityIds = new Set<string>(), threadIds = new Set<string>();
+  let nativeModelRequests = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && /\/copilotkit\/agent\/[^/]+\/run$/.test(new URL(request.url()).pathname)) nativeModelRequests += 1;
+  });
+  const stage4 = async () => (await (await page.request.get(stagePath + "4", { headers })).json()).stage;
+  for (const method of methods) {
+    await page.goto(path + "?step=4");
+    await page.getByRole("region", { name: "头脑风暴", exact: true }).getByTestId("aidt-new-entity-card").click();
+    const dialog = page.getByRole("dialog", { name: "新建头脑风暴", exact: true });
+    const selector = dialog.getByRole("combobox", { name: "发散方法", exact: true });
+    await expect(selector).toHaveValue("");
+    expect(await selector.getByRole("option").evaluateAll(options => options.map(option => (option as HTMLOptionElement).value).filter(Boolean))).toEqual(methods.map(item => item.id));
+    const title = "方法验收 · " + method.label;
+    await dialog.getByRole("textbox", { name: "场次名称", exact: true }).fill(title);
+    await dialog.getByRole("combobox", { name: "HMW", exact: true }).selectOption(selectedHmw.id);
+    await selector.selectOption(method.id);
+    await expect(selector.locator("option:checked")).toHaveText(method.label);
+    await expect(dialog.getByTestId("aidt-brainstorm-method-guide")).toContainText(method.prompt);
+    const count = dialog.getByRole("spinbutton", { name: "希望探索的点子数", exact: true });
+    await expect(count).toBeEditable();
+    await expect(count).toHaveValue("5");
+    await dialog.screenshot({ path: test.info().outputPath("brainstorm-method-" + method.id + ".png") });
+    await dialog.getByRole("button", { name: "开始头脑风暴", exact: true }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("entity")).toMatch(/^brainstorm-/);
+    await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
+    const entityId = new URL(page.url()).searchParams.get("entity")!;
+    const threadId = new URL(page.url()).searchParams.get("thread")!;
+    expect(entityIds.has(entityId)).toBe(false);
+    expect(threadIds.has(threadId)).toBe(false);
+    entityIds.add(entityId); threadIds.add(threadId);
+    expect(JSON.parse((await stage4()).content.draft.fields["ideaBrainstorm:" + entityId])).toMatchObject({ id: entityId, title, source, method: method.id, count: 5, candidates: [] });
+    await page.goto(path + "?step=4");
+    const card = page.getByRole("link", { name: "打开「" + title + "」对话", exact: true });
+    await expect(card).toContainText(method.label);
+    await card.click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(threadId);
+    await page.reload();
+    await expect(composer(page)).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toBe(threadId);
+    expect(new URL(page.url()).searchParams.get("entity")).toBe(entityId);
+    expect(JSON.parse((await stage4()).content.draft.fields["ideaBrainstorm:" + entityId])).toMatchObject({ source, method: method.id, count: 5, candidates: [] });
+    // No student message was sent, so open the same owned entity's inspector explicitly.
+    const outcome = new URL(page.url());
+    outcome.searchParams.set("tool", "outcome");
+    expect(await openInterview(page, outcome.pathname + outcome.search)).toBe(threadId);
+    expect(new URL(page.url()).searchParams.get("entity")).toBe(entityId);
+    const output = page.getByTestId("aidt-brainstorm-output");
+    await expect(output).toBeVisible();
+    await expect(output).toContainText(method.label);
+    await expect(output.getByRole("link", { name: "第 3 步 V" + source.revision, exact: true })).toHaveAttribute("href", path + "?step=3&entity=" + selectedHmw.id + "&entityRevision=" + source.revision);
+    await expect(page.getByRole("region", { name: "筛选点子", exact: true }).getByRole("link", { name: "进入原型制作", exact: true })).toHaveCount(0);
+    await page.goto(path);
+    await expect(page.getByTestId("aidt-stage-save-4")).toContainText("已保存草稿");
+    await expect(page.getByTestId("aidt-stage-save-4")).toHaveAttribute("data-completed", "false");
+  }
+  expect(entityIds.size).toBe(6);
+  expect(threadIds.size).toBe(6);
+  expect(nativeModelRequests).toBe(0);
+});
+
 test("directory creation saves named problems, findings, ideas and native Design prototypes before opening their chat", async ({ page }) => {
   test.setTimeout(150_000);
   await page.goto("/login");
@@ -473,6 +569,7 @@ test("directory creation saves named problems, findings, ideas and native Design
     });
     await page.goto(directory);
     if (kind === "点子") await page.getByRole("button", { name: "新建点子", exact: true }).click();
+    else if (kind === "头脑风暴") await page.getByRole("region", { name: "头脑风暴", exact: true }).getByTestId("aidt-new-entity-card").click();
     else await page.getByTestId("aidt-new-entity-card").click();
     if (step === 3) await page.getByRole("button", { name: "新建" + kind, exact: true }).click();
     {

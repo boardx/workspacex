@@ -4,7 +4,8 @@ import { confirmAidtVerificationQuestion, createAidtQuestionSnapshot } from "@/f
 import { aidtUiStageSummary, emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { ApiError } from "@/lib/api-client";
-import { pinAidtPrototypeInputs, updateAidtPrototypeEntityDraft, confirmAidtPrototypeHandoff, listAidtConfirmedPrototypeEntities } from "@/features/aidt/lib/aidt-prototype-handoff";
+import { pinAidtPrototypeInputs, updateAidtPrototypeEntityDraft, confirmAidtPrototypeHandoff, listAidtConfirmedPrototypeEntities, readAidtConfirmedPrototypeHandoff } from "@/features/aidt/lib/aidt-prototype-handoff";
+import { reviewedAidtIdeasFixture } from "./aidt-reviewed-ideas-fixture";
 import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
 import { StageDraft } from "@repo/contracts/aidt-stages";
 const mock = vi.hoisted(() => ({ enabled: true, read: vi.fn(), history: vi.fn() }));
@@ -94,7 +95,11 @@ it("refuses excessive context without silently truncating the original question,
 
 it("projects only the selected Design entity and feeds multiple exact historical ideas into the native composer", async () => {
   const selected = records[4]!;
-  selected.content.draft = { ...selected.content.draft, fields: { ideaHandoffIds: '["chosen","card"]', ideaHmwSource: '{"revision":2,"id":"hmw-stable","text":"如何帮助赶课者判断？"}' }, ideas: [...selected.content.draft.ideas, { id: "card", title: "新品对比卡", description: "让学生看到差别" }] };
+  selected.content.draft = reviewedAidtIdeasFixture("class", [
+    { id: "chosen", title: "排队提示", description: "展示预计排队位置。让学生比较等待区域。" },
+    { id: "card", title: "新品对比卡", description: "让学生看到差别。并排列出两款口味。" },
+    { id: "third", title: "路线图", description: "用图标解释领取路线。学生依顺序领取食品。" },
+  ], ["chosen", "card"]);
   records[5] = stage(5, 7);
   const prepare = (id: string) => {
     records[5]!.content.draft = StageDraft.parse(updateAidtPrototypeEntityDraft(records[5]!.content.draft, id, draft => {
@@ -120,7 +125,11 @@ it("projects only the selected Design entity and feeds multiple exact historical
 
 it("confirms only the selected Design's real version and invalidates handoff if a brief changes", () => {
   const selected = records[4]!;
-  selected.content.draft.fields.ideaHandoffIds = '["chosen"]';
+  selected.content.draft = reviewedAidtIdeasFixture("class", [
+    { id: "chosen", title: "排队提示", description: "展示预计排队位置。让学生比较等待区域。" },
+    { id: "card", title: "新品对比卡", description: "让学生看到差别。并排列出两款口味。" },
+    { id: "third", title: "路线图", description: "用图标解释领取路线。学生依顺序领取食品。" },
+  ], ["chosen"]);
   const empty = emptyAidtUiDrafts()[5]!;
   const base = updateAidtPrototypeEntityDraft(empty, "design-A", draft => {
     const pinned = pinAidtPrototypeInputs({ ...draft, fields: { ...old5.content.draft.fields, situation: "午休点单" } }, selected);
@@ -134,12 +143,19 @@ it("confirms only the selected Design's real version and invalidates handoff if 
   expect(listAidtConfirmedPrototypeEntities(edited)).toEqual([]);
 });
 
-it("gives an entity-only draft the shared stage summary needed for its first save", () => {
+it("preserves an entity-only draft's unconfirmed status in its saved stage summary", () => {
   const draft = updateAidtPrototypeEntityDraft(emptyAidtUiDrafts()[5]!, "new-design", previous => ({
     ...previous,
     fields: { verificationQuestion: "尚未公开的验证问题" },
   }));
+  const before = JSON.stringify(draft);
   const summary = aidtUiStageSummary(5, draft);
   expect(summary).toContain("1 个");
-  expect(summary).not.toContain("尚未公开的验证问题");
+  expect(summary).toContain("new-design");
+  expect(summary).toContain("尚未公开的验证问题");
+  expect(summary).toContain("草稿或已修改，尚未确认交接");
+  expect(summary).not.toContain("本轮已确认交接记录");
+  expect(listAidtConfirmedPrototypeEntities(draft)).toEqual([]);
+  expect(readAidtConfirmedPrototypeHandoff(draft)).toBeNull();
+  expect(JSON.stringify(draft)).toBe(before);
 });
