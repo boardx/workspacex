@@ -5,6 +5,7 @@ import { ProjectAidt } from "@/features/aidt/components/project-aidt";
 import { confirmAidtVerificationQuestion } from "@/features/aidt/lib/aidt-verification-loop";
 import { chooseAidtDefinitionHmw, saveAidtDefinitionHmw, saveAidtDefinitionPersona } from "@/features/aidt/lib/aidt-definition";
 import { emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
+import { SharedStage } from "@repo/contracts/aidt-stages";
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({isAidtModuleEnabled:()=>true}));
 const mocks = vi.hoisted(() => ({ search: "", push: vi.fn(), list: vi.fn(), chat: vi.fn(), rec: vi.fn(), design: vi.fn(), resources: vi.fn(), read:vi.fn(), readRevision:vi.fn(), save:vi.fn() }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: { currentOrgId: "org-test", userId: "student-test", sessionToken: "token-test" } }) }));
@@ -28,7 +29,7 @@ vi.mock("@/components/project/project-resource-section", () => ({
 
 vi.mock("@/features/aidt/lib/live-aidt-stages", async original => ({...await original<typeof import("@/features/aidt/lib/live-aidt-stages")>(),readAidtStage:mocks.read,readAidtStageRevision:mocks.readRevision,saveAidtStage:mocks.save}));
 const drafts=emptyAidtUiDrafts();
-function saved(stageId:number,revision:number,fields:Record<string,string>={},sourceStageRevisions:{stageId:number;revision:number}[]=[]){return {projectId:"p",stageId,revision,content:{schemaVersion:1,draft:{...drafts[stageId]!,fields}},sourceStageRevisions,updatedBy:"student",updatedAt:"2026-11-16T00:00:00Z"};}
+function saved(stageId:number,revision:number,fields:Record<string,string>={},sourceStageRevisions:{stageId:number;revision:number}[]=[]){return SharedStage.parse({projectId:"p",stageId,revision,content:{schemaVersion:1,draft:{...drafts[stageId]!,fields}},sourceStageRevisions,updatedBy:"student",updatedAt:"2026-11-16T00:00:00Z"});}
 beforeEach(()=>{vi.clearAllMocks();mocks.search="history=1&tool=chat";mocks.list.mockResolvedValue({items:[]});});
 it("actual S6 parent and shared-stage controller send the frozen S5 revision instead of its newer head",async()=>{
  const snapshot={schemaVersion:1,question:"旧轮被测问题",beforeTestBelief:"旧看法",verificationBasis:"学生记录",verificationLimits:"待真实测试",prototypeRef:"旧原型",sourceStageRevision:2};
@@ -54,8 +55,9 @@ it("UNSAVED S6: starting a new local test round must not select a different S5 a
  expect(mocks.chat.mock.calls.at(-1)![0].sharedContextRefs).toEqual([{stageNumber:5,revision:2},{stageNumber:6,revision:7}]);
 });
 it("UNSAVED S3: reconfirming current cards locally must not mix their new version with the older saved reflection",async()=>{
- const second=saved(2,4,{"interviewConfirmed:card-a":"true"});second.content.draft.discoveryCards=[{id:"card-a",participantCode:"P01",headline:"新版发现卡",headlineKind:"student-summary",context:"教学夹具情境",quote:"教学夹具原文",sourceRef:"教学夹具来源",photoRef:""}];
- const third=saved(3,6,{surpriseStatus:"found",priorBelief:"旧判断",surprisingFinding:"旧发现",surpriseCardIds:'["card-a"]',surpriseSourceRevision:"2",surpriseConfirmed:"true"},[{stageId:2,revision:2}]);mocks.read.mockImplementation(async(_p,id)=>({stage:id===2?second:id===3?third:null}));
+ const cardId="3e7a8708-8e1a-4ee7-8223-cd79c5d50aed";
+ const second=saved(2,4,{["interviewConfirmed:"+cardId]:"true",["interviewRecord:"+cardId]:JSON.stringify({id:cardId,version:1,code:"P01",topic:"教学夹具主题",topicRevision:1,goal:"理解经过",original:"说说最近一次经历？",adopted:"请说说最近一次实际经过？",guideConfirmed:true,consent:{notes:true,audio:false,photos:false,observedAt:"2026-11-22T07:39:00Z"}})});second.content.draft.discoveryCards=[{id:cardId,participantCode:"P01",headline:"新版发现卡",headlineKind:"student-summary",context:"教学夹具情境",quote:"教学夹具原文",sourceRef:"教学夹具来源",photoRef:""}];
+ const third=saved(3,6,{surpriseStatus:"found",priorBelief:"旧判断",surprisingFinding:"旧发现",surpriseCardIds:JSON.stringify([cardId]),surpriseSourceRevision:"2",surpriseConfirmed:"true"},[{stageId:2,revision:2}]);mocks.read.mockImplementation(async(_p,id)=>({stage:id===2?second:id===3?third:null}));
  mocks.search="history=1&tool=outcome"; const view=render(<ProjectAidt projectId="p" sub="aidt-3" canWrite/>);await waitFor(()=>expect(screen.getByTestId("aidt-surprise-confirm")).toBeEnabled());expect(mocks.chat.mock.calls.at(-1)![0].sharedContextRefs).toEqual([{stageNumber:2,revision:2},{stageNumber:3,revision:6}]);fireEvent.click(screen.getByTestId("aidt-surprise-confirm"));expect(screen.getByTestId("aidt-surprise-status")).toHaveTextContent("已由学生确认");expect(mocks.save).not.toHaveBeenCalled();expect(third.content.draft.fields.surpriseSourceRevision).toBe("2");
  mocks.chat.mock.calls.at(-1)![0].hostPanel.onOpenChange(false); mocks.search=window.location.search.slice(1);view.rerender(<ProjectAidt projectId="p" sub="aidt-3" canWrite/>);
  expect(mocks.chat.mock.calls.at(-1)![0].sharedContextRefs).toEqual([{stageNumber:2,revision:2},{stageNumber:3,revision:6}]);
@@ -76,37 +78,42 @@ function savedHmw(revision: number, id: string, text: string) {
   return saved(3, revision, selected.fields, [{ stageId: 2, revision: evidenceRevision }]);
 }
 
-it("hands off the saved HMW revision and uses that historical selection after the Stage 3 head advances", async () => {
+it("uses an explicit HMW choice in the normal S4 creation dialog while an older legal link freezes its exact historical revision", async () => {
   const historicalQuestion = "我们如何帮助午休学生比较奶茶口味？";
   const latestQuestion = "我们如何让学生规划排队时间？";
   const historical = savedHmw(6, "hmw-taste", historicalQuestion);
   const latest = savedHmw(7, "hmw-queue", latestQuestion);
-  mocks.search = "step=3";
-  mocks.read.mockImplementation(async (_projectId, stageId) => ({ stage: stageId === 3 ? historical : null }));
-  const definition = render(<ProjectAidt projectId="p" sub="aidt-3" canWrite />);
-  const handoff = await screen.findByRole("link", { name: "带入创意发散" });
-  expect(handoff).toHaveAttribute("href", "/aidt/p?step=4&hmwRevision=6");
-  const destination = new URL((handoff as HTMLAnchorElement).href);
-  expect(mocks.readRevision).not.toHaveBeenCalled();
-  definition.unmount();
-
   let resolveHistorical!: (stage: typeof historical) => void;
   const historicalRead = new Promise<typeof historical>(resolve => { resolveHistorical = resolve; });
-  mocks.read.mockClear();
   mocks.read.mockImplementation(async (_projectId, stageId) => ({ stage: stageId === 3 ? latest : null }));
   mocks.readRevision.mockReturnValue(historicalRead);
-  mocks.search = destination.search.slice(1);
+  mocks.save.mockImplementation(async input => ({ stage: { ...saved(4, 1, {}, input.sourceStageRevisions), content: input.content } }));
+  // Existing legal inbound links remain resolvable; S3 no longer needs to expose a separate CTA.
+  mocks.search = "step=4&hmwRevision=6";
   render(<ProjectAidt projectId="p" sub="aidt-4" canWrite />);
-  fireEvent.click(await screen.findByText("分类与描述单"));
-  const hmw = within(await screen.findByRole("region", { name: "本轮 HMW" }));
+  const rounds = within(await screen.findByRole("region", { name: "头脑风暴" }));
+  expect(rounds.getByRole("button", { name: "新建卡片" })).toBeDisabled();
+  expect(rounds.queryByText(latestQuestion)).not.toBeInTheDocument();
+  await waitFor(() => expect(mocks.readRevision).toHaveBeenLastCalledWith("p", 3, 6, "token-test", expect.any(AbortSignal)));
   expect(mocks.read).toHaveBeenCalledWith("p", 3, "token-test", expect.any(AbortSignal));
-  expect(hmw.getByRole("status")).toHaveTextContent("请先在第 3 步选择并保存一条 HMW。");
-  expect(hmw.queryByText(latestQuestion)).not.toBeInTheDocument();
-  expect(mocks.readRevision).toHaveBeenLastCalledWith("p", 3, 6, "token-test", expect.any(AbortSignal));
-
   await act(async () => resolveHistorical(historical));
-  expect(await hmw.findByText(historicalQuestion)).toBeInTheDocument();
-  expect(hmw.queryByText(latestQuestion)).not.toBeInTheDocument();
-  fireEvent.click(hmw.getByRole("button", { name: "将此 HMW 用于本轮" }));
-  expect(hmw.getByText(`第 3 步 V6 · ${historicalQuestion}`)).toBeInTheDocument();
+  fireEvent.click(rounds.getByRole("button", { name: "新建卡片" }));
+  const dialog = within(screen.getByRole("dialog"));
+  expect(dialog.getByRole("combobox", { name: "HMW" })).toHaveValue("");
+  expect(dialog.queryByRole("option", { name: latestQuestion })).not.toBeInTheDocument();
+  expect(dialog.getByRole("option", { name: historicalQuestion })).toBeInTheDocument();
+  fireEvent.change(dialog.getByRole("textbox", { name: "场次名称" }), { target: { value: "旧口味问题的独立发散轮" } });
+  fireEvent.change(dialog.getByRole("combobox", { name: "发散方法" }), { target: { value: "free" } });
+  expect(dialog.getByRole("button", { name: "开始头脑风暴" })).toBeDisabled(); expect(mocks.save).not.toHaveBeenCalled();
+  fireEvent.change(dialog.getByRole("combobox", { name: "HMW" }), { target: { value: "hmw-taste" } });
+  fireEvent.click(dialog.getByRole("button", { name: "开始头脑风暴" }));
+  await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
+  const request = mocks.save.mock.calls[0]![0];
+  const raw = Object.entries(request.content.draft.fields).find(([key]) => key.startsWith("ideaBrainstorm:"));
+  expect(raw).toBeDefined();
+  const session = JSON.parse(String(raw![1]));
+  expect(session).toMatchObject({ title: "旧口味问题的独立发散轮", method: "free", source: { id: "hmw-taste", text: historicalQuestion, revision: 6 } });
+  expect(JSON.stringify(session)).not.toContain(latestQuestion);
+  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith(expect.stringContaining("entity=" + session.id)));
+  expect(mocks.push.mock.calls.at(-1)?.[0]).toContain("hmwRevision=6");
 });

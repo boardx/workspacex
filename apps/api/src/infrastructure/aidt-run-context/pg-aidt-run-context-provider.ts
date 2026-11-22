@@ -2,7 +2,7 @@ import { entityLineage, problemReference } from "../../application/aidt-run-cont
 import { recoverProblemFraming, projectSavedSkillOutput } from "./pg-skill-output";
 import { checkedInterviewExcerpt } from "../../application/aidt-stages/interview-skill-draft";
 import { AIDT_ENTITY_THREAD_PREFIX } from "@repo/contracts/aidt-stages";
-import { aidtEntityThreadId, aidtSavedEntityContext, aidtSavedEntityTitle } from "../../application/aidt-stages/entity-thread";
+import { aidtEntityThreadId, aidtSavedEntityContext, aidtSavedEntityTitle, type AidtEntityContextScope } from "../../application/aidt-stages/entity-thread";
 import { randomUUID } from "node:crypto";
 import { AidtContextSelector, AidtStoredContextSnapshot, AidtContextReceipt, AIDT_STAGE_IDENTITIES, AIDT_SUMMARY_STABLE_NAME, AIDT_CONTEXT_LIMITS, aidtContextSelectorJson, type AidtContextSnapshot } from "@repo/contracts/aidt-run-context";
 import { readConfirmedAidtReturn } from "@repo/contracts/aidt-return-reflection";
@@ -92,8 +92,8 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
     const stageId = selector.purpose === "stage" ? selector.stageId : 6;
     const purpose = selector.purpose === "stage" ? "stage" : "report";
     if (!selector.entityId || aidtEntityThreadId(actor, stageId, selector.entityId, purpose) !== actor.threadId) return unavailable();
-    if (selector.purpose === "stage" && (selector.returnRevision !== undefined || selector.stageRevisions.some(
-      ref => ref.stageId !== stageId && !(stageId === 2 && ref.stageId === 1 && selector.sourceEntityId)))) return unavailable();
+    if (selector.purpose === "stage" && selector.stageRevisions.some(
+      ref => ref.stageId !== stageId && !(stageId === 2 && ref.stageId === 1 && selector.sourceEntityId))) return unavailable();
   } else if (selector.entityId) return unavailable();
 
   return this.timed(session,async s=>{
@@ -108,12 +108,21 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
      revisions.set(key,value);
      return value;
    };
+   const contextScope: AidtEntityContextScope = { orgId: actor.orgId };
+   // Saved template metadata never self-attests current interview consent. This
+   // existing stage read uses the same authenticated actor and project policy.
+   if (selector.purpose === "summary" || selector.stageId >= 3) {
+     try {
+       const current = (await scope.stages.get(actor, 2)).stage;
+       if (current?.projectId === actor.projectId && current.stageId === 2) contextScope.currentInterviews = current;
+     } catch { /* Missing authorized read omits template metadata, not its source guards. */ }
+   }
    for (const ref of selector.stageRevisions) {
      const stage = await exact(ref.stageId, ref.revision);
      if (selector.purpose === "stage" && selector.entityId && ref.stageId === selector.stageId) {
        if (stage.stageId === 2 && heads.get(2) !== stage.revision) await this.checkExcerpt(scope.stages, actor, stage, selector.entityId);
-       const current = aidtSavedEntityContext(stage, selector.entityId);
-       const lineage = await entityLineage(stage,selector.entityId,exact,(source,id) => recoverProblemFraming(s,actor,source,id));
+       const current = aidtSavedEntityContext(stage, selector.entityId, true, contextScope);
+       const lineage = await entityLineage(stage,selector.entityId,exact,(source,id) => recoverProblemFraming(s,actor,source,id),contextScope);
        loaded.push({ kind: "stage", stage, entityReferences:lineage.map(({step,revision,entityId})=>({stageId:step,revision,entityId})), payload: { ...current, ...(stage.stageId === 1 ? { fields:problemReference(current.fields ?? {}) } : {}), ...(lineage.length ? { upstream:lineage } : {}) } });
        continue;
      }
@@ -123,7 +132,7 @@ export class PgAidtRunContextProvider implements AidtMessageAcceptancePort,AidtR
        const entityReferences = [];
        for (const id of ids) {
          if (!aidtSavedEntityTitle(stage,id,"stage")) continue;
-         const sources = await entityLineage(stage,id,exact,(source,entity) => recoverProblemFraming(s,actor,source,entity));
+         const sources = await entityLineage(stage,id,exact,(source,entity) => recoverProblemFraming(s,actor,source,entity),contextScope);
          tests.push({测试:id,来源:sources});
          entityReferences.push(...sources.map(({step,revision,entityId})=>({stageId:step,revision,entityId})));
        }

@@ -10,3 +10,19 @@ export const AudioTranscribeInvocation=NativeSessionResolveInput.omit({runId:tru
 
 export const AudioDecodedChunk=z.object({path:z.string(),startMs:z.number().int().nonnegative(),endMs:z.number().int().positive(),sizeBytes:z.number().int().positive(),frames:z.number().int().positive(),sha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
 export const AudioDecodedChunks=z.array(AudioDecodedChunk).min(1).max(AUDIO_TRANSCRIBE_LIMITS.maxDurationMs/AUDIO_TRANSCRIBE_LIMITS.chunkDurationMs);
+
+/** Bounded proof in the existing public toolResultSummary, only from a validated real tool result. */
+export const AUDIO_TRANSCRIBE_RECEIPT_SUMMARY_PREFIX = "audio-transcription-receipt:v1 ";
+export const AUDIO_TRANSCRIBE_RECEIPT_SUMMARY_MAX_CHARS = 500;
+const AudioTranscribedReceiptSummary = AudioTranscribed.pick({ workspacePath: true, sha256: true, sourceHash: true }).extend({ status: z.literal("succeeded") }).strict();
+export type AudioTranscribedReceiptSummary = z.infer<typeof AudioTranscribedReceiptSummary>;
+export function encodeAudioTranscribedReceiptSummary(value: unknown): string | null {
+  const parsed = AudioTranscribed.safeParse(value);
+  if (!parsed.success) return null;
+  const summary = AUDIO_TRANSCRIBE_RECEIPT_SUMMARY_PREFIX + JSON.stringify({ status: "succeeded", workspacePath: parsed.data.workspacePath, sha256: parsed.data.sha256, sourceHash: parsed.data.sourceHash });
+  return summary.length <= AUDIO_TRANSCRIBE_RECEIPT_SUMMARY_MAX_CHARS ? summary : null;
+}
+export function readAudioTranscribedReceiptSummary(summary: string | null | undefined): AudioTranscribedReceiptSummary | null {
+  if (!summary || summary.length > AUDIO_TRANSCRIBE_RECEIPT_SUMMARY_MAX_CHARS || !summary.startsWith(AUDIO_TRANSCRIBE_RECEIPT_SUMMARY_PREFIX)) return null;
+  try { const parsed = AudioTranscribedReceiptSummary.safeParse(JSON.parse(summary.slice(AUDIO_TRANSCRIBE_RECEIPT_SUMMARY_PREFIX.length))); return parsed.success ? parsed.data : null; } catch { return null; }
+}

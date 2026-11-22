@@ -5,9 +5,10 @@ import { AidtStageOutput } from "@/features/aidt/components/aidt-stage-output";
 import { AidtReportPreview } from "@/features/aidt/components/aidt-report-preview";
 import { AIDT_STEPS } from "@/lib/project-aidt";
 import { emptyAidtUiDrafts, aidtUiReportMarkdown, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
-const mocks = vi.hoisted(() => ({ print: vi.fn() }));
-vi.mock("@/lib/research-report-export", () => ({ printResearchPdf: mocks.print }));
-beforeEach(() => { vi.clearAllMocks(); Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } }); });
+const mocks = vi.hoisted(() => ({ preview: vi.fn(), legacyPrint: vi.fn() }));
+vi.mock("@/lib/research-report-export", async original => ({ ...await original<typeof import("@/lib/research-report-export")>(), printResearchPdf: mocks.legacyPrint }));
+vi.mock("@/lib/research-print-preview", async original => ({ ...await original<typeof import("@/lib/research-print-preview")>(), openResearchPrintPreview: mocks.preview }));
+beforeEach(() => { vi.clearAllMocks(); mocks.preview.mockReset().mockResolvedValue("cancelled"); Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } }); });
 function Stage({ id = 1 }: { id?: number }) {
   const [draft, setDraft] = React.useState<AidtUiStageDraft>(emptyAidtUiDrafts()[id]!);
   return <AidtStageOutput projectId="g1" step={AIDT_STEPS[id - 1]!} draft={draft} update={setDraft} readOnly={false} toolHref={(tool) => `/aidt/g1?step=${id}&tool=${tool}`} />;
@@ -60,9 +61,11 @@ it("sends escaped text to native PDF preview and labels copying as unsaved", asy
   const text = "# 报告\n<script>alert(1)</script>";
   render(<AidtReportPreview drafts={emptyAidtUiDrafts()} text={text} sourceRevision={0} revision={0} onChange={vi.fn()} regenerate={vi.fn()} readOnly={false} />);
   fireEvent.click(screen.getByRole("button", { name: "PDF 打印预览" }));
-  const article = mocks.print.mock.calls[0]![0] as HTMLElement;
+  const article = mocks.preview.mock.calls[0]![0] as HTMLElement;
   expect(article.querySelector("script")).toBeNull();
   expect(article.textContent).toContain("<script>alert(1)</script>");
+  expect(mocks.preview).toHaveBeenCalledOnce(); expect(mocks.legacyPrint).not.toHaveBeenCalled();
+  expect(await screen.findByRole("status")).toHaveTextContent("已关闭打印预览，报告未改变。");
   fireEvent.click(screen.getByText("把报告用于本组对话"));
   fireEvent.click(screen.getByRole("button", { name: "复制报告到聊天" }));
   expect(await screen.findByText(/发送成功后才会保存/)).toBeVisible();
@@ -75,7 +78,7 @@ it("report assembly keeps missing evidence and teacher comments as gaps", () => 
   expect(text).not.toContain("已完成六步");
 });
 it("keeps the student's report and offers retry paths when browser export cannot start", async () => {
-  mocks.print.mockImplementationOnce(() => { throw new Error("Print unavailable"); });
+  mocks.preview.mockImplementationOnce(() => { throw new Error("Print unavailable"); });
   render(<AidtReportPreview drafts={emptyAidtUiDrafts()} text="保留人工修改与证据A引用" sourceRevision={0} revision={0} onChange={vi.fn()} regenerate={vi.fn()} readOnly={false} />);
   fireEvent.click(screen.getByRole("button", { name: "PDF 打印预览" }));
   expect(await screen.findByText(/打印预览未能打开，报告编辑仍保留/)).toBeVisible();

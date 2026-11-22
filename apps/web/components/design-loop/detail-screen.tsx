@@ -132,6 +132,11 @@ export function DesignDetailScreen({
   contained = false,
   composerContextOffer,
   sendBlockedReason,
+  requiredContextText,
+  requiredContextId,
+  beforeSend,
+  referenceImagesControl,
+  printPreview,
   onBack,
   onOpenInbox,
   onNextDesign,
@@ -142,6 +147,13 @@ export function DesignDetailScreen({
   composerContextOffer?: DesignComposerContextOffer;
   /** Host-side readiness only; existing service permissions still apply. */
   sendBlockedReason?: string;
+  /** AIDT host-owned confirmed source; sent as a fixed prefix, never an editable optional draft. */
+  requiredContextText?: string;
+  requiredContextId?: string;
+  /** Host re-reads the exact confirmed source/consent immediately before each model send. */
+  beforeSend?: (signal: AbortSignal, project?: DesignProject) => Promise<void>;
+  referenceImagesControl?: (input: { project: DesignProject; disabled: boolean; onProjectUpdated: (project: DesignProject) => void }) => React.ReactNode;
+  printPreview?: React.ComponentProps<typeof PrototypeExportMenu>["printPreview"];
   /**
    * 迭代 16（#3773 R7）：这是**刚建好**的项目，进来就照背景画第一版。
    * 由创建流程跳转时带上（`?new=1`），不是每次打开详情页都成立——见 `autoStartedRef` 那段。
@@ -159,13 +171,29 @@ export function DesignDetailScreen({
   const [frame, setFrame] = React.useState(0);
   const [text, setText] = React.useState("");
   /** 迭代 30：超了就不让发——服务端一定会拒，让用户白等一次往返没有意义。 */
-  const overLimit = text.length > MAX_CHARS;
+  const requiresContext = requiredContextText !== undefined || requiredContextId !== undefined;
+  const contextInvalid = requiresContext && (!requiredContextText?.trim() || !requiredContextId?.trim() || !beforeSend);
+  const contextScope = JSON.stringify([projectId, requiredContextId, requiredContextText]);
+  const latestContextScope = React.useRef(contextScope); latestContextScope.current = contextScope;
+  const latestSendBlock = React.useRef(Boolean(sendBlockedReason || contextInvalid)); latestSendBlock.current = Boolean(sendBlockedReason || contextInvalid);
+  const contextActive = React.useRef(true);
+  const withRequiredContext = (value: string) => !requiresContext ? value : contextInvalid ? null
+    : `【已确认的原型制作依据（应用固定）】\n${requiredContextText}\n\n【学生补充】\n${value}`;
+  const effectiveTextLength = withRequiredContext(text)?.length ?? text.length;
+  const overLimit = effectiveTextLength > MAX_CHARS;
   const [sending, setSending] = React.useState(false);
   const [chatError, setChatError] = React.useState<string | null>(null);
   /** 迭代 7：进行中的请求（可取消）、已等待秒数、上一句失败时留下的原文（供「重试」）。 */
   const abortRef = React.useRef<AbortController | null>(null);
   const [elapsed, setElapsed] = React.useState(0);
   const [retryText, setRetryText] = React.useState<string | null>(null);
+  const retryContext = React.useRef(contextScope);
+  React.useEffect(() => {
+    contextActive.current = true;
+    abortRef.current?.abort();
+    setRetryText(null); setChatError(null);
+    return () => { contextActive.current = false; abortRef.current?.abort(); };
+  }, [contextScope]);
   /** B5.2：最近一轮模型回复写回了哪些字段（`reply.applied`）——挂在最后一条 AI 气泡下方，发下一句时清掉。 */
   const [lastApplied, setLastApplied] = React.useState<readonly DesignWritebackField[]>([]);
   /**
@@ -415,6 +443,7 @@ export function DesignDetailScreen({
   const variantScreen = project === null ? 0 : Math.min(frame, Math.max(0, project.frames.length - 1));
   const askVariants = async (ask: VariantsAsk = {}) => {
     if (project === null) return;
+    if (requiresContext) { setNotice("教学原型请使用已核对制作依据的对话入口；此处不单独生成其他方案。"); return; }
     if (sendBlockedReason) { setNotice(sendBlockedReason); return; }
     setVariants({ kind: "loading" });
     try {
@@ -669,7 +698,7 @@ export function DesignDetailScreen({
   });
 
   React.useEffect(() => {
-    if (project === null || sending || sendBlockedReason) return;
+    if (project === null || sending || sendBlockedReason || requiresContext) return;
     if (!autoStart || autoStartedRef.current === project.id) return;
     const saidSomething = project.chat.some((t) => t.role === "user");
     if (project.prototype.length > 0 || saidSomething || project.problem.trim() === "") return;
@@ -680,7 +709,7 @@ export function DesignDetailScreen({
     // `send` 每次渲染都是新函数，进依赖数组会让这个 effect 每帧都重跑；
     // 真正的守卫是 `autoStartedRef`（每个项目只发一次），不是依赖数组。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, sending, autoStart, sendBlockedReason]);
+  }, [project, sending, autoStart, sendBlockedReason, requiresContext]);
 
   React.useEffect(() => {
     // jsdom（测试环境）没有实现 `Element.scrollTo`——同 `inbox-screen.tsx` 的既有成例，
@@ -728,6 +757,10 @@ export function DesignDetailScreen({
     const value = (override ?? text).trim();
     if (sendBlockedReason) { setNotice(sendBlockedReason); return false; }
     if (value === "") return false;
+    const requestText = withRequiredContext(value);
+    if (requestText === null) { setNotice("已确认的制作依据不可用，请重新核对并确认文字设计稿。"); return false; }
+    if (requiresContext && requestText.length > MAX_CHARS) { setNotice(`制作依据与补充说明合计超过 ${MAX_CHARS} 字，请精简并重新确认来源；未截断或发送。`); return false; }
+    const requestScope = contextScope;
     const controller = new AbortController();
     abortRef.current = controller;
     setSending(true);
@@ -747,16 +780,18 @@ export function DesignDetailScreen({
           const { items } = await listMyProjects();
           const found = items.find((p) => p.id === project.id);
           // 再查一次：这个 await 期间 send 可能已经收尾了。
-          if (found !== undefined && pollRef.current !== null) setLoad({ kind: "ready", project: found });
+          if (found !== undefined && pollRef.current !== null && latestContextScope.current === requestScope) setLoad({ kind: "ready", project: found });
         } catch {
           // 轮询失败不打扰用户——它只是"早点看见"，失败了照旧等最终结果。
         }
       })();
     }, GENERATION_POLL_MS);
     try {
+      await beforeSend?.(controller.signal, project);
+      if (!contextActive.current || controller.signal.aborted || latestContextScope.current !== requestScope || latestSendBlock.current) return false;
       const { project: updated, reply } = await apiAppendProjectChat(
         project.id,
-        value,
+        requestText,
         focus !== null && canvasMode === "edit" ? selectedId ?? undefined : undefined,
         controller.signal,
         // 迭代 13：项目当前的**全部**参考图随每一轮发出去——它是"贴在墙上的参考"，
@@ -767,6 +802,7 @@ export function DesignDetailScreen({
         focus !== null && canvasMode === "edit" && focusedHtml !== null && selectedRef !== null ? selectedRef : undefined,
       );
       stopPoll();
+      if (!contextActive.current || controller.signal.aborted || latestContextScope.current !== requestScope) return false;
       /*
        * 迭代 16（#3773 R5）：先算 diff 再换 project——换完就拿不到"之前"那一份了。
        * 首次生成（之前没有任何树）不高亮：整页都是新的，满屏闪烁说明不了任何事。
@@ -787,6 +823,7 @@ export function DesignDetailScreen({
       setText("");
       return true;
     } catch (err) {
+      if (!contextActive.current || latestContextScope.current !== requestScope) return false;
       if (controller.signal.aborted) {
         // 用户自己取消的：不是错误，草稿原样留在输入框。⚠ 服务端那次调用可能仍会完成并落库——
         // 下次读取会看到它；这里不假装它一定没发生。
@@ -807,6 +844,7 @@ export function DesignDetailScreen({
         window.setTimeout(() => setNotice(null), 6000);
       } else {
         setText(value);
+        retryContext.current = requestScope;
         setRetryText(value);
         setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
       }
@@ -814,7 +852,7 @@ export function DesignDetailScreen({
     } finally {
       stopPoll();
       window.clearInterval(tick);
-      abortRef.current = null;
+      if (abortRef.current === controller) abortRef.current = null;
       setSending(false);
     }
   };
@@ -898,7 +936,7 @@ export function DesignDetailScreen({
         <div className="ml-auto flex items-center gap-2">
           {/* 迭代 8：导出菜单——设计文档 / 原型 JSON / 当前页 PNG / 复制 */}
           {/* 导出菜单挂在原位（下拉从这里展开），按钮本身收进「更多」→「导出」。 */}
-          <PrototypeExportMenu project={project} frame={Math.min(frame, Math.max(0, project.frames.length - 1))} open={exportOpen} onOpenChange={setExportOpen} hideTrigger />
+          <PrototypeExportMenu project={project} frame={Math.min(frame, Math.max(0, project.frames.length - 1))} open={exportOpen} onOpenChange={setExportOpen} hideTrigger printPreview={printPreview} />
           {/*
             * 迭代 22：分享。已发布时按钮说"已分享"，快照过期时**在按钮上就说出来**——
             * 把它藏进弹窗里，等于要用户先怀疑才会去看。
@@ -982,12 +1020,13 @@ export function DesignDetailScreen({
           {chatError !== null && (
             <div className="mx-3 mb-1 flex items-center gap-2 rounded-card bg-destructive px-2.5 py-1 text-11 text-destructive-foreground" data-testid="design-detail-chat-error" role="alert">
               <span className="min-w-0 flex-1 truncate">{chatError}</span>
-              {retryText !== null && (
+              {retryText !== null && retryContext.current === contextScope && (
                 <button type="button" onClick={() => void send(retryText)} className="shrink-0 rounded-control border border-destructive-foreground/40 px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-destructive-foreground/10" data-testid="design-detail-retry">重试</button>
               )}
               <button type="button" onClick={() => { setChatError(null); setRetryText(null); }} aria-label="关闭" className="shrink-0 rounded-control p-0.5 transition-colors duration-fast hover:bg-destructive-foreground/10"><X aria-hidden className="h-3 w-3" /></button>
             </div>
           )}
+          {referenceImagesControl?.({ project, disabled: sending, onProjectUpdated: value => { if (value.id === project.id) setLoad({ kind: "ready", project: value }); } })}
           <RefImageStrip
             images={project.refImages}
             disabled={sending}
@@ -1018,18 +1057,19 @@ export function DesignDetailScreen({
             * 从别处粘一段长需求进来，按下发送才被服务端拒掉，那时已经等了一次往返。
             * 快到上限时才出现（平时不占地方），超了就把发送按钮关掉。
             */}
-          {text.length > MAX_CHARS * 0.9 && (
+          {effectiveTextLength > MAX_CHARS * 0.9 && (
             <p
               className={cn("px-3 pt-2 text-10", overLimit ? "text-destructive" : "text-muted-foreground")}
               role={overLimit ? "alert" : undefined}
               data-testid="design-detail-input-count"
             >
               {overLimit
-                ? `超了 ${text.length - MAX_CHARS} 个字——一次最多 ${MAX_CHARS} 字。删掉一些，或者分两次说。`
-                : `还能再打 ${MAX_CHARS - text.length} 个字`}
+                ? requiresContext ? `超了 ${effectiveTextLength - MAX_CHARS} 个字——制作依据与补充说明一次最多 ${MAX_CHARS} 字。请精简后重试。` : `超了 ${text.length - MAX_CHARS} 个字——一次最多 ${MAX_CHARS} 字。删掉一些，或者分两次说。`
+                : `还能再打 ${MAX_CHARS - effectiveTextLength} 个字${requiresContext ? "（含固定制作依据）" : ""}`}
             </p>
           )}
           {sendBlockedReason && <p role="status" className="px-3 py-2 text-12 text-muted-foreground" data-testid="design-composer-blocked">{sendBlockedReason}</p>}
+          {contextInvalid && <p role="status" className="px-3 py-2 text-12 text-muted-foreground">已确认的制作依据不可用，请重新核对文字设计稿。</p>}
           {composerContextOffer && <ComposerContextOffer offer={composerContextOffer} occupied={!!text.trim()} sending={sending} onAccept={() => {
             if (!sending) setText(old => old.trim() ? old : composerContextOffer.text);
           }} />}
@@ -1066,7 +1106,7 @@ export function DesignDetailScreen({
             <Button
               variant="primary"
               size="icon"
-              disabled={text.trim() === "" || sending || overLimit || !!sendBlockedReason}
+              disabled={text.trim() === "" || sending || overLimit || contextInvalid || !!sendBlockedReason}
               onClick={() => void send()}
               aria-label="发送"
               data-testid="design-detail-send"
@@ -1110,7 +1150,10 @@ export function DesignDetailScreen({
                 onOpenSpec={() => setTab("spec")}
                 onOpenExport={() => setExportOpen(true)}
                 onPush={() => setConfirming(true)}
-                onImportThread={() => setImporting(true)}
+                onImportThread={() => {
+                  if (requiresContext) setNotice("教学制作依据来自已确认文字设计稿，此处不从其他对话重新生成背景。");
+                  else setImporting(true);
+                }}
                 deviceControls={
                   <CanvasDeviceSelector devices={DEVICE_PRESETS} deviceId={lens.id} onDevice={setDeviceId}
                     landscape={landscape} onLandscape={() => setLandscape((value) => !value)} rotatable={lens.rotatable} />
@@ -1364,7 +1407,7 @@ export function DesignDetailScreen({
         <span className="ml-auto" data-testid="design-detail-statusbar-updated">{project.ownerName ?? "—"} · 更新于 {humanTime(project.updatedAt)}</span>
       </footer>
 
-      {importing && (
+      {importing && !requiresContext && (
         <ImportThreadDialog
           projectId={project.id}
           onClose={() => setImporting(false)}

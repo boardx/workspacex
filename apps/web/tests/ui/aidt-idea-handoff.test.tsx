@@ -57,7 +57,7 @@ it("creates a named tagged brainstorm card and keeps its saved route after renam
   fireEvent.click(creation.getByRole("button", { name: "开始头脑风暴" }));
   const link = await screen.findByRole("link", { name: "打开「午休场次」对话" });
   expect(link.getAttribute("href")).toBe(`/aidt/p?step=4&entity=${opened[0]}`);
-  expect(within(screen.getByRole("group", { name: "筛选卡片标签" })).getByRole("button", { name: "校园" })).toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "筛选卡片标签" })).getByTestId("aidt-card-tag-校园")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "编辑 午休场次" }));
   const edit = within(await screen.findByRole("dialog", { name: "编辑头脑风暴" }));
   fireEvent.change(edit.getByRole("textbox", { name: "场次名称" }), { target: { value: "午休第二轮" } });

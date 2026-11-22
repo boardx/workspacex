@@ -1,6 +1,7 @@
 /** AIDT shared working drafts. User approved A+B review; saving never confirms learning completion. */
 import { z } from "zod";
 export const STAGE_REQUEST_BODY_LIMIT_BYTES = 256 * 1024;
+export const AIDT_STAGE_IDEA_LIMIT = 100;
 export function isStageRequestTooLarge(value: unknown): boolean { return new TextEncoder().encode(JSON.stringify(value)).length > STAGE_REQUEST_BODY_LIMIT_BYTES; }
 const greeting = /^(?:(?:你|您)好(?:呀|啊)?|大家好|嗨|哈[喽啰]|hello|hi|hey)[\s!！。.?？~～]*$/iu;
 
@@ -38,7 +39,7 @@ export const ImageAttachment = z.object({attachmentId:z.string().min(1).max(200)
 export const DiscoveryCard = z.object({ id: text, participantCode: text, headline: text, headlineKind: z.enum(["quote", "student-summary"]), context: text, quote: text, sourceRef: text, photoRef: referenceText, photoAttachment: ImageAttachment.optional() }).strict();
 export const StageDraft = z.object({
   fields: z.record(text).refine((v) => Object.keys(v).length <= 100),
-  ideas: z.array(z.object({ id: text, title: text, description: text, image: z.literal("").optional(), imageName: text.optional(), imageAttachment:ImageAttachment.optional() }).strict()).max(100),
+  ideas: z.array(z.object({ id: text, title: text, description: text, image: z.literal("").optional(), imageName: text.optional(), imageAttachment:ImageAttachment.optional() }).strict()).max(AIDT_STAGE_IDEA_LIMIT),
   selectedIdeaId: text, selectionReasons: z.record(text).optional(), unboundReason: text.optional(), discoveryCards: z.array(DiscoveryCard).max(100).optional(),
 }).strict();
 export const SourceStageRevision = z.object({ stageId: StageId, revision: revision.positive() }).strict();

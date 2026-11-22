@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AIDT_OUTPUTS, aidtUiStageMarkdown, type AidtUiStageDraft, type AidtIdeaDraft, type AidtDiscoveryCardDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { aidtHref, type AidtStep } from "@/features/aidt/lib/project-aidt";
-import { printResearchPdf, preparePrintImages } from "@/lib/research-report-export";
+import { preparePrintImages } from "@/lib/research-report-export";
+import { previewAidtPdf, previewAidtText } from "../lib/aidt-print-preview";
 import type { ComposerOfferResult } from "@/lib/chat-workbench/use-composer-draft";
 import { AidtInterviewOutput } from "./aidt-interview-output";
 import { AidtInterviewWorkspace } from "./aidt-interview-workspace";
@@ -33,13 +34,8 @@ import { readAidtPrototypeReference, updateAidtPrototypeReference, updateAidtPro
 import { AidtResearchMaterialControl, AidtResearchMaterialPreview } from "./aidt-research-material";
 import { aidtResearchMaterialsFromFields, isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey } from "../lib/aidt-research-materials";
 
-export function printAidtUiText(text: string, options?: Parameters<typeof printResearchPdf>[2]): Promise<void> {
-  const root = document.createElement("article");
-  for (const line of text.split("\n")) {
-    const node = document.createElement(line.startsWith("# ") ? "h2" : line.startsWith("## ") ? "h3" : line.startsWith("### ") ? "h4" : "p");
-    node.textContent = line.replace(/^#{1,3} /, ""); root.append(node);
-  }
-  return printResearchPdf(root, "AIDT 小组草稿", options);
+export function printAidtUiText(text: string, options?: Parameters<typeof previewAidtText>[2]) {
+  return previewAidtText(text, "AIDT 小组研究报告", options);
 }
 
 export function AidtStageOutput({ projectId, thread = null, entityId, step, draft, update, readOnly, toolHref, toChat, availableCards = [], availableCardsRevision, previousPrototype, previousPrototypeRevision, discoveryCardFields, activeDefinitionEntityId, ideaEntityId, ideaHandoff, activeTestEntityId, readTestPrototypeEntity }: {
@@ -127,9 +123,9 @@ export function AidtStageOutput({ projectId, thread = null, entityId, step, draf
       if (!printLifecycle.current.active || printLifecycle.current.scope !== printScope || printLifecycle.current.generation !== printGeneration) return;
       if (latestPrintDraft.current !== draft) { setStatus("内容已变化，未打印旧稿。请重新审阅当前描述单后重试。"); return; }
       const article = id ? buildAidtIdeaSheetsDocument(sheets.filter(sheet => sheet.id === id)) : reviewed;
-      await printResearchPdf(article, id ? `AIDT 点子描述单-${sheets.find(sheet => sheet.id === id)?.title ?? "学生稿"}` : "AIDT 点子描述单草稿", { isCurrent });
+      const result = await previewAidtPdf(article, id ? `AIDT 点子描述单-${sheets.find(sheet => sheet.id === id)?.title ?? "学生稿"}` : "AIDT 点子描述单草稿", { isCurrent });
       if (!isCurrent()) return;
-      setStatus("已请求打开打印预览，可选择另存为PDF；请分别保存各份描述单，不会因此保存到小组。");
+      setStatus(result === "cancelled" ? "已关闭打印预览，描述单与选择未改变。" : "已请求系统打印，可选择另存为 PDF；是否生成成功请核对实际文件，不会因此保存到小组。");
     } catch { setStatus("描述单打印未能启动或图片尚不可用，文字与选择仍保留。请重试读取图片后再导出。"); }
     finally { setPrinting(false); }
   }

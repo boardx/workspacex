@@ -4,8 +4,9 @@ import { expect, it, vi } from "vitest";
 import { AidtPrototypeConversation, AidtPrototypeEntityOutput } from "@/features/aidt/components/aidt-prototype-handoff";
 import { AidtPrototypeDirectory } from "@/features/aidt/components/aidt-prototype-directory";
 import { aidtAllActivePrototypeEntitiesConfirmed, archiveAidtPrototypeCard, confirmAidtPrototypeEntityHandoff, readAidtPrototypeEntityDraft, updateAidtPrototypeCard, updateAidtPrototypeEntityDraft } from "@/features/aidt/lib/aidt-prototype-handoff";
-import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
-import { confirmAidtVerificationQuestion } from "@/features/aidt/lib/aidt-verification-loop";
+import { readyFormalPrototypeFixture, reviewedFormalRoundFixture, storeFormalPrototypeFixture } from "../aidt-round-fixture-independent-qa";
+import { StageDraft } from "@repo/contracts/aidt-stages";
+import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import type { AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), list: vi.fn(), link: vi.fn() }));
@@ -45,17 +46,13 @@ it("projects the entity discussion to the read-only inspector, confirming only f
 });
 
 it("requires every active prototype to have a matching persisted confirmation and preserves archived drafts", () => {
-  const makeReady = (id: string) => confirmAidtVerificationQuestion(updateAidtPrototypeReference({
-    ...empty(), fields: {
-      verificationQuestion: "能否区分口味？", beforeTestBelief: "可能可以", verificationBasis: "暂无材料", verificationLimits: "静态图",
-      prototypeIdeaSource: '{"revision":1,"ideaIds":["menu"]}', type: "菜单卡", situation: "午休", task: "选择口味",
-    },
-  }, { designId: id, versionId: "v1", designName: id, seq: 1, summary: "学生稿", source: "user",
-    createdAt: "2026-11-16T00:00:00.000Z", frameCount: 1, generatedFrameCount: 1 }))!;
-  const one = confirmAidtPrototypeEntityHandoff(updateAidtPrototypeEntityDraft(empty(), "A", () => makeReady("A")), "A");
+  const makeReady = (id: string) => readyFormalPrototypeFixture({ projectId: "project", designId: id, sourceRevision: 1,
+    fields: { verificationQuestion: "能否区分口味？", beforeTestBelief: "可能可以", verificationBasis: "暂无材料", verificationLimits: "静态图", type: "菜单卡", situation: "午休", task: "选择口味" },
+    reference: { designId: id, versionId: "v1", designName: id, seq: 1, summary: "学生稿", source: "user", createdAt: "2026-11-16T00:00:00.000Z", frameCount: 1, generatedFrameCount: 1 } }).draft;
+  const one = confirmAidtPrototypeEntityHandoff(storeFormalPrototypeFixture(empty(), "A", makeReady("A")), "A");
   const incomplete = updateAidtPrototypeCard(one, "B", "第二张卡");
   expect(aidtAllActivePrototypeEntitiesConfirmed(incomplete)).toBe(false);
-  const complete = confirmAidtPrototypeEntityHandoff(updateAidtPrototypeEntityDraft(incomplete, "B", () => makeReady("B")), "B");
+  const complete = confirmAidtPrototypeEntityHandoff(storeFormalPrototypeFixture(incomplete, "B", makeReady("B")), "B");
   expect(aidtAllActivePrototypeEntitiesConfirmed(complete)).toBe(true);
   const archived = archiveAidtPrototypeCard(complete, "B");
   expect(aidtAllActivePrototypeEntitiesConfirmed(archived)).toBe(false);
@@ -68,13 +65,20 @@ it("saves card create, rename and archive while retaining the native Design rela
   mocks.list.mockImplementation(async () => ({ items: [...resources] }));
   mocks.create.mockResolvedValue({ project: { id: designId } });
   mocks.link.mockImplementation(async () => { resources.push({ id: designId, kind: "design", title: "菜单卡" }); });
+  const formal = reviewedFormalRoundFixture({ projectId: "project", sessionId: "brainstorm-native-card-source", source: { id: "hmw-create", text: "如何帮助学生比较口味？", revision: 1 }, selectedIndices: [0], ideas: [
+    { title: "菜单标签", description: "标注各款口味。学生并排比较。" }, { title: "比较卡", description: "纸卡列出配料。学生按需选择。" }, { title: "领取图", description: "图标展示路线。学生沿线领取。" },
+  ] });
+  const sourceIdeas: AidtSharedStage = { projectId: "project", stageId: 4, revision: 8, content: { schemaVersion: 1, draft: StageDraft.parse(formal.draft) }, sourceStageRevisions: [], updatedBy: "u", updatedAt: "2026-11-22T06:00:00Z" };
   function Harness() {
     const [draft, setDraft] = React.useState(empty);
-    return <AidtPrototypeDirectory projectId="project" canWrite draft={draft} ideaRevision="8" saveDraft={async change => { setDraft(change); return true; }} />;
+    return <AidtPrototypeDirectory projectId="project" canWrite draft={draft} sourceIdeas={sourceIdeas} ideaRevision="8" saveDraft={async change => { setDraft(change); return true; }} />;
   }
   render(<Harness />);
   fireEvent.click(screen.getByTestId("aidt-new-entity-card"));
   fireEvent.change(screen.getByLabelText("原型名称"), { target: { value: "菜单卡" } });
+  expect(screen.getByRole("button", { name: "创建原型" })).toBeDisabled();
+  fireEvent.change(screen.getByRole("combobox", { name: "已确认 Ideation 列表" }), { target: { value: formal.sessionId } });
+  fireEvent.click(screen.getByRole("checkbox", { name: "菜单标签" }));
   fireEvent.click(screen.getByRole("button", { name: "创建原型" }));
   expect(await screen.findByRole("link", { name: "菜单卡" })).toHaveAttribute("href", expect.stringContaining("ideaRevision=8"));
   expect(mocks.link).toHaveBeenCalledWith({ projectId: "project", kind: "design", resourceId: designId });

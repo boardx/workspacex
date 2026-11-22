@@ -359,3 +359,11 @@ test('stage six planning accepts only the bound student test plan and excludes o
   const sibling = request(ready); sibling.content.draft.fields['testGroup:sibling'] = '{}';
   assert.equal(validTestPlanProjection(before, sibling, group.id), false);
 });
+
+test('native summary preserves the existing group-report entity and rejects a different or dropped report coordinate',()=>{
+  const base=scope(),selected={schemaVersion:1,purpose:'summary',projectId:base.projectId,entityId:'group-report',stageRevisions:Array.from({length:6},(_,i)=>({stageId:i+1,revision:3})),historyRevisions:[]},s={...base,stageId:6,selector:selected},e=evidence(s);delete e.receipt.stageId;Object.assign(e.receipt,{purpose:'summary',stageRevisions:selected.stageRevisions,historyRevisions:[]});
+  const wire=validateTeachingWire(request(s),s),accepted=identifyOwnedTeachingRun(e.messages,s,wire);assert.equal(validateTeachingEvidence(e,s,wire,accepted).stageId,6);
+  for(const entityId of ['another-report','group-report-other',null])assert.throws(()=>validateTeachingWire(request({...s,selector:{...selected,entityId}}),s),/TEACHING_SELECTOR_INVALID|TEACHING_WIRE_SCOPE_MISMATCH/);
+  const old={...selected};delete old.entityId;assert.throws(()=>validateTeachingWire(request({...s,selector:old}),s),/TEACHING_WIRE_SCOPE_MISMATCH/);
+  assert.doesNotThrow(()=>validateTeachingWire(request({...s,selector:old}),{...s,selector:old}));
+});

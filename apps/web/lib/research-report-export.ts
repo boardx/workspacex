@@ -1,5 +1,5 @@
 /** Strip export-only exclusions from a clone; never mutate the reader's evidence. */
-function exportDocument(root: HTMLElement): HTMLElement {
+export function cloneResearchExportDocument(root: HTMLElement): HTMLElement {
   const clone = root.cloneNode(true) as HTMLElement;
   clone.querySelectorAll('[data-report-ui], [data-testid="research-report-references"]').forEach((node) => node.remove());
   clone.querySelectorAll('a[href$="research-report-references"]').forEach((node) => {
@@ -75,7 +75,7 @@ export async function buildResearchWord(root: HTMLElement): Promise<Blob> {
       for (const child of Array.from(element.children)) visit(child, level);
     }
   }
-  visit(exportDocument(root));
+  visit(cloneResearchExportDocument(root));
   return Packer.toBlob(new Document({ styles: { default: { document: { run: { font: "Arial Unicode MS", size: 22 } } } }, sections: [{ properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } }, children, footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ children: [PageNumber.CURRENT] })] })] }) } }] }));
 }
 export async function downloadResearchWord(root: HTMLElement, title: string) {
@@ -109,7 +109,7 @@ export async function printResearchPdf(root: HTMLElement, title?: string, option
   const target = frame.contentDocument; const view = frame.contentWindow;
   if (!target || !view) { frame.remove(); throw new Error("Print unavailable"); }
   const style = target.createElement("style"); style.textContent = "@page{size:A4;margin:20mm}body{font:11pt/1.8 sans-serif;color:#111}h2{font-size:22pt}h3{font-size:16pt}h4{font-size:13pt}h2,h3,h4,h5{break-after:avoid}p{orphans:3;widows:3}a{color:inherit;overflow-wrap:anywhere}sup{font-size:8pt}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6pt}nav{break-inside:avoid}li{margin-bottom:6pt}section{margin-top:18pt}";
-  const report = target.importNode(exportDocument(root), true);
+  const report = target.importNode(cloneResearchExportDocument(root), true);
   const images = Array.from(report.querySelectorAll("img"));
   // A hidden print frame must not defer lazy images until it enters the viewport.
   images.forEach(image => { image.loading = "eager"; });

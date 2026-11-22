@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api-client";
 import { aidtRoundConfirmation, aidtRoundDigest, aidtRoundMissingOutput, aidtRoundPayload } from "../lib/aidt-round-completion";
 import { readAidtProblemEntityDraft, updateAidtProblemEntity } from "../lib/aidt-problem-entities";
 import { reconcileAidtEntity, saveAidtStage, type AidtSharedStage } from "../lib/live-aidt-stages";
+import { AidtProblemCandidates } from "./aidt-problem-candidates";
 import { aidtHref } from "../lib/project-aidt";
 
 export function AidtProblemChatReview({ projectId, entityId, stage, sessionToken, threadId, loading, running, messages, onRefresh }: {
@@ -43,7 +44,8 @@ export function AidtProblemChatReview({ projectId, entityId, stage, sessionToken
   if (!stage || !threadId || recovery === "loading") return null;
   const draft = entityId ? readAidtProblemEntityDraft(stage.content.draft, entityId) : stage.content.draft;
   const reviewed = { ...draft, fields: { ...draft.fields, problemReflectionConfirmed: "true" } };
-  if (aidtRoundMissingOutput(1, reviewed)) return null;
+  const candidateTools = entityId ? <AidtProblemCandidates {...{ projectId, entityId, stage, sessionToken, messages, loading, running, onRefresh }} /> : null;
+  if (aidtRoundMissingOutput(1, reviewed)) return candidateTools;
   const next = aidtHref(projectId, 2) + (entityId ? "&" + new URLSearchParams({ problemEntity: entityId, problemRevision: String(stage.revision) }) : "");
   const confirm = async () => {
     if (inFlight.current || running || loading) return;
@@ -71,6 +73,7 @@ export function AidtProblemChatReview({ projectId, entityId, stage, sessionToken
   };
   const confirmed = Boolean(draft.fields.roundCompletion && draft.fields.problemReflectionConfirmed === "true");
   return <section aria-label="对话中的成果确认" data-testid="aidt-round-completion" className="mx-auto w-full max-w-2xl space-y-2 px-4 py-2 text-13">
+    {candidateTools}
     {confirmed ? <><p>本轮成果已确认并保存</p><Button asChild size="sm" variant="outline"><Link href={next}>继续第2步</Link></Button></> :
       <><p className="whitespace-pre-wrap break-words">{draft.fields.rewrittenTheme}</p>
         <Button type="button" size="sm" disabled={saving || running || loading} onClick={() => void confirm()}>{saving ? "正在保存确认…" : "确认本轮成果并保存"}</Button></>}

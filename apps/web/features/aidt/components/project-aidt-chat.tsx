@@ -59,12 +59,12 @@ function currentStageQuery(projectId: string, stageId: number, entityId?: string
 }
 type AidtChatProps = {
   interviewPhase?: "initial" | "revision" | "fieldwork";
-  offerInitial?: (text: string) => ComposerOfferResult; hostPanel?: ChatHostPanel; referencePanel?: HTMLDivElement | null; taskHref?: string; purpose?: "report"; entityId?: string; entityRevision?: number; sourceEntityId?: string; sourceRevision?: number; projectId: string; step: AidtStep; thread: string | null; returnRevision?: string | null; savedContextRefs?: readonly AidtSavedContextReference[]; sharedContextRefs?: readonly AidtSharedContextReference[]; sharedContextReady?: boolean; onResolvedThread?: (threadId: string) => void };
+  offerInitial?: (text: string) => ComposerOfferResult; hostPanel?: ChatHostPanel; referencePanel?: HTMLDivElement | null; taskHref?: string; purpose?: "report"; entityId?: string; entityRevision?: number; sourceEntityId?: string; sourceRevision?: number; projectId: string; step: AidtStep; thread: string | null; returnRevision?: string | null; returnEntity?: string | null; savedContextRefs?: readonly AidtSavedContextReference[]; sharedContextRefs?: readonly AidtSharedContextReference[]; sharedContextReady?: boolean; onResolvedThread?: (threadId: string) => void };
 export function ProjectAidtChat(props: AidtChatProps) {
   if (!isAidtModuleEnabled()) return <p role="status" data-testid="aidt-chat-disabled" className="p-4 text-13 text-muted-foreground">教学模块未启用。</p>;
   return <EnabledAidtChat {...props} />;
 }
-function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContextRefs = [], sharedContextRefs = [], sharedContextReady = true, onResolvedThread, purpose, entityId, entityRevision, sourceEntityId, sourceRevision, taskHref, referencePanel, hostPanel, offerInitial, interviewPhase }: AidtChatProps) {
+function EnabledAidtChat({ projectId, step, thread, returnRevision, returnEntity, savedContextRefs = [], sharedContextRefs = [], sharedContextReady = true, onResolvedThread, purpose, entityId, entityRevision, sourceEntityId, sourceRevision, taskHref, referencePanel, hostPanel, offerInitial, interviewPhase }: AidtChatProps) {
   const { session } = useSession();
   const scope = JSON.stringify([session?.currentOrgId, session?.userId, session?.sessionToken, projectId, step.id, entityId ? null : thread, purpose, entityId]);
   const lifecycle = React.useRef({ scope, generation: 0 });
@@ -80,7 +80,7 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
   const selectSummary = React.useCallback((selector:AidtContextSelector|null) => { setSummarySelection({scope:requestScope,selector}); }, [requestScope]);
   const acceptRun = React.useCallback((observation:HostRunObservation) => { if (lifecycle.current.scope === scope && lifecycle.current.generation === generation && (attemptOwner.current?.scope !== requestScope || attemptOwner.current.clientMessageId === observation.clientMessageId)) setAcceptedRun({scope:requestScope,runId:observation.runId}); }, [scope,generation,requestScope]);
   let contextSelector:AidtContextSelector|null = null;
-  try { contextSelector = purpose === "report" ? summarySelection?.scope === requestScope ? summarySelection.selector : null : sharedContextReady ? aidtStageContextSelector(projectId,step.id,entityId ? [] : sharedContextRefs,entityId ? null : returnRevision) : null; if (entityId && contextSelector) contextSelector = { ...contextSelector, entityId };
+  try { contextSelector = purpose === "report" ? summarySelection?.scope === requestScope ? summarySelection.selector : null : sharedContextReady ? aidtStageContextSelector(projectId,step.id,entityId ? [] : sharedContextRefs,returnRevision) : null; if (entityId && contextSelector) contextSelector = { ...contextSelector, entityId };
   if (entityId && contextSelector?.purpose === "stage") {
     contextSelector = {
       ...contextSelector,
@@ -102,7 +102,7 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
   const [sharedContextState, setSharedContextState] = React.useState<{ scope: string; value: AidtSharedChatContext } | null>(null);
   const [contextRetry, setContextRetry] = React.useState(0);
   const [returnRetry, setReturnRetry] = React.useState(0);
-  const returnIdentity = JSON.stringify([requestScope, returnRevision, returnRetry]);
+  const returnIdentity = JSON.stringify([requestScope, returnRevision, returnEntity, returnRetry]);
   const returnLifecycle = React.useRef({ identity: returnIdentity, generation: 0 });
   if (returnLifecycle.current.identity !== returnIdentity) returnLifecycle.current = { identity: returnIdentity, generation: returnLifecycle.current.generation + 1 };
   const returnScope = JSON.stringify([returnIdentity, returnLifecycle.current.generation]);
@@ -112,12 +112,14 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
     let active = true; const cancellation = new AbortController();
     const isCurrent = () => active && !cancellation.signal.aborted && returnLifecycle.current.identity === returnIdentity
       && JSON.stringify([returnLifecycle.current.identity, returnLifecycle.current.generation]) === returnScope;
-    void loadAidtReturnChatContext({ projectId, currentStage: step.id, sessionToken: session.sessionToken, returnRevision, signal: cancellation.signal }).then((value) => {
+    void loadAidtReturnChatContext({ projectId, currentStage: step.id, sessionToken: session.sessionToken, returnRevision, returnEntity, signal: cancellation.signal }).then((value) => {
       if (isCurrent()) setReturnState({ scope: returnScope, value });
     }).catch(() => { if (isCurrent()) setReturnState({ scope: returnScope, value: { status: "failed", items: [], issues: [{ stageNumber: 6, reason: "unavailable" }] } }); });
     return () => { active = false; cancellation.abort(); };
-  }, [returnScope, returnIdentity, projectId, step.id, session?.currentOrgId, session?.userId, session?.sessionToken, returnRevision, purpose]);
+  }, [returnScope, returnIdentity, projectId, step.id, session?.currentOrgId, session?.userId, session?.sessionToken, returnRevision, returnEntity, purpose]);
   const returnContext = returnRevision == null ? AIDT_EMPTY_RETURN_CONTEXT : returnState?.scope === returnScope ? returnState.value : { status: "loading" as const, items: [] as const, issues: [] as const };
+
+  if (purpose !== "report" && returnEntity != null && returnRevision != null && returnContext.status !== "ready") contextSelector = null;
 
   React.useEffect(() => {
     if (purpose === "report" || !session?.currentOrgId || !session.sessionToken || !savedContextRefs.length) return;
@@ -151,11 +153,11 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
       const threadParameter = purpose === "report" ? "summaryThread" : "thread";
       // A second resolution of the same thread must not compete with a Next.js tool navigation.
       if (query.has("step") && (query.get("summary") === "1") === (purpose === "report") && query.get(threadParameter) !== value.threadId) {
-        if (entityId || query.get("history") === "1") {
+        if (entityId || query.get("history") === "1" || query.has("candidate")) {
           const url = new URL(window.location.href);
           url.searchParams.set(threadParameter, value.threadId);
           window.history.replaceState(null, "", url);
-        } else window.history.replaceState(null, "", purpose === "report" ? aidtReportChatHref(projectId, { threadId: value.threadId, stageThread: query.get("thread"), tool: query.get("tool") === "report" ? "report" : "chat", returnRevision: query.get("returnRevision") }) : aidtHref(projectId, step.id, { thread: value.threadId, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision") }));
+        } else window.history.replaceState(null, "", purpose === "report" ? aidtReportChatHref(projectId, { threadId: value.threadId, stageThread: query.get("thread"), tool: query.get("tool") === "report" ? "report" : "chat", returnRevision: query.get("returnRevision") }) : aidtHref(projectId, step.id, { thread: value.threadId, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision"), returnEntity: query.get("returnEntity") }));
       }
       setState({ scope: requestScope, value });
       if (resolvedCallback.current.scope === scope && resolvedCallback.current.generation === generation) resolvedCallback.current.callback?.(value.threadId);
@@ -164,13 +166,13 @@ function EnabledAidtChat({ projectId, step, thread, returnRevision, savedContext
   }, [scope, generation, requestScope, session, projectId, step, thread, retry, purpose, entityId]);
   const path = React.useCallback((id: string | null) => {
     const query = currentStageQuery(projectId, step.id, entityId);
-    if ((entityId || query.get("history") === "1") && query.has("step")) {
+    if ((entityId || query.get("history") === "1" || query.has("candidate")) && query.has("step")) {
       const parameter = purpose === "report" ? "summaryThread" : "thread";
       if (id) query.set(parameter, id);
       else query.delete(parameter);
       return aidtHref(projectId) + "?" + query.toString();
     }
-    return purpose === "report" ? aidtReportChatHref(projectId, { threadId: id, stageThread: query.get("thread"), tool: query.get("tool") === "report" ? "report" : "chat", returnRevision: query.get("returnRevision") }) : aidtHref(projectId, step.id, { thread: id, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision") });
+    return purpose === "report" ? aidtReportChatHref(projectId, { threadId: id, stageThread: query.get("thread"), tool: query.get("tool") === "report" ? "report" : "chat", returnRevision: query.get("returnRevision") }) : aidtHref(projectId, step.id, { thread: id, tool: query.get("tool") ?? undefined, resource: query.get("resource") ?? undefined, returnRevision: query.get("returnRevision"), returnEntity: query.get("returnEntity") });
   }, [projectId, step.id, purpose, entityId]);
   const fromLocation = React.useCallback(() => new URLSearchParams(window.location.search).get(purpose === "report" ? "summaryThread" : "thread"), [purpose]);
   const current = state?.scope === requestScope ? state : null;

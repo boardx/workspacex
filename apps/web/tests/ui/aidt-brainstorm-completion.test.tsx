@@ -46,7 +46,7 @@ it("saves two of five text candidates as a shortlist without requiring pictures 
   await waitFor(() => expect(readAidtBrainstormSelection(latest)?.selectedIds).toHaveLength(2));
   expect(latest.ideas).toHaveLength(5);
   expect(readAidtIdeaHandoff(latest, "p")).toBeNull();
-  expect(screen.queryByRole("link", { name: "进入原型制作" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "使用已确认轮进入原型制作" })).toBeNull();
   expect(screen.getByRole("button", { name: "确认完成本阶段" })).toBeDisabled();
 });
 
@@ -67,9 +67,9 @@ it("reviews three sheets and student classification explicitly without making th
   fireEvent.click(completion.getByRole("button", { name: "确认完成本阶段" }));
   await waitFor(() => expect(readAidtIdeaHandoff(latest, "p")?.sheetIds).toHaveLength(3));
   expect(readAidtIdeaHandoff(latest, "p")?.selectedIds).toHaveLength(2);
-  expect(screen.getByRole("link", { name: "进入原型制作" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "使用已确认轮进入原型制作" })).toBeVisible();
   expect(latest.ideas).toHaveLength(5);
   expect(latest.fields["ideaChatConfirmation:" + latest.ideas[3]!.id]).toBeUndefined();
   fireEvent.change(completion.getByRole("textbox", { name: "菜单标签 · 分类理由" }), { target: { value: "改后重新核对。" } });
-  expect(screen.queryByRole("link", { name: "进入原型制作" })).toBeNull();
+  expect(screen.getByRole("link", { name: "使用已确认轮进入原型制作" })).toBeVisible();
 });

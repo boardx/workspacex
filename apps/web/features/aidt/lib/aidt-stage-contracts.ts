@@ -75,7 +75,8 @@ export const AIDT_STAGE_CONTRACTS: Readonly<Record<AidtContractStageId, AidtStag
       { title: "至少3个不同点子描述单PDF", detail: "每个点子包含名称、图和2–3句核心说明，体现不同方向；图或说明未完成时保留交付缺口。" },
       { title: "本轮进入原型的点子", detail: "保留所选描述单及选择理由；具体票规待定，不把本页拟选当作已完成投票。" },
     ],
-    boundary: "三个类别不是每类一份的配额，跨类点子仍只算一个，不以容易实现淘汰突破性方向。至少3个不同点子是本步交付目标，不是系统锁步门槛；投票方式与票数规则尚待确定。",
+    // Refs #6908 / #6956: saving a draft is separate from confirming the stage.
+    boundary: "草稿随时可保存；确认本阶段并进入原型须至少3份不同的完整图文描述单，经学生逐份审阅并确认分类。三个类别不是每类一份的配额，跨类点子仍只算一个，不以容易实现淘汰突破性方向；投票方式与票数规则尚待确定。",
   },
   5: {
     title: "从点子描述单到可比较的静态粗原型",

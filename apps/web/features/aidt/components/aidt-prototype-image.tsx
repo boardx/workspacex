@@ -8,11 +8,15 @@ import { Button } from "@/components/ui/button";
 import { apiUrl } from "@/lib/api-client";
 import { fileToImageSrc } from "@/lib/prototype-image-upload";
 import { isAidtImagePrototypeVersion, loadAidtPrototypeImagePreview, saveAidtPrototypeImage, type AidtPrototypeVersionReference } from "../lib/aidt-prototype-versions";
+import { loadAidtConfirmedPrototypeText, loadAidtBoundPrototypeTextSources } from "../lib/aidt-prototype-confirmed-text";
+import type { AidtPrototypeTextConfirmation, AidtPrototypeTextOutputBinding } from "../lib/aidt-prototype-text-state";
 
 const raster = /^image\/(?:png|jpeg|webp|gif)$/;
 
-export function AidtPrototypeImage({ projectId, designId, onSaved }: {
-  projectId: string; designId: string; onSaved: (value: AidtPrototypeVersionReference) => void;
+export function AidtPrototypeImage({ projectId, designId, textConfirmation, onSaved }: {
+  projectId: string; designId: string; textConfirmation: AidtPrototypeTextConfirmation;
+  onSaved: (value: AidtPrototypeVersionReference, basis: AidtPrototypeTextConfirmation,
+    metadata: Pick<AidtPrototypeTextOutputBinding, "kind" | "bindingMethod" | "boundBy" | "boundAt" | "textSha256" | "lineageSha256">) => void;
 }) {
   const session = useOptionalSession()?.session;
   const { files, threadId } = React.useContext(ProducedFilesCtx);
@@ -21,10 +25,11 @@ export function AidtPrototypeImage({ projectId, designId, onSaved }: {
   const [error, setError] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
   const operation = React.useRef<AbortController | null>(null);
+  const textBasisKey = JSON.stringify(textConfirmation);
   React.useEffect(() => {
     setBusy(false);
     return () => operation.current?.abort();
-  }, [projectId, designId, session?.sessionToken, session?.userId, threadId]);
+  }, [projectId, designId, session?.sessionToken, session?.userId, threadId, textBasisKey]);
 
   const generated = files.flatMap(item => {
     const uri = parseVfsUriString(item.uri);
@@ -40,13 +45,18 @@ export function AidtPrototypeImage({ projectId, designId, onSaved }: {
     operation.current = controller;
     setBusy(true); setError(false); setSaved(false);
     try {
+      const allowed = await loadAidtConfirmedPrototypeText({ projectId, designId, sessionToken: session.sessionToken, signal });
+      if (JSON.stringify(allowed.confirmation) !== JSON.stringify(textConfirmation)) throw new Error("AIDT_PROTOTYPE_TEXT_VERSION_MISMATCH");
       const image = await fileToImageSrc(await load(signal), true);
       if (signal.aborted) return;
+      // Recheck consent and the confirmed revision after reading the image, before writing output.
+      const current = await loadAidtConfirmedPrototypeText({ projectId, designId, sessionToken: session.sessionToken, signal });
+      if (JSON.stringify(current.confirmation) !== JSON.stringify(textConfirmation)) throw new Error("AIDT_PROTOTYPE_TEXT_VERSION_MISMATCH");
       const version = await saveAidtPrototypeImage({
         projectId, sessionToken: session.sessionToken, userId: session.userId, signal,
-      }, designId, image, name);
+      }, designId, image, name, { stageRevision: textConfirmation.stageRevision, textVersion: textConfirmation.textVersion });
       if (!signal.aborted) {
-        onSaved(version);
+        onSaved(version, textConfirmation, { ...current.hashes, kind: "image", bindingMethod: "application-image-save", boundBy: session.userId, boundAt: new Date().toISOString() });
         setSaved(true);
       }
     } catch {
@@ -71,6 +81,7 @@ export function AidtPrototypeImage({ projectId, designId, onSaved }: {
   if (!session?.sessionToken) return null;
   return <details className="space-y-2">
     <summary className="cursor-pointer font-medium">用图片制作静态原型</summary>
+    <p className="text-12">制作依据：已确认文字设计 · 第 5 步 V{textConfirmation.stageRevision}。</p>
     <p className="text-12 text-muted-foreground">上传小组作品，或在本对话生成图片后选择。静态图可验证理解或意向，购买、付费和实际耗时需要另行观察。</p>
     <label className="block text-12">上传图片
       <input aria-label="上传原型图片" type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={busy} className="mt-1 block w-full" onChange={event => setFile(event.currentTarget.files?.[0])} />
@@ -88,19 +99,23 @@ export function AidtPrototypeImage({ projectId, designId, onSaved }: {
   </details>;
 }
 
-export function AidtPrototypeImagePreview({ projectId, reference }: { projectId: string; reference: AidtPrototypeVersionReference }) {
+export function AidtPrototypeImagePreview({ projectId, reference, binding }: { projectId: string; reference: AidtPrototypeVersionReference; binding?: AidtPrototypeTextOutputBinding | null }) {
   const session = useOptionalSession()?.session;
   const [state, setState] = React.useState<{ key: string; image: { src: string; alt: string } | null }>();
-  const key = JSON.stringify([projectId, session?.userId, session?.sessionToken, reference.designId, reference.versionId, reference.summary]);
+  const key = JSON.stringify([projectId, session?.userId, session?.sessionToken, reference.designId, reference.versionId, reference.summary, binding]);
   const current = React.useRef(reference);
   current.current = reference;
   React.useEffect(() => {
     if (!session?.userId || !session.sessionToken || !isAidtImagePrototypeVersion(current.current)) return;
+    const userId = session.userId, sessionToken = session.sessionToken;
     const controller = new AbortController();
-    void loadAidtPrototypeImagePreview({ projectId, userId: session.userId, sessionToken: session.sessionToken, signal: controller.signal }, current.current)
+    const access = binding ? loadAidtBoundPrototypeTextSources({ projectId, designId: reference.designId, sessionToken, signal: controller.signal }, binding) : Promise.resolve();
+    void access.then(() => loadAidtPrototypeImagePreview({ projectId, userId, sessionToken, signal: controller.signal }, current.current))
       .then(image => { if (!controller.signal.aborted) setState({ key, image }); })
       .catch(() => { if (!controller.signal.aborted) setState({ key, image: null }); });
     return () => controller.abort();
+  // key contains the complete immutable reference and optional text binding.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, projectId, session?.userId, session?.sessionToken]);
   if (!isAidtImagePrototypeVersion(reference) || !session?.userId || !session.sessionToken) return null;
   if (state?.key !== key) return <p role="status" className="text-12">正在核对图片版本…</p>;

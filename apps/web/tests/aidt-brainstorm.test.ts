@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
 import { readAidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
 import { StageDraft } from "@repo/contracts/aidt-stages";
-import { addAidtBrainstormCandidates, confirmAidtBrainstormCompletion, confirmAidtBrainstormSelection, createAidtBrainstorm, readAidtBrainstormProposals, readAidtBrainstormSelection } from "@/features/aidt/lib/aidt-brainstorm";
+import { addAidtBrainstormCandidates, confirmAidtBrainstormCompletion, confirmAidtBrainstormClassification, confirmAidtBrainstormSelection, createAidtBrainstorm, readAidtBrainstormProposals, readAidtBrainstormSelection, readAidtConfirmedBrainstormRounds } from "@/features/aidt/lib/aidt-brainstorm";
 import { archiveAidtIdea, readAidtIdeaHandoff } from "@/features/aidt/lib/aidt-idea-handoff";
-import { aidtChosenPrototypeIdeas, pinAidtPrototypeInputs, resolveAidtPrototypeInputIdeas } from "@/features/aidt/lib/aidt-prototype-handoff";
+import { aidtChosenPrototypeIdeas, pinAidtPrototypeInputs, resolveAidtPrototypeInputIdeas, readAidtPrototypeInputSelection } from "@/features/aidt/lib/aidt-prototype-handoff";
 import { aidtReportSourceLinks } from "@/features/aidt/lib/aidt-report-source-links";
 import { confirmAidtIdeaFromChat } from "@/features/aidt/lib/aidt-idea-chat";
 import { confirmAidtIdeaClassification, setAidtIdeaCategory } from "@/features/aidt/lib/aidt-idea-classification";
@@ -76,13 +76,25 @@ function reviewedFixture(): AidtUiStageDraft {
 }
 const stageOf = (draft: AidtUiStageDraft): AidtSharedStage => ({ projectId: "p", stageId: 4, revision: 9, sourceStageRevisions: [], content: { schemaVersion: 1, draft: StageDraft.parse(draft) }, updatedBy: "student", updatedAt: "2026-11-22T00:00:00Z" });
 
-it("completes three reviewed image sheets while retaining two unreviewed candidates and selecting only two prototypes", async () => {
-  const draft = reviewedFixture();
+it("completes three formal sheets while retaining two unreviewed candidates and a separate two-idea shortlist", async () => {
+  const reviewed = reviewedFixture();
+  const sheetIds = reviewed.ideas.slice(0, 3).map(idea => idea.id);
+  const classified = confirmAidtBrainstormClassification(reviewed, id, sheetIds, confirmAidtIdeaClassification(reviewed).fields);
+  const draft = confirmAidtBrainstormCompletion(classified, id, sheetIds, "p");
+  expect(draft).not.toBe(classified);
   expect(draft.ideas).toHaveLength(5);
   expect(readAidtBrainstormSelection(draft)?.selectedIds).toHaveLength(2);
-  expect(readAidtIdeaHandoff(draft, "p")).toMatchObject({ hmw: source, sheetIds: draft.ideas.slice(0, 3).map(idea => idea.id) });
-  expect(await aidtStageHasConfirmation(stageOf(draft))).toBe(true);
-  expect(aidtChosenPrototypeIdeas(stageOf(draft)).map(idea => idea.title)).toEqual(["菜单卡", "入口牌"]);
+  expect(readAidtIdeaHandoff(draft, "p")).toMatchObject({ hmw: source, sheetIds });
+  const stage = stageOf(draft);
+  const formal = readAidtConfirmedBrainstormRounds(draft, "p", { sessionId: id })[0]!;
+  expect(formal).toMatchObject({ stableId: id, sheetIds, selectedIds: sheetIds.slice(0, 2), legacy: false });
+  expect(await aidtStageHasConfirmation(stage)).toBe(true);
+  expect(aidtChosenPrototypeIdeas(stage)).toEqual([]);
+  expect(aidtChosenPrototypeIdeas(stage, id).map(idea => idea.title)).toEqual(["菜单卡", "入口牌", "颜色表"]);
+  expect(aidtChosenPrototypeIdeas({ ...stage, projectId: "foreign-project" }, id)).toEqual([]);
+  const pin = readAidtPrototypeInputSelection(pinAidtPrototypeInputs(empty, stage, formal.selectedIds, id))!;
+  expect(pin).toEqual({ revision: stage.revision, brainstormId: id, ideaIds: formal.selectedIds });
+  expect(resolveAidtPrototypeInputIdeas(pin, stage).map(idea => idea.title)).toEqual(["菜单卡", "入口牌"]);
 });
 
 it.each(["two-sheets", "duplicate-id", "no-image", "unreviewed", "one-sentence", "duplicate-name", "unconfirmed-classification", "archived-session"])("rejects incomplete brainstorm completion: %s", async change => {
@@ -110,9 +122,16 @@ it("requires explicit completion review after selecting a single prototype from 
   expect(readAidtBrainstormSelection(chosen)?.selectedIds).toHaveLength(1);
   expect(await aidtStageHasConfirmation(stageOf(chosen))).toBe(false);
   expect(confirmAidtBrainstormCompletion(chosen, "brainstorm-other", sheets, "p")).toBe(chosen);
-  const confirmed = confirmAidtBrainstormCompletion(chosen, id, sheets, "p");
+  const classified = confirmAidtBrainstormClassification(chosen, id, sheets, confirmAidtIdeaClassification(chosen).fields);
+  const confirmed = confirmAidtBrainstormCompletion(classified, id, sheets, "p");
   expect(await aidtStageHasConfirmation(stageOf(confirmed))).toBe(true);
-  expect(aidtChosenPrototypeIdeas(stageOf(confirmed))).toHaveLength(1);
+  const frozen = stageOf(confirmed);
+  expect(aidtChosenPrototypeIdeas(frozen)).toEqual([]);
+  expect(aidtChosenPrototypeIdeas(frozen, id)).toHaveLength(3);
+  expect(readAidtConfirmedBrainstormRounds(confirmed, "p", { sessionId: id })[0]?.selectedIds).toEqual([complete.ideas[0]!.id]);
+  const pin = readAidtPrototypeInputSelection(pinAidtPrototypeInputs(empty, frozen, [complete.ideas[0]!.id], id))!;
+  expect(pin).toEqual({ revision: frozen.revision, brainstormId: id, ideaIds: [complete.ideas[0]!.id] });
+  expect(resolveAidtPrototypeInputIdeas(pin, frozen).map(idea => idea.id)).toEqual([complete.ideas[0]!.id]);
 });
 
 it("invalidates completion after editing image, description, classification or selected subset without deleting old drafts", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useAidtCreateTags } from "./aidt-card-create-fields";
+import { AIDT_STAGE_IDEA_LIMIT } from "@repo/contracts/aidt-stages";
 import type { AidtIdeaHmwSource } from "../lib/aidt-idea-handoff";
 import * as React from "react";
 import { AidtEntityCard } from "./aidt-entity-card";
@@ -41,7 +42,7 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
   const archived = allItems.filter(item => item.archived);
   const savedIds = new Set(saved ? readAidtIdeaDirectory(saved).filter(item => !item.archived).map(item => item.id) : []);
   const canSubmit = !readOnly && !saving && action && (action.kind === "delete"
-    || (Boolean(title.trim()) && title.trim() !== action.title && (action.kind !== "create" || allItems.length < 8)));
+    || (Boolean(title.trim()) && title.trim() !== action.title && (action.kind !== "create" || allItems.length < AIDT_STAGE_IDEA_LIMIT)));
 
   function open(next: Action) {
     tags.reset();
@@ -81,7 +82,7 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     }
   }
 
-  const create = !readOnly && <Button type="button" variant="outline" disabled={saving || allItems.length >= 8}
+  const create = !readOnly && <Button type="button" variant="outline" disabled={saving || allItems.length >= AIDT_STAGE_IDEA_LIMIT}
     onClick={() => open({ kind: "create", id: `idea-${crypto.randomUUID()}`, title: "" })}>新建点子</Button>;
 
   return <section aria-label="点子列表" className="space-y-4" data-testid="aidt-idea-directory">

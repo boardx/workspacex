@@ -74,3 +74,34 @@ export function readAidtBrainstormSelection<Idea extends { id: string; title: st
     return { session, selectedIds: selected.ids, ideas: ideas.filter(idea => idea !== undefined) };
   } catch { return null; }
 }
+
+/** Each existing session is one round. Pending choices never imply a formal completion. */
+export const AIDT_BRAINSTORM_ROUND_SELECTION_PREFIX = "ideaBrainstormRoundSelection:";
+export const AIDT_BRAINSTORM_ROUND_COMPLETION_PREFIX = "ideaBrainstormRoundCompletion:";
+const roundIds = z.array(AidtEntityId).min(1).max(8).refine(ids => new Set(ids).size === ids.length);
+const roundIdeaText = z.object({ id: AidtEntityId, title: z.string().trim().min(1).max(6000), description: z.string().max(6000) }).strict();
+const roundClassificationData = z.object({ tags: z.record(AidtEntityId, z.array(z.string().min(1).max(64)).max(3)), reasons: z.record(AidtEntityId, z.string().max(6000)) }).strict();
+export const AidtBrainstormRoundSelection = z.object({
+  schemaVersion: z.literal(1), sessionId: AidtEntityId, source: IdeaHmwSource, method: z.enum(methodKeys), selectedIds: roundIds,
+  classification: roundClassificationData.extend({ basis: z.array(roundIdeaText).max(100).refine(ideas => new Set(ideas.map(idea => idea.id)).size === ideas.length), confirmed: z.literal(true) }).strict().optional(),
+}).strict();
+export type AidtBrainstormRoundSelection = z.infer<typeof AidtBrainstormRoundSelection>;
+export const AidtBrainstormRoundCompletion = z.object({
+  schemaVersion: z.literal(1), status: z.literal("confirmed"), sessionId: AidtEntityId, projectId: z.string().min(1).max(256),
+  title: z.string().trim().min(1).max(120), source: IdeaHmwSource, method: z.enum(methodKeys), selectedIds: roundIds,
+  sheets: z.array(roundIdeaText.extend({ imageMaterial: z.string().min(1).max(6000) }).strict()).min(3).max(8),
+  classification: roundClassificationData.extend({ titles: z.record(AidtEntityId, z.string().trim().min(1).max(6000)), confirmed: z.literal(true) }).strict(),
+}).strict().refine(value => new Set(value.sheets.map(idea => idea.id)).size === value.sheets.length && value.selectedIds.every(id => value.sheets.some(idea => idea.id === id)));
+export type AidtBrainstormRoundCompletion = z.infer<typeof AidtBrainstormRoundCompletion>;
+export const aidtBrainstormRoundSelectionKey = (sessionId: string) => AIDT_BRAINSTORM_ROUND_SELECTION_PREFIX + sessionId;
+export const aidtBrainstormRoundCompletionKey = (sessionId: string) => AIDT_BRAINSTORM_ROUND_COMPLETION_PREFIX + sessionId;
+export function readAidtBrainstormRoundSelection(fields: Record<string, string>, sessionId: string): AidtBrainstormRoundSelection | null {
+  const raw = fields[aidtBrainstormRoundSelectionKey(sessionId)];
+  if (!raw || raw.length > 6000) return null;
+  try { const value = AidtBrainstormRoundSelection.safeParse(JSON.parse(raw)); return value.success && value.data.sessionId === sessionId ? value.data : null; } catch { return null; }
+}
+export function readAidtBrainstormRoundCompletion(fields: Record<string, string>, sessionId: string): AidtBrainstormRoundCompletion | null {
+  const raw = fields[aidtBrainstormRoundCompletionKey(sessionId)];
+  if (!raw || raw.length > 6000) return null;
+  try { const value = AidtBrainstormRoundCompletion.safeParse(JSON.parse(raw)); return value.success && value.data.sessionId === sessionId ? value.data : null; } catch { return null; }
+}

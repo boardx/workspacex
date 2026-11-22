@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useOptionalSession } from "@/components/session/session-provider";
-import { createAidtTestGroup, isAidtTestGroupConfirmed, readAidtTestGroups, updateAidtTestGroup } from "../lib/aidt-test-groups";
-import { readAidtTestPrototypeStage, type AidtReadPrototypeEntity } from "./aidt-test-prototype-source";
+import { createAidtTestGroup, isAidtTestGroupConfirmed, readAidtTestGroups, updateAidtTestGroup, type AidtTestGroup } from "../lib/aidt-test-groups";
+import { AidtTestPrototypeSource, readAidtTestPrototypeStage, type AidtReadPrototypeEntity } from "./aidt-test-prototype-source";
 import { resolveAidtPrototypeVersion } from "../lib/aidt-prototype-versions";
 import { aidtHref } from "../lib/project-aidt";
 import { isAidtPrototypeHandoffConfirmed } from "../lib/aidt-prototype-handoff";
 import { createAidtQuestionSnapshot } from "../lib/aidt-verification-loop";
+import { AIDT_TEST_RESEARCH_LABELS, AidtTestResearchPath, aidtTestResearchPath } from "../lib/aidt-test-research";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 
 
@@ -49,6 +50,9 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
   const [editing, setEditing] = React.useState<{ id: string; name: string }>();
   const [removing, setRemoving] = React.useState<string>();
   const [chosenEntity, setChosenEntity] = React.useState("");
+  const [researchPath, setResearchPath] = React.useState<"" | "offline" | "survey" | "virtual">("");
+  const [sourceChecked, setSourceChecked] = React.useState(false);
+  const [preview, setPreview] = React.useState<{ source: string; group: AidtTestGroup }>();
   const [requestId, setRequestId] = React.useState<string>();
   const [error, setError] = React.useState("");
   const [checking, setChecking] = React.useState(false);
@@ -64,10 +68,26 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
   const archived = groups.filter(group => group.archived);
   const exactRevision = prototypeRevision == null ? previousPrototypeRevision : /^\d{1,10}$/.test(prototypeRevision) ? Number(prototypeRevision) : undefined;
   const id = prototypeEntity ?? (chosenEntity || undefined);
+  const sourceKey = JSON.stringify([id, exactRevision]);
   const candidates = prototypeEntities.filter(item => !item.archived);
   const limit = Object.keys(draft.fields).length >= (draft.fields.questionSnapshot || draft.fields.version?.trim() ? 100 : 98);
-  const canCreate = Boolean(!readOnly && !checking && !limit && name.trim() && exactRevision && exactRevision > 0 && exactRevision < 2147483647 &&
+  const canCreate = Boolean(!readOnly && !checking && !limit && name.trim() && researchPath && sourceChecked && exactRevision && exactRevision > 0 && exactRevision < 2147483647 &&
     (!id || readPrototypeEntity) && (!candidates.length || id));
+
+  async function previewSource() {
+    if (checking || request.current || !exactRevision || candidates.length && !id) return;
+    const controller = new AbortController(); request.current = controller;
+    setChecking(true); setError("");
+    try {
+      const stage = exactRevision === previousPrototypeRevision ? previousPrototype : await readAidtTestPrototypeStage(projectId, exactRevision, sessionToken, controller.signal);
+      const source = stage && (id ? readPrototypeEntity?.(stage, id) : stage);
+      const bound = source && (!id || isAidtPrototypeHandoffConfirmed(source)) && createAidtQuestionSnapshot(source, exactRevision);
+      const group = bound && bound.ok && createAidtTestGroup(bound.snapshot, crypto.randomUUID(), id);
+      if (!group) throw new Error("SOURCE_REQUIRED");
+      if (!controller.signal.aborted) setPreview({ source: sourceKey, group });
+    } catch { if (!controller.signal.aborted) setError("无法核对所选正式原型版本。原选择保留，请检查来源后重试。"); }
+    finally { if (request.current === controller) request.current = null; if (!controller.signal.aborted) setChecking(false); }
+  }
 
   async function create() {
     if (!canCreate || !exactRevision || request.current) return;
@@ -88,7 +108,8 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
       await resolveAidtPrototypeVersion({ projectId, sessionToken, userId, signal: controller.signal }, group.designId, group.versionId, "linked-reader");
       if (controller.signal.aborted) return;
       const change = (current: AidtUiStageDraft) => {
-        const created = updateAidtTestGroup(current, { ...group, name: name.trim() });
+        const created = updateAidtTestGroup(current, { ...group, name: name.trim(), method: researchPath === "survey" ? "survey" : "interview", researchPath: researchPath || undefined,
+          ...(researchPath === "virtual" ? { evidenceGap: "仅有虚拟用户模拟反馈，尚未开展真实用户验证。" } : {}) });
         if (created === current) return current;
         const next = tags.apply(created, group.id);
         if (next === current || current.fields.questionSnapshot || current.fields.version?.trim()) return next;
@@ -125,8 +146,18 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
   const removalName = available.find(group => group.id === removing)?.name;
   const creationFields = <>
       {!!candidates.length && !prototypeEntity && <label className="block text-12">所用原型
-        <select className="mt-1 w-full rounded-md border border-border bg-background p-2" value={chosenEntity} onChange={event => setChosenEntity(event.currentTarget.value)}><option value="">请选择</option>{candidates.map(entity => <option key={entity.id} value={entity.id}>{entity.title}</option>)}</select>
+        <select className="mt-1 w-full rounded-md border border-border bg-background p-2" value={chosenEntity} onChange={event => { setChosenEntity(event.currentTarget.value); setSourceChecked(false); }}><option value="">请选择已确认的原型记录</option>{candidates.map(entity => {
+          const source = previousPrototype && readPrototypeEntity?.(previousPrototype, entity.id);
+          const result = source && createAidtQuestionSnapshot(source, exactRevision);
+          return <option key={entity.id} value={entity.id}>{entity.title}{result && result.ok ? ` · 版本 ${result.snapshot.prototypeVersionId}` : ""}</option>;
+        })}</select>
       </label>}
+      <Button type="button" size="sm" variant="outline" disabled={checking || !exactRevision || Boolean(candidates.length && !id)} onClick={() => void previewSource()}>{checking ? "核对原型版本…" : "预览所选原型版本"}</Button>
+      {preview?.source === sourceKey && <AidtTestPrototypeSource key={sourceKey} group={preview.group} context={{ projectId, sessionToken, userId }} readPrototypeEntity={readPrototypeEntity} showQuestion initiallyOpen />}
+      <label className="flex items-start gap-2 text-12"><input type="checkbox" checked={sourceChecked} onChange={event => setSourceChecked(event.currentTarget.checked)} />确认使用所选原型的已保存版本开展本轮研究</label>
+      <label className="block space-y-1 text-12">研究路径<select className="w-full rounded-control border border-border bg-background p-2" value={researchPath} onChange={event => {
+        const next = AidtTestResearchPath.safeParse(event.currentTarget.value); setResearchPath(next.success ? next.data : "");
+      }}><option value="">请选择研究路径</option>{Object.entries(AIDT_TEST_RESEARCH_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       <label className="block space-y-1 text-12">测试名称<Input value={name} maxLength={80} onChange={event => setName(event.currentTarget.value)} /></label>
       {error && <p role="alert" className="text-12">{error}</p>}
   </>;
@@ -142,7 +173,7 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
             <h2 className="break-words text-16 font-semibold">{group.name || "测试组"}</h2>
             <span className={confirmed ? "shrink-0 rounded-full bg-primary/10 px-2 py-1 text-11 text-primary" : "shrink-0 rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground"}>{confirmed ? "已确认" : "待确认"}</span>
           </div>
-          <p className="text-12 text-muted-foreground">{group.method === "survey" ? "问卷" : "访谈"} · 原型 V{group.stage5Revision}</p>
+          <p className="text-12 text-muted-foreground">{AIDT_TEST_RESEARCH_LABELS[aidtTestResearchPath(group)]} · 第 5 步 V{group.stage5Revision} · 原型版本 {group.versionId}</p>
           <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3">
             {savedIds.has(group.id)
               ? <Button size="sm" variant="secondary" asChild><Link href={openHref(group.id)} aria-label={`打开测试 ${group.name || "测试组"}`}>打开测试</Link></Button>
@@ -174,17 +205,17 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
     </details>}
     {!readOnly && <div className="space-y-3 border-t border-border pt-3">
       {automaticSave ? <>
-        <AidtNewEntityCardButton disabled={checking || limit} onClick={() => { setName(""); setError(""); tags.reset(); creationId.current = null; setCreateOpen(true); }} />
+        <AidtNewEntityCardButton disabled={checking || limit} onClick={() => { setName(""); setError(""); setChosenEntity(""); setResearchPath(""); setSourceChecked(false); tags.reset(); creationId.current = null; setCreateOpen(true); }} />
         <Dialog open={createOpen} onOpenChange={open => { if (!checking) setCreateOpen(open); }}>
-          <DialogContent>
+          <DialogContent className="max-w-3xl">
             <DialogTitle>新建测试卡片</DialogTitle>
             <DialogDescription>选择本轮测试使用的原型。</DialogDescription>
-            <form className="space-y-3" onSubmit={event => { event.preventDefault(); void create(); }}>
+            <form className="min-h-0 space-y-3 overflow-y-auto" onSubmit={event => { event.preventDefault(); void create(); }}>
               {creationFields}
               {tags.field}
               {(prototypeEntity || !candidates.length) && <p className="text-13">来源原型 · {candidates.find(item => item.id === id)?.title || "本轮原型"} · 第 5 步 V{exactRevision}</p>}
               {error && <p role="alert">{error}</p>}
-              <Button type="submit" disabled={!canCreate}>{checking ? "核对版本…" : "创建测试卡片"}</Button>
+              <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="ghost" disabled={checking} onClick={() => setCreateOpen(false)}>取消</Button><Button type="submit" disabled={!canCreate}>{checking ? "核对版本…" : "创建测试卡片"}</Button></div>
             </form>
           </DialogContent>
         </Dialog>

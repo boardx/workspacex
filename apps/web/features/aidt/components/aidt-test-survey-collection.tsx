@@ -9,10 +9,12 @@ import { withProjectId } from "@/components/project/project-breadcrumb";
 import { Button } from "@/components/ui/button";
 import { surveyPath } from "@/lib/survey/paths";
 import { surveyRequest } from "@/lib/survey/runtime-client";
+import { AidtTestSurveyPrint } from "./aidt-test-survey-print";
 import { AidtResearchMaterialIdentifier } from "../lib/aidt-research-material-reference";
 
-export function AidtTestSurveyCollection({ projectId, surveyId, responseId, canEdit = false, onSelect }: {
+export function AidtTestSurveyCollection({ projectId, groupId, surveyId, responseId, canEdit = false, onSelect }: {
   projectId: string;
+  groupId?: string;
   surveyId: string;
   responseId?: string;
   canEdit?: boolean;
@@ -50,6 +52,7 @@ export function AidtTestSurveyCollection({ projectId, surveyId, responseId, canE
       {canEdit && <Link className="text-primary underline" href={withProjectId(surveyPath(surveyId, "publish"), projectId)}>打开问卷发布</Link>}
       {active && canEdit && <Link className="text-primary underline" href={`/surveys/${encodeURIComponent(active.token)}`} target="_blank" rel="noreferrer">打开填写链接</Link>}
       <Link className="text-primary underline" href={withProjectId(surveyPath(surveyId, "responses"), projectId)}>查看原生答卷</Link>
+      <Link className="text-primary underline" href={withProjectId(surveyPath(surveyId, "report"), projectId)}>查看调查报告与导出</Link>
       {canEdit && <Button type="button" variant="ghost" size="xs" onClick={refresh}>刷新答卷</Button>}
     </div>
     <p>{state.publication ? (active ? "收集中" : "收集已结束") : "待发布"} · {included.length} 份可用答卷</p>
@@ -67,6 +70,7 @@ export function AidtTestSurveyCollection({ projectId, surveyId, responseId, canE
       <summary className="cursor-pointer">查看所选答卷的原始回答</summary>
       <dl className="mt-2 space-y-2">{answers.map(answer => <div key={answer.id}><dt className="font-medium">{answer.title}</dt><dd className="whitespace-pre-wrap break-words">{answer.text}</dd></div>)}</dl>
     </details>}
+    <AidtTestSurveyPrint projectId={projectId} groupId={groupId} surveyId={surveyId} responseId={responseId} runtime={state} />
     <p className="text-muted-foreground">填写意向与真实购买、耗时分别记录。</p>
   </div>;
 }

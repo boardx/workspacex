@@ -10,6 +10,14 @@ import { surveyRequest } from "@/lib/survey/runtime-client";
 import { listProjectResources } from "@/lib/live-project-resources";
 import { AidtResearchMaterialPreview } from "./aidt-research-material";
 import { AidtTestSurveyCollection } from "./aidt-test-survey-collection";
+import { AidtTestVirtualResearch } from "./aidt-test-virtual-research";
+import { aidtTestResearchPath } from "../lib/aidt-test-research";
+import { AidtTestCandidateAssistance } from "./aidt-test-candidate-assistance";
+import { AidtTestRecordPrint } from "./aidt-test-record-print";
+import { AidtSavedSyntheticAsrView } from "./aidt-test-synthetic-asr";
+import { readAidtTestGroupRound } from "../lib/aidt-test-group-round";
+import { formatAidtTestReflectionMarkdown } from "../lib/aidt-verification-loop";
+import { AidtTestGroupIteration } from "./aidt-test-group-iteration";
 import { AidtTestGroups } from "./aidt-test-groups";
 import { AidtTestPrototypeSource, type AidtReadPrototypeEntity } from "./aidt-test-prototype-source";
 import { isAidtTestGroupConfirmed, readAidtTestGroups, type AidtTestGroup } from "../lib/aidt-test-groups";
@@ -25,6 +33,9 @@ type OutputProps = {
   readPrototypeEntity?: AidtReadPrototypeEntity;
   historical?: boolean;
   proposal?: AidtTestProposal | null;
+  savedRevision?: number;
+  readOnly?: boolean;
+  saveDraft?: (change: (old: AidtUiStageDraft) => AidtUiStageDraft) => Promise<boolean>;
 };
 
 type ConversationProps = {
@@ -86,7 +97,7 @@ export function AidtTestConversation({ projectId, entityId, draft, savedDraft, m
   const proposal = React.useMemo(() => loading || running ? null : readAidtTestProposal(messages, entityId), [entityId, loading, messages, running]);
   const plan = React.useMemo(() => loading || running ? null : readAidtTestPlan(messages, entityId), [entityId, loading, messages, running]);
   const access = useTestEvidenceAccess(projectId, group);
-  const sourceAccessible = Boolean(access?.material || (group?.method === "survey" && access?.response));
+  const sourceAccessible = group?.researchPath !== "virtual" && !group?.evidenceOrigin && Boolean(access?.material || (group?.method === "survey" && access?.response));
   const session = useOptionalSession()?.session;
   const pending = React.useRef<{ entityId: string; messageId: string } | null>(null);
   const completed = saved && isAidtTestGroupConfirmed(saved);
@@ -112,6 +123,10 @@ export function AidtTestConversation({ projectId, entityId, draft, savedDraft, m
   const proposed = proposal && aidtTestGroupFromProposal(group, proposal, sourceAccessible, access?.material);
   return <section className="space-y-2" aria-label="测试成果确认" data-testid="aidt-test-chat-confirmation">
     {session?.sessionToken && session.userId && <AidtTestPrototypeSource group={group} context={{ projectId, sessionToken: session.sessionToken, userId: session.userId }} readPrototypeEntity={readPrototypeEntity} showQuestion />}
+    {!readOnly && <details className="text-12"><summary className="cursor-pointer text-muted-foreground">需要 AI 帮助整理？</summary><div className="mt-3 space-y-3">
+      {(["plan", "result"] as const).map(phase => <AidtTestCandidateAssistance key={phase} phase={phase} projectId={projectId} group={group} draft={draft} savedDraft={savedDraft}
+        messages={messages} loading={loading} running={running} readOnly={readOnly} canSave={canSave} readPrototypeEntity={readPrototypeEntity} update={update} requestSave={requestSave} />)}
+    </div></details>}
     {!readOnly && <details className="text-12">
       <summary className="cursor-pointer text-muted-foreground">关联测试材料</summary>
       <AidtTestGroups projectId={projectId} activeEntityId={entityId} draft={draft} readOnly={readOnly}
@@ -134,7 +149,7 @@ export function AidtTestConversation({ projectId, entityId, draft, savedDraft, m
   </section>;
 }
 
-export function AidtTestGroupOutput({ projectId, draft, activeEntityId, savedDraft, readPrototypeEntity, proposal, historical }: OutputProps) {
+export function AidtTestGroupOutput({ projectId, draft, activeEntityId, savedDraft, readPrototypeEntity, proposal, historical, savedRevision, readOnly = true, saveDraft }: OutputProps) {
   const group = readAidtTestGroups(draft.fields).find(item => item.id === activeEntityId && (historical || !item.archived));
   const session = useOptionalSession()?.session;
   const access = useTestEvidenceAccess(projectId, group);
@@ -142,10 +157,11 @@ export function AidtTestGroupOutput({ projectId, draft, activeEntityId, savedDra
   const proposed = proposal?.result.entityId === group.id && proposal.messageId !== group.confirmedFromMessageId;
   const shown = proposed && proposal ? { ...group, ...proposal.result, afterTestBelief: proposal.result.round?.afterTestBelief,
     understandingChange: proposal.result.round?.understandingChangeStatus } : group;
-  const mayShowStatement = access?.material || (group.method === "survey" && access?.response)
-    || (!group.surveyResponseId && !proposed && group.method === "survey" && access?.source);
+  const virtual = aidtTestResearchPath(group) === "virtual";
+  const mayShowStatement = !virtual && !group.evidenceOrigin && (access?.material || (group.method === "survey" && access?.response)
+    || (!group.surveyResponseId && !proposed && group.method === "survey" && access?.source));
   const fields = visibleFields.filter(([key]) => shown[key]?.trim() && (key !== "said" || mayShowStatement)
-    && (key !== "did" || access?.material));
+    && (key !== "did" || !virtual && !group.evidenceOrigin && access?.material));
   const primaryFields = fields.filter(([key]) => key === "task" || key === "reflection" || key === "afterTestBelief" || key === "evidenceGap");
   const evidenceFields = fields.filter(([key]) => !primaryFields.some(([field]) => field === key));
   const saved = readAidtTestGroups(savedDraft?.fields ?? {}).find(item => item.id === activeEntityId && (historical || !item.archived));
@@ -158,6 +174,9 @@ export function AidtTestGroupOutput({ projectId, draft, activeEntityId, savedDra
       <h4 className="break-words text-16 font-semibold">{group.name || "测试成果"}</h4>
       <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground">{status}</span>
     </div>
+    {virtual && <AidtTestVirtualResearch projectId={projectId} group={group} draft={draft} readOnly update={() => {}} />}
+    {group.evidenceOrigin === "synthetic-file-asr" && <AidtSavedSyntheticAsrView projectId={projectId} group={group} draft={draft} />}
+    {!proposed && saved && JSON.stringify(saved) === JSON.stringify(group) && fields.length > 0 && <AidtTestRecordPrint projectId={projectId} group={saved} visibleFields={fields.map(([key, title]) => ({ title, text: shown[key] || "" }))} />}
     {!fields.length && <p className="text-13 text-muted-foreground">讨论后，测试草稿会出现在这里。</p>}
     {primaryFields.length > 0 && <dl className="space-y-3">{primaryFields.map(([key, title]) => <div key={key}>
       <dt className="text-12 font-medium">{title}</dt>
@@ -170,9 +189,12 @@ export function AidtTestGroupOutput({ projectId, draft, activeEntityId, savedDra
       {evidenceFields.length > 0 && <dl className="mt-2 space-y-2">{evidenceFields.map(([key, title]) => <div key={key}><dt className="font-medium">{title}</dt><dd className="whitespace-pre-wrap break-words">{shown[key]}</dd></div>)}</dl>}
       {session?.sessionToken && session.userId && <AidtTestPrototypeSource group={group} context={{ projectId, sessionToken: session.sessionToken, userId: session.userId }} readPrototypeEntity={readPrototypeEntity} />}
       {group.source && access?.source && <Link className="text-primary underline" href={projectResourceHref(group.source.kind, group.source.id, projectId)}>打开关联资料</Link>}
-      {group.source?.kind === "survey" && access?.source && <AidtTestSurveyCollection key={group.source.id} projectId={projectId} surveyId={group.source.id} responseId={group.surveyResponseId} />}
+      {group.source?.kind === "survey" && access?.source && <AidtTestSurveyCollection key={group.source.id} projectId={projectId} groupId={group.id} surveyId={group.source.id} responseId={group.surveyResponseId} />}
       {group.source && access && !access.source && <p className="text-muted-foreground">当前无权读取已关联来源。</p>}
       {group.material && access?.material && <AidtResearchMaterialPreview projectId={projectId} reference={group.material} quote={group.said} />}
     </details>
+    {historical && readAidtTestGroupRound(draft, activeEntityId) && <details className="border-t border-border pt-2 text-12"><summary className="cursor-pointer">本轮认识与下一步行动</summary><div className="mt-2 space-y-2">{formatAidtTestReflectionMarkdown(readAidtTestGroupRound(draft, activeEntityId)!).map((line, index) => <p key={index} className="whitespace-pre-wrap break-words">{line}</p>)}</div></details>}
+    {!historical && <AidtTestGroupIteration projectId={projectId} entityId={activeEntityId} draft={draft} savedDraft={savedDraft}
+      savedRevision={savedRevision} readOnly={readOnly} saveDraft={saveDraft} />}
   </section>;
 }

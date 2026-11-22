@@ -82,7 +82,8 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
     };
     const { stage } = await service.save(actor, draft);
     expect(aidtSavedEntityContext(stage, "first")).toEqual({
-      entityId: "first", fields: { code: "U01", original: "原始问题" }, finding: undefined,
+      entityId: "first", fields: { code: "U01", original: "原始问题" }, finding: undefined, checkedExcerpt: undefined,
+      activity: { researchKind: "interview", researchKindLabel: "访谈记录", status: "学生访谈记录；区分受访者陈述与学生解释，材料仍须核对。" },
     });
   });
   it("summary has all six stages, missing stages remain revision zero",async()=>{const f=fixture();const out=await f.service.list(actor);expect(out.items).toHaveLength(6);expect(out.items.every(r=>r.revision===0&&r.updatedAt===null)).toBe(true);});
