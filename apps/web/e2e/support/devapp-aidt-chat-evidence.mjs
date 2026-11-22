@@ -1,6 +1,6 @@
 /** Bounded normal-UI teaching feedback. No synthetic run/message/receipt, resume or approval. */
 import { createHash } from 'node:crypto';
-import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
+import { ORIGIN, ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 
 export const ENTITY = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 export function validTestPlanProjection(before, body, entityId, messageId) {
@@ -182,6 +182,31 @@ export function identifyOwnedTeachingRun(value, scope, wire) {
   if (!id(row.agentRunId) || (scope.knownMessages ?? []).some(prior => prior.id === row.id)) fail('TEACHING_ACCEPTANCE_MISMATCH');
   return { runId: row.agentRunId, inputMessageId: row.id };
 }
+/** Native trace polling reads only a run already bound by canonical human-message
+ * observation. It cannot introduce a run, thread, project or execution capability. */
+export function decideOwnedTeachingExecutionRead(target, method, facts) {
+  const match = /^\/api\/agent-runs\/([A-Za-z0-9_.:-]+)\/execution-events$/.exec(target.pathname);
+  if (!match) return;
+  const denied = { allow: false, kind: 'out-of-scope-read', code: 'EXECUTION_READ_SCOPE_REJECTED' };
+  const cursor = target.searchParams.get('afterSeq'), runId = match[1];
+  if (method !== 'GET' || target.origin !== ORIGIN || target.username || target.password || target.hash
+    || [...target.searchParams.keys()].join(',') !== 'afterSeq' || target.search !== '?afterSeq=' + cursor
+    || !/^(?:-1|0|[1-9][0-9]*)$/.test(cursor ?? '')
+    || !Number.isSafeInteger(Number(cursor)) || !id(runId)
+    || !id(facts?.actorId) || !id(facts.orgId) || !id(facts.projectId)
+    || !(facts.threads instanceof Set) || !(facts.ownedRuns instanceof Set) || !(facts.teachingLedger instanceof Map)) return denied;
+  if (!facts.ownedRuns.has(runId)) return { allow: false, kind: 'teaching-run-needs-binding', runId };
+  const entries = [...facts.teachingLedger.values()].filter(entry => entry.accepted?.runId === runId);
+  if (entries.length !== 1) return denied;
+  const entry = entries[0], scope = entry.scope;
+  if (!entry.wire || !id(entry.wire.clientMessageId) || !id(entry.accepted.inputMessageId)
+    || scope?.actorId !== facts.actorId || scope.projectId !== facts.projectId || scope.origin !== target.origin
+    || scope.orgId !== undefined && scope.orgId !== facts.orgId || !facts.threads.has(scope.threadId)) return denied;
+  try { validateTeachingScope(scope); } catch { return denied; }
+  return { allow: true, kind: 'owned-teaching-execution-read', runId, threadId: scope.threadId,
+    inputMessageId: entry.accepted.inputMessageId, afterSeq: Number(cursor) };
+}
+
 export function validateTeachingEvidence({ messages, run, receipt }, scope, wire, accepted, frozenSnapshotHash) {
   const chosen = validateTeachingScope(scope), observed = identifyOwnedTeachingRun(messages, scope, wire);
   if (!accepted || canonical(observed) !== canonical(accepted)) fail('TEACHING_ACCEPTANCE_MISMATCH');
