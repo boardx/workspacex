@@ -11,6 +11,7 @@ import { decideOwnedTeachingExecutionRead, identifyOwnedTeachingRun, validateTea
 const origin = 'https://devapp.boardx.us', project = 'prj-11111111-1111-4111-8111-111111111111';
 const entity = '11111111-1111-4111-8111-222222222222', thread = 'thr_qa_execution';
 const path = '/api/agent-runs/backend-owned-run/execution-events';
+const fixtureLogin = 'synthetic-unit-only'; // Fake port input; never a real account credential.
 const request = (guard, method, path, body) => guard.decide({ url: origin + path, method, body, resourceType: 'fetch' });
 function fixture(profile, bind = true) {
   const identity = { ...acceptanceIdentity({ EXPECTED_SOURCE_SHA: 'a'.repeat(40), EXPECTED_RELEASE_TAG: '123-1', GITHUB_RUN_ID: '456', GITHUB_RUN_ATTEMPT: '1' }),
@@ -19,7 +20,7 @@ function fixture(profile, bind = true) {
   const guard = profile === 'baseline' ? createAcceptanceGuard(identity) : createV2AcceptanceGuard(identity,
     { plan, ledger: () => ledger, runtimeScope: () => runtime, now: () => 100 });
   guard.armLogin();
-  const login = request(guard, 'POST', '/api/auth/login', { email: 'synthetic-unit-only', password: 'synthetic-unit-only' });
+  const login = request(guard, 'POST', '/api/auth/login', { email: fixtureLogin, password: fixtureLogin });
   guard.observe(login, 200, { userId: 'qa-actor', orgs: ['qa-org'], sessionToken: 'synthetic-unit-token', expiresAt: '2099-01-01T00:00:00Z' });
   guard.verifyOrdinaryIdentity(200, { org: { id: 'qa-org' }, orgRole: 'consultant' }); guard.armProjectCreate();
   const create = request(guard, 'POST', '/api/projects', { orgId: 'qa-org', name: identity.projectName, kind: 'general', blueprintVersionId: null, profile: 'aidt' });
