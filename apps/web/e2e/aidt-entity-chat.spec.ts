@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { chat } from "@repo/contracts";
 import { AidtContextReceipt, AidtContextSelector } from "@repo/contracts/aidt-run-context";
@@ -308,12 +309,13 @@ test.describe("recording evidence in the interview Chat", () => {
     await page.getByRole("button", { name: "保存原始材料", exact: true }).click();
     await page.getByRole("button", { name: "用作发现卡照片", exact: true }).click();
     await expect.poll(async () => JSON.parse((await head()).fields["discoveryPhoto:" + first] || "{}").name).toBe(photoName);
-    await sendViaWorkbench(page, "合成访谈验收：她在菜单前比较口味。请整理本次发现。");
+    const scene = "午休时，她在食堂饮品窗口的菜单前逐项比较两种口味，随后选择熟悉的饮品。";
+    await sendViaWorkbench(page, `合成访谈验收：${scene}请整理本次发现。`);
     await expect.poll(async () => (await head()).discoveryCards?.[0]?.sourceRef, { timeout: 60_000 }).toContain("00:01");
     await page.goto(url);
     const output = page.getByTestId("aidt-interview-finding");
     await output.getByText("发现详情与来源").click();
-    await expect(output).toContainText("她在菜单前比较口味");
+    await expect(output.getByText(scene, { exact: true })).toBeVisible();
     await expect(output).toContainText("我先看口味");
     await expect(output).toContainText("00:01");
     await expect(output.getByRole("textbox")).toHaveCount(0);
@@ -323,15 +325,27 @@ test.describe("recording evidence in the interview Chat", () => {
     await expect.poll(() => photo.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBe(720);
     const download = page.waitForEvent("download");
     await output.getByRole("link", { name: "下载真实原件" }).click();
-    expect((await download).suggestedFilename()).toBe(photoName);
+    const original = await download;
+    expect(original.suggestedFilename()).toBe(photoName);
+    expect(await readFile(await original.path())).toEqual(Buffer.from(photoData, "base64"));
+    const findingActions = page.getByTestId("aidt-interview-chat-actions");
+    await findingActions.getByText("整理访谈发现", { exact: true }).click();
+    await findingActions.getByRole("button", { name: "确认人物发现卡", exact: true }).click();
+    await expect.poll(async () => (await head()).fields["interviewConfirmed:" + first]).toBe("true");
+    await expect(output.getByRole("button", { name: "导出人物发现卡 PDF", exact: true })).toBeEnabled();
     await output.locator("article").screenshot({ path: test.info().outputPath("illustrated-discovery-card.png") });
     await page.screenshot({ path: test.info().outputPath("sourced-recording-finding.png") });
 
     const savedStage = await stage();
     const photoArtifact = JSON.parse(savedStage.content.draft.fields["discoveryPhoto:" + first]).artifactId;
     const history = url + "&entityRevision=" + savedStage.revision + "&sourceId=" + encodeURIComponent(photoArtifact);
-    await page.goto(history);
-    await expect(photo).toBeVisible();
+    const historyTab = await page.context().newPage();
+    await historyTab.bringToFront();
+    await historyTab.goto(history);
+    const historyFinding = historyTab.getByTestId("aidt-interview-finding");
+    const historyPhoto = historyFinding.getByRole("img", { name: "U01 的授权访谈照片" });
+    await expect(historyPhoto).toBeVisible();
+    await page.bringToFront();
 
     await openInterview(page, path + "?step=2&entity=" + sibling + "&tool=outcome");
     await expect(page.getByTestId("aidt-interview-finding")).not.toContainText("我先看口味");
@@ -343,9 +357,17 @@ test.describe("recording evidence in the interview Chat", () => {
     await page.getByRole("checkbox", { name: "已获授权共享照片" }).uncheck();
     await page.getByRole("button", { name: "更新授权记录" }).click();
     await expect.poll(async () => (await head()).fields["discoveryPhoto:" + first] || "").toBe("");
-    await page.goto(history);
-    await expect(page.getByTestId("aidt-entity-history").getByRole("alert")).toHaveText("此访谈版本无法查看该原件。");
-    await expect(photo).toHaveCount(0);
+    const recheckedConsent = historyTab.waitForResponse(response => response.request().method() === "GET"
+      && /\/aidt\/stages\/2$/.test(response.url()));
+    await historyTab.bringToFront();
+    await historyTab.evaluate(() => window.dispatchEvent(new Event("focus")));
+    expect((await recheckedConsent).ok()).toBe(true);
+    await expect(historyFinding.getByText("暂无授权照片。")).toBeVisible();
+    await expect(historyPhoto).toHaveCount(0);
+    await historyTab.reload();
+    await expect(historyTab.getByTestId("aidt-entity-history").getByRole("alert")).toHaveText("此访谈版本无法查看该原件。");
+    await expect(historyPhoto).toHaveCount(0);
+    await historyTab.close();
     await page.goto(url);
     await expect(output.getByText("暂无授权照片。")).toBeVisible();
     await expect(photo).toHaveCount(0);
