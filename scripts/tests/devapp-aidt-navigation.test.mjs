@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { ownedAidtProblemRoute, matchesAidtProblemRoute, openAidtProblemOutcome, assertAidtReadOnlyProblemOutput, assertSavedAidtProblemInput, requireAcceptedS1Feedback } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 import { ownedAidtEntityRoute, matchesAidtEntityRoute, openAidtEntityOutcome, assertSavedAidtHmwSource, verifyAidtFrozenBacklink } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
-import { interviewCodePattern, savedAidtInterviewRoute, hasInterviewPrerequisite, hasPendingProblemReview } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+import { interviewCodePattern, savedAidtInterviewRoute, hasInterviewPrerequisite, hasPendingProblemReview, reopenAidtS2TeachingHistory } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 import { aidtS1Question, prepareAidtS1NativeResponse, runAidtS1NativeRevision, assertSavedAidtS1NativeDraft, assertSavedAidtS1Revision, assertAidtS1Handoff, assertAidtS2Topic } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
@@ -594,4 +594,57 @@ test('S1 outcome permits its native print action and still rejects editors and u
   await assert.rejects(inspect({ buttons: 2, prints: 1 }));
   await assert.rejects(inspect({ buttons: 2, prints: 2 }));
   await assert.rejects(inspect({ editors: 1, buttons: 1, prints: 1 }));
+});
+
+function s2HistoryReentry({ initial, after, missing } = {}) {
+  const threadId = 'thr_aidt_saved_interview';
+  const target = ownedAidtEntityRoute(href.replace('step=1', 'step=2'), scope, { stage: 2 });
+  const current = target.href + '&tool=outcome&thread=' + threadId;
+  let url = initial?.(current) ?? current;
+  const events = [];
+  const locator = label => ({
+    filter: value => { events.push(['filter', label, value]); return locator(label); },
+    last: () => locator(label),
+    label,
+  });
+  const page = {
+    url: () => url,
+    reload: async options => { events.push('reload'); assert.equal(options.waitUntil, 'domcontentloaded'); url = after?.(current) ?? current; },
+    getByTestId: locator,
+    locator: selector => { events.push(['locator', selector]); return locator('durable-assistant'); },
+  };
+  const expect = value => ({ toBeVisible: async () => {
+    events.push(['visible', value.label]);
+    if (missing === value.label) throw new Error('TEST_MISSING_HISTORY');
+  } });
+  const prior = { status: 'passed', projectId, stageId: 2, entityId, threadId,
+    prompt: '学生首轮问题', inputMessageId: 'saved-user', assistantMessageId: 'saved-assistant' };
+  return { page, expect, target, prior, events };
+}
+
+test('S2 follow-up reopens the exact same native conversation and requires both durable prior turns', async () => {
+  const f = s2HistoryReentry();
+  await reopenAidtS2TeachingHistory(f);
+  assert.equal(f.events[0], 'reload');
+  assert.ok(f.events.some(event => event[0] === 'locator' && event[1] === '[data-message-id="saved-assistant"]'));
+  assert.deepEqual(f.events.filter(event => event[0] === 'visible').map(event => event[1]),
+    ['copilot-user-message', 'copilot-assistant-message', 'copilotkit-v2-input']);
+});
+
+test('S2 follow-up rejects a sibling before reload or on redirect after reload', async () => {
+  for (const key of ['initial', 'after']) {
+    const f = s2HistoryReentry({ [key]: url => url.replace('thr_aidt_saved_interview', 'thr_aidt_sibling') });
+    await assert.rejects(reopenAidtS2TeachingHistory(f), /S2_TEACHING_HISTORY_REENTRY_UNVERIFIED/);
+    assert.deepEqual(f.events, key === 'initial' ? [] : ['reload']);
+  }
+});
+
+test('S2 follow-up can never treat an unbound receipt or missing assistant bubble as ready', async () => {
+  const missing = s2HistoryReentry({ missing: 'copilot-assistant-message' });
+  await assert.rejects(reopenAidtS2TeachingHistory(missing), /TEST_MISSING_HISTORY/);
+  assert.equal(missing.events.some(event => event[1] === 'copilotkit-v2-input'), false);
+  const wrong = s2HistoryReentry();
+  wrong.prior.entityId = otherEntity;
+  await assert.rejects(reopenAidtS2TeachingHistory(wrong), /S2_TEACHING_HISTORY_REENTRY_UNVERIFIED/);
+  assert.deepEqual(wrong.events, []);
 });

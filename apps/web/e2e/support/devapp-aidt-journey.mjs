@@ -353,6 +353,30 @@ export function savedAidtInterviewRoute(stage, code, directory, scope) {
   return ownedAidtEntityRoute(url.href, scope, { stage: 2, entityId: entry.record.id });
 }
 
+/** Start a follow-up from what the native Chat restores from its durable thread. */
+export async function reopenAidtS2TeachingHistory({ page, expect, target, prior }) {
+  const bound = () => {
+    if (target.stage !== 2 || prior?.status !== 'passed' || prior.stageId !== 2
+      || prior.projectId !== target.projectId || prior.entityId !== target.entityId
+      || !/^thr_aidt_[A-Za-z0-9_-]+$/.test(prior.threadId ?? '')
+      || !/^[A-Za-z0-9_.:-]{1,256}$/.test(prior.assistantMessageId ?? '')
+      || !prior.prompt?.trim() || !matchesAidtEntityRoute(page.url(), target)) return false;
+    const url = new URL(page.url());
+    return url.searchParams.getAll('thread').length === 1 && url.searchParams.get('thread') === prior.threadId;
+  };
+  if (!bound()) fail('S2_TEACHING_HISTORY_REENTRY_UNVERIFIED');
+  // Same-document AG-UI IDs may remain optimistic or streamed. A normal reload feeds
+  // the database keys back into the SDK, without relaxing the wire-history guard.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  if (!bound()) fail('S2_TEACHING_HISTORY_REENTRY_UNVERIFIED');
+  await expect(page.getByTestId('copilot-user-message').filter({ hasText: prior.prompt }).last()).toBeVisible();
+  await expect(page.getByTestId('copilot-assistant-message').filter({
+    has: page.locator('[data-message-id="' + prior.assistantMessageId + '"]'),
+  })).toBeVisible();
+  await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+  if (!bound()) fail('S2_TEACHING_HISTORY_REENTRY_UNVERIFIED');
+}
+
 async function readOnlyAidtS2Output(page, expect, diagnostics) {
   if (diagnostics) diagnostics.phase = 'readonly';
   const inspector = page.getByTestId('aidt-interview-output');
@@ -785,6 +809,11 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     evidence(2).iterations.push({ name: label, before: prompt, suggestion: proof.assistantText, after: result,
       reason: 'Student reviewed the reply, edited the result in Chat and explicitly confirmed it.', source });
   };
+  const reopenInterviewHistory = (code, target) => reopenAidtS2TeachingHistory({
+    page, expect, target,
+    prior: report.teachingEvidence.findLast(row => row.status === 'passed' && row.stageId === 2
+      && row.entityId === target.entityId && row.interviewCode === code),
+  });
   const confirmInterviewGuide = async (code, target) => {
     const inspector = await readOnlyInterviewOutput();
     await expect(inspector).toContainText(code);
@@ -797,6 +826,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     };
     await expect.poll(async () => (await readRecord())?.original, { timeout: 30000 }).toBe(initial);
     const revisionInput = text(`${code}：我想改得更具体，先问「上次到了哪个窗口」，再追问「哪一刻决定继续等或离开」。请据此调整我的问题清单草稿。`);
+    await reopenInterviewHistory(code, target);
     if (!await feedback(2, revisionInput, code)) fail('S2_NATIVE_TEACHING_REVISION_REQUIRED');
     const actions = page.getByTestId('aidt-interview-chat-actions');
     const rows = actions.getByTestId('aidt-interview-chat-question');
@@ -928,6 +958,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     await saveInterviewEdit(() => fill('校对后的摘录', quote));
     await saveInterviewEdit(() => page.getByLabel('已对照原始材料校对', { exact: true }).check());
     const firstFinding = text(`我先写下自己的发现。标题：${code}关注等待时间。具体情况：午休选饮品时先看模拟队列再作决定。学生解释：等待时间可能影响选择，仍需真实访谈核实。第1段的原话是「${quote}」。请检查这些发现和引用，整理本次访谈的发现卡。`);
+    await reopenInterviewHistory(code, target);
     if (!await feedback(2, firstFinding, code, true)) fail('S2_NATIVE_FINDING_REPLY_REQUIRED');
     const proof = report.teachingEvidence.find(row => row.stageId === 2 && row.entityId === target.entityId && row.prompt === firstFinding && row.status === 'passed');
     const readFinding = async () => {
