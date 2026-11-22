@@ -318,6 +318,10 @@ test.describe("recording evidence in the interview Chat", () => {
     await editor.getByRole("checkbox", { name: "已获受访者授权共享照片", exact: true }).check();
     await expect.poll(async () => JSON.parse((await head()).fields["interviewRecord:" + first]).consent.photos).toBe(true);
     const photoInput = editor.getByLabel("U01发现卡照片选择文件", { exact: true });
+    await expect(editor.getByRole("button", { name: "上传照片", exact: true })).toBeVisible();
+    await expect(photoInput).toHaveCSS("display", "none");
+    const editorWidth = await editor.evaluate(element => ({ scroll: element.scrollWidth, visible: element.clientWidth }));
+    expect(editorWidth.scroll).toBeLessThanOrEqual(editorWidth.visible);
     const photoFile = { name: photoName, mimeType: "image/png", buffer: Buffer.from(photoData, "base64") };
     const uploadPath = "/__fullstack_api/projects/" + projectId + "/artifacts/upload";
     let photoUploadRequests = 0;

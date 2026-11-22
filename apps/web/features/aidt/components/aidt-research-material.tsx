@@ -68,7 +68,7 @@ function MaterialControl({ context, value, label, onChange, readOnly = false, im
     setFeedback({ selected: materialIdentity(result.reference), text: `${"duplicateAction" in received && received.duplicateAction === "use-existing" ? "重复文件已复用原版本。" : "duplicateAction" in received && received.duplicateAction === "as-new-version" ? "重复文件已另存新版本。" : ""}${result.processingFailed ? "后续材料处理失败；原件可读，检索和转写状态未确认。" : ""}原件已保存并回读，已加入草稿；请保存到小组。` });
   }
   if (appearance === "photo") return <div className="space-y-2" aria-label={label} data-testid="aidt-photo-upload">
-    <Input ref={fileInput} type="file" aria-label={`${label}选择文件`} accept={acceptAttribute} disabled={readOnly || pending} className="sr-only" onChange={event => {
+    <Input ref={fileInput} type="file" aria-label={`${label}选择文件`} accept={acceptAttribute} disabled={readOnly || pending} className="hidden" onChange={event => {
       if (readOnly || locked.current) return;
       setFile(event.currentTarget.files?.[0] ?? null); setReceipt(null); setFeedback(null);
     }} />
@@ -118,14 +118,14 @@ function MaterialControl({ context, value, label, onChange, readOnly = false, im
   </div>;
 }
 
-export function AidtResearchMaterialPreview({ projectId, reference, alt, quote, onImageState }: { projectId: string; reference: AidtResearchMaterialReference; alt?: string; quote?: string; onImageState?: (state: AidtImageAttachmentState) => void }) {
+export function AidtResearchMaterialPreview({ projectId, reference, alt, quote, onImageState, compact = false }: { projectId: string; reference: AidtResearchMaterialReference; alt?: string; quote?: string; onImageState?: (state: AidtImageAttachmentState) => void; compact?: boolean }) {
   const session = useOptionalSession()?.session;
   if (!isAidtModuleEnabled()) return null;
   if (!session?.currentOrgId || !session.userId || !session.sessionToken) return <p>登录后核对材料来源。</p>;
   const scope = JSON.stringify([session.currentOrgId, session.userId, session.sessionToken, projectId, reference]);
-  return <MaterialPreview key={scope} context={{ projectId, sessionToken: session.sessionToken }} reference={reference} alt={alt ?? reference.name} quote={quote} onImageState={onImageState} />;
+  return <MaterialPreview key={scope} context={{ projectId, sessionToken: session.sessionToken }} reference={reference} alt={alt ?? reference.name} quote={quote} onImageState={onImageState} compact={compact} />;
 }
-function MaterialPreview({ context, reference, alt, quote, onImageState }: { context: SessionContext; reference: AidtResearchMaterialReference; alt: string; quote?: string; onImageState?: (state: AidtImageAttachmentState) => void }) {
+function MaterialPreview({ context, reference, alt, quote, onImageState, compact }: { context: SessionContext; reference: AidtResearchMaterialReference; alt: string; quote?: string; onImageState?: (state: AidtImageAttachmentState) => void; compact: boolean }) {
   const { projectId, sessionToken } = context;
   const [retry, refresh] = React.useReducer((value: number) => value + 1, 0), [decoded, setDecoded] = React.useState(false);
   const [state, setState] = React.useState<{ url?: string; text?: string; failed?: boolean; processingFailed?: boolean; resolved?: AidtResearchMaterialReference } | null>(null);
@@ -148,7 +148,10 @@ function MaterialPreview({ context, reference, alt, quote, onImageState }: { con
   const excerpt = quote?.trim();
   const match = excerpt ? state?.text?.indexOf(excerpt) ?? -1 : -1;
   const last = match + (excerpt?.length ?? 0);
-  return <div className="space-y-2" data-testid="aidt-research-material-preview"><p className="text-12 font-medium">{shown.name}</p><details className="text-11"><summary className="cursor-pointer text-muted-foreground">来源与版本</summary><p className="mt-1 break-all">原件定位（待学生核实）：{aidtResearchMaterialLabel(shown)}</p><p className="mt-1 break-all">内容SHA-256：{shown.sha256}</p><p className="mt-1">本次上传提交者：{state?.resolved ? state.resolved.submittedBy ?? "未提供" : state?.failed ? "无法核对" : "正在核对"}；提交时间：{state?.resolved ? state.resolved.submittedAt ?? "未提供" : state?.failed ? "无法核对" : "正在核对"}。这不是阶段关联保存者或文件原作者。</p></details>
+  const provenance = <><p className="mt-1 break-all">原件定位（待学生核实）：{aidtResearchMaterialLabel(shown)}</p><p className="mt-1 break-all">内容SHA-256：{shown.sha256}</p><p className="mt-1">本次上传提交者：{state?.resolved ? state.resolved.submittedBy ?? "未提供" : state?.failed ? "无法核对" : "正在核对"}；提交时间：{state?.resolved ? state.resolved.submittedAt ?? "未提供" : state?.failed ? "无法核对" : "正在核对"}。这不是阶段关联保存者或文件原作者。</p></>;
+  const originalDownload = state?.url && <a className="text-12 underline" href={state.url} download={reference.name}>下载真实原件</a>;
+  return <div className="space-y-2" data-testid="aidt-research-material-preview">
+    {!compact && <><p className="text-12 font-medium">{shown.name}</p><details className="text-11"><summary className="cursor-pointer text-muted-foreground">来源与版本</summary>{provenance}</details></>}
     {!state ? <p role="status">正在核对原件与完整性…</p> : state.failed ? <div role="alert"><p>原件不可访问、损坏或读取失败，未用其他材料替代。</p><Button type="button" size="xs" variant="outline" onClick={refresh}>重试读取原件</Button></div> : <>
       {state.processingFailed && <p role="alert" className="text-12">后续材料处理失败；原件仍可下载，检索和转写状态未确认。</p>}
       {/* eslint-disable-next-line @next/next/no-img-element -- authenticated original bytes, verified hash and revocable local blob URL */}
@@ -157,7 +160,10 @@ function MaterialPreview({ context, reference, alt, quote, onImageState }: { con
       {state.text !== undefined && <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-12" data-testid="aidt-research-original-text">{match >= 0 ? <>{state.text.slice(0, match)}<mark className="rounded-sm bg-accent text-accent-foreground">{excerpt}</mark>{state.text.slice(last)}</> : state.text}</pre>}
       {excerpt && state.text !== undefined && match < 0 && <p className="text-12 text-muted-foreground">预览中未匹配到这段引文，请核对完整原件。</p>}
       {state.text !== undefined && <p className="text-11 text-muted-foreground">原文预览最多前10000字；完整原件请下载。这里不会转写或改写内容。</p>}
-      {state.url && <a className="text-12 underline" href={state.url} download={reference.name}>下载真实原件</a>}
+      {!compact && originalDownload}
     </>}
+    {compact && <details className="text-11"><summary className="cursor-pointer rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">照片来源</summary>
+      <div className="mt-2 space-y-2"><p className="break-words text-12 font-medium">{shown.name}</p>{provenance}{originalDownload}</div>
+    </details>}
   </div>;
 }

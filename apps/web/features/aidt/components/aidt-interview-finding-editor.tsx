@@ -51,7 +51,7 @@ export function AidtInterviewFindingEditor({ projectId, interview, draft, readOn
     </div>
 
     <div className="space-y-3" aria-label="发现卡照片">
-      {photo ? <AidtResearchMaterialPreview projectId={projectId} reference={photo.reference} alt={`${code} 的授权访谈照片`} />
+      {photo ? <AidtResearchMaterialPreview projectId={projectId} reference={photo.reference} alt={`${code} 的授权访谈照片`} compact />
         : <div className="flex min-h-24 items-center gap-3 rounded-lg bg-muted/40 p-4" data-testid="empty">
           <ImagePlus aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
           <div><p className="text-13">添加一张现场照片</p><p className="mt-1 text-12 text-muted-foreground">照片可暂缺，不生成虚构人物。</p></div>

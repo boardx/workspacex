@@ -1,5 +1,5 @@
 import * as React from "react";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AidtResearchMaterialControl, AidtResearchMaterialPreview } from "@/features/aidt/components/aidt-research-material";
 import type { AidtMaterialReceipt, AidtResearchMaterialReference } from "@/features/aidt/lib/aidt-research-materials";
@@ -93,4 +93,28 @@ it("never promotes edited stage metadata to a verified submitter after the sourc
   await screen.findByRole("alert"); fireEvent.click(screen.getByText("来源与版本"));
   expect(screen.queryByText(/伪造提交者/)).not.toBeInTheDocument();
   expect(screen.getByText(/本次上传提交者：无法核对/)).toBeVisible();
+});
+it("keeps photo metadata and original download in one closed disclosure without issuing another read", async () => {
+  render(<AidtResearchMaterialPreview projectId="p" reference={reference} alt="授权访谈照片" compact />);
+  expect(await screen.findByRole("img", { name: "授权访谈照片" })).toBeVisible();
+  const detail = screen.getByText("照片来源").closest("details")!;
+  expect(detail.open).toBe(false);
+  expect(screen.getByText(reference.name)).not.toBeVisible();
+  expect(within(detail).getByText("下载真实原件")).not.toBeVisible();
+  fireEvent.click(screen.getByText("照片来源"));
+  expect(within(detail).getByRole("link", { name: "下载真实原件" })).toHaveAttribute("download", reference.name);
+  expect(detail).toHaveTextContent(reference.sha256);
+  expect(detail).toHaveTextContent("版本 version");
+  expect(mocks.read).toHaveBeenCalledOnce();
+});
+it("never hides a photo read error or its retry inside collapsed photo metadata", async () => {
+  mocks.read.mockRejectedValueOnce(new Error("temporary photo outage"));
+  render(<AidtResearchMaterialPreview projectId="p" reference={reference} compact />);
+  expect(await screen.findByRole("alert")).toBeVisible();
+  const detail = screen.getByText("照片来源").closest("details")!;
+  expect(detail.open).toBe(false);
+  expect(screen.getByRole("button", { name: "重试读取原件" })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "重试读取原件" }));
+  expect(await screen.findByRole("img", { name: reference.name })).toBeVisible();
+  expect(mocks.read).toHaveBeenCalledTimes(2);
 });
