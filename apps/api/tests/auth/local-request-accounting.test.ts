@@ -33,11 +33,13 @@ it('provider failure writes one failed receipt including original reported count
  const terminal=vi.fn(async(_input:unknown)=>{}),start=vi.fn(async()=>({terminal})),f=await fixture({error:'unavailable',eval_count:2},{start},503);
  await expect(f.runtime.complete('prompt',context)).rejects.toThrow('local runtime error');expect(f.seen).toHaveBeenCalledOnce();expect(terminal.mock.calls[0]?.[0]).toMatchObject({outcome:'failed',usage:{completion:2}});
 });
-it('inflight cancellation has one failed terminal and terminal outage preserves output then stops next inference',async()=>{
+it('inflight cancellation has one failed terminal and terminal outage recovers the same receipt before the next inference',async()=>{
  const terminal=vi.fn(async(_input:unknown)=>{}),start=vi.fn(async()=>({terminal})),f=await fixture({response:'answer'},{start});const controller=new AbortController();
  f.seen.mockImplementation(()=>controller.abort());await expect(f.runtime.complete('prompt',{...context,signal:controller.signal})).rejects.toThrow();expect(terminal.mock.calls[0]?.[0]).toMatchObject({outcome:'failed',usage:{}});expect(f.seen).toHaveBeenCalledOnce();
  f.seen.mockImplementation(()=>{});terminal.mockRejectedValueOnce(new Error('ledger unavailable'));await expect(f.runtime.complete('prompt',context)).rejects.toThrow('ledger unavailable');
- await expect(f.runtime.complete('prompt',context)).rejects.toThrow('LOCAL_ACCOUNTING_REPAIR_REQUIRED');expect(f.seen).toHaveBeenCalledTimes(2);
+ await expect(f.runtime.complete('prompt',context)).resolves.toBe('answer');
+ expect(f.seen).toHaveBeenCalledTimes(3);
+ expect(terminal.mock.calls[2]?.[0]).toEqual(terminal.mock.calls[1]?.[0]);
 });
 it('server use case forwards only its checked principal/org/capability and rejects outsider before any probe',async()=>{
  const complete=vi.fn(async()=> 'answer'),probe=vi.fn(async()=>({available:true,detail:'ok'})),repo={findOrgMembership:vi.fn(async()=>({})),findOrganization:vi.fn(async()=>({kind:'personal-local'}))};
