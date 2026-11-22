@@ -68,11 +68,11 @@ test('read-only failure preserves the old internal append order without recordin
 });
 
 test('wrong private welcome text never enters diagnostics', async () => {
-  const secret = 'sensitive-source-fixture-should-not-export';
-  const f = fixture({ welcome: secret });
+  const privateFixture = 'sensitive-source-fixture-should-not-export';
+  const f = fixture({ welcome: privateFixture });
   await assert.rejects(assertAidtS2NativeChatEntry(f));
   assert.equal(f.diagnostics.phase, 'welcome');
-  assert.equal(JSON.stringify(f.diagnostics).includes(secret), false);
+  assert.equal(JSON.stringify(f.diagnostics).includes(privateFixture), false);
   assert.equal(f.existingInterviews.length, 0);
 });
 
