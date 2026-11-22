@@ -4,8 +4,8 @@ import { isAidtGreetingText, isAidtProblemControlText, type SharedStageValue } f
 
 type Draft = SharedStageValue["content"]["draft"];
 const sections: Record<string, string> = {
-  候选研究方向: "directionsText", 本轮选定方向: "selectedText", 本组选择的研究方向: "selectedText", "选题价值（学生说明）": "whyWorthStudying", 原始命题: "initial", 初始问题: "initial", 选题价值: "whyWorthStudying", 选题理由: "whyWorthStudying",
-  来源类型: "problemSources", 命题来源反思: "sourceDetails", 来源说明: "sourceDetails",
+  候选研究方向: "directionsText", 本轮选定方向: "selectedText", 本组选择的研究方向: "selectedText", 本组选定的研究方向: "selectedText", "选题价值（学生说明）": "whyWorthStudying", "选题价值（学生陈述）": "whyWorthStudying", 原始命题: "initial", 初始问题: "initial", 选题价值: "whyWorthStudying", 选题理由: "whyWorthStudying",
+  来源类型: "problemSources", 问题来源: "problemSources", 命题来源反思: "sourceDetails", 来源说明: "sourceDetails", 来源描述: "sourceDetails", 尚未确定: "sourceUncertainty", 尚不确定: "sourceUncertainty",
   已知: "known", "未知/待讨论": "sourceUncertainty", 待验证: "sourceUncertainty", 未知: "sourceUncertainty", "当前已知/假设与未知缺口": "sourceUncertainty",
   下一步行动: "nextAction", 学生重写命题: "rewrittenTheme", 研究范围: "focus",
 };
@@ -22,7 +22,9 @@ export function problemSkillFields(answer: string, assistantMarkdown = true): Re
     const separator = text.search(/[：:]/);
     const label = (separator < 0 ? text : text.slice(0, separator)).trim().replace(/\s*(?:（(?:逐字保留|学生表述)）|\((?:逐字保留|学生表述)\))$/u, "")
       .replace(/\s*[／/]\s*/g, "/");
-    if (Object.hasOwn(sections, label)) {
+    // Newly supported student source aliases need the attribution-aware paired
+    // declaration reader below; AI Markdown alone cannot supply their authority.
+    if (Object.hasOwn(sections, label) && (assistantMarkdown || !["问题来源", "来源描述"].includes(label))) {
       current = sections[label];
       const inline = separator < 0 ? "" : text.slice(separator + 1).trim();
       if (current && inline) fields[current] = inline.slice(0, 650);
@@ -43,7 +45,7 @@ export function problemSkillFields(answer: string, assistantMarkdown = true): Re
   }
   for (const [key,value] of Object.entries(fields)) if (isAidtProblemControlText(value)) delete fields[key];
   if (fields.problemSources) {
-    const codes: Record<string, string> = { "亲自观察":"observation", "听到抱怨":"complaint", "我们的猜测":"guess" };
+    const codes: Record<string, string> = { "亲自观察":"observation", "听到抱怨":"complaint", "我们的猜测":"guess", ...(assistantMarkdown ? { "猜测":"guess" } : {}) };
     const labels = fields.problemSources.split(/[、，,；;]/).map(value => value.trim());
     if (labels.every(label => Object.hasOwn(codes,label))) fields.problemSources = JSON.stringify([...new Set(labels.map(label => codes[label]))]);
     else delete fields.problemSources;
@@ -70,6 +72,10 @@ export function studentRevisionText(user: string): string {
 const quoteContextText = (line: string) => line.trim().replace(/^#{1,6}\s+/, "").replace(/^[-*]\s+/, "").replaceAll("**", "");
 function declaresComparisonQuote(line: string): boolean {
   const text = quoteContextText(line);
+  // An explicit AI/example preface retains its attribution after the following
+  // colon is split into source declarations. Copying a reply is not adopting it.
+  if (/^(?:(?:AI(?:助手)?|人工智能|助手|模型)(?:(?:的|给出的|提供的)?(?:示例|例子|回复|回答|建议)|说|写道|表示)|(?:复制|引用|转述|粘贴)(?:的)?(?:AI(?:助手)?|人工智能|助手|模型)(?:的)?(?:示例|例子|回复|回答|建议))(?:[：:]|\s*$)/iu.test(text)
+    || /^(?:以上|上述|上面|前面|刚才|这段|这些|这只是|这不是)[^。！？\r\n]{0,20}(?:AI(?:助手)?|人工智能|助手|模型)(?:的|给出的|提供的)?(?:示例|例子|回复|回答|建议)(?:[：:。]|\s*$)/iu.test(text)) return true;
   const opening = /^(?:下面|下列|以下|以上|上面|上述|前面|刚才|这里|这段|这些|这是|这不是|先看|请看|(?:我们)?(?:先)?(?:引用|转述|参考|对照)|这只是|这(?:段|些)?不是|不是|不代表|不作为|(?:老师|教师|引导师)(?:的|给的|提供的)?(?:示例|例子|举例|原话|追问))/u.test(text);
   if (!opening) return false;
   return /(?:老师|教师|引导师)[^。！？\r\n]{0,40}(?:示例|例子|举例|原话|追问|引用|对照)|(?:引用|转述)[^。！？\r\n]{0,40}(?:老师|教师|引导师)/u.test(text)
@@ -174,7 +180,7 @@ function studentShortSelection(text: string): string | undefined {
 function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite"): { value: string; source?: string } | undefined {
   // Split only before another explicit student operation, not every sentence:
   // a source explanation may itself contain several literal sentences.
-  const lines = prose.split(/\r?\n/).flatMap(line => line.split(/(?<=[。！？])(?=\s*(?:(?:我们|本组|我)(?:的|将命题|把命题)?)?(?:(?:选题)?来源(?:是|为)|重写为|(?:已经|明确|最终|决定|就)?(?:选择|选定|选(?!题)|确定|确认)|(?:暂不|尚未|暂未|还没(?:有)?|没有|未)(?:选择|选定|重写|改写|确定|确认)))/u));
+  const lines = prose.split(/\r?\n/).flatMap(line => line.split(/(?<=[。！？：:])(?=\s*(?:(?:问题来源|来源类型|来源描述|来源说明|选题理由|选题价值|尚不确定)[：:]|(?:(?:我们|本组|我)(?:的|将命题|把命题)?)?(?:(?:选题)?来源(?:是|为)|重写为|(?:已经|明确|最终|决定|就)?(?:选择|选定|选(?!题)|确定|确认)|(?:暂不|尚未|暂未|还没(?:有)?|没有|未)(?:选择|选定|重写|改写|确定|确认))))/u));
   let comparison = false, fenced = false;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index]!.trim();
@@ -183,13 +189,17 @@ function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite"): {
     if (!line) { comparison = false; continue; }
     if (declaresComparisonQuote(line) || /^(?:例如|比如|示例|例子)(?:[：:（(。]|$)|^(?:老师|教师|引导师)(?:说|问|举例|引用|转述)/u.test(quoteContextText(line))) { comparison = true; continue; }
     if (comparison) continue;
-    const match = kind === "source"
+    // A separate type and explanation are accepted only as an adjacent explicit
+    // student pair in this same attribution scope, never from the AI's headings.
+    const sourceType = kind === "source" ? /^(?:问题来源|来源类型)[：:]\s*(亲自观察|听到抱怨|我们的猜测|猜测)[。.]?$/u.exec(line) : null;
+    const sourceExplanation = sourceType ? /^(?:来源描述|来源说明)[：:]\s*(\S.*)$/u.exec(lines[index + 1]?.trim() ?? "") : null;
+    const match = sourceType && sourceExplanation ? [line, sourceType[1], sourceExplanation[1]] : kind === "source"
       ? /^(?:(?:我们|本组|我)(?:的)?)?(?:选题)?来源(?:是|为)(亲自观察|听到抱怨|我们的猜测|猜测)[：:]\s*(\S.*)$/u.exec(line)
       : /^(?:(?:我们|本组|我)(?:将命题|把命题)?)?重写为[：:]\s*(\S.*)$/u.exec(line);
     if (!match) continue;
     let value = match[kind === "source" ? 2 : 1]!.trim();
     if (kind === "source") {
-      for (let continuation = index + 1; continuation < lines.length; continuation++) {
+      for (let continuation = index + (sourceExplanation ? 2 : 1); continuation < lines.length; continuation++) {
         const next = lines[continuation]!.trim();
         const label = quoteContextText(next).split(/[：:]/u, 1)[0]!.trim();
         if (!next || /^(?:>|```|~~~|#{1,6}\s|---+)/u.test(next) || Object.hasOwn(sections, label)
