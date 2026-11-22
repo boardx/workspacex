@@ -37,6 +37,17 @@ export function visibleAidtQaProjects(projects, ownedProjectId) {
   return matches;
 }
 
+export function stageTextReadbackRequestAllowed(request, threadPath) {
+  if (request.method() === 'GET') return true;
+  if (request.method() !== 'PUT' || request.url() !== ORIGIN + threadPath) return false;
+  try {
+    const body = request.postDataJSON();
+    return body?.purpose === 'stage' && Object.keys(body).length === 1;
+  } catch {
+    return false;
+  }
+}
+
 export function illustratedAcceptance(report) {
   const headings = ['首页', '理解与提出问题', '共情用户', '综合与定义', '创意发散', '制作原型', '测试与迭代', '最终报告'];
   const status = value => ({ passed: '通过', pass: '通过', failed: '失败', blocked: '阻塞' })[value] ?? '待核验';
@@ -916,6 +927,11 @@ export async function main() {
           const route = page.url();
           const restored = await context.newPage();
           try {
+            // The native host re-resolves its existing entity thread on mount. All
+            // actual writes remain on the active workbench page, including draft autosave.
+            const threadPath = `/api/projects/${encodeURIComponent(projectId)}/aidt/stages/${stageId}/entities/${encodeURIComponent(entityId)}/thread`;
+            await restored.route('**/*', network => stageTextReadbackRequestAllowed(network.request(), threadPath)
+              ? network.fallback() : network.abort('blockedbyclient'));
             await restored.goto(route, { waitUntil: 'domcontentloaded' });
             await expect(restored).toHaveURL(route);
             const attachment = restored.getByTestId(`chat-message-attachment-${readback.id}`);
