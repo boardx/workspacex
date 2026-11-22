@@ -136,6 +136,7 @@ it("uses an explicit Chat confirmation and keeps the output free of editing fiel
   expect(screen.queryByText(/已完成/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "确认并保存测试成果" }));
   expect(await screen.findByText("已完成 · V1")).toBeVisible();
+  expect(receipt?.content.draft.fields.reflectionTestEntityId).toBe(group.id);
   expect(receipt?.content.draft.fields.newVersion).toBeFalsy();
   view.unmount();
   render(<Host restored={structuredClone(receipt)} />);

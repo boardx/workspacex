@@ -74,3 +74,16 @@ it("offers a history-verification link without claiming inherited context when l
   expect(screen.getByRole("alert")).toHaveTextContent("版本号无效");
   expect(mocks.history).not.toHaveBeenCalled();
 });
+
+it("shows a saved card's return link only on the source card or the test directory", () => {
+  const marked = { ...draft, fields: { ...draft.fields, reflectionTestEntityId: "source-test", returnStep: "5" } };
+  const shared = { ...saved, content: { ...saved.content, draft: marked } };
+  const renderNavigation = (testEntityId?: string) => <AidtRoundNavigation projectId="g" stageNumber={6}
+    draft={marked} savedRound={shared} matchesServer returnRevision={null} testEntityId={testEntityId} />;
+  const view = render(renderNavigation("sibling-test"));
+  expect(screen.queryByRole("link")).toBeNull();
+  view.rerender(renderNavigation("source-test"));
+  expect(screen.getByRole("link")).toHaveAttribute("href", "/aidt/g?step=5&tool=outcome&returnRevision=3");
+  view.rerender(renderNavigation());
+  expect(screen.getByRole("link")).toBeVisible();
+});

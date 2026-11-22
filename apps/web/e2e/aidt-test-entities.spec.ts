@@ -6,6 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { designPrototype, designWorkbench, project } from "@repo/contracts";
 import { operations as stageOperations } from "@repo/contracts/aidt-stages";
 import { isAidtModuleEnabled } from "@/lib/aidt-module-config";
+import { confirmAidtTestProposal } from "../features/aidt/lib/aidt-test-proposal";
 import { readAidtTestGroups } from "../features/aidt/lib/aidt-test-groups";
 import { confirmAidtVerificationQuestion } from "../features/aidt/lib/aidt-verification-loop";
 import { updateAidtPrototypeReference } from "../features/aidt/lib/aidt-prototype-reference";
@@ -182,5 +183,50 @@ test("AIDT test groups bind an immutable Design and isolate parallel native Chat
       { name: "B 非高峰问卷", method: "survey", said: "", did: "", source: { id: survey.id, kind: "survey" }, surveyResponseId: survey.responseId, stage5Revision: prototype.revision, versionId: prototype.versionId },
     ]);
     await b!.screenshot({ path: info.outputPath("aidt-survey-test-group.png"), fullPage: true });
+
+    // Use a deterministic saved reflection to exercise real browser routing and history reads without relying on model wording.
+    let current = stage!;
+    let earlierReturn: { href: string; revision: number } | undefined;
+    for (const target of ["2", "4", "5"] as const) {
+      const bySurvey = records[1]!;
+      const nextAction = `下一轮先核对第 ${target} 步的问题`;
+      const reviewed = confirmAidtTestProposal(current.content.draft, {
+        messageId: `seeded-test-review-${target}`,
+        result: { entityId: bySurvey.id, task: "查看两种口味", reflection: "反馈不足以确认", evidenceGap: "仅一份问卷",
+          round: { understandingChangeStatus: "insufficient", unresolvedQuestions: "是否适用于赶课者",
+            returnStep: target, returnReason: "实际答卷不足", nextAction } },
+      }, true);
+      expect(reviewed.fields.reflectionTestEntityId).toBe(bySurvey.id);
+      current = stageOperations.save.out.parse(await api(page, `/projects/${projectId}/aidt/stages/6`, "PUT", {
+        projectId, stageId: 6, operationId: randomUUID(), expectedRevision: current.revision,
+        content: { schemaVersion: 1, draft: reviewed }, sourceStageRevisions: current.sourceStageRevisions,
+      })).stage;
+      await b!.goto(outcome.toString());
+      const returnLink = b!.getByTestId("aidt-round-navigation").getByRole("link");
+      const returnHref = `${pathname}?step=${target}&tool=outcome&returnRevision=${current.revision}`;
+      await expect(returnLink).toHaveAttribute("href", returnHref);
+
+      if (target === "2") {
+        await a!.reload();
+        await expect(a!.getByTestId("copilotkit-v2-input")).toBeVisible();
+        await expect(a!.getByTestId("aidt-round-navigation")).toHaveCount(0);
+        await page.reload();
+        await expect(page.getByTestId("aidt-round-navigation").getByRole("link")).toHaveAttribute("href", returnHref);
+        earlierReturn = { href: returnHref, revision: current.revision };
+      }
+      await returnLink.click();
+      const returned = b!.getByTestId("aidt-return-context");
+      await expect(b!.getByTestId("aidt-step-entity-directory")).toBeVisible();
+      await expect(returned).toContainText(nextAction);
+      await expect(returned).toContainText("能否区分两种奶感？");
+      await expect(returned).toContainText(`第6步共享 V${current.revision}`);
+      await b!.reload();
+      await expect(returned).toContainText(nextAction);
+      await b!.screenshot({ path: info.outputPath(`aidt-test-return-to-${target}.png`), fullPage: true });
+    }
+    expect(earlierReturn).toBeDefined();
+    await b!.goto(earlierReturn!.href);
+    await expect(b!.getByTestId("aidt-return-context")).toContainText(`第6步共享 V${earlierReturn!.revision}`);
+    await expect(b!.getByTestId("aidt-return-context")).toContainText("下一轮先核对第 2 步的问题");
   } finally { await Promise.all(tabs.map(tab => tab.close())); }
 });
