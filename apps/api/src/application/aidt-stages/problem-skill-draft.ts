@@ -58,8 +58,7 @@ function studentRevisionText(user: string): string {
   return marker ? user.slice(marker.index + marker[0].length) : user;
 }
 
-function explicitlyStatedHypothesis(student: string): string | undefined {
-  const prose = student.split(/^\s*(?:本组选择的研究方向|本轮选定方向|研究范围|学生重写命题)[：:]/mu, 1)[0] ?? "";
+function explicitlyStatedHypothesis(prose: string): string | undefined {
   const sentences = prose.split(/(?<=[。！？])|\r?\n/u).map(value => value.trim());
   return sentences.find(value => /^(?:上述|这些)(?:行为|情况|说法)(?:目前|现在)?只是我们(?:提出的)?(?:假设|猜测)[。！]?$/u.test(value)
     || /^这(?:目前|现在)?只是我们(?:提出的)?(?:假设|猜测)[。！]?$/u.test(value));
@@ -90,11 +89,15 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   const student = studentRevisionText(turn.user);
   const statedRewrite = /^学生重写命题[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
   if (statedRewrite && patch.rewrittenTheme && statedRewrite !== patch.rewrittenTheme) delete patch.rewrittenTheme;
-  if (patch.rewrittenTheme && !previous.problemSources && !patch.problemSources) {
-    const hypothesis = explicitlyStatedHypothesis(student);
-    if (hypothesis) {
+  if (patch.rewrittenTheme) {
+    const studentProse = student.split(/^\s*(?:本组选择的研究方向|本轮选定方向|研究范围|学生重写命题)[：:]/mu, 1)[0] ?? "";
+    const hypothesis = explicitlyStatedHypothesis(studentProse);
+    const deniesFieldEvidence = /(?:没有|尚无|暂无)(?:任何)?真实(?:的)?(?:观察|访谈)(?:或|和|及)(?:观察|访谈)(?:材料|记录|证据)/u.test(studentProse);
+    // When students explicitly say their claims were hypotheses and deny field
+    // evidence, assistant wording cannot turn that absence into an observation.
+    if (hypothesis && (deniesFieldEvidence || (!previous.problemSources && !patch.problemSources))) {
       patch.problemSources = JSON.stringify(["guess"]);
-      patch.sourceDetails ??= hypothesis;
+      patch.sourceDetails = hypothesis;
     }
   }
   type Direction = { id:string; title:string; source:string };

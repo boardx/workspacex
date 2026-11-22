@@ -74,3 +74,11 @@ it("does not derive student evidence from quoted teaching prose or accept a subs
  expect(fields.problemSources).toBeUndefined();
  expect(fields.sourceDetails).toBeUndefined();
 });
+
+it.each(["", "### 来源类型\n亲自观察\n\n"])("keeps a student's stated hypothesis when the assistant invents field provenance", (sourceType) => {
+ const draft = { ...base, fields: { ...base.fields, "problemDraft:p": JSON.stringify({ initial: liveRevision.initial }) } };
+ const assistant = liveRevision.assistant + "\n\n" + sourceType + "### 来源说明\n我们观察了三位学生排队。";
+ const fields = JSON.parse(projectProblemSkillDraft(draft, "p", turn(liveRevision.user, assistant))!.fields["problemDraft:p"]!);
+ expect(fields.problemSources).toBe('["guess"]');
+ expect(fields.sourceDetails).toBe("这些行为目前只是我们提出的假设。");
+});
