@@ -51,9 +51,9 @@ it("refuses zero personal balance before dispatch even with the legacy flag on",
   await expect((async()=>{await reserve(personal,"zero");dispatches++;})()).rejects.toMatchObject({code:"credit_required",ownerType:"user"});
   expect(dispatches).toBe(0);expect((await balance(personal)).wallet.balance).toBe(0);
 });
-it("refuses a verified bound larger than personal capacity without consuming credit", async () => {
+it("admits a request with a positive balance below its estimated cost", async () => {
   await asApp(personal,c=>c.query("UPDATE credit_wallets SET balance=0.01 WHERE owner_type='user' AND owner_id=$1",[user]));
-  await expect(reserve(personal,"small-balance")).rejects.toMatchObject({code:"credit_required"});
+  await reserve(personal,"small-balance");
   expect((await balance(personal)).wallet.balance).toBe(0.01);
 });
 it("blocks negative personal balance even when the legacy global preflight flag is off", async () => {
@@ -66,19 +66,19 @@ it("admits enterprise debt even when the legacy preflight flag is on", async () 
   await reserve(enterprise, "enterprise-debt"); await settle(enterprise, "enterprise-debt");
   expect((await balance(enterprise)).wallet.balance).toBe(-3);
 });
-it("admits only one concurrent request against one Credit and settles it once",async()=>{
+it("admits concurrent requests against positive Credit and settles each once",async()=>{
  await asApp(personal,c=>c.query("UPDATE credit_wallets SET balance=1 WHERE owner_type='user' AND owner_id=$1",[user]));
  const result=await Promise.allSettled([reserve(personal,"parallel-a"),reserve(personal,"parallel-b")]);
- expect(result.filter(x=>x.status==='fulfilled')).toHaveLength(1);
- const id=result[0]!.status==='fulfilled'?"parallel-a":"parallel-b";
- await settle(personal,id);await settle(personal,id);
- expect((await balance(personal)).wallet.balance).toBe(0);
+ expect(result.filter(x=>x.status==='fulfilled')).toHaveLength(2);
+ await Promise.all([settle(personal,"parallel-a"),settle(personal,"parallel-b")]);
+ await settle(personal,"parallel-a");
+ expect((await balance(personal)).wallet.balance).toBe(-1);
  await expect(reserve(personal,"parallel-new")).rejects.toMatchObject({code:"credit_required"});
 });
-it("keeps balance and gross reservation read models distinct while capacity is held", async () => {
+it("keeps balance and available capacity equal during a new request", async () => {
   await asApp(personal, c => c.query("UPDATE credit_wallets SET balance=1 WHERE owner_type='user' AND owner_id=$1", [user]));
   await reserve(personal, "estimate");
-  expect((await balance(personal)).wallet).toMatchObject({balance: 1, availableBalance: 0, reservedCredits: 1});
+  expect((await balance(personal)).wallet).toMatchObject({balance: 1, availableBalance: 1, reservedCredits: 0});
   await settle(personal, "estimate", 0);
   expect((await balance(personal)).wallet).toMatchObject({balance: 1, availableBalance: 1, reservedCredits: 0});
 });

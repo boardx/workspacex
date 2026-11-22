@@ -38,19 +38,37 @@ const receipt = (id: string, receiptId: string, tokens: number, final = false) =
   modelProvider: "test", modelId: "stream-model", callPurpose: "auxiliary" as const, tokensTotal: tokens, promptTokens: tokens, completionTokens: 0, totalSource: "reported" as const, outcome: "succeeded" as const,
   billingReceipt: {id: receiptId, final}});
 const record = (id: string, receiptId: string, tokens: number, final = false) => db.withTenant(org, s => credits.settleInSession(s, org, receipt(id, receiptId, tokens, final)));
-const debit = (id: string) => asApp(org, async c => (await c.query("SELECT debited_hundredths::text AS debit,state FROM credit_consumption_requests WHERE request_id=$1", [prefix + id])).rows[0]);
+const debit = (id: string) => asApp(org, async c => (await c.query("SELECT COALESCE(debited_hundredths,0)::text AS debit,state FROM credit_consumption_requests WHERE request_id=$1", [prefix + id])).rows[0]);
 
-it("rounds cumulative stream usage once, ignores stale snapshots, and releases the hold only at completion", async () => {
+it("does not reserve or charge for a stream that ultimately fails", async () => {
+  const id = "failed-after-progress";
+  const directory = await mkdtemp(join(tmpdir(), "credit-failure-replay-"));
+  try {
+    const delegate = new PgTokenUsageRepository(db);
+    const meter = new DurableCreditUsageMeter(delegate, {directory});
+    await meter.startRequest(org, start(id));
+    await meter.record(org, receipt(id, "progress", 100));
+    expect(await debit(id)).toMatchObject({debit: "0"});
+    const failed = {...receipt(id, "final", 10, true), outcome: "failed" as const};
+    await meter.record(org, failed);
+    expect(await meter.replayPending()).toEqual({settled: 1, pending: 0});
+    expect(await debit(id)).toEqual({debit: "0", state: "settled"});
+  } finally {
+    await rm(directory, {recursive: true, force: true});
+  }
+});
+
+it("records cumulative usage without reserving and debits once at completion", async () => {
   await db.withTenant(org, s => credits.reserveInSession(s, org, start("cumulative")));
   await record("cumulative", "chunk-1", 1);
-  expect(await debit("cumulative")).toMatchObject({debit: "1"});
+  expect(await debit("cumulative")).toMatchObject({debit: "0"});
   await record("cumulative", "chunk-2", 10);
-  expect(await debit("cumulative")).toMatchObject({debit: "1"});
+  expect(await debit("cumulative")).toMatchObject({debit: "0"});
   await record("cumulative", "chunk-3", 11);
   await record("cumulative", "chunk-1", 1);
   await record("cumulative", "late-chunk-2", 10);
-  expect(await debit("cumulative")).toMatchObject({debit: "2"});
-  expect(await asApp(org, async c => (await c.query("SELECT held_hundredths::text AS held FROM credit_wallets WHERE owner_id=$1", [org])).rows[0].held)).toBe("100");
+  expect(await debit("cumulative")).toMatchObject({debit: "0"});
+  expect(await asApp(org, async c => (await c.query("SELECT held_hundredths::text AS held FROM credit_wallets WHERE owner_id=$1", [org])).rows[0].held)).toBe("0");
   await record("cumulative", "final", 11, true);
   await record("cumulative", "final", 11, true);
   expect(await debit("cumulative")).toMatchObject({debit: "2", state: "settled"});
@@ -104,4 +122,23 @@ it("persists late terminal counters and pricing through the durable meter withou
   expect(await debit(id)).toEqual({debit:"2",state:"settled"});
   await expect(meter.record(org,{...enriched,promptTokens:9,completionTokens:2})).rejects.toThrow();expect(await debit(id)).toEqual({debit:"2",state:"settled"});
  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+it("admits concurrent requests with positive monthly capacity and rejects the next start after actual debit", async () => {
+  const alreadyUsed = await asApp(org, async c => (await c.query<{used: string}>(
+    "SELECT COALESCE(SUM(credits),0)::text AS used FROM credit_transactions WHERE operator_id=$1 AND type='consume'",
+    [user],
+  )).rows[0]!.used);
+  await asApp(org, c => c.query(
+    "INSERT INTO member_credit_quota(org_id,user_id,monthly_limit,updated_by) VALUES($1,$2,CEIL($3::numeric+0.01),$2)",
+    [org, user, alreadyUsed],
+  ));
+  const startRequest = (id: string) => db.withTenant(org, s => credits.reserveInSession(s, org, start(id)));
+  await Promise.all([startRequest("positive-a"), startRequest("positive-b")]);
+  await record("positive-a", "final", 1000, true);
+  await record("positive-a", "final", 1000, true);
+  await expect(startRequest("exhausted")).rejects.toMatchObject({code: "credit_required"});
+  await record("positive-b", "final", 10, true);
+  expect(await debit("positive-a")).toEqual({debit: "100", state: "settled"});
+  expect(await debit("positive-b")).toEqual({debit: "1", state: "settled"});
 });

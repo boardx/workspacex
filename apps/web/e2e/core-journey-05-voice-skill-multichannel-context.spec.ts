@@ -28,6 +28,36 @@ import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { clickActionableSkillMountOption } from "./support/skill-mount";
 
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
+import { imageEvidenceConnectionConfig as isolatedPgConfig } from "./support/board-durable-images-storage";
+
+async function journeyCreditReceipts() {
+  const { Client } = createRequire(resolve(__dirname, "../../api/package.json"))("pg");
+  const client = new Client(await isolatedPgConfig());
+  await client.connect();
+  try {
+    await client.query("BEGIN READ ONLY");
+    await client.query("SELECT set_config('app.current_org',$1,true)", [FULLSTACK_E2E.orgId]);
+    const { rows } = await client.query(`
+      SELECT
+        r.state, r.reserved_hundredths::text AS reserved,
+        r.debited_hundredths::text AS debit, r.usage_facts->>'outcome' AS outcome,
+        (SELECT count(*)::int FROM credit_transactions t
+         WHERE t.wallet_id=r.wallet_id AND t.source_type='model_request'
+           AND (t.source_id=r.request_id OR t.source_id IN (
+             SELECT receipt.transaction_source_id FROM credit_consumption_receipts receipt
+             WHERE receipt.request_id=r.request_id AND receipt.org_id=r.org_id
+           ))) AS charges
+      FROM credit_consumption_requests r WHERE r.org_id=$1 AND r.user_id=$2
+        AND r.start_facts->>'callPurpose'='native-asr'
+    `, [FULLSTACK_E2E.orgId, FULLSTACK_E2E.voiceJourneyUserId]);
+    return rows as Array<{state: string; reserved: string; debit: string | null; outcome: string; charges: number}>;
+  } finally {
+    await client.end();
+  }
+}
+
 function escapeRegExp(literal: string): string {
   return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -144,4 +174,16 @@ test("旅程⑤：转写内录音落库并挂入项目 → 项目线程里挂 sk
   await expect(messages).toContainText(probe, { timeout: 20_000 });
   await expect(messages).not.toContainText(marker);
   await expect(messages).not.toContainText(FULLSTACK_E2E.asrTranscriptPrefix);
+
+  // This browser journey's Deep Agent fixture produces run results. Physical
+  // model accounting is verified separately with the model HTTP integration.
+  await expect.poll(async () => {
+    const receipts = await journeyCreditReceipts();
+    const successful = receipts.filter(receipt => receipt.outcome === "succeeded" && receipt.state === "settled");
+    return {
+      voiceSettled: successful.length > 0,
+      noHolds: receipts.every(receipt => receipt.reserved === "0"),
+      exactOnce: successful.every(receipt => Number(receipt.debit) > 0 ? receipt.charges === 1 : receipt.charges === 0),
+    };
+  }, { timeout: 30_000 }).toEqual({ voiceSettled: true, noHolds: true, exactOnce: true });
 });
