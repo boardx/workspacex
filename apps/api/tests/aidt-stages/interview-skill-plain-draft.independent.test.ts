@@ -88,4 +88,18 @@ describe('S2 actual ordinary prose question draft projection', () => {
     expect(after).not.toBeNull(); expect(record(after!).adopted).toBe(question);
   });
 
+  it.each(['老师', '教师'])('does not turn an explicitly attributed teacher proposal into the current draft: %s', speaker => {
+    expectProtected(speaker + '：\n建议改写（供你们讨论）：\n1. 请描述最近一次选择饮品时发生了什么？');
+  });
+  it('allows an AI author label on a normal candidate when it is not identified as quoted comparison material', () => {
+    const before = first(), question = '请描述最近一次选择饮品时发生了什么？';
+    const after = project(before, 'AI：\n建议改写（供你们讨论）：\n1. ' + question);
+    expect(after).not.toBeNull(); expect(record(after!).adopted).toBe(question); expect(record(after!).guideConfirmed).toBe(false);
+  });
+  it('does not globally prohibit a real question whose content mentions a teacher or AI', () => {
+    const before = first(), question = '你听到老师或AI的建议以后，怎样作出自己的选择？';
+    const after = project(before, '建议改写（供你们讨论）：\n1. ' + question);
+    expect(after).not.toBeNull(); expect(record(after!).adopted).toBe(question);
+  });
+
 });

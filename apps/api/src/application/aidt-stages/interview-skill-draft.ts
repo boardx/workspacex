@@ -36,6 +36,7 @@ export function readInterviewChatDraft(text: string, participantCode?: string) {
     const recipient = currentDraftList.test(plain) ? undefined : interviewDraftRecipient(plain);
     if (recipient) { listRecipient = recipient; section = ""; proseList = false; }
     if (/^(?:(?:老师|教师|引导师|AI|助手|模型)(?:(?:的|给出的|提供的)?(?:示例|例子|原话|回复|回答|建议)|说|写道|表示)|(?:引用|转述|复制|粘贴)(?:老师|教师|引导师|AI|助手|模型)(?:的)?(?:示例|例子|原话|回复|回答|建议)?)[：:]/iu.test(plain)
+      || /^(?:老师|教师|引导师)[：:]/u.test(plain)
       || /^(?:下面|以下|这里|这段|以上|上述)[^。！？\r\n]{0,80}(?:(?:引用|示例|例子)|不是(?:我们|本组|小组)(?:采纳的)?清单)/iu.test(plain)) comparison = true;
     const introduction = plain.split(/[。！？]/u).at(-1)?.trim() ?? "";
     if (!comparison && (proposedList?.test(plain) || participantCode && listRecipient === participantCode && currentDraftList.test(introduction))) { section = "访谈问题清单"; proseList = true; listRecipient = participantCode; continue; }
