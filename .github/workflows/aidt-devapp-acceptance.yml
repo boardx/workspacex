@@ -242,6 +242,7 @@ jobs:
         # A JavaScript action receives the runner's artifact authority in memory; shell steps do not.
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         env:
+          AIDT_REUSABLE_QA_IDENTITY_SHA256: ${{ vars.AIDT_REUSABLE_QA_IDENTITY_SHA256 }}
           AIDT_REUSABLE_QA_EMAIL: ${{ inputs.reusable_ordinary_qa && secrets.AIDT_REUSABLE_QA_EMAIL || '' }}
           AIDT_REUSABLE_QA_PASSWORD: ${{ inputs.reusable_ordinary_qa && secrets.AIDT_REUSABLE_QA_PASSWORD || '' }}
         with:

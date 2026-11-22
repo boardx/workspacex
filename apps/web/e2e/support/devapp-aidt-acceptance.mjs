@@ -146,6 +146,15 @@ export function publicEntryDiagnostic(report) {
   return result;
 }
 
+export function reusableQaIdentityFingerprint(identity, configured, provisioning) {
+  if (provisioning ? Boolean(configured) : !/^[a-f0-9]{64}$/.test(configured ?? '')) {
+    throw new ProbeFailure('QA_REUSABLE_IDENTITY_CONFIGURATION_INVALID');
+  }
+  const fingerprint = createHash('sha256').update(JSON.stringify(['devapp-aidt-qa-v1', identity.actor, identity.org])).digest('hex');
+  if (!provisioning && fingerprint !== configured) throw new ProbeFailure('QA_REUSABLE_IDENTITY_MISMATCH');
+  return fingerprint;
+}
+
 export function ordinaryQaProvisioningRequested(env, identity) {
   const choice = env.AIDT_PROVISION_ORDINARY_QA;
   if (choice !== undefined && !['false', 'true'].includes(choice)) throw new ProbeFailure('QA_IDENTITY_OPT_IN_INVALID');
@@ -266,6 +275,10 @@ export async function main() {
     if (!identity.entryDiagnosticOnly && !agentQaRequested) throw new ProbeFailure('S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED');
     const provisionOrdinaryQa = ordinaryQaProvisioningRequested(process.env, identity);
     const reusableCredentials = consumeReusableQaCredentials(process.env);
+    const configuredBinding = process.env.AIDT_REUSABLE_QA_IDENTITY_SHA256;
+    if (reusableCredentials && (provisionOrdinaryQa ? Boolean(configuredBinding) : !/^[a-f0-9]{64}$/.test(configuredBinding ?? ''))) {
+      throw new ProbeFailure('QA_REUSABLE_IDENTITY_CONFIGURATION_INVALID');
+    }
     if (reusableCredentials) {
       sensitiveEvidence.remember(reusableCredentials.email);
       sensitiveEvidence.remember(reusableCredentials.password);
@@ -457,6 +470,11 @@ export async function main() {
     if (provisionedIdentity) { assertProvisionedOrdinaryQa(provisionedIdentity, guard.identity(), me.status, me.data); report.provisionedUiIdentityVerified = true; }
     if (reusableCredentials && (!report.actor.ordinaryConsultant || me.data?.org?.kind !== 'organization')) {
       throw new ProbeFailure('ORDINARY_QA_CONSULTANT_REQUIRED');
+    }
+    if (reusableCredentials) {
+      const fingerprint = reusableQaIdentityFingerprint(guard.identity(), configuredBinding, provisionOrdinaryQa);
+      if (provisionedIdentity) report.qaEnrollmentFingerprint = fingerprint;
+      report.reusableQaUiIdentityVerified = true;
     }
     if (identity.entryDiagnosticOnly) {
       report.kind = 'devapp-aidt-entry-diagnostic-v1';

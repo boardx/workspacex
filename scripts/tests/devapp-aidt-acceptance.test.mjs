@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, chmodSync, r
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
-import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
+import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, reusableQaIdentityFingerprint, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern, schematicPng } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
@@ -601,4 +601,14 @@ test('illustrated acceptance reports only observed checkpoints and scoped image 
   assert.match(text, /未全部通过/); assert.match(text, /失败.*s3-definition-hmw-handoff/);
   assert.match(text, /\(\.\/03-create-persona-dialog\.png\)/); assert.doesNotMatch(text, /invalid/);
   assert.match(text, /## 最终报告\n\n未取得检查结果/);
+});
+
+test('reusable identity matches both enrolled actor and organization and refuses provisioning after pinning', () => {
+  const identity = { actor: 'qa-dummy', org: 'org-qa-dummy' };
+  const digest = reusableQaIdentityFingerprint(identity, '', true);
+  assert.equal(reusableQaIdentityFingerprint(identity, digest, false), digest);
+  assert.throws(() => reusableQaIdentityFingerprint(identity, digest, true), /QA_REUSABLE_IDENTITY_CONFIGURATION_INVALID/);
+  assert.throws(() => reusableQaIdentityFingerprint(identity, '', false), /QA_REUSABLE_IDENTITY_CONFIGURATION_INVALID/);
+  assert.throws(() => reusableQaIdentityFingerprint({ ...identity, org: 'other' }, digest, false), /QA_REUSABLE_IDENTITY_MISMATCH/);
+  assert.throws(() => reusableQaIdentityFingerprint({ ...identity, actor: 'other' }, digest, false), /QA_REUSABLE_IDENTITY_MISMATCH/);
 });
