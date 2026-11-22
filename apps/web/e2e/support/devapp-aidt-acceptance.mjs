@@ -27,6 +27,16 @@ export function readV2SyntheticAudioFixture(metadata, identity) {
   return {filename:`qa-${identity.run}-synthetic-prototype-test.wav`,bytes,mime:fixture.mime,synthetic:true};
 }
 
+export function visibleAidtQaProjects(projects, ownedProjectId) {
+  if (!Array.isArray(projects) || projects.some(project => !project || typeof project.id !== 'string')) {
+    throw new ProbeFailure('QA_PROJECT_CATALOG_INVALID');
+  }
+  if (!ownedProjectId) return [];
+  const matches = projects.filter(project => project.id === ownedProjectId);
+  if (matches.length > 1) throw new ProbeFailure('QA_PROJECT_CATALOG_INVALID');
+  return matches;
+}
+
 export function illustratedAcceptance(report) {
   const headings = ['首页', '理解与提出问题', '共情用户', '综合与定义', '创意发散', '制作原型', '测试与迭代', '最终报告'];
   const status = value => ({ passed: '通过', pass: '通过', failed: '失败', blocked: '阻塞' })[value] ?? '待核验';
@@ -386,6 +396,7 @@ export async function main() {
   for (const key of ['DEBUG', 'PWDEBUG', 'NODE_DEBUG', 'NODE_DEBUG_NATIVE', 'NODE_OPTIONS']) delete process.env[key];
   const report = { kind: 'devapp-aidt-ui-acceptance-v1', target: ORIGIN, passed: false, syntheticData: true,
     classroomValidated: false, realModelVerified: false, crossUserIsolationVerified: false,
+    projectCatalogScope: 'native organization project list restricted in the synthetic browser to the current run-owned project',
     controlSource: null, deployedRuntime: null, deploymentLockHeld: false, runtimeRechecks: 0,
     checkpoints: [], screenshots: [], pendingTeachingReviews: [], scope: 'writes and screenshots: new owned QA project only',
     authorizedMetadataReads: 'Native clients also read the QA-authorized identity, course/project/Skill/Agent catalogs and Design list in memory. Closed read-category counters count guard decisions; bounded metadata HTTP statuses come only from observed responses. No raw lists, URLs, queries, headers, bodies or unrelated projects are exported.',
@@ -536,7 +547,8 @@ export async function main() {
           const bytes = await response.body();
           if (bytes.length > 262144) throw new ProbeFailure('RESPONSE_BOUND');
           guard.observeContent(decision, response.status(), response.headers(), bytes);
-        } else if (!['read', 'denied-probe', 'aidt-tag', 'mount-owned-thread', 'teaching-turn'].includes(decision.kind)) {
+        } else if (!['read', 'denied-probe', 'aidt-tag', 'mount-owned-thread', 'teaching-turn'].includes(decision.kind)
+          && (decision.kind !== 'qa-project-catalog' || response.status() === 200)) {
           const bytes = await response.body();
           if (bytes.length > 1048576) throw new ProbeFailure('RESPONSE_BOUND');
           if (profile === V2_VOICE_PROFILE) parsed = parseV2NativeResponse(bytes, response.headers()['content-type'], decision);
@@ -559,7 +571,16 @@ export async function main() {
             ledger = createV2ExecutionLedger(plan, v2Scope);
           }
         }
-        await route.fulfill({ response });
+        if (decision.kind === 'qa-project-catalog' && response.status() === 200) {
+          // The native homepage fetches each listed roster as one batch. Keep the
+          // actual current project row while preventing requests for other projects.
+          const headers = response.headers();
+          for (const name of ['content-length', 'content-encoding', 'etag']) delete headers[name];
+          headers['cache-control'] = 'no-store';
+          await route.fulfill({ response, headers, json: visibleAidtQaProjects(parsed, decision.projectId) });
+        } else {
+          await route.fulfill({ response });
+        }
       } catch (error) { guard.fail(safeCode(error)); try { await route.abort('blockedbyclient'); } catch { /* Already closed. */ } }
     });
     if (typeof context.routeWebSocket !== 'function') throw new ProbeFailure('WEBSOCKET_GUARD_UNAVAILABLE');

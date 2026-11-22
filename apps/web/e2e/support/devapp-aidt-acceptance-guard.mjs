@@ -151,8 +151,12 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         && target.searchParams.get('orgId') === org && target.searchParams.get('kind') === 'agent') {
         return { allow: true, kind: 'native-agent-catalog' };
       }
+      if (actor && path === '/api/projects' && target.searchParams.get('orgId') === org
+        && [...target.searchParams.keys()].join(',') === 'orgId') {
+        return { allow: true, kind: 'qa-project-catalog', projectId };
+      }
       const publicPage = path === '/login' || path === '/aidt' || path === '/favicon.ico' || path.startsWith('/_next/static/') || approvedHomeImage(target);
-      const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/copilotkit/info' && !target.search) || (path === '/api/projects' && target.searchParams.get('orgId') === org) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
+      const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/copilotkit/info' && !target.search) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
       const ownedRead = (projectId || candidate) && (path === `/aidt/${projectId ?? candidate}` || path.startsWith(`/api/projects/${projectId ?? candidate}/`));
       for (const id of threads) {
         if (path === `/api/chat/threads/${encodeURIComponent(id)}`) return { allow: true, kind: 'thread-detail', threadId: id };
