@@ -1,8 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { chat } from "@repo/contracts";
+import { chat, files } from "@repo/contracts";
 import { AidtContextReceipt, AidtContextSelector } from "@repo/contracts/aidt-run-context";
+import { confirmAidtIdeaFromChat } from "../features/aidt/lib/aidt-idea-chat";
+import { confirmAidtIdeaClassification, setAidtIdeaCategory, setAidtIdeaClassificationReason } from "../features/aidt/lib/aidt-idea-classification";
+import { readAidtIdeaHmwSource } from "../features/aidt/lib/aidt-idea-handoff";
+import { readAidtPrototypeEntityDraft, readAidtPrototypeInputSelection } from "../features/aidt/lib/aidt-prototype-handoff";
+import { AidtResearchMaterial, aidtResearchContentPath } from "../features/aidt/lib/aidt-research-material-reference";
+import type { AidtUiStageDraft } from "../features/aidt/lib/aidt-ui-drafts";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { bearerOf, sendViaWorkbench } from "./chat-v2-send";
 
@@ -544,13 +551,41 @@ test("directory creation saves named problems, findings, ideas and native Design
   const threads = new Set<string>();
   const projectId = pathname.split("/").at(-1)!;
   const headers = { Authorization: "Bearer " + await bearerOf(page) };
-  async function seedSourceStage(stageId: number, transform: (previous: { fields: Record<string, string>; ideas: { id: string; title: string; description: string }[]; selectedIdeaId: string }) => void) {
-    const path = "/__fullstack_api/projects/" + projectId + "/aidt/stages/" + stageId;
-    const { stage } = await (await page.request.get(path, { headers })).json();
+  const stagesPath = "/__fullstack_api/projects/" + projectId + "/aidt/stages/";
+  const readStage = async (stageId: number) => (await (await page.request.get(stagesPath + stageId, { headers })).json()).stage;
+  async function seedSourceStage(stageId: number, transform: (draft: AidtUiStageDraft) => AidtUiStageDraft | void) {
+    const stage = await readStage(stageId);
     const draft = stage.content.draft;
-    transform(draft);
-    expect((await page.request.put(path, { headers, data: { operationId: randomUUID(), expectedRevision: stage.revision, sourceStageRevisions: stage.sourceStageRevisions, content: { ...stage.content, draft } } })).ok()).toBe(true);
+    const saved = await page.request.put(stagesPath + stageId, { headers, data: { operationId: randomUUID(),
+      expectedRevision: stage.revision, sourceStageRevisions: stage.sourceStageRevisions,
+      content: { ...stage.content, draft: transform(draft) ?? draft } } });
+    expect(saved.ok()).toBe(true);
+    return (await readStage(stageId)).revision as number;
   }
+
+  async function uploadIdeaImage(name: string) {
+    const buffer = await readFile(resolve("e2e/fixtures/aidt-v2", name));
+    const sha256 = createHash("sha256").update(buffer).digest("hex");
+    const meta = files.operations.uploadArtifact.in.parse({ projectId, agendaSegmentId: null,
+      files: [{ filename: name, sizeBytes: buffer.length, sha256 }], confidential: false,
+      visibilityScope: "org-wide", onDuplicate: "use-existing" });
+    const uploaded = await page.request.post("/__fullstack_api/projects/" + projectId + "/artifacts/upload", { headers,
+      multipart: { meta: JSON.stringify(meta), files: { name, mimeType: "image/png", buffer } } });
+    expect(uploaded.status()).toBe(201);
+    const { runs } = files.operations.uploadArtifact.out.parse(await uploaded.json());
+    expect(runs).toHaveLength(1);
+    const runId = runs[0]!.ingestionRunId;
+    const original = await page.request.get("/__fullstack_api" + aidtResearchContentPath({ projectId, runId }), { headers });
+    expect(original.ok()).toBe(true);
+    expect(await original.body()).toEqual(buffer);
+    expect(original.headers()["x-content-sha256"]).toBe(sha256);
+    expect(original.headers()["x-artifact-id"]).toBe(runs[0]!.artifactId);
+    return AidtResearchMaterial.parse({ projectId, runId, artifactId: runs[0]!.artifactId,
+      versionId: original.headers()["x-artifact-version-id"], mime: original.headers()["content-type"]?.split(";")[0],
+      name, sha256, bytes: buffer.length });
+  }
+
+  let pinnedSource: { revision: number; ideaIds: string[]; title: string } | undefined;
   for (const [step, kind] of [[1, "问题"], [1, "问题"], [3, "意外发现"], [4, "点子"], [4, "头脑风暴"], [5, "原型"]] as const) {
     const title = kind + randomUUID().slice(0, 6);
     const directory = pathname + "?step=" + step;
@@ -563,10 +598,39 @@ test("directory creation saves named problems, findings, ideas and native Design
       draft.fields.definitionHmwId = "hmw-primary";
       draft.fields.hmw = "如何帮助学生挑选饮料？";
     });
-    if (step === 5) await seedSourceStage(4, draft => {
-      for (const idea of draft.ideas) idea.description = "制作比较卡";
-      draft.fields.ideaHandoffIds = JSON.stringify(draft.ideas.map(idea => idea.id));
-    });
+    if (step === 5) {
+      await page.goto(directory);
+      await page.getByTestId("aidt-new-entity-card").click();
+      const incomplete = page.getByRole("dialog", { name: "新建原型" });
+      await incomplete.getByRole("textbox", { name: "原型名称" }).fill(title);
+      await expect(incomplete.getByRole("checkbox")).toHaveCount(0);
+      await expect(incomplete.getByRole("button", { name: "创建原型" })).toBeDisabled();
+      await incomplete.getByRole("button", { name: "取消" }).click();
+
+      const images: Awaited<ReturnType<typeof uploadIdeaImage>>[] = [];
+      for (const name of ["I1-分区牌.png", "I2-同伴指路.png", "I3-号码牌.png"]) images.push(await uploadIdeaImage(name));
+      const { content: { draft } } = await readStage(4) as { content: { draft: AidtUiStageDraft } };
+      expect(draft.ideas).toHaveLength(1);
+      const selected = draft.ideas[0]!;
+      const source = readAidtIdeaHmwSource(draft, selected.id);
+      expect(source).toMatchObject({ id: "hmw-second", text: "如何预估等候时间？", revision: expect.any(Number) });
+      const ideas = [
+        { ...selected, description: "在窗口上方贴出分区牌。学生能看懂去哪里排队。" },
+        { id: randomUUID(), title: "同伴指路", description: "安排志愿者在入口帮忙。初次到访的学生可以询问队伍方向。" },
+        { id: randomUUID(), title: "号码牌", description: "向等候者发放号码牌。学生可以比较叫号与自己的顺序。" },
+      ];
+      const revision = await seedSourceStage(4, current => {
+        let reviewed: AidtUiStageDraft = { ...current, ideas, fields: { ...current.fields, ideaHmwSource: JSON.stringify(source),
+          ...Object.fromEntries(ideas.map((idea, index) => ["ideaFile:" + idea.id, JSON.stringify(images[index])])) } };
+        for (const idea of ideas) reviewed = confirmAidtIdeaFromChat(reviewed, idea.id, idea.description);
+        reviewed = setAidtIdeaCategory(reviewed, selected.id, "easy", true);
+        reviewed = setAidtIdeaClassificationReason(reviewed, selected.id, "纸质分区牌可就地布置。");
+        reviewed = confirmAidtIdeaClassification(reviewed);
+        return { ...reviewed, fields: { ...reviewed.fields, ideaSheetIds: JSON.stringify(ideas.map(idea => idea.id)),
+          ideaHandoffIds: JSON.stringify([selected.id]) } };
+      });
+      pinnedSource = { revision, ideaIds: [selected.id], title: selected.title };
+    }
     await page.goto(directory);
     if (kind === "点子") await page.getByRole("button", { name: "新建点子", exact: true }).click();
     else if (kind === "头脑风暴") await page.getByRole("region", { name: "头脑风暴", exact: true }).getByTestId("aidt-new-entity-card").click();
@@ -581,6 +645,11 @@ test("directory creation saves named problems, findings, ideas and native Design
         await dialog.getByRole("combobox", { name: "HMW", exact: true }).selectOption("hmw-second");
         await dialog.getByRole("combobox", { name: "发散方法" }).selectOption("reverse");
         await dialog.getByRole("spinbutton", { name: "希望探索的点子数" }).fill("7");
+      }
+      if (step === 5) {
+        const choices = dialog.getByRole("group", { name: "来源点子" });
+        await expect(choices.getByRole("checkbox")).toHaveCount(1);
+        await expect(choices.getByRole("checkbox", { name: pinnedSource!.title })).toBeChecked();
       }
       const screenshot = kind === "头脑风暴" ? "stage-4-brainstorm-dialog.png" : "stage-" + step + "-creation-dialog.png";
       await page.screenshot({ path: test.info().outputPath(screenshot) });
@@ -615,6 +684,12 @@ test("directory creation saves named problems, findings, ideas and native Design
       if (kind === "头脑风暴") {
         expect(JSON.parse(stage.content.draft.fields["ideaBrainstorm:" + id])).toMatchObject({ id, title, source: hmw, method: "reverse", count: 7 });
       } else expect(JSON.parse(stage.content.draft.fields["ideaHmwSource:" + id])).toEqual(hmw);
+    }
+    if (step === 5) {
+      const entityDraft = readAidtPrototypeEntityDraft((await readStage(5)).content.draft, id);
+      expect(entityDraft && readAidtPrototypeInputSelection(entityDraft)).toEqual({
+        revision: pinnedSource!.revision, ideaIds: pinnedSource!.ideaIds,
+      });
     }
     expect(threads.has(thread)).toBe(false);
     threads.add(thread);
