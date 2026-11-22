@@ -34,13 +34,14 @@ test('native command is explicit, retains isolation and heavy-browser tokens, an
 
 test('only the opt-in mode forwards the four exact nonsecret flags and source selector', () => {
   const env = environment({ GH_TOKEN: 'secret-must-not-enter', GITHUB_TOKEN: 'secret-must-not-enter', MODEL_API_KEY: 'secret-must-not-enter',
-    WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: 'secret-must-not-enter', NEXT_PUBLIC_ENABLE_AIDT_ENTITY_CHAT: '1' });
+    WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: 'secret-must-not-enter', NEXT_PUBLIC_ENABLE_AIDT_ENTITY_CHAT: '1', AIDT_AGENT_QA_REVIEW: 'true' });
   const native = runtimeArgs({ ...inputs, env, aidtNative: true });
   for (const key of AIDT_NATIVE_FLAGS) assert(native.includes(`${key}=1`));
   assert(native.includes(`AIDT_NATIVE_EXPECTED_SOURCE_SHA=${source}`));
   assert(!native.join(' ').includes('secret-must-not-enter'));
   assert(!native.includes('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN'));
   assert(!native.join(' ').includes('AIDT_ENTITY_CHAT'));
+  assert(!native.join(' ').includes('AIDT_AGENT_QA_REVIEW'));
   for (const mode of [{}, { geometry: true }, { sticky: true }, { directory: true }, { coreLoop: true }, { partition: 'product' }, { partition: 'board' }]) {
     const ordinary = runtimeArgs({ ...inputs, env, ...mode });
     for (const key of [...AIDT_NATIVE_FLAGS, 'AIDT_NATIVE_EXPECTED_SOURCE_SHA']) assert(!ordinary.some(arg => arg === key || arg.startsWith(key + '=')));
