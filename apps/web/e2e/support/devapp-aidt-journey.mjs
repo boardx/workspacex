@@ -773,7 +773,18 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     await click(page.getByTestId('chat-task-workbench-inspector-tab-materials'));
     const materials = page.getByRole('region', { name: '授权和访谈材料' });
     await expect(materials).toBeVisible();
-    await page.getByLabel('已获授权共享文字记录', { exact: true }).check(); await saveInterviewEdit(() => click(btn('更新授权记录')));
+    const photoFile = code === 'U01' ? `qa-${unique}-${code}-photo-sample.png` : null;
+    await page.getByLabel('已获授权共享文字记录', { exact: true }).check();
+    if (photoFile) await page.getByLabel('已获授权共享照片', { exact: true }).check();
+    await saveInterviewEdit(() => click(btn('更新授权记录')));
+    if (photoFile) {
+      const image = schematicPng(unique, 14);
+      await saveInterviewEdit(() => uploaded(`${code}研究原件`, photoFile, image, 'image/png'));
+      await saveInterviewEdit(() => click(btn('用作发现卡照片', materials)));
+      const photo = JSON.parse((await savedStage(2)).content.draft.fields[`discoveryPhoto:${target.entityId}`] ?? '{}');
+      if (photo.name !== photoFile || photo.projectId !== scope.projectId || !photo.versionId
+        || photo.sha256 !== createHash('sha256').update(image).digest('hex')) fail('INTERVIEW_PHOTO_REFERENCE_UNVERIFIED');
+    }
     const quote = `QA-${code}：我在合成情境中先看队列，再决定是否等待。`;
     await saveInterviewEdit(() => uploaded(`${code}研究原件`, `qa-${unique}-${code}.txt`, Buffer.from(`${SYNTHETIC}。run=${unique}\n第1段 ${quote}\n`), 'text/plain'));
     const select = page.getByRole('combobox', { name: '转写原件', exact: true });
@@ -802,8 +813,22 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     await confirmInInterviewChat(btn('确认人物发现卡', actions));
     await output(target);
     const inspector = await readOnlyInterviewOutput();
-    evidence(2).outputs.push({ name: `${code}人物发现卡`, format: 'native finding card; synthetic text, real-person photo missing', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}; software scope only` });
-    await expect(inspector.getByTestId('aidt-interview-finding')).toContainText(projected.headline);
+    const finding = inspector.getByTestId('aidt-interview-finding');
+    await expect(finding).toContainText(projected.headline);
+    await expect(finding.getByText(quote, { exact: false }).first()).toBeVisible();
+    await expect(finding.getByText(projected.context, { exact: true })).toBeVisible();
+    if (photoFile) {
+      const image = finding.getByRole('img', { name: `${code} 的授权访谈照片`, exact: true });
+      await expect(image).toBeVisible();
+      await expect.poll(() => image.evaluate(element => element.naturalWidth)).toBe(240);
+      await expect(finding.getByRole('link', { name: '下载真实原件', exact: true })).toBeVisible();
+      await image.scrollIntoViewIfNeeded();
+      await shot('02-u01-illustrated-finding', 2);
+    } else {
+      await expect(finding.getByText('暂无授权照片。', { exact: true })).toBeVisible();
+      await expect(finding.getByRole('img')).toHaveCount(0);
+    }
+    evidence(2).outputs.push({ name: `${code}人物发现卡`, format: photoFile ? 'native finding card; synthetic text and schematic' : 'native finding card; synthetic text, photo missing', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}; software scope only` });
     recordInterviewIteration(firstFinding, projected.headline, `${code}人物发现卡`, target);
     Object.assign(interview, { quote, materialName: `qa-${unique}-${code}.txt`, hasMaterial: true });
   };

@@ -85,6 +85,14 @@ export function readAidtInterviewMaterials(fields: Readonly<Record<string, strin
   });
 }
 
+export function readAidtInterviewPhoto(draft: AidtUiStageDraft, interview: AidtInterview, projectId: string) {
+  if (!interview.consent?.photos) return undefined;
+  const selected = parseAidtResearchMaterial(draft.fields[researchMaterialKey("photo", interview.id)]);
+  if (!selected || !isAidtResearchImage(selected)) return undefined;
+  const identity = JSON.stringify(selected);
+  return readAidtInterviewMaterials(draft.fields, interview.id, projectId).find(item => JSON.stringify(item.reference) === identity);
+}
+
 export function readAidtInterviewTranscript(fields: Readonly<Record<string, string>>, id: string) {
   return parse(Transcript, fields[transcriptKey(id)]);
 }
@@ -109,7 +117,8 @@ export function writeAidtInterviewMaterial(draft: AidtUiStageDraft, id: string, 
     const photoKey = researchMaterialKey("photo", id);
     const sourceKey = researchMaterialKey("source", id);
     const removed = fields[key];
-    if (removed && fields[photoKey] === removed) {
+    const removedPhoto = parseAidtResearchMaterial(removed);
+    if (removedPhoto && JSON.stringify(parseAidtResearchMaterial(fields[photoKey])) === JSON.stringify(removedPhoto)) {
       delete fields[photoKey];
       draft = { ...draft, discoveryCards: (draft.discoveryCards ?? []).map(card => card.id === id ? { ...card, photoRef: "" } : card) };
     }
@@ -143,6 +152,7 @@ export function writeAidtInterview(draft: AidtUiStageDraft, interview: AidtInter
       ...card,
       participantCode: value.data.code,
       photoRef: value.data.consent?.photos ? card.photoRef : "",
+      photoAttachment: value.data.consent?.photos ? card.photoAttachment : undefined,
     } : card),
   };
 }
@@ -209,8 +219,9 @@ export function confirmAidtInterviewFinding(draft: AidtUiStageDraft, id: string,
   } };
 }
 
-export function setAidtInterviewPhoto(draft: AidtUiStageDraft, interview: AidtInterview, key: string, projectId: string) {
-  if (!interview.consent?.photos) return draft;
+export function setAidtInterviewPhoto(draft: AidtUiStageDraft, interviewId: string, key: string, projectId: string) {
+  const interview = parse(Interview, draft.fields[recordKey(interviewId)]);
+  if (!interview?.consent?.photos || isAidtInterviewArchived(draft.fields, interviewId)) return draft;
   const material = readAidtInterviewMaterials(draft.fields, interview.id, projectId).find(item => item.key === key);
   if (key && (!material || !isAidtResearchImage(material.reference))) return draft;
   const next = writeAidtInterviewFinding(draft, interview, { photoRef: material?.reference.name ?? "" });

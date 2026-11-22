@@ -6,7 +6,7 @@ import { AidtChatEmptyState } from "@/features/aidt/components/aidt-chat-empty-s
 import { AIDT_STEPS } from "@/features/aidt/lib/project-aidt";
 import { AidtInterviewOutput } from "@/features/aidt/components/aidt-interview-output";
 import { emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
-import { writeAidtInterview, readAidtInterviews, aidtInterviewMaterialKey, type AidtInterview } from "@/features/aidt/lib/aidt-interviews";
+import { writeAidtInterview, writeAidtInterviewFinding, readAidtInterviews, aidtInterviewMaterialKey, setAidtInterviewPhoto, type AidtInterview } from "@/features/aidt/lib/aidt-interviews";
 
 const interview: AidtInterview = { id: "15c7b5e2-9d0e-4b10-bc47-000000000001", version: 1, code: "U01", original: "", adopted: "", guideConfirmed: false, consent: null, topicRevision: 1, topic: "午休", goal: "" };
 const messages = [{ id: "1", role: "user", content: "你喜欢新品吗？" }, { id: "2", role: "assistant", content: "可以用具体经历来问。\n### 访谈问题清单（草稿）\n- 上次是怎样选择的？\n- 有哪些信息？" }];
@@ -64,4 +64,42 @@ it("resolves only the cited interview's original file from its frozen revision",
   view.rerender(output("source-u02"));
   expect(screen.queryByText("U01原件.txt")).toBeNull();
   expect(screen.getByRole("alert")).toHaveTextContent("无法查看该原件");
+});
+
+it("illustrates only the authorized own-interview photo and uses a checked quote as the headline", () => {
+  const consent = { notes: true, photos: true, audio: false, observedAt: "2026-11-20T04:12:00Z" };
+  const owner = { ...interview, consent };
+  const sibling = { ...owner, id: "15c7b5e2-9d0e-4b10-bc47-000000000002", code: "U02" };
+  const initial = writeAidtInterview(writeAidtInterview(emptyAidtUiDrafts()[2]!, owner), sibling);
+  const result = writeAidtInterviewFinding(initial, owner, {
+    headline: "先看菜单对比", headlineKind: "student-summary", quote: "我会先看口味",
+    context: "午休在菜单前比较两种口味。",
+  });
+  const common = { projectId: "qa", runId: "run", versionId: "v1", sha256: "a".repeat(64), bytes: 42 };
+  const source = aidtInterviewMaterialKey(owner.id, "transcript");
+  const photo = aidtInterviewMaterialKey(owner.id, "photo");
+  const otherPhoto = aidtInterviewMaterialKey(sibling.id, "photo");
+  result.fields[source] = JSON.stringify({ ...common, artifactId: "source-u01", name: "U01原件.txt", mime: "text/plain" });
+  result.fields[photo] = JSON.stringify({ ...common, artifactId: "photo-u01", name: "U01现场.png", mime: "image/png" });
+  result.fields[otherPhoto] = JSON.stringify({ ...common, artifactId: "photo-u02", name: "U02现场.png", mime: "image/png" });
+  result.fields["interviewTranscript:" + owner.id] = JSON.stringify({ sourceKey: source, checked: true, locator: "01:42", text: "我会先看口味" });
+  expect(setAidtInterviewPhoto(result, owner.id, otherPhoto, "qa")).toBe(result);
+  const illustrated = setAidtInterviewPhoto(result, owner.id, photo, "qa");
+  const view = render(<AidtInterviewOutput projectId="qa" entityId={owner.id} draft={illustrated} />);
+  expect(screen.getByText("U01现场.png")).toBeVisible();
+  expect(screen.queryByText("U02现场.png")).toBeNull();
+  expect(screen.getByText("“我会先看口味”")).toBeVisible();
+  expect(screen.getByText("午休在菜单前比较两种口味。")).toBeVisible();
+
+  const unchecked = { ...illustrated, fields: { ...illustrated.fields, ["interviewTranscript:" + owner.id]:
+    JSON.stringify({ sourceKey: source, checked: false, locator: "01:42", text: "我会先看口味" }) } };
+  view.rerender(<AidtInterviewOutput projectId="qa" entityId={owner.id} draft={unchecked} photoAllowed={false} />);
+  expect(screen.queryByText("U01现场.png")).toBeNull();
+  expect(screen.getByText("暂无授权照片。")).toBeVisible();
+  expect(screen.queryByText("“我会先看口味”")).toBeNull();
+  expect(screen.getByText("学生概括")).toBeVisible();
+  expect(screen.getByText("先看菜单对比")).toBeVisible();
+
+  const revoked = writeAidtInterview(illustrated, { ...owner, consent: { ...consent, photos: false } });
+  expect(setAidtInterviewPhoto(revoked, owner.id, photo, "qa")).toBe(revoked);
 });

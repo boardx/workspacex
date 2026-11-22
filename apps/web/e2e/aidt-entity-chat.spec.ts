@@ -228,7 +228,7 @@ test("ten interviews bind to ten native conversations and reopening never copies
 test.describe("recording evidence in the interview Chat", () => {
   test.use({ permissions: ["microphone"] });
 
-  test("a saved WAV and a checked excerpt become a sourced finding without entering the outcome form", async ({ page }) => {
+  test("authorized photo and checked recording make an illustrated, versioned finding card", async ({ page }) => {
     test.setTimeout(180_000);
     await page.goto("/login");
     await page.getByTestId("login-email").fill(FULLSTACK_E2E.leadEmail);
@@ -258,7 +258,7 @@ test.describe("recording evidence in the interview Chat", () => {
     const fields = Object.fromEntries([first, sibling].map((id, index) => ["interviewRecord:" + id,
       JSON.stringify({ version: 1, id, code: "U0" + (index + 1), topicRevision: 1, topic, goal: "了解选择",
         original: "怎么选饮料？", adopted: "上次怎么选的？", guideConfirmed: true,
-        consent: { notes: true, photos: false, audio: true, capture: true, asr: false, observedAt: new Date().toISOString() } })]));
+        consent: { notes: true, photos: true, audio: true, capture: true, asr: false, observedAt: new Date().toISOString() } })]));
     const endpoint = projectStages + "/2";
     expect((await page.request.put(endpoint, { headers, data: { operationId: randomUUID(), expectedRevision: 0,
       sourceStageRevisions: [], content: { schemaVersion: 1, draft: { fields, selectedIdeaId: "", ideas: [] } } } })).ok()).toBe(true);
@@ -273,7 +273,8 @@ test.describe("recording evidence in the interview Chat", () => {
     await page.getByRole("button", { name: "停止录音" }).click();
     await expect(page.locator("audio").first()).toBeAttached();
     await page.getByRole("button", { name: "保存本次录音原件" }).click();
-    const head = async () => (await (await page.request.get(endpoint, { headers })).json()).stage.content.draft;
+    const stage = async () => (await (await page.request.get(endpoint, { headers })).json()).stage;
+    const head = async () => (await stage()).content.draft;
     await expect.poll(async () => Object.keys((await head()).fields).some(key => key.startsWith("captured:interviewMaterial:" + first + ":"))).toBe(true);
     await page.reload();
     await materials();
@@ -287,6 +288,26 @@ test.describe("recording evidence in the interview Chat", () => {
     await page.getByLabel("校对后的摘录").fill("我先看口味");
     await page.getByLabel("已对照原始材料校对").check();
     await expect.poll(async () => JSON.parse((await head()).fields["interviewTranscript:" + first] || "{}").checked).toBe(true);
+    const photoName = "U01-合成现场照片.png";
+    const photoData = await page.evaluate(() => {
+      const canvas = Object.assign(document.createElement("canvas"), { width: 720, height: 420 });
+      const fixture = canvas.getContext("2d")!;
+      fixture.fillStyle = "#f3dbc9";
+      fixture.fillRect(0, 0, canvas.width, canvas.height);
+      fixture.fillStyle = "#763d4a";
+      fixture.fillRect(200, 55, 320, 310);
+      fixture.fillStyle = "white";
+      fixture.font = "30px sans-serif";
+      fixture.fillText("合成测试 · 饮料菜单", 218, 117);
+      for (const y of [155, 210, 265]) fixture.fillRect(241, y, 237, 15);
+      return canvas.toDataURL("image/png").split(",")[1]!;
+    });
+    await page.getByLabel("U01研究原件选择文件").setInputFiles({
+      name: photoName, mimeType: "image/png", buffer: Buffer.from(photoData, "base64"),
+    });
+    await page.getByRole("button", { name: "保存原始材料", exact: true }).click();
+    await page.getByRole("button", { name: "用作发现卡照片", exact: true }).click();
+    await expect.poll(async () => JSON.parse((await head()).fields["discoveryPhoto:" + first] || "{}").name).toBe(photoName);
     await sendViaWorkbench(page, "合成访谈验收：她在菜单前比较口味。请整理本次发现。");
     await expect.poll(async () => (await head()).discoveryCards?.[0]?.sourceRef, { timeout: 60_000 }).toContain("00:01");
     await page.goto(url);
@@ -296,9 +317,38 @@ test.describe("recording evidence in the interview Chat", () => {
     await expect(output).toContainText("我先看口味");
     await expect(output).toContainText("00:01");
     await expect(output.getByRole("textbox")).toHaveCount(0);
+    await expect(output.getByText("受访者原话", { exact: true })).toBeVisible();
+    const photo = output.getByRole("img", { name: "U01 的授权访谈照片" });
+    await expect(photo).toBeVisible();
+    await expect.poll(() => photo.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBe(720);
+    const download = page.waitForEvent("download");
+    await output.getByRole("link", { name: "下载真实原件" }).click();
+    expect((await download).suggestedFilename()).toBe(photoName);
+    await output.locator("article").screenshot({ path: test.info().outputPath("illustrated-discovery-card.png") });
     await page.screenshot({ path: test.info().outputPath("sourced-recording-finding.png") });
+
+    const savedStage = await stage();
+    const photoArtifact = JSON.parse(savedStage.content.draft.fields["discoveryPhoto:" + first]).artifactId;
+    const history = url + "&entityRevision=" + savedStage.revision + "&sourceId=" + encodeURIComponent(photoArtifact);
+    await page.goto(history);
+    await expect(photo).toBeVisible();
+
     await openInterview(page, path + "?step=2&entity=" + sibling + "&tool=outcome");
     await expect(page.getByTestId("aidt-interview-finding")).not.toContainText("我先看口味");
+    await expect(page.getByTestId("aidt-interview-finding").getByText("暂无授权照片。")).toBeVisible();
+    await expect(photo).toHaveCount(0);
+
+    await openInterview(page, url);
+    await materials();
+    await page.getByRole("checkbox", { name: "已获授权共享照片" }).uncheck();
+    await page.getByRole("button", { name: "更新授权记录" }).click();
+    await expect.poll(async () => (await head()).fields["discoveryPhoto:" + first] || "").toBe("");
+    await page.goto(history);
+    await expect(page.getByTestId("aidt-entity-history").getByRole("alert")).toHaveText("此访谈版本无法查看该原件。");
+    await expect(photo).toHaveCount(0);
+    await page.goto(url);
+    await expect(output.getByText("暂无授权照片。")).toBeVisible();
+    await expect(photo).toHaveCount(0);
   });
 });
 
