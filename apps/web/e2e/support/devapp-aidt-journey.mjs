@@ -807,7 +807,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
   let interviewDirectory;
   const state = { s1: false, s2: false, s3: false, s4: false, s5: false, s6: false, interviews: [] };
   let step2Href, step3Href, step4Href, step5Href, step6Href, problemHref, problemRoute, personaHref, designId;
-  let firstQuestion, originalProblemDraft, confirmedProblem, diagnosticStep2Href;
+  let firstQuestion, originalProblemDraft, confirmedProblem, diagnosticStep2Href, confirmedPrototype;
   let problemDraftReady = false;
   const problemInitial = text('想了解校园午休中，赶课与闲暇两种情境如何影响饮品选择的犹豫。');
   // Fixed enums/booleans/bounded counts only: no request, URL query, account or error-stack material.
@@ -1753,33 +1753,51 @@ ${JSON.stringify(studentInputs)}`);
     const nextLink = page.getByTestId('aidt-stage-next');
     await expect(nextLink).toBeVisible();
     step6Href = owned(await nextLink.getAttribute('href'));
-    if (new URL(step6Href).searchParams.get('prototypeEntity') !== designId || Number(new URL(step6Href).searchParams.get('prototypeRevision')) !== await revision(5)) fail('S5_HANDOFF_VERSION_MISMATCH');
+    const confirmedStage5Revision = await revision(5);
+    if (new URL(step6Href).searchParams.get('prototypeEntity') !== designId || Number(new URL(step6Href).searchParams.get('prototypeRevision')) !== confirmedStage5Revision) fail('S5_HANDOFF_VERSION_MISMATCH');
+    confirmedPrototype = Object.freeze({ designId, versionId: prototype.versionId, stage5Revision: confirmedStage5Revision });
     await shot('05-prototype-question-version', 5); await completed(5); await output(designRoute);
     report.designGenerationAndVersionWorkflowVerified = true;
     report.designProviderIndependentlyVerified = false;
   }, '05-prototype');
 
   state.s6 = await check('s6-test-reflection', 6, async () => {
-    if (!state.s5 || !step6Href) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
+    if (!state.s5 || !step6Href || !confirmedPrototype) { await go(6); fail('S5_REAL_VERSION_HANDOFF_REQUIRED'); }
     let interviewTarget;
     for (const [method, label] of [['interview', '线下访谈'], ['survey', '问卷']]) {
       await page.goto(owned(step6Href)); await click(page.getByTestId('aidt-new-entity-card'));
       const dialog = page.getByRole('dialog', { name: '新建测试卡片' });
       await fill('测试名称', `QA合成${label} ${unique}`, dialog);
       await expect(dialog).toContainText('原型');
+      const researchPath = method === 'survey' ? 'survey' : 'offline';
+      const pathPicker = dialog.getByRole('combobox', { name: '研究路径', exact: true });
+      const sourceCheck = dialog.getByRole('checkbox', { name: '确认使用所选原型的已保存版本开展本轮研究', exact: true });
+      const create = btn('创建测试卡片', dialog);
+      await expect(pathPicker).toHaveValue('');
+      await expect(sourceCheck).not.toBeChecked();
+      await expect(create).toBeDisabled();
+      await pathPicker.selectOption(researchPath);
+      await expect(create).toBeDisabled();
+      await click(btn('预览所选原型版本', dialog));
+      const preview = dialog.getByRole('region', { name: '被测原型预览', exact: true });
+      await expect(preview).toContainText(`固定版本 ${confirmedPrototype.versionId}`);
+      await expect(dialog).toContainText(`Design ${confirmedPrototype.designId} · 版本 ${confirmedPrototype.versionId}`);
+      await expect(dialog).toContainText(`第 5 步 V${confirmedPrototype.stage5Revision}`);
+      await sourceCheck.check();
+      await expect(create).toBeEnabled();
       const { target: testTarget } = await captureCardCreation(6, 'test', () => click(btn('创建测试卡片', dialog)), { reopen: true, example: method + '-test', expectedName: `QA合成${label} ${unique}` });
       await output(testTarget);
       const detail = page.getByTestId('aidt-test-group-detail');
       await expect(detail.getByRole('textbox')).toHaveCount(0);
       const actions = page.getByTestId('aidt-test-chat-confirmation');
       await disclosure('关联测试材料');
-      const methodField = actions.getByRole('combobox', { name: '测试方式', exact: true });
+      const sources = page.getByTestId('aidt-test-group-sources');
+      await expect(sources.getByRole('combobox', { name: '研究路径', exact: true })).toHaveValue(researchPath);
       const saveSource = async action => {
         armCardCreate(6);
         const [response] = await Promise.all([page.waitForResponse(row => row.url() === origin + '/api/projects/' + scope.projectId + '/aidt/stages/6' && row.request().method() === 'PUT'), action()]);
         if (response.status() !== 200) fail('TEST_MATERIAL_WRITE_UNVERIFIED');
       };
-      if (await methodField.inputValue() !== method) await saveSource(() => methodField.selectOption(method));
       const initialPlan = text(`本组准备通过${label}观察学生读懂队列提示的情况。我们的初始测试问题是：你会从哪里开始看？接下来想做什么？请根据这个实体的验证问题整理成不诱导的测试计划，保留我们的测试方式，目前尚未采集反馈。`);
       if (!await feedback(6, initialPlan, undefined, false, false, true)) fail('TEST_PLAN_REPLY_REQUIRED');
       const planProof = report.teachingEvidence.find(item => item.stageId === 6 && item.entityId === testTarget.entityId && item.prompt === initialPlan && item.status === 'passed');
@@ -1801,7 +1819,8 @@ ${JSON.stringify(studentInputs)}`);
       await output(testTarget);
       const fields = (await savedStage(6)).content.draft.fields;
       const testRecord = JSON.parse(fields['testGroup:' + testTarget.entityId]);
-      if (testRecord.method !== method || testRecord.designId !== designId || !testRecord.versionId || !proof || testRecord.confirmedFromMessageId !== proof.assistantMessageId || !testRecord.task?.trim() || !testRecord.reflection?.trim() ||
+      if (testRecord.method !== method || testRecord.researchPath !== researchPath || testRecord.designId !== confirmedPrototype.designId
+          || testRecord.versionId !== confirmedPrototype.versionId || testRecord.stage5Revision !== confirmedPrototype.stage5Revision || !proof || testRecord.confirmedFromMessageId !== proof.assistantMessageId || !testRecord.task?.trim() || !testRecord.reflection?.trim() ||
           fields.reflectionConfirmed !== 'true' || fields.understandingChangeStatus !== 'insufficient' || fields.returnStep !== '2') fail('TEST_NATIVE_ROUND_UNVERIFIED');
       if (method === 'survey') {
         if (testRecord.did || testRecord.source?.kind !== 'survey' || testRecord.source.id !== surveyReceipt().id || testRecord.surveyResponseId !== surveyReceipt().responseId) fail('NATIVE_SURVEY_RESPONSE_REQUIRED');
