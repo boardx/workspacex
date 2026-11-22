@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { bootstrapOrdinaryQaIdentity, QaIdentityError } from '../../apps/web/e2e/support/devapp-aidt-qa-identity.mjs';
+import { bootstrapOrdinaryQaIdentity, consumeReusableQaCredentials, QaIdentityError } from '../../apps/web/e2e/support/devapp-aidt-qa-identity.mjs';
 const ORIGIN = 'https://devapp.boardx.us';
 const adminCredentials = { email: 'synthetic-admin@example.invalid', password: 'DUMMY_ADMIN_SECRET_NOT_REAL' };
 const linkId = 'oil-' + 'a'.repeat(24), linkToken = 'DUMMY_LINK_SECRET_NOT_REAL_123456789';
@@ -127,4 +127,45 @@ test('receipt callback failure cannot suppress exact known-link cleanup', async 
 test('module contains no filesystem, database, role mutation or remote configuration escape', () => {
   const source = readFileSync(new URL('../../apps/web/e2e/support/devapp-aidt-qa-identity.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /node:fs|node:child_process|console\.|process\.env|storageState\s*:|\.query\(|\/password-reset|\/members\/|tool_permission_grants/);
+});
+
+const reusablePair = { email: 'aidt-qa-' + '1'.repeat(32) + '@example.invalid', password: 'z'.repeat(43) };
+const reusableEnv = pair => ({ AIDT_LIVE_DEV: 'true', AIDT_REUSABLE_ORDINARY_QA: 'true',
+  AIDT_REUSABLE_QA_EMAIL: pair.email, AIDT_REUSABLE_QA_PASSWORD: pair.password });
+
+test('a protected credential pair is consumed once and removed from the child environment', () => {
+  const env = reusableEnv(reusablePair);
+  assert.deepEqual(consumeReusableQaCredentials(env), reusablePair);
+  assert.equal(Object.hasOwn(env, 'AIDT_REUSABLE_QA_EMAIL'), false);
+  assert.equal(Object.hasOwn(env, 'AIDT_REUSABLE_QA_PASSWORD'), false);
+  assert.throws(() => consumeReusableQaCredentials(env), /QA_REUSABLE_CREDENTIALS_UNAVAILABLE/);
+});
+
+test('reuse rejects missing or non-QA credentials and requires opted-in live mode', () => {
+  for (const pair of [{ ...reusablePair, password: undefined }, { ...reusablePair, email: 'member@example.invalid' }]) {
+    const env = reusableEnv(pair);
+    assert.throws(() => consumeReusableQaCredentials(env), /QA_REUSABLE_CREDENTIALS_UNAVAILABLE/);
+    assert.equal(Object.hasOwn(env, 'AIDT_REUSABLE_QA_PASSWORD'), false);
+  }
+  const env = { ...reusableEnv(reusablePair), AIDT_LIVE_DEV: 'false' };
+  assert.throws(() => consumeReusableQaCredentials(env), /QA_IDENTITY_OPT_IN_SCOPE_INVALID/);
+  assert.equal(consumeReusableQaCredentials({ ...reusableEnv(reusablePair), AIDT_REUSABLE_ORDINARY_QA: 'false' }), null);
+});
+
+test('initial provisioning uses only the configured reusable consultant and revokes the one-use invitation', async () => {
+  const f = fixture();
+  f.options.reusableCredentials = reusablePair;
+  const result = await bootstrapOrdinaryQaIdentity(f.options);
+  assert.deepEqual(result.credentials, reusablePair);
+  assert.equal(f.calls[3].options.data.email, reusablePair.email);
+  assert.equal(f.calls[3].options.data.profile.password, reusablePair.password);
+  assert.ok(result.receipt.linkRevoked);
+  assert.equal(JSON.stringify(result).includes(reusablePair.password), false);
+});
+
+test('rejects malformed provisioning override before authenticating the admin', async () => {
+  const f = fixture();
+  f.options.reusableCredentials = { ...reusablePair, password: 'weak-test-override' };
+  await failed(f, 'QA_IDENTITY_INPUT_INVALID');
+  assert.equal(f.calls.length, 0);
 });

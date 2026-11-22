@@ -32,6 +32,10 @@ on:
         description: Explicitly create one dedicated consultant QA through normal one-use organization invitation APIs; credentials remain in memory
         type: boolean
         default: false
+      reusable_ordinary_qa:
+        description: Use the dedicated ordinary QA credentials from the protected Devapp QA environment
+        type: boolean
+        default: false
       agent_qa_review:
         description: Explicit agent-operated software QA review through the fixed source-bound review issue; not human classroom acceptance
         type: boolean
@@ -62,6 +66,7 @@ jobs:
       AIDT_ACCEPTANCE_PROFILE: ${{ inputs.acceptance_profile }}
       AIDT_LIVE_DEV: ${{ inputs.live_dev }}
       AIDT_PROVISION_ORDINARY_QA: ${{ inputs.provision_ordinary_qa }}
+      AIDT_REUSABLE_ORDINARY_QA: ${{ inputs.reusable_ordinary_qa }}
       AIDT_ENTRY_DIAGNOSTIC_ONLY: ${{ inputs.entry_diagnostic_only }}
       AIDT_AGENT_QA_REVIEW: ${{ inputs.agent_qa_review }}
     steps:
@@ -80,7 +85,7 @@ jobs:
           node --test scripts/tests/devapp-aidt-acceptance.test.mjs scripts/tests/devapp-aidt-auth-readonly.test.mjs scripts/tests/devapp-aidt-print-evidence.test.mjs scripts/tests/devapp-aidt-chat-evidence.test.mjs scripts/tests/devapp-aidt-teaching-guard.test.mjs scripts/tests/devapp-aidt-qa-identity.test.mjs scripts/tests/devapp-aidt-navigation.test.mjs scripts/tests/devapp-aidt-native-survey.test.mjs
           node --test scripts/tests/devapp-aidt-v2-profile.test.mjs scripts/tests/devapp-aidt-v2-print.test.mjs scripts/tests/devapp-aidt-v2-integration.test.mjs scripts/tests/devapp-aidt-v2-request-guard.test.mjs scripts/tests/devapp-aidt-v2-action-window.test.mjs scripts/tests/devapp-aidt-v2-ui.test.mjs scripts/tests/devapp-aidt-v2-asr-review.test.mjs scripts/tests/devapp-aidt-v2-s2-asr.test.mjs scripts/tests/devapp-aidt-v2-negative.test.mjs apps/web/e2e/support/devapp-aidt-v2-survey-eight-guard-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-design-source-images-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-crud-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-virtual-normal-flow-independent.test.mjs
           node --test .harness/scripts/ci-aidt-native.test.mjs
-          node --test scripts/tests/devapp-aidt-agent-review.test.mjs
+          node --test scripts/tests/devapp-aidt-agent-review.test.mjs scripts/tests/devapp-aidt-entry-proof.test.mjs
           node --check apps/web/e2e/support/devapp-aidt-acceptance.mjs
           node --check apps/web/e2e/support/devapp-aidt-journey.mjs
           node --check apps/web/e2e/support/devapp-aidt-agent-review.mjs
@@ -170,6 +175,7 @@ jobs:
     if: ${{ inputs.live_dev && github.ref == 'refs/heads/develop' }}
     needs: controls
     runs-on: [self-hosted, linux, x64, workspacex]
+    environment: aidt-devapp-qa
     # Each profile has its own finite wall clock and exact operation/output manifest.
     timeout-minutes: ${{ inputs.acceptance_profile == 'v2-voice-20261122' && 360 || 152 }}
     env:
@@ -178,6 +184,7 @@ jobs:
       AIDT_ACCEPTANCE_PROFILE: ${{ inputs.acceptance_profile }}
       AIDT_LIVE_DEV: ${{ inputs.live_dev }}
       AIDT_PROVISION_ORDINARY_QA: ${{ inputs.provision_ordinary_qa }}
+      AIDT_REUSABLE_ORDINARY_QA: ${{ inputs.reusable_ordinary_qa }}
       AIDT_ENTRY_DIAGNOSTIC_ONLY: ${{ inputs.entry_diagnostic_only }}
       AIDT_AGENT_QA_REVIEW: ${{ inputs.agent_qa_review }}
       DEBUG: ''
@@ -246,6 +253,10 @@ jobs:
         continue-on-error: true
         # A JavaScript action receives the runner's artifact authority in memory; shell steps do not.
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        env:
+          AIDT_REUSABLE_QA_IDENTITY_SHA256: ${{ vars.AIDT_REUSABLE_QA_IDENTITY_SHA256 }}
+          AIDT_REUSABLE_QA_EMAIL: ${{ inputs.reusable_ordinary_qa && secrets.AIDT_REUSABLE_QA_EMAIL || '' }}
+          AIDT_REUSABLE_QA_PASSWORD: ${{ inputs.reusable_ordinary_qa && secrets.AIDT_REUSABLE_QA_PASSWORD || '' }}
         with:
           debug: false
           script: |
@@ -273,9 +284,11 @@ jobs:
             }
             const childEnv = { ...process.env };
             for (const key of ['INPUT_GITHUB-TOKEN', 'INPUT_GITHUB_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN']) delete childEnv[key];
+            const probeEnv = { ...childEnv };
+            for (const key of ['AIDT_REUSABLE_QA_EMAIL', 'AIDT_REUSABLE_QA_PASSWORD']) delete probeEnv[key];
             const declared = fs.readFileSync(path.join(source, '.nvmrc'), 'utf8').trim();
             const probe = spawnSync('node', ['-p', 'JSON.stringify({version:process.versions.node,executable:process.execPath})'], {
-              cwd: source, env: childEnv, encoding: 'utf8', timeout: 10000, maxBuffer: 1024, shell: false,
+              cwd: source, env: probeEnv, encoding: 'utf8', timeout: 10000, maxBuffer: 1024, shell: false,
             });
             let selected;
             try { selected = JSON.parse(probe.stdout); } catch { throw new Error('AIDT_DECLARED_NODE_UNAVAILABLE'); }

@@ -2,6 +2,28 @@
 import { randomBytes } from 'node:crypto';
 import { ORIGIN, ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 
+function validReusableQaCredentialPair(email, password) {
+  return typeof email === 'string' && /^aidt-qa-[a-f0-9]{32}@example\.invalid$/.test(email)
+    && typeof password === 'string' && /^[A-Za-z0-9_-]{43}$/.test(password);
+}
+
+export function reusableQaRequested(env) {
+  const choice = env.AIDT_REUSABLE_ORDINARY_QA;
+  if (choice !== undefined && !['true', 'false'].includes(choice)) throw new ProbeFailure('QA_IDENTITY_OPT_IN_INVALID');
+  if (choice === 'true' && env.AIDT_LIVE_DEV !== 'true') throw new ProbeFailure('QA_IDENTITY_OPT_IN_SCOPE_INVALID');
+  return choice === 'true';
+}
+
+export function consumeReusableQaCredentials(env) {
+  const email = env.AIDT_REUSABLE_QA_EMAIL;
+  const password = env.AIDT_REUSABLE_QA_PASSWORD;
+  delete env.AIDT_REUSABLE_QA_EMAIL;
+  delete env.AIDT_REUSABLE_QA_PASSWORD;
+  if (!reusableQaRequested(env)) return null;
+  if (!validReusableQaCredentialPair(email, password)) throw new ProbeFailure('QA_REUSABLE_CREDENTIALS_UNAVAILABLE');
+  return { email, password };
+}
+
 export const QA_IDENTITY_CODES = Object.freeze([
   'QA_IDENTITY_INPUT_INVALID', 'QA_IDENTITY_CONTEXT_FAILED', 'QA_IDENTITY_TRANSPORT_UNKNOWN',
   'QA_IDENTITY_REDIRECT_REJECTED', 'QA_IDENTITY_RESPONSE_INVALID', 'QA_IDENTITY_HTTP_FAILED',
@@ -26,7 +48,7 @@ export class QaIdentityError extends ProbeFailure {
 }
 
 /** createContext must create a fresh Playwright APIRequestContext, without tracing or storageState. */
-export async function bootstrapOrdinaryQaIdentity({ origin, adminCredentials, createContext, onReceipt = () => {}, onSecret = () => {} }) {
+export async function bootstrapOrdinaryQaIdentity({ origin, adminCredentials, reusableCredentials, createContext, onReceipt = () => {}, onSecret = () => {} }) {
   const receipt = { schemaVersion: 1, kind: 'devapp-aidt-ordinary-qa-bootstrap', authority: 'normal-organization-shared-invitation',
     mailboxOwnershipVerified: false, status: 'running', phase: 'preflight', adminVerified: false, accountAccepted: false, activationOutcome: 'not-attempted',
     consultantVerified: false, linkKnown: false, linkRevoked: false, contextsDisposed: false,
@@ -79,6 +101,11 @@ export async function bootstrapOrdinaryQaIdentity({ origin, adminCredentials, cr
       || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminCredentials.email) || typeof adminCredentials.password !== 'string'
       || adminCredentials.password.length < 1 || adminCredentials.password.length > 1024 || typeof createContext !== 'function'
       || typeof onReceipt !== 'function' || typeof onSecret !== 'function') error('QA_IDENTITY_INPUT_INVALID');
+    if (reusableCredentials !== undefined && (!keys(reusableCredentials, ['email', 'password'])
+      || !validReusableQaCredentialPair(reusableCredentials.email, reusableCredentials.password)
+      || reusableCredentials.email === adminCredentials.email || reusableCredentials.password === adminCredentials.password)) {
+      error('QA_IDENTITY_INPUT_INVALID');
+    }
     secret(adminCredentials.email); secret(adminCredentials.password);
     emit();
     try {
@@ -98,7 +125,8 @@ export async function bootstrapOrdinaryQaIdentity({ origin, adminCredentials, cr
     if (object(invited) && /^oil-[a-f0-9]{24}$/.test(invited.linkId ?? '')) { linkId = invited.linkId; receipt.linkKnown = true; }
     if (!keys(invited, ['linkId', 'status', 'linkToken', 'expiresAt']) || !linkId || invited.status !== 'active' || !token(invited.linkToken)
       || !Number.isFinite(Date.parse(invited.expiresAt)) || Date.parse(invited.expiresAt) <= Date.now()) error('QA_IDENTITY_RESPONSE_INVALID');
-    credentials = { email: `aidt-qa-${randomBytes(16).toString('hex')}@example.invalid`, password: randomBytes(32).toString('base64url') };
+    credentials = reusableCredentials ?? { email: `aidt-qa-${randomBytes(16).toString('hex')}@example.invalid`,
+      password: randomBytes(32).toString('base64url') };
     secret(credentials.email); secret(credentials.password);
     receipt.activationOutcome = 'unknown';
     const activated = await call(activationContext, 'activate', 'activations', '/api/org-invites/activate-via-link',

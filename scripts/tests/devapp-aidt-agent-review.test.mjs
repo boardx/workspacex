@@ -255,8 +255,8 @@ test('public issue transport has one fixed host/path, no auth, no redirects and 
 
 test('main preflights before QA credentials/bootstrap, rechecks runtime, keeps the original evidence verdicts', () => {
   const source = readFileSync(new URL('../../apps/web/e2e/support/devapp-aidt-acceptance.mjs', import.meta.url), 'utf8');
-  assert.ok(source.indexOf('await agentReviewer.preflight()') < source.indexOf('credentials = readQaCredentials()'));
-  assert.ok(source.indexOf('const afterReviewPreflight = runtimeProof(identity)') < source.indexOf('credentials = readQaCredentials()'));
+  assert.ok(source.indexOf('await agentReviewer.preflight()') < source.indexOf('readQaCredentials()'));
+  assert.ok(source.indexOf('const afterReviewPreflight = runtimeProof(identity)') < source.indexOf('readQaCredentials()'));
   assert.ok(source.indexOf('await agentReviewer.preflight()') < source.indexOf('await bootstrapOrdinaryQaIdentity('));
   assert.ok(source.includes('createAnonymousPage, createSurveyParticipant, reviewS1StudentResponse, report'));
   assert.ok(source.includes('agent-operated-software-qa')); assert.ok(source.includes('不是人类课堂或教师教学签核'));

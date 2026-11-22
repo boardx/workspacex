@@ -11,6 +11,7 @@ export const BASELINE_BUNDLE_FILES = Object.freeze([
   'apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs',
   'apps/web/e2e/support/devapp-aidt-survey.mjs',
   'apps/web/e2e/support/devapp-aidt-acceptance.mjs',
+  'apps/web/e2e/support/devapp-aidt-entry-proof.mjs',
   'apps/web/e2e/support/devapp-aidt-journey.mjs',
   'apps/web/e2e/support/devapp-aidt-print-evidence.mjs',
   'apps/web/e2e/support/devapp-aidt-chat-evidence.mjs',

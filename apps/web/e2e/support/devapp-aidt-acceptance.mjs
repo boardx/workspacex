@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { ORIGIN, ProbeFailure, readQaCredentials } from './devapp-aidt-auth-readonly.mjs';
+import { consumeReusableQaCredentials, reusableQaRequested } from './devapp-aidt-qa-identity.mjs';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, SHA } from './devapp-aidt-acceptance-guard.mjs';
 import { captureApplicationPrint } from './devapp-aidt-print-evidence.mjs';
 import { sendTeachingFeedback, validateTeachingEvidence } from './devapp-aidt-chat-evidence.mjs';
@@ -16,6 +17,7 @@ import { createV2AcceptanceGuard } from './devapp-aidt-v2-request-guard.mjs';
 import { probeNativePrintCapabilities, prepareOwnedNativePrint, createNativePrintDriver } from './devapp-aidt-v2-print.mjs';
 import { createV2ActionWindow } from './devapp-aidt-v2-action-window.mjs';
 import { createV2NativeActionObserver, prepareV2NativeExpected } from './devapp-aidt-v2-native-feedback.mjs';
+import { createEntryClock, verifyEntryWorkspace, createEntryPublisher } from "./devapp-aidt-entry-proof.mjs";
 
 export function readV2SyntheticAudioFixture(metadata, identity) {
   const fixture=metadata.syntheticAudioFixture,path='apps/web/e2e/fixtures/aidt-v2/synthetic-prototype-test.wav';
@@ -161,11 +163,20 @@ export function publicEntryDiagnostic(report) {
   return result;
 }
 
+export function reusableQaIdentityFingerprint(identity, configured, provisioning) {
+  if (provisioning ? Boolean(configured) : !/^[a-f0-9]{64}$/.test(configured ?? '')) {
+    throw new ProbeFailure('QA_REUSABLE_IDENTITY_CONFIGURATION_INVALID');
+  }
+  const fingerprint = createHash('sha256').update(JSON.stringify(['devapp-aidt-qa-v1', identity.actor, identity.org])).digest('hex');
+  if (!provisioning && fingerprint !== configured) throw new ProbeFailure('QA_REUSABLE_IDENTITY_MISMATCH');
+  return fingerprint;
+}
+
 export function ordinaryQaProvisioningRequested(env, identity) {
   const choice = env.AIDT_PROVISION_ORDINARY_QA;
   if (choice !== undefined && !['false', 'true'].includes(choice)) throw new ProbeFailure('QA_IDENTITY_OPT_IN_INVALID');
   if (choice !== 'true') return false;
-  if (env.AIDT_LIVE_DEV !== 'true' || identity.entryDiagnosticOnly) throw new ProbeFailure('QA_IDENTITY_OPT_IN_SCOPE_INVALID');
+  if (env.AIDT_LIVE_DEV !== 'true' || (identity.entryDiagnosticOnly && !reusableQaRequested(env))) throw new ProbeFailure('QA_IDENTITY_OPT_IN_SCOPE_INVALID');
   return true;
 }
 
@@ -395,6 +406,16 @@ export async function main() {
     // A full writer may not spend an account or model call before its actual reviewer channel is ready.
     if (!identity.entryDiagnosticOnly && !agentQaRequested) throw new ProbeFailure('S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED');
     const provisionOrdinaryQa = ordinaryQaProvisioningRequested(process.env, identity);
+    const reusableCredentials = consumeReusableQaCredentials(process.env);
+    const configuredBinding = process.env.AIDT_REUSABLE_QA_IDENTITY_SHA256;
+    if (reusableCredentials && (provisionOrdinaryQa ? Boolean(configuredBinding) : !/^[a-f0-9]{64}$/.test(configuredBinding ?? ''))) {
+      throw new ProbeFailure('QA_REUSABLE_IDENTITY_CONFIGURATION_INVALID');
+    }
+    if (reusableCredentials) {
+      sensitiveEvidence.remember(reusableCredentials.email);
+      sensitiveEvidence.remember(reusableCredentials.password);
+      report.qaCredentialSource = 'protected-devapp-environment';
+    }
     if (provisionOrdinaryQa) report.scope = 'Setup: one dedicated synthetic consultant account through one bounded organization invitation lifecycle. Student business writes and screenshots: new owned QA project only; setup counts are separate.';
     report.controlSource = process.env.GITHUB_SHA;
     report.executionMode = identity.entryDiagnosticOnly ? 'entry-diagnostic-readonly' : 'agent-operated-software-qa';
@@ -442,14 +463,14 @@ export async function main() {
       ({ browser, context } = prepared); nativeDriver = prepared.driver; nativeRuntime = prepared.ownedRuntime;
       report.nativePrintCapability = prepared.capability; report.browser = { name: 'Chromium', version: browser.version(), playwrightVersion: metadata.playwrightVersion, headless: prepared.headless };
     }
-    credentials = readQaCredentials();
+    credentials = reusableCredentials && !provisionOrdinaryQa ? reusableCredentials : readQaCredentials();
     sensitiveEvidence.remember(credentials.email); sensitiveEvidence.remember(credentials.password);
     if (provisionOrdinaryQa) {
       stage = 'ordinary-qa-bootstrap';
       const { bootstrapOrdinaryQaIdentity } = await import('./devapp-aidt-qa-identity.mjs');
       const setupStartedUTC = new Date().toISOString(), setupTick = performance.now();
       try {
-        const created = await bootstrapOrdinaryQaIdentity({ origin: ORIGIN, adminCredentials: credentials,
+        const created = await bootstrapOrdinaryQaIdentity({ origin: ORIGIN, adminCredentials: credentials, reusableCredentials: reusableCredentials ?? undefined,
           createContext: options => request.newContext(options),
           onSecret: value => sensitiveEvidence.remember(value),
           onReceipt: receipt => { report.qaProvisioning = receipt; },
@@ -616,18 +637,29 @@ export async function main() {
     const me = await api(page, 'GET', `/api/identity/me?orgId=${encodeURIComponent(guard.identity().org)}`);
     report.actor = guard.readIdentityRole(me.status, me.data);
     await expect(page.getByTestId('aidt-home')).toBeVisible();
+    if (provisionedIdentity) { assertProvisionedOrdinaryQa(provisionedIdentity, guard.identity(), me.status, me.data); report.provisionedUiIdentityVerified = true; }
+    if (reusableCredentials && (!report.actor.ordinaryConsultant || me.data?.org?.kind !== 'organization')) {
+      throw new ProbeFailure('ORDINARY_QA_CONSULTANT_REQUIRED');
+    }
+    if (reusableCredentials) {
+      const fingerprint = reusableQaIdentityFingerprint(guard.identity(), configuredBinding, provisionOrdinaryQa);
+      if (provisionedIdentity) report.qaEnrollmentFingerprint = fingerprint;
+      report.reusableQaUiIdentityVerified = true;
+    }
     if (identity.entryDiagnosticOnly) {
       report.kind = 'devapp-aidt-entry-diagnostic-v1';
       const visible = await page.getByTestId('aidt-new').isVisible();
       await capture('00-home-create-actions', undefined, 'home-create-actions');
       report.entryDiagnostic = { completed: true, orgRole: report.actor.orgRole, creationEntryVisible: visible,
         ordinaryQaSuitable: report.actor.ordinaryConsultant, missingEntryReproduced: report.actor.ordinaryConsultant && !visible,
-        writesOtherThanLogin: 0, scope: 'read-only entry observation; not creation or six-stage acceptance' };
+        projectWrites: 0, writesOtherThanLogin: 0, scope: provisionOrdinaryQa ? 'one invitation setup, followed by read-only project home' : 'read-only entry observation; not creation or six-stage acceptance' };
       report.passed = true;
       return;
     }
-    if (provisionedIdentity) { assertProvisionedOrdinaryQa(provisionedIdentity, guard.identity(), me.status, me.data); report.provisionedUiIdentityVerified = true; }
     guard.verifyOrdinaryIdentity(me.status, me.data);
+    // ENTRY-01 is the first checkpoint in this writer; preserve this same context for S1.
+    const entryClock = createEntryClock(), entryObservations = [], entryScreenshots = [];
+    let entryTiming;
     const homeCreated = await checkpoint('homepage-ui-create-persist', async () => {
       await capture('00-home-create-actions', undefined, 'home-create-actions');
       await expect(page.getByTestId('aidt-new')).toBeVisible(); await page.getByTestId('aidt-new').click();
@@ -635,16 +667,17 @@ export async function main() {
       const courseTag = `QA课程 ${identity.run}-${identity.attempt}`;
       await page.getByLabel('课程标签（可选）', { exact: true }).fill(courseTag);
       await capture('00-create-dialog', undefined, 'create-dialog');
-      guard.armProjectCreate(courseTag); await page.getByTestId('project-new-create').click();
+      entryClock.check(); guard.armProjectCreate(courseTag); await page.getByTestId('project-new-create').click();
       await expect.poll(() => guard.identity().projectId).toMatch(/^prj-/);
       const id = guard.identity().projectId;
       await page.waitForURL(`${ORIGIN}/aidt/${id}`, { waitUntil: 'domcontentloaded' });
       await expect(page.getByTestId('aidt-dashboard')).toBeVisible();
       for (let n = 1; n <= 6; n++) await expect(page.getByTestId(`aidt-step-${n}`)).toBeVisible();
       report.project = { id, name: identity.projectName, ownerVerified: true, profile: 'aidt', setup: 'normal-homepage-UI', ordinaryConsultant: true };
-      await capture('00-created-six-stage-overview');
+      entryObservations.push(await verifyEntryWorkspace({ page, expect, origin: ORIGIN, projectId: id, clock: entryClock }));
+      entryScreenshots.push(await capture('00-created-six-stage-overview'));
       await page.goto(`${ORIGIN}/aidt`); await expect(page.getByTestId(`aidt-project-${id}`)).toBeVisible();
-      await page.reload();
+      entryClock.check(); await page.reload();
       const card = page.getByTestId(`aidt-project-${id}`);
       await expect(card).toBeVisible();
       await expect(card.getByText(courseTag, { exact: true })).toBeVisible();
@@ -656,11 +689,29 @@ export async function main() {
       await courseFilter.selectOption('');
       await expect(card).toBeVisible();
       report.courseTag = { savedAfterReload: true, hiddenByUntaggedFilter: true, visibleByMatchingFilter: true };
-      await card.click(); await expect(page.getByTestId('aidt-dashboard')).toBeVisible();
-      await capture('00-created-reentry-overview');
+      entryClock.check(); await card.click();
+      await page.waitForURL(`${ORIGIN}/aidt/${id}`, { waitUntil: 'domcontentloaded' });
+      entryObservations.push(await verifyEntryWorkspace({ page, expect, origin: ORIGIN, projectId: id, clock: entryClock }));
+      entryScreenshots.push(await capture('00-created-reentry-overview'));
+      entryTiming = entryClock.complete();
     });
-    if (!homeCreated) throw new ProbeFailure('HOMEPAGE_UI_CREATION_NOT_ACCEPTED');
+    if (!homeCreated) {
+      report.entry01 = entryClock.failed(report.checkpoints.at(-1)?.code);
+      throw new ProbeFailure('HOMEPAGE_UI_CREATION_NOT_ACCEPTED');
+    }
     const projectId = guard.identity().projectId;
+    recheckRuntime();
+    // A separate, exactly-once artifact: no H03 nonce/request capacity or credential serialization.
+    // An unknown artifact result is recorded without replay; the same student session continues.
+    report.entry01 = { status: 'PASSED', projectId, timing: entryTiming };
+    try {
+      const publisher = createEntryPublisher({ identity, out: output.out, assertSafe: text => sensitiveEvidence.assertSafe(text) });
+      const proof = await publisher.publish({ projectId, ordinaryRole: report.actor.orgRole, timing: entryTiming, observations: entryObservations, screenshots: entryScreenshots });
+      report.entry01 = proof.receipt; report.entry01Delivery = proof.delivery;
+    } catch (error) {
+      report.entry01Delivery = { status: 'BLOCKED', code: safeCode(error), attempted: false, retryAllowed: false };
+    }
+    console.log(JSON.stringify({ event: 'entry-01-proof', projectId, status: report.entry01.status, delivery: report.entry01Delivery }));
     const saveStage = async (n, visibleButton, { confirmation = false } = {}) => {
       const button = visibleButton ?? page.getByTestId('aidt-shared-save');
       await expect(button).toBeVisible(); await expect(button).toBeEnabled();

@@ -113,7 +113,9 @@ test('bundle/workflow keep a closed safe file set and explicit new profile while
   }
   assert.equal(V2_CONTROL_BUNDLE_FILES.includes('apps/web/e2e/support/devapp-aidt-v2-journey.mjs'), true);
   const main = readFileSync(new URL('../../apps/web/e2e/support/devapp-aidt-acceptance.mjs', import.meta.url), 'utf8');
-  assert.equal(main.indexOf('const prepared = await prepareV2Browser') < main.indexOf('credentials = readQaCredentials()'), true);
+  const credentialRead = main.indexOf('credentials = reusableCredentials && !provisionOrdinaryQa ? reusableCredentials : readQaCredentials();');
+  assert.ok(credentialRead > 0);
+  assert.ok(main.indexOf('const prepared = await prepareV2Browser') >= 0 && main.indexOf('const prepared = await prepareV2Browser') < credentialRead);
   assert.match(main, /profile !== V2_VOICE_PROFILE[\s\S]*chromium\.launch\(\{ headless: true/);
   const workflow = readFileSync(new URL('../../.github/workflows/aidt-devapp-acceptance.yml', import.meta.url), 'utf8');
   assert.match(workflow, /acceptance_profile:[\s\S]*default: baseline/); assert.match(workflow, /v2-voice-20261122' && 360 \|\| 152/);
