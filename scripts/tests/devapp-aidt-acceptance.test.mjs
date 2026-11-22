@@ -80,6 +80,27 @@ test('duplicate scope query cannot select a foreign project or org through parse
   const { guard, bind } = owned(); bind();
   assert.equal(request(guard, 'GET', `/api/projects/${project}/overview?projectId=${project}&projectId=foreign`).code, 'DUPLICATE_QUERY_REJECTED');
 });
+test('reusable QA home only receives the current project from the native list', async () => {
+  const { visibleAidtQaProjects } = await import('../../apps/web/e2e/support/devapp-aidt-acceptance.mjs');
+  const { guard, bind } = owned();
+  const catalogUrl = '/api/projects?orgId=qa-org';
+  const prior = { id: 'prj-22222222-2222-4222-8222-222222222222', name: 'previous QA' };
+  const current = { id: project, name: identity().projectName, tags: ['workspacex:aidt'] };
+  const before = request(guard, 'GET', catalogUrl);
+  assert.deepEqual(before, { allow: true, kind: 'qa-project-catalog', projectId: null, readCategory: 'other' });
+  assert.deepEqual(visibleAidtQaProjects([prior], before.projectId), []);
+  bind();
+  const after = request(guard, 'GET', catalogUrl);
+  assert.deepEqual(after, { allow: true, kind: 'qa-project-catalog', projectId: project, readCategory: 'other' });
+  assert.deepEqual(visibleAidtQaProjects([prior, current], after.projectId), [current]);
+  assert.deepEqual(visibleAidtQaProjects([prior], after.projectId), []);
+  assert.equal(request(guard, 'GET', `/api/projects/${prior.id}/collaborators`).allow, false);
+  assert.equal(request(guard, 'GET', `/api/projects/${current.id}/collaborators`).allow, true);
+  assert.equal(request(guard, 'GET', '/api/projects?orgId=other').allow, false);
+  assert.equal(request(guard, 'GET', catalogUrl + '&other=x').allow, false);
+  assert.throws(() => visibleAidtQaProjects([current, current], after.projectId), /QA_PROJECT_CATALOG_INVALID/);
+  assert.throws(() => visibleAidtQaProjects({ projects: [current] }, after.projectId), /QA_PROJECT_CATALOG_INVALID/);
+});
 test('native agent catalog requires the verified ordinary actor and bound owned QA project', () => {
   const path = '/api/capabilities?orgId=qa-org&kind=agent';
   const unauthenticated = createAcceptanceGuard(identity());
