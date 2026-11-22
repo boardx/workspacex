@@ -92,10 +92,9 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   if (patch.rewrittenTheme) {
     const studentProse = student.split(/^\s*(?:本组选择的研究方向|本轮选定方向|研究范围|学生重写命题)[：:]/mu, 1)[0] ?? "";
     const hypothesis = explicitlyStatedHypothesis(studentProse);
-    const deniesFieldEvidence = /(?:没有|尚无|暂无)(?:任何)?真实(?:的)?(?:观察|访谈)(?:或|和|及)(?:观察|访谈)(?:材料|记录|证据)/u.test(studentProse);
-    // When students explicitly say their claims were hypotheses and deny field
-    // evidence, assistant wording cannot turn that absence into an observation.
-    if (hypothesis && (deniesFieldEvidence || (!previous.problemSources && !patch.problemSources))) {
+    // The student explicitly labelled the claim as only a hypothesis. An
+    // assistant assertion cannot supply field provenance for that claim.
+    if (hypothesis) {
       patch.problemSources = JSON.stringify(["guess"]);
       patch.sourceDetails = hypothesis;
     }

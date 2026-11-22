@@ -82,3 +82,13 @@ it.each(["", "### 来源类型\n亲自观察\n\n"])("keeps a student's stated hy
  expect(fields.problemSources).toBe('["guess"]');
  expect(fields.sourceDetails).toBe("这些行为目前只是我们提出的假设。");
 });
+
+it("uses the student's explicit hypothesis regardless of how the lack of field evidence is phrased", () => {
+ const draft = { ...base, fields: { ...base.fields, "problemDraft:p": JSON.stringify({ initial: liveRevision.initial }) } };
+ const assistant = liveRevision.assistant + "\n\n### 来源类型\n亲自观察\n\n### 来源说明\n我们亲自观察到了这个行为。";
+ for (const uncertainty of ["没有真实观察材料，也没有访谈证据", "后续需要继续核实"]) {
+   const user = liveRevision.user.replace("我们目前没有真实观察或访谈材料", uncertainty);
+   const fields = JSON.parse(projectProblemSkillDraft(draft, "p", turn(user, assistant))!.fields["problemDraft:p"]!);
+   expect(fields).toMatchObject({ problemSources: '["guess"]', sourceDetails: "这些行为目前只是我们提出的假设。" });
+ }
+});
