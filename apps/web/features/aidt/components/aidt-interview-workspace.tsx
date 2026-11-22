@@ -11,6 +11,7 @@ import { AidtInterviewCards, InterviewCardEditor, type InterviewDetails } from "
 import { AidtInterviewRecorder } from "./aidt-interview-recorder";
 import { AidtInterviewGuideExport } from "./aidt-interview-guide-export";
 import { AidtInterviewOutput } from "./aidt-interview-output";
+import { AidtInterviewFindingEditor } from "./aidt-interview-finding-editor";
 import { AidtResearchMaterialControl, AidtResearchMaterialPreview } from "./aidt-research-material";
 import { listAidtStageHistory, readAidtStage, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload } from "../lib/aidt-round-completion";
@@ -18,14 +19,19 @@ import { formatAidtProblemReflectionMarkdown } from "../lib/aidt-problem-reflect
 import { isAidtResearchImage } from "../lib/aidt-research-material-reference";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import {
-  aidtInterviewFindingReady, aidtInterviewMaterialKey, archiveAidtInterview, confirmAidtInterviewFinding,
-  getAidtInterviewFinding, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviewAudio, readAidtInterviewMaterials, readAidtInterviewPhoto,
-  readAidtInterviewTranscript, readAidtInterviews, setAidtInterviewPhoto, writeAidtInterview, writeAidtInterviewFinding,
+  aidtInterviewMaterialKey, archiveAidtInterview,
+  getAidtInterviewFinding, isAidtInterviewArchived, readAidtInterviewAudio, readAidtInterviewMaterials, readAidtInterviewPhoto,
+  readAidtInterviewTranscript, readAidtInterviews, setAidtInterviewPhoto, writeAidtInterview,
   writeAidtInterviewAudio, writeAidtInterviewMaterial, writeAidtInterviewTranscript, type AidtInterview,
 } from "../lib/aidt-interviews";
 
 type UpdateDraft = (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 type Topic = { revision: number | null; text: string; reflection?: string; problemEntityId?: string };
+type ConsentFlags = { notes: boolean; photos: boolean; audio: boolean; capture: boolean; asr: boolean };
+const consentFlags = (interview: AidtInterview): ConsentFlags => ({
+  notes: !!interview.consent?.notes, photos: !!interview.consent?.photos,
+  audio: !!interview.consent?.audio, capture: !!interview.consent?.capture, asr: !!interview.consent?.asr,
+});
 const inputClass = "mt-1 w-full rounded-md border border-border bg-background p-2 text-13";
 const blankTopic: Topic = { revision: null, text: "" };
 
@@ -199,11 +205,17 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
   const [newCode, setNewCode] = React.useState(code);
   const [status, setStatus] = React.useState("");
   const [archiving, setArchiving] = React.useState(false);
-  const [notes, setNotes] = React.useState(interview.consent?.notes ?? false);
-  const [audio, setAudio] = React.useState(interview.consent?.audio ?? false);
-  const [capture, setCapture] = React.useState(interview.consent?.capture ?? false);
-  const [asr, setAsr] = React.useState(interview.consent?.asr ?? false);
-  const [photos, setPhotos] = React.useState(interview.consent?.photos ?? false);
+  const [consentEdits, setConsentEdits] = React.useState<{ values: Partial<ConsentFlags>; photoBasis?: string | null }>({ values: {} });
+  const authority = consentFlags(interview);
+  const consentRevision = interview.consent?.observedAt ?? null;
+  const stalePhotoEdit = consentEdits.values.photos !== undefined && consentEdits.photoBasis !== consentRevision;
+  const { notes, audio, capture, asr, photos } = {
+    ...authority, ...consentEdits.values,
+    photos: stalePhotoEdit ? authority.photos : consentEdits.values.photos ?? authority.photos,
+  };
+  const editConsent = (field: keyof ConsentFlags, value: boolean) => setConsentEdits(old => ({
+    ...old, values: { ...old.values, [field]: value }, ...(field === "photos" ? { photoBasis: consentRevision } : {}),
+  }));
   const heading = React.useRef<HTMLHeadingElement>(null);
   React.useEffect(() => { if (surface === "legacy") heading.current?.focus(); }, [surface]);
   const record = (patch: Partial<AidtInterview>) => {
@@ -216,10 +228,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
   const finding = getAidtInterviewFinding(draft, interview);
   const materials = readAidtInterviewMaterials(draft.fields, id, projectId);
   const photoKey = readAidtInterviewPhoto(draft, interview, projectId)?.key ?? "";
-  const interpretationKey = `interviewInterpretation:${id}`;
   const transcript = readAidtInterviewTranscript(draft.fields, id) ?? { sourceKey: "", locator: "", text: "", checked: false };
   const editableEvidence = !readOnly && !!interview.consent?.notes;
-  const confirmedFinding = isAidtInterviewConfirmed(draft.fields, id);
   const isAllowed = (mime: string) => mime.startsWith("image/") ? interview.consent?.photos
     : mime.startsWith("audio/") ? interview.consent?.audio : interview.consent?.notes;
   const allowedKinds = (["document", "image", "audio"] as const).filter(kind =>
@@ -271,14 +281,26 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
     <section className="space-y-3 border-t border-border pt-3" aria-label="授权和访谈材料">
       <h5 className="text-14 font-semibold">授权和材料</h5>
       <p className="text-12 text-muted-foreground">{interview.consent ? `学生记录于 ${new Date(interview.consent.observedAt).toLocaleString()}` : "尚未记录可共享的材料授权。"}请按实际授权勾选。</p>
-      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={notes} disabled={readOnly} onChange={event => setNotes(event.currentTarget.checked)} />已获授权共享文字记录</label>
-      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={photos} disabled={readOnly} onChange={event => setPhotos(event.currentTarget.checked)} />已获授权共享照片</label>
-      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio} disabled={readOnly} onChange={event => setAudio(event.currentTarget.checked)} />已获授权共享原始录音</label>
-      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio && capture} disabled={readOnly || !audio} onChange={event => setCapture(event.currentTarget.checked)} />已获授权在此录音</label>
-      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio && capture && asr} disabled={readOnly || !audio || !capture} onChange={event => setAsr(event.currentTarget.checked)} />已获授权使用在线转写服务</label>
-      <Button type="button" size="sm" variant="outline" disabled={readOnly || ((audio && capture && asr) === (interview.consent?.asr ?? false) && (audio && capture) === (interview.consent?.capture ?? false) && audio === (interview.consent?.audio ?? false) && notes === (interview.consent?.notes ?? false) && photos === (interview.consent?.photos ?? false))} onClick={() =>
-        record({ consent: notes || photos || audio ? { observedAt: new Date().toISOString(), notes, photos, audio, capture: audio && capture, asr: audio && capture && asr } : null })
-      }>更新授权记录</Button>
+      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={notes} disabled={readOnly} onChange={event => editConsent("notes", event.currentTarget.checked)} />已获授权共享文字记录</label>
+      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={photos} disabled={readOnly} onChange={event => editConsent("photos", event.currentTarget.checked)} />已获授权共享照片</label>
+      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio} disabled={readOnly} onChange={event => editConsent("audio", event.currentTarget.checked)} />已获授权共享原始录音</label>
+      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio && capture} disabled={readOnly || !audio} onChange={event => editConsent("capture", event.currentTarget.checked)} />已获授权在此录音</label>
+      <label className="flex items-center gap-2 text-12"><input type="checkbox" checked={audio && capture && asr} disabled={readOnly || !audio || !capture} onChange={event => editConsent("asr", event.currentTarget.checked)} />已获授权使用在线转写服务</label>
+      {stalePhotoEdit && <p role="status" className="text-12 text-muted-foreground">照片授权已在其他位置更新，请重新核对照片选择。</p>}
+      <Button type="button" size="sm" variant="outline" disabled={readOnly || ((audio && capture && asr) === authority.asr && (audio && capture) === authority.capture && audio === authority.audio && notes === authority.notes && photos === authority.photos)} onClick={() => {
+        if (readOnly) return;
+        update(old => {
+          const current = readAidtInterviews(old.fields).find(item => item.id === id);
+          if (!current || isAidtInterviewArchived(old.fields, id)) return old;
+          const next = { ...consentFlags(current), ...consentEdits.values,
+            photos: consentEdits.values.photos !== undefined && consentEdits.photoBasis === (current.consent?.observedAt ?? null)
+              ? consentEdits.values.photos : !!current.consent?.photos };
+          return writeAidtInterview(old, { ...current, consent: next.notes || next.photos || next.audio ? {
+            ...next, observedAt: new Date().toISOString(), capture: next.audio && next.capture, asr: next.audio && next.capture && next.asr,
+          } : null });
+        });
+        setConsentEdits({ values: {} });
+      }}>更新授权记录</Button>
       {interview.consent?.audio && interview.consent.capture && token && <AidtInterviewRecorder
         key={JSON.stringify([projectId, token, id, interview.consent.observedAt, readOnly])}
         projectId={projectId} participantCode={code} sessionToken={token}
@@ -342,32 +364,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
     </section>
     </InterviewSection>
     }
-    {surface !== "materials" && <InterviewSection compact={compact} title="整理访谈发现">
-    <section aria-label="人物发现卡" className="space-y-3 border-t border-border pt-3">
-      <h5 className="text-14 font-semibold">人物发现卡</h5>
-      <label className="block text-12">标题来源<select className={inputClass} value={finding.headlineKind} disabled={!editableEvidence} onChange={event => {
-        const headlineKind = event.currentTarget.value === "quote" ? "quote" : "student-summary";
-        update(old => writeAidtInterviewFinding(old, interview, { headlineKind }));
-      }}><option value="student-summary">学生概括</option><option value="quote">受访者原话</option></select></label>
-      <InterviewField label="一句发现" value={finding.headline} maxLength={500} disabled={!editableEvidence} onChange={headline => update(old => writeAidtInterviewFinding(old, interview, { headline }))} />
-      <InterviewField label="学生记录的可观察情况" value={finding.context} maxLength={1700} disabled={!editableEvidence} rows={3} onChange={context => update(old => writeAidtInterviewFinding(old, interview, { context }))} />
-      <InterviewField label="学生的解释" value={draft.fields[interpretationKey] ?? ""} maxLength={1700} disabled={!editableEvidence} rows={3} onChange={interpretation =>
-        update(old => {
-          const next = writeAidtInterviewFinding(old, interview, {});
-          return { ...next, fields: { ...next.fields, [interpretationKey]: interpretation } };
-        })
-      } />
-      {interview.consent?.photos && <label className="block text-12">发现卡授权照片<select className={inputClass} value={photoKey} disabled={readOnly} onChange={event => {
-        const key = event.currentTarget.value;
-        update(old => setAidtInterviewPhoto(old, id, key, projectId));
-      }}><option value="">暂无照片</option>{materials.filter(item => isAidtResearchImage(item.reference)).map(item =>
-        <option key={item.key} value={item.key}>{item.reference.name}</option>
-      )}</select></label>}
-      {!photoKey && <p className="text-12 text-muted-foreground">暂无授权照片。</p>}
-      <InterviewField label="可定位的受访者原话" value={finding.quote} maxLength={800} disabled={!editableEvidence} rows={2} onChange={quote => update(old => writeAidtInterviewFinding(old, interview, { quote }))} />
-      <p className="text-12 text-muted-foreground">{confirmedFinding ? "已核对发现卡。保存本步后，可按版本带入综合与定义。" : "确认前需要核对清单、观察内容及可定位的原始材料。"}</p>
-      <Button type="button" size="sm" disabled={!editableEvidence || confirmedFinding || !aidtInterviewFindingReady(draft, interview, projectId)} onClick={() => update(old => confirmAidtInterviewFinding(old, id, projectId))}>确认人物发现卡</Button>
-    </section>
+    {surface !== "materials" && <InterviewSection compact={surface === "legacy" && compact} title="整理访谈发现">
+      <AidtInterviewFindingEditor {...{ projectId, interview, draft, readOnly, update }} />
     </InterviewSection>
     }
     {!readOnly && !compact && surface === "legacy" && <div className="space-y-2 border-t border-border pt-3">{archiving ? <>
