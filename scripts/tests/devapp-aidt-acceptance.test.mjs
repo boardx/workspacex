@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, chmodSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage, aidtSyntheticInterviewAudio } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
+import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
 import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern, schematicPng } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
@@ -227,7 +227,8 @@ test('fixture upload requires one registered run file, fresh receipt and exact o
   guard.armStageSave(2); assert.equal(request(guard, 'PUT', `/api/projects/${project}/aidt/stages/2`, stageBody({ material: JSON.stringify({ projectId: project, runId: 'run-qa', artifactId: 'artifact-qa', versionId: 'version-qa' }) })).allow, true);
   assert.equal(request(guard, 'GET', `/api/ingestion-runs/not-created/content?projectId=${project}`).allow, false);
 });
-test('WAV fixture requires U01 consent and exact deterministic bytes for this one QA run', () => {
+test('WAV fixture requires U01 consent and exact deterministic bytes for this one QA run', async () => {
+  const { aidtSyntheticInterviewAudio } = await import('../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs');
   const { guard, bind } = owned(); bind();
   const sample = aidtSyntheticInterviewAudio('456', '1');
   const entity = 'sample-u01';
