@@ -149,6 +149,8 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 
 - 2026-10-11：HTTP 200 不代表模型内容可用；`choices[0].finish_reason=content_filter` 在完整响应和 SSE 中都须分类为 `ModelCallError.contentRejection=content-policy`，拒绝该输出并保留数值 usage。研究证据整理仅隔离这一明确分类，普通 400/401 与其他空响应仍失败；stream 包装错误须保留分类元数据（出处：issue #5602，`guided-provider-content-rejection.test.ts`、`guided-provider-content-filter-runtime.test.ts`；本地 HTTP/内存存储验证不证明线上根因或数据库持久性）。
 
+- 2026-11-22：AIDT 初稿归因不能仅靠 human 消息包含 AI 稿的子串；明确标为教师对照的引用须在当前投影、历史核验和冻结恢复共用同一归因判定。学生自己的字面 `>` 及相邻的独立命题仍须保留；“下面的示例”不能反向剥离上文。用真实调用方的合成端口覆盖历史路径，仍不等同 PostgreSQL 或在线验收（出处：issue #6907）。
+
 ## 知识回流规则（本文件怎么迭代——这是这个 skill 存在的意义）
 
 1. **谁干活谁回流**：在本模块交付 feature/修 bug/做 review 时，踩到新坑、建立新做法、

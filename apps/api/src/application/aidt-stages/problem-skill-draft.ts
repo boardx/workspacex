@@ -66,6 +66,43 @@ export function studentRevisionText(user: string): string {
   return marker ? user.slice(marker.index + marker[0].length) : user;
 }
 
+const quoteContextText = (line: string) => line.trim().replace(/^#{1,6}\s+/, "").replace(/^[-*]\s+/, "").replaceAll("**", "");
+function declaresComparisonQuote(line: string): boolean {
+  const text = quoteContextText(line);
+  const opening = /^(?:下面|下列|以下|以上|上面|上述|前面|刚才|这里|这段|这些|这是|这不是|先看|请看|(?:我们)?(?:先)?(?:引用|转述|参考|对照)|这只是|这(?:段|些)?不是|不是|不代表|不作为|(?:老师|教师|引导师)(?:的|给的|提供的)?(?:示例|例子|举例|原话|追问))/u.test(text);
+  if (!opening) return false;
+  return /(?:老师|教师|引导师)[^。！？\r\n]{0,40}(?:示例|例子|举例|原话|追问|引用|对照)|(?:引用|转述)[^。！？\r\n]{0,40}(?:老师|教师|引导师)/u.test(text)
+    || /(?:不是|不代表|不作为)[^。！？\r\n]{0,12}(?:我们|本组|小组|我)[^。！？\r\n]{0,12}(?:命题|问题|研究决定|研究方向|决定|选择|来源|材料)/u.test(text)
+    || /^(?:引用|转述|对照)[：:]\s*$/u.test(text)
+    || /^(?:下面|下列|以下|以上|上面|上述|这里|这段|这|这些)[^。！？\r\n]{0,20}(?:仅(?:作|供)?|只是|只(?:作|供))[^。！？\r\n]{0,12}(?:引用|示例|例子|对照)/u.test(text);
+}
+
+/** Preserve literal student wording, including a leading greater-than sign.
+ * Only a quote block explicitly identified as comparison material is excluded. */
+export function studentProblemAttributionText(user: string): string {
+  const lines = studentRevisionText(user).split(/\r?\n/);
+  const quoted = (line: string) => /^[ \t]{0,3}>/u.test(line);
+  const following: boolean[] = [];
+  let context = false;
+  for (let index = lines.length - 1; index >= 0; index--) {
+    following[index] = context;
+    if (lines[index]!.trim() && !quoted(lines[index]!)) {
+      // A preface for the next example must not reclassify the previous quote.
+      const backReference = /^(?:以上|上述|上面|前面|刚才|这段|这些|这只是|这不是|不是|不代表|不作为)/u.test(quoteContextText(lines[index]!));
+      context = backReference && declaresComparisonQuote(lines[index]!);
+    }
+  }
+  let previous: "student" | "comparison" | "other" = "other";
+  return lines.filter((line, index) => {
+    if (!quoted(line)) {
+      if (line.trim()) previous = /^(?:(?:我们|本组|我|学生)(?:的)?)?(?:原始命题|初始问题)[：:]\s*$/u.test(quoteContextText(line))
+        ? "student" : declaresComparisonQuote(line) ? "comparison" : "other";
+      return true;
+    }
+    return previous === "student" || previous !== "comparison" && !following[index];
+  }).join("\n");
+}
+
 function explicitlyStatedHypothesis(prose: string): string | undefined {
   const sentences = prose.split(/(?<=[。！？])|\r?\n/u).map(value => value.trim());
   return sentences.find(value => /^(?:上述|这些)(?:行为|情况|说法)(?:目前|现在)?只是我们(?:提出的)?(?:假设|猜测)[。！]?$/u.test(value)
@@ -95,15 +132,16 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   if (!previous || typeof previous !== "object" || Array.isArray(previous) || Object.values(previous).some(v=>typeof v!=="string")
     || previous.draftTurnId === turn.messageId) return null;
   const student = studentRevisionText(turn.user);
+  const initialAttribution = studentProblemAttributionText(turn.user);
   const output = problemSkillFields(turn.assistant);
   if (output.initial) {
     const existing = previous.initial?.trim();
     // Students' first framing stays intact. A later reformulation has its own field.
     if ((existing && !isAidtProblemControlText(existing)) ||
-        (!student.includes(output.initial) && turn.verifiedInitial !== output.initial)) delete output.initial;
+        (!initialAttribution.includes(output.initial) && turn.verifiedInitial !== output.initial)) delete output.initial;
   }
   if (!output.initial && (!previous.initial?.trim() || isAidtProblemControlText(previous.initial.trim()))) {
-    const initial = studentProblemStatement(student);
+    const initial = studentProblemStatement(initialAttribution);
     if (!initial || isAidtProblemControlText(initial)) return null;
     output.initial = initial;
   }

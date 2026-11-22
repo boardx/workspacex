@@ -6,7 +6,7 @@ import type { TenantSession } from "../../application/ports/database.port";
 import type { AidtContextActor } from "../../application/aidt-run-context/ports";
 import type { AidtStagesService } from "../../application/aidt-stages/service";
 import { aidtEntityThreadId, aidtSavedEntityTitle } from "../../application/aidt-stages/entity-thread";
-import { problemSkillFields, projectProblemSkillDraft, studentRevisionText } from "../../application/aidt-stages/problem-skill-draft";
+import { problemSkillFields, projectProblemSkillDraft, studentProblemAttributionText } from "../../application/aidt-stages/problem-skill-draft";
 import { projectInterviewSkillDraft, readInterviewChatDraft } from "../../application/aidt-stages/interview-skill-draft";
 
 type Row = { run_id:string; message_id:string; user_text:string; assistant_text:string; source_revision:number|null; requested_by:string; input_at:Date; };
@@ -63,14 +63,14 @@ export async function projectSavedSkillOutput(s:TenantSession, stages:AidtStages
     // Historical summaries may quote the student's earlier framing. Verify the literal
     // wording in this same shared thread before admitting it as their original question.
     let verifiedInitial: string | undefined;
-    if (proposed && !studentRevisionText(row.user_text).includes(proposed)) {
+    if (proposed && !studentProblemAttributionText(row.user_text).includes(proposed)) {
       const evidence = await s.query<{body:string}>(`SELECT body FROM chat_messages
         WHERE org_id=$1 AND thread_id=$2 AND author_kind='human' AND NOT raw_transcript
           AND COALESCE(visibility_scope,'plenary')='plenary' AND created_at <= $3
           AND char_length(body) <= 100000 AND strpos(body,$4)>0
         ORDER BY created_at DESC,id DESC LIMIT 32`, [actor.orgId,actor.threadId,row.input_at,proposed]);
       if (evidence.rows.some(item => typeof item.body === "string" && item.body.length <= 100000
-        && studentRevisionText(item.body).includes(proposed))) verifiedInitial = proposed;
+        && studentProblemAttributionText(item.body).includes(proposed))) verifiedInitial = proposed;
     }
     const finding = stageId === 2 ? readInterviewChatDraft(row.assistant_text)?.finding : undefined;
     const candidates = [finding?.headline, finding?.context, finding?.interpretation].filter((value): value is string =>
@@ -120,5 +120,5 @@ export async function recoverProblemFraming(s:TenantSession, actor:AidtContextAc
       AND char_length(m.body) <= 100000 AND strpos(m.body,original)>0
     ORDER BY idx,m.created_at DESC,m.id DESC LIMIT 32`,[actor.orgId,thread,candidates,source.updatedAt]);
   return verified.rows.find(item => typeof item.body === "string" && item.body.length <= 100000
-    && studentRevisionText(item.body).includes(item.original))?.original;
+    && studentProblemAttributionText(item.body).includes(item.original))?.original;
 }
