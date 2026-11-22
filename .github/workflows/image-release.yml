@@ -68,7 +68,7 @@ jobs:
   plan:
     # All image builds and deployments require an explicit manual dispatch.
     # Legacy source deployment is retired in backend-gates in this same commit.
-    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'branch'
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'branch' && inputs.build_only && inputs.service == 'web' && inputs.environment == 'devapp'
     runs-on: ubuntu-24.04
     outputs:
       source: ${{ steps.plan.outputs.source }}
@@ -134,7 +134,7 @@ jobs:
     if: needs.plan.outputs.build == 'true'
     runs-on:
       group: workspacex-cn-build
-      labels: workspacex-cn-build
+      labels: wsx-runner-4-pack-verification
     timeout-minutes: ${{ inputs.build_only && inputs.service == 'sandbox' && matrix.service == 'sandbox' && 110 || 60 }}
     defaults:
       run:
