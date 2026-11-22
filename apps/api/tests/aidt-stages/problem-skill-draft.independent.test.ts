@@ -66,3 +66,9 @@ it.each(['暂不重写命题，先比较方向。', '未定', '暂无'])('does n
  const after = projectProblemSkillDraft(before, 'p', { user: '学生重写命题：' + rewritten, assistant: '### 学生重写命题（逐字保留）\n' + rewritten, messageId: 'independent-placeholder' });
  expect(read(after ?? before).rewrittenTheme).toBeUndefined();
 });
+it('preserves a real research question about users choosing not to buy', () => {
+ const rewritten = '如何理解学生没有选择排队购买的原因？';
+ const before = makeDraft({ initial: '校园排队', problemDirections: JSON.stringify([{ id: 'direction-a', title: '学生没有选择排队购买的原因', source: 'group' }]) });
+ const after = projectProblemSkillDraft(before, 'p', { user: '本组选择的研究方向：学生没有选择排队购买的原因\n学生重写命题：' + rewritten, assistant: '### 本组选择的研究方向\n学生没有选择排队购买的原因\n\n### 学生重写命题（逐字保留）\n' + rewritten, messageId: 'independent-negative-behavior' });
+ expect(read(after ?? before)).toMatchObject({ problemDirectionId: 'direction-a', rewrittenTheme: rewritten });
+});

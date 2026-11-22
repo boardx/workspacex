@@ -67,8 +67,11 @@ function explicitlyStatedHypothesis(prose: string): string | undefined {
 // A deferred decision is not permission for the assistant to choose or rewrite.
 // Keep explicit student selections and rewrites independent of one another.
 function studentDefersDecision(text: string): boolean {
-  return /(?:还没(?:有)?|尚未|暂未|仍未|没有|没|未(?!知|来|验证)|先不要|不要|暂不|先不|(?:暂时|暂且|目前|现在|这轮|本轮)(?:先)?不|不想|不打算|不准备|不急(?:于|着))[^，,。！？；;\r\n]{0,8}(?:选(?:择|定)?|确定方向|确认方向|决定方向|重写|改写|重拟|修订命题)/u.test(text)
-    || /(?:研究)?方向[^，,。！？；;\r\n]{0,5}(?:还没(?:有)?(?:定|确定|决定|选定)|尚未(?:确定|决定|选定)|暂未(?:确定|决定|选定)|仍未(?:确定|决定|选定)|未定|没定|没有定)/u.test(text);
+  // Only an opening student operation counts as deferral. A research question
+  // about users who did not choose something is still substantive wording.
+  const control = text.trim().split(/[，,。！？；;\r\n]/u, 1)[0]!.trim();
+  return /^(?:(?:但|不过|我们|本组|我|目前|现在|本轮|这轮|先|暂时|暂且)\s*)*(?:还没(?:有)?|尚未|暂未|仍未|还未|没有|没|未|暂不|不|不要|不想|不打算|不准备|不急(?:于|着))(?:(?:先|现在|正式|继续|开始|完成|进行|替我们|帮我们|做出)\s*)*(?:(?:重写|改写|重拟|修订)(?:命题|问题)?|(?:选择|选定|选|确定|确认|决定)(?:(?:具体|合适的?|新的?|任何|其他|另一个|第[一二三四五六七八九十\d]+个)?(?:研究)?方向|命题|题目)?)(?:了|好|完|下来|清楚)?$/u.test(control)
+    || /^(?:(?:但|不过|我们|本组|我|目前|现在|本轮|这轮)\s*)*(?:研究)?方向(?:还没(?:有)?|尚未|暂未|仍未|还未|没有|未|没)(?:定|确定|决定|选定)(?:好|下来|清楚)?$/u.test(control);
 }
 function studentShortSelection(text: string): string | undefined {
   return /(?:^|[。！？；;\r\n])\s*(?:我们|本组|我)?(?:已经|明确|最终|决定|就)?(?:选择|选定|选|确定|确认)(?:(?:研究)?方向(?:为|是)?|了)?[：:]?\s*([^，,。！？；;\r\n]{1,120})/u.exec(text)?.[1]?.trim();
