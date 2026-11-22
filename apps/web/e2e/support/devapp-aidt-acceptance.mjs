@@ -1010,7 +1010,10 @@ export async function main() {
   } catch (error) { report.failure = safeCode(error); report.failedStage = stage; }
   finally {
     clearTimeout(timer);
-    if (ledger) report.asrReview=asrReviewer?.summary(); report.v2Acceptance = ledger.summary();
+    if (ledger) {
+      report.asrReview = asrReviewer?.summary();
+      report.v2Acceptance = ledger.summary();
+    }
     if (agentReviewer) report.agentReview = agentReviewer.summary();
     let privateEvidenceSafe = true;
     try {

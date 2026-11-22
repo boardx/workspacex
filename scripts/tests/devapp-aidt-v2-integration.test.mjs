@@ -136,3 +136,24 @@ test('synthetic speech fixture cannot select a secret path, silently exceed the 
   const base={path:'apps/web/e2e/fixtures/aidt-v2/synthetic-prototype-test.wav',bytes:120000,sha256:'a'.repeat(64),mime:'audio/wav',synthetic:true,groundtruthSentToModel:false};
   for(const fixture of [{...base,path:'/private/config.env'},{...base,bytes:262145},{...base,groundtruthSentToModel:true},{...base,sha256:'unverified'}])assert.throws(()=>readV2SyntheticAudioFixture({syntheticAudioFixture:fixture},{run:'123'}));
 });
+
+test('actual acceptance finalizer preserves the first failure when no write ledger exists', () => {
+  const source = readFileSync(new URL('../../apps/web/e2e/support/devapp-aidt-acceptance.mjs', import.meta.url), 'utf8');
+  const body = source.split('finally {\n    clearTimeout(timer);')[1]?.split('    if (agentReviewer)')[0];
+  assert.ok(body, 'the actual finalizer ledger projection must be present');
+  const finalize = new Function('ledger', 'report', 'asrReviewer', body);
+  const report = { failure: 'ENTRY_CREATION_OR_IDENTITY_FIRST_FAILURE' };
+  assert.doesNotThrow(() => finalize(null, report, null));
+  assert.deepEqual(report, { failure: 'ENTRY_CREATION_OR_IDENTITY_FIRST_FAILURE' });
+});
+
+test('actual acceptance finalizer projects only the present ledger summary once', () => {
+  const source = readFileSync(new URL('../../apps/web/e2e/support/devapp-aidt-acceptance.mjs', import.meta.url), 'utf8');
+  const body = source.split('finally {\n    clearTimeout(timer);')[1]?.split('    if (agentReviewer)')[0];
+  assert.ok(body);
+  const finalize = new Function('ledger', 'report', 'asrReviewer', body);
+  let calls = 0; const report = {}, summary = { passed: false, scope: 'pure-control-fixture' };
+  finalize({ summary: () => { calls++; return summary; } }, report, { summary: () => ({ reviewed: false }) });
+  assert.equal(calls, 1); assert.equal(report.v2Acceptance, summary);
+  assert.deepEqual(report.asrReview, { reviewed: false });
+});
