@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, renameSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -231,6 +231,56 @@ const cleanupShell = runBlockAfter('- name: Remove only this attempt\'s owned pr
 
 const acceptanceWorkflow = readFileSync(new URL('../../.github/workflows/aidt-devapp-acceptance.yml', import.meta.url), 'utf8');
 const acceptanceCleanupShell = runBlockAfter("- name: Remove only this attempt's private directory\n", acceptanceWorkflow);
+const acceptancePackageShell = runBlockAfter('- name: Package only audited acceptance tools\n', acceptanceWorkflow);
+const acceptanceBundleShell = runBlockAfter('- name: Verify bounded bundle and declared Node version\n', acceptanceWorkflow);
+
+test('the actual acceptance bundle passes the live runner gate with only its checksummed files', () => {
+  const base = mkdtempSync(join(tmpdir(), 'aidt-acceptance-bundle-test-'));
+  const source = join(base, 'source');
+  const output = join(base, 'output');
+  const packageOutput = join(base, 'package-output');
+  const controlSha = 'ab'.repeat(20);
+  const manifestPath = join(source, 'SHA256SUMS');
+  const env = { ...process.env, GITHUB_SHA: controlSha, AIDT_ACCEPTANCE_ROOT: base, GITHUB_OUTPUT: output };
+  try {
+    assert.match(acceptanceWorkflow, /bundle_manifest_sha256: \$\{\{ steps\.bundle\.outputs\.manifest_sha256 \}\}/);
+    assert.match(acceptanceWorkflow, /AIDT_BUNDLE_MANIFEST_SHA256: \$\{\{ needs\.controls\.outputs\.bundle_manifest_sha256 \}\}/);
+    const build = spawnSync('bash', ['-c', acceptancePackageShell], {
+      cwd: new URL('../..', import.meta.url),
+      env: { ...env, RUNNER_TEMP: base, GITHUB_OUTPUT: packageOutput }, encoding: 'utf8',
+    });
+    assert.equal(build.status, 0, build.stderr);
+    renameSync(join(base, 'aidt-acceptance-tools'), source);
+    const manifest = readFileSync(manifestPath);
+    const digest = readFileSync(packageOutput, 'utf8').match(/^manifest_sha256=([a-f0-9]{64})\n$/)?.[1];
+    assert.equal(digest, createHash('sha256').update(manifest).digest('hex'));
+    const verify = (manifestDigest = digest) => spawnSync('bash', ['-c', acceptanceBundleShell], {
+      env: { ...env, AIDT_BUNDLE_MANIFEST_SHA256: manifestDigest }, encoding: 'utf8',
+    });
+
+    const positive = verify();
+    assert.equal(positive.status, 0, positive.stderr + positive.stdout);
+    assert.equal(readFileSync(output, 'utf8'), `node-version=${readFileSync(join(source, '.nvmrc'), 'utf8').trim()}\n`);
+    assert.notEqual(verify('').status, 0);
+
+    const extra = join(source, 'unlisted.txt');
+    writeFileSync(extra, 'unexpected');
+    assert.notEqual(verify().status, 0);
+    rmSync(extra);
+    symlinkSync('package.json', extra);
+    assert.notEqual(verify().status, 0);
+    rmSync(extra);
+
+    const packagePath = join(source, 'package.json');
+    writeFileSync(packagePath, '{}');
+    assert.notEqual(verify().status, 0);
+    const changedDigest = createHash('sha256').update('{}').digest('hex');
+    writeFileSync(manifestPath, manifest.toString().replace(/^[a-f0-9]{64}  package\.json$/m, `${changedDigest}  package.json`));
+    assert.notEqual(verify().status, 0);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
 
 function isolatedCheckoutFixture() {
   const base = mkdtempSync(join(tmpdir(), 'aidt-private-checkout-test-'));
