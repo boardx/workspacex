@@ -48,10 +48,16 @@ it('inflight abort settles once with queued duration, no new session or retry',a
  const controller=new AbortController(),session=await f.provider.open(handlers,audio,{turnDetection:'manual',signal:controller.signal,accountingContext:context});session.pushAudio(new Uint8Array(3200));controller.abort();await settled;session.abort();
  expect(f.connected).toHaveBeenCalledOnce();expect(terminal).toHaveBeenCalledOnce();expect(terminal.mock.calls[0]?.[0]).toMatchObject({outcome:'failed',queuedDurationMs:100n});
 });
-it('terminal outage preserves successful ASR finish and blocks later actual WebSocket',async()=>{
- const terminal=vi.fn(async()=>{throw new Error('ledger unavailable');}),start=vi.fn(async()=>({terminal})),f=await fixture({start});
+it('terminal outage preserves ASR finish and allows new sessions after receipt recovery',async()=>{
+ let offline=true; const terminal=vi.fn(async(_input:unknown)=>{if(offline)throw new Error('ledger unavailable');}),start=vi.fn(async()=>({terminal})),f=await fixture({start});
  const session=await f.provider.open(handlers,audio,{turnDetection:'manual',accountingContext:context});session.pushAudio(new Uint8Array(3200));await session.finish();
- await expect(f.provider.open(handlers,audio,{turnDetection:'manual',accountingContext:context})).rejects.toThrow('ASR_ACCOUNTING_REPAIR_REQUIRED');expect(f.connected).toHaveBeenCalledOnce();expect(terminal).toHaveBeenCalledOnce();session.abort();
+ await expect(f.provider.open(handlers,audio,{turnDetection:'manual',accountingContext:context})).rejects.toThrow('ASR_ACCOUNTING_REPAIR_REQUIRED');expect(f.connected).toHaveBeenCalledOnce();
+ offline=false;
+ const recovered=await f.provider.open(handlers,audio,{turnDetection:'manual',accountingContext:context});
+ expect(f.connected).toHaveBeenCalledTimes(2);
+ expect(terminal.mock.calls[1]?.[0]).toEqual(terminal.mock.calls[0]?.[0]);
+ expect(terminal.mock.calls[2]?.[0]).toEqual(terminal.mock.calls[0]?.[0]);
+ recovered.abort();session.abort();
 });
 it('personal capture authority is checked by the existing repository with exact capture, no content read',async()=>{
  const query=vi.fn(async(sql:string)=>({rows:sql.includes('SELECT 1 FROM recording_sessions')?[{allowed:1}]:[]})),db={withTenant:async(org:unknown,work:(s:unknown)=>unknown)=>{expect(org).toBe(context.orgId);return work({query});}};

@@ -44,6 +44,7 @@
  * 这条 bug 完全静默了 7 天以上没有任何日志——见 `onClosed` 的说明。
  */
 import {prepareAsrAiAdmission,type AsrNativeAdmissionDependencies,type AsrNativeAdmissionPort} from "./bounded-asr-admission";
+import {PendingCreditReceipts} from "../billing/pending-credit-receipts";
 import {Logger} from "@nestjs/common";
 import type {AsrRequestAccounting,AsrAccountingContext} from "../../application/recording/asr-request-accounting";
 import { WebSocket } from "ws";
@@ -180,7 +181,7 @@ function validTranscriptIdentity(value: unknown): value is string {
 
 export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
   private readonly config: ProviderConfig | null;
-  private accountingFault=false;
+  private readonly pendingReceipts = new PendingCreditReceipts();
   private readonly logger=new Logger(ConfiguredRealtimeAsrProvider.name);
 
   constructor(config: ProviderConfig | null = readConfig(),private readonly accounting?:AsrRequestAccounting,private readonly productQuotaEnabled=false,private readonly nativeAdmission?:AsrNativeAdmissionDependencies|AsrNativeAdmissionPort) {
@@ -208,9 +209,10 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     // 就已经用这个参数（缺省时用一个这个账号未必有权限的默认模型）初始化了会话，
     // 之后再用 `session.update` 改模型已经太晚——连接可能已经因为默认模型不可用被关闭。
     const url = `${config.baseUrl}?model=${encodeURIComponent(config.model)}`;
-    if(this.accountingFault)throw new Error("ASR_ACCOUNTING_REPAIR_REQUIRED");
     if(this.productQuotaEnabled&&!this.nativeAdmission)throw new Error("ASR_NATIVE_ADMISSION_REQUIRED");
     if((this.accounting||this.productQuotaEnabled)&&!options?.accountingContext)throw new Error("ASR_ACCOUNTING_CONTEXT_REQUIRED");
+    options?.signal?.throwIfAborted();
+    if (!await this.pendingReceipts.recover()) throw new Error("ASR_ACCOUNTING_REPAIR_REQUIRED");
     options?.signal?.throwIfAborted();
     const request={requestId:randomUUID(),modelProvider:config.provider,modelId:config.model,startedAt:new Date().toISOString()};
     const admitted=this.productQuotaEnabled?await ("start" in this.nativeAdmission!
@@ -218,11 +220,14 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       :prepareAsrAiAdmission(options!.accountingContext!,{...request,audio},this.nativeAdmission!)):undefined;
     const receipt=admitted??(this.accounting?await this.accounting.start(options!.accountingContext!,request):undefined);
     let queuedPcmBytes=0,wasCancelled=false,terminal:Promise<void>|undefined;
-    let terminalReceipt:Parameters<Awaited<ReturnType<AsrRequestAccounting['start']>>['terminal']>[0]|undefined;
     const account=(outcome:'succeeded'|'failed')=>{
       if(receipt&&!terminal){
-        terminalReceipt??={endedAt:new Date().toISOString(),outcome,queuedDurationMs:queuedPcmDurationMs(queuedPcmBytes,audio)};
-        terminal=Promise.resolve().then(()=>receipt.terminal(terminalReceipt!)).catch(()=>{terminal=undefined;this.accountingFault=true;this.logger.warn("ASR_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent sessions blocked in this instance");});
+        const facts = {endedAt:new Date().toISOString(),outcome,queuedDurationMs:queuedPcmDurationMs(queuedPcmBytes,audio)};
+        const deliver = () => receipt.terminal(facts);
+        terminal = Promise.resolve().then(deliver).catch(() => {
+          this.pendingReceipts.retain(deliver);
+          this.logger.warn("ASR_USAGE_TERMINAL_FAILED: terminal receipt queued for retry");
+        });
       }
       return terminal??Promise.resolve();
     };
