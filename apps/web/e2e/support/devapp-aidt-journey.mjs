@@ -351,6 +351,13 @@ export function assertSavedCardCreation(before, after, target, kind) {
       new Set(ids).size !== ids.length || oldIds.some(id => !ids.includes(id))) fail('CARD_CREATION_ENTITY_UNVERIFIED');
 }
 
+const aidtCreateTagPrefix = stage => stage === 2 ? 'interview-tag' : 'card-create-tag';
+
+export function aidtCreateTagInput(dialog, stage) {
+  return dialog.getByTestId(aidtCreateTagPrefix(stage) + '-input')
+    .and(dialog.getByRole('textbox', { name: /^(?:添加标签|Add tag)$/ }));
+}
+
 export async function runAidtJourney({ page, expect, interviewStarter, scope, checkpoint, capture, api,
   saveStage, armCardCreate, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
   armSurvey, surveyReceipt, armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, createSurveyParticipant, savePrint, teachingFeedback, reviewS1StudentResponse }) {
@@ -418,12 +425,14 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     return href;
   };
   const capturedDialogs = new Set();
+  const qaCardTag = 'QA课堂';
   const captureCardCreation = async (stage, kind, submit, { reopen = false, example = kind, expectedName } = {}) => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
-    const tag = dialog.getByRole('textbox', { name: '添加标签', exact: true });
-    await tag.fill('QA课堂'); await tag.press('Enter');
-    await expect(dialog.getByText('QA课堂', { exact: true })).toBeVisible();
+    const tag = aidtCreateTagInput(dialog, stage);
+    await tag.fill(qaCardTag); await tag.press('Enter');
+    const committedTag = dialog.getByTestId(`${aidtCreateTagPrefix(stage)}-chip-${qaCardTag}`);
+    await expect(committedTag).toBeVisible().catch(() => fail('CARD_CREATION_TAG_COMMIT_UNVERIFIED'));
     const screenshotName = '0' + stage + '-create-' + example;
     if (!capturedDialogs.has(example)) await capture(screenshotName + '-dialog', stage, 'card-dialog');
     const before = await savedStage(stage);
@@ -452,7 +461,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     if (reloaded.revision < saved.revision) fail('CARD_CREATION_RELOAD_UNVERIFIED');
     const fields = reloaded.content.draft.fields;
     const storedTags = stage === 2 ? JSON.parse(fields['interviewRecord:' + target.entityId]).tags : JSON.parse(fields['cardTags:' + target.entityId] ?? '[]');
-    if (!Array.isArray(storedTags) || !storedTags.includes('QA课堂')) fail('CARD_CREATION_TAG_RELOAD_UNVERIFIED');
+    if (!Array.isArray(storedTags) || !storedTags.includes(qaCardTag)) fail('CARD_CREATION_TAG_RELOAD_UNVERIFIED');
     if (expectedName) await expect(page.getByTestId('aidt-step-entity-directory').getByText(expectedName, { exact: false }).first()).toBeVisible();
     const directoryHref = page.url();
     let card;

@@ -9,6 +9,7 @@ import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, creat
 import { captureApplicationPrint } from './devapp-aidt-print-evidence.mjs';
 import { sendTeachingFeedback } from './devapp-aidt-chat-evidence.mjs';
 import { agentQaReviewRequested, createAgentQaReviewer } from './devapp-aidt-agent-review.mjs';
+import { aidtCreateTagInput } from './devapp-aidt-journey.mjs';
 
 export function illustratedAcceptance(report) {
   const headings = ['首页', '理解与提出问题', '共情用户', '综合与定义', '创意发散', '制作原型', '测试与迭代', '最终报告'];
@@ -404,7 +405,8 @@ export async function main() {
       }
       if (region === 'card-dialog') {
         const url = new URL(page.url());
-        if (url.searchParams.has('entity') || await page.getByRole('dialog').count() !== 1 || !await page.getByRole('dialog').getByRole('textbox', { name: '添加标签', exact: true }).isVisible()) throw new ProbeFailure('CARD_DIALOG_SCOPE_UNVERIFIED');
+        const dialog = page.getByRole('dialog');
+        if (url.searchParams.has('entity') || await dialog.count() !== 1 || !await aidtCreateTagInput(dialog, expectedStage).isVisible()) throw new ProbeFailure('CARD_DIALOG_SCOPE_UNVERIFIED');
       }
       recheckRuntime();
       const workspace = region === 'card-dialog' ? page.getByRole('dialog') : region === 'owned-tool-review' ? page.getByTestId('chat-tool-permission-dialog') : region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') });
