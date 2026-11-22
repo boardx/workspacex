@@ -53,7 +53,7 @@ function studentProblemStatement(text: string): string | undefined {
 
 // A structured answer may quote a previous teaching reply. Only inspect the
 // student's section for new explicit source or selection statements.
-function studentRevisionText(user: string): string {
+export function studentRevisionText(user: string): string {
   const marker = [...user.matchAll(/^学生的回答[：:][^\S\r\n]*$/gmu)].at(-1);
   return marker ? user.slice(marker.index + marker[0].length) : user;
 }
@@ -62,6 +62,19 @@ function explicitlyStatedHypothesis(prose: string): string | undefined {
   const sentences = prose.split(/(?<=[。！？])|\r?\n/u).map(value => value.trim());
   return sentences.find(value => /^(?:上述|这些)(?:行为|情况|说法)(?:目前|现在)?只是我们(?:提出的)?(?:假设|猜测)[。！]?$/u.test(value)
     || /^这(?:目前|现在)?只是我们(?:提出的)?(?:假设|猜测)[。！]?$/u.test(value));
+}
+
+// A deferred decision is not permission for the assistant to choose or rewrite.
+// Keep explicit student selections and rewrites independent of one another.
+function studentDefersDecision(text: string): boolean {
+  // Only an opening student operation counts as deferral. A research question
+  // about users who did not choose something is still substantive wording.
+  const control = text.trim().split(/[，,。！？；;\r\n]/u, 1)[0]!.trim();
+  return /^(?:(?:但|不过|我们|本组|我|目前|现在|本轮|这轮|先|暂时|暂且)\s*)*(?:还没(?:有)?|尚未|暂未|仍未|还未|没有|没|未|暂不|不|不要|不想|不打算|不准备|不急(?:于|着))(?:(?:先|现在|正式|继续|开始|完成|进行|替我们|帮我们|做出)\s*)*(?:(?:重写|改写|重拟|修订)(?:命题|问题)?|(?:选择|选定|选|确定|确认|决定)(?:(?:具体|合适的?|新的?|任何|其他|另一个|第[一二三四五六七八九十\d]+个)?(?:研究)?方向|命题|题目)?)(?:了|好|完|下来|清楚)?$/u.test(control)
+    || /^(?:(?:但|不过|我们|本组|我|目前|现在|本轮|这轮)\s*)*(?:研究)?方向(?:还没(?:有)?|尚未|暂未|仍未|还未|没有|未|没)(?:定|确定|决定|选定)(?:好|下来|清楚)?$/u.test(control);
+}
+function studentShortSelection(text: string): string | undefined {
+  return /(?:^|[。！？；;\r\n])\s*(?:我们|本组|我)?(?:已经|明确|最终|决定|就)?(?:选择|选定|选|确定|确认)(?:(?:研究)?方向(?:为|是)?|了)?[：:]?\s*([^，,。！？；;\r\n]{1,120})/u.exec(text)?.[1]?.trim();
 }
 
 const withoutFinalPeriod = (value: string | undefined) => value?.trim().replace(/[。.]$/u, "");
@@ -73,31 +86,42 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   try { previous = JSON.parse(draft.fields[key] ?? "{}"); } catch { return null; }
   if (!previous || typeof previous !== "object" || Array.isArray(previous) || Object.values(previous).some(v=>typeof v!=="string")
     || previous.draftTurnId === turn.messageId) return null;
+  const student = studentRevisionText(turn.user);
   const output = problemSkillFields(turn.assistant);
   if (output.initial) {
     const existing = previous.initial?.trim();
     // Students' first framing stays intact. A later reformulation has its own field.
     if ((existing && !isAidtProblemControlText(existing)) ||
-        (!turn.user.includes(output.initial) && turn.verifiedInitial !== output.initial)) delete output.initial;
+        (!student.includes(output.initial) && turn.verifiedInitial !== output.initial)) delete output.initial;
   }
   if (!output.initial && (!previous.initial?.trim() || isAidtProblemControlText(previous.initial.trim()))) {
-    const initial = studentProblemStatement(turn.user);
+    const initial = studentProblemStatement(student);
     if (!initial || isAidtProblemControlText(initial)) return null;
     output.initial = initial;
   }
   const {directionsText,selectedText,...patch}=output;
-  const student = studentRevisionText(turn.user);
-  const statedRewrite = /^学生重写命题[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
-  if (statedRewrite && patch.rewrittenTheme && statedRewrite !== patch.rewrittenTheme) delete patch.rewrittenTheme;
-  if (patch.rewrittenTheme) {
-    const studentProse = student.split(/^\s*(?:本组选择的研究方向|本轮选定方向|研究范围|学生重写命题)[：:]/mu, 1)[0] ?? "";
-    const hypothesis = explicitlyStatedHypothesis(studentProse);
-    // The student explicitly labelled the claim as only a hypothesis. An
-    // assistant assertion cannot supply field provenance for that claim.
-    if (hypothesis) {
-      patch.problemSources = JSON.stringify(["guess"]);
-      patch.sourceDetails = hypothesis;
-    }
+  const selectedByStudent = /^(?:本组选择的研究方向|本轮选定方向)[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim() || studentShortSelection(student);
+  const statedSelection = selectedByStudent && !studentDefersDecision(selectedByStudent) && !/^(?:暂无|未定|待定|还没定|没想好)[。.]?$/u.test(selectedByStudent) ? selectedByStudent : undefined;
+  const rewrittenByStudent = /^学生重写命题[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
+  const statedRewrite = rewrittenByStudent && !studentDefersDecision(rewrittenByStudent)
+    && !/^(?:暂无|未定|待定|还没定|没想好|尚未重写|暂未重写|待重写|待补充)[。.]?$/u.test(rewrittenByStudent) ? rewrittenByStudent : undefined;
+  // Each consequential field needs its own student expression. Asking for a
+  // comparison permits suggestions, not a selected direction or a student rewrite.
+  if (!statedRewrite || statedRewrite !== patch.rewrittenTheme) delete patch.rewrittenTheme;
+  if (!statedSelection) delete patch.focus;
+  const studentFields = problemSkillFields(student);
+  const sourceTypeLine = /^来源类型[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
+  const statedSourceType = sourceTypeLine ? problemSkillFields("来源类型：" + sourceTypeLine).problemSources : studentFields.problemSources;
+  const statedSourceDetails = /^(?:命题来源反思|来源说明)[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim() || studentFields.sourceDetails;
+  const hypothesis = explicitlyStatedHypothesis(student);
+  if (hypothesis) {
+    patch.problemSources = JSON.stringify(["guess"]);
+    patch.sourceDetails = hypothesis;
+  } else {
+    if (statedSourceType) patch.problemSources = statedSourceType;
+    else delete patch.problemSources;
+    if (statedSourceDetails) patch.sourceDetails = statedSourceDetails;
+    else delete patch.sourceDetails;
   }
   type Direction = { id:string; title:string; source:string };
   let priorDirections: Direction[] = [];
@@ -108,7 +132,7 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   } catch { /* Old incomplete choices can be replaced by an explicit new list. */ }
   let choices = priorDirections;
   if (directionsText) {
-    const directions=directionsText.split("\n").flatMap(line=>{
+    let directions=directionsText.split("\n").flatMap(line=>{
       const m=/^[-*] (小组|AI)[：:]\s*(.{1,120})$/u.exec(line);
       if (!m) return [];
       const title=m[2]!.trim(), source=m[1]==="小组"?"group":"ai";
@@ -116,13 +140,14 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
       return [{id,title,source}];
     }).slice(0,6);
     if (directions.length) {
+      // Fresh AI suggestions cannot revoke an existing student choice.
+      const priorSelected = priorDirections.find(choice => choice.id === previous.problemDirectionId);
+      if (priorSelected && !directions.some(choice => choice.id === priorSelected.id)) directions = [priorSelected, ...directions].slice(0, 6);
       patch.problemDirections=JSON.stringify(directions);
       choices = directions;
-      if (previous.problemDirectionId && !directions.some(choice=>choice.id===previous.problemDirectionId)) patch.problemDirectionId="";
     }
   }
-  const statedSelection = /^(?:本组选择的研究方向|本轮选定方向)[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
-  let selection = choices.find(choice => choice.title === (statedSelection || selectedText));
+  let selection = statedSelection ? choices.find(choice => withoutFinalPeriod(choice.title) === withoutFinalPeriod(statedSelection)) : undefined;
   if (statedSelection && withoutFinalPeriod(statedSelection) !== withoutFinalPeriod(selectedText ?? patch.focus)) {
     selection = undefined;
     delete patch.focus;
