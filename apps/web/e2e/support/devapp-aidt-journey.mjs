@@ -282,7 +282,101 @@ export function matchesAidtEntityRoute(href, target, tool) {
   } catch { return false; }
 }
 
-export async function openAidtEntityOutcome({ page, target, activate, waitForRoute, assertDetail, assertReady, tool = 'outcome' }) {
+/** Classify only metadata requests for this already-owned navigation; never authorizes a request. */
+export function aidtOutcomeNavigationRequestKind({ url, method }, { target, threadId, orgId }) {
+  try {
+    const value = new URL(url);
+    if (value.origin !== target.origin || value.username || value.password || value.hash
+      || new Set(value.searchParams.keys()).size !== [...value.searchParams.keys()].length
+      || !/^thr[-_][A-Za-z0-9_-]{1,180}$/.test(threadId ?? '') || !/^[A-Za-z0-9_.:-]{1,256}$/.test(orgId ?? '')) return;
+    const projectQuery = [...value.searchParams.keys()].join(',') === 'projectId' && value.searchParams.get('projectId') === target.projectId;
+    if (method === 'GET' && value.pathname === '/api/skills' && value.searchParams.get('orgId') === orgId
+      && [...value.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))
+      && (!value.searchParams.has('entry') || value.searchParams.get('entry') === 'library')) return 'catalog';
+    if (method === 'GET' && value.pathname === '/api/capabilities' && value.searchParams.get('orgId') === orgId
+      && value.searchParams.get('kind') === 'agent' && [...value.searchParams.keys()].sort().join(',') === 'kind,orgId') return 'catalog';
+    if (method === 'PUT' && !value.search && value.pathname === `/api/projects/${encodeURIComponent(target.projectId)}/aidt/stages/${target.stage}/entities/${encodeURIComponent(target.entityId)}/thread`) return 'entityThread';
+    if (method === 'GET' && projectQuery && value.pathname === `/api/chat/threads/${encodeURIComponent(threadId)}`) return 'threadRead';
+    if (projectQuery && value.pathname === `/api/threads/${encodeURIComponent(threadId)}/skill-deviations` && method === 'GET') return 'mountRead';
+    if (projectQuery && value.pathname === `/api/threads/${encodeURIComponent(threadId)}/skill-mounts` && method === 'POST') return 'mountWrite';
+  } catch { /* Unknown metadata is not observed. */ }
+}
+
+/** Bounded public observations only; React lifecycle/scope/abort state is not inspected. */
+export function observeAidtOutcomeNavigation({ page, target, threadId, orgId, tool }) {
+  const data = { phase: 'goto', completed: { goto: false, routeBound: false, inspectorReady: false }, failed: false,
+    routeObserved: false, sameOrigin: false, projectMatches: false, stageMatches: false, entityMatches: false,
+    threadMatches: false, sourceMatches: false, toolMatches: false, domObserved: false, preparingVisible: false,
+    composerVisible: false, inspectorVisible: false, outcomeVisible: false, requestObservationAvailable: false,
+    requests: [], requestsTruncated: false };
+  Object.seal(data); Object.seal(data.completed);
+  const rows = [], requests = new WeakMap(); let closed = false;
+  const detach = () => {
+    for (const [event, handler] of [['request', requested], ['response', responded], ['requestfailed', requestFailed]]) {
+      try { page.off(event, handler); } catch { /* Cleanup cannot replace the original navigation result. */ }
+    }
+  };
+  const classify = request => {
+    const kind = aidtOutcomeNavigationRequestKind({ url: request.url(), method: request.method() }, { target, threadId, orgId });
+    return kind === 'catalog' && !matchesAidtEntityRoute(page.url(), target) ? undefined : kind;
+  };
+  const requested = request => {
+    if (closed) return;
+    try {
+      const kind = classify(request); if (!kind) return;
+      if (rows.length >= 32) { data.requestsTruncated = true; return; }
+      const row = { kind, phase: data.phase, state: 'pending', httpStatus: null }; rows.push(row); requests.set(request, row);
+    } catch { /* No request strings or errors are retained. */ }
+  };
+  const responded = response => {
+    if (closed) return;
+    try {
+      const row = requests.get(response.request()), status = response.status();
+      if (row) { row.state = 'response'; row.httpStatus = Number.isInteger(status) && status >= 100 && status <= 599 ? status : null; }
+    } catch { /* Status unavailable; no error text is retained. */ }
+  };
+  const requestFailed = request => { if (!closed) { const row = requests.get(request); if (row) row.state = 'requestfailed'; } };
+  if (target.stage === 2 && /^thr[-_][A-Za-z0-9_-]{1,180}$/.test(threadId ?? '') && /^[A-Za-z0-9_.:-]{1,256}$/.test(orgId ?? '')
+    && typeof page.on === 'function' && typeof page.off === 'function') {
+    try {
+      page.on('request', requested); page.on('response', responded); page.on('requestfailed', requestFailed);
+      data.requestObservationAvailable = true;
+    } catch { detach(); }
+  }
+  const routeSnapshot = () => {
+    try {
+      const value = new URL(page.url()); data.routeObserved = true;
+      data.sameOrigin = value.origin === target.origin;
+      data.projectMatches = value.pathname === `/aidt/${encodeURIComponent(target.projectId)}`;
+      data.stageMatches = value.searchParams.getAll('step').length === 1 && value.searchParams.get('step') === String(target.stage);
+      data.entityMatches = value.searchParams.getAll('entity').length === 1 && value.searchParams.get('entity') === target.entityId;
+      data.threadMatches = value.searchParams.getAll('thread').length === 1 && value.searchParams.get('thread') === threadId;
+      data.sourceMatches = matchesAidtEntityRoute(value.href, target);
+      data.toolMatches = value.searchParams.getAll('tool').length === 1 && value.searchParams.get('tool') === tool;
+    } catch { /* No route text is retained and no authorization outcome is inferred. */ }
+  };
+  return { data,
+    phase(value) { if (!closed && ['goto', 'route-bound', 'inspector-ready'].includes(value)) data.phase = value; },
+    async failed() {
+      if (closed) return; data.failed = true; routeSnapshot();
+      try {
+        const [preparing, composer, inspector, outcome] = await Promise.all([
+          page.getByText('正在准备本步对话与 Skill…', { exact: true }).isVisible(), page.getByTestId('copilotkit-v2-input').isVisible(),
+          page.getByTestId('chat-task-workbench-inspector').isVisible(), page.getByTestId('aidt-interview-output').isVisible(),
+        ]);
+        if (!closed) Object.assign(data, { domObserved: true, preparingVisible: preparing === true, composerVisible: composer === true, inspectorVisible: inspector === true, outcomeVisible: outcome === true });
+      } catch { /* An unavailable probe is not a negative visibility observation. */ }
+    },
+    close() {
+      if (closed) return; closed = true;
+      if (typeof page.off === 'function') detach();
+      routeSnapshot(); data.requests = rows.map(row => Object.freeze({ kind: row.kind, phase: row.phase, state: row.state, httpStatus: row.httpStatus }));
+      Object.freeze(data.completed); Object.freeze(data.requests); Object.freeze(data);
+    },
+  };
+}
+
+export async function openAidtEntityOutcome({ page, target, activate, waitForRoute, assertDetail, assertReady, tool = 'outcome', navigation }) {
   const route = ownedAidtEntityRoute(target.href, target, target);
   if (activate) {
     await activate();
@@ -291,11 +385,21 @@ export async function openAidtEntityOutcome({ page, target, activate, waitForRou
     await assertDetail();
   }
   const url = new URL(route.href); url.searchParams.set('tool', tool);
-  await page.goto(url.href, { waitUntil: 'domcontentloaded' });
-  await waitForRoute(() => matchesAidtEntityRoute(page.url(), route, tool));
-  if (!matchesAidtEntityRoute(page.url(), route, tool)) fail('ENTITY_OUTCOME_UNVERIFIED');
-  await assertReady();
-  return route;
+  const observation = navigation ? observeAidtOutcomeNavigation({ page, target: route, threadId: navigation.threadId, orgId: navigation.orgId, tool }) : null;
+  if (observation) navigation.diagnostics.outputNavigation = observation.data;
+  try {
+    await page.goto(url.href, { waitUntil: 'domcontentloaded' });
+    if (observation) { observation.data.completed.goto = true; observation.phase('route-bound'); }
+    await waitForRoute(() => matchesAidtEntityRoute(page.url(), route, tool));
+    if (!matchesAidtEntityRoute(page.url(), route, tool)) fail('ENTITY_OUTCOME_UNVERIFIED');
+    if (observation) { observation.data.completed.routeBound = true; observation.phase('inspector-ready'); }
+    await assertReady();
+    if (observation) observation.data.completed.inspectorReady = true;
+    return route;
+  } catch (error) {
+    if (observation) await observation.failed();
+    throw error;
+  } finally { observation?.close(); }
 }
 
 export function assertSavedAidtHmwSource(stage, expected) {
@@ -493,7 +597,7 @@ export function aidtCreateTagInput(dialog, stage) {
 
 export async function runAidtJourney({ page, expect, interviewStarter, scope, checkpoint, capture, api,
   saveStage, armCardCreate, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
-  armSurvey, surveyReceipt, armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, createSurveyParticipant, savePrint, teachingFeedback, reviewS1StudentResponse }) {
+  armSurvey, surveyReceipt, armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, createSurveyParticipant, savePrint, teachingFeedback, reviewS1StudentResponse, outcomeDiagnosticOrgId }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
   const root = `/aidt/${encodeURIComponent(scope.projectId)}`;
   const origin = new URL(page.url()).origin;
@@ -619,9 +723,9 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     (evidence(stage).cardCreations ??= []).push({ kind, entityId: target.entityId, threadId, beforeRevision: before.revision, savedRevision: saved.revision, reloadedRevision: reloaded.revision, reopened: reopen });
     return { target, directoryHref, threadId };
   };
-  const output = async (target = lastEntityRoute) => {
+  const output = async (target = lastEntityRoute, navigation) => {
     if (!target) fail('CAPTURED_ENTITY_REQUIRED');
-    return openAidtEntityOutcome({ page, target, waitForRoute: waitForEntity,
+    return openAidtEntityOutcome({ page, target, waitForRoute: waitForEntity, navigation,
       assertReady: () => entityReady(target.stage) });
   };
   const shot = async (name, stage) => {
@@ -910,7 +1014,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
       await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
       diagnostics.checks.composerVisible = true;
       diagnostics.phase = 'output';
-      await output(target);
+      await output(target, { diagnostics, threadId: created.threadId, orgId: outcomeDiagnosticOrgId });
       diagnostics.checks.outputOpened = true;
       const threadId = await assertAidtS2NativeChatEntry({ page, expect, target, createdThreadId: created.threadId,
         code, interviewStarter, existingInterviews: state.interviews, diagnostics });
