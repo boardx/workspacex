@@ -353,6 +353,63 @@ export function savedAidtInterviewRoute(stage, code, directory, scope) {
   return ownedAidtEntityRoute(url.href, scope, { stage: 2, entityId: entry.record.id });
 }
 
+async function readOnlyAidtS2Output(page, expect, diagnostics) {
+  if (diagnostics) diagnostics.phase = 'readonly';
+  const inspector = page.getByTestId('aidt-interview-output');
+  await expect(inspector).toBeVisible();
+  if (diagnostics) diagnostics.checks.readonlyInspectorVisible = true;
+  // Collapsed editable forms also violate the results-only inspector.
+  const editors = inspector.locator('textarea:not([readonly]):not(:disabled), input:not([readonly]):not(:disabled), select:not(:disabled), [contenteditable="true"], button[role="checkbox"]');
+  if (diagnostics) diagnostics.checks.readonlyEditableCount = await editors.count();
+  await expect(editors).toHaveCount(0);
+  if (diagnostics) diagnostics.checks.readonly = true;
+  return inspector;
+}
+
+/** A real Page/expect seam, not a fixture or acceptance receipt. Diagnostics never contain page or identity text. */
+export async function assertAidtS2NativeChatEntry({ page, expect, target, createdThreadId, code, interviewStarter, existingInterviews, diagnostics }) {
+  const phase = value => { if (diagnostics) diagnostics.phase = value; };
+  const checked = (key, value = true) => { if (diagnostics) diagnostics.checks[key] = value; };
+  phase('entity-binding');
+  await expect(matchesAidtEntityRoute(page.url(), target)).toBe(true);
+  checked('sameEntityRoute');
+  phase('thread');
+  checked('createdThreadPresent', typeof createdThreadId === 'string' && /^thr_aidt_/.test(createdThreadId));
+  await expect(createdThreadId).toMatch(/^thr_aidt_/);
+  await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
+  checked('threadFormatValid');
+  checked('createdThreadMatches', new URL(page.url()).searchParams.get('thread') === createdThreadId);
+  await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(createdThreadId);
+  checked('createdThreadMatches');
+  phase('output-code');
+  await expect(page.getByTestId('aidt-interview-output')).toContainText(code);
+  checked('outputContainsCode');
+  phase('welcome');
+  if (typeof interviewStarter !== 'string' || !interviewStarter.trim()) fail('INTERVIEW_SKILL_STARTER_MISSING');
+  checked('starterConfigured');
+  await expect(page.getByTestId('aidt-chat-welcome')).toHaveText(interviewStarter);
+  checked('welcomeExact');
+  phase('input-count');
+  checked('inputCount', await page.getByTestId('copilotkit-v2-input').count());
+  await expect(page.getByTestId('copilotkit-v2-input')).toHaveCount(1);
+  checked('singleInput');
+  phase('input-editable');
+  await expect(page.getByTestId('copilotkit-v2-input')).toBeEditable();
+  checked('inputEditable');
+  phase('generic-welcome-absent');
+  checked('genericWelcomeCount', await page.getByRole('heading', { name: '先说说你们的想法' }).count());
+  await expect(page.getByRole('heading', { name: '先说说你们的想法' })).toHaveCount(0);
+  checked('noGenericWelcome');
+  phase('unique');
+  const threadId = new URL(page.url()).searchParams.get('thread');
+  expect(existingInterviews.some(item => item.threadId === threadId || item.target.entityId === target.entityId)).toBe(false);
+  checked('uniqueEntityAndThread');
+  existingInterviews.push({ code, threadId, target, href: page.url(), hasMaterial: false });
+  await readOnlyAidtS2Output(page, expect, diagnostics);
+  phase('complete');
+  return threadId;
+}
+
 // A small, valid, run-specific schematic fixture. It is not a generated prototype or person photo.
 export function schematicPng(identity, ordinal) {
   const width = 240, height = 120;
@@ -536,7 +593,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
       lastEntityRoute = target;
     }
     (evidence(stage).cardCreations ??= []).push({ kind, entityId: target.entityId, threadId, beforeRevision: before.revision, savedRevision: saved.revision, reloadedRevision: reloaded.revision, reopened: reopen });
-    return { target, directoryHref };
+    return { target, directoryHref, threadId };
   };
   const output = async (target = lastEntityRoute) => {
     if (!target) fail('CAPTURED_ENTITY_REQUIRED');
@@ -700,13 +757,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     report.s1Navigation.operation = 'completed';
   }, '01-problem-reentry');
 
-  const readOnlyInterviewOutput = async () => {
-    const inspector = page.getByTestId('aidt-interview-output');
-    await expect(inspector).toBeVisible();
-    // Collapsed editable forms also violate the results-only inspector.
-    await expect(inspector.locator('textarea:not([readonly]):not(:disabled), input:not([readonly]):not(:disabled), select:not(:disabled), [contenteditable="true"], button[role="checkbox"]')).toHaveCount(0);
-    return inspector;
-  };
+  const readOnlyInterviewOutput = () => readOnlyAidtS2Output(page, expect);
   const saveInterviewEdit = async operation => {
     armInterviewEdit();
     const [response] = await Promise.all([
@@ -797,32 +848,42 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     const directory = new URL(step2Href); directory.searchParams.delete('entity'); directory.searchParams.delete('tool');
     interviewDirectory = owned(directory.href);
     report.interviewCardChats = [];
+    report.s2NativeChatDiagnostics = [];
     for (let index = 1; index <= 10; index++) {
       const code = `U${String(index).padStart(2, '0')}`;
+      const diagnostics = { code, phase: 'directory', checks: {} };
+      report.s2NativeChatDiagnostics.push(diagnostics);
       await page.goto(interviewDirectory);
+      diagnostics.phase = 'topic';
       const topic = page.locator('summary').filter({ hasText: `已确认研究问题 · 第 1 步 V${confirmedProblem.revision}` });
       await expect(topic).toBeVisible();
+      diagnostics.checks.topicVisible = true;
       if (await topic.locator('..').getAttribute('open') === null) await topic.click();
       await expect(topic.locator('..')).toContainText(confirmedProblem.rewrittenTheme);
+      diagnostics.checks.topicContentMatches = true;
+      diagnostics.phase = 'creation';
       await click(page.getByTestId('aidt-new-entity-card'));
       await fill('受访者姓名或化名', `QA受访者 ${code}`, page.getByRole('dialog'));
-      await captureCardCreation(2, 'interview', () => click(btn('创建访谈')), { reopen: true, expectedName: `QA受访者 ${code}` });
+      const created = await captureCardCreation(2, 'interview', () => click(btn('创建访谈')), { reopen: true, expectedName: `QA受访者 ${code}` });
+      diagnostics.checks.creationSavedAndReopened = true;
+      diagnostics.phase = 'saved-route';
       const target = savedAidtInterviewRoute(await savedStage(2), code, interviewDirectory, { origin, projectId: scope.projectId });
+      expect(target.entityId).toBe(created.target.entityId);
+      diagnostics.checks.savedRouteMatchesCreation = true;
+      diagnostics.phase = 'saved-topic';
       assertAidtS2Topic(JSON.parse((await savedStage(2)).content.draft.fields[`interviewRecord:${target.entityId}`]), confirmedProblem);
+      diagnostics.checks.savedTopicMatches = true;
+      diagnostics.phase = 'entity-route';
       await waitForEntity(() => matchesAidtEntityRoute(page.url(), target));
+      diagnostics.checks.entityRouteMatches = true;
+      diagnostics.phase = 'composer-visible';
       await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+      diagnostics.checks.composerVisible = true;
+      diagnostics.phase = 'output';
       await output(target);
-      await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toMatch(/^thr_aidt_/);
-      await expect(page.getByTestId('aidt-interview-output')).toContainText(code);
-      if (typeof interviewStarter !== 'string' || !interviewStarter.trim()) fail('INTERVIEW_SKILL_STARTER_MISSING');
-      await expect(page.getByTestId('aidt-chat-welcome')).toHaveText(interviewStarter);
-      await expect(page.getByTestId('copilotkit-v2-input')).toHaveCount(1);
-      await expect(page.getByTestId('copilotkit-v2-input')).toBeEditable();
-      await expect(page.getByRole('heading', { name: '先说说你们的想法' })).toHaveCount(0);
-      const threadId = new URL(page.url()).searchParams.get('thread');
-      expect(state.interviews.some(item => item.threadId === threadId || item.target.entityId === target.entityId)).toBe(false);
-      state.interviews.push({ code, threadId, target, href: page.url(), hasMaterial: false });
-      await readOnlyInterviewOutput();
+      diagnostics.checks.outputOpened = true;
+      const threadId = await assertAidtS2NativeChatEntry({ page, expect, target, createdThreadId: created.threadId,
+        code, interviewStarter, existingInterviews: state.interviews, diagnostics });
       report.interviewCardChats.push({ code, threadId, entityId: target.entityId, inspectorVisible: true, inspectorReadOnly: true });
     }
   }, '02-ten-card-chats');
