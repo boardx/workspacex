@@ -2,7 +2,7 @@
 import { ORIGIN, ProbeFailure, validLoginBody } from './devapp-aidt-auth-readonly.mjs';
 import { createSurveyCollectionGuard } from './devapp-aidt-survey.mjs';
 import { createHash } from 'node:crypto';
-import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, brainstormRecord, validBrainstormProjection, validTestPlanProjection, ENTITY } from './devapp-aidt-chat-evidence.mjs';
+import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, decideOwnedTeachingExecutionRead, brainstormRecord, validBrainstormProjection, validTestPlanProjection, ENTITY } from './devapp-aidt-chat-evidence.mjs';
 
 export const SHA = /^[a-f0-9]{40}$/;
 export const TAG = /^[0-9]+-[0-9]+$/;
@@ -185,6 +185,8 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         if (path === `/api/chat/threads/${encodeURIComponent(id)}/messages`) return { allow: true, kind: 'thread-messages', threadId: id };
         if (path === `/api/threads/${encodeURIComponent(id)}/skill-deviations`) return { allow: true, kind: 'thread-pins', threadId: id };
       }
+      const executionRead = decideOwnedTeachingExecutionRead(target, method, { actorId: actor, orgId: org, projectId, threads, ownedRuns, teachingLedger });
+      if (executionRead) return executionRead;
       const runRead = /^\/api\/agent-runs\/([A-Za-z0-9_.:-]+)(?:\/aidt-context)?$/.exec(path);
       if (runRead && !target.search) return ownedRuns.has(runRead[1]) ? { allow: true, kind: 'owned-teaching-run-read', runId: runRead[1] } : { allow: false, kind: 'teaching-run-needs-binding', runId: runRead[1] };
       const ownedChat = [...threads].some(id => path === `/api/chat/threads/${encodeURIComponent(id)}` || path.startsWith(`/api/chat/threads/${encodeURIComponent(id)}/`)

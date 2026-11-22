@@ -12,11 +12,15 @@ const sections: Record<string, string> = {
 
 /** Parse the named sections of the Skill's visible draft, including pre-protocol Markdown.
  * Never take the first chat message or a teaching question as a saved answer. */
-export function problemSkillFields(answer: string): Record<string, string> {
+export function problemSkillFields(answer: string, mode: "assistant" | "student" = "assistant"): Record<string, string> {
   if (answer.length > 100_000) return {};
   const fields: Record<string, string> = {};
   let current: string | undefined;
-  for (const line of answer.split(/\r?\n/)) {
+  for (const rawLine of answer.split(/\r?\n/)) {
+    // Only the assistant's artifact uses quote marks as presentation. A student's
+    // quoted example is not their own source statement or a continued source field.
+    if (mode === "student" && /^[ \t]{0,3}>/u.test(rawLine)) { current = undefined; continue; }
+    const line = mode === "assistant" ? rawLine.replace(/^[ \t]{0,3}(?:>[ \t]?)+/u, "") : rawLine;
     const text = line.trim().replace(/^#{1,6}\s+/, "").replace(/^[-*]\s+/, "").replaceAll("**", "");
     const separator = text.search(/[：:]/);
     const label = (separator < 0 ? text : text.slice(0, separator)).trim().replace(/\s*(?:（(?:逐字保留|学生表述)）|\((?:逐字保留|学生表述)\))$/u, "")
@@ -109,9 +113,9 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   // comparison permits suggestions, not a selected direction or a student rewrite.
   if (!statedRewrite || statedRewrite !== patch.rewrittenTheme) delete patch.rewrittenTheme;
   if (!statedSelection) delete patch.focus;
-  const studentFields = problemSkillFields(student);
+  const studentFields = problemSkillFields(student, "student");
   const sourceTypeLine = /^来源类型[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
-  const statedSourceType = sourceTypeLine ? problemSkillFields("来源类型：" + sourceTypeLine).problemSources : studentFields.problemSources;
+  const statedSourceType = sourceTypeLine ? problemSkillFields("来源类型：" + sourceTypeLine, "student").problemSources : studentFields.problemSources;
   const statedSourceDetails = /^(?:命题来源反思|来源说明)[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim() || studentFields.sourceDetails;
   const hypothesis = explicitlyStatedHypothesis(student);
   if (hypothesis) {

@@ -140,19 +140,58 @@ export async function prepareAidtS1NativeResponse(question, reviewStudentRespons
 
 /** One existing second native turn; no form mutation, retry, confirmation or extra send. */
 export async function runAidtS1NativeRevision({ question, original, reviewStudentResponse,
-  sendStudentResponse, readReply, readSaved, reload, assertUi }) {
+  sendStudentResponse, readReply, readSaved, reload, assertUi, recordSavedDiagnostic }) {
   const review = await prepareAidtS1NativeResponse(question, reviewStudentResponse);
   await requireAcceptedS1Feedback(() => sendStudentResponse(review.prompt));
   const reply = await readReply(review.prompt);
   if (reply.projectId !== question.projectId || reply.entityId !== question.entityId || reply.threadId !== question.threadId
     || reply.studentPrompt !== review.prompt || reply.revision !== original.revision
     || ['runId','inputMessageId','assistantMessageId'].some(key => reply[key] === question[key])) fail('S1_NATIVE_RESPONSE_UNVERIFIED');
-  const draft = assertSavedAidtS1NativeDraft(await readSaved(), reply,
-    { initial: original.fields.initial, rewrittenTheme: review.rewrittenTheme, focus: review.selectedDirection });
+  const savedRevision = await readSaved();
+  const expected = { initial: original.fields.initial, rewrittenTheme: review.rewrittenTheme, focus: review.selectedDirection };
+  if (typeof recordSavedDiagnostic === 'function') recordSavedDiagnostic(s1NativeDraftDiagnostics(savedRevision, reply, expected));
+  const draft = assertSavedAidtS1NativeDraft(savedRevision, reply, expected);
   await reload();
   assertSavedAidtS1Revision(await readSaved(), draft);
   await assertUi(draft);
   return { draft, review, reply, h03ConversationSignoff: false, teachingQualityAccepted: false };
+}
+
+/** Closed booleans only; parsing never exports source text, identities or errors. */
+function s1NativeDraftDiagnostics(stage, proof, expected) {
+  const fields = stage?.content?.draft?.fields;
+  let entity, draft, directions;
+  try { entity = JSON.parse(fields?.[`problemEntity:${proof.entityId}`]); } catch { /* Missing or invalid remains a false predicate. */ }
+  try { draft = JSON.parse(fields?.[`problemDraft:${proof.entityId}`]); } catch { /* No error text is retained. */ }
+  const entityObject = Boolean(entity && typeof entity === 'object' && !Array.isArray(entity));
+  const draftObject = Boolean(draft && typeof draft === 'object' && !Array.isArray(draft));
+  const directionsPresent = Boolean(draftObject && draft.problemDirections);
+  if (directionsPresent) { try { directions = JSON.parse(draft.problemDirections); } catch { /* Boolean shape diagnostics only. */ } }
+  const directionsArray = Array.isArray(directions);
+  const matchingDirections = directionsArray && draftObject && typeof draft.problemDirectionId === 'string'
+    ? directions.filter(direction => direction && typeof direction === 'object' && !Array.isArray(direction) && direction.id === draft.problemDirectionId) : [];
+  const directionIdMatches = matchingDirections.length > 0;
+  const directionChoiceMatches = matchingDirections.some(direction => direction.title === expected.focus);
+  const directionSourceAllowed = matchingDirections.some(direction => direction.title === expected.focus && ['group','ai'].includes(direction.source));
+  return Object.freeze({
+    projectMatches: typeof stage?.projectId === 'string' && stage.projectId === proof.projectId,
+    stageMatches: stage?.stageId === 1,
+    revisionAdvanced: Number.isSafeInteger(stage?.revision) && Number.isSafeInteger(proof.revision) && stage.revision > proof.revision,
+    entityObject, entityMatches: Boolean(entityObject && entity.id === proof.entityId),
+    entityActive: Boolean(entityObject && entity.archived === false),
+    draftObject, draftFieldsAreStrings: Boolean(draftObject && Object.values(draft).every(value => typeof value === 'string')),
+    initialPresent: Boolean(draftObject && textWithin(draft.initial)),
+    turnMatches: Boolean(draftObject && typeof draft.draftTurnId === 'string' && draft.draftTurnId === proof.assistantMessageId),
+    initialPreserved: Boolean(draftObject && typeof expected.initial === 'string' && draft.initial === expected.initial),
+    rewrittenThemeMatches: Boolean(draftObject && typeof expected.rewrittenTheme === 'string' && draft.rewrittenTheme === expected.rewrittenTheme),
+    focusMatches: Boolean(draftObject && typeof expected.focus === 'string' && draft.focus === expected.focus),
+    directionsPresent, directionsArray, directionIdMatches, directionChoiceMatches, directionSourceAllowed,
+    directionConstraintSatisfied: Boolean(draftObject && (!directionsPresent || directionsArray && (!directions.length || directionSourceAllowed))),
+    sourceStatePresent: Array.isArray(stage?.sourceStageRevisions),
+    sourceStateEmpty: Array.isArray(stage?.sourceStageRevisions) && stage.sourceStageRevisions.length === 0,
+    roundNotAutoCompleted: Boolean(draftObject && !draft.roundCompletion),
+    reflectionNotAutoConfirmed: Boolean(draftObject && !draft.problemReflectionConfirmed),
+  });
 }
 
 /** The reply must produce a new persisted draft for this exact entity, not a local preview. */
@@ -613,6 +652,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     let secondNativeReply;
     const revised = await runAidtS1NativeRevision({ question: firstQuestion, original: originalProblemDraft,
       reviewStudentResponse: reviewS1StudentResponse, sendStudentResponse: prompt => feedback(1, prompt),
+      recordSavedDiagnostic: diagnostic => { report.s1NativeDraftDiagnostics = diagnostic; },
       readReply: async prompt => { secondNativeReply = aidtS1Question(report.teachingEvidence, { ...scope, entityId: problemRoute.entityId,
         threadId: new URL(page.url()).searchParams.get('thread'), prompt, revision: originalProblemDraft.revision, checkpoint: 'teaching-chat-stage-1-revision' }); return secondNativeReply; },
       readSaved: async () => { await expect.poll(async () => {

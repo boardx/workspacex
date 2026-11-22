@@ -438,6 +438,49 @@ test('wrong or local-only native projection, edited student initial/theme/focus 
   await assert.rejects(runAidtS1NativeRevision(reentry.args), /S1_REVIEWED_REVISION_UNVERIFIED/); assert.equal(reentry.events.includes('assert-native-ui'), false);
 });
 
+test('S1 records closed boolean diagnostics from its existing first read without an extra request', async () => {
+  const fixture = nativeFixture(), records = [];
+  fixture.args.recordSavedDiagnostic = value => { fixture.events.push('closed-diagnostic'); records.push(value); };
+  await runAidtS1NativeRevision(fixture.args);
+  assert.equal(records.length, 1); assert.equal(Object.keys(records[0]).length, 23);
+  assert.equal(Object.values(records[0]).every(value => typeof value === 'boolean'), true);
+  assert.equal(records[0].revisionAdvanced, true); assert.equal(records[0].turnMatches, true);
+  assert.equal(records[0].initialPreserved, true); assert.equal(records[0].rewrittenThemeMatches, true);
+  assert.equal(records[0].roundNotAutoCompleted, true); assert.equal(records[0].reflectionNotAutoConfirmed, true);
+  assert.equal(fixture.events.filter(value => value === 'read-native-server-draft').length, 2);
+  assert.ok(fixture.events.indexOf('closed-diagnostic') > fixture.events.indexOf('read-native-server-draft'));
+  assert.ok(fixture.events.indexOf('closed-diagnostic') < fixture.events.indexOf('reload-exact-entity'));
+  for (const text of [projectId, entityId, fixture.original.fields.initial, fixture.review.rewrittenTheme])
+    assert.equal(JSON.stringify(records[0]).includes(text), false);
+});
+
+test('S1 failed first read records the exact failed predicate and still rejects before reloading', async () => {
+  const fixture = nativeFixture(), originalRead = fixture.args.readSaved, records = [];
+  fixture.args.readSaved = async () => {
+    const saved = await originalRead(), fields = JSON.parse(saved.content.draft.fields[`problemDraft:${entityId}`]);
+    fields.rewrittenTheme = 'a substituted draft that must still be rejected';
+    saved.content.draft.fields[`problemDraft:${entityId}`] = JSON.stringify(fields); return saved;
+  };
+  fixture.args.recordSavedDiagnostic = value => records.push(value);
+  await assert.rejects(runAidtS1NativeRevision(fixture.args), /S1_NATIVE_DRAFT_UNVERIFIED/);
+  assert.equal(records.length, 1); assert.equal(records[0].rewrittenThemeMatches, false);
+  assert.equal(records[0].turnMatches, true); assert.equal(records[0].initialPreserved, true);
+  assert.equal(fixture.events.filter(value => value === 'read-native-server-draft').length, 1);
+  assert.equal(fixture.events.includes('reload-exact-entity'), false);
+});
+
+test('S1 malformed draft diagnostics contain only booleans and preserve the original rejection', async () => {
+  for (const invalid of ['{invalid-json', 'null', '1', '[]']) {
+    const fixture = nativeFixture(), originalRead = fixture.args.readSaved, records = [];
+    fixture.args.readSaved = async () => { const saved = await originalRead(); saved.content.draft.fields[`problemDraft:${entityId}`] = invalid; return saved; };
+    fixture.args.recordSavedDiagnostic = value => records.push(value);
+    await assert.rejects(runAidtS1NativeRevision(fixture.args), /S1_NATIVE_DRAFT_UNVERIFIED/);
+    assert.equal(records.length, 1); assert.equal(records[0].draftObject, false);
+    assert.equal(Object.values(records[0]).every(value => typeof value === 'boolean'), true);
+    assert.equal(fixture.events.filter(value => value === 'read-native-server-draft').length, 1);
+  }
+});
+
 test('native confirmation permits only the new reflection flag and exact round digest on an incremented persisted revision', async () => {
   const fixture = nativeFixture(), { draft } = await runAidtS1NativeRevision(fixture.args), confirmed = nativeStage(6, draft.fields, { confirmed: true });
   assert.equal(assertSavedAidtS1Revision(confirmed, draft, { confirmed: true }), 6);
