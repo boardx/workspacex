@@ -14,8 +14,14 @@ import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 
 type Update = (change: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 
+function restoreDialogOpener(event: Event, target: HTMLElement | null) {
+  event.preventDefault();
+  if (target?.isConnected && !target.matches(":disabled") && !target.closest("[inert]")) target.focus({ preventScroll: true });
+}
+
 export interface InterviewDetails { displayName: string; tags: string[]; kind?: AidtInterview["kind"] }
-export function InterviewCardEditor({ record, knownTags, close, save, source }: { source?: string; record?: AidtInterview; knownTags: Map<string, number>; close: () => void; save: (details: InterviewDetails) => void | Promise<boolean> }) {
+export function InterviewCardEditor({ record, knownTags, close, save, source, returnFocusTo }: { returnFocusTo?: HTMLElement | null; source?: string; record?: AidtInterview; knownTags: Map<string, number>; close: () => void; save: (details: InterviewDetails) => void | Promise<boolean> }) {
+  const [opener] = React.useState<HTMLElement | null>(() => returnFocusTo ?? (typeof document !== "undefined" && document.activeElement instanceof HTMLElement ? document.activeElement : null));
   const [name, setName] = React.useState(record?.displayName ?? "");
   const [tags, setTags] = React.useState<readonly string[]>(record?.tags ?? []);
   const [draftTag, setDraftTag] = React.useState("");
@@ -36,7 +42,7 @@ export function InterviewCardEditor({ record, knownTags, close, save, source }: 
       else close();
     } catch { setFailed(true); } finally { setBusy(false); }
   };
-  return <Dialog open onOpenChange={open => { if (!open && !busy) close(); }}><DialogContent>
+  return <Dialog open onOpenChange={open => { if (!open && !busy) close(); }}><DialogContent onCloseAutoFocus={event => restoreDialogOpener(event, opener)}>
     <DialogTitle>{record ? observation ? "编辑观察卡" : "编辑访谈卡" : observation ? "新建观察" : "新建访谈"}</DialogTitle>
     <DialogDescription>{observation ? record ? record.code + " · 观察资料" : "记录一次真实观察。用简短名称说明观察的对象或情境。" : record ? record.code + " · 受访者资料" : "可以使用化名，留空则显示受访者编号。"}</DialogDescription>
     <form className="space-y-5" onSubmit={submit}>
@@ -60,6 +66,7 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
   const [tag, selectTag] = React.useState("");
   const [query, setQuery] = React.useState("");
   const [showArchived, setShowArchived] = React.useState(false);
+  const actionOpener = React.useRef<HTMLElement | null>(null);
   const [action, setAction] = React.useState<{ id: string; mode: "edit" | "remove" } | null>(null);
   const active = records.filter(record => !isAidtInterviewArchived(draft.fields, record.id));
   const archived = records.filter(record => isAidtInterviewArchived(draft.fields, record.id));
@@ -97,17 +104,17 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
         <div className="flex items-center gap-1 border-t border-border pt-3">
           {!removed && <Button type="button" size="sm" disabled={!saved} title={saved ? undefined : "保存到小组后可打开对话"} variant="secondary" className="mr-auto after:absolute after:inset-0 after:rounded-2xl after:content-['']" aria-label={aidtInterviewTitle(record.code, record.displayName) + (observation ? " 打开观察 · " : " 打开访谈 · ") + status} onClick={() => onOpen(record.id)}><MessagesSquare aria-hidden className="size-4" />{saved ? observation ? "打开观察" : "打开访谈" : "先保存到小组"}<ArrowUpRight aria-hidden className="size-3" /></Button>}
           {!readOnly && !removed && <>
-            <Button type="button" size="sm" variant="ghost" className="relative z-10" title={observation ? "修改观察名称和标签" : "修改受访者姓名和标签"} onClick={() => setAction({ id: record.id, mode: "edit" })}><Pencil aria-hidden className="size-4" />改名与标签</Button>
-            <Button type="button" size="sm" variant="ghost" className="relative z-10" aria-label={observation ? "删除观察卡" : "删除访谈卡"} title={observation ? "删除观察卡" : "删除访谈卡"} onClick={() => setAction({ id: record.id, mode: "remove" })}><Trash2 aria-hidden className="size-4" /></Button>
+            <Button type="button" size="sm" variant="ghost" className="relative z-10" title={observation ? "修改观察名称和标签" : "修改受访者姓名和标签"} onClick={event => { actionOpener.current = event.currentTarget; setAction({ id: record.id, mode: "edit" }); }}><Pencil aria-hidden className="size-4" />改名与标签</Button>
+            <Button type="button" size="sm" variant="ghost" className="relative z-10" aria-label={observation ? "删除观察卡" : "删除访谈卡"} title={observation ? "删除观察卡" : "删除访谈卡"} onClick={event => { actionOpener.current = event.currentTarget; setAction({ id: record.id, mode: "remove" }); }}><Trash2 aria-hidden className="size-4" /></Button>
           </>}
         </div>
       </AidtEntityCard>;
     })}</ul>
-    {subject && !readOnly && action?.mode === "edit" && <InterviewCardEditor record={subject} knownTags={knownTags} save={details => update(old => {
+    {subject && !readOnly && action?.mode === "edit" && <InterviewCardEditor returnFocusTo={actionOpener.current} record={subject} knownTags={knownTags} save={details => update(old => {
       const current = readAidtInterviews(old.fields).find(row => row.id === subject.id);
       return !current || isAidtInterviewArchived(old.fields, current.id) ? old : writeAidtInterview(old, { ...current, ...details });
     })} close={() => setAction(null)} />}
-    {subject && !readOnly && action?.mode === "remove" && <Dialog open onOpenChange={open => { if (!open) setAction(null); }}><DialogContent>
+    {subject && !readOnly && action?.mode === "remove" && <Dialog open onOpenChange={open => { if (!open) setAction(null); }}><DialogContent onCloseAutoFocus={event => restoreDialogOpener(event, actionOpener.current)}>
       <DialogTitle>{isAidtObservation(subject) ? "删除观察卡？" : "删除访谈卡？"}</DialogTitle><DialogDescription>{subject.displayName || subject.code} 将移至「已移除」。已有引用和保存的材料将保留。</DialogDescription>
       <div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setAction(null)}>取消</Button><Button variant="destructive" onClick={() => { update(old => archiveAidtInterview(old, subject.id)); setAction(null); }}>确认删除</Button></div>
     </DialogContent></Dialog>}
