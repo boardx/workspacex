@@ -489,7 +489,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         aria-label={t("chatInspector.tabs")}
         className={cn(
           "flex shrink-0 items-center border-b border-border-subtle",
-          collapsed ? "flex-col gap-1 py-2" : "flex-row justify-center gap-1 px-2 py-2.5",
+          collapsed ? "flex-col gap-1 py-2" : "flex-row gap-1 px-2 py-2.5",
+          recordingContent ? "gap-0.5 px-1" : "justify-center",
         )}
       >
         {hostPanel && !hostInArtifacts && <button ref={hostTrigger} type="button" role="tab"
@@ -543,6 +544,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
                 // 生硬的黑框，跟其余页签/按钮的克制视觉一致。
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40",
                 collapsed || !selected ? "w-8 px-0" : "px-3",
+                recordingContent && selected && "min-w-8 shrink px-1",
                 selected
                   ? "bg-card font-medium text-card-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-card hover:text-card-foreground",
