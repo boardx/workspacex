@@ -15,7 +15,7 @@ function setup(){
  const identity={...acceptanceIdentity({EXPECTED_SOURCE_SHA:'a'.repeat(40),EXPECTED_RELEASE_TAG:'123-1',GITHUB_RUN_ID:'456',GITHUB_RUN_ATTEMPT:'1'}),controlSource:'b'.repeat(40)};
  const plan=createV2VoicePlan(),guard=createV2AcceptanceGuard(identity,{plan,ledger:()=>ledger,runtimeScope:()=>scope,now:()=>clock});
  const request=(method,path,body)=>guard.decide({url:url(path),method,body,resourceType:'fetch'});
- guard.armLogin(); let d=request('POST','/api/auth/login',{email:'synthetic-unit-fixture-not-an-account',password:'synthetic-unit-fixture-not-an-account'});assert.equal(d.allow,true);
+ guard.armLogin(); let d=request('POST','/api/auth/login',{email:'synthetic-unit-fixture-not-an-account',password:'test-only-fixture'});assert.equal(d.allow,true);
  guard.observe(d,200,{userId:'qa-user',orgs:['qa-org'],sessionToken:'synthetic-unit-token',expiresAt:'2099-01-01T00:00:00Z'});guard.verifyOrdinaryIdentity(200,{org:{id:'qa-org'},orgRole:'consultant'});
  guard.armProjectCreate();d=request('POST','/api/projects',{orgId:'qa-org',name:identity.projectName,kind:'general',blueprintVersionId:null,profile:'aidt'});assert.equal(d.allow,true);
  guard.observe(d,201,{id:project,kind:'general',status:'active'});guard.bindOwnedProject({projectId:project,name:identity.projectName},[{userId:'qa-user',role:'owner'}]);

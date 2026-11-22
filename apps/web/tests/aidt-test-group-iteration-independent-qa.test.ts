@@ -87,3 +87,28 @@ it("normal Chat cannot accept A's entity context paired with B's last globally p
   const result = await loadAidtReturnChatContext(input);
   expect(result.status).toBe("failed"); expect(result.items).toHaveLength(0);
 });
+
+it.each([false, true])("keeps confirmed learning and report after directory rename (legacy signature %s)", legacy => {
+  const saved = write(two(), a, round("A"), true);
+  if (legacy) saved.fields[`testRound:${a.id}:testSourceSignature`] = JSON.stringify(a);
+  const renamed = updateAidtTestGroup(saved, { ...a, name: "重新命名的测试 A" });
+  const next = readAidtTestGroupRound(renamed, a.id);
+  expect(next).not.toBeNull();
+  expect(isAidtReflectionConfirmed(next!)).toBe(true);
+  expect(next!.fields.publicationRevision).toBe("31");
+  expect(aidtTestGroupRoundReportLines(renamed, a.id).join("\n")).toContain("A本组认识");
+});
+it.each(["designId", "versionId", "stage5Revision", "sourceLocation", "reflection"] as const)("rename compatibility never masks changed %s", field => {
+  const saved = write(two(), a, round("A"), true);
+  saved.fields[`testRound:${a.id}:testSourceSignature`] = JSON.stringify(a);
+  const changedGroup = { ...a, name: "显示名称修改", [field]: field === "stage5Revision" ? a.stage5Revision + 1 : "changed-business-source" };
+  const viaDirectory = updateAidtTestGroup(saved, changedGroup);
+  if (field === "designId" || field === "versionId" || field === "stage5Revision") expect(viaDirectory).toBe(saved);
+  // The ordinary updater refuses a frozen-prototype rebind. The reader also
+  // rejects a schema-valid persisted mismatch; rename compatibility cannot
+  // normalize away a different source, even when a stale signature survives.
+  const changed = { ...saved, fields: { ...saved.fields, [`testGroup:${a.id}`]: JSON.stringify(changedGroup) } };
+  expect(readAidtTestGroups(changed.fields).find(item => item.id === a.id)).toBeTruthy();
+  expect(readAidtTestGroupRound(changed, a.id)).toBeNull();
+  expect(aidtTestGroupRoundReportLines(changed, a.id)).toEqual([]);
+});

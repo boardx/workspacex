@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AIDT_RETURN_STEPS, aidtReflectionMissingItems, isAidtReflectionConfirmed, isAidtIterationPrototypeRelated, readAidtReturnDecision, readAidtQuestionSnapshot } from "../lib/aidt-verification-loop";
 import { readAidtIterationPrototypeReference, readAidtPrototypeReference } from "../lib/aidt-prototype-reference";
 import { readAidtTestGroups, isAidtTestGroupConfirmed, type AidtTestGroup } from "../lib/aidt-test-groups";
-import { aidtTestGroupPublicationMatches, readAidtTestGroupRound, writeAidtTestGroupRound } from "../lib/aidt-test-group-round";
+import { aidtTestGroupSourceSignature, aidtTestGroupPublicationMatches, readAidtTestGroupRound, writeAidtTestGroupRound } from "../lib/aidt-test-group-round";
 import { loadAidtTestResearchContext } from "../lib/aidt-test-prototype-context";
 import { readAidtStage, readAidtStageRevision } from "../lib/live-aidt-stages";
 import { listAidtConfirmedPrototypeEntities } from "../lib/aidt-prototype-handoff";
@@ -29,7 +29,7 @@ export function AidtTestGroupIteration({ projectId, entityId, draft, savedDraft,
   const group = readAidtTestGroups(draft.fields).find(item => item.id === entityId && !item.archived);
   const savedGroup = readAidtTestGroups(savedDraft?.fields ?? {}).find(item => item.id === entityId && !item.archived);
   const saved = savedDraft && readAidtTestGroupRound(savedDraft, entityId);
-  const scope = JSON.stringify([projectId, entityId, session?.currentOrgId, session?.userId, session?.sessionToken, group, readOnly]);
+  const scope = JSON.stringify([projectId, entityId, session?.currentOrgId, session?.userId, session?.sessionToken, group ? aidtTestGroupSourceSignature(group) : null, readOnly]);
   const current = React.useRef(scope); current.current = scope;
   const savedSignature = JSON.stringify(saved ?? null);
   const base = React.useRef({ revision: savedRevision, draft: savedDraft }); base.current = { revision: savedRevision, draft: savedDraft };

@@ -14,6 +14,24 @@ export function aidtTestGroupRoundMatches(round: AidtUiStageDraft, group: AidtTe
   return Boolean(snapshot && snapshot.prototypeDesignId === group.designId && snapshot.prototypeVersionId === group.versionId && snapshot.sourceStageRevision === group.stage5Revision);
 }
 
+/** A display-only rename is not a new research source. All other fields remain exact. */
+export function aidtTestGroupSourceSignature(group: AidtTestGroup) {
+  const { name: _name, ...source } = group;
+  return JSON.stringify(source);
+}
+function sourceSignatureMatches(raw: string | undefined, group: AidtTestGroup) {
+  if (!raw || raw.length > 6000) return false;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    // Legacy signatures include name. New signatures omit it; both must still
+    // parse as the same strict research record before comparing real sources.
+    const record = Object.prototype.hasOwnProperty.call(value, "name") ? value : { ...value, name: "" };
+    const stored = readAidtTestGroups({ ["testGroup:" + group.id]: JSON.stringify(record) })[0];
+    return Boolean(stored && aidtTestGroupSourceSignature(stored) === aidtTestGroupSourceSignature(group));
+  } catch { return false; }
+}
+
 /** An entity never borrows another testing entity's global reflection. */
 export function readAidtTestGroupRound(draft: AidtUiStageDraft, entityId: string): AidtUiStageDraft | null {
   const group = readAidtTestGroups(draft.fields).find(item => item.id === entityId);
@@ -24,7 +42,7 @@ export function readAidtTestGroupRound(draft: AidtUiStageDraft, entityId: string
     if (value !== undefined) fields[key] = value;
   }
   const round = { fields, ideas: [], selectedIdeaId: "" };
-  return fields.questionSnapshot && fields.testSourceSignature === JSON.stringify(group) && aidtTestGroupRoundMatches(round, group) ? round : null;
+  return fields.questionSnapshot && sourceSignatureMatches(fields.testSourceSignature, group) && aidtTestGroupRoundMatches(round, group) ? round : null;
 }
 
 /** Writes only this entity. Global compatibility is published solely on explicit confirmation. */
@@ -36,7 +54,7 @@ export function writeAidtTestGroupRound(draft: AidtUiStageDraft, expected: AidtT
   const fields = { ...draft.fields };
   for (const key of AIDT_TEST_GROUP_ROUND_FIELDS) {
     if (key === "publicationRevision" && publish) fields[prefix(expected.id) + key] = String(publicationRevision);
-    else if (key === "testSourceSignature") fields[prefix(expected.id) + key] = JSON.stringify(expected);
+    else if (key === "testSourceSignature") fields[prefix(expected.id) + key] = aidtTestGroupSourceSignature(expected);
     else if (round.fields[key] !== undefined) fields[prefix(expected.id) + key] = round.fields[key]!;
     else delete fields[prefix(expected.id) + key];
   }

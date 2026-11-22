@@ -246,3 +246,26 @@ it("cannot pass the old tested version off as a new iteration output", async () 
   fireEvent.click(screen.getByRole("button", { name: "确认并保存本轮反思与迭代" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("新的原型"); expect(mocks.save).not.toHaveBeenCalled();
 });
+
+it("normal directory rename keeps the exact published learning and historical return link after reopen", async () => {
+  const original = published(two());
+  original.fields[`testRound:${a.id}:testSourceSignature`] = JSON.stringify(a);
+  const renamed = updateAidtTestGroup(original, { ...a, name: "重命名后的 A" });
+  mocks.revision.mockResolvedValue(savedStage(original, 31));
+  render(<AidtTestGroupIteration {...props(renamed)} savedRevision={32} />);
+  await expand();
+  expect(screen.getByLabelText("测试后怎么看")).toHaveValue("A已保存认识");
+  expect(await screen.findByRole("link", { name: /带着本轮反思/ })).toHaveAttribute("href", expect.stringContaining("returnRevision=31"));
+  expect(mocks.save).not.toHaveBeenCalled();
+});
+it("normal directory rename preserves unsaved local learning without stale-source or automatic writes", async () => {
+  const original = published(two());
+  const view = render(<AidtTestGroupIteration {...props(original)} savedRevision={31} />);
+  await expand();
+  fireEvent.change(screen.getByLabelText("测试后怎么看"), { target: { value: "改名期间仍未保存的认识" } });
+  const renamed = updateAidtTestGroup(original, { ...a, name: "新的显示名" });
+  view.rerender(<AidtTestGroupIteration {...props(renamed)} savedRevision={32} />);
+  expect(screen.getByLabelText("测试后怎么看")).toHaveValue("改名期间仍未保存的认识");
+  expect(screen.queryByRole("button", { name: "读取本测试的已保存版本" })).toBeNull();
+  expect(mocks.save).not.toHaveBeenCalled();
+});
