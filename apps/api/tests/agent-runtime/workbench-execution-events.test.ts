@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ExecutionEvent } from "@repo/contracts/execution-journal";
+import { IMAGE_GENERATE_TOOL, readImageGeneratedReceiptSummary } from "@repo/contracts/standard-image-tools";
 import { DeepAgentModelProvider } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
-import { publicExecutionPayload } from "../../src/application/agent-run/public-execution-payload";
+import { publicExecutionPayload, publicExecutionSummary } from "../../src/application/agent-run/public-execution-payload";
 import type { ModelCallProgressEvent } from "../../src/application/agent-run/ports";
 
 const input = { modelProvider: "deep-agent", modelId: "test", system: "", user: "task", orgId: "org", runId: "logical" };
@@ -33,6 +34,49 @@ describe("workbench public execution", () => {
     const result = await provider().completeWithProgress(input, async (event) => { events.push(event); });
     expect(events.map((event) => [event.phase, event.ok])).toEqual([["in_progress", undefined], ["complete", false]]);
     expect(result.finalMessageId).toBe("final-id");
+  });
+  const generatedImage = {
+    status: "generated", workspacePath: `/workspace/generated-${"f".repeat(64)}.png`,
+    mime: "image/png", width: 1024, height: 1024, sha256: "a".repeat(64), sizeBytes: 200_000,
+    modelRef: "m".repeat(256), taskId: "t".repeat(256),
+  } as const;
+
+  async function nativeImageToolEnd(content: string, status = "success", name: string = IMAGE_GENERATE_TOOL) {
+    fakeKernel([
+      { type: "ai", content: "", tool_calls: [{ id: "image-call", name, args: { prompt: "Draw a prototype" } }] },
+      { type: "tool", tool_call_id: "image-call", content, status },
+      { type: "ai", id: "answer", content: "Complete" },
+    ]);
+    const events: ModelCallProgressEvent[] = [];
+    await provider().completeWithProgress(input, async (event) => { events.push(event); });
+    return events.find((event) => event.phase === "complete");
+  }
+
+  it("keeps exact bounded generated-image evidence in the public tool summary", async () => {
+    const { modelRef, taskId, ...expected } = generatedImage;
+    const end = await nativeImageToolEnd(JSON.stringify(generatedImage));
+    expect(end).toMatchObject({ toolName: IMAGE_GENERATE_TOOL, toolCallId: "image-call", ok: true });
+    const summary = publicExecutionSummary(end?.toolResultSummary ?? null);
+    expect(summary).toBe(end?.toolResultSummary);
+    expect(summary?.length).toBeLessThan(500);
+    expect(summary).not.toContain(modelRef);
+    expect(summary).not.toContain(taskId);
+    expect(readImageGeneratedReceiptSummary(summary)).toEqual(expected);
+  });
+
+  it("could only issue an image receipt from valid native image tool output", async () => {
+    const successful = await nativeImageToolEnd(JSON.stringify(generatedImage));
+    const serialized = successful?.toolResultSummary ?? "";
+    const invalid = [
+      await nativeImageToolEnd(JSON.stringify({ ...generatedImage, sha256: "bad" })),
+      await nativeImageToolEnd(JSON.stringify({ ...generatedImage, mime: "image/jpeg" })),
+      await nativeImageToolEnd(JSON.stringify({ ...generatedImage, height: 2048 })),
+      await nativeImageToolEnd(serialized),
+      await nativeImageToolEnd(JSON.stringify(generatedImage), "error"),
+      await nativeImageToolEnd(JSON.stringify(generatedImage), "success", "read_file"),
+    ];
+    expect(invalid.every((item) => item?.phase === "complete")).toBe(true);
+    expect(invalid.map((item) => readImageGeneratedReceiptSummary(item?.toolResultSummary))).toEqual(Array(6).fill(null));
   });
   it("resumes the checkpoint without resubmitting the human message and forwards callback", async () => {
     const bodies = fakeKernel([{ type: "ai", id: "answer", content: "done" }]);
