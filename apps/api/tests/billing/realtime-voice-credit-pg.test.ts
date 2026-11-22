@@ -35,7 +35,7 @@ beforeAll(async()=>{
  server=createServer();gateway=attachRealtimeDigitalHumanGateway(server,{principals:{resolve:async (h:{authorization?:string})=>({userId:user,orgId:h.authorization==="Bearer team"?team:personal})},usage,config:()=>({baseUrl:`ws://127.0.0.1:${addr.port}/realtime`,apiKey:"test-key",model:"voice-model",defaultVoice:"Tina",voiceMap:{}})} as never);
  await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));const a=server.address();if(typeof a==="string"||!a)throw Error("listener");url=`ws://127.0.0.1:${a.port}/chat/realtime-digital-human`;
 });
-// Unknown provider receipts retain real allowance holds; isolate organizational cases rather than erase those facts.
+// Isolate organizational cases so neither balances nor usage flow across tests.
 beforeEach(async()=>{
  team=toOrgId(prefix+"-team-"+randomUUID().slice(0,8));teams.push(team);
  await seedOrg({orgId:team,projectId:team+"-p"});await addOrgMember(team,user,"admin",null);
@@ -48,38 +48,45 @@ async function connect(token="personal"){
  await new Promise<void>((resolve,reject)=>{client.once("open",resolve);client.once("error",reject);});client.send(JSON.stringify({type:"session.start",boardId:"fixture-board"}));return {client,frames};
 }
 const balance=async(orgId:typeof personal,owner:string)=>(await asApp(orgId,c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[owner]))).rows[0].balance;
+const progressCount=async(orgId:typeof personal)=>(await asApp(orgId,c=>c.query("SELECT count(*)::int AS count FROM credit_consumption_receipts WHERE org_id=$1 AND NOT terminal",[orgId]))).rows[0].count;
 const done=(socket:WebSocket,id:string,tokens:number)=>socket.send(JSON.stringify({type:"response.done",response:{id,status:"completed",usage:{total_tokens:tokens,input_tokens:tokens,output_tokens:0}}}));
 it("rejects personal debt before opening any provider WebSocket",async()=>{
  const {frames}=await connect();await expect.poll(()=>frames.some(x=>x.type==="session.error")).toBe(true);
  expect(frames.find(x=>x.type==="session.error")).toMatchObject({reason:"CREDIT_REQUIRED",credit:{code:"credit_required",ownerType:"user",ownerId:user}});expect(providers).toHaveLength(0);
 });
-it("bills cumulative provider response usage once, stops at depletion and blocks a new connection",async()=>{
+it("bills cumulative provider response usage once at completion and blocks a new connection after depletion",async()=>{
  await asApp(personal,c=>c.query("UPDATE credit_wallets SET balance=0.02 WHERE owner_id=$1",[user]));const {client,frames}=await connect();await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;
- done(socket,"response-1",1);await expect.poll(()=>balance(personal,user)).toBe("0.01");done(socket,"response-1",1);done(socket,"response-2",9);done(socket,"response-3",1);
- await expect.poll(()=>balance(personal,user)).toBe("0.00");const count=providers.length;const next=await connect();await expect.poll(()=>next.frames.some(x=>x.reason==="CREDIT_REQUIRED")).toBe(true);expect(providers).toHaveLength(count);
+ done(socket,"response-1",1);await expect.poll(()=>progressCount(personal)).toBe(1);expect(await balance(personal,user)).toBe("0.02");done(socket,"response-1",1);done(socket,"response-2",9);done(socket,"response-3",1);
+ await expect.poll(()=>progressCount(personal)).toBe(3);
  client.send(JSON.stringify({type:"session.stop"}));await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
+ await expect.poll(()=>balance(personal,user)).toBe("0.00");const count=providers.length;const next=await connect();await expect.poll(()=>next.frames.some(x=>x.reason==="CREDIT_REQUIRED")).toBe(true);expect(providers).toHaveLength(count);
  await expect.poll(async()=>(await asApp(personal,c=>c.query("SELECT count(*)::int AS count,sum(tokens_total)::text AS tokens FROM token_usage_events WHERE org_id=$1",[personal]))).rows[0]).toEqual({count:1,tokens:"11"});
  expect((await asApp(personal,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1",[personal]))).rows).toEqual([{state:"settled",debit:"2"}]);
 });
-it("allows enterprise debt and retains confirmed charges as pending when another response lacks usage",async()=>{
+it("settles confirmed Enterprise usage when another response lacks usage",async()=>{
  const {client,frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;
- done(socket,"enterprise-known",1000);await expect.poll(()=>balance(team,team)).toBe("-2.00");socket.send(JSON.stringify({type:"response.done",response:{id:"enterprise-unknown",status:"cancelled"}}));client.send(JSON.stringify({type:"session.stop"}));await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
- await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1",[team]))).rows).toEqual([{state:"pending",debit:"100"}]);
- expect((await asApp(team,c=>c.query("SELECT total_source FROM token_usage_events WHERE org_id=$1",[team]))).rows).toEqual([{total_source:"unknown"}]);
+ done(socket,"enterprise-known",1000);await expect.poll(()=>progressCount(team)).toBe(1);socket.send(JSON.stringify({type:"response.done",response:{id:"enterprise-unknown",status:"cancelled"}}));client.send(JSON.stringify({type:"session.stop"}));await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
+ await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1",[team]))).rows).toEqual([{state:"settled",debit:"100"}]);
+ expect((await asApp(team,c=>c.query("SELECT total_source FROM token_usage_events WHERE org_id=$1",[team]))).rows).toEqual([{total_source:"reported"}]);
  const q=C.Query.parse({start:new Date(Date.now()-3600000).toISOString(),end:new Date(Date.now()+3600000).toISOString(),timezone:"Etc/UTC"});
- expect((await new PgAiUsageRepository(db).summary(team,q)).current).toMatchObject({creditHundredths:"100",pendingCreditCalls:1});
+ expect((await new PgAiUsageRepository(db).summary(team,q)).current).toMatchObject({creditHundredths:"100",pendingCreditCalls:0});
 });
-it("keeps confirmed usage pending after an abrupt drop while a response is still active",async()=>{
+it("charges completed responses and excludes cancelled and active turns after abrupt disconnect",async()=>{
  const {client,frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;
  socket.send(JSON.stringify({type:"response.created",response:{id:"still-active"}}));done(socket,"before-drop",10);
- await expect.poll(()=>balance(team,team)).toBe("-1.01");client.terminate();
- await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1 ORDER BY created_at DESC LIMIT 1",[team]))).rows[0]).toEqual({state:"pending",debit:"1"});
+ socket.send(JSON.stringify({type:"response.done",response:{id:"cancelled",status:"cancelled",usage:{total_tokens:900,input_tokens:900,output_tokens:0}}}));
+ done(socket,"second-completed",1);
+ await expect.poll(()=>progressCount(team)).toBe(2);
+ expect(await balance(team,team)).toBe("-1.00");
+ client.terminate();
+ await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1 ORDER BY created_at DESC LIMIT 1",[team]))).rows[0]).toEqual({state:"settled",debit:"2"});
+ expect(await balance(team,team)).toBe("-1.02");
 });
 it("rejects conflicting provider response replay without another debit",async()=>{
  const {frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;
- done(socket,"conflict",1);await expect.poll(()=>balance(team,team)).toBe("-1.01");done(socket,"conflict",2);
+ done(socket,"conflict",1);await expect.poll(()=>progressCount(team)).toBe(1);done(socket,"conflict",2);
  await expect.poll(()=>frames.some(x=>x.reason==="CREDIT_ACCOUNTING_UNAVAILABLE")).toBe(true);
- expect(await balance(team,team)).toBe("-1.01");
+ await expect.poll(()=>balance(team,team)).toBe("-1.01");
 });
 it.each(["disconnect","stop"] as const)("settles a confirmed nondispatch and releases its durable slot on %s during admission",async action=>{
  let release!:()=>void;holdStart=new Promise<void>(r=>{release=r;});entered=false;const before=providers.length;
@@ -114,7 +121,8 @@ it("keeps exhausted Enterprise session payer fixed, admits next session personal
  const quotas=new PgMemberCreditQuotaRepository(db);await quotas.setCreditQuota(team,user,1,user);
  const {client,frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);
  done(providers.at(-1)!,"member-limit",1000);
- await expect.poll(()=>frames.some(x=>(x.credit as {reason?:string}|undefined)?.reason==="member_monthly_limit")).toBe(true);
+ await expect.poll(()=>progressCount(team)).toBe(1);
+ client.send(JSON.stringify({type:"session.stop"}));
  await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
  expect(await balance(team,team)).toBe("-2.00");
  await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1",[team]))).rows[0]).toEqual({state:"settled",debit:"100"});
@@ -123,9 +131,10 @@ it("keeps exhausted Enterprise session payer fixed, admits next session personal
  await asApp(team,c=>c.query("UPDATE credit_wallets SET balance=1 WHERE owner_type='user' AND owner_id=$1",[user]));
  const personalNext=await connect("team");await expect.poll(()=>personalNext.frames.some(x=>x.type==="session.ready")).toBe(true);
  done(providers.at(-1)!,"personal-after-quota",100);
- await expect.poll(()=>balance(team,user)).toBe("0.90");
+ await expect.poll(()=>progressCount(team)).toBe(2);
  personalNext.client.send(JSON.stringify({type:"session.stop"}));await expect.poll(()=>personalNext.client.readyState).toBe(WebSocket.CLOSED);
  expect(await balance(team,team)).toBe("-2.00");
+ expect(await balance(team,user)).toBe("0.90");
  expect((await asApp(team,c=>c.query("SELECT w.owner_type,w.owner_id,r.state FROM credit_consumption_requests r JOIN credit_wallets w USING(wallet_id) WHERE r.org_id=$1 ORDER BY r.created_at DESC LIMIT 1",[team]))).rows[0]).toEqual({owner_type:"user",owner_id:user,state:"settled"});
  await quotas.setCreditQuota(team,user,2,user);
  const resumed=await connect("team");await expect.poll(()=>resumed.frames.some(x=>x.type==="session.ready")).toBe(true);
@@ -134,13 +143,14 @@ it("keeps exhausted Enterprise session payer fixed, admits next session personal
  }finally{await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton',[priorEpoch.generation,priorEpoch.activated_at]));}
 });
 
-it("stops personal voice after committed depletion without reconnecting or losing overshoot",async()=>{
+it("allows admitted personal voice to finish and charges actual overshoot on settlement",async()=>{
  await asApp(personal,c=>c.query("UPDATE credit_wallets SET balance=0.01 WHERE owner_id=$1",[user]));
  const {client,frames}=await connect();await expect.poll(()=>frames.some(x=>x.type==='session.ready')).toBe(true);
  const opened=providers.length,socket=providers.at(-1)!;
  done(socket,'personal-depletion',1000);
- await expect.poll(()=>frames.some(x=>x.reason==='CREDIT_REQUIRED')).toBe(true);
- expect(frames.find(x=>x.reason==='CREDIT_REQUIRED')).toMatchObject({credit:{ownerType:'user',ownerId:user}});
+ await expect.poll(()=>progressCount(personal)).toBe(4);
+ expect(frames.some(x=>x.reason==="CREDIT_REQUIRED")).toBe(false);
+ client.send(JSON.stringify({type:"session.stop"}));
  await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
  expect(await balance(personal,user)).toBe('-0.99');
  expect(providers).toHaveLength(opened);

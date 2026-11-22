@@ -8,10 +8,10 @@ import {normalizeCreditPeriods, allocateCreditDebit} from "./pg-credit-periods";
 type Receipt = {tokens: number; source: string; native: TokenUsageRecord["nativeUsage"] | null; prompt: number | null; completion: number | null; outcome: string};
 type Request = {request_id: string; user_id: string; wallet_id: string; model_provider: string; model_id: string; run_id: string | null;
   reserved_hundredths: string; native_unit: string | null; native_quantum: string | null; native_rate: string | null; tariff_version: string;
-  start_facts: {creditRateBps?: number}; state: string; usage_facts: Receipt | null; debited_hundredths: string | null};
+  start_facts: {creditRateBps?: number; settleAtTerminal?: boolean}; state: string; usage_facts: Receipt | null; debited_hundredths: string | null};
 type Wallet = {wallet_id: string; balance: string; owner_type: "user" | "team"; owner_id: string};
 const limit = 214748364700n;
-function debitFor(row: Request, usage: TokenUsageRecord): bigint | null {
+function debitFor(row: Request, usage: Pick<TokenUsageRecord, "totalSource" | "tokensTotal" | "nativeUsage">): bigint | null {
   const bps = creditRateBps(row.start_facts?.creditRateBps);
   if (usage.totalSource === "reported") return tokenCreditHundredths(usage.tokensTotal, bps);
   if (row.native_unit) {
@@ -20,7 +20,7 @@ function debitFor(row: Request, usage: TokenUsageRecord): bigint | null {
     if (n?.source === "reported" && n.quantity !== null) {
       if (n.quantity < 0n) throw new Error("credit_native_quantity_invalid");
       const q = BigInt(row.native_quantum!), r = BigInt(row.native_rate!);
-      return ratedCreditHundredths(n.quantity * r, q, bps);
+      return ratedCreditHundredths(BigInt(n.quantity) * r, q, bps);
     }
     return null;
   }
@@ -60,8 +60,10 @@ export async function settleCreditReceipt(s: TenantSession, orgId: OrgId, usage:
       VALUES($1,$2,$3,$4,$5::jsonb,$6,$7)`, [row.request_id, orgId, progress.id, final, creditFacts(receipt), delta.toString(), sourceId]);
   };
   const prior = row.usage_facts;
+  const settleAtTerminal = row.start_facts?.settleAtTerminal === true;
   if (row.state === "settled") {
     if (progress && !final) {
+      if (settleAtTerminal) {await remember(0n, null); return;}
       const previous = prior && quantity(prior), incoming = quantity(receipt);
       if (previous === null || previous === undefined || incoming === null || incoming > previous || prior!.source !== receipt.source || prior!.native?.unit !== receipt.native?.unit) throw unavailable("credit_receipt_replay_mismatch");
       await remember(0n, null); return;
@@ -77,8 +79,27 @@ export async function settleCreditReceipt(s: TenantSession, orgId: OrgId, usage:
     await remember(0n, null); return;
   }
   let target: bigint | null;
-  try {target = debitFor(row, usage);} catch (error) {throw unavailable(error instanceof Error ? error.message : "credit_native_quantity_invalid");}
+  try {target = settleAtTerminal && usage.outcome !== "succeeded" ? 0n : debitFor(row, usage);} catch (error) {throw unavailable(error instanceof Error ? error.message : "credit_native_quantity_invalid");}
   const already = BigInt(row.debited_hundredths ?? 0);
+  if (settleAtTerminal && !final) {
+    const incoming = quantity(receipt), previous = prior && quantity(prior);
+    if (usage.outcome === "succeeded" && incoming !== null && (previous == null || incoming >= previous)) {
+      await s.query("UPDATE credit_consumption_requests SET usage_facts=$2::jsonb WHERE request_id=$1", [row.request_id, creditFacts(receipt)]);
+    }
+    await remember(0n, null);
+    return;
+  }
+  if (settleAtTerminal) {
+    if (usage.outcome !== "succeeded") target = 0n;
+    else if (target === null && prior && quantity(prior) !== null) {
+      const previousDebit = debitFor(row, {
+        tokensTotal: prior.tokens,
+        totalSource: prior.source === "reported" ? "reported" : "unknown",
+        nativeUsage: prior.native ?? undefined,
+      });
+      target = previousDebit ?? 0n;
+    } else target ??= 0n;
+  }
   if (target === null) {
     // Unknown terminal usage does not erase already confirmed streaming usage.
     await s.query("UPDATE credit_consumption_requests SET state='pending',usage_facts=COALESCE($2::jsonb,usage_facts) WHERE request_id=$1", [row.request_id, prior && quantity(prior) !== null ? null : creditFacts(receipt)]);
@@ -86,7 +107,7 @@ export async function settleCreditReceipt(s: TenantSession, orgId: OrgId, usage:
   }
   const previousQuantity = prior && quantity(prior), incomingQuantity = quantity(receipt);
   if (already > 0n && prior && quantity(prior) !== null && (prior.source !== receipt.source || prior.native?.unit !== receipt.native?.unit)) throw unavailable("credit_receipt_replay_mismatch");
-  if (target < already || previousQuantity != null && incomingQuantity != null && incomingQuantity < previousQuantity) {
+  if (target < already || !settleAtTerminal && previousQuantity != null && incomingQuantity != null && incomingQuantity < previousQuantity) {
     if (final || !progress) throw unavailable("credit_receipt_replay_mismatch");
     await remember(0n, null); return;
   }
@@ -97,7 +118,7 @@ export async function settleCreditReceipt(s: TenantSession, orgId: OrgId, usage:
   if (delta > 0n) await s.query("INSERT INTO credit_transactions(wallet_id,type,direction,credits,balance_after,source_type,source_id,operator_id,reason) VALUES($1,'consume',-1,$2,$3,'model_request',$4,$5,$6)",
     [wallet.wallet_id, creditDecimal(delta), creditDecimal(balance), sourceId, usage.userId, `model:${usage.modelProvider}/${usage.modelId};tariff:${row.tariff_version};receipt:${createHash("sha256").update(creditFacts(receipt)).digest("hex")}`]);
   await s.query("UPDATE credit_wallets SET balance=$2,held_hundredths=held_hundredths-$3,unbounded_requests=unbounded_requests-$4,updated_at=now() WHERE wallet_id=$1",
-    [wallet.wallet_id, creditDecimal(balance), final ? row.reserved_hundredths : "0", final && BigInt(row.reserved_hundredths) === 0n ? 1 : 0]);
+    [wallet.wallet_id, creditDecimal(balance), final ? row.reserved_hundredths : "0", final && !settleAtTerminal && BigInt(row.reserved_hundredths) === 0n ? 1 : 0]);
   await s.query("UPDATE credit_consumption_requests SET state=$2,usage_facts=$3::jsonb,debited_hundredths=$4,settled_at=$5 WHERE request_id=$1",
     [row.request_id, final ? "settled" : "pending", creditFacts(receipt), target.toString(), final ? at : null]);
   await remember(delta, delta > 0n ? sourceId : null);

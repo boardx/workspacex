@@ -31,11 +31,14 @@ function enrichDiagnostics(prior:Receipt,incoming:Receipt):Receipt{
  return {...prior,usage:merged as unknown as TokenUsageRecord};
 }
 /** Immutable versions avoid an ACK deleting facts enriched during a concurrent replay. */
+const receiptIdentity = ["eventId","userId","runId","modelProvider","modelId","projectId","threadId","agentId","callPurpose","executionAttemptId","subtaskId","requestStartedAt"] as const;
+function sameReceiptIdentity(a:Receipt,b:Receipt):boolean {
+ return a.orgId===b.orgId&&receiptIdentity.every(key=>canonical(a.usage[key]??null)===canonical(b.usage[key]??null));
+}
 function mergeReceipt(prior:Receipt,incoming:Receipt):Receipt {
  const a=prior.usage,b=incoming.usage;
- const identity=["eventId","userId","runId","modelProvider","modelId","projectId","threadId","agentId","callPurpose","executionAttemptId","subtaskId","requestStartedAt"] as const;
  if(a.billingReceipt||b.billingReceipt){
-  if(prior.orgId!==incoming.orgId||identity.some(key=>canonical(a[key]??null)!==canonical(b[key]??null)))throw new Error("credit_spool_replay_mismatch");
+  if(!sameReceiptIdentity(prior,incoming))throw new Error("credit_spool_replay_mismatch");
   const old=receiptMeasure(a),next=receiptMeasure(b),oldFinal=a.billingReceipt?.final??true,nextFinal=b.billingReceipt?.final??true;
   if(a.billingReceipt?.id===b.billingReceipt?.id&&(a.totalSource!==b.totalSource||old!==next||oldFinal!==nextFinal||a.outcome!==b.outcome))throw new Error("credit_spool_replay_mismatch");
   if(old!==null&&next!==null&&(a.totalSource!==b.totalSource||a.nativeUsage?.unit!==b.nativeUsage?.unit))throw new Error("credit_spool_replay_mismatch");
@@ -44,7 +47,7 @@ function mergeReceipt(prior:Receipt,incoming:Receipt):Receipt {
   if(nextFinal&&old!==null&&next!==null&&next<old)throw new Error("credit_spool_replay_mismatch");
   return old!==null&&next!==null&&old>next?prior:incoming;
  }
- if(prior.orgId!==incoming.orgId||a.outcome!==b.outcome||identity.some(key=>canonical(a[key]??null)!==canonical(b[key]??null)))throw new Error("credit_spool_replay_mismatch");
+ if(!sameReceiptIdentity(prior,incoming)||a.outcome!==b.outcome)throw new Error("credit_spool_replay_mismatch");
  const merged={...enrichDiagnostics(prior,incoming).usage} as Record<string,unknown>;
  if(b.totalSource!=="unknown"){
   if(a.totalSource!=="unknown"&&(a.totalSource!==b.totalSource||a.tokensTotal!==b.tokensTotal))throw new Error("credit_spool_replay_mismatch");
@@ -62,6 +65,15 @@ function mergeReceipt(prior:Receipt,incoming:Receipt):Receipt {
  * immutable versions survive until both steps have independently committed.
  */
 function settlementBatch(versions:Receipt[]):Receipt[]{
+ const terminals=versions.filter(r=>r.usage.billingReceipt?.final===true);
+ if(terminals.length&&terminals.every(r=>r.usage.outcome==="failed")&&versions.every(r=>r.usage.billingReceipt)){
+  const terminal=terminals.reduce(mergeReceipt);
+  const interim=versions.filter(r=>r.usage.billingReceipt?.final===false);
+  for(const version of interim){
+   if(!sameReceiptIdentity(terminal,version)||terminals.some(r=>r.usage.billingReceipt?.id===version.usage.billingReceipt?.id))throw new Error("credit_spool_replay_mismatch");
+  }
+  return interim.length?[interim.reduce(mergeReceipt),terminal]:[terminal];
+ }
  const known=versions.filter(r=>receiptMeasure(r.usage)!==null);
  const unknownFinal=versions.filter(r=>r.usage.billingReceipt?.final===true&&receiptMeasure(r.usage)===null);
  if(!known.length||!unknownFinal.length||known.some(r=>r.usage.billingReceipt?.final!==false))return [versions.reduce(mergeReceipt)];
