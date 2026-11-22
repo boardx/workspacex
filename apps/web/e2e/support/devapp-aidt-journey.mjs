@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 import { aidtSyntheticInterviewAudio } from './devapp-aidt-acceptance-guard.mjs';
+import { agentInterviewRevisionInput, assertAgentInterviewGuideRevision } from './devapp-aidt-agent-interview-review.mjs';
 import { ownedAidtProblemRoute, matchesAidtProblemRoute, matchesAidtProblemNativeContext, openAidtProblemNativeOutcome } from './devapp-aidt-problem-navigation.mjs';
 export { ownedAidtProblemRoute, matchesAidtProblemRoute, matchesAidtProblemNativeContext, openAidtProblemNativeOutcome };
 
@@ -633,7 +634,7 @@ export function aidtCreateTagInput(dialog, stage) {
 
 export async function runAidtJourney({ page, expect, interviewStarter, scope, checkpoint, capture, api,
   saveStage, armCardCreate, reviewAndSave, report, registerFixture, armInterviewEdit, saveReport, saveDownload,
-  armSurvey, surveyReceipt, armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, createSurveyParticipant, savePrint, teachingFeedback, reviewS1StudentResponse, outcomeDiagnosticOrgId }) {
+  armSurvey, surveyReceipt, armDesignCreate, armDesignGeneration, armDesignImage, createAnonymousPage, createSurveyParticipant, savePrint, teachingFeedback, reviewS1StudentResponse, reviewS2StudentResponse, outcomeDiagnosticOrgId }) {
   if (scope.syntheticLabel !== SYNTHETIC) fail('SYNTHETIC_SCOPE_REQUIRED');
   const root = `/aidt/${encodeURIComponent(scope.projectId)}`;
   const origin = new URL(page.url()).origin;
@@ -989,9 +990,11 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
       return raw ? JSON.parse(raw) : null;
     };
     await expect.poll(async () => (await readRecord())?.original, { timeout: 30000 }).toBe(initial);
-    const revisionInput = text(`${code}：我想改得更具体，先问「上次到了哪个窗口」，再追问「哪一刻决定继续等或离开」。请据此调整我的问题清单草稿。`);
     await reopenInterviewHistory(code, target);
+    const revisionInput = await agentInterviewRevisionInput({ code, target, initial, confirmedProblem, projectId: scope.projectId,
+      proofs: report.teachingEvidence, review: reviewS2StudentResponse, required: report.executionMode === 'agent-operated-software-qa' || report.agentReview?.reviewerKind === 'agent', synthetic: text });
     if (!await feedback(2, revisionInput, code)) fail('S2_NATIVE_TEACHING_REVISION_REQUIRED');
+    assertAgentInterviewGuideRevision({ record: await readRecord(), proofs: report.teachingEvidence, projectId: scope.projectId, code, target, prompt: revisionInput, required: report.executionMode === 'agent-operated-software-qa' || report.agentReview?.reviewerKind === 'agent' });
     const actions = page.getByTestId('aidt-interview-chat-actions');
     const rows = actions.getByTestId('aidt-interview-chat-question');
     await expect(rows.first()).toBeVisible();

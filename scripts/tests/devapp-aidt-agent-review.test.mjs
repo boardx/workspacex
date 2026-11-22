@@ -250,7 +250,7 @@ test('public issue transport has one fixed host/path, no auth, no redirects and 
   await assert.rejects(readAgentQaComments(created, async url => ({ status: 200, url: url + '&elsewhere=1', body: [] })), /AGENT_QA_GITHUB_READ_FAILED/);
   await assert.rejects(readAgentQaComments(created, async url => ({ status: 403, url, body: [] })), /AGENT_QA_GITHUB_READ_FAILED/);
   await assert.rejects(readAgentQaComments(created, async url => ({ status: 200, url, body: [Buffer.alloc(1048577)] })), /AGENT_QA_REPLY_PAGE_BOUND/);
-  assert.equal(AGENT_QA_CHANNEL.maxArtifacts, 2); assert.equal(AGENT_QA_CHANNEL.maxRequestBytes, 32768);
+  assert.equal(AGENT_QA_CHANNEL.maxArtifacts, 12); assert.equal(AGENT_QA_CHANNEL.maxLegacyArtifacts, 2); assert.equal(AGENT_QA_CHANNEL.maxInterviewArtifacts, 10); assert.equal(AGENT_QA_CHANNEL.maxInterviewRequestBytes, 16384); assert.equal(AGENT_QA_CHANNEL.maxInterviewBytes, 163840); assert.equal(AGENT_QA_CHANNEL.maxRequestBytes, 32768);
 });
 
 test('main preflights before QA credentials/bootstrap, rechecks runtime, keeps the original evidence verdicts', () => {
@@ -258,7 +258,7 @@ test('main preflights before QA credentials/bootstrap, rechecks runtime, keeps t
   assert.ok(source.indexOf('await agentReviewer.preflight()') < source.indexOf('readQaCredentials()'));
   assert.ok(source.indexOf('const afterReviewPreflight = runtimeProof(identity)') < source.indexOf('readQaCredentials()'));
   assert.ok(source.indexOf('await agentReviewer.preflight()') < source.indexOf('await bootstrapOrdinaryQaIdentity('));
-  assert.ok(source.includes('createAnonymousPage, createSurveyParticipant, reviewS1StudentResponse, report'));
+  assert.ok(source.includes('createAnonymousPage, createSurveyParticipant, reviewS1StudentResponse, reviewS2StudentResponse, report'));
   assert.ok(source.includes('agent-operated-software-qa')); assert.ok(source.includes('不是人类课堂或教师教学签核'));
   assert.ok(source.includes('report.fullAcceptancePassed = false')); assert.ok(source.includes('report.realModelVerified = false'));
 });

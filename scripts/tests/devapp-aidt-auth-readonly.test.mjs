@@ -291,7 +291,7 @@ test('the actual acceptance bundle passes the live runner gate with only its che
   }
 });
 
-test('agent software-QA review is an explicit boolean opt-in and exports only the two fixed safe requests', () => {
+test('agent software-QA review is an explicit boolean opt-in and exports only the twelve fixed safe requests', () => {
   const input = acceptanceWorkflow.split('      agent_qa_review:\n')[1]?.split('      isolated_native:\n')[0];
   assert(input);
   assert.match(input, /type: boolean\n        default: false/);
@@ -313,6 +313,16 @@ test('agent software-QA review is an explicit boolean opt-in and exports only th
   assert.deepEqual(requestPaths, [
     '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-preflight-request.json',
     '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-student-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U01-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U02-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U03-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U04-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U05-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U06-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U07-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U08-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U09-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U10-request.json',
   ]);
   assert.doesNotMatch(safeUpload, /output\/\*\.json|output\/agent-qa-\*/);
 });

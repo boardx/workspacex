@@ -3,9 +3,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import { lstatSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ProbeFailure, ORIGIN } from './devapp-aidt-auth-readonly.mjs';
+import { bindAgentQaInterviewPage, INTERVIEW_BINDING_KEYS, validateAgentQaInterviewBinding, validateAgentQaInterviewWork } from './devapp-aidt-agent-interview-review.mjs';
 
 export const AGENT_QA_CHANNEL = Object.freeze({ repository: 'boardx/workspacex', issueNumber: 6944,
-  author: 'usamshen', authorId: 2325074, maxArtifacts: 2, maxRequestBytes: 32768,
+  author: 'usamshen', authorId: 2325074, maxArtifacts: 12, maxLegacyArtifacts: 2, maxRequestBytes: 32768,
+  maxInterviewArtifacts: 10, maxInterviewRequestBytes: 16384, maxInterviewBytes: 163840,
   preflightMs: 120000, studentMs: 180000, pollMs: 10000 });
 export const AGENT_QA_FILES = Object.freeze({ preflight: 'agent-qa-preflight-request.json', student: 'agent-qa-student-request.json' });
 const ENDPOINT = 'https://api.github.com/repos/boardx/workspacex/issues/6944/comments';
@@ -109,11 +111,15 @@ export function validateAgentQaReply(comment, request, requestSha256, now, asser
     || canonical(reply.binding) !== canonical(request.binding)) fail('AGENT_QA_REPLY_BINDING_MISMATCH');
   if (request.phase === 'preflight') {
     if (reply.decision !== 'ready' || reply.work !== null || reply.binding !== null) fail('AGENT_QA_REPLY_INVALID');
-  } else {
+  } else if (request.phase === 'interview') {
+    if (reply.decision !== 'respond' || !exact(reply.binding, INTERVIEW_BINDING_KEYS)) fail('AGENT_QA_REPLY_INVALID');
+    validateAgentQaInterviewBinding(reply.binding);
+    validateAgentQaInterviewWork(reply.work, request.question, (value, limit) => safeText(value, limit, assertSafe));
+  } else if (request.phase === 'student') {
     if (reply.decision !== 'respond' || !exact(reply.binding, BINDING_KEYS) || !exact(reply.work, WORK_KEYS)) fail('AGENT_QA_REPLY_INVALID');
     for (const [key, limit] of [['response',3000],['selectedDirection',120],['choiceReason',650],['rewrittenTheme',650]]) safeText(reply.work[key], limit, assertSafe);
     if (reply.work.response.trim() === request.question.assistantText.trim()) fail('AGENT_QA_REPLY_INVALID');
-  }
+  } else fail('AGENT_QA_REPLY_INVALID');
   assertSafe(JSON.stringify(reply));
   return reply;
 }
@@ -142,7 +148,7 @@ export function createAgentQaReviewer({ identity, controlSource, out, assertSafe
   if (!outputInfo.isDirectory() || outputInfo.isSymbolicLink() || (outputInfo.mode & 0o777) !== 0o700 || outputInfo.uid !== process.getuid()) fail('AGENT_QA_OUTPUT_INVALID');
   const upload = transport.upload ?? uploadAgentQaRequest, read = transport.read ?? readAgentQaComments;
   const wait = transport.wait ?? (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)));
-  let count = 0, bytesExported = 0, preflightPassed = false, bound = false, studentUsed = false;
+  let count = 0, legacyCount = 0, interviewCount = 0, bytesExported = 0, interviewBytesExported = 0, preflightPassed = false, bound = false, studentUsed = false, interviewReviewer;
   const usedNonces = new Set(), acceptedComments = new Set(), receipts = [];
   const bounded = async (operation, end) => {
     const remaining = end - now();
@@ -155,6 +161,8 @@ export function createAgentQaReviewer({ identity, controlSource, out, assertSafe
     } finally { clearTimeout(timer); }
   };
   const requestReply = async (phase, binding = null, question = null, assertCurrent = () => {}, reviewDeadline) => {
+    if (!['preflight','student','interview'].includes(phase)) fail('AGENT_QA_REPLY_INVALID');
+    if (phase === 'interview' ? ++interviewCount > AGENT_QA_CHANNEL.maxInterviewArtifacts : ++legacyCount > AGENT_QA_CHANNEL.maxLegacyArtifacts) fail('AGENT_QA_REQUEST_LIMIT');
     if (++count > AGENT_QA_CHANNEL.maxArtifacts) fail('AGENT_QA_REQUEST_LIMIT');
     const start = now(), nonceValue = nonce();
     if (!HEX.test(nonceValue) || usedNonces.has(nonceValue)) fail('AGENT_QA_NONCE_REUSED');
@@ -168,13 +176,19 @@ export function createAgentQaReviewer({ identity, controlSource, out, assertSafe
       createdAt: new Date(start).toISOString(), deadlineAt: new Date(end).toISOString(), syntheticLabel: SYNTHETIC, binding, question });
     const payload = JSON.stringify(request, null, 2) + '\n', requestSha256 = sha(payload);
     assertSafe(payload);
-    bytesExported += Buffer.byteLength(payload);
-    if (bytesExported > AGENT_QA_CHANNEL.maxRequestBytes) fail('AGENT_QA_REQUEST_BYTES_BOUND');
-    const filename = AGENT_QA_FILES[phase], file = resolve(out, filename);
+    const payloadBytes = Buffer.byteLength(payload);
+    if (phase === 'interview') {
+      interviewBytesExported += payloadBytes;
+      if (payloadBytes > AGENT_QA_CHANNEL.maxInterviewRequestBytes || interviewBytesExported > AGENT_QA_CHANNEL.maxInterviewBytes || !/^U(?:0[1-9]|10)$/.test(binding?.code ?? '')) fail('AGENT_QA_REQUEST_BYTES_BOUND');
+    } else {
+      bytesExported += payloadBytes;
+      if (bytesExported > AGENT_QA_CHANNEL.maxRequestBytes) fail('AGENT_QA_REQUEST_BYTES_BOUND');
+    }
+    const filename = phase === 'interview' ? `agent-qa-interview-${binding.code}-request.json` : AGENT_QA_FILES[phase], file = resolve(out, filename);
     writeFileSync(file, payload, { flag: 'wx', mode: 0o600 });
     let artifact;
     assertCurrent();
-    try { artifact = await bounded(() => upload({ name: `aidt-agent-qa-${phase}-${identity.run}-${identity.attempt}`, file, root: out }), end); }
+    try { artifact = await bounded(() => upload({ name: `aidt-agent-qa-${phase}${phase === 'interview' ? '-' + binding.code : ''}-${identity.run}-${identity.attempt}`, file, root: out }), end); }
     catch (error) { if (error instanceof ProbeFailure && error.code === 'AGENT_QA_REVIEW_TIMEOUT') throw error; fail('AGENT_QA_UPLOAD_FAILED'); }
     if (!Number.isSafeInteger(artifact?.id) || artifact.id < 1) fail('AGENT_QA_UPLOAD_FAILED');
     let polls = 0;
@@ -198,7 +212,7 @@ export function createAgentQaReviewer({ identity, controlSource, out, assertSafe
         const stable = await observe();
         if (!stable || stable.comment.id !== result.comment.id || stable.comment.body !== result.comment.body) fail('AGENT_QA_REPLY_CHANGED');
         acceptedComments.add(result.comment.id);
-        receipts.push({ phase, reviewerKind: 'agent', softwareQaOnly: true, artifactId: artifact.id, filename,
+        receipts.push({ phase, ...(phase === 'interview' ? { interviewCode: binding.code } : {}), reviewerKind: 'agent', softwareQaOnly: true, artifactId: artifact.id, filename,
           bytes: Buffer.byteLength(payload), requestSha256, commentId: result.comment.id, nonce: nonceValue,
           h03ConversationSignoff: false, teachingQualityAccepted: false });
         return result.reply;
@@ -264,7 +278,14 @@ export function createAgentQaReviewer({ identity, controlSource, out, assertSafe
         } finally { page.off('framenavigated', navigated); page.off('close', closed); page.off('request', writing); }
       };
     },
+    bindInterviewPage(options) {
+      if (!preflightPassed || interviewReviewer) fail('AGENT_QA_INTERVIEW_PORT_REQUIRED');
+      interviewReviewer = bindAgentQaInterviewPage({ ...options, requestReply, canonical, sha, bounded, now, deadlineAt,
+        studentMs: AGENT_QA_CHANNEL.studentMs, safeText: (value, limit) => safeText(value, limit, assertSafe) });
+      return interviewReviewer.review;
+    },
     summary: () => ({ reviewerKind: 'agent', softwareQaOnly: true, preflightPassed, requestCount: count, bytesExported,
+      interviewRequestCount: interviewCount, interviewBytesExported, totalBytesExported: bytesExported + interviewBytesExported, interview: interviewReviewer?.summary() ?? null,
       h03ConversationSignoff: false, teachingQualityAccepted: false, receipts: receipts.map(item => ({ ...item })) }),
   });
 }
