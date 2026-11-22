@@ -65,6 +65,7 @@ export function writeAidtTestGroupRound(draft: AidtUiStageDraft, expected: AidtT
       else delete fields[key];
     }
     fields.reflectionSourceEntity = expected.id;
+    fields.reflectionTestEntityId = expected.id;
   } else if (fields.reflectionSourceEntity === expected.id) fields.reflectionConfirmed = "";
   if (Object.keys(fields).length > 100 || Object.values(fields).some(value => value.length > 6000))
     throw new Error("本步保存空间不足，请精简本轮说明；未覆盖历史或其他测试记录。");
@@ -79,7 +80,8 @@ export function aidtTestGroupRoundReportLines(draft: AidtUiStageDraft, entityId:
 /** A return link must use this entity's actual published historical revision. */
 export function aidtTestGroupPublicationMatches(stage: AidtSharedStage, entityId: string, expected?: AidtUiStageDraft) {
   const round = readAidtTestGroupRound(stage.content.draft, entityId);
-  if (stage.stageId !== 6 || stage.content.draft.fields.reflectionSourceEntity !== entityId || !round
+  if (stage.stageId !== 6 || stage.content.draft.fields.reflectionSourceEntity !== entityId
+    || (stage.content.draft.fields.reflectionTestEntityId && stage.content.draft.fields.reflectionTestEntityId !== entityId) || !round
     || round.fields.publicationRevision !== String(stage.revision) || !isAidtReflectionConfirmed(round)) return false;
   if (expected && JSON.stringify(expected) !== JSON.stringify(round)) return false;
   return AIDT_TEST_GROUP_ROUND_FIELDS.every(key => key === "testSourceSignature" || key === "publicationRevision"

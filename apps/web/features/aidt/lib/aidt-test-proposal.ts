@@ -109,6 +109,6 @@ export function confirmAidtTestProposal(draft: AidtUiStageDraft, proposal: AidtT
   if (!round || !bound || bound.sourceStageRevision !== group.stage5Revision || bound.prototypeDesignId !== group.designId
     || bound.prototypeVersionId !== group.versionId) return next;
   const { afterTestBelief = "", understandingEvidence = "", unresolvedQuestions = "", nextAction = "", ...required } = round;
-  const withRound = { ...next, fields: { ...next.fields, ...required, afterTestBelief, understandingEvidence, unresolvedQuestions, nextAction, reflectionConfirmed: "true" } };
+  const withRound = { ...next, fields: { ...next.fields, ...required, afterTestBelief, understandingEvidence, unresolvedQuestions, nextAction, reflectionConfirmed: "true", reflectionTestEntityId: group.id } };
   return Object.keys(withRound.fields).length <= 100 && isAidtReflectionConfirmed(withRound) ? withRound : next;
 }

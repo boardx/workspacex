@@ -1,13 +1,17 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { chat } from "@repo/contracts";
+import { chat, files } from "@repo/contracts";
 import { AidtContextReceipt, AidtContextSelector } from "@repo/contracts/aidt-run-context";
 import { confirmAidtIdeaFromChat } from "../features/aidt/lib/aidt-idea-chat";
 import { AIDT_IDEA_CLASSIFICATION_FIELDS, confirmAidtIdeaClassification, setAidtIdeaCategory, setAidtIdeaClassificationReason } from "../features/aidt/lib/aidt-idea-classification";
-import { readAidtIdeaHandoff } from "../features/aidt/lib/aidt-idea-handoff";
+import { readAidtIdeaHandoff, readAidtIdeaHmwSource } from "../features/aidt/lib/aidt-idea-handoff";
 import { readAidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
 import { createAidtBrainstorm, addAidtBrainstormCandidates, confirmAidtBrainstormSelection, aidtBrainstormRoundClassificationDraft, confirmAidtBrainstormClassification, confirmAidtBrainstormCompletion, readAidtConfirmedBrainstormRounds } from "../features/aidt/lib/aidt-brainstorm";
+import { readAidtPrototypeEntityDraft, readAidtPrototypeInputSelection } from "../features/aidt/lib/aidt-prototype-handoff";
+import { AidtResearchMaterial, aidtResearchContentPath } from "../features/aidt/lib/aidt-research-material-reference";
+import type { AidtUiStageDraft } from "../features/aidt/lib/aidt-ui-drafts";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { bearerOf, sendViaWorkbench } from "./chat-v2-send";
 
@@ -575,21 +579,29 @@ test("directory creation saves named problems, findings, ideas and native Design
   const threads = new Set<string>();
   const projectId = pathname.split("/").at(-1)!;
   const headers = { Authorization: "Bearer " + await bearerOf(page) };
-  type SourceDraft = { fields: Record<string, string>; ideas: { id: string; title: string; description: string }[]; selectedIdeaId: string };
+  type SourceDraft = AidtUiStageDraft;
   let prototypeSource: { revision: number; brainstormId: string; ideaIds: string[]; chosenTitle: string } | undefined;
-  async function seedSourceStage(stageId: number, transform: (previous: SourceDraft) => void, sourceStageRevisions?: { stageId: number; revision: number }[]) {
-    const path = "/__fullstack_api/projects/" + projectId + "/aidt/stages/" + stageId;
-    const { stage } = await (await page.request.get(path, { headers })).json();
-    const draft = stage.content.draft;
-    transform(draft);
-    const response = await page.request.put(path, { headers, data: { operationId: randomUUID(), expectedRevision: stage.revision, sourceStageRevisions: sourceStageRevisions ?? stage.sourceStageRevisions, content: { ...stage.content, draft } } });
+  const stagesPath = "/__fullstack_api/projects/" + projectId + "/aidt/stages/";
+  async function readStage(stageId: number) {
+    const response = await page.request.get(stagesPath + stageId, { headers });
     expect(response.ok()).toBe(true);
-    return (await response.json()).stage;
+    const { stage } = await response.json();
+    expect(stage).toMatchObject({ projectId, stageId });
+    return stage;
   }
-  function syntheticReviewedSources(draft: SourceDraft, source: { id: string; text: string; revision: number }) {
-    // Isolated directory fixture, not a browser upload, artifact read receipt,
-    // model result or evidence that students completed these teaching activities.
-    const image = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==", "base64");
+  async function seedSourceStage(stageId: number, transform: (previous: SourceDraft) => SourceDraft | void, sourceStageRevisions?: { stageId: number; revision: number }[]) {
+    const stage = await readStage(stageId), draft = stage.content.draft;
+    const response = await page.request.put(stagesPath + stageId, { headers, data: { operationId: randomUUID(), expectedRevision: stage.revision,
+      sourceStageRevisions: sourceStageRevisions ?? stage.sourceStageRevisions, content: { ...stage.content, draft: transform(draft) ?? draft } } });
+    expect(response.ok()).toBe(true);
+    const saved = (await response.json()).stage, reloaded = await readStage(stageId);
+    expect(reloaded.revision).toBe(saved.revision);
+    return reloaded;
+  }
+  function syntheticReviewedSources(draft: SourceDraft, source: { id: string; text: string; revision: number }, images: readonly Awaited<ReturnType<typeof uploadIdeaImage>>[]) {
+    // Helper-prepared formal source data. Original images are uploaded/read back
+    // through the API below; this does not claim student UI or model acceptance.
+    expect(images).toHaveLength(3);
     const items = [
       { title: "合成来源 · 等候比较卡", description: "用纸卡展示两处队列的预计等候。学生比较后选择队列。" },
       { title: "合成来源 · 领取路线图", description: "用箭头展示领取食品的顺序。学生按图寻找领取位置。" },
@@ -600,9 +612,10 @@ test("directory creation saves named problems, findings, ideas and native Design
     reviewed = addAidtBrainstormCandidates(reviewed, brainstormId, [{ messageId: "fixture-" + randomUUID(), items }]);
     const sheetIds = readAidtBrainstorm(reviewed.fields, brainstormId)!.candidates;
     const fixtures = sheetIds.map(id => reviewed.ideas.find(idea => idea.id === id)!);
-    for (const idea of fixtures) {
-      reviewed.fields["ideaFile:" + idea.id] = JSON.stringify({ projectId, runId: "fixture-only-not-uploaded", artifactId: "fixture-image-" + idea.id,
-        versionId: "fixture-v1", name: "合成目录引用-未上传.png", mime: "image/png", sha256: createHash("sha256").update(image).digest("hex"), bytes: image.length });
+    for (const [index, idea] of fixtures.entries()) {
+      const reference = AidtResearchMaterial.parse(images[index]);
+      expect(reference.projectId).toBe(projectId);
+      reviewed.fields["ideaFile:" + idea.id] = JSON.stringify(reference);
       reviewed = confirmAidtIdeaFromChat(reviewed, idea.id, idea.description);
     }
     const selectedIds = sheetIds.slice(0, 2);
@@ -618,6 +631,28 @@ test("directory creation saves named problems, findings, ideas and native Design
     expect(readAidtConfirmedBrainstormRounds(completed, projectId, { sessionId: brainstormId })[0]).toMatchObject({ sheetIds, selectedIds, legacy: false });
     expect(readAidtIdeaHandoff(completed, projectId)).toMatchObject({ hmw: source, sheetIds, selectedIds });
     return { draft: completed, brainstormId, sheetIds, selectedIds, chosenTitle: fixtures[0]!.title };
+  }
+
+  async function uploadIdeaImage(name: string) {
+    const buffer = await readFile(resolve("e2e/fixtures/aidt-v2", name));
+    const sha256 = createHash("sha256").update(buffer).digest("hex");
+    const meta = files.operations.uploadArtifact.in.parse({ projectId, agendaSegmentId: null,
+      files: [{ filename: name, sizeBytes: buffer.length, sha256 }], confidential: false,
+      visibilityScope: "org-wide", onDuplicate: "use-existing" });
+    const uploaded = await page.request.post("/__fullstack_api/projects/" + projectId + "/artifacts/upload", { headers,
+      multipart: { meta: JSON.stringify(meta), files: { name, mimeType: "image/png", buffer } } });
+    expect(uploaded.status()).toBe(201);
+    const { runs } = files.operations.uploadArtifact.out.parse(await uploaded.json());
+    expect(runs).toHaveLength(1);
+    const runId = runs[0]!.ingestionRunId;
+    const original = await page.request.get("/__fullstack_api" + aidtResearchContentPath({ projectId, runId }), { headers });
+    expect(original.ok()).toBe(true);
+    expect(await original.body()).toEqual(buffer);
+    expect(original.headers()["x-content-sha256"]).toBe(sha256);
+    expect(original.headers()["x-artifact-id"]).toBe(runs[0]!.artifactId);
+    return AidtResearchMaterial.parse({ projectId, runId, artifactId: runs[0]!.artifactId,
+      versionId: original.headers()["x-artifact-version-id"], mime: original.headers()["content-type"]?.split(";")[0],
+      name, sha256, bytes: buffer.length });
   }
 
   for (const [step, kind] of [[1, "问题"], [1, "问题"], [3, "意外发现"], [4, "点子"], [4, "头脑风暴"], [5, "原型"]] as const) {
@@ -650,20 +685,29 @@ test("directory creation saves named problems, findings, ideas and native Design
       const { stage: definition } = await definitionResponse.json();
       const source = { id: "hmw-second", text: "如何预估等候时间？", revision: definition.revision };
       expect(JSON.parse(definition.content.draft.fields["definitionHmw:" + source.id])).toMatchObject({ id: source.id, text: source.text, confirmed: true, archived: false });
+      const original = await readStage(4) as { content: { draft: AidtUiStageDraft } };
+      expect(original.content.draft.ideas).toHaveLength(1);
+      const existingIdeaId = original.content.draft.ideas[0]!.id;
+      const existingIdeaSource = readAidtIdeaHmwSource(original.content.draft, existingIdeaId);
+      expect(existingIdeaSource).toMatchObject({ id: source.id, text: source.text, revision: expect.any(Number) });
+      expect(existingIdeaSource!.revision).toBeLessThanOrEqual(source.revision);
+      const images: Awaited<ReturnType<typeof uploadIdeaImage>>[] = [];
+      for (const imageName of ["I1-分区牌.png", "I2-同伴指路.png", "I3-号码牌.png"]) images.push(await uploadIdeaImage(imageName));
       let selectedIds: string[] = [];
       let brainstormId = "";
       let chosenTitle = "";
       const saved = await seedSourceStage(4, draft => {
-        const fixture = syntheticReviewedSources(draft, source);
+        const fixture = syntheticReviewedSources(draft, source, images);
         Object.assign(draft, fixture.draft);
         selectedIds = fixture.selectedIds;
         brainstormId = fixture.brainstormId;
         chosenTitle = fixture.chosenTitle;
       }, [{ stageId: 3, revision: source.revision }]);
       expect(JSON.parse(saved.content.draft.fields.ideaHmwSource)).toEqual(source);
+      expect(readAidtIdeaHmwSource(saved.content.draft, existingIdeaId)).toEqual(existingIdeaSource);
       expect(readAidtIdeaHandoff(saved.content.draft, projectId)?.selectedIds).toEqual(selectedIds);
       prototypeSource = { revision: saved.revision, brainstormId, ideaIds: [selectedIds[0]!], chosenTitle };
-      test.info().annotations.push({ type: "fixture-scope", description: "S5 directory uses three synthetic reviewed sheets and fixture-only image reference markers; no upload, artifact-read, AI or teaching acceptance is claimed." });
+      test.info().annotations.push({ type: "fixture-scope", description: "Directory-only fixture: three original images are API uploaded and byte/hash/version read back; formal source round, classification and sheets are helper-prepared API data. This is not UI upload, model or full teaching-journey acceptance." });
     }
     await page.goto(directory);
     if (kind === "点子") await page.getByRole("button", { name: "新建点子", exact: true }).click();
@@ -733,6 +777,10 @@ test("directory creation saves named problems, findings, ideas and native Design
       const { stage } = await response.json();
       const entity = JSON.parse(stage.content.draft.fields["prototypeEntity:" + id]);
       expect(JSON.parse(entity.prototypeIdeaSource)).toEqual({ revision: prototypeSource!.revision, brainstormId: prototypeSource!.brainstormId, ideaIds: prototypeSource!.ideaIds });
+      const entityDraft = readAidtPrototypeEntityDraft(stage.content.draft, id);
+      expect(entityDraft && readAidtPrototypeInputSelection(entityDraft)).toEqual({
+        revision: prototypeSource!.revision, brainstormId: prototypeSource!.brainstormId, ideaIds: prototypeSource!.ideaIds,
+      });
     }
     expect(threads.has(thread)).toBe(false);
     threads.add(thread);

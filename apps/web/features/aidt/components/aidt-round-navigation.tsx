@@ -9,9 +9,9 @@ import { aidtTestGroupPublicationMatches, readAidtTestGroupRound } from "../lib/
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 
 /** Navigation carries a saved reflection reference, never clears historical work. */
-export function AidtRoundNavigation({ projectId, stageNumber, draft, savedRound, matchesServer, returnRevision, sessionToken, returnEntity }: {
+export function AidtRoundNavigation({ projectId, stageNumber, draft, savedRound, matchesServer, returnRevision, sessionToken, returnEntity, testEntityId }: {
   projectId: string; stageNumber: number; draft: AidtUiStageDraft;
-  savedRound?: AidtSharedStage; matchesServer: boolean; returnRevision: string | null; sessionToken?: string | null; returnEntity?: string | null;
+  savedRound?: AidtSharedStage; matchesServer: boolean; returnRevision: string | null; sessionToken?: string | null; returnEntity?: string | null; testEntityId?: string;
 }) {
   const decision = readAidtReturnDecision(stageNumber === 6 ? draft : savedRound?.content.draft ?? { fields: {}, ideas: [], selectedIdeaId: "" });
   if (stageNumber < 6) {
@@ -22,14 +22,20 @@ export function AidtRoundNavigation({ projectId, stageNumber, draft, savedRound,
     if (!sessionToken) return <ReturnUnavailable projectId={projectId} revision={returnRevision} message="登录后才能读取这次返回所引用的历史学习记录。" />;
     return <HistoricalReturn key={JSON.stringify([projectId, stageNumber, wanted, sessionToken, returnEntity])} projectId={projectId} stageNumber={stageNumber} revision={wanted} sessionToken={sessionToken} entityId={returnEntity} />;
   }
-  if (decision.kind !== "selected") return null;
-  const ready = matchesServer && savedRound && isAidtReflectionConfirmed(draft);
-  return <div className="space-y-2 border-t border-border pt-3 text-12" data-testid="aidt-round-navigation">{ready ? <Link className="inline-flex rounded-md border border-border px-3 py-2 font-medium text-primary transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring" href={`${aidtHref(projectId, Number(decision.step), { tool: "outcome" })}&returnRevision=${savedRound.revision}`}>带着本轮反思，回到第{decision.step}步 · {decision.label}</Link> : <p role="status" className="text-muted-foreground">先核对本轮学习记录并保存到小组，再带着已保存依据返回第{decision.step}步。返回前四步不需要先生成新原型。</p>}</div>;
+  const namespaceOwner = draft.fields.reflectionSourceEntity;
+  if (decision.kind !== "selected" || (testEntityId && draft.fields.reflectionTestEntityId !== testEntityId)
+    || (namespaceOwner && ((testEntityId && namespaceOwner !== testEntityId)
+      || (draft.fields.reflectionTestEntityId && draft.fields.reflectionTestEntityId !== namespaceOwner)))) return null;
+  const ready = matchesServer && savedRound && isAidtReflectionConfirmed(draft)
+    && validReturn(savedRound, projectId, Number(decision.step), savedRound.revision, namespaceOwner);
+  return <div className="space-y-2 border-t border-border pt-3 text-12" data-testid="aidt-round-navigation">{ready ? <Link className="inline-flex rounded-md border border-border px-3 py-2 font-medium text-primary transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring" href={`${aidtHref(projectId, Number(decision.step), { tool: "outcome" })}&returnRevision=${savedRound.revision}${namespaceOwner ? "&returnEntity=" + encodeURIComponent(namespaceOwner) : ""}`}>带着本轮反思，回到第{decision.step}步 · {decision.label}</Link> : <p role="status" className="text-muted-foreground">先核对本轮学习记录并保存到小组，再带着已保存依据返回第{decision.step}步。返回前四步不需要先生成新原型。</p>}</div>;
 }
 
 function validReturn(round: AidtSharedStage, projectId: string, stage: number, revision: number, entityId?: string | null) {
-  const draft = entityId ? readAidtTestGroupRound(round.content.draft, entityId) : round.content.draft;
-  if (!draft || entityId && !aidtTestGroupPublicationMatches(round, entityId)) return false;
+  const namespaceOwner = round.content.draft.fields.reflectionSourceEntity;
+  const selectedEntity = entityId || namespaceOwner;
+  const draft = selectedEntity ? readAidtTestGroupRound(round.content.draft, selectedEntity) : round.content.draft;
+  if (!draft || selectedEntity && !aidtTestGroupPublicationMatches(round, selectedEntity)) return false;
   const decision = readAidtReturnDecision(draft);
   return round.projectId === projectId && round.stageId === 6 && round.revision === revision && isAidtReflectionConfirmed(draft) && decision.kind === "selected" && Number(decision.step) === stage;
 }
