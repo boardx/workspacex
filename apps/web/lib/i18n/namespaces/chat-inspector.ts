@@ -1,5 +1,6 @@
 export const chatInspectorZhCN = {
   "chatInspector.materials": "材料",
+  "chatInspector.recording": "录音与转录",
   "chatInspector.artifacts": "产物",
   "chatInspector.roster": "编制",
   "chatInspector.memory": "记忆",
@@ -76,6 +77,7 @@ export const chatInspectorZhCN = {
 
 export const chatInspectorEn: Record<keyof typeof chatInspectorZhCN, string> = {
   "chatInspector.materials": "Materials",
+  "chatInspector.recording": "Record & transcribe",
   "chatInspector.artifacts": "Artifacts",
   "chatInspector.roster": "Team",
   "chatInspector.memory": "Memory",

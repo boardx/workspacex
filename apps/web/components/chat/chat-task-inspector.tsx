@@ -4,7 +4,7 @@ import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import type { chatInspectorZhCN } from "@/lib/i18n/namespaces/chat-inspector";
 import type { ChatHostPanel } from "./chat-host-panel";
-import { NotebookPen, ListChecks, FolderOpen, Package, Settings2, Users, Brain, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { NotebookPen, ListChecks, FolderOpen, Mic, Package, Settings2, Users, Brain, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { PanelResizeHandle } from "@/components/shell/panel-resize-handle";
 import { PANEL_WIDTH_DEFAULT, readPanelWidth, writePanelWidth } from "@/lib/chat-workbench/panel-width";
 import { cn } from "@/lib/utils";
@@ -165,6 +165,7 @@ export interface ChatTaskInspectorProps {
 }
 
 const TAB_META: Record<InspectorTab, { labelKey: keyof typeof chatInspectorZhCN; Icon: typeof ListChecks }> = {
+  recording: { labelKey: "chatInspector.recording", Icon: Mic },
   materials: { labelKey: "chatInspector.materials", Icon: FolderOpen },
   artifacts: { labelKey: "chatInspector.artifacts", Icon: Package },
   roster: { labelKey: "chatInspector.roster", Icon: Users },
@@ -344,9 +345,13 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
 
 
 
+  const recordingContent = hostPanel?.recordingContent;
+  const recordingVisible = Boolean(recordingContent) && !collapsed && !hostOpen && activeTab === "recording";
+  const recordingPanelId = `${hostPanelId}-recording`;
+
   // roster / memory 是可选能力：调用方没传（旧轨道两屏）就不占页签栏一个位置。
   const visibleTabs = INSPECTOR_TABS.filter(
-    (tab) => (tab !== "roster" || roster !== undefined) && (tab !== "memory" || showKnowledge),
+    (tab) => (tab !== "roster" || roster !== undefined) && (tab !== "memory" || showKnowledge) && (tab !== "recording" || recordingContent !== undefined),
   );
   React.useEffect(() => {
     if ((activeTab === "roster" && roster === undefined) || (activeTab === "memory" && !showKnowledge)) {
@@ -505,8 +510,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               type="button"
               role="tab"
               ref={projectArtifact ? hostTrigger : undefined}
-              id={projectArtifact && hostOpen ? `${hostPanelId}-tab` : undefined}
-              aria-controls={projectArtifact && hostOpen ? `${hostPanelId}-panel` : undefined}
+              id={tab === "recording" ? `${recordingPanelId}-tab` : projectArtifact && hostOpen ? `${hostPanelId}-tab` : undefined}
+              aria-controls={tab === "recording" ? recordingPanelId : projectArtifact && hostOpen ? `${hostPanelId}-panel` : undefined}
               aria-selected={selected}
               /*
                 2026-09-03 人类反馈（真栈截图）「右边的 tabs 要简约，默认是 icon，
@@ -586,7 +591,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             <PanelRightOpen aria-hidden className="h-3.5 w-3.5" />
           </button>
         </div>
-      ) : (
+      ) : !recordingVisible && (
         <div
           role="tabpanel"
           tabIndex={0}
@@ -679,6 +684,13 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
           )}
         </div>
       )}
+      {recordingContent && (
+        <div id={recordingPanelId} role="tabpanel" aria-labelledby={`${recordingPanelId}-tab`}
+          tabIndex={0} hidden={!recordingVisible}
+          className={cn("min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain", recordingVisible ? "flex" : "hidden")}>
+          {recordingContent(() => selectTab("materials"))}
+        </div>
+      )}
       {enlargedFile && enlargedFile.threadId === threadId ? (
         <ChatAttachmentPreviewModal
           threadId={enlargedFile.threadId}
@@ -688,6 +700,18 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
       ) : null}
     </aside>
   );
+  if (recordingContent) return <>
+    {mobile && <button ref={hostMobileTrigger} type="button" data-testid="chat-task-workbench-mobile-open"
+      aria-label={t("chatInspector.openMobile")} aria-expanded={!collapsed} onClick={() => setOverride("expanded")}
+      className="flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-container text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <PanelRightOpen aria-hidden className="h-4 w-4" />
+    </button>}
+    {/* Keep the recorder mounted when the user folds the inspector or changes viewport. */}
+    <div role={mobile ? "dialog" : undefined} aria-label={mobile ? t("chatInspector.mobileTitle") : undefined}
+      className={mobile ? cn("fixed inset-y-0 right-0 z-30 h-dvh max-h-dvh w-[min(92vw,24rem)] min-w-0 flex-col border-l border-border-subtle bg-panel-alt shadow-lg", collapsed ? "hidden" : "flex") : "contents"}>
+      {inspector}
+    </div>
+  </>;
   if (!mobile) return inspector;
   // Host workspaces share the Inspector content without a document-level Escape
   // interceptor: the independent member-chat plugin must keep its own keyboard focus.

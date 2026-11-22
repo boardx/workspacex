@@ -36,6 +36,7 @@ const audioMetadata = z.object({
   finishedAt: z.string().datetime(),
   durationMs: z.number().int().positive(),
   draftTranscript: z.string().max(1700),
+  transcriptionStatus: z.enum(["complete", "incomplete"]).optional(),
 });
 
 export function readAidtInterviewAudio(fields: Readonly<Record<string, string>>, sourceKey: string) {
@@ -45,7 +46,11 @@ export function readAidtInterviewAudio(fields: Readonly<Record<string, string>>,
 export function writeAidtInterviewAudio(draft: AidtUiStageDraft, id: string, sourceKey: string, source: AidtResearchMaterialReference, metadata: z.infer<typeof audioMetadata>) {
   const interview = parse(Interview, draft.fields[recordKey(id)]);
   if (!interview?.consent?.audio || !interview.consent.capture || !sourceKey.startsWith(materialPrefix(id)) || isAidtInterviewArchived(draft.fields, id)) return draft;
-  const value = audioMetadata.safeParse({ ...metadata, draftTranscript: interview.consent.asr ? metadata.draftTranscript : "" });
+  const value = audioMetadata.safeParse({
+    ...metadata,
+    draftTranscript: interview.consent.asr ? metadata.draftTranscript : "",
+    transcriptionStatus: interview.consent.asr ? metadata.transcriptionStatus : undefined,
+  });
   if (!value.success || source.mime !== "audio/wav") return draft;
   const attached = writeAidtInterviewMaterial(draft, id, sourceKey, JSON.stringify(source));
   return { ...attached, fields: { ...attached.fields, ["captured:" + sourceKey]: JSON.stringify(value.data) } };

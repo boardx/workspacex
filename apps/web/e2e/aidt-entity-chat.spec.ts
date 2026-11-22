@@ -266,7 +266,8 @@ test.describe("recording evidence in the interview Chat", () => {
     const url = path + "?step=2&entity=" + first + "&tool=outcome";
     await openInterview(page, url);
     const materials = () => page.getByTestId("chat-task-workbench-inspector-tab-materials").click();
-    await materials();
+    const recordingTab = () => page.getByTestId("chat-task-workbench-inspector-tab-recording").click();
+    await recordingTab();
     await page.getByRole("button", { name: "开始录音", exact: true }).click();
     await expect(page.getByRole("button", { name: "停止录音" })).toBeVisible();
     // Keep the capture open long enough to contain the synthetic spoken sample.
@@ -278,7 +279,7 @@ test.describe("recording evidence in the interview Chat", () => {
     const head = async () => (await stage()).content.draft;
     await expect.poll(async () => Object.keys((await head()).fields).some(key => key.startsWith("captured:interviewMaterial:" + first + ":"))).toBe(true);
     await page.reload();
-    await materials();
+    await recordingTab();
     const select = page.getByRole("combobox", { name: "转写原件", exact: true });
     await expect(select.getByRole("option")).toHaveCount(2);
     const recording = select.getByRole("option", { name: /^U01-.*\.wav$/ });
@@ -289,6 +290,7 @@ test.describe("recording evidence in the interview Chat", () => {
     await page.getByLabel("校对后的摘录").fill("我先看口味");
     await page.getByLabel("已对照原始材料校对").check();
     await expect.poll(async () => JSON.parse((await head()).fields["interviewTranscript:" + first] || "{}").checked).toBe(true);
+    await materials();
     const photoName = "U01-合成现场照片.png";
     const photoData = await page.evaluate(() => {
       const canvas = Object.assign(document.createElement("canvas"), { width: 720, height: 420 });

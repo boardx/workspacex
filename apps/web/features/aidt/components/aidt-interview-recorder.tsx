@@ -17,6 +17,7 @@ export type AidtRecordedInterview = {
   finishedAt: string;
   durationMs: number;
   draftTranscript: string;
+  transcriptionStatus?: "complete" | "incomplete";
 };
 
 type Attempt = {
@@ -39,6 +40,7 @@ type Preview = {
   finishedAt: string;
   durationMs: number;
   draftTranscript: string;
+  transcriptionStatus?: AidtRecordedInterview["transcriptionStatus"];
   receipt?: AidtMaterialReceipt;
 };
 
@@ -65,6 +67,9 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
   const [preview, setPreview] = React.useState<Preview | null>(null);
   const [asrSelected, setAsrSelected] = React.useState(false);
   const [message, setMessage] = React.useState("");
+  const [liveTranscript, setLiveTranscript] = React.useState("");
+  const [partialTranscript, setPartialTranscript] = React.useState("");
+  const [asrInterrupted, setAsrInterrupted] = React.useState(false);
 
   const clear = React.useCallback(() => {
     if (url.current) URL.revokeObjectURL(url.current);
@@ -109,8 +114,9 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
     const transcript = attempt.transcripts.map(part => `[${timestamp(part.timeMs)}] ${part.text}`).join("\n");
     const draftTranscript = transcript.length > MAX_TRANSCRIPT_CHARS
       ? transcript.slice(0, MAX_TRANSCRIPT_CHARS - 12) + "\n（摘录已截断）" : transcript;
-    setPreview({ file, url: previewUrl, startedAt: attempt.startedAt, finishedAt, durationMs: elapsed(attempt.samples), draftTranscript });
-    setMessage(attempt.asr && (attempt.asrFailed || !attempt.transcripts.length) ? "转写服务未返回完整结果。请保存音频原件，之后可人工校对摘录。" : "录音已结束。保存后可在此访谈回听原件。");
+    const transcriptionStatus = attempt.asr ? attempt.asrFailed || !attempt.transcripts.length ? "incomplete" : "complete" : undefined;
+    setPreview({ file, url: previewUrl, startedAt: attempt.startedAt, finishedAt, durationMs: elapsed(attempt.samples), draftTranscript, transcriptionStatus });
+    setMessage(transcriptionStatus === "incomplete" ? "转写服务未返回完整结果。请保存音频原件，之后可人工校对摘录。" : "录音已结束。保存后可在此访谈回听原件。");
   }
 
   async function start() {
@@ -120,6 +126,9 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
     };
     active.current = attempt;
     setRecordedSeconds(0);
+    setLiveTranscript("");
+    setPartialTranscript("");
+    setAsrInterrupted(false);
     setPhase("starting");
     setMessage("");
     try {
@@ -142,13 +151,23 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
       });
       if (asrAllowed && asrSelected) {
         attempt.asr = openAsrDraftStream({
-          onPartial: () => undefined,
+          onPartial: text => {
+            if (active.current === attempt) setPartialTranscript(text.slice(0, MAX_TRANSCRIPT_CHARS));
+          },
           onFinal: text => {
             if (active.current !== attempt) return;
+            setPartialTranscript("");
             const size = attempt.transcripts.reduce((total, entry) => total + entry.text.length, 0);
-            if (size <= MAX_TRANSCRIPT_CHARS) attempt.transcripts.push({ timeMs: elapsed(attempt.samples), text: text.slice(0, MAX_TRANSCRIPT_CHARS + 1) });
+            if (size <= MAX_TRANSCRIPT_CHARS) {
+              const part = { timeMs: elapsed(attempt.samples), text: text.slice(0, MAX_TRANSCRIPT_CHARS + 1) };
+              attempt.transcripts.push(part);
+              setLiveTranscript(previous => `${previous}[${timestamp(part.timeMs)}] ${part.text}\n`.slice(0, MAX_TRANSCRIPT_CHARS));
+            }
           },
-          onError: () => { attempt.asrFailed = true; },
+          onError: () => {
+            attempt.asrFailed = true;
+            if (active.current === attempt) setAsrInterrupted(true);
+          },
           onFinished: () => undefined,
         }, {
           sessionToken,
@@ -158,7 +177,11 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
             onFrame: listener => { if (!attempt.stopping) attempt.listener = listener; },
             stop: async () => { attempt.listener = undefined; },
           }),
-        }).catch(() => { attempt.asrFailed = true; return null; });
+        }).catch(() => {
+          attempt.asrFailed = true;
+          if (active.current === attempt) setAsrInterrupted(true);
+          return null;
+        });
       }
       setPhase("recording");
     } catch {
@@ -182,7 +205,7 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
       const { reference } = await readAidtResearchMaterial(context, receipt);
       controller.signal.throwIfAborted();
       if (reference.projectId !== projectId || reference.mime !== "audio/wav") throw new Error("AIDT_RECORDING_SCOPE_MISMATCH");
-      onAttached({ source: reference, startedAt: preview.startedAt, finishedAt: preview.finishedAt, durationMs: preview.durationMs, draftTranscript: preview.draftTranscript });
+      onAttached({ source: reference, startedAt: preview.startedAt, finishedAt: preview.finishedAt, durationMs: preview.durationMs, draftTranscript: preview.draftTranscript, transcriptionStatus: preview.transcriptionStatus });
       clear();
       setPreview(null);
       setMessage("原件已上传并回读，访谈关联会自动保存。");
@@ -212,6 +235,13 @@ export function AidtInterviewRecorder({ projectId, participantCode, sessionToken
     </div>
     {phase === "starting" && <p role="status" className="text-12">正在请求麦克风…</p>}
     {phase === "recording" && <p role="status" className="text-12">正在录音 · {participantCode}</p>}
+    {asrSelected && (phase === "recording" || phase === "stopping") && <div className="space-y-2 rounded-md bg-muted p-3">
+      <h6 className="text-12 font-semibold">{asrInterrupted ? "实时转写中断" : phase === "stopping" ? "正在收取最终转写" : "实时转写"}</h6>
+      {asrInterrupted && <p className="text-12 text-muted-foreground">录音仍可保存。请用原件校对摘录。</p>}
+      {!asrInterrupted && !liveTranscript && !partialTranscript && <p className="text-12 text-muted-foreground">等待转写文字…</p>}
+      {!!liveTranscript && <p className="whitespace-pre-wrap break-words text-12">{liveTranscript}</p>}
+      {!asrInterrupted && !!partialTranscript && <p className="whitespace-pre-wrap break-words text-12 text-muted-foreground">{partialTranscript}</p>}
+    </div>}
     {phase === "stopping" && <p role="status" className="text-12">正在结束录音…</p>}
     {phase === "saving" && <p role="status" className="text-12">正在保存并核对录音原件…</p>}
     {preview && <>
