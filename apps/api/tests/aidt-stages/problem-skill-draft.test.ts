@@ -1,5 +1,6 @@
 import {expect,it} from "vitest";
 import liveRevision from "../fixtures/aidt-s1-live-revision-45007428075.json";
+import quotedLiveRevision from "../fixtures/aidt-s1-live-revision-45014881332.json";
 import {projectProblemSkillDraft} from "../../src/application/aidt-stages/problem-skill-draft";
 const base={fields:{"problemDraft:p":JSON.stringify({initial:"你好"}),other:"私有草稿"},ideas:[],selectedIdeaId:""};
 function turn(user:string,assistant:string,messageId="m1"){return {user,assistant,messageId};}
@@ -91,4 +92,34 @@ it("uses the student's explicit hypothesis regardless of how the lack of field e
    const fields = JSON.parse(projectProblemSkillDraft(draft, "p", turn(user, assistant))!.fields["problemDraft:p"]!);
    expect(fields).toMatchObject({ problemSources: '["guess"]', sourceDetails: "这些行为目前只是我们提出的假设。" });
  }
+});
+
+it("projects the exact Devapp revision when the model wraps the literal problem text in a Markdown blockquote", () => {
+ const draft = projectProblemSkillDraft(base, "p", turn(quotedLiveRevision.initial, "先补充选题价值。", "initial"))!;
+ const next = projectProblemSkillDraft(draft, "p", turn(quotedLiveRevision.user, quotedLiveRevision.assistant, "revision"))!;
+ const fields = JSON.parse(next.fields["problemDraft:p"]!);
+ expect(fields).toMatchObject({
+   initial: quotedLiveRevision.initial,
+   focus: "午休后赶课学生在教学楼下饮品店的选择犹豫",
+   rewrittenTheme: "午休结束前，赶下一节课的学生在教学楼下饮品店如何决定买什么、是否排队或放弃？他们在哪个环节犹豫，当时掌握的信息和剩余时间可能起什么作用？",
+   sourceDetails: "这些行为目前只是我们提出的假设。",
+   problemSources: '["guess"]',
+   draftTurnId: "revision",
+ });
+ expect(fields.problemReflectionConfirmed).toBeUndefined();
+ expect(fields.roundCompletion).toBeUndefined();
+});
+
+it("decodes one quote marker in recognized assistant fields and still verifies verbatim student authority", () => {
+ const original = "> 学生在哪里停下？";
+ const first = projectProblemSkillDraft(base, "p", turn(original, "### 原始命题\n> " + original))!;
+ expect(JSON.parse(first.fields["problemDraft:p"]!).initial).toBe(original);
+ const next = projectProblemSkillDraft(first, "p", turn(
+   "学生重写命题：通勤者如何判断在何处停下？\n来源说明：> 学生记录",
+   "> ### 学生重写命题\n> 通勤者如何判断在何处停下？\n\n### 待验证\n> 外地案例\n\n### 学生重写命题\n> 通勤者应该在哪儿停车？",
+   "revision",
+ ))!;
+ expect(JSON.parse(next.fields["problemDraft:p"]!)).toEqual({
+   initial: original, sourceUncertainty: "> 外地案例", sourceDetails: "> 学生记录", draftTurnId: "revision",
+ });
 });

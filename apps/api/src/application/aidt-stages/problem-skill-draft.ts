@@ -12,7 +12,7 @@ const sections: Record<string, string> = {
 
 /** Parse the named sections of the Skill's visible draft, including pre-protocol Markdown.
  * Never take the first chat message or a teaching question as a saved answer. */
-export function problemSkillFields(answer: string): Record<string, string> {
+export function problemSkillFields(answer: string, unwrapVerbatimQuote = true): Record<string, string> {
   if (answer.length > 100_000) return {};
   const fields: Record<string, string> = {};
   let current: string | undefined;
@@ -30,7 +30,15 @@ export function problemSkillFields(answer: string): Record<string, string> {
     if (/^\s*(?:---+|#{1,6}\s|\*\*[^*]+\*\*\s*$)/.test(line)) { current = undefined; continue; }
     // One contiguous paragraph or list per field. Later teaching prose is not artifact content.
     if (!line.trim() && current && fields[current]) { current = undefined; continue; }
-    if (current && line.trim()) fields[current] = [fields[current], line.trim()].filter(Boolean).join("\n").slice(0, 650);
+    if (current && line.trim()) {
+      const value = line.trim();
+      // The assistant may render a literal problem statement as a Markdown blockquote.
+      // Decode one marker after recognizing the field, before comparing to the student's wording.
+      const literal = unwrapVerbatimQuote && (current === "initial" || current === "rewrittenTheme")
+        ? value.replace(/^>[ \t]/u, "")
+        : value;
+      fields[current] = [fields[current], literal].filter(Boolean).join("\n").slice(0, 650);
+    }
   }
   for (const [key,value] of Object.entries(fields)) if (isAidtProblemControlText(value)) delete fields[key];
   if (fields.problemSources) {
@@ -109,9 +117,9 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   // comparison permits suggestions, not a selected direction or a student rewrite.
   if (!statedRewrite || statedRewrite !== patch.rewrittenTheme) delete patch.rewrittenTheme;
   if (!statedSelection) delete patch.focus;
-  const studentFields = problemSkillFields(student);
+  const studentFields = problemSkillFields(student, false);
   const sourceTypeLine = /^来源类型[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
-  const statedSourceType = sourceTypeLine ? problemSkillFields("来源类型：" + sourceTypeLine).problemSources : studentFields.problemSources;
+  const statedSourceType = sourceTypeLine ? problemSkillFields("来源类型：" + sourceTypeLine, false).problemSources : studentFields.problemSources;
   const statedSourceDetails = /^(?:命题来源反思|来源说明)[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim() || studentFields.sourceDetails;
   const hypothesis = explicitlyStatedHypothesis(student);
   if (hypothesis) {

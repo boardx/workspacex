@@ -25,9 +25,9 @@ const decision: PermissionDecision = { allowed: true, decisionId: 'qa-decision',
   orgLayer: { role: 'consultant', teamId: null, passed: true },
   projectLayer: { role: 'member', groupId: null, passed: true }, scopeLayer: { scope: 'org-wide', passed: true } };
 const inputAt = new Date('2026-11-22T09:59:00.000Z');
-function setup(userText: string, history: { body: string }[]) {
+function setup(userText: string, history: { body: string }[], assistantText = assistant) {
   const query = vi.fn().mockResolvedValueOnce({ rows: [{ run_id: 'qa-run', message_id: 'qa-reply',
-    user_text: userText, assistant_text: assistant, source_revision: 1, requested_by: actor.userId, input_at: inputAt }] })
+    user_text: userText, assistant_text: assistantText, source_revision: 1, requested_by: actor.userId, input_at: inputAt }] })
     .mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: history });
   const save = vi.fn().mockResolvedValue({});
   const stages = { get: vi.fn().mockResolvedValue({ stage }), save, getRevision: vi.fn() };
@@ -84,4 +84,16 @@ describe('S1 pinned framing recovery', () => {
       expect(sql).toContain('LIMIT 32');
       expect(params).toEqual([actor.orgId, actor.threadId, [original], stage.updatedAt]);
     });
+});
+
+it('verifies historical student wording consistently when the assistant renders the original as a blockquote', async () => {
+  const quotedAssistant = `### 原始命题（逐字保留）\n> ${original}`;
+  const evidence = { body: `学生的回答：\n${original}` };
+  const f = setup('继续讨论。', [evidence], quotedAssistant);
+  expect(await projectSavedSkillOutput(f.session, f.stages, actor, decision, 1, entityId)).toBe(true);
+  expect(f.query.mock.calls[2]![1]).toEqual([actor.orgId, actor.threadId, inputAt, original]);
+  const query = vi.fn().mockResolvedValueOnce({ rows: [{ body: quotedAssistant }] })
+    .mockResolvedValueOnce({ rows: [{ original, ...evidence }] });
+  expect(await recoverProblemFraming({ query } as TenantSession, actor, stage, entityId)).toBe(original);
+  expect(query.mock.calls[1]![1]).toEqual([actor.orgId, actor.threadId, [original], stage.updatedAt]);
 });
