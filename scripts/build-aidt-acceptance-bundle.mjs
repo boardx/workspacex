@@ -13,6 +13,7 @@ const files = [
   'apps/web/e2e/support/devapp-aidt-print-evidence.mjs',
   'apps/web/e2e/support/devapp-aidt-chat-evidence.mjs',
   'apps/web/e2e/support/devapp-aidt-qa-identity.mjs',
+  'apps/web/e2e/support/devapp-aidt-agent-review.mjs',
   'scripts/image-release-host-permissions.py',
 ];
 const sha = process.env.GITHUB_SHA;
@@ -33,7 +34,7 @@ for (const file of files) {
 const interviewStarter = JSON.parse(readFileSync('skills/aidt-methods/aidt-empathize/starter.json', 'utf8')).initial;
 if (typeof interviewStarter !== 'string' || !interviewStarter.includes('问题') || !interviewStarter.includes('初稿')) throw new Error('INTERVIEW_STARTER_INVALID');
 writeFileSync(resolve(root, 'acceptance-source.json'), JSON.stringify({ controlSource: sha, interviewStarter, teachingSkillNames: [...names, summary], playwrightVersion: playwright }));
-writeFileSync(resolve(root, 'package.json'), JSON.stringify({ private: true, type: 'module', dependencies: { '@playwright/test': playwright } }));
+writeFileSync(resolve(root, 'package.json'), JSON.stringify({ private: true, type: 'module', dependencies: { '@playwright/test': playwright, '@actions/artifact': '2.3.2' } }));
 const listed = [...files, 'acceptance-source.json', 'package.json'];
 writeFileSync(resolve(root, 'SHA256SUMS'), listed.map(file => `${createHash('sha256').update(readFileSync(resolve(root, file))).digest('hex')}  ${file}`).join('\n') + '\n');
 console.log(JSON.stringify({ kind: 'aidt-acceptance-bundle', controlSource: sha, fileCount: listed.length, playwrightVersion: playwright }));

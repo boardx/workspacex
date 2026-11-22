@@ -8,11 +8,13 @@ import { ORIGIN, ProbeFailure, readQaCredentials } from './devapp-aidt-auth-read
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, SHA } from './devapp-aidt-acceptance-guard.mjs';
 import { captureApplicationPrint } from './devapp-aidt-print-evidence.mjs';
 import { sendTeachingFeedback } from './devapp-aidt-chat-evidence.mjs';
+import { agentQaReviewRequested, createAgentQaReviewer } from './devapp-aidt-agent-review.mjs';
 
 export function illustratedAcceptance(report) {
   const headings = ['首页', '理解与提出问题', '共情用户', '综合与定义', '创意发散', '制作原型', '测试与迭代', '最终报告'];
   const status = value => ({ passed: '通过', pass: '通过', failed: '失败', blocked: '阻塞' })[value] ?? '待核验';
   const lines = ['# AIDT Devapp 图文验收报告', '', '候选版本 \`' + report.source + '\`。本次使用合成教学材料。', '',
+    ...(report.agentReview ? ['**执行者：测试智能体；仅 SOFTWARE QA，不是人类课堂或教师教学签核。**', ''] : []),
     '**整体结果 ' + (report.fullAcceptancePassed ? '通过' : report.passed ? '浏览器验收通过，PDF 字形独立核验待完成' : '未全部通过') + '**', ''];
   for (const [index, title] of headings.entries()) {
     const section = index === 7 ? /^(report-|teaching-chat-final-report)/ : index === 0 ? /^homepage-/ : new RegExp('^(s' + index + '-|teaching-chat-stage-' + index + '(?:-|$))');
@@ -114,6 +116,21 @@ export function finalizeGuardVerdict(report, guard) {
     report.failure ??= report.guardFailure;
   }
   return report;
+}
+
+// This is the approved per-journey evidence set, not a general increase in printing/model work.
+export const AIDT_PDF_PLAN = Object.freeze([
+  ...Array.from({ length: 10 }, (_item, index) => Object.freeze({ stage: 2, name: `interview-guide-u${String(index + 1).padStart(2, '0')}` })),
+  Object.freeze({ stage: 2, name: 'discovery-card-u01-with-photo' }), Object.freeze({ stage: 2, name: 'discovery-card-u02-photo-missing' }),
+  ...Array.from({ length: 3 }, (_item, index) => Object.freeze({ stage: 4, name: `idea-description-${index + 1}` })),
+  Object.freeze({ stage: 6, name: 'confirmed-group-report' }),
+]);
+export function assertAidtPrintRequest(stage, name, artifacts) {
+  const key = typeof name === 'string' ? name.toLowerCase() : '';
+  if (!Array.isArray(artifacts) || !AIDT_PDF_PLAN.some(item => item.name === key && item.stage === stage)
+    || artifacts.filter(item => item.format === 'pdf').length >= AIDT_PDF_PLAN.length
+    || artifacts.some(item => item.format === 'pdf' && item.printName === key)) throw new ProbeFailure('PRINT_ARTIFACT_BOUND');
+  return key;
 }
 
 export function publicEntryDiagnostic(report) {
@@ -236,22 +253,26 @@ export async function main() {
     checkpoints: [], screenshots: [], pendingTeachingReviews: [], scope: 'writes and screenshots: new owned QA project only',
     authorizedMetadataReads: 'Native clients also read the QA-authorized identity, course/project/Skill/Agent catalogs and Design list in memory. Closed read-category counters count guard decisions; bounded metadata HTTP statuses come only from observed responses. No raw lists, URLs, queries, headers, bodies or unrelated projects are exported.',
     designRequestLimit: 'At most one normal UI Design chat request; default page count is decided by the existing service, not capped to one page.' };
-  let browser, context, page, output, identity, guard, credentials, provisionedIdentity, timer, stage = 'preflight';
+  let browser, context, page, output, identity, guard, credentials, provisionedIdentity, timer, agentReviewer, stage = 'preflight';
   const sensitiveEvidence = sensitiveEvidenceGuard();
   try {
     if (process.argv.length !== 2) throw new ProbeFailure('ARGUMENTS_REJECTED');
     assertAcceptanceWorkflow(process.env);
     identity = acceptanceIdentity(process.env);
+    const agentQaRequested = agentQaReviewRequested(process.env, identity);
+    // A full writer may not spend an account or model call before its actual reviewer channel is ready.
+    if (!identity.entryDiagnosticOnly && !agentQaRequested) throw new ProbeFailure('S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED');
     const provisionOrdinaryQa = ordinaryQaProvisioningRequested(process.env, identity);
     if (provisionOrdinaryQa) report.scope = 'Setup: one dedicated synthetic consultant account through one bounded organization invitation lifecycle. Student business writes and screenshots: new owned QA project only; setup counts are separate.';
     report.controlSource = process.env.GITHUB_SHA;
-    report.executionMode = identity.entryDiagnosticOnly ? 'entry-diagnostic-readonly' : 'ordinary-ui-first-full';
+    report.executionMode = identity.entryDiagnosticOnly ? 'entry-diagnostic-readonly' : 'agent-operated-software-qa';
     report.fullAcceptancePassed = false;
     report.requirements = { source: 'docs/requirements/aidt-v2-full.md', declaredVersion: 'V2 with 2026-11-15 FR15-FR19' };
     report.stageIterations = [];
     report.systemArtifacts = [];
     report.teachingEvidence = [];
     report.budgets = { homepageMinutes: 20, stageMinutes: 15, stage5Minutes: 20, overallMinutes: 142, stage5Reason: 'Existing Design request can take up to 900 seconds; allow native Chat and normal UI save/review overhead without unknown-write retry.' };
+    const overallDeadline = Date.now() + report.budgets.overallMinutes * 60 * 1000;
     report.independentPdfValidation = 'pending artifact download and independent parser/renderer; byte generation is not complete glyph acceptance';
     output = privateOutput(process.env, identity);
     const metadata = JSON.parse(readFileSync(new URL('../../../../acceptance-source.json', import.meta.url), 'utf8'));
@@ -259,6 +280,15 @@ export async function main() {
     identity.teachingSkillNames = metadata.teachingSkillNames;
     identity.deniedProject = `prj-${randomUUID()}`;
     report.deployedRuntime = runtimeProof(identity);
+    if (agentQaRequested) {
+      agentReviewer = createAgentQaReviewer({ identity, controlSource: process.env.GITHUB_SHA,
+        out: output.out, assertSafe: text => sensitiveEvidence.assertSafe(text), deadlineAt: overallDeadline });
+      await agentReviewer.preflight();
+      report.agentReview = agentReviewer.summary();
+      const afterReviewPreflight = runtimeProof(identity);
+      if (JSON.stringify(afterReviewPreflight) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
+      report.runtimeRechecks++;
+    }
     credentials = readQaCredentials();
     sensitiveEvidence.remember(credentials.email); sensitiveEvidence.remember(credentials.password);
     const { chromium, expect, request } = await import('@playwright/test');
@@ -284,7 +314,9 @@ export async function main() {
       }
     }
     guard = createAcceptanceGuard(identity);
-    timer = setTimeout(() => { guard.fail('ACCEPTANCE_TIMEOUT'); void context?.close(); }, report.budgets.overallMinutes * 60 * 1000);
+    const remainingMs = overallDeadline - Date.now();
+    if (remainingMs <= 0) throw new ProbeFailure('ACCEPTANCE_TIMEOUT');
+    timer = setTimeout(() => { guard.fail('ACCEPTANCE_TIMEOUT'); void context?.close(); }, remainingMs);
     const browserEnv = Object.fromEntries(['PATH', 'HOME', 'LANG', 'TZ', 'PLAYWRIGHT_BROWSERS_PATH'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
     browser = await chromium.launch({ headless: true, env: browserEnv });
     report.browser = { name: 'Chromium', version: browser.version(), playwrightVersion: metadata.playwrightVersion, headless: true };
@@ -620,8 +652,7 @@ export async function main() {
       return accepted;
     };
     const savePrint = async ({ stage, name, button, requiredTexts, imageHashes }) => {
-      const key = name.toLowerCase();
-      if (!/^[a-z0-9-]{1,80}$/.test(key) || !Number.isInteger(stage) || stage < 1 || stage > 6 || report.systemArtifacts.filter(row => row.format === 'pdf').length >= 14) throw new ProbeFailure('PRINT_ARTIFACT_BOUND');
+      const key = assertAidtPrintRequest(stage, name, report.systemArtifacts);
       assertCaptureScope(page.url(), projectId, stage); recheckRuntime();
       const assertSafe = async text => {
         sensitiveEvidence.assertSafe(text);
@@ -633,7 +664,7 @@ export async function main() {
       const filename = `${base}.pdf`, htmlFilename = `${base}.html`;
       writeFileSync(resolve(output.out, filename), result.bytes, { flag: 'wx', mode: 0o600 });
       writeFileSync(resolve(output.out, htmlFilename), result.html, { flag: 'wx', mode: 0o600 });
-      const receipt = { stage, filename, htmlFilename, format: 'pdf', ...result.metadata, projectId, source: identity.source, tag: identity.tag };
+      const receipt = { stage, printName: key, filename, htmlFilename, format: 'pdf', ...result.metadata, projectId, source: identity.source, tag: identity.tag };
       report.systemArtifacts.push(receipt); return receipt;
     };
     stage = 'six-stage-journey';
@@ -644,10 +675,23 @@ export async function main() {
       if (![403, 404].includes(result.status)) throw new ProbeFailure('UNKNOWN_PROJECT_NOT_DENIED');
       report.unknownProjectGate = { passed: true, status: result.status, crossUserIsolation: false };
     });
+    const reviewS1StudentResponse = agentReviewer?.bindPage({ page, context,
+      readStage: async question => {
+        if (question.projectId !== projectId) throw new ProbeFailure('AGENT_QA_PAGE_CHANGED');
+        const result = await api(page, 'GET', `/api/projects/${projectId}/aidt/stages/1`);
+        if (result.status !== 200) throw new ProbeFailure('AGENT_QA_SAVED_VERSION_CHANGED');
+        return result.data?.stage;
+      },
+      readMessages: async question => {
+        if (question.projectId !== projectId) throw new ProbeFailure('AGENT_QA_PAGE_CHANGED');
+        const result = await api(page, 'GET', `/api/chat/threads/${encodeURIComponent(question.threadId)}/messages?limit=100`);
+        if (result.status !== 200) throw new ProbeFailure('AGENT_QA_MESSAGES_CHANGED');
+        return result.data;
+      } });
     await runAidtJourney({ page, context, expect, interviewStarter: metadata.interviewStarter, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
       checkpoint, capture, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
       armInterviewEdit: () => guard.armStageSave(2, false), armCardCreate: stage => guard.armStageSave(stage, false),
-      registerFixture: fixture => guard.registerFixture(fixture), armSurvey: id => guard.armSurvey(id), surveyReceipt: guard.surveyReceipt, armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, createSurveyParticipant, report });
+      registerFixture: fixture => guard.registerFixture(fixture), armSurvey: id => guard.armSurvey(id), surveyReceipt: guard.surveyReceipt, armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, createSurveyParticipant, reviewS1StudentResponse, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
     report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, 'teaching-chat-final-report', 'teaching-chat-stage-3-2', 'teaching-chat-stage-3-3', 'teaching-chat-stage-3-4', 'teaching-chat-stage-4-reverse', 'teaching-chat-stage-6-plan', 'teaching-chat-stage-6-survey-plan', 'teaching-chat-stage-6-survey', ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
@@ -663,6 +707,7 @@ export async function main() {
   } catch (error) { report.failure = safeCode(error); report.failedStage = stage; }
   finally {
     clearTimeout(timer);
+    if (agentReviewer) report.agentReview = agentReviewer.summary();
     let privateEvidenceSafe = true;
     try {
       if (credentials) {

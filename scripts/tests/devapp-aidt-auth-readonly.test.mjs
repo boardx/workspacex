@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import { ORIGIN, CREDENTIAL_PATH, parseQaCredentials, readQaCredentials, createRequestGuard, projectApiResponse, validLoginBody, routeReadonly } from '../../apps/web/e2e/support/devapp-aidt-auth-readonly.mjs';
 
 const PROBE_ID = 'aidt-readonly-probe-11111111-1111-4111-8111-111111111111';
@@ -252,6 +253,14 @@ test('the actual acceptance bundle passes the live runner gate with only its che
     assert.equal(build.status, 0, build.stderr);
     renameSync(join(base, 'aidt-acceptance-tools'), source);
     const manifest = readFileSync(manifestPath);
+    const helperPath = 'apps/web/e2e/support/devapp-aidt-agent-review.mjs';
+    const helperDigest = createHash('sha256').update(readFileSync(join(source, helperPath))).digest('hex');
+    assert(manifest.toString().split('\n').includes(`${helperDigest}  ${helperPath}`));
+    assert.equal(helperDigest, createHash('sha256').update(readFileSync(new URL('../../' + helperPath, import.meta.url))).digest('hex'));
+    const packaged = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'));
+    assert.equal(packaged.dependencies['@actions/artifact'], '2.3.2');
+    assert.match(packaged.dependencies['@playwright/test'], /^\d+\.\d+\.\d+$/);
+    assert.deepEqual(Object.keys(packaged.dependencies).sort(), ['@actions/artifact', '@playwright/test']);
     const digest = readFileSync(packageOutput, 'utf8').match(/^manifest_sha256=([a-f0-9]{64})\n$/)?.[1];
     assert.equal(digest, createHash('sha256').update(manifest).digest('hex'));
     const verify = (manifestDigest = digest) => spawnSync('bash', ['-c', acceptanceBundleShell], {
@@ -280,6 +289,84 @@ test('the actual acceptance bundle passes the live runner gate with only its che
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
+});
+
+test('agent software-QA review is an explicit boolean opt-in and exports only the two fixed safe requests', () => {
+  const input = acceptanceWorkflow.split('      agent_qa_review:\n')[1]?.split('      isolated_native:\n')[0];
+  assert(input);
+  assert.match(input, /type: boolean\n        default: false/);
+  assert.match(input, /not human classroom acceptance/);
+  assert.equal((acceptanceWorkflow.match(/AIDT_AGENT_QA_REVIEW: \$\{\{ inputs\.agent_qa_review \}\}/g) || []).length, 2);
+  const controls = acceptanceWorkflow.split('\n  controls:\n')[1].split('\n  isolated-native:\n')[0];
+  assert.match(controls, /import \{agentQaReviewRequested\} from "\.\/apps\/web\/e2e\/support\/devapp-aidt-agent-review\.mjs"; agentQaReviewRequested\(process\.env\);/);
+  assert.match(controls, /node --test scripts\/tests\/devapp-aidt-agent-review\.test\.mjs/);
+  assert.match(controls, /node --check apps\/web\/e2e\/support\/devapp-aidt-agent-review\.mjs/);
+  assert.match(acceptanceWorkflow, /permissions:\n  contents: read\n/);
+  assert.doesNotMatch(acceptanceWorkflow, /(?:issues|actions): write|github\.token|ACTIONS_RUNTIME_TOKEN|ACTIONS_RUNTIME_URL|AIDT_(?:REVIEW|AGENT_QA)_(?:URL|PATH|ANSWER|RESPONSE|TOKEN)/);
+  const live = acceptanceWorkflow.split('\n  live-dev:\n')[1];
+  assert.match(live, /timeout-minutes: 152/);
+  assert.match(live, /uses: actions\/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b/);
+  assert.match(live, /continue-on-error: true/);
+  assert.match(live, /spawn\(selected\.executable, \[path\.join\(source, 'apps\/web\/e2e\/support\/devapp-aidt-acceptance\.mjs'\)\]/);
+  const safeUpload = live.split('- name: Upload only explicit safe evidence types\n')[1].split('- name: Preserve acceptance failure\n')[0];
+  const requestPaths = safeUpload.split('\n').map(line => line.trim()).filter(line => line.includes('/output/agent-qa-'));
+  assert.deepEqual(requestPaths, [
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-preflight-request.json',
+    '${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-student-request.json',
+  ]);
+  assert.doesNotMatch(safeUpload, /output\/\*\.json|output\/agent-qa-\*/);
+});
+
+test('the pinned JavaScript action spawns only the owned Node 22 entry and preserves a failed outcome without exporting tokens', async () => {
+  const block = acceptanceWorkflow.split('- name: Run bounded live Dev acceptance and safe screenshots\n')[1].split('\n      - ')[0];
+  const script = block.split('          script: |\n')[1].split('\n').map(line => line.slice(12)).join('\n');
+  assert(script.trim());
+  assert.doesNotMatch(script, /github\.|octokit|GITHUB_ENV|writeFile|appendFile|core\.(?:info|debug)|console\./);
+  const execute = new (Object.getPrototypeOf(async function () {}).constructor)('require', 'core', 'process', script);
+  const base = mkdtempSync(join(tmpdir(), 'aidt-js-action-test-'));
+  const root = join(base, 'wsx-aidt-acceptance-123-1'), source = join(root, 'source');
+  mkdirSync(source, { recursive: true });
+  writeFileSync(join(source, '.nvmrc'), '22\n');
+  const sha = 'ab'.repeat(20), owner = `123:1:${sha}`;
+  writeFileSync(join(root, '.owner'), owner);
+  const env = { AIDT_ACCEPTANCE_ROOT: root, GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '1', GITHUB_SHA: sha,
+    'INPUT_GITHUB-TOKEN': 'DUMMY_UNUSED_REPO_AUTH', INPUT_GITHUB_TOKEN: 'DUMMY_UNUSED_REPO_AUTH', GITHUB_TOKEN: 'DUMMY_UNUSED_REPO_AUTH', GH_TOKEN: 'DUMMY_UNUSED_REPO_AUTH',
+    ACTIONS_RUNTIME_TOKEN: 'DUMMY_ARTIFACT_AUTH', PATH: '/tools/node22/bin:/usr/bin' };
+  const run = async ({ code = 0, version = '22.23.0', overrides = {} } = {}) => {
+    const calls = [], failed = [];
+    const module = {
+      spawnSync(command, argv, options) {
+        calls.push({ type: 'probe', command, argv, options });
+        return { status: 0, stdout: JSON.stringify({ version, executable: '/tools/node22/bin/node' }) };
+      },
+      spawn(command, argv, options) {
+        calls.push({ type: 'main', command, argv, options });
+        const child = new EventEmitter();
+        queueMicrotask(() => child.emit('close', code));
+        return child;
+      },
+    };
+    const requireBound = name => name === 'node:child_process' ? module : name === 'node:path' ? awaitImportPath : awaitImportFs;
+    await execute(requireBound, { setFailed: message => failed.push(message) }, { env: { ...env, ...overrides } });
+    return { calls, failed };
+  };
+  const awaitImportPath = await import('node:path'), awaitImportFs = await import('node:fs');
+  try {
+    const success = await run();
+    assert.deepEqual(success.failed, []);
+    const main = success.calls.find(call => call.type === 'main');
+    assert.equal(main.command, '/tools/node22/bin/node');
+    assert.deepEqual(main.argv, [join(source, 'apps/web/e2e/support/devapp-aidt-acceptance.mjs')]);
+    assert.equal(main.options.cwd, source); assert.equal(main.options.shell, false); assert.equal(main.options.stdio, 'inherit');
+    assert.equal(main.options.env.ACTIONS_RUNTIME_TOKEN, env.ACTIONS_RUNTIME_TOKEN);
+    for (const key of ['INPUT_GITHUB-TOKEN', 'INPUT_GITHUB_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN']) assert.equal(main.options.env[key], undefined);
+    assert.equal(env.INPUT_GITHUB_TOKEN, 'DUMMY_UNUSED_REPO_AUTH');
+    for (const code of [1, null]) assert.deepEqual((await run({ code })).failed, ['AIDT_LIVE_ACCEPTANCE_FAILED']);
+    await assert.rejects(run({ version: '20.20.0' }), /AIDT_DECLARED_NODE_UNAVAILABLE/);
+    await assert.rejects(run({ overrides: { AIDT_ACCEPTANCE_ROOT: '../unowned' } }), /AIDT_PRIVATE_PROCESS_SCOPE_INVALID/);
+    writeFileSync(join(root, '.owner'), 'DUMMY_FOREIGN_OWNER');
+    await assert.rejects(run(), /AIDT_PRIVATE_PROCESS_OWNER_MISMATCH/);
+  } finally { rmSync(base, { recursive: true, force: true }); }
 });
 
 function isolatedCheckoutFixture() {
