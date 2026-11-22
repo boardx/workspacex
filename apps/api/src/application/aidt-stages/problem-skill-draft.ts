@@ -4,7 +4,7 @@ import { isAidtGreetingText, isAidtProblemControlText, type SharedStageValue } f
 
 type Draft = SharedStageValue["content"]["draft"];
 const sections: Record<string, string> = {
-  候选研究方向: "directionsText", 本轮选定方向: "selectedText", 本组选择的研究方向: "selectedText", 原始命题: "initial", 初始问题: "initial", 选题价值: "whyWorthStudying", 选题理由: "whyWorthStudying",
+  候选研究方向: "directionsText", 本轮选定方向: "selectedText", 本组选择的研究方向: "selectedText", "选题价值（学生说明）": "whyWorthStudying", 原始命题: "initial", 初始问题: "initial", 选题价值: "whyWorthStudying", 选题理由: "whyWorthStudying",
   来源类型: "problemSources", 命题来源反思: "sourceDetails", 来源说明: "sourceDetails",
   已知: "known", "未知/待讨论": "sourceUncertainty", 待验证: "sourceUncertainty", 未知: "sourceUncertainty", "当前已知/假设与未知缺口": "sourceUncertainty",
   下一步行动: "nextAction", 学生重写命题: "rewrittenTheme", 研究范围: "focus",
@@ -77,6 +77,11 @@ function declaresComparisonQuote(line: string): boolean {
     || /^(?:下面|下列|以下|以上|上面|上述|这里|这段|这|这些)[^。！？\r\n]{0,20}(?:仅(?:作|供)?|只是|只(?:作|供))[^。！？\r\n]{0,12}(?:引用|示例|例子|对照)/u.test(text);
 }
 
+function declaresEarlierComparisonQuote(line: string): boolean {
+  return /^(?:以上|上述|上面|前面|刚才|这段|这些|这只是|这不是|不是|不代表|不作为)/u.test(quoteContextText(line))
+    && declaresComparisonQuote(line);
+}
+
 /** Preserve literal student wording, including a leading greater-than sign.
  * Only a quote block explicitly identified as comparison material is excluded. */
 export function studentProblemAttributionText(user: string): string {
@@ -88,8 +93,7 @@ export function studentProblemAttributionText(user: string): string {
     following[index] = context;
     if (lines[index]!.trim() && !quoted(lines[index]!)) {
       // A preface for the next example must not reclassify the previous quote.
-      const backReference = /^(?:以上|上述|上面|前面|刚才|这段|这些|这只是|这不是|不是|不代表|不作为)/u.test(quoteContextText(lines[index]!));
-      context = backReference && declaresComparisonQuote(lines[index]!);
+      context = declaresEarlierComparisonQuote(lines[index]!);
     }
   }
   let previous: "student" | "comparison" | "other" = "other";
@@ -107,6 +111,48 @@ function explicitlyStatedHypothesis(prose: string): string | undefined {
   const sentences = prose.split(/(?<=[。！？])|\r?\n/u).map(value => value.trim());
   return sentences.find(value => /^(?:上述|这些)(?:行为|情况|说法)(?:目前|现在)?只是我们(?:提出的)?(?:假设|猜测)[。！]?$/u.test(value)
     || /^这(?:目前|现在)?只是我们(?:提出的)?(?:假设|猜测)[。！]?$/u.test(value));
+}
+
+/** Accept an affirmative student source statement, not an inference from missing
+ * evidence or an assistant's classification. Preserve its literal explanation. */
+function explicitlyStatedGuessSource(prose: string): string | undefined {
+  const statements: Array<{ text: string; guess: boolean; paragraph: number; forward: boolean }> = [];
+  let comparison = false, fenced = false, paragraph = 0;
+  for (const line of prose.split(/\r?\n/)) {
+    if (/^\s*(?:```|~~~)/u.test(line)) { fenced = !fenced; continue; }
+    if (fenced || /^[ \t]{0,3}>/u.test(line)) continue;
+    if (!line.trim()) { comparison = false; paragraph++; continue; }
+    const exampleLead = /^(?:例如|比如|示例|例子)(?:[：:（(。]|$)|^(?:老师|教师|引导师)(?:说|问|举例|引用|转述)(?:的)?(?:示例|例子|原话)?[：:。]/u.test(quoteContextText(line));
+    if (exampleLead || declaresComparisonQuote(line)) {
+      statements.push({ text: line.trim(), guess: false, paragraph, forward: !declaresEarlierComparisonQuote(line) }); comparison = true; continue;
+    }
+    if (comparison) continue;
+    for (const value of line.split(/(?<=[。！？])/u).map(sentence => sentence.trim()).filter(Boolean)) {
+      const statement = { text: value, guess: false, paragraph, forward: false }; statements.push(statement);
+      if (declaresComparisonQuote(value)) { statement.forward = !declaresEarlierComparisonQuote(value); comparison = true; break; }
+      if (!/^(?:(?:我们|本组|我)(?:的)?)?选题来源(?:是|为)(?:我们的|本组的|我的)?猜测(?:[；;，,。.]|$)/u.test(value)
+        || value.length > 650 || /[?？]/u.test(value)
+        || /选题来源[^。！？]{0,12}(?:尚未确定|尚未决定|暂未确定|暂未决定|未定|不确定)|(?:尚未|暂未|还没(?:有)?)(?:确定|决定|确认)(?:选题)?来源/u.test(value)
+        || /(?:不是|不代表|不作为)[^。！？]{0,12}(?:本组|我们|我)[^。！？]{0,12}(?:来源|判断|说法)/u.test(value)
+        || value.split(/[；;，,]/u).some(clause => declaresComparisonQuote(clause.trim().replace(/^(?:但|不过)\s*/u, "")))) continue;
+      statement.guess = true;
+    }
+  }
+  // Read this paragraph before accepting its source. A later retrospective
+  // attribution can retract earlier statements even across ordinary explanation.
+  // A new forward example starts a separate attribution scope.
+  return statements.find((statement, index) => {
+    if (!statement.guess) return false;
+    for (let following = index + 1; following < statements.length; following++) {
+      const next = statements[following]!;
+      if (next.paragraph !== statement.paragraph || next.forward) break;
+      const sourceDecision = next.text.split(/[；;，,]/u, 1)[0]!.trim();
+      const sourceUndecided = /^(?:(?:我们|本组|我|目前|现在)\s*)*(?:还没(?:有)?|尚未|暂未|没有|未)(?:确定|决定|确认)(?:本轮|这次)?(?:的)?(?:选题)?来源[。.]?$/u.test(sourceDecision)
+        || /^(?:(?:我们|本组|我)的)?(?:选题)?来源(?:目前|现在)?(?:还没(?:有)?|尚未|暂未|没有|未)(?:确定|决定|确认)[。.]?$/u.test(sourceDecision);
+      if (declaresEarlierComparisonQuote(next.text) || sourceUndecided) return false;
+    }
+    return true;
+  })?.text;
 }
 
 // A deferred decision is not permission for the assistant to choose or rewrite.
@@ -164,9 +210,12 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
     patch.problemSources = JSON.stringify(["guess"]);
     patch.sourceDetails = hypothesis;
   } else {
+    const naturalGuess = statedSourceType ? undefined : explicitlyStatedGuessSource(student);
     if (statedSourceType) patch.problemSources = statedSourceType;
+    else if (naturalGuess) patch.problemSources = JSON.stringify(["guess"]);
     else delete patch.problemSources;
     if (statedSourceDetails) patch.sourceDetails = statedSourceDetails;
+    else if (naturalGuess) patch.sourceDetails = naturalGuess;
     else delete patch.sourceDetails;
   }
   type Direction = { id:string; title:string; source:string };
