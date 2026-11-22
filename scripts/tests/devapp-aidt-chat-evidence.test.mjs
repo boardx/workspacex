@@ -367,3 +367,22 @@ test('native summary preserves the existing group-report entity and rejects a di
   const old={...selected};delete old.entityId;assert.throws(()=>validateTeachingWire(request({...s,selector:old}),s),/TEACHING_WIRE_SCOPE_MISMATCH/);
   assert.doesNotThrow(()=>validateTeachingWire(request({...s,selector:old}),{...s,selector:old}));
 });
+
+test('a stage TXT attachment must match exactly once on the outgoing wire and persisted student row', () => {
+  const s = scope(), r = request(s), e = evidence(s);
+  const attachment = { id: 'att-stage-1', filename: 'qa-stage-1.txt', mime: 'text/plain', bytes: 105 };
+  r.body.forwardedProps.attachmentIds = [attachment.id];
+  rejects(() => validateTeachingWire(r, s), 'TEACHING_WIRE_SCOPE_MISMATCH');
+  s.stageFile = attachment;
+  const wire = validateTeachingWire(r, s);
+  for (const bad of [undefined, [], [attachment.id, attachment.id], ['another-id']]) {
+    r.body.forwardedProps.attachmentIds = bad;
+    rejects(() => validateTeachingWire(r, s), 'STAGE_TEXT_WIRE_NOT_VERIFIED');
+  }
+  for (const bad of [undefined, [], [attachment, attachment], [{ ...attachment, bytes: 99 }]]) {
+    e.messages.messages[0].attachments = bad;
+    rejects(() => identifyOwnedTeachingRun(e.messages, s, wire), 'STAGE_TEXT_MESSAGE_NOT_VERIFIED');
+  }
+  e.messages.messages[0].attachments = [attachment];
+  assert.equal(identifyOwnedTeachingRun(e.messages, s, wire).inputMessageId, 'msg-human');
+});

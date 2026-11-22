@@ -57,6 +57,14 @@ export function aidtSyntheticInterviewAudio(run, attempt) {
   return { filename, bytes, mime: 'audio/wav' };
 }
 
+export function aidtSyntheticStageText(run, attempt, stageId) {
+  if (![run, attempt].every(value => typeof value === 'string' && /^[1-9][0-9]{0,19}$/.test(value))
+    || !Number.isInteger(stageId) || stageId < 1 || stageId > 6) throw new ProbeFailure('STAGE_TEXT_IDENTITY_INVALID');
+  const filename = `qa-${run}-${attempt}-stage-${stageId}.txt`;
+  const bytes = Buffer.from(`Synthetic attachment verification. Run ${run}-${attempt}, stage ${stageId}. No research evidence.\n`);
+  return { filename, bytes, mime: 'text/plain' };
+}
+
 export function assertRuntimeProof(proof, identity) {
   const exact = proof?.aidtExactRelease;
   if (exact?.status !== 'OBSERVED' || !Array.isArray(exact.containers)) throw new ProbeFailure('EXACT_RUNTIME_UNVERIFIED');
@@ -114,7 +122,19 @@ export function createAcceptanceGuard(identity, now = Date.now) {
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
   let imageArm = null, imageCount = 0, designLinked = false;
   let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null, modelRequestedScreens = null;
+  const stageText = new Map();
   const survey = createSurveyCollectionGuard(identity.run);
+
+  function stageTextRead(path, target) {
+    const match = /^\/api\/chat\/threads\/([^/]+)\/attachments\/([^/]+)\/content$/.exec(path);
+    if (!match) return null;
+    const verified = [...stageText.values()].find(entry => entry.attachmentId && encodeURIComponent(entry.attachmentId) === match[2]);
+    if (!verified) return null;
+    return (verified.messageId && match[1] === encodeURIComponent(verified.threadId) && !target.search)
+      ? { allow: true, kind: 'qa-stage-text-content', stageId: verified.stageId }
+      : { allow: false, kind: 'out-of-scope-read', code: 'STAGE_TEXT_READ_SCOPE_REJECTED' };
+  }
+
   const readCategories = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
   const readDenials = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
   const metadataHttpStatuses = [];
@@ -144,6 +164,8 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     if (identity.entryDiagnosticOnly && method !== 'GET') return stop('ENTRY_DIAGNOSTIC_READONLY');
     if (method === 'POST' && (path === '/api/copilotkit/agent/default/suggest' || path === '/api/copilotkit/agent/default/run' && body?.forwardedProps?.toolChoice?.function?.name === 'copilotkitSuggest')) { suggestionsBlocked++; return { allow: false, kind: 'optional-suggestion-blocked', code: 'OPTIONAL_SUGGESTION_NOT_EXERCISED' }; }
     if (method === 'GET') {
+      const stageFile = stageTextRead(path, target);
+      if (stageFile) return stageFile;
       // Native AgentOptions reads only this organization's agent catalog. This
       // does not authorize capability mutations or requests before QA ownership.
       if (path === '/api/capabilities' && ordinaryVerified && projectId
@@ -189,6 +211,18 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       projectCreateUntil = null; createCount++; allowedWrites++; return { allow: true, kind: 'create-project' };
     }
     if (!projectId) return stop('OWNED_PROJECT_REQUIRED');
+    if (method === 'POST' && /^\/api\/chat\/threads\/[^/]+\/attachments$/.test(path)) {
+      const entry = [...stageText.values()].find(item => path === `/api/chat/threads/${encodeURIComponent(item.threadId)}/attachments`);
+      const file = body?.files?.[0];
+      if (target.search || !entry || entry.uploadStarted || now() > entry.until
+        || body?.__multipart !== true || Object.keys(body).sort().join(',') !== '__multipart,files' || !Array.isArray(body.files) || body.files.length !== 1
+        || !object(file) || Object.keys(file).sort().join(',') !== 'filename,mime,sha256,sizeBytes'
+        || file.filename !== entry.filename || file.mime !== entry.mime
+        || file.sizeBytes !== entry.sizeBytes || file.sha256 !== entry.sha256) return stop('STAGE_TEXT_UPLOAD_SCOPE_REJECTED');
+      entry.uploadStarted = true;
+      allowedWrites++;
+      return { allow: true, kind: 'qa-stage-text-upload', stageId: entry.stageId };
+    }
     if (method === 'POST' && path === '/api/copilotkit/agent/default/run') {
       const entries = [...teachingLedger.values()].filter(entry => entry.wire === null && entry.until >= now());
       if (teachingStopped || teachingRequests >= TEACHING_TURN_LIMIT || entries.length !== 1) return stop('TEACHING_SEND_NOT_ARMED');
@@ -313,6 +347,15 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     } else if (decision.kind === 'design-generation') {
       modelReceipt = { attempted: true, httpStatus: status, replySource: ['model', 'fallback'].includes(response?.reply?.source) ? response.reply.source : 'unknown', generatedFrames: Array.isArray(response?.project?.frames) ? response.project.frames.length : 0 };
       if (status === 200 && (response?.project?.id !== designId || response.project.ownerId !== actor)) throw new ProbeFailure('DESIGN_OWNERSHIP_UNVERIFIED');
+    } else if (decision.kind === 'qa-stage-text-upload') {
+      const entry = stageText.get(decision.stageId);
+      if (!entry?.uploadStarted || entry.attachmentId || ![200, 201].includes(status)
+        || !/^[A-Za-z0-9_.:-]{1,180}$/.test(response?.id ?? '')
+        || [...stageText.values()].some(item => item.attachmentId === response.id)
+        || response.filename !== entry.filename || response.bytes !== entry.sizeBytes || response.mime !== entry.mime) {
+        throw new ProbeFailure('STAGE_TEXT_UPLOAD_RECEIPT_REJECTED');
+      }
+      entry.attachmentId = response.id;
     } else if (decision.kind === 'upload') {
       const run = response?.runs?.[0];
       if (![200, 201, 202].includes(status) || response?.runs?.length !== 1 || run.duplicateHit || !/^[A-Za-z0-9_-]{1,256}$/.test(run.ingestionRunId ?? '') || !/^[A-Za-z0-9_-]{1,256}$/.test(run.artifactId ?? '') || resources.has(run.artifactId) || uploads.has(run.ingestionRunId)) throw new ProbeFailure('UPLOAD_RECEIPT_REJECTED');
@@ -337,7 +380,16 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       messageSnapshots.set(decision.threadId, rows);
       for (const entry of teachingLedger.values()) if (entry.wire && entry.scope.threadId === decision.threadId) {
         const accepted = identifyOwnedTeachingRun(response, entry.scope, entry.wire);
-        if (accepted) { if (entry.accepted && entry.accepted.runId !== accepted.runId) throw new ProbeFailure('TEACHING_RUN_BINDING_CHANGED'); entry.accepted = accepted; ownedRuns.add(accepted.runId); }
+        if (accepted) {
+          if (entry.accepted && entry.accepted.runId !== accepted.runId) throw new ProbeFailure('TEACHING_RUN_BINDING_CHANGED');
+          entry.accepted = accepted;
+          ownedRuns.add(accepted.runId);
+          if (entry.scope.stageFile) {
+            const file = stageText.get(entry.scope.stageId);
+            if (file.attachmentId !== entry.scope.stageFile.id || file.messageId && file.messageId !== accepted.inputMessageId) throw new ProbeFailure('STAGE_TEXT_BINDING_CHANGED');
+            file.messageId = accepted.inputMessageId;
+          }
+        }
       }
     } else if ((decision.kind === 'save-stage' || decision.kind === 'get-stage') && status === 200 && response?.stage) {
       if (response?.stage?.projectId !== projectId || response.stage.stageId !== decision.stageId) throw new ProbeFailure('STAGE_RESPONSE_REJECTED');
@@ -371,8 +423,33 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       if (matches.length !== 1) throw new ProbeFailure('TEACHING_COMPLETION_NOT_BOUND');
       matches[0].completed = true;
     },
+    armStageText: scope => {
+      const selector = validateTeachingScope(scope);
+      const coordinates = threadCoordinates.get(scope.threadId);
+      if (stageText.has(scope.stageId) || !ordinaryVerified || scope.projectId !== projectId || scope.actorId !== actor
+        || selector.purpose !== 'stage' || !selector.entityId || coordinates?.stageId !== scope.stageId
+        || coordinates.entityId !== selector.entityId || coordinates.purpose !== 'stage'
+        || !threadFacts.get(scope.threadId)?.writable) throw new ProbeFailure('STAGE_TEXT_UPLOAD_ARM_REJECTED');
+      const fixture = aidtSyntheticStageText(identity.run, identity.attempt, scope.stageId);
+      stageText.set(scope.stageId, { stageId: scope.stageId, entityId: selector.entityId, threadId: scope.threadId,
+        filename: fixture.filename, mime: fixture.mime, sizeBytes: fixture.bytes.length,
+        sha256: createHash('sha256').update(fixture.bytes).digest('hex'), until: now() + 30000 });
+      return fixture;
+    },
+    stageTextReceipt: stageId => {
+      const entry = stageText.get(stageId);
+      if (!entry?.attachmentId) return null;
+      const { attachmentId: id, filename, mime, sizeBytes, sha256, entityId, threadId, messageId, contentVerified } = entry;
+      return { id, filename, mime, bytes: sizeBytes, sha256, entityId, threadId, messageId, contentVerified: contentVerified === true };
+    },
     armTeachingSend: scope => {
       validateTeachingScope(scope);
+      if (scope.stageFile) {
+        const file = stageText.get(scope.stageId);
+        if (!file?.attachmentId || file.messageId || file.attachmentId !== scope.stageFile.id || file.filename !== scope.stageFile.filename
+          || file.sizeBytes !== scope.stageFile.bytes || file.mime !== scope.stageFile.mime || file.entityId !== scope.selector.entityId
+          || file.threadId !== scope.threadId) throw new ProbeFailure('STAGE_TEXT_WIRE_NOT_VERIFIED');
+      }
       const coordinates = threadCoordinates.get(scope.threadId), pins = threadPins.get(scope.threadId) ?? [];
       const finding = scope.interviewFinding === true;
       const guideKey = `interview:${scope.selector.entityId}`;
@@ -487,6 +564,15 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       if (fixtures.has(filename)) throw new ProbeFailure('FIXTURE_REUSED'); fixtures.set(filename, fixture); uploadArm = { ...fixture, until: now() + 30000 }; return fixture;
     },
     observeContent: (decision, status, headers, bytes) => {
+      if (decision.kind === 'qa-stage-text-content') {
+        const entry = stageText.get(decision.stageId);
+        if (status !== 200 || !entry?.messageId || headers['content-type']?.split(';')[0] !== entry.mime
+          || bytes.length !== entry.sizeBytes || createHash('sha256').update(bytes).digest('hex') !== entry.sha256) {
+          throw new ProbeFailure('STAGE_TEXT_CONTENT_UNVERIFIED');
+        }
+        entry.contentVerified = true;
+        return;
+      }
       const uploaded = uploads.get(decision.runId), version = headers['x-artifact-version-id'];
       if (status !== 200 || !uploaded || bytes.length !== uploaded.sizeBytes || createHash('sha256').update(bytes).digest('hex') !== uploaded.sha256 || headers['x-content-sha256'] !== uploaded.sha256 || headers['x-artifact-id'] !== uploaded.artifactId || !/^[A-Za-z0-9_-]{1,256}$/.test(version ?? '')) throw new ProbeFailure('UPLOAD_CONTENT_UNVERIFIED');
       resources.add(version);

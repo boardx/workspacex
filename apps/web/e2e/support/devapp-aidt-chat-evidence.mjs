@@ -150,7 +150,9 @@ export function validateTeachingWire(request, scope) {
   const body = request.body;
   if (request.method !== 'POST' || url.origin !== scope.origin || url.pathname !== SEND_PATH || url.search || url.hash || url.username || url.password || !object(body) || Object.keys(body).some(key => !['threadId', 'runId', 'parentRunId', 'messages', 'state', 'tools', 'context', 'forwardedProps', 'resume'].includes(key)) || !id(body.threadId) || !id(body.runId) || body.resume !== undefined && body.resume !== null || body.parentRunId !== undefined && body.parentRunId !== null) fail('TEACHING_WIRE_TARGET_INVALID');
   const forwarded = body.forwardedProps;
-  if (!object(forwarded) || Object.keys(forwarded).some(key => !['chatThreadId', 'clientMessageId', 'aidtContext'].includes(key)) || forwarded.chatThreadId !== scope.threadId || !id(forwarded.clientMessageId) || canonical(selector(forwarded.aidtContext)) !== canonical(expected)) fail('TEACHING_WIRE_SCOPE_MISMATCH');
+  if (!object(forwarded) || Object.keys(forwarded).some(key => !['chatThreadId', 'clientMessageId', 'aidtContext', ...(scope.stageFile ? ['attachmentIds'] : [])].includes(key)) || forwarded.chatThreadId !== scope.threadId || !id(forwarded.clientMessageId) || canonical(selector(forwarded.aidtContext)) !== canonical(expected)) fail('TEACHING_WIRE_SCOPE_MISMATCH');
+  if (scope.stageFile && (!id(scope.stageFile.id) || !Array.isArray(forwarded.attachmentIds)
+    || forwarded.attachmentIds.length !== 1 || forwarded.attachmentIds[0] !== scope.stageFile.id)) fail('STAGE_TEXT_WIRE_NOT_VERIFIED');
   if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 100) fail('TEACHING_MESSAGES_INVALID');
   const messages = body.messages, latest = messages.at(-1);
   if (!object(latest) || !['user', 'human'].includes(latest.role) || latest.id !== forwarded.clientMessageId || messageText(latest) !== scope.prompt) fail('TEACHING_STUDENT_TEXT_MISMATCH');
@@ -172,6 +174,11 @@ export function identifyOwnedTeachingRun(value, scope, wire) {
   if (rows.length > 1 || rows.some(row => row.authorKind !== 'human' || row.authorId !== scope.actorId || row.text !== scope.prompt || !id(row.id))) fail('TEACHING_ACCEPTANCE_MISMATCH');
   const row = rows[0];
   if (!row || row.agentRunId === null) return null;
+  if (scope.stageFile) {
+    const attachment = row.attachments?.[0];
+    if (!Array.isArray(row.attachments) || row.attachments.length !== 1
+      || !['id', 'filename', 'mime', 'bytes'].every(key => attachment?.[key] === scope.stageFile[key])) fail('STAGE_TEXT_MESSAGE_NOT_VERIFIED');
+  }
   if (!id(row.agentRunId) || (scope.knownMessages ?? []).some(prior => prior.id === row.id)) fail('TEACHING_ACCEPTANCE_MISMATCH');
   return { runId: row.agentRunId, inputMessageId: row.id };
 }

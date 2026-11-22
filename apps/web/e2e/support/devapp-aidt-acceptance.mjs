@@ -52,6 +52,8 @@ export function illustratedAcceptance(report) {
     lines.push('## ' + title, '');
     if (!checks.length) lines.push('未取得检查结果。', '');
     for (const check of checks) lines.push('- ' + status(check.status) + '　\`' + check.name + '\`' + (check.code ? '　\`' + check.code + '\`' : ''));
+    const stageFile = report.stageFileEvidence?.find(row => row.stageId === index && row.uiReloadVerified && row.contentVerified);
+    if (stageFile) lines.push('- 原生 Chat 附件 `' + stageFile.filename + '` 已刷新回读，原件 SHA-256 `' + stageFile.sha256 + '`。');
     lines.push('');
     for (const image of screens) {
       const label = image.filename.replace(/\.png$/, '');
@@ -518,13 +520,19 @@ export async function main() {
           if (contentType.startsWith('multipart/form-data;')) {
             const form = await new Response(raw, { headers: { 'content-type': contentType } }).formData();
             const audioUpload=profile===V2_VOICE_PROFILE&&/^\/api\/chat\/threads\/[^/]+\/attachments$/.test(new URL(request.url()).pathname);
+            const stageTextUpload = profile !== V2_VOICE_PROFILE
+              && /^\/api\/chat\/threads\/[^/]+\/attachments$/.test(new URL(request.url()).pathname);
             const sourceImageUpload=profile===V2_VOICE_PROFILE&&/^\/api\/pm-designs\/[^/]+\/ref-images$/.test(new URL(request.url()).pathname);
-            if ([...form.keys()].sort().join(',') !== (audioUpload?'file':sourceImageUpload?'contentType,file':'files,meta')) throw new ProbeFailure('UPLOAD_FORM_REJECTED');
-            const file = form.get(audioUpload||sourceImageUpload?'file':'files');
+            if ([...form.keys()].sort().join(',') !== ((audioUpload || stageTextUpload)?'file':sourceImageUpload?'contentType,file':'files,meta')) throw new ProbeFailure('UPLOAD_FORM_REJECTED');
+            const file = form.get(audioUpload || sourceImageUpload || stageTextUpload ? 'file' : 'files');
             if (typeof file === 'string' || !file || file.size > 262144) throw new ProbeFailure('UPLOAD_FORM_REJECTED');
             const bytes = Buffer.from(await file.arrayBuffer());
             const files=[{ filename:file.name,sizeBytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),mime:file.type }];
             if(audioUpload){if(!['audio/wav','audio/x-wav','audio/mpeg'].includes(file.type))throw new ProbeFailure('UPLOAD_FORM_REJECTED');body={__multipart:true,fields:{},files};}
+            else if (stageTextUpload) {
+              if (file.type !== 'text/plain') throw new ProbeFailure('UPLOAD_FORM_REJECTED');
+              body = { __multipart: true, files };
+            }
             else if(sourceImageUpload){if(!['image/png','image/jpeg','image/webp'].includes(file.type)||form.get('contentType')!==file.type)throw new ProbeFailure('UPLOAD_FORM_REJECTED');body={__multipart:true,fields:{contentType:file.type},files};}
             else {let meta;try{meta=JSON.parse(form.get('meta'));}catch{throw new ProbeFailure('UPLOAD_FORM_REJECTED');}body={__multipart:true,meta,files};}
           } else { try { body = request.postDataJSON(); } catch { throw new ProbeFailure('REQUEST_BODY_UNSUPPORTED'); } }
@@ -543,7 +551,7 @@ export async function main() {
         await enforceDeniedProbeStatus(decision, response);
         if (response.status() >= 300 && response.status() < 400) throw new ProbeFailure('REDIRECT_REJECTED');
         let parsed;
-        if (decision.kind === 'upload-content' || profile===V2_VOICE_PROFILE&&['v2-native-audio-content','v2-native-artifact-content'].includes(decision.kind)) {
+        if (['upload-content', 'qa-stage-text-content'].includes(decision.kind) || profile===V2_VOICE_PROFILE&&['v2-native-audio-content','v2-native-artifact-content'].includes(decision.kind)) {
           const bytes = await response.body();
           if (bytes.length > 262144) throw new ProbeFailure('RESPONSE_BOUND');
           guard.observeContent(decision, response.status(), response.headers(), bytes);
@@ -864,6 +872,22 @@ export async function main() {
         await api(page, 'GET', `/api/threads/${encodeURIComponent(threadId)}/skill-deviations?projectId=${encodeURIComponent(projectId)}`);
         const pin = guard.teachingPin(stageId, threadId, entityId ?? undefined); if (!pin) throw new ProbeFailure('TEACHING_SKILL_PIN_UNVERIFIED');
         const scope = { origin: ORIGIN, projectId, stageId, threadId, actorId: guard.identity().actor, prompt, selector, testPlan, interviewFinding, interviewGuideRevision, problemRevision, syntheticProblemFixture, ...pin, timeoutMs: 180000 };
+        if (profile !== V2_VOICE_PROFILE && !summary && !syntheticProblemFixture && !guard.stageTextReceipt(stageId)) {
+          const file = guard.armStageText(scope);
+          const uploadPath = `/api/chat/threads/${encodeURIComponent(threadId)}/attachments`;
+          const input = page.getByTestId('chat-attachment-file-input');
+          await expect(input).toBeEnabled();
+          const [upload] = await Promise.all([
+            page.waitForResponse(response => response.request().method() === 'POST' && response.url() === ORIGIN + uploadPath),
+            input.setInputFiles({ name: file.filename, mimeType: file.mime, buffer: file.bytes }),
+          ]);
+          const receipt = guard.stageTextReceipt(stageId);
+          if (!upload.ok() || !receipt) throw new ProbeFailure('STAGE_TEXT_UPLOAD_RECEIPT_REJECTED');
+          const pending = page.getByTestId('chat-attachment-list').locator('[data-status="uploaded"]')
+            .getByText(receipt.filename, { exact: true });
+          await expect(pending).toBeVisible();
+          scope.stageFile = receipt;
+        }
         const proof = await sendTeachingFeedback({ page, expect, scope, read: path => api(page, 'GET', path), armSend: current => guard.armTeachingSend(current),
           onEvent: event => recordTeachingEvent(event, scope, report.pendingTeachingReviews,
             text => sensitiveEvidence.assertSafe(text), value => console.log(JSON.stringify({ ...value, owner: 'root/aidt_ui_first_acceptance' }))),
@@ -886,6 +910,23 @@ export async function main() {
           } });
         sensitiveEvidence.assertSafe(proof.assistantText);
         guard.completeTeaching(proof);
+        if (scope.stageFile) {
+          const readback = guard.stageTextReceipt(stageId);
+          if (readback?.messageId !== proof.inputMessageId) throw new ProbeFailure('STAGE_TEXT_BINDING_CHANGED');
+          const route = page.url();
+          await page.reload();
+          await expect(page).toHaveURL(route);
+          const attachment = page.getByTestId(`chat-message-attachment-${readback.id}`);
+          await expect(attachment).toBeVisible();
+          await expect(attachment).toContainText(readback.filename);
+          const read = await api(page, 'GET', `/api/chat/threads/${encodeURIComponent(threadId)}/attachments/${encodeURIComponent(readback.id)}/content`);
+          const verified = guard.stageTextReceipt(stageId);
+          if (read.status !== 200 || !verified?.contentVerified) throw new ProbeFailure('STAGE_TEXT_CONTENT_UNVERIFIED');
+          report.stageFileEvidence ??= [];
+          report.stageFileEvidence.push({ stageId, ...verified, uiReloadVerified: true });
+          await attachment.scrollIntoViewIfNeeded();
+          await capture(`${String(stageId).padStart(2, '0')}-stage-text-readback`, stageId);
+        }
         report.teachingEvidence.push({ ...proof, projectId, entityId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
         await capture(profile === V2_VOICE_PROFILE ? (summary ? 'v2-final-report-real-chat' : `v2-teaching-s${stageId}-turn-${voiceTurn}`) : summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`, stageId);
       });
@@ -1070,7 +1111,9 @@ export async function main() {
       return;
     }
     report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, 'teaching-chat-final-report', 'teaching-chat-stage-3-2', 'teaching-chat-stage-3-3', 'teaching-chat-stage-3-4', 'teaching-chat-stage-4-reverse', 'teaching-chat-stage-6-plan', 'teaching-chat-stage-6-survey-plan', 'teaching-chat-stage-6-survey', ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
-    report.passed = !guard.fatal() && report.requiredChecks.every(name => report.checkpoints.some(item => item.name === name && item.status === 'passed'));
+    report.stageFileCoverageVerified = [1, 2, 3, 4, 5, 6].every(stageId => report.stageFileEvidence?.some(row => row.stageId === stageId && row.uiReloadVerified && row.contentVerified));
+    report.passed = !guard.fatal() && report.stageFileCoverageVerified
+      && report.requiredChecks.every(name => report.checkpoints.some(item => item.name === name && item.status === 'passed'));
     // UI/runtime checks and exported PDF bytes are complete here; final glyph
     // acceptance is performed independently on the retained artifacts.
     report.fullAcceptancePassed = false;
