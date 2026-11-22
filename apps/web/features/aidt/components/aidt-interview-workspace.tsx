@@ -15,11 +15,11 @@ import { AidtResearchMaterialControl, AidtResearchMaterialPreview } from "./aidt
 import { listAidtStageHistory, readAidtStage, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { AIDT_ROUND_COMPLETION_FIELD, aidtRoundConfirmation, aidtRoundDigest, aidtRoundPayload } from "../lib/aidt-round-completion";
 import { formatAidtProblemReflectionMarkdown } from "../lib/aidt-problem-reflection";
-import { researchMaterialKey } from "../lib/aidt-research-material-reference";
+import { isAidtResearchImage } from "../lib/aidt-research-material-reference";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import {
   aidtInterviewFindingReady, aidtInterviewMaterialKey, archiveAidtInterview, confirmAidtInterviewFinding,
-  getAidtInterviewFinding, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviewAudio, readAidtInterviewMaterials,
+  getAidtInterviewFinding, isAidtInterviewArchived, isAidtInterviewConfirmed, readAidtInterviewAudio, readAidtInterviewMaterials, readAidtInterviewPhoto,
   readAidtInterviewTranscript, readAidtInterviews, setAidtInterviewPhoto, writeAidtInterview, writeAidtInterviewFinding,
   writeAidtInterviewAudio, writeAidtInterviewMaterial, writeAidtInterviewTranscript, type AidtInterview,
 } from "../lib/aidt-interviews";
@@ -215,7 +215,7 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
   };
   const finding = getAidtInterviewFinding(draft, interview);
   const materials = readAidtInterviewMaterials(draft.fields, id, projectId);
-  const photoKey = materials.find(item => draft.fields[item.key] === draft.fields[researchMaterialKey("photo", id)])?.key ?? "";
+  const photoKey = readAidtInterviewPhoto(draft, interview, projectId)?.key ?? "";
   const interpretationKey = `interviewInterpretation:${id}`;
   const transcript = readAidtInterviewTranscript(draft.fields, id) ?? { sourceKey: "", locator: "", text: "", checked: false };
   const editableEvidence = !readOnly && !!interview.consent?.notes;
@@ -305,6 +305,11 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
             录音 ${new Date(recorded.startedAt).toLocaleString()} · ${Math.round(recorded.durationMs / 1000)} 秒
           </p>}
           <AidtResearchMaterialPreview projectId={projectId} reference={reference} quote={key === transcript.sourceKey ? finding.quote : undefined} />
+          {isAidtResearchImage(reference) && <Button type="button" size="xs" variant="outline"
+            disabled={readOnly || photoKey === key}
+            onClick={() => update(old => setAidtInterviewPhoto(old, id, key, projectId))}>
+            {photoKey === key ? "已用作发现卡照片" : "用作发现卡照片"}
+          </Button>}
           {recorded?.draftTranscript && interview.consent?.asr && <details className="text-12">
             <summary className="cursor-pointer">查看自动转写摘录</summary>
             <p className="mt-2 whitespace-pre-wrap">{recorded.draftTranscript}</p>
@@ -354,8 +359,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
       } />
       {interview.consent?.photos && <label className="block text-12">发现卡授权照片<select className={inputClass} value={photoKey} disabled={readOnly} onChange={event => {
         const key = event.currentTarget.value;
-        update(old => setAidtInterviewPhoto(old, interview, key, projectId));
-      }}><option value="">暂无照片</option>{materials.filter(item => item.reference.mime.startsWith("image/")).map(item =>
+        update(old => setAidtInterviewPhoto(old, id, key, projectId));
+      }}><option value="">暂无照片</option>{materials.filter(item => isAidtResearchImage(item.reference)).map(item =>
         <option key={item.key} value={item.key}>{item.reference.name}</option>
       )}</select></label>}
       {!photoKey && <p className="text-12 text-muted-foreground">暂无授权照片。</p>}

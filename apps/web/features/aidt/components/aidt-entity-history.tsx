@@ -17,7 +17,7 @@ import { listAidtProblems, readAidtProblemEntityDraft } from "../lib/aidt-proble
 import { readAidtInterviews } from "../lib/aidt-interviews";
 import { readAidtPrototypeEntityDraft } from "../lib/aidt-prototype-handoff";
 import { readAidtTestGroups } from "../lib/aidt-test-groups";
-import { readAidtStageRevision, type AidtSharedStage } from "../lib/live-aidt-stages";
+import { readAidtStage, readAidtStageRevision, type AidtSharedStage } from "../lib/live-aidt-stages";
 
 export function AidtEntityHistory({ projectId, entityId, step, revision, token, timestamp, sourceId }: {
   projectId: string;
@@ -30,6 +30,41 @@ export function AidtEntityHistory({ projectId, entityId, step, revision, token, 
 }) {
   const [stage, setStage] = React.useState<AidtSharedStage | null>();
   const [failed, setFailed] = React.useState(false);
+  const photoScope = JSON.stringify([projectId, entityId, revision, token]);
+  const [photoConsent, setPhotoConsent] = React.useState<{ scope: string; allowed: boolean } | null>(null);
+
+  React.useEffect(() => {
+    if (step.id !== 2) return;
+    let pending: AbortController | null = null;
+    const invalidate = () => {
+      pending?.abort();
+      pending = null;
+      setPhotoConsent(null);
+    };
+    const verify = () => {
+      if (pending || document.visibilityState !== "visible") return;
+      const request = new AbortController();
+      pending = request;
+      setPhotoConsent(null);
+      void readAidtStage(projectId, 2, token, request.signal).then(({ stage }) => {
+        if (request.signal.aborted) return;
+        const interview = stage && readAidtInterviews(stage.content.draft.fields).find(row => row.id === entityId);
+        setPhotoConsent({ scope: photoScope, allowed: Boolean(interview?.consent?.photos) });
+      }).catch(() => {
+        if (!request.signal.aborted) setPhotoConsent({ scope: photoScope, allowed: false });
+      }).finally(() => { if (pending === request) pending = null; });
+    };
+    const onVisibility = () => document.visibilityState === "visible" ? verify() : invalidate();
+    verify();
+    window.addEventListener("focus", verify);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      pending?.abort();
+      window.removeEventListener("focus", verify);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [projectId, step.id, entityId, token, photoScope]);
+
   React.useEffect(() => {
     const abort = new AbortController();
     void readAidtStageRevision(projectId, step.id, revision, token, abort.signal).then(
@@ -68,7 +103,7 @@ export function AidtEntityHistory({ projectId, entityId, step, revision, token, 
             {step.id === 1
               ? <AidtProblemWorkspace draft={legacy ? draft : readAidtProblemEntityDraft(draft, entityId)} revision={revision} confirmed={Boolean(readAidtProblemEntityDraft(draft, entityId).fields.roundCompletion)} />
               : step.id === 2
-              ? <AidtInterviewOutput projectId={projectId} entityId={entityId} draft={draft} frozenSourceId={sourceId} />
+              ? <AidtInterviewOutput projectId={projectId} entityId={entityId} draft={draft} frozenSourceId={sourceId} photoAllowed={photoConsent?.scope === photoScope && photoConsent.allowed} />
               : brainstorm
               ? <AidtBrainstormOutput projectId={projectId} session={brainstorm} draft={draft} />
               : step.id === 5
