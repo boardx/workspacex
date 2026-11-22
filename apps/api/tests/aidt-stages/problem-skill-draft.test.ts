@@ -1,7 +1,8 @@
 import {expect,it} from "vitest";
 import liveRevision from "../fixtures/aidt-s1-live-revision-45007428075.json";
 import quotedLiveRevision from "../fixtures/aidt-s1-live-revision-45014881332.json";
-import {projectProblemSkillDraft} from "../../src/application/aidt-stages/problem-skill-draft";
+import numberedLiveRevision from "../fixtures/aidt-s1-live-revision-45046283397.json";
+import {problemSkillFields, projectProblemSkillDraft} from "../../src/application/aidt-stages/problem-skill-draft";
 const base={fields:{"problemDraft:p":JSON.stringify({initial:"你好"}),other:"私有草稿"},ideas:[],selectedIdeaId:""};
 function turn(user:string,assistant:string,messageId="m1"){return {user,assistant,messageId};}
 it("does not convert greetings, unstructured replies, arbitrary fields or a fake confirmation into an outcome",()=>{
@@ -122,4 +123,30 @@ it("decodes one quote marker in recognized assistant fields and still verifies v
  expect(JSON.parse(next.fields["problemDraft:p"]!)).toEqual({
    initial: original, sourceUncertainty: "> 外地案例", sourceDetails: "> 学生记录", draftTurnId: "revision",
  });
+});
+
+it("projects the exact Devapp revision when the assistant numbers headings and quotes both authored values", () => {
+ const draft = projectProblemSkillDraft(base, "p", turn(numberedLiveRevision.initial, "先补充选题价值。", "initial"))!;
+ const next = projectProblemSkillDraft(draft, "p", turn(numberedLiveRevision.user, numberedLiveRevision.assistant, "revision"))!;
+ const fields = JSON.parse(next.fields["problemDraft:p"]!);
+ const focus = "午休后赶课学生在教学楼下饮品店的选择犹豫";
+ expect(fields).toMatchObject({
+   initial: numberedLiveRevision.initial,
+   focus,
+   rewrittenTheme: "午休结束前，赶下一节课的学生在教学楼下饮品店如何决定买什么、是否排队或放弃？他们在哪个环节犹豫，当时掌握的信息和剩余时间可能起什么作用？",
+   sourceDetails: "这些行为目前只是我们提出的假设。",
+   problemSources: '["guess"]',
+   draftTurnId: "revision",
+ });
+ expect(JSON.parse(fields.problemDirections)).toContainEqual({id: fields.problemDirectionId, source: "group", title: focus});
+ expect(fields.roundCompletion).toBeUndefined();
+ expect(fields.problemReflectionConfirmed).toBeUndefined();
+});
+
+it("only interprets numbered ATX headings and quotes as assistant formatting", () => {
+ const student = "### 本轮选定方向\n> 研究方向";
+ expect(problemSkillFields(student, false)).toEqual({selectedText: "> 研究方向"});
+ expect(problemSkillFields("### 4. 本轮选定方向\n> 研究方向", false)).toEqual({});
+ expect(problemSkillFields("4. 本轮选定方向\n> 研究方向")).toEqual({});
+ expect(problemSkillFields("### 4. 本轮选定方向\n> > 研究方向")).toEqual({selectedText: "> 研究方向"});
 });
