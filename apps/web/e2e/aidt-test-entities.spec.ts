@@ -234,7 +234,10 @@ test("AIDT legacy test groups bind an immutable Design and isolate parallel nati
         projectId, stageId: 6, operationId: randomUUID(), expectedRevision: current.revision,
         content: { schemaVersion: 1, draft: reviewed }, sourceStageRevisions: current.sourceStageRevisions,
       })).stage;
-      await b!.goto(outcome.toString());
+      // The saved return action lives in this entity's normal Chat surface,
+      // not its read-only outcome. Reuse the UI-captured entry and exact thread.
+      expect(await openTest(b!, hrefs[1]!)).toBe(threadB);
+      expect(new URL(b!.url()).searchParams.get("entity")).toBe(bySurvey.id);
       const returnLink = b!.getByTestId("aidt-round-navigation").getByRole("link");
       const returnHref = `${pathname}?step=${target}&tool=outcome&returnRevision=${current.revision}`;
       await expect(returnLink).toHaveAttribute("href", returnHref);
@@ -244,6 +247,8 @@ test("AIDT legacy test groups bind an immutable Design and isolate parallel nati
         await expect(a!.getByTestId("copilotkit-v2-input")).toBeVisible();
         await expect(a!.getByTestId("aidt-round-navigation")).toHaveCount(0);
         await page.reload();
+        expect(await openTest(page, hrefs[1]!)).toBe(threadB);
+        expect(new URL(page.url()).searchParams.get("entity")).toBe(bySurvey.id);
         await expect(page.getByTestId("aidt-round-navigation").getByRole("link")).toHaveAttribute("href", returnHref);
         earlierReturn = { href: returnHref, revision: current.revision };
       }

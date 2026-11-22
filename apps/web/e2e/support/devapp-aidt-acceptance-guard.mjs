@@ -117,7 +117,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
   let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0, ordinaryVerified = false, projectCreateUntil = null, projectCourseTag;
   const threadCoordinates = new Map(), threadFacts = new Map(), threadPins = new Map(), messageSnapshots = new Map(), stageStates = new Map(), skillCatalog = new Map(), teachingLedger = new Map(), ownedRuns = new Set();
-  let reconcileCount = 0;
+  let reconcileCount = 0, firstRejectedMutation = null;
   let teachingRequests = 0, suggestionsBlocked = 0, teachingStopped = false, isolatedProblemReceipt = null;
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
   let imageArm = null, imageCount = 0, designLinked = false;
@@ -140,6 +140,43 @@ export function createAcceptanceGuard(identity, now = Date.now) {
   const metadataHttpStatuses = [];
   let metadataHttpStatusesTruncated = false;
   const stop = code => { fatal ??= code; return { allow: false, kind: 'rejected', code }; };
+  // Passive metadata for the one existing fallthrough only; this never authorizes a request.
+  function rejectedMutationSummary(path, method, body) {
+    const field = (value, key) => {
+      if (!object(value)) return undefined;
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      return descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
+    };
+    const refs = { project: [], thread: [], run: [] };
+    const add = (kind, value) => { if (typeof value === 'string' && value.length > 0) refs[kind].push(value); };
+    const decoded = value => { try { return decodeURIComponent(value); } catch { return undefined; } };
+    const projectPath = /^\/api\/projects\/([^/]+)(?:\/|$)/.exec(path);
+    const threadPath = /^\/api\/(?:chat\/)?threads\/([^/]+)(?:\/|$)/.exec(path);
+    const runPath = /^\/api\/agent-runs\/([^/]+)(?:\/|$)/.exec(path);
+    if (projectPath) add('project', decoded(projectPath[1]));
+    if (threadPath && threadPath[1] !== 'mutate') add('thread', decoded(threadPath[1]));
+    if (runPath) add('run', decoded(runPath[1]));
+    for (const key of ['projectId', 'sourceProjectId', 'teachingProjectId']) add('project', field(body, key));
+    add('thread', field(body, 'threadId')); add('run', field(body, 'runId'));
+    const forwarded = field(body, 'forwardedProps');
+    add('thread', field(forwarded, 'chatThreadId'));
+    add('project', field(field(forwarded, 'aidtContext'), 'projectId'));
+    const bound = (values, accepts) => values.length ? values.every(accepts) : null;
+    const pathFamily = /^\/api\/copilotkit\/agent\/[^/]+\/run$/.test(path) ? 'chat-run'
+      : runPath ? 'execution-control'
+      : /^\/api\/threads\/[^/]+\/skill-mounts$/.test(path) ? 'skill-mount'
+      : /^\/api\/projects\/[^/]+\/aidt\/stages\/[1-6]\/entities\/[^/]+\/reconcile$/.test(path) ? 'aidt-reconcile'
+      : /^\/api\/projects\/[^/]+\/aidt\/stages\/[1-6](?:\/|$)/.test(path) ? 'aidt-stage'
+      : threadPath ? 'thread-mutate'
+      : /^\/api\/(?:platform\/)?(?:billing(?:\/|$)|organizations\/[^/]+\/billing(?:\/|$))/.test(path) ? 'billing'
+      : /^\/api\/(?:system\/)?telemetry(?:\/|$)/.test(path) ? 'telemetry' : 'other';
+    return Object.freeze({ decisionCode: 'MUTATION_OUT_OF_SCOPE',
+      method: ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ? method : 'OTHER', pathFamily,
+      projectBound: bound(refs.project, value => projectId !== null && value === projectId),
+      threadBound: bound(refs.thread, value => threads.has(value)), runBound: bound(refs.run, value => ownedRuns.has(value)),
+      bodyPresent: body !== undefined });
+  }
+
   function decideRequest({ url, method, resourceType, body }) {
     if (fatal) return { allow: false, kind: 'stopped', code: fatal };
     if (/%2f|%5c|%2e|\\/i.test(url.split('?')[0])) return stop('TARGET_REJECTED');
@@ -309,6 +346,12 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         && target.searchParams.get('projectId') === projectId && [...target.searchParams.keys()].every(key => key === 'projectId')
         && typeof body.expectedVersion === 'string' && body.expectedVersion.length > 0 && body.expectedVersion.length <= 200) {
       allowedWrites++; return { allow: true, kind: 'mount-owned-thread' };
+    }
+    if (firstRejectedMutation === null) {
+      try { firstRejectedMutation = rejectedMutationSummary(path, method, body); }
+      catch { firstRejectedMutation = Object.freeze({ decisionCode: 'MUTATION_OUT_OF_SCOPE',
+        method: ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ? method : 'OTHER', pathFamily: 'other',
+        projectBound: null, threadBound: null, runBound: null, bodyPresent: body !== undefined }); }
     }
     return stop('MUTATION_OUT_OF_SCOPE');
   }
@@ -596,7 +639,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       projectId = candidate;
     },
     identity: () => ({ actor, org, candidate, projectId, ordinaryVerified }),
-    summary: () => ({ readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: TEACHING_TURN_LIMIT, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, reconcileCount, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
+    summary: () => ({ firstRejectedMutation, readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: TEACHING_TURN_LIMIT, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, reconcileCount, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
   };
 }
 

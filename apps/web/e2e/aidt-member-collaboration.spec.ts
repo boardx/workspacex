@@ -191,7 +191,23 @@ test("shared AIDT legacy aggregate stages: two members persist revisions, stale 
     const reportGeometry = [];
     for (const width of [1280, 375]) {
       await page.setViewportSize({ width, height: 900 });
-      const editor = page.getByLabel("小组报告草稿", { exact: true });
+      const mobileOpen = page.getByTestId("chat-task-workbench-mobile-open");
+      const inspector = page.getByTestId("chat-task-workbench-inspector");
+      const mobileHost = page.getByRole("dialog").filter({ has: inspector });
+      if (width === 375) {
+        await expect(mobileOpen).toBeVisible();
+        await expect(mobileOpen).toHaveAttribute("aria-expanded", "true");
+        await expect(mobileHost).toBeVisible();
+      } else {
+        await expect(mobileOpen).toHaveCount(0);
+        await expect(mobileHost).toHaveCount(0);
+      }
+      await expect(inspector).toHaveAttribute("data-active-tab", "host");
+      await expect(inspector.getByLabel("小组报告草稿", { exact: true })).toHaveValue(reviewedReport);
+      await expect(inspector.getByTestId("aidt-report-receipt")).toContainText("服务器版本 3");
+      expect(stages.operations.get.out.parse((await request(page, stage6Path)).data).stage).toEqual(reportOnly);
+      // Responsive Inspector ownership is committed before acquiring the current editor.
+      const editor = inspector.getByLabel("小组报告草稿", { exact: true });
       await editor.scrollIntoViewIfNeeded();
       reportGeometry.push({ width, editor: await exposedGeometry(editor) });
       await page.screenshot({ path: test.info().outputPath(`aidt-report-editor-${width}.png`), fullPage: true });
