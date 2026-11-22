@@ -53,6 +53,18 @@ export function matchesAidtProblemRoute(href, route, outcome = false) {
   } catch { return false; }
 }
 
+export async function assertAidtReadOnlyProblemOutput(panel, expect) {
+  await expect(panel).toBeVisible();
+  const editors = panel.locator('input,textarea,select,[contenteditable]:not([contenteditable="false"])');
+  await expect(editors).toHaveCount(0);
+  const buttons = panel.locator('button,[role="button"]');
+  const print = panel.getByRole('button', { name: '打印', exact: true }).and(panel.locator('button[type="button"]'));
+  await expect.poll(async () => {
+    const printCount = await print.count();
+    return printCount <= 1 && await buttons.count() === printCount;
+  }).toBe(true);
+}
+
 export async function openAidtProblemOutcome({ page, route, link, scope, waitForRoute, assertReady }) {
   // Reentry receives the original captured target, never the possibly stale current URL.
   const target = ownedAidtProblemRoute(link ? await link.getAttribute('href') : route?.href, scope);
@@ -544,8 +556,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     scope: { origin, projectId: scope.projectId }, waitForRoute: predicate => expect.poll(predicate, { timeout: 30000 }).toBe(true),
     assertReady: async () => {
       const panel = page.getByRole('region', { name: '工作坊问题产物' });
-      await expect(panel).toBeVisible();
-      await expect(panel.locator('input,textarea,select,button,[contenteditable="true"]')).toHaveCount(0);
+      await assertAidtReadOnlyProblemOutput(panel, expect);
     } });
   const problemName = `QA合成选题 ${unique}`;
   const personaName = `QA合成画像 ${unique}`;

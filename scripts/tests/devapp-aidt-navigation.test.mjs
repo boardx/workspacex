@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { ownedAidtProblemRoute, matchesAidtProblemRoute, openAidtProblemOutcome, assertSavedAidtProblemInput, requireAcceptedS1Feedback } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+import { ownedAidtProblemRoute, matchesAidtProblemRoute, openAidtProblemOutcome, assertAidtReadOnlyProblemOutput, assertSavedAidtProblemInput, requireAcceptedS1Feedback } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 import { ownedAidtEntityRoute, matchesAidtEntityRoute, openAidtEntityOutcome, assertSavedAidtHmwSource, verifyAidtFrozenBacklink } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 import { interviewCodePattern, savedAidtInterviewRoute, hasInterviewPrerequisite, hasPendingProblemReview } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
@@ -518,4 +518,37 @@ test('primary surprise uses its persistent identity flag', () => {
   const after = { projectId: creationProjectId, stageId: 3, revision: 1, content: { draft: { fields: { definitionPrimaryEntity: 'true' } } } };
   assert.doesNotThrow(() => assertSavedCardCreation(before, after, target, 'surprise'));
   assert.throws(() => assertSavedCardCreation(before, after, { ...target, entityId: 'other' }, 'surprise'));
+});
+
+test('S1 outcome permits its native print action and still rejects editors and unknown actions', async () => {
+  async function inspect({ editors = 0, buttons = 0, prints = 0 } = {}) {
+    const locator = count => ({ count: async () => count });
+    const panel = {
+      locator(selector) {
+        switch (selector) {
+          case 'input,textarea,select,[contenteditable]:not([contenteditable="false"])': return locator(editors);
+          case 'button,[role="button"]': return locator(buttons);
+          case 'button[type="button"]': return 'native-action';
+          default: assert.fail(selector);
+        }
+      },
+      getByRole(role, options) {
+        assert.equal(role, 'button');
+        assert.deepEqual(options, { name: '打印', exact: true });
+        return { and: other => { assert.equal(other, 'native-action'); return locator(prints); } };
+      },
+    };
+    const expect = value => value === panel
+      ? { toBeVisible: async () => {} }
+      : { toHaveCount: async count => assert.equal(await value.count(), count) };
+    expect.poll = read => ({ toBe: async expected => assert.equal(await read(), expected) });
+    await assertAidtReadOnlyProblemOutput(panel, expect);
+  }
+
+  await inspect();
+  await inspect({ buttons: 1, prints: 1 });
+  await assert.rejects(inspect({ buttons: 1 }));
+  await assert.rejects(inspect({ buttons: 2, prints: 1 }));
+  await assert.rejects(inspect({ buttons: 2, prints: 2 }));
+  await assert.rejects(inspect({ editors: 1, buttons: 1, prints: 1 }));
 });
