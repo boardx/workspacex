@@ -8,9 +8,9 @@ import { listAidtStageHistory, type AidtSharedStage } from "../lib/live-aidt-sta
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 
 /** Navigation carries a saved reflection reference, never clears historical work. */
-export function AidtRoundNavigation({ projectId, stageNumber, draft, savedRound, matchesServer, returnRevision, sessionToken }: {
+export function AidtRoundNavigation({ projectId, stageNumber, draft, savedRound, matchesServer, returnRevision, sessionToken, testEntityId }: {
   projectId: string; stageNumber: number; draft: AidtUiStageDraft;
-  savedRound?: AidtSharedStage; matchesServer: boolean; returnRevision: string | null; sessionToken?: string | null;
+  savedRound?: AidtSharedStage; matchesServer: boolean; returnRevision: string | null; sessionToken?: string | null; testEntityId?: string;
 }) {
   const decision = readAidtReturnDecision(stageNumber === 6 ? draft : savedRound?.content.draft ?? { fields: {}, ideas: [], selectedIdeaId: "" });
   if (stageNumber < 6) {
@@ -21,8 +21,9 @@ export function AidtRoundNavigation({ projectId, stageNumber, draft, savedRound,
     if (!sessionToken) return <ReturnUnavailable projectId={projectId} revision={returnRevision} message="登录后才能读取这次返回所引用的历史学习记录。" />;
     return <HistoricalReturn key={JSON.stringify([projectId, stageNumber, wanted, sessionToken])} projectId={projectId} stageNumber={stageNumber} revision={wanted} sessionToken={sessionToken} />;
   }
-  if (decision.kind !== "selected") return null;
-  const ready = matchesServer && savedRound && isAidtReflectionConfirmed(draft);
+  if (decision.kind !== "selected" || (testEntityId && draft.fields.reflectionTestEntityId !== testEntityId)) return null;
+  const ready = matchesServer && savedRound && isAidtReflectionConfirmed(draft)
+    && validReturn(savedRound, projectId, Number(decision.step), savedRound.revision);
   return <div className="space-y-2 border-t border-border pt-3 text-12" data-testid="aidt-round-navigation">{ready ? <Link className="inline-flex rounded-md border border-border px-3 py-2 font-medium text-primary transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring" href={`${aidtHref(projectId, Number(decision.step), { tool: "outcome" })}&returnRevision=${savedRound.revision}`}>带着本轮反思，回到第{decision.step}步 · {decision.label}</Link> : <p role="status" className="text-muted-foreground">先核对本轮学习记录并保存到小组，再带着已保存依据返回第{decision.step}步。返回前四步不需要先生成新原型。</p>}</div>;
 }
 
