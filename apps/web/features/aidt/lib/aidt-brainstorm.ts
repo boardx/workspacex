@@ -2,6 +2,8 @@ import { isAidtGreetingText } from "@repo/contracts/aidt-stages";
 import { z } from "zod";
 import { AIDT_BRAINSTORM_PREFIX, AIDT_BRAINSTORM_SELECTION_FIELD, AidtBrainstorm, readAidtBrainstorm, readAidtBrainstormSelection, type AidtBrainstorm as Session } from "@repo/contracts/aidt-brainstorm";
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
+import { readAidtIdeaHandoff } from "./aidt-idea-handoff";
+import { AIDT_IDEA_CLASSIFICATION_FIELDS } from "./aidt-idea-classification";
 
 export { readAidtBrainstormSelection };
 const descriptions = z.array(z.object({
@@ -61,7 +63,9 @@ export function addAidtBrainstormCandidates(draft: AidtUiStageDraft, sessionId: 
   }
   if (!ideas.length) return draft;
   const next = { ...session, candidates: [...session.candidates, ...ideas.map(idea => idea.id)] };
-  return { ...draft, ideas: [...draft.ideas, ...ideas], fields: { ...draft.fields, [AIDT_BRAINSTORM_PREFIX + sessionId]: JSON.stringify(next) } };
+  return { ...draft, ideas: [...draft.ideas, ...ideas], fields: { ...draft.fields,
+    ideaSheetIds: "", [AIDT_IDEA_CLASSIFICATION_FIELDS.confirmed]: "",
+    [AIDT_BRAINSTORM_PREFIX + sessionId]: JSON.stringify(next) } };
 }
 
 export function confirmAidtBrainstormSelection(draft: AidtUiStageDraft, sessionId: string, ids: string[]): AidtUiStageDraft {
@@ -75,4 +79,11 @@ export function confirmAidtBrainstormSelection(draft: AidtUiStageDraft, sessionI
     [AIDT_BRAINSTORM_SELECTION_FIELD]: JSON.stringify({ sessionId, ids }),
   } };
   return readAidtBrainstormSelection(next) ? next : draft;
+}
+
+/** Explicit student review; selecting text candidates alone never calls this. */
+export function confirmAidtBrainstormCompletion(draft: AidtUiStageDraft, sessionId: string, sheetIds: string[], projectId: string): AidtUiStageDraft {
+  if (readAidtBrainstormSelection(draft)?.session.id !== sessionId) return draft;
+  const next = { ...draft, fields: { ...draft.fields, ideaSheetIds: JSON.stringify(sheetIds) } };
+  return readAidtIdeaHandoff(next, projectId) ? next : draft;
 }

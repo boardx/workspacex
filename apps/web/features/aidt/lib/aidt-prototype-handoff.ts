@@ -3,6 +3,7 @@ import type { AidtUiStageDraft } from "./aidt-ui-drafts";
 import type { AidtSharedStage } from "./live-aidt-stages";
 import { getAidtPrototypeGenerationReadiness, aidtVerificationConfirmation } from "./aidt-verification-loop";
 import { readAidtPrototypeReference } from "./aidt-prototype-reference";
+import { readAidtIdeaHandoff } from "./aidt-idea-handoff";
 
 const Selection = z.object({
   revision: z.number().int().positive().max(2147483646),
@@ -31,14 +32,7 @@ export function readAidtPrototypeInputSelection(draft: AidtUiStageDraft): AidtPr
 }
 
 export function aidtChosenPrototypeIdeas(stage: AidtSharedStage | undefined) {
-  if (stage?.stageId !== 4) return [];
-  const draft = stage.content.draft;
-  try {
-    const result = Selection.shape.ideaIds.safeParse(JSON.parse(draft.fields.ideaHandoffIds ?? ""));
-    if (!result.success || new Set(result.data).size !== result.data.length) return [];
-    const ideas = result.data.map(id => draft.ideas.find(idea => idea.id === id));
-    return ideas.every(idea => idea?.title.trim() && idea.description.trim()) ? ideas.flatMap(idea => idea ? [idea] : []) : [];
-  } catch { return []; }
+  return stage?.stageId === 4 ? readAidtIdeaHandoff(stage.content.draft, stage.projectId)?.ideas ?? [] : [];
 }
 
 export function pinAidtPrototypeInputs(draft: AidtUiStageDraft, stage: AidtSharedStage, selected?: readonly string[]) {
@@ -48,10 +42,15 @@ export function pinAidtPrototypeInputs(draft: AidtUiStageDraft, stage: AidtShare
 }
 
 export function resolveAidtPrototypeInputIdeas(selection: AidtPrototypeInputSelection, stage: AidtSharedStage | undefined) {
-  if (stage?.revision !== selection.revision) return [];
-  const ideas = aidtChosenPrototypeIdeas(stage);
-  const chosen = selection.ideaIds.map(id => ideas.find(idea => idea.id === id));
-  return chosen.every(idea => idea !== undefined) ? chosen.filter(idea => idea !== undefined) : [];
+  if (stage?.stageId !== 4 || stage.revision !== selection.revision) return [];
+  // Historical prototypes retain their exact previously pinned source. This
+  // reader does not admit new inputs: adoption/pinning uses the strict gate above.
+  try {
+    const retainedIds = Selection.shape.ideaIds.parse(JSON.parse(stage.content.draft.fields.ideaHandoffIds ?? ""));
+    if (new Set(retainedIds).size !== retainedIds.length || !selection.ideaIds.every(id => retainedIds.includes(id))) return [];
+    const chosen = selection.ideaIds.map(id => stage.content.draft.ideas.find(idea => idea.id === id));
+    return chosen.every(idea => idea?.title.trim() && idea.description.trim()) ? chosen.flatMap(idea => idea ? [idea] : []) : [];
+  } catch { return []; }
 }
 
 export function aidtPrototypePreparationError(draft: AidtUiStageDraft): string | null {

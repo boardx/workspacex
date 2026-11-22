@@ -10,12 +10,17 @@ import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { confirmAidtPrototypeHandoff, pinAidtPrototypeInputs, updateAidtPrototypeEntityDraft } from "@/features/aidt/lib/aidt-prototype-handoff";
 import { confirmAidtVerificationQuestion } from "@/features/aidt/lib/aidt-verification-loop";
 import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
+import { reviewedAidtIdeasFixture } from "../aidt-reviewed-ideas-fixture";
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => undefined }));
 vi.mock("@/features/aidt/components/aidt-prototype-version-picker", () => ({ AidtPrototypeVersionPicker: () => null }));
 function stage(stageId: number, draft: AidtUiStageDraft): AidtSharedStage {
   return { projectId: "project", stageId, revision: 1, sourceStageRevisions: [], content: { schemaVersion: 1, draft: StageDraft.parse(draft) }, updatedBy: "student", updatedAt: "2026-11-21T00:00:00Z" };
 }
-const ideas = stage(4, { ...emptyAidtUiDrafts()[4]!, ideas: [{ id: "menu", title: "菜单", description: "比较口味" }], fields: { ideaHandoffIds: '["menu"]' } });
+const ideas = stage(4, reviewedAidtIdeasFixture("project", [
+  { id: "menu", title: "菜单", description: "标注各款口味。学生并排比较。" },
+  { id: "card", title: "比较卡", description: "纸卡列出配料。学生按需选择。" },
+  { id: "map", title: "领取图", description: "图标展示路线。学生沿线领取。" },
+], ["menu"]));
 function candidate(id: string) {
   const question = confirmAidtVerificationQuestion(pinAidtPrototypeInputs({ ...emptyAidtUiDrafts()[5]!, fields: { verificationQuestion: "能否理解差别？", beforeTestBelief: "也许可以", verificationBasis: "尚无证据", verificationLimits: "静态理解", type: "静态图", situation: "午休", task: "比较两款" } }, ideas))!;
   return updateAidtPrototypeReference(question, { designId: id, versionId: "v1", designName: id, createdAt: "2026-11-21T00:00:00Z", seq: 1, summary: "并排对比", frameCount: 2, generatedFrameCount: 2, source: "model" });

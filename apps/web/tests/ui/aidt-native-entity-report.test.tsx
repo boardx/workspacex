@@ -12,13 +12,18 @@ import { confirmAidtVerificationQuestion, createAidtQuestionSnapshot, updateAidt
 import { createAidtTestGroup, updateAidtTestGroup } from "@/features/aidt/lib/aidt-test-groups";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { StageDraft } from "@repo/contracts/aidt-stages";
+import { reviewedAidtIdeasFixture } from "../aidt-reviewed-ideas-fixture";
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => undefined }));
 const one = "73990275-e848-480f-8962-8d39d3b88b43", two = "783bb5b5-794b-47a2-a59d-57d29d7e6931";
 function stage(stageId: number, draft: AidtUiStageDraft): AidtSharedStage {
   return { projectId: "qa-project", stageId, revision: 9, updatedAt: "2026-11-21T00:00:00Z", updatedBy: "qa-student", sourceStageRevisions: [], content: { schemaVersion: 1, draft: StageDraft.parse(draft) } };
 }
 function prototype(id = "qa-design") {
-  const ideas = stage(4, { fields: { ideaHandoffIds: '["qa-idea"]' }, ideas: [{ id: "qa-idea", title: "等候提示", description: "让学生先了解等待" }], selectedIdeaId: "" });
+  const ideas = stage(4, reviewedAidtIdeasFixture("qa-project", [
+    { id: "qa-idea", title: "等候提示", description: "让学生先了解等待。学生决定是否加入队列。" },
+    { id: "qa-card", title: "比较卡", description: "纸卡列出配料。学生按需选择。" },
+    { id: "qa-map", title: "领取图", description: "图标展示路线。学生沿线领取。" },
+  ], ["qa-idea"]));
   const question = confirmAidtVerificationQuestion(pinAidtPrototypeInputs({ fields: { verificationQuestion: "QA原型验证问题", beforeTestBelief: "QA先前看法", verificationBasis: "QA依据仍是猜测", verificationLimits: "只能测试理解，不能证明实际行为", type: "QA静态服务图", situation: "QA午休", task: "QA理解提示", operations: "QA先看信息再选择" }, ideas: [], selectedIdeaId: "" }, ideas))!;
   return updateAidtPrototypeReference(question, { designId: id, versionId: "qa-native-v1", designName: "QA原型", createdAt: "2026-11-21T00:00:00Z", seq: 1, summary: "静态等候提示", frameCount: 1, generatedFrameCount: 1, source: "model" });
 }

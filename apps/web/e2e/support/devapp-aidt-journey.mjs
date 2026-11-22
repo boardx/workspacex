@@ -397,10 +397,10 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
   let lastEntityRoute = null;
   const waitForEntity = predicate => expect.poll(predicate, { timeout: 30000 }).toBe(true);
   const entityReady = async stage => {
-    const id = ({ 2: 'aidt-interview-output', 3: 'aidt-definition-editor', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
+    const id = ({ 2: 'aidt-interview-output', 3: 'aidt-definition-editor', 4: 'aidt-idea-output', 5: 'aidt-prototype-entity-output', 6: 'aidt-test-group-detail' })[stage];
     if (!id) fail('ENTITY_FORM_EXPECTATION_MISSING');
     await expect(page.getByTestId(id)).toBeVisible();
-    if ([3, 5, 6].includes(stage)) await expect(page.getByTestId(id).getByRole('textbox')).toHaveCount(0);
+    if ([3, 4, 5, 6].includes(stage)) await expect(page.getByTestId(id).getByRole('textbox')).toHaveCount(0);
   };
   const follow = async (name, { resource = false } = {}) => {
     const link = page.getByRole('link', { name, exact: true }); await expect(link).toBeVisible();
@@ -1037,7 +1037,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     const methodSessions = new Set();
     const start = async (method, target) => {
       await page.goto(frozenUrl.href);
-      await click(page.getByTestId('aidt-new-entity-card'));
+      await click(page.getByRole('region', { name: '头脑风暴', exact: true }).getByTestId('aidt-new-entity-card'));
       const dialog = page.getByRole('dialog', { name: '新建头脑风暴' });
       const name = 'QA头脑风暴 ' + method + ' ' + unique;
       await dialog.getByRole('textbox', { name: '场次名称', exact: true }).fill(name);
@@ -1085,6 +1085,26 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
       || descriptionIdeas.some(idea => !idea?.title?.trim() || !idea.description?.trim())
       || new Set(descriptionIdeas.map(idea => idea.title.trim())).size !== 3
       || new Set(descriptionIdeas.map(idea => idea.description.trim())).size !== 3) fail('S4_THREE_DISTINCT_DESCRIPTION_IDEAS_REQUIRED');
+    const compare = page.getByRole('region', { name: '筛选点子' });
+    await click(compare.getByText('筛选点子 · 已选 0', { exact: true }));
+    await compare.getByRole('checkbox').nth(0).check();
+    await compare.getByRole('checkbox').nth(1).check();
+    await expect(compare.getByText('筛选点子 · 已选 2', { exact: true })).toBeVisible();
+    await saveStage(4, btn('确认入选点子', compare));
+    await expect.poll(async () => JSON.parse((await savedStage(4)).content.draft.fields.ideaHandoffIds || '[]'), { timeout: 30000 }).toEqual(selectedIds);
+    const selectionDraftRevision = await revision(4);
+    const completionReview = compare.getByRole('region', { name: '完成描述单与分类', exact: true });
+    await expect(completionReview).toBeVisible();
+    await expect(btn('确认完成本阶段', completionReview)).toBeDisabled();
+    await expect(compare.getByRole('link', { name: '进入原型制作', exact: true })).toHaveCount(0);
+    // A saved text shortlist is useful progress, but never a completed Stage 4.
+    await go();
+    await expect(page.getByTestId('aidt-stage-save-4')).toContainText('已保存草稿');
+    await expect(page.getByTestId('aidt-stage-save-4')).toHaveAttribute('data-completed', 'false');
+    await page.reload();
+    await expect(page.getByTestId('aidt-stage-save-4')).toContainText('已保存草稿');
+    await expect(page.getByTestId('aidt-stage-save-4')).toHaveAttribute('data-completed', 'false');
+    const descriptionSheets = [];
     for (const [index, id] of descriptionIds.entries()) {
       const idea = candidates.find(record => record.id === id);
       if (!idea?.title || !idea.description) fail('S4_SELECTED_CANDIDATE_DESCRIPTION_REQUIRED');
@@ -1103,31 +1123,69 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
       const artifact = page.getByTestId('aidt-idea-output');
       await expect(artifact.getByRole('textbox')).toHaveCount(0);
       await expect(artifact).toContainText(idea.description);
-      await printOutput(4, 'idea-description-' + (index + 1), btn('导出描述单 PDF', artifact),
-        [idea.title, idea.description, chosenHmw.text], [createHash('sha256').update(image).digest('hex')]);
+      descriptionSheets.push({ route, idea, imageHash: createHash('sha256').update(image).digest('hex') });
     }
     await page.goto(reverseHref);
     await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(reverse.threadId);
-    const compare = page.getByRole('region', { name: '筛选点子' });
-    await click(compare.getByText('筛选点子 · 已选 0', { exact: true }));
-    await compare.getByRole('checkbox').nth(0).check();
-    await compare.getByRole('checkbox').nth(1).check();
-    await expect(compare.getByText('筛选点子 · 已选 2', { exact: true })).toBeVisible();
-    await reviewAndSave(4, btn('确认入选点子', compare));
-    await expect.poll(async () => JSON.parse((await savedStage(4)).content.draft.fields.ideaHandoffIds || '[]'), { timeout: 30000 }).toEqual(selectedIds);
+    await expect(completionReview).toBeVisible();
+    await expect(btn('确认完成本阶段', completionReview)).toBeDisabled();
+    await expect(compare.getByRole('link', { name: '进入原型制作', exact: true })).toHaveCount(0);
+    const classification = completionReview.getByRole('region', { name: '学生点子分类', exact: true });
+    const studentClassifications = [
+      { labels: ['最容易实现的', '最有趣的'], reason: '本组合成练习中可用已有纸牌小步尝试，也能加入比较游戏；是否有用和有趣仍待真实测试。' },
+      { labels: ['最具突破性的'], reason: '这个方向尝试改变等待信息的呈现方式；只是学生判断，尚未证明实际效果。' },
+      { labels: ['最有趣的'], reason: '比较过程可设计成一个小挑战；这是本组的创意判断，不代表受访者已认可。' },
+    ];
+    for (const [index, sheet] of descriptionSheets.entries()) {
+      const choice = studentClassifications[index];
+      const row = classification.locator('[data-testid="aidt-classification-idea"][data-idea-id="' + sheet.idea.id + '"]');
+      for (const label of choice.labels) await row.getByRole('checkbox', { name: sheet.idea.title + ' · ' + label, exact: true }).check();
+      await row.getByRole('textbox', { name: sheet.idea.title + ' · 分类理由', exact: true }).fill(choice.reason);
+    }
+    await expect(classification.getByTestId('aidt-classification-status')).toContainText('待学生确认分类');
+    await saveStage(4, btn('确认本组分类', classification), { confirmation: true });
+    await expect.poll(async () => (await savedStage(4)).content.draft.fields.ideaClassificationConfirmed).toBe('true');
+    const classified = await savedStage(4), classifiedFields = classified.content.draft.fields;
+    const classificationTags = JSON.parse(classifiedFields.ideaClassificationTags || '{}');
+    const classificationReasons = JSON.parse(classifiedFields.ideaClassificationReasons || '{}');
+    for (const [index, sheet] of descriptionSheets.entries()) {
+      const categoryIds = studentClassifications[index].labels.map(label => ({ '最容易实现的': 'easy', '最具突破性的': 'breakthrough', '最有趣的': 'fun' })[label]);
+      expect(classificationTags[sheet.idea.id]).toEqual(categoryIds);
+      expect(classificationReasons[sheet.idea.id]).toBe(studentClassifications[index].reason);
+    }
+    // Export three different, student-classified sheets; never count a layout copy as another idea.
+    for (const [index, sheet] of descriptionSheets.entries()) {
+      await output(sheet.route);
+      const artifact = page.getByTestId('aidt-idea-output');
+      await expect(artifact.getByRole('textbox')).toHaveCount(0);
+      await expect(artifact).toContainText(sheet.idea.description);
+      await printOutput(4, 'idea-description-' + (index + 1), btn('导出描述单 PDF', artifact),
+        [sheet.idea.title, sheet.idea.description, chosenHmw.text, ...studentClassifications[index].labels, studentClassifications[index].reason], [sheet.imageHash]);
+    }
+    await page.goto(reverseHref);
+    await expect(completionReview).toBeVisible();
+    await expect(btn('确认完成本阶段', completionReview)).toBeDisabled();
+    for (const sheet of descriptionSheets) await completionReview.getByRole('checkbox', { name: '已审阅描述单：' + sheet.idea.title, exact: true }).check();
+    await expect(completionReview.getByRole('status').filter({ hasText: '已审阅 3 份描述单' })).toBeVisible();
+    await saveStage(4, btn('确认完成本阶段', completionReview), { confirmation: true });
+    await expect.poll(async () => JSON.parse((await savedStage(4)).content.draft.fields.ideaSheetIds || '[]')).toEqual(descriptionIds);
+    await expect.poll(async () => JSON.parse((await savedStage(4)).content.draft.fields.ideaHandoffIds || '[]')).toEqual(selectedIds);
     const stage4 = await savedStage(4);
+    await expect(compare.getByRole('link', { name: '进入原型制作', exact: true })).toBeVisible();
     const frozenHandoff = owned(await compare.getByRole('link', { name: '进入原型制作' }).getAttribute('href'));
     if (String(stage4.revision) !== new URL(frozenHandoff).searchParams.get('ideaRevision')) fail('S4_BRAINSTORM_HANDOFF_REVISION_MISMATCH');
     await page.reload();
     await expect(brainstormOutput.getByRole('listitem')).toHaveCount(5);
     await expect.poll(() => new URL(page.url()).searchParams.get('thread')).toBe(reverse.threadId);
     await expect(brainstormOutput.getByRole('heading', { name: /入选 2/ })).toBeVisible();
+    await expect(completionReview.getByRole('status').filter({ hasText: '本阶段已确认完成。' })).toBeVisible();
+    expect(owned(await compare.getByRole('link', { name: '进入原型制作', exact: true }).getAttribute('href'))).toBe(frozenHandoff);
     await shot('04-brainstorm-five-to-two', 4);
     await completed(4);
     await page.goto(frozenHandoff);
     await expect(page.getByTestId('aidt-step-entity-directory')).toBeVisible();
     step5Href = frozenHandoff;
-    report.brainstormHandoff = { hmwId: chosenHmw.id, hmwRevision: stage3.revision, stage4Revision: stage4.revision, sameSessionAfterReload: true, retained: 5, descriptionCount: 3, descriptionIds, selected: 2, selectedIds, methodThreadCount: 2, methods: ['reverse', 'scamper'] };
+    report.brainstormHandoff = { hmwId: chosenHmw.id, hmwRevision: stage3.revision, selectionDraftRevision, classificationRevision: classified.revision, classificationConfirmed: true, stage4Revision: stage4.revision, sameSessionAfterReload: true, textSelectionWasIncomplete: true, retained: 5, descriptionCount: 3, descriptionIds, selected: 2, selectedIds, methodThreadCount: 2, methods: ['reverse', 'scamper'] };
   }, '04-brainstorm');
 
   state.s5 = await check('s5-prototype-question-version', 5, async () => {

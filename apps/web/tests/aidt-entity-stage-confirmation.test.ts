@@ -10,6 +10,7 @@ import { confirmAidtPrototypeEntityHandoff, confirmAidtPrototypeHandoff, pinAidt
 import { createAidtTestGroup, updateAidtTestGroup } from "@/features/aidt/lib/aidt-test-groups";
 import { createAidtQuestionSnapshot, confirmAidtVerificationQuestion } from "@/features/aidt/lib/aidt-verification-loop";
 import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
+import { reviewedAidtIdeasFixture } from "./aidt-reviewed-ideas-fixture";
 
 const projectId = "group-test";
 function stage(stageId: number, draft: AidtUiStageDraft): AidtSharedStage {
@@ -68,7 +69,11 @@ it("requires the actual three distinct reviewed sheets, student classification a
   expect(await aidtStageHasConfirmation({ ...stage(4, draft), projectId: "other" })).toBe(false);
 });
 function prototypeCandidate(id: string) {
-  const ideas = stage(4, { ...emptyAidtUiDrafts()[4]!, ideas: [{ id: "menu", title: "菜单标签", description: "比较口味" }], fields: { ideaHandoffIds: '["menu"]' } });
+  const ideas = stage(4, reviewedAidtIdeasFixture(projectId, [
+    { id: "menu", title: "菜单标签", description: "标注各款口味。学生并排比较。" },
+    { id: "card", title: "比较卡", description: "纸卡列出配料。学生按需选择。" },
+    { id: "map", title: "领取图", description: "图标展示路线。学生沿线领取。" },
+  ], ["menu"]));
   const inputs = pinAidtPrototypeInputs({ ...emptyAidtUiDrafts()[5]!, fields: { verificationQuestion: "能否理解差别？", beforeTestBelief: "也许可以", verificationBasis: "尚无行为证据", verificationLimits: "静态理解不代表购买", type: "静态图", situation: "午休", task: "比较两款" } }, ideas);
   const question = confirmAidtVerificationQuestion(inputs)!;
   return updateAidtPrototypeReference(question, { designId: id, versionId: "v1", designName: id, createdAt: "2026-11-21T00:00:00Z", seq: 1, summary: "并排对比", frameCount: 2, generatedFrameCount: 2, source: "model" });
