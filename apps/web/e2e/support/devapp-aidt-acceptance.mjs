@@ -8,7 +8,7 @@ import { ORIGIN, ProbeFailure, readQaCredentials } from './devapp-aidt-auth-read
 import { consumeReusableQaCredentials, reusableQaRequested } from './devapp-aidt-qa-identity.mjs';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, SHA } from './devapp-aidt-acceptance-guard.mjs';
 import { captureApplicationPrint } from './devapp-aidt-print-evidence.mjs';
-import { sendTeachingFeedback, validateTeachingEvidence } from './devapp-aidt-chat-evidence.mjs';
+import { sendTeachingFeedback, validateTeachingEvidence, readTeachingHistoryFailureDiagnostic } from './devapp-aidt-chat-evidence.mjs';
 import { agentQaReviewRequested, createAgentQaReviewer } from './devapp-aidt-agent-review.mjs';
 import { aidtCreateTagInput } from './devapp-aidt-journey.mjs';
 import { acceptanceProfile, V2_VOICE_PROFILE, createV2ExecutionLedger } from './devapp-aidt-v2-profile.mjs';
@@ -668,7 +668,8 @@ export async function main() {
       const record = result => { const durationMs = Math.round(performance.now() - tick); const item = { name, ...result, owner: 'root/aidt_ui_first_acceptance', startedUTC, finishedUTC: new Date().toISOString(), durationMs, maximumMinutes, timedOut: durationMs > maximumMinutes * 60000, nextAction: durationMs > maximumMinutes * 60000 ? 'Inspect exact active run and stage evidence before any retry' : null }; if (item.timedOut && item.status === 'passed') item.status = 'timed_out'; report.checkpoints.push(item); console.log(JSON.stringify({ event: 'checkpoint-finish', ...item })); return item; };
       try { recheckRuntime(); await operation(); return record({ status: 'passed' }).status === 'passed'; }
       catch (error) {
-        record({ status: 'failed', code: safeCode(error) });
+        const teachingHistoryDiagnostic = readTeachingHistoryFailureDiagnostic(error);
+        record({ status: 'failed', code: safeCode(error), ...(teachingHistoryDiagnostic ? { teachingHistoryDiagnostic } : {}) });
         try { await capture(`${name}-failed`); } catch { report.checkpoints.push({ name: `${name}-capture`, status: 'blocked', code: 'FAILURE_SCREENSHOT_UNAVAILABLE' }); }
         return false;
       }
