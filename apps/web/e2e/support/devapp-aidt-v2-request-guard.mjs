@@ -577,8 +577,14 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
         && target.searchParams.get('orgId') === org && target.searchParams.get('kind') === 'agent') {
         return { allow: true, kind: 'native-agent-catalog' };
       }
+      // Match the baseline's exact QA catalog channel. The shared interceptor
+      // exposes only an actually verified run-owned row, never foreign rosters.
+      if (actor && path === '/api/projects' && target.searchParams.get('orgId') === org
+        && [...target.searchParams.keys()].join(',') === 'orgId') {
+        return { allow: true, kind: 'qa-project-catalog', projectId };
+      }
       const publicPage = path === '/login' || path === '/aidt' || path === '/favicon.ico' || path.startsWith('/_next/static/') || approvedHomeImage(target);
-      const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/copilotkit/info' && !target.search) || (path === '/api/projects' && target.searchParams.get('orgId') === org) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
+      const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/copilotkit/info' && !target.search) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
       const ownedRead = (projectId || candidate) && (path === `/aidt/${projectId ?? candidate}` || path.startsWith(`/api/projects/${projectId ?? candidate}/`));
       const exactStage = new RegExp(`^/api/projects/${projectId}/aidt/stages/([1-6])/revision/([1-9][0-9]*)$`).exec(path);
       if (ordinaryVerified && projectId && exactStage && !target.search && Number(exactStage[2]) <= 2147483647)
