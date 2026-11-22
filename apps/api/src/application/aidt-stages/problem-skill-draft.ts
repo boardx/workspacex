@@ -4,9 +4,9 @@ import { isAidtGreetingText, isAidtProblemControlText, type SharedStageValue } f
 
 type Draft = SharedStageValue["content"]["draft"];
 const sections: Record<string, string> = {
-  候选研究方向: "directionsText", 本轮选定方向: "selectedText", 原始命题: "initial", 初始问题: "initial", 选题价值: "whyWorthStudying", 选题理由: "whyWorthStudying",
+  候选研究方向: "directionsText", 本轮选定方向: "selectedText", 本组选择的研究方向: "selectedText", 原始命题: "initial", 初始问题: "initial", 选题价值: "whyWorthStudying", 选题理由: "whyWorthStudying",
   来源类型: "problemSources", 命题来源反思: "sourceDetails", 来源说明: "sourceDetails",
-  已知: "known", "未知/待讨论": "sourceUncertainty", 待验证: "sourceUncertainty", 未知: "sourceUncertainty",
+  已知: "known", "未知/待讨论": "sourceUncertainty", 待验证: "sourceUncertainty", 未知: "sourceUncertainty", "当前已知/假设与未知缺口": "sourceUncertainty",
   下一步行动: "nextAction", 学生重写命题: "rewrittenTheme", 研究范围: "focus",
 };
 
@@ -19,7 +19,8 @@ export function problemSkillFields(answer: string): Record<string, string> {
   for (const line of answer.split(/\r?\n/)) {
     const text = line.trim().replace(/^#{1,6}\s+/, "").replace(/^[-*]\s+/, "").replaceAll("**", "");
     const separator = text.search(/[：:]/);
-    const label = (separator < 0 ? text : text.slice(0, separator)).trim().replace(/\s*[／/]\s*/g, "/");
+    const label = (separator < 0 ? text : text.slice(0, separator)).trim().replace(/\s*(?:（(?:逐字保留|学生表述)）|\((?:逐字保留|学生表述)\))$/u, "")
+      .replace(/\s*[／/]\s*/g, "/");
     if (Object.hasOwn(sections, label)) {
       current = sections[label];
       const inline = separator < 0 ? "" : text.slice(separator + 1).trim();
@@ -50,6 +51,22 @@ function studentProblemStatement(text: string): string | undefined {
   return hasStatement ? value : undefined;
 }
 
+// A structured answer may quote a previous teaching reply. Only inspect the
+// student's section for new explicit source or selection statements.
+function studentRevisionText(user: string): string {
+  const marker = [...user.matchAll(/^学生的回答[：:][^\S\r\n]*$/gmu)].at(-1);
+  return marker ? user.slice(marker.index + marker[0].length) : user;
+}
+
+function explicitlyStatedHypothesis(student: string): string | undefined {
+  const prose = student.split(/^\s*(?:本组选择的研究方向|本轮选定方向|研究范围|学生重写命题)[：:]/mu, 1)[0] ?? "";
+  const sentences = prose.split(/(?<=[。！？])|\r?\n/u).map(value => value.trim());
+  return sentences.find(value => /^(?:上述|这些)(?:行为|情况|说法)(?:目前|现在)?只是我们(?:提出的)?(?:假设|猜测)[。！]?$/u.test(value)
+    || /^这(?:目前|现在)?只是我们(?:提出的)?(?:假设|猜测)[。！]?$/u.test(value));
+}
+
+const withoutFinalPeriod = (value: string | undefined) => value?.trim().replace(/[。.]$/u, "");
+
 export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: { user:string; assistant:string; messageId:string; verifiedInitial?: string }): Draft | null {
   if (isAidtCandidateRequest(turn.user, "problem") || isAidtGreetingText(turn.user.trim())) return null;
   const key = "problemDraft:" + entityId;
@@ -70,6 +87,16 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
     output.initial = initial;
   }
   const {directionsText,selectedText,...patch}=output;
+  const student = studentRevisionText(turn.user);
+  const statedRewrite = /^学生重写命题[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
+  if (statedRewrite && patch.rewrittenTheme && statedRewrite !== patch.rewrittenTheme) delete patch.rewrittenTheme;
+  if (patch.rewrittenTheme && !previous.problemSources && !patch.problemSources) {
+    const hypothesis = explicitlyStatedHypothesis(student);
+    if (hypothesis) {
+      patch.problemSources = JSON.stringify(["guess"]);
+      patch.sourceDetails ??= hypothesis;
+    }
+  }
   type Direction = { id:string; title:string; source:string };
   let priorDirections: Direction[] = [];
   try {
@@ -92,7 +119,21 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
       if (previous.problemDirectionId && !directions.some(choice=>choice.id===previous.problemDirectionId)) patch.problemDirectionId="";
     }
   }
-  const selection = choices.find(choice => choice.title === selectedText);
+  const statedSelection = /^(?:本组选择的研究方向|本轮选定方向)[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
+  let selection = choices.find(choice => choice.title === (statedSelection || selectedText));
+  if (statedSelection && withoutFinalPeriod(statedSelection) !== withoutFinalPeriod(selectedText ?? patch.focus)) {
+    selection = undefined;
+    delete patch.focus;
+  } else if (statedSelection && !selection && statedSelection.length <= 120) {
+    selection = {
+      id: createHash("sha256").update(statedSelection).digest("hex").slice(0,24),
+      title: statedSelection,
+      source: "group",
+    };
+    // Keep prior choices when there is room and make the newly selected group
+    // direction part of the same list the confirmation UI validates.
+    patch.problemDirections = JSON.stringify([...choices.slice(0, 5), selection]);
+  }
   if (selection) { patch.problemDirectionId = selection.id; patch.focus = selection.title; }
   if (!Object.entries(patch).some(([key,value])=>previous[key]!==value)) return null;
   const next: Record<string,string> = { ...previous, ...patch, draftTurnId: turn.messageId };
