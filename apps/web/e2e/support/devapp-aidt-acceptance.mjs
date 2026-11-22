@@ -52,8 +52,8 @@ export function illustratedAcceptance(report) {
     lines.push('## ' + title, '');
     if (!checks.length) lines.push('未取得检查结果。', '');
     for (const check of checks) lines.push('- ' + status(check.status) + '　\`' + check.name + '\`' + (check.code ? '　\`' + check.code + '\`' : ''));
-    const stageFile = report.stageFileEvidence?.find(row => row.stageId === index && row.uiReloadVerified && row.contentVerified);
-    if (stageFile) lines.push('- 原生 Chat 附件 `' + stageFile.filename + '` 已刷新回读，原件 SHA-256 `' + stageFile.sha256 + '`。');
+    const stageFile = report.stageFileEvidence?.find(row => row.stageId === index && row.uiReopenVerified && row.contentVerified);
+    if (stageFile) lines.push('- 原生 Chat 附件 `' + stageFile.filename + '` 已在新页面重开并回读，原件 SHA-256 `' + stageFile.sha256 + '`。');
     lines.push('');
     for (const image of screens) {
       const label = image.filename.replace(/\.png$/, '');
@@ -608,29 +608,29 @@ export async function main() {
       report.runtimeRechecks++;
     };
     let pendingReviewCapture = null;
-    const capture = async (name, expectedStage, region = 'workspace', pendingReceipt) => {
+    const capture = async (name, expectedStage, region = 'workspace', pendingReceipt, surface = page) => {
       const screenshotName = profile === V2_VOICE_PROFILE ? /^[A-Za-z0-9][A-Za-z0-9-]{0,85}$/ : /^[a-z0-9][a-z0-9-]{0,85}$/;
       if (!screenshotName.test(name)) throw new ProbeFailure('SCREENSHOT_NAME_INVALID');
-      if (region === 'workspace' || region === 'owned-tool-review' || region === 'card-dialog' || region === 'candidate-dialog') assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
-      else { const url = new URL(page.url()); if (url.origin !== ORIGIN || url.pathname !== '/aidt' || !['home-create-actions', 'create-dialog'].includes(region)) throw new ProbeFailure('SCREENSHOT_SCOPE_REJECTED'); }
+      if (region === 'workspace' || region === 'owned-tool-review' || region === 'card-dialog' || region === 'candidate-dialog') assertCaptureScope(surface.url(), guard.identity().projectId, expectedStage);
+      else { const url = new URL(surface.url()); if (url.origin !== ORIGIN || url.pathname !== '/aidt' || !['home-create-actions', 'create-dialog'].includes(region)) throw new ProbeFailure('SCREENSHOT_SCOPE_REJECTED'); }
       if (region === 'owned-tool-review') {
         if (!pendingReviewCapture || pendingReviewCapture.receipt !== pendingReceipt || pendingReceipt.stageId !== expectedStage) throw new ProbeFailure('TOOL_REVIEW_SCOPE_UNVERIFIED');
         const { scope } = pendingReviewCapture;
-        pendingTeachingReviewReceipt(pendingReceipt, scope, page.url(), guard.teachingPin(scope.stageId, scope.threadId, scope.selector.entityId));
-        if (await page.getByTestId('aidt-project-workspace').getByTestId('restored-run-approval').count() !== 1 || await page.getByTestId('chat-tool-permission-dialog').count() !== 1) throw new ProbeFailure('TOOL_REVIEW_DIALOG_NOT_UNIQUE');
+        pendingTeachingReviewReceipt(pendingReceipt, scope, surface.url(), guard.teachingPin(scope.stageId, scope.threadId, scope.selector.entityId));
+        if (await surface.getByTestId('aidt-project-workspace').getByTestId('restored-run-approval').count() !== 1 || await surface.getByTestId('chat-tool-permission-dialog').count() !== 1) throw new ProbeFailure('TOOL_REVIEW_DIALOG_NOT_UNIQUE');
       }
       if (region === 'card-dialog') {
-        const url = new URL(page.url());
-        const dialog = page.getByRole('dialog');
+        const url = new URL(surface.url());
+        const dialog = surface.getByRole('dialog');
         if (url.searchParams.has('entity') || await dialog.count() !== 1 || !await aidtCreateTagInput(dialog, expectedStage).isVisible()) throw new ProbeFailure('CARD_DIALOG_SCOPE_UNVERIFIED');
       }
       let candidate;
-      if (region === 'candidate-dialog') { candidate = candidateDialogLocator(page, profile, page.url(), guard.identity().projectId, expectedStage); if (await candidate.count() !== 1 || await page.getByRole('dialog').count() !== 1) throw new ProbeFailure('V2_CANDIDATE_DIALOG_NOT_UNIQUE'); }
+      if (region === 'candidate-dialog') { candidate = candidateDialogLocator(surface, profile, surface.url(), guard.identity().projectId, expectedStage); if (await candidate.count() !== 1 || await surface.getByRole('dialog').count() !== 1) throw new ProbeFailure('V2_CANDIDATE_DIALOG_NOT_UNIQUE'); }
       recheckRuntime();
-      const workspace = candidate ?? (region === 'card-dialog' ? page.getByRole('dialog') : region === 'owned-tool-review' ? page.getByTestId('chat-tool-permission-dialog') : region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') }));
+      const workspace = candidate ?? (region === 'card-dialog' ? surface.getByRole('dialog') : region === 'owned-tool-review' ? surface.getByTestId('chat-tool-permission-dialog') : region === 'workspace' ? surface.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? surface.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : surface.getByRole('dialog').filter({ has: surface.getByTestId('project-new-details') }));
       await workspace.waitFor({ state: 'visible' });
       // Workspace captures dismiss unrelated overlays; owned review evidence must keep its modal open.
-      if (region === 'workspace') await page.keyboard.press('Escape');
+      if (region === 'workspace') await surface.keyboard.press('Escape');
       const visibleText = await workspace.evaluate(root => {
         const visible = node => node instanceof HTMLElement && node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
         return [root.innerText, ...[...root.querySelectorAll('input,textarea,[contenteditable="true"]')].filter(visible).map(node => 'value' in node ? node.value : node.innerText)].join('\n');
@@ -638,7 +638,7 @@ export async function main() {
       if (Buffer.byteLength(visibleText) > 1048576) throw new ProbeFailure('SCREENSHOT_CONTENT_BOUND');
       // Keep setup/admin credentials out of the student browser altogether.
       sensitiveEvidence.assertSafe(visibleText);
-      const sensitive = await page.evaluate(values => {
+      const sensitive = await surface.evaluate(values => {
         const token = localStorage.getItem('wsx.sessionToken');
         return Boolean(token && values.includes(token)) || /Bearer\s+[A-Za-z0-9._~-]{12,}|\bsk-[A-Za-z0-9]{16,}/.test(values);
       }, visibleText);
@@ -914,18 +914,23 @@ export async function main() {
           const readback = guard.stageTextReceipt(stageId);
           if (readback?.messageId !== proof.inputMessageId) throw new ProbeFailure('STAGE_TEXT_BINDING_CHANGED');
           const route = page.url();
-          await page.reload();
-          await expect(page).toHaveURL(route);
-          const attachment = page.getByTestId(`chat-message-attachment-${readback.id}`);
-          await expect(attachment).toBeVisible();
-          await expect(attachment).toContainText(readback.filename);
-          const read = await api(page, 'GET', `/api/chat/threads/${encodeURIComponent(threadId)}/attachments/${encodeURIComponent(readback.id)}/content`);
-          const verified = guard.stageTextReceipt(stageId);
-          if (read.status !== 200 || !verified?.contentVerified) throw new ProbeFailure('STAGE_TEXT_CONTENT_UNVERIFIED');
-          report.stageFileEvidence ??= [];
-          report.stageFileEvidence.push({ stageId, ...verified, uiReloadVerified: true });
-          await attachment.scrollIntoViewIfNeeded();
-          await capture(`${String(stageId).padStart(2, '0')}-stage-text-readback`, stageId);
+          const restored = await context.newPage();
+          try {
+            await restored.goto(route, { waitUntil: 'domcontentloaded' });
+            await expect(restored).toHaveURL(route);
+            const attachment = restored.getByTestId(`chat-message-attachment-${readback.id}`);
+            await expect(attachment).toBeVisible();
+            await expect(attachment).toContainText(readback.filename);
+            const read = await api(restored, 'GET', `/api/chat/threads/${encodeURIComponent(threadId)}/attachments/${encodeURIComponent(readback.id)}/content`);
+            const verified = guard.stageTextReceipt(stageId);
+            if (read.status !== 200 || !verified?.contentVerified) throw new ProbeFailure('STAGE_TEXT_CONTENT_UNVERIFIED');
+            await attachment.scrollIntoViewIfNeeded();
+            await capture(`${String(stageId).padStart(2, '0')}-stage-text-readback`, stageId, 'workspace', undefined, restored);
+            report.stageFileEvidence ??= [];
+            report.stageFileEvidence.push({ stageId, ...verified, uiReopenVerified: true });
+          } finally {
+            await restored.close();
+          }
         }
         report.teachingEvidence.push({ ...proof, projectId, entityId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
         await capture(profile === V2_VOICE_PROFILE ? (summary ? 'v2-final-report-real-chat' : `v2-teaching-s${stageId}-turn-${voiceTurn}`) : summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`, stageId);
@@ -1111,7 +1116,7 @@ export async function main() {
       return;
     }
     report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, 'teaching-chat-final-report', 'teaching-chat-stage-3-2', 'teaching-chat-stage-3-3', 'teaching-chat-stage-3-4', 'teaching-chat-stage-4-reverse', 'teaching-chat-stage-6-plan', 'teaching-chat-stage-6-survey-plan', 'teaching-chat-stage-6-survey', ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
-    report.stageFileCoverageVerified = [1, 2, 3, 4, 5, 6].every(stageId => report.stageFileEvidence?.some(row => row.stageId === stageId && row.uiReloadVerified && row.contentVerified));
+    report.stageFileCoverageVerified = [1, 2, 3, 4, 5, 6].every(stageId => report.stageFileEvidence?.some(row => row.stageId === stageId && row.uiReopenVerified && row.contentVerified));
     report.passed = !guard.fatal() && report.stageFileCoverageVerified
       && report.requiredChecks.every(name => report.checkpoints.some(item => item.name === name && item.status === 'passed'));
     // UI/runtime checks and exported PDF bytes are complete here; final glyph
