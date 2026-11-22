@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { isAidtModuleEnabled } from "../lib/aidt-module-config";
 import { aidtResearchMaterialLabel, isAidtResearchImage, listAidtResearchMaterials, readAidtResearchMaterial, uploadAidtResearchMaterial, type AidtMaterialContext, type AidtMaterialReceipt, type AidtResearchMaterialReference } from "../lib/aidt-research-materials";
@@ -20,7 +21,7 @@ function materialKind(type: string, name: string): MaterialKind {
   if (type.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(name)) return "image";
   return "document";
 }
-type MaterialProps = { projectId: string; value?: AidtResearchMaterialReference | null; label: string; readOnly?: boolean; imagesOnly?: boolean; allowedKinds?: readonly MaterialKind[]; onlyLocalMaterials?: boolean; selectionScope?: string; localMaterials?: readonly AidtResearchMaterialReference[]; onChange: (reference: AidtResearchMaterialReference | null) => void };
+type MaterialProps = { projectId: string; value?: AidtResearchMaterialReference | null; label: string; readOnly?: boolean; imagesOnly?: boolean; appearance?: "default" | "photo"; allowedKinds?: readonly MaterialKind[]; onlyLocalMaterials?: boolean; selectionScope?: string; localMaterials?: readonly AidtResearchMaterialReference[]; onChange: (reference: AidtResearchMaterialReference | null) => void };
 
 export function AidtResearchMaterialControl(props: MaterialProps) {
   const session = useOptionalSession()?.session;
@@ -29,7 +30,8 @@ export function AidtResearchMaterialControl(props: MaterialProps) {
   const scope = JSON.stringify([session.currentOrgId, session.userId, session.sessionToken, props.projectId, !!props.readOnly]);
   return <MaterialControl key={scope} {...props} context={{ projectId: props.projectId, sessionToken: session.sessionToken }} />;
 }
-function MaterialControl({ context, value, label, onChange, readOnly = false, imagesOnly = false, allowedKinds, onlyLocalMaterials = false, selectionScope, localMaterials = [] }: MaterialProps & { context: SessionContext }) {
+function MaterialControl({ context, value, label, onChange, readOnly = false, imagesOnly = false, appearance = "default", allowedKinds, onlyLocalMaterials = false, selectionScope, localMaterials = [] }: MaterialProps & { context: SessionContext }) {
+  const fileInput = React.useRef<HTMLInputElement>(null);
   const [file, setFile] = React.useState<File | null>(null), [strategy, setStrategy] = React.useState<"use-existing" | "as-new-version">("use-existing");
   const kinds: readonly MaterialKind[] = allowedKinds ?? (imagesOnly ? ["image"] : ["document", "image"]);
   const acceptsReference = (reference: AidtResearchMaterialReference) => kinds.includes(isAidtResearchImage(reference) ? "image" : reference.mime.startsWith("audio/") ? "audio" : "document");
@@ -40,7 +42,7 @@ function MaterialControl({ context, value, label, onChange, readOnly = false, im
   const [receiptState, setReceipt] = React.useState<{ intent: string; receipt: AidtMaterialReceipt } | null>(null);
   const receipt = receiptState?.intent === intentIdentity ? receiptState.receipt : null;
   const [pending, setPending] = React.useState(false);
-  const [feedback, setFeedback] = React.useState<{ text: string; intent?: string; selected?: string } | null>(null);
+  const [feedback, setFeedback] = React.useState<{ text: string; intent?: string; selected?: string; failed?: boolean } | null>(null);
   const status = feedback && (feedback.selected ? value === undefined || valueIdentity === feedback.selected : feedback.intent === intentIdentity) ? feedback.text : "";
   const [choices, setChoices] = React.useState<AidtResearchMaterialReference[] | null>(null), [listError, setListError] = React.useState(false);
   const request = React.useRef<{ controller: AbortController; generation: number } | null>(null), active = React.useRef(true), locked = React.useRef(false);
@@ -55,7 +57,7 @@ function MaterialControl({ context, value, label, onChange, readOnly = false, im
     const operation = { controller: new AbortController(), generation: intent.current.generation }; request.current = operation;
     const isCurrent = () => active.current && !operation.controller.signal.aborted && request.current === operation && intent.current.generation === operation.generation;
     try { await work({ ...context, signal: operation.controller.signal, isCurrent }); }
-    catch { if (isCurrent()) setFeedback({ intent: intentIdentity, text: "材料保存或回读未通过，尚未关联本次文件。原有文字与选择仍保留；若已取得上传回执，可只重试回读。" }); }
+    catch { if (isCurrent()) setFeedback({ intent: intentIdentity, failed: true, text: "材料保存或回读未通过，尚未关联本次文件。原有文字与选择仍保留；若已取得上传回执，可只重试回读。" }); }
     finally { if (active.current && request.current === operation) { request.current = null; setPending(false); locked.current = false; } }
   }
   async function accept(context: MaterialWorkContext, received: AidtMaterialReceipt | AidtResearchMaterialReference) {
@@ -65,6 +67,37 @@ function MaterialControl({ context, value, label, onChange, readOnly = false, im
     notify.current(result.reference); setFile(null); setReceipt(null); setChoices(null);
     setFeedback({ selected: materialIdentity(result.reference), text: `${"duplicateAction" in received && received.duplicateAction === "use-existing" ? "重复文件已复用原版本。" : "duplicateAction" in received && received.duplicateAction === "as-new-version" ? "重复文件已另存新版本。" : ""}${result.processingFailed ? "后续材料处理失败；原件可读，检索和转写状态未确认。" : ""}原件已保存并回读，已加入草稿；请保存到小组。` });
   }
+  if (appearance === "photo") return <div className="space-y-2" aria-label={label} data-testid="aidt-photo-upload">
+    <Input ref={fileInput} type="file" aria-label={`${label}选择文件`} accept={acceptAttribute} disabled={readOnly || pending} className="sr-only" onChange={event => {
+      if (readOnly || locked.current) return;
+      setFile(event.currentTarget.files?.[0] ?? null); setReceipt(null); setFeedback(null);
+    }} />
+    {file && <p className="break-words text-12 text-muted-foreground">{file.name}</p>}
+    <div className="flex flex-wrap gap-2">
+      <Button type="button" size="sm" variant="outline" disabled={readOnly || pending} onClick={() => {
+        if (fileInput.current) { fileInput.current.value = ""; fileInput.current.click(); }
+      }}>{value ? "更换照片" : "上传照片"}</Button>
+      {file && <Button type="button" size="sm" disabled={readOnly || pending || !kinds.includes(materialKind(file.type, file.name)) || !!receipt} onClick={() => void execute(async current => {
+        if (!file || !kinds.includes(materialKind(file.type, file.name))) return;
+        const received = await uploadAidtResearchMaterial(current, file, strategy);
+        if (!current.isCurrent()) return;
+        setReceipt({ intent: intentIdentity, receipt: received }); await accept(current, received);
+      })}>保存照片</Button>}
+      {receipt && <Button type="button" size="sm" variant="outline" disabled={readOnly || pending} onClick={() => void execute(current => accept(current, receipt))}>重试读取照片</Button>}
+      {(file || pending) && <Button type="button" size="sm" variant="ghost" onClick={() => {
+        request.current?.controller.abort(); request.current = null; locked.current = false; setPending(false); setFile(null); setReceipt(null);
+        if (fileInput.current) fileInput.current.value = "";
+        setFeedback({ intent: intentIdentity, text: "已取消本次关联，原照片与文字仍保留。" });
+      }}>取消</Button>}
+      {value && <Button type="button" size="sm" variant="ghost" disabled={readOnly || pending} onClick={() => notify.current(null)}>移除照片</Button>}
+    </div>
+    {pending && <p role="status" data-testid="loading" className="text-12 text-muted-foreground">正在保存并核对照片…</p>}
+    {status && <p role={feedback?.failed ? "alert" : "status"} data-testid={feedback?.failed ? "err-photo" : undefined} className="text-12 text-muted-foreground">{status}</p>}
+    {!!localMaterials.filter(isAidtResearchImage).length && <details className="text-12">
+      <summary className="cursor-pointer text-muted-foreground">使用此访谈已有照片</summary>
+      <div className="mt-2 flex flex-wrap gap-2">{localMaterials.filter(reference => reference.projectId === context.projectId && isAidtResearchImage(reference)).map(reference => <Button key={`${reference.artifactId}:${reference.versionId}`} type="button" size="sm" variant="outline" disabled={readOnly || pending} onClick={() => void execute(current => accept(current, reference))}>{reference.name}</Button>)}</div>
+    </details>}
+  </div>;
   return <div className="space-y-2 rounded-lg border border-border p-3" aria-label={label} data-testid="aidt-research-material-control">
     <p className="text-12 font-medium">{label}</p>
     <label className="block text-12">选择原始文件<input aria-label={`${label}选择文件`} type="file" accept={acceptAttribute} disabled={readOnly || pending} className="mt-1 block w-full text-12" onChange={event => { if (!readOnly && !locked.current) { setFile(event.currentTarget.files?.[0] ?? null); setReceipt(null); setFeedback(null); } }} /></label>

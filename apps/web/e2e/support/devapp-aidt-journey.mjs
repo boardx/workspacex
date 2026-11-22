@@ -775,12 +775,17 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     await expect(materials).toBeVisible();
     const photoFile = code === 'U01' ? `qa-${unique}-${code}-photo-sample.png` : null;
     await page.getByLabel('已获授权共享文字记录', { exact: true }).check();
-    if (photoFile) await page.getByLabel('已获授权共享照片', { exact: true }).check();
     await saveInterviewEdit(() => click(btn('更新授权记录')));
     if (photoFile) {
       const image = schematicPng(unique, 14);
-      await saveInterviewEdit(() => uploaded(`${code}研究原件`, photoFile, image, 'image/png'));
-      await saveInterviewEdit(() => click(btn('用作发现卡照片', materials)));
+      const editor = page.getByTestId('aidt-interview-finding-editor');
+      await expect(editor).toBeVisible();
+      await saveInterviewEdit(() => editor.getByRole('checkbox', { name: '已获受访者授权共享照片', exact: true }).check());
+      if (typeof registerFixture !== 'function') fail('UPLOAD_FIXTURE_GUARD_UNAVAILABLE');
+      await registerFixture({ filename: photoFile, bytes: image, mime: 'image/png' });
+      await editor.getByLabel(`${code}发现卡照片选择文件`, { exact: true }).setInputFiles({ name: photoFile, mimeType: 'image/png', buffer: image });
+      await saveInterviewEdit(() => click(btn('保存照片', editor)));
+      await expect(editor).toContainText('原件已保存并回读', { timeout: 60000 });
       const photo = JSON.parse((await savedStage(2)).content.draft.fields[`discoveryPhoto:${target.entityId}`] ?? '{}');
       if (photo.name !== photoFile || photo.projectId !== scope.projectId || !photo.versionId
         || photo.sha256 !== createHash('sha256').update(image).digest('hex')) fail('INTERVIEW_PHOTO_REFERENCE_UNVERIFIED');
@@ -809,7 +814,11 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     await expect.poll(async () => Boolean(await readFinding()), { timeout: 30000 }).toBe(true);
     const projected = await readFinding();
     const actions = page.getByTestId('aidt-interview-chat-actions');
-    await disclosure('整理访谈发现');
+    const editor = actions.getByTestId('aidt-interview-finding-editor');
+    await expect(editor.getByRole('textbox', { name: '一句发现', exact: true })).toHaveValue(projected.headline);
+    await expect(editor.getByRole('textbox', { name: '具体情况', exact: true })).toHaveValue(projected.context);
+    await disclosure('原话与来源');
+    await expect(editor.getByLabel('可定位的受访者原话', { exact: true })).toHaveValue(quote);
     await confirmInInterviewChat(btn('确认人物发现卡', actions));
     await output(target);
     const inspector = await readOnlyInterviewOutput();
@@ -827,6 +836,12 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     } else {
       await expect(finding.getByText('暂无授权照片。', { exact: true })).toBeVisible();
       await expect(finding.getByRole('img')).toHaveCount(0);
+    }
+    if (code === 'U01' || code === 'U02') {
+      const imageHashes = photoFile ? [createHash('sha256').update(schematicPng(unique, 14)).digest('hex')] : [];
+      await printOutput(2, `discovery-card-${code}-${photoFile ? 'with-photo' : 'photo-missing'}`,
+        btn('导出人物发现卡 PDF', finding),
+        [code, '人物发现卡', quote, projected.context, photoFile || '暂无授权照片。'], imageHashes);
     }
     evidence(2).outputs.push({ name: `${code}人物发现卡`, format: photoFile ? 'native finding card; synthetic text and schematic' : 'native finding card; synthetic text, photo missing', status: 'pass', evidence: `Normal UI confirmation at V${await revision(2)}; software scope only` });
     recordInterviewIteration(firstFinding, projected.headline, `${code}人物发现卡`, target);
@@ -1060,10 +1075,17 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     const brainstormOutput = page.getByTestId('aidt-brainstorm-output');
     await expect(brainstormOutput).toBeVisible();
     await expect(brainstormOutput.getByRole('listitem')).toHaveCount(5);
-    const selectedIds = (await reverse.read()).candidates.slice(0, 2);
+    // V2 requires three distinct description sheets, while this round still selects two for prototyping.
+    const descriptionIds = (await reverse.read()).candidates.slice(0, 3);
+    const selectedIds = descriptionIds.slice(0, 2);
     const reverseHref = owned(page.url());
     const candidates = (await savedStage(4)).content.draft.ideas;
-    for (const [index, id] of selectedIds.entries()) {
+    const descriptionIdeas = descriptionIds.map(id => candidates.find(record => record.id === id));
+    if (descriptionIds.length !== 3 || new Set(descriptionIds).size !== 3
+      || descriptionIdeas.some(idea => !idea?.title?.trim() || !idea.description?.trim())
+      || new Set(descriptionIdeas.map(idea => idea.title.trim())).size !== 3
+      || new Set(descriptionIdeas.map(idea => idea.description.trim())).size !== 3) fail('S4_THREE_DISTINCT_DESCRIPTION_IDEAS_REQUIRED');
+    for (const [index, id] of descriptionIds.entries()) {
       const idea = candidates.find(record => record.id === id);
       if (!idea?.title || !idea.description) fail('S4_SELECTED_CANDIDATE_DESCRIPTION_REQUIRED');
       await page.goto(frozenUrl.href);
@@ -1105,7 +1127,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     await page.goto(frozenHandoff);
     await expect(page.getByTestId('aidt-step-entity-directory')).toBeVisible();
     step5Href = frozenHandoff;
-    report.brainstormHandoff = { hmwId: chosenHmw.id, hmwRevision: stage3.revision, stage4Revision: stage4.revision, sameSessionAfterReload: true, retained: 5, selected: 2, selectedIds, methodThreadCount: 2, methods: ['reverse', 'scamper'] };
+    report.brainstormHandoff = { hmwId: chosenHmw.id, hmwRevision: stage3.revision, stage4Revision: stage4.revision, sameSessionAfterReload: true, retained: 5, descriptionCount: 3, descriptionIds, selected: 2, selectedIds, methodThreadCount: 2, methods: ['reverse', 'scamper'] };
   }, '04-brainstorm');
 
   state.s5 = await check('s5-prototype-question-version', 5, async () => {

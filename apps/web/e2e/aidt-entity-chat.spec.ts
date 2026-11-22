@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { chat } from "@repo/contracts";
@@ -259,7 +259,7 @@ test.describe("recording evidence in the interview Chat", () => {
     const fields = Object.fromEntries([first, sibling].map((id, index) => ["interviewRecord:" + id,
       JSON.stringify({ version: 1, id, code: "U0" + (index + 1), topicRevision: 1, topic, goal: "了解选择",
         original: "怎么选饮料？", adopted: "上次怎么选的？", guideConfirmed: true,
-        consent: { notes: true, photos: true, audio: true, capture: true, asr: false, observedAt: new Date().toISOString() } })]));
+        consent: { notes: true, photos: false, audio: true, capture: true, asr: false, observedAt: new Date().toISOString() } })]));
     const endpoint = projectStages + "/2";
     expect((await page.request.put(endpoint, { headers, data: { operationId: randomUUID(), expectedRevision: 0,
       sourceStageRevisions: [], content: { schemaVersion: 1, draft: { fields, selectedIdeaId: "", ideas: [] } } } })).ok()).toBe(true);
@@ -303,13 +303,67 @@ test.describe("recording evidence in the interview Chat", () => {
       for (const y of [155, 210, 265]) fixture.fillRect(241, y, 237, 15);
       return canvas.toDataURL("image/png").split(",")[1]!;
     });
-    await page.getByLabel("U01研究原件选择文件").setInputFiles({
-      name: photoName, mimeType: "image/png", buffer: Buffer.from(photoData, "base64"),
-    });
-    await page.getByRole("button", { name: "保存原始材料", exact: true }).click();
-    await page.getByRole("button", { name: "用作发现卡照片", exact: true }).click();
-    await expect.poll(async () => JSON.parse((await head()).fields["discoveryPhoto:" + first] || "{}").name).toBe(photoName);
     const scene = "午休时，她在食堂饮品窗口的菜单前逐项比较两种口味，随后选择熟悉的饮品。";
+    const findingActions = page.getByTestId("aidt-interview-chat-actions");
+    const editFinding = async () => {
+      const editor = findingActions.getByTestId("aidt-interview-finding-editor");
+      await expect(editor).toBeVisible();
+      return editor;
+    };
+    const editor = await editFinding();
+    await editor.getByRole("textbox", { name: "一句发现", exact: true }).fill("她先比较口味，最后仍选熟悉的饮品。");
+    await editor.getByRole("textbox", { name: "具体情况", exact: true }).fill(scene);
+    await expect.poll(async () => (await head()).discoveryCards?.find((card: { id: string }) => card.id === first)?.context).toBe(scene);
+    await expect(editor.getByRole("button", { name: "上传照片", exact: true })).toHaveCount(0);
+    await editor.getByRole("checkbox", { name: "已获受访者授权共享照片", exact: true }).check();
+    await expect.poll(async () => JSON.parse((await head()).fields["interviewRecord:" + first]).consent.photos).toBe(true);
+    const photoInput = editor.getByLabel("U01发现卡照片选择文件", { exact: true });
+    const photoFile = { name: photoName, mimeType: "image/png", buffer: Buffer.from(photoData, "base64") };
+    const uploadPath = "/__fullstack_api/projects/" + projectId + "/artifacts/upload";
+    let photoUploadRequests = 0;
+    page.on("request", request => {
+      if (request.method() === "POST" && new URL(request.url()).pathname === uploadPath) photoUploadRequests += 1;
+    });
+
+    // A cancelled file choice is neither an upload nor a saved photograph.
+    const beforeCancel = await stage();
+    await photoInput.setInputFiles(photoFile);
+    await expect(editor.getByRole("button", { name: "保存照片", exact: true })).toBeVisible();
+    await editor.getByRole("button", { name: "取消", exact: true }).click();
+    await expect(editor.getByText("已取消本次关联，原照片与文字仍保留。", { exact: true })).toBeVisible();
+    await expect(editor.getByRole("button", { name: "保存照片", exact: true })).toHaveCount(0);
+    const cancelled = await stage();
+    expect(cancelled.revision).toBe(beforeCancel.revision);
+    expect(photoUploadRequests).toBe(0);
+    expect(cancelled.content.draft.fields["discoveryPhoto:" + first] || "").toBe("");
+    await expect(editor.getByRole("textbox", { name: "具体情况", exact: true })).toHaveValue(scene);
+
+    await photoInput.setInputFiles(photoFile);
+    await editor.getByRole("button", { name: "保存照片", exact: true }).click();
+    await expect.poll(async () => JSON.parse((await head()).fields["discoveryPhoto:" + first] || "{}").name).toBe(photoName);
+    const savedPhoto = JSON.parse((await head()).fields["discoveryPhoto:" + first]);
+    expect(photoUploadRequests).toBe(1);
+    expect(savedPhoto).toMatchObject({ projectId, name: photoName, sha256: createHash("sha256").update(photoFile.buffer).digest("hex") });
+    expect(savedPhoto.versionId).toBeTruthy();
+    await page.reload();
+    await editFinding();
+    await expect(editor.getByRole("textbox", { name: "具体情况", exact: true })).toHaveValue(scene);
+    await expect.poll(() => editor.getByRole("img", { name: "U01 的授权访谈照片" }).evaluate((node: HTMLImageElement) => node.naturalWidth)).toBe(720);
+    expect(JSON.parse((await head()).fields["discoveryPhoto:" + first])).toEqual(savedPhoto);
+
+    // Reject one replacement request before it reaches storage; keep the real prior photo and text.
+    await page.route(url => url.pathname === uploadPath, route => route.fulfill({
+      status: 503, contentType: "application/json", body: JSON.stringify({ reasonCode: "SYNTHETIC_PHOTO_UPLOAD_FAILURE" }),
+    }), { times: 1 });
+    await photoInput.setInputFiles({ ...photoFile, name: "U01-取消替换.png" });
+    await editor.getByRole("button", { name: "保存照片", exact: true }).click();
+    await expect(editor.getByRole("alert")).toContainText("材料保存或回读未通过，尚未关联本次文件。");
+    expect(photoUploadRequests).toBe(2);
+    expect(JSON.parse((await head()).fields["discoveryPhoto:" + first])).toEqual(savedPhoto);
+    await expect(editor.getByRole("textbox", { name: "具体情况", exact: true })).toHaveValue(scene);
+    await expect(editor.getByRole("img", { name: "U01 的授权访谈照片" })).toBeVisible();
+    await editor.getByRole("button", { name: "取消", exact: true }).click();
+
     await sendViaWorkbench(page, `合成访谈验收：${scene}请整理本次发现。`);
     await expect.poll(async () => (await head()).discoveryCards?.[0]?.sourceRef, { timeout: 60_000 }).toContain("00:01");
     await page.goto(url);
@@ -328,9 +382,10 @@ test.describe("recording evidence in the interview Chat", () => {
     const original = await download;
     expect(original.suggestedFilename()).toBe(photoName);
     expect(await readFile(await original.path())).toEqual(Buffer.from(photoData, "base64"));
-    const findingActions = page.getByTestId("aidt-interview-chat-actions");
-    await findingActions.getByText("整理访谈发现", { exact: true }).click();
-    await findingActions.getByRole("button", { name: "确认人物发现卡", exact: true }).click();
+    await editFinding();
+    await editor.getByText("原话与来源", { exact: true }).click();
+    await expect(editor.getByLabel("可定位的受访者原话", { exact: true })).toHaveValue("我先看口味");
+    await editor.getByRole("button", { name: "确认人物发现卡", exact: true }).click();
     await expect.poll(async () => (await head()).fields["interviewConfirmed:" + first]).toBe("true");
     await expect(output.getByRole("button", { name: "导出人物发现卡 PDF", exact: true })).toBeEnabled();
     await output.locator("article").screenshot({ path: test.info().outputPath("illustrated-discovery-card.png") });
@@ -353,9 +408,8 @@ test.describe("recording evidence in the interview Chat", () => {
     await expect(photo).toHaveCount(0);
 
     await openInterview(page, url);
-    await materials();
-    await page.getByRole("checkbox", { name: "已获授权共享照片" }).uncheck();
-    await page.getByRole("button", { name: "更新授权记录" }).click();
+    await editFinding();
+    await editor.getByRole("checkbox", { name: "已获受访者授权共享照片", exact: true }).uncheck();
     await expect.poll(async () => (await head()).fields["discoveryPhoto:" + first] || "").toBe("");
     const recheckedConsent = historyTab.waitForResponse(response => response.request().method() === "GET"
       && /\/aidt\/stages\/2$/.test(response.url()));
