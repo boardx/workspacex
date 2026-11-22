@@ -6,6 +6,7 @@ import { collectNativeSurvey, surveyFixture } from './devapp-aidt-survey.mjs';
 import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
+import { aidtSyntheticInterviewAudio } from './devapp-aidt-acceptance-guard.mjs';
 
 export const REQUIRED_CHECKS = Object.freeze([
   'overview', 's1-draft-not-complete', 's1-confirmed-reentry',
@@ -511,9 +512,9 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
       if (image) await shot(image, stage);
     }
   });
-  const uploaded = async (label, filename, bytes, mime) => {
+  const uploaded = async (label, filename, bytes, mime, interviewEntityId) => {
     if (typeof registerFixture !== 'function') fail('UPLOAD_FIXTURE_GUARD_UNAVAILABLE');
-    await registerFixture({ filename, bytes, mime });
+    await registerFixture({ filename, bytes, mime, interviewEntityId });
     const region = page.getByTestId('aidt-research-material-control').filter({ has: page.getByLabel(`${label}选择文件`, { exact: true }) });
     await region.getByLabel(`${label}选择文件`, { exact: true }).setInputFiles({ name: filename, mimeType: mime, buffer: bytes });
     await click(btn('保存原始材料', region));
@@ -799,10 +800,18 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
       if (photo.name !== photoFile || photo.projectId !== scope.projectId || !photo.versionId
         || photo.sha256 !== createHash('sha256').update(image).digest('hex')) fail('INTERVIEW_PHOTO_REFERENCE_UNVERIFIED');
     }
+    if (code === 'U01') {
+      await materials.getByRole('checkbox', { name: '已获授权共享原始录音', exact: true }).check();
+      await saveInterviewEdit(() => click(btn('更新授权记录')));
+      const audio = aidtSyntheticInterviewAudio(scope.runId, scope.runAttempt);
+      await saveInterviewEdit(() => uploaded(`${code}研究原件`, audio.filename, audio.bytes, audio.mime, target.entityId));
+    }
     const quote = `QA-${code}：我在合成情境中先看队列，再决定是否等待。`;
-    await saveInterviewEdit(() => uploaded(`${code}研究原件`, `qa-${unique}-${code}.txt`, Buffer.from(`${SYNTHETIC}。run=${unique}\n第1段 ${quote}\n`), 'text/plain'));
+    const materialName = `qa-${unique}-${code}.txt`;
+    await saveInterviewEdit(() => uploaded(`${code}研究原件`, materialName, Buffer.from(`${SYNTHETIC}。run=${unique}\n第1段 ${quote}\n`), 'text/plain'));
     const select = page.getByRole('combobox', { name: '转写原件', exact: true });
-    await expect(select.locator('option')).toHaveCount(2); await saveInterviewEdit(() => select.selectOption({ index: 1 }));
+    await expect(select.locator('option')).toHaveCount(code === 'U01' ? 3 : 2);
+    await saveInterviewEdit(() => select.selectOption({ label: materialName }));
     await saveInterviewEdit(() => fill('定位（如 01:42 或第 3 段）', '第1段'));
     await saveInterviewEdit(() => fill('校对后的摘录', quote));
     await saveInterviewEdit(() => page.getByLabel('已对照原始材料校对', { exact: true }).check());
@@ -1023,9 +1032,54 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
         await expect(inspector).not.toContainText(other.quote);
       }
       expect(new URL(page.url()).searchParams.get('entity')).toBe(new URL(interview.href).searchParams.get('entity'));
+      await click(page.getByTestId('chat-task-workbench-inspector-tab-materials'));
+      const materials = page.getByRole('region', { name: '授权和访谈材料' });
+      await expect(materials).toBeVisible();
+      const original = materials.getByTestId('aidt-research-material-preview').filter({ hasText: interview.materialName });
+      await expect(original.getByTestId('aidt-research-original-text')).toContainText(interview.quote);
+      for (const sibling of state.interviews.filter(other => other !== interview)) {
+        await expect(materials.getByTestId('aidt-research-material-preview').filter({ hasText: sibling.materialName })).toHaveCount(0);
+      }
+      const wav = aidtSyntheticInterviewAudio(scope.runId, scope.runAttempt);
+      const audio = materials.getByLabel(`收听原始录音：${wav.filename}`, { exact: true });
+      if (interview.code === 'U01') {
+        await expect(audio).toBeVisible();
+        await expect.poll(() => audio.evaluate(element => element.readyState >= 2 && Math.abs(element.duration - 1) < 0.05)).toBe(true);
+        await audio.evaluate(async element => {
+          element.muted = true;
+          await element.play();
+        });
+        await expect.poll(() => audio.evaluate(element => element.currentTime > 0)).toBe(true);
+        await audio.evaluate(element => element.pause());
+        const audioPreview = materials.getByTestId('aidt-research-material-preview').filter({ has: audio });
+        const [download] = await Promise.all([
+          page.waitForEvent('download'),
+          click(audioPreview.getByRole('link', { name: '下载真实原件', exact: true })),
+        ]);
+        if (download.suggestedFilename() !== wav.filename) fail('INTERVIEW_WAV_NAME_UNVERIFIED');
+        const stream = await download.createReadStream();
+        if (!stream) fail('INTERVIEW_WAV_DOWNLOAD_UNREADABLE');
+        let bytes = 0;
+        const hash = createHash('sha256');
+        for await (const chunk of stream) {
+          bytes += chunk.length;
+          if (bytes > wav.bytes.length) fail('INTERVIEW_WAV_BYTES_UNVERIFIED');
+          hash.update(chunk);
+        }
+        const sha256 = hash.digest('hex');
+        if (bytes !== wav.bytes.length || sha256 !== createHash('sha256').update(wav.bytes).digest('hex')) fail('INTERVIEW_WAV_BYTES_UNVERIFIED');
+        await audio.scrollIntoViewIfNeeded();
+        await shot('02-u01-uploaded-wav-playback', 2);
+        report.interviewWavReadback = { participant: interview.code, filename: wav.filename, bytes, sha256, replayedAfterReload: true, siblingCardsChecked: false };
+      } else {
+        await expect(materials.getByTestId('aidt-research-material-preview').filter({ hasText: wav.filename })).toHaveCount(0);
+        await expect(audio).toHaveCount(0);
+      }
       observed.push({ code: interview.code, stableThread: true, savedStudentMessage: true, savedAssistantMessage: true, noSiblingMessages: true, confirmedGuide: true, exportedPdf: true, rightInspector: true, nativeArtifactListReentry: true, directoryReentry: true, refresh: true });
     }
     report.independentEntityThreadsVerified = true;
+    if (!report.interviewWavReadback) fail('INTERVIEW_WAV_READBACK_UNVERIFIED');
+    report.interviewWavReadback.siblingCardsChecked = true;
   }, '02-independent-chat');
 
   await check('s2-card-management', 2, async () => {

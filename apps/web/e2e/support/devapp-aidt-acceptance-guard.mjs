@@ -29,6 +29,34 @@ export function acceptanceIdentity(env) {
   return { source, tag, run, attempt, entryDiagnosticOnly: env.AIDT_ENTRY_DIAGNOSTIC_ONLY === 'true', projectName: `AIDT QA synthetic ${run}-${attempt}` };
 }
 
+export function aidtSyntheticInterviewAudio(run, attempt) {
+  if (![run, attempt].every(value => typeof value === 'string' && /^[1-9][0-9]*$/.test(value))) {
+    throw new ProbeFailure('SYNTHETIC_WAV_IDENTITY_INVALID');
+  }
+  const filename = `qa-${run}-${attempt}-U01-synthetic.wav`;
+  const sampleRate = 8000;
+  const bytes = Buffer.alloc(44 + sampleRate * 2);
+  bytes.write('RIFF', 0);
+  bytes.writeUInt32LE(bytes.length - 8, 4);
+  bytes.write('WAVEfmt ', 8);
+  bytes.writeUInt32LE(16, 16);
+  bytes.writeUInt16LE(1, 20);
+  bytes.writeUInt16LE(1, 22);
+  bytes.writeUInt32LE(sampleRate, 24);
+  bytes.writeUInt32LE(sampleRate * 2, 28);
+  bytes.writeUInt16LE(2, 32);
+  bytes.writeUInt16LE(16, 34);
+  bytes.write('data', 36);
+  bytes.writeUInt32LE(sampleRate * 2, 40);
+  for (let i = 0; i < sampleRate; i++) {
+    bytes.writeInt16LE(Math.round(2200 * Math.sin(2 * Math.PI * 440 * i / sampleRate)), 44 + i * 2);
+  }
+  // Make the tone unique to this run, without using any captured or spoken audio.
+  const marker = createHash('sha256').update(filename).digest();
+  for (const [index, value] of marker.entries()) bytes.writeInt16LE(value - 128, 44 + index * 2);
+  return { filename, bytes, mime: 'audio/wav' };
+}
+
 export function assertRuntimeProof(proof, identity) {
   const exact = proof?.aidtExactRelease;
   if (exact?.status !== 'OBSERVED' || !Array.isArray(exact.containers)) throw new ProbeFailure('EXACT_RUNTIME_UNVERIFIED');
@@ -437,8 +465,20 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       const source = 'data:image/png;base64,' + bytes.toString('base64');
       imageArm = { name: fileName, source, summary: 'AIDT 图片原型 · ' + createHash('sha256').update(source).digest('hex'), until: now() + 15000 };
     },
-    registerFixture: ({ filename, bytes, mime }) => {
-      if (!projectId || !Buffer.isBuffer(bytes) || bytes.length < 10 || bytes.length > 262144 || !filename.startsWith(`qa-${identity.run}-`) || !/^[A-Za-z0-9_.-]{1,180}$/.test(filename) || !['text/plain', 'image/png'].includes(mime)) throw new ProbeFailure('FIXTURE_REJECTED');
+    registerFixture: ({ filename, bytes, mime, interviewEntityId }) => {
+      if (!projectId || !Buffer.isBuffer(bytes) || bytes.length < 10 || bytes.length > 262144 || !filename.startsWith(`qa-${identity.run}-`) || !/^[A-Za-z0-9_.-]{1,180}$/.test(filename)) throw new ProbeFailure('FIXTURE_REJECTED');
+      if (mime === 'audio/wav') {
+        const sample = aidtSyntheticInterviewAudio(identity.run, identity.attempt);
+        let interview;
+        try { interview = JSON.parse(stageStates.get(2)?.content?.draft?.fields?.[`interviewRecord:${interviewEntityId}`]); }
+        catch { /* No saved interview reference. */ }
+        if (!ordinaryVerified || interview?.id !== interviewEntityId || interview?.code !== 'U01'
+          || interview.archived || interview.consent?.audio !== true || filename !== sample.filename || !bytes.equals(sample.bytes)) {
+          throw new ProbeFailure('SYNTHETIC_WAV_SCOPE_REJECTED');
+        }
+      } else if (!['text/plain', 'image/png'].includes(mime) || interviewEntityId !== undefined) {
+        throw new ProbeFailure('FIXTURE_REJECTED');
+      }
       const fixture = { filename, sizeBytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), mime };
       if (fixtures.has(filename)) throw new ProbeFailure('FIXTURE_REUSED'); fixtures.set(filename, fixture); uploadArm = { ...fixture, until: now() + 30000 }; return fixture;
     },

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, chmodSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
+import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage, aidtSyntheticInterviewAudio } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
 import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern, schematicPng } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
@@ -226,6 +226,40 @@ test('fixture upload requires one registered run file, fresh receipt and exact o
   assert.equal(read.allow, true); guard.observeContent(read, 200, { 'x-artifact-version-id': 'version-qa', 'x-content-sha256': createHash('sha256').update(bytes).digest('hex'), 'x-artifact-id': 'artifact-qa' }, bytes);
   guard.armStageSave(2); assert.equal(request(guard, 'PUT', `/api/projects/${project}/aidt/stages/2`, stageBody({ material: JSON.stringify({ projectId: project, runId: 'run-qa', artifactId: 'artifact-qa', versionId: 'version-qa' }) })).allow, true);
   assert.equal(request(guard, 'GET', `/api/ingestion-runs/not-created/content?projectId=${project}`).allow, false);
+});
+test('WAV fixture requires U01 consent and exact deterministic bytes for this one QA run', () => {
+  const { guard, bind } = owned(); bind();
+  const sample = aidtSyntheticInterviewAudio('456', '1');
+  const entity = 'sample-u01';
+  assert.equal(sample.bytes.toString('ascii', 0, 12).slice(8), 'WAVE');
+  assert.equal(sample.bytes.readUInt32LE(24), 8000);
+  assert.equal(sample.bytes.readUInt32LE(40), 16000);
+  assert.notDeepEqual(sample.bytes, aidtSyntheticInterviewAudio('456', '2').bytes);
+  const register = options => guard.registerFixture({ ...sample, interviewEntityId: entity, ...options });
+  const saveFixtureStage = consent => {
+    const stage = request(guard, 'GET', `/api/projects/${project}/aidt/stages/2`);
+    guard.observe(stage, 200, { stage: { projectId: project, stageId: 2, content: { draft: { fields: {
+      [`interviewRecord:${entity}`]: JSON.stringify({ id: entity, code: 'U01', consent: { audio: consent } }),
+      'interviewRecord:sample-u02': JSON.stringify({ id: 'sample-u02', code: 'U02', consent: { audio: true } }),
+    } } } } });
+  };
+  for (const consent of [undefined, false]) {
+    if (consent !== undefined) saveFixtureStage(consent);
+    assert.throws(() => register(), /SYNTHETIC_WAV_SCOPE_REJECTED/);
+  }
+  saveFixtureStage(true);
+  assert.throws(() => register({ interviewEntityId: 'sample-u02' }), /SYNTHETIC_WAV_SCOPE_REJECTED/);
+  const altered = Buffer.from(sample.bytes);
+  altered[44] ^= 1;
+  assert.throws(() => register({ bytes: altered }), /SYNTHETIC_WAV_SCOPE_REJECTED/);
+  assert.throws(() => register({ filename: 'qa-456-other.wav' }), /SYNTHETIC_WAV_SCOPE_REJECTED/);
+  const armed = register();
+  assert.equal(armed.mime, 'audio/wav');
+  const { filename, sizeBytes, sha256 } = armed;
+  const meta = { projectId: project, agendaSegmentId: null, files: [{ filename, sizeBytes, sha256 }],
+    confidential: false, visibilityScope: 'org-wide', onDuplicate: 'use-existing' };
+  assert.equal(request(guard, 'POST', `/api/projects/${project}/artifacts/upload`, { __multipart: true, meta, files: [armed] }).allow, true);
+  assert.throws(() => register(), /FIXTURE_REUSED/);
 });
 test('duplicate upload receipt and redirects fail closed', () => {
   const { guard, bind } = owned(); bind();
