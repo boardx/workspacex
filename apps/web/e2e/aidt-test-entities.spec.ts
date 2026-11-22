@@ -22,7 +22,7 @@ async function api<T = unknown>(page: Page, path: string, method = "GET", body?:
   return response.json() as Promise<T>;
 }
 
-async function seedDesignVersion(page: Page, projectId: string) {
+async function seedLegacyDesignVersion(page: Page, projectId: string) {
   if (!process.env.WORKSPACEX_ISOLATION_ID || !process.env.WORKSPACEX_DB?.startsWith("wsx_") ||
       process.env.PGDATABASE !== process.env.WORKSPACEX_DB || !["127.0.0.1", "localhost"].includes(process.env.PGHOST ?? "")) {
     throw new Error("This Design fixture requires an owned loopback PostgreSQL test database.");
@@ -59,6 +59,8 @@ async function seedDesignVersion(page: Page, projectId: string) {
   const versionPath = `/pm-designs/${design.id}/versions/${versions[0]}`;
   const { version } = await api<{ version: { id: string; seq: number; summary: string; createdAt: string; source: "user"; prototype: unknown[] } }>(page, versionPath);
   expect(version).toMatchObject({ id: versions[0], seq: 1, summary: "首版口味标签", prototype: [expect.objectContaining({ props: expect.objectContaining({ content: "首版口味标签" }) })] });
+  // Legacy aggregate isolation input only. No selected ideas, confirmed text,
+  // modern prototype entity or handoff is fabricated by this deterministic seed.
   const question = confirmAidtVerificationQuestion(updateAidtPrototypeReference({
     fields: { verificationQuestion: "能否区分两种奶感？", beforeTestBelief: "并排看更清楚。" }, ideas: [], selectedIdeaId: "",
   }, { designId: design.id, designName: design.name, versionId: version.id, seq: version.seq, summary: version.summary, createdAt: version.createdAt, source: version.source, frameCount: 1, generatedFrameCount: 1 }));
@@ -99,7 +101,7 @@ async function openTest(page: Page, href: string) {
   return routeThread(page)!;
 }
 
-test("AIDT test groups bind an immutable Design and isolate parallel native Chats and survey feedback", async ({ page, context }, info) => {
+test("AIDT legacy test groups bind an immutable Design and isolate parallel native Chats and survey feedback", async ({ page, context }, info) => {
   test.skip(!isAidtModuleEnabled(), "Run with the explicit AIDT full-stack configuration.");
   test.setTimeout(180_000);
   await page.goto("/login");
@@ -114,7 +116,7 @@ test("AIDT test groups bind an immutable Design and isolate parallel native Chat
   await expect(page).toHaveURL(/\/aidt\/[^/?]+$/);
   const pathname = new URL(page.url()).pathname;
   const projectId = pathname.split("/").at(-1)!;
-  const prototype = await seedDesignVersion(page, projectId);
+  const prototype = await seedLegacyDesignVersion(page, projectId);
   const survey = await seedSurvey(page, projectId);
 
   await page.goto(`${pathname}?step=6&prototypeRevision=${prototype.revision}`);
@@ -122,13 +124,44 @@ test("AIDT test groups bind an immutable Design and isolate parallel native Chat
   await expect(directory.getByText(/选一个已确认的原型/)).toBeVisible();
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveCount(0);
   const hrefs: string[] = [];
-  for (const name of ["A 赶课访谈", "B 非高峰问卷"]) {
-    await directory.getByTestId("aidt-new-entity-card").click();
+  for (const [index, { name, path }] of [
+    { name: "A 赶课访谈", path: "offline" }, { name: "B 非高峰问卷", path: "survey" },
+  ].entries()) {
+    const openCard = () => directory.getByTestId("aidt-new-entity-card").click();
+    await openCard();
     const dialog = page.getByRole("dialog", { name: "新建测试卡片" });
-    await dialog.getByRole("textbox", { name: "测试名称" }).fill(name);
-    await dialog.getByTestId("card-create-tag-input").fill("用户测试");
-    await page.screenshot({ path: test.info().outputPath("stage-6-test-creation.png") });
-    await dialog.getByRole("button", { name: "创建测试卡片" }).click();
+    const pathPicker = dialog.getByRole("combobox", { name: "研究路径", exact: true });
+    const sourceCheck = dialog.getByRole("checkbox", { name: "确认使用所选原型的已保存版本开展本轮研究", exact: true });
+    const create = dialog.getByRole("button", { name: "创建测试卡片", exact: true });
+    const choose = async () => {
+      await expect(pathPicker).toHaveValue("");
+      await expect(sourceCheck).not.toBeChecked();
+      await dialog.getByRole("textbox", { name: "测试名称" }).fill(name);
+      await dialog.getByTestId("card-create-tag-input").fill("用户测试");
+      await expect(create).toBeDisabled();
+      await pathPicker.selectOption(path);
+      await expect(create).toBeDisabled();
+      await dialog.getByRole("button", { name: "预览所选原型版本", exact: true }).click();
+      const preview = dialog.getByRole("region", { name: "被测原型预览", exact: true });
+      await expect(preview).toContainText(`固定版本 ${prototype.versionId}`);
+      await expect(preview).toContainText("首版口味标签");
+      await expect(preview).not.toContainText("新版口味标签");
+      await expect(dialog).toContainText(`第 5 步 V${prototype.revision}`);
+      await pathPicker.selectOption("");
+      await sourceCheck.check();
+      await expect(create).toBeDisabled();
+      await pathPicker.selectOption(path);
+      await expect(create).toBeEnabled();
+    };
+    await choose();
+    if (index === 0) {
+      await dialog.getByRole("button", { name: "取消", exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await openCard();
+      await choose();
+    }
+    await page.screenshot({ path: test.info().outputPath(`stage-6-test-creation-${path}.png`) });
+    await create.click();
     await expect.poll(() => new URL(page.url()).searchParams.get("thread")).toMatch(/^thr_aidt_/);
     hrefs.push(page.url());
     await page.goto(`${pathname}?step=6&prototypeRevision=${prototype.revision}`);
@@ -179,8 +212,8 @@ test("AIDT test groups bind an immutable Design and isolate parallel native Chat
     const { stage } = stageOperations.get.out.parse(await api(page, `/projects/${projectId}/aidt/stages/6`));
     const records = readAidtTestGroups(stage!.content.draft.fields).sort((first, second) => first.name.localeCompare(second.name));
     expect(records).toMatchObject([
-      { name: "A 赶课访谈", method: "interview", said: "", stage5Revision: prototype.revision, versionId: prototype.versionId },
-      { name: "B 非高峰问卷", method: "survey", said: "", did: "", source: { id: survey.id, kind: "survey" }, surveyResponseId: survey.responseId, stage5Revision: prototype.revision, versionId: prototype.versionId },
+      { name: "A 赶课访谈", method: "interview", researchPath: "offline", said: "", stage5Revision: prototype.revision, versionId: prototype.versionId },
+      { name: "B 非高峰问卷", method: "survey", researchPath: "survey", said: "", did: "", source: { id: survey.id, kind: "survey" }, surveyResponseId: survey.responseId, stage5Revision: prototype.revision, versionId: prototype.versionId },
     ]);
     await b!.screenshot({ path: info.outputPath("aidt-survey-test-group.png"), fullPage: true });
 
