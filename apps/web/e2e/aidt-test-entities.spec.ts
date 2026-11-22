@@ -190,7 +190,7 @@ test("AIDT legacy test groups bind an immutable Design and isolate parallel nati
     await expect(detail.getByRole("combobox")).toHaveCount(0);
     await b!.getByText("关联测试材料", { exact: true }).click();
     const sources = b!.getByTestId("aidt-test-group-sources");
-    await sources.getByRole("combobox", { name: "测试方式" }).selectOption("survey");
+    await expect(sources.getByRole("combobox", { name: "研究路径", exact: true })).toHaveValue("survey");
     await sources.getByRole("combobox", { name: "关联项目问卷" }).selectOption(survey.id);
     await expect(sources.getByRole("link", { name: "打开问卷发布" })).toHaveAttribute("href", new RegExp(`/studio/survey/${survey.id}/publish`));
     await expect(sources.getByRole("link", { name: "打开填写链接" })).toHaveAttribute("href", /\/surveys\//);
