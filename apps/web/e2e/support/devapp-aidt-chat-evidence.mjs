@@ -121,7 +121,8 @@ function summaryHistory(value) {
 }
 function selector(value) {
   if (value?.purpose === 'summary') {
-    if (Object.keys(value).sort().join(',') !== 'historyRevisions,projectId,purpose,schemaVersion,stageRevisions' || value.schemaVersion !== 1 || !id(value.projectId)) fail('TEACHING_SELECTOR_INVALID');
+    const expectedKeys = value.entityId === undefined ? 'historyRevisions,projectId,purpose,schemaVersion,stageRevisions' : 'entityId,historyRevisions,projectId,purpose,schemaVersion,stageRevisions';
+    if (Object.keys(value).sort().join(',') !== expectedKeys || value.entityId !== undefined && value.entityId !== 'group-report' || value.schemaVersion !== 1 || !id(value.projectId)) fail('TEACHING_SELECTOR_INVALID');
     const stageRevisions = refs(value.stageRevisions);
     if (stageRevisions.length !== 6) fail('TEACHING_SELECTOR_INVALID');
     return { ...value, stageRevisions, historyRevisions: summaryHistory(value.historyRevisions) };

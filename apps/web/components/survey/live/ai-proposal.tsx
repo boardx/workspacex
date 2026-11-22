@@ -13,9 +13,9 @@ import { surveyRequest } from '@/lib/survey/runtime-client';
 import { listPersonalTranscriptions,type PersonalTranscriptionSummary } from '@/lib/live-personal-transcriptions';
 import { useI18n } from '@/lib/i18n/provider';
 import { displaySurveyMessage, surveyErrorMessage, type SurveyDisplayMessage } from '@/lib/survey/display-message';
-export function SurveyAiProposal({locked,onApply,storageKey}:{locked:boolean;onApply:(markdown:string)=>void|Promise<void>;storageKey?:string}) {
+export function SurveyAiProposal({locked,onApply,storageKey,initialText=""}:{locked:boolean;onApply:(markdown:string)=>void|Promise<void>;storageKey?:string;initialText?:string}) {
   const { t, locale } = useI18n();
-  const [text,setText]=React.useState('');const [busy,setBusy]=React.useState(false);const [error,setError]=React.useState<SurveyDisplayMessage|null>(null);
+  const [text,setText]=React.useState(initialText);const [busy,setBusy]=React.useState(false);const [error,setError]=React.useState<SurveyDisplayMessage|null>(null);
   const [proposal,setProposal]=React.useState<SurveyMarkdownProposal|null>(null);const [markdown,setMarkdown]=React.useState('');
   const [transcriptionId,setTranscriptionId]=React.useState('');
   const [file,setFile]=React.useState<{name:string;base64:string}|null>(null);

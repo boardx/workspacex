@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IdeaHmwSource, readIdeaHmwSource } from "@repo/contracts/aidt-stages";
+import { AIDT_STAGE_IDEA_LIMIT, IdeaHmwSource, readIdeaHmwSource } from "@repo/contracts/aidt-stages";
 import { AIDT_IDEA_CLASSIFICATION_FIELDS, readAidtIdeaClassification } from "./aidt-idea-classification";
 import { aidtIdeaReadiness } from "./aidt-idea-readiness";
 import { isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey } from "./aidt-research-material-reference";
@@ -84,7 +84,7 @@ export function readAidtIdeaDirectory(draft: AidtUiStageDraft) {
 
 export function createAidtIdea(draft: AidtUiStageDraft, id: string, title: string): AidtUiStageDraft {
   const meaningful = draft.ideas.filter(idea => !/^draft-[123]$/u.test(idea.id) || idea.title.trim() || idea.description.trim() || idea.imageAttachment);
-  if (!title.trim() || title.length > 120 || meaningful.length >= 8 || !id || meaningful.some(idea => idea.id === id)) return draft;
+  if (!title.trim() || title.length > 120 || meaningful.length >= AIDT_STAGE_IDEA_LIMIT || !id || meaningful.some(idea => idea.id === id)) return draft;
   return invalidateAidtIdeaSheets({
     ...draft,
     fields: { ...draft.fields, [AIDT_IDEA_CLASSIFICATION_FIELDS.confirmed]: "" },

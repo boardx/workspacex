@@ -6,31 +6,26 @@ import { aidtUiReportMarkdown, aidtUiStageMarkdown, aidtUiStageSummary, emptyAid
 import { addAidtProblem, archiveAidtProblem, updateAidtProblemEntity } from "@/features/aidt/lib/aidt-problem-entities";
 import { archiveAidtInterview, writeAidtInterview } from "@/features/aidt/lib/aidt-interviews";
 import { saveAidtDefinitionHmw, saveAidtDefinitionPersona } from "@/features/aidt/lib/aidt-definition";
-import { confirmAidtPrototypeEntityHandoff, pinAidtPrototypeInputs, updateAidtPrototypeEntityDraft } from "@/features/aidt/lib/aidt-prototype-handoff";
-import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
-import { confirmAidtVerificationQuestion, createAidtQuestionSnapshot, updateAidtReflectionField } from "@/features/aidt/lib/aidt-verification-loop";
+import { confirmAidtPrototypeEntityHandoff, updateAidtPrototypeEntityDraft } from "@/features/aidt/lib/aidt-prototype-handoff";
+import { createAidtQuestionSnapshot, updateAidtReflectionField } from "@/features/aidt/lib/aidt-verification-loop";
 import { createAidtTestGroup, updateAidtTestGroup } from "@/features/aidt/lib/aidt-test-groups";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { StageDraft } from "@repo/contracts/aidt-stages";
-import { reviewedAidtIdeasFixture } from "../aidt-reviewed-ideas-fixture";
+import { readyFormalPrototypeFixture, storeFormalPrototypeFixture } from "../aidt-round-fixture-independent-qa";
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => undefined }));
 const one = "73990275-e848-480f-8962-8d39d3b88b43", two = "783bb5b5-794b-47a2-a59d-57d29d7e6931";
 function stage(stageId: number, draft: AidtUiStageDraft): AidtSharedStage {
   return { projectId: "qa-project", stageId, revision: 9, updatedAt: "2026-11-21T00:00:00Z", updatedBy: "qa-student", sourceStageRevisions: [], content: { schemaVersion: 1, draft: StageDraft.parse(draft) } };
 }
 function prototype(id = "qa-design") {
-  const ideas = stage(4, reviewedAidtIdeasFixture("qa-project", [
-    { id: "qa-idea", title: "等候提示", description: "让学生先了解等待。学生决定是否加入队列。" },
-    { id: "qa-card", title: "比较卡", description: "纸卡列出配料。学生按需选择。" },
-    { id: "qa-map", title: "领取图", description: "图标展示路线。学生沿线领取。" },
-  ], ["qa-idea"]));
-  const question = confirmAidtVerificationQuestion(pinAidtPrototypeInputs({ fields: { verificationQuestion: "QA原型验证问题", beforeTestBelief: "QA先前看法", verificationBasis: "QA依据仍是猜测", verificationLimits: "只能测试理解，不能证明实际行为", type: "QA静态服务图", situation: "QA午休", task: "QA理解提示", operations: "QA先看信息再选择" }, ideas: [], selectedIdeaId: "" }, ideas))!;
-  return updateAidtPrototypeReference(question, { designId: id, versionId: "qa-native-v1", designName: "QA原型", createdAt: "2026-11-21T00:00:00Z", seq: 1, summary: "静态等候提示", frameCount: 1, generatedFrameCount: 1, source: "model" });
+  return readyFormalPrototypeFixture({ projectId: "qa-project", designId: id, sourceRevision: 9,
+    fields: { verificationQuestion: "QA原型验证问题", beforeTestBelief: "QA先前看法", verificationBasis: "QA依据仍是猜测", verificationLimits: "只能测试理解，不能证明实际行为", type: "QA静态服务图", situation: "QA午休", task: "QA理解提示", operations: "QA先看信息再选择" },
+    reference: { designId: id, versionId: "qa-native-v1", designName: "QA原型", createdAt: "2026-11-21T00:00:00Z", seq: 1, summary: "静态等候提示", frameCount: 1, generatedFrameCount: 1, source: "model" } }).draft;
 }
 
 it("assembles the normal prototype entity's actual brief, question and native version without mutating it", () => {
   const drafts = emptyAidtUiDrafts();
-  drafts[5] = confirmAidtPrototypeEntityHandoff(updateAidtPrototypeEntityDraft(drafts[5]!, "qa-design", () => prototype()), "qa-design");
+  drafts[5] = confirmAidtPrototypeEntityHandoff(storeFormalPrototypeFixture(drafts[5]!, "qa-design", prototype()), "qa-design");
   const before = JSON.stringify(drafts), markdown = aidtUiReportMarkdown(drafts);
   for (const text of ["QA原型验证问题", "QA先前看法", "QA静态服务图", "QA先看信息再选择", "qa-native-v1", "第 4 步 V9", "本轮已确认交接记录"]) expect(markdown).toContain(text);
   expect(aidtUiStageSummary(5, drafts[5]!)).toContain("QA原型验证问题");
@@ -91,7 +86,7 @@ it("retains an explicit gap for malformed or mismatched entities without dumping
 });
 
 it("shows assembled entity outcomes in the existing report reader while preserving an existing manual manuscript", () => {
-  const drafts = emptyAidtUiDrafts(); drafts[5] = updateAidtPrototypeEntityDraft(drafts[5]!, "qa-design", () => prototype());
+  const drafts = emptyAidtUiDrafts(); drafts[5] = storeFormalPrototypeFixture(drafts[5]!, "qa-design", prototype());
   const { rerender } = render(<AidtReportPreview drafts={drafts} text={null} sourceRevision={1} revision={1} onChange={vi.fn()} regenerate={vi.fn()} readOnly={false} />);
   expect((screen.getByLabelText("小组报告草稿") as HTMLTextAreaElement).value).toContain("QA原型验证问题");
   fireEvent.click(screen.getByRole("button", { name: "阅读预览" }));

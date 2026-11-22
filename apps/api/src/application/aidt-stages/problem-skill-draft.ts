@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isAidtCandidateRequest } from "@repo/contracts/aidt-candidate-request";
 import { isAidtGreetingText, isAidtProblemControlText, type SharedStageValue } from "@repo/contracts/aidt-stages";
 
 type Draft = SharedStageValue["content"]["draft"];
@@ -50,7 +51,7 @@ function studentProblemStatement(text: string): string | undefined {
 }
 
 export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: { user:string; assistant:string; messageId:string; verifiedInitial?: string }): Draft | null {
-  if (isAidtGreetingText(turn.user.trim())) return null;
+  if (isAidtCandidateRequest(turn.user, "problem") || isAidtGreetingText(turn.user.trim())) return null;
   const key = "problemDraft:" + entityId;
   let previous: Record<string,string>;
   try { previous = JSON.parse(draft.fields[key] ?? "{}"); } catch { return null; }

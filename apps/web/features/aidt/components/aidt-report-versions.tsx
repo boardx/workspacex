@@ -73,8 +73,8 @@ function Versions({ scope, confirmedRevision, reportEntityId }: Props) {
       const markdown = await readConfirmedReportForExport(scope.projectId, revision, scope.sessionToken, signal, reportEntityId);
       if (signal.aborted) return;
       if (format === "pdf") {
-        await printAidtUiText(markdown, { isCurrent: () => !signal.aborted });
-        if (!signal.aborted) setStatus(`已请求打开 V${revision} 的打印预览，可在浏览器中另存为 PDF。`);
+        const result = await printAidtUiText(markdown, { isCurrent: () => !signal.aborted });
+        if (!signal.aborted) setStatus(result === "cancelled" ? `已关闭 V${revision} 的打印预览，原版本未改变。` : `已请求 V${revision} 的系统打印。是否另存成功请核对实际 PDF 文件。`);
         return;
       }
       const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" }));

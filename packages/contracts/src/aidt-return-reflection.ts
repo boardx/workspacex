@@ -1,6 +1,7 @@
 /** Pure shared validation of saved student reflections; confirmation is never evidence or group authority. */
 import { z } from "zod";
 import * as design from "./design-workbench";
+export const AIDT_TEST_GROUP_ROUND_PREFIX = "testRound:";
 export type AidtReflectionDraft = { fields: Readonly<Record<string,string>> };
 export const AIDT_RETURN_STEPS=[{id:"1",label:"理解问题"},{id:"2",label:"共情用户"},{id:"3",label:"综合定义"},{id:"4",label:"创意发散"},{id:"5",label:"原型制作"}] as const;
 export type AidtReturnStep=(typeof AIDT_RETURN_STEPS)[number]["id"];

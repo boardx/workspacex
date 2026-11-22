@@ -1,3 +1,5 @@
+import { AIDT_INTERVIEW_SYNTHETIC_ASR_PREFIX } from "@repo/contracts/aidt-test-research";
+import { readAidtInterviews } from "./aidt-interviews";
 import { listAidtProblems } from "./aidt-problem-entities";
 import { aidtDefinitionSummary } from "./aidt-definition";
 import { countAidtPrototypeEntityDrafts } from "./aidt-prototype-handoff";
@@ -84,10 +86,10 @@ export const AIDT_OUTPUTS: Record<number, { title: string; hint: string; fields:
 export function emptyAidtUiDrafts(): AidtUiDrafts {
   return Object.fromEntries(AIDT_STEPS.map((s) => [s.id, { fields: {}, selectedIdeaId: "", ideas: s.id === 4 ? [1, 2, 3].map((n) => ({ id: `draft-${n}`, title: "", description: "" })) : [] }]));
 }
-export function aidtUiStageMarkdown(stageNumber: number, draft: AidtUiStageDraft, cards?: readonly AidtDiscoveryCardDraft[], cardsRevision?: number): string {
+export function aidtUiStageMarkdown(stageNumber: number, draft: AidtUiStageDraft, cards?: readonly AidtDiscoveryCardDraft[], cardsRevision?: number, projectId?: string): string {
   const step = AIDT_STEPS.find((s) => s.id === stageNumber)!;
   const lines = [`## ${stageNumber}. ${step.title}`, "", "状态：学生编辑稿；共享保存、来源与小组确认状态请核对对应回执。", ""];
-  const entityLines = aidtEntityReportLines(stageNumber, draft, AIDT_OUTPUTS[stageNumber]!.fields);
+  const entityLines = aidtEntityReportLines(stageNumber, draft, AIDT_OUTPUTS[stageNumber]!.fields, projectId);
   const entityPrototypes = stageNumber === 5 && entityLines.length > 0;
   if (entityPrototypes && AIDT_OUTPUTS[5]!.fields.some(field => draft.fields[field.id]?.trim())) lines.push("### 早期阶段表单记录（不自动替代本轮实体）");
   for (const field of AIDT_OUTPUTS[stageNumber]!.fields) {
@@ -129,11 +131,17 @@ export function aidtUiStageSummary(stageNumber: number, draft: AidtUiStageDraft)
   return lines.filter(Boolean).join("\n");
 }
 function discoveryCardLines(cards: readonly AidtDiscoveryCardDraft[], fields: Readonly<Record<string, string>>): string[] {
-  return cards.flatMap((card, index) => { const source = readAidtDiscoverySource(fields, card.id), file = parseAidtResearchMaterial(fields[researchMaterialKey("source", card.id)]), photo = parseAidtResearchMaterial(fields[researchMaterialKey("photo", card.id)]); return [
+  const records = readAidtInterviews({ ...fields });
+  return cards.flatMap((card, index) => {
+    const record = records.find(item => item.id === card.id);
+    const synthetic = Object.hasOwn(fields, AIDT_INTERVIEW_SYNTHETIC_ASR_PREFIX + card.id);
+    if (record && !record.consent?.notes) return [`人物发现卡 ${index + 1} · ${card.participantCode}`, "文字材料授权未确认，不引用发现正文、原话或材料快照。", ...(synthetic ? ["留存合成转写标记；不得将原记录降为真人研究。"] : [])];
+    const source = readAidtDiscoverySource(fields, card.id), file = parseAidtResearchMaterial(fields[researchMaterialKey("source", card.id)]), photo = parseAidtResearchMaterial(fields[researchMaterialKey("photo", card.id)]); return [
     `人物发现卡 ${index + 1} · ${card.participantCode.trim() || "受访者代号待补充"}`,
-    `${card.headlineKind === "quote" ? "Headline（引文待核对）" : "Headline（学生概括）"}：${card.headline.trim() || "待补充"}`,
+    ...(synthetic ? ["合成音频软件 QA 材料，不是真人访谈、真实用户原话或行为证据。"] : []),
+    `${card.headlineKind === "quote" ? synthetic ? "Headline（合成转写摘录待核对）" : "Headline（引文待核对）" : "Headline（学生概括）"}：${card.headline.trim() || "待补充"}`,
     `具体情况：${card.context.trim() || "待补充"}`,
-    `原话（待核对）：${card.quote.trim() || "缺少原话记录"}`,
+    `${synthetic ? "合成转写摘录（待核对）" : "原话（待核对）"}：${card.quote.trim() || (synthetic ? "缺少合成摘录记录" : "缺少原话记录")}`,
     `原始材料引用：${card.sourceRef.trim() || "缺少材料引用；不可视为已验证发现"}`,
     ...(source ? [`关联的学生材料消息（待核对）：${aidtDiscoverySourceLabel(source)}`, `材料原文快照${source.truncated ? "（仅前4000字，完整原文见来源消息）" : ""}：${source.text}`] : []),
     ...(fields[discoveryAiKey(card.id)]?.trim() ? [`AI推测（待验证，不是原话）：${fields[discoveryAiKey(card.id)]}`] : []),
@@ -142,8 +150,8 @@ function discoveryCardLines(cards: readonly AidtDiscoveryCardDraft[], fields: Re
     `照片引用：${card.photoAttachment ? `${card.photoAttachment.name} · 对话 ${card.photoAttachment.threadId} · 附件 ${card.photoAttachment.attachmentId}（用途与授权由学生核对）` : card.photoRef.trim() || "照片缺失；不生成真人照片补齐"}`,
   ]; });
 }
-export function aidtUiReportMarkdown(drafts: AidtUiDrafts, context?: { discoveryCardsRevision?: number }): string {
-  return ["# 小组研究报告 · 学生审阅稿", "", "根据本页已读取的阶段内容与学生编辑整理，可能包含未保存草稿，不代表系统全部历史资料。共享保存固定这份报告正文与所列来源版本，不代表阶段完成或证据已核实。提交前请核对原始证据、来源与版本；缺少的内容保留缺口，不虚构采访、测试、教师点评或投票。", "", ...AIDT_STEPS.map((s) => aidtUiStageMarkdown(s.id, drafts[s.id]!, drafts[2]?.discoveryCards, context?.discoveryCardsRevision)), "## 教师点评", "待教师提供并经授权保存。", "", "## 后续建议", "由本组审阅后填写下一假设与行动。", ""].join("\n");
+export function aidtUiReportMarkdown(drafts: AidtUiDrafts, context?: { discoveryCardsRevision?: number; projectId?: string }): string {
+  return ["# 小组研究报告 · 学生审阅稿", "", "根据本页已读取的阶段内容与学生编辑整理，可能包含未保存草稿，不代表系统全部历史资料。共享保存固定这份报告正文与所列来源版本，不代表阶段完成或证据已核实。提交前请核对原始证据、来源与版本；缺少的内容保留缺口，不虚构采访、测试、教师点评或投票。", "", ...AIDT_STEPS.map((s) => aidtUiStageMarkdown(s.id, drafts[s.id]!, drafts[2]?.discoveryCards, context?.discoveryCardsRevision, context?.projectId)), "## 教师点评", "待教师提供并经授权保存。", "", "## 后续建议", "由本组审阅后填写下一假设与行动。", ""].join("\n");
 }
 
 /** Readable V2 learning records. Internal JSON and inactive branches stay out of handoffs. */

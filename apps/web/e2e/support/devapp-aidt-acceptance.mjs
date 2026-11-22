@@ -8,9 +8,24 @@ import { ORIGIN, ProbeFailure, readQaCredentials } from './devapp-aidt-auth-read
 import { consumeReusableQaCredentials, reusableQaRequested } from './devapp-aidt-qa-identity.mjs';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, SHA } from './devapp-aidt-acceptance-guard.mjs';
 import { captureApplicationPrint } from './devapp-aidt-print-evidence.mjs';
-import { sendTeachingFeedback } from './devapp-aidt-chat-evidence.mjs';
+import { sendTeachingFeedback, validateTeachingEvidence } from './devapp-aidt-chat-evidence.mjs';
 import { agentQaReviewRequested, createAgentQaReviewer } from './devapp-aidt-agent-review.mjs';
 import { aidtCreateTagInput } from './devapp-aidt-journey.mjs';
+import { acceptanceProfile, V2_VOICE_PROFILE, createV2ExecutionLedger } from './devapp-aidt-v2-profile.mjs';
+import { createV2VoicePlan } from './devapp-aidt-v2-plan.mjs';
+import { createV2AcceptanceGuard } from './devapp-aidt-v2-request-guard.mjs';
+import { probeNativePrintCapabilities, prepareOwnedNativePrint, createNativePrintDriver } from './devapp-aidt-v2-print.mjs';
+import { createV2ActionWindow } from './devapp-aidt-v2-action-window.mjs';
+import { createV2NativeActionObserver, prepareV2NativeExpected } from './devapp-aidt-v2-native-feedback.mjs';
+import { createEntryClock, verifyEntryWorkspace, createEntryPublisher } from "./devapp-aidt-entry-proof.mjs";
+
+export function readV2SyntheticAudioFixture(metadata, identity) {
+  const fixture=metadata.syntheticAudioFixture,path='apps/web/e2e/fixtures/aidt-v2/synthetic-prototype-test.wav';
+  if(!fixture||fixture.path!==path||fixture.synthetic!==true||fixture.groundtruthSentToModel!==false||fixture.mime!=='audio/wav'||!Number.isSafeInteger(fixture.bytes)||fixture.bytes<44||fixture.bytes>262144||!/^[a-f0-9]{64}$/.test(fixture.sha256??''))throw new ProbeFailure('V2_SYNTHETIC_AUDIO_METADATA_INVALID');
+  const info=lstatSync(path);if(!info.isFile()||info.isSymbolicLink()||info.size!==fixture.bytes)throw new ProbeFailure('V2_SYNTHETIC_AUDIO_FILE_UNVERIFIED');
+  const bytes=readFileSync(path);if(createHash('sha256').update(bytes).digest('hex')!==fixture.sha256||bytes.subarray(0,4).toString()!=='RIFF'||bytes.subarray(8,12).toString()!=='WAVE')throw new ProbeFailure('V2_SYNTHETIC_AUDIO_BYTES_UNVERIFIED');
+  return {filename:`qa-${identity.run}-synthetic-prototype-test.wav`,bytes,mime:fixture.mime,synthetic:true};
+}
 
 export function illustratedAcceptance(report) {
   const headings = ['首页', '理解与提出问题', '共情用户', '综合与定义', '创意发散', '制作原型', '测试与迭代', '最终报告'];
@@ -21,7 +36,9 @@ export function illustratedAcceptance(report) {
   for (const [index, title] of headings.entries()) {
     const section = index === 7 ? /^(report-|teaching-chat-final-report)/ : index === 0 ? /^homepage-/ : new RegExp('^(s' + index + '-|teaching-chat-stage-' + index + '(?:-|$))');
     const checks = report.checkpoints.filter(row => section.test(row.name));
-    const screens = report.screenshots.filter(row => row.filename.startsWith(String(index).padStart(2, '0') + '-') && /^[a-z0-9-]+\.png$/.test(row.filename));
+    const screens = report.screenshots.filter(row => report.acceptanceProfile === V2_VOICE_PROFILE
+      ? (index === 0 ? row.stage === null : index === 7 ? /report/i.test(row.filename) : row.stage === index) && /^[A-Za-z0-9-]+\.png$/.test(row.filename)
+      : row.filename.startsWith(String(index).padStart(2, '0') + '-') && /^[a-z0-9-]+\.png$/.test(row.filename));
     lines.push('## ' + title, '');
     if (!checks.length) lines.push('未取得检查结果。', '');
     for (const check of checks) lines.push('- ' + status(check.status) + '　\`' + check.name + '\`' + (check.code ? '　\`' + check.code + '\`' : ''));
@@ -255,6 +272,115 @@ export function recordTeachingEvent(event, scope, pendingReviews, assertSafe, em
   return matched;
 }
 
+/** New profile only. Observe failure without pretending a missing desktop is a site defect. */
+export async function prepareV2Browser({ chromium, outputRoot, assertSafe, browserEnv, io = {} }) {
+  const probe = io.probe ?? probeNativePrintCapabilities, prepare = io.prepare ?? prepareOwnedNativePrint;
+  const createDriver = io.createDriver ?? createNativePrintDriver;
+  let ownedRuntime, browser, context, driver;
+  let capability = probe({ env: process.env, outputRoot });
+  if (capability.available) {
+    try {
+      ownedRuntime = await prepare({ env: process.env, outputRoot });
+      if (!ownedRuntime.available) throw new ProbeFailure(ownedRuntime.blockCode ?? 'NATIVE_SYSTEM_PRINT_CAPABILITY_BLOCKED');
+      context = await chromium.launchPersistentContext(ownedRuntime.userDataDir, { ...ownedRuntime.launchOptions, viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block', acceptDownloads: true });
+      browser = context.browser();
+      driver = await createDriver({ browser, context, outputRoot, ownedRuntime, assertSafe });
+      const actual = await driver.preflight();
+      capability = { ...capability, ...actual };
+      if (!actual.available) throw new ProbeFailure(actual.blockCode ?? 'NATIVE_SYSTEM_PRINT_CAPABILITY_BLOCKED');
+      return { browser, context, driver, ownedRuntime, capability, headless: false };
+    } catch (error) {
+      capability = { available: false, blockCode: safeCode(error), missing: capability.missing ?? [], scope: 'This host and this owned browser only; no product failure is inferred. Functional QA continues without a fake PDF path.' };
+      await driver?.dispose().catch(() => {}); await context?.close().catch(() => {}); await browser?.close().catch(() => {}); await ownedRuntime?.dispose().catch(() => {});
+    }
+  }
+  browser = await chromium.launch({ headless: true, env: browserEnv });
+  context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block', acceptDownloads: true });
+  return { browser, context, driver: null, ownedRuntime: null, capability, headless: true };
+}
+
+/** Canonical completed source, not a made-up successful reply after a stream error. */
+export function parseV2NativeResponse(bytes, contentType, decision) {
+  if (!Buffer.isBuffer(bytes) || bytes.length > 1048576) throw new ProbeFailure('RESPONSE_BOUND');
+  const text = bytes.toString('utf8');
+  if (/application\/x-ndjson/i.test(contentType ?? '')) {
+    if (decision.kind !== 'v2-research-write') throw new ProbeFailure('V2_NATIVE_STREAM_SCOPE_REJECTED');
+    const lines = text.split(/\r?\n/).filter(line => line.trim());
+    if (!lines.length || lines.length > 2048) throw new ProbeFailure('V2_NATIVE_STREAM_BOUND');
+    let events; try { events = lines.map(line => JSON.parse(line)); } catch { throw new ProbeFailure('V2_NATIVE_STREAM_INVALID'); }
+    const terminal = events.filter(row => row?.type === 'completed' || row?.type === 'failed');
+    if (terminal.length !== 1 || terminal[0] !== events.at(-1)) throw new ProbeFailure('V2_NATIVE_STREAM_COMPLETION_REQUIRED');
+    if (terminal[0].type === 'failed') throw new ProbeFailure('V2_NATIVE_STREAM_FAILED');
+    if (!terminal[0].source || typeof terminal[0].source !== 'object' || Array.isArray(terminal[0].source)) throw new ProbeFailure('V2_NATIVE_STREAM_SOURCE_REQUIRED');
+    return terminal[0].source;
+  }
+  try { return JSON.parse(text); } catch { throw new ProbeFailure('RESPONSE_SCHEMA_INVALID'); }
+}
+
+/** Copy only explicit, verified files from this attempt's private native-print directory. */
+export async function storeV2PrintFiles({ result, ownedRuntime, outputDirectory, assertSafe, verifyImage, budget }) {
+  if (!ownedRuntime?.available || !result?.metadata || !Buffer.isBuffer(result.bytes) || typeof assertSafe !== 'function' || typeof verifyImage !== 'function') throw new ProbeFailure('V2_PRINT_FILES_SCOPE_INVALID');
+  const input = realpathSync(ownedRuntime.outputDirectory), output = realpathSync(outputDirectory);
+  for (const path of [input, output]) { const info = lstatSync(path); if (!info.isDirectory() || info.isSymbolicLink() || info.uid !== process.getuid() || (info.mode & 0o077)) throw new ProbeFailure('V2_PRINT_FILES_SCOPE_INVALID'); }
+  const metadata = result.metadata;
+  if (metadata.filename?.includes('/') || metadata.filename?.includes('\\') || !metadata.filename?.endsWith('.pdf') || metadata.sha256 !== createHash('sha256').update(result.bytes).digest('hex')) throw new ProbeFailure('V2_PRINT_FILE_HASH_MISMATCH');
+  const filenames = [metadata.filename, ...(result.screens ?? []), ...(metadata.pages ?? []).map(row => row.renderFilename)];
+  if (filenames.length < 4 || filenames.length > 103 || new Set(filenames).size !== filenames.length) throw new ProbeFailure('V2_PRINT_FILE_SET_BOUND');
+  const prepared = [];
+  for (const filename of filenames) {
+    if (!/^[a-z0-9][a-z0-9.-]{0,179}$/.test(filename ?? '') || !/\.(pdf|png)$/.test(filename)) throw new ProbeFailure('V2_PRINT_FILE_NAME_REJECTED');
+    const path = resolve(input, filename), info = lstatSync(path);
+    if (realpathSync(path) !== path || !info.isFile() || info.isSymbolicLink() || info.uid !== process.getuid() || info.size < 512 || info.size > (filename.endsWith('.pdf') ? 33554432 : 8388608)) throw new ProbeFailure('V2_PRINT_FILE_BOUND');
+    const bytes = readFileSync(path), hash = createHash('sha256').update(bytes).digest('hex');
+    if (filename === metadata.filename && (!bytes.equals(result.bytes) || hash !== metadata.sha256)) throw new ProbeFailure('V2_PRINT_FILE_HASH_MISMATCH');
+    await assertSafe(filename); prepared.push({ filename, bytes, sha256: hash });
+  }
+  const pdfBytes = prepared.filter(row => row.filename.endsWith('.pdf')).reduce((n, row) => n + row.bytes.length, 0);
+  const renderBytes = prepared.filter(row => row.filename.endsWith('.png')).reduce((n, row) => n + row.bytes.length, 0);
+  if (budget && (!Number.isSafeInteger(budget.pdfRemainingBytes) || budget.pdfRemainingBytes < 0 || budget.pdfRemainingBytes > 536870912
+      || !Number.isSafeInteger(budget.renderRemainingBytes) || budget.renderRemainingBytes < 0 || budget.renderRemainingBytes > 1073741824)) throw new ProbeFailure('V2_PRINT_RUN_BYTE_BUDGET_INVALID');
+  if (pdfBytes > (budget?.pdfRemainingBytes ?? 536870912) || renderBytes > (budget?.renderRemainingBytes ?? 1073741824)) throw new ProbeFailure('V2_PRINT_RUN_BYTE_BOUND');
+  const files = [];
+  // Validate the complete explicit set before creating any public artifact file.
+  for (const row of prepared) {
+    const dimensions = row.filename.endsWith('.png') ? await verifyImage(row.bytes) : {};
+    files.push({ filename: row.filename, bytes: row.bytes.length, sha256: row.sha256, ...dimensions });
+  }
+  for (const row of prepared) writeFileSync(resolve(output, row.filename), row.bytes, { flag: 'wx', mode: 0o600 });
+  return { filename: metadata.filename, files, bytes: result.bytes.length, sha256: metadata.sha256, pdfBytes, renderBytes };
+}
+
+/** This is the reviewed operation vocabulary, never a request URL-based permission fallback. */
+export function v2NativeOperationInput(input, plan) {
+  if (!input || typeof input !== 'object' || Object.keys(input).some(key => !['operationId','kind','stage','stageId','entityRole','entityId','resourceId','requestKind','expectedFields','perform'].includes(key))
+      || typeof input.perform !== 'function' || input.stage !== undefined && input.stageId !== undefined && input.stage !== input.stageId) throw new ProbeFailure('V2_NATIVE_OPERATION_INPUT_INVALID');
+  const row = plan.operations.find(item => item.id === input.operationId), stageId = input.stageId ?? input.stage;
+  if (!row || row.kind !== input.kind || row.stage !== stageId || row.entityRole !== input.entityRole) throw new ProbeFailure('V2_NATIVE_OPERATION_NOT_PLANNED');
+  const vocabulary = {
+    's6-test-survey-markdown-proposal': 'survey-proposal', 's6-test-survey-native-create': 'survey-create',
+    's6-test-survey-native-report':'survey-report','s6-test-survey-native-publish': 'survey-publish', ...Object.fromEntries(Array.from({length:8},(_,index)=>[`s6-test-survey-native-participant-submit-${String(index+1).padStart(2,'0')}`,'survey-submit'])),
+    's6-test-virtual-native-create': 'research-create', 's6-test-virtual-native-initialize': 'research-initialize',
+    's6-test-virtual-native-save-intake': 'research-save', 's6-test-virtual-native-confirm-analysis': 'research-confirm',
+    's6-test-virtual-native-save-outline': 'research-save', 's6-test-virtual-analysis': 'research-generate',
+    's6-test-virtual-outline': 'research-generate', 's6-test-virtual-runs': 'research-execute', 's6-test-virtual-report': 'research-generate',
+    's5-prototype-single-image-generate': 'design-image', 's5-prototype-three-image-generate': 'design-image', 's5-prototype-three-html-generate': 'design-generate',
+    's5-prototype-three-webapp-generate': 'design-generate', 's6-test-offline-iterate-prototype': 'design-generate',
+    's2-source-interview-chat-audio-upload':'chat-audio-upload','s6-test-offline-chat-audio-upload':'chat-audio-upload', 's2-source-interview-file-asr': 'asr-file', 's6-test-offline-file-asr': 'asr-file',
+  };
+  const requestKind = vocabulary[input.operationId];
+  if (!requestKind || input.requestKind !== undefined && input.requestKind !== requestKind) throw new ProbeFailure('V2_NATIVE_OPERATION_KIND_NOT_CLOSED');
+  return { operationId: row.id, kind: row.kind, requestKind, stageId, entityRole: row.entityRole,
+    ...(input.entityId ? { entityId: input.entityId } : {}), ...(input.resourceId ? { resourceId: input.resourceId } : {}),
+    ...(input.expectedFields ? { expectedFields: input.expectedFields } : {}) };
+}
+
+export function candidateDialogLocator(page, profile, currentUrl, projectId, stageId) {
+  const url = new URL(currentUrl);
+  if (profile !== V2_VOICE_PROFILE || url.origin !== ORIGIN || url.pathname !== `/aidt/${projectId}` || url.searchParams.get('step') !== String(stageId)
+      || stageId !== 3 || !['persona','hmw'].includes(url.searchParams.get('candidate'))) throw new ProbeFailure('V2_CANDIDATE_DIALOG_SCOPE_REJECTED');
+  return page.getByRole('dialog', { name: url.searchParams.get('candidate') === 'persona' ? '从证据形成画像' : '找到值得继续探索的问题', exact: true });
+}
+
 export async function main() {
   // These variables can expose Playwright fill arguments; remove before importing its API.
   for (const key of ['DEBUG', 'PWDEBUG', 'NODE_DEBUG', 'NODE_DEBUG_NATIVE', 'NODE_OPTIONS']) delete process.env[key];
@@ -265,11 +391,17 @@ export async function main() {
     authorizedMetadataReads: 'Native clients also read the QA-authorized identity, course/project/Skill/Agent catalogs and Design list in memory. Closed read-category counters count guard decisions; bounded metadata HTTP statuses come only from observed responses. No raw lists, URLs, queries, headers, bodies or unrelated projects are exported.',
     designRequestLimit: 'At most one normal UI Design chat request; default page count is decided by the existing service, not capped to one page.' };
   let browser, context, page, output, identity, guard, credentials, provisionedIdentity, timer, agentReviewer, stage = 'preflight';
+  let profile, plan, ledger, v2Scope, nativeDriver, nativeRuntime, actionWindow, asrReviewer;
+  const runtimeScope = () => { if (!v2Scope) throw new ProbeFailure('V2_RUNTIME_SCOPE_UNVERIFIED'); return { ...v2Scope }; };
   const sensitiveEvidence = sensitiveEvidenceGuard();
   try {
     if (process.argv.length !== 2) throw new ProbeFailure('ARGUMENTS_REJECTED');
     assertAcceptanceWorkflow(process.env);
+    profile = acceptanceProfile(process.env);
+    report.acceptanceProfile = profile;
+    if (profile === V2_VOICE_PROFILE) { plan = createV2VoicePlan(); report.nativePrintBudget = { pdfMaximumBytes: 536870912, renderMaximumBytes: 1073741824, pdfBytes: 0, renderBytes: 0, plannedFiles: plan.limits.nativePdfFiles, exhausted: false, byStage: {} }; report.kind = 'devapp-aidt-v2-voice-acceptance-v1';report.designRequestLimit='Closed V2 manifest: actual named HTML, WebApp and post-test iteration only; no unknown-result retry.'; report.v2Plan = { manifestSha256: plan.manifestSha256, limits: plan.limits, formalOutputs: plan.formalOutputs, caseIds: plan.caseIds }; }
     identity = acceptanceIdentity(process.env);
+    identity.controlSource = process.env.GITHUB_SHA;
     const agentQaRequested = agentQaReviewRequested(process.env, identity);
     // A full writer may not spend an account or model call before its actual reviewer channel is ready.
     if (!identity.entryDiagnosticOnly && !agentQaRequested) throw new ProbeFailure('S1_I3_STUDENT_RESPONSE_REVIEW_REQUIRED');
@@ -293,12 +425,17 @@ export async function main() {
     report.systemArtifacts = [];
     report.teachingEvidence = [];
     report.budgets = { homepageMinutes: 20, stageMinutes: 15, stage5Minutes: 20, overallMinutes: 142, stage5Reason: 'Existing Design request can take up to 900 seconds; allow native Chat and normal UI save/review overhead without unknown-write retry.' };
+    if (profile === V2_VOICE_PROFILE) {
+      // Independent finite wall-clock cap agreed for this profile; per-case bounds remain separate.
+      report.budgets = { profile, overallMinutes: 360, caseDeadlinesMs: Object.fromEntries(plan.caseBindings.map(item => [item.caseId, item.timeoutMs])) };
+    }
     const overallDeadline = Date.now() + report.budgets.overallMinutes * 60 * 1000;
     report.independentPdfValidation = 'pending artifact download and independent parser/renderer; byte generation is not complete glyph acceptance';
     output = privateOutput(process.env, identity);
     const metadata = JSON.parse(readFileSync(new URL('../../../../acceptance-source.json', import.meta.url), 'utf8'));
     if (metadata.controlSource !== process.env.GITHUB_SHA || !Array.isArray(metadata.teachingSkillNames) || metadata.teachingSkillNames.length < 6) throw new ProbeFailure('SOURCE_BUNDLE_INVALID');
     identity.teachingSkillNames = metadata.teachingSkillNames;
+    if (profile === V2_VOICE_PROFILE && (!metadata.candidateActions || metadata.profile !== profile || metadata.planManifestSha256 !== plan.manifestSha256)) throw new ProbeFailure('V2_SOURCE_BUNDLE_PROFILE_MISMATCH');
     identity.deniedProject = `prj-${randomUUID()}`;
     report.deployedRuntime = runtimeProof(identity);
     if (agentQaRequested) {
@@ -310,9 +447,24 @@ export async function main() {
       if (JSON.stringify(afterReviewPreflight) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
       report.runtimeRechecks++;
     }
+    if(profile===V2_VOICE_PROFILE){
+      const audio=readV2SyntheticAudioFixture(metadata,identity),source=metadata.syntheticAudioFixture.groundtruth,path='apps/web/e2e/fixtures/aidt-v2/synthetic-prototype-test.txt';
+      if(source?.path!==path||!Number.isSafeInteger(source.bytes)||source.bytes<10||source.bytes>16384||!/^[a-f0-9]{64}$/.test(source.sha256??''))throw new ProbeFailure('V2_SYNTHETIC_GROUNDTRUTH_METADATA_INVALID');
+      const info=lstatSync(path),bytes=readFileSync(path);if(!info.isFile()||info.isSymbolicLink()||bytes.length!==source.bytes||createHash('sha256').update(bytes).digest('hex')!==source.sha256)throw new ProbeFailure('V2_SYNTHETIC_GROUNDTRUTH_BYTES_CHANGED');
+      const {createV2AsrReviewer}=await import('./devapp-aidt-v2-asr-review.mjs');
+      asrReviewer=createV2AsrReviewer({identity,controlSource:process.env.GITHUB_SHA,out:output.out,assertSafe:text=>sensitiveEvidence.assertSafe(text),deadlineAt:overallDeadline,fixture:{sourceSha256:metadata.syntheticAudioFixture.sha256,bytes:audio.bytes.length,groundtruth:bytes.toString('utf8'),groundtruthSha256:source.sha256}});
+      report.asrReviewCapability=await asrReviewer.preflight();report.asrReview=asrReviewer.summary();
+    }
+    const { chromium, expect, request } = await import('@playwright/test');
+    const browserEnv = Object.fromEntries(['PATH', 'HOME', 'LANG', 'TZ', 'PLAYWRIGHT_BROWSERS_PATH'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
+    if (profile === V2_VOICE_PROFILE) {
+      // No account read/bootstrap, login or model exists before the actual owned print capability probe.
+      const prepared = await prepareV2Browser({ chromium, outputRoot: output.out, assertSafe: text => sensitiveEvidence.assertSafe(text), browserEnv });
+      ({ browser, context } = prepared); nativeDriver = prepared.driver; nativeRuntime = prepared.ownedRuntime;
+      report.nativePrintCapability = prepared.capability; report.browser = { name: 'Chromium', version: browser.version(), playwrightVersion: metadata.playwrightVersion, headless: prepared.headless };
+    }
     credentials = reusableCredentials && !provisionOrdinaryQa ? reusableCredentials : readQaCredentials();
     sensitiveEvidence.remember(credentials.email); sensitiveEvidence.remember(credentials.password);
-    const { chromium, expect, request } = await import('@playwright/test');
     if (provisionOrdinaryQa) {
       stage = 'ordinary-qa-bootstrap';
       const { bootstrapOrdinaryQaIdentity } = await import('./devapp-aidt-qa-identity.mjs');
@@ -334,14 +486,16 @@ export async function main() {
           finishedUTC: new Date().toISOString(), durationMs: Math.round(performance.now() - setupTick) };
       }
     }
-    guard = createAcceptanceGuard(identity);
+    guard = profile === V2_VOICE_PROFILE ? createV2AcceptanceGuard(identity, { plan, ledger: () => ledger, runtimeScope: () => v2Scope }) : createAcceptanceGuard(identity);
+    if(profile===V2_VOICE_PROFILE)actionWindow=createV2ActionWindow({guard,plan,runtimeScope});
     const remainingMs = overallDeadline - Date.now();
     if (remainingMs <= 0) throw new ProbeFailure('ACCEPTANCE_TIMEOUT');
     timer = setTimeout(() => { guard.fail('ACCEPTANCE_TIMEOUT'); void context?.close(); }, remainingMs);
-    const browserEnv = Object.fromEntries(['PATH', 'HOME', 'LANG', 'TZ', 'PLAYWRIGHT_BROWSERS_PATH'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
-    browser = await chromium.launch({ headless: true, env: browserEnv });
-    report.browser = { name: 'Chromium', version: browser.version(), playwrightVersion: metadata.playwrightVersion, headless: true };
-    context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block', acceptDownloads: true });
+    if (profile !== V2_VOICE_PROFILE) {
+      browser = await chromium.launch({ headless: true, env: browserEnv });
+      report.browser = { name: 'Chromium', version: browser.version(), playwrightVersion: metadata.playwrightVersion, headless: true };
+      context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block', acceptDownloads: true });
+    }
     await context.route('**/*', async route => {
       const request = route.request();
       try {
@@ -352,15 +506,20 @@ export async function main() {
           const contentType = request.headers()['content-type'] ?? '';
           if (contentType.startsWith('multipart/form-data;')) {
             const form = await new Response(raw, { headers: { 'content-type': contentType } }).formData();
-            if ([...form.keys()].sort().join(',') !== 'files,meta') throw new ProbeFailure('UPLOAD_FORM_REJECTED');
-            const file = form.get('files');
+            const audioUpload=profile===V2_VOICE_PROFILE&&/^\/api\/chat\/threads\/[^/]+\/attachments$/.test(new URL(request.url()).pathname);
+            const sourceImageUpload=profile===V2_VOICE_PROFILE&&/^\/api\/pm-designs\/[^/]+\/ref-images$/.test(new URL(request.url()).pathname);
+            if ([...form.keys()].sort().join(',') !== (audioUpload?'file':sourceImageUpload?'contentType,file':'files,meta')) throw new ProbeFailure('UPLOAD_FORM_REJECTED');
+            const file = form.get(audioUpload||sourceImageUpload?'file':'files');
             if (typeof file === 'string' || !file || file.size > 262144) throw new ProbeFailure('UPLOAD_FORM_REJECTED');
             const bytes = Buffer.from(await file.arrayBuffer());
-            let meta; try { meta = JSON.parse(form.get('meta')); } catch { throw new ProbeFailure('UPLOAD_FORM_REJECTED'); }
-            body = { __multipart: true, meta, files: [{ filename: file.name, sizeBytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), mime: file.type }] };
+            const files=[{ filename:file.name,sizeBytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),mime:file.type }];
+            if(audioUpload){if(!['audio/wav','audio/x-wav','audio/mpeg'].includes(file.type))throw new ProbeFailure('UPLOAD_FORM_REJECTED');body={__multipart:true,fields:{},files};}
+            else if(sourceImageUpload){if(!['image/png','image/jpeg','image/webp'].includes(file.type)||form.get('contentType')!==file.type)throw new ProbeFailure('UPLOAD_FORM_REJECTED');body={__multipart:true,fields:{contentType:file.type},files};}
+            else {let meta;try{meta=JSON.parse(form.get('meta'));}catch{throw new ProbeFailure('UPLOAD_FORM_REJECTED');}body={__multipart:true,meta,files};}
           } else { try { body = request.postDataJSON(); } catch { throw new ProbeFailure('REQUEST_BODY_UNSUPPORTED'); } }
         }
         const descriptor = { url: request.url(), method: request.method(), body, resourceType: request.resourceType() };
+        const actionWindowArmed=profile===V2_VOICE_PROFILE&&actionWindow?.matchesNext(descriptor)?actionWindow.armForRequest(descriptor):false;
         let decision = guard.decide(descriptor);
         if (!decision.allow && decision.kind === 'teaching-run-needs-binding') {
           // Never trust a run ID from SSE. Reread only the armed owned thread,
@@ -373,18 +532,20 @@ export async function main() {
         await enforceDeniedProbeStatus(decision, response);
         if (response.status() >= 300 && response.status() < 400) throw new ProbeFailure('REDIRECT_REJECTED');
         let parsed;
-        if (decision.kind === 'upload-content') {
+        if (decision.kind === 'upload-content' || profile===V2_VOICE_PROFILE&&['v2-native-audio-content','v2-native-artifact-content'].includes(decision.kind)) {
           const bytes = await response.body();
           if (bytes.length > 262144) throw new ProbeFailure('RESPONSE_BOUND');
           guard.observeContent(decision, response.status(), response.headers(), bytes);
         } else if (!['read', 'denied-probe', 'aidt-tag', 'mount-owned-thread', 'teaching-turn'].includes(decision.kind)) {
           const bytes = await response.body();
           if (bytes.length > 1048576) throw new ProbeFailure('RESPONSE_BOUND');
-          try { parsed = JSON.parse(bytes.toString('utf8')); } catch { throw new ProbeFailure('RESPONSE_SCHEMA_INVALID'); }
+          if (profile === V2_VOICE_PROFILE) parsed = parseV2NativeResponse(bytes, response.headers()['content-type'], decision);
+          else { try { parsed = JSON.parse(bytes.toString('utf8')); } catch { throw new ProbeFailure('RESPONSE_SCHEMA_INVALID'); } }
         }
         if (decision.kind === 'login' && typeof parsed?.sessionToken === 'string') sensitiveEvidence.remember(parsed.sessionToken);
         if (decision.kind === 'survey-publish' && typeof parsed?.publication?.token === 'string') sensitiveEvidence.remember(parsed.publication.token);
         guard.observe(decision, response.status(), parsed);
+        if(actionWindowArmed)actionWindow.observeResponse(descriptor,response.status(),parsed);
         // Bind only the actual created candidate before the normal UI resumes.
         if (decision.kind === 'create-project' && [200, 201].includes(response.status())) {
           const id = guard.identity().candidate;
@@ -392,6 +553,11 @@ export async function main() {
           const membership = await api(page, 'GET', `/api/projects/${id}/collaborators`);
           if (overview.status !== 200 || membership.status !== 200) throw new ProbeFailure('QA_PROJECT_OWNERSHIP_READ_FAILED');
           guard.bindOwnedProject(overview.data, membership.data?.members);
+          if (profile === V2_VOICE_PROFILE) {
+            const owned = guard.identity();
+            v2Scope = { source: identity.source, controlSource: process.env.GITHUB_SHA, tag: identity.tag, run: identity.run, attempt: identity.attempt, orgId: owned.org, actorId: owned.actor, orgRole: 'consultant', projectId: owned.projectId };
+            ledger = createV2ExecutionLedger(plan, v2Scope);
+          }
         }
         await route.fulfill({ response });
       } catch (error) { guard.fail(safeCode(error)); try { await route.abort('blockedbyclient'); } catch { /* Already closed. */ } }
@@ -414,8 +580,9 @@ export async function main() {
     };
     let pendingReviewCapture = null;
     const capture = async (name, expectedStage, region = 'workspace', pendingReceipt) => {
-      if (!/^[a-z0-9][a-z0-9-]{0,85}$/.test(name)) throw new ProbeFailure('SCREENSHOT_NAME_INVALID');
-      if (region === 'workspace' || region === 'owned-tool-review' || region === 'card-dialog') assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
+      const screenshotName = profile === V2_VOICE_PROFILE ? /^[A-Za-z0-9][A-Za-z0-9-]{0,85}$/ : /^[a-z0-9][a-z0-9-]{0,85}$/;
+      if (!screenshotName.test(name)) throw new ProbeFailure('SCREENSHOT_NAME_INVALID');
+      if (region === 'workspace' || region === 'owned-tool-review' || region === 'card-dialog' || region === 'candidate-dialog') assertCaptureScope(page.url(), guard.identity().projectId, expectedStage);
       else { const url = new URL(page.url()); if (url.origin !== ORIGIN || url.pathname !== '/aidt' || !['home-create-actions', 'create-dialog'].includes(region)) throw new ProbeFailure('SCREENSHOT_SCOPE_REJECTED'); }
       if (region === 'owned-tool-review') {
         if (!pendingReviewCapture || pendingReviewCapture.receipt !== pendingReceipt || pendingReceipt.stageId !== expectedStage) throw new ProbeFailure('TOOL_REVIEW_SCOPE_UNVERIFIED');
@@ -428,8 +595,10 @@ export async function main() {
         const dialog = page.getByRole('dialog');
         if (url.searchParams.has('entity') || await dialog.count() !== 1 || !await aidtCreateTagInput(dialog, expectedStage).isVisible()) throw new ProbeFailure('CARD_DIALOG_SCOPE_UNVERIFIED');
       }
+      let candidate;
+      if (region === 'candidate-dialog') { candidate = candidateDialogLocator(page, profile, page.url(), guard.identity().projectId, expectedStage); if (await candidate.count() !== 1 || await page.getByRole('dialog').count() !== 1) throw new ProbeFailure('V2_CANDIDATE_DIALOG_NOT_UNIQUE'); }
       recheckRuntime();
-      const workspace = region === 'card-dialog' ? page.getByRole('dialog') : region === 'owned-tool-review' ? page.getByTestId('chat-tool-permission-dialog') : region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') });
+      const workspace = candidate ?? (region === 'card-dialog' ? page.getByRole('dialog') : region === 'owned-tool-review' ? page.getByTestId('chat-tool-permission-dialog') : region === 'workspace' ? page.getByTestId('aidt-project-workspace') : region === 'home-create-actions' ? page.getByRole('heading', { name: '我的工作坊', exact: true }).locator('..') : page.getByRole('dialog').filter({ has: page.getByTestId('project-new-details') }));
       await workspace.waitFor({ state: 'visible' });
       // Workspace captures dismiss unrelated overlays; owned review evidence must keep its modal open.
       if (region === 'workspace') await page.keyboard.press('Escape');
@@ -446,9 +615,10 @@ export async function main() {
       }, visibleText);
       if (sensitive) throw new ProbeFailure('SCREENSHOT_SENSITIVE_CONTENT');
       const bytes = await workspace.screenshot({ type: 'png', animations: 'disabled' });
-      const dimensions = await verifyPng(browser, bytes, ['workspace','owned-tool-review'].includes(region) ? 200 : 24), filename = `${name}.png`;
+      const dimensions = await verifyPng(browser, bytes, ['workspace','owned-tool-review','candidate-dialog'].includes(region) ? 200 : 24), filename = `${name}.png`;
       writeFileSync(resolve(output.out, filename), bytes, { flag: 'wx', mode: 0o600 });
-      report.screenshots.push({ filename, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), ...dimensions, stage: expectedStage ?? null, region });
+      const receipt = { filename, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), ...dimensions, stage: expectedStage ?? null, region };
+      report.screenshots.push(receipt); return receipt;
     };
     const checkpoint = async (name, operation) => {
       if (!/^[a-z0-9][a-z0-9-]{0,90}$/.test(name)) throw new ProbeFailure('CHECKPOINT_NAME_INVALID');
@@ -487,6 +657,9 @@ export async function main() {
       return;
     }
     guard.verifyOrdinaryIdentity(me.status, me.data);
+    // ENTRY-01 is the first checkpoint in this writer; preserve this same context for S1.
+    const entryClock = createEntryClock(), entryObservations = [], entryScreenshots = [];
+    let entryTiming;
     const homeCreated = await checkpoint('homepage-ui-create-persist', async () => {
       await capture('00-home-create-actions', undefined, 'home-create-actions');
       await expect(page.getByTestId('aidt-new')).toBeVisible(); await page.getByTestId('aidt-new').click();
@@ -494,16 +667,17 @@ export async function main() {
       const courseTag = `QA课程 ${identity.run}-${identity.attempt}`;
       await page.getByLabel('课程标签（可选）', { exact: true }).fill(courseTag);
       await capture('00-create-dialog', undefined, 'create-dialog');
-      guard.armProjectCreate(courseTag); await page.getByTestId('project-new-create').click();
+      entryClock.check(); guard.armProjectCreate(courseTag); await page.getByTestId('project-new-create').click();
       await expect.poll(() => guard.identity().projectId).toMatch(/^prj-/);
       const id = guard.identity().projectId;
       await page.waitForURL(`${ORIGIN}/aidt/${id}`, { waitUntil: 'domcontentloaded' });
       await expect(page.getByTestId('aidt-dashboard')).toBeVisible();
       for (let n = 1; n <= 6; n++) await expect(page.getByTestId(`aidt-step-${n}`)).toBeVisible();
       report.project = { id, name: identity.projectName, ownerVerified: true, profile: 'aidt', setup: 'normal-homepage-UI', ordinaryConsultant: true };
-      await capture('00-created-six-stage-overview');
+      entryObservations.push(await verifyEntryWorkspace({ page, expect, origin: ORIGIN, projectId: id, clock: entryClock }));
+      entryScreenshots.push(await capture('00-created-six-stage-overview'));
       await page.goto(`${ORIGIN}/aidt`); await expect(page.getByTestId(`aidt-project-${id}`)).toBeVisible();
-      await page.reload();
+      entryClock.check(); await page.reload();
       const card = page.getByTestId(`aidt-project-${id}`);
       await expect(card).toBeVisible();
       await expect(card.getByText(courseTag, { exact: true })).toBeVisible();
@@ -515,11 +689,29 @@ export async function main() {
       await courseFilter.selectOption('');
       await expect(card).toBeVisible();
       report.courseTag = { savedAfterReload: true, hiddenByUntaggedFilter: true, visibleByMatchingFilter: true };
-      await card.click(); await expect(page.getByTestId('aidt-dashboard')).toBeVisible();
-      await capture('00-created-reentry-overview');
+      entryClock.check(); await card.click();
+      await page.waitForURL(`${ORIGIN}/aidt/${id}`, { waitUntil: 'domcontentloaded' });
+      entryObservations.push(await verifyEntryWorkspace({ page, expect, origin: ORIGIN, projectId: id, clock: entryClock }));
+      entryScreenshots.push(await capture('00-created-reentry-overview'));
+      entryTiming = entryClock.complete();
     });
-    if (!homeCreated) throw new ProbeFailure('HOMEPAGE_UI_CREATION_NOT_ACCEPTED');
+    if (!homeCreated) {
+      report.entry01 = entryClock.failed(report.checkpoints.at(-1)?.code);
+      throw new ProbeFailure('HOMEPAGE_UI_CREATION_NOT_ACCEPTED');
+    }
     const projectId = guard.identity().projectId;
+    recheckRuntime();
+    // A separate, exactly-once artifact: no H03 nonce/request capacity or credential serialization.
+    // An unknown artifact result is recorded without replay; the same student session continues.
+    report.entry01 = { status: 'PASSED', projectId, timing: entryTiming };
+    try {
+      const publisher = createEntryPublisher({ identity, out: output.out, assertSafe: text => sensitiveEvidence.assertSafe(text) });
+      const proof = await publisher.publish({ projectId, ordinaryRole: report.actor.orgRole, timing: entryTiming, observations: entryObservations, screenshots: entryScreenshots });
+      report.entry01 = proof.receipt; report.entry01Delivery = proof.delivery;
+    } catch (error) {
+      report.entry01Delivery = { status: 'BLOCKED', code: safeCode(error), attempted: false, retryAllowed: false };
+    }
+    console.log(JSON.stringify({ event: 'entry-01-proof', projectId, status: report.entry01.status, delivery: report.entry01Delivery }));
     const saveStage = async (n, visibleButton, { confirmation = false } = {}) => {
       const button = visibleButton ?? page.getByTestId('aidt-shared-save');
       await expect(button).toBeVisible(); await expect(button).toBeEnabled();
@@ -570,9 +762,9 @@ export async function main() {
           if (!decision.allow) return await route.abort('blockedbyclient');
           const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: 15000 });
           if (response.status() >= 300 && response.status() < 400) throw new ProbeFailure('REDIRECT_REJECTED');
-          if (decision.kind === 'survey-submit') {
+          if (decision.kind === 'survey-submit' || profile===V2_VOICE_PROFILE&&decision.kind==='survey-public-read') {
             const bytes = await response.body();
-            if (bytes.length > 4096) throw new ProbeFailure('RESPONSE_BOUND');
+            if (bytes.length > (decision.kind==='survey-public-read'?1048576:4096)) throw new ProbeFailure('RESPONSE_BOUND');
             guard.observe(decision, response.status(), JSON.parse(bytes.toString('utf8')));
           }
           await route.fulfill({ response });
@@ -614,7 +806,8 @@ export async function main() {
       const testTurn = !summary && stageId === 6
         ? (report.teachingEvidence.some(item => item.stageId === 6 && item.entityId !== new URL(page.url()).searchParams.get('entity') && item.status === 'passed') ? '-survey' : '') + (testPlan ? '-plan' : '') : '';
       const threadParam = summary ? 'summaryThread' : 'thread';
-      const name = summary ? 'teaching-chat-final-report' : `teaching-chat-stage-${stageId}${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`;
+      const voiceTurn = report.teachingEvidence.filter(item => item.stageId === stageId && item.status === 'passed').length + 1;
+      const name = profile === V2_VOICE_PROFILE && stageId !== 1 && !summary ? `teaching-chat-stage-${stageId}-turn-${voiceTurn}` : summary ? 'teaching-chat-final-report' : `teaching-chat-stage-${stageId}${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`;
       let isolatedKnownS1Review = false;
       const accepted = await checkpoint(name, async () => {
         if (guard.teachingStopped()) throw new ProbeFailure('TEACHING_PREVIOUS_OUTCOME_UNRESOLVED');
@@ -630,7 +823,7 @@ export async function main() {
           if (entityId !== 'group-report') throw new ProbeFailure('REPORT_SCOPE_UNVERIFIED');
           const history = page.getByTestId('aidt-summary-materials').locator('p').filter({ hasText: /^历史选择/ });
           const historyRevisions = [...(await history.textContent()).matchAll(/第(\d+)步 V(\d+)/g)].map(match => ({ stageId: Number(match[1]), revision: Number(match[2]) }));
-          selector = { schemaVersion: 1, projectId, purpose: 'summary', stageRevisions: Object.values(stages).map(({stageId,revision}) => ({stageId,revision})), historyRevisions };
+          selector = { schemaVersion: 1, projectId, purpose: 'summary', ...(profile===V2_VOICE_PROFILE?{entityId:'group-report'}:{}), stageRevisions: Object.values(stages).map(({stageId,revision}) => ({stageId,revision})), historyRevisions };
         } else if (entityId) {
           selector = { schemaVersion: 1, projectId, purpose: 'stage', stageId, entityId, stageRevisions: stages[stageId] ? [{ stageId, revision: stages[stageId].revision }] : [] };
           if (stageId === 2) {
@@ -673,7 +866,7 @@ export async function main() {
         sensitiveEvidence.assertSafe(proof.assistantText);
         guard.completeTeaching(proof);
         report.teachingEvidence.push({ ...proof, projectId, entityId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
-        await capture(summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`, stageId);
+        await capture(profile === V2_VOICE_PROFILE ? (summary ? 'v2-final-report-real-chat' : `v2-teaching-s${stageId}-turn-${voiceTurn}`) : summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`, stageId);
       });
       if (!accepted) {
         if (!isolatedKnownS1Review) guard.stopTeaching();
@@ -682,6 +875,7 @@ export async function main() {
       return accepted;
     };
     const savePrint = async ({ stage, name, button, requiredTexts, imageHashes }) => {
+      if (profile === V2_VOICE_PROFILE) throw new ProbeFailure('V2_LEGACY_PRINT_PROFILE_CONFLICT');
       const key = assertAidtPrintRequest(stage, name, report.systemArtifacts);
       assertCaptureScope(page.url(), projectId, stage); recheckRuntime();
       const assertSafe = async text => {
@@ -697,6 +891,123 @@ export async function main() {
       const receipt = { stage, printName: key, filename, htmlFilename, format: 'pdf', ...result.metadata, projectId, source: identity.source, tag: identity.tag };
       report.systemArtifacts.push(receipt); return receipt;
     };
+    const nativeActionObserver = profile === V2_VOICE_PROFILE ? createV2NativeActionObserver({ page, expect, read: path => api(page, 'GET', path),
+      guard, plan, report, runtimeScope, assertSafe: text => sensitiveEvidence.assertSafe(text), capture, candidateActions: metadata.candidateActions }) : undefined;
+    const readResearchDocument = async pin => {
+      if (profile !== V2_VOICE_PROFILE) throw new ProbeFailure('V2_RESEARCH_PROFILE_REQUIRED');
+      const ids = guard.summary().ownedResearchIds;
+      if (!Array.isArray(ids) || ids.length !== 1 || !/^[A-Za-z0-9._:-]{1,256}$/.test(ids[0]) || pin?.researchId && pin.researchId !== ids[0]) throw new ProbeFailure('V2_RESEARCH_OWNED_ID_REQUIRED');
+      const response = await api(page, 'GET', `/api/interviews/digital/${encodeURIComponent(ids[0])}/markdown`);
+      if (response.status !== 200 || response.data?.interviewId !== ids[0] || !Array.isArray(response.data.documents)) throw new ProbeFailure('V2_RESEARCH_CURRENT_READ_FAILED');
+      // The current read is fresh evidence only. A supplied historical document pin may never be silently upgraded.
+      if (pin && !response.data.documents.some(document => document.documentId === pin.documentId && document.version === pin.version && document.contentHash === pin.contentHash)) throw new ProbeFailure('V2_RESEARCH_FROZEN_DOCUMENT_UNAVAILABLE');
+      return response.data;
+    };
+    const runV2UIAction = async input => {
+      if(profile!==V2_VOICE_PROFILE||!actionWindow||typeof input?.perform!=='function')throw new ProbeFailure('V2_UI_ACTION_PROFILE_REQUIRED');
+      recheckRuntime();actionWindow.begin(input);
+      try {await input.perform();await expect.poll(()=>{const value=actionWindow.active();return !!value&&value.index===value.total&&!value.pending;},{timeout:input.timeoutMs??30000,intervals:[50,100,250]}).toBe(true);return actionWindow.finish(input.actionId);}
+      catch(error){actionWindow.abort('V2_UI_ACTION_UNKNOWN_OUTCOME');throw error;}
+    };
+    const armToolDecision = async input => {
+      if(profile!==V2_VOICE_PROFILE||!input||typeof input.perform!=='function'||!input.review)throw new ProbeFailure('V2_ASR_ACTUAL_ROOT_REVIEW_REQUIRED');
+      const op=plan.operations.find(row=>row.id===input.operationId),url=new URL(page.url()),review=input.review;
+      if(!op||op.kind!=='write'||![2,6].includes(op.stage)||url.pathname!==`/aidt/${projectId}`||url.searchParams.get('step')!==String(op.stage)||url.searchParams.get('entity')!==review.entityId||review.projectId!==projectId||review.runId!==input.runId||review.permissionRequestId!==input.permissionRequestId||review.toolName!==input.toolName||review.argsSha256!==input.argsSha256)throw new ProbeFailure('V2_ASR_ROOT_REVIEW_SCOPE_CHANGED');
+      const fresh=await api(page,'GET',`/api/agent-runs/${encodeURIComponent(input.runId)}`);if(fresh.status!==200)throw new ProbeFailure('V2_ASR_FRESH_PENDING_READ_REQUIRED');
+      recheckRuntime();guard.armV2Operation({operationId:op.id,kind:'write',requestKind:'asr-permission-once',stageId:op.stage,entityRole:op.entityRole,entityId:review.entityId,expectedFields:{decision:'once',asrPermission:{runId:input.runId,permissionRequestId:input.permissionRequestId,toolName:input.toolName,argsSha256:input.argsSha256,review}}});
+      const path=`/api/agent-runs/${encodeURIComponent(input.runId)}/permission-requests/${encodeURIComponent(input.permissionRequestId)}/decision`;
+      let response;try{[response]=await Promise.all([page.waitForResponse(value=>value.request().method()==='POST'&&new URL(value.url()).origin===ORIGIN&&new URL(value.url()).pathname===path,{timeout:30000}),input.perform()]);}catch{guard.fail('V2_ASR_PERMISSION_OUTCOME_UNKNOWN');throw new ProbeFailure('V2_ASR_PERMISSION_OUTCOME_UNKNOWN');}
+      if(response.status()!==200){guard.fail('V2_ASR_PERMISSION_NOT_CONFIRMED_NO_REPLAY');throw new ProbeFailure('V2_ASR_PERMISSION_NOT_CONFIRMED_NO_REPLAY');}
+      const actual=ledger.summary().operations.find(row=>row.id===op.id);if(actual?.status!=='SUCCEEDED'||guard.fatal())throw new ProbeFailure(guard.fatal()??'V2_ASR_PERMISSION_RECEIPT_REQUIRED');
+      return {operationId:op.id,decision:'once',status:200,runId:input.runId,permissionRequestId:input.permissionRequestId,viaNormalUI:true,actualRootReview:true};
+    };
+    const prepareSourceImages = async coordinates => {
+      if(profile!==V2_VOICE_PROFILE||!coordinates||!Array.isArray(coordinates.ideaIds)||![1,3].includes(coordinates.ideaIds.length))throw new ProbeFailure('V2_DESIGN_SOURCE_COORDINATES_REQUIRED');
+      const stage4=await api(page,'GET',`/api/projects/${projectId}/aidt/stages/4/revision/${coordinates.stage4Revision}`),current=await api(page,'GET',`/api/projects/${projectId}/aidt/stages/5`);
+      if(stage4.status!==200||stage4.data?.stage?.revision!==coordinates.stage4Revision||current.status!==200)throw new ProbeFailure('V2_DESIGN_SOURCE_EXACT_READ_REQUIRED');
+      const fields=current.data?.stage?.content?.draft?.fields??{};let confirmation,round;
+      try{confirmation=JSON.parse(fields[`prototypeText:${coordinates.designId}:prototypeTextConfirmation`]??'null');round=JSON.parse(stage4.data.stage.content.draft.fields['ideaBrainstormRoundCompletion:'+coordinates.brainstormId]??'null');}catch{throw new ProbeFailure('V2_DESIGN_SOURCE_SAVED_FIELDS_REQUIRED');}
+      if(!Number.isSafeInteger(confirmation?.stageRevision)||!Array.isArray(round?.sheets))throw new ProbeFailure('V2_DESIGN_SOURCE_CONFIRMED_REVISION_REQUIRED');
+      const confirmed=await api(page,'GET',`/api/projects/${projectId}/aidt/stages/5/revision/${confirmation.stageRevision}`);if(confirmed.status!==200||confirmed.data?.stage?.revision!==confirmation.stageRevision)throw new ProbeFailure('V2_DESIGN_TEXT_FROZEN_READ_REQUIRED');
+      const hashes=new Set();for(const ideaId of coordinates.ideaIds){const sheet=round.sheets.find(row=>row.id===ideaId);let ref;try{ref=JSON.parse(sheet?.imageMaterial??'null');}catch{}if(!ref||ref.projectId!==projectId||!ref.runId||!ref.sha256||hashes.has(ref.sha256))throw new ProbeFailure('V2_DESIGN_DISTINCT_SOURCE_IMAGE_REQUIRED');hashes.add(ref.sha256);const actual=await api(page,'GET',`/api/ingestion-runs/${encodeURIComponent(ref.runId)}/content?projectId=${encodeURIComponent(projectId)}`);if(actual.status!==200)throw new ProbeFailure('V2_DESIGN_SOURCE_BYTES_READ_REQUIRED');}
+      const result=guard.registerDesignSourceImages(coordinates);if(result.images.length!==coordinates.ideaIds.length)throw new ProbeFailure('V2_DESIGN_SOURCE_IMAGE_COUNT_REQUIRED');return result.images;
+    };
+    const runNativeOperation = async input => {
+      if (profile !== V2_VOICE_PROFILE || !ledger) throw new ProbeFailure('V2_NATIVE_OPERATION_PROFILE_REQUIRED');
+      const arm = v2NativeOperationInput(input, plan);
+      if(arm.requestKind==='asr-file'){const observed=await prepareV2NativeExpected({read:path=>api(page,'GET',path),guard,projectId,stageId:arm.stageId,rawUrl:page.url()});arm.expectedFields={...(arm.expectedFields??{}),nativeActionPrefix:metadata.candidateActions.test,selector:observed.selector,threadId:observed.threadId,skillId:observed.skillId,skillVersionId:observed.skillVersionId,knownMessages:observed.knownMessages};}
+      recheckRuntime(); guard.armV2Operation(arm);if(arm.requestKind==='design-generate')guard.armDesignGeneration({designId:arm.resourceId});
+      try { await input.perform(); }
+      catch { guard.fail('V2_NATIVE_UI_OPERATION_OUTCOME_UNKNOWN'); throw new ProbeFailure('V2_NATIVE_UI_OPERATION_OUTCOME_UNKNOWN'); }
+      const maximumMs = arm.kind === 'design' ? 900000 : ['research','asr'].includes(arm.kind) ? 300000 : 30000;
+      let final;
+      await expect.poll(() => {
+        final = ledger.summary().operations.find(item => item.id === arm.operationId);
+        if (guard.fatal() || ['FAILED','UNKNOWN'].includes(final?.status)) return true;
+        return final?.status === 'SUCCEEDED'||arm.requestKind==='asr-file'&&final?.status==='SENT'&&!!guard.nativeTeachingState(arm.operationId)?.wire;
+      }, { timeout: maximumMs, intervals: [250,500,1000] }).toBe(true);
+      if (guard.fatal() || final?.status !== 'SUCCEEDED'&&!(arm.requestKind==='asr-file'&&final?.status==='SENT')) throw new ProbeFailure(guard.fatal() ?? 'V2_NATIVE_UI_OPERATION_NOT_CONFIRMED');
+      return { operationId: arm.operationId, kind: arm.kind, status: final.status, receipt: final.receipt };
+    };
+    const completeAsrOperation = async ({operationId,runId}) => {
+      const op=plan.operations.find(row=>row.id===operationId),state=guard.nativeTeachingState(operationId);
+      if(profile!==V2_VOICE_PROFILE||op?.kind!=='asr'||!state?.scope||!state.wire)throw new ProbeFailure('V2_ASR_ACCEPTED_OPERATION_REQUIRED');
+      const messages=await api(page,'GET',`/api/chat/threads/${encodeURIComponent(state.scope.threadId)}/messages?limit=100`),current=guard.nativeTeachingState(operationId);
+      if(messages.status!==200||current?.accepted?.runId!==runId)throw new ProbeFailure('V2_ASR_CANONICAL_RUN_REQUIRED');
+      const run=await api(page,'GET',`/api/agent-runs/${encodeURIComponent(runId)}`),receipt=await api(page,'GET',`/api/agent-runs/${encodeURIComponent(runId)}/aidt-context`);
+      if(run.status!==200||receipt.status!==200||run.data.status!=='succeeded')throw new ProbeFailure('V2_ASR_SUCCEEDED_RUN_AND_CONTEXT_REQUIRED');
+      const calls=(run.data.steps??[]).filter(step=>step.kind==='tool_call'&&step.status==='succeeded'&&step.toolName==='wx_audio_transcribe');
+      const published=(run.data.steps??[]).filter(step=>step.kind==='tool_call'&&step.status==='succeeded'&&step.toolName==='wx_artifact_publish');
+      const summary=calls[0]?.toolResultSummary,prefix='audio-transcription-receipt:v1 ';let toolProof,publishArgs;
+      try{toolProof=JSON.parse(summary?.slice(prefix.length));publishArgs=JSON.parse(published[0]?.toolArgsSummary);}catch{throw new ProbeFailure('V2_ASR_REAL_TOOL_PROOF_REQUIRED');}
+      const sourceHash=/SHA256=([a-f0-9]{64})/.exec(state.scope.prompt)?.[1];
+      if(calls.length!==1||published.length!==1||typeof summary!=='string'||!summary.startsWith(prefix)||createHash('sha256').update(summary).digest('hex')!==calls[0].outputDigest||toolProof?.status!=='succeeded'||toolProof.sourceHash!==sourceHash||publishArgs.workspacePath!==toolProof.workspacePath||publishArgs.mediaType!=='application/json')throw new ProbeFailure('V2_ASR_REAL_TOOL_PROOF_REQUIRED');
+      const proof=validateTeachingEvidence({messages:messages.data,run:run.data,receipt:receipt.data},state.scope,state.wire,current.accepted,current.snapshotHash);guard.completeTeaching(proof);
+      report.teachingEvidence.push({...proof,entityId:state.scope.selector.entityId,projectId,checkpoint:operationId,prompt:state.scope.prompt,status:'passed',source:identity.source,controlSource:identity.controlSource,tag:identity.tag,evidenceKind:'synthetic-file-asr',providerIndependentlyVerified:false});
+      return {operationId,runId,status:'SUCCEEDED',actualAsrAndPublishReceipts:true,publishedFileBytesVerifiedSeparately:true};
+    };
+    const printFormal = async ({ stage: printStage, name, entityId, button, requiredTexts = [], imageHashes = [], expectedImageCount, sourceRevision }) => {
+      if (profile !== V2_VOICE_PROFILE || !ledger) throw new ProbeFailure('V2_PRINT_PROFILE_REQUIRED');
+      const outputPlan = plan.formalOutputs.find(item => item.name === name && item.stage === printStage);
+      const jobs = plan.printJobs.filter(item => item.outputName === name && item.stage === printStage);
+      if (!outputPlan || jobs.length !== 3 || !Number.isSafeInteger(sourceRevision) || sourceRevision < 1) throw new ProbeFailure('V2_PRINT_FORMAL_OUTPUT_NOT_PLANNED');
+      const current = new URL(page.url());
+      if (current.searchParams.get('entity') !== entityId) throw new ProbeFailure('V2_PRINT_FORMAL_ENTITY_CHANGED');
+      const items = [];
+      for (const job of jobs) {
+        ledger.claimPrint(job.name, runtimeScope());
+        if (!nativeDriver || !report.nativePrintCapability?.available || report.nativePrintBudget.exhausted) {
+          const code = report.nativePrintBudget.exhausted ? 'V2_PRINT_RUN_BYTE_BOUND' : report.nativePrintCapability?.blockCode ?? 'NATIVE_SYSTEM_PRINT_CAPABILITY_BLOCKED';
+          ledger.settlePrint(job.name, { scope: runtimeScope(), outcome: 'blocked', code });
+          items.push({ printName: job.name, stage: printStage, sourceRevision, status: 'BLOCKED', code });
+          continue;
+        }
+        recheckRuntime(); assertCaptureScope(page.url(), projectId, printStage);
+        try {
+          const artifactName = `qa-system-${identity.run}-${identity.attempt}-${name}`;
+          const result = await nativeDriver.capture({ page, previewButton: button, paper: job.paper, projectId, stage: printStage, artifactName, requiredTexts, imageHashes, expectedImageCount });
+          const copied = await storeV2PrintFiles({ result, ownedRuntime: nativeRuntime, outputDirectory: output.out,
+            assertSafe: text => sensitiveEvidence.assertSafe(text), verifyImage: bytes => verifyPng(browser, bytes, 24),
+            budget: { pdfRemainingBytes: report.nativePrintBudget.pdfMaximumBytes - report.nativePrintBudget.pdfBytes, renderRemainingBytes: report.nativePrintBudget.renderMaximumBytes - report.nativePrintBudget.renderBytes } });
+          report.nativePrintBudget.pdfBytes += copied.pdfBytes; report.nativePrintBudget.renderBytes += copied.renderBytes;
+          const stageBytes = report.nativePrintBudget.byStage[printStage] ??= { pdfBytes: 0, renderBytes: 0, files: [] };
+          stageBytes.pdfBytes += copied.pdfBytes; stageBytes.renderBytes += copied.renderBytes; stageBytes.files.push({ printName: job.name, pdfBytes: copied.pdfBytes, renderBytes: copied.renderBytes });
+          const receipt = { stage: printStage, printName: job.name, format: 'pdf', projectId, entityId, sourceRevision, source: identity.source,
+            controlSource: identity.controlSource, tag: identity.tag, paper: job.paper, status: 'PENDING_INDEPENDENT_REVIEW', ...copied, ...result.metadata };
+          report.systemArtifacts.push(receipt); items.push(receipt);
+          // Real files and all-page mechanical checks are retained. Root's independent glyph/content
+          // review is still required; no automatic mapping to contentVerified=true is permissible.
+          ledger.settlePrint(job.name, { scope: runtimeScope(), outcome: 'blocked', code: 'PDF_VISUAL_REVIEW_REQUIRED' });
+        } catch (error) {
+          const code = safeCode(error); if (code === 'V2_PRINT_RUN_BYTE_BOUND') report.nativePrintBudget.exhausted = true; ledger.settlePrint(job.name, { scope: runtimeScope(), outcome: 'blocked', code });
+          items.push({ printName: job.name, stage: printStage, sourceRevision, status: 'BLOCKED', code, unknownFileOutcomePreserved: true });
+          // Print failure never resends a model request or blocks independently testable features.
+        }
+      }
+      report.formalPrintChecks ??= []; report.formalPrintChecks.push(...items);
+      return { status: items.every(item => item.status === 'PENDING_INDEPENDENT_REVIEW') ? 'PENDING_INDEPENDENT_REVIEW' : 'BLOCKED', artifacts: items };
+    };
+
     stage = 'six-stage-journey';
     const { runAidtJourney, REQUIRED_CHECKS } = await import('./devapp-aidt-journey.mjs');
     if (!Array.isArray(REQUIRED_CHECKS) || REQUIRED_CHECKS.length < 6) throw new ProbeFailure('JOURNEY_REQUIREMENTS_INVALID');
@@ -718,12 +1029,25 @@ export async function main() {
         if (result.status !== 200) throw new ProbeFailure('AGENT_QA_MESSAGES_CHANGED');
         return result.data;
       } });
-    await runAidtJourney({ page, context, expect, interviewStarter: metadata.interviewStarter, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
+    const asrPorts=profile===V2_VOICE_PROFILE&&asrReviewer?asrReviewer.bindPage({page,context,armToolDecision,
+      readRun:async q=>{const value=await api(page,'GET',`/api/agent-runs/${encodeURIComponent(q.runId)}`);if(value.status!==200)throw new ProbeFailure('V2_ASR_REVIEW_RUN_UNAVAILABLE');return value.data;},
+      readStage:async q=>{if(q.projectId!==projectId||![2,6].includes(q.stageId))throw new ProbeFailure('V2_ASR_REVIEW_STAGE_SCOPE_CHANGED');const value=await api(page,'GET',`/api/projects/${projectId}/aidt/stages/${q.stageId}`);if(value.status!==200)throw new ProbeFailure('V2_ASR_REVIEW_STAGE_UNAVAILABLE');return value.data?.stage;}}):{};
+    const selectedJourney = profile === V2_VOICE_PROFILE ? (await import('./devapp-aidt-v2-journey.mjs')).runV2VoiceJourney : runAidtJourney;
+    await selectedJourney({ page, context, expect, interviewStarter: metadata.interviewStarter, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
       checkpoint, capture, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
+      ...(profile === V2_VOICE_PROFILE ? { plan, ledger, runtimeScope, nativeActionObserver, observeNativeAction: nativeActionObserver, runNativeOperation, prepareSourceImages, runV2UIAction, armToolDecision, completeAsrOperation, ...asrPorts, printFormal, readResearchDocument, audioFixture:readV2SyntheticAudioFixture(metadata,identity), surveyPublication:()=>guard.surveyPublication(), armStageSave: (stageId, confirmation) => guard.armStageSave(stageId, confirmation) } : {}),
       armInterviewEdit: () => guard.armStageSave(2, false), armCardCreate: stage => guard.armStageSave(stage, false),
       registerFixture: fixture => guard.registerFixture(fixture), armSurvey: id => guard.armSurvey(id), surveyReceipt: guard.surveyReceipt, armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, createSurveyParticipant, reviewS1StudentResponse, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
+    if (profile === V2_VOICE_PROFILE) {
+      report.asrReview=asrReviewer?.summary(); report.v2Acceptance = ledger.summary(); report.requiredChecks = plan.caseIds;
+      report.passed = !guard.fatal() && report.v2Acceptance.fullAcceptancePassed;
+      report.fullAcceptancePassed = report.passed; report.uiChecksPassed = !guard.fatal() && report.v2Acceptance.cases.every(item => item.status === 'PASSED' || item.caseId.startsWith('PRINT-') && item.status === 'BLOCKED');
+      report.teachingNativeChainVerified = [1,2,3,4,5,6].every(stageId => report.teachingEvidence.some(item => item.stageId === stageId && item.status === 'passed'));
+      if (!report.passed) report.failure = guard.fatal() ?? 'V2_REQUIRED_CASES_OR_VISUAL_REVIEW_INCOMPLETE';
+      return;
+    }
     report.requiredChecks = ['homepage-ui-create-persist', 'unknown-project-denied', ...REQUIRED_CHECKS, 'teaching-chat-final-report', 'teaching-chat-stage-3-2', 'teaching-chat-stage-3-3', 'teaching-chat-stage-3-4', 'teaching-chat-stage-4-reverse', 'teaching-chat-stage-6-plan', 'teaching-chat-stage-6-survey-plan', 'teaching-chat-stage-6-survey', ...[1,2,3,4,5,6].map(stageId => `teaching-chat-stage-${stageId}`)];
     report.passed = !guard.fatal() && report.requiredChecks.every(name => report.checkpoints.some(item => item.name === name && item.status === 'passed'));
     // UI/runtime checks and exported PDF bytes are complete here; final glyph
@@ -737,6 +1061,10 @@ export async function main() {
   } catch (error) { report.failure = safeCode(error); report.failedStage = stage; }
   finally {
     clearTimeout(timer);
+    if (ledger) {
+      report.asrReview = asrReviewer?.summary();
+      report.v2Acceptance = ledger.summary();
+    }
     if (agentReviewer) report.agentReview = agentReviewer.summary();
     let privateEvidenceSafe = true;
     try {
@@ -749,8 +1077,10 @@ export async function main() {
         }
       }
     } catch { privateEvidenceSafe = false; report.passed = false; report.fullAcceptancePassed = false; report.failure = 'EVIDENCE_PRIVACY_REVIEW_FAILED'; }
+    try { await nativeDriver?.dispose(); } catch { /* Owned print session only. */ }
     try { await context?.close(); } catch { /* No raw errors. */ }
     try { await browser?.close(); } catch { /* No raw errors. */ }
+    try { await nativeRuntime?.dispose(); } catch { /* This attempt's owned X display only. */ }
     if (guard) {
       report.requestScope = guard.summary();
       report.designGenerationWorkflowObserved = report.requestScope.designModel?.httpStatus === 200 && report.requestScope.designModel?.generatedFrames > 0;

@@ -8,6 +8,10 @@ import { aidtRoundMissingOutput } from "@/features/aidt/lib/aidt-round-completio
 import { allAidtDefinitionEntitiesConfirmed, applyAidtDefinitionCandidate, latestAidtDefinitionCandidate } from "@/features/aidt/lib/aidt-definition-chat";
 import { StageContent } from "@repo/contracts/aidt-stages";
 
+const live = vi.hoisted(() => ({ api: vi.fn() }));
+vi.mock("@/lib/api-client", () => ({ apiRequest: live.api }));
+vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: { currentOrgId: "qa-org", userId: "qa-student", sessionToken: "qa-token" } }) }));
+
 const card = { id: "u1", participantCode: "U01", headline: "难以比较口味", headlineKind: "student-summary" as const, context: "午休点单", quote: "口味看不出差别", sourceRef: "校对转写 01:42", photoRef: "" };
 const unconfirmed = { ...card, id: "u2", participantCode: "U02" };
 const context = { availableCards: [card, unconfirmed], availableCardsRevision: 2, discoveryCardFields: { "interviewConfirmed:u1": "true" }, readOnly: false };
@@ -101,30 +105,41 @@ it("creates a primary surprise card and offers no workspace questions or forms",
   expect(screen.getByRole("button", { name: "新建画像" })).toBeDisabled();
 });
 
-it("stages scoped Chat output, confirms it explicitly and keeps the inspector read only", () => {
+it("stages scoped Chat output, confirms it explicitly and keeps the inspector read only", async () => {
+  const interviewId = "73e90275-e848-480f-8962-8d39d3b88b43";
+  const sourceCard = { ...card, id: interviewId };
+  const sourceFields = { [`interviewConfirmed:${interviewId}`]: "true", [`interviewRecord:${interviewId}`]: JSON.stringify({ version: 1, id: interviewId, code: "U01",
+    topic: "午休点单", topicRevision: 1, goal: "了解经过", original: "说说上次经过？", adopted: "说说上次实际经过？", guideConfirmed: true,
+    consent: { notes: true, audio: false, photos: false, observedAt: "2026-11-22T07:00:00Z" } }) };
+  const authorizedContext = { ...context, projectId: "qa-project", availableCards: [sourceCard, unconfirmed], discoveryCardFields: sourceFields };
+  live.api.mockImplementation(async (url: string) => {
+    if (url !== "/projects/qa-project/aidt/stages/2") throw new Error("Unexpected QA source read");
+    return { stage: { projectId: "qa-project", stageId: 2, revision: 2, sourceStageRevisions: [], updatedBy: "qa-student", updatedAt: "2026-11-22T07:00:00Z",
+      content: { schemaVersion: 1, draft: { fields: sourceFields, ideas: [], selectedIdeaId: "", discoveryCards: [sourceCard] } } } };
+  });
   let durable = addAidtDefinitionEntity(noSurprise(), "persona", "p1");
   function Workspace() {
     const [draft, setDraft] = React.useState(durable);
     const [saved, setSaved] = React.useState(durable);
     return <>
-      <AidtDefinitionChatArtifact {...context} entityId="p1" draft={draft} savedDraft={saved}
+      <AidtDefinitionChatArtifact {...authorizedContext} entityId="p1" draft={draft} savedDraft={saved}
         update={setDraft} requestSave={() => setDraft(value => { durable = value; setSaved(value); return value; })}
         loading={false} running={false}
         messages={[
           { id: "human", role: "user", content: "这位学生午休会先比较口味。" },
-          { id: "reply", role: "assistant", content: "\n```aidt-definition\n" + JSON.stringify({ kind: "persona", name: "午休点单", situation: "食堂", behavior: "比较口味", need: "口味标签", cardIds: ["u1", "u2", "foreign"] }) + "\n```" },
+          { id: "reply", role: "assistant", content: "\n```aidt-definition\n" + JSON.stringify({ kind: "persona", name: "午休点单", situation: "食堂", behavior: "比较口味", need: "口味标签", cardIds: [interviewId, "u2", "foreign"] }) + "\n```" },
         ]} />
-      <AidtDefinitionOutput {...context} entityId="p1" draft={draft} update={setDraft} />
+      <AidtDefinitionOutput {...authorizedContext} entityId="p1" draft={draft} update={setDraft} />
     </>;
   }
   render(<Workspace />);
   const output = screen.getByRole("region", { name: "当前产物" });
-  expect(output).toHaveTextContent("口味标签");
+  await waitFor(() => expect(output).toHaveTextContent("口味标签"));
   expect(within(output).queryByRole("textbox")).toBeNull();
   expect(output).not.toHaveTextContent("U02");
   expect(readAidtDefinition(durable.fields).personas[0]?.confirmed).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "确认当前产物" }));
-  expect(readAidtDefinition(durable.fields).personas[0]).toMatchObject({ id: "p1", confirmed: true, cardIds: ["u1"] });
+  await waitFor(() => expect(readAidtDefinition(durable.fields).personas[0]).toMatchObject({ id: "p1", confirmed: true, cardIds: [interviewId] }));
 });
 
 it("keeps all active entities in the Stage 3 completion calculation", () => {

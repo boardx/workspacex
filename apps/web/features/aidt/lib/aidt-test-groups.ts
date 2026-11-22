@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { AidtPrototypeIdentifierSchema, type AidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
+import { AIDT_TEST_GROUP_ROUND_PREFIX, AidtPrototypeIdentifierSchema, type AidtQuestionSnapshot } from "@repo/contracts/aidt-return-reflection";
 import { AidtResearchMaterial, AidtResearchMaterialIdentifier } from "./aidt-research-material-reference";
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
+import { AidtTestResearchPath, AIDT_TEST_VIRTUAL_RESEARCH_PREFIX } from "./aidt-test-research";
+import { AidtSyntheticFileAsrKind, AIDT_TEST_SYNTHETIC_ASR_PREFIX } from "@repo/contracts/aidt-test-research";
 
 const prefix = "testGroup:";
 const GroupId = z.string().uuid();
@@ -29,6 +31,8 @@ const TestGroup = z.object({
   participant: z.string().max(80),
   situation: z.string().max(300),
   method: TestResource.shape.kind,
+  researchPath: AidtTestResearchPath.optional(),
+  evidenceOrigin: AidtSyntheticFileAsrKind.optional(),
   source: TestResource.nullable(),
   sourceLocation: z.string().max(180),
   surveyResponseId: AidtResearchMaterialIdentifier.optional(),
@@ -41,7 +45,8 @@ const TestGroup = z.object({
   decisionReason: z.string().max(350),
 }).strict().refine(group => (group.source?.kind === group.method || group.source === null)
   && (!group.surveyResponseId || group.source?.kind === "survey")
-  && (!group.audioConsentAt || group.method === "interview"));
+  && (!group.audioConsentAt || group.method === "interview")
+  && (!group.researchPath || (group.researchPath === "survey" ? group.method === "survey" : group.method === "interview")));
 
 export type AidtTestGroup = z.infer<typeof TestGroup>;
 
@@ -97,7 +102,7 @@ function testWorkChanged(before: AidtTestGroup, after: AidtTestGroup): boolean {
 
 export function isAidtTestGroupConfirmed(group: AidtTestGroup): boolean {
   return Boolean(group.confirmedFromMessageId && group.task.trim() && group.reflection.trim()
-    && (group.evidenceGap?.trim() || ((group.source || group.material) && group.sourceLocation.trim() && (group.said.trim() || group.did.trim()))));
+    && (group.evidenceGap?.trim() || (group.researchPath !== "virtual" && !group.evidenceOrigin && (group.source || group.material) && group.sourceLocation.trim() && (group.said.trim() || group.did.trim()))));
 }
 
 export function aidtTestGroupsComplete(draft: AidtUiStageDraft): boolean {
@@ -108,12 +113,13 @@ export function aidtTestGroupsComplete(draft: AidtUiStageDraft): boolean {
 }
 
 export function aidtTestGroupHasEvidence(group: AidtTestGroup, projectId: string, sourceAccessible: boolean, materialAccessible = false): boolean {
+  if (group.researchPath === "virtual" || group.evidenceOrigin) return false;
   const hasMaterial = materialAccessible && group.material?.projectId === projectId;
   return Boolean((hasMaterial || (sourceAccessible && group.source)) && group.sourceLocation.trim() && (group.said.trim() || group.did.trim()));
 }
 
 /** A new round clears its shared reflection, while named testing entities remain addressable. */
 export function resetAidtTestRound(draft: AidtUiStageDraft): AidtUiStageDraft {
-  const fields = Object.fromEntries(Object.entries(draft.fields).filter(([key]) => key.startsWith(prefix)));
+  const fields = Object.fromEntries(Object.entries(draft.fields).filter(([key]) => key.startsWith(prefix) || key.startsWith(AIDT_TEST_GROUP_ROUND_PREFIX) || key.startsWith(AIDT_TEST_VIRTUAL_RESEARCH_PREFIX) || key.startsWith(AIDT_TEST_SYNTHETIC_ASR_PREFIX)));
   return { ...draft, fields };
 }

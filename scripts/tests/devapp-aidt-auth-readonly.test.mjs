@@ -304,7 +304,7 @@ test('agent software-QA review is an explicit boolean opt-in and exports only th
   assert.match(acceptanceWorkflow, /permissions:\n  contents: read\n/);
   assert.doesNotMatch(acceptanceWorkflow, /(?:issues|actions): write|github\.token|ACTIONS_RUNTIME_TOKEN|ACTIONS_RUNTIME_URL|AIDT_(?:REVIEW|AGENT_QA)_(?:URL|PATH|ANSWER|RESPONSE|TOKEN)/);
   const live = acceptanceWorkflow.split('\n  live-dev:\n')[1];
-  assert.match(live, /timeout-minutes: 152/);
+  assert.match(live, /timeout-minutes: \$\{\{ inputs\.acceptance_profile == 'v2-voice-20261122' && 360 \|\| 152 \}\}/);
   assert.match(live, /uses: actions\/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b/);
   assert.match(live, /continue-on-error: true/);
   assert.match(live, /spawn\(selected\.executable, \[path\.join\(source, 'apps\/web\/e2e\/support\/devapp-aidt-acceptance\.mjs'\)\]/);

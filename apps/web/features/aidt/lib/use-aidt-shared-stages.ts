@@ -253,7 +253,7 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
   }
   const reportServer = stages[6], serverReport = readGroupReport(reportServer, reportEntityId);
   const discoveryCardsRevision = stages[2] && aidtSharedDraftSignature(stages[2].content.draft) === aidtSharedDraftSignature(drafts[2]!) ? stages[2].revision : undefined;
-  const assembledReport = aidtUiReportMarkdown(drafts, { discoveryCardsRevision });
+  const assembledReport = aidtUiReportMarkdown(drafts, { discoveryCardsRevision, projectId: scope?.projectId });
   const reportMarkdown = reportText ?? assembledReport;
   const matchedReportRefs = Object.values(stages).filter(item => drafts[item.stageId] && aidtSharedDraftSignature(item.content.draft) === aidtSharedDraftSignature(drafts[item.stageId]!)).map(item => ({ stageId: item.stageId, revision: item.revision })).sort((a, b) => a.stageId - b.stageId);
   // Provenance follows the report, never whichever stage heads happen to be open
@@ -316,7 +316,7 @@ export function useAidtSharedStages({ enabled, scope, lifecycleKey, stageId, dra
       setReportBase({ key: reportKey, revision: result.stage.revision });
       if (stageId === 6 && currentWrite.phase !== "conflict") setBaseChoice({ key: writeKey, revision: result.stage.revision });
       // Freeze the saved assembled preview only if no newer local report edits exist.
-      if (latest.current.reportText === reportText && (reportText !== null || aidtUiReportMarkdown(latest.current.drafts) === reportMarkdown)) latest.current.onHydrateReport?.(reportMarkdown);
+      if (latest.current.reportText === reportText && (reportText !== null || aidtUiReportMarkdown(latest.current.drafts, { discoveryCardsRevision, projectId: scope?.projectId }) === reportMarkdown)) latest.current.onHydrateReport?.(reportMarkdown);
     } catch (error) {
       if (latest.current.key !== key || controller.signal.aborted) return;
       if (error instanceof ApiError && error.status === 409) {

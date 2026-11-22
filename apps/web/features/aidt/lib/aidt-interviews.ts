@@ -13,6 +13,7 @@ const transcriptKey = (id: string) => `interviewTranscript:${id}`;
 export const interviewTagsLimit = { maxTags: 8, maxTagLength: 24 };
 const Interview = z.object({
   version: z.literal(1),
+  kind: z.enum(["interview", "observation"]).optional(),
   id: z.string().uuid(),
   code: z.string().trim().min(1).max(32),
   draftTurnId: z.string().min(1).max(256).optional(),
@@ -30,6 +31,8 @@ const Interview = z.object({
   consent: z.object({ observedAt: z.string().datetime(), notes: z.boolean(), photos: z.boolean(), audio: z.boolean().default(false), capture: z.boolean().optional(), asr: z.boolean().optional() }).nullable(),
 });
 export type AidtInterview = z.infer<typeof Interview>;
+/** Missing kind is a legacy interview; reads never rewrite or migrate it. */
+export const isAidtObservation = (record: Pick<AidtInterview, "kind">) => record.kind === "observation";
 
 const audioMetadata = z.object({
   startedAt: z.string().datetime(),
@@ -136,6 +139,7 @@ export const isAidtInterviewConfirmed = (fields: Readonly<Record<string, string>
 export function writeAidtInterview(draft: AidtUiStageDraft, interview: AidtInterview): AidtUiStageDraft {
   const current = parse(Interview, draft.fields[recordKey(interview.id)]);
   const value = Interview.safeParse(interview);
+  if (current && value.success && isAidtObservation(current) !== isAidtObservation(value.data)) return draft;
   if (!value.success || readAidtInterviews(draft.fields).some(record => record.id !== interview.id
     && record.code.normalize("NFKC").toLowerCase() === value.data.code.normalize("NFKC").toLowerCase())) return draft;
   const payload = JSON.stringify(value.data);
@@ -158,7 +162,9 @@ export function writeAidtInterview(draft: AidtUiStageDraft, interview: AidtInter
 }
 
 export function getAidtInterviewFinding(draft: AidtUiStageDraft, interview: AidtInterview): AidtDiscoveryCardDraft {
-  return draft.discoveryCards?.find(card => card.id === interview.id) ?? {
+  const existing = draft.discoveryCards?.find(card => card.id === interview.id);
+  if (existing) return isAidtObservation(interview) ? { ...existing, headlineKind: "student-summary", quote: "" } : existing;
+  return {
     id: interview.id,
     participantCode: interview.code,
     headlineKind: "student-summary",
@@ -179,11 +185,13 @@ export function savedAidtInterviewArtifactTitle(draft: AidtUiStageDraft | undefi
   if (!draft || !id || isAidtInterviewArchived(draft.fields, id)) return undefined;
   const interview = readAidtInterviews(draft.fields).find(item => item.id === id);
   return interview && (interview.adopted.trim() || hasAidtInterviewFinding(draft, interview))
-    ? `${interview.code} · 访谈产物` : undefined;
+    ? `${interview.code} · ${isAidtObservation(interview) ? "观察产物" : "访谈产物"}` : undefined;
 }
 
 export function writeAidtInterviewFinding(draft: AidtUiStageDraft, interview: AidtInterview, patch: Partial<AidtDiscoveryCardDraft>) {
-  const card = { ...getAidtInterviewFinding(draft, interview), ...patch, id: interview.id, participantCode: interview.code };
+  const card = { ...getAidtInterviewFinding(draft, interview), ...patch, id: interview.id, participantCode: interview.code,
+    ...(isAidtObservation(interview) ? { headlineKind: "student-summary" as const, quote: "" } : {}),
+  };
   return {
     ...draft,
     fields: { ...draft.fields, [confirmedKey(interview.id)]: "" },

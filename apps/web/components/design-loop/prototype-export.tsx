@@ -40,10 +40,12 @@ export function frameElementFor(index: number): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-testid="design-detail-phone"][data-frame-index="${index}"]`);
 }
 
-export function PrototypeExportMenu({ project, frame, open: openProp, onOpenChange, hideTrigger = false }: {
+export function PrototypeExportMenu({ project, frame, open: openProp, onOpenChange, hideTrigger = false, printPreview }: {
   project: DesignProject; frame: number;
   /** design-delta `novice-progressive-disclosure`：由详情页「更多」菜单打开时受控、且不显示自带按钮；不传 ⇒ 行为不变。 */
   open?: boolean; onOpenChange?: (open: boolean) => void; hideTrigger?: boolean;
+  /** Optional host-specific read-only preview; ordinary Design retains its native export. */
+  printPreview?: (project: DesignProject) => Promise<"cancelled" | "print-requested">;
 }) {
   const [innerOpen, setInnerOpen] = React.useState(false);
   const open = openProp ?? innerOpen;
@@ -174,6 +176,12 @@ export function PrototypeExportMenu({ project, frame, open: openProp, onOpenChan
   const pdf = async () => {
     setBusy("pdf");
     try {
+      if (printPreview) {
+        const result = await printPreview(project);
+        if (result === "print-requested") flash("pdf");
+        setOpen(false);
+        return;
+      }
       const screens = await renderScreensToMarkup(project);
       const css = collectPageCss(screens.map((s) => s.markup).join(""), Array.from(document.styleSheets) as CSSStyleSheet[]);
       const text = buildPrototypeExportHtml({ project, screens, css, now: new Date(), forPrint: true });

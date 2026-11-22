@@ -6,6 +6,7 @@ import type { AidtSharedStage } from "../lib/live-aidt-stages";
 import * as React from "react";
 import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
+import { AIDT_BRAINSTORM_METHODS } from "@repo/contracts/aidt-brainstorm";
 import { ArrowUpRight, Palette, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,9 +23,10 @@ type Action = { kind: "create" } | { kind: "edit" | "delete"; id: string };
 type SaveDraft = (change: (draft: AidtUiStageDraft) => AidtUiStageDraft) => Promise<boolean>;
 const titles = { create: "新建原型", edit: "编辑原型", delete: "删除原型" };
 
-export function aidtPrototypeEntityHref(projectId: string, designId: string, tool?: "outcome" | "design", ideaRevision?: string | null) {
+export function aidtPrototypeEntityHref(projectId: string, designId: string, tool?: "outcome" | "design", ideaRevision?: string | null, returnContext?: { revision: string; entityId: string }) {
   const query = new URLSearchParams({ entity: designId });
   if (ideaRevision) query.set("ideaRevision", ideaRevision);
+  if (returnContext) { query.set("returnRevision", returnContext.revision); query.set("returnEntity", returnContext.entityId); }
   if (tool === "design") query.set("resource", designId);
   return `${aidtHref(projectId, 5, { tool })}&${query}`;
 }
@@ -48,7 +50,11 @@ export function AidtPrototypeDirectory(props: Props) {
 
 function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft, saveDraft, mutationBusy, onCreated, sourceIdeas }: Props) {
   const tags = useAidtCreateTags(draft);
-  const { adoptionSource: source, adoptionIdeas: choices } = useAidtPrototypeIdeas({ projectId, ideaRevision, draft: emptyDraft, workflow: { ideas: sourceIdeas, matchesServer: true } });
+  const { adoptionSource: source, adoptionRounds: rounds } = useAidtPrototypeIdeas({ projectId, ideaRevision, draft: emptyDraft, workflow: { ideas: sourceIdeas, matchesServer: true } });
+  const [roundId, setRoundId] = React.useState("");
+  const [roundRevision, setRoundRevision] = React.useState<number | null>(null);
+  const selectedRound = roundRevision === source?.revision ? rounds.find(round => round.stableId === roundId) : undefined;
+  const choices = selectedRound?.ideas ?? [];
   const [selectedIdeas, selectIdeas] = React.useState<string[]>([]);
   const [resources, setResources] = React.useState<ProjectResourceItem[] | null>(null);
   const [listError, setListError] = React.useState(false);
@@ -79,7 +85,9 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
   const allowed = canWrite && Boolean(saveDraft) && !mutationBusy;
   function open(next: Action, title = "") {
     tags.reset();
-    selectIdeas(choices.map(idea => idea.id));
+    setRoundId("");
+    setRoundRevision(null);
+    selectIdeas(next.kind === "create" ? [] : choices.map(idea => idea.id));
     setAction(next);
     setName(title);
     setSaveError(false);
@@ -88,7 +96,7 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!action || !allowed || busy || !saveDraft || (action.kind !== "delete" && !name.trim())) return;
-    if (action.kind === "create" && onCreated && (!source || !selectedIdeas.length)) return;
+    if (action.kind === "create" && (!source || !selectedRound || !selectedIdeas.length || !selectedIdeas.every(id => choices.some(idea => idea.id === id)))) return;
     setBusy(true);
     setSaveError(false);
     try {
@@ -112,8 +120,8 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
         }
         if (!await saveDraft(old => {
           const named = updateAidtPrototypeCard(old, resource.id, name);
-          if (named === old || (onCreated && (!source || !selectedIdeas.length))) return old;
-          const linked = source ? updateAidtPrototypeEntityDraft(named, resource.id, entity => pinAidtPrototypeInputs(entity, source, selectedIdeas)) : named;
+          if (named === old || !source || !selectedRound || !selectedIdeas.length) return old;
+          const linked = updateAidtPrototypeEntityDraft(named, resource.id, entity => pinAidtPrototypeInputs(entity, source, selectedIdeas, selectedRound.stableId));
           return tags.apply(linked, resource.id);
         })) throw new Error("prototype card not saved");
         pending.current = null;
@@ -153,11 +161,18 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
           <DialogDescription>{action.kind === "delete" ? `删除「${target?.name ?? "原型"}」卡片，已保存的 Design 版本与引用会保留。` : "在卡片中打开原生对话和 Design。"}</DialogDescription></DialogHeader>
         <form className="space-y-4" onSubmit={event => void submit(event)}>
           {action.kind !== "delete" && <div className="space-y-2"><label htmlFor={nameId}>原型名称</label><Input id={nameId} value={name} maxLength={80} disabled={busy} onChange={event => setName(event.target.value)} /></div>}
-          {action.kind === "create" && <>{tags.field}<AidtCardSources label="来源点子" options={choices} selected={selectedIdeas} select={selectIdeas} /></>}
+          {action.kind === "create" && <>{tags.field}<label className="block text-13">已确认 Ideation 列表
+            <select aria-label="已确认 Ideation 列表" className="mt-1 block w-full rounded-md border border-border bg-background p-2" value={selectedRound?.stableId ?? ""} disabled={busy}
+              onChange={event => { setRoundId(event.target.value); setRoundRevision(source?.revision ?? null); selectIdeas([]); }}><option value="">选择一个已确认列表</option>
+              {rounds.map(round => <option key={round.stableId} value={round.stableId}>{round.title} · {AIDT_BRAINSTORM_METHODS[round.method]} · 第4步 V{source?.revision}</option>)}
+            </select></label>
+            {selectedRound && <p className="text-12 text-muted-foreground">固定 HMW：第3步 V{selectedRound.source.revision} · {selectedRound.source.text}</p>}
+            <fieldset disabled={busy}><AidtCardSources label="来源点子" options={choices} selected={selectedIdeas} select={selectIdeas} /></fieldset>
+            <p className="text-12 text-muted-foreground">选择一项或多项，按本轮原型需要组合。当前已选 {selectedIdeas.length} 项。</p></>}
           {saveError && <p role="alert" className="text-13 text-destructive">原型卡片尚未保存，请重试。</p>}
           <DialogFooter>
             <Button type="button" variant="outline" disabled={busy} onClick={() => setAction(null)}>取消</Button>
-            <Button type="submit" variant={action.kind === "delete" ? "destructive" : "primary"} disabled={!allowed || busy || (action.kind === "create" && Boolean(onCreated) && !selectedIdeas.length) || (action.kind !== "delete" && !name.trim())}>{busy ? "正在保存…" : action.kind === "create" ? "创建原型" : action.kind === "delete" ? "确认删除" : "保存修改"}</Button>
+            <Button type="submit" variant={action.kind === "delete" ? "destructive" : "primary"} disabled={!allowed || busy || (action.kind === "create" && (!selectedRound || !selectedIdeas.length || !selectedIdeas.every(id => choices.some(idea => idea.id === id)))) || (action.kind !== "delete" && !name.trim())}>{busy ? "正在保存…" : action.kind === "create" ? "创建原型" : action.kind === "delete" ? "确认删除" : "保存修改"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

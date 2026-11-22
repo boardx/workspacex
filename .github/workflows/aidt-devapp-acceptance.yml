@@ -4,6 +4,14 @@ run-name: AIDT acceptance · ${{ inputs.expected_release_tag }}
 on:
   workflow_dispatch:
     inputs:
+      acceptance_profile:
+        description: Explicit control profile; baseline results never cover v2-voice-20261122
+        type: choice
+        options:
+          - baseline
+          - v2-voice-20261122
+        default: baseline
+        required: true
       expected_source_sha:
         description: Exact deployed application source (40 lowercase hex)
         type: string
@@ -55,6 +63,7 @@ jobs:
     env:
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+      AIDT_ACCEPTANCE_PROFILE: ${{ inputs.acceptance_profile }}
       AIDT_LIVE_DEV: ${{ inputs.live_dev }}
       AIDT_PROVISION_ORDINARY_QA: ${{ inputs.provision_ordinary_qa }}
       AIDT_REUSABLE_ORDINARY_QA: ${{ inputs.reusable_ordinary_qa }}
@@ -74,11 +83,13 @@ jobs:
           node --input-type=module -e 'import {ordinaryQaProvisioningRequested} from "./apps/web/e2e/support/devapp-aidt-acceptance.mjs"; ordinaryQaProvisioningRequested(process.env, {entryDiagnosticOnly:process.env.AIDT_ENTRY_DIAGNOSTIC_ONLY==="true"});'
           node --input-type=module -e 'import {agentQaReviewRequested} from "./apps/web/e2e/support/devapp-aidt-agent-review.mjs"; agentQaReviewRequested(process.env);'
           node --test scripts/tests/devapp-aidt-acceptance.test.mjs scripts/tests/devapp-aidt-auth-readonly.test.mjs scripts/tests/devapp-aidt-print-evidence.test.mjs scripts/tests/devapp-aidt-chat-evidence.test.mjs scripts/tests/devapp-aidt-teaching-guard.test.mjs scripts/tests/devapp-aidt-qa-identity.test.mjs scripts/tests/devapp-aidt-navigation.test.mjs scripts/tests/devapp-aidt-native-survey.test.mjs
+          node --test scripts/tests/devapp-aidt-v2-profile.test.mjs scripts/tests/devapp-aidt-v2-print.test.mjs scripts/tests/devapp-aidt-v2-integration.test.mjs scripts/tests/devapp-aidt-v2-request-guard.test.mjs scripts/tests/devapp-aidt-v2-action-window.test.mjs scripts/tests/devapp-aidt-v2-ui.test.mjs scripts/tests/devapp-aidt-v2-asr-review.test.mjs scripts/tests/devapp-aidt-v2-s2-asr.test.mjs scripts/tests/devapp-aidt-v2-negative.test.mjs apps/web/e2e/support/devapp-aidt-v2-survey-eight-guard-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-design-source-images-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-crud-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-virtual-normal-flow-independent.test.mjs
           node --test .harness/scripts/ci-aidt-native.test.mjs
-          node --test scripts/tests/devapp-aidt-agent-review.test.mjs
+          node --test scripts/tests/devapp-aidt-agent-review.test.mjs scripts/tests/devapp-aidt-entry-proof.test.mjs
           node --check apps/web/e2e/support/devapp-aidt-acceptance.mjs
           node --check apps/web/e2e/support/devapp-aidt-journey.mjs
           node --check apps/web/e2e/support/devapp-aidt-agent-review.mjs
+          node --input-type=module -e 'import {acceptanceProfile} from "./apps/web/e2e/support/devapp-aidt-v2-profile.mjs"; acceptanceProfile(process.env);'
       - name: Package only audited acceptance tools
         id: bundle
         if: ${{ inputs.live_dev }}
@@ -165,11 +176,12 @@ jobs:
     needs: controls
     runs-on: [self-hosted, linux, x64, workspacex]
     environment: aidt-devapp-qa
-    # Ten interviews each exercise the initial draft, revision and finding in a real entity-scoped model run.
-    timeout-minutes: 152
+    # Each profile has its own finite wall clock and exact operation/output manifest.
+    timeout-minutes: ${{ inputs.acceptance_profile == 'v2-voice-20261122' && 360 || 152 }}
     env:
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+      AIDT_ACCEPTANCE_PROFILE: ${{ inputs.acceptance_profile }}
       AIDT_LIVE_DEV: ${{ inputs.live_dev }}
       AIDT_PROVISION_ORDINARY_QA: ${{ inputs.provision_ordinary_qa }}
       AIDT_REUSABLE_ORDINARY_QA: ${{ inputs.reusable_ordinary_qa }}

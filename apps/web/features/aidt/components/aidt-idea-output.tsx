@@ -3,7 +3,8 @@
 import * as React from "react";
 import { readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { Button } from "@/components/ui/button";
-import { preparePrintImages, printResearchPdf } from "@/lib/research-report-export";
+import { preparePrintImages } from "@/lib/research-report-export";
+import { previewAidtPdf } from "../lib/aidt-print-preview";
 import { aidtIdeaClassificationFor } from "../lib/aidt-idea-classification";
 import { getAidtIdeaChatProposal, ideaChatEntity, isAidtIdeaChatConfirmed, sameSavedAidtIdeaConfirmation } from "../lib/aidt-idea-chat";
 import { readAidtIdeaHmwSource } from "../lib/aidt-idea-handoff";
@@ -56,8 +57,8 @@ export function AidtIdeaOutput({ projectId, entityId, draft, savedDraft, savedRe
       }]);
       await preparePrintImages([...document.querySelectorAll("img")]);
       if (!isCurrent()) return;
-      await printResearchPdf(document, `AIDT 点子描述单-${item.title}`, { isCurrent });
-      if (isCurrent()) setStatus({ key, text: "打印预览已请求，可选择另存为 PDF。" });
+      const result = await previewAidtPdf(document, `AIDT 点子描述单-${item.title}`, { isCurrent });
+      if (isCurrent()) setStatus({ key, text: result === "cancelled" ? "已关闭打印预览，描述单未改变。" : "已请求系统打印。是否另存成功请核对实际 PDF。" });
     } catch {
       if (isCurrent()) setStatus({ key, text: "未能打开打印预览，请重试。" });
     } finally {
