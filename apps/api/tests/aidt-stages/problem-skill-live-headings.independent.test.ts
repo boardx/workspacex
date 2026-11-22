@@ -77,6 +77,9 @@ describe('actual synthetic 450692 heading and source scope regression', () => {
     expect(fields.problemSources).toBe('["guess"]'); expect(fields.sourceDetails).toBe('本组尚未开展真实访谈。');
   });
   it.each([
+    'ai示例：问题来源：猜测。来源描述：排队太长影响选择。',
+    '问题来源：猜测。来源描述：ai示例：排队太长影响选择。',
+    'aI说：问题来源：猜测。来源描述：排队太长影响选择。',
     '问题来源：猜测。来源描述：AI示例：排队太长影响选择。',
     'AI说：问题来源：猜测。来源描述：排队太长影响选择。',
     '问题来源：猜测。来源描述：老师说：排队太长影响选择。',
@@ -95,6 +98,12 @@ describe('actual synthetic 450692 heading and source scope regression', () => {
   it('attributes an explicit own declaration after a blank separately from the prior AI example', () => {
     const own = '我们自己在食堂看到同学用AI比较饮品。';
     const { fields } = projectSource('AI示例：问题来源：猜测。来源描述：排队太长影响选择。\n\n本组来源是亲自观察：' + own);
+    expect(fields.problemSources).toBe('["observation"]'); expect(fields.sourceDetails).toBe(own);
+  });
+
+  it('retains actual own observation content mentioning lowercase ai', () => {
+    const own = '我们在食堂看到同学用ai比较饮品。';
+    const { fields } = projectSource('来源是亲自观察：' + own);
     expect(fields.problemSources).toBe('["observation"]'); expect(fields.sourceDetails).toBe(own);
   });
 
