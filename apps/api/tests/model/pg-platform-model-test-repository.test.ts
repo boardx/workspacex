@@ -25,7 +25,7 @@ function fixture(){
    if(sql.includes("settlement_state=$3")){stored.settlement_state=String(params[2]);return {rows:[]};}
    stored.state=String(params[2]);stored.result=sql.includes("result=NULL")?null:params[3]===null?null:JSON.parse(String(params[3]));stored.failure_reason=sql.includes("result=NULL")?"dispatch-cancelled":String(params[4]);
    if(params[4]===null&&!sql.includes("result=NULL"))stored.failure_reason=null;
-   if(stored.physical_receipt_id||sql.includes("result=NULL"))stored.settlement_state="held";return {rows:[]};
+   stored.settlement_state=String(params[sql.includes("result=NULL")?3:5]);return {rows:[]};
   }
   return {rows:[]};
  });
@@ -59,6 +59,15 @@ describe("tenant platform model test repository",()=>{
  it("invisible foreign UUID collision is generic and uses no unscoped lookup",async()=>{
   const f=fixture();await f.repository.claim(actor,request);f.row().org_id="other-org";
   await expect(f.repository.claim(actor,request)).rejects.toThrow("TEST_ID_CONFLICT");expect(f.withoutTenant).not.toHaveBeenCalled();
+ });
+ it.each(["adapter-unavailable","admission-refused"])("closes a pre-dispatch %s as settled",async reason=>{
+  const f=fixture();await f.repository.claim(actor,request);
+  await f.repository.terminal(actor,request.testId,{state:"failed",result:null,failureReason:reason});
+  expect(await f.repository.read(actor,request.testId)).toMatchObject({state:"failed",settlementState:"settled"});
+  expect(f.row().physical_receipt_id).toBeNull();
+  expect(f.row().settlement_state).toBe("settled");
+  f.row().settlement_state="pending";
+  expect((await f.repository.read(actor,request.testId)).settlementState).toBe("settled");
  });
  it("missing physical receipt blocks dispatch",async()=>{const f=fixture();await f.repository.claim(actor,request);await expect(f.repository.beginDispatch(actor,request.testId)).rejects.toThrow("TEST_ACCOUNTING_UNAVAILABLE");expect(f.row().state).toBe("queued");});
  it("scoped accounting, start and sticky link complete together before dispatch CAS",async()=>{

@@ -24,6 +24,10 @@ function canonical(value:unknown):string {
 }
 const resultKinds={text:"text","image-generation":"image","text-to-speech":"audio","speech-to-text":"text",embedding:"embedding",rerank:"rerank"} as const;
 const hash=(request:PlatformModelTestRequest)=>createHash("sha256").update(canonical(request)).digest("hex");
+// A terminal operation without an attached physical start cannot have dispatched.
+function zeroChargeTerminal(state: Row["state"], receiptId: string | null): boolean {
+ return receiptId === null && (state === "failed" || state === "cancelled");
+}
 function operation(row:Row):PlatformModelTestOperation {
  const parsed=Request.safeParse(row.request),parsedResult=Result.nullable().safeParse(row.result);
  if(!parsed.success||!parsedResult.success||!RecordSchema.shape.state.safeParse(row.state).success
@@ -33,7 +37,7 @@ function operation(row:Row):PlatformModelTestOperation {
  if(request.orgId!==row.org_id||request.testId!==row.id||hash(request)!==row.input_hash
   ||(result!==null&&(row.state!=="succeeded"||result.kind!==resultKinds[request.capability]))
   ||(row.state==="succeeded"&&(result===null||row.failure_reason!==null)))throw new PlatformModelTestError("TEST_ACCOUNTING_UNAVAILABLE");
- return {testId:row.id,operatorUserId:row.operator_user_id,request,state:row.state,settlementState:row.settlement_state,result,failureReason:row.failure_reason};
+ return {testId:row.id,operatorUserId:row.operator_user_id,request,state:row.state,settlementState:zeroChargeTerminal(row.state,row.physical_receipt_id)?"settled":row.settlement_state,result,failureReason:row.failure_reason};
 }
 const columns="id,org_id,operator_user_id,request,input_hash,state,settlement_state,result,failure_reason,physical_receipt_id";
 export class PgPlatformModelTestRepository implements PlatformModelTestRepository {
@@ -94,13 +98,14 @@ export class PgPlatformModelTestRepository implements PlatformModelTestRepositor
    }
    if(current.state==="queued"&&terminal.state!=="failed")throw new PlatformModelTestError("TEST_ACCOUNTING_UNAVAILABLE");
    if(terminal.result&&terminal.result.kind!==resultKinds[Request.parse(current.request).capability])throw new PlatformModelTestError("TEST_ACCOUNTING_UNAVAILABLE");
-   await s.query("UPDATE platform_model_tests SET state=$3,result=$4::jsonb,failure_reason=$5,settlement_state=CASE WHEN physical_receipt_id IS NULL THEN settlement_state ELSE 'held' END,updated_at=now() WHERE org_id=$1 AND id=$2::uuid",[orgId,testId,terminal.state,terminal.result===null?null:JSON.stringify(terminal.result),terminal.failureReason]);
+   await s.query("UPDATE platform_model_tests SET state=$3,result=$4::jsonb,failure_reason=$5,settlement_state=$6,updated_at=now() WHERE org_id=$1 AND id=$2::uuid",[orgId,testId,terminal.state,terminal.result===null?null:JSON.stringify(terminal.result),terminal.failureReason,zeroChargeTerminal(terminal.state,current.physical_receipt_id)?"settled":"held"]);
   });
  }
  cancel(actor:PlatformModelTestActor,testId:string){return this.authorized(actor,async(s,orgId)=>{
   const current=await this.row(s,orgId,actor,testId,true);
   if(current.state==="queued"||current.state==="dispatching"){
-   await s.query("UPDATE platform_model_tests SET state=$3,result=NULL,failure_reason='dispatch-cancelled',settlement_state='held',updated_at=now() WHERE org_id=$1 AND id=$2::uuid",[orgId,testId,current.state==="queued"?"cancelled":"unknown"]);
+   const nextState=current.state==="queued"?"cancelled":"unknown";
+   await s.query("UPDATE platform_model_tests SET state=$3,result=NULL,failure_reason='dispatch-cancelled',settlement_state=$4,updated_at=now() WHERE org_id=$1 AND id=$2::uuid",[orgId,testId,nextState,zeroChargeTerminal(nextState,current.physical_receipt_id)?"settled":"held"]);
    return operation(await this.row(s,orgId,actor,testId));
   }
   return operation(current);

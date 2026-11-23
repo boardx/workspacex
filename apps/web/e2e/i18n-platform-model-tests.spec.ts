@@ -28,8 +28,6 @@ const recordPath = (id: string) => prefix + MT.get.path.replace(":testId", encod
 const cancelPath = (id: string) => prefix + MT.cancel.path.replace(":testId", encodeURIComponent(id));
 const permissionCopy = "Platform operator permission and real membership in the selected organization are required. Platform permission does not exempt the organization budget.";
 const missingCopy = "The test record or test service is unavailable. Check the environment.";
-const financialCautionCopy = "Costs or results are unconfirmed; the budget reservation remains held. Querying the original record does not make a new model call. A new test still requires cost confirmation and does not release this reservation.";
-const chineseFinancialCautionCopy = "费用或结果尚未确认，预算预留继续保留。查询原记录不会产生新的模型调用；新测试仍需重新确认费用，且不会释放此预留。";
 
 function expectNotFound(body: unknown) {
   // The global exception filter exposes only the status code and trace ID here.
@@ -84,8 +82,7 @@ test("model testbench preserves actual unavailable-adapter history across locale
   const startResponse = await page.request.post(prefix + MT.start.path, { headers, data: request });
   const baseline = MT.start.out.parse(await responseBody(startResponse, 201, "protected unavailable-adapter historical prerequisite"));
   expect(baseline).toMatchObject({ testId, orgId: request.orgId, modelId: request.modelId, capability: "text", state: "failed", failureReason: "adapter-unavailable", result: null, usage: null });
-  // No physical receipt means repository normally preserves pending. Follow actual public response.
-  expect(["held", "pending"]).toContain(baseline.settlementState);
+  expect(baseline.settlementState).toBe("settled");
   const readOriginal = async () => {
     const response = await page.request.get(recordPath(testId), { headers, params: { orgId: F.orgAId } });
     const record = MT.get.out.parse(await responseBody(response, 200, "independent original GET"));
@@ -224,21 +221,19 @@ test("model testbench preserves actual unavailable-adapter history across locale
     await locale("zh-CN"); await capture(page, "preparation-zh", page.getByRole("form", { name: "恢复已有测试" }));
     await nativeRead(page, recoverButton(page), 200);
     await expect(results(page).getByRole("status")).toHaveText("执行失败");
-    await expect(cancelButton(page)).toBeDisabled(); await expect(prepareButton(page)).toBeDisabled();
+    await expect(cancelButton(page)).toBeDisabled(); await expect(prepareButton(page)).toBeEnabled();
     await expect(recovery(page)).toHaveValue(testId);
     await locale("en");
     await expect(results(page).getByRole("status")).toHaveText("Execution failed");
-    await expect(results(page)).toContainText(financialCautionCopy);
+    await expect(hold(page)).toHaveCount(0);
     await expect(results(page)).toContainText("Status reason: This capability is not yet adapted");
-    await expect(results(page)).toContainText(`Settlement: ${baseline.settlementState === "held" ? "Costs held, awaiting reconciliation" : "Pending settlement"}`);
+    await expect(results(page)).toContainText("Settlement: Settled");
     await expect(results(page)).toContainText("A cancellation request does not prove the provider has not executed or billed the call. Leaving the page only stops browser queries; it does not automatically cancel the provider call.");
     await expect(results(page)).toContainText("Cost: Unknown · Currency: Unknown");
     const captureRecovered = async (language: "en" | "zh") => {
       const uuidSummary = results(page).locator("p.break-all").first();
       await expect(uuidSummary).toContainText(testId);
       await capture(page, `recovered-summary-${language}`, uuidSummary, [results(page).getByRole("status"), queryButton(page), cancelButton(page)]);
-      const caution = results(page).getByText(language === "en" ? financialCautionCopy : chineseFinancialCautionCopy, { exact: true });
-      await capture(page, `recovered-financial-caution-${language}`, caution);
     };
     await captureRecovered("en");
     await locale("zh-CN"); await captureRecovered("zh");
@@ -248,7 +243,6 @@ test("model testbench preserves actual unavailable-adapter history across locale
     const queryBody: unknown = await query.json(); receipts.push({ operation: "native query original", status: query.status(), body: queryBody });
     expect(MT.get.out.parse(queryBody)).toEqual(baseline);
     await expect(queryButton(page)).toBeEnabled();
-    await hold(page).check();
     const beforePrepare = [...uiRequests]; await prepareButton(page).click();
     await expect(recovery(page)).toHaveValue(""); await expect(previous(page)).toContainText(testId);
     expect(uiRequests).toEqual(beforePrepare);
