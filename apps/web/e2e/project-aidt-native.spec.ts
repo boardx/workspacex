@@ -650,7 +650,10 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   await runInChat(problemDiscussion);
   await expect(output).toContainText(confirmed, { timeout: 30_000 });
   await expect(output).toContainText("两位同学看菜单后离开");
-  await expect(output.getByRole("button")).toHaveCount(0);
+  // Read-only output may expose its one exact print action, never an editor.
+  await expect(output.getByRole("button", { name: "打印", exact: true }).and(output.locator('button[type="button"]'))).toHaveCount(1);
+  await expect(output.locator('button,[role="button"]')).toHaveCount(1);
+  await expect(output.locator('input,textarea,select,[contenteditable]:not([contenteditable="false"])')).toHaveCount(0);
   await page.reload();
   await expect(output).toContainText(confirmed);
   await page.getByRole("tab", { name: "产物" }).click();

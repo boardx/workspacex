@@ -6,10 +6,11 @@ import { aidtStageHasConfirmation } from "@/features/aidt/lib/use-aidt-confirmed
 import { aidtInterviewMaterialKey, archiveAidtInterview, confirmAidtInterviewFinding, writeAidtInterview, writeAidtInterviewFinding, writeAidtInterviewMaterial, writeAidtInterviewTranscript } from "@/features/aidt/lib/aidt-interviews";
 import { chooseAidtDefinitionHmw, saveAidtDefinitionHmw, saveAidtDefinitionPersona } from "@/features/aidt/lib/aidt-definition";
 import { confirmAidtIdeaClassification } from "@/features/aidt/lib/aidt-idea-classification";
-import { confirmAidtPrototypeEntityHandoff, confirmAidtPrototypeHandoff, pinAidtPrototypeInputs, readAidtConfirmedPrototypeHandoff, readAidtPrototypeEntityDraft, updateAidtPrototypeEntityDraft } from "@/features/aidt/lib/aidt-prototype-handoff";
+import { confirmAidtPrototypeEntityHandoff, confirmAidtPrototypeHandoff, readAidtConfirmedPrototypeHandoff, readAidtPrototypeEntityDraft, updateAidtPrototypeEntityDraft } from "@/features/aidt/lib/aidt-prototype-handoff";
 import { createAidtTestGroup, updateAidtTestGroup } from "@/features/aidt/lib/aidt-test-groups";
 import { createAidtQuestionSnapshot, confirmAidtVerificationQuestion } from "@/features/aidt/lib/aidt-verification-loop";
 import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
+import { readyFormalPrototypeFixture, storeFormalPrototypeFixture } from "./aidt-round-fixture-independent-qa";
 
 const projectId = "group-test";
 function stage(stageId: number, draft: AidtUiStageDraft): AidtSharedStage {
@@ -68,16 +69,21 @@ it("requires the actual three distinct reviewed sheets, student classification a
   expect(await aidtStageHasConfirmation({ ...stage(4, draft), projectId: "other" })).toBe(false);
 });
 function prototypeCandidate(id: string) {
-  const ideas = stage(4, { ...emptyAidtUiDrafts()[4]!, ideas: [{ id: "menu", title: "菜单标签", description: "比较口味" }], fields: { ideaHandoffIds: '["menu"]' } });
-  const inputs = pinAidtPrototypeInputs({ ...emptyAidtUiDrafts()[5]!, fields: { verificationQuestion: "能否理解差别？", beforeTestBelief: "也许可以", verificationBasis: "尚无行为证据", verificationLimits: "静态理解不代表购买", type: "静态图", situation: "午休", task: "比较两款" } }, ideas);
-  const question = confirmAidtVerificationQuestion(inputs)!;
-  return updateAidtPrototypeReference(question, { designId: id, versionId: "v1", designName: id, createdAt: "2026-11-21T00:00:00Z", seq: 1, summary: "并排对比", frameCount: 2, generatedFrameCount: 2, source: "model" });
+  return readyFormalPrototypeFixture({ projectId, designId: id, sourceRevision: 2,
+    fields: { verificationQuestion: "能否理解差别？", beforeTestBelief: "也许可以", verificationBasis: "尚无行为证据", verificationLimits: "静态理解不代表购买", type: "静态图", situation: "午休", task: "比较两款" },
+    reference: { designId: id, versionId: "v1", designName: id, createdAt: "2026-11-21T00:00:00Z", seq: 1, summary: "并排对比", frameCount: 2, generatedFrameCount: 2, source: "model" } }).draft;
 }
+function legacyPrototypeCandidate(id: string) {
+  // Read-only historical format: not admitted through the new S5 pin/create path.
+  const question = confirmAidtVerificationQuestion({ ...emptyAidtUiDrafts()[5]!, fields: { prototypeIdeaSource: '{"revision":2,"ideaIds":["menu"]}', verificationQuestion: "能否理解差别？", beforeTestBelief: "也许可以", verificationBasis: "尚无行为证据", verificationLimits: "静态理解不代表购买", type: "静态图", situation: "午休", task: "比较两款" } })!;
+  return updateAidtPrototypeReference(question, { designId: id, versionId: "v1", designName: id, createdAt: "2026-11-21T00:00:00Z", seq: 1, summary: "历史并排对比", frameCount: 2, generatedFrameCount: 2, source: "model" });
+}
+
 it("uses the explicitly selected confirmed prototype and never falls back after that selection changes or disappears", async () => {
-  let draft = updateAidtPrototypeEntityDraft(emptyAidtUiDrafts()[5]!, "A", () => prototypeCandidate("A"));
+  let draft = storeFormalPrototypeFixture(emptyAidtUiDrafts()[5]!, "A", prototypeCandidate("A"));
   draft = confirmAidtPrototypeEntityHandoff(draft, "A");
   expect(await aidtStageHasConfirmation(stage(5, draft))).toBe(true);
-  const openedB = updateAidtPrototypeEntityDraft(draft, "B", () => confirmAidtPrototypeHandoff(prototypeCandidate("B"))!);
+  const openedB = storeFormalPrototypeFixture(draft, "B", confirmAidtPrototypeHandoff(prototypeCandidate("B"))!);
   expect(readAidtConfirmedPrototypeHandoff(openedB)?.id).toBe("A");
   const selectedB = confirmAidtPrototypeEntityHandoff(openedB, "B");
   expect(readAidtConfirmedPrototypeHandoff(selectedB)?.id).toBe("B");
@@ -90,11 +96,15 @@ it("uses the explicitly selected confirmed prototype and never falls back after 
   expect(readAidtPrototypeEntityDraft(selectedB, "A")).toEqual(readAidtPrototypeEntityDraft(draft, "A"));
 });
 it("supports a unique older confirmed prototype but never invents a current choice among multiple older candidates", async () => {
-  const a = updateAidtPrototypeEntityDraft(emptyAidtUiDrafts()[5]!, "A", () => confirmAidtPrototypeHandoff(prototypeCandidate("A"))!);
+  // Restore the persisted old format; a new insertion correctly invalidates confirmation.
+  const a = StageDraft.parse({ ...emptyAidtUiDrafts()[5]!, fields: { "prototypeEntity:A": JSON.stringify(confirmAidtPrototypeHandoff(legacyPrototypeCandidate("A"))!.fields) } });
   expect(await aidtStageHasConfirmation(stage(5, a))).toBe(true);
-  const both = updateAidtPrototypeEntityDraft(a, "B", () => confirmAidtPrototypeHandoff(prototypeCandidate("B"))!);
+  const both = StageDraft.parse({ ...a, fields: { ...a.fields, "prototypeEntity:B": JSON.stringify(confirmAidtPrototypeHandoff(legacyPrototypeCandidate("B"))!.fields) } });
   expect(await aidtStageHasConfirmation(stage(5, both))).toBe(false);
-  expect(await aidtStageHasConfirmation(stage(5, confirmAidtPrototypeEntityHandoff(both, "B")))).toBe(true);
+  expect(confirmAidtPrototypeEntityHandoff(both, "B")).toBe(both);
+  expect(readAidtConfirmedPrototypeHandoff(both)).toBeNull();
+  const historicallySelected = StageDraft.parse({ ...both, fields: { ...both.fields, prototypeHandoffEntity: "B" } });
+  expect(await aidtStageHasConfirmation(stage(5, historicallySelected))).toBe(true);
 });
 
 it("does not treat a named test with plain reflection text as a confirmed learning round", async () => {

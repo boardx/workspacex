@@ -7,14 +7,16 @@ import { aidtUiStageMarkdown, aidtUiStageSummary, type AidtUiStageDraft } from "
 import { confirmAidtIdeaClassification, readAidtIdeaClassification, setAidtIdeaCategory, setAidtIdeaClassificationReason } from "@/features/aidt/lib/aidt-idea-classification";
 import { confirmAidtVerificationQuestion } from "@/features/aidt/lib/aidt-verification-loop";
 
-const mocks = vi.hoisted(() => ({ print: vi.fn() }));
-vi.mock("@/lib/research-report-export", async original => ({ ...await original<typeof import("@/lib/research-report-export")>(), printResearchPdf: mocks.print }));
+const mocks = vi.hoisted(() => ({ preview: vi.fn(), legacyPrint: vi.fn() }));
+vi.mock("@/lib/research-report-export", async original => ({ ...await original<typeof import("@/lib/research-report-export")>(), printResearchPdf: mocks.legacyPrint }));
+vi.mock("@/features/aidt/lib/aidt-print-preview", async original => ({ ...await original<typeof import("@/features/aidt/lib/aidt-print-preview")>(), previewAidtPdf: mocks.preview }));
 vi.mock("@/features/aidt/components/aidt-image-attachment-picker", () => ({
   AidtImageAttachmentPreview: () => null,
   AidtImageAttachmentPicker: ({ label, readOnly, onChange }: { label: string; readOnly: boolean; onChange: (reference: { attachmentId: string; threadId: string; name: string }) => void }) => <button disabled={readOnly} onClick={() => onChange({ attachmentId: "uploaded", threadId: "group-thread", name: "学生参考图.png" })}>{label}选择已上传图片</button>,
 }));
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.preview.mockResolvedValue("cancelled");
   Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: vi.fn(function (this: HTMLImageElement) { Object.defineProperties(this, { naturalWidth: { configurable: true, value: 20 }, naturalHeight: { configurable: true, value: 10 } }); return Promise.resolve(); }) });
 });
 afterEach(() => { vi.unstubAllGlobals(); });
@@ -30,7 +32,7 @@ function Stage({ initial = seed(), readOnly = false, changed = () => undefined, 
 }
 const snapshot = (): AidtUiStageDraft => JSON.parse(screen.getByTestId("snapshot").textContent!);
 
-it("previews and prints the three completed sheets while retaining an unfinished fourth idea", async () => {
+it("opens a read-only print preview of the three completed sheets while retaining an unfinished fourth idea", async () => {
   const draft = seed(); draft.ideas.push({ id: "later", title: "保留的脑暴草稿", description: "以后继续讨论" });
   render(<Stage initial={draft} />);
   fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ }));
@@ -38,8 +40,11 @@ it("previews and prints the three completed sheets while retaining an unfinished
   fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
   expect(screen.getAllByTestId("aidt-idea-sheet")).toHaveLength(3);
   fireEvent.click(screen.getByRole("button", { name: "合并打印描述单 PDF" }));
-  await waitFor(() => expect(mocks.print).toHaveBeenCalledOnce());
-  expect((mocks.print.mock.calls[0]![0] as HTMLElement).querySelectorAll("section")).toHaveLength(3);
+  await waitFor(() => expect(mocks.preview).toHaveBeenCalledOnce());
+  expect((mocks.preview.mock.calls[0]![0] as HTMLElement).querySelectorAll("section")).toHaveLength(3);
+  expect(mocks.legacyPrint).not.toHaveBeenCalled();
+  expect(screen.getByText("已关闭打印预览，描述单与选择未改变。")).toBeVisible();
+  expect(screen.queryByText(/已请求系统打印/)).not.toBeInTheDocument();
   expect(snapshot().ideas[3]!.title).toBe("保留的脑暴草稿");
 });
 
@@ -53,9 +58,9 @@ it.each(["unreadable", "same-name"])("lets students exclude an extra %s candidat
   fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
   expect(screen.getAllByTestId("aidt-idea-sheet")).toHaveLength(3);
   fireEvent.click(screen.getByRole("button", { name: "合并打印描述单 PDF" }));
-  await waitFor(() => expect(mocks.print).toHaveBeenCalledOnce());
+  await waitFor(() => expect(mocks.preview).toHaveBeenCalledOnce());
   expect(snapshot().ideas).toHaveLength(4);
-  expect((mocks.print.mock.calls[0]![0] as HTMLElement).querySelector('[data-idea-id="extra"]')).toBeNull();
+  expect((mocks.preview.mock.calls[0]![0] as HTMLElement).querySelector('[data-idea-id="extra"]')).toBeNull();
 });
 
 it("mounts classification after the original editors, preserves it when changing selection, and keeps selection reasons separate", () => {
@@ -142,10 +147,10 @@ it.each([true, false])("exports student classification and reasons with explicit
   fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ }));
   fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
   expect(screen.getByTestId("aidt-idea-sheets-preview")).toBeVisible();
-  expect(mocks.print).not.toHaveBeenCalled();
+  expect(mocks.preview).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "合并打印描述单 PDF" }));
-  await waitFor(() => expect(mocks.print).toHaveBeenCalledOnce());
-  const article = mocks.print.mock.calls[0]![0] as HTMLElement;
+  await waitFor(() => expect(mocks.preview).toHaveBeenCalledOnce());
+  const article = mocks.preview.mock.calls[0]![0] as HTMLElement;
   expect(article.querySelectorAll("section")).toHaveLength(3);
   expect(article.querySelectorAll("section")[0]?.textContent).toContain(`学生分类（${confirmed ? "本组已确认" : "尚未确认"}）：最容易实现的、最有趣的`);
   expect(article.textContent).toContain("<script>学生分类理由</script>");
@@ -178,13 +183,13 @@ it("requires reconfirming the validation question when the selected concept text
   expect(snapshot().fields.verificationQuestionConfirmed).toBe("");
 });
 
-it("prints the individually reviewed sheet and preserves its candidate identity", async () => {
+it("opens the individually reviewed sheet in the print preview and preserves its candidate identity", async () => {
   render(<Stage />);
   fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ }));
   fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
   fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-2"));
-  await waitFor(() => expect(mocks.print).toHaveBeenCalledOnce());
-  const article = mocks.print.mock.calls[0]![0] as HTMLElement;
+  await waitFor(() => expect(mocks.preview).toHaveBeenCalledOnce());
+  const article = mocks.preview.mock.calls[0]![0] as HTMLElement;
   expect(article.querySelectorAll("section")).toHaveLength(1);
   expect(article.querySelector("section")).toHaveAttribute("data-idea-id", "two");
   expect(article.querySelector("h3")).toHaveTextContent("2. 口味卡");
@@ -202,7 +207,7 @@ it("does not print a stale snapshot if students edit while image decoding is pen
   fireEvent.change(screen.getByLabelText("候选2名称"), { target: { value: "学生校正后的点子" } });
   finish();
   await waitFor(() => expect(screen.getByText(/内容已变化/)).toBeVisible());
-  expect(mocks.print).not.toHaveBeenCalled();
+  expect(mocks.preview).not.toHaveBeenCalled();
   expect(snapshot().ideas[1]?.title).toBe("学生校正后的点子");
 });
 
@@ -213,7 +218,7 @@ it("shows image decoding failure without reporting a saved PDF or losing the stu
   fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
   fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-1"));
   await waitFor(() => expect(screen.getByText(/打印未能启动/)).toBeVisible());
-  expect(mocks.print).not.toHaveBeenCalled();
+  expect(mocks.preview).not.toHaveBeenCalled();
   expect(snapshot().selectedIdeaId).toBe("one");
 });
 it("requires all three reviewed pictures to decode before printing even one candidate sheet", async () => {
@@ -224,7 +229,7 @@ it("requires all three reviewed pictures to decode before printing even one cand
   fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" }));
   fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-1"));
   await waitFor(() => expect(screen.getByTestId("aidt-idea-sheet-print-1")).toBeEnabled());
-  expect(mocks.print).not.toHaveBeenCalled();
+  expect(mocks.preview).not.toHaveBeenCalled();
   expect(screen.getByText(/打印未能启动/)).toBeVisible();
 });
 it("bounds all-picture preflight so a hanging third source image leaves the reviewed draft retryable", async () => {
@@ -236,20 +241,21 @@ it("bounds all-picture preflight so a hanging third source image leaves the revi
     fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ })); fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" })); fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-1"));
     expect(screen.getByTestId("aidt-idea-sheet-print-1")).toBeDisabled();
     await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
-    expect(mocks.print).not.toHaveBeenCalled(); expect(screen.getByTestId("aidt-idea-sheet-print-1")).toBeEnabled();
+    expect(mocks.preview).not.toHaveBeenCalled(); expect(screen.getByTestId("aidt-idea-sheet-print-1")).toBeEnabled();
     expect(screen.getByTestId("aidt-idea-sheets-preview")).toBeVisible(); expect(snapshot().ideas[2]?.title).toBe("同伴墙");
     expect(screen.getByText(/打印未能启动/)).toBeVisible();
   } finally { vi.useRealTimers(); }
 });
 it("withdraws the final print gate when the student revokes review while the clone is preparing", async () => {
   let finish!: () => void;
-  mocks.print.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+  mocks.preview.mockImplementationOnce(() => new Promise<"cancelled">(resolve => { finish = () => resolve("cancelled"); }));
   render(<Stage />); fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ })); fireEvent.click(screen.getByRole("button", { name: "描述单 PDF 预览" })); fireEvent.click(screen.getByTestId("aidt-idea-sheet-print-1"));
-  await waitFor(() => expect(mocks.print).toHaveBeenCalledOnce());
-  const options = mocks.print.mock.calls[0]![2] as { isCurrent: () => boolean }; expect(options.isCurrent()).toBe(true);
+  await waitFor(() => expect(mocks.preview).toHaveBeenCalledOnce());
+  const options = mocks.preview.mock.calls[0]![2] as { isCurrent: () => boolean }; expect(options.isCurrent()).toBe(true);
   fireEvent.click(screen.getByRole("checkbox", { name: /本组已比较：/ })); expect(options.isCurrent()).toBe(false);
   await act(async () => finish());
-  expect(screen.queryByText(/已请求打开打印预览/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/已请求系统打印/)).not.toBeInTheDocument();
+  expect(mocks.legacyPrint).not.toHaveBeenCalled();
   expect(snapshot().ideas).toHaveLength(3);
 });
 

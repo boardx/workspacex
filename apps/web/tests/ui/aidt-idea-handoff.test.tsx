@@ -1,6 +1,7 @@
 import * as React from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { AIDT_BRAINSTORM_METHODS, AIDT_BRAINSTORM_METHOD_GUIDES } from "@repo/contracts/aidt-brainstorm";
 import { AIDT_STEPS } from "@/features/aidt/lib/project-aidt";
 import { AidtBrainstormDirectory } from "@/features/aidt/components/aidt-brainstorm";
 import { AidtEntityCardDirectory } from "@/features/aidt/components/aidt-entity-card";
@@ -56,7 +57,7 @@ it("creates a named tagged brainstorm card and keeps its saved route after renam
   fireEvent.click(creation.getByRole("button", { name: "开始头脑风暴" }));
   const link = await screen.findByRole("link", { name: "打开「午休场次」对话" });
   expect(link.getAttribute("href")).toBe(`/aidt/p?step=4&entity=${opened[0]}`);
-  expect(within(screen.getByRole("group", { name: "筛选卡片标签" })).getByRole("button", { name: "校园" })).toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "筛选卡片标签" })).getByTestId("aidt-card-tag-校园")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "编辑 午休场次" }));
   const edit = within(await screen.findByRole("dialog", { name: "编辑头脑风暴" }));
   fireEvent.change(edit.getByRole("textbox", { name: "场次名称" }), { target: { value: "午休第二轮" } });
@@ -67,6 +68,32 @@ it("creates a named tagged brainstorm card and keeps its saved route after renam
   fireEvent.click(removal.getByRole("button", { name: "确认删除" }));
   await waitFor(() => expect(screen.queryByRole("link", { name: "打开「午休第二轮」对话" })).toBeNull());
   expect(screen.getByText("已删除场次（1）")).toBeInTheDocument();
+});
+
+it("offers exactly six methods with explicit choice and the corresponding starting guide", () => {
+  const definition = { stageId: 3, revision: 7, content: { draft: { fields: {
+    ["definitionHmw:" + hmw.id]: JSON.stringify({ id: hmw.id, text: hmw.text, confirmed: true, archived: false, cardIds: [], personaIds: [], rationale: "" }),
+  } } } } as AidtSharedStage;
+  render(<AidtBrainstormDirectory definition={definition} draft={emptyAidtUiDrafts()[4]!} readOnly={false}
+    href={id => id} onOpen={() => {}} saveDraft={async () => true} />);
+  fireEvent.click(screen.getByRole("button", { name: "新建卡片" }));
+  const dialog = within(screen.getByRole("dialog", { name: "新建头脑风暴" }));
+  const method = dialog.getByRole("combobox", { name: "发散方法" });
+  expect(method).toHaveValue("");
+  expect(dialog.queryByTestId("aidt-brainstorm-method-guide")).toBeNull();
+  fireEvent.change(dialog.getByRole("textbox", { name: "场次名称" }), { target: { value: "学生选择的方法" } });
+  fireEvent.change(dialog.getByRole("combobox", { name: "HMW" }), { target: { value: hmw.id } });
+  expect(dialog.getByRole("button", { name: "开始头脑风暴" })).toBeDisabled();
+  expect(Object.keys(AIDT_BRAINSTORM_METHODS)).toEqual(["free", "reverse", "scamper", "analogy", "role", "brainwriting"]);
+  expect(within(method).getAllByRole("option")).toHaveLength(7);
+  for (const key of Object.keys(AIDT_BRAINSTORM_METHODS) as (keyof typeof AIDT_BRAINSTORM_METHODS)[]) {
+    fireEvent.change(method, { target: { value: key } });
+    expect(dialog.getByTestId("aidt-brainstorm-method-guide")).toHaveTextContent(AIDT_BRAINSTORM_METHOD_GUIDES[key].description);
+    expect(dialog.getByTestId("aidt-brainstorm-method-guide")).toHaveTextContent(AIDT_BRAINSTORM_METHOD_GUIDES[key].startPrompt);
+    expect(dialog.getByRole("spinbutton", { name: "希望探索的点子数" })).toBeEnabled();
+    expect(dialog.getByRole("spinbutton", { name: "希望探索的点子数" })).toHaveValue(5);
+    expect(dialog.getByRole("button", { name: "开始头脑风暴" })).toBeEnabled();
+  }
 });
 
 describe("AIDT idea directory and handoff", () => {

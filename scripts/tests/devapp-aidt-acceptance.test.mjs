@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, chmodSync, r
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { acceptanceIdentity, assertAcceptanceWorkflow, assertRuntimeProof, createAcceptanceGuard, assertScreenshotSafe, assertCaptureScope, approvedHomeImage } from '../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs';
-import { enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
+import { stageTextReadbackRequestAllowed, enforceDeniedProbeStatus, verifyPng, finalizeGuardVerdict, privateOutput, publicEntryDiagnostic, ordinaryQaProvisioningRequested, reusableQaIdentityFingerprint, sensitiveEvidenceGuard, assertProvisionedOrdinaryQa, pendingTeachingReviewReceipt, observePendingTeachingReview, recordTeachingEvent } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
 import { interviewCodePattern, schematicPng } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 const source = 'a'.repeat(40), project = 'prj-11111111-1111-4111-8111-111111111111';
@@ -79,6 +79,27 @@ test('cross-origin and encoded path escapes stop all future requests', () => {
 test('duplicate scope query cannot select a foreign project or org through parser disagreement', () => {
   const { guard, bind } = owned(); bind();
   assert.equal(request(guard, 'GET', `/api/projects/${project}/overview?projectId=${project}&projectId=foreign`).code, 'DUPLICATE_QUERY_REJECTED');
+});
+test('reusable QA home only receives the current project from the native list', async () => {
+  const { visibleAidtQaProjects } = await import('../../apps/web/e2e/support/devapp-aidt-acceptance.mjs');
+  const { guard, bind } = owned();
+  const catalogUrl = '/api/projects?orgId=qa-org';
+  const prior = { id: 'prj-22222222-2222-4222-8222-222222222222', name: 'previous QA' };
+  const current = { id: project, name: identity().projectName, tags: ['workspacex:aidt'] };
+  const before = request(guard, 'GET', catalogUrl);
+  assert.deepEqual(before, { allow: true, kind: 'qa-project-catalog', projectId: null, readCategory: 'other' });
+  assert.deepEqual(visibleAidtQaProjects([prior], before.projectId), []);
+  bind();
+  const after = request(guard, 'GET', catalogUrl);
+  assert.deepEqual(after, { allow: true, kind: 'qa-project-catalog', projectId: project, readCategory: 'other' });
+  assert.deepEqual(visibleAidtQaProjects([prior, current], after.projectId), [current]);
+  assert.deepEqual(visibleAidtQaProjects([prior], after.projectId), []);
+  assert.equal(request(guard, 'GET', `/api/projects/${prior.id}/collaborators`).allow, false);
+  assert.equal(request(guard, 'GET', `/api/projects/${current.id}/collaborators`).allow, true);
+  assert.equal(request(guard, 'GET', '/api/projects?orgId=other').allow, false);
+  assert.equal(request(guard, 'GET', catalogUrl + '&other=x').allow, false);
+  assert.throws(() => visibleAidtQaProjects([current, current], after.projectId), /QA_PROJECT_CATALOG_INVALID/);
+  assert.throws(() => visibleAidtQaProjects({ projects: [current] }, after.projectId), /QA_PROJECT_CATALOG_INVALID/);
 });
 test('native agent catalog requires the verified ordinary actor and bound owned QA project', () => {
   const path = '/api/capabilities?orgId=qa-org&kind=agent';
@@ -226,6 +247,41 @@ test('fixture upload requires one registered run file, fresh receipt and exact o
   assert.equal(read.allow, true); guard.observeContent(read, 200, { 'x-artifact-version-id': 'version-qa', 'x-content-sha256': createHash('sha256').update(bytes).digest('hex'), 'x-artifact-id': 'artifact-qa' }, bytes);
   guard.armStageSave(2); assert.equal(request(guard, 'PUT', `/api/projects/${project}/aidt/stages/2`, stageBody({ material: JSON.stringify({ projectId: project, runId: 'run-qa', artifactId: 'artifact-qa', versionId: 'version-qa' }) })).allow, true);
   assert.equal(request(guard, 'GET', `/api/ingestion-runs/not-created/content?projectId=${project}`).allow, false);
+});
+test('WAV fixture requires U01 consent and exact deterministic bytes for this one QA run', async () => {
+  const { aidtSyntheticInterviewAudio } = await import('../../apps/web/e2e/support/devapp-aidt-acceptance-guard.mjs');
+  const { guard, bind } = owned(); bind();
+  const sample = aidtSyntheticInterviewAudio('456', '1');
+  const entity = 'sample-u01';
+  assert.equal(sample.bytes.toString('ascii', 0, 12).slice(8), 'WAVE');
+  assert.equal(sample.bytes.readUInt32LE(24), 8000);
+  assert.equal(sample.bytes.readUInt32LE(40), 16000);
+  assert.notDeepEqual(sample.bytes, aidtSyntheticInterviewAudio('456', '2').bytes);
+  const register = options => guard.registerFixture({ ...sample, interviewEntityId: entity, ...options });
+  const saveFixtureStage = consent => {
+    const stage = request(guard, 'GET', `/api/projects/${project}/aidt/stages/2`);
+    guard.observe(stage, 200, { stage: { projectId: project, stageId: 2, content: { draft: { fields: {
+      [`interviewRecord:${entity}`]: JSON.stringify({ id: entity, code: 'U01', consent: { audio: consent } }),
+      'interviewRecord:sample-u02': JSON.stringify({ id: 'sample-u02', code: 'U02', consent: { audio: true } }),
+    } } } } });
+  };
+  for (const consent of [undefined, false]) {
+    if (consent !== undefined) saveFixtureStage(consent);
+    assert.throws(() => register(), /SYNTHETIC_WAV_SCOPE_REJECTED/);
+  }
+  saveFixtureStage(true);
+  assert.throws(() => register({ interviewEntityId: 'sample-u02' }), /SYNTHETIC_WAV_SCOPE_REJECTED/);
+  const altered = Buffer.from(sample.bytes);
+  altered[44] ^= 1;
+  assert.throws(() => register({ bytes: altered }), /SYNTHETIC_WAV_SCOPE_REJECTED/);
+  assert.throws(() => register({ filename: 'qa-456-other.wav' }), /SYNTHETIC_WAV_SCOPE_REJECTED/);
+  const armed = register();
+  assert.equal(armed.mime, 'audio/wav');
+  const { filename, sizeBytes, sha256 } = armed;
+  const meta = { projectId: project, agendaSegmentId: null, files: [{ filename, sizeBytes, sha256 }],
+    confidential: false, visibilityScope: 'org-wide', onDuplicate: 'use-existing' };
+  assert.equal(request(guard, 'POST', `/api/projects/${project}/artifacts/upload`, { __multipart: true, meta, files: [armed] }).allow, true);
+  assert.throws(() => register(), /FIXTURE_REUSED/);
 });
 test('duplicate upload receipt and redirects fail closed', () => {
   const { guard, bind } = owned(); bind();
@@ -437,6 +493,7 @@ test('ordinary QA setup is explicit and allowed only for the full live lane, nev
   assert.equal(ordinaryQaProvisioningRequested({ AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'true' }, identity()), true);
   for (const env of [{ AIDT_PROVISION_ORDINARY_QA: 'yes' }, { AIDT_PROVISION_ORDINARY_QA: 'true' }, { AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'false' }]) assert.throws(() => ordinaryQaProvisioningRequested(env, identity()), /QA_IDENTITY_OPT_IN_/);
   assert.throws(() => ordinaryQaProvisioningRequested({ AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'true' }, { ...identity(), entryDiagnosticOnly: true }), /QA_IDENTITY_OPT_IN_SCOPE_INVALID/);
+  assert.equal(ordinaryQaProvisioningRequested({ AIDT_PROVISION_ORDINARY_QA: 'true', AIDT_LIVE_DEV: 'true', AIDT_REUSABLE_ORDINARY_QA: 'true' }, { ...identity(), entryDiagnosticOnly: true }), true);
 });
 
 test('all setup and student secrets remain in memory and are rejected from every shared evidence scanner', () => {
@@ -600,4 +657,31 @@ test('illustrated acceptance reports only observed checkpoints and scoped image 
   assert.match(text, /未全部通过/); assert.match(text, /失败.*s3-definition-hmw-handoff/);
   assert.match(text, /\(\.\/03-create-persona-dialog\.png\)/); assert.doesNotMatch(text, /invalid/);
   assert.match(text, /## 最终报告\n\n未取得检查结果/);
+});
+
+test('reusable identity matches both enrolled actor and organization and refuses provisioning after pinning', () => {
+  const identity = { actor: 'qa-dummy', org: 'org-qa-dummy' };
+  const digest = reusableQaIdentityFingerprint(identity, '', true);
+  assert.equal(reusableQaIdentityFingerprint(identity, digest, false), digest);
+  assert.throws(() => reusableQaIdentityFingerprint(identity, digest, true), /QA_REUSABLE_IDENTITY_CONFIGURATION_INVALID/);
+  assert.throws(() => reusableQaIdentityFingerprint(identity, '', false), /QA_REUSABLE_IDENTITY_CONFIGURATION_INVALID/);
+  assert.throws(() => reusableQaIdentityFingerprint({ ...identity, org: 'other' }, digest, false), /QA_REUSABLE_IDENTITY_MISMATCH/);
+  assert.throws(() => reusableQaIdentityFingerprint({ ...identity, actor: 'other' }, digest, false), /QA_REUSABLE_IDENTITY_MISMATCH/);
+});
+
+test('fresh stage-file view permits reads and only the existing native entity-thread resolution', () => {
+  const origin = 'https://devapp.boardx.us';
+  const resolution = `/api/projects/${project}/aidt/stages/1/entities/current/thread`;
+  const allows = (method, url, body) => stageTextReadbackRequestAllowed({
+    method: () => method, url: () => url, postDataJSON: () => body,
+  }, resolution);
+  assert.equal(allows('GET', origin + resolution), true);
+  assert.equal(allows('PUT', origin + resolution, { purpose: 'stage' }), true);
+  assert.equal(allows('PUT', origin + resolution, { purpose: 'stage', send: true }), false);
+  assert.equal(allows('PUT', origin + resolution, { purpose: 'report' }), false);
+  assert.equal(allows('PUT', origin + resolution + '?retry=1', { purpose: 'stage' }), false);
+  assert.equal(allows('PUT', origin + resolution.replace('current', 'sibling'), { purpose: 'stage' }), false);
+  assert.equal(allows('PUT', origin + `/api/projects/${project}/aidt/stages/1`), false);
+  assert.equal(allows('POST', origin + resolution, { purpose: 'stage' }), false);
+  assert.equal(allows('PUT', 'https://other.invalid' + resolution, { purpose: 'stage' }), false);
 });

@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { IdeaHmwSource, readIdeaHmwSource } from "@repo/contracts/aidt-stages";
+import { AIDT_STAGE_IDEA_LIMIT, IdeaHmwSource, readIdeaHmwSource } from "@repo/contracts/aidt-stages";
 import { AIDT_IDEA_CLASSIFICATION_FIELDS, readAidtIdeaClassification } from "./aidt-idea-classification";
 import { aidtIdeaReadiness } from "./aidt-idea-readiness";
 import { isAidtResearchImage, parseAidtResearchMaterial, researchMaterialKey } from "./aidt-research-material-reference";
-import { readAidtBrainstormSelection } from "./aidt-brainstorm";
+import { readAidtBrainstorms, readAidtBrainstormSelection } from "@repo/contracts/aidt-brainstorm";
+import { hasAidtIdeaChatConfirmations, isAidtIdeaChatConfirmed } from "./aidt-idea-chat";
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
 
 const ideaIds = z.array(z.string().min(1).max(256)).min(1).max(8)
@@ -23,6 +24,8 @@ function parse<T>(schema: z.ZodType<T>, raw?: string): T | null {
 
 export function readAidtIdeaHmwSource(draft: AidtUiStageDraft, entityId?: string): AidtIdeaHmwSource | null {
   const key = `ideaHmwSource:${entityId}`;
+  const owner = entityId && readAidtBrainstorms(draft.fields).find(session => session.candidates.includes(entityId));
+  if (owner) return owner.source;
   return readIdeaHmwSource(entityId && Object.hasOwn(draft.fields, key) ? draft.fields[key] : draft.fields.ideaHmwSource);
 }
 
@@ -38,6 +41,16 @@ export function canConfirmAidtIdeaSheets(draft: AidtUiStageDraft, ids: string[],
   const activeDraft = activeAidtIdeaDraft(draft);
   if (!readAidtIdeaHmwSource(draft) || !readAidtIdeaClassification(activeDraft).confirmed || !ideaIds.safeParse(ids).success) return false;
   const ideas = activeDraft.ideas.filter(idea => ids.includes(idea.id));
+  const sessions = readAidtBrainstorms(draft.fields);
+  if (ids.some(id => sessions.some(session => session.archived && session.candidates.includes(id)))) return false;
+  const brainstorm = readAidtBrainstormSelection(draft);
+  if (brainstorm?.session.archived) return false;
+  const hmw = readAidtIdeaHmwSource(draft);
+  if (brainstorm && !ids.every(id => {
+    const source = readAidtIdeaHmwSource(draft, id);
+    return source?.id === hmw?.id && source?.revision === hmw?.revision && source?.text === hmw?.text;
+  })) return false;
+  if ((brainstorm || hasAidtIdeaChatConfirmations(draft)) && !ids.every(id => isAidtIdeaChatConfirmed(draft, id))) return false;
   const hasSavedImage = (idea: (typeof ideas)[number]) => {
     const material = parseAidtResearchMaterial(draft.fields[researchMaterialKey("idea", idea.id)]);
     return material?.projectId === projectId && isAidtResearchImage(material);
@@ -47,7 +60,7 @@ export function canConfirmAidtIdeaSheets(draft: AidtUiStageDraft, ids: string[],
 
 export function readAidtIdeaHandoff(draft: AidtUiStageDraft, projectId: string) {
   const brainstorm = readAidtBrainstormSelection(draft);
-  if (brainstorm) return { hmw: brainstorm.session.source, sheetIds: [], selectedIds: brainstorm.selectedIds, ideas: brainstorm.ideas };
+  if (draft.fields.ideaBrainstormHandoff && (!brainstorm || brainstorm.session.archived)) return null;
   const hmw = readAidtIdeaHmwSource(draft);
   const sheetIds = readAidtIdeaSheetIds(draft);
   const selectedIds = readAidtIdeaHandoffIds(draft);
@@ -57,6 +70,8 @@ export function readAidtIdeaHandoff(draft: AidtUiStageDraft, projectId: string) 
 
 export function invalidateAidtIdeaSheets(draft: AidtUiStageDraft): AidtUiStageDraft {
   if (!draft.fields.ideaSheetIds && !draft.fields.ideaHandoffIds) return draft;
+  // Editing a candidate invalidates formal review, not the student's text shortlist.
+  if (readAidtBrainstormSelection(draft)) return { ...draft, fields: { ...draft.fields, ideaSheetIds: "" } };
   return { ...draft, fields: { ...draft.fields, ideaSheetIds: "", ideaHandoffIds: "", ideaBrainstormHandoff: "" } };
 }
 
@@ -69,7 +84,7 @@ export function readAidtIdeaDirectory(draft: AidtUiStageDraft) {
 
 export function createAidtIdea(draft: AidtUiStageDraft, id: string, title: string): AidtUiStageDraft {
   const meaningful = draft.ideas.filter(idea => !/^draft-[123]$/u.test(idea.id) || idea.title.trim() || idea.description.trim() || idea.imageAttachment);
-  if (!title.trim() || title.length > 120 || meaningful.length >= 8 || !id || meaningful.some(idea => idea.id === id)) return draft;
+  if (!title.trim() || title.length > 120 || meaningful.length >= AIDT_STAGE_IDEA_LIMIT || !id || meaningful.some(idea => idea.id === id)) return draft;
   return invalidateAidtIdeaSheets({
     ...draft,
     fields: { ...draft.fields, [AIDT_IDEA_CLASSIFICATION_FIELDS.confirmed]: "" },

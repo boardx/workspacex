@@ -38,11 +38,23 @@ it('auxiliary reconstruction preserves validated reason with canonical payer',as
  expect(await billing.failure(principal.orgId,'operation','credit_required','provider-custom')).toMatchObject({reason:undefined});
 });
 
-it.each([null,new CreditConsumptionError('credit_required','team','org',undefined,'member_monthly_limit')])('an uncommitted receipt rejection stays unknown: %s',async failure=>{
+it.each([null,new CreditConsumptionError('credit_required','team','org',undefined,'member_monthly_limit')])('a rejected interim write retains trusted provider usage for the terminal receipt: %s',async failure=>{
  const record=vi.fn().mockRejectedValueOnce(failure).mockResolvedValue(undefined),check=vi.fn();
  const billing=new RealtimeVoiceAccounting({startRequest:vi.fn().mockResolvedValue(undefined),record,assertCreditContinuation:check},principal,'voice');
  await billing.start(null);billing.markDispatched();
  await expect(billing.receive({type:'response.done',response:{id:'response',status:'completed',usage:{total_tokens:1000,input_tokens:500,output_tokens:500}}})).rejects.toBe(failure);
  expect(check).not.toHaveBeenCalled();await billing.finish(true);
- expect(record).toHaveBeenLastCalledWith('org',expect.objectContaining({totalSource:'unknown',billingReceipt:{id:'session-final',final:true}}));
+ expect(record).toHaveBeenLastCalledWith('org',expect.objectContaining({totalSource:'reported',outcome:'succeeded',tokensTotal:1000,billingReceipt:{id:'session-final',final:true}}));
+});
+
+it("preserves successful turns on disconnect and excludes a cancelled turn's reported tokens",async()=>{
+ const record=vi.fn().mockResolvedValue(undefined);
+ const billing=new RealtimeVoiceAccounting({startRequest:vi.fn().mockResolvedValue(undefined),record},principal,"voice");
+ await billing.start(null);billing.markDispatched();
+ for(const [id,status,total] of [["ok","completed",11],["cancel","cancelled",500]] as const){
+  await billing.receive({type:"response.done",response:{id,status,usage:{total_tokens:total,input_tokens:total,output_tokens:0}}});
+ }
+ await billing.receive({type:"response.created",response:{id:"unfinished"}});
+ await billing.finish(true);
+ expect(record).toHaveBeenLastCalledWith("org",expect.objectContaining({outcome:"succeeded",tokensTotal:11,totalSource:"reported",billingReceipt:{id:"session-final",final:true}}));
 });

@@ -1,4 +1,6 @@
 import type { SharedStageValue } from "@repo/contracts/aidt-stages";
+import { isAidtCandidateRequest } from "@repo/contracts/aidt-candidate-request";
+import { AIDT_INTERVIEW_SYNTHETIC_ASR_PREFIX, AidtSavedSyntheticAsrSchema } from "@repo/contracts/aidt-test-research";
 import { z } from "zod";
 
 const question = z.string().trim().min(1).max(1000);
@@ -11,23 +13,45 @@ const draftPatch = z.object({
   }).strict().optional(),
 }).strict();
 
+/** A named recipient constrains generic proposals until explicitly reassigned. */
+function interviewDraftRecipient(line: string): string | undefined {
+  if (/^>/u.test(line)) return undefined;
+  return /^(?:(?:这是|下面是|以下是)\s*)?(?:(?:给|为|针对)\s*)?([^。！？：:\r\n]{1,32}?)\s*的(?:访谈)?(?:问题清单|提纲|改写)草稿(?=[。！？：:]|$)/u.exec(line)?.[1]?.trim();
+}
+
 /** Only completed assistant turns can supply this draft. Decisions, identity and permissions are outside the contract. */
-export function readInterviewChatDraft(text: string) {
-  const headings = /^#{2,4} (访谈问题清单|人物发现卡)[（(]草稿[）)][ \t]*$/u;
+export function readInterviewChatDraft(text: string, participantCode?: string) {
+  const headings = /^#{2,4} (访谈问题清单|人物发现卡|观察计划|观察关注点清单|观察发现卡)[（(]草稿[）)][ \t]*$/u;
   const questions: string[] = [];
   const finding: Record<string, string> = {};
-  const labels: Record<string, string> = { "一句发现": "headline", "具体情况": "context", "学生的解释": "interpretation", "受访者原话": "quote" };
-  let section = "", goal = "", fenced = false;
+  const labels: Record<string, string> = { "一句发现": "headline", "一句观察发现": "headline", "具体情况": "context", "观察情况": "context", "学生的解释": "interpretation", "受访者原话": "quote" };
+  const code = participantCode?.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const proposedList = code ? new RegExp(`^(?:基于这两点[，,]\\s*)?建议(?:把|将)\\s*${code}\\s*(?:拆成|调整为|改成|整理为)(?:下面|以下)这组(?:经历式)?(?:访谈)?(?:提问|问题)[（(](?=[^）)]{0,100}草稿)(?=[^）)]{0,100}(?:确认|采纳))[^）)]{1,120}[）)][：:]$`, "u") : null;
+  const currentDraftList = /^(?:基于你的(?:想法|意图)[，,]\s*)?(?:建议改写[（(]供你们讨论[）)]|给你一版(?:更贴近具体经历的)?改写草稿|(?:我)?建议这样调整[（(](?=[^）)]{0,100}草稿)(?=[^）)]{0,100}(?:确认|采纳))[^）)]{1,120}[）)]|问题清单草稿可以这样改)[：:]$/u;
+  let section = "", goal = "", fenced = false, comparison = false, proseList = false, listRecipient = participantCode;
   for (const line of text.split(/\r?\n/)) {
-    if (line.trimStart().startsWith("```")) { fenced = !fenced; section = ""; continue; }
+    if (/^\s*(?:```|~~~)/u.test(line)) { fenced = !fenced; section = ""; proseList = false; continue; }
     if (fenced) continue;
+    const plain = line.trim().replaceAll("**", "");
+    const recipient = currentDraftList.test(plain) ? undefined : interviewDraftRecipient(plain);
+    if (recipient) { listRecipient = recipient; section = ""; proseList = false; }
+    if (/^(?:(?:老师|教师|引导师|AI|助手|模型)(?:(?:的|给出的|提供的)?(?:示例|例子|原话|回复|回答|建议)|说|写道|表示)|(?:引用|转述|复制|粘贴)(?:老师|教师|引导师|AI|助手|模型)(?:的)?(?:示例|例子|原话|回复|回答|建议)?)[：:]/iu.test(plain)
+      || /^(?:老师|教师|引导师)[：:]/u.test(plain)
+      || /^(?:下面|以下|这里|这段|以上|上述)[^。！？\r\n]{0,80}(?:(?:引用|示例|例子)|不是(?:我们|本组|小组)(?:采纳的)?清单)/iu.test(plain)) comparison = true;
+    const introduction = plain.split(/[。！？]/u).at(-1)?.trim() ?? "";
+    if (!comparison && (proposedList?.test(plain) || participantCode && listRecipient === participantCode && currentDraftList.test(introduction))) { section = "访谈问题清单"; proseList = true; listRecipient = participantCode; continue; }
     const title = headings.exec(line.trim());
-    if (title) { section = title[1]!; continue; }
+    if (title) { section = ["观察计划", "观察关注点清单"].includes(title[1]!) ? "访谈问题清单" : title[1] === "观察发现卡" ? "人物发现卡" : title[1]!; proseList = false; continue; }
     if (!line.trim()) continue;
-    const field = /^(研究重点|一句发现|具体情况|学生的解释|受访者原话)[：:]\s*(.+)$/u.exec(line.trim());
-    const bullet = /^(?:[-*] |\d+[.)、]\s*)(.+)$/u.exec(line.trim());
-    if (section === "访谈问题清单" && field?.[1] === "研究重点") goal = field[2]!;
-    else if (section === "访谈问题清单" && bullet) questions.push(bullet[1]!);
+    const field = /^(研究重点|观察重点|观察关注点|一句发现|一句观察发现|具体情况|观察情况|学生的解释|受访者原话)[：:]\s*(.+)$/u.exec(line.trim());
+    // One quote marker may be presentation of this already introduced proposal.
+    // A quoted/example preface never activates this path in the first place.
+    const bullet = /^(?:[-*]\s+|\d+[.)、]\s*)(.+)$/u.exec(proseList ? line.trim().replace(/^>\s?/u, "") : line.trim());
+    const proposedQuestion = bullet?.[1]?.replaceAll("**", "").trim();
+    const quotedQuestion = proposedQuestion && /^“(.+)”(?:[（(][^）)]*[）)])?$/u.exec(proposedQuestion);
+    const questionText = quotedQuestion?.[1] ?? proposedQuestion;
+    if (section === "访谈问题清单" && field && ["研究重点", "观察重点", "观察关注点"].includes(field[1]!)) goal = field[2]!;
+    else if (section === "访谈问题清单" && bullet && (!proseList || questionText && /[？?]|^(?:请(?:回想|回忆|描述|介绍|说说)|能否|能不能|怎样|如何|什么|哪)/u.test(questionText))) questions.push(proseList ? questionText! : bullet[1]!);
     else if (section === "人物发现卡" && field && labels[field[1]!]) finding[labels[field[1]!]!] = field[2]!;
     else section = "";
   }
@@ -46,8 +70,30 @@ const sourceShape = z.object({ checked: z.literal(true), text: z.string().trim()
 const materialShape = z.object({ mime: z.string().min(1), name: z.string().min(1).max(300), artifactId: z.string().min(1), versionId: z.string().min(1), projectId: z.string().min(1) });
 function json(raw: string | undefined): unknown { try { return JSON.parse(raw ?? ""); } catch { return null; } }
 
+/** A saved marker never turns synthetic audio into participant evidence, even if damaged or revoked. */
+export function interviewSyntheticAsrContext(fields: Draft["fields"], entityId: string, projectId: string) {
+  const raw = fields[AIDT_INTERVIEW_SYNTHETIC_ASR_PREFIX + entityId];
+  const transcript = sourceShape.extend({ checked: z.boolean() }).safeParse(json(fields["interviewTranscript:" + entityId]));
+  if (raw === undefined && !(transcript.success && transcript.data.locator.startsWith("合成软件测试 ASR"))) return;
+  const interview = recordShape.safeParse(json(fields["interviewRecord:" + entityId]));
+  const pin = raw && raw.length <= 6000 ? AidtSavedSyntheticAsrSchema.safeParse(json(raw)) : null;
+  const material = transcript.success ? materialShape.passthrough().safeParse(json(fields[transcript.data.sourceKey])) : null;
+  const matching = interview.success && interview.data.id === entityId && interview.data.consent?.notes
+    && interview.data.consent.audio === true && fields["interviewArchived:" + entityId] !== "true"
+    && transcript.success && transcript.data.sourceKey.startsWith("interviewMaterial:" + entityId + ":")
+    && material?.success && material.data.projectId === projectId && material.data.mime.startsWith("audio/")
+    && pin?.success && material.data.artifactId === pin.data.audio.artifactId && material.data.versionId === pin.data.audio.versionId
+    && material.data.runId === pin.data.audio.runId && material.data.sha256 === pin.data.audio.sha256
+    && transcript.data.locator === `合成软件测试 ASR V${pin.data.transcript.version}`;
+  return { evidenceOrigin: "synthetic-file-asr" as const,
+    status: matching ? "matching-saved-source-not-reverified" : "unavailable-or-mismatched",
+    evidenceStatus: "合成音频软件 QA，不是真人访谈、用户原话或实际行为证据；保存的工具坐标未在本次上下文回源核验。",
+    omissions: ["合成转写摘录及其发现正文不自动加入教学上下文；缺失、损坏、错源或撤权均不能按真人材料读取。"] };
+}
+
 /** Only the reviewed excerpt can reach the teaching Skill, never recording bytes or raw ASR. */
 export function checkedInterviewExcerpt(fields: Draft["fields"], entityId: string, projectId: string) {
+  if (interviewSyntheticAsrContext(fields,entityId,projectId)) return;
   const interview = recordShape.safeParse(json(fields["interviewRecord:" + entityId]));
   if (!interview.success || interview.data.id !== entityId || !interview.data.consent?.notes || fields["interviewArchived:" + entityId] === "true") return;
   const source = sourceShape.safeParse(json(fields["interviewTranscript:" + entityId]));
@@ -60,11 +106,14 @@ export function checkedInterviewExcerpt(fields: Draft["fields"], entityId: strin
 
 /** Run completion owns automatic drafts. Caller authenticates the pinned Skill, thread, turn and stage before calling. */
 export function projectInterviewSkillDraft(draft: Draft, entityId: string, turn: Turn): Draft | null {
+  // This explicit human action requests transient candidates, never a saved stage draft.
+  if (isAidtCandidateRequest(turn.user, "interview")
+    || (isAidtCandidateRequest(turn.user, "test") && /^合成音频转写请求：[0-9a-f-]{36}$/u.test(turn.user.trim().split(/\r?\n/u)[1] ?? ""))) return null;
   const key = "interviewRecord:" + entityId;
   const record = recordShape.safeParse(json(draft.fields[key]));
   if (!record.success || record.data.id !== entityId || draft.fields["interviewArchived:" + entityId] === "true"
     || !turn.messageId || turn.messageId.length > 256 || record.data.draftTurnId === turn.messageId) return null;
-  const current = record.data, data = readInterviewChatDraft(turn.assistant);
+  const current = record.data, data = readInterviewChatDraft(turn.assistant, record.data.code);
   const userText = turn.user.trim();
   if (!userText) return null;
   // Save student-authored questions even when the Skill first asks to clarify the interview context.
@@ -91,7 +140,7 @@ export function projectInterviewSkillDraft(draft: Draft, entityId: string, turn:
     const studentWrote = (value: string) => userText.includes(value) || turn.verifiedFindingText?.includes(value);
     if (f.headline && studentWrote(f.headline)) { next.headline = f.headline; next.headlineKind = "student-summary"; }
     if (f.context && studentWrote(f.context)) next.context = f.context;
-    if (f.quote && source?.text.includes(f.quote)) {
+    if (current.kind !== "observation" && f.quote && source?.text.includes(f.quote)) {
       next.quote = f.quote;
       next.sourceRef = source.name + " · " + source.locator;
     }

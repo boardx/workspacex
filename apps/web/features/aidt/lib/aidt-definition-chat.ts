@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAidtCandidateRequest } from "@repo/contracts/aidt-candidate-request";
 import {
   AIDT_PRIMARY_SURPRISE_ID, confirmedAidtDefinitionSurprises, invalidateAidtDefinitionSurpriseLinks,
   isAidtDefinitionHmwReady, isAidtDefinitionPersonaReady, isAidtDefinitionSurpriseReady, readAidtDefinition, readAidtDefinitionSelection,
@@ -18,6 +19,11 @@ const kind = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("hmw"), text: short, rationale: note.optional(), cardIds: refs.optional(), personaIds: refs.optional(), surpriseIds: refs.optional() }).strict(),
 ]);
 export type AidtDefinitionProposal = z.infer<typeof kind>;
+/** Reuse the native reply schema when previewing multiple proposals before creating an entity. */
+export function parseAidtDefinitionProposal(value: unknown): AidtDefinitionProposal | null {
+  const parsed = kind.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
 export type AidtDefinitionCandidate = { messageId: string; proposal: AidtDefinitionProposal };
 export const aidtDefinitionChatMessageKey = (entityId: string) => "definitionChatSource:" + entityId;
 const primaryEntityKey = "definitionPrimaryEntity";
@@ -47,16 +53,19 @@ const noSurprise = /^(?:暂无(?:意外发现)?|没有意外发现)[。！!]?$/u
 export function latestAidtDefinitionCandidate(messages: readonly AidtDefinitionTurn[], entityKind: AidtDefinitionKind, allowNone = false): AidtDefinitionCandidate | null {
   let candidate: AidtDefinitionCandidate | null = null;
   let hasStudent = false;
+  let previewOnly = false;
   for (const message of messages) {
     if (typeof message.content !== "string" || !message.content.trim() || !message.id) continue;
     if (message.role === "user") {
       hasStudent = true;
+      previewOnly = isAidtCandidateRequest(message.content, "persona") || isAidtCandidateRequest(message.content, "hmw");
+      if (previewOnly) candidate = null;
       if (entityKind === "surprise" && allowNone && noSurprise.test(message.content.trim())) {
         candidate = { messageId: message.id, proposal: { kind: "surprise", status: "none" } };
       }
       continue;
     }
-    if (message.role !== "assistant" || !hasStudent) continue;
+    if (message.role !== "assistant" || !hasStudent || previewOnly) continue;
     const block = fence.exec(message.content);
     if (!block) continue;
     try {
@@ -127,6 +136,19 @@ export function aidtDefinitionEntityConfirmed(draft: AidtUiStageDraft | undefine
   return [...personas, ...hmws, ...surprises].some(item => item.id === entityId && item.confirmed && !item.archived);
 }
 
+/** Confirmation of an older saved record does not save a newly confirmed local revision. */
+export function sameSavedAidtDefinitionChatEntity(draft: AidtUiStageDraft, saved: AidtUiStageDraft | undefined,
+  entityId: string, cards: readonly AidtDiscoveryCardDraft[], revision?: number) {
+  if (!saved) return false;
+  if (entityId === AIDT_PRIMARY_SURPRISE_ID) return JSON.stringify(parseAidtSurpriseReflection(draft, cards, revision))
+    === JSON.stringify(parseAidtSurpriseReflection(saved, cards, revision));
+  const entry = (value: AidtUiStageDraft) => {
+    const records = readAidtDefinition(value.fields);
+    return [...records.personas, ...records.hmws, ...records.surprises].find(record => record.id === entityId);
+  };
+  return JSON.stringify(entry(draft)) === JSON.stringify(entry(saved));
+}
+
 export function confirmAidtDefinitionChatEntity(
   draft: AidtUiStageDraft, entityId: string, cards: readonly AidtDiscoveryCardDraft[], revision?: number,
 ): AidtUiStageDraft {
@@ -137,7 +159,9 @@ export function confirmAidtDefinitionChatEntity(
   if (entityId === AIDT_PRIMARY_SURPRISE_ID) {
     const primary = parseAidtSurpriseReflection(draft, cards, revision);
     if (!primary.ready || primary.confirmed || (primary.status === "found" && !primary.cardIds.length)) return draft;
-    return { ...draft, fields: { ...draft.fields, surpriseConfirmed: "true" } };
+    return { ...draft, fields: { ...draft.fields, surpriseConfirmed: "true",
+      ...(primary.requiresCardRevision ? { surpriseSourceRevision: String(primary.currentCardsRevision) } : {}),
+    } };
   }
   if (!isAidtSurpriseConfirmed(draft, cards, revision)) return draft;
   const persona = current.personas.find(item => item.id === entityId);

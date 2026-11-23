@@ -1,13 +1,17 @@
+import { createHash } from "node:crypto";
 import { beforeEach, expect, it, vi } from "vitest";
 import { loadAidtDesignHandoff } from "@/features/aidt/lib/aidt-design-handoff";
 import { confirmAidtVerificationQuestion, createAidtQuestionSnapshot } from "@/features/aidt/lib/aidt-verification-loop";
 import { aidtUiStageSummary, emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
 import { ApiError } from "@/lib/api-client";
-import { pinAidtPrototypeInputs, updateAidtPrototypeEntityDraft, confirmAidtPrototypeHandoff, listAidtConfirmedPrototypeEntities } from "@/features/aidt/lib/aidt-prototype-handoff";
+import { pinAidtPrototypeInputs, updateAidtPrototypeEntityDraft, confirmAidtPrototypeHandoff, listAidtConfirmedPrototypeEntities, readAidtConfirmedPrototypeHandoff, readAidtPrototypeInputSelection } from "@/features/aidt/lib/aidt-prototype-handoff";
+import { reviewedFormalRoundFixture } from "./aidt-round-fixture-independent-qa";
 import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
+import { confirmAidtPrototypeText, bindAidtPrototypeTextOutput, readAidtPrototypeTextConfirmation } from "@/features/aidt/lib/aidt-prototype-text-state";
 import { StageDraft } from "@repo/contracts/aidt-stages";
-const mock = vi.hoisted(() => ({ enabled: true, read: vi.fn(), history: vi.fn() }));
+const mock = vi.hoisted(() => ({ enabled: true, read: vi.fn(), history: vi.fn(), confirmedText: vi.fn() }));
+vi.mock("@/features/aidt/lib/aidt-prototype-confirmed-text", async original => ({ ...await original<typeof import("@/features/aidt/lib/aidt-prototype-confirmed-text")>(), loadAidtConfirmedPrototypeText: mock.confirmedText }));
 vi.mock("@/features/aidt/lib/aidt-module-config", () => ({ isAidtModuleEnabled: () => mock.enabled }));
 vi.mock("@/features/aidt/lib/live-aidt-stages", () => ({ readAidtStage: mock.read, listAidtStageHistory: mock.history }));
 function stage(stageId: number, revision: number, fields: Record<string, string> = {}): AidtSharedStage {
@@ -17,7 +21,7 @@ const input = { projectId: "class", stageId: 5, sessionToken: "captured-token" }
 let records: Record<number, AidtSharedStage>;
 let old5: AidtSharedStage;
 beforeEach(() => {
-  vi.clearAllMocks(); mock.enabled = true;
+  vi.clearAllMocks(); mock.enabled = true; mock.confirmedText.mockRejectedValue(new Error("AIDT_PROTOTYPE_TEXT_CONFIRMATION_REQUIRED"));
   old5 = stage(5, 3, { verificationQuestion: "如何理解原入口？", beforeTestBelief: "可能清楚", verificationBasis: "观察A", verificationLimits: "静态意向不等于行为", version: "纸样V1", idea: "排队提示", task: "寻找入口", type: "静态图" });
   old5.content.draft = StageDraft.parse(confirmAidtVerificationQuestion(old5.content.draft));
   old5.sourceStageRevisions = [{ stageId: 3, revision: 2 }, { stageId: 4, revision: 4 }];
@@ -92,41 +96,57 @@ it("refuses excessive context without silently truncating the original question,
   mock.enabled = false; await expect(loadAidtDesignHandoff(input)).rejects.toThrow("AIDT_CONTEXT_CHANGED");
 });
 
-it("projects only the selected Design entity and feeds multiple exact historical ideas into the native composer", async () => {
+it("requires confirmed formal text for the selected Design after pinning multiple exact historical ideas", async () => {
   const selected = records[4]!;
-  selected.content.draft = { ...selected.content.draft, fields: { ideaHandoffIds: '["chosen","card"]', ideaHmwSource: '{"revision":2,"id":"hmw-stable","text":"如何帮助赶课者判断？"}' }, ideas: [...selected.content.draft.ideas, { id: "card", title: "新品对比卡", description: "让学生看到差别" }] };
+  const formal = reviewedFormalRoundFixture({ projectId: "class", sessionId: "brainstorm-handoff-source", source: { id: "hmw-stable", text: "如何帮助赶课者判断？", revision: 2 }, selectedIndices: [0, 1], ideas: [
+    { title: "排队提示", description: "展示预计排队位置。让学生比较等待区域。" },
+    { title: "新品对比卡", description: "让学生看到差别。并排列出两款口味。" },
+    { title: "路线图", description: "用图标解释领取路线。学生依顺序领取食品。" },
+  ] });
+  selected.content.draft = formal.draft;
   records[5] = stage(5, 7);
   const prepare = (id: string) => {
     records[5]!.content.draft = StageDraft.parse(updateAidtPrototypeEntityDraft(records[5]!.content.draft, id, draft => {
-      const pinned = pinAidtPrototypeInputs({ ...draft, fields: { ...old5.content.draft.fields, verificationQuestion: `问题 ${id}？`, situation: "午休点单" } }, selected);
+      const pinned = pinAidtPrototypeInputs({ ...draft, fields: { ...old5.content.draft.fields, verificationQuestion: `问题 ${id}？`, situation: "午休点单" } }, selected, formal.selectedIds, formal.sessionId);
       return confirmAidtVerificationQuestion(pinned)!;
     }));
   };
   prepare("design-A");
   prepare("design-B");
+  const prepared = JSON.parse(records[5]!.content.draft.fields["prototypeEntity:design-A"]!);
+  expect(readAidtPrototypeInputSelection({ fields: prepared, ideas: [], selectedIdeaId: "" })).toEqual({ revision: selected.revision, brainstormId: formal.sessionId, ideaIds: formal.selectedIds });
   records[3]!.content.draft.fields.definitionHmwId = "hmw-stable";
   records[4] = stage(4, 19, { ideaHandoffIds: '["new"]' });
   mock.history.mockImplementation(async (_project: string, id: number, _token: string, options: { beforeRevision: number }) => ({ items: id === 4 && options.beforeRevision === 5 ? [selected] : id === 3 && options.beforeRevision === 3 ? [records[3]] : [] }));
-  const result = await loadAidtDesignHandoff({ ...input, prototypeEntityId: "design-A" });
-  expect(result.offer.text).toContain("问题 design-A？");
-  expect(result.offer.text).not.toContain("问题 design-B");
-  expect(result.offer.text).toContain("新品对比卡");
-  expect(result.offer.text).toContain("排队提示");
-  expect(result.sources).toContainEqual({ stageId: 4, revision: 4 });
+  await expect(loadAidtDesignHandoff({ ...input, prototypeEntityId: "design-A" })).rejects.toThrow("AIDT_PROTOTYPE_TEXT_CONFIRMATION_REQUIRED");
+  expect(mock.confirmedText).toHaveBeenCalledWith({ projectId: "class", designId: "design-A", sessionToken: "captured-token", signal: undefined });
+  expect(mock.confirmedText.mock.calls.some(([value]) => value.designId === "design-B")).toBe(false);
   await expect(loadAidtDesignHandoff({ ...input, prototypeEntityId: "unrelated" })).rejects.toThrow("AIDT_DESIGN_SAVED_QUESTION_REQUIRED");
-  mock.history.mockResolvedValue({ items: [] });
-  await expect(loadAidtDesignHandoff({ ...input, prototypeEntityId: "design-A" })).rejects.toThrow("AIDT_DESIGN_INPUTS_UNCONFIRMED");
 });
 
 it("confirms only the selected Design's real version and invalidates handoff if a brief changes", () => {
   const selected = records[4]!;
-  selected.content.draft.fields.ideaHandoffIds = '["chosen"]';
+  const formal = reviewedFormalRoundFixture({ projectId: "class", sessionId: "brainstorm-confirm-source", source: { id: "hmw-stable", text: "如何帮助赶课者判断？", revision: 2 }, selectedIndices: [0], ideas: [
+    { title: "排队提示", description: "展示预计排队位置。让学生比较等待区域。" },
+    { title: "新品对比卡", description: "让学生看到差别。并排列出两款口味。" },
+    { title: "路线图", description: "用图标解释领取路线。学生依顺序领取食品。" },
+  ] });
+  selected.content.draft = formal.draft;
+  const formalLineage = JSON.stringify({ schemaVersion: 1, projectId: "class", stage4Revision: selected.revision, brainstormId: formal.sessionId,
+    ideas: formal.selectedIds.map(ideaId => ({ ideaId, references: [{ stageId: 4, revision: selected.revision, entityId: formal.sessionId, role: "brainstorm" }], missing: ["合成夹具未关联实地材料"] })) });
+  const designText = "两款并排比较的文字方案";
   const empty = emptyAidtUiDrafts()[5]!;
-  const base = updateAidtPrototypeEntityDraft(empty, "design-A", draft => {
-    const pinned = pinAidtPrototypeInputs({ ...draft, fields: { ...old5.content.draft.fields, situation: "午休点单" } }, selected);
-    const question = confirmAidtVerificationQuestion(pinned)!;
+  const savedText = updateAidtPrototypeEntityDraft(empty, "design-A", draft => {
+    const pinned = pinAidtPrototypeInputs({ ...draft, fields: { ...old5.content.draft.fields, situation: "午休点单" } }, selected, formal.selectedIds, formal.sessionId);
+    const textDraft = { ...pinned, fields: { ...pinned.fields, prototypeTextDesign: designText, prototypeTextVersion: "text-v1", prototypeTextLineage: formalLineage } };
+    return textDraft;
+  });
+  const base = updateAidtPrototypeEntityDraft(savedText, "design-A", draft => {
+    const textConfirmed = confirmAidtPrototypeText(draft, "class", "design-A", 9)!;
+    const question = confirmAidtVerificationQuestion(textConfirmed)!;
     const withPrototype = updateAidtPrototypeReference(question, { designId: "design-A", versionId: "v1", designName: "原型A", createdAt: "2026-11-16T00:00:00Z", seq: 1, summary: "两款并排比较", frameCount: 2, generatedFrameCount: 2, source: "model" });
-    return confirmAidtPrototypeHandoff(withPrototype)!;
+    const bound = bindAidtPrototypeTextOutput(withPrototype, "class", "design-A", "v1", readAidtPrototypeTextConfirmation(textConfirmed)!, { kind: "native", bindingMethod: "student-selected-native-version", boundBy: "student", boundAt: "2026-11-16T00:00:00Z", textSha256: createHash("sha256").update(designText).digest("hex"), lineageSha256: createHash("sha256").update(formalLineage).digest("hex") });
+    return confirmAidtPrototypeHandoff(bound)!;
   });
   expect(listAidtConfirmedPrototypeEntities(base).map(value => value.id)).toEqual(["design-A"]);
   expect(listAidtConfirmedPrototypeEntities(updateAidtPrototypeEntityDraft(base, "design-B", draft => ({ ...draft, fields: { task: "另一个实体" } }))).map(value => value.id)).toEqual(["design-A"]);
@@ -134,12 +154,19 @@ it("confirms only the selected Design's real version and invalidates handoff if 
   expect(listAidtConfirmedPrototypeEntities(edited)).toEqual([]);
 });
 
-it("gives an entity-only draft the shared stage summary needed for its first save", () => {
+it("preserves an entity-only draft's unconfirmed status in its saved stage summary", () => {
   const draft = updateAidtPrototypeEntityDraft(emptyAidtUiDrafts()[5]!, "new-design", previous => ({
     ...previous,
     fields: { verificationQuestion: "尚未公开的验证问题" },
   }));
+  const before = JSON.stringify(draft);
   const summary = aidtUiStageSummary(5, draft);
   expect(summary).toContain("1 个");
-  expect(summary).not.toContain("尚未公开的验证问题");
+  expect(summary).toContain("new-design");
+  expect(summary).toContain("尚未公开的验证问题");
+  expect(summary).toContain("草稿或已修改，尚未确认交接");
+  expect(summary).not.toContain("本轮已确认交接记录");
+  expect(listAidtConfirmedPrototypeEntities(draft)).toEqual([]);
+  expect(readAidtConfirmedPrototypeHandoff(draft)).toBeNull();
+  expect(JSON.stringify(draft)).toBe(before);
 });

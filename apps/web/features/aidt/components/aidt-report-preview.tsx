@@ -37,7 +37,7 @@ export function AidtReportPreview({ drafts, text, sourceRevision, revision, onCh
   const session = useOptionalSession()?.session;
   const me = session?.userId;
   const savedTime = shared?.savedAt ? new Date(shared.savedAt).toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
-  const value = text ?? aidtUiReportMarkdown(drafts, { discoveryCardsRevision });
+  const value = text ?? aidtUiReportMarkdown(drafts, { discoveryCardsRevision, projectId: historyScope?.projectId });
   const exportValue = shared?.matchesServer ? [value, "", "## 保存与来源版本", `报告保存版本：${shared.serverRevision}；保存者：${shared.savedBy}；保存时间：${shared.savedAt}`, ...(shared.sourceStageRevisions?.length ? shared.sourceStageRevisions.map((source) => `- 第 ${source.stageId} 步：版本 ${source.revision}`) : ["尚未关联已保存的阶段版本；正文不因此成为已验证研究事实。"]), ""].join("\n") : value;
   const printScope = JSON.stringify([session?.currentOrgId, session?.userId, session?.sessionToken, historyScope?.projectId, historyScope?.lifecycleKey, readOnly, revision, sourceRevision]);
   const printLifecycle = React.useRef({ scope: printScope, value: exportValue, active: true, generation: 0 });
@@ -48,7 +48,7 @@ export function AidtReportPreview({ drafts, text, sourceRevision, revision, onCh
     const generation = printLifecycle.current.generation;
     const isCurrent = () => printLifecycle.current.active && printLifecycle.current.generation === generation;
     setPrinting(true);
-    try { await printAidtUiText(exportValue, { isCurrent }); if (isCurrent()) setStatus("已请求打开打印预览，可选择另存为PDF；是否保存由浏览器决定。"); }
+    try { const result = await printAidtUiText(exportValue, { isCurrent }); if (isCurrent()) setStatus(result === "cancelled" ? "已关闭打印预览，报告未改变。" : "已请求系统打印。是否另存成功请核对实际 PDF 文件。"); }
     catch { if (printLifecycle.current.active) setStatus(isCurrent() ? "打印预览未能打开，报告编辑仍保留。可重试或下载 Markdown。" : "报告内容或访问状态已变化，未打印旧稿。请重新核对后重试。"); }
     finally { if (printLifecycle.current.active) setPrinting(false); }
   }

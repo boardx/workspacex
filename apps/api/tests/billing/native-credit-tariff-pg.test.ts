@@ -63,7 +63,7 @@ it('old runtime reads current global prices for existing and newly created orgs;
  const store=new PgCreditConsumption(db),requestId='global-tariff-new-'+unique;
  await db.withTenant(fresh,s=>store.reserveInSession(s,fresh,{requestId,userId:user,runId:null,modelProvider:tariff.modelProvider,modelId:tariff.modelId,startedAt:new Date().toISOString(),executionAttemptId:null,projectId:null,callPurpose:'native-asr',nativeMaximum:{unit:'millisecond',quantity:4300n}}));
  const admitted=await asOwner(async c=>(await c.query('SELECT native_rate::text,tariff_version,reserved_hundredths::text FROM credit_consumption_requests WHERE request_id=$1',[requestId])).rows[0]);
- expect(admitted).toEqual({native_rate:'44',tariff_version:tariff.version+'-next',reserved_hundredths:'44'});
+ expect(admitted).toEqual({native_rate:'44',tariff_version:tariff.version+'-next',reserved_hundredths:'0'});
  expect(await asOwner(async c=>(await c.query('SELECT count(*)::integer AS count FROM credit_native_tariffs_legacy WHERE org_id=$1',[fresh])).rows[0].count)).toBe(0);
  await db.withTenant(fresh,s=>store.settleInSession(s,fresh,{eventId:requestId,userId:user,runId:null,modelProvider:tariff.modelProvider,modelId:tariff.modelId,tokensTotal:0,promptTokens:null,completionTokens:null,outcome:'succeeded',totalSource:'not-applicable',nativeUsage:{unit:'millisecond',quantity:0n,source:'reported'}}));
  for(const id of [org,personal,fresh]){

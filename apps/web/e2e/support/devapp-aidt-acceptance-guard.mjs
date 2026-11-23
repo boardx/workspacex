@@ -2,7 +2,7 @@
 import { ORIGIN, ProbeFailure, validLoginBody } from './devapp-aidt-auth-readonly.mjs';
 import { createSurveyCollectionGuard } from './devapp-aidt-survey.mjs';
 import { createHash } from 'node:crypto';
-import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, brainstormRecord, validBrainstormProjection, validTestPlanProjection, ENTITY } from './devapp-aidt-chat-evidence.mjs';
+import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, decideOwnedTeachingExecutionRead, brainstormRecord, validBrainstormProjection, validTestPlanProjection, ENTITY } from './devapp-aidt-chat-evidence.mjs';
 
 export const SHA = /^[a-f0-9]{40}$/;
 export const TAG = /^[0-9]+-[0-9]+$/;
@@ -27,6 +27,42 @@ export function acceptanceIdentity(env) {
   const { EXPECTED_SOURCE_SHA: source, EXPECTED_RELEASE_TAG: tag, GITHUB_RUN_ID: run, GITHUB_RUN_ATTEMPT: attempt } = env;
   if (!SHA.test(source ?? '') || !TAG.test(tag ?? '') || !/^[1-9][0-9]*$/.test(run ?? '') || !/^[1-9][0-9]*$/.test(attempt ?? '')) throw new ProbeFailure('ACCEPTANCE_IDENTITY_INVALID');
   return { source, tag, run, attempt, entryDiagnosticOnly: env.AIDT_ENTRY_DIAGNOSTIC_ONLY === 'true', projectName: `AIDT QA synthetic ${run}-${attempt}` };
+}
+
+export function aidtSyntheticInterviewAudio(run, attempt) {
+  if (![run, attempt].every(value => typeof value === 'string' && /^[1-9][0-9]*$/.test(value))) {
+    throw new ProbeFailure('SYNTHETIC_WAV_IDENTITY_INVALID');
+  }
+  const filename = `qa-${run}-${attempt}-U01-synthetic.wav`;
+  const sampleRate = 8000;
+  const bytes = Buffer.alloc(44 + sampleRate * 2);
+  bytes.write('RIFF', 0);
+  bytes.writeUInt32LE(bytes.length - 8, 4);
+  bytes.write('WAVEfmt ', 8);
+  bytes.writeUInt32LE(16, 16);
+  bytes.writeUInt16LE(1, 20);
+  bytes.writeUInt16LE(1, 22);
+  bytes.writeUInt32LE(sampleRate, 24);
+  bytes.writeUInt32LE(sampleRate * 2, 28);
+  bytes.writeUInt16LE(2, 32);
+  bytes.writeUInt16LE(16, 34);
+  bytes.write('data', 36);
+  bytes.writeUInt32LE(sampleRate * 2, 40);
+  for (let i = 0; i < sampleRate; i++) {
+    bytes.writeInt16LE(Math.round(2200 * Math.sin(2 * Math.PI * 440 * i / sampleRate)), 44 + i * 2);
+  }
+  // Make the tone unique to this run, without using any captured or spoken audio.
+  const marker = createHash('sha256').update(filename).digest();
+  for (const [index, value] of marker.entries()) bytes.writeInt16LE(value - 128, 44 + index * 2);
+  return { filename, bytes, mime: 'audio/wav' };
+}
+
+export function aidtSyntheticStageText(run, attempt, stageId) {
+  if (![run, attempt].every(value => typeof value === 'string' && /^[1-9][0-9]{0,19}$/.test(value))
+    || !Number.isInteger(stageId) || stageId < 1 || stageId > 6) throw new ProbeFailure('STAGE_TEXT_IDENTITY_INVALID');
+  const filename = `qa-${run}-${attempt}-stage-${stageId}.txt`;
+  const bytes = Buffer.from(`Synthetic attachment verification. Run ${run}-${attempt}, stage ${stageId}. No research evidence.\n`);
+  return { filename, bytes, mime: 'text/plain' };
 }
 
 export function assertRuntimeProof(proof, identity) {
@@ -81,17 +117,66 @@ export function createAcceptanceGuard(identity, now = Date.now) {
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
   let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0, ordinaryVerified = false, projectCreateUntil = null, projectCourseTag;
   const threadCoordinates = new Map(), threadFacts = new Map(), threadPins = new Map(), messageSnapshots = new Map(), stageStates = new Map(), skillCatalog = new Map(), teachingLedger = new Map(), ownedRuns = new Set();
-  let reconcileCount = 0;
+  let reconcileCount = 0, firstRejectedMutation = null;
   let teachingRequests = 0, suggestionsBlocked = 0, teachingStopped = false, isolatedProblemReceipt = null;
   const threads = new Set(), resources = new Set(), uploads = new Map(), fixtures = new Map(), snapshots = new Map(), teachingSkills = new Set();
   let imageArm = null, imageCount = 0, designLinked = false;
   let uploadArm = null, designArm = null, designId = null, modelArm = null, modelCount = 0, modelReceipt = null, modelRequestedScreens = null;
+  const stageText = new Map();
   const survey = createSurveyCollectionGuard(identity.run);
+
+  function stageTextRead(path, target) {
+    const match = /^\/api\/chat\/threads\/([^/]+)\/attachments\/([^/]+)\/content$/.exec(path);
+    if (!match) return null;
+    const verified = [...stageText.values()].find(entry => entry.attachmentId && encodeURIComponent(entry.attachmentId) === match[2]);
+    if (!verified) return null;
+    return (verified.messageId && match[1] === encodeURIComponent(verified.threadId) && !target.search)
+      ? { allow: true, kind: 'qa-stage-text-content', stageId: verified.stageId }
+      : { allow: false, kind: 'out-of-scope-read', code: 'STAGE_TEXT_READ_SCOPE_REJECTED' };
+  }
+
   const readCategories = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
   const readDenials = { nativeAgentCatalog: 0, runtimeMetadata: 0, other: 0 };
   const metadataHttpStatuses = [];
   let metadataHttpStatusesTruncated = false;
   const stop = code => { fatal ??= code; return { allow: false, kind: 'rejected', code }; };
+  // Passive metadata for the one existing fallthrough only; this never authorizes a request.
+  function rejectedMutationSummary(path, method, body) {
+    const field = (value, key) => {
+      if (!object(value)) return undefined;
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      return descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
+    };
+    const refs = { project: [], thread: [], run: [] };
+    const add = (kind, value) => { if (typeof value === 'string' && value.length > 0) refs[kind].push(value); };
+    const decoded = value => { try { return decodeURIComponent(value); } catch { return undefined; } };
+    const projectPath = /^\/api\/projects\/([^/]+)(?:\/|$)/.exec(path);
+    const threadPath = /^\/api\/(?:chat\/)?threads\/([^/]+)(?:\/|$)/.exec(path);
+    const runPath = /^\/api\/agent-runs\/([^/]+)(?:\/|$)/.exec(path);
+    if (projectPath) add('project', decoded(projectPath[1]));
+    if (threadPath && threadPath[1] !== 'mutate') add('thread', decoded(threadPath[1]));
+    if (runPath) add('run', decoded(runPath[1]));
+    for (const key of ['projectId', 'sourceProjectId', 'teachingProjectId']) add('project', field(body, key));
+    add('thread', field(body, 'threadId')); add('run', field(body, 'runId'));
+    const forwarded = field(body, 'forwardedProps');
+    add('thread', field(forwarded, 'chatThreadId'));
+    add('project', field(field(forwarded, 'aidtContext'), 'projectId'));
+    const bound = (values, accepts) => values.length ? values.every(accepts) : null;
+    const pathFamily = /^\/api\/copilotkit\/agent\/[^/]+\/run$/.test(path) ? 'chat-run'
+      : runPath ? 'execution-control'
+      : /^\/api\/threads\/[^/]+\/skill-mounts$/.test(path) ? 'skill-mount'
+      : /^\/api\/projects\/[^/]+\/aidt\/stages\/[1-6]\/entities\/[^/]+\/reconcile$/.test(path) ? 'aidt-reconcile'
+      : /^\/api\/projects\/[^/]+\/aidt\/stages\/[1-6](?:\/|$)/.test(path) ? 'aidt-stage'
+      : threadPath ? 'thread-mutate'
+      : /^\/api\/(?:platform\/)?(?:billing(?:\/|$)|organizations\/[^/]+\/billing(?:\/|$))/.test(path) ? 'billing'
+      : /^\/api\/(?:system\/)?telemetry(?:\/|$)/.test(path) ? 'telemetry' : 'other';
+    return Object.freeze({ decisionCode: 'MUTATION_OUT_OF_SCOPE',
+      method: ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ? method : 'OTHER', pathFamily,
+      projectBound: bound(refs.project, value => projectId !== null && value === projectId),
+      threadBound: bound(refs.thread, value => threads.has(value)), runBound: bound(refs.run, value => ownedRuns.has(value)),
+      bodyPresent: body !== undefined });
+  }
+
   function decideRequest({ url, method, resourceType, body }) {
     if (fatal) return { allow: false, kind: 'stopped', code: fatal };
     if (/%2f|%5c|%2e|\\/i.test(url.split('?')[0])) return stop('TARGET_REJECTED');
@@ -116,6 +201,8 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     if (identity.entryDiagnosticOnly && method !== 'GET') return stop('ENTRY_DIAGNOSTIC_READONLY');
     if (method === 'POST' && (path === '/api/copilotkit/agent/default/suggest' || path === '/api/copilotkit/agent/default/run' && body?.forwardedProps?.toolChoice?.function?.name === 'copilotkitSuggest')) { suggestionsBlocked++; return { allow: false, kind: 'optional-suggestion-blocked', code: 'OPTIONAL_SUGGESTION_NOT_EXERCISED' }; }
     if (method === 'GET') {
+      const stageFile = stageTextRead(path, target);
+      if (stageFile) return stageFile;
       // Native AgentOptions reads only this organization's agent catalog. This
       // does not authorize capability mutations or requests before QA ownership.
       if (path === '/api/capabilities' && ordinaryVerified && projectId
@@ -123,14 +210,20 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         && target.searchParams.get('orgId') === org && target.searchParams.get('kind') === 'agent') {
         return { allow: true, kind: 'native-agent-catalog' };
       }
+      if (actor && path === '/api/projects' && target.searchParams.get('orgId') === org
+        && [...target.searchParams.keys()].join(',') === 'orgId') {
+        return { allow: true, kind: 'qa-project-catalog', projectId };
+      }
       const publicPage = path === '/login' || path === '/aidt' || path === '/favicon.ico' || path.startsWith('/_next/static/') || approvedHomeImage(target);
-      const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/copilotkit/info' && !target.search) || (path === '/api/projects' && target.searchParams.get('orgId') === org) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
+      const accountRead = actor && (path === '/api/identity/me' || path === '/api/aidt/courses' || (path === '/api/copilotkit/info' && !target.search) || (path === '/api/skills' && target.searchParams.get('orgId') === org && [...target.searchParams.keys()].every(key => ['orgId', 'entry'].includes(key))));
       const ownedRead = (projectId || candidate) && (path === `/aidt/${projectId ?? candidate}` || path.startsWith(`/api/projects/${projectId ?? candidate}/`));
       for (const id of threads) {
         if (path === `/api/chat/threads/${encodeURIComponent(id)}`) return { allow: true, kind: 'thread-detail', threadId: id };
         if (path === `/api/chat/threads/${encodeURIComponent(id)}/messages`) return { allow: true, kind: 'thread-messages', threadId: id };
         if (path === `/api/threads/${encodeURIComponent(id)}/skill-deviations`) return { allow: true, kind: 'thread-pins', threadId: id };
       }
+      const executionRead = decideOwnedTeachingExecutionRead(target, method, { actorId: actor, orgId: org, projectId, threads, ownedRuns, teachingLedger });
+      if (executionRead) return executionRead;
       const runRead = /^\/api\/agent-runs\/([A-Za-z0-9_.:-]+)(?:\/aidt-context)?$/.exec(path);
       if (runRead && !target.search) return ownedRuns.has(runRead[1]) ? { allow: true, kind: 'owned-teaching-run-read', runId: runRead[1] } : { allow: false, kind: 'teaching-run-needs-binding', runId: runRead[1] };
       const ownedChat = [...threads].some(id => path === `/api/chat/threads/${encodeURIComponent(id)}` || path.startsWith(`/api/chat/threads/${encodeURIComponent(id)}/`)
@@ -157,6 +250,18 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       projectCreateUntil = null; createCount++; allowedWrites++; return { allow: true, kind: 'create-project' };
     }
     if (!projectId) return stop('OWNED_PROJECT_REQUIRED');
+    if (method === 'POST' && /^\/api\/chat\/threads\/[^/]+\/attachments$/.test(path)) {
+      const entry = [...stageText.values()].find(item => path === `/api/chat/threads/${encodeURIComponent(item.threadId)}/attachments`);
+      const file = body?.files?.[0];
+      if (target.search || !entry || entry.uploadStarted || now() > entry.until
+        || body?.__multipart !== true || Object.keys(body).sort().join(',') !== '__multipart,files' || !Array.isArray(body.files) || body.files.length !== 1
+        || !object(file) || Object.keys(file).sort().join(',') !== 'filename,mime,sha256,sizeBytes'
+        || file.filename !== entry.filename || file.mime !== entry.mime
+        || file.sizeBytes !== entry.sizeBytes || file.sha256 !== entry.sha256) return stop('STAGE_TEXT_UPLOAD_SCOPE_REJECTED');
+      entry.uploadStarted = true;
+      allowedWrites++;
+      return { allow: true, kind: 'qa-stage-text-upload', stageId: entry.stageId };
+    }
     if (method === 'POST' && path === '/api/copilotkit/agent/default/run') {
       const entries = [...teachingLedger.values()].filter(entry => entry.wire === null && entry.until >= now());
       if (teachingStopped || teachingRequests >= TEACHING_TURN_LIMIT || entries.length !== 1) return stop('TEACHING_SEND_NOT_ARMED');
@@ -242,6 +347,12 @@ export function createAcceptanceGuard(identity, now = Date.now) {
         && typeof body.expectedVersion === 'string' && body.expectedVersion.length > 0 && body.expectedVersion.length <= 200) {
       allowedWrites++; return { allow: true, kind: 'mount-owned-thread' };
     }
+    if (firstRejectedMutation === null) {
+      try { firstRejectedMutation = rejectedMutationSummary(path, method, body); }
+      catch { firstRejectedMutation = Object.freeze({ decisionCode: 'MUTATION_OUT_OF_SCOPE',
+        method: ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ? method : 'OTHER', pathFamily: 'other',
+        projectBound: null, threadBound: null, runBound: null, bodyPresent: body !== undefined }); }
+    }
     return stop('MUTATION_OUT_OF_SCOPE');
   }
   function decide(request) {
@@ -281,6 +392,15 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     } else if (decision.kind === 'design-generation') {
       modelReceipt = { attempted: true, httpStatus: status, replySource: ['model', 'fallback'].includes(response?.reply?.source) ? response.reply.source : 'unknown', generatedFrames: Array.isArray(response?.project?.frames) ? response.project.frames.length : 0 };
       if (status === 200 && (response?.project?.id !== designId || response.project.ownerId !== actor)) throw new ProbeFailure('DESIGN_OWNERSHIP_UNVERIFIED');
+    } else if (decision.kind === 'qa-stage-text-upload') {
+      const entry = stageText.get(decision.stageId);
+      if (!entry?.uploadStarted || entry.attachmentId || ![200, 201].includes(status)
+        || !/^[A-Za-z0-9_.:-]{1,180}$/.test(response?.id ?? '')
+        || [...stageText.values()].some(item => item.attachmentId === response.id)
+        || response.filename !== entry.filename || response.bytes !== entry.sizeBytes || response.mime !== entry.mime) {
+        throw new ProbeFailure('STAGE_TEXT_UPLOAD_RECEIPT_REJECTED');
+      }
+      entry.attachmentId = response.id;
     } else if (decision.kind === 'upload') {
       const run = response?.runs?.[0];
       if (![200, 201, 202].includes(status) || response?.runs?.length !== 1 || run.duplicateHit || !/^[A-Za-z0-9_-]{1,256}$/.test(run.ingestionRunId ?? '') || !/^[A-Za-z0-9_-]{1,256}$/.test(run.artifactId ?? '') || resources.has(run.artifactId) || uploads.has(run.ingestionRunId)) throw new ProbeFailure('UPLOAD_RECEIPT_REJECTED');
@@ -305,7 +425,16 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       messageSnapshots.set(decision.threadId, rows);
       for (const entry of teachingLedger.values()) if (entry.wire && entry.scope.threadId === decision.threadId) {
         const accepted = identifyOwnedTeachingRun(response, entry.scope, entry.wire);
-        if (accepted) { if (entry.accepted && entry.accepted.runId !== accepted.runId) throw new ProbeFailure('TEACHING_RUN_BINDING_CHANGED'); entry.accepted = accepted; ownedRuns.add(accepted.runId); }
+        if (accepted) {
+          if (entry.accepted && entry.accepted.runId !== accepted.runId) throw new ProbeFailure('TEACHING_RUN_BINDING_CHANGED');
+          entry.accepted = accepted;
+          ownedRuns.add(accepted.runId);
+          if (entry.scope.stageFile) {
+            const file = stageText.get(entry.scope.stageId);
+            if (file.attachmentId !== entry.scope.stageFile.id || file.messageId && file.messageId !== accepted.inputMessageId) throw new ProbeFailure('STAGE_TEXT_BINDING_CHANGED');
+            file.messageId = accepted.inputMessageId;
+          }
+        }
       }
     } else if ((decision.kind === 'save-stage' || decision.kind === 'get-stage') && status === 200 && response?.stage) {
       if (response?.stage?.projectId !== projectId || response.stage.stageId !== decision.stageId) throw new ProbeFailure('STAGE_RESPONSE_REJECTED');
@@ -339,8 +468,33 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       if (matches.length !== 1) throw new ProbeFailure('TEACHING_COMPLETION_NOT_BOUND');
       matches[0].completed = true;
     },
+    armStageText: scope => {
+      const selector = validateTeachingScope(scope);
+      const coordinates = threadCoordinates.get(scope.threadId);
+      if (stageText.has(scope.stageId) || !ordinaryVerified || scope.projectId !== projectId || scope.actorId !== actor
+        || selector.purpose !== 'stage' || !selector.entityId || coordinates?.stageId !== scope.stageId
+        || coordinates.entityId !== selector.entityId || coordinates.purpose !== 'stage'
+        || !threadFacts.get(scope.threadId)?.writable) throw new ProbeFailure('STAGE_TEXT_UPLOAD_ARM_REJECTED');
+      const fixture = aidtSyntheticStageText(identity.run, identity.attempt, scope.stageId);
+      stageText.set(scope.stageId, { stageId: scope.stageId, entityId: selector.entityId, threadId: scope.threadId,
+        filename: fixture.filename, mime: fixture.mime, sizeBytes: fixture.bytes.length,
+        sha256: createHash('sha256').update(fixture.bytes).digest('hex'), until: now() + 30000 });
+      return fixture;
+    },
+    stageTextReceipt: stageId => {
+      const entry = stageText.get(stageId);
+      if (!entry?.attachmentId) return null;
+      const { attachmentId: id, filename, mime, sizeBytes, sha256, entityId, threadId, messageId, contentVerified } = entry;
+      return { id, filename, mime, bytes: sizeBytes, sha256, entityId, threadId, messageId, contentVerified: contentVerified === true };
+    },
     armTeachingSend: scope => {
       validateTeachingScope(scope);
+      if (scope.stageFile) {
+        const file = stageText.get(scope.stageId);
+        if (!file?.attachmentId || file.messageId || file.attachmentId !== scope.stageFile.id || file.filename !== scope.stageFile.filename
+          || file.sizeBytes !== scope.stageFile.bytes || file.mime !== scope.stageFile.mime || file.entityId !== scope.selector.entityId
+          || file.threadId !== scope.threadId) throw new ProbeFailure('STAGE_TEXT_WIRE_NOT_VERIFIED');
+      }
       const coordinates = threadCoordinates.get(scope.threadId), pins = threadPins.get(scope.threadId) ?? [];
       const finding = scope.interviewFinding === true;
       const guideKey = `interview:${scope.selector.entityId}`;
@@ -437,12 +591,33 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       const source = 'data:image/png;base64,' + bytes.toString('base64');
       imageArm = { name: fileName, source, summary: 'AIDT 图片原型 · ' + createHash('sha256').update(source).digest('hex'), until: now() + 15000 };
     },
-    registerFixture: ({ filename, bytes, mime }) => {
-      if (!projectId || !Buffer.isBuffer(bytes) || bytes.length < 10 || bytes.length > 262144 || !filename.startsWith(`qa-${identity.run}-`) || !/^[A-Za-z0-9_.-]{1,180}$/.test(filename) || !['text/plain', 'image/png'].includes(mime)) throw new ProbeFailure('FIXTURE_REJECTED');
+    registerFixture: ({ filename, bytes, mime, interviewEntityId }) => {
+      if (!projectId || !Buffer.isBuffer(bytes) || bytes.length < 10 || bytes.length > 262144 || !filename.startsWith(`qa-${identity.run}-`) || !/^[A-Za-z0-9_.-]{1,180}$/.test(filename)) throw new ProbeFailure('FIXTURE_REJECTED');
+      if (mime === 'audio/wav') {
+        const sample = aidtSyntheticInterviewAudio(identity.run, identity.attempt);
+        let interview;
+        try { interview = JSON.parse(stageStates.get(2)?.content?.draft?.fields?.[`interviewRecord:${interviewEntityId}`]); }
+        catch { /* No saved interview reference. */ }
+        if (!ordinaryVerified || interview?.id !== interviewEntityId || interview?.code !== 'U01'
+          || interview.archived || interview.consent?.audio !== true || filename !== sample.filename || !bytes.equals(sample.bytes)) {
+          throw new ProbeFailure('SYNTHETIC_WAV_SCOPE_REJECTED');
+        }
+      } else if (!['text/plain', 'image/png'].includes(mime) || interviewEntityId !== undefined) {
+        throw new ProbeFailure('FIXTURE_REJECTED');
+      }
       const fixture = { filename, sizeBytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), mime };
       if (fixtures.has(filename)) throw new ProbeFailure('FIXTURE_REUSED'); fixtures.set(filename, fixture); uploadArm = { ...fixture, until: now() + 30000 }; return fixture;
     },
     observeContent: (decision, status, headers, bytes) => {
+      if (decision.kind === 'qa-stage-text-content') {
+        const entry = stageText.get(decision.stageId);
+        if (status !== 200 || !entry?.messageId || headers['content-type']?.split(';')[0] !== entry.mime
+          || bytes.length !== entry.sizeBytes || createHash('sha256').update(bytes).digest('hex') !== entry.sha256) {
+          throw new ProbeFailure('STAGE_TEXT_CONTENT_UNVERIFIED');
+        }
+        entry.contentVerified = true;
+        return;
+      }
       const uploaded = uploads.get(decision.runId), version = headers['x-artifact-version-id'];
       if (status !== 200 || !uploaded || bytes.length !== uploaded.sizeBytes || createHash('sha256').update(bytes).digest('hex') !== uploaded.sha256 || headers['x-content-sha256'] !== uploaded.sha256 || headers['x-artifact-id'] !== uploaded.artifactId || !/^[A-Za-z0-9_-]{1,256}$/.test(version ?? '')) throw new ProbeFailure('UPLOAD_CONTENT_UNVERIFIED');
       resources.add(version);
@@ -464,7 +639,7 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       projectId = candidate;
     },
     identity: () => ({ actor, org, candidate, projectId, ordinaryVerified }),
-    summary: () => ({ readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: TEACHING_TURN_LIMIT, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, reconcileCount, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
+    summary: () => ({ firstRejectedMutation, readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: 'aidt', teachingRequestsAllowed: TEACHING_TURN_LIMIT, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, reconcileCount, modelRequestsAllowed: 1, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignId: designId, ownedThreadCount: threads.size, ownedUploadCount: uploads.size }),
   };
 }
 

@@ -22,20 +22,16 @@ export async function readMemberCreditUsage(s:TenantSession,orgId:OrgId,userId:s
   COALESCE(SUM(GREATEST(r.reserved_hundredths-COALESCE(r.debited_hundredths,0),0)),0)::text AS held_hundredths,
   COUNT(*) FILTER(WHERE r.reserved_hundredths=0)::text AS unbounded
  FROM credit_consumption_requests r JOIN credit_wallets w ON w.wallet_id=r.wallet_id
- WHERE r.org_id=$1 AND r.user_id=$2 AND w.owner_type='team' AND w.owner_id=$1 AND r.state <> 'settled'`,[orgId,userId])).rows[0];
+ WHERE r.start_facts->>'settleAtTerminal' IS DISTINCT FROM 'true' AND r.org_id=$1 AND r.user_id=$2 AND w.owner_type='team' AND w.owner_id=$1 AND r.state <> 'settled'`,[orgId,userId])).rows[0];
  return {used:BigInt(row?.used_hundredths??'0'),held:BigInt(row?.held_hundredths??'0'),unbounded:BigInt(row?.unbounded??'0')};
 }
 /** Caller holds the canonical organization financial lock, shared by admission, settlement and edits. */
-export async function assertMemberCreditQuota(s:TenantSession,orgId:OrgId,userId:string,reserved:bigint,bounded:boolean){
- if(!await enterpriseCreditPlan(s,orgId))return reserved;
+export async function assertMemberCreditQuota(s:TenantSession,orgId:OrgId,userId:string){
+ if(!await enterpriseCreditPlan(s,orgId))return;
  const row=(await s.query<{monthly_limit:string}>('SELECT monthly_limit::text FROM member_credit_quota WHERE org_id=$1 AND user_id=$2',[orgId,userId])).rows[0];
  const cap=creditHundredths(row?.monthly_limit??String(DEFAULT_MEMBER_MONTHLY_CREDITS));
- const {used,held,unbounded}=await readMemberCreditUsage(s,orgId,userId);
- const remaining=cap-used-held;
- // Unknown-cost calls exclusively hold the remaining allowance. This is spending-policy
- // capacity, never a fabricated provider usage quantity or a native tariff.
- if(unbounded>0n||remaining<0n||(!bounded&&remaining===0n)||(bounded&&reserved>remaining))throw memberCreditLimitError(orgId);
- return bounded?reserved:remaining;
+ const {used}=await readMemberCreditUsage(s,orgId,userId);
+ if(used>=cap)throw memberCreditLimitError(orgId);
 }
 
 export const memberCreditLimitError=(orgId:OrgId)=>new CreditConsumptionError('credit_required','team',orgId,'member_monthly_credit_quota_exceeded','member_monthly_limit');
@@ -49,8 +45,9 @@ export async function assertMemberCreditContinuation(s:TenantSession,orgId:OrgId
  const payer=(await s.query<{owner_type:string;owner_id:string;balance:string;remaining_held_hundredths:string}>("SELECT owner_type,owner_id,balance::text,remaining_held_hundredths::text FROM credit_wallets WHERE wallet_id=$1 FOR UPDATE",[reference.wallet_id])).rows[0];
  if(!payer||!((payer.owner_type==='user'&&payer.owner_id===userId)||(payer.owner_type==='team'&&payer.owner_id===orgId)))throw denied();
  // Fresh statement after the wallet lock: a concurrent receipt may have committed while we waited.
- const request=(await s.query<{wallet_id:string;user_id:string;own_remaining:string}>("SELECT wallet_id,user_id,CASE WHEN state='settled' THEN 0 ELSE GREATEST(reserved_hundredths-COALESCE(debited_hundredths,0),0) END::text AS own_remaining FROM credit_consumption_requests WHERE request_id=$1 AND org_id=$2",[requestId,orgId])).rows[0];
+ const request=(await s.query<{wallet_id:string;user_id:string;own_remaining:string;settle_at_terminal:boolean}>("SELECT wallet_id,user_id,COALESCE(start_facts->>'settleAtTerminal'='true',false) AS settle_at_terminal,CASE WHEN state='settled' THEN 0 ELSE GREATEST(reserved_hundredths-COALESCE(debited_hundredths,0),0) END::text AS own_remaining FROM credit_consumption_requests WHERE request_id=$1 AND org_id=$2",[requestId,orgId])).rows[0];
  if(!request||request.wallet_id!==reference.wallet_id||request.user_id!==userId)throw denied();
+ if(request.settle_at_terminal)return;
  if(payer.owner_type==='user'){
   const otherHolds=BigInt(payer.remaining_held_hundredths)-BigInt(request.own_remaining);
   if(otherHolds<0n)throw denied();

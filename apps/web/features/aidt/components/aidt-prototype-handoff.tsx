@@ -1,7 +1,9 @@
 "use client";
+import { AidtSavedTextPrint } from "./aidt-saved-text-print";
 
 import * as React from "react";
 import Link from "next/link";
+import { AIDT_BRAINSTORM_METHODS } from "@repo/contracts/aidt-brainstorm";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { listAidtStageHistory, type AidtSharedStage } from "../lib/live-aidt-stages";
@@ -12,11 +14,14 @@ import { aidtPrototypeVersionLabel } from "../lib/aidt-prototype-label";
 import { AidtVerificationQuestion } from "./aidt-verification-question";
 import { AidtPrototypeImage, AidtPrototypeImagePreview } from "./aidt-prototype-image";
 import { AidtPrototypeVersionPicker } from "./aidt-prototype-version-picker";
+import { AidtPrototypeTextDesign } from "./aidt-prototype-text-design";
+import { AidtPrototypeTextBinding } from "./aidt-prototype-text-binding";
+import { isAidtPrototypeTextConfirmed, readAidtPrototypeTextConfirmation, readAidtPrototypeTextOutputBinding, bindAidtPrototypeTextOutput, aidtPrototypeOutputMatchesText } from "../lib/aidt-prototype-text-state";
 import { readAidtPrototypeReference, updateAidtPrototypeReference } from "../lib/aidt-prototype-reference";
 import { aidtPrototypeEntityHref } from "./aidt-prototype-directory";
 import { AIDT_OUTPUTS, type AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import {
-  aidtChosenPrototypeIdeas, aidtPrototypePreparationError, confirmAidtPrototypeHandoff,
+  readAidtPrototypeIdeaRounds, aidtPrototypePreparationError, confirmAidtPrototypeHandoff,
   isAidtPrototypeHandoffConfirmed, pinAidtPrototypeInputs, readAidtPrototypeInputSelection,
   resolveAidtPrototypeInputIdeas, aidtPrototypeEntityDraftTooLarge, readAidtPrototypeEntityDraft, updateAidtPrototypeEntityDraft, readAidtPrototypeIdeaRevision,
   confirmAidtPrototypeEntityHandoff, readAidtConfirmedPrototypeHandoff, aidtAllActivePrototypeEntitiesConfirmed,
@@ -34,6 +39,7 @@ type Props = {
   projectId: string;
   designId: string;
   ideaRevision?: string | null;
+  returnContext?: { revision: string; entityId: string };
   draft: AidtUiStageDraft;
   update: (change: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
   readOnly: boolean;
@@ -58,41 +64,65 @@ export function useAidtPrototypeIdeas({ workflow, projectId, draft, ideaRevision
 
   const historical = history?.scope === historyScope ? history : undefined;
   const source = !revision || revision === latest?.revision ? latest : historical?.stage;
-  const ideas = selection ? resolveAidtPrototypeInputIdeas(selection, source) : aidtChosenPrototypeIdeas(source);
+  const ideas = selection ? resolveAidtPrototypeInputIdeas(selection, source) : [];
   const adoptionSource = selection ? latest : source;
-  const adoptionIdeas = aidtChosenPrototypeIdeas(adoptionSource);
-  return { selection, sessionToken, revision, latest, historical, ideas, adoptionSource, adoptionIdeas, retry: () => { setHistory(undefined); setRetry(value => value + 1); } };
+  const adoptionRounds = readAidtPrototypeIdeaRounds(adoptionSource);
+  return { selection, sessionToken, revision, latest, historical, ideas, adoptionSource, adoptionRounds, retry: () => { setHistory(undefined); setRetry(value => value + 1); } };
+}
+
+function AidtPrototypeIdeaChooser({ source, readOnly, onAdopt }: { source: AidtSharedStage; readOnly: boolean;
+  onAdopt: (source: AidtSharedStage, ids: string[], brainstormId: string) => void }) {
+  const rounds = readAidtPrototypeIdeaRounds(source);
+  const [roundId, setRoundId] = React.useState("");
+  const [selected, setSelected] = React.useState<string[]>([]);
+  const round = rounds.find(value => value.stableId === roundId);
+  const ids = selected.filter(id => round?.ideas.some(idea => idea.id === id));
+  return <details className="space-y-2"><summary className="cursor-pointer font-medium">选择来源列表与点子</summary>
+    <label className="block">已确认 Ideation 列表<select aria-label="已确认 Ideation 列表" className="mt-1 block w-full rounded-md border border-border bg-background p-2"
+      value={round?.stableId ?? ""} disabled={readOnly} onChange={event => { setRoundId(event.target.value); setSelected([]); }}>
+      <option value="">选择一个已确认列表</option>{rounds.map(value => <option key={value.stableId} value={value.stableId}>{value.title} · {AIDT_BRAINSTORM_METHODS[value.method]} · 第4步 V{source.revision}</option>)}
+    </select></label>
+    {round ? <><p className="text-muted-foreground">固定 HMW：第3步 V{round.source.revision} · {round.source.text}</p>
+      <fieldset className="space-y-1"><legend>从该列表选择点子</legend>{round.ideas.map(idea => <label key={idea.id} className="flex items-start gap-2"><input type="checkbox"
+        checked={ids.includes(idea.id)} disabled={readOnly} onChange={event => setSelected(event.target.checked ? [...ids, idea.id] : ids.filter(id => id !== idea.id))} />{idea.title}</label>)}</fieldset>
+      <Button size="sm" variant="outline" disabled={readOnly || !ids.length} onClick={() => onAdopt(source, ids, round.stableId)}>采用所选列表点子</Button></>
+      : <p className="text-muted-foreground">先选择一个已确认列表，再从其中选一项或多项；不拼接不同列表。</p>}
+    {!rounds.length && <p role="status">暂无可用于新原型的独立确认列表，请先在第4步确认本轮成果。</p>}
+  </details>;
 }
 
 export function AidtPrototypeInputs({ workflow, projectId, draft, update, readOnly, ideaRevision }: Props) {
-  const { selection, sessionToken, revision, latest, historical, ideas, adoptionSource, adoptionIdeas, retry } = useAidtPrototypeIdeas({ workflow, projectId, draft, ideaRevision });
+  const { selection, sessionToken, revision, latest, historical, ideas, adoptionSource, retry } = useAidtPrototypeIdeas({ workflow, projectId, draft, ideaRevision });
   return <section className="space-y-2 rounded-lg border border-border p-3 text-12" data-testid="aidt-prototype-ideas">
     <h4 className="text-14 font-semibold">本轮入选点子</h4>
     {revision ? <p>{selection ? "固定引用" : "待核对"}第 4 步 V{revision}{latest && latest.revision !== revision ? ` · 已有 V${latest.revision}` : ""}</p> : <p>核对第 4 步已确认的点子，将它们组合为本轮原型。</p>}
+    {selection?.brainstormId && <p><Link className="text-primary underline" href={`/aidt/${encodeURIComponent(projectId)}?${new URLSearchParams({ step: "4", entity: selection.brainstormId, entityRevision: String(selection.revision) })}`}>查看已确认来源列表</Link></p>}
     {ideas.length > 0 ? <ul className="space-y-2">{ideas.map(idea => <li key={idea.id}><details><summary className="cursor-pointer font-medium">{idea.title}</summary><p className="mt-1 whitespace-pre-wrap">{idea.description}</p></details></li>)}</ul> : revision ? <>
       <p role="status">{historical || revision === latest?.revision || !sessionToken ? "无法核对固定的点子版本。" : "正在读取固定的点子版本…"}</p>
       {historical && <Button type="button" variant="outline" size="sm" onClick={retry}>重新读取点子</Button>}
     </> : <Link className="text-primary underline" href={aidtHref(projectId, 4, { tool: "outcome" })}>返回第 4 步确认点子</Link>}
-    {!readOnly && adoptionSource && adoptionIdeas.length > 0 && selection?.revision !== adoptionSource.revision && <Button type="button" variant="outline" size="sm" onClick={() => {
-      update(previous => pinAidtPrototypeInputs(previous, adoptionSource));
-    }}>采用第 4 步 V{adoptionSource.revision} 的 {adoptionIdeas.length} 个点子</Button>}
+    {!readOnly && adoptionSource && <AidtPrototypeIdeaChooser key={adoptionSource.revision} source={adoptionSource} readOnly={readOnly}
+      onAdopt={(stage, ids, roundId) => update(previous => pinAidtPrototypeInputs(previous, stage, ids, roundId))} />}
   </section>;
 }
 
-function AidtPrototypeConfirmation({ workflow, projectId, designId, draft, readOnly, selected, onConfirm }: Props & { selected: boolean; onConfirm: () => void }) {
+function AidtPrototypeConfirmation({ workflow, projectId, designId, draft, readOnly, selected, onConfirm, returnContext }: Props & { selected: boolean; onConfirm: () => void }) {
   const selection = readAidtPrototypeInputSelection(draft);
   const saved = workflow.savedPrototype;
-  const generationError = aidtPrototypePreparationError(draft)
+  const generationError = (!isAidtPrototypeTextConfirmed(draft) ? "请先保存并确认本轮文字设计。" : null) ?? aidtPrototypePreparationError(draft)
     ?? (!selection ? "请先采用第 4 步已确认的点子。" : null)
+    ?? (!selection?.brainstormId ? "请先明确选择一个已确认 Ideation 列表及本轮点子。" : null)
     ?? (!saved || !workflow.matchesServer ? "请先将制作说明保存到小组。" : null);
   const confirmed = isAidtPrototypeHandoffConfirmed(draft);
   const savedDraft = saved?.projectId === projectId ? readAidtPrototypeEntityDraft(saved.content.draft, designId) : null;
   const ready = selected && confirmed && workflow.matchesServer && saved && savedDraft && isAidtPrototypeHandoffConfirmed(savedDraft)
     && readAidtConfirmedPrototypeHandoff(saved.content.draft)?.id === designId;
   return <section className="space-y-2 text-12" data-testid="aidt-prototype-confirmation">
-    {generationError || readOnly ? <Button variant="outline" disabled>打开原生 Design Workbench</Button> : <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design")}>打开原生 Design Workbench</Link></Button>}
+    {generationError || readOnly ? <Button variant="outline" disabled>打开原生 Design Workbench</Button> : <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design", undefined, returnContext)}>打开原生 Design Workbench</Link></Button>}
     {generationError && <p role="status">{generationError}</p>}
-    {!readOnly && <Button type="button" disabled={(confirmed && selected) || !selection || !confirmAidtPrototypeHandoff(draft)} onClick={onConfirm}>确认所选原型</Button>}
+    {!readOnly && <Button type="button" disabled={(confirmed && selected) || !isAidtPrototypeTextConfirmed(draft) || !selection?.brainstormId || !confirmAidtPrototypeHandoff(draft)} onClick={onConfirm}>确认所选原型</Button>}
+    {readAidtPrototypeReference(draft) && !aidtPrototypeOutputMatchesText(draft, designId, readAidtPrototypeReference(draft)!.versionId)
+      && <p role="status">当前原型版本尚未关联本轮已确认的文字设计，暂不能作为新的交接版本。</p>}
     {confirmed && <p role="status">{ready ? `原型已确认 · 第 5 步 V${saved.revision} · 待测试` : selected ? "原型已在本页确认。请保存到小组后再交接。" : "候选已有确认记录。选择后确认，作为本轮测试原型。"}</p>}
     {ready && <Button asChild><Link href={`${aidtHref(projectId, 6)}&${new URLSearchParams({ prototypeRevision: String(saved.revision), prototypeEntity: designId })}`}>带入测试与迭代</Link></Button>}
   </section>;
@@ -110,11 +140,15 @@ export function AidtPrototypeEntityOutput({ stageDraft, presentationOnly, ...pro
       if (!readOnly) update(previous => updateAidtPrototypeEntityDraft(previous, designId, change));
     },
   };
-  if (presentationOnly) return <PrototypeArtifact {...entity} />;
+  if (presentationOnly) return <><PrototypeArtifact {...entity} /><AidtPrototypeTextDesign projectId={projectId} designId={designId} stageDraft={stageDraft}
+    savedStage={workflow.savedPrototype} matchesServer={workflow.matchesServer} readOnly update={update} requestSave={() => undefined} /></>;
   const fields = AIDT_OUTPUTS[5]!.fields.filter(field => !["idea", "hypothesis", "version"].includes(field.id));
   return <section className="space-y-4" data-testid="aidt-prototype-entity-output">
     <AidtPrototypeInputs {...entity} />
+    <AidtPrototypeTextDesign projectId={projectId} designId={designId} stageDraft={stageDraft} savedStage={workflow.savedPrototype}
+      matchesServer={workflow.matchesServer} readOnly update={update} requestSave={() => undefined} />
     <AidtVerificationQuestion draft={draft} readOnly={readOnly} onChange={next => entity.update(() => next)} />
+    <PrototypeQuestionPrint draft={draft} designId={designId} projectId={projectId} />
     <fieldset className="space-y-3" disabled={readOnly}>
       <legend className="text-14 font-semibold">原型制作说明</legend>
       {fields.map(field => <label key={field.id} className="block space-y-1 text-12">{field.label}
@@ -125,22 +159,35 @@ export function AidtPrototypeEntityOutput({ stageDraft, presentationOnly, ...pro
       </label>)}
     </fieldset>
     {aidtPrototypeEntityDraftTooLarge(stageDraft, designId) && <p role="alert" className="text-12">本原型的记录超出单项保存上限，请精简内容后保存。</p>}
-    <AidtPrototypeVersionPicker projectId={projectId} designEntityId={designId} readOnly={readOnly} value={readAidtPrototypeReference(draft)} selectionScope={JSON.stringify([draft.fields.verificationQuestionConfirmation, draft.fields.prototypeIdeaSource])} onChange={reference => {
+    <AidtPrototypeVersionPicker projectId={projectId} designEntityId={designId} readOnly={readOnly || !isAidtPrototypeTextConfirmed(draft)} value={readAidtPrototypeReference(draft)} selectionScope={JSON.stringify([draft.fields.verificationQuestionConfirmation, draft.fields.prototypeIdeaSource, draft.fields.prototypeTextConfirmation])} onChange={reference => {
       if (!reference || reference.designId === designId) entity.update(previous => updateAidtPrototypeReference(previous, reference));
     }} />
     <AidtPrototypeConfirmation {...entity} workflow={workflow} selected={readAidtConfirmedPrototypeHandoff(stageDraft)?.id === designId} onConfirm={() => {
       if (!readOnly) update(previous => confirmAidtPrototypeEntityHandoff(previous, designId));
     }} />
+    <AidtPrototypeTextBinding projectId={projectId} designId={designId} draft={draft} matchesServer={workflow.matchesServer} readOnly onBind={() => undefined} />
   </section>;
 }
 
 
-function PrototypeArtifact({ draft, designId, projectId, ideaRevision, workflow }: Props) {
+function PrototypeQuestionPrint({ draft, designId, projectId }: Pick<Props, "draft" | "designId" | "projectId">) {
+  return <AidtSavedTextPrint projectId={projectId} artifactKey={designId} stageId={5} label="打印验证问题卡" draft={draft}
+    selectSavedDraft={value => readAidtPrototypeEntityDraft(value, designId)} selectText={value => {
+      if (!isVerificationQuestionConfirmed(value)) return null;
+      const reference = readAidtPrototypeReference(value);
+      return ["# 本轮验证问题", value.fields.verificationQuestion || "", `测试前看法：${value.fields.beforeTestBelief || "未记录"}`, `依据：${value.fields.verificationBasis || "未记录"}`,
+        `本轮可验证与不可验证的范围：${value.fields.verificationLimits || "未记录"}`, `原型：${designId} / ${reference?.versionId || "尚未制作"}`, "状态：待测试。确认问题或完成原型不等于已验证。"].join("\n\n");
+    }} />;
+}
+
+function PrototypeArtifact({ draft, designId, projectId, ideaRevision, workflow, returnContext }: Props) {
   const reference = readAidtPrototypeReference(draft);
   const confirmed = isAidtPrototypeHandoffConfirmed(draft);
   const proposal = readAidtSavedPrototypeDiscussion(draft);
-  const canOpen = !aidtPrototypePreparationError(draft) && !!readAidtPrototypeInputSelection(draft) && workflow.matchesServer;
+  const canOpen = isAidtPrototypeTextConfirmed(draft) && !aidtPrototypePreparationError(draft) && !!readAidtPrototypeInputSelection(draft)?.brainstormId && workflow.matchesServer;
+  const textOutput = readAidtPrototypeTextOutputBinding(draft);
   return <section data-testid="aidt-prototype-entity-output" aria-label="当前原型产物" className="space-y-4">
+    <PrototypeQuestionPrint draft={draft} designId={designId} projectId={projectId} />
     <div className="flex items-center justify-between gap-2"><h3 className="text-16 font-semibold">原型产物</h3><span className="text-12 text-muted-foreground">{confirmed && workflow.matchesServer ? "已确认" : "未完成"}</span></div>
     {["verificationQuestion", "beforeTestBelief"].map(key => {
       const field = key as keyof typeof AIDT_PROTOTYPE_DISCUSSION_FIELDS;
@@ -156,9 +203,11 @@ function PrototypeArtifact({ draft, designId, projectId, ideaRevision, workflow 
     </details>
     {reference && <>
       <p className="text-13" data-testid="aidt-prototype-recorded-reference">{aidtPrototypeVersionLabel(reference)}</p>
-      <AidtPrototypeImagePreview projectId={projectId} reference={reference} />
+      <AidtPrototypeImagePreview projectId={projectId} reference={reference} binding={textOutput?.versionId === reference.versionId ? textOutput : null} />
+      {textOutput?.versionId === reference.versionId && <p className="text-12">此原型已记录文字设计依据 · 第 5 步 V{textOutput.textStageRevision}（学生／应用关联记录）。</p>}
     </>}
-    {canOpen && <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design", ideaRevision)}>打开 Design 工作台</Link></Button>}
+    <AidtPrototypeTextBinding projectId={projectId} designId={designId} draft={draft} matchesServer={workflow.matchesServer} readOnly onBind={() => undefined} />
+    {canOpen && <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design", ideaRevision, returnContext)}>打开 Design 工作台</Link></Button>}
   </section>;
 }
 
@@ -187,10 +236,12 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
     })));
   }, [archived, designId, loading, readOnly, running, serialized, storedProposal, update]);
 
-  const { selection, ideas, adoptionSource: ideaSource, adoptionIdeas } = useAidtPrototypeIdeas({ workflow, projectId, draft, ideaRevision: props.ideaRevision });
+  const { selection, ideas, adoptionSource: ideaSource } = useAidtPrototypeIdeas({ workflow, projectId, draft, ideaRevision: props.ideaRevision });
   const pending = readAidtSavedPrototypeDiscussion(draft);
   const confirmed = isAidtPrototypeHandoffConfirmed(draft);
   const ready = Boolean(selection && ideas.length === selection.ideaIds.length && !aidtPrototypePreparationError(draft));
+  const textConfirmation = readAidtPrototypeTextConfirmation(draft);
+  const textReady = !!selection?.brainstormId && isAidtPrototypeTextConfirmed(draft) && !!textConfirmation;
   const pendingMatches = pending && Object.entries(pending).every(([key, value]) => draft.fields[key] === value);
   const pendingDraft = pending && { ...draft, fields: { ...draft.fields, ...pending } };
   const canConfirmQuestion = Boolean(pendingDraft && pendingDraft.fields.beforeTestBelief?.trim()
@@ -199,21 +250,31 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
     update(previous => updateAidtPrototypeEntityDraft(previous, designId, change));
     requestSave();
   };
-  if (readOnly || archived || loading || running) return null;
+  if (archived || loading) return null;
   return <section aria-label="原型对话操作" className="space-y-3 rounded-container border border-border bg-card p-4 text-13">
-    {!selection && ideaSource && adoptionIdeas.length > 0 && <Button type="button" variant="outline" onClick={() => saveEntity(current => pinAidtPrototypeInputs(current, ideaSource))}>采用入选点子</Button>}
+    <AidtPrototypeTextDesign projectId={projectId} designId={designId} stageDraft={stageDraft} savedStage={workflow.savedPrototype}
+      matchesServer={workflow.matchesServer} readOnly={readOnly} update={update} requestSave={requestSave} messages={messages} loading={loading} running={running} />
+    {!readOnly && !running && <>
+    {ideaSource && <AidtPrototypeIdeaChooser key={ideaSource.revision} source={ideaSource} readOnly={readOnly}
+      onAdopt={(stage, ids, roundId) => saveEntity(current => pinAidtPrototypeInputs(current, stage, ids, roundId))} />}
     {pending && (!pendingMatches || !isVerificationQuestionConfirmed(draft)) && <Button type="button" variant="primary" onClick={() => saveEntity(current => {
       const next = { ...current, fields: { ...current.fields, ...pending } };
       return canConfirmQuestion ? confirmAidtVerificationQuestion(next) ?? next : next;
     })}>{canConfirmQuestion ? "确认验证问题" : "保存原型草稿"}</Button>}
-    {ready && workflow.matchesServer && <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design", props.ideaRevision)}>打开 Design 工作台</Link></Button>}
-    {ready && workflow.matchesServer && <AidtPrototypeImage projectId={projectId} designId={designId} onSaved={reference => saveEntity(current => updateAidtPrototypeReference(current, reference))} />}
-    {ready && <AidtPrototypeVersionPicker projectId={projectId} designEntityId={designId} value={readAidtPrototypeReference(draft)}
+    {ready && textReady && workflow.matchesServer && <Button asChild variant="outline"><Link href={aidtPrototypeEntityHref(projectId, designId, "design", props.ideaRevision, props.returnContext)}>打开 Design 工作台</Link></Button>}
+    {ready && textReady && textConfirmation && workflow.matchesServer && <AidtPrototypeImage key={JSON.stringify(textConfirmation)} projectId={projectId} designId={designId} textConfirmation={textConfirmation}
+      onSaved={(reference, basis, metadata) => saveEntity(current => {
+        const bound = bindAidtPrototypeTextOutput(current, projectId, designId, reference.versionId, basis, metadata);
+        return bound === current ? current : updateAidtPrototypeReference(bound, reference);
+      })} />}
+    {ready && <AidtPrototypeVersionPicker projectId={projectId} designEntityId={designId} readOnly={!textReady} value={readAidtPrototypeReference(draft)} selectionScope={draft.fields.prototypeTextConfirmation}
       onChange={reference => { if (!reference || reference.designId === designId) saveEntity(current => updateAidtPrototypeReference(current, reference)); }} />}
-    {Boolean(confirmAidtPrototypeHandoff(draft)) && (!confirmed || readAidtConfirmedPrototypeHandoff(stageDraft)?.id !== designId) && <Button type="button" variant="primary" onClick={() => {
+    <AidtPrototypeTextBinding projectId={projectId} designId={designId} draft={draft} matchesServer={workflow.matchesServer} readOnly={readOnly} onBind={saveEntity} />
+    {textReady && Boolean(confirmAidtPrototypeHandoff(draft)) && (!confirmed || readAidtConfirmedPrototypeHandoff(stageDraft)?.id !== designId) && <Button type="button" variant="primary" onClick={() => {
       update(previous => confirmAidtPrototypeEntityHandoff(previous, designId));
       requestSave();
     }}>{confirmed ? "选为测试原型" : "确认本原型"}</Button>}
     {confirmed && workflow.matchesServer && !aidtAllActivePrototypeEntitiesConfirmed(stageDraft) && <p role="status">该原型已确认。还有其他原型待确认。</p>}
+    </>}
   </section>;
 }

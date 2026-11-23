@@ -87,8 +87,7 @@ export async function loadAidtPrototypeVersions(context: AidtPrototypeReadContex
   return result.items;
 }
 
-/** Revalidate association, ownership and actual immutable snapshot at the explicit selection. */
-export async function resolveAidtPrototypeVersion(context: AidtPrototypeReadContext, designId: string, versionId: string, access: "owner" | "linked-reader" = "owner"): Promise<AidtPrototypeVersionReference> {
+async function authorizedPrototypeSnapshot(context: AidtPrototypeReadContext, designId: string, versionId: string, access: "owner" | "linked-reader") {
   if (!validId(designId) || !validId(versionId)) throw new Error("AIDT_PROTOTYPE_UNAVAILABLE");
   const designName = access === "owner"
     ? (await requireLinkedOwnedDesign(context, designId)).name
@@ -99,6 +98,18 @@ export async function resolveAidtPrototypeVersion(context: AidtPrototypeReadCont
   current(context);
   const { version } = designWorkbench.operations.getPrototypeVersion.out.extend({ version: nativeVersion }).parse(raw);
   if (version.id !== versionId || !version.frames.length || version.prototype.length !== version.frames.length || !version.prototype.some(Boolean)) throw new Error("AIDT_PROTOTYPE_INVALID_VERSION");
+  return { version, designName };
+}
+
+/** Same-project linked read plus the native exact-version parser. No restore,
+ * model call, permission grant or guessed current version. */
+export async function loadAidtPrototypeSnapshot(context: AidtPrototypeReadContext, designId: string, versionId: string, access: "owner" | "linked-reader" = "linked-reader") {
+  return (await authorizedPrototypeSnapshot(context, designId, versionId, access)).version;
+}
+
+/** Revalidate association, ownership and actual immutable snapshot at the explicit selection. */
+export async function resolveAidtPrototypeVersion(context: AidtPrototypeReadContext, designId: string, versionId: string, access: "owner" | "linked-reader" = "owner"): Promise<AidtPrototypeVersionReference> {
+  const { version, designName } = await authorizedPrototypeSnapshot(context, designId, versionId, access);
   return { designId, versionId: version.id, designName, seq: version.seq, summary: version.summary, createdAt: version.createdAt, frameCount: version.frames.length, generatedFrameCount: version.prototype.filter(Boolean).length, source: version.source };
 }
 
@@ -108,6 +119,7 @@ export async function saveAidtPrototypeImage(
   designId: string,
   source: string,
   name: string,
+  textBasis?: { stageRevision: number; textVersion: string },
 ): Promise<AidtPrototypeVersionReference> {
   await requireLinkedOwnedDesign(context, designId);
   const image = designPrototype.PrototypeNode.parse({
@@ -115,7 +127,7 @@ export async function saveAidtPrototypeImage(
   });
   const sha = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source))),
     byte => byte.toString(16).padStart(2, "0")).join("");
-  const summary = imageVersionPrefix + sha;
+  const summary = imageVersionPrefix + sha + (textBasis ? ` · 文字设计 S5 V${textBasis.stageRevision} / ${textBasis.textVersion}` : "");
 
   async function findVersion() {
     const versions = await loadAidtPrototypeVersions(context, designId);

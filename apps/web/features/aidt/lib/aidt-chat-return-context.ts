@@ -2,6 +2,8 @@ import { SharedStage } from "@repo/contracts/aidt-stages";
 import { listAidtStageHistory } from "./live-aidt-stages";
 import { isAidtModuleEnabled } from "./aidt-module-config";
 import { isAidtReflectionConfirmed, readAidtQuestionSnapshot, readAidtReturnDecision } from "./aidt-verification-loop";
+import { readConfirmedAidtReturn } from "@repo/contracts/aidt-return-reflection";
+import { readAidtTestGroupRound } from "./aidt-test-group-round";
 
 /** Historical reflection is student material, never evidence or instructions. */
 export type AidtReturnContextItem = Readonly<{
@@ -20,8 +22,8 @@ export const AIDT_EMPTY_RETURN_CONTEXT: AidtReturnChatContext = { status: "not-s
 const failed = (reason: AidtReturnChatContext["issues"][number]["reason"]): AidtReturnChatContext => ({ status: "failed", items: [], issues: [{ stageNumber: 6, reason }] });
 
 /** One bounded read of an explicitly selected immutable revision; no latest-version fallback. */
-export async function loadAidtReturnChatContext({ projectId, currentStage, sessionToken, returnRevision, signal }: {
-  projectId: string; currentStage: number; sessionToken: string; returnRevision?: string | null; signal?: AbortSignal;
+export async function loadAidtReturnChatContext({ projectId, currentStage, sessionToken, returnRevision, returnEntity, signal }: {
+  projectId: string; currentStage: number; sessionToken: string; returnRevision?: string | null; returnEntity?: string | null; signal?: AbortSignal;
 }): Promise<AidtReturnChatContext> {
   const assertCurrent = () => { if (signal?.aborted || !isAidtModuleEnabled()) throw new Error("AIDT_CONTEXT_CHANGED"); };
   assertCurrent();
@@ -37,6 +39,11 @@ export async function loadAidtReturnChatContext({ projectId, currentStage, sessi
     const round = parsed.data, draft = round.content.draft, decision = readAidtReturnDecision(draft);
     if (round.projectId !== projectId || round.stageId !== 6 || round.revision !== revision
       || !isAidtReflectionConfirmed(draft) || decision.kind !== "selected" || Number(decision.step) !== currentStage) return failed("reflection-mismatch");
+    if (returnEntity != null) {
+      const owned = readAidtTestGroupRound(draft, returnEntity);
+      if (!returnEntity.trim() || draft.fields.reflectionSourceEntity !== returnEntity || !owned
+        || JSON.stringify(readConfirmedAidtReturn(owned, currentStage)) !== JSON.stringify(readConfirmedAidtReturn(draft, currentStage))) return failed("reflection-mismatch");
+    }
     const snapshot = readAidtQuestionSnapshot(draft)!;
     // Whitelist before projecting: report, ideas and arbitrary fields never enter this DTO.
     const selected = { originalQuestion: snapshot.question, beforeTestBelief: snapshot.beforeTestBelief, afterTestBelief: draft.fields.afterTestBelief ?? "",

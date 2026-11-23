@@ -10,24 +10,18 @@ function session(plan='enterprise',quota:string|null=null,used='0',held='0',kind
 }
 describe('enterprise member monthly Credit admission',()=>{
  it('defaults existing and new unconfigured members to 5000 without creating funds',async()=>{
-  const s=session();await expect(assertMemberCreditQuota(s,org,'user',500000n,true)).resolves.toBe(500000n);
+  const s=session();await expect(assertMemberCreditQuota(s,org,'user')).resolves.toBeUndefined();
   expect(vi.mocked(s.query).mock.calls.every(([sql])=>!/(INSERT|UPDATE)/.test(sql))).toBe(true);
-  await expect(assertMemberCreditQuota(s,org,'user',500001n,true)).rejects.toMatchObject({code:'credit_required'});
+  await expect(assertMemberCreditQuota(session('enterprise',null,'500000'),org,'user')).rejects.toMatchObject({code:'credit_required'});
  });
  it('preserves explicit zero and custom override',async()=>{
-  await expect(assertMemberCreditQuota(session('enterprise','0'),org,'user',1n,true)).rejects.toMatchObject({code:'credit_required'});
-  await expect(assertMemberCreditQuota(session('enterprise','2500'),org,'user',200000n,true)).resolves.toBe(200000n);
+  await expect(assertMemberCreditQuota(session('enterprise','0'),org,'user')).rejects.toMatchObject({code:'credit_required',reason:'member_monthly_limit'});
+  await expect(assertMemberCreditQuota(session('enterprise','2500','249999'),org,'user')).resolves.toBeUndefined();
  });
- it('counts actual credit debits and outstanding reservations before another admission',async()=>{
-  await expect(assertMemberCreditQuota(session('enterprise',null,'490000','9000'),org,'user',1001n,true)).rejects.toMatchObject({code:'credit_required'});
-  await expect(assertMemberCreditQuota(session('enterprise',null,'490000','9000'),org,'user',1000n,true)).resolves.toBe(1000n);
- });
- it('holds remaining allowance for unbounded calls and preserves ordinary-plan policy',async()=>{
-  await expect(assertMemberCreditQuota(session(),org,'user',0n,false)).resolves.toBe(500000n);
-  await expect(assertMemberCreditQuota(session('enterprise',null,'50000','25000'),org,'user',0n,false)).resolves.toBe(425000n);
-  await expect(assertMemberCreditQuota(session('enterprise','0'),org,'user',0n,false)).rejects.toMatchObject({code:'credit_required',reason:'member_monthly_limit'});
-  await expect(assertMemberCreditQuota(session('enterprise',null,'0','500000'),org,'user',0n,false)).rejects.toMatchObject({code:'credit_required'});
-  await expect(assertMemberCreditQuota(session('ordinary'),org,'user',999999n,false)).resolves.toBe(999999n);
+ it('bases admission on posted usage even when legacy holds exceed the allowance',async()=>{
+  await expect(assertMemberCreditQuota(session('enterprise',null,'499999','500000'),org,'user')).resolves.toBeUndefined();
+  await expect(assertMemberCreditQuota(session('enterprise',null,'500001'),org,'user')).rejects.toMatchObject({code:'credit_required'});
+  await expect(assertMemberCreditQuota(session('ordinary'),org,'user')).resolves.toBeUndefined();
  });
  it('reads ledger settlement month in explicit UTC and retains holds across month boundaries',async()=>{
   const s=session();await readMemberCreditUsage(s,org,'user');
@@ -49,9 +43,9 @@ it('preserves typed member-limit guidance while keeping ordinary wallet failures
 });
 
 it('does not enforce member defaults in personal-local even if stale Enterprise metadata exists',async()=>{
- await expect(assertMemberCreditQuota(session('enterprise',null,'0','0','personal-local'),org,'user',999999n,false)).resolves.toBe(999999n);
+ await expect(assertMemberCreditQuota(session('enterprise',null,'0','0','personal-local'),org,'user')).resolves.toBeUndefined();
 });
 
 it.each([null,'stale-generation'])('does not apply an Enterprise member cap to missing/stale billing generation %s',async billingGeneration=>{
- await expect(assertMemberCreditQuota(session('enterprise','0','0','0','organization',billingGeneration),org,'user',999999n,false)).resolves.toBe(999999n);
+ await expect(assertMemberCreditQuota(session('enterprise','0','0','0','organization',billingGeneration),org,'user')).resolves.toBeUndefined();
 });

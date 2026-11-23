@@ -217,12 +217,12 @@ const refImagePath = (tpl: string, projectId: string, imageId?: string): string 
  * （`apiRequest` 只封装 JSON body）。`contentType` 只是**声明**——服务端按 magic byte 判，
  * 声明与字节不符照样拒。绝不手设 `Content-Type`：fetch 会从 `FormData` 自带 boundary。
  */
-export async function uploadRefImage(projectId: string, file: File): Promise<UploadRefImageOut> {
+export async function uploadRefImage(projectId: string, file: File, options?: { sessionToken?: string; signal?: AbortSignal }): Promise<UploadRefImageOut> {
   const form = new FormData();
   form.set("contentType", file.type);
   form.set("file", file, file.name);
 
-  const token = getStoredSessionToken();
+  const token = options?.sessionToken ?? getStoredSessionToken();
   const headers: Record<string, string> = { Accept: "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -231,6 +231,7 @@ export async function uploadRefImage(projectId: string, file: File): Promise<Upl
     headers,
     credentials: "include",
     body: form,
+    signal: options?.signal,
   });
   const text = await res.text();
   // 同 `uploadFeedbackAttachment` 的既有纪律：非 JSON 的错误正文不得抛原始 SyntaxError。

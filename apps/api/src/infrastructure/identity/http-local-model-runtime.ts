@@ -18,6 +18,7 @@
  */
 import http from "node:http";
 import {randomUUID} from "node:crypto";
+import {PendingCreditReceipts} from "../billing/pending-credit-receipts";
 import {Logger} from "@nestjs/common";
 import type {LocalRequestAccounting,LocalModelAccountingContext} from "../../application/identity/local-request-accounting";
 import type {ReportedUsage} from "../../application/agent-run/ports";
@@ -42,7 +43,7 @@ export function localRuntimeModelId(env: NodeJS.ProcessEnv = process.env): strin
 }
 
 export class HttpLocalModelRuntime implements LocalModelRuntime {
-  private accountingFault=false;
+  private readonly pendingReceipts = new PendingCreditReceipts();
   private readonly logger=new Logger(HttpLocalModelRuntime.name);
   readonly endpoint: string;
   readonly modelId: string;
@@ -72,9 +73,10 @@ export class HttpLocalModelRuntime implements LocalModelRuntime {
   }
 
   async complete(prompt: string,context?:LocalModelAccountingContext): Promise<string> {
-    if(this.accountingFault)throw new Error("LOCAL_ACCOUNTING_REPAIR_REQUIRED");
     if(this.productQuotaEnabled)throw new Error("LOCAL_MODEL_ADMISSION_REQUIRED");
     if(this.accounting&&!context)throw new Error("LOCAL_ACCOUNTING_CONTEXT_REQUIRED");
+    context?.signal?.throwIfAborted();
+    if (!await this.pendingReceipts.recover()) throw new Error("LOCAL_ACCOUNTING_REPAIR_REQUIRED");
     context?.signal?.throwIfAborted();
     const receipt=this.accounting?await this.accounting.start(context!,{requestId:randomUUID(),modelId:this.modelId,startedAt:new Date().toISOString(),maximumTokens:Buffer.byteLength(prompt,"utf8")+4096}):undefined;
     let usage:ReportedUsage={},outcome:"succeeded"|"failed"="failed";
@@ -98,7 +100,17 @@ export class HttpLocalModelRuntime implements LocalModelRuntime {
     }
     return raw;
     } finally {
-      if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,usage});}catch(error){this.accountingFault=true;this.logger.warn("LOCAL_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent inference blocked in this instance");throw error;}
+      if (receipt) {
+        const facts = {endedAt:new Date().toISOString(),outcome,usage};
+        const deliver = () => receipt.terminal(facts);
+        try {
+          await deliver();
+        } catch (error) {
+          this.pendingReceipts.retain(deliver);
+          this.logger.warn("LOCAL_USAGE_TERMINAL_FAILED: terminal receipt queued for retry");
+          throw error;
+        }
+      }
     }
   }
 

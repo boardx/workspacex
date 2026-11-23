@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isAidtGreetingText } from "@repo/contracts/aidt-stages";
+import { isAidtCandidateRequest } from "@repo/contracts/aidt-candidate-request";
 import { isAidtReflectionConfirmed, readAidtQuestionSnapshot } from "./aidt-verification-loop";
 import { isAidtTestGroupConfirmed, readAidtTestGroups, updateAidtTestGroup, type AidtTestGroup } from "./aidt-test-groups";
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
@@ -33,6 +34,17 @@ export type AidtTestTurn = { id: string; role: string; content?: unknown };
 export type AidtTestProposal = { messageId: string; result: z.infer<typeof Proposal> };
 
 const Plan = Proposal.pick({ entityId: true, task: true, situation: true });
+export type AidtTestPlanCandidate = z.infer<typeof Plan>;
+export type AidtTestResultCandidate = z.infer<typeof Proposal>;
+
+function parseCandidate<T>(content: string, entityId: string, fence: "aidt-test-plan" | "aidt-test-result", schema: z.ZodType<T & { entityId: string }>): T | null {
+  const pattern = new RegExp("(?:^|\\r?\\n)```" + fence + "[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n```(?=\\r?\\n|$)", "g");
+  const blocks = [...content.matchAll(pattern)];
+  if (blocks.length !== 1 || !blocks[0]?.[1] || blocks[0][1].length > 10000) return null;
+  try { const parsed = schema.safeParse(JSON.parse(blocks[0][1])); return parsed.success && parsed.data.entityId === entityId ? parsed.data : null; } catch { return null; }
+}
+export const parseAidtTestPlanCandidate = (text: string, entityId: string) => parseCandidate<AidtTestPlanCandidate>(text, entityId, "aidt-test-plan", Plan);
+export const parseAidtTestResultCandidate = (text: string, entityId: string) => parseCandidate<AidtTestResultCandidate>(text, entityId, "aidt-test-result", Proposal);
 
 function readAidtTestBlock<T>(messages: readonly AidtTestTurn[], entityId: string, fence: "aidt-test-plan" | "aidt-test-result", schema: z.ZodType<T & { entityId: string }>) {
   const block = new RegExp("(?:^|\\r?\\n)```" + fence + "[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n```(?=\\r?\\n|$)", "g");
@@ -53,11 +65,14 @@ function readAidtTestBlock<T>(messages: readonly AidtTestTurn[], entityId: strin
 }
 
 export function readAidtTestProposal(messages: readonly AidtTestTurn[], entityId: string): AidtTestProposal | null {
+  const student = messages.findLast(turn => turn.role === "user");
+  if (typeof student?.content === "string" && isAidtCandidateRequest(student.content, "test")) return null;
   return readAidtTestBlock(messages, entityId, "aidt-test-result", Proposal);
 }
 
 export function readAidtTestPlan(messages: readonly AidtTestTurn[], entityId: string) {
   const latestStudent = messages.findLast(turn => turn.role === "user");
+  if (typeof latestStudent?.content === "string" && isAidtCandidateRequest(latestStudent.content, "test")) return null;
   if (typeof latestStudent?.content !== "string" || !latestStudent.content.trim() || isAidtGreetingText(latestStudent.content)) return null;
   return readAidtTestBlock(messages, entityId, "aidt-test-plan", Plan);
 }
@@ -94,6 +109,6 @@ export function confirmAidtTestProposal(draft: AidtUiStageDraft, proposal: AidtT
   if (!round || !bound || bound.sourceStageRevision !== group.stage5Revision || bound.prototypeDesignId !== group.designId
     || bound.prototypeVersionId !== group.versionId) return next;
   const { afterTestBelief = "", understandingEvidence = "", unresolvedQuestions = "", nextAction = "", ...required } = round;
-  const withRound = { ...next, fields: { ...next.fields, ...required, afterTestBelief, understandingEvidence, unresolvedQuestions, nextAction, reflectionConfirmed: "true" } };
+  const withRound = { ...next, fields: { ...next.fields, ...required, afterTestBelief, understandingEvidence, unresolvedQuestions, nextAction, reflectionConfirmed: "true", reflectionTestEntityId: group.id } };
   return Object.keys(withRound.fields).length <= 100 && isAidtReflectionConfirmed(withRound) ? withRound : next;
 }

@@ -53,6 +53,8 @@ it("pins the test version and preserves its Chat identity through rename and del
   }
   render(<Host />);
   fireEvent.change(screen.getByRole("textbox", { name: "测试名称" }), { target: { value: "午休组" } });
+  fireEvent.click(screen.getByRole("checkbox", { name: "确认使用所选原型的已保存版本开展本轮研究" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "研究路径" }), { target: { value: "offline" } });
   fireEvent.click(screen.getByRole("button", { name: "新建测试草稿" }));
   await screen.findByRole("heading", { name: "午休组" });
   expect(mock.history).toHaveBeenCalledWith("project", 5, "session", { beforeRevision: 5, limit: 1 }, expect.any(AbortSignal));
@@ -75,7 +77,7 @@ it("pins the test version and preserves its Chat identity through rename and del
   expect(screen.getByText("已移除（1）")).toBeInTheDocument();
 });
 
-it("keeps feedback and source links isolated to the selected test", async () => {
+it("keeps feedback isolated and does not treat a project digital interview as real offline evidence", async () => {
   mock.resources.mockResolvedValue({ items: [{ kind: "interview", id: "interview-01", title: "走查访谈" }] });
   const binding = createAidtQuestionSnapshot(prototype("v1"), 4);
   if (!binding.ok) throw new Error(binding.reason);
@@ -90,13 +92,12 @@ it("keeps feedback and source links isolated to the selected test", async () => 
       <output data-testid="records">{JSON.stringify(readAidtTestGroups(draft.fields))}</output></>;
   }
   const { rerender } = render(<Host activeEntityId={a.id} />);
-  await screen.findByRole("option", { name: "走查访谈" });
-  fireEvent.change(screen.getByRole("combobox", { name: "关联项目访谈" }), { target: { value: "interview-01" } });
-  expect(screen.getByRole("link", { name: "打开已关联访谈" })).toHaveAttribute("href", "/source/interview/interview-01");
+  await waitFor(() => expect(mock.resources).toHaveBeenCalled());
+  expect(screen.queryByRole("combobox", { name: "关联项目访谈" })).toBeNull();
   fireEvent.change(screen.getByRole("textbox", { name: "原话或问卷原始回答" }), { target: { value: "看懂了两种奶感" } });
   expect(screen.getByRole("button", { name: "引用到本轮反思" })).toBeDisabled();
   fireEvent.change(screen.getByRole("textbox", { name: "原件位置（时间点、答卷或批次）" }), { target: { value: "01:42" } });
-  expect(screen.getByRole("button", { name: "引用到本轮反思" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "引用到本轮反思" })).toBeDisabled();
   rerender(<Host activeEntityId={b.id} />);
   await waitFor(() => expect(screen.getByRole("textbox", { name: "原话或问卷原始回答" })).toHaveValue(""));
   expect(screen.queryByRole("link", { name: "打开已关联访谈" })).toBeNull();
@@ -136,6 +137,7 @@ it("uses an explicit Chat confirmation and keeps the output free of editing fiel
   expect(screen.queryByText(/已完成/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "确认并保存测试成果" }));
   expect(await screen.findByText("已完成 · V1")).toBeVisible();
+  expect(receipt?.content.draft.fields.reflectionTestEntityId).toBe(group.id);
   expect(receipt?.content.draft.fields.newVersion).toBeFalsy();
   view.unmount();
   render(<Host restored={structuredClone(receipt)} />);

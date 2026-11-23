@@ -7,6 +7,32 @@ export const ImageGenerateInput=z.object({prompt:z.string().min(1).max(16384),re
 export const ImageGenerated=z.object({status:z.literal('generated'),workspacePath:z.string().regex(/^\/workspace\/generated-[a-f0-9]{64}\.(png|jpg)$/),mime:z.enum(['image/png','image/jpeg']),width:z.union([z.literal(1024),z.literal(2048)]),height:z.union([z.literal(1024),z.literal(2048)]),sha256:z.string().regex(/^[a-f0-9]{64}$/),sizeBytes:z.number().int().positive().max(IMAGE_GENERATE_LIMITS.maxBytes),modelRef:z.string().min(1).max(256),taskId:z.string().min(1).max(256)}).strict();
 export const ImageGenerateInvocation=NativeSessionResolveInput.omit({runId:true}).extend({bindingId:NativeSessionBindingRef.shape.bindingId,toolCallId:z.string().min(1).max(256),permissionRequestId:z.string().uuid().optional(),toolName:z.literal(IMAGE_GENERATE_TOOL),toolArgs:ImageGenerateInput}).strict();
 
+const imageReceiptPrefix = "image-generation-receipt:v1 ";
+const imageReceiptMaxChars = 500;
+const ImageGeneratedReceipt = ImageGenerated.omit({ modelRef: true, taskId: true }).refine((receipt) =>
+  receipt.width === receipt.height && receipt.workspacePath.endsWith(receipt.mime === "image/png" ? ".png" : ".jpg"));
+
+/** Keep enough public evidence to verify the published image bytes without provider metadata. */
+export function encodeImageGeneratedReceiptSummary(value: unknown): string | null {
+  const generated = ImageGenerated.safeParse(value);
+  if (!generated.success) return null;
+  const { modelRef: _modelRef, taskId: _taskId, ...image } = generated.data;
+  const receipt = ImageGeneratedReceipt.safeParse(image);
+  if (!receipt.success) return null;
+  const summary = imageReceiptPrefix + JSON.stringify(receipt.data);
+  return summary.length <= imageReceiptMaxChars ? summary : null;
+}
+
+export function readImageGeneratedReceiptSummary(summary: string | null | undefined): z.infer<typeof ImageGeneratedReceipt> | null {
+  if (!summary?.startsWith(imageReceiptPrefix) || summary.length > imageReceiptMaxChars) return null;
+  try {
+    const receipt = ImageGeneratedReceipt.safeParse(JSON.parse(summary.slice(imageReceiptPrefix.length)));
+    return receipt.success ? receipt.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Single fixed dispatch mapping; prices are separately verified deployment configuration. */
 export const IMAGE_PROFILE_ROUTING={
  standard:{modelId:'qwen-image-3.0',dimension:1024},

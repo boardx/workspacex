@@ -4,6 +4,14 @@ run-name: AIDT acceptance · ${{ inputs.expected_release_tag }}
 on:
   workflow_dispatch:
     inputs:
+      acceptance_profile:
+        description: Explicit control profile; baseline results never cover v2-voice-20261122
+        type: choice
+        options:
+          - baseline
+          - v2-voice-20261122
+        default: baseline
+        required: true
       expected_source_sha:
         description: Exact deployed application source (40 lowercase hex)
         type: string
@@ -22,6 +30,14 @@ on:
         default: false
       provision_ordinary_qa:
         description: Explicitly create one dedicated consultant QA through normal one-use organization invitation APIs; credentials remain in memory
+        type: boolean
+        default: false
+      reusable_ordinary_qa:
+        description: Use the dedicated ordinary QA credentials from the protected Devapp QA environment
+        type: boolean
+        default: false
+      agent_qa_review:
+        description: Explicit agent-operated software QA review through the fixed source-bound review issue; not human classroom acceptance
         type: boolean
         default: false
       isolated_native:
@@ -47,9 +63,12 @@ jobs:
     env:
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+      AIDT_ACCEPTANCE_PROFILE: ${{ inputs.acceptance_profile }}
       AIDT_LIVE_DEV: ${{ inputs.live_dev }}
       AIDT_PROVISION_ORDINARY_QA: ${{ inputs.provision_ordinary_qa }}
+      AIDT_REUSABLE_ORDINARY_QA: ${{ inputs.reusable_ordinary_qa }}
       AIDT_ENTRY_DIAGNOSTIC_ONLY: ${{ inputs.entry_diagnostic_only }}
+      AIDT_AGENT_QA_REVIEW: ${{ inputs.agent_qa_review }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -62,10 +81,22 @@ jobs:
           set -euo pipefail
           [[ "$EXPECTED_SOURCE_SHA" =~ ^[a-f0-9]{40}$ && "$EXPECTED_RELEASE_TAG" =~ ^[0-9]+-[0-9]+$ ]]
           node --input-type=module -e 'import {ordinaryQaProvisioningRequested} from "./apps/web/e2e/support/devapp-aidt-acceptance.mjs"; ordinaryQaProvisioningRequested(process.env, {entryDiagnosticOnly:process.env.AIDT_ENTRY_DIAGNOSTIC_ONLY==="true"});'
-          node --test scripts/tests/devapp-aidt-acceptance.test.mjs scripts/tests/devapp-aidt-auth-readonly.test.mjs scripts/tests/devapp-aidt-print-evidence.test.mjs scripts/tests/devapp-aidt-chat-evidence.test.mjs scripts/tests/devapp-aidt-teaching-guard.test.mjs scripts/tests/devapp-aidt-qa-identity.test.mjs scripts/tests/devapp-aidt-navigation.test.mjs scripts/tests/devapp-aidt-native-survey.test.mjs
+          node --input-type=module -e 'import {agentQaReviewRequested} from "./apps/web/e2e/support/devapp-aidt-agent-review.mjs"; agentQaReviewRequested(process.env);'
+          node --test scripts/tests/devapp-aidt-acceptance.test.mjs scripts/tests/devapp-aidt-auth-readonly.test.mjs scripts/tests/devapp-aidt-print-evidence.test.mjs scripts/tests/devapp-aidt-chat-evidence.test.mjs scripts/tests/devapp-aidt-teaching-guard.test.mjs scripts/tests/devapp-aidt-qa-identity.test.mjs scripts/tests/devapp-aidt-navigation.test.mjs scripts/tests/devapp-aidt-native-survey.test.mjs scripts/tests/devapp-aidt-execution-read-independent.test.mjs
+          node --test scripts/tests/devapp-aidt-history-diagnostic.independent.test.mjs
+          node --test scripts/tests/devapp-aidt-first-rejected-mutation.independent.test.mjs
+          node --test scripts/tests/devapp-aidt-outcome-navigation-diagnostic.independent.test.mjs
+          node --test scripts/tests/devapp-aidt-s1-wait-diagnostic.independent.test.mjs
+          node --test scripts/tests/devapp-aidt-s1-native-outcome.independent.test.mjs
+          node --test scripts/tests/devapp-aidt-s6-source-independent.test.mjs
+          node --test scripts/tests/devapp-aidt-v2-profile.test.mjs scripts/tests/devapp-aidt-v2-print.test.mjs scripts/tests/devapp-aidt-v2-integration.test.mjs scripts/tests/devapp-aidt-v2-request-guard.test.mjs scripts/tests/devapp-aidt-v2-action-window.test.mjs scripts/tests/devapp-aidt-v2-ui.test.mjs scripts/tests/devapp-aidt-v2-asr-review.test.mjs scripts/tests/devapp-aidt-v2-s2-asr.test.mjs scripts/tests/devapp-aidt-v2-negative.test.mjs apps/web/e2e/support/devapp-aidt-v2-survey-eight-guard-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-design-source-images-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-crud-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-virtual-normal-flow-independent.test.mjs
           node --test .harness/scripts/ci-aidt-native.test.mjs
+          node --test scripts/tests/devapp-aidt-agent-review.test.mjs scripts/tests/devapp-aidt-entry-proof.test.mjs
+          node --test scripts/tests/devapp-aidt-agent-interview-independent.test.mjs scripts/tests/devapp-aidt-agent-interview-identity-independent.test.mjs
           node --check apps/web/e2e/support/devapp-aidt-acceptance.mjs
           node --check apps/web/e2e/support/devapp-aidt-journey.mjs
+          node --check apps/web/e2e/support/devapp-aidt-agent-review.mjs
+          node --input-type=module -e 'import {acceptanceProfile} from "./apps/web/e2e/support/devapp-aidt-v2-profile.mjs"; acceptanceProfile(process.env);'
       - name: Package only audited acceptance tools
         id: bundle
         if: ${{ inputs.live_dev }}
@@ -151,14 +182,18 @@ jobs:
     if: ${{ inputs.live_dev && github.ref == 'refs/heads/develop' }}
     needs: controls
     runs-on: [self-hosted, linux, x64, workspacex]
-    # Ten interviews each exercise the initial draft, revision and finding in a real entity-scoped model run.
-    timeout-minutes: 152
+    environment: aidt-devapp-qa
+    # Each profile has its own finite wall clock and exact operation/output manifest.
+    timeout-minutes: ${{ inputs.acceptance_profile == 'v2-voice-20261122' && 360 || 152 }}
     env:
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+      AIDT_ACCEPTANCE_PROFILE: ${{ inputs.acceptance_profile }}
       AIDT_LIVE_DEV: ${{ inputs.live_dev }}
       AIDT_PROVISION_ORDINARY_QA: ${{ inputs.provision_ordinary_qa }}
+      AIDT_REUSABLE_ORDINARY_QA: ${{ inputs.reusable_ordinary_qa }}
       AIDT_ENTRY_DIAGNOSTIC_ONLY: ${{ inputs.entry_diagnostic_only }}
+      AIDT_AGENT_QA_REVIEW: ${{ inputs.agent_qa_review }}
       DEBUG: ''
       PWDEBUG: ''
       NODE_DEBUG: ''
@@ -223,8 +258,61 @@ jobs:
       - name: Run bounded live Dev acceptance and safe screenshots
         id: live
         continue-on-error: true
-        working-directory: ${{ runner.temp }}
-        run: node "$AIDT_ACCEPTANCE_ROOT/source/apps/web/e2e/support/devapp-aidt-acceptance.mjs"
+        # A JavaScript action receives the runner's artifact authority in memory; shell steps do not.
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        env:
+          AIDT_REUSABLE_QA_IDENTITY_SHA256: ${{ vars.AIDT_REUSABLE_QA_IDENTITY_SHA256 }}
+          AIDT_REUSABLE_QA_EMAIL: ${{ inputs.reusable_ordinary_qa && secrets.AIDT_REUSABLE_QA_EMAIL || '' }}
+          AIDT_REUSABLE_QA_PASSWORD: ${{ inputs.reusable_ordinary_qa && secrets.AIDT_REUSABLE_QA_PASSWORD || '' }}
+        with:
+          debug: false
+          script: |
+            const path = require('node:path');
+            const fs = require('node:fs');
+            const { spawn, spawnSync } = require('node:child_process');
+            const root = process.env.AIDT_ACCEPTANCE_ROOT;
+            if (!root || root !== path.resolve(root) || /[\r\n]/.test(root)
+                || !/^[1-9][0-9]*$/.test(process.env.GITHUB_RUN_ID || '')
+                || !/^[1-9][0-9]*$/.test(process.env.GITHUB_RUN_ATTEMPT || '')
+                || !/^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA || '')
+                || path.basename(root) !== `wsx-aidt-acceptance-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`) {
+              throw new Error('AIDT_PRIVATE_PROCESS_SCOPE_INVALID');
+            }
+            const source = path.join(root, 'source');
+            for (const directory of [root, source]) {
+              const info = fs.lstatSync(directory);
+              if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('AIDT_PRIVATE_PROCESS_SCOPE_INVALID');
+            }
+            const marker = path.join(root, '.owner');
+            const info = fs.lstatSync(marker);
+            if (!info.isFile() || info.isSymbolicLink()
+                || fs.readFileSync(marker, 'utf8') !== `${process.env.GITHUB_RUN_ID}:${process.env.GITHUB_RUN_ATTEMPT}:${process.env.GITHUB_SHA}`) {
+              throw new Error('AIDT_PRIVATE_PROCESS_OWNER_MISMATCH');
+            }
+            const childEnv = { ...process.env };
+            for (const key of ['INPUT_GITHUB-TOKEN', 'INPUT_GITHUB_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN']) delete childEnv[key];
+            const probeEnv = { ...childEnv };
+            for (const key of ['AIDT_REUSABLE_QA_EMAIL', 'AIDT_REUSABLE_QA_PASSWORD']) delete probeEnv[key];
+            const declared = fs.readFileSync(path.join(source, '.nvmrc'), 'utf8').trim();
+            const probe = spawnSync('node', ['-p', 'JSON.stringify({version:process.versions.node,executable:process.execPath})'], {
+              cwd: source, env: probeEnv, encoding: 'utf8', timeout: 10000, maxBuffer: 1024, shell: false,
+            });
+            let selected;
+            try { selected = JSON.parse(probe.stdout); } catch { throw new Error('AIDT_DECLARED_NODE_UNAVAILABLE'); }
+            if (probe.status !== 0 || !selected || !/^22(?:\.\d+\.\d+)?$/.test(declared)
+                || !/^22\.\d+\.\d+$/.test(selected.version || '')
+                || (declared !== '22' && declared !== selected.version)
+                || !path.isAbsolute(selected.executable || '')) throw new Error('AIDT_DECLARED_NODE_UNAVAILABLE');
+            // Keep the artifact authority in this job's memory; no token is copied to a file or argument.
+            // Unneeded repository API tokens are removed from the child environment.
+            const code = await new Promise(resolve => {
+              const child = spawn(selected.executable, [path.join(source, 'apps/web/e2e/support/devapp-aidt-acceptance.mjs')], {
+                cwd: source, env: childEnv, stdio: 'inherit', shell: false,
+              });
+              child.once('error', () => resolve(null));
+              child.once('close', code => resolve(code));
+            });
+            if (code !== 0) core.setFailed('AIDT_LIVE_ACCEPTANCE_FAILED');
       - name: Upload only explicit safe evidence types
         if: ${{ always() && steps.private.outputs.owned == 'true' }}
         uses: actions/upload-artifact@v4
@@ -236,6 +324,18 @@ jobs:
             ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/qa-report-*.md
             ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/qa-system-*.pdf
             ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/qa-system-*.html
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-preflight-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-student-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U01-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U02-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U03-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U04-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U05-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U06-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U07-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U08-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U09-request.json
+            ${{ env.AIDT_ACCEPTANCE_ROOT }}/output/agent-qa-interview-U10-request.json
           if-no-files-found: warn
           retention-days: 7
       - name: Preserve acceptance failure

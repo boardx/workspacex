@@ -1,3 +1,1537 @@
+# AIDT V2 人工端到端测试与验收手册：新版待执行方案
+
+更新：2026-11-22T04:52:53.322217+00:00；状态：**全部 NOT_RUN，未执行**。本次更新同一工程原件，不建立第二个tracker。原H01–H15及M历史原文逐字保留在文末历史区；旧版“本轮”、旧授权、旧额度、静态优先和录音另排仅对应其当时记录，不能覆盖以下最新批准范围。
+
+原件：[GitHub精确源码](https://github.com/boardx/workspacex/blob/34c76bce813a86ff03aeae75d79b8c69758f89fb/docs/evidence/aidt-native/completion-20261116/a6/aidt-v2-human-acceptance.md)；原件SHA256 `977ec3673f07ba35e04cb47ef0233c002e5a17118f0e45259f102edb1d7396e6`。需求为V2正文加用户已批准的最新方案/语音：[原看板](https://chatgpt.com/space/page_78bc9016074481918252b6ea34bdbbea)顶部批准方案，引用#6907/#6958–#6962既有条目，不另开issue。本文件是计划，不是产品实现、模型响应、CI、Dev部署或人工签核成功证明。
+
+## 本轮控制实现与待执行清单（2026-11-22，代码冻结审阅稿）
+
+全部真实浏览器、模型、ASR、OS打印和新Dev验收仍为NOT_RUN；旧H/M/D记录不能覆盖本轮112案。
+
+- 显式新profile `v2-voice-20261122`；manifest SHA256 `0f5b154d8079826904722efde77dbf8296d955714d7ec9bc25885bbd9db405c7`。六步正向正常UI处理器、具名调用守卫已实现未实跑。完整112案自动执行器尚未全部实现，不能批量结算为通过。
+- 当前37份正式产物×三纸型，共111具名PDF；保留暂无及其后有实际材料支持的found两个正式版本。
+- 具名推导：592个physical mutation上限；教学57、Design模型3、ASR2、原生Research5、Survey13。并非调用或费用回执；旧44/16/263不改。
+- 正向处理器：正常创建→学生实际反馈修订→显式确认/刷新；访谈和观察两独立来源；S3真实模板与HMW、暂无→found；六法两轮/两轮各3份描述单和分类；S5单选及三选/V1→V2/真实图片导入/HTML及WebApp；S6三路径、真实ASR工具与发布、Survey8份实际匿名表单及当前原生报告、1模拟persona的原生UserResearch、同卡新版关系和正式打印；系统报告与V3不能改写V2的实际回链。所有这些仍需精确Dev实跑。
+- 工具未完整覆盖：112案的完整权限/撤权竞态、失败恢复、IME键盘生命周期、逐案证据结算。现有子检查不足保留NOT_RUN/BLOCKED，root在Dev后按同一手册实际探索/人工或半自动补验，不从stage checkpoint/Pure绿或派工计通过。工具缺口不新增产品发布门。
+- 8份答卷为QA场景与原有分享最小样本门适配，不是V2访谈人数要求；保现有每block隐私门。实际AI提案经正常学生编辑为3开放题，保存原/改稿hash，8个独立匿名UI提交后正常UI生成当前原生报告。
+- 合成语音源脚本不交业务模型。ROOT动态审实际owned run的audio/publish短时once，软件校对reviewMethod=synthetic-speech-groundtruth、manualListeningVerified=false，不冒称真人回听/C1。未知工具/写结果不重放。
+- 正式S2/S4预览核实际来源图hash和数量，缺图卡须0图片；实际PDF逐页独立核尺寸/图文/分页后才可人工确认。OS能力缺失只PRINT BLOCKED，headless page.pdf不代OS窗口。单文件32MiB/100页，全run PDF512MiB、渲染PNG1GiB。
+
+正式产物（每项A4/A3/A1，全部NOT_RUN）：
+
+- S1 `confirmed-problem-reflection`（problem-main；默认A4）
+- S2 `source-1-guide`（source-interview；默认A4）
+- S2 `source-1-discovery-card`（source-interview；默认A4）
+- S2 `source-1-asr-report`（source-interview；默认A4）
+- S2 `source-2-guide`（source-observation；默认A4）
+- S2 `source-2-discovery-card`（source-observation；默认A4）
+- S3 `confirmed-surprise`（surprise-main；默认A4）
+- S3 `confirmed-surprise-revised`（surprise-main；默认A4）
+- S3 `confirmed-persona`（persona-main；默认A1）
+- S3 `confirmed-hmw`（hmw-main；默认A4）
+- S4 `confirmed-classification-and-selection`（method-free；默认A4）
+- S4 `idea-description-1`（idea-one；默认A4）
+- S4 `idea-description-2`（idea-two；默认A4）
+- S4 `idea-description-3`（idea-three；默认A4）
+- S4 `round-b-classification-and-selection`（method-reverse；默认A4）
+- S4 `round-b-idea-description-1`（idea-b-one；默认A4）
+- S4 `round-b-idea-description-2`（idea-b-two；默认A4）
+- S4 `round-b-idea-description-3`（idea-b-three；默认A4）
+- S5 `prototype-single-confirmed-text`（prototype-single；默认A4）
+- S5 `prototype-single-verification-question`（prototype-single；默认A4）
+- S5 `prototype-three-confirmed-text`（prototype-three；默认A4）
+- S5 `prototype-three-verification-question`（prototype-three；默认A4）
+- S5 `prototype-single-image`（prototype-single；默认A4）
+- S5 `prototype-three-image`（prototype-three；默认A4）
+- S5 `prototype-three-html`（prototype-three；默认A4）
+- S5 `prototype-three-webapp`（prototype-three；默认A4）
+- S6 `offline-test-learning-record`（test-offline；默认A4）
+- S6 `offline-asr-report`（test-offline；默认A4）
+- S6 `survey-test-learning-record`（test-survey；默认A4）
+- S6 `survey-native-questionnaire`（test-survey；默认A4）
+- S6 `survey-native-response-report`（test-survey；默认A4）
+- S6 `virtual-test-learning-record`（test-virtual；默认A4）
+- S6 `virtual-native-outline`（test-virtual；默认A4）
+- S6 `virtual-native-runs`（test-virtual；默认A4）
+- S6 `virtual-native-report`（test-virtual；默认A4）
+- S6 `iteration-prototype`（test-offline；默认A4）
+- S6 `confirmed-group-report`（group-report；默认A4）
+
+---
+## N0. 本轮唯一执行顺序与事实边界
+
+1. 当前全部新增能力与确证缺陷收敛到**同一精确候选、同一整合PR**，完成独立review和必须的受保护CI；不代审批，不绕门禁。
+2. 精确候选通过上述检查后只走既有发布线**一次Dev安装**，核source/manifest/imageTag/install/runtime配对；不得以旧镜像/health200替代版本。
+3. 安装后由root独立QA用**一个普通成员、同一主项目**完整执行本轮新E2E；方法/单选与3选/三测试路径用同项目独立实体，证据不跨项目拼接。需要隔离/并发反例时仅用已有授权fixture/身份，缺失即标待准备，不擅自开户/改角色。
+4. 所有新项通过才可汇总本轮通过范围；失败保留原证据并回原lane修，不把后续补丁或局部结果冒称此前通过。**本轮无CN发布**。不再要求完整新E2E先于首次Dev安装。
+5. 本次仅生成文档replacement/diff；无CI/Dev/账户/模型/运行操作。旧基线D=`9606ea425317db678190b5cac88ac744cb22a319`的live **0/8**、旧native **14/15有失败**按各自旧源/控制留档，不混入本轮112案分子；旧native44982968956的source/control均D，照片控制K=`8f76b25390c4a3959f0c579a78b674adb6bf990c`不能倒填该run。新整合应用/最终控制尚待冻结。
+
+### 入口优先检查 ENTRY-01（H01 的本轮普通成员创建子场景）
+
+先执行此项，再做以下112项专项与分支。不提前删除本次项目，不以管理员或预建完成状态替代。
+
+1. 以当前获准的普通成员，从正常项目列表进入 AIDT 创建入口，仅创建一个明确标记为软件 QA 的合成项目。
+2. 返回正常列表并刷新，核对同一项目仍可见；重新打开同一项目，核对项目身份与全屏六步总览完整。
+3. 留下精确应用/控制版本、实际组织角色、专用项目标识、创建回执、刷新后列表与重开六步的脱敏截图；保留同一项目给后续步骤。失败记录第一断言、实际请求/提示及时间，不重建项目来掩盖失败。
+4. 时限8分钟。无获准身份、同版运行或正常入口即记BLOCKED；局部React夹具只能算探索，不可给本项标通过。
+
+状态：**NOT_RUN**。环境/版本：________；检查点/失败位置：________；证据/截图：________。Dev精确安装后优先执行，不等待112项自动执行器全部接齐。
+
+## N1. 已确认最新范围（不能倒称旧源码已实现）
+
+| 阶段/范围 | 本轮正式验收目标 |
+|---|---|
+| S1 | 学生原命题/价值/来源先输入，真实追问→学生回应取舍→改写→明确确认保存；每阶段按需AI候选均不自动共享保存或越权。 |
+| S2 | 访谈/观察及有材料的人物发现卡；同访谈AI归纳候选→选择编辑→正常保存。#6962的S2出现画像/HMW入口是待复现报告，不能先认根因/迁移删除；当前可核业务类型仅interview，观察来源与独立实体待核。 |
+| S3 | persona与HMW两类正式产出，各自按需1/多候选、学生选择编辑确认并打印；追溯授权访谈/观察与本组研讨。persona使用真实后台模板，不限定8候选/8张/8页，选1主动正式入表。 |
+| S4 | 学生明确选择已确认HMW；主场次至少两轮真实Chat迭代；六方法显式选择并分别正常工作；Ideas列表、≥3不同完整描述单/分类/审阅/正式完成，冻结来源交接。六方法是否各两轮必须在发送manifest明确，不能用主场次两轮冒认全部。 |
+| S5 | 同项目独立原型验证单选idea与3选idea；逐idea追溯S1–S4。正式文字方案/验证问题先保存为可回读版本并明确确认，再生成图片、HTML、WebApp并核真实产物/版本。旧D的1–2来源及旧V2静态优先不能免验新3选/交互类型。 |
+| S6 | 每测试实体绑定正式原型精确version；①线下告知/同意→主动音频→真实ASR→校对/报告，②Survey明确测试→UI发布→UI填写提交→真实答卷绑定，③既有User Research大纲→标模拟对话→具体功能反馈/需求→实际原段回链。模拟始终模拟，不冒充真人效果。三路径各自认识变化/返回行动和来源进入报告。 |
+| 全实体 | 每种实际可建实体的新建/编辑/删除弹窗、取消确认、校验/标签、权限、刷新/删除后列表；只专用数据，不把报告固定列表/PDF/方法虚构为另一可建实体。 |
+| 全正式产出+报告 | 每产出先用户可见分页预览→明确打印→真系统打印对话→实际保存A4/A3/A1 PDF并独立解析/逐页渲染。persona/画布默认A1且无固定纸页数；其它按内容合理A4/A3默认，仍可三选。对话打开/print事件不等于PDF已保存。 |
+
+## N2. 进入独立完整E2E前的控制闭合表（NOT_RUN）
+
+原44教学turn、16PDF及263写cap保持原义；本轮新增不能靠删旧文件、换账本、无限上调或旧成绩覆盖。必须由发布/控制负责人提供**精确匹配新控制器及闭合计划**，独审后以一次受控执行消耗；本文件不批准新次数、权限或费用。
+
+| 控制项 | 需闭合的具体内容 | 当前 |
+|---|---|---|
+| TURN-PLAN | 逐case/实体/方法列真实逻辑发送与最大physical尝试；主场次两轮、六方法、S5三类型及Research模拟分别列明，正常UI人工审阅如何续同run也列入。若总计划能留44内写出分配；若超出，给出有界新上限与独立审阅，不自动扩大。 | 待匹配新控制器及闭合计划；NOT_RUN |
+| PDF-PLAN | 每实际正式产物×三纸型的唯一产物名/来源revision、capture方式、系统对话与实际PDF回执、独立尺寸/分页检查；最小仅3点子×3=9+persona/HMW×3=6+报告×3=3已18>旧16，尚未含其它阶段。不可用旧16文件冒充覆盖。 | 旧16不足完整新范围；需有界名单/精确新guard；NOT_RUN |
+| WRITE-PLAN | 枚举单选/3选原型、六方法/Ideas、三测试路径、CRUD每实体和显式保存/确认的有限写操作，逐次核263剩余；不另建项目/反复重跑重置。 | 未闭合不得正式开跑；NOT_RUN |
+| AUDIO-ASR | 列线下告知/同意、音频/转写处理、原件保存/删除与撤权权限；服务可用及格式/容量/时长有界，不能伪造录音/预制转写。 | 实现与既有授权/控制核对待完成；NOT_RUN |
+| SURVEY-RESEARCH | 正常发布/填答允许范围、模拟对话次数和真实模型调用及功能反馈/需求原段来源；不API预写完成。 | 待完整计划；NOT_RUN |
+| ACTOR-ENV | 普通成员身份与同项目、精确应用/控制/source/manifest/install/runtime、一套在途负责人；不猜最终控制，不重复Dev。 | 未冻结/未执行；NOT_RUN |
+
+单案时限见各案。到时先记录checkpoint/具体请求/日志与未知写结果，只读回查并交原lane；不自动重试、加时或调宽断言。各参数实例须在事先冻结总计划中逐一有界计时，不能无限展开。未完成案保持NOT_RUN/阻塞，不冒充失败已修或通过。
+
+## N3. 本轮登记、实际回执与证据命名
+
+| 字段 | 本次实际填写（当前留空） |
+|---|---|
+| applicationSHA / PR / review / CI | __________________；NOT_RUN |
+| imageTag / manifest / install / runtime | __________________；NOT_RUN |
+| 最终controllerSHA / 控制名单hash / 唯一run | __________________；NOT_RUN |
+| 普通角色/主projectId/浏览器系统与尺寸 | __________________；NOT_RUN |
+| 真实Agent/provider与无替身说明 | __________________；NOT_RUN |
+| 允许材料/同意/模板id+version/Survey答卷/Research来源 | __________________；NOT_RUN |
+| 原44turn/16PDF/263写guard闭合批准引用 | __________________；NOT_RUN |
+| 通过/失败/NOT_RUN与缺陷、截图及实际PDF索引 | __________________；NOT_RUN |
+
+所有下列截图名是**拟交付文件名**，当前没有截图/PDF文件，不可当证据。每案记录来源版本、entity/thread/run，截图不含凭据/真实个人信息。实际PDF按`V2N-<case>-<entity>-<paper>-<revision>.pdf`唯一命名，另有sha256/MediaBox/CropBox/页数与逐页渲染。合成材料明标合成；Research模拟明标模拟；真实模型不代表真实人类研究已经发生。
+
+## N4. 全部112案待执行详细卡
+
+状态均为NOT_RUN；前置不满足就写具体缺项，不能用管理员/回环/其它项目替代。每案“判定”是未来期望，实际结果与证据均留空。全实体参数化案必须对最终实际可建实体逐一登记，不把1次操作计所有类型通过。
+
+
+### 范围：S1
+
+#### AI-S1-01 · 按需入口与学生先输入
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：首次进入/切换实体/刷新，未点整理；先手填本步要求的初稿，再主动点入口。
+- **判定**：无自动模型调用/隐藏触发；手填入口始终可用；提示够具体但不代填学生首次思考。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-01-01-before.png`；`V2N-AI-S1-01-02-result.png`；`V2N-AI-S1-01-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-02 · 授权上下文与精确范围
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：用本项目合成A/B实体及另一无权项目作对照，检查候选来源回执而不读取无权内容。
+- **判定**：只使用本步声明范围和精确版本；同项目也不等于能读所有私聊/受访者/历史；无权材料不泄露标题或内容。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-02-01-before.png`；`V2N-AI-S1-02-02-result.png`；`V2N-AI-S1-02-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-03 · 缺证据/加载/生成失败
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：缺本步必要学生初稿、空材料；再触发加载失败、权限变化、超时/工具错误。
+- **判定**：明确缺项/处理中/失败可重试；保留手工草稿，不能说成功或补造；不盲目重放未知写入。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-03-01-before.png`；`V2N-AI-S1-03-02-result.png`；`V2N-AI-S1-03-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-04 · 单/多候选与取消
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：分别获得证据支持的单/多候选；比较预览、切换、返回/取消。
+- **判定**：候选标AI草稿/来源/未知；可正常预览/选/取消；未选者不入正式表，不固定凑数。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-04-01-before.png`；`V2N-AI-S1-04-02-result.png`；`V2N-AI-S1-04-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-05 · 编辑和已有稿冲突
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：原来有学生稿，选择候选并手工修改；再取消或切实体。
+- **判定**：明确替换/保留选择，不能静默覆写；编辑局部绑定当前实体，不能串到兄弟卡；刷新后符合实际保存边界。 六步均要求AI候选预览/选择/编辑不自动共享保存；要落正式产物须明确应用并按正常保存/确认协议完成。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-05-01-before.png`；`V2N-AI-S1-05-02-result.png`；`V2N-AI-S1-05-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-06 · 明确应用/防重复/失败重试
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：先记录服务端revision；候选预览/选择/编辑时不点应用/保存并核无共享写入，再确认目标后点实际应用/正常保存；双击、返回重进及受控失败后重试。
+- **判定**：准确显示应用到哪一产物；仅一次正式写入/实体，不因重复点击造重复；失败不假成功，未知结果先回读。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-06-01-before.png`；`V2N-AI-S1-06-02-result.png`；`V2N-AI-S1-06-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-07 · 保存/完成/刷新交接
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：应用候选为草稿→回总览刷新；补齐原必需输入再从正常UI确认→刷新→下一阶段。
+- **判定**：候选/保存≠阶段完成；原门槛保留；完成标记和精确revision服务端回读，下一阶段冻结同版本来源。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-07-01-before.png`；`V2N-AI-S1-07-02-result.png`；`V2N-AI-S1-07-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-08 · 权限/撤权/旧候选失效
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：生成时撤回来源权限或变只读，再尝试应用；恢复合法范围后重新核对。
+- **判定**：重新校验当前访问与材料授权；过期结果不落正式成果，不用缓存泄露；恢复不自动重发/确认。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-08-01-before.png`；`V2N-AI-S1-08-02-result.png`；`V2N-AI-S1-08-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-09 · 可用性/键盘/移动端
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：正常键盘Tab/Enter/IME/Esc、375px及桌面浏览预览/选择/取消/保存。
+- **判定**：入口可辨认、焦点可达并回到触发点，加载/错误可理解；无遮挡横溢；不force隐藏控件。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-09-01-before.png`；`V2N-AI-S1-09-02-result.png`；`V2N-AI-S1-09-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-10 · 价值与来源先行
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：只输入“改善校园体验”后点整理；再补“猜测”、价值和不确定项。
+- **判定**：先指出缺项/追问；不得代填学生理由、称问题已证实或直接给App方案。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-10-01-before.png`；`V2N-AI-S1-10-02-result.png`；`V2N-AI-S1-10-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-11 · 回应实际追问再改写
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：展示本次真实教学反馈，学生说明采纳/不采纳及方向，再编辑/保存研究主题。
+- **判定**：必须能追溯该次反馈和学生回应；固定夹具第二段、AI自己写的回答不能冒充学生取舍。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-11-01-before.png`；`V2N-AI-S1-11-02-result.png`；`V2N-AI-S1-11-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S1-12 · 确认与交接
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 已进入正常创建的主项目，当前命题实体和原始学生输入可定位。
+- **具体操作**：候选应用为草稿时回总览；明确确认后刷新，再进入S2。
+- **判定**：草稿未完成；确认状态/主题/反思对应精确保存revision；S2引用同revision。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S1-12-01-before.png`；`V2N-AI-S1-12-02-result.png`；`V2N-AI-S1-12-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S1 I1–I4/O1–O3；V2:65–155；FR15；SRC02:261–283；SRC14:15–29；SRC20:81–95；SRC13:17–22。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：S2
+
+#### AI-S2-01 · 按需入口与学生先输入
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：首次进入/切换实体/刷新，未点整理；先手填本步要求的初稿，再主动点入口。
+- **判定**：无自动模型调用/隐藏触发；手填入口始终可用；提示够具体但不代填学生首次思考。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-01-01-before.png`；`V2N-AI-S2-01-02-result.png`；`V2N-AI-S2-01-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-02 · 授权上下文与精确范围
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：用本项目合成A/B实体及另一无权项目作对照，检查候选来源回执而不读取无权内容。
+- **判定**：只使用本步声明范围和精确版本；同项目也不等于能读所有私聊/受访者/历史；无权材料不泄露标题或内容。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-02-01-before.png`；`V2N-AI-S2-02-02-result.png`；`V2N-AI-S2-02-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-03 · 缺证据/加载/生成失败
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：缺本步必要学生初稿、空材料；再触发加载失败、权限变化、超时/工具错误。
+- **判定**：明确缺项/处理中/失败可重试；保留手工草稿，不能说成功或补造；不盲目重放未知写入。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-03-01-before.png`；`V2N-AI-S2-03-02-result.png`；`V2N-AI-S2-03-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-04 · 单/多候选与取消
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：分别获得证据支持的单/多候选；比较预览、切换、返回/取消。
+- **判定**：候选标AI草稿/来源/未知；可正常预览/选/取消；未选者不入正式表，不固定凑数。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-04-01-before.png`；`V2N-AI-S2-04-02-result.png`；`V2N-AI-S2-04-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-05 · 编辑和已有稿冲突
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：原来有学生稿，选择候选并手工修改；再取消或切实体。
+- **判定**：明确替换/保留选择，不能静默覆写；编辑局部绑定当前实体，不能串到兄弟卡；刷新后符合实际保存边界。 六步均要求AI候选预览/选择/编辑不自动共享保存；要落正式产物须明确应用并按正常保存/确认协议完成。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-05-01-before.png`；`V2N-AI-S2-05-02-result.png`；`V2N-AI-S2-05-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-06 · 明确应用/防重复/失败重试
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：先记录服务端revision；候选预览/选择/编辑时不点应用/保存并核无共享写入，再确认目标后点实际应用/正常保存；双击、返回重进及受控失败后重试。
+- **判定**：准确显示应用到哪一产物；仅一次正式写入/实体，不因重复点击造重复；失败不假成功，未知结果先回读。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-06-01-before.png`；`V2N-AI-S2-06-02-result.png`；`V2N-AI-S2-06-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-07 · 保存/完成/刷新交接
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：应用候选为草稿→回总览刷新；补齐原必需输入再从正常UI确认→刷新→下一阶段。
+- **判定**：候选/保存≠阶段完成；原门槛保留；完成标记和精确revision服务端回读，下一阶段冻结同版本来源。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-07-01-before.png`；`V2N-AI-S2-07-02-result.png`；`V2N-AI-S2-07-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-08 · 权限/撤权/旧候选失效
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：生成时撤回来源权限或变只读，再尝试应用；恢复合法范围后重新核对。
+- **判定**：重新校验当前访问与材料授权；过期结果不落正式成果，不用缓存泄露；恢复不自动重发/确认。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-08-01-before.png`；`V2N-AI-S2-08-02-result.png`；`V2N-AI-S2-08-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-09 · 可用性/键盘/移动端
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：正常键盘Tab/Enter/IME/Esc、375px及桌面浏览预览/选择/取消/保存。
+- **判定**：入口可辨认、焦点可达并回到触发点，加载/错误可理解；无遮挡横溢；不force隐藏控件。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-09-01-before.png`；`V2N-AI-S2-09-02-result.png`；`V2N-AI-S2-09-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-10 · 候选不得自动保存
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：记录服务端stage revision/原发现卡；生成、预览、选择候选、编辑但尚未点正常保存，随后刷新/取消。
+- **判定**：生成可有独立运行审计；正式发现卡/共享stage不得因候选选择而自动变更。已有手填内容不得静默覆盖；取消可返回原稿。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-10-01-before.png`；`V2N-AI-S2-10-02-result.png`；`V2N-AI-S2-10-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-11 · 引文与AI表达分离
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：用仅有一句泛泛喜好的授权访谈；比较AI摘要、真实quote、学生解释。
+- **判定**：没有材料不臆测“怕踩雷”；摘要标AI草稿/学生概括，不加假引号，不把AI推测当证据。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-11-01-before.png`；`V2N-AI-S2-11-02-result.png`；`V2N-AI-S2-11-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-12 · 撤权与候选竞态
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：同一授权访谈生成中撤回文字或照片授权；完成后尝试预览/应用；另一个受访者保持授权。
+- **判定**：服务端重新核范围；过期候选不落入正式产物，当前和冻结历史的受保护图不显示；原文字/已合法材料保留依实际授权；兄弟卡不串图。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-12-01-before.png`；`V2N-AI-S2-12-02-result.png`；`V2N-AI-S2-12-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-13 · 提纲卡不充发现卡
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：有多名活跃受访者，部分只有提纲，一名有确认发现；回总览。
+- **判定**：不把提纲数量当完成卡数；不按10人夹具强制V2人数；全部适用受访者完成后再显示正常S3交接。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-13-01-before.png`；`V2N-AI-S2-13-02-result.png`；`V2N-AI-S2-13-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S2 I1–I3/O1–O3；V2:157–235；#6958；SRC07:34–44,58–122；SRC08:39–51；SRC32:264–303；SRC34:244–250；SRC20:94–101；SRC23:照片撤权控制分支。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：S3
+
+#### AI-S3-01 · 按需入口与学生先输入
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：首次进入/切换实体/刷新，未点整理；先手填本步要求的初稿，再主动点入口。
+- **判定**：无自动模型调用/隐藏触发；手填入口始终可用；提示够具体但不代填学生首次思考。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-01-01-before.png`；`V2N-AI-S3-01-02-result.png`；`V2N-AI-S3-01-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-02 · 授权上下文与精确范围
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：用本项目合成A/B实体及另一无权项目作对照，检查候选来源回执而不读取无权内容。
+- **判定**：只使用本步声明范围和精确版本；同项目也不等于能读所有私聊/受访者/历史；无权材料不泄露标题或内容。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-02-01-before.png`；`V2N-AI-S3-02-02-result.png`；`V2N-AI-S3-02-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-03 · 缺证据/加载/生成失败
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：缺本步必要学生初稿、空材料；再触发加载失败、权限变化、超时/工具错误。
+- **判定**：明确缺项/处理中/失败可重试；保留手工草稿，不能说成功或补造；不盲目重放未知写入。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-03-01-before.png`；`V2N-AI-S3-03-02-result.png`；`V2N-AI-S3-03-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-04 · 单/多候选与取消
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：分别获得证据支持的单/多候选；比较预览、切换、返回/取消。
+- **判定**：候选标AI草稿/来源/未知；可正常预览/选/取消；未选者不入正式表，不固定凑数。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-04-01-before.png`；`V2N-AI-S3-04-02-result.png`；`V2N-AI-S3-04-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-05 · 编辑和已有稿冲突
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：原来有学生稿，选择候选并手工修改；再取消或切实体。
+- **判定**：明确替换/保留选择，不能静默覆写；编辑局部绑定当前实体，不能串到兄弟卡；刷新后符合实际保存边界。 六步均要求AI候选预览/选择/编辑不自动共享保存；要落正式产物须明确应用并按正常保存/确认协议完成。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-05-01-before.png`；`V2N-AI-S3-05-02-result.png`；`V2N-AI-S3-05-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-06 · 明确应用/防重复/失败重试
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：先记录服务端revision；候选预览/选择/编辑时不点应用/保存并核无共享写入，再确认目标后点实际应用/正常保存；双击、返回重进及受控失败后重试。
+- **判定**：准确显示应用到哪一产物；仅一次正式写入/实体，不因重复点击造重复；失败不假成功，未知结果先回读。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-06-01-before.png`；`V2N-AI-S3-06-02-result.png`；`V2N-AI-S3-06-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-07 · 保存/完成/刷新交接
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：应用候选为草稿→回总览刷新；补齐原必需输入再从正常UI确认→刷新→下一阶段。
+- **判定**：候选/保存≠阶段完成；原门槛保留；完成标记和精确revision服务端回读，下一阶段冻结同版本来源。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-07-01-before.png`；`V2N-AI-S3-07-02-result.png`；`V2N-AI-S3-07-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-08 · 权限/撤权/旧候选失效
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：生成时撤回来源权限或变只读，再尝试应用；恢复合法范围后重新核对。
+- **判定**：重新校验当前访问与材料授权；过期结果不落正式成果，不用缓存泄露；恢复不自动重发/确认。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-08-01-before.png`；`V2N-AI-S3-08-02-result.png`；`V2N-AI-S3-08-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-09 · 可用性/键盘/移动端
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：正常键盘Tab/Enter/IME/Esc、375px及桌面浏览预览/选择/取消/保存。
+- **判定**：入口可辨认、焦点可达并回到触发点，加载/错误可理解；无遮挡横溢；不force隐藏控件。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-09-01-before.png`；`V2N-AI-S3-09-02-result.png`；`V2N-AI-S3-09-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-10 · 真实后台模板而非替代卡
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：记录实际授权后台templateId/key/version/发布状态，打开每个候选真实画布并与该版本模板比较。
+- **判定**：使用真实persona模板；候选内容覆盖该模板实际全部字段/分区/画布，不以纯文字卡或空模板替代。D内置定义key=persona有9表头/6分区，仅是源码基线，不代表Dev有效配置。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-10-01-before.png`；`V2N-AI-S3-10-02-result.png`；`V2N-AI-S3-10-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-11 · 候选数量纠正
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：分别以足够支持一个和多个方向的合成材料触发；逐一预览，取消后再选1个。
+- **判定**：不固定8、不为了版面凑数、不固定页/纸张数；只有主动选中并应用的1个进入正式表；取消/未选不进表。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-11-01-before.png`；`V2N-AI-S3-11-02-result.png`；`V2N-AI-S3-11-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-12 · 暂无与例外
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：意外发现先填“暂无”，再另轮记录有材料的矛盾/例外。
+- **判定**：暂无正常继续且不强制补访；有发现缺引用可草稿不冒充已核；画像不能抹去少数差异、补造年龄/心理。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-12-01-before.png`；`V2N-AI-S3-12-02-result.png`；`V2N-AI-S3-12-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-13 · HMW按需候选与学生选择
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：在同一S3项目基于授权访谈/观察和本组研讨，先保留学生HMW初稿，再主动请求一个或多个候选；逐一预览，选择、取消并手工编辑。
+- **判定**：HMW与persona都是正式输出类型；候选不自动入正式成果、不替学生选择，取消保留原稿。保留既有教师引导/学生判断；仅增加用户明确的按需候选闭环，不加额外专属向导或强制作业。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-13-01-before.png`；`V2N-AI-S3-13-02-result.png`；`V2N-AI-S3-13-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:151–193,313–390；SRC14:47–61；SRC24:140–141；SRC27:49–55；SRC38:14–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：S4
+
+#### AI-S4-01 · 按需入口与学生先输入
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：首次进入/切换实体/刷新，未点整理；先手填本步要求的初稿，再主动点入口。
+- **判定**：无自动模型调用/隐藏触发；手填入口始终可用；提示够具体但不代填学生首次思考。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-01-01-before.png`；`V2N-AI-S4-01-02-result.png`；`V2N-AI-S4-01-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-02 · 授权上下文与精确范围
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：用本项目合成A/B实体及另一无权项目作对照，检查候选来源回执而不读取无权内容。
+- **判定**：只使用本步声明范围和精确版本；同项目也不等于能读所有私聊/受访者/历史；无权材料不泄露标题或内容。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-02-01-before.png`；`V2N-AI-S4-02-02-result.png`；`V2N-AI-S4-02-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-03 · 缺证据/加载/生成失败
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：缺本步必要学生初稿、空材料；再触发加载失败、权限变化、超时/工具错误。
+- **判定**：明确缺项/处理中/失败可重试；保留手工草稿，不能说成功或补造；不盲目重放未知写入。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-03-01-before.png`；`V2N-AI-S4-03-02-result.png`；`V2N-AI-S4-03-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-04 · 单/多候选与取消
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：分别获得证据支持的单/多候选；比较预览、切换、返回/取消。
+- **判定**：候选标AI草稿/来源/未知；可正常预览/选/取消；未选者不入正式表，不固定凑数。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-04-01-before.png`；`V2N-AI-S4-04-02-result.png`；`V2N-AI-S4-04-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-05 · 编辑和已有稿冲突
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：原来有学生稿，选择候选并手工修改；再取消或切实体。
+- **判定**：明确替换/保留选择，不能静默覆写；编辑局部绑定当前实体，不能串到兄弟卡；刷新后符合实际保存边界。 六步均要求AI候选预览/选择/编辑不自动共享保存；要落正式产物须明确应用并按正常保存/确认协议完成。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-05-01-before.png`；`V2N-AI-S4-05-02-result.png`；`V2N-AI-S4-05-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-06 · 明确应用/防重复/失败重试
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：先记录服务端revision；候选预览/选择/编辑时不点应用/保存并核无共享写入，再确认目标后点实际应用/正常保存；双击、返回重进及受控失败后重试。
+- **判定**：准确显示应用到哪一产物；仅一次正式写入/实体，不因重复点击造重复；失败不假成功，未知结果先回读。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-06-01-before.png`；`V2N-AI-S4-06-02-result.png`；`V2N-AI-S4-06-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-07 · 保存/完成/刷新交接
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：应用候选为草稿→回总览刷新；补齐原必需输入再从正常UI确认→刷新→下一阶段。
+- **判定**：候选/保存≠阶段完成；原门槛保留；完成标记和精确revision服务端回读，下一阶段冻结同版本来源。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-07-01-before.png`；`V2N-AI-S4-07-02-result.png`；`V2N-AI-S4-07-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-08 · 权限/撤权/旧候选失效
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：生成时撤回来源权限或变只读，再尝试应用；恢复合法范围后重新核对。
+- **判定**：重新校验当前访问与材料授权；过期结果不落正式成果，不用缓存泄露；恢复不自动重发/确认。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-08-01-before.png`；`V2N-AI-S4-08-02-result.png`；`V2N-AI-S4-08-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-09 · 可用性/键盘/移动端
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：正常键盘Tab/Enter/IME/Esc、375px及桌面浏览预览/选择/取消/保存。
+- **判定**：入口可辨认、焦点可达并回到触发点，加载/错误可理解；无遮挡横溢；不force隐藏控件。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-09-01-before.png`；`V2N-AI-S4-09-02-result.png`；`V2N-AI-S4-09-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-10 · 三份与入选分开
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：已有5个学生点子，文字筛选2个先保存，再补3份不同图文、分类理由、审阅和正式确认。
+- **判定**：两点子筛选不等于S4完成；第三份不能复印配色/同一ID；3份完整描述单与原型入选数量是两个维度；本轮覆盖单选和3选，入选均须来自已审阅完整集合，不能沿用旧1–2限制冒认新范围。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-10-01-before.png`；`V2N-AI-S4-10-02-result.png`；`V2N-AI-S4-10-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-11 · 分类由学生决定
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：一个点子同时标容易实现/有趣，突破类别可空；AI给建议但不选标签。
+- **判定**：多标签不复制点子凑数；分类与投票独立保存，类别无配额；确认分类才生效。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-11-01-before.png`；`V2N-AI-S4-11-02-result.png`；`V2N-AI-S4-11-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 I1–I4/O1–O4；V2:341–443；FR07/FR17；SRC29:31–153；SRC11；SRC35；SRC13:40–46；SRC14:64–79。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：S5
+
+#### AI-S5-01 · 按需入口与学生先输入
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：首次进入/切换实体/刷新，未点整理；先手填本步要求的初稿，再主动点入口。
+- **判定**：无自动模型调用/隐藏触发；手填入口始终可用；提示够具体但不代填学生首次思考。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-01-01-before.png`；`V2N-AI-S5-01-02-result.png`；`V2N-AI-S5-01-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-02 · 授权上下文与精确范围
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：用本项目合成A/B实体及另一无权项目作对照，检查候选来源回执而不读取无权内容。
+- **判定**：只使用本步声明范围和精确版本；同项目也不等于能读所有私聊/受访者/历史；无权材料不泄露标题或内容。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-02-01-before.png`；`V2N-AI-S5-02-02-result.png`；`V2N-AI-S5-02-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-03 · 缺证据/加载/生成失败
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：缺本步必要学生初稿、空材料；再触发加载失败、权限变化、超时/工具错误。
+- **判定**：明确缺项/处理中/失败可重试；保留手工草稿，不能说成功或补造；不盲目重放未知写入。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-03-01-before.png`；`V2N-AI-S5-03-02-result.png`；`V2N-AI-S5-03-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-04 · 单/多候选与取消
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：分别获得证据支持的单/多候选；比较预览、切换、返回/取消。
+- **判定**：候选标AI草稿/来源/未知；可正常预览/选/取消；未选者不入正式表，不固定凑数。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-04-01-before.png`；`V2N-AI-S5-04-02-result.png`；`V2N-AI-S5-04-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-05 · 编辑和已有稿冲突
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：原来有学生稿，选择候选并手工修改；再取消或切实体。
+- **判定**：明确替换/保留选择，不能静默覆写；编辑局部绑定当前实体，不能串到兄弟卡；刷新后符合实际保存边界。 六步均要求AI候选预览/选择/编辑不自动共享保存；要落正式产物须明确应用并按正常保存/确认协议完成。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-05-01-before.png`；`V2N-AI-S5-05-02-result.png`；`V2N-AI-S5-05-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-06 · 明确应用/防重复/失败重试
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：先记录服务端revision；候选预览/选择/编辑时不点应用/保存并核无共享写入，再确认目标后点实际应用/正常保存；双击、返回重进及受控失败后重试。
+- **判定**：准确显示应用到哪一产物；仅一次正式写入/实体，不因重复点击造重复；失败不假成功，未知结果先回读。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-06-01-before.png`；`V2N-AI-S5-06-02-result.png`；`V2N-AI-S5-06-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-07 · 保存/完成/刷新交接
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：应用候选为草稿→回总览刷新；补齐原必需输入再从正常UI确认→刷新→下一阶段。
+- **判定**：候选/保存≠阶段完成；原门槛保留；完成标记和精确revision服务端回读，下一阶段冻结同版本来源。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-07-01-before.png`；`V2N-AI-S5-07-02-result.png`；`V2N-AI-S5-07-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-08 · 权限/撤权/旧候选失效
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：生成时撤回来源权限或变只读，再尝试应用；恢复合法范围后重新核对。
+- **判定**：重新校验当前访问与材料授权；过期结果不落正式成果，不用缓存泄露；恢复不自动重发/确认。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-08-01-before.png`；`V2N-AI-S5-08-02-result.png`；`V2N-AI-S5-08-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-09 · 可用性/键盘/移动端
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：正常键盘Tab/Enter/IME/Esc、375px及桌面浏览预览/选择/取消/保存。
+- **判定**：入口可辨认、焦点可达并回到触发点，加载/错误可理解；无遮挡横溢；不force隐藏控件。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-09-01-before.png`；`V2N-AI-S5-09-02-result.png`；`V2N-AI-S5-09-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-10 · 先验证问题后生成
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：仅点子名称时触发整理/生成；补主问题、预期和依据再尝试。
+- **判定**：缺问题时不启动原型生成；不默认接受AI拟问题；未配参考图不阻塞；不能声称已生成文件而工具失败。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-10-01-before.png`；`V2N-AI-S5-10-02-result.png`；`V2N-AI-S5-10-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-11 · 图文与冻结版本
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：选择两份不同点子的描述单和生成的两个候选；确认其中一个具体版本，随后修改源图/文本。
+- **判定**：原图/核心说明真正进入授权上下文；S6和报告绑定被确认的精确版本，不只验证两个测试记录互相相等；源变化不悄悄改旧绑定。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-11-01-before.png`；`V2N-AI-S5-11-02-result.png`；`V2N-AI-S5-11-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-12 · 静态边界
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：问题涉及投入时间/付费，原型仅流程图。
+- **判定**：静态图只支持理解/意向，不以视觉完成认定验证成功。已批准图片/HTML/WebApp按实际表达/交互能力分别核验，生成WebApp不等于可上线或真实行为/付费已验证；视频仍不在本轮范围，不用旧静态边界免验新类型。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-12-01-before.png`；`V2N-AI-S5-12-02-result.png`；`V2N-AI-S5-12-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5 I1–I4/O1–O3；V2:445–535；FR18；SRC30:49–160；SRC36；SRC37；SRC14:82–99；SRC13:48。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：S6
+
+#### AI-S6-01 · 按需入口与学生先输入
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：首次进入/切换实体/刷新，未点整理；先手填本步要求的初稿，再主动点入口。
+- **判定**：无自动模型调用/隐藏触发；手填入口始终可用；提示够具体但不代填学生首次思考。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-01-01-before.png`；`V2N-AI-S6-01-02-result.png`；`V2N-AI-S6-01-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-02 · 授权上下文与精确范围
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：用本项目合成A/B实体及另一无权项目作对照，检查候选来源回执而不读取无权内容。
+- **判定**：只使用本步声明范围和精确版本；同项目也不等于能读所有私聊/受访者/历史；无权材料不泄露标题或内容。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-02-01-before.png`；`V2N-AI-S6-02-02-result.png`；`V2N-AI-S6-02-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-03 · 缺证据/加载/生成失败
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：缺本步必要学生初稿、空材料；再触发加载失败、权限变化、超时/工具错误。
+- **判定**：明确缺项/处理中/失败可重试；保留手工草稿，不能说成功或补造；不盲目重放未知写入。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-03-01-before.png`；`V2N-AI-S6-03-02-result.png`；`V2N-AI-S6-03-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-04 · 单/多候选与取消
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：分别获得证据支持的单/多候选；比较预览、切换、返回/取消。
+- **判定**：候选标AI草稿/来源/未知；可正常预览/选/取消；未选者不入正式表，不固定凑数。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-04-01-before.png`；`V2N-AI-S6-04-02-result.png`；`V2N-AI-S6-04-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-05 · 编辑和已有稿冲突
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：原来有学生稿，选择候选并手工修改；再取消或切实体。
+- **判定**：明确替换/保留选择，不能静默覆写；编辑局部绑定当前实体，不能串到兄弟卡；刷新后符合实际保存边界。 六步均要求AI候选预览/选择/编辑不自动共享保存；要落正式产物须明确应用并按正常保存/确认协议完成。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-05-01-before.png`；`V2N-AI-S6-05-02-result.png`；`V2N-AI-S6-05-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-06 · 明确应用/防重复/失败重试
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：先记录服务端revision；候选预览/选择/编辑时不点应用/保存并核无共享写入，再确认目标后点实际应用/正常保存；双击、返回重进及受控失败后重试。
+- **判定**：准确显示应用到哪一产物；仅一次正式写入/实体，不因重复点击造重复；失败不假成功，未知结果先回读。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-06-01-before.png`；`V2N-AI-S6-06-02-result.png`；`V2N-AI-S6-06-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-07 · 保存/完成/刷新交接
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：应用候选为草稿→回总览刷新；补齐原必需输入再从正常UI确认→刷新→下一阶段。
+- **判定**：候选/保存≠阶段完成；原门槛保留；完成标记和精确revision服务端回读，下一阶段冻结同版本来源。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-07-01-before.png`；`V2N-AI-S6-07-02-result.png`；`V2N-AI-S6-07-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-08 · 权限/撤权/旧候选失效
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：生成时撤回来源权限或变只读，再尝试应用；恢复合法范围后重新核对。
+- **判定**：重新校验当前访问与材料授权；过期结果不落正式成果，不用缓存泄露；恢复不自动重发/确认。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-08-01-before.png`；`V2N-AI-S6-08-02-result.png`；`V2N-AI-S6-08-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-09 · 可用性/键盘/移动端
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：正常键盘Tab/Enter/IME/Esc、375px及桌面浏览预览/选择/取消/保存。
+- **判定**：入口可辨认、焦点可达并回到触发点，加载/错误可理解；无遮挡横溢；不force隐藏控件。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-09-01-before.png`；`V2N-AI-S6-09-02-result.png`；`V2N-AI-S6-09-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-10 · 真实测试与无材料分支
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：只有AI模拟/口头称赞/未提交Survey时请求总结；另准备真实授权记录。
+- **判定**：缺真实反馈保持待测，不造测试成功；区分说法、行为、解释，Survey绑定真实答卷及版本，不把API seed算浏览器填写。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-10-01-before.png`；`V2N-AI-S6-10-02-result.png`；`V2N-AI-S6-10-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-11 · 原问题前后认识
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：测试后分别填认识改变、暂未改变、证据不足，引用真实材料。
+- **判定**：三者均为有效学习分支；不事后换题冒充验证，不把意向当行为或一次结果泛化所有人。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-11-01-before.png`；`V2N-AI-S6-11-02-result.png`；`V2N-AI-S6-11-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-12 · 返回前四步无新版
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：学生选择回2补访并明确原因行动；另轮选回5修改。
+- **判定**：回2保持旧原型且可结束本轮学习，不强制新版；回5新版保留前版/依据/待测标记；AI不能自动路由。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-12-01-before.png`；`V2N-AI-S6-12-02-result.png`；`V2N-AI-S6-12-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 I1–I5/O1–O4；V2:537–651；FR19；SRC31:22–39；SRC37；SRC13:49；SRC14:102–121；SRC12:46–71。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：按真实可建实体逐项参数化
+
+#### CRUD-01 · 创建入口一致性
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：对每个实际支持新建的实体用普通有权成员打开创建弹窗，记录标题、字段、来源、标签和初始焦点。
+- **判定**：不能把方法/标签/PDF虚构为实体；无合法上游时给出可操作缺项；名称/来源/角色状态一致。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-CRUD-01-01-before.png`；`V2N-CRUD-01-02-result.png`；`V2N-CRUD-01-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户最新实体新增/编辑/删除一致性；V2 FR01/02/04/11；不扩大删除权限；他lane清点S1–3/S4–6；SRC02:435–495；SRC06:151–255；SRC29；SRC30；SRC33。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### CRUD-02 · 取消创建
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：分别用取消/X/Esc/返回离开未保存表单，再刷新目录。
+- **判定**：没有新增实体/标签写入/完成标记；焦点返回正常；有已创建资源的多步流程按真实契约明示后果，不假装完全原子。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-CRUD-02-01-before.png`；`V2N-CRUD-02-02-result.png`；`V2N-CRUD-02-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户最新实体新增/编辑/删除一致性；V2 FR01/02/04/11；不扩大删除权限；他lane清点S1–3/S4–6；SRC02:435–495；SRC06:151–255；SRC29；SRC30；SRC33。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### CRUD-03 · 创建校验和正常持久
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：测空名/空格、长度、来源、标签IME，正常创建后刷新并打开。
+- **判定**：错误定位正确且保留输入；服务端保存成功后卡可见，同实体独立thread/精确来源不变。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-CRUD-03-01-before.png`；`V2N-CRUD-03-02-result.png`；`V2N-CRUD-03-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户最新实体新增/编辑/删除一致性；V2 FR01/02/04/11；不扩大删除权限；他lane清点S1–3/S4–6；SRC02:435–495；SRC06:151–255；SRC29；SRC30；SRC33。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### CRUD-04 · 创建失败防重复
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：各实际多步创建在已有边界模拟失败，取消/重试/双击。
+- **判定**：部分成功能明确回读，不重复建原生Design或误关联；未知结果不盲重放；不扩大权限。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-CRUD-04-01-before.png`；`V2N-CRUD-04-02-result.png`；`V2N-CRUD-04-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户最新实体新增/编辑/删除一致性；V2 FR01/02/04/11；不扩大删除权限；他lane清点S1–3/S4–6；SRC02:435–495；SRC06:151–255；SRC29；SRC30；SRC33。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### CRUD-05 · 编辑保存与取消
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：改名/改内容/加移标签，先取消再重开，后明确保存刷新。
+- **判定**：取消不改服务端；保存只改当前实体；合理失效原确认，不能保留虚假完成。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-CRUD-05-01-before.png`；`V2N-CRUD-05-02-result.png`；`V2N-CRUD-05-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户最新实体新增/编辑/删除一致性；V2 FR01/02/04/11；不扩大删除权限；他lane清点S1–3/S4–6；SRC02:435–495；SRC06:151–255；SRC29；SRC30；SRC33。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### CRUD-06 · 删除提示与取消
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：仅对本轮专用合成数据触发实际删除/归档入口；检查对象名/影响和取消。
+- **判定**：确认提示说明真实删除或归档、关联和历史处理；取消无写入；不能无提示删错卡。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-CRUD-06-01-before.png`；`V2N-CRUD-06-02-result.png`；`V2N-CRUD-06-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户最新实体新增/编辑/删除一致性；V2 FR01/02/04/11；不扩大删除权限；他lane清点S1–3/S4–6；SRC02:435–495；SRC06:151–255；SRC29；SRC30；SRC33。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### CRUD-07 · 删除成功后的目录
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：正常确认删除/归档后等服务回执，刷新目录，测试标签筛选/搜索/空状态和原历史链接。
+- **判定**：当前列表不再混入已归档项，有清晰空状态/清除筛选；历史按实际留存与访问契约，不能删他人或真实课程数据。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-CRUD-07-01-before.png`；`V2N-CRUD-07-02-result.png`；`V2N-CRUD-07-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户最新实体新增/编辑/删除一致性；V2 FR01/02/04/11；不扩大删除权限；他lane清点S1–3/S4–6；SRC02:435–495；SRC06:151–255；SRC29；SRC30；SRC33。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### CRUD-08 · 删除权限与竞态
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：只读/非成员/跨项目用既有有权QA夹具检查入口和服务拒绝；并发修改后删除。
+- **判定**：UI和服务权限一致；不直接改角色/DB；409保留可恢复状态，不伪造成功。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-CRUD-08-01-before.png`；`V2N-CRUD-08-02-result.png`；`V2N-CRUD-08-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户最新实体新增/编辑/删除一致性；V2 FR01/02/04/11；不扩大删除权限；他lane清点S1–3/S4–6；SRC02:435–495；SRC06:151–255；SRC29；SRC30；SRC33。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### CRUD-09 · 再进与可访问性
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：操作后离开/返回/刷新，用键盘和移动端核列表/弹窗、错误和焦点。
+- **判定**：列表/完成状态/来源与服务回执一致；没有遮挡或只靠颜色的状态；删除后焦点有去处。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-CRUD-09-01-before.png`；`V2N-CRUD-09-02-result.png`；`V2N-CRUD-09-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户最新实体新增/编辑/删除一致性；V2 FR01/02/04/11；不扩大删除权限；他lane清点S1–3/S4–6；SRC02:435–495；SRC06:151–255；SRC29；SRC30；SRC33。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：所有真实正式产物+系统报告
+
+#### PRINT-01 · 所有正式产物盘点
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：对本矩阵正式产物清单逐一打开实际可见保存版本。
+- **判定**：打印入口覆盖真实正式产物和报告；未实现/无入口明确记录，不能用空按钮/文本替代画布。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-01-01-before.png`；`V2N-PRINT-01-02-result.png`；`V2N-PRINT-01-03-refreshed.png`；`V2N-PRINT-01-04-system-print-dialog.png`；`V2N-PRINT-01-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新A4/A3/A1/画布默认A1纠正；V2既有PDF要求；SRC05:36–42,119–130；SRC12:46–71；SRC28:107–128；SRC38:35–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### PRINT-02 · 先预览后显式打印
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：打开分页预览，尚未按打印；取消，重新打开再显式点打印。
+- **判定**：打开预览不触发系统打印对话；取消无内容/阶段写入；明确点击后仅一次系统打印，完成不代表用户已另存PDF。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-02-01-before.png`；`V2N-PRINT-02-02-result.png`；`V2N-PRINT-02-03-refreshed.png`；`V2N-PRINT-02-04-system-print-dialog.png`；`V2N-PRINT-02-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新A4/A3/A1/画布默认A1纠正；V2既有PDF要求；SRC05:36–42,119–130；SRC12:46–71；SRC28:107–128；SRC38:35–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### PRINT-03 · 三种纸张与默认
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：画布首次预览核默认A1，切换A4/A3/A1；每类正式产物分别保存三种真实PDF。
+- **判定**：纸张选择真实生效且可回切；persona/画布默认A1且无固定张页数，其他正式产物按内容采用合理A4/A3默认并仍可选三纸型；记录最终批准设计，不用浏览器设置掩盖产品未传纸型。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-03-01-before.png`；`V2N-PRINT-03-02-result.png`；`V2N-PRINT-03-03-refreshed.png`；`V2N-PRINT-03-04-system-print-dialog.png`；`V2N-PRINT-03-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新A4/A3/A1/画布默认A1纠正；V2既有PDF要求；SRC05:36–42,119–130；SRC12:46–71；SRC28:107–128；SRC38:35–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### PRINT-04 · 独立物理尺寸检查
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：用独立PDF解析器读各文件MediaBox/CropBox、旋转、页数/尺寸。
+- **判定**：A4=210×297mm、A3=297×420mm、A1=594×841mm，允许横向交换；标明数值容差来源，不以文件名/截图判断尺寸。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-04-01-before.png`；`V2N-PRINT-04-02-result.png`；`V2N-PRINT-04-03-refreshed.png`；`V2N-PRINT-04-04-system-print-dialog.png`；`V2N-PRINT-04-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新A4/A3/A1/画布默认A1纠正；V2既有PDF要求；SRC05:36–42,119–130；SRC12:46–71；SRC28:107–128；SRC38:35–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### PRINT-05 · 实际模板全内容
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：打印真实后台persona候选中最终正式选中模板的全部内容，核templateId/version与PDF。
+- **判定**：不固定8张/8页；不把源码pdfPage=3当页数；真实模板所有表头/分区/画布及学生内容均在PDF，无删节、虚构空页。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-05-01-before.png`；`V2N-PRINT-05-02-result.png`；`V2N-PRINT-05-03-refreshed.png`；`V2N-PRINT-05-04-system-print-dialog.png`；`V2N-PRINT-05-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新A4/A3/A1/画布默认A1纠正；V2既有PDF要求；SRC05:36–42,119–130；SRC12:46–71；SRC28:107–128；SRC38:35–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### PRINT-06 · 中文与图像
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：准备长中文/换行/不同长度引文和有授权照片/点子图/静态原型，独立渲染每页。
+- **判定**：无方框乱码、重叠、过小字、图片丢失、裁切；图像和说明属于同一冻结版本，不能只验字节文件非空。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-06-01-before.png`；`V2N-PRINT-06-02-result.png`；`V2N-PRINT-06-03-refreshed.png`；`V2N-PRINT-06-04-system-print-dialog.png`；`V2N-PRINT-06-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新A4/A3/A1/画布默认A1纠正；V2既有PDF要求；SRC05:36–42,119–130；SRC12:46–71；SRC28:107–128；SRC38:35–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### PRINT-07 · 分页不裁切
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：长报告/多卡/多描述单在三纸型逐页比较，核页首尾、标题、图注、表格及边界。
+- **判定**：分页/边距合适，不裁文字/图、无重叠/漏尾/重复段；不能仅看第1页截图或文本抽取。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-07-01-before.png`；`V2N-PRINT-07-02-result.png`；`V2N-PRINT-07-03-refreshed.png`；`V2N-PRINT-07-04-system-print-dialog.png`；`V2N-PRINT-07-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新A4/A3/A1/画布默认A1纠正；V2既有PDF要求；SRC05:36–42,119–130；SRC12:46–71；SRC28:107–128；SRC38:35–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### PRINT-08 · 打印授权和撤权
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：预览后来源照片撤权/项目失权/切实体，再点打印。
+- **判定**：阻止过期敏感内容导出并解释；当前/历史均按授权；原文字不误删；不能用旧缓存继续打印。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-08-01-before.png`；`V2N-PRINT-08-02-result.png`；`V2N-PRINT-08-03-refreshed.png`；`V2N-PRINT-08-04-system-print-dialog.png`；`V2N-PRINT-08-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新A4/A3/A1/画布默认A1纠正；V2既有PDF要求；SRC05:36–42,119–130；SRC12:46–71；SRC28:107–128；SRC38:35–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### PRINT-09 · 弹窗拦截/失败/取消
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：在正常可控浏览器里测预览资源失败、打印框取消、重复点击及关闭页面。
+- **判定**：报错清楚、可安全重试、不重复正式写入/完成状态；没有已保存PDF回执就不报导出成功。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-09-01-before.png`；`V2N-PRINT-09-02-result.png`；`V2N-PRINT-09-03-refreshed.png`；`V2N-PRINT-09-04-system-print-dialog.png`；`V2N-PRINT-09-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新A4/A3/A1/画布默认A1纠正；V2既有PDF要求；SRC05:36–42,119–130；SRC12:46–71；SRC28:107–128；SRC38:35–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### PRINT-10 · 精确候选和控制配对
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：记录新应用SHA、控制SHA、manifest/runtime及每次输出名、来源revision、纸型、页数、哈希。
+- **判定**：新打印交互会影响旧capture流程，必须受审新控制器匹配；当前16份基线与新三纸型矩阵分开，不静默扩cap/复用旧成绩。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-10-01-before.png`；`V2N-PRINT-10-02-result.png`；`V2N-PRINT-10-03-refreshed.png`；`V2N-PRINT-10-04-system-print-dialog.png`；`V2N-PRINT-10-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新A4/A3/A1/画布默认A1纠正；V2既有PDF要求；SRC05:36–42,119–130；SRC12:46–71；SRC28:107–128；SRC38:35–50。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：S2
+
+#### AI-S2-14 · S2误见画像/HMW入口待复现
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：按#6962用户报告，从同一普通成员专用项目第2步正常点击新建；记录实际弹窗、pathname/step/entity、显示名称和保存后的真实业务类型，再刷新回到目录。
+- **判定**：先还原用户报告，不先认路由/组件/数据根因；S2应访谈/观察并保留发现卡，S3才为persona/HMW正式输出。不迁移/删除现存数据，不预写状态；未复现也保留条件/证据。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-14-01-before.png`；`V2N-AI-S2-14-02-result.png`；`V2N-AI-S2-14-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户报告#6962及最新S2/S3边界；SRC02:435–495；SRC32:创建/目录；当前已核业务类型为interview，观察独立实体待核。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S2-15 · 观察来源与独立实体边界
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第1步确认主题/反思有精确版本；当前访谈/观察来源与所需授权可核；观察是否独立实体不得假定。
+- **具体操作**：清点当前第2步正常新建业务类型、访谈记录内观察文字/图片来源入口及其保存归属；用本轮授权合成观察记录验证可回溯位置。
+- **判定**：如实现仅interview，应如实报告观察作为来源的支持范围；“观察是否独立可建实体”标待核/待明确实现，不能把用户目标当已实现或把观察伪装真人访谈。保留人物发现卡和原材料引用。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S2-15-01-before.png`；`V2N-AI-S2-15-02-result.png`；`V2N-AI-S2-15-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：V2 S2 I2/I3、用户最新S2访谈/观察要求；SRC32；SRC16；SRC20:94–101；观察业务实体当前待核。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：S3
+
+#### AI-S3-14 · persona与HMW授权来源追溯
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：分别打开persona/HMW候选的来源说明，核同项目授权访谈、观察与本组研讨的精确材料/版本；缺一类材料、引文缺定位和撤权时再检查。
+- **判定**：两类都可追溯实际使用的授权来源，缺的来源如实标缺而不补造；不把AI推测写原话，不混兄弟项目/私聊。撤权后新候选/应用重新核权限，过期内容不能落正式产物。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-14-01-before.png`；`V2N-AI-S3-14-02-result.png`；`V2N-AI-S3-14-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:313–390；SRC18；SRC20；SRC21；最新用户明确HMW范围。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-15 · HMW编辑确认持久与精确交接
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：明确选择HMW候选，学生手工改写并从正常UI确认/保存；双击、失败回读、刷新正式列表与总览，再选为本轮HMW进入S4。
+- **判定**：只有明确确认的学生版本正式入表，无重复、不覆盖已确认旧版；AI建议/保存草稿不自动完成。S4冻结同一选定HMW的ID/text/revision，保留画像/证据关联与原阶段门槛。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-15-01-before.png`；`V2N-AI-S3-15-02-result.png`；`V2N-AI-S3-15-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；SRC06:344–390；SRC02；SRC13；SRC35。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S3-16 · 两类正式产物分别预览打印
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第2步实际材料/发现卡保存可回读，意外发现或暂无已填写；persona/HMW入口来源精确。
+- **具体操作**：同项目保存persona和HMW正式输出后，分别从各自正常入口打开内容/打印预览，显式打印并保存三纸型真实PDF。
+- **判定**：persona使用真实后台模板全部实际内容，HMW保留最终学生问题/相关画像/证据引用；两类均独立可预览/取消/打印，A4/A3/A1真实尺寸分页可读，无替身模型或伪造PDF。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S3-16-01-before.png`；`V2N-AI-S3-16-02-result.png`；`V2N-AI-S3-16-03-refreshed.png`；`V2N-AI-S3-16-04-system-print-dialog.png`；`V2N-AI-S3-16-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S3 I1–I4/O1–O4；V2:237–339；FR16；#6959/#6960；用户最新明确persona＋HMW双正式产物范围；#6961；SRC06；SRC24/SRC27/SRC38；SRC28；新打印实现待验。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：所有真实正式产物+系统报告
+
+#### PRINT-11 · 普通成员同项目正式打印E2E无替身
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：由获授权普通成员在同一个专用项目连续走真实六步；每个实际正式产出（含persona、HMW）都先预览→显式打开系统打印对话→实际保存A4/A3/A1 PDF。记录系统对话截图/取消与成功路径，并对实际PDF独立解析和逐页渲染。
+- **判定**：真实应用/控制/模型范围均精确记录，不用loopback代真模型、不用API预置完成或跨项目拼证据；每正式产物有对应真实PDF/纸型/尺寸/页数/哈希/可读截图，缺项NOT_RUN/失败，不把系统对话打开当已保存。保留现有授权/门槛/控制配额，不静默扩量。
+- **刷新核对**：打印/取消不改原内容、来源版本/阶段完成；重新打开同一产物核保存版本与预览一致，独立重新打开实际PDF核页数/纸型/中文/图像。
+- **截图拟文件**：`V2N-PRINT-11-01-before.png`；`V2N-PRINT-11-02-result.png`；`V2N-PRINT-11-03-refreshed.png`；`V2N-PRINT-11-04-system-print-dialog.png`；`V2N-PRINT-11-05-pdf-render.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤10分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：#6961及用户最新正式E2E普通成员同项目/无替身范围；SRC01；SRC05/SRC12/SRC28；新实现/匹配控制/正式执行均待冻结。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：S4
+
+#### AI-S4-14 · 明确选定已确认HMW和精确绑定
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：从S3正式已确认HMW列表选择一个进入S4；对照其文本/ID/revision；另建一条兄弟HMW，不选它，刷新本场次。
+- **判定**：仅学生选择的已确认HMW进入本场次；未确认不能替代；后续Chat/Ideas列表/交接都冻结同一来源，兄弟HMW不混入。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-14-01-before.png`；`V2N-AI-S4-14-02-result.png`；`V2N-AI-S4-14-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4最新确认HMW/冻结交接范围；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-15 · 主场次两轮真实Chat迭代
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：主场次学生先输入第一轮点子和依据，主动发送；读取实际教学反馈，学生针对它修改/拓展后再主动发送第二轮；核两个真实run和学生回应。
+- **判定**：两轮均应用内真实模型/同一实体thread，第二轮回应本次真实反馈；不预制回复、不自动代选/保存/确认。六方法质量覆盖范围与实际发送次数逐项列明。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-15-01-before.png`；`V2N-AI-S4-15-02-result.png`；`V2N-AI-S4-15-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4两轮Chat；不扩大旧44turn守卫；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-16 · 六种方法正常入口与变体
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：在同一项目创建六个独立方法实体，逐一显式选择free/reverse/scamper/analogy/role/brainwriting；查看各自提示、数量、HMW绑定并正常使用、刷新。
+- **判定**：六方法均可用、解释与方法相符、独立entity/thread；不混新方法、不把回环/静态提示当真实生成质量；主场次两轮不能冒称每法各两轮，发送计划需明确闭合。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-16-01-before.png`；`V2N-AI-S4-16-02-result.png`；`V2N-AI-S4-16-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4六方法；新增模型次数需匹配控制器及闭合计划；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S4-17 · Ideas列表与正式冻结交接
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第3步学生选定已确认HMW有精确ID/text/revision，当前场次/idea实体合法。
+- **具体操作**：把真实Chat候选经学生审阅加入Ideas列表，编辑/分类/选取；确认3不同完整描述单，再回目录刷新并从正常入口传给S5。
+- **判定**：Ideas与场次/方法/选定HMW来源准确；选择与正式完成分开，未采纳候选不入正式表；S5拿到所选idea及其确切图文版本，不被后续列表修改偷换。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S4-17-01-before.png`；`V2N-AI-S4-17-02-result.png`；`V2N-AI-S4-17-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S4 Ideas列表冻结交接；V2 ≥3不同描述单；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：S5
+
+#### AI-S5-13 · 单idea与三idea选择两变体
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：同项目建独立原型实体P-single与P-three：前者明确选一个完整idea，后者明确选三个不同完整idea；分别创建/刷新/查看绑定，取消未保存选择。
+- **判定**：按最新目标支持单选和3选且不偷偷截为2个；每实体来源独立、取消不写；未实现3选如实失败，不能沿用旧1–2源码当新要求通过。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-13-01-before.png`；`V2N-AI-S5-13-02-result.png`；`V2N-AI-S5-13-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户批准S5单选+3选；与旧D 1–2源码区别待实现；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-14 · 逐idea逐级S1–S4来源检查
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：在P-single/P-three逐个展开所选idea的来源，实际点击并核S4描述单→S3选定HMW/画像→S2授权访谈/观察→S1命题/反思，记录每层revision。
+- **判定**：三idea各自完整来源链不只共用一个摘要；原图/核心描述真实传入，不跨项目，不漏个别idea；缺源明示，历史不被当前head替换。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-14-01-before.png`；`V2N-AI-S5-14-02-result.png`；`V2N-AI-S5-14-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5逐idea S1–S4来源；V2 S5 I1；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-15 · 正式文字版本先保存确认再生成
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：学生先写主验证问题、前看法/依据/边界与正式文字制作方案，至少依据实际反馈修订一次；明确保存、回读版本并确认；未确认时尝试生成，再正常选择目标类型。
+- **判定**：正式文字必须服务器可回读且明确确认后才生成图片/HTML/WebApp；候选文本/聊天回复不等于已保存正式方案；修订撤销旧确认，保留版本。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-15-01-before.png`；`V2N-AI-S5-15-02-result.png`；`V2N-AI-S5-15-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S5正式文字保存版本确认在前；图片/HTML/WebApp在后；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S5-16 · 图片HTMLWebApp实际文件与版本
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第4步真实不同完整描述单已保存、学生入选和冻结来源可核；单选/3选用同项目独立原型实体。
+- **具体操作**：同项目独立原型变体依次选择图片、HTML、WebApp实际支持的生成入口，生成并预览/打开保存产物；修改后再存新版本，对照notes与实际内容。
+- **判定**：每类型有真实可读产物/精确版本；HTML内容真可渲染，WebApp所声称交互实际可操作；静态图不冒充交互、失败不报成功。未实现类型记失败/阻塞，不将新增WebApp要求倒写进V2旧静态边界。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S5-16-01-before.png`；`V2N-AI-S5-16-02-result.png`；`V2N-AI-S5-16-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户批准S5新增图片/HTML/WebApp，旧V2静态优先为历史边界；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：S6
+
+#### AI-S6-13 · 三路径均绑定正式原型版本
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：从已确认正式原型创建三张独立测试实体（线下/Survey/User Research）；逐张核原型实体/真实versionId/S5保存revision/原验证问题；改变S5当前选择后刷新三卡。
+- **判定**：每路径都绑定原先正式版本，不仅比较测试卡彼此一致；后改head不偷换；缺正式原型/问题时不提前创建假完成，三路径独立thread和材料不串。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-13-01-before.png`；`V2N-AI-S6-13-02-result.png`；`V2N-AI-S6-13-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6正式原型version+三路径；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-14 · 线下同意测试音频ASR报告
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：在本轮合成测试材料和允许范围内走正常线下测试入口，明确告知/同意；主动开始/停止音频，检查真实录音原件→ASR转写→学生校对→测试报告，核授权撤回/失败重试。
+- **判定**：无同意不开录、不默认持续；ASR实际处理和转写出处可核，不能贴预制转写冒充；报告区分真实测试与合成角色/材料，不称真人课堂已验；无设备/服务记阻塞。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-14-01-before.png`；`V2N-AI-S6-14-02-result.png`；`V2N-AI-S6-14-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6线下知情同意/音频/ASR/报告；新增capture/ASR控制需闭合；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-15 · Survey明确用于测试发布和真实答卷
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：从绑定正式原型的测试卡进入既有Survey，明确测试目的/问题，正常UI编辑、发布、访问填写并提交；回测试卡选取该实际答卷和版本，检查兄弟Survey隔离。
+- **判定**：真实UI发布/填写/提交均有回执；不能只用API seed/create/publish/submit充浏览器通过，草稿/未提交不算答卷；问题和答卷关联实际被测原型，撤销/权限错误不套另一份。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-15-01-before.png`；`V2N-AI-S6-15-02-result.png`；`V2N-AI-S6-15-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6 Survey测试明确发布/填写/实际答卷；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-16 · 既有User Research完整链及原段回链
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：从同一项目测试实体正常进入既有User Research，确认原型/研究目标，生成并编辑大纲，主动开始标模拟的对话；形成具体功能反馈和需求，再逐条点击来源原段。
+- **判定**：复用既有User Research，不另造简化替代流程；大纲→模拟对话→功能反馈/需求→原始段落与版本实际可点击定位；模拟始终标模拟，不冒充真人验证/真实课堂。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-16-01-before.png`；`V2N-AI-S6-16-02-result.png`；`V2N-AI-S6-16-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤15分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6既有User Research大纲→模拟对话→功能反馈/需求原段回链；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+#### AI-S6-17 · 三路径认识变化与报告不混淆
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 第5步正式文字/原型/验证问题已保存确认，有实际可读原型versionId；三路径用同项目独立测试实体。
+- **具体操作**：分别从三路径真实产物整理学生认识变化/返回行动，保留路径类型与证据属性；总报告中逐条点击证据，查看授权和原型版本。
+- **判定**：线下真实/合成与Research模拟清楚分层；没有真实用户反馈不称验证成功；Survey/音频/Research来源不串，报告保留未测/缺口，回前四步不强制新原型。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-AI-S6-17-01-before.png`；`V2N-AI-S6-17-02-result.png`；`V2N-AI-S6-17-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：S6三路径独立来源、反思及最终报告；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+
+### 范围：按真实可建实体逐项参数化
+
+#### CRUD-10 · 全实体弹窗标签完整生命周期
+
+- **前置**：已通过review与受保护CI的同一整合候选已一次安装Dev，源码/manifest/runtime与控制配对可核；root独立QA的获授权普通成员及同一专用主项目；此案尚未执行。 按本案真实正式产物或可建实体盘点，来源/写权限明确；删除仅本轮专用合成数据。
+- **具体操作**：按实际可建实体清单逐项执行新建/编辑/删除弹窗、取消/X/Esc、名称/来源校验、标签新增/已有选择/移除/IME/上限、保存/删除确认与刷新目录；只本轮专用测试数据。
+- **判定**：不能抽一张卡代全实体通过；标签不被拼进名称、取消不写、保存仅当前实体、失败不丢稿；归档标签不导致无可恢复空列表；普通权限和历史留存不放宽。
+- **刷新核对**：正常操作成功/取消/失败后离开再进入并刷新，比较当前实体、服务端revision、正式列表、完成状态和冻结来源；不得以本地状态替代回读。
+- **截图拟文件**：`V2N-CRUD-10-01-before.png`；`V2N-CRUD-10-02-result.png`；`V2N-CRUD-10-03-refreshed.png`。
+- **版本记录**：待填写：applicationSHA/imageTag/manifest/runtime、controllerSHA、org普通角色/projectId、stage/entity/thread/run、source revisions/material/templateId+version/designVersion/surveyResponse或Research原段ID（按本案适用）；不记录凭据。
+- **时限**：每实例≤8分钟；单次本案交互；参数化方法/实体/纸型逐个实例计时且在事先冻结总执行计划内，不自动重跑或无限追加实例。 到时记录checkpoint、具体请求/日志和未知写结果；只读回查，交原修复lane；未做项NOT_RUN，不能放宽断言/守卫/超时或换项目拼证据。
+- **依据**：用户最新全实体CRUD弹窗/标签；复用原CRUD-01–09逐实体参数化；最新已批准方案/用户语音范围；实现/控制配对待冻结，不倒认D已实现。
+- **执行状态**：**NOT_RUN**；实际结果：________；开始/截止/实际结束：________；实际截图/PDF/服务回读：________；缺陷/阻塞/owner：________。
+
+## N5. 本轮结论（空白，不代验收）
+
+| 项 | 操作者填写 |
+|---|---|
+| 同一精确Dev、普通成员、主项目完整新E2E | NOT_RUN：________ |
+| 六步正式输入/真实迭代/选择/保存/完成勾与精确交接 | NOT_RUN：________ |
+| 全实体CRUD/标签、按需AI不自动save/越权 | NOT_RUN：________ |
+| S5单选/3选/逐idea来源/文字版本/三类型真实产物 | NOT_RUN：________ |
+| S6三路径/原型版本/实际答卷/音频ASR/Research原段回链 | NOT_RUN：________ |
+| 全正式产出与报告实际三纸型PDF/系统对话/逐页检查 | NOT_RUN：________ |
+| 未测、失败和下一步修复/独立复验精确版本 | ________ |
+| 本轮结论/签名/时间（不等于CN授权） | ________ |
+
+---
+
+# 历史原文边界开始：以下为34c76bce8原件逐字存档
+
+**以下H01–H15、M记录和旧“本轮”语句只对应历史时点，不是本次112案的执行或通过回执；旧授权/额度/后置项不覆盖上面的最新批准范围。历史原件正文从下一行开始，全文432行按原bytes保留。**
+
 # AIDT V2 人工端到端测试与验收手册
 
 版本：2026-11-17（北京时间） · 用途：课程负责人、学生试用者与测试人员共同验收。需求依据：[用户 V2 原文](../../../../requirements/aidt-v2-full.md)、[新增条款摘录](../../../../requirements/aidt-v2-delta.md)。

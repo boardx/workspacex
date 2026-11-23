@@ -1,3 +1,5 @@
+import { AUDIO_TRANSCRIBE_TOOL, AUDIO_TRANSCRIBE_LIMITS, encodeAudioTranscribedReceiptSummary } from "@repo/contracts/standard-audio-tools";
+import { IMAGE_GENERATE_TOOL, IMAGE_GENERATE_LIMITS, encodeImageGeneratedReceiptSummary } from "@repo/contracts/standard-image-tools";
 import { verifyReferenceDispatch, revalidateReferenceDispatch, observeReferenceDispatch } from "../../application/agent-run/reference-dispatch";
 import {throwPrivateCreditFailure} from "./private-credit-failure";
 import { deepAgentToolResultSucceeded } from "./deep-agent-command-outcome";
@@ -450,9 +452,20 @@ function extractToolCallEvents(
       const id = message.tool_call_id;
       const call = pending.get(id);
       if (call === undefined || emittedIds.complete.has(id)) continue;
-      const resultSummary = typeof message.content === "string" && message.content.trim() !== ""
+      const succeeded = deepAgentToolResultSucceeded(call.name, message);
+      let audioReceipt: string | null = null;
+      if (call.name === AUDIO_TRANSCRIBE_TOOL && succeeded && typeof message.content === "string" && message.content.length <= AUDIO_TRANSCRIBE_LIMITS.responseBytes) {
+        try { audioReceipt = encodeAudioTranscribedReceiptSummary(JSON.parse(message.content)); } catch { /* An incomplete tool result never supplies proof. */ }
+      }
+      let resultSummary = audioReceipt ?? (typeof message.content === "string" && message.content.trim() !== ""
         ? summarizeProgressText(message.content)
-        : null;
+        : null);
+      if (call.name === IMAGE_GENERATE_TOOL && succeeded) {
+        resultSummary = null;
+        if (typeof message.content === "string" && message.content.length <= IMAGE_GENERATE_LIMITS.responseBytes) {
+          try { resultSummary = encodeImageGeneratedReceiptSummary(JSON.parse(message.content)); } catch { /* An incomplete tool result never supplies proof. */ }
+        }
+      }
       found.push({
         id,
         phase: "complete",
@@ -460,7 +473,7 @@ function extractToolCallEvents(
           toolName: call.name, toolArgsSummary: call.argsSummary,
           toolResultSummary: resultSummary, planningNote: call.planningNote,
           phase: "complete", toolCallId: id,
-          toolArgsFull: call.argsFull, toolResultFull: message.content, ok: deepAgentToolResultSucceeded(call.name, message),
+          toolArgsFull: call.argsFull, toolResultFull: message.content, ok: succeeded,
         },
       });
       pending.delete(id);

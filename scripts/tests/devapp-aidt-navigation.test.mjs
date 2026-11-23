@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { ownedAidtProblemRoute, matchesAidtProblemRoute, openAidtProblemOutcome, assertSavedAidtProblemInput, requireAcceptedS1Feedback } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+import { ownedAidtProblemRoute, matchesAidtProblemRoute, openAidtProblemOutcome, assertAidtReadOnlyProblemOutput, assertSavedAidtProblemInput, requireAcceptedS1Feedback } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 import { ownedAidtEntityRoute, matchesAidtEntityRoute, openAidtEntityOutcome, assertSavedAidtHmwSource, verifyAidtFrozenBacklink } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
-import { interviewCodePattern, savedAidtInterviewRoute, hasInterviewPrerequisite, hasPendingProblemReview } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
+import { interviewCodePattern, savedAidtInterviewRoute, hasInterviewPrerequisite, hasPendingProblemReview, reopenAidtS2TeachingHistory } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
 import { aidtS1Question, prepareAidtS1NativeResponse, runAidtS1NativeRevision, assertSavedAidtS1NativeDraft, assertSavedAidtS1Revision, assertAidtS1Handoff, assertAidtS2Topic } from '../../apps/web/e2e/support/devapp-aidt-journey.mjs';
 
@@ -438,6 +438,49 @@ test('wrong or local-only native projection, edited student initial/theme/focus 
   await assert.rejects(runAidtS1NativeRevision(reentry.args), /S1_REVIEWED_REVISION_UNVERIFIED/); assert.equal(reentry.events.includes('assert-native-ui'), false);
 });
 
+test('S1 records closed boolean diagnostics from its existing first read without an extra request', async () => {
+  const fixture = nativeFixture(), records = [];
+  fixture.args.recordSavedDiagnostic = value => { fixture.events.push('closed-diagnostic'); records.push(value); };
+  await runAidtS1NativeRevision(fixture.args);
+  assert.equal(records.length, 1); assert.equal(Object.keys(records[0]).length, 23);
+  assert.equal(Object.values(records[0]).every(value => typeof value === 'boolean'), true);
+  assert.equal(records[0].revisionAdvanced, true); assert.equal(records[0].turnMatches, true);
+  assert.equal(records[0].initialPreserved, true); assert.equal(records[0].rewrittenThemeMatches, true);
+  assert.equal(records[0].roundNotAutoCompleted, true); assert.equal(records[0].reflectionNotAutoConfirmed, true);
+  assert.equal(fixture.events.filter(value => value === 'read-native-server-draft').length, 2);
+  assert.ok(fixture.events.indexOf('closed-diagnostic') > fixture.events.indexOf('read-native-server-draft'));
+  assert.ok(fixture.events.indexOf('closed-diagnostic') < fixture.events.indexOf('reload-exact-entity'));
+  for (const text of [projectId, entityId, fixture.original.fields.initial, fixture.review.rewrittenTheme])
+    assert.equal(JSON.stringify(records[0]).includes(text), false);
+});
+
+test('S1 failed first read records the exact failed predicate and still rejects before reloading', async () => {
+  const fixture = nativeFixture(), originalRead = fixture.args.readSaved, records = [];
+  fixture.args.readSaved = async () => {
+    const saved = await originalRead(), fields = JSON.parse(saved.content.draft.fields[`problemDraft:${entityId}`]);
+    fields.rewrittenTheme = 'a substituted draft that must still be rejected';
+    saved.content.draft.fields[`problemDraft:${entityId}`] = JSON.stringify(fields); return saved;
+  };
+  fixture.args.recordSavedDiagnostic = value => records.push(value);
+  await assert.rejects(runAidtS1NativeRevision(fixture.args), /S1_NATIVE_DRAFT_UNVERIFIED/);
+  assert.equal(records.length, 1); assert.equal(records[0].rewrittenThemeMatches, false);
+  assert.equal(records[0].turnMatches, true); assert.equal(records[0].initialPreserved, true);
+  assert.equal(fixture.events.filter(value => value === 'read-native-server-draft').length, 1);
+  assert.equal(fixture.events.includes('reload-exact-entity'), false);
+});
+
+test('S1 malformed draft diagnostics contain only booleans and preserve the original rejection', async () => {
+  for (const invalid of ['{invalid-json', 'null', '1', '[]']) {
+    const fixture = nativeFixture(), originalRead = fixture.args.readSaved, records = [];
+    fixture.args.readSaved = async () => { const saved = await originalRead(); saved.content.draft.fields[`problemDraft:${entityId}`] = invalid; return saved; };
+    fixture.args.recordSavedDiagnostic = value => records.push(value);
+    await assert.rejects(runAidtS1NativeRevision(fixture.args), /S1_NATIVE_DRAFT_UNVERIFIED/);
+    assert.equal(records.length, 1); assert.equal(records[0].draftObject, false);
+    assert.equal(Object.values(records[0]).every(value => typeof value === 'boolean'), true);
+    assert.equal(fixture.events.filter(value => value === 'read-native-server-draft').length, 1);
+  }
+});
+
 test('native confirmation permits only the new reflection flag and exact round digest on an incremented persisted revision', async () => {
   const fixture = nativeFixture(), { draft } = await runAidtS1NativeRevision(fixture.args), confirmed = nativeStage(6, draft.fields, { confirmed: true });
   assert.equal(assertSavedAidtS1Revision(confirmed, draft, { confirmed: true }), 6);
@@ -518,4 +561,90 @@ test('primary surprise uses its persistent identity flag', () => {
   const after = { projectId: creationProjectId, stageId: 3, revision: 1, content: { draft: { fields: { definitionPrimaryEntity: 'true' } } } };
   assert.doesNotThrow(() => assertSavedCardCreation(before, after, target, 'surprise'));
   assert.throws(() => assertSavedCardCreation(before, after, { ...target, entityId: 'other' }, 'surprise'));
+});
+
+test('S1 outcome permits its native print action and still rejects editors and unknown actions', async () => {
+  async function inspect({ editors = 0, buttons = 0, prints = 0 } = {}) {
+    const locator = count => ({ count: async () => count });
+    const panel = {
+      locator(selector) {
+        switch (selector) {
+          case 'input,textarea,select,[contenteditable]:not([contenteditable="false"])': return locator(editors);
+          case 'button,[role="button"]': return locator(buttons);
+          case 'button[type="button"]': return 'native-action';
+          default: assert.fail(selector);
+        }
+      },
+      getByRole(role, options) {
+        assert.equal(role, 'button');
+        assert.deepEqual(options, { name: '打印', exact: true });
+        return { and: other => { assert.equal(other, 'native-action'); return locator(prints); } };
+      },
+    };
+    const expect = value => value === panel
+      ? { toBeVisible: async () => {} }
+      : { toHaveCount: async count => assert.equal(await value.count(), count) };
+    expect.poll = read => ({ toBe: async expected => assert.equal(await read(), expected) });
+    await assertAidtReadOnlyProblemOutput(panel, expect);
+  }
+
+  await inspect();
+  await inspect({ buttons: 1, prints: 1 });
+  await assert.rejects(inspect({ buttons: 1 }));
+  await assert.rejects(inspect({ buttons: 2, prints: 1 }));
+  await assert.rejects(inspect({ buttons: 2, prints: 2 }));
+  await assert.rejects(inspect({ editors: 1, buttons: 1, prints: 1 }));
+});
+
+function s2HistoryReentry({ initial, after, missing } = {}) {
+  const threadId = 'thr_aidt_saved_interview';
+  const target = ownedAidtEntityRoute(href.replace('step=1', 'step=2'), scope, { stage: 2 });
+  const current = target.href + '&tool=outcome&thread=' + threadId;
+  let url = initial?.(current) ?? current;
+  const events = [];
+  const locator = label => ({
+    filter: value => { events.push(['filter', label, value]); return locator(label); },
+    last: () => locator(label),
+    label,
+  });
+  const page = {
+    url: () => url,
+    reload: async options => { events.push('reload'); assert.equal(options.waitUntil, 'domcontentloaded'); url = after?.(current) ?? current; },
+    getByTestId: locator,
+    locator: selector => { events.push(['locator', selector]); return locator('durable-assistant'); },
+  };
+  const expect = value => ({ toBeVisible: async () => {
+    events.push(['visible', value.label]);
+    if (missing === value.label) throw new Error('TEST_MISSING_HISTORY');
+  } });
+  const prior = { status: 'passed', projectId, stageId: 2, entityId, threadId,
+    prompt: '学生首轮问题', inputMessageId: 'saved-user', assistantMessageId: 'saved-assistant' };
+  return { page, expect, target, prior, events };
+}
+
+test('S2 follow-up reopens the exact same native conversation and requires both durable prior turns', async () => {
+  const f = s2HistoryReentry();
+  await reopenAidtS2TeachingHistory(f);
+  assert.equal(f.events[0], 'reload');
+  assert.ok(f.events.some(event => event[0] === 'locator' && event[1] === '[data-message-id="saved-assistant"]'));
+  assert.deepEqual(f.events.filter(event => event[0] === 'visible').map(event => event[1]),
+    ['copilot-user-message', 'copilot-assistant-message', 'copilotkit-v2-input']);
+});
+
+test('S2 follow-up rejects a sibling before reload or on redirect after reload', async () => {
+  for (const key of ['initial', 'after']) {
+    const f = s2HistoryReentry({ [key]: url => url.replace('thr_aidt_saved_interview', 'thr_aidt_sibling') });
+    await assert.rejects(reopenAidtS2TeachingHistory(f), /S2_TEACHING_HISTORY_REENTRY_UNVERIFIED/);
+    assert.deepEqual(f.events, key === 'initial' ? [] : ['reload']);
+  }
+});
+
+test('S2 follow-up can never treat an unbound receipt or missing assistant bubble as ready', async () => {
+  const missing = s2HistoryReentry({ missing: 'copilot-assistant-message' });
+  await assert.rejects(reopenAidtS2TeachingHistory(missing), /TEST_MISSING_HISTORY/);
+  assert.equal(missing.events.some(event => event[1] === 'copilotkit-v2-input'), false);
+  const wrong = s2HistoryReentry();
+  wrong.prior.entityId = otherEntity;
+  await assert.rejects(reopenAidtS2TeachingHistory(wrong), /S2_TEACHING_HISTORY_REENTRY_UNVERIFIED/);
+  assert.deepEqual(wrong.events, []);
 });

@@ -1,3 +1,4 @@
+import type { AidtResearchMaterialReference } from "./aidt-research-material-reference";
 import { StageDraft } from "@repo/contracts/aidt-stages";
 import { DESIGN_TEXT_MAX_CHARS } from "@repo/contracts/design-workbench";
 import { ApiError } from "@/lib/api-client";
@@ -7,8 +8,13 @@ import { isAidtModuleEnabled } from "./aidt-module-config";
 import { isVerificationQuestionConfirmed, readAidtQuestionSnapshot, aidtQuestionSnapshotMatches, isAidtReflectionConfirmed, readAidtReturnDecision } from "./aidt-verification-loop";
 import { aidtPrototypePreparationError, readAidtPrototypeInputSelection, readAidtPrototypeEntityDraft, readAidtPrototypeHmwSource, resolveAidtPrototypeInputIdeas, usesAidtPrototypeInputSelection } from "./aidt-prototype-handoff";
 import type { DesignComposerContextOffer } from "@/components/design-loop/composer-context-offer";
+import { loadAidtConfirmedPrototypeText, loadAidtBoundPrototypeTextSources } from "./aidt-prototype-confirmed-text";
+import { aidtPrototypeTextHashes, readAidtPrototypeTextOutputBinding, readAidtPrototypeTextOutputBindings } from "./aidt-prototype-text-state";
+import { AidtPrototypeTextConfirmation } from "@repo/contracts/aidt-prototype-text";
 
-export type AidtDesignHandoff = { offer: DesignComposerContextOffer; warnings: readonly string[]; sources: readonly { stageId: number; revision: number }[] };
+export type AidtDesignHandoff = { offer: DesignComposerContextOffer; warnings: readonly string[]; sources: readonly { stageId: number; revision: number }[];
+  sourceImages?: readonly { ideaId: string; title: string; stage4Revision: number; brainstormId: string; reference: AidtResearchMaterialReference }[];
+  textBasis?: { designId: string; stageRevision: number; textVersion: string; textSha256: string } };
 export type AidtDesignHandoffInput = { projectId: string; stageId: number; sessionToken: string; signal?: AbortSignal; roundRevision?: number; prototypeEntityId?: string };
 const field = (stage: AidtSharedStage | null, id: string) => stage?.content.draft.fields[id]?.trim() ?? "";
 function assertCurrent(input: AidtDesignHandoffInput) {
@@ -67,6 +73,59 @@ export async function loadAidtDesignHandoff(input: AidtDesignHandoffInput): Prom
     } catch (error) { assertCurrent(input); rethrowDeniedRead(error); warnings.push("未能读取本轮绑定的第5步历史，未改用新的第5步内容。"); }
   } else warnings.push("本轮未绑定第5步共享版本；只保留已保存的冻结问题，不采用当前第5步。");
   if (prototype) sources.push({ stageId: 5, revision: prototype.revision });
+  let confirmed: Pick<Awaited<ReturnType<typeof loadAidtConfirmedPrototypeText>>, "confirmation" | "sources" | "hashes"> | null = null;
+  if (entityId && !useFrozenRound) {
+    confirmed = await loadAidtConfirmedPrototypeText({ projectId: input.projectId, designId: entityId, sessionToken: input.sessionToken, signal: input.signal });
+  } else if (entityId && useFrozenRound) {
+    // A frozen question can only use the binding recorded beside its exact old
+    // prototype version. Never consult the current S5 text/confirmation here.
+    const frozenDraft = prototype?.content.draft;
+    const binding = frozenDraft && [readAidtPrototypeTextOutputBinding(frozenDraft), ...readAidtPrototypeTextOutputBindings(frozenDraft)]
+      .find(value => value?.designId === entityId && value.versionId === snapshot?.prototypeVersionId);
+    if (binding && prototype) {
+      if (binding.projectId !== input.projectId || binding.textStageRevision > prototype.revision) throw new Error("AIDT_PROTOTYPE_TEXT_VERSION_MISMATCH");
+      const original = await saved(input, 5, binding.textStageRevision);
+      const originalText = original && readAidtPrototypeEntityDraft(original.content.draft, entityId);
+      if (!originalText) {
+        warnings.push("本轮旧原型所绑定的文字设计历史缺失；仅保留冻结问题与只读来源，未取当前文字替代。");
+      } else {
+        const basis = AidtPrototypeTextConfirmation.parse({ schemaVersion: 1, projectId: input.projectId, designId: entityId,
+          stageRevision: binding.textStageRevision, textVersion: originalText.fields.prototypeTextVersion, text: originalText.fields.prototypeTextDesign,
+          selection: originalText.fields.prototypeIdeaSource, lineage: originalText.fields.prototypeTextLineage });
+        const hashes = await aidtPrototypeTextHashes(basis);
+        if (basis.textVersion !== binding.textVersion || hashes.textSha256 !== binding.textSha256 || hashes.lineageSha256 !== binding.lineageSha256) throw new Error("AIDT_PROTOTYPE_TEXT_VERSION_MISMATCH");
+        const frozenSources = await loadAidtBoundPrototypeTextSources({ projectId: input.projectId, designId: entityId,
+          sessionToken: input.sessionToken, signal: input.signal }, binding);
+        confirmed = { confirmation: basis, hashes, sources: frozenSources };
+      }
+    } else {
+      warnings.push("本轮旧原型未记录确切文字设计绑定；保留旧问题及只读交接，不补造文字设计，也不采用当前确认稿。");
+    }
+  }
+  if (entityId && confirmed) {
+    const basis = confirmed.confirmation;
+    const textSources = confirmed.sources.lineage.ideas.flatMap(idea => idea.references);
+    const exactSources = [...new Map([...sources, { stageId: 5, revision: basis.stageRevision }, ...textSources]
+      .map(source => [`${source.stageId}:${source.revision}`, { stageId: source.stageId, revision: source.revision }])).values()];
+    const text = [
+      "教学原型制作 · 学生已确认的文字设计",
+      `项目 ${input.projectId}；原型 ${entityId}；文字设计 第5步 V${basis.stageRevision}；文字版本 ${basis.textVersion}`,
+      `确认原文 SHA256：${confirmed.hashes.textSha256}；冻结来源 SHA256：${confirmed.hashes.lineageSha256}`,
+      useFrozenRound ? "以下文字固定来自本轮旧原型所绑定的历史修订，与冻结问题一起使用；不采用当前第5步文字。" : "以下文字来自确切已保存修订。缺少的研究资料不能由模型补造；学生仍需审阅实际输出。",
+      basis.text,
+      ...confirmed.sources.items.map(item => `点子 ${item.title}（${item.ideaId}）：${item.views.map(view => `第${view.reference.stageId}步 V${view.reference.revision} / ${view.reference.entityId}`).join("；")}\n缺口：${item.missing.join("；") || "无已记录缺口"}`),
+      snapshot ? `本轮冻结验证问题：${snapshot.question}\n先前看法：${snapshot.beforeTestBelief}\n范围：${snapshot.verificationLimits}` : `本轮验证问题：${field(prototype, "verificationQuestion")}\n范围：${field(prototype, "verificationLimits")}`,
+      "制作后请学生查看确切原型版本并明确绑定本份文字设计；提示文字与版本摘要不能冒充供应商来源回执。",
+    ].join("\n\n");
+    if (text.length > DESIGN_TEXT_MAX_CHARS) throw new Error("AIDT_DESIGN_CONTEXT_TOO_LONG");
+    assertCurrent(input);
+    return { offer: { id: JSON.stringify([input.projectId, input.stageId, entityId, basis.stageRevision, basis.textVersion, round?.revision, snapshot?.prototypeVersionId]), label: `${useFrozenRound ? "本轮冻结" : "已确认"}文字设计 · 第5步 V${basis.stageRevision}`, text },
+      sourceImages: confirmed.sources.items.flatMap(item => item.views.flatMap(view => view.reference.role === "idea" && view.image ? [{ ideaId: item.ideaId, title: item.title, stage4Revision: view.reference.revision, brainstormId: confirmed.sources.lineage.brainstormId ?? "", reference: view.image }] : [])),
+      warnings: ["制作后需查看实际版本并由学生明确绑定文字依据；这不表示供应商独立验证了来源。",
+        ...(useFrozenRound && !confirmed.sources.lineage.brainstormId ? ["旧绑定未记录独立 Ideation 列表；只读保留此历史文字，不据此启动新制作。"] : [])], sources: exactSources,
+      ...(!useFrozenRound || confirmed.sources.lineage.brainstormId
+        ? { textBasis: { designId: entityId, stageRevision: basis.stageRevision, textVersion: basis.textVersion, textSha256: confirmed.hashes.textSha256 } } : {}) };
+  }
   const references = new Map(prototype?.sourceStageRevisions.map(source => [source.stageId, source.revision]) ?? []);
   const prototypeDraft = prototype?.content.draft;
   const selection = prototypeDraft ? readAidtPrototypeInputSelection(prototypeDraft) : null;
@@ -87,7 +146,7 @@ export async function loadAidtDesignHandoff(input: AidtDesignHandoffInput): Prom
   }
   const legacyDefinition = selection ? null : await supporting(3);
   const ideation = await supporting(4);
-  const hmwSource = selection ? readAidtPrototypeHmwSource(ideation) : null;
+  const hmwSource = selection ? readAidtPrototypeHmwSource(ideation, selection.brainstormId) : null;
   const definition = hmwSource ? await supporting(3, hmwSource.revision) : legacyDefinition;
   const exactHmw = hmwSource && definition?.content.draft.fields.definitionHmwId === hmwSource.id
     && field(definition, "hmw") === hmwSource.text ? hmwSource.text : "";

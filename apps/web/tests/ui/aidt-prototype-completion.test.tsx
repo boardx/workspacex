@@ -7,23 +7,23 @@ import { AidtDashboard } from "@/features/aidt/components/project-aidt-dashboard
 import { useAidtConfirmedStages } from "@/features/aidt/lib/use-aidt-confirmed-stages";
 import { emptyAidtUiDrafts, type AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import type { AidtSharedStage } from "@/features/aidt/lib/live-aidt-stages";
-import { confirmAidtPrototypeHandoff, pinAidtPrototypeInputs, updateAidtPrototypeEntityDraft } from "@/features/aidt/lib/aidt-prototype-handoff";
-import { confirmAidtVerificationQuestion } from "@/features/aidt/lib/aidt-verification-loop";
-import { updateAidtPrototypeReference } from "@/features/aidt/lib/aidt-prototype-reference";
+import { confirmAidtPrototypeHandoff, updateAidtPrototypeEntityDraft } from "@/features/aidt/lib/aidt-prototype-handoff";
+import { readyFormalPrototypeFixture, storeFormalPrototypeFixture } from "../aidt-round-fixture-independent-qa";
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => undefined }));
 vi.mock("@/features/aidt/components/aidt-prototype-version-picker", () => ({ AidtPrototypeVersionPicker: () => null }));
 function stage(stageId: number, draft: AidtUiStageDraft): AidtSharedStage {
   return { projectId: "project", stageId, revision: 1, sourceStageRevisions: [], content: { schemaVersion: 1, draft: StageDraft.parse(draft) }, updatedBy: "student", updatedAt: "2026-11-21T00:00:00Z" };
 }
-const ideas = stage(4, { ...emptyAidtUiDrafts()[4]!, ideas: [{ id: "menu", title: "菜单", description: "比较口味" }], fields: { ideaHandoffIds: '["menu"]' } });
-function candidate(id: string) {
-  const question = confirmAidtVerificationQuestion(pinAidtPrototypeInputs({ ...emptyAidtUiDrafts()[5]!, fields: { verificationQuestion: "能否理解差别？", beforeTestBelief: "也许可以", verificationBasis: "尚无证据", verificationLimits: "静态理解", type: "静态图", situation: "午休", task: "比较两款" } }, ideas))!;
-  return updateAidtPrototypeReference(question, { designId: id, versionId: "v1", designName: id, createdAt: "2026-11-21T00:00:00Z", seq: 1, summary: "并排对比", frameCount: 2, generatedFrameCount: 2, source: "model" });
-}
+const ready = (id: string) => readyFormalPrototypeFixture({ projectId: "project", designId: id, sourceRevision: 1,
+  fields: { verificationQuestion: "能否理解差别？", beforeTestBelief: "也许可以", verificationBasis: "尚无证据", verificationLimits: "静态理解", type: "静态图", situation: "午休", task: "比较两款" },
+  reference: { designId: id, versionId: "v1", designName: id, createdAt: "2026-11-21T00:00:00Z", seq: 1, summary: "并排对比", frameCount: 2, generatedFrameCount: 2, source: "model" } });
+const ideas = ready("A").sourceStage;
+const candidate = (id: string) => ready(id).draft;
+
 it("selects the current prototype through the existing confirmation action, persists it, and does not select a candidate merely by opening it", async () => {
   let receipt: AidtSharedStage | undefined;
-  let initial = updateAidtPrototypeEntityDraft(emptyAidtUiDrafts()[5]!, "A", () => candidate("A"));
-  initial = updateAidtPrototypeEntityDraft(initial, "B", () => confirmAidtPrototypeHandoff(candidate("B"))!);
+  let initial = storeFormalPrototypeFixture(emptyAidtUiDrafts()[5]!, "A", candidate("A"));
+  initial = storeFormalPrototypeFixture(initial, "B", confirmAidtPrototypeHandoff(candidate("B"))!);
   function Host({ id, restored }: { id: string; restored?: AidtSharedStage }) {
     const [draft, update] = React.useState(restored?.content.draft ?? initial);
     const [saved, setSaved] = React.useState(restored ?? stage(5, initial));

@@ -6,7 +6,7 @@ import type { TenantSession } from "../../application/ports/database.port";
 import type { AidtContextActor } from "../../application/aidt-run-context/ports";
 import type { AidtStagesService } from "../../application/aidt-stages/service";
 import { aidtEntityThreadId, aidtSavedEntityTitle } from "../../application/aidt-stages/entity-thread";
-import { problemSkillFields, projectProblemSkillDraft } from "../../application/aidt-stages/problem-skill-draft";
+import { problemSkillFields, projectProblemSkillDraft, studentProblemAttributionText } from "../../application/aidt-stages/problem-skill-draft";
 import { projectInterviewSkillDraft, readInterviewChatDraft } from "../../application/aidt-stages/interview-skill-draft";
 
 type Row = { run_id:string; message_id:string; user_text:string; assistant_text:string; source_revision:number|null; requested_by:string; input_at:Date; };
@@ -63,12 +63,14 @@ export async function projectSavedSkillOutput(s:TenantSession, stages:AidtStages
     // Historical summaries may quote the student's earlier framing. Verify the literal
     // wording in this same shared thread before admitting it as their original question.
     let verifiedInitial: string | undefined;
-    if (proposed && !row.user_text.includes(proposed)) {
-      const evidence = await s.query(`SELECT 1 FROM chat_messages
+    if (proposed && !studentProblemAttributionText(row.user_text).includes(proposed)) {
+      const evidence = await s.query<{body:string}>(`SELECT body FROM chat_messages
         WHERE org_id=$1 AND thread_id=$2 AND author_kind='human' AND NOT raw_transcript
           AND COALESCE(visibility_scope,'plenary')='plenary' AND created_at <= $3
-          AND strpos(body,$4)>0 LIMIT 1`, [actor.orgId,actor.threadId,row.input_at,proposed]);
-      if (evidence.rows.length) verifiedInitial = proposed;
+          AND char_length(body) <= 100000 AND strpos(body,$4)>0
+        ORDER BY created_at DESC,id DESC LIMIT 32`, [actor.orgId,actor.threadId,row.input_at,proposed]);
+      if (evidence.rows.some(item => typeof item.body === "string" && item.body.length <= 100000
+        && studentProblemAttributionText(item.body).includes(proposed))) verifiedInitial = proposed;
     }
     const finding = stageId === 2 ? readInterviewChatDraft(row.assistant_text)?.finding : undefined;
     const candidates = [finding?.headline, finding?.context, finding?.interpretation].filter((value): value is string =>
@@ -112,9 +114,11 @@ export async function recoverProblemFraming(s:TenantSession, actor:AidtContextAc
   const candidates = [...new Set(result.rows.map(row=>problemSkillFields(row.body).initial)
     .filter((v):v is string=>!!v && !isAidtProblemControlText(v)))];
   if (!candidates.length) return;
-  const verified=await s.query<{original:string}>(`SELECT original FROM unnest($3::text[]) WITH ORDINALITY candidates(original,idx)
-    WHERE EXISTS (SELECT 1 FROM chat_messages m WHERE m.org_id=$1 AND m.thread_id=$2 AND m.author_kind='human'
+  const verified=await s.query<{original:string;body:string}>(`SELECT original, m.body FROM unnest($3::text[]) WITH ORDINALITY candidates(original,idx)
+    JOIN chat_messages m ON m.org_id=$1 AND m.thread_id=$2 AND m.author_kind='human'
       AND NOT m.raw_transcript AND COALESCE(m.visibility_scope,'plenary')='plenary' AND m.created_at <= $4
-      AND strpos(m.body,original)>0) ORDER BY idx LIMIT 1`,[actor.orgId,thread,candidates,source.updatedAt]);
-  return verified.rows[0]?.original;
+      AND char_length(m.body) <= 100000 AND strpos(m.body,original)>0
+    ORDER BY idx,m.created_at DESC,m.id DESC LIMIT 32`,[actor.orgId,thread,candidates,source.updatedAt]);
+  return verified.rows.find(item => typeof item.body === "string" && item.body.length <= 100000
+    && studentProblemAttributionText(item.body).includes(item.original))?.original;
 }

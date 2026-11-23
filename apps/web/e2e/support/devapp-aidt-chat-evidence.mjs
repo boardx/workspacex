@@ -1,6 +1,6 @@
 /** Bounded normal-UI teaching feedback. No synthetic run/message/receipt, resume or approval. */
 import { createHash } from 'node:crypto';
-import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
+import { ORIGIN, ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 
 export const ENTITY = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 export function validTestPlanProjection(before, body, entityId, messageId) {
@@ -121,7 +121,8 @@ function summaryHistory(value) {
 }
 function selector(value) {
   if (value?.purpose === 'summary') {
-    if (Object.keys(value).sort().join(',') !== 'historyRevisions,projectId,purpose,schemaVersion,stageRevisions' || value.schemaVersion !== 1 || !id(value.projectId)) fail('TEACHING_SELECTOR_INVALID');
+    const expectedKeys = value.entityId === undefined ? 'historyRevisions,projectId,purpose,schemaVersion,stageRevisions' : 'entityId,historyRevisions,projectId,purpose,schemaVersion,stageRevisions';
+    if (Object.keys(value).sort().join(',') !== expectedKeys || value.entityId !== undefined && value.entityId !== 'group-report' || value.schemaVersion !== 1 || !id(value.projectId)) fail('TEACHING_SELECTOR_INVALID');
     const stageRevisions = refs(value.stageRevisions);
     if (stageRevisions.length !== 6) fail('TEACHING_SELECTOR_INVALID');
     return { ...value, stageRevisions, historyRevisions: summaryHistory(value.historyRevisions) };
@@ -142,6 +143,58 @@ function messageText(message) {
   if (Array.isArray(message.content) && message.content.every(part => object(part) && part.type === 'text' && typeof part.text === 'string')) return message.content.map(part => part.text).join('');
   fail('TEACHING_NON_TEXT_MESSAGE');
 }
+const HISTORY_DIAGNOSTIC_KEYS = Object.freeze(['messageCount', 'historyCount', 'firstBadIndex', 'idMatchesDurable',
+  'idMatchesKnownClientAlias', 'roleMatches', 'textExact', 'textTrimEqual', 'anyCanonicalTextExact', 'contentShape']);
+const HISTORY_DIAGNOSTIC_BOOLEANS = Object.freeze(['idMatchesDurable', 'idMatchesKnownClientAlias', 'roleMatches',
+  'textExact', 'textTrimEqual', 'anyCanonicalTextExact']);
+
+/** Fixed-size diagnostic only: no message, identifier, request or error text leaves this function. */
+function safeHistoryDiagnostic(value) {
+  try {
+    if (!object(value)) return;
+    const keys = Reflect.ownKeys(value), descriptors = Object.getOwnPropertyDescriptors(value);
+    if (keys.some(key => typeof key !== 'string') || keys.sort().join(',') !== [...HISTORY_DIAGNOSTIC_KEYS].sort().join(',')
+      || HISTORY_DIAGNOSTIC_KEYS.some(key => !Object.hasOwn(descriptors[key], 'value'))) return;
+    const data = Object.fromEntries(HISTORY_DIAGNOSTIC_KEYS.map(key => [key, descriptors[key].value]));
+    if (!Number.isInteger(data.messageCount) || data.messageCount < 2 || data.messageCount > 100
+      || !Number.isInteger(data.historyCount) || data.historyCount < 0 || data.historyCount > 100
+      || !Number.isInteger(data.firstBadIndex) || data.firstBadIndex < 0 || data.firstBadIndex >= data.messageCount - 1
+      || HISTORY_DIAGNOSTIC_BOOLEANS.some(key => typeof data[key] !== 'boolean')
+      || !['text', 'text-parts', 'nontext', 'other'].includes(data.contentShape)) return;
+    return Object.freeze(data);
+  } catch { return; }
+}
+
+export function teachingHistoryFailureDiagnostic(messages, history, firstBadIndex) {
+  try {
+    if (!Array.isArray(messages) || messages.length < 2 || messages.length > 100 || !Array.isArray(history) || history.length > 100
+      || !Number.isInteger(firstBadIndex) || firstBadIndex < 0 || firstBadIndex >= messages.length - 1) return;
+    const message = messages[firstBadIndex], content = message?.content;
+    const textParts = Array.isArray(content) && content.every(part => object(part) && part.type === 'text' && typeof part.text === 'string');
+    const contentShape = typeof content === 'string' ? 'text' : Array.isArray(content) ? textParts ? 'text-parts' : 'nontext' : 'other';
+    const text = typeof content === 'string' ? content : textParts ? content.map(part => part.text).join('') : undefined;
+    const durable = history.filter(row => object(row) && typeof message?.id === 'string' && row.id === message.id);
+    const aliases = history.filter(row => object(row) && typeof message?.id === 'string' && typeof row.clientMessageId === 'string' && row.clientMessageId === message.id);
+    const matched = [...durable, ...aliases];
+    return safeHistoryDiagnostic({ messageCount: messages.length, historyCount: history.length, firstBadIndex,
+      idMatchesDurable: durable.length > 0, idMatchesKnownClientAlias: aliases.length > 0,
+      roleMatches: matched.some(row => row.authorKind === 'human' ? ['user', 'human'].includes(message?.role) : row.authorKind === 'agent' && message?.role === 'assistant'),
+      textExact: typeof text === 'string' && matched.some(row => row.text === text),
+      textTrimEqual: typeof text === 'string' && matched.some(row => typeof row.text === 'string' && row.text.trim() === text.trim()),
+      anyCanonicalTextExact: typeof text === 'string' && history.some(row => object(row) && row.text === text), contentShape });
+  } catch { return; }
+}
+
+/** Read only the closed schema from this exact failure; malformed diagnostics are discarded. */
+export function readTeachingHistoryFailureDiagnostic(error) {
+  try {
+    if (!(error instanceof ProbeFailure) || error.code !== 'TEACHING_HISTORY_NOT_CANONICAL') return;
+    const descriptor = Object.getOwnPropertyDescriptor(error, 'teachingHistoryDiagnostic');
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) return;
+    return safeHistoryDiagnostic(descriptor.value);
+  } catch { return; }
+}
+
 /** SDK IDs are transport coordinates only. The backend ID comes from the accepted human row. */
 export function validateTeachingWire(request, scope) {
   const expected = validateTeachingScope(scope); let url;
@@ -149,13 +202,23 @@ export function validateTeachingWire(request, scope) {
   const body = request.body;
   if (request.method !== 'POST' || url.origin !== scope.origin || url.pathname !== SEND_PATH || url.search || url.hash || url.username || url.password || !object(body) || Object.keys(body).some(key => !['threadId', 'runId', 'parentRunId', 'messages', 'state', 'tools', 'context', 'forwardedProps', 'resume'].includes(key)) || !id(body.threadId) || !id(body.runId) || body.resume !== undefined && body.resume !== null || body.parentRunId !== undefined && body.parentRunId !== null) fail('TEACHING_WIRE_TARGET_INVALID');
   const forwarded = body.forwardedProps;
-  if (!object(forwarded) || Object.keys(forwarded).some(key => !['chatThreadId', 'clientMessageId', 'aidtContext'].includes(key)) || forwarded.chatThreadId !== scope.threadId || !id(forwarded.clientMessageId) || canonical(selector(forwarded.aidtContext)) !== canonical(expected)) fail('TEACHING_WIRE_SCOPE_MISMATCH');
+  if (!object(forwarded) || Object.keys(forwarded).some(key => !['chatThreadId', 'clientMessageId', 'aidtContext', ...(scope.stageFile ? ['attachmentIds'] : [])].includes(key)) || forwarded.chatThreadId !== scope.threadId || !id(forwarded.clientMessageId) || canonical(selector(forwarded.aidtContext)) !== canonical(expected)) fail('TEACHING_WIRE_SCOPE_MISMATCH');
+  if (scope.stageFile && (!id(scope.stageFile.id) || !Array.isArray(forwarded.attachmentIds)
+    || forwarded.attachmentIds.length !== 1 || forwarded.attachmentIds[0] !== scope.stageFile.id)) fail('STAGE_TEXT_WIRE_NOT_VERIFIED');
   if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 100) fail('TEACHING_MESSAGES_INVALID');
   const messages = body.messages, latest = messages.at(-1);
   if (!object(latest) || !['user', 'human'].includes(latest.role) || latest.id !== forwarded.clientMessageId || messageText(latest) !== scope.prompt) fail('TEACHING_STUDENT_TEXT_MISMATCH');
   const history = scope.knownMessages ?? [];
-  for (const message of messages.slice(0, -1)) {
-    if (!object(message) || !history.some(row => row.id === message.id && (row.authorKind === 'human' ? ['user', 'human'].includes(message.role) : row.authorKind === 'agent' && message.role === 'assistant') && row.text === messageText(message))) fail('TEACHING_HISTORY_NOT_CANONICAL');
+  for (const [index, message] of messages.slice(0, -1).entries()) {
+    try {
+      if (!object(message) || !history.some(row => row.id === message.id && (row.authorKind === 'human' ? ['user', 'human'].includes(message.role) : row.authorKind === 'agent' && message.role === 'assistant') && row.text === messageText(message))) fail('TEACHING_HISTORY_NOT_CANONICAL');
+    } catch (error) {
+      if (error instanceof ProbeFailure && error.code === 'TEACHING_HISTORY_NOT_CANONICAL') {
+        const diagnostic = teachingHistoryFailureDiagnostic(messages, history, index);
+        if (diagnostic) Object.defineProperty(error, 'teachingHistoryDiagnostic', { value: diagnostic });
+      }
+      throw error;
+    }
   }
   return { clientMessageId: forwarded.clientMessageId, sdkRunId: body.runId, sdkThreadId: body.threadId };
 }
@@ -171,9 +234,39 @@ export function identifyOwnedTeachingRun(value, scope, wire) {
   if (rows.length > 1 || rows.some(row => row.authorKind !== 'human' || row.authorId !== scope.actorId || row.text !== scope.prompt || !id(row.id))) fail('TEACHING_ACCEPTANCE_MISMATCH');
   const row = rows[0];
   if (!row || row.agentRunId === null) return null;
+  if (scope.stageFile) {
+    const attachment = row.attachments?.[0];
+    if (!Array.isArray(row.attachments) || row.attachments.length !== 1
+      || !['id', 'filename', 'mime', 'bytes'].every(key => attachment?.[key] === scope.stageFile[key])) fail('STAGE_TEXT_MESSAGE_NOT_VERIFIED');
+  }
   if (!id(row.agentRunId) || (scope.knownMessages ?? []).some(prior => prior.id === row.id)) fail('TEACHING_ACCEPTANCE_MISMATCH');
   return { runId: row.agentRunId, inputMessageId: row.id };
 }
+/** Native trace polling reads only a run already bound by canonical human-message
+ * observation. It cannot introduce a run, thread, project or execution capability. */
+export function decideOwnedTeachingExecutionRead(target, method, facts) {
+  const match = /^\/api\/agent-runs\/([A-Za-z0-9_.:-]+)\/execution-events$/.exec(target.pathname);
+  if (!match) return;
+  const denied = { allow: false, kind: 'out-of-scope-read', code: 'EXECUTION_READ_SCOPE_REJECTED' };
+  const cursor = target.searchParams.get('afterSeq'), runId = match[1];
+  if (method !== 'GET' || target.origin !== ORIGIN || target.username || target.password || target.hash
+    || [...target.searchParams.keys()].join(',') !== 'afterSeq' || target.search !== '?afterSeq=' + cursor
+    || !/^(?:-1|0|[1-9][0-9]*)$/.test(cursor ?? '')
+    || !Number.isSafeInteger(Number(cursor)) || !id(runId)
+    || !id(facts?.actorId) || !id(facts.orgId) || !id(facts.projectId)
+    || !(facts.threads instanceof Set) || !(facts.ownedRuns instanceof Set) || !(facts.teachingLedger instanceof Map)) return denied;
+  if (!facts.ownedRuns.has(runId)) return { allow: false, kind: 'teaching-run-needs-binding', runId };
+  const entries = [...facts.teachingLedger.values()].filter(entry => entry.accepted?.runId === runId);
+  if (entries.length !== 1) return denied;
+  const entry = entries[0], scope = entry.scope;
+  if (!entry.wire || !id(entry.wire.clientMessageId) || !id(entry.accepted.inputMessageId)
+    || scope?.actorId !== facts.actorId || scope.projectId !== facts.projectId || scope.origin !== target.origin
+    || scope.orgId !== undefined && scope.orgId !== facts.orgId || !facts.threads.has(scope.threadId)) return denied;
+  try { validateTeachingScope(scope); } catch { return denied; }
+  return { allow: true, kind: 'owned-teaching-execution-read', runId, threadId: scope.threadId,
+    inputMessageId: entry.accepted.inputMessageId, afterSeq: Number(cursor) };
+}
+
 export function validateTeachingEvidence({ messages, run, receipt }, scope, wire, accepted, frozenSnapshotHash) {
   const chosen = validateTeachingScope(scope), observed = identifyOwnedTeachingRun(messages, scope, wire);
   if (!accepted || canonical(observed) !== canonical(accepted)) fail('TEACHING_ACCEPTANCE_MISMATCH');

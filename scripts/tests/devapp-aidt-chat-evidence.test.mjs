@@ -359,3 +359,30 @@ test('stage six planning accepts only the bound student test plan and excludes o
   const sibling = request(ready); sibling.content.draft.fields['testGroup:sibling'] = '{}';
   assert.equal(validTestPlanProjection(before, sibling, group.id), false);
 });
+
+test('native summary preserves the existing group-report entity and rejects a different or dropped report coordinate',()=>{
+  const base=scope(),selected={schemaVersion:1,purpose:'summary',projectId:base.projectId,entityId:'group-report',stageRevisions:Array.from({length:6},(_,i)=>({stageId:i+1,revision:3})),historyRevisions:[]},s={...base,stageId:6,selector:selected},e=evidence(s);delete e.receipt.stageId;Object.assign(e.receipt,{purpose:'summary',stageRevisions:selected.stageRevisions,historyRevisions:[]});
+  const wire=validateTeachingWire(request(s),s),accepted=identifyOwnedTeachingRun(e.messages,s,wire);assert.equal(validateTeachingEvidence(e,s,wire,accepted).stageId,6);
+  for(const entityId of ['another-report','group-report-other',null])assert.throws(()=>validateTeachingWire(request({...s,selector:{...selected,entityId}}),s),/TEACHING_SELECTOR_INVALID|TEACHING_WIRE_SCOPE_MISMATCH/);
+  const old={...selected};delete old.entityId;assert.throws(()=>validateTeachingWire(request({...s,selector:old}),s),/TEACHING_WIRE_SCOPE_MISMATCH/);
+  assert.doesNotThrow(()=>validateTeachingWire(request({...s,selector:old}),{...s,selector:old}));
+});
+
+test('a stage TXT attachment must match exactly once on the outgoing wire and persisted student row', () => {
+  const s = scope(), r = request(s), e = evidence(s);
+  const attachment = { id: 'att-stage-1', filename: 'qa-stage-1.txt', mime: 'text/plain', bytes: 105 };
+  r.body.forwardedProps.attachmentIds = [attachment.id];
+  rejects(() => validateTeachingWire(r, s), 'TEACHING_WIRE_SCOPE_MISMATCH');
+  s.stageFile = attachment;
+  const wire = validateTeachingWire(r, s);
+  for (const bad of [undefined, [], [attachment.id, attachment.id], ['another-id']]) {
+    r.body.forwardedProps.attachmentIds = bad;
+    rejects(() => validateTeachingWire(r, s), 'STAGE_TEXT_WIRE_NOT_VERIFIED');
+  }
+  for (const bad of [undefined, [], [attachment, attachment], [{ ...attachment, bytes: 99 }]]) {
+    e.messages.messages[0].attachments = bad;
+    rejects(() => identifyOwnedTeachingRun(e.messages, s, wire), 'STAGE_TEXT_MESSAGE_NOT_VERIFIED');
+  }
+  e.messages.messages[0].attachments = [attachment];
+  assert.equal(identifyOwnedTeachingRun(e.messages, s, wire).inputMessageId, 'msg-human');
+});

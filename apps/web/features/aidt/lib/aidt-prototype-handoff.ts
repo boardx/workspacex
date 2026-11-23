@@ -3,16 +3,18 @@ import type { AidtUiStageDraft } from "./aidt-ui-drafts";
 import type { AidtSharedStage } from "./live-aidt-stages";
 import { getAidtPrototypeGenerationReadiness, aidtVerificationConfirmation } from "./aidt-verification-loop";
 import { readAidtPrototypeReference } from "./aidt-prototype-reference";
+import { readAidtConfirmedBrainstormRounds } from "./aidt-brainstorm";
+import { AIDT_PROTOTYPE_TEXT_FIELDS, aidtPrototypeTextStorageKey, isAidtPrototypeTextConfirmed, aidtPrototypeOutputMatchesText } from "./aidt-prototype-text-state";
+import { isAidtCandidateRequest } from "@repo/contracts/aidt-candidate-request";
+import { projectAidtPrototypeTextEntity, AidtPrototypeInputSelection as Selection } from "@repo/contracts/aidt-prototype-text";
 
-const Selection = z.object({
-  revision: z.number().int().positive().max(2147483646),
-  ideaIds: z.array(z.string().min(1).max(256)).min(1).max(8),
-}).strict();
 export type AidtPrototypeInputSelection = z.infer<typeof Selection>;
 
 const IdeaHmw = z.object({ revision: Selection.shape.revision, id: z.string().min(1).max(256), text: z.string().trim().min(1).max(6000) }).strict();
-export function readAidtPrototypeHmwSource(stage: AidtSharedStage | null) {
+export function readAidtPrototypeHmwSource(stage: AidtSharedStage | null, brainstormId?: string) {
   if (stage?.stageId !== 4) return null;
+  if (brainstormId) return readAidtConfirmedBrainstormRounds(stage.content.draft, stage.projectId, { sessionId: brainstormId, includeArchived: true })
+    .find(round => round.stableId === brainstormId && !round.legacy)?.source ?? null;
   try {
     const result = IdeaHmw.safeParse(JSON.parse(stage.content.draft.fields.ideaHmwSource ?? ""));
     return result.success ? result.data : null;
@@ -30,32 +32,45 @@ export function readAidtPrototypeInputSelection(draft: AidtUiStageDraft): AidtPr
   } catch { return null; }
 }
 
-export function aidtChosenPrototypeIdeas(stage: AidtSharedStage | undefined) {
-  if (stage?.stageId !== 4) return [];
-  const draft = stage.content.draft;
-  try {
-    const result = Selection.shape.ideaIds.safeParse(JSON.parse(draft.fields.ideaHandoffIds ?? ""));
-    if (!result.success || new Set(result.data).size !== result.data.length) return [];
-    const ideas = result.data.map(id => draft.ideas.find(idea => idea.id === id));
-    return ideas.every(idea => idea?.title.trim() && idea.description.trim()) ? ideas.flatMap(idea => idea ? [idea] : []) : [];
-  } catch { return []; }
+export function readAidtPrototypeIdeaRounds(stage: AidtSharedStage | undefined) {
+  return stage?.stageId === 4 ? readAidtConfirmedBrainstormRounds(stage.content.draft, stage.projectId).filter(round => !round.legacy) : [];
 }
 
-export function pinAidtPrototypeInputs(draft: AidtUiStageDraft, stage: AidtSharedStage, selected?: readonly string[]) {
-  const ideas = aidtChosenPrototypeIdeas(stage).filter(idea => !selected || selected.includes(idea.id));
-  if (!ideas.length) return draft;
-  return { ...draft, fields: { ...draft.fields, [sourceField]: JSON.stringify({ revision: stage.revision, ideaIds: ideas.map(idea => idea.id) }), [confirmationField]: "", verificationQuestionConfirmed: "", verificationQuestionConfirmation: "" } };
+export function aidtChosenPrototypeIdeas(stage: AidtSharedStage | undefined, brainstormId?: string) {
+  return brainstormId ? readAidtPrototypeIdeaRounds(stage).find(round => round.stableId === brainstormId)?.ideas ?? [] : [];
+}
+
+export function pinAidtPrototypeInputs(draft: AidtUiStageDraft, stage: AidtSharedStage, selected?: readonly string[], brainstormId?: string) {
+  if (!brainstormId || !selected?.length || new Set(selected).size !== selected.length) return draft;
+  const available = aidtChosenPrototypeIdeas(stage, brainstormId);
+  const ideas = selected.map(id => available.find(idea => idea.id === id));
+  if (ideas.some(idea => !idea)) return draft;
+  const selection = Selection.safeParse({ revision: stage.revision, brainstormId, ideaIds: selected });
+  if (!selection.success) return draft;
+  return { ...draft, fields: { ...draft.fields, [sourceField]: JSON.stringify(selection.data), [confirmationField]: "", verificationQuestionConfirmed: "", verificationQuestionConfirmation: "", prototypeTextRequired: "true", prototypeTextConfirmation: "", prototypeTextLineage: "" } };
 }
 
 export function resolveAidtPrototypeInputIdeas(selection: AidtPrototypeInputSelection, stage: AidtSharedStage | undefined) {
-  if (stage?.revision !== selection.revision) return [];
-  const ideas = aidtChosenPrototypeIdeas(stage);
-  const chosen = selection.ideaIds.map(id => ideas.find(idea => idea.id === id));
-  return chosen.every(idea => idea !== undefined) ? chosen.filter(idea => idea !== undefined) : [];
+  if (stage?.stageId !== 4 || stage.revision !== selection.revision) return [];
+  if (selection.brainstormId) {
+    const round = readAidtConfirmedBrainstormRounds(stage.content.draft, stage.projectId, { sessionId: selection.brainstormId, includeArchived: true })
+      .find(value => value.stableId === selection.brainstormId && !value.legacy);
+    if (!round || !selection.ideaIds.every(id => round.ideas.some(idea => idea.id === id))) return [];
+    return selection.ideaIds.flatMap(id => round.ideas.filter(idea => idea.id === id));
+  }
+  // Historical prototypes retain their exact previously pinned source. This
+  // reader does not admit new inputs: adoption/pinning uses the strict gate above.
+  try {
+    const retainedIds = Selection.shape.ideaIds.parse(JSON.parse(stage.content.draft.fields.ideaHandoffIds ?? ""));
+    if (new Set(retainedIds).size !== retainedIds.length || !selection.ideaIds.every(id => retainedIds.includes(id))) return [];
+    const chosen = selection.ideaIds.map(id => stage.content.draft.ideas.find(idea => idea.id === id));
+    return chosen.every(idea => idea?.title.trim() && idea.description.trim()) ? chosen.flatMap(idea => idea ? [idea] : []) : [];
+  } catch { return []; }
 }
 
 export function aidtPrototypePreparationError(draft: AidtUiStageDraft): string | null {
   if (draft.fields.prototypeArchived === "true") return "此原型已归档。";
+  if ((draft.fields.prototypeTextRequired === "true" || draft.fields.prototypeTextDesign !== undefined) && !isAidtPrototypeTextConfirmed(draft)) return "请先保存并确认本轮文字设计的确切版本。";
   const readiness = getAidtPrototypeGenerationReadiness(draft);
   if (!readiness.ready) return readiness.reason;
   if (!["beforeTestBelief", "verificationBasis", "verificationLimits"].every(field => draft.fields[field]?.trim())) return "请写下先前看法、已有依据或尚无证据，以及静态原型能验证的范围。";
@@ -67,6 +82,7 @@ function prototypeConfirmation(draft: AidtUiStageDraft): string | null {
   const selection = readAidtPrototypeInputSelection(draft);
   const reference = readAidtPrototypeReference(draft);
   if (aidtPrototypePreparationError(draft) || !selection || !reference?.generatedFrameCount) return null;
+  if ((draft.fields.prototypeTextRequired === "true" || draft.fields.prototypeTextDesign !== undefined) && !aidtPrototypeOutputMatchesText(draft, reference.designId, reference.versionId)) return null;
   return JSON.stringify({
     ...selection,
     designId: reference.designId,
@@ -92,7 +108,6 @@ export function usesAidtPrototypeInputSelection(draft: AidtUiStageDraft) {
 }
 
 const entityPrefix = "prototypeEntity:";
-const EntityFields = z.record(z.string().max(6000));
 export function readAidtPrototypeIdeaRevision(value: string | null | undefined): number | undefined {
   if (!value || !/^[1-9]\d*$/.test(value)) return undefined;
   const revision = Number(value);
@@ -106,7 +121,8 @@ export function readAidtPrototypeEntityDraft(stageDraft: AidtUiStageDraft, id: s
   const raw = stageDraft.fields[entityPrefix + id];
   if (!raw) return null;
   try {
-    const fields = EntityFields.parse(JSON.parse(raw));
+    const fields = projectAidtPrototypeTextEntity(stageDraft.fields, id);
+    if (!fields) return null;
     const prototype = readAidtPrototypeReference({ fields, ideas: [], selectedIdeaId: "" });
     if (prototype && prototype.designId !== id) return null;
     return { fields, ideas: [], selectedIdeaId: "" };
@@ -120,8 +136,16 @@ export function updateAidtPrototypeEntityDraft(
 ): AidtUiStageDraft {
   if (!validPrototypeEntity(id)) return stageDraft;
   const previous = readAidtPrototypeEntityDraft(stageDraft, id) ?? { fields: {}, ideas: [], selectedIdeaId: "" };
-  const next = change(previous);
-  return { ...stageDraft, fields: { ...stageDraft.fields, [entityPrefix + id]: JSON.stringify(next.fields) } };
+  let next = change(previous);
+  if (["prototypeTextDesign", "prototypeTextVersion", "prototypeTextLineage", "prototypeIdeaSource"].some(field => previous.fields[field] !== next.fields[field])) {
+    next = { ...next, fields: { ...next.fields, prototypeTextConfirmation: "", prototypeTextConfirmedText: "", prototypeTextConfirmedLineage: "", aidtPrototypeConfirmedHandoff: "" } };
+  }
+  const fields = { ...next.fields }, stored = { ...stageDraft.fields };
+  for (const field of AIDT_PROTOTYPE_TEXT_FIELDS) {
+    if (fields[field] !== undefined) stored[aidtPrototypeTextStorageKey(id, field)] = fields[field]!;
+    delete fields[field];
+  }
+  return { ...stageDraft, fields: { ...stored, [entityPrefix + id]: JSON.stringify(fields) } };
 }
 
 export function aidtPrototypeEntityDraftTooLarge(stageDraft: AidtUiStageDraft, id: string) {
@@ -149,7 +173,7 @@ export function listAidtConfirmedPrototypeEntities(stageDraft: AidtUiStageDraft)
 /** Selecting a handoff is a student action, separate from merely opening a candidate. */
 export function confirmAidtPrototypeEntityHandoff(stageDraft: AidtUiStageDraft, id: string): AidtUiStageDraft {
   const draft = readAidtPrototypeEntityDraft(stageDraft, id);
-  const confirmed = draft && confirmAidtPrototypeHandoff(draft);
+  const confirmed = draft && readAidtPrototypeInputSelection(draft)?.brainstormId && isAidtPrototypeTextConfirmed(draft) && confirmAidtPrototypeHandoff(draft);
   if (!confirmed) return stageDraft;
   const next = updateAidtPrototypeEntityDraft(stageDraft, id, () => confirmed);
   return { ...next, fields: { ...next.fields, prototypeHandoffEntity: id } };
@@ -203,10 +227,16 @@ const proposalFieldNames = Object.keys(proposalFields) as PrototypeProposalField
 export function readAidtPrototypeDiscussionProposal(messages: readonly DiscussionTurn[]): PrototypeProposal | null {
   const result: PrototypeProposal = {};
   let studentSeen = false;
+  let candidateTurn = false;
   for (const message of messages) {
     const content = typeof message.content === "string" ? message.content.trim() : "";
     if (!content || content.length > 12000) continue;
-    if (message.role === "user") studentSeen = true;
+    if (message.role === "user") {
+      studentSeen = true;
+      candidateTurn = isAidtCandidateRequest(content, "prototype");
+      if (candidateTurn) for (const field of proposalFieldNames) delete result[field];
+    }
+    if (candidateTurn) continue;
     if (!studentSeen || (message.role !== "user" && message.role !== "assistant")) continue;
     const block = /\x60\x60\x60aidt-prototype\s*\n([\s\S]+?)\n\x60\x60\x60/i.exec(content)?.[1];
     if (block) {

@@ -29,7 +29,10 @@ test("AIDT definition personas open distinct native Chat threads from the direct
         ["interviewConfirmed:" + evidenceId]: "true",
         ["interviewRecord:" + evidenceId]: JSON.stringify({
           version: 1, id: evidenceId, code: "U01", displayName: "午间学生",
-          topic: "", topicRevision: null, goal: "", original: "", adopted: "", guideConfirmed: false, consent: null,
+          // Synthetic notes authorization for this source-picker/thread-isolation fixture;
+          // this is not a complete interview or a claim of real participant evidence.
+          topic: "", topicRevision: null, goal: "", original: "", adopted: "", guideConfirmed: false,
+          consent: { observedAt: new Date().toISOString(), notes: true, audio: false, photos: false },
         }),
       }, ideas: [], selectedIdeaId: "", discoveryCards: [{ id: evidenceId, participantCode: "U01", headlineKind: "student-summary", headline: "难以比较口味", context: "午间点单", quote: "不清楚差别", sourceRef: "QA 转写 00:12", photoRef: "" }],
     } } },

@@ -78,7 +78,9 @@ describe("AIDT stage contracts", () => {
     expect(screen.getByTestId("aidt-contract-deliverables")).toHaveTextContent("至少3个不同点子描述单PDF");
     expect(screen.getByTestId("aidt-contract-deliverables")).toHaveTextContent("名称、图和2–3句核心说明");
     expect(screen.getByTestId("aidt-contract-deliverables")).toHaveTextContent("本轮进入原型的点子");
-    expect(screen.getByTestId("aidt-contract-boundary")).toHaveTextContent("不是系统锁步门槛");
+    expect(screen.getByTestId("aidt-contract-boundary")).toHaveTextContent("草稿随时可保存");
+    expect(screen.getByTestId("aidt-contract-boundary")).toHaveTextContent("至少3份不同的完整图文描述单");
+    expect(screen.getByTestId("aidt-contract-boundary")).toHaveTextContent("经学生逐份审阅并确认分类");
     ideas.unmount();
     const prototype = openStage(5);
     expect(screen.getByTestId("aidt-contract-feedback")).toHaveTextContent("方案数量不固定为3个");

@@ -1,6 +1,7 @@
 "use client";
 import { createPortal } from "react-dom";
 import { ChatHostConversationContext } from "./chat-host-panel";
+import { ChatHostActionsBridge } from "./chat-host-actions-bridge";
 import { ownedRunError, restoredRunPhaseLabel, renderChatDisplayText, type ChatDisplayText, type ChatOwnedMessage } from "@/lib/chat-runtime-display";
 import { useI18n } from "@/lib/i18n/provider";
 import { CopilotKitV2PanelView } from "./copilotkit-v2-panel-view";
@@ -1592,6 +1593,15 @@ function useCopilotKitV2PanelController({
 
   );
 
+  const hostTextKey = JSON.stringify([draftSession?.currentOrgId, draftSession?.userId, projectId, resolvedChatThreadId]);
+  const hostTextSender = React.useRef({ key: hostTextKey, send, attach, sendIsBlocked, historyLoading, isRegisteredAgentReady, hostRunPresent, voicePhase: voice.phase });
+  hostTextSender.current = { key: hostTextKey, send, attach, sendIsBlocked, historyLoading, isRegisteredAgentReady, hostRunPresent, voicePhase: voice.phase };
+  const requestHostText = React.useCallback(async (text: string) => {
+    const current = hostTextSender.current;
+    if (current.key !== hostTextKey || !current.hostRunPresent || current.sendIsBlocked || inputDraftRef.current.trim() || current.attach.attachments.length || current.historyLoading || !current.isRegisteredAgentReady || ["connecting", "listening", "stopping"].includes(current.voicePhase)) return false;
+    return Boolean(await current.send(text, { attachments: [] }));
+  }, [hostTextKey]);
+
   /**
    * issue #4179（F17 手动入口 ①②：消息 hover「记住这句」+ 记忆面板「+ 记一条」）——
    * 两个入口都只发 `requestRememberStatement`（`lib/knowledge-graph-events.ts`），真正执行在
@@ -1846,6 +1856,7 @@ function useCopilotKitV2PanelController({
     handleUserScrollIntent,
     historyError,
     historyLoading,
+    hostRunPresent,
     initialChatThreadId,
     inputDraft,
     insertAttachmentMention,
@@ -1896,6 +1907,7 @@ function useCopilotKitV2PanelController({
     sendDisabled,
     sendDisabledReason,
     sendIsBlocked,
+    requestHostText,
     sendWhileRunning,
     serverQueue,
     sessionToken,
@@ -1941,7 +1953,7 @@ export type CopilotKitV2PanelViewProps = ReturnType<typeof useCopilotKitV2PanelC
 export function CopilotKitV2PanelBody(props: Parameters<typeof useCopilotKitV2PanelController>[0]): JSX.Element {
   const view = useCopilotKitV2PanelController(props);
   const conversation = React.useContext(ChatHostConversationContext);
-  const contribution = conversation?.render(view.projectedMessages, view.historyLoading, view.agent.isRunning);
+  const contribution = conversation && <ChatHostActionsBridge view={view}>{conversation.render(view.projectedMessages, view.historyLoading, view.agent.isRunning)}</ChatHostActionsBridge>;
   const timeline = conversation?.target === null;
   const streamSlots = timeline ? { ...view.streamSlots, tail: <>{view.streamSlots.tail}{contribution}</> } : view.streamSlots;
   return <>

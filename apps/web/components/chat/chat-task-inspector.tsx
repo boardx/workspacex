@@ -354,10 +354,10 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     (tab) => (tab !== "roster" || roster !== undefined) && (tab !== "memory" || showKnowledge) && (tab !== "recording" || recordingContent !== undefined),
   );
   React.useEffect(() => {
-    if ((activeTab === "roster" && roster === undefined) || (activeTab === "memory" && !showKnowledge)) {
+    if ((activeTab === "roster" && roster === undefined) || (activeTab === "memory" && !showKnowledge) || (activeTab === "recording" && !recordingContent)) {
       setActiveTab("materials");
     }
-  }, [activeTab, roster, showKnowledge]);
+  }, [activeTab, roster, showKnowledge, recordingContent]);
 
   /*
    * phase-18 F09 —— 「记忆」页签的数据（`getThreadKnowledge`）。选中线程后在 effect 里取一次
