@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { ConfigurationLayout, configurationGroups as groups } from "@/components/admin/configuration-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -64,11 +65,6 @@ const samples: Sample[] = [
   { id: "retention", module: "数据治理", label: "默认文件保留策略", scope: "平台默认", value: "30 天" },
 ];
 
-const groups = {
-  system: ["平台能力与治理", "AI 基础配置", "数据治理"],
-  module: ["订阅与套餐", "积分", "支付渠道", "聊天", "Agent 与 Skill", "研究", "访谈", "问卷", "画布", "项目", "知识图谱与检索", "录音与转录", "Workflow", "反馈", "运行诊断", "组织首页"],
-} as const;
-
 export function ConfigurationPreview() {
   const [category, setCategory] = useState<keyof typeof groups>("module");
   const [group, setGroup] = useState<string>("积分");
@@ -107,25 +103,9 @@ export function ConfigurationPreview() {
         <h1 className="text-2xl font-semibold">配置管理</h1>
         <p className="mt-1 text-sm text-muted-foreground">使用示例数据预览查看和编辑流程。</p>
       </header>
-      <div className="flex gap-2 border-b border-border pb-3" aria-label="配置类型" role="group">
-        {(["system", "module"] as const).map((key) => (
-          <Button key={key} data-testid={`configuration-${key}`} type="button"
-            aria-pressed={category === key} variant={category === key ? "secondary" : "ghost"}
-            onClick={() => { setCategory(key); setGroup(groups[key][0]); setSelection(null); }}>
-            {key === "system" ? "系统配置" : "模块配置"}
-          </Button>
-        ))}
-      </div>
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[11rem_minmax(0,1fr)]">
-        <nav aria-label="配置分组" className="flex flex-wrap gap-1 rounded-control border border-border bg-card p-2 lg:flex-col">
-          {groups[category].map((name, index) => (
-            <Button key={name} data-testid={`configuration-group-${index}`} type="button"
-              className="justify-start" aria-pressed={group === name} variant={group === name ? "secondary" : "ghost"}
-              onClick={() => { setGroup(name); setSelection(null); }}>
-              {name}
-            </Button>
-          ))}
-        </nav>
+      <ConfigurationLayout category={category} group={group} chinese
+        onCategory={(key) => { setCategory(key); setGroup(groups[key][0]); setSelection(null); }}
+        onGroup={(name) => { setGroup(name); setSelection(null); }}>
         <div className="min-w-0 overflow-x-auto rounded-control border border-border bg-card">
           <table className="w-full text-left text-sm">
             <caption className="sr-only">{group}</caption>
@@ -160,7 +140,7 @@ export function ConfigurationPreview() {
             </tbody>
           </table>
         </div>
-      </div>
+      </ConfigurationLayout>
       {selection && (
         <aside aria-labelledby="configuration-editor-title"
           className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-border bg-card text-card-foreground shadow-lg">
