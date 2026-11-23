@@ -4,6 +4,7 @@ import { whiteboard as C } from '@repo/contracts';
 import { WhiteboardCommandBatch, WhiteboardObjectId, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 import type { Principal } from '../../domain/principal';
 import { assertPrincipal } from '../../domain/principal';
+import type { OrgId } from '../../domain/org-id';
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
 import { WhiteboardCollaborationError as Fault, type WhiteboardDeletionProof, type WhiteboardRestoreDeletionInput, type WhiteboardCollaborationStore, type WhiteboardCommandsInput, type WhiteboardUpdateInput, type WhiteboardUpdateAck, type WhiteboardPendingUpdate, type WhiteboardSyncState, type WhiteboardSyncHead, type WhiteboardUpdateValidator, type ValidatedWhiteboardUpdate } from '../../application/whiteboard/collaboration-ports';
 import { WorkerWhiteboardUpdateValidator, WHITEBOARD_VALIDATOR_LIMITS } from './update-validator';
@@ -44,10 +45,10 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     if (objectsOrProjectAccess && 'roleIn' in objectsOrProjectAccess) this.projectAccess = objectsOrProjectAccess;
     else { this.objects = objectsOrProjectAccess; this.projectAccess = projectAccess; }
   }
-  private objectPrefix(p: Principal, boardId: string): string {
+  private objectPrefix(p: Pick<Principal, 'orgId'>, boardId: string): string {
     return `whiteboards/tenants/${HASH(p.orgId).slice(0,32)}/boards/${boardId}`;
   }
-  private async readStored(p: Principal, boardId: string, body: StoredBody, update = false): Promise<Uint8Array> {
+  private async readStored(p: Pick<Principal, 'orgId'>, boardId: string, body: StoredBody, update = false): Promise<Uint8Array> {
     const key = body.object_key;
     if (!key) {
       if (!body.snapshot) throw new Fault('INTEGRITY_FAILED');
@@ -65,6 +66,23 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     if (!Number.isSafeInteger(expected) || expected !== bytes.byteLength || HASH(bytes) !== body.content_hash
       || bytes.byteLength > (update ? WHITEBOARD_SYNC.persistedUpdateBytes : WHITEBOARD_SYNC.documentBytes)) throw new Fault('INTEGRITY_FAILED');
     return bytes;
+  }
+  /** Project evidence may read only current snapshots of boards linked to its own project. */
+  async readProjectSnapshots(orgId: OrgId, projectId: string): Promise<Array<{ boardId: string; title: string; snapshot: Uint8Array | null }>> {
+    const rows = await this.db.withTenant(orgId, async session => (await session.query<StoredBody & { board_id: string; name: string }>(
+      `SELECT w.id::text AS board_id,w.name,d.snapshot,d.object_key,d.content_hash,d.byte_size::text
+         FROM project_resource_links l
+         JOIN whiteboards w ON w.org_id=l.org_id AND w.id::text=l.resource_id
+         LEFT JOIN whiteboard_documents d ON d.org_id=w.org_id AND d.board_id=w.id
+        WHERE l.org_id=$1 AND l.project_id=$2 AND l.kind='whiteboard'
+        ORDER BY l.linked_at,w.id`, [orgId, projectId],
+    )).rows);
+    const result = [];
+    for (const row of rows) {
+      const snapshot = row.object_key || row.snapshot ? await this.readStored({ orgId }, row.board_id, row) : null;
+      result.push({ boardId: row.board_id, title: row.name, snapshot });
+    }
+    return result;
   }
   private async writeStored(key: string, bytes: Uint8Array): Promise<{ key: string; hash: string; size: number }> {
     if (!this.objects) throw new Fault('DEPENDENCY_UNAVAILABLE');

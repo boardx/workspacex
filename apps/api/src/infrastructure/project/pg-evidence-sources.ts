@@ -9,8 +9,8 @@
  *   · 访谈：`INTERVIEW_IN_PROJECT`（#4615：链接行优先，否则 `interview_sessions.project_id`；与资源视图同一个常量）
  *     → 同上的录音链（`source_type='interview'`）+ `interview_quotes`
  *     （纪要引述，`subject_id` → `interview_subjects.display_name` 作说话人）。
- *   · 白板（#4615）：`project_resource_links (kind='whiteboard')` → `whiteboards` + `whiteboard_documents.snapshot`
- *     （Yjs 快照，经白板存储用的同一个校验器 `objects()` 在一次性 worker 里解码——不在主线程里碰二进制更新），
+ *   · 白板（#4615）：白板存储返回项目已关联白板的当前 Yjs 快照
+ *     （使用同一个校验器 `objects()` 在一次性 worker 里解码），
  *     只取活着的 `sticky` / `text` 对象。
  *   · 深研：`project_resource_links (kind='guided_research')` → `guided_research_sessions` +
  *     `guided_research_runtime.state->'sources'`（`GuidedResearchSource[]`，只取 `decision='accepted'`）。
@@ -32,6 +32,7 @@ import type {
 } from "../../application/project/collect-evidence/ports";
 import type { WhiteboardUpdateValidator } from "../../application/whiteboard/collaboration-ports";
 import { WorkerWhiteboardUpdateValidator } from "../whiteboard/update-validator";
+import { PgWhiteboardCollaborationStore } from "../whiteboard/pg-collaboration-store";
 import { INTERVIEW_IN_PROJECT, INTERVIEW_LINK_JOIN } from "./pg-project-resource-repository";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
@@ -120,6 +121,7 @@ export class PgEvidenceSources implements ProjectEvidenceSourcePort {
   constructor(
     private readonly db: DatabasePort,
     private readonly whiteboardDecoder: Pick<WhiteboardUpdateValidator, "objects"> = new WorkerWhiteboardUpdateValidator(),
+    private readonly whiteboardSnapshots: Pick<PgWhiteboardCollaborationStore, "readProjectSnapshots"> = new PgWhiteboardCollaborationStore(db),
   ) {}
 
   async surveysOf(orgId: OrgId, projectId: string): Promise<Guarded<readonly SurveySourceDoc[]>> {
@@ -241,24 +243,12 @@ export class PgEvidenceSources implements ProjectEvidenceSourcePort {
 
   async whiteboardsOf(orgId: OrgId, projectId: string): Promise<Guarded<readonly WhiteboardSourceDoc[]>> {
     const ref = { kind: "project" as const, id: projectId };
-    const rows = await this.db.withTenant(orgId, async (s) => {
-      const r = await s.query<{ id: string; name: string; snapshot: Buffer | null }>(
-        `SELECT w.id::text AS id, w.name, d.snapshot
-           FROM project_resource_links l
-           JOIN whiteboards w ON w.org_id = l.org_id AND w.id::text = l.resource_id
-           LEFT JOIN whiteboard_documents d ON d.org_id = w.org_id AND d.board_id = w.id
-          WHERE l.org_id = $1 AND l.project_id = $2 AND l.kind = 'whiteboard'
-          ORDER BY l.linked_at, w.id`,
-        [orgId, projectId],
-      );
-      return r.rows;
-    });
+    const rows = await this.whiteboardSnapshots.readProjectSnapshots(orgId, projectId);
     // 解码在事务之外做（worker 往返不占着数据库连接）；快照是已提交的那一份。
     const docs: WhiteboardSourceDoc[] = [];
-    for (const row of rows) {
-      const snapshot = row.snapshot === null ? null : new Uint8Array(row.snapshot);
+    for (const { boardId, title, snapshot } of rows) {
       const objects = snapshot === null || snapshot.byteLength === 0 ? [] : await this.whiteboardDecoder.objects(snapshot);
-      docs.push({ boardId: row.id, title: row.name, notes: projectWhiteboardNotes(objects) });
+      docs.push({ boardId, title, notes: projectWhiteboardNotes(objects) });
     }
     return guard(ref, docs);
   }

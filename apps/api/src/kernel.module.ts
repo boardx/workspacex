@@ -3223,8 +3223,9 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: EVIDENCE_SOURCE_REPOSITORY,
       // #4615：白板便签证据要解码 Yjs 快照——用白板存储同一个校验器（一次性 worker）。
-      useFactory: (db: DatabasePort, validator: WhiteboardUpdateValidator) => new PgEvidenceSources(db, validator),
-      inject: [DATABASE_PORT, WHITEBOARD_UPDATE_VALIDATOR],
+      useFactory: (db: DatabasePort, validator: WhiteboardUpdateValidator, collaboration: PgWhiteboardCollaborationStore) =>
+        new PgEvidenceSources(db, validator, collaboration),
+      inject: [DATABASE_PORT, WHITEBOARD_UPDATE_VALIDATOR, WHITEBOARD_COLLABORATION_STORE],
     },
     // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
     // `skill_version_files`, model A) via `PgAssetFileRepository`; every other kind (incl.
