@@ -1118,6 +1118,7 @@ export async function runAidtJourney({ page, expect, interviewStarter, scope, ch
     const quote = `QA-${code}：我在合成情境中先看队列，再决定是否等待。`;
     const materialName = `qa-${unique}-${code}.txt`;
     await saveInterviewEdit(() => uploaded(`${code}研究原件`, materialName, Buffer.from(`${SYNTHETIC}。run=${unique}\n第1段 ${quote}\n`), 'text/plain'));
+    await click(page.getByTestId('chat-task-workbench-inspector-tab-recording'));
     const select = page.getByRole('combobox', { name: '转写原件', exact: true });
     await expect(select.locator('option')).toHaveCount(code === 'U01' ? 3 : 2);
     await saveInterviewEdit(() => select.selectOption({ label: materialName }));

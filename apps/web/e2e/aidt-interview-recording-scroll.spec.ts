@@ -48,20 +48,30 @@ for (const width of [1280, 390]) {
     const materials = page.getByTestId("chat-task-workbench-inspector-tab-materials");
     if (!await materials.isVisible()) await page.getByTestId("chat-task-workbench-inspector-expand").click();
     await materials.click();
-    const pane = page.getByRole("tabpanel");
-    await expect(pane.getByRole("heading", { name: "授权和材料" })).toBeVisible();
+    const materialPane = page.getByRole("tabpanel");
+    await expect(materialPane.getByRole("heading", { name: "授权和材料" })).toBeVisible();
+    const recordingTab = page.getByRole("tab", { name: "录音与转录" });
+    await recordingTab.click();
+    const pane = page.getByRole("tabpanel", { name: "录音与转录" });
     const recorder = pane.getByRole("region", { name: "当前受访者录音" });
     await recorder.getByRole("button", { name: "开始录音" }).click();
     await expect(recorder.getByRole("status").filter({ hasText: "正在录音" })).toBeVisible();
     await expect(recorder.getByRole("timer")).not.toHaveText("00:00");
-    await pane.focus();
-    await page.keyboard.press("Home");
-    await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBe(0);
+    await page.setViewportSize({ width, height: 420 });
     await pane.hover();
     await page.mouse.wheel(0, 600);
-    await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBeGreaterThan(50);
+    await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBeGreaterThan(30);
     await page.mouse.wheel(0, -1000);
     await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBe(0);
+    await materials.click();
+    await expect(recorder).toBeHidden();
+    if (await mobile.isVisible()) {
+      await page.getByTestId("chat-task-workbench-inspector-collapse").click();
+      await mobile.click();
+    }
+    await recordingTab.click();
+    await expect(recorder.getByRole("timer")).not.toHaveText("00:00");
+    await expect(pane.getByText("校对访谈摘录")).toBeVisible();
     await recorder.getByRole("button", { name: "停止录音" }).click();
     const audio = recorder.getByLabel("本页录音预览");
     await expect(audio).toBeVisible();

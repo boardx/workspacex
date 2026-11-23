@@ -58,3 +58,38 @@ it("keeps the WAV when live transcription fails and retries a stored receipt wit
   expect(mocks.upload.mock.calls[0]?.[1]).toMatchObject({ type: "audio/wav", size: 32044 });
   expect(onAttached).toHaveBeenCalledWith(expect.objectContaining({ source, durationMs: 1000, draftTranscript: "" }));
 });
+
+it("shows in-progress transcription and saves only finalized text for review", async () => {
+  let streamHandlers: {
+    onPartial: (text: string) => void;
+    onFinal: (text: string) => void;
+    onFinished: () => void;
+  } | undefined;
+  mocks.asr.mockImplementation(async (handlers) => {
+    streamHandlers = handlers;
+    return {
+      stop: async () => {
+        handlers.onFinal("学生先看排队人数");
+        handlers.onFinished();
+      },
+    };
+  });
+  const onAttached = vi.fn();
+  render(<AidtInterviewRecorder projectId="group-a" participantCode="U01" sessionToken="session" asrAllowed disabled={false} onAttached={onAttached} />);
+  fireEvent.click(screen.getByRole("checkbox", { name: "本次录音同时请求实时转写" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始录音" }));
+  await screen.findByText("等待转写文字…");
+  act(() => {
+    feed(new Int16Array(16_000).fill(141));
+    streamHandlers?.onPartial("还在识别");
+  });
+  expect(screen.getByText("还在识别")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "停止录音" }));
+  await screen.findByText(/学生先看排队人数/);
+  expect(screen.queryByText("还在识别")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "保存本次录音原件" }));
+  await waitFor(() => expect(onAttached).toHaveBeenCalledWith(expect.objectContaining({
+    source,
+    draftTranscript: "[00:01] 学生先看排队人数",
+  })));
+});

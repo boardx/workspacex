@@ -81,11 +81,12 @@ function InterviewField({ label, value, maxLength, disabled, onChange, rows = 1 
     : <input className={inputClass} maxLength={maxLength} disabled={disabled} value={value} onChange={event => onChange(event.currentTarget.value)} />}</label>;
 }
 
-export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate, surface = "legacy", savedIds, problemEntityId, problemRevision }: {
+export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toChat, entityId, onOpen, onCreate, surface = "legacy", openMaterials, savedIds, problemEntityId, problemRevision }: {
   projectId: string; draft: AidtUiStageDraft; update: UpdateDraft; readOnly: boolean;
   toChat?: (text: string) => ComposerOfferResult;
   problemEntityId?: string; problemRevision?: number;
-  surface?: "materials" | "finding" | "legacy";
+  surface?: "materials" | "recording" | "finding" | "legacy";
+  openMaterials?: () => void;
   savedIds?: ReadonlySet<string>;
   entityId?: string | null; onOpen?: (id: string) => void; onCreate?: (id: string, change: Parameters<UpdateDraft>[0]) => Promise<boolean>;
 }) {
@@ -165,7 +166,7 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
 
   return <section className="space-y-4" aria-label={interview && isAidtObservation(interview) ? "观察工作区" : "访谈工作区"}>
     {entityId && !interview ? <p role="status">找不到此研究记录。请返回列表查找其最新状态。</p> : interview
-      ? entityId && surface === "legacy" ? <AidtInterviewOutput entityId={entityId} draft={draft} projectId={projectId} /> : <InterviewDetail surface={surface} compact={Boolean(entityId)} key={interview.id} {...{ interview, draft, update, projectId, topic, toChat }} readOnly={readOnly || isAidtInterviewArchived(draft.fields, interview.id)} onBack={entityId ? undefined : back} />
+      ? entityId && surface === "legacy" ? <AidtInterviewOutput entityId={entityId} draft={draft} projectId={projectId} /> : <InterviewDetail surface={surface} openMaterials={openMaterials} compact={Boolean(entityId)} key={interview.id} {...{ interview, draft, update, projectId, topic, toChat }} readOnly={readOnly || isAidtInterviewArchived(draft.fields, interview.id)} onBack={entityId ? undefined : back} />
       : <>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-16 font-semibold" ref={listFocus} tabIndex={-1}>{records.some(isAidtObservation) ? "访谈与观察" : "访谈列表"}</h4>
@@ -184,8 +185,8 @@ function InterviewSection({ compact, title, children }: { compact: boolean; titl
   return compact ? <details className="space-y-3 border-t border-border pt-3"><summary className="cursor-pointer text-13 font-medium">{title}</summary>{children}</details> : <>{children}</>;
 }
 
-function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack, topic, toChat, surface, compact }: {
-  surface: "materials" | "finding" | "legacy"; compact: boolean;
+function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack, topic, toChat, surface, compact, openMaterials }: {
+  surface: "materials" | "recording" | "finding" | "legacy"; compact: boolean; openMaterials?: () => void;
   interview: AidtInterview; draft: AidtUiStageDraft; update: UpdateDraft; projectId: string;
   readOnly: boolean; onBack?: () => void; topic: Topic; toChat?: (text: string) => ComposerOfferResult;
 }) {
@@ -239,6 +240,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
     kind === "document" ? interview.consent?.notes : kind === "image" ? interview.consent?.photos : interview.consent?.audio,
   );
 
+  const recordingPanel = surface === "recording";
+  const canCapture = interview.consent?.audio && interview.consent.capture;
   return <div className="space-y-4">
     {surface === "legacy" && <><div className="flex flex-wrap items-center justify-between gap-2">
       {onBack && <Button type="button" size="xs" variant="ghost" onClick={onBack}>返回访谈列表</Button>}
@@ -283,7 +286,13 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
     </InterviewSection>
     </>}
     {surface !== "finding" && <InterviewSection compact={false} title={observation ? "观察材料与授权" : "访谈材料与授权"}>
-    <section className="space-y-3 border-t border-border pt-3" aria-label={observation ? "授权和观察材料" : "授权和访谈材料"}>
+    <section className={recordingPanel ? "space-y-3" : "space-y-3 border-t border-border pt-3"} aria-label={recordingPanel ? "访谈录音与转录" : observation ? "授权和观察材料" : "授权和访谈材料"}>
+      {recordingPanel && !canCapture && <div className="space-y-2">
+        <h5 className="text-14 font-semibold">开始前确认授权</h5>
+        <p className="text-12 text-muted-foreground">在材料页记录受访者是否同意录音、共享原件和在线转写。</p>
+        <Button type="button" size="sm" variant="outline" onClick={openMaterials}>查看材料与授权</Button>
+      </div>}
+      {!recordingPanel && <>
       <h5 className="text-14 font-semibold">授权和材料</h5>
       {observation && <p className="text-12 text-muted-foreground">上传真实观察笔记、现场照片等材料，记录时间、情境与行为。学生解释与实际观察分开，不补写受访者原话。</p>}
       <p className="text-12 text-muted-foreground">{interview.consent ? `学生记录于 ${new Date(interview.consent.observedAt).toLocaleString()}` : "尚未记录可共享的材料授权。"}请按实际授权勾选。</p>
@@ -307,16 +316,17 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
         });
         setConsentEdits({ values: {} });
       }}>更新授权记录</Button>
-      {interview.consent?.audio && interview.consent.capture && token && <AidtInterviewRecorder
-        key={JSON.stringify([projectId, token, id, interview.consent.observedAt, readOnly])}
+      </>}
+      {(surface !== "materials" || observation) && canCapture && token && <AidtInterviewRecorder
+        key={JSON.stringify([projectId, token, id, interview.consent?.asr, readOnly])}
         projectId={projectId} participantCode={code} sessionToken={token}
-        disabled={readOnly || Object.keys(draft.fields).length >= 95} asrAllowed={!!interview.consent.asr}
+        disabled={readOnly || Object.keys(draft.fields).length >= 95} asrAllowed={!!interview.consent?.asr}
         onAttached={({ source, ...metadata }) => {
           const key = aidtInterviewMaterialKey(id, encodeURIComponent(source.runId));
           update(old => writeAidtInterviewAudio(old, id, key, source, metadata));
         }}
       />}
-      {interview.consent && !!allowedKinds.length && <AidtResearchMaterialControl
+      {!recordingPanel && interview.consent && !!allowedKinds.length && <AidtResearchMaterialControl
         projectId={projectId} label={`${code}研究原件`} readOnly={readOnly || Object.keys(draft.fields).length >= 95}
         allowedKinds={allowedKinds}
         onlyLocalMaterials selectionScope={interview.consent.observedAt} localMaterials={materials.map(item => item.reference)}
@@ -326,7 +336,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
           update(old => writeAidtInterviewMaterial(old, id, key, JSON.stringify(reference)));
         }}
       />}
-      {materials.filter(item => isAllowed(item.reference.mime)).map(({ key, reference }) => {
+      {materials.filter(item => isAllowed(item.reference.mime) &&
+        (!recordingPanel || item.reference.mime.startsWith("audio/"))).map(({ key, reference }) => {
         const recorded = readAidtInterviewAudio(draft.fields, key);
         return <div key={key} className="space-y-2">
           {recorded && <p className="text-12 text-muted-foreground">
@@ -339,7 +350,9 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
             onClick={() => update(old => setAidtInterviewPhoto(old, id, key, projectId))}>
             {photoKey === key ? "已用作发现卡照片" : "用作发现卡照片"}
           </Button>}
-          {recorded?.draftTranscript && interview.consent?.asr && <details className="text-12">
+          {recordingPanel && recorded?.transcriptionStatus === "incomplete" && interview.consent?.asr &&
+            <p className="text-12 text-muted-foreground">自动转写未完成。可回听原件，补录并校对访谈摘录。</p>}
+          {(surface !== "materials" || observation) && recorded?.draftTranscript && interview.consent?.asr && <details className="text-12">
             <summary className="cursor-pointer">查看自动转写摘录</summary>
             <p className="mt-2 whitespace-pre-wrap">{recorded.draftTranscript}</p>
             <p className="text-muted-foreground">时间标记为浏览器收到文字时的录音位置，请对照原件校对。</p>
@@ -350,7 +363,9 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
           <Button type="button" size="xs" variant="ghost" disabled={readOnly} onClick={() => update(old => writeAidtInterviewMaterial(old, id, key, ""))}>{observation ? "移除此观察的材料关联" : "移除此访谈的材料关联"}</Button>
         </div>;
       })}
-      {interview.consent?.notes && <>
+      {(surface !== "materials" || observation) && interview.consent?.notes && <>
+        <h5 className="border-t border-border pt-3 text-14 font-semibold">{observation ? "校对观察摘录" : "校对访谈摘录"}</h5>
+        <p className="text-12 text-muted-foreground">核对已确认的摘录与时间点后，可在产物页将其用于人物发现卡。</p>
         <label className="block text-12">{observation ? "观察记录原件" : "转写原件"}<select className={inputClass} value={transcript.sourceKey} disabled={!editableEvidence} onChange={event => {
           const sourceKey = event.currentTarget.value;
           update(old => writeAidtInterviewTranscript(old, id, { sourceKey, locator: "", text: "", checked: false }));
@@ -371,7 +386,7 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
     </section>
     </InterviewSection>
     }
-    {surface !== "materials" && <InterviewSection compact={surface === "legacy" && compact} title={observation ? "整理观察发现" : "整理访谈发现"}>
+    {(surface === "legacy" || surface === "finding") && <InterviewSection compact={surface === "legacy" && compact} title={observation ? "整理观察发现" : "整理访谈发现"}>
       <AidtInterviewFindingEditor {...{ projectId, interview, draft, readOnly, update }} />
     </InterviewSection>
     }
