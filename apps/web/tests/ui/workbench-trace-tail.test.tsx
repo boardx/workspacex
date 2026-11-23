@@ -17,12 +17,13 @@ describe("resume journal tail", () => {
   it("tails a resumed run without runAgent and restores final result once using advancing cursor", async () => {
     vi.useFakeTimers();
     const onSettled = vi.fn().mockResolvedValue(true);
+    const onNewSuccess = vi.fn();
     read.mockResolvedValueOnce({ events: [{ ...base, seq: 1, status: "running" }], nextSeq: null })
       .mockResolvedValueOnce({ events: [{ ...base, seq: 2, status: "succeeded" }], nextSeq: null });
     renderHook(() => {
       const [events, setEvents] = React.useState<TraceStore>({ "run-a": [{ ...base, seq: 0, status: "paused" }] });
       const append = React.useCallback((incoming: readonly ExecutionEvent[]) => setEvents((previous) => reduceTrace(previous, incoming)), []);
-      useRunTraceTail({ threadId: "thread-a", bearer: "token", events, append, onSettled });
+      useRunTraceTail({ threadId: "thread-a", bearer: "token", events, append, onSettled, onNewSuccess });
     });
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(read.mock.calls[0]?.slice(0, 3)).toEqual(["run-a", 0, "token"]);
@@ -30,9 +31,24 @@ describe("resume journal tail", () => {
     expect(read.mock.calls[1]?.slice(0, 3)).toEqual(["run-a", 1, "token"]);
     expect(onSettled).toHaveBeenCalledTimes(1);
     expect(onSettled).toHaveBeenCalledWith("run-a");
+    expect(onNewSuccess.mock.calls).toEqual([["run-a"]]);
     await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
     expect(read).toHaveBeenCalledTimes(2);
   });
+  it("restores already-completed history without reporting a new success", async () => {
+    vi.useFakeTimers();
+    const onSettled = vi.fn().mockResolvedValue(true);
+    const onNewSuccess = vi.fn();
+    read.mockResolvedValue({ events: [], nextSeq: null });
+    const events: TraceStore = { "run-a": [{ ...base, seq: 1, status: "succeeded" }] };
+    renderHook(() => useRunTraceTail({ threadId: "thread-a", bearer: "token", events,
+      observedRunId: "run-a", append: vi.fn(), onSettled, onNewSuccess }));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(onSettled.mock.calls).toEqual([["run-a"]]);
+    expect(onNewSuccess).not.toHaveBeenCalled();
+  });
+
   it("aborts an old thread request when changing scope", () => {
     read.mockImplementation(() => new Promise(() => {}));
     const { rerender } = renderHook(({ threadId }) => useRunTraceTail({ threadId, bearer: "token", events: { "run-a": [{ ...base, seq: 0, status: "paused" }] }, append: vi.fn(), onSettled: vi.fn() }), { initialProps: { threadId: "a" } });

@@ -125,6 +125,26 @@ test("刷新等待审批：恢复同一请求身份，批准后REST流式恢复�
   expect(stale.status()).toBe(409);
 });
 
+test("follow-up suggestions start once after a restored approval completes in the background", async ({ page }) => {
+  const { run, runUrl, headers } = await triggerApproval(page);
+  await page.reload();
+  await expect(page.getByTestId("restored-run-approval")).toBeVisible({ timeout: 60_000 });
+
+  let requests = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && request.url().endsWith("/followup-suggestions")) requests += 1;
+  });
+  await decide(page, run, "once");
+  await assertCompleted(page, runUrl, headers, "已按原参数执行");
+  await expect(page.getByTestId("copilotkit-v2-suggestion-1")).toHaveText("这和之前讨论的内容是什么关系？");
+  expect(requests).toBe(1);
+
+  await page.reload();
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("已按原参数执行");
+  await expect(page.getByTestId("copilotkit-v2-suggestion-1")).toHaveCount(0);
+  expect(requests).toBe(1);
+});
+
 test("forever：真实持久审批端口发送契约forever而非展示文案always", async ({ page }) => {
   const { run, runUrl, headers } = await triggerApproval(page);
   await decide(page, run, "forever");
