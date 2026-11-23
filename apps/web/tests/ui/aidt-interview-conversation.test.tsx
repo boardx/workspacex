@@ -46,6 +46,26 @@ it("projects one settled entity draft, then lets the student select, edit and co
   expect(output().queryByRole("checkbox")).toBeNull();
 });
 
+it("manually confirms a real guide when chat has no saved questions", () => {
+  const original = "保留已记录的学生原稿";
+  function Host() {
+    const [draft, update] = React.useState(() => writeAidtInterview(emptyAidtUiDrafts()[2]!, { ...interview, original }));
+    return <><AidtInterviewConversation projectId="qa" interview={readAidtInterviews(draft.fields)[0]!} draft={draft}
+      messages={messages} running={false} loading={false} update={update} onSettled={() => undefined} />
+      <AidtInterviewOutput projectId="qa" entityId={interview.id} draft={draft} /></>;
+  }
+  render(<Host />);
+  const manual = within(screen.getByRole("region", { name: "手动录入访谈问题" }));
+  fireEvent.click(manual.getByRole("button", { name: "确认这份问题清单" }));
+  expect(manual.getByRole("alert")).toHaveTextContent("请至少填写一道实际问过的问题");
+  const output = within(screen.getByTestId("aidt-interview-output"));
+  expect(output.getByText("尚无问题清单。")).toBeVisible();
+  fireEvent.change(manual.getByRole("textbox"), { target: { value: "当时为什么买这套房？\n\n  现在怎么考虑自住？  " } });
+  fireEvent.click(manual.getByRole("button", { name: "确认这份问题清单" }));
+  expect(output.getByText("学生已确认")).toBeVisible();
+  expect(output.getByText("现在怎么考虑自住？")).toBeVisible();
+});
+
 vi.mock("@/features/aidt/components/aidt-research-material", () => ({
   AidtResearchMaterialControl: () => null,
   AidtResearchMaterialPreview: ({ reference }: { reference: { name: string } }) => <span>{reference.name}</span>,

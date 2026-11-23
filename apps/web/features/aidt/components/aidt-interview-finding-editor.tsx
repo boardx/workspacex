@@ -25,11 +25,12 @@ type Props = {
   interview: AidtInterview;
   draft: AidtUiStageDraft;
   readOnly: boolean;
+  manualGuideHref?: string;
   update: (mutate: (previous: AidtUiStageDraft) => AidtUiStageDraft) => void;
 };
 
 /** One person, one photo, one finding and its concrete situation. Evidence stays secondary. */
-export function AidtInterviewFindingEditor({ projectId, interview, draft, readOnly, update }: Props) {
+export function AidtInterviewFindingEditor({ projectId, interview, draft, readOnly, update, manualGuideHref }: Props) {
   const [showMissing, setShowMissing] = useState(false);
   const { id, code } = interview;
   const observation = isAidtObservation(interview);
@@ -138,6 +139,11 @@ export function AidtInterviewFindingEditor({ projectId, interview, draft, readOn
       }}>{observation ? "确认观察发现卡" : "确认人物发现卡"}</Button>
       <p id={`${fieldId}-confirmation`} role="status" className="text-12 text-muted-foreground">{confirmed ? "已确认；后续修改会保留为新草稿。" : missing.length ? `还差 ${missing.length} 项 · 点击确认查看详情。` : "可确认并保存。"} </p>
     </div>
-    {showMissing && !confirmed && missing.length > 0 && <ul role="alert" className="mt-2 list-disc space-y-1 pl-5 text-12">{missing.map(item => <li key={item}>{item}</li>)}</ul>}
+    {showMissing && !confirmed && missing.length > 0 && <div role="alert" className="mt-2 space-y-2 text-12">
+      <ul className="list-disc space-y-1 pl-5">{missing.map(item => <li key={item}>{item}</li>)}</ul>
+      {manualGuideHref && !interview.guideConfirmed && !interview.adopted.trim() && <a href={manualGuideHref} className="text-primary underline">
+        {observation ? "前往手动录入观察关注点" : "前往手动录入访谈问题"}
+      </a>}
+    </div>}
   </section>;
 }

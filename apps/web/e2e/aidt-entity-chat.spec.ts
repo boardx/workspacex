@@ -267,7 +267,7 @@ test.describe("recording evidence in the interview Chat", () => {
     expect(problem.ok()).toBe(true);
     const fields = Object.fromEntries([first, sibling].map((id, index) => ["interviewRecord:" + id,
       JSON.stringify({ version: 1, id, code: "U0" + (index + 1), topicRevision: 1, topic, goal: "了解选择",
-        original: "怎么选饮料？", adopted: "上次怎么选的？", guideConfirmed: true,
+        original: "怎么选饮料？", adopted: index === 0 ? "" : "上次怎么选的？", guideConfirmed: index !== 0,
         consent: { notes: true, photos: false, audio: true, capture: true, asr: false, observedAt: new Date().toISOString() } })]));
     const endpoint = projectStages + "/2";
     expect((await page.request.put(endpoint, { headers, data: { operationId: randomUUID(), expectedRevision: 0,
@@ -325,6 +325,24 @@ test.describe("recording evidence in the interview Chat", () => {
     await editor.getByRole("textbox", { name: "一句发现", exact: true }).fill("她先比较口味，最后仍选熟悉的饮品。");
     await editor.getByRole("textbox", { name: "具体情况", exact: true }).fill(scene);
     await expect.poll(async () => (await head()).discoveryCards?.find((card: { id: string }) => card.id === first)?.context).toBe(scene);
+    const question = "你上次在菜单前是怎么选择饮料的？";
+    expect(JSON.parse((await head()).fields["interviewRecord:" + first]).adopted).toBe("");
+    await editor.getByRole("button", { name: "确认人物发现卡", exact: true }).click();
+    const jumpToGuide = editor.getByRole("link", { name: "前往手动录入访谈问题" });
+    await expect(jumpToGuide).toBeVisible();
+    await jumpToGuide.click();
+    const manualGuide = findingActions.getByRole("region", { name: "手动录入访谈问题" });
+    await expect(manualGuide).toBeInViewport();
+    await manualGuide.getByRole("button", { name: "确认这份问题清单" }).click();
+    await expect(manualGuide.getByRole("alert")).toContainText("请至少填写一道实际问过的问题");
+    expect(JSON.parse((await head()).fields["interviewRecord:" + first]).guideConfirmed).toBe(false);
+    await manualGuide.getByRole("textbox").fill(question);
+    await manualGuide.getByRole("button", { name: "确认这份问题清单" }).click();
+    await expect.poll(async () => JSON.parse((await head()).fields["interviewRecord:" + first]))
+      .toMatchObject({ original: "怎么选饮料？", adopted: question, guideConfirmed: true });
+    await page.reload();
+    await expect(findingActions.getByRole("button", { name: "已确认问题清单" })).toBeDisabled();
+    await expect(findingActions.getByRole("checkbox", { name: question })).toBeChecked();
     await expect(editor.getByRole("button", { name: "上传照片", exact: true })).toHaveCount(0);
     await editor.getByRole("checkbox", { name: "已获受访者授权共享照片", exact: true }).check();
     await expect.poll(async () => JSON.parse((await head()).fields["interviewRecord:" + first]).consent.photos).toBe(true);
