@@ -54,18 +54,25 @@ export async function runV2S2({ui,s1,teachingFeedback,observeNativeAction,captur
     const adopted=parseV2Record(guide.stage,'interviewRecord:',record.id);if(!adopted.guideConfirmed||!adopted.adopted.trim())fail('V2_S2_GUIDE_NOT_CONFIRMED');
     await ui.outcome(target,{role,phase:'guide-outcome'});
     await printFormal({stage:2,name:`source-${index+1}-guide`,entityId:record.id,button:page.getByTestId('aidt-interview-guide-print'),requiredTexts:[record.code,adopted.adopted],sourceRevision:guide.receipt.revision});
-    // Actual evidence controls live in the normal materials side panel.
-    await ui.navigate(target,{role,phase:'materials',tool:'sources'});
-    await ui.expand(kind==='interview'?'访谈材料与授权':'观察材料与授权');
-    await page.getByLabel('已获授权共享文字记录',{exact:true}).check();await mutate('notes-consent',()=>click(btn('更新授权记录')));
+    // The project's sources tool is not the interview's consent surface.
+    // Open the existing native Chat materials tab; compact=false has no summary.
+    await ui.navigate(target,{role,phase:'materials',tool:'chat'});
+    await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+    const materialsTab=page.getByTestId('chat-task-workbench-inspector-tab-materials');
+    await click(materialsTab);await expect(materialsTab).toHaveAttribute('aria-selected','true');
+    const authorization=page.getByRole('region',{name:kind==='interview'?'授权和访谈材料':'授权和观察材料',exact:true});
+    await expect(authorization).toBeVisible();
+    await expect(authorization.getByRole('heading',{name:'授权和材料',exact:true})).toBeVisible();
+    await authorization.getByLabel('已获授权共享文字记录',{exact:true}).check();
+    await mutate('notes-consent',()=>click(btn('更新授权记录',authorization)));
     let quote=kind==='interview'?`${V2_SYNTHETIC}：我先看队列，再决定是否等待。`:`${V2_SYNTHETIC}：观察到先看队列再离开窗口的动作；原因未知，不推断心理。`;
     const bytes=Buffer.from(`${V2_SYNTHETIC}\n第1段 ${quote}\n第2段 本轮材料只用于软件验收，非真人研究事实。\n`);
     const filename=`qa-${ui.scope.runId}-source-${index+1}.txt`;
     registerFixture({filename,bytes,mime:'text/plain'});
-    const control=page.getByTestId('aidt-research-material-control').filter({has:page.getByLabel(`${record.code}研究原件选择文件`,{exact:true})});
+    const control=authorization.getByTestId('aidt-research-material-control').filter({has:page.getByLabel(`${record.code}研究原件选择文件`,{exact:true})});
     await control.getByLabel(`${record.code}研究原件选择文件`,{exact:true}).setInputFiles({name:filename,mimeType:'text/plain',buffer:bytes});
     await upload('upload-original','bind-original',()=>click(btn('保存原始材料',control)));await expect(control).toContainText('原件已保存并回读');
-    if(case01Review&&kind==='interview')await click(page.getByTestId('chat-task-workbench-inspector-tab-recording'));
+    if(kind==='interview')await click(page.getByTestId('chat-task-workbench-inspector-tab-recording'));
     await mutate('transcript-select',()=>page.getByLabel(kind==='interview'?'转写原件':'观察记录原件',{exact:true}).selectOption({index:1}));
     await mutate('transcript-locator',()=>fill('定位（如 01:42 或第 3 段）','第1段'));
     await mutate('transcript-edit',()=>fill(kind==='interview'?'校对后的摘录':'校对后的观察记录摘录',quote));await mutate('transcript-check',()=>page.getByLabel('已对照原始材料校对',{exact:true}).check());
