@@ -66,7 +66,7 @@ describe("real PG isolated platform model test persistence",()=>{
   let invoked=false;await expect(repository.withQueuedAccounting(actor,request.testId,async()=>{invoked=true;return {physicalReceiptId:"missing",value:null};})).rejects.toThrow("TEST_ACCOUNTING_UNAVAILABLE");expect(invoked).toBe(false);
   expect(await repository.beginDispatch(actor,request.testId)).toBe(false);
   await repository.terminal(actor,request.testId,{state:"failed",result:null,failureReason:"admission-refused"});
-  expect(await repository.read(actor,request.testId)).toMatchObject({state:"cancelled",result:null,settlementState:"held"});
+  expect(await repository.read(actor,request.testId)).toMatchObject({state:"cancelled",result:null,settlementState:"settled"});
  });
  it("missing physical start or held budget can never authorize dispatch",async()=>{
   await repository.claim(actor,request);await expect(repository.beginDispatch(actor,request.testId)).rejects.toThrow("TEST_ACCOUNTING_UNAVAILABLE");
@@ -79,6 +79,6 @@ describe("real PG isolated platform model test persistence",()=>{
   await expect(asOwner(c=>c.query("UPDATE platform_model_tests SET request=jsonb_set(request,'{modelId}','\"forged\"') WHERE id=$1",[request.testId]))).rejects.toThrow("identity is immutable");
   await repository.terminal(actor,request.testId,{state:"failed",result:null,failureReason:"adapter-unavailable"});
   await expect(asOwner(c=>c.query("UPDATE platform_model_tests SET state='queued' WHERE id=$1",[request.testId]))).rejects.toThrow("transition denied");
-  expect((await repository.read(actor,request.testId)).result).toBeNull();
+  expect(await repository.read(actor,request.testId)).toMatchObject({result:null,state:"failed",settlementState:"settled"});
  });
 });
