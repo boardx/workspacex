@@ -10,6 +10,7 @@ on:
         options:
           - baseline
           - v2-voice-20261122
+          - aidt-e2e-01
         default: baseline
         required: true
       expected_source_sha:

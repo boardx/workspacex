@@ -4,13 +4,14 @@ import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 import { V2_SYNTHETIC } from './devapp-aidt-v2-ui.mjs';
 const fail=code=>{throw new ProbeFailure(code);};
 const sha=value=>createHash('sha256').update(value).digest('hex');
-export async function runV2GroupReport({ui,report,teachingFeedback,saveReport,reviewAndSave,saveDownload,printFormal,capture,prototype}) {
+export async function runV2GroupReport({ui,report,teachingFeedback,saveReport,reviewAndSave,saveDownload,printFormal,capture,prototype,caseId}) {
+  if(caseId!==undefined&&caseId!=='AIDT-E2E-01')fail('CASE01_REPORT_CONTEXT_INVALID');
   const {page,expect,go,btn,click,stage}=ui;
   await go(6,{summary:'1'});
   const open=page.getByRole('link',{name:'打开小组研究报告',exact:true});await expect(open).toBeVisible();await ui.performAction({actionId:'s6-group-report-normal-open',steps:[{operationId:'s6-group-report-entity-thread-initial',kind:'write',requestKind:'entity-thread',stageId:6,entityRole:'group-report',entityId:'group-report',method:'PUT',path:`/api/projects/${ui.scope.projectId}/aidt/stages/6/entities/group-report/thread`,captureThread:true},{operationId:'s6-group-report-thread-mount',kind:'write',requestKind:'thread-mount',stageId:6,entityRole:'group-report',entityId:'group-report',method:'POST',path:'/api/threads/{createdThread}/skill-mounts'}],perform:()=>open.click()});
   await page.waitForURL(url=>url.searchParams.get('entity')==='group-report'&&url.searchParams.get('summaryThread')?.startsWith('thr'));
   const target=ui.route(6),outcome=new URL(target.href);outcome.searchParams.set('tool','report');await ui.navigate(target,{role:'group-report',phase:'outcome-initial',tool:'report'});
-  const before=await stage(6),prompt=`${V2_SYNTHETIC}。请依据本组已保存确认的六阶段成果与确切来源版本，生成一份研究报告草稿。保留选题理由与猜测状态、人物发现与原件、意外发现或暂无、画像与HMW、两轮分类及选择、原型文字V2与实际原型版本、三条研究路径和认识变化/返回步骤。模拟研究必须标模拟，合成音频不是真人反馈，缺失真人测试写明缺失；不宣布方案已验证，不自动保存或确认。列每个实际证据及版本来源。`;
+  const before=await stage(6),prompt=`${V2_SYNTHETIC}。请依据本组已保存确认的六阶段成果与确切来源版本，生成一份研究报告草稿。保留选题理由与猜测状态、人物发现与原件、意外发现或暂无、画像与HMW、${caseId?"一轮分类及选择、已确认文字V2与图片原型，实际Survey合成答卷、认识变化、返回第4步后的重新分类和保存；没有执行线下或虚拟测试，也没有WAV转录":"两轮分类及选择、原型文字V2与实际原型版本、三条研究路径和认识变化/返回步骤"}。模拟研究必须标模拟，合成音频不是真人反馈，缺失真人测试写明缺失；不宣布方案已验证，不自动保存或确认。列每个实际证据及版本来源。`;
   if(!await teachingFeedback(6,prompt))fail('V2_REPORT_REAL_MODEL_REPLY_REQUIRED');
   const proof=report.teachingEvidence.findLast(row=>row.entityId==='group-report'&&row.prompt===prompt&&row.status==='passed');
   if(!proof?.assistantMessageId||!proof.sourceRevisions?.length)fail('V2_REPORT_REAL_SOURCE_RECEIPT_REQUIRED');

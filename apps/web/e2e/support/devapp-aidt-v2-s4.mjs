@@ -2,11 +2,12 @@
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 import { V2_METHODS, V2_SYNTHETIC, savedV2Entities, parseV2Record } from './devapp-aidt-v2-ui.mjs';
 const fail=code=>{throw new ProbeFailure(code);};
-export async function runV2BrainstormMethods({ui,hmw,teachingFeedback,capture,observeNativeAction,report}) {
+export async function runV2BrainstormMethods({ui,hmw,teachingFeedback,capture,observeNativeAction,report,methods=V2_METHODS}) {
   const {page,expect,btn,click,fill,go,stage,save,refresh}=ui;
   if(!hmw?.entityId||!hmw?.confirmedRevision||!hmw?.selectedRevision||!hmw?.text?.trim())fail('V2_S4_CONFIRMED_HMW_REQUIRED');
+  if(!Array.isArray(methods)||!methods.length||methods[0]!=='free'||new Set(methods).size!==methods.length||methods.some(method=>!V2_METHODS.includes(method)))fail('V2_S4_METHOD_SCENARIO_INVALID');
   const results=[];
-  for(const method of V2_METHODS) {
+  for(const method of methods) {
     await go(4);const directory=page.getByRole('region',{name:'头脑风暴',exact:true});
     const before=await stage(4),prior=new Set(savedV2Entities(before,'ideaBrainstorm:').map(row=>row.id));
     await click(directory.getByTestId('aidt-new-entity-card'));

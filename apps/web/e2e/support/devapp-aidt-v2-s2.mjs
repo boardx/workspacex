@@ -1,11 +1,13 @@
 /** Two source records are a bounded scenario choice, never a V2 minimum respondent count. */
 import { createHash } from 'node:crypto';
+import { agentInterviewRevisionInput, assertAgentInterviewGuideRevision } from './devapp-aidt-agent-interview-review.mjs';
 import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 import { schematicPng, assertAidtS2Topic } from './devapp-aidt-journey.mjs';
 import { V2_SYNTHETIC, savedV2Entities, parseV2Record } from './devapp-aidt-v2-ui.mjs';
 const fail=code=>{throw new ProbeFailure(code);};
 const hash=b=>createHash('sha256').update(b).digest('hex');
-export async function runV2S2({ui,s1,teachingFeedback,observeNativeAction,capture,printFormal,registerFixture,runSyntheticAsr}) {
+export async function runV2S2({ui,s1,teachingFeedback,observeNativeAction,capture,printFormal,registerFixture,runSyntheticAsr,case01Review}) {
+  if(case01Review && (case01Review.caseId!=='AIDT-E2E-01'||typeof case01Review.review!=='function'||!Array.isArray(case01Review.report?.teachingEvidence)))fail('CASE01_S2_REVIEW_REQUIRED');
   if(!s1?.confirmed?.revision||!s1.next)fail('V2_S2_FORMAL_S1_HANDOFF_REQUIRED');
   const {page,expect,btn,click,fill,stage,save,refresh}=ui;
   const directory=new URL(s1.next,ui.origin);directory.searchParams.delete('entity');directory.searchParams.delete('tool');
@@ -40,8 +42,10 @@ export async function runV2S2({ui,s1,teachingFeedback,observeNativeAction,captur
     const actions=page.getByTestId('aidt-interview-chat-actions');
     const last=await stage(2);const sourceRecord=parseV2Record(last,'interviewRecord:',record.id);
     if(!sourceRecord.original?.trim())fail('V2_S2_STUDENT_INITIAL_NOT_SAVED');
-    const revised=`${V2_SYNTHETIC}。学生将提纲修订为：请回忆最近一次午休选择饮品的具体经过；你先注意到什么，何时决定继续等待或离开？观察则只记录可见行动和情境，不添加受访者心理或原话。请保留我的原稿并提供可审阅的问题/观察关注点。`;
+    let revised=`${V2_SYNTHETIC}。学生将提纲修订为：请回忆最近一次午休选择饮品的具体经过；你先注意到什么，何时决定继续等待或离开？观察则只记录可见行动和情境，不添加受访者心理或原话。请保留我的原稿并提供可审阅的问题/观察关注点。`;
+    if(case01Review&&kind==='interview')revised=await agentInterviewRevisionInput({code:record.code,target,initial:first,confirmedProblem:s1.confirmed,projectId:ui.scope.projectId,proofs:case01Review.report.teachingEvidence,review:case01Review.review,required:true,synthetic:text=>`${V2_SYNTHETIC}。${text}`});
     if(!await feedback(revised,'guide-projection-2'))fail('V2_S2_REAL_GUIDE_REVISION_REQUIRED');
+    if(case01Review&&kind==='interview')assertAgentInterviewGuideRevision({record:parseV2Record(await stage(2),'interviewRecord:',record.id),proofs:case01Review.report.teachingEvidence,projectId:ui.scope.projectId,code:record.code,target,prompt:revised,required:true});
     const rows=actions.getByTestId('aidt-interview-chat-question');await expect(rows.first()).toBeVisible();
     for(const row of await rows.all())await row.getByRole('checkbox').uncheck();
     const row=rows.first();await row.getByRole('checkbox').check();await click(btn('编辑这道问题',row));
@@ -50,20 +54,28 @@ export async function runV2S2({ui,s1,teachingFeedback,observeNativeAction,captur
     const adopted=parseV2Record(guide.stage,'interviewRecord:',record.id);if(!adopted.guideConfirmed||!adopted.adopted.trim())fail('V2_S2_GUIDE_NOT_CONFIRMED');
     await ui.outcome(target,{role,phase:'guide-outcome'});
     await printFormal({stage:2,name:`source-${index+1}-guide`,entityId:record.id,button:page.getByTestId('aidt-interview-guide-print'),requiredTexts:[record.code,adopted.adopted],sourceRevision:guide.receipt.revision});
-    // Actual evidence controls live in the normal materials side panel.
-    await ui.navigate(target,{role,phase:'materials',tool:'sources'});
-    await ui.expand(kind==='interview'?'访谈材料与授权':'观察材料与授权');
-    await page.getByLabel('已获授权共享文字记录',{exact:true}).check();await mutate('notes-consent',()=>click(btn('更新授权记录')));
+    // The project's sources tool is not the interview's consent surface.
+    // Open the existing native Chat materials tab; compact=false has no summary.
+    await ui.navigate(target,{role,phase:'materials',tool:'chat'});
+    await expect(page.getByTestId('copilotkit-v2-input')).toBeVisible();
+    const materialsTab=page.getByTestId('chat-task-workbench-inspector-tab-materials');
+    await click(materialsTab);await expect(materialsTab).toHaveAttribute('aria-selected','true');
+    const authorization=page.getByRole('region',{name:kind==='interview'?'授权和访谈材料':'授权和观察材料',exact:true});
+    await expect(authorization).toBeVisible();
+    await expect(authorization.getByRole('heading',{name:'授权和材料',exact:true})).toBeVisible();
+    await authorization.getByLabel('已获授权共享文字记录',{exact:true}).check();
+    await mutate('notes-consent',()=>click(btn('更新授权记录',authorization)));
     let quote=kind==='interview'?`${V2_SYNTHETIC}：我先看队列，再决定是否等待。`:`${V2_SYNTHETIC}：观察到先看队列再离开窗口的动作；原因未知，不推断心理。`;
     const bytes=Buffer.from(`${V2_SYNTHETIC}\n第1段 ${quote}\n第2段 本轮材料只用于软件验收，非真人研究事实。\n`);
     const filename=`qa-${ui.scope.runId}-source-${index+1}.txt`;
     registerFixture({filename,bytes,mime:'text/plain'});
-    const control=page.getByTestId('aidt-research-material-control').filter({has:page.getByLabel(`${record.code}研究原件选择文件`,{exact:true})});
+    const control=authorization.getByTestId('aidt-research-material-control').filter({has:page.getByLabel(`${record.code}研究原件选择文件`,{exact:true})});
     await control.getByLabel(`${record.code}研究原件选择文件`,{exact:true}).setInputFiles({name:filename,mimeType:'text/plain',buffer:bytes});
     await upload('upload-original','bind-original',()=>click(btn('保存原始材料',control)));await expect(control).toContainText('原件已保存并回读');
-    await mutate('transcript-select',()=>page.getByLabel('转写原件',{exact:true}).selectOption({index:1}));
+    if(kind==='interview')await click(page.getByTestId('chat-task-workbench-inspector-tab-recording'));
+    await mutate('transcript-select',()=>page.getByLabel(kind==='interview'?'转写原件':'观察记录原件',{exact:true}).selectOption({index:1}));
     await mutate('transcript-locator',()=>fill('定位（如 01:42 或第 3 段）','第1段'));
-    await mutate('transcript-edit',()=>fill('校对后的摘录',quote));await mutate('transcript-check',()=>page.getByLabel('已对照原始材料校对',{exact:true}).check());
+    await mutate('transcript-edit',()=>fill(kind==='interview'?'校对后的摘录':'校对后的观察记录摘录',quote));await mutate('transcript-check',()=>page.getByLabel('已对照原始材料校对',{exact:true}).check());
     let syntheticAsr=null;if(index===0&&typeof runSyntheticAsr==='function'){syntheticAsr=await runSyntheticAsr({ui,record:{target}});if(syntheticAsr.status==='passed'){if(typeof syntheticAsr.reviewedText!=='string'||!syntheticAsr.reviewedText.trim())fail('V2_S2_ACTUAL_ASR_QUOTE_REQUIRED');quote=syntheticAsr.reviewedText;}}
     await ui.navigate(target,{role,phase:'finding-chat'});
     const findingPrompt=`${V2_SYNTHETIC}。学生先写发现：${syntheticAsr?.status==='passed'?'合成试饮材料提及杯量与等候时间，非真人发现':record.code+'先看队列再决定'}。具体情况：这是软件验收的合成材料，不推广到真实用户。当前已校对摘录为「${quote}」。学生解释：仅保留材料表达，真实动机和行为仍待验证。${kind==='observation'?'这是观察材料，不要补造受访者原话。':''}请检查材料边界并给定性反馈。`;
@@ -95,7 +107,7 @@ export async function runV2S2({ui,s1,teachingFeedback,observeNativeAction,captur
     if(index===1){await expect(finding).toContainText('暂无授权照片');await expect(finding.getByRole('img')).toHaveCount(0);}else await expect(finding.getByRole('img')).toHaveCount(1);
     await printFormal({stage:2,name:`source-${index+1}-discovery-card`,entityId:record.id,imageHashes:photoHash?[photoHash]:[],expectedImageCount:index===0?1:0,button:finding.getByRole('button',{name:/打印|PDF/}),requiredTexts:[record.code],sourceRevision:confirmed.receipt.revision});
     await capture(`v2-s2-source-${index+1}-confirmed-refreshed`,2);
-    const revocation=index===0?await verifyV2PhotoRevocation({ui,target,photoName:`qa-${ui.scope.runId}-source-1-photo.png`,capture}):null;
+    const revocation=index===0&&!case01Review?await verifyV2PhotoRevocation({ui,target,photoName:`qa-${ui.scope.runId}-source-1-photo.png`,capture}):null;
     records.push({kind,code:record.code,target,quote,sourceFilename:filename,sourceSha256:hash(bytes),sourceFieldsBeforePhoto:sourceFields,syntheticAsr,revocation,revision:(await stage(2)).revision});
   }
   if(new Set(records.map(row=>row.target.threadId)).size!==2)fail('V2_S2_INDEPENDENT_THREADS_REQUIRED');
