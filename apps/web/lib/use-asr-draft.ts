@@ -182,6 +182,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId,
   const stoppingRef = React.useRef(false);
   const baseTextRef = React.useRef("");
   const committedRef = React.useRef("");
+  const partialRef = React.useRef("");
   const onTranscriptRef = React.useRef(onTranscript);
   onTranscriptRef.current = onTranscript;
   // 与 baseText 同理：`start` 是稳定回调，用 ref 让它在被调用那一刻读到**最新**选中的
@@ -264,6 +265,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId,
       setElapsedSeconds(0);
     }
     discardRef.current = false;
+    partialRef.current = "";
     setSegments({ baseText: baseTextRef.current, committedText: committedRef.current, partialText: "" });
     setError(null);
     setErrorReason(null);
@@ -283,8 +285,6 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId,
       setReconnecting(true);
       setConnectionInterrupted(true);
       setLevel(0);
-      setSegments((s) => ({ ...s, partialText: "" }));
-      onTranscriptRef.current(appendTranscript(baseTextRef.current, committedRef.current));
       setStatus("connecting");
       setError(null);
       setErrorReason(reason);
@@ -292,23 +292,38 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId,
       return true;
     };
 
+    let hasFinalInConnection = false;
     void openAsrDraftStream(
       {
         onPartial: (rawText) => {
           if (!current() || discardRef.current) return;
           const text = sanitizeAsrSegment(rawText);
+          partialRef.current = text;
           setSegments((s) => ({ ...s, partialText: text }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, appendTranscript(committedRef.current, text)));
         },
         onFinal: (rawText) => {
           if (!current() || discardRef.current) return;
           const text = sanitizeAsrSegment(rawText);
-          committedRef.current = appendTranscript(stripTrailingTurnBoundaryPunctuation(committedRef.current), text);
+          partialRef.current = "";
+          const previous = hasFinalInConnection
+            ? stripTrailingTurnBoundaryPunctuation(committedRef.current)
+            : committedRef.current;
+          committedRef.current = appendTranscript(previous, text);
+          hasFinalInConnection = true;
           setSegments((s) => ({ ...s, committedText: committedRef.current, partialText: "" }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, committedRef.current));
         },
         onError: (reason) => {
           if (!current()) return;
+          // A new socket cannot finalize the previous socket's last visible words.
+          // Keep that snapshot once, before accepting deltas from the replacement socket.
+          if (!discardRef.current && partialRef.current !== "") {
+            committedRef.current = appendTranscript(committedRef.current, partialRef.current);
+            partialRef.current = "";
+            setSegments((s) => ({ ...s, committedText: committedRef.current, partialText: "" }));
+            onTranscriptRef.current(appendTranscript(baseTextRef.current, committedRef.current));
+          }
           if (recover(reason)) return;
           policyRef.current?.cancel();
           recoveryRef.current = false; setReconnecting(false);

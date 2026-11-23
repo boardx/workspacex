@@ -17,17 +17,20 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.resetAllMocks(); });
 const mount = () => renderHook(() => useAsrDraft({ sessionToken: "test", getBaseText: () => "原文", onTranscript: () => undefined, autoReconnect: true }));
 
-it("recovers confirmed text but not interim or stale events after a temporary outage", async () => {
+it("appends across two outages and ignores superseded partials and stale events", async () => {
   const hook = mount();
   await act(async () => hook.result.current.start());
-  act(() => { streams[0]!.onFinal("已确认？"); streams[0]!.onPartial("未确认"); streams[0]!.onError("ASR_PROVIDER_UNAVAILABLE"); });
+  act(() => { streams[0]!.onFinal("已确认？"); streams[0]!.onPartial("旧草稿"); streams[0]!.onPartial("未确认"); streams[0]!.onError("ASR_PROVIDER_UNAVAILABLE"); });
   expect(hook.result.current.connecting).toBe(true);
   expect(hook.result.current.partialText).toBe("");
   await act(async () => vi.advanceTimersByTimeAsync(1000));
   act(() => { streams[0]!.onFinal("过期"); streams[0]!.onFinished(); streams[1]!.onFinal("恢复"); });
+  act(() => { streams[1]!.onPartial("第二段"); streams[1]!.onError("ASR_PROVIDER_UNAVAILABLE"); });
+  await act(async () => vi.advanceTimersByTimeAsync(2000));
+  act(() => { streams[1]!.onFinal("过期"); streams[2]!.onFinal("第三段"); });
   expect(hook.result.current.status).toBe("listening");
   expect(hook.result.current.baseText).toBe("原文");
-  expect(hook.result.current.committedText).toBe("已确认？ 恢复");
+  expect(hook.result.current.committedText).toBe("已确认？ 未确认 恢复 第二段 第三段");
 });
 
 it.each(["stop", "cancel", "unmount"])("cancels scheduled recovery on %s", async (action) => {
@@ -75,7 +78,7 @@ it("waits offline without consuming retries, then resumes when online", async ()
   expect(streams).toHaveLength(2);
 });
 
-it("stops while offline and keeps the confirmed draft when the network returns", async () => {
+it("stops while offline and keeps all visible draft text when the network returns", async () => {
   const onTranscript = vi.fn();
   const hook = renderHook(() => useAsrDraft({
     sessionToken: "test", getBaseText: () => "原文", onTranscript, autoReconnect: true,
@@ -94,7 +97,7 @@ it("stops while offline and keeps the confirmed draft when the network returns",
   await act(async () => vi.advanceTimersByTimeAsync(30000));
   expect(hook.result.current.status).toBe("idle");
   expect(hook.result.current.reconnecting).toBe(false);
-  expect(onTranscript).toHaveBeenLastCalledWith("原文 已确认");
+  expect(onTranscript).toHaveBeenLastCalledWith("原文 已确认 未确认");
   expect(streams).toHaveLength(1);
 });
 
