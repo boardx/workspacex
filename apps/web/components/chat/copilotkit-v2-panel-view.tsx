@@ -119,6 +119,7 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps & { conv
     setPlanStepRecoveryOffered,
     setQueuedReply,
     streamSlots,
+    followUpSuggestions,
     templateSuggestions,
     threadId,
     userMessageAttachmentsContextValue,
@@ -470,7 +471,8 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps & { conv
             门，只是两处共用同一次渲染判断。 */}
         {archived ? null : (
           <FollowUpSuggestions
-            agentId={threadId}
+            suggestions={followUpSuggestions.texts}
+            isLoading={followUpSuggestions.loading}
             disabled={agent.isRunning}
             onSelect={(text) => void send(text)}
             localSuggestions={templateSuggestions}

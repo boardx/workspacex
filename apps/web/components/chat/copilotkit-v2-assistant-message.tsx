@@ -12,8 +12,6 @@ import { isHandoffCardNarration } from "@/lib/chat-workbench/handoff-narration";
 import { RunEscalationRecords } from "@/components/chat/agent-escalation-card";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
-  useConfigureSuggestions,
-  useSuggestions,
   CopilotChatAssistantMessage,
   CopilotChatToolCallsView,
 } from "@copilotkit/react-core/v2";
@@ -453,57 +451,7 @@ export const V2AssistantMessage = Object.assign(
   CopilotChatAssistantMessage,
 ) as typeof CopilotChatAssistantMessage;
 
-/**
- * ── DA-19e 追问建议（框架版 Gap 2，backlog issue #1962/#1967 系列）─────────────
- *
- * 旧手写面板（`chat-live-message-panel.tsx`）的追问建议手工实现过两次
- * （PR #1938 首次实现、PR #1957 修 deep-agent 线程走不通真实模型的 bug——根因是
- * 手写适配层里"建议生成"另起一条调用路径，没有复用聊天本身已经验证过的连接，
- * 导致 deep-agent 类线程命中一条没人验证过的分支）。这里用官方
- * `useConfigureSuggestions`/`useSuggestions`（`@copilotkit/react-core/v2`，见
- * `node_modules/.../react-core/skills/react-core/references/suggestions.md`）
- * 走框架自己的建议引擎——不是本仓再手写一次生成逻辑。
- *
- * **验证过、不是想当然的一点**：读 `@copilotkit/core` 源码
- * （`dist/index.mjs` `SuggestionEngine.generateSuggestions`）确认了框架内部机制——
- * `consumerAgentId`（这里传 `threadId`，即页面这个 `useAgent` 实例的本地 id）用来
- * 取到消费者的消息历史做种子；`providerAgentId`（默认 `"default"`，与
- * `runtimeAgentId="default"` 对齐）取到的是 `CopilotKitCore` 在 runtime `/info`
- * 发现阶段自动注册的远程代理——**它和本文件里 `useAgent` 走的是同一个
- * `runtimeUrl`/`CopilotRuntime` 路由**（不是另起一条连接），要么用 stateless
- * `/agent/:id/suggest` 端点、要么 clone 这个远程代理后 `runAgent`，两条路径最终
- * 都落到 DA-19a 已加固的同一个 AG-UI 桥接层。这正是"框架版相对手写版的优势"
- * 应该验证的地方：本组件没有像旧实现那样为 deep-agent 线程写任何额外适配代码，
- * 因为框架的建议引擎本身就走 agent 自己已经用于正常对话的那条连接，不存在
- * "建议生成用另一套调用形状"的分支。
- *
- * `reloadSuggestions` 不需要本组件手动触发——`CopilotKitCore.runAgent` 每次
- * agent 运行结束（含工具调用的 follow-up 循环走完之后）会自动对该 agent 的
- * `agentId` 调一次 `suggestionEngine.reloadSuggestions(agentId)`（见
- * `dist/index.mjs` 里 `this._internal.suggestionEngine.reloadSuggestions(agentId)`
- * 紧跟在 follow-up 循环之后那一处）——本组件的 `send()` 已经在调
- * `copilotkit.runAgent({ agent })`，建议是这次调用的副作用之一，不是额外接线。
- */
-/**
- * 一条「本地插入」的建议 chip——不经过 CopilotKit 建议引擎，由调用方按自己的规则
- * 决定何时出现（如「生成用户画像」，见 `copilotkit-v2-panel-body.tsx` 的
- * `personaSuggestions`）。与 `s.message`（AI 建议，点击即发送）不同，它的
- * `onSelect` 是一个无参回调——点击后调用方要做的往往不是「发一条消息」，而是
- * 一次专用 API 调用（persona-summary 需要的锚点、落地流程都与普通消息发送不同）。
- *
- * ⚠ 与 CopilotKit 原生 `suggestions` **同一排渲染、同一套样式**——用户看到的是
- *   一条连贯的"建议行"，分不清（也不需要分清）哪条来自 AI、哪条来自本地规则；
- *   这正是本次重设计要的效果："生成用户画像"从一个恒定不变的独立按钮，变成
- *   这排建议里按上下文出现/消失的一条（人类原话：「他应该是动态的建议的行为，
- *   不能是固定的」，2026-08-30）。
- *
- * ⚠ `id` **直接就是** `data-testid`（不加前缀）——「生成用户画像」这条 chip 沿用
- *   了它作为独立按钮时代就有的既有锚点 `chat-persona-summary-trigger`，
- *   `copilotkit-v2-persona-archived.spec.ts`/`.test.tsx` 等既有测试与真栈 e2e
- *   都认这个 testid；换成生造的前缀（如 `copilotkit-v2-suggestion-local-xxx`）
- *   会让这些既有证据全部找不到元素而超时，本身也不是这次重设计要改的东西——
- *   变的是"什么时候出现"，不是"叫什么名字"。
- */
+/** A contextual chip with a caller-owned action, such as generating a persona summary. */
 export interface LocalSuggestionChip {
   /** 同时也是渲染出来的 `data-testid`，逐字不加前缀。 */
   readonly id: string;
@@ -523,32 +471,19 @@ export interface LocalSuggestionChip {
 }
 
 export function FollowUpSuggestions({
-  agentId,
+  suggestions,
+  isLoading,
   disabled,
   onSelect,
   localSuggestions = [],
 }: {
-  agentId: string;
+  suggestions: readonly string[];
+  isLoading: boolean;
   disabled: boolean;
   onSelect: (text: string) => void;
-  /** 见 `LocalSuggestionChip` 文件头注——调用方按自己的规则算好后传入，本组件
-   *  只负责渲染，不判断"什么时候该出现"（同一条规则不在两处各写一份）。 */
   localSuggestions?: readonly LocalSuggestionChip[];
 }): JSX.Element | null {
   const { t } = useI18n();
-  useConfigureSuggestions(
-    {
-      instructions:
-        "结合当前对话内容，给用户 2-4 条真实相关的追问建议，贴合刚才讨论的具体主题，不要写成泛泛而谈的通用模板。",
-      minSuggestions: 2,
-      maxSuggestions: 4,
-      available: "after-first-message",
-      providerAgentId: "default",
-      consumerAgentId: agentId,
-    },
-    [agentId],
-  );
-  const { suggestions, isLoading } = useSuggestions({ agentId });
 
   if (suggestions.length === 0 && !isLoading && localSuggestions.length === 0) return null;
 
@@ -594,14 +529,14 @@ export function FollowUpSuggestions({
       ))}
       {suggestions.map((s, i) => (
         <button
-          key={`${s.title}-${i}`}
+          key={`${s}-${i}`}
           type="button"
           data-testid={`copilotkit-v2-suggestion-${i}`}
-          disabled={disabled || s.isLoading}
+          disabled={disabled}
           className="rounded-full border border-border-subtle bg-card px-3 py-1 text-12 shadow-sm text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
-          onClick={() => onSelect(s.message)}
+          onClick={() => onSelect(s)}
         >
-          {s.title || s.message}
+          {s}
         </button>
       ))}
     </div>

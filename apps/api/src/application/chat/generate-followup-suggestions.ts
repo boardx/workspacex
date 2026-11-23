@@ -202,6 +202,7 @@ export async function generateFollowUpSuggestions(
       user: "请基于以上对话生成追问建议。只输出 JSON 数组。",
       history,
       responseSchema: FOLLOWUP_SUGGESTIONS_RESPONSE_SCHEMA,
+      preventPersonalCreditFallback: true,
     });
   } catch (e) {
     const detail = e instanceof ModelCallError ? e.detail : "unexpected model call failure";

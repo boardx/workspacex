@@ -46,6 +46,7 @@ import { describeFailedRunBanner, resolveLiveRunErrorOutcome } from "@/lib/copil
 
 import { reportClientError } from "@/lib/report-client-error";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
+import { useFollowUpSuggestions } from "@/lib/chat-workbench/use-follow-up-suggestions";
 import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-run-progress";
 import { onRememberStatement } from "@/lib/knowledge-graph-events";
 
@@ -1055,8 +1056,9 @@ function useCopilotKitV2PanelController({
   }, [agent]);
   const serverQueue = useThreadMessageQueue(resolvedChatThreadId, selectedAgentId, getStoredSessionToken());
   const queuedRunIds = useDispatchedQueueMessages(agent, serverQueue.items, resolvedChatThreadId, getStoredSessionToken(), registerHydrated, bindTraceMessages);
+  const [backgroundSuggestionRunId, setBackgroundSuggestionRunId] = React.useState<string | null>(null);
   useRunTraceTail({ observedRunId, observedRunIds: [...queuedRunIds, ...(runRestore.runId ? [runRestore.runId] : [])], threadId: resolvedChatThreadId, bearer: getStoredSessionToken() ?? undefined,
-    events: runTrace.events, append: runTrace.append, onSettled: restoreJournalResult });
+    events: runTrace.events, append: runTrace.append, onSettled: restoreJournalResult, onNewSuccess: setBackgroundSuggestionRunId });
 
   /**
    * DA-19g —— `useAsrDraft` 的 `start()` 是一个稳定回调（不随每次按键重建），基线读取
@@ -1637,6 +1639,13 @@ function useCopilotKitV2PanelController({
       && hydratedEvidence.threadId === effectiveChatThreadId
       && hydratedEvidence.hasMessages)
       || resolvedThreadIdsRef.current.has(effectiveChatThreadId));
+  const liveStatus = runTrace.liveSignal.event;
+  const latestReply = [...projectedMessages].reverse().find(message => message.role === "assistant");
+  const latestReplyRunId = latestReply ? runTrace.messageRuns[latestReply.id] : null;
+  const backgroundRun = backgroundSuggestionRunId && backgroundSuggestionRunId === latestReplyRunId ? backgroundSuggestionRunId : null;
+  const suggestionRunId = canWrite && !archived && !agent.isRunning
+    ? backgroundRun ?? (liveStatus?.status === "succeeded" ? liveStatus.runId : null) : null;
+  const followUpSuggestions = useFollowUpSuggestions(effectiveChatThreadId, suggestionRunId, sessionToken ?? undefined);
   const { templateRecommendations, personaGeneratedOnce, personaRunning, personaFailure,
     dismissedTemplateKeys, dismissTemplateSuggestion, runPersonaSummary } = useTemplateRecommendations({
       agent, initialChatThreadId: effectiveChatThreadId, projectId, archived, personaThreadHasPersistedEvidence, onMessageSent,
@@ -1940,6 +1949,7 @@ function useCopilotKitV2PanelController({
     skillTrigger,
     speech,
     streamSlots,
+    followUpSuggestions,
     templateSuggestions,
     threadId,
     userMessageAttachmentsContextValue,

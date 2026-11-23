@@ -1066,6 +1066,8 @@ export interface ModelCallInput {
   readonly executionLeaseEpoch?: number;
   /** Server-created metadata owner for private calls without a formal run. */
   readonly auxiliaryModelOperation?: {readonly orgId:string;readonly operationId:string};
+  /** Automatic auxiliary work may use its primary payer without switching to personal funds. */
+  readonly preventPersonalCreditFallback?: boolean;
   readonly usageCallPurpose?: "auxiliary" | "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
   readonly executionPermissionRequestId?: string;
   readonly modelProvider: string;
@@ -1619,6 +1621,7 @@ export interface TokenUsageMeterPort {
     /** Trusted dispatch bound; absent keeps unknown usage held and cannot admit strict preflight. */
     readonly maximumTokens?: number | null;
     readonly tokenBoundRequired?: boolean;
+    readonly preventPersonalCreditFallback?: boolean;
     readonly nativeMaximum?: { readonly unit: import("../../domain/agent-run/ai-billable-unit").AiNativeUnit; readonly quantity: bigint };
     readonly requestId: string; readonly userId: string; readonly runId: string|null;
     readonly executionLeaseEpoch?:number; readonly artifactOperationId?:string; readonly knowledgeOperationId?:string; readonly subtaskId?:string|null;

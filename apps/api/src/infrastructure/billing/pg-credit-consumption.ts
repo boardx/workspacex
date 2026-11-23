@@ -31,7 +31,7 @@ export class PgCreditConsumption {
   // Every financial path takes the organization before wallets, including personal fallback.
   if(!await lockTeamFinancialOwner(s,orgId))throw new CreditConsumptionError("credit_accounting_unavailable","team",orgId,"credit_organization_not_writable");
   let p=await this.payer(s,orgId,input.userId);
-  const immutable={orgId,userId:input.userId,runId:input.runId,modelProvider:input.modelProvider,modelId:input.modelId,executionAttemptId:input.executionAttemptId,projectId:input.projectId,threadId:input.threadId??null,agentId:input.agentId??null,callPurpose:input.callPurpose??null};
+  const immutable={orgId,userId:input.userId,runId:input.runId,modelProvider:input.modelProvider,modelId:input.modelId,executionAttemptId:input.executionAttemptId,projectId:input.projectId,threadId:input.threadId??null,agentId:input.agentId??null,callPurpose:input.callPurpose??null,...(input.preventPersonalCreditFallback?{preventPersonalCreditFallback:true}:{})};
   const old=(await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1",[input.requestId])).rows[0];
   if(old){
    const prior=old.start_facts as Record<string,unknown>;
@@ -57,6 +57,7 @@ export class PgCreditConsumption {
    if(eligibility.decision==="unavailable")throw this.error(p,"team_license_accounting_unavailable");
    if(eligibility.decision==="allowed")wallet=await loadWallet(p);
    if(eligibility.decision==="subscription_required"||(!eligibility.allowOverdraft&&wallet&&creditHundredths(wallet.balance)<=0n)){
+    if(input.preventPersonalCreditFallback)throw this.error(p,eligibility.decision==="subscription_required"?"subscription_required":"insufficient_credit","credit_required");
     p={ownerType:"user",ownerId:input.userId};wallet=undefined;
    }
   }
@@ -91,7 +92,7 @@ export class PgCreditConsumption {
   if(p.ownerType==="team"){
    try { await assertMemberCreditQuota(s,orgId,input.userId); }
    catch(error){
-    if(!(error instanceof CreditConsumptionError)||error.code!=="credit_required"||error.reason!=="member_monthly_limit")throw error;
+    if(input.preventPersonalCreditFallback||!(error instanceof CreditConsumptionError)||error.code!=="credit_required"||error.reason!=="member_monthly_limit")throw error;
     p={ownerType:"user",ownerId:input.userId};
     await grantDuePersonalTerms(s,p.ownerId);wallet=await loadWallet(p);
    }

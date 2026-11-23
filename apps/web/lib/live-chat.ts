@@ -392,10 +392,11 @@ export async function generateFollowUpSuggestions(
   threadId: string,
   agentId: string,
   sessionToken?: string,
+  options?: { notifyCredit?: boolean },
 ): Promise<GenerateFollowUpSuggestionsOut> {
   return apiRequest<GenerateFollowUpSuggestionsOut>(
     chat.operations.generateFollowUpSuggestions.path.replace(":threadId", encodeURIComponent(threadId)),
-    { method: "POST", body: { threadId, agentId }, sessionToken },
+    { method: "POST", body: { threadId, agentId }, sessionToken, notifyCredit: options?.notifyCredit },
   );
 }
 

@@ -9,6 +9,7 @@ import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/bill
 import {PgCreditConsumption} from "../../src/infrastructure/billing/pg-credit-consumption";
 import {PgTeamCheckoutRepository} from "../../src/infrastructure/billing/pg-team-checkout-repository";
 import {PgTeamPaymentRepository} from "../../src/infrastructure/billing/pg-team-payment-repository";
+import {PgMemberCreditQuotaRepository} from "../../src/infrastructure/billing/pg-member-credit-quota-repository";
 const prefix=`fallback-${randomUUID().slice(0,8)}`,user=`${prefix}-user`,other=`${prefix}-other`;
 const unpaid=toOrgId(`${prefix}-unpaid`),second=toOrgId(`${prefix}-second`),team=toOrgId(`${prefix}-team`),enterprise=toOrgId(`${prefix}-enterprise`);
 const orgs=[unpaid,second,team,enterprise],db=new PgDatabase(appConfig());
@@ -86,4 +87,18 @@ it("rejects cross-org and changed-bound replay without a second hold or debit",a
  await expect(reserve(second,"fixed")).rejects.toMatchObject({code:"credit_accounting_unavailable"});
  await expect(db.withTenant(unpaid,s=>credits.reserveInSession(s,unpaid,{...input("fixed"),maximumTokens:2000}))).rejects.toMatchObject({code:"credit_accounting_unavailable"});
  await settle(unpaid,"fixed");await settle(unpaid,"fixed");expect(await balance("user",user)).toBe(19999);
+});
+
+it("keeps optional model requests off the personal wallet when an Enterprise member has exhausted their quota", async () => {
+ const quota = new PgMemberCreditQuotaRepository(db);
+ const request = {...input("optional-after-limit"),preventPersonalCreditFallback:true};
+ await quota.setCreditQuota(enterprise,user,0,user);
+ try {
+  await expect(db.withTenant(enterprise,s=>credits.reserveInSession(s,enterprise,request)))
+    .rejects.toMatchObject({code:"credit_required",ownerType:"team",reason:"member_monthly_limit"});
+  expect(await owner("optional-after-limit")).toBeUndefined();
+  expect(await balance("user",user)).toBe(20000);
+ } finally {
+  await asOwner(c=>c.query("DELETE FROM member_credit_quota WHERE org_id=$1 AND user_id=$2",[enterprise,user]));
+ }
 });
