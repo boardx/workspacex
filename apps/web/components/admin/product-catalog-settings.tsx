@@ -12,10 +12,9 @@ import { Input } from "@/components/ui/input";
 type Product = z.infer<typeof catalog.update.out>;
 type Catalog = z.infer<typeof catalog.list.out>;
 
-export function ProductCatalogSettings({ kind }: { kind: Product["kind"] }) {
+export function ProductCatalogSettings({ kind, market }: { kind: Product["kind"]; market: Product["market"] }) {
   const { locale } = useI18n();
   const zh = locale === "zh-CN";
-  const [market, setMarket] = useState<Product["market"]>("cn");
   const [data, setData] = useState<Catalog>();
   const [editing, setEditing] = useState<Product>();
   const [busy, setBusy] = useState(false);
@@ -84,15 +83,6 @@ export function ProductCatalogSettings({ kind }: { kind: Product["kind"] }) {
 
   return (
     <section className="space-y-3 rounded-card border border-border bg-card p-4">
-      <div className="flex flex-wrap gap-2">
-        {(["cn", "us"] as const).map((option) => (
-          <Button key={option} type="button" disabled={busy} aria-pressed={option === market}
-            variant={option === market ? "secondary" : "ghost"}
-            onClick={() => { setEditing(undefined); setMarket(option); }}>
-            {option === "cn" ? (zh ? "中国市场" : "China") : (zh ? "美国市场" : "United States")}
-          </Button>
-        ))}
-      </div>
       {kind === "credit_topup" && <WelcomeCreditSettings key={market} market={market} />}
       {!data && !message && <p role="status">{zh ? "正在读取配置…" : "Loading settings…"}</p>}
       {data && !data.writable && <p>{zh ? "当前部署尚未配置商品写入连接。" : "The catalog writer is unavailable in this deployment."}</p>}

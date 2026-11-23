@@ -14,6 +14,7 @@ export function PlatformConfigurationScreen({ state }: { state: UiState }) {
   const { t, locale } = useI18n();
   const [category, setCategory] = useState<"system" | "module">("module");
   const [billingSection, setBillingSection] = useState<"subscriptions" | "credits">("credits");
+  const [market, setMarket] = useState<"cn" | "us">("cn");
   const isChinese = locale === "zh-CN";
   const title = t("adminNavigation.item.configuration");
 
@@ -46,8 +47,16 @@ export function PlatformConfigurationScreen({ state }: { state: UiState }) {
             <Button variant={billingSection === "credits" ? "secondary" : "ghost"} aria-pressed={billingSection === "credits"}
               onClick={() => setBillingSection("credits")}>{isChinese ? "积分" : "Credits"}</Button>
           </div>
-          {billingSection === "credits" && <ConsumptionSettingsPanel showRate />}
-          <ProductCatalogSettings key={billingSection} kind={billingSection === "credits" ? "credit_topup" : "subscription"} />
+          <div role="group" aria-label={isChinese ? "计费市场" : "Billing market"} className="flex flex-wrap gap-2">
+            {(["cn", "us"] as const).map((option) => (
+              <Button key={option} type="button" variant={market === option ? "secondary" : "ghost"}
+                aria-pressed={market === option} onClick={() => setMarket(option)}>
+                {option === "cn" ? (isChinese ? "中国市场" : "China") : (isChinese ? "美国市场" : "United States")}
+              </Button>
+            ))}
+          </div>
+          {billingSection === "credits" && <ConsumptionSettingsPanel key={market} market={market} />}
+          <ProductCatalogSettings key={market + billingSection} market={market} kind={billingSection === "credits" ? "credit_topup" : "subscription"} />
         </section>
       )}
     </AdminScreen>
