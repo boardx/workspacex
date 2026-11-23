@@ -194,16 +194,16 @@ test('manual lane pins the official credential-path contract, data-only prefligh
   const input = workflow.split('      aidt_auth_readonly:\n')[1].split('\n      prompt:')[0];
   assert.match(input, /type: boolean/); assert.match(input, /default: false/);
   const legacy = workflow.split('\n  verify:\n')[1].split('\n  readonly-gates:\n')[0];
-  const readonly = workflow.split('\n  readonly-gates:\n')[1];
-  assert.ok(legacy.startsWith('    if: ${{ !inputs.aidt_auth_readonly }}\n'));
-  assert.ok(readonly.startsWith("    if: ${{ github.event_name == 'workflow_dispatch' && inputs.aidt_auth_readonly }}\n"));
+  const readonly = workflow.split('\n  readonly-gates:\n')[1].split('\n  owned-failure-readonly:\n')[0];
+  assert.ok(legacy.startsWith('    if: ${{ !inputs.aidt_auth_readonly && !inputs.owned_failure_readonly }}\n'));
+  assert.ok(readonly.startsWith("    if: ${{ github.event_name == 'workflow_dispatch' && inputs.aidt_auth_readonly && !inputs.owned_failure_readonly }}\n"));
   // The registered legacy workflow's entire original job remains byte-identical except the new opt-out guard.
-  const originalJob = legacy.replace('    if: ${{ !inputs.aidt_auth_readonly }}\n', '').trimEnd();
+  const originalJob = legacy.replace('    if: ${{ !inputs.aidt_auth_readonly && !inputs.owned_failure_readonly }}\n', '').trimEnd();
   assert.equal(createHash('sha256').update(originalJob).digest('hex'), '481ba727292d02d3257e4a2bc3987514970eb698a69e1454693c889121fee5f7');
   assert.match(workflow, /concurrency:\n  group: real-model-chat-evidence\n  cancel-in-progress: false/);
-  for (const flag of [undefined, false, true]) {
-    assert.deepEqual({ legacy: !flag, readonly: Boolean(flag) },
-      flag === true ? { legacy: false, readonly: true } : { legacy: true, readonly: false });
+  for (const auth of [undefined, false, true]) for (const owned of [undefined, false, true]) {
+    assert.deepEqual({ legacy: !auth && !owned, readonly: Boolean(auth) && !owned, owned: Boolean(owned) },
+      owned ? { legacy: false, readonly: false, owned: true } : auth ? { legacy: false, readonly: true, owned: false } : { legacy: true, readonly: false, owned: false });
   }
   assert.doesNotMatch(readonly, /secrets\.|sudo|--with-deps|actions: (?:read|write)|contents: write/);
   assert.match(readonly, /runs-on: \[self-hosted, linux, x64, workspacex\]/);
@@ -219,7 +219,7 @@ test('manual lane pins the official credential-path contract, data-only prefligh
 
 
 const registeredWorkflow = readFileSync(new URL('../../.github/workflows/real-model-chat-evidence.yml', import.meta.url), 'utf8');
-const readonlyJob = registeredWorkflow.split('\n  readonly-gates:\n')[1];
+const readonlyJob = registeredWorkflow.split('\n  readonly-gates:\n')[1].split('\n  owned-failure-readonly:\n')[0];
 function runBlockAfter(marker, workflow = readonlyJob) {
   const after = workflow.split(marker)[1];
   assert.ok(after, `missing step ${marker}`);
