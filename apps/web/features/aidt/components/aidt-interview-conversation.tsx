@@ -14,9 +14,9 @@ type Update = (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void;
 
 function GuideDecision({ interview, update }: { interview: AidtInterview; update: Update }) {
   const observation = isAidtObservation(interview);
-  const [items, setItems] = React.useState(() => interview.adopted.split(/\n+/).filter(Boolean).map(text => ({ text, selected: true })));
+  const [items, setItems] = React.useState(() => interview.adopted.split(/\n+/).map(line => line.trim()).filter(Boolean).map(text => ({ text, selected: true })));
   const [editing, setEditing] = React.useState<number | null>(null);
-  if (!items.length) return null;
+  if (!items.length) return <ManualGuideDecision interview={interview} update={update} />;
   const chosen = items.filter(item => item.selected).map(item => item.text.trim()).filter(Boolean).join("\n");
   return <section aria-label={observation ? "核对观察关注点" : "核对访谈问题"} className="space-y-2 text-13"><h4 className="font-semibold">{observation ? "观察关注点与计划" : "访谈问题清单"}</h4>
     {items.map((item, i) => <div key={i} data-testid="aidt-interview-chat-question" className="flex flex-wrap items-start gap-2">
@@ -37,6 +37,25 @@ function GuideDecision({ interview, update }: { interview: AidtInterview; update
       const current = readAidtInterviews(draft.fields).find(item => item.id === interview.id);
       return current && current.guideConfirmed && !isAidtInterviewArchived(draft.fields, current.id) ? writeAidtInterview(draft, { ...current, guideConfirmed: false }) : draft;
     })}>{observation ? "继续迭代观察关注点" : "继续迭代问题"}</Button>}
+  </section>;
+}
+
+function ManualGuideDecision({ interview, update }: { interview: AidtInterview; update: Update }) {
+  const observation = isAidtObservation(interview);
+  const [text, setText] = React.useState("");
+  const list = text.split("\n").map(line => line.trim()).filter(Boolean).join("\n");
+  const label = observation ? "手动录入观察关注点" : "手动录入访谈问题";
+  return <section id={`aidt-interview-guide-${interview.id}`} aria-label={label} className="space-y-2 rounded-xl border border-border bg-card p-4 text-13">
+    <h4 className="font-semibold">{label}</h4>
+    <p>{observation ? "目前没有可勾选的关注点。请逐行录入本次使用的关注点。" : "目前没有可勾选的问题。请逐行录入本次实际问过的问题。"}</p>
+    <textarea aria-label={label} rows={3} maxLength={1000} value={text}
+      className="w-full rounded-control border border-border bg-background p-2"
+      onChange={event => setText(event.currentTarget.value)} />
+    <AidtConfirmAction size="sm" blocker={list ? null : observation ? "请至少填写一条观察关注点。" : "请至少填写一道实际问过的问题。"} onConfirm={() => update(draft => {
+      const current = readAidtInterviews(draft.fields).find(item => item.id === interview.id);
+      if (!current || current.adopted.trim() || isAidtInterviewArchived(draft.fields, current.id)) return draft;
+      return writeAidtInterview(draft, { ...current, original: current.original.trim() ? current.original : list, adopted: list, guideConfirmed: true });
+    })}>{observation ? "确认观察关注点" : "确认这份问题清单"}</AidtConfirmAction>
   </section>;
 }
 

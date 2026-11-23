@@ -387,7 +387,8 @@ function InterviewDetail({ interview, draft, update, projectId, readOnly, onBack
     </InterviewSection>
     }
     {(surface === "legacy" || surface === "finding") && <InterviewSection compact={surface === "legacy" && compact} title={observation ? "整理观察发现" : "整理访谈发现"}>
-      <AidtInterviewFindingEditor {...{ projectId, interview, draft, readOnly, update }} />
+      <AidtInterviewFindingEditor {...{ projectId, interview, draft, readOnly, update }}
+        manualGuideHref={surface === "finding" ? `#aidt-interview-guide-${interview.id}` : undefined} />
     </InterviewSection>
     }
     {!readOnly && !compact && surface === "legacy" && <div className="space-y-2 border-t border-border pt-3">{archiving ? <>
