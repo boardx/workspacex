@@ -87,6 +87,9 @@ def draft_disconnect_counts(logs):
         'upstream_start_buffer_full': 'upstream did not connect before the audio buffer filled',
         'upstream_finish_timeout': 'upstream did not settle the final segment in time',
         'upstream_idle_timeout': 'idle timeout',
+        'vendor_error_frame': ': {',
+        'invalid_client_frame': 'client frame failed contract validation',
+        'credit_admission_refused': 'credit admission refused',
     }
     counts = dict.fromkeys(categories, 0)
     counts['other'] = 0

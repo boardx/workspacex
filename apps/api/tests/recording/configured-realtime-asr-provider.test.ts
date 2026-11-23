@@ -16,8 +16,9 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WebSocketServer, type WebSocket as WsWebSocket } from "ws";
+import { WebSocket, WebSocketServer, type WebSocket as WsWebSocket } from "ws";
 import { ConfiguredRealtimeAsrProvider, realtimeAudioBacklogExceeded, resolveRecordingTurnSilenceMs, upstreamAudioFlowState } from "../../src/infrastructure/recording/configured-realtime-asr-provider";
+import { toOrgId } from "../../src/domain/org-id";
 import type { AsrAudioFormat, AsrSessionHandlers } from "../../src/application/recording/asr-ports";
 
 const AUDIO: AsrAudioFormat = { sampleRate: 16_000, channels: 1, encoding: "pcm16le" };
@@ -119,6 +120,42 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
   it("caps encoded upstream audio at approximately one second", () => {
     expect(realtimeAudioBacklogExceeded(45_000, 2_000)).toBe(false);
     expect(realtimeAudioBacklogExceeded(47_000, 2_000)).toBe(true);
+  });
+
+  it("allows draft dictation to ride through short backlog without relaxing the recording cap", () => {
+    expect(realtimeAudioBacklogExceeded(47_000, 2_000, true)).toBe(false);
+    expect(realtimeAudioBacklogExceeded(142_000, 2_000, true)).toBe(false);
+    expect(realtimeAudioBacklogExceeded(143_000, 2_000, true)).toBe(true);
+  });
+
+  it("keeps one draft socket through a short upstream backlog", async () => {
+    upstream = await startFakeUpstream((frame, ws) => {
+      if (frame.type === "input_audio_buffer.append") ws.send(JSON.stringify({
+        type: "conversation.item.input_audio_transcription.text", text: "still listening",
+      }));
+      if (frame.type === "session.finish") ws.send(JSON.stringify({ type: "session.finished" }));
+    });
+    const handlers = recordingHandlers();
+    const session = await new ConfiguredRealtimeAsrProvider({
+      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+    }).open(handlers, AUDIO, { accountingContext: { kind: "draft", orgId: toOrgId("org-test"), userId: "user-test" } });
+    const buffered = vi.spyOn(WebSocket.prototype, "bufferedAmount", "get").mockReturnValue(60_000);
+    try {
+      session.pushAudio(new Uint8Array(3_200));
+      await expect.poll(() => handlers.partials.length).toBe(1);
+      buffered.mockReturnValue(0);
+      session.pushAudio(new Uint8Array(3_200));
+      await expect.poll(() => handlers.partials.length).toBe(2);
+      expect(handlers.closedCount.value).toBe(0);
+      expect(handlers.errors).toEqual([]);
+      await session.finish();
+      expect(upstream.seenFrames.map(frame => frame.type)).toEqual([
+        "session.update", "input_audio_buffer.append", "input_audio_buffer.append", "session.finish",
+      ]);
+    } finally {
+      buffered.mockRestore();
+      session.abort();
+    }
   });
 
   it("enters slow at 400ms of upstream backlog and recovers below 200ms", () => {

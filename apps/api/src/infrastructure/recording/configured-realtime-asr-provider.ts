@@ -61,11 +61,14 @@ const DEFAULT_ASR_TURN_SILENCE_MS = 400;
 const DEFAULT_RECORDING_TURN_SILENCE_MS = 1200;
 const MAX_UPSTREAM_AUDIO_BACKLOG_BYTES = 48_000;
 const UPSTREAM_AUDIO_BYTES_PER_SECOND = MAX_UPSTREAM_AUDIO_BACKLOG_BYTES;
+// Draft dictation can receive a burst after upstream admission or a brief network stall.
+const MAX_DRAFT_AUDIO_BACKLOG_BYTES = 3 * UPSTREAM_AUDIO_BYTES_PER_SECOND;
 const UPSTREAM_SLOW_BACKLOG_MS = 400;
 const UPSTREAM_RECOVERY_BACKLOG_MS = 200;
 
-export function realtimeAudioBacklogExceeded(bufferedBytes: number, nextPayloadBytes: number): boolean {
-  return bufferedBytes + nextPayloadBytes > MAX_UPSTREAM_AUDIO_BACKLOG_BYTES;
+export function realtimeAudioBacklogExceeded(bufferedBytes: number, nextPayloadBytes: number, draft = false): boolean {
+  const limit = draft ? MAX_DRAFT_AUDIO_BACKLOG_BYTES : MAX_UPSTREAM_AUDIO_BACKLOG_BYTES;
+  return bufferedBytes + nextPayloadBytes > limit;
 }
 
 export function upstreamAudioFlowState(
@@ -198,6 +201,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
 
   async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection?: "manual" | "recording"; readonly signal?: AbortSignal;readonly accountingContext?:AsrAccountingContext}): Promise<AsrSession> {
     const manual = options?.turnDetection === "manual";
+    const draft = options?.accountingContext?.kind === "draft";
     const config = this.config;
     if (config === null) {
       throw new AsrNotConfiguredError(
@@ -382,8 +386,8 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
           ...(manual ? {event_id: randomUUID()} : {}),
           audio: Buffer.from(frame).toString("base64"),
         });
-        if (realtimeAudioBacklogExceeded(socket.bufferedAmount, Buffer.byteLength(payload))) {
-          reportError(AUDIO_BACKPRESSURE, "upstream audio send buffer exceeded one second");
+        if (realtimeAudioBacklogExceeded(socket.bufferedAmount, Buffer.byteLength(payload), draft)) {
+          reportError(AUDIO_BACKPRESSURE, "upstream audio send buffer exceeded its limit");
           closed = true;
           socket.terminate();
           return;
