@@ -93,7 +93,7 @@ export function TelemetrySettingsScreen({ state }: { state: UiState }) {
       successMessage={t("state.saved")}
     >
       <div className="flex min-w-0 flex-col gap-4">
-        <ConsentPanel />
+        <TelemetryConsentPanel />
         <LastReportPanel />
       </div>
     </AdminScreen>
@@ -105,7 +105,7 @@ type SettingsState =
   | { kind: "ready"; out: TelemetrySettingsOut }
   | { kind: "failed"; cause: Failure };
 
-function ConsentPanel() {
+export function TelemetryConsentPanel() {
   const i18n = useI18n();
   const { t } = i18n;
   const [settings, setSettings] = React.useState<SettingsState>({ kind: "loading" });

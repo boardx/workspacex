@@ -15,8 +15,12 @@ vi.mock("@/components/admin/consumption-settings-panel", () => ({
 vi.mock("@/components/admin/product-catalog-settings", () => ({
   ProductCatalogSettings: ({ market, kind }: { market: string; kind: string }) => <output>{kind} {market}</output>,
 }));
-vi.mock("@/components/admin/memory-ops-panels", () => ({ ConsolidationSettingPanel: () => null }));
-vi.mock("@/components/admin/platform-extraction-setting-panel", () => ({ PlatformExtractionSettingPanel: () => null }));
+vi.mock("@/components/admin/memory-ops-panels", () => ({ ConsolidationSettingPanel: () => null, ExtractionSloPanel: () => null }));
+vi.mock("@/components/admin/platform-extraction-setting-panel", () => ({ PlatformExtractionSettingPanel: () => <div>真实抽取设置入口</div> }));
+
+vi.mock("@/components/admin/telemetry-settings-screen", () => ({
+  TelemetryConsentPanel: () => <div>真实上报同意设置入口</div>,
+}));
 
 afterEach(cleanup);
 
@@ -32,4 +36,15 @@ it("applies one market to the rate and catalog and retains it when switching bil
   fireEvent.click(screen.getByRole("button", { name: "订阅与套餐" }));
   expect(screen.getByText("subscription us")).toBeTruthy();
   expect(screen.queryByText("倍率 us")).toBeNull();
+});
+
+
+it("opens the existing governance settings from the configuration groups", () => {
+  render(<PlatformConfigurationScreen state="default" />);
+  fireEvent.click(screen.getByRole("button", { name: "知识图谱与检索" }));
+  expect(screen.getByText("真实抽取设置入口")).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: "系统配置" }));
+  fireEvent.click(screen.getByRole("button", { name: "数据治理" }));
+  expect(screen.getByText("真实上报同意设置入口")).toBeTruthy();
 });

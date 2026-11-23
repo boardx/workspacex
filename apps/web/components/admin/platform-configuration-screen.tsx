@@ -8,7 +8,8 @@ import { ConfigurationLayout, configurationGroups, type ConfigurationCategory } 
 import { AdminScreen } from "./admin-screen";
 import { ProductCatalogSettings } from "./product-catalog-settings";
 import { ConsumptionSettingsPanel } from "./consumption-settings-panel";
-import { ConsolidationSettingPanel } from "./memory-ops-panels";
+import { ConsolidationSettingPanel, ExtractionSloPanel } from "./memory-ops-panels";
+import { TelemetryConsentPanel } from "./telemetry-settings-screen";
 import { PlatformExtractionSettingPanel } from "./platform-extraction-setting-panel";
 
 export function PlatformConfigurationScreen({ state }: { state: UiState }) {
@@ -31,6 +32,14 @@ export function PlatformConfigurationScreen({ state }: { state: UiState }) {
         <div className="space-y-4">
           <PlatformExtractionSettingPanel />
           <ConsolidationSettingPanel />
+        </div>
+      ) : group === "数据治理" ? (
+        <TelemetryConsentPanel />
+      ) : group === "知识图谱与检索" ? (
+        <div className="space-y-4">
+          <PlatformExtractionSettingPanel />
+          <ConsolidationSettingPanel />
+          <ExtractionSloPanel />
         </div>
       ) : group === "积分" || group === "订阅与套餐" ? (
         <section className="space-y-4" aria-labelledby="platform-configuration-credits">
