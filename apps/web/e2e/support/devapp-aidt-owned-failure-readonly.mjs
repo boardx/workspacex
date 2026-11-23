@@ -29,7 +29,7 @@ export function isSafeOwnedFailureReport(value) {
   const booleans = ['completed', 'loginVerified', 'ordinaryActorVerified', 'configuredIdentityVerified', 'threadProjectMatches',
     'ownedRunBound', 'runBindingMatches', 'sameSessionVerified', 'runTerminal', 'terminalBeforeRunRead', 'normalRunReadMayMaintainStale'];
   if (!keys(value, ['code', ...booleans, 'matchingHumanCount', 'status', 'errorCode', 'creditOwnerType', 'creditReason',
-    'counts', 'projectWritesAllowed', 'financialWritesAllowed', 'modelRequestsAllowed'])
+    'counts', 'readDiagnostics', 'projectWritesAllowed', 'financialWritesAllowed', 'modelRequestsAllowed'])
     || !REPORT_CODES.has(value.code) || !booleans.every(key => typeof value[key] === 'boolean')
     || value.completed !== (value.code === 'OWNED_FAILURE_OBSERVED')
     || !Number.isSafeInteger(value.matchingHumanCount) || value.matchingHumanCount < 0 || value.matchingHumanCount > 100
@@ -38,6 +38,11 @@ export function isSafeOwnedFailureReport(value) {
     || ![null, 'user', 'team'].includes(value.creditOwnerType) || ![null, 'member_monthly_limit', 'unknown'].includes(value.creditReason)
     || !keys(value.counts, ['identityReads', 'threadReads', 'messageReads', 'runReads'])
     || !Object.entries(value.counts).every(([key, count]) => Number.isSafeInteger(count) && count >= 0 && count <= (key === 'identityReads' ? 2 : 1))
+    || !Array.isArray(value.readDiagnostics) || value.readDiagnostics.length > 5
+    || value.readDiagnostics.length !== Object.values(value.counts).reduce((sum, count) => sum + count, 0)
+    || !value.readDiagnostics.every(read => keys(read, ['category', 'httpStatus'])
+      && ['identity', 'thread-detail', 'thread-messages', 'owned-run'].includes(read.category)
+      && (read.httpStatus === null || Number.isSafeInteger(read.httpStatus) && read.httpStatus >= 100 && read.httpStatus <= 599))
     || value.projectWritesAllowed !== 0 || value.financialWritesAllowed !== 0 || value.modelRequestsAllowed !== 0) return false;
   return true;
 }
@@ -55,6 +60,7 @@ export async function runOwnedFailureReadonly(ports) {
     status: null, errorCode: null, creditOwnerType: null, creditReason: null,
     terminalBeforeRunRead: false, normalRunReadMayMaintainStale: false,
     counts: { identityReads: 0, threadReads: 0, messageReads: 0, runReads: 0 },
+    readDiagnostics: [],
     projectWritesAllowed: 0, financialWritesAllowed: 0, modelRequestsAllowed: 0,
   };
   const deadline = Date.now() + 90000;
@@ -98,18 +104,23 @@ export async function runOwnedFailureReadonly(ports) {
     await sameSession();
     report.loginVerified = true;
     const identityPath = '/api/identity/me?orgId=' + encodeURIComponent(org);
-    const threadPath = '/api/chat/threads/' + encodeURIComponent(OWNED_FAILURE_SCOPE.threadId);
+    const threadBase = '/api/chat/threads/' + encodeURIComponent(OWNED_FAILURE_SCOPE.threadId);
+    const threadDetailPath = threadBase + '?projectId=' + encodeURIComponent(OWNED_FAILURE_SCOPE.projectId);
+    const threadMessagesPath = threadBase + '/messages?limit=100';
     let boundRun;
     async function read(path, count) {
       const allowed = path === identityPath && count === 'identityReads' && report.counts[count] < 2
-        || path === threadPath && count === 'threadReads' && report.counts[count] === 0
-        || path === threadPath + '/messages?limit=100' && count === 'messageReads' && report.counts[count] === 0
+        || path === threadDetailPath && count === 'threadReads' && report.counts[count] === 0
+        || path === threadMessagesPath && count === 'messageReads' && report.counts[count] === 0
         || boundRun && path === '/api/agent-runs/' + encodeURIComponent(boundRun) && count === 'runReads' && report.counts[count] === 0;
       if (!allowed) fail('OWNED_FAILURE_READ_SCOPE_REJECTED');
       await sameSession();
       report.counts[count]++;
+      const diagnostic = { category: { identityReads: 'identity', threadReads: 'thread-detail', messageReads: 'thread-messages', runReads: 'owned-run' }[count], httpStatus: null };
+      report.readDiagnostics.push(diagnostic);
       if (count === 'runReads') report.normalRunReadMayMaintainStale = true;
       const response = await bounded(() => ports.readJson(path, { expectedTokenSha256: sha(token) }), 15000);
+      if (object(response) && Number.isSafeInteger(response.status) && response.status >= 100 && response.status <= 599) diagnostic.httpStatus = response.status;
       await sameSession();
       if (!keys(response, ['status', 'body']) || response.status !== 200 || !object(response.body)
         || Buffer.byteLength(JSON.stringify(response.body)) > 262144) fail('OWNED_FAILURE_READ_INVALID');
@@ -121,11 +132,11 @@ export async function runOwnedFailureReadonly(ports) {
     };
     verifyIdentity(identity);
     report.ordinaryActorVerified = true;
-    const thread = await read(threadPath, 'threadReads');
+    const thread = await read(threadDetailPath, 'threadReads');
     if (thread.thread?.id !== OWNED_FAILURE_SCOPE.threadId || thread.thread?.projectId !== OWNED_FAILURE_SCOPE.projectId
       || thread.thread?.archived !== false) fail('OWNED_FAILURE_THREAD_MISMATCH');
     report.threadProjectMatches = true;
-    const messages = await read(threadPath + '/messages?limit=100', 'messageReads');
+    const messages = await read(threadMessagesPath, 'messageReads');
     if (!keys(messages, ['messages', 'nextCursor']) || !Array.isArray(messages.messages) || messages.messages.length > 100
       || messages.nextCursor !== null || messages.messages.some(row => !object(row) || typeof row.text !== 'string' || row.text.length > 100000)) fail('OWNED_FAILURE_MESSAGE_PAGE_INVALID');
     const matching = messages.messages.filter(row => sha(row.text) === OWNED_FAILURE_SCOPE.humanSha256);

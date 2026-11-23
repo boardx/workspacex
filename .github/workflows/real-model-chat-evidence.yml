@@ -377,6 +377,7 @@ jobs:
           cd "$AIDT_FAILURE_ROOT/source"
           node --test scripts/tests/devapp-aidt-owned-failure-readonly.independent.test.mjs
           node --test scripts/tests/devapp-aidt-owned-failure-runner.independent.test.mjs
+          node --test scripts/tests/devapp-aidt-owned-failure-thread-query.independent.test.mjs
       - name: Build the explicitly allowlisted private control bundle
         working-directory: ${{ runner.temp }}
         run: |
