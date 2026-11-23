@@ -78,6 +78,28 @@ def runtime_configuration(values):
     except ValueError:pass
     return {'asrProvider':label(values.get('KERNEL_ASR_PROVIDER')),'asrModel':label(values.get('KERNEL_ASR_MODEL')),'asrRegion':region}
 
+def draft_disconnect_counts(logs):
+    categories = {
+        'upstream_closed': 'upstream closed unexpectedly',
+        'upstream_finished_early': 'upstream finished before client completion',
+        'audio_duration_limit': 'Audio session reached its admitted duration limit',
+        'upstream_backpressure': 'upstream audio send buffer exceeded',
+        'upstream_start_buffer_full': 'upstream did not connect before the audio buffer filled',
+        'upstream_finish_timeout': 'upstream did not settle the final segment in time',
+        'upstream_idle_timeout': 'idle timeout',
+        'vendor_error_frame': ': {',
+        'invalid_client_frame': 'client frame failed contract validation',
+        'credit_admission_refused': 'credit admission refused',
+    }
+    counts = dict.fromkeys(categories, 0)
+    counts['other'] = 0
+    for line in logs.splitlines():
+        if '[asr-draft] ' not in line:
+            continue
+        category = next((name for name, marker in categories.items() if marker.casefold() in line.casefold()), 'other')
+        counts[category] += 1
+    return counts
+
 def run():
     target=os.environ.get('ASR_PROBE_TARGET','devapp')
     projects={'devapp':'workspacex-image','cn':'workspacex-cn'}
@@ -98,6 +120,7 @@ def run():
         logs=subprocess.run(['docker','logs','--since','30m','--tail','2000',api['Id']],text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=20,check=False)
         report['recentErrorCounts']={r:(logs.stdout+logs.stderr).count(r)for r in reasons}
         report['recentLogsReadAvailable']=logs.returncode==0
+        report['recentDraftDisconnectCounts']=draft_disconnect_counts(logs.stdout+logs.stderr)
     except Exception:report['recentLogsReadAvailable']=False
     try:
         report.update(json.loads(call(['docker','exec','-i',api['Id'],'node','--import','tsx','--input-type=module'],DATABASE)))
