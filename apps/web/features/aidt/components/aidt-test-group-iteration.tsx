@@ -2,6 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useOptionalSession } from "@/components/session/session-provider";
+import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AIDT_RETURN_STEPS, aidtReflectionMissingItems, isAidtReflectionConfirmed, isAidtIterationPrototypeRelated, readAidtReturnDecision, readAidtQuestionSnapshot } from "../lib/aidt-verification-loop";
@@ -167,7 +168,7 @@ export function AidtTestGroupIteration({ projectId, entityId, draft, savedDraft,
           <label className="block text-12">从哪一步重新入手<select className="mt-1 block w-full rounded-md border border-border p-2" value={round.fields.returnStep ?? ""} disabled={readOnly || busy} onChange={event => edit({ ...round, fields: { ...round.fields, returnStep: event.target.value, reflectionConfirmed: "" } })}><option value="">由小组选择</option>{AIDT_RETURN_STEPS.map(step => <option key={step.id} value={step.id}>第{step.id}步 · {step.label}</option>)}<option value="undecided">暂未决定</option></select></label>
           {([["returnReason", "选择理由"], ["nextAction", "下一步行动"]] as const).map(([key, label]) => <label className="block text-12" key={key}>{label}<Textarea rows={2} maxLength={2000} value={round.fields[key] ?? ""} disabled={readOnly || busy} onChange={event => edit({ ...round, fields: { ...round.fields, [key]: event.target.value, reflectionConfirmed: "" } })} /></label>)}
           {round.fields.returnStep === "5" && <details><summary className="cursor-pointer text-12">已有新版？关联迭代产出</summary><AidtIterationPrototype projectId={projectId} draft={round} readOnly={readOnly || busy} onChange={edit} /></details>}
-          {!readOnly && <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" disabled={busy || Boolean(staleLocal) || unchangedSaved} onClick={() => void save(false)}>保存反思草稿</Button><Button type="button" size="sm" disabled={busy || Boolean(staleLocal) || unchangedSaved && Boolean(saved && isAidtReflectionConfirmed(saved)) && publicationProof === publicationKey || !isAidtTestGroupConfirmed(group) || aidtReflectionMissingItems(round).length > 0} onClick={() => void save(true)}>确认并保存本轮反思与迭代</Button><Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => { setLocal(null); setExpanded(false); setError(""); }}>取消</Button></div>}
+          {!readOnly && <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" disabled={busy || Boolean(staleLocal) || unchangedSaved} onClick={() => void save(false)}>保存反思草稿</Button><AidtConfirmAction size="sm" disabled={busy || unchangedSaved && Boolean(saved && isAidtReflectionConfirmed(saved)) && publicationProof === publicationKey} blocker={staleLocal ? "小组草稿已更新，请核对最新版本。" : !isAidtTestGroupConfirmed(group) ? "请先确认并保存测试材料。" : aidtReflectionMissingItems(round).length ? `请补充：${aidtReflectionMissingItems(round).join("、")}。` : null} onConfirm={() => void save(true)}>确认并保存本轮反思与迭代</AidtConfirmAction><Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => { setLocal(null); setExpanded(false); setError(""); }}>取消</Button></div>}
         </>}
       </div>
     </details>

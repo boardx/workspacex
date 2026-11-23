@@ -622,6 +622,9 @@ test("AIDT first step starts in native Chat and hands a confirmed issue and refl
   await expect(page.getByTestId("aidt-stage-navigation")).toHaveCount(0);
   await expect(logo).toHaveCount(0);
   await expect(page.getByText("你们想研究什么？")).toBeVisible();
+  await page.getByRole("button", { name: "确认本轮成果并保存" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "问题来源" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "继续第2步" })).toHaveCount(0);
   await page.getByRole("button", { name: "填入回答提纲" }).click();
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue(/原始命题：/);
   await expect(page.getByText("来自对话的首条回答")).toHaveCount(0);

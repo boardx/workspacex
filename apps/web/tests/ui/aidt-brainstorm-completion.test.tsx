@@ -47,7 +47,9 @@ it("saves two of five text candidates as a shortlist without requiring pictures 
   expect(latest.ideas).toHaveLength(5);
   expect(readAidtIdeaHandoff(latest, "p")).toBeNull();
   expect(screen.queryByRole("link", { name: "使用已确认轮进入原型制作" })).toBeNull();
-  expect(screen.getByRole("button", { name: "确认完成本阶段" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "确认完成本阶段" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("请审阅至少三份描述单");
+  expect(saves).toBe(1);
 });
 
 it("reviews three sheets and student classification explicitly without making the other two drafts complete", async () => {
@@ -55,7 +57,8 @@ it("reviews three sheets and student classification explicitly without making th
   const completion = within(screen.getByRole("region", { name: "完成描述单与分类" }));
   for (const title of titles.slice(0, 3)) fireEvent.click(completion.getByRole("checkbox", { name: "已审阅描述单：" + title }));
   expect(completion.getByRole("checkbox", { name: "已审阅描述单：轮值助手" })).toBeDisabled();
-  expect(completion.getByRole("button", { name: "确认完成本阶段" })).toBeDisabled();
+  fireEvent.click(completion.getByRole("button", { name: "确认完成本阶段" }));
+  expect(completion.getByRole("alert")).toHaveTextContent("请完成并确认点子分类");
   fireEvent.click(completion.getByRole("checkbox", { name: "菜单标签 · 最容易实现的" }));
   fireEvent.click(completion.getByRole("checkbox", { name: "菜单标签 · 最有趣的" }));
   fireEvent.change(completion.getByRole("textbox", { name: "菜单标签 · 分类理由" }), { target: { value: "纸卡成本低，也可尝试不同表达。" } });

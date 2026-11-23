@@ -34,7 +34,7 @@ import { AidtTestConversation, AidtTestGroupOutput } from "./aidt-test-conversat
 import type { AidtTestProposal } from "../lib/aidt-test-proposal";
 import { AidtTestGroupDirectory } from "./aidt-test-group-directory";
 import { listAidtConfirmedPrototypeEntities } from "../lib/aidt-prototype-handoff";
-import { aidtInterviewHandoffReady, isAidtInterviewArchived, isAidtObservation, readAidtInterviews, savedAidtInterviewArtifactTitle } from "../lib/aidt-interviews";
+import { aidtInterviewFindingMissing, aidtInterviewHandoffReady, isAidtInterviewArchived, isAidtInterviewConfirmed, isAidtObservation, readAidtInterviews, savedAidtInterviewArtifactTitle } from "../lib/aidt-interviews";
 import { readAidtDefinition, readAidtDefinitionSelection } from "../lib/aidt-definition";
 import { readAidtStageRevision, type AidtSharedStage } from "../lib/live-aidt-stages";
 import { AidtProblemDirectory } from "./aidt-problem-directory";
@@ -447,6 +447,13 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     };
     const hasSummary = step.id === 6 && search.get("summary") === "1";
     const savedDraft = currentStage?.content.draft;
+    const directoryDraft = savedDraft ?? draft;
+    const activeInterviews = step.id === 2 ? readAidtInterviews(directoryDraft.fields)
+      .filter(item => !isAidtInterviewArchived(directoryDraft.fields, item.id)) : [];
+    const pendingInterviews = activeInterviews.flatMap(item => {
+      const missing = aidtInterviewFindingMissing(directoryDraft, item, projectId);
+      return missing.length || !isAidtInterviewConfirmed(directoryDraft.fields, item.id) ? [{ item, missing }] : [];
+    });
     const openCreated = (id: string) => router.push(entityHref(id));
     const createAndOpen = async (id: string, change: (old: AidtUiStageDraft) => AidtUiStageDraft) => {
       if (!await shared.saveDraft(change)) return false;
@@ -502,7 +509,23 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
               prototypeEntities={listAidtConfirmedPrototypeEntities(currentUi.drafts[5]!)} />
               {save}</>}
           </AidtEntityCardDirectory>)}
-        {!hasSummary && (advance ?? <p role="status" className="text-12 text-muted-foreground">全部当前产物确认后可进入下一步。</p>)}
+        {!hasSummary && (advance ?? <details className="text-12 text-muted-foreground">
+          <summary className="cursor-pointer font-medium">查看进入下一步还需要什么</summary>
+          {pendingInterviews.length ? <ul className="mt-2 space-y-2">
+            {pendingInterviews.map(({ item, missing }) => <li key={item.id}>
+              <Link className="text-primary underline" href={entityHref(item.id)}>{aidtInterviewTitle(item.code, item.displayName)}</Link>
+              <p>{missing[0] ?? "打开卡片，确认并保存发现卡。"}</p>
+            </li>)}
+          </ul> : activeInterviews.length ? <p className="mt-2">发现卡已核对。请查看上方保存回执，确认小组已保存最新成果。</p> :
+            <p className="mt-2">{[
+              "", "打开问题卡，核对原始命题、来源和改写命题，然后确认保存。",
+              "新建访谈或观察，核对计划、原始材料与发现卡。",
+              "确认意外发现或暂无、画像和 HMW，再选择本轮 HMW。",
+              "审阅至少三份图文描述单，确认分类及入选点子。",
+              "核对验证问题、文字设计和实际产出的原型版本，然后确认原型。",
+              "关联测试证据，确认认识变化与下一步行动。",
+            ][step.id]}</p>}
+        </details>)}
         <Link className="text-12 text-muted-foreground underline" href={aidtHref(projectId, step.id, { returnRevision, returnEntity: search.get("returnEntity") }) + (hasSummary ? "&summary=1" : "") + "&history=1"}>打开早期阶段对话</Link>
       </div>
     </section>;

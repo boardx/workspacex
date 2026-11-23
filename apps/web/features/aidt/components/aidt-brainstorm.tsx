@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { AIDT_BRAINSTORM_CANDIDATE_LIMIT, AIDT_BRAINSTORM_METHODS, AIDT_BRAINSTORM_METHOD_GUIDES, AIDT_BRAINSTORM_PREFIX, aidtBrainstormTitle, readAidtBrainstorm, readAidtBrainstorms, type AidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
+import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
@@ -292,7 +293,7 @@ export function AidtBrainstormConversation({ projectId, session, draft, messages
           setPicked(event.target.checked ? [...selected, idea.id] : selected.filter(id => id !== idea.id))} />
         <span><span className="block font-medium">{idea.title}</span><span className="text-muted-foreground">{idea.description}</span></span>
       </label></li>)}</ul>
-      {!readOnly && !archived && <Button className="mt-3" size="sm" disabled={busy || selected.length === 0 || unchanged} onClick={() => void confirm()}>确认入选点子</Button>}
+      {!readOnly && !archived && <AidtConfirmAction className="mt-3" size="sm" disabled={busy || (unchanged && selected.length > 0)} blocker={selected.length === 0 ? "请至少勾选一个要入选的点子。" : null} onConfirm={() => void confirm()}>确认入选点子</AidtConfirmAction>}
     </details>}
     {formal && <section aria-label="本轮已确认结果" className="space-y-2 border-t border-border pt-3"><p className="text-12 font-medium">本轮已确认 {formal.sheetIds.length} 份正式描述单</p>
       <details className="text-13"><summary className="cursor-pointer">查看已确认结果（后续草稿不会替换这里）</summary><ol className="mt-2 space-y-2">{formal.ideas.map(idea => <li key={idea.id}><p className="font-medium">{idea.title}{formal.selectedIds.includes(idea.id) && " · 原始入选"}</p><p className="whitespace-pre-wrap text-muted-foreground">{idea.description}</p></li>)}</ol></details>
@@ -306,6 +307,7 @@ export function AidtBrainstormConversation({ projectId, session, draft, messages
           "已审阅正式描述单：", ...snapshot.ideas.map(idea => `${idea.title}：${idea.description}`)].join("\n\n");
       }} />
     </section>}
+    {!readOnly && !archived && !savedIds.length && <AidtConfirmAction size="sm" disabled={busy || running} blocker="请先在「筛选点子」中勾选点子并确认入选，再审阅描述单与分类。" onConfirm={() => void complete()}>确认完成本阶段</AidtConfirmAction>}
     {savedIds.length > 0 && <section className="space-y-3 border-t border-border pt-3" aria-label="完成描述单与分类">
       <p className="text-12 text-muted-foreground">入选选择已保存为草稿。先逐份完善并审阅至少三份不同的图文描述单，再确认学生分类；同一版本 HMW 下可跨方法整理，未入选的其他候选可以保留草稿，不必全部制作。</p>
       <ul className="space-y-2">{descriptionIdeas.map(idea => <li key={idea.id} className="space-y-1">
@@ -331,7 +333,7 @@ export function AidtBrainstormConversation({ projectId, session, draft, messages
           .then(ok => { if (ok && accepted) setClassificationEdit(null); else failedReview(); }).catch(failedReview).finally(() => setBusy(false));
       }} />
       <p role="status">{completed ? "本阶段已确认完成。" : `已审阅 ${reviewedIds.length} 份描述单；至少需要三份，且入选点子须包含在其中。`}</p>
-      {!readOnly && !archived && <Button size="sm" disabled={busy || running || !canComplete || completed} onClick={() => void complete()}>确认完成本阶段</Button>}
+      {!readOnly && !archived && <AidtConfirmAction size="sm" disabled={busy || running || completed} blocker={!canComplete ? (!unchanged ? "请先确认入选点子。" : savedIds.some(id => !reviewedIds.includes(id)) || reviewedIds.length < 3 ? "请审阅至少三份描述单，并包含所有已入选点子。" : "请完成并确认点子分类，确保本轮产物已保存。") : null} onConfirm={() => void complete()}>确认完成本阶段</AidtConfirmAction>}
     </section>}
     {busy && <p role="status">正在保存…</p>}
     {failed && <p role="alert">保存未完成。当前草稿仍保留；请核对版本冲突或记录容量（字段总数与单字段长度不放宽）。{addAidtBrainstormCandidates(draft, session.id, proposals) !== draft &&

@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { isAidtProblemControlText, StageContent } from "@repo/contracts/aidt-stages";
+import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { aidtRoundConfirmation, aidtRoundDigest, aidtRoundMissingOutput, aidtRoundPayload } from "../lib/aidt-round-completion";
@@ -65,7 +66,7 @@ export function AidtProblemChatReview({ projectId, entityId, stage, sessionToken
       改写命题: "聚焦想研究的用户、场景和体验，写出本轮命题。",
       研究方向: "说明选择哪个候选方向，以及选择理由。",
     };
-    return <>{candidateTools}{hasStudentDraft && <section role="status" aria-label="本步待补充" data-testid="aidt-problem-missing-input" className="mx-auto w-full max-w-2xl space-y-2 px-4 py-2 text-13">
+    return <>{candidateTools}<AidtConfirmAction size="sm" disabled={running || loading} blocker={missing.length ? missing.map(label => `${label}：${prompts[label]}`).join(" ") : roundMissing} onConfirm={() => {}}>确认本轮成果并保存</AidtConfirmAction>{hasStudentDraft && <section role="status" aria-label="本步待补充" data-testid="aidt-problem-missing-input" className="mx-auto w-full max-w-2xl space-y-2 px-4 py-2 text-13">
       <p>本步还需要补充</p>
       {missing.length ? <ul className="list-disc space-y-1 pl-5">{missing.map(label => <li key={label}>{label}：{prompts[label]}</li>)}</ul> : <p>{roundMissing}</p>}
       <p>请在当前聊天中补充这些内容，再核对本轮成果。</p>

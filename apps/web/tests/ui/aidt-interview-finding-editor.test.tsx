@@ -53,6 +53,15 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+it("explains the pending finding requirements without confirming a draft", () => {
+  render(<Host entityId={siblingId} />);
+  const before = latest;
+  fireEvent.click(editor().getByRole("button", { name: "确认人物发现卡" }));
+  expect(editor().getByRole("alert")).toHaveTextContent("填写「一句发现」");
+  expect(editor().getByRole("alert")).toHaveTextContent("选择原件、填写定位和摘录");
+  expect(latest).toBe(before);
+});
+
 it("keeps only the finding and situation primary, and preserves evidence when either is revised", () => {
   render(<Host />);
   expect(editor().getByRole("textbox", { name: "一句发现" })).toBeVisible();

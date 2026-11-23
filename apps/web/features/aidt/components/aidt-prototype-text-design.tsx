@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -150,7 +151,7 @@ function TextDesign({ projectId, designId, stageDraft, savedStage, matchesServer
           onChange={event => { const value = event.currentTarget.value; change(old => editAidtPrototypeText(old, value, crypto.randomUUID())); setNotice(""); }} /></label>
           : <p className="whitespace-pre-wrap break-words">{text || "这个版本尚未记录文字设计。"}</p>}
         {editable && <div className="flex flex-wrap gap-2"><Button size="sm" disabled={!text.trim()} onClick={saveText}>保存文字设计</Button>
-          <Button size="sm" variant="outline" disabled={!selection.brainstormId || !matchesServer || !savedDraft?.fields.prototypeTextLineage || !text.trim() || confirmed} onClick={confirmText}>确认已保存文字设计</Button></div>}
+          <AidtConfirmAction size="sm" variant="outline" disabled={confirmed} blocker={!selection.brainstormId ? "请先选择一个已确认的点子列表。" : !text.trim() ? "请先填写文字设计。" : !matchesServer || !savedDraft?.fields.prototypeTextLineage ? "请先点击「保存文字设计」，再确认保存的版本。" : null} onConfirm={confirmText}>确认已保存文字设计</AidtConfirmAction></div>}
         {confirmed && confirmation && <p role="status">学生已确认<Link href={versionHref(confirmation.stageRevision)} className="text-primary underline">文字设计 · 第 5 步 V{confirmation.stageRevision}</Link>{!matchesServer && !historic ? "；确认尚待小组保存回执。" : "。"}</p>}
         {viewStage && text.trim() && (historic || matchesServer) && <Button size="sm" variant="outline" onClick={() => void print()}>预览／打印文字设计</Button>}
       </>}

@@ -4,6 +4,7 @@ import { AidtSavedTextPrint } from "./aidt-saved-text-print";
 import * as React from "react";
 import Link from "next/link";
 import { AIDT_BRAINSTORM_METHODS } from "@repo/contracts/aidt-brainstorm";
+import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { listAidtStageHistory, type AidtSharedStage } from "../lib/live-aidt-stages";
@@ -270,10 +271,10 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
     {ready && <AidtPrototypeVersionPicker projectId={projectId} designEntityId={designId} readOnly={!textReady} value={readAidtPrototypeReference(draft)} selectionScope={draft.fields.prototypeTextConfirmation}
       onChange={reference => { if (!reference || reference.designId === designId) saveEntity(current => updateAidtPrototypeReference(current, reference)); }} />}
     <AidtPrototypeTextBinding projectId={projectId} designId={designId} draft={draft} matchesServer={workflow.matchesServer} readOnly={readOnly} onBind={saveEntity} />
-    {textReady && Boolean(confirmAidtPrototypeHandoff(draft)) && (!confirmed || readAidtConfirmedPrototypeHandoff(stageDraft)?.id !== designId) && <Button type="button" variant="primary" onClick={() => {
+    {!readOnly && (!confirmed || readAidtConfirmedPrototypeHandoff(stageDraft)?.id !== designId) && <AidtConfirmAction variant="primary" blocker={!textReady ? "请先保存并确认本轮文字设计。" : !confirmAidtPrototypeHandoff(draft) ? "请选择一个原型版本，并将它关联到本轮已确认的文字设计。" : null} onConfirm={() => {
       update(previous => confirmAidtPrototypeEntityHandoff(previous, designId));
       requestSave();
-    }}>{confirmed ? "选为测试原型" : "确认本原型"}</Button>}
+    }}>{confirmed ? "选为测试原型" : "确认本原型"}</AidtConfirmAction>}
     {confirmed && workflow.matchesServer && !aidtAllActivePrototypeEntitiesConfirmed(stageDraft) && <p role="status">该原型已确认。还有其他原型待确认。</p>}
     </>}
   </section>;

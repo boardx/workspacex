@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { MarkdownProse } from "@/components/chat/markdown-prose";
+import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { aidtUiReportMarkdown, type AidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import { artifactFileName } from "@/lib/chat-workbench/artifact-download";
@@ -69,8 +70,8 @@ export function AidtReportPreview({ drafts, text, sourceRevision, revision, onCh
   return <section className="mx-auto w-full max-w-4xl space-y-4" data-testid="aidt-report-preview">
     <div><span className="rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground" data-testid="aidt-report-save-state">{shared ? shared.saving ? "正在保存小组报告…" : shared.matchesServer ? shared.confirmedAtRevision ? `小组报告已确认 · V${shared.confirmedAtRevision}` : "小组报告已保存 · 待确认" : "报告编辑尚未保存" : "UI 预览 · 未保存"}</span></div>
     <div className="sticky top-0 z-10 flex flex-wrap gap-2 border-b border-border-subtle bg-card py-2"><Button size="sm" variant={preview ? "outline" : "primary"} onClick={() => setPreview(false)}>编辑报告</Button><Button size="sm" variant={preview ? "primary" : "outline"} onClick={() => setPreview(true)}>阅读预览</Button><Button size="sm" variant="ghost" disabled={readOnly} onClick={() => text === null ? regenerate() : setConfirmReplace(true)}>从成果重新整理</Button>{shared && <Button size="sm" disabled={readOnly || !shared.canSave || shared.saving} data-testid="aidt-report-save" onClick={() => void shared.save()}>{shared.saving ? "正在保存…" : "保存小组报告"}</Button>}{reportEntityId === undefined && <div className="flex flex-wrap gap-2 sm:ml-auto" data-testid="aidt-report-export-actions"><Button size="sm" variant="outline" onClick={download}>下载 Markdown 草稿</Button><Button size="sm" variant="outline" disabled={printing} onClick={() => void print()}>PDF 打印预览</Button></div>}</div>
-    {preview && shared?.confirm && shared.matchesServer && shared.confirmedAtRevision === undefined && <div className="space-y-2">
-      <Button size="sm" disabled={readOnly || !shared.canConfirm} onClick={() => setReviewRevision(shared.serverRevision)}>确认审阅此版本</Button>
+    {preview && shared?.confirm && !readOnly && shared.confirmedAtRevision === undefined && <div className="space-y-2">
+      <AidtConfirmAction size="sm" disabled={shared.saving || shared.loading} blocker={shared.canConfirm ? null : !value.trim() ? "请编辑并保存报告正文。" : shared.needsBaseReview ? "请先核对服务器版本，再保存报告。" : "请先保存当前报告正文与所选来源。"} onConfirm={() => setReviewRevision(shared.serverRevision)}>确认审阅此版本</AidtConfirmAction>
       {reviewRevision !== null && reviewRevision === shared.serverRevision && <div role="alert" className="space-y-2">
         <p>确认后冻结当前正文和来源版本。后续修改可另存新版本。</p>
         <Button size="sm" disabled={readOnly || !shared.canConfirm} onClick={() => { if (reviewView && !reviewView.takeReview()) return; if (!reviewView) setReviewRevision(null); void shared.confirm?.(); }}>确认小组报告</Button>
