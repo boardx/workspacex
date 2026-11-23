@@ -650,6 +650,10 @@ const server = createServer((req, res) => {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({
       choices: [{ message: { role: "assistant", content: fullText } }],
+      ...(isFollowUpSuggestionsRequest(parsed.messages) && parsed.messages?.some(message =>
+        typeof message.content === "string" && message.content.includes("CREDIT_AUDIT_03_"))
+        ? { usage: { total_tokens: 11, prompt_tokens: 7, completion_tokens: 4 } } : {}),
+
     }));
   });
 });

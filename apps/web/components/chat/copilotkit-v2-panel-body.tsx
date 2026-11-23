@@ -46,6 +46,7 @@ import { describeFailedRunBanner, resolveLiveRunErrorOutcome } from "@/lib/copil
 
 import { reportClientError } from "@/lib/report-client-error";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
+import { useFollowUpSuggestions } from "@/lib/chat-workbench/use-follow-up-suggestions";
 import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-run-progress";
 import { onRememberStatement } from "@/lib/knowledge-graph-events";
 
@@ -1637,6 +1638,10 @@ function useCopilotKitV2PanelController({
       && hydratedEvidence.threadId === effectiveChatThreadId
       && hydratedEvidence.hasMessages)
       || resolvedThreadIdsRef.current.has(effectiveChatThreadId));
+  const liveStatus = runTrace.liveSignal.event;
+  const suggestionRunId = canWrite && !archived && !agent.isRunning && liveStatus?.status === "succeeded"
+    ? liveStatus.runId : null;
+  const followUpSuggestions = useFollowUpSuggestions(effectiveChatThreadId, suggestionRunId, sessionToken ?? undefined);
   const { templateRecommendations, personaGeneratedOnce, personaRunning, personaFailure,
     dismissedTemplateKeys, dismissTemplateSuggestion, runPersonaSummary } = useTemplateRecommendations({
       agent, initialChatThreadId: effectiveChatThreadId, projectId, archived, personaThreadHasPersistedEvidence, onMessageSent,
@@ -1940,6 +1945,7 @@ function useCopilotKitV2PanelController({
     skillTrigger,
     speech,
     streamSlots,
+    followUpSuggestions,
     templateSuggestions,
     threadId,
     userMessageAttachmentsContextValue,

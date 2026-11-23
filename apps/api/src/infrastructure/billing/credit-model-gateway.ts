@@ -31,6 +31,7 @@ export function creditModelGateway(model: ModelCallPort, db: DatabasePort, meter
     if (!userId || (scope && owner && scope.userId !== userId)) throw unavailable('CREDIT_SUBJECT_UNAVAILABLE');
     const starts = new Map<string,{startedAt:string;maximumTokens:number|null}>();
     const privateAuxiliary = !input.runId && input.modelProvider === 'deep-agent';
+    if (privateAuxiliary && input.preventPersonalCreditFallback) throw unavailable('AUXILIARY_CREDIT_PAYER_POLICY_UNSUPPORTED');
     if(privateAuxiliary && process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==='1')throw unavailable('AUXILIARY_PRODUCT_QUOTA_OWNERSHIP_UNSUPPORTED');
     const auxiliaryModelOperation = privateAuxiliary ? await new PgAuxiliaryModelAccounting(db).open(orgId,userId,input.modelId) : undefined;
     const purpose = owner ? input.usageCallPurpose ?? 'primary' : 'auxiliary';
@@ -53,7 +54,8 @@ export function creditModelGateway(model: ModelCallPort, db: DatabasePort, meter
             executionAttemptId:input.executionAttemptId??null,executionLeaseEpoch:input.executionLeaseEpoch,
             projectId:owner?.project_id??null,threadId:owner?.thread_id??input.threadId??null,
             agentId:owner?.agent_id??null,callPurpose:purpose,modelProvider:input.modelProvider,modelId:input.modelId,
-            startedAt:event.startedAt,maximumTokens:bound.maximumTokens});
+            startedAt:event.startedAt,maximumTokens:bound.maximumTokens,
+            preventPersonalCreditFallback:input.preventPersonalCreditFallback});
           try { await input.onProviderRequest?.(event); }
           catch(error){
             // This callback is awaited before the adapter's fetch. Its rejection proves
