@@ -1464,7 +1464,6 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       useFactory: (
         db: DatabasePort,
         readDb: DatabasePort,
-        model: ModelCallPort,
         summaryModel: ErrorLogSummaryModelConfig,
         logger: LoggerPort,
       ) => new PgErrorLogWriter(db, readDb,
@@ -1479,11 +1478,13 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
          * 同时排在用户前面。判据来自契约的能力矩阵，不是这里自己发明的条件。
          */
         errorLogAiDepsForEdition(readDeploymentEdition(), {
-          model,
+          // Error reports can be anonymous. This bounded platform diagnostic
+          // operation has no organization or user wallet to charge.
+          model: new ConfiguredModelProvider(readModelProviderConfig()),
           summaryModel,
           log: (message, detail) => logger.info(message, { ...detail, traceId: "error-log-ai-summary" }),
         })),
-      inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT, MODEL_CALL_PORT, ERROR_LOG_SUMMARY_MODEL_CONFIG, LOGGER_PORT],
+      inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT, ERROR_LOG_SUMMARY_MODEL_CONFIG, LOGGER_PORT],
     },
     // issue #3082 —— debug recorder：写 app_rw、读 app_diag_ro，同 ERROR_LOG_PORT 的两池分工。
     {

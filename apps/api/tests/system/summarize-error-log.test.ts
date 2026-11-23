@@ -36,6 +36,7 @@ describe("summarizeErrorLog", () => {
     expect(d.model.complete).toHaveBeenCalledWith(expect.objectContaining({
       modelProvider: "test-provider", modelId: "test-model",
       user: JSON.stringify({ msg: input.redactedMsg, detail: input.redactedDetail }),
+      outputTokenLimit: 512,
     }));
   });
 

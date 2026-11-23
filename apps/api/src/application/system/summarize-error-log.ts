@@ -99,6 +99,7 @@ export async function summarizeErrorLog(
         // 的既有先例，避免被当成要接续的真实会话。
         system: SYSTEM_PROMPT,
         user,
+        outputTokenLimit: 512,
       }),
       new Promise<never>((_resolve, reject) => {
         timeoutHandle = setTimeout(() => reject(new Error("error log summarization timed out")), SUMMARIZE_ERROR_LOG_TIMEOUT_MS);
