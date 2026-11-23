@@ -87,23 +87,36 @@ export function ProductCatalogSettings({ kind, market }: { kind: Product["kind"]
       {!data && !message && <p role="status">{zh ? "正在读取配置…" : "Loading settings…"}</p>}
       {data && !data.writable && <p>{zh ? "当前部署尚未配置商品写入连接。" : "The catalog writer is unavailable in this deployment."}</p>}
       {data && (
-        <ul className="divide-y divide-border">
-          {data.items.filter((item) => item.kind === kind).map((item) => (
-            <li key={item.sku} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
-              <span>
-                <span className="block font-medium">{item.sku}</span>
-                <span className="text-muted-foreground">
-                  {new Intl.NumberFormat(locale, { style: "currency", currency: item.currency }).format(item.values.amountMinor / 100)}
-                  {" · "}{item.values.baseCredits + item.values.bonusCredits} {zh ? "积分" : "credits"}
-                  {" · "}{item.values.enabled ? (zh ? "已上架" : "Enabled") : (zh ? "已下架" : "Disabled")}
-                </span>
-              </span>
-              <Button size="sm" variant="outline" disabled={!data.writable || busy} onClick={() => setEditing(item)}>
-                {zh ? "编辑" : "Edit"}
-              </Button>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto rounded-control border border-border">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-muted text-muted-foreground">
+              <tr>
+                <th scope="col" className="p-3">{zh ? "配置项" : "Setting"}</th>
+                <th scope="col" className="p-3">{zh ? "作用范围" : "Scope"}</th>
+                <th scope="col" className="p-3">{zh ? "当前生效值" : "Effective value"}</th>
+                <th scope="col" className="p-3"><span className="sr-only">{zh ? "操作" : "Actions"}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.filter((item) => item.kind === kind).map((item) => (
+                <tr key={item.sku} className="border-t border-border">
+                  <th scope="row" className="p-3 font-medium">{item.sku}</th>
+                  <td className="p-3">{item.currency}</td>
+                  <td className="p-3">
+                    {new Intl.NumberFormat(locale, { style: "currency", currency: item.currency }).format(item.values.amountMinor / 100)}
+                    {" · "}{item.values.baseCredits + item.values.bonusCredits} {zh ? "积分" : "credits"}
+                    {" · "}{item.values.enabled ? (zh ? "已上架" : "Enabled") : (zh ? "已下架" : "Disabled")}
+                  </td>
+                  <td className="p-3 text-right">
+                    <Button size="sm" variant="ghost" disabled={!data.writable || busy} onClick={() => setEditing(item)}>
+                      {zh ? "编辑" : "Edit"}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {editing && (
         <aside className="fixed inset-y-0 right-0 z-40 w-full max-w-md overflow-auto border-l border-border bg-card p-6 shadow-lg">
