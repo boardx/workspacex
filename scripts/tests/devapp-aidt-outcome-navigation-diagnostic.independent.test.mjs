@@ -101,10 +101,93 @@ test('listener cleanup errors cannot replace the original navigation failure',as
 test('activation failure remains before observer attachment or goto',async()=>{
  const f=fakePage(),diagnostics={},original=new Error('private-activation');await assert.rejects(open({page:f.page,target,navigation:{diagnostics,threadId:THREAD,orgId:ORG},activate:async()=>{throw original;},waitForRoute:async()=>{},assertDetail:async()=>{},assertReady:async()=>{}}),error=>error===original);assert.equal(f.all.length,0);assert.equal(f.calls.length,0);assert.equal(Object.hasOwn(diagnostics,'outputNavigation'),false);
 });
+// Extract the actual call object, including nested callbacks, rather than a
+// character window that moves when a new private callback is added. This is a
+// bounded lexical reader, not evaluation of the acceptance runner.
+function selectedJourneyProperties(source){
+ const main='export async function main() {',mainStart=source.indexOf(main);
+ const entry='\nif (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();';
+ const entryStart=source.indexOf(entry,mainStart+main.length);
+ assert.ok(mainStart>=0&&entryStart>mainStart);assert.equal(source.indexOf(main,mainStart+main.length),-1);
+ const needle='await selectedJourney(',start=source.indexOf(needle);
+ assert.ok(start>mainStart&&start<entryStart);assert.equal(source.indexOf(needle,start+needle.length),-1);
+ const pairs={'(':')','{':'}','[':']'};
+ function trivia(index){
+  for(;;){
+   while(/\s/.test(source[index]??'')&&index<source.length)index++;
+   if(source.startsWith('//',index)){const end=source.indexOf('\n',index+2);index=end<0?source.length:end+1;continue;}
+   if(source.startsWith('/*',index)){const end=source.indexOf('*/',index+2);assert.ok(end>=0);index=end+2;continue;}
+   return index;
+  }
+ }
+ function quoted(index,quote,depth){
+  for(let cursor=index+1;cursor<source.length;cursor++){
+   if(source[cursor]==='\\'){cursor++;continue;}
+   if(source[cursor]===quote)return cursor+1;
+   if(quote==='`'&&source[cursor]==='$'&&source[cursor+1]==='{')cursor=balanced(cursor+1,depth+1)-1;
+  }
+  assert.fail('unterminated source string');
+ }
+ function tokenEnd(index,depth){
+  const char=source[index];
+  if(char==='"'||char==="'"||char==='`')return quoted(index,char,depth);
+  if(pairs[char])return balanced(index,depth+1);
+  if(source.startsWith('//',index)||source.startsWith('/*',index))return trivia(index);
+  // No regexp/division appears outside strings in this concrete port object.
+  // Reject unsupported syntax rather than guessing a closing argument range.
+  assert.notEqual(char,'/','unsupported slash in selectedJourney port object');
+  return index+1;
+ }
+ function balanced(index,depth=0){
+  assert.ok(depth<=64);const close=pairs[source[index]];assert.ok(close);
+  for(let cursor=index+1;cursor<source.length;){
+   if(source[cursor]===close)return cursor+1;
+   assert.ok(!')}]'.includes(source[cursor]),'unbalanced selectedJourney arguments');
+   cursor=tokenEnd(cursor,depth);
+  }
+  assert.fail('unterminated selectedJourney arguments');
+ }
+ const argumentStart=trivia(start+needle.length);assert.equal(source[argumentStart],'{');
+ const argumentEnd=balanced(argumentStart),callEnd=trivia(argumentEnd);assert.equal(source[callEnd],')');
+ const statementEnd=trivia(callEnd+1);assert.equal(source[statementEnd],';');
+ assert.ok(statementEnd<entryStart&&statementEnd-start<=65536,'selectedJourney statement bound');
+ function propertiesInObject(open,end,closed=false){
+  const segments=[];let segmentStart=open+1;
+  for(let cursor=segmentStart;cursor<end-1;){
+   if(source[cursor]===','){segments.push([segmentStart,cursor]);segmentStart=++cursor;}
+   else cursor=tokenEnd(cursor,0);
+  }
+  segments.push([segmentStart,end-1]);
+  const properties=new Map(),ranges=new Map();
+  for(const [from,to]of segments){
+   const begin=trivia(from),segment=source.slice(begin,to),property=/^([A-Za-z_$][\w$]*)\s*:/.exec(segment);
+   if(!segment.trim())continue;
+   if(!property){
+    if(!closed)continue; // Explicit spreads may exist on the private port object.
+    assert.equal(segment.trim(),'projectId','public scope must contain only explicit fields');
+    assert.ok(!properties.has('projectId'),'duplicate public scope property');
+    properties.set('projectId','projectId');continue;
+   }
+   assert.ok(!properties.has(property[1]),'duplicate selectedJourney property');
+   properties.set(property[1],segment.slice(property[0].length).trim());
+   ranges.set(property[1],[trivia(begin+property[0].length),to]);
+  }
+  return {properties,ranges};
+ }
+ const ports=propertiesInObject(argumentStart,argumentEnd),scopeRange=ports.ranges.get('scope');
+ assert.ok(scopeRange);assert.equal(source[scopeRange[0]],'{');
+ const scopeEnd=balanced(scopeRange[0]);assert.equal(trivia(scopeEnd),scopeRange[1]);
+ const publicScope=propertiesInObject(scopeRange[0],scopeEnd,true).properties;
+ const expressions={projectId:/^projectId$/,projectName:/^identity\s*\.\s*projectName$/,runId:/^identity\s*\.\s*run$/,runAttempt:/^identity\s*\.\s*attempt$/,source:/^identity\s*\.\s*source$/,tag:/^identity\s*\.\s*tag$/};
+ assert.deepEqual([...publicScope.keys()].sort(),[...Object.keys(expressions),'syntheticLabel'].sort());
+ for(const [key,expression]of Object.entries(expressions))assert.match(publicScope.get(key),expression);
+ assert.ok(["'合成验收数据，非真实访谈'",'"合成验收数据，非真实访谈"'].includes(publicScope.get('syntheticLabel')));
+ return ports.properties;
+}
 test('org enters internal journey port only; public scope and diagnostic snapshots remain unchanged',async()=>{
  const {readFileSync}=await import('node:fs');const source=readFileSync(new URL('../../apps/web/e2e/support/devapp-aidt-acceptance.mjs',import.meta.url),'utf8');
- const marker=source.indexOf('await selectedJourney({');assert.ok(marker>0);const call=source.slice(marker,source.indexOf('checkpoint, capture,',marker));
- assert.ok(call.includes('scope: { projectId, projectName: identity.projectName'));assert.ok(!call.includes('outcomeDiagnosticOrgId'));assert.ok(!call.includes('guard.identity().org'));
- assert.ok(source.slice(marker,marker+1000).includes('outcomeDiagnosticOrgId: guard.identity().org'));
+ const ports=selectedJourneyProperties(source);
+ assert.ok(ports.has('scope'));
+ assert.equal(ports.get('outcomeDiagnosticOrgId'),'guard.identity().org');
  const f=fakePage(),o=observe({...scope,page:f.page,tool:'outcome'});o.close();bounded(o.data);assert.ok(!JSON.stringify(o.data).includes(ORG));
 });
