@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { prepareV2Browser, parseV2NativeResponse, v2NativeOperationInput, candidateDialogLocator, storeV2PrintFiles } from '../../apps/web/e2e/support/devapp-aidt-acceptance.mjs';
-import { V2_VOICE_PROFILE } from '../../apps/web/e2e/support/devapp-aidt-v2-profile.mjs';
+import { V2_VOICE_PROFILE, CASE01_PROFILE, isNamedAcceptanceProfile } from '../../apps/web/e2e/support/devapp-aidt-v2-profile.mjs';
 import { BASELINE_BUNDLE_FILES, V2_CONTROL_BUNDLE_FILES, V2_DISPATCH_BUNDLE_FILES, candidateActionsFromSource } from '../build-aidt-acceptance-bundle.mjs';
 
 const project = 'prj-11111111-1111-4111-8111-111111111111';
@@ -116,7 +116,11 @@ test('bundle/workflow keep a closed safe file set and explicit new profile while
   const credentialRead = main.indexOf('credentials = reusableCredentials && !provisionOrdinaryQa ? reusableCredentials : readQaCredentials();');
   assert.ok(credentialRead > 0);
   assert.ok(main.indexOf('const prepared = await prepareV2Browser') >= 0 && main.indexOf('const prepared = await prepareV2Browser') < credentialRead);
-  assert.match(main, /profile !== V2_VOICE_PROFILE[\s\S]*chromium\.launch\(\{ headless: true/);
+  assert.equal(isNamedAcceptanceProfile(V2_VOICE_PROFILE), true);
+  assert.equal(isNamedAcceptanceProfile(CASE01_PROFILE), true);
+  assert.equal(isNamedAcceptanceProfile('baseline'), false);
+  assert.equal(isNamedAcceptanceProfile('unknown-profile'), false);
+  assert.match(main, /if \(!isNamedAcceptanceProfile\(profile\)\) \{\s*browser = await chromium\.launch\(\{ headless: true/);
   const workflow = readFileSync(new URL('../../.github/workflows/aidt-devapp-acceptance.yml', import.meta.url), 'utf8');
   assert.match(workflow, /acceptance_profile:[\s\S]*default: baseline/); assert.match(workflow, /v2-voice-20261122' && 360 \|\| 152/);
   assert.equal((workflow.match(/AIDT_ACCEPTANCE_PROFILE: \$\{\{ inputs\.acceptance_profile \}\}/g) ?? []).length, 2);

@@ -9,6 +9,8 @@ import { ProbeFailure } from './devapp-aidt-auth-readonly.mjs';
 
 export const BASELINE_PROFILE = 'baseline';
 export const V2_VOICE_PROFILE = 'v2-voice-20261122';
+export const CASE01_PROFILE = 'aidt-e2e-01';
+export const isNamedAcceptanceProfile = profile => profile === V2_VOICE_PROFILE || profile === CASE01_PROFILE;
 export const V2_MANUAL_PATH = 'docs/evidence/aidt-native/completion-20261116/a6/aidt-v2-human-acceptance.md';
 const range = (prefix, first, last) => Array.from({ length: last - first + 1 }, (_, i) => `${prefix}${String(first + i).padStart(2, '0')}`);
 export const V2_CASE_IDS = Object.freeze([
@@ -56,8 +58,8 @@ function validCaseIds(ids) { return strings(ids, /^(?:AI-S[1-6]-\d{2}|CRUD-\d{2}
 export function acceptanceProfile(env = process.env) {
   const choice = env.AIDT_ACCEPTANCE_PROFILE;
   if (choice === undefined) return BASELINE_PROFILE;
-  if (![BASELINE_PROFILE, V2_VOICE_PROFILE].includes(choice)) fail('ACCEPTANCE_PROFILE_INVALID');
-  if (choice === V2_VOICE_PROFILE && env.AIDT_ENTRY_DIAGNOSTIC_ONLY === 'true') fail('V2_PROFILE_DIAGNOSTIC_CONFLICT');
+  if (![BASELINE_PROFILE, V2_VOICE_PROFILE, CASE01_PROFILE].includes(choice)) fail('ACCEPTANCE_PROFILE_INVALID');
+  if (isNamedAcceptanceProfile(choice) && env.AIDT_ENTRY_DIAGNOSTIC_ONLY === 'true') fail('V2_PROFILE_DIAGNOSTIC_CONFLICT');
   return choice;
 }
 
@@ -140,12 +142,12 @@ function assertReadback(value, identity) {
 
 /** All methods validate first. Unknown remote outcomes lock the whole mutation ledger. */
 export function createV2ExecutionLedger(plan, expectedIdentity, now = Date.now) {
-  if (!plan || plan.profile !== V2_VOICE_PROFILE || typeof plan.manifestSha256 !== 'string') fail('V2_PLAN_REQUIRED');
+  if (!plan || !isNamedAcceptanceProfile(plan.profile) || typeof plan.manifestSha256 !== 'string') fail('V2_PLAN_REQUIRED');
   const { manifestSha256, ...base } = plan;
   if (digest(base) !== manifestSha256) fail('V2_PLAN_CHANGED');
   const identity = assertScope(expectedIdentity), operationMap = new Map(plan.operations.map(row => [row.id, row]));
   const statuses = new Map(plan.operations.map(row => [row.id, { status: 'NOT_RUN' }]));
-  const cases = new Map(V2_CASE_IDS.map(id => [id, { caseId: id, status: 'NOT_RUN' }]));
+  const cases = new Map(plan.caseIds.map(id => [id, { caseId: id, status: 'NOT_RUN' }]));
   const prints = new Map(plan.printJobs.map(job => [job.name, { status: 'NOT_RUN' }]));
   const bindings = new Map(plan.caseBindings.map(row => [row.caseId, row]));
   let stopped = null;
@@ -247,7 +249,7 @@ export function createV2ExecutionLedger(plan, expectedIdentity, now = Date.now) 
       screenshots, ...(binding.requiresModel ? { realModelReceipt: { ...evidence.realModelReceipt } } : {}) });
   }
   function summary() {
-    return { profile: V2_VOICE_PROFILE, manifestSha256, scope: { ...identity }, limits: { ...plan.limits }, fatal: stopped,
+    return { profile: plan.profile, manifestSha256, scope: { ...identity }, limits: { ...plan.limits }, fatal: stopped,
       operations: [...statuses].map(([id, row]) => ({ id, ...structuredClone(row) })),
       cases: [...cases.values()].map(row => structuredClone(row)), prints: [...prints].map(([name, row]) => ({ name, ...structuredClone(row) })),
       fullAcceptancePassed: !stopped && [...cases.values()].every(row => row.status === 'PASSED') && [...prints.values()].every(row => row.status === 'SUCCEEDED') };

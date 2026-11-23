@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, lstatSync } from 
 import { resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { acceptanceProfile, V2_VOICE_PROFILE } from '../apps/web/e2e/support/devapp-aidt-v2-profile.mjs';
+import { acceptanceProfile, V2_VOICE_PROFILE, CASE01_PROFILE, isNamedAcceptanceProfile } from '../apps/web/e2e/support/devapp-aidt-v2-profile.mjs';
 
 export const BASELINE_BUNDLE_FILES = Object.freeze([
   '.nvmrc',
@@ -23,6 +23,7 @@ export const BASELINE_BUNDLE_FILES = Object.freeze([
 ]);
 // These helpers contain no product implementation, credentials, storage state or traces.
 export const V2_CONTROL_BUNDLE_FILES = Object.freeze([
+  'devapp-aidt-case01-plan.mjs','devapp-aidt-case01-stage-files.mjs','devapp-aidt-case01-journey.mjs',
   'devapp-aidt-v2-profile.mjs', 'devapp-aidt-v2-plan.mjs', 'devapp-aidt-v2-print.mjs', 'devapp-aidt-v2-request-guard.mjs',
   'devapp-aidt-v2-native-feedback.mjs', 'devapp-aidt-v2-action-window.mjs', 'devapp-aidt-v2-ui.mjs', 'devapp-aidt-v2-crud-model.mjs', 'devapp-aidt-v2-crud.mjs', 'devapp-aidt-v2-definition.mjs',
   'devapp-aidt-v2-design.mjs', 'devapp-aidt-v2-research.mjs', 'devapp-aidt-v2-s1.mjs', 'devapp-aidt-v2-s2.mjs',
@@ -34,6 +35,7 @@ export const V2_PERSONA_CATALOGUE_PATH = 'apps/web/lib/interview-personas/expert
 export const V2_FIXTURE_BUNDLE_FILES = Object.freeze(['apps/web/e2e/fixtures/aidt-v2/synthetic-prototype-test.wav', 'apps/web/e2e/fixtures/aidt-v2/synthetic-prototype-test.txt', 'apps/web/e2e/fixtures/aidt-v2/README.md']);
 /** The baseline importer now sees profile dispatch imports; it therefore also needs these safe files. */
 export const V2_DISPATCH_BUNDLE_FILES = Object.freeze([
+  'devapp-aidt-case01-plan.mjs','devapp-aidt-case01-stage-files.mjs','devapp-aidt-case01-journey.mjs',
   'devapp-aidt-v2-profile.mjs', 'devapp-aidt-v2-plan.mjs', 'devapp-aidt-v2-print.mjs', 'devapp-aidt-v2-request-guard.mjs', 'devapp-aidt-v2-native-feedback.mjs', 'devapp-aidt-v2-action-window.mjs',
 ].map(file => 'apps/web/e2e/support/' + file));
 export function candidateActionsFromSource(source) {
@@ -48,7 +50,7 @@ export async function buildAcceptanceBundle(root, env = process.env) {
   const sha = env.GITHUB_SHA, profile = acceptanceProfile(env);
   if (!/^[a-f0-9]{40}$/.test(sha ?? '') || typeof root !== 'string' || !root) throw new Error('BUNDLE_ARGUMENTS_INVALID');
   root = resolve(root); mkdirSync(root, { recursive: true, mode: 0o700 });
-  const files = [...new Set([...BASELINE_BUNDLE_FILES, ...(profile === V2_VOICE_PROFILE ? [...V2_CONTROL_BUNDLE_FILES,...V2_FIXTURE_BUNDLE_FILES,V2_PERSONA_CATALOGUE_PATH] : V2_DISPATCH_BUNDLE_FILES)])];
+  const files = [...new Set([...BASELINE_BUNDLE_FILES, ...(isNamedAcceptanceProfile(profile) ? [...V2_CONTROL_BUNDLE_FILES,...(profile === V2_VOICE_PROFILE ? [...V2_FIXTURE_BUNDLE_FILES,V2_PERSONA_CATALOGUE_PATH] : [])] : V2_DISPATCH_BUNDLE_FILES)])];
   const importer = readFileSync('pnpm-lock.yaml', 'utf8').split('\n  apps/web:\n')[1]?.split('\n  apps/')[0];
   const playwright = importer?.match(/\n      '@playwright\/test':\n        specifier: [^\n]+\n        version: (\d+\.\d+\.\d+)\n/)?.[1];
   if (!playwright) throw new Error('PLAYWRIGHT_LOCK_VERSION_MISSING');
@@ -58,10 +60,12 @@ export async function buildAcceptanceBundle(root, env = process.env) {
   const summary = source.match(/export const AIDT_SUMMARY_STABLE_NAME = "([a-z][a-z0-9-]+)";/)?.[1];
   if (names.length !== 6 || new Set(names).size !== 6 || !summary) throw new Error('CANONICAL_SKILL_NAMES_INVALID');
   let profileMetadata = {};
-  if (profile === V2_VOICE_PROFILE) {
+  if (isNamedAcceptanceProfile(profile)) {
     const candidateActions = candidateActionsFromSource(readFileSync('packages/contracts/src/aidt-candidate-request.ts', 'utf8'));
     const { createV2VoicePlan } = await import('../apps/web/e2e/support/devapp-aidt-v2-plan.mjs');
-    const plan = createV2VoicePlan();
+    const plan = profile === CASE01_PROFILE ? (await import('../apps/web/e2e/support/devapp-aidt-case01-plan.mjs')).createCase01Plan() : createV2VoicePlan();
+    profileMetadata = { candidateActions, planManifestSha256:plan.manifestSha256, planLimits:plan.limits };
+    if (profile === V2_VOICE_PROFILE) {
     const audioPath=V2_FIXTURE_BUNDLE_FILES[0],audioInfo=lstatSync(audioPath);
     if(!audioInfo.isFile()||audioInfo.isSymbolicLink()||audioInfo.size<44||audioInfo.size>262144)throw new Error('V2_SYNTHETIC_AUDIO_FIXTURE_BOUND');
     const audio=readFileSync(audioPath);if(audio.subarray(0,4).toString()!=='RIFF'||audio.subarray(8,12).toString()!=='WAVE')throw new Error('V2_SYNTHETIC_AUDIO_FIXTURE_INVALID');
@@ -69,6 +73,7 @@ export async function buildAcceptanceBundle(root, env = process.env) {
     const catalogueInfo=lstatSync(V2_PERSONA_CATALOGUE_PATH);if(!catalogueInfo.isFile()||catalogueInfo.isSymbolicLink()||catalogueInfo.size<1||catalogueInfo.size>1048576)throw new Error('V2_PERSONA_CATALOGUE_BOUND');const catalogue=readFileSync(V2_PERSONA_CATALOGUE_PATH);JSON.parse(catalogue.toString('utf8'));
     profileMetadata = { personaCatalogue:{path:V2_PERSONA_CATALOGUE_PATH,bytes:catalogue.length,sha256:createHash('sha256').update(catalogue).digest('hex')}, candidateActions, planManifestSha256: plan.manifestSha256, planLimits: plan.limits, syntheticAudioFixture:{path:audioPath,bytes:audio.length,sha256:createHash('sha256').update(audio).digest('hex'),mime:'audio/wav',synthetic:true,groundtruthSentToModel:false,groundtruth:{path:groundtruthPath,bytes:groundtruth.length,sha256:createHash('sha256').update(groundtruth).digest('hex')}} };
   }
+    }
   for (const file of files) {
     const info = lstatSync(file); if (!info.isFile() || info.isSymbolicLink() || info.size > 1048576) throw new Error('BUNDLE_FILE_INVALID');
     mkdirSync(dirname(resolve(root, file)), { recursive: true, mode: 0o700 }); copyFileSync(file, resolve(root, file));

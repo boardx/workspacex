@@ -2,8 +2,11 @@
 import { ORIGIN, ProbeFailure, validLoginBody } from './devapp-aidt-auth-readonly.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync, lstatSync } from 'node:fs';
-import { V2_VOICE_PROFILE, assertV2RuntimeIdentity } from './devapp-aidt-v2-profile.mjs';
+import { V2_VOICE_PROFILE, isNamedAcceptanceProfile, assertV2RuntimeIdentity } from './devapp-aidt-v2-profile.mjs';
 import { validateTeachingScope, validateTeachingWire, identifyOwnedTeachingRun, decideOwnedTeachingExecutionRead, brainstormRecord, validBrainstormProjection, validTestPlanProjection, ENTITY } from './devapp-aidt-chat-evidence.mjs';
+
+import { CASE01_PROFILE, CASE01_LIMITS, assertCase01Plan } from './devapp-aidt-case01-plan.mjs';
+import { createCase01StageFiles } from './devapp-aidt-case01-stage-files.mjs';
 
 export const SHA = /^[a-f0-9]{40}$/;
 export const TAG = /^[0-9]+-[0-9]+$/;
@@ -50,7 +53,7 @@ const contentHash = value => createHash('sha256').update(value === undefined ? '
 const REQUEST_KINDS = new Map([
   ['stage-save', 'write'], ['entity-thread', 'write'], ['thread-create', 'write'], ['thread-mount', 'write'], ['reconcile-entity', 'write'],
   ['teaching-send', 'teaching'], ['design-create', 'write'], ['design-link', 'write'], ['design-generate', 'design'], ['design-image', 'write'], ['design-ref-image','write'],
-  ['upload', 'write'], ['chat-audio-upload', 'write'], ['asr-file', 'asr'], ['asr-permission-once', 'write'], ['research-create', 'write'], ['research-initialize', 'write'], ['research-save', 'write'],
+  ['upload', 'write'], ['chat-audio-upload', 'write'], ['chat-stage-text-upload', 'write'], ['asr-file', 'asr'], ['asr-permission-once', 'write'], ['research-create', 'write'], ['research-initialize', 'write'], ['research-save', 'write'],
   ['research-confirm', 'write'], ['research-generate', 'research'], ['research-execute', 'research'],
   ['survey-proposal', 'research'], ['survey-create', 'survey'], ['survey-source', 'survey'], ['survey-link', 'survey'], ['survey-publish', 'survey'], ['survey-submit', 'survey'], ['survey-close', 'survey'], ['survey-report','write'],
 ]);
@@ -291,19 +294,26 @@ function checkReferences(value, projectId, threads, resources, depth = 0, orgId)
 // 44 turns, 263 writes and 16 PDFs remain exclusively in its unchanged modules.
 
 export function createV2AcceptanceGuard(identity, options, legacyNow) {
-  if (!options?.plan || options.plan.profile !== V2_VOICE_PROFILE) throw new ProbeFailure('V2_PLAN_REQUIRED');
+  if (!options?.plan || !isNamedAcceptanceProfile(options.plan.profile)) throw new ProbeFailure('V2_PLAN_REQUIRED');
   const now = options.now ?? legacyNow ?? Date.now;
   const plan = options.plan;
+  const case01 = plan.profile === CASE01_PROFILE;
+  if (case01) assertCase01Plan(plan);
+  const stageFiles = case01 ? createCase01StageFiles(identity) : null;
   const { manifestSha256, ...planBody } = plan;
   if (!Array.isArray(plan.operations) || !plan.operations.length || plan.operations.length > 2048 || contentHash(planBody) !== manifestSha256
     || new Set(plan.operations.map(row => row.id)).size !== plan.operations.length
     || plan.limits.physicalMutationRequests !== plan.operations.filter(row => !['ui','read'].includes(row.kind)).length) throw new ProbeFailure('V2_PLAN_CHANGED');
-  const TEACHING_TURN_LIMIT = plan.operations.filter(row => ['teaching','asr'].includes(row.kind)).length;
+  const TEACHING_TURN_LIMIT = Math.min(case01 ? CASE01_LIMITS.teaching : Infinity, plan.operations.filter(row => ['teaching','asr'].includes(row.kind)).length);
   const WRITE_LIMIT = plan.limits.physicalMutationRequests + 2;
   const operationMap = new Map(plan.operations.map(row => [row.id, row]));
   const tickets = new Map(), requestTickets = new WeakMap();
   const readOption = key => typeof options[key] === 'function' ? options[key]() : options[key];
   let decidingTicket = null, interfaceGuard;
+  // Case01 counts every admitted business HTTP mutation, including teaching and public Survey responses.
+  // The single normal login remains separately counted by loginRequests, as in the source plan.
+  let case01PhysicalWrites = 0;
+  const case01BusinessWrite = request => case01 && ["POST","PUT","PATCH","DELETE"].includes(request.method) && new URL(request.url).pathname !== "/api/auth/login";
 
   let actor = null, org = null, candidate = null, projectId = null, loginArmed = false, fatal = null;
   let loginCount = 0, createCount = 0, arm = null, allowedWrites = 0, ordinaryVerified = false, projectCreateUntil = null, projectCourseTag;
@@ -476,7 +486,7 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
     if (method === 'POST' && /^\/api\/pm-designs\/[^/]+\/ref-images$/.test(path)) return 'design-ref-image';
     if (method === 'POST' && path === `/api/projects/${projectId}/resources`) return request.body?.kind === 'design' ? 'design-link' : request.body?.kind === 'survey' ? 'survey-link' : null;
     if (method === 'POST' && path === `/api/projects/${projectId}/artifacts/upload`) return 'upload';
-    if (method === 'POST' && /^\/api\/chat\/threads\/[^/]+\/attachments$/.test(path)) return 'chat-audio-upload';
+    if (method === 'POST' && /^\/api\/chat\/threads\/[^/]+\/attachments$/.test(path)) return case01 ? ['chat-audio-upload','chat-stage-text-upload'] : 'chat-audio-upload';
     if (method === 'PUT' && new RegExp(`^/api/projects/${projectId}/aidt/stages/[1-6]$`).test(path)) return 'stage-save';
     if (method === 'PUT' && new RegExp(`^/api/projects/${projectId}/aidt/stages/[1-6]/entities/[^/]+/thread$`).test(path)) return 'entity-thread';
     if (method === 'POST' && new RegExp(`^/api/projects/${projectId}/aidt/stages/[12]/entities/[^/]+/reconcile$`).test(path)) return 'reconcile-entity';
@@ -525,6 +535,10 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
     if (body !== undefined && Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_BODY) return stop('REQUEST_BODY_BOUND');
     if (projectId && target.searchParams.has('projectId') && target.searchParams.get('projectId') !== projectId) return stop('FOREIGN_PROJECT_REFERENCE');
     const audioThread = /^\/api\/chat\/threads\/([^/]+)\/attachments$/.exec(path);
+    if (case01 && method === 'POST' && audioThread && decidingTicket?.requestKind === 'chat-stage-text-upload') {
+      if (!ordinaryVerified || !threads.has(audioThread[1]) || !threadFacts.get(audioThread[1])?.writable) return stop('CASE01_STAGE_FILE_NOT_BOUND');
+      const decision = stageFiles.upload(target, body, decidingTicket); allowedWrites++; return decision;
+    }
     if (method === 'POST' && audioThread) {
       const file = body?.files?.[0], expected = decidingTicket?.expectedFields?.audioFixture, fixture = expected && fixtures.get(expected.filename);
       if (target.search || decidingTicket?.requestKind !== 'chat-audio-upload' || !threads.has(audioThread[1]) || !threadFacts.get(audioThread[1])?.writable
@@ -557,6 +571,7 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
         return { allow: true, kind: 'v2-native-artifacts', threadId: nativeArtifacts[1] };
       const nativeContent = /^\/api\/artifacts\/([^/]+)\/versions\/([1-9][0-9]*)\/content$/.exec(path);
       if (nativeContent && !target.search && publishedArtifacts.has(nativeContent[1] + ':' + nativeContent[2])) return { allow: true, kind: 'v2-native-artifact-content', artifactKey: nativeContent[1] + ':' + nativeContent[2] };
+      const stageFileRead = stageFiles?.read(target); if (stageFileRead) return stageFileRead;
       const audioContent = /^\/api\/chat\/threads\/([^/]+)\/attachments\/([^/]+)\/content$/.exec(path);
       if (audioContent && !target.search && nativeAudio.get(audioContent[2])?.threadId === audioContent[1]) return { allow: true, kind: 'v2-native-audio-content', attachmentId: audioContent[2] };
       const researchRead = /^\/api\/interviews\/digital\/([^/]+)(\/markdown)?$/.exec(path);
@@ -767,6 +782,7 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
       allowedWrites++; return { allow: true, kind: 'link-design', designId: body.resourceId };
     }
     if (method === 'POST' && designId && path === `/api/pm-designs/${designId}/chat` && !target.search) {
+      if (case01 && modelCount >= CASE01_LIMITS.designs) return stop('DESIGN_GENERATION_NOT_ARMED');
       if (!modelArm || now() > modelArm || !linkedDesigns.has(designId) || !object(body) || Object.keys(body).some(key => !['text', 'maxScreens','refImageIds'].includes(key)) || typeof body.text !== 'string' || !/QA|合成/u.test(body.text) || !body.text.includes(identity.run) || body.text.length > 4000 || (body.maxScreens !== undefined && body.maxScreens !== 1)) return stop('DESIGN_GENERATION_NOT_ARMED');
       if (body.refImageIds !== undefined || designSourceFacts.has(designId)) {
         let facts; try {facts = currentDesignSource(designId);} catch (error) {return stop(error.code ?? 'V2_DESIGN_SOURCE_UNVERIFIED');}
@@ -909,6 +925,9 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
     return stop('MUTATION_OUT_OF_SCOPE');
   }
   function decide(request) {
+    let businessWrite=false;
+    try { businessWrite=case01BusinessWrite(request); } catch { return stop('TARGET_REJECTED'); }
+    if(businessWrite && case01PhysicalWrites >= CASE01_LIMITS.physicalWrites) return stop('WRITE_COUNT_BOUND');
     let ticket;
     const optional = request.method === 'POST' && (request.url.endsWith('/api/copilotkit/agent/default/suggest')
       || request.body?.forwardedProps?.toolChoice?.function?.name === 'copilotkitSuggest');
@@ -918,6 +937,7 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
     decidingTicket = ticket;
     let decision;
     try { decision = decideRequest(request); } catch (error) { return stop(error.code ?? 'V2_REQUEST_REJECTED'); } finally { decidingTicket = null; }
+    if (businessWrite && decision.allow) case01PhysicalWrites++;
     if (ticket && decision.allow) {
       ticket.state = 'SENT';
       ticket.ledger.markOperationSent(ticket.operationId, ticket.scope);
@@ -1038,6 +1058,8 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
     } else if (decision.kind === 'design-generation') {
       modelReceipt = { attempted: true, httpStatus: status, replySource: ['model', 'fallback'].includes(response?.reply?.source) ? response.reply.source : 'unknown', generatedFrames: Array.isArray(response?.project?.frames) ? response.project.frames.length : 0 };
       if (status === 200 && (response?.project?.id !== designId || response.project.ownerId !== actor)) throw new ProbeFailure('DESIGN_OWNERSHIP_UNVERIFIED');
+    } else if (decision.kind === 'case01-stage-file-upload') {
+      stageFiles.observe(decision, status, response);
     } else if (decision.kind === 'v2-audio-upload') {
       if (![200,201].includes(status) || !/^[A-Za-z0-9_.:-]{1,256}$/.test(response?.id ?? '') || response.filename !== decision.fixture.filename
         || response.bytes !== decision.fixture.sizeBytes || response.mime !== decision.fixture.mime || nativeAudio.has(response.id)) throw new ProbeFailure('V2_AUDIO_ATTACHMENT_RESPONSE_REJECTED');
@@ -1162,14 +1184,25 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
         && entry.accepted?.runId === proof.runId && entry.accepted.inputMessageId === proof.inputMessageId);
       if (matches.length !== 1) throw new ProbeFailure('TEACHING_COMPLETION_NOT_BOUND');
       if (!/^[a-f0-9]{64}$/.test(proof.snapshotHash ?? '') || matches[0].snapshotHash && matches[0].snapshotHash !== proof.snapshotHash) throw new ProbeFailure('V2_NATIVE_SNAPSHOT_MISMATCH');
+      stageFiles?.bind(matches[0].scope, proof);
       matches[0].completed = true;
       const ticket = matches[0].ticket;
       if (!ticket || ticket.state !== 'SENT') throw new ProbeFailure('V2_TEACHING_SLOT_NOT_BOUND');
       ticket.ledger.settleOperation(ticket.operationId, { scope: ticket.scope, outcome: 'succeeded', receipt: { verified: true, sha256: contentHash(proof) } });
       ticket.state = 'SUCCEEDED';
     },
+    armStageText: scope => {
+      if (!stageFiles) throw new ProbeFailure('CASE01_STAGE_FILE_NOT_BOUND');
+      const selector = validateTeachingScope(scope), coordinates = threadCoordinates.get(scope.threadId);
+      if (!ordinaryVerified || scope.projectId !== projectId || scope.actorId !== actor || selector.purpose !== 'stage' || coordinates?.stageId !== scope.stageId || coordinates.entityId !== selector.entityId || coordinates.purpose !== 'stage' || !threadFacts.get(scope.threadId)?.writable) throw new ProbeFailure('CASE01_STAGE_FILE_NOT_BOUND');
+      const file = stageFiles.arm(scope), role = entityRoles.get(scope.stageId + ':' + selector.entityId);
+      armV2Operation({ operationId: `case01-stage-${scope.stageId}-attachment`, kind: 'write', requestKind: 'chat-stage-text-upload', stageId: scope.stageId, entityRole: role, entityId: selector.entityId });
+      return file;
+    },
+    stageTextReceipt: stageId => stageFiles?.receipt(stageId) ?? null,
     armTeachingSend: scope => {
       validateTeachingScope(scope);
+      stageFiles?.assertSend(scope);
       let ticketCandidates = decidingTicket ? [decidingTicket] : [...tickets.values()].filter(ticket => ticket.state === 'ARMED' && ticket.stageId === scope.stageId && ['teaching-send','asr-file'].includes(ticket.requestKind));
       if (!ticketCandidates.length) {
         const entity = scope.selector.entityId;
@@ -1267,6 +1300,7 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
     surveyReceipt: survey.receipt,
     surveyPublication: survey.publication,
     decideSurveyParticipant({ url, method, body }) {
+      if (case01 && ['POST','PUT','PATCH','DELETE'].includes(method) && case01PhysicalWrites >= CASE01_LIMITS.physicalWrites) return stop('WRITE_COUNT_BOUND');
       if (fatal) return { allow: false, kind: 'stopped', code: fatal };
       const target = new URL(url), publicLink = survey.publicLink();
       if (target.origin !== ORIGIN || target.username || target.password || target.hash
@@ -1278,7 +1312,7 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
         let ticket;
         try { ticket = claimRequest({url,method,body}); decidingTicket = ticket;
           const decision = survey.decide(method, target, body, projectId, 'survey-participant');
-          if (decision?.allow) { allowedWrites++; ticket.state = 'SENT'; ticket.ledger.markOperationSent(ticket.operationId,ticket.scope); requestTickets.set(decision,ticket); return decision; }
+          if (decision?.allow) { allowedWrites++; if(case01)case01PhysicalWrites++; ticket.state = 'SENT'; ticket.ledger.markOperationSent(ticket.operationId,ticket.scope); requestTickets.set(decision,ticket); return decision; }
         } catch (error) { return stop(error.code ?? 'V2_SURVEY_PARTICIPANT_REJECTED'); }
         finally { decidingTicket = null; }
       }
@@ -1304,6 +1338,7 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
       if (fixtures.has(filename)) throw new ProbeFailure('FIXTURE_REUSED'); fixtures.set(filename, fixture); uploadArm = { ...fixture, until: now() + 30000 }; return fixture;
     },
     observeContent: (decision, status, headers, bytes) => {
+      if (decision.kind === 'case01-stage-file-content') { stageFiles.content(decision, status, bytes); return; }
       if (decision.kind === 'v2-native-audio-content') {
         const original = nativeAudio.get(decision.attachmentId);
         if (status !== 200 || !original || bytes.length !== original.sizeBytes || createHash('sha256').update(bytes).digest('hex') !== original.sha256) throw new ProbeFailure('V2_NATIVE_AUDIO_CONTENT_UNVERIFIED');
@@ -1336,7 +1371,7 @@ export function createV2AcceptanceGuard(identity, options, legacyNow) {
       projectId = candidate;
     },
     identity: () => ({ actor, org, candidate, projectId, ordinaryVerified }),
-    summary: () => ({ readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: V2_VOICE_PROFILE, teachingRequestsAllowed: TEACHING_TURN_LIMIT, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, reconcileCount, modelRequestsAllowed: plan.limits.design, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignIds: [...ownedDesigns], ownedResearchIds: [...researchSources.keys()], ownedThreadCount: threads.size, ownedUploadCount: uploads.size,
+    summary: () => ({ readCategories: { ...readCategories }, readDenials: { ...readDenials }, metadataHttpStatuses: { items: metadataHttpStatuses.map(item => ({ ...item })), truncated: metadataHttpStatusesTruncated }, ordinaryRoleVerified: ordinaryVerified, profile: plan.profile, ...(case01 ? { physicalBusinessWrites:case01PhysicalWrites,physicalBusinessWritesAllowed:CASE01_LIMITS.physicalWrites,loginCountedSeparately:true } : {}), teachingRequestsAllowed: TEACHING_TURN_LIMIT, teachingRequests, teachingStopped, ownedTeachingRunCount: ownedRuns.size, suggestionsBlocked, loginRequests: loginCount, projectCreates: createCount, allowedWrites, reconcileCount, modelRequestsAllowed: plan.limits.design, modelRequests: modelCount, designRequestedScreens: modelRequestedScreens, designModel: modelReceipt, roleWritesAllowed: 0, deletesAllowed: 0, projectId, ownedDesignIds: [...ownedDesigns], ownedResearchIds: [...researchSources.keys()], ownedThreadCount: threads.size, ownedUploadCount: uploads.size,
       operations: [...tickets.values()].map(ticket => ({ operationId: ticket.operationId, requestKind: ticket.requestKind, state: ticket.state, requestSha256: ticket.requestSha256 })) }),
   };
 }

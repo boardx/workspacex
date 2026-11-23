@@ -11,7 +11,8 @@ import { captureApplicationPrint } from './devapp-aidt-print-evidence.mjs';
 import { sendTeachingFeedback, validateTeachingEvidence, readTeachingHistoryFailureDiagnostic } from './devapp-aidt-chat-evidence.mjs';
 import { agentQaReviewRequested, createAgentQaReviewer } from './devapp-aidt-agent-review.mjs';
 import { aidtCreateTagInput } from './devapp-aidt-journey.mjs';
-import { acceptanceProfile, V2_VOICE_PROFILE, createV2ExecutionLedger } from './devapp-aidt-v2-profile.mjs';
+import { acceptanceProfile, V2_VOICE_PROFILE, CASE01_PROFILE, isNamedAcceptanceProfile, createV2ExecutionLedger } from './devapp-aidt-v2-profile.mjs';
+import { createCase01Plan } from './devapp-aidt-case01-plan.mjs';
 import { createV2VoicePlan } from './devapp-aidt-v2-plan.mjs';
 import { createV2AcceptanceGuard } from './devapp-aidt-v2-request-guard.mjs';
 import { probeNativePrintCapabilities, prepareOwnedNativePrint, createNativePrintDriver } from './devapp-aidt-v2-print.mjs';
@@ -57,7 +58,7 @@ export function illustratedAcceptance(report) {
   for (const [index, title] of headings.entries()) {
     const section = index === 7 ? /^(report-|teaching-chat-final-report)/ : index === 0 ? /^homepage-/ : new RegExp('^(s' + index + '-|teaching-chat-stage-' + index + '(?:-|$))');
     const checks = report.checkpoints.filter(row => section.test(row.name));
-    const screens = report.screenshots.filter(row => report.acceptanceProfile === V2_VOICE_PROFILE
+    const screens = report.screenshots.filter(row => isNamedAcceptanceProfile(report.acceptanceProfile)
       ? (index === 0 ? row.stage === null : index === 7 ? /report/i.test(row.filename) : row.stage === index) && /^[A-Za-z0-9-]+\.png$/.test(row.filename)
       : row.filename.startsWith(String(index).padStart(2, '0') + '-') && /^[a-z0-9-]+\.png$/.test(row.filename));
     lines.push('## ' + title, '');
@@ -393,7 +394,7 @@ export function v2NativeOperationInput(input, plan) {
     's6-test-virtual-native-save-intake': 'research-save', 's6-test-virtual-native-confirm-analysis': 'research-confirm',
     's6-test-virtual-native-save-outline': 'research-save', 's6-test-virtual-analysis': 'research-generate',
     's6-test-virtual-outline': 'research-generate', 's6-test-virtual-runs': 'research-execute', 's6-test-virtual-report': 'research-generate',
-    's5-prototype-single-image-generate': 'design-image', 's5-prototype-three-image-generate': 'design-image', 's5-prototype-three-html-generate': 'design-generate',
+    's5-prototype-single-html-generate': 'design-generate', 's5-prototype-single-image-generate': 'design-image', 's5-prototype-three-image-generate': 'design-image', 's5-prototype-three-html-generate': 'design-generate',
     's5-prototype-three-webapp-generate': 'design-generate', 's6-test-offline-iterate-prototype': 'design-generate',
     's2-source-interview-chat-audio-upload':'chat-audio-upload','s6-test-offline-chat-audio-upload':'chat-audio-upload', 's2-source-interview-file-asr': 'asr-file', 's6-test-offline-file-asr': 'asr-file',
   };
@@ -406,7 +407,7 @@ export function v2NativeOperationInput(input, plan) {
 
 export function candidateDialogLocator(page, profile, currentUrl, projectId, stageId) {
   const url = new URL(currentUrl);
-  if (profile !== V2_VOICE_PROFILE || url.origin !== ORIGIN || url.pathname !== `/aidt/${projectId}` || url.searchParams.get('step') !== String(stageId)
+  if (!isNamedAcceptanceProfile(profile) || url.origin !== ORIGIN || url.pathname !== `/aidt/${projectId}` || url.searchParams.get('step') !== String(stageId)
       || stageId !== 3 || !['persona','hmw'].includes(url.searchParams.get('candidate'))) throw new ProbeFailure('V2_CANDIDATE_DIALOG_SCOPE_REJECTED');
   return page.getByRole('dialog', { name: url.searchParams.get('candidate') === 'persona' ? '从证据形成画像' : '找到值得继续探索的问题', exact: true });
 }
@@ -431,7 +432,7 @@ export async function main() {
     assertAcceptanceWorkflow(process.env);
     profile = acceptanceProfile(process.env);
     report.acceptanceProfile = profile;
-    if (profile === V2_VOICE_PROFILE) { plan = createV2VoicePlan(); report.nativePrintBudget = { pdfMaximumBytes: 536870912, renderMaximumBytes: 1073741824, pdfBytes: 0, renderBytes: 0, plannedFiles: plan.limits.nativePdfFiles, exhausted: false, byStage: {} }; report.kind = 'devapp-aidt-v2-voice-acceptance-v1';report.designRequestLimit='Closed V2 manifest: actual named HTML, WebApp and post-test iteration only; no unknown-result retry.'; report.v2Plan = { manifestSha256: plan.manifestSha256, limits: plan.limits, formalOutputs: plan.formalOutputs, caseIds: plan.caseIds }; }
+    if (isNamedAcceptanceProfile(profile)) { plan = profile === CASE01_PROFILE ? createCase01Plan() : createV2VoicePlan(); report.nativePrintBudget = { pdfMaximumBytes: 536870912, renderMaximumBytes: 1073741824, pdfBytes: 0, renderBytes: 0, plannedFiles: plan.limits.nativePdfFiles, exhausted: false, byStage: {} }; report.kind = profile === CASE01_PROFILE ? 'devapp-aidt-case01-acceptance-v1' : 'devapp-aidt-v2-voice-acceptance-v1';report.designRequestLimit='Closed V2 manifest: actual named HTML, WebApp and post-test iteration only; no unknown-result retry.'; report.v2Plan = { manifestSha256: plan.manifestSha256, limits: plan.limits, formalOutputs: plan.formalOutputs, caseIds: plan.caseIds }; }
     identity = acceptanceIdentity(process.env);
     identity.controlSource = process.env.GITHUB_SHA;
     const agentQaRequested = agentQaReviewRequested(process.env, identity);
@@ -457,17 +458,18 @@ export async function main() {
     report.systemArtifacts = [];
     report.teachingEvidence = [];
     report.budgets = { homepageMinutes: 20, stageMinutes: 15, stage5Minutes: 20, overallMinutes: 142, stage5Reason: 'Existing Design request can take up to 900 seconds; allow native Chat and normal UI save/review overhead without unknown-write retry.' };
-    if (profile === V2_VOICE_PROFILE) {
+    if (isNamedAcceptanceProfile(profile)) {
       // Independent finite wall-clock cap agreed for this profile; per-case bounds remain separate.
       report.budgets = { profile, overallMinutes: 360, caseDeadlinesMs: Object.fromEntries(plan.caseBindings.map(item => [item.caseId, item.timeoutMs])) };
     }
+    if (profile === CASE01_PROFILE) report.budgets = { ...report.budgets, overallMinutes: 142 };
     const overallDeadline = Date.now() + report.budgets.overallMinutes * 60 * 1000;
     report.independentPdfValidation = 'pending artifact download and independent parser/renderer; byte generation is not complete glyph acceptance';
     output = privateOutput(process.env, identity);
     const metadata = JSON.parse(readFileSync(new URL('../../../../acceptance-source.json', import.meta.url), 'utf8'));
     if (metadata.controlSource !== process.env.GITHUB_SHA || !Array.isArray(metadata.teachingSkillNames) || metadata.teachingSkillNames.length < 6) throw new ProbeFailure('SOURCE_BUNDLE_INVALID');
     identity.teachingSkillNames = metadata.teachingSkillNames;
-    if (profile === V2_VOICE_PROFILE && (!metadata.candidateActions || metadata.profile !== profile || metadata.planManifestSha256 !== plan.manifestSha256)) throw new ProbeFailure('V2_SOURCE_BUNDLE_PROFILE_MISMATCH');
+    if (isNamedAcceptanceProfile(profile) && (!metadata.candidateActions || metadata.profile !== profile || metadata.planManifestSha256 !== plan.manifestSha256)) throw new ProbeFailure('V2_SOURCE_BUNDLE_PROFILE_MISMATCH');
     identity.deniedProject = `prj-${randomUUID()}`;
     report.deployedRuntime = runtimeProof(identity);
     if (agentQaRequested) {
@@ -479,7 +481,7 @@ export async function main() {
       if (JSON.stringify(afterReviewPreflight) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
       report.runtimeRechecks++;
     }
-    if(profile===V2_VOICE_PROFILE){
+    if(profile === V2_VOICE_PROFILE){
       const audio=readV2SyntheticAudioFixture(metadata,identity),source=metadata.syntheticAudioFixture.groundtruth,path='apps/web/e2e/fixtures/aidt-v2/synthetic-prototype-test.txt';
       if(source?.path!==path||!Number.isSafeInteger(source.bytes)||source.bytes<10||source.bytes>16384||!/^[a-f0-9]{64}$/.test(source.sha256??''))throw new ProbeFailure('V2_SYNTHETIC_GROUNDTRUTH_METADATA_INVALID');
       const info=lstatSync(path),bytes=readFileSync(path);if(!info.isFile()||info.isSymbolicLink()||bytes.length!==source.bytes||createHash('sha256').update(bytes).digest('hex')!==source.sha256)throw new ProbeFailure('V2_SYNTHETIC_GROUNDTRUTH_BYTES_CHANGED');
@@ -489,7 +491,7 @@ export async function main() {
     }
     const { chromium, expect, request } = await import('@playwright/test');
     const browserEnv = Object.fromEntries(['PATH', 'HOME', 'LANG', 'TZ', 'PLAYWRIGHT_BROWSERS_PATH'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
-    if (profile === V2_VOICE_PROFILE) {
+    if (isNamedAcceptanceProfile(profile)) {
       // No account read/bootstrap, login or model exists before the actual owned print capability probe.
       const prepared = await prepareV2Browser({ chromium, outputRoot: output.out, assertSafe: text => sensitiveEvidence.assertSafe(text), browserEnv });
       ({ browser, context } = prepared); nativeDriver = prepared.driver; nativeRuntime = prepared.ownedRuntime;
@@ -518,12 +520,12 @@ export async function main() {
           finishedUTC: new Date().toISOString(), durationMs: Math.round(performance.now() - setupTick) };
       }
     }
-    guard = profile === V2_VOICE_PROFILE ? createV2AcceptanceGuard(identity, { plan, ledger: () => ledger, runtimeScope: () => v2Scope }) : createAcceptanceGuard(identity);
-    if(profile===V2_VOICE_PROFILE)actionWindow=createV2ActionWindow({guard,plan,runtimeScope});
+    guard = isNamedAcceptanceProfile(profile) ? createV2AcceptanceGuard(identity, { plan, ledger: () => ledger, runtimeScope: () => v2Scope }) : createAcceptanceGuard(identity);
+    if(isNamedAcceptanceProfile(profile))actionWindow=createV2ActionWindow({guard,plan,runtimeScope});
     const remainingMs = overallDeadline - Date.now();
     if (remainingMs <= 0) throw new ProbeFailure('ACCEPTANCE_TIMEOUT');
     timer = setTimeout(() => { guard.fail('ACCEPTANCE_TIMEOUT'); void context?.close(); }, remainingMs);
-    if (profile !== V2_VOICE_PROFILE) {
+    if (!isNamedAcceptanceProfile(profile)) {
       browser = await chromium.launch({ headless: true, env: browserEnv });
       report.browser = { name: 'Chromium', version: browser.version(), playwrightVersion: metadata.playwrightVersion, headless: true };
       context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block', acceptDownloads: true });
@@ -538,10 +540,10 @@ export async function main() {
           const contentType = request.headers()['content-type'] ?? '';
           if (contentType.startsWith('multipart/form-data;')) {
             const form = await new Response(raw, { headers: { 'content-type': contentType } }).formData();
-            const audioUpload=profile===V2_VOICE_PROFILE&&/^\/api\/chat\/threads\/[^/]+\/attachments$/.test(new URL(request.url()).pathname);
-            const stageTextUpload = profile !== V2_VOICE_PROFILE
+            const audioUpload=profile === V2_VOICE_PROFILE&&/^\/api\/chat\/threads\/[^/]+\/attachments$/.test(new URL(request.url()).pathname);
+            const stageTextUpload = (!isNamedAcceptanceProfile(profile) || profile === CASE01_PROFILE)
               && /^\/api\/chat\/threads\/[^/]+\/attachments$/.test(new URL(request.url()).pathname);
-            const sourceImageUpload=profile===V2_VOICE_PROFILE&&/^\/api\/pm-designs\/[^/]+\/ref-images$/.test(new URL(request.url()).pathname);
+            const sourceImageUpload=isNamedAcceptanceProfile(profile)&&/^\/api\/pm-designs\/[^/]+\/ref-images$/.test(new URL(request.url()).pathname);
             if ([...form.keys()].sort().join(',') !== ((audioUpload || stageTextUpload)?'file':sourceImageUpload?'contentType,file':'files,meta')) throw new ProbeFailure('UPLOAD_FORM_REJECTED');
             const file = form.get(audioUpload || sourceImageUpload || stageTextUpload ? 'file' : 'files');
             if (typeof file === 'string' || !file || file.size > 262144) throw new ProbeFailure('UPLOAD_FORM_REJECTED');
@@ -550,14 +552,14 @@ export async function main() {
             if(audioUpload){if(!['audio/wav','audio/x-wav','audio/mpeg'].includes(file.type))throw new ProbeFailure('UPLOAD_FORM_REJECTED');body={__multipart:true,fields:{},files};}
             else if (stageTextUpload) {
               if (file.type !== 'text/plain') throw new ProbeFailure('UPLOAD_FORM_REJECTED');
-              body = { __multipart: true, files };
+              body = profile === CASE01_PROFILE ? { __multipart: true, fields: {}, files } : { __multipart: true, files };
             }
             else if(sourceImageUpload){if(!['image/png','image/jpeg','image/webp'].includes(file.type)||form.get('contentType')!==file.type)throw new ProbeFailure('UPLOAD_FORM_REJECTED');body={__multipart:true,fields:{contentType:file.type},files};}
             else {let meta;try{meta=JSON.parse(form.get('meta'));}catch{throw new ProbeFailure('UPLOAD_FORM_REJECTED');}body={__multipart:true,meta,files};}
           } else { try { body = request.postDataJSON(); } catch { throw new ProbeFailure('REQUEST_BODY_UNSUPPORTED'); } }
         }
         const descriptor = { url: request.url(), method: request.method(), body, resourceType: request.resourceType() };
-        const actionWindowArmed=profile===V2_VOICE_PROFILE&&actionWindow?.matchesNext(descriptor)?actionWindow.armForRequest(descriptor):false;
+        const actionWindowArmed=isNamedAcceptanceProfile(profile)&&actionWindow?.matchesNext(descriptor)?actionWindow.armForRequest(descriptor):false;
         let decision = guard.decide(descriptor);
         if (!decision.allow && decision.kind === 'teaching-run-needs-binding') {
           // Never trust a run ID from SSE. Reread only the armed owned thread,
@@ -570,7 +572,7 @@ export async function main() {
         await enforceDeniedProbeStatus(decision, response);
         if (response.status() >= 300 && response.status() < 400) throw new ProbeFailure('REDIRECT_REJECTED');
         let parsed;
-        if (['upload-content', 'qa-stage-text-content'].includes(decision.kind) || profile===V2_VOICE_PROFILE&&['v2-native-audio-content','v2-native-artifact-content'].includes(decision.kind)) {
+        if (['upload-content', 'qa-stage-text-content'].includes(decision.kind) || isNamedAcceptanceProfile(profile)&&['v2-native-audio-content','v2-native-artifact-content','case01-stage-file-content'].includes(decision.kind)) {
           const bytes = await response.body();
           if (bytes.length > 262144) throw new ProbeFailure('RESPONSE_BOUND');
           guard.observeContent(decision, response.status(), response.headers(), bytes);
@@ -578,7 +580,7 @@ export async function main() {
           && (decision.kind !== 'qa-project-catalog' || response.status() === 200)) {
           const bytes = await response.body();
           if (bytes.length > 1048576) throw new ProbeFailure('RESPONSE_BOUND');
-          if (profile === V2_VOICE_PROFILE) parsed = parseV2NativeResponse(bytes, response.headers()['content-type'], decision);
+          if (isNamedAcceptanceProfile(profile)) parsed = parseV2NativeResponse(bytes, response.headers()['content-type'], decision);
           else { try { parsed = JSON.parse(bytes.toString('utf8')); } catch { throw new ProbeFailure('RESPONSE_SCHEMA_INVALID'); } }
         }
         if (decision.kind === 'login' && typeof parsed?.sessionToken === 'string') sensitiveEvidence.remember(parsed.sessionToken);
@@ -598,7 +600,7 @@ export async function main() {
           const membership = await api(page, 'GET', `/api/projects/${id}/collaborators`);
           if (overview.status !== 200 || membership.status !== 200) throw new ProbeFailure('QA_PROJECT_OWNERSHIP_READ_FAILED');
           guard.bindOwnedProject(overview.data, membership.data?.members);
-          if (profile === V2_VOICE_PROFILE) {
+          if (isNamedAcceptanceProfile(profile)) {
             const owned = guard.identity();
             v2Scope = { source: identity.source, controlSource: process.env.GITHUB_SHA, tag: identity.tag, run: identity.run, attempt: identity.attempt, orgId: owned.org, actorId: owned.actor, orgRole: 'consultant', projectId: owned.projectId };
             ledger = createV2ExecutionLedger(plan, v2Scope);
@@ -634,7 +636,7 @@ export async function main() {
     };
     let pendingReviewCapture = null;
     const capture = async (name, expectedStage, region = 'workspace', pendingReceipt, surface = page) => {
-      const screenshotName = profile === V2_VOICE_PROFILE ? /^[A-Za-z0-9][A-Za-z0-9-]{0,85}$/ : /^[a-z0-9][a-z0-9-]{0,85}$/;
+      const screenshotName = isNamedAcceptanceProfile(profile) ? /^[A-Za-z0-9][A-Za-z0-9-]{0,85}$/ : /^[a-z0-9][a-z0-9-]{0,85}$/;
       if (!screenshotName.test(name)) throw new ProbeFailure('SCREENSHOT_NAME_INVALID');
       if (region === 'workspace' || region === 'owned-tool-review' || region === 'card-dialog' || region === 'candidate-dialog') assertCaptureScope(surface.url(), guard.identity().projectId, expectedStage);
       else { const url = new URL(surface.url()); if (url.origin !== ORIGIN || url.pathname !== '/aidt' || !['home-create-actions', 'create-dialog'].includes(region)) throw new ProbeFailure('SCREENSHOT_SCOPE_REJECTED'); }
@@ -817,7 +819,7 @@ export async function main() {
           if (!decision.allow) return await route.abort('blockedbyclient');
           const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: 15000 });
           if (response.status() >= 300 && response.status() < 400) throw new ProbeFailure('REDIRECT_REJECTED');
-          if (decision.kind === 'survey-submit' || profile===V2_VOICE_PROFILE&&decision.kind==='survey-public-read') {
+          if (decision.kind === 'survey-submit' || isNamedAcceptanceProfile(profile)&&decision.kind==='survey-public-read') {
             const bytes = await response.body();
             if (bytes.length > (decision.kind==='survey-public-read'?1048576:4096)) throw new ProbeFailure('RESPONSE_BOUND');
             guard.observe(decision, response.status(), JSON.parse(bytes.toString('utf8')));
@@ -849,10 +851,21 @@ export async function main() {
       return report.download;
     };
     const teachingFeedback = async (stageId, prompt, interviewCode, interviewFinding = false, syntheticProblemFixture = false, testPlan = false) => {
-      if (interviewCode !== undefined && (stageId !== 2 || !/^U(?:0[1-9]|10)$/.test(interviewCode))) throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED');
+      const teachingPage = new URL(page.url());
+      const currentTeachingEntity = teachingPage.searchParams.get('entity');
+      const currentTeachingThread = teachingPage.searchParams.get('thread');
+      let caseObservation=false;
+      if(profile===CASE01_PROFILE && stageId===2 && /^O(?:0[1-9]|10)$/.test(interviewCode ?? '')) {
+        if(teachingPage.origin!==ORIGIN||teachingPage.pathname!==`/aidt/${projectId}`||teachingPage.searchParams.get('step')!=='2'||!currentTeachingEntity||!currentTeachingThread)throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED');
+        const read=await api(page,'GET',`/api/projects/${projectId}/aidt/stages/2`);let record;
+        try { record=JSON.parse(read.data?.stage?.content?.draft?.fields?.['interviewRecord:'+currentTeachingEntity]??'null'); } catch { throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED'); }
+        if(read.status!==200||read.data.stage?.projectId!==projectId||record?.id!==currentTeachingEntity||record.kind!=='observation'||record.archived||read.data.stage.content.draft.fields['interviewArchived:'+currentTeachingEntity]==='true'||record.code!==interviewCode||page.url()!==teachingPage.href)throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED');
+        caseObservation=true;
+      }
+      if (interviewCode !== undefined && (stageId !== 2 || !/^U(?:0[1-9]|10)$/.test(interviewCode)&&!caseObservation)) throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED');
       if (interviewFinding && (stageId !== 2 || !interviewCode)) throw new ProbeFailure('INTERVIEW_CODE_UNEXPECTED');
       const problemRevision = !syntheticProblemFixture && stageId === 1 && report.teachingEvidence.some(item => item.status === 'passed' && item.stageId === 1);
-      const interviewGuideRevision = stageId === 2 && !interviewFinding && report.teachingEvidence.some(item => item.status === 'passed' && item.interviewCode === interviewCode);
+      const interviewGuideRevision = stageId === 2 && !interviewFinding && report.teachingEvidence.some(item => item.status === 'passed' && item.stageId===2&&item.entityId===currentTeachingEntity&&item.threadId===currentTeachingThread&&item.interviewCode === interviewCode);
       const codeSuffix = interviewCode && interviewCode !== 'U01' ? `-${interviewCode.toLowerCase()}` : '';
       const suffix = syntheticProblemFixture ? '-fixture' : problemRevision ? '-revision' : codeSuffix + (interviewFinding ? '-finding' : interviewGuideRevision ? '-revision' : '');
       const definitionTurn = stageId === 3 ? report.teachingEvidence.filter(item => item.stageId === 3 && item.status === 'passed').length : 0;
@@ -862,7 +875,7 @@ export async function main() {
         ? (report.teachingEvidence.some(item => item.stageId === 6 && item.entityId !== new URL(page.url()).searchParams.get('entity') && item.status === 'passed') ? '-survey' : '') + (testPlan ? '-plan' : '') : '';
       const threadParam = summary ? 'summaryThread' : 'thread';
       const voiceTurn = report.teachingEvidence.filter(item => item.stageId === stageId && item.status === 'passed').length + 1;
-      const name = profile === V2_VOICE_PROFILE && stageId !== 1 && !summary ? `teaching-chat-stage-${stageId}-turn-${voiceTurn}` : summary ? 'teaching-chat-final-report' : `teaching-chat-stage-${stageId}${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`;
+      const name = isNamedAcceptanceProfile(profile) && stageId !== 1 && !summary ? `teaching-chat-stage-${stageId}-turn-${voiceTurn}` : summary ? 'teaching-chat-final-report' : `teaching-chat-stage-${stageId}${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`;
       let isolatedKnownS1Review = false;
       const accepted = await checkpoint(name, async () => {
         if (guard.teachingStopped()) throw new ProbeFailure('TEACHING_PREVIOUS_OUTCOME_UNRESOLVED');
@@ -878,7 +891,7 @@ export async function main() {
           if (entityId !== 'group-report') throw new ProbeFailure('REPORT_SCOPE_UNVERIFIED');
           const history = page.getByTestId('aidt-summary-materials').locator('p').filter({ hasText: /^历史选择/ });
           const historyRevisions = [...(await history.textContent()).matchAll(/第(\d+)步 V(\d+)/g)].map(match => ({ stageId: Number(match[1]), revision: Number(match[2]) }));
-          selector = { schemaVersion: 1, projectId, purpose: 'summary', ...(profile===V2_VOICE_PROFILE?{entityId:'group-report'}:{}), stageRevisions: Object.values(stages).map(({stageId,revision}) => ({stageId,revision})), historyRevisions };
+          selector = { schemaVersion: 1, projectId, purpose: 'summary', ...(isNamedAcceptanceProfile(profile)?{entityId:'group-report'}:{}), stageRevisions: Object.values(stages).map(({stageId,revision}) => ({stageId,revision})), historyRevisions };
         } else if (entityId) {
           selector = { schemaVersion: 1, projectId, purpose: 'stage', stageId, entityId, stageRevisions: stages[stageId] ? [{ stageId, revision: stages[stageId].revision }] : [] };
           if (stageId === 2) {
@@ -898,7 +911,7 @@ export async function main() {
         await api(page, 'GET', `/api/threads/${encodeURIComponent(threadId)}/skill-deviations?projectId=${encodeURIComponent(projectId)}`);
         const pin = guard.teachingPin(stageId, threadId, entityId ?? undefined); if (!pin) throw new ProbeFailure('TEACHING_SKILL_PIN_UNVERIFIED');
         const scope = { origin: ORIGIN, projectId, stageId, threadId, actorId: guard.identity().actor, prompt, selector, testPlan, interviewFinding, interviewGuideRevision, problemRevision, syntheticProblemFixture, ...pin, timeoutMs: 180000 };
-        if (profile !== V2_VOICE_PROFILE && !summary && !syntheticProblemFixture && !guard.stageTextReceipt(stageId)) {
+        if ((!isNamedAcceptanceProfile(profile) || profile === CASE01_PROFILE) && !summary && !syntheticProblemFixture && !guard.stageTextReceipt(stageId)) {
           const file = guard.armStageText(scope);
           const uploadPath = `/api/chat/threads/${encodeURIComponent(threadId)}/attachments`;
           const input = page.getByTestId('chat-attachment-file-input');
@@ -964,7 +977,7 @@ export async function main() {
           }
         }
         report.teachingEvidence.push({ ...proof, projectId, entityId, checkpoint: name, interviewCode, syntheticProblemFixture, status: 'passed', prompt, source: identity.source, tag: identity.tag });
-        await capture(profile === V2_VOICE_PROFILE ? (summary ? 'v2-final-report-real-chat' : `v2-teaching-s${stageId}-turn-${voiceTurn}`) : summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`, stageId);
+        await capture(isNamedAcceptanceProfile(profile) ? (summary ? 'v2-final-report-real-chat' : `v2-teaching-s${stageId}-turn-${voiceTurn}`) : summary ? '07-native-report-chat' : `${String(stageId).padStart(2,'0')}-native-teaching-chat${suffix}${definitionTurn ? '-' + (definitionTurn + 1) : ''}${testTurn}${brainstormTurn}`, stageId);
       });
       if (!accepted) {
         if (!isolatedKnownS1Review) guard.stopTeaching();
@@ -973,7 +986,7 @@ export async function main() {
       return accepted;
     };
     const savePrint = async ({ stage, name, button, requiredTexts, imageHashes }) => {
-      if (profile === V2_VOICE_PROFILE) throw new ProbeFailure('V2_LEGACY_PRINT_PROFILE_CONFLICT');
+      if (isNamedAcceptanceProfile(profile)) throw new ProbeFailure('V2_LEGACY_PRINT_PROFILE_CONFLICT');
       const key = assertAidtPrintRequest(stage, name, report.systemArtifacts);
       assertCaptureScope(page.url(), projectId, stage); recheckRuntime();
       const assertSafe = async text => {
@@ -989,10 +1002,10 @@ export async function main() {
       const receipt = { stage, printName: key, filename, htmlFilename, format: 'pdf', ...result.metadata, projectId, source: identity.source, tag: identity.tag };
       report.systemArtifacts.push(receipt); return receipt;
     };
-    const nativeActionObserver = profile === V2_VOICE_PROFILE ? createV2NativeActionObserver({ page, expect, read: path => api(page, 'GET', path),
+    const nativeActionObserver = isNamedAcceptanceProfile(profile) ? createV2NativeActionObserver({ page, expect, read: path => api(page, 'GET', path),
       guard, plan, report, runtimeScope, assertSafe: text => sensitiveEvidence.assertSafe(text), capture, candidateActions: metadata.candidateActions }) : undefined;
     const readResearchDocument = async pin => {
-      if (profile !== V2_VOICE_PROFILE) throw new ProbeFailure('V2_RESEARCH_PROFILE_REQUIRED');
+      if (!isNamedAcceptanceProfile(profile)) throw new ProbeFailure('V2_RESEARCH_PROFILE_REQUIRED');
       const ids = guard.summary().ownedResearchIds;
       if (!Array.isArray(ids) || ids.length !== 1 || !/^[A-Za-z0-9._:-]{1,256}$/.test(ids[0]) || pin?.researchId && pin.researchId !== ids[0]) throw new ProbeFailure('V2_RESEARCH_OWNED_ID_REQUIRED');
       const response = await api(page, 'GET', `/api/interviews/digital/${encodeURIComponent(ids[0])}/markdown`);
@@ -1002,13 +1015,13 @@ export async function main() {
       return response.data;
     };
     const runV2UIAction = async input => {
-      if(profile!==V2_VOICE_PROFILE||!actionWindow||typeof input?.perform!=='function')throw new ProbeFailure('V2_UI_ACTION_PROFILE_REQUIRED');
+      if(!isNamedAcceptanceProfile(profile)||!actionWindow||typeof input?.perform!=='function')throw new ProbeFailure('V2_UI_ACTION_PROFILE_REQUIRED');
       recheckRuntime();actionWindow.begin(input);
       try {await input.perform();await expect.poll(()=>{const value=actionWindow.active();return !!value&&value.index===value.total&&!value.pending;},{timeout:input.timeoutMs??30000,intervals:[50,100,250]}).toBe(true);return actionWindow.finish(input.actionId);}
       catch(error){actionWindow.abort('V2_UI_ACTION_UNKNOWN_OUTCOME');throw error;}
     };
     const armToolDecision = async input => {
-      if(profile!==V2_VOICE_PROFILE||!input||typeof input.perform!=='function'||!input.review)throw new ProbeFailure('V2_ASR_ACTUAL_ROOT_REVIEW_REQUIRED');
+      if(!isNamedAcceptanceProfile(profile)||!input||typeof input.perform!=='function'||!input.review)throw new ProbeFailure('V2_ASR_ACTUAL_ROOT_REVIEW_REQUIRED');
       const op=plan.operations.find(row=>row.id===input.operationId),url=new URL(page.url()),review=input.review;
       if(!op||op.kind!=='write'||![2,6].includes(op.stage)||url.pathname!==`/aidt/${projectId}`||url.searchParams.get('step')!==String(op.stage)||url.searchParams.get('entity')!==review.entityId||review.projectId!==projectId||review.runId!==input.runId||review.permissionRequestId!==input.permissionRequestId||review.toolName!==input.toolName||review.argsSha256!==input.argsSha256)throw new ProbeFailure('V2_ASR_ROOT_REVIEW_SCOPE_CHANGED');
       const fresh=await api(page,'GET',`/api/agent-runs/${encodeURIComponent(input.runId)}`);if(fresh.status!==200)throw new ProbeFailure('V2_ASR_FRESH_PENDING_READ_REQUIRED');
@@ -1020,7 +1033,7 @@ export async function main() {
       return {operationId:op.id,decision:'once',status:200,runId:input.runId,permissionRequestId:input.permissionRequestId,viaNormalUI:true,actualRootReview:true};
     };
     const prepareSourceImages = async coordinates => {
-      if(profile!==V2_VOICE_PROFILE||!coordinates||!Array.isArray(coordinates.ideaIds)||![1,3].includes(coordinates.ideaIds.length))throw new ProbeFailure('V2_DESIGN_SOURCE_COORDINATES_REQUIRED');
+      if(!isNamedAcceptanceProfile(profile)||!coordinates||!Array.isArray(coordinates.ideaIds)||![1,3].includes(coordinates.ideaIds.length))throw new ProbeFailure('V2_DESIGN_SOURCE_COORDINATES_REQUIRED');
       const stage4=await api(page,'GET',`/api/projects/${projectId}/aidt/stages/4/revision/${coordinates.stage4Revision}`),current=await api(page,'GET',`/api/projects/${projectId}/aidt/stages/5`);
       if(stage4.status!==200||stage4.data?.stage?.revision!==coordinates.stage4Revision||current.status!==200)throw new ProbeFailure('V2_DESIGN_SOURCE_EXACT_READ_REQUIRED');
       const fields=current.data?.stage?.content?.draft?.fields??{};let confirmation,round;
@@ -1031,7 +1044,7 @@ export async function main() {
       const result=guard.registerDesignSourceImages(coordinates);if(result.images.length!==coordinates.ideaIds.length)throw new ProbeFailure('V2_DESIGN_SOURCE_IMAGE_COUNT_REQUIRED');return result.images;
     };
     const runNativeOperation = async input => {
-      if (profile !== V2_VOICE_PROFILE || !ledger) throw new ProbeFailure('V2_NATIVE_OPERATION_PROFILE_REQUIRED');
+      if (!isNamedAcceptanceProfile(profile) || !ledger) throw new ProbeFailure('V2_NATIVE_OPERATION_PROFILE_REQUIRED');
       const arm = v2NativeOperationInput(input, plan);
       if(arm.requestKind==='asr-file'){const observed=await prepareV2NativeExpected({read:path=>api(page,'GET',path),guard,projectId,stageId:arm.stageId,rawUrl:page.url()});arm.expectedFields={...(arm.expectedFields??{}),nativeActionPrefix:metadata.candidateActions.test,selector:observed.selector,threadId:observed.threadId,skillId:observed.skillId,skillVersionId:observed.skillVersionId,knownMessages:observed.knownMessages};}
       recheckRuntime(); guard.armV2Operation(arm);if(arm.requestKind==='design-generate')guard.armDesignGeneration({designId:arm.resourceId});
@@ -1049,7 +1062,7 @@ export async function main() {
     };
     const completeAsrOperation = async ({operationId,runId}) => {
       const op=plan.operations.find(row=>row.id===operationId),state=guard.nativeTeachingState(operationId);
-      if(profile!==V2_VOICE_PROFILE||op?.kind!=='asr'||!state?.scope||!state.wire)throw new ProbeFailure('V2_ASR_ACCEPTED_OPERATION_REQUIRED');
+      if(!isNamedAcceptanceProfile(profile)||op?.kind!=='asr'||!state?.scope||!state.wire)throw new ProbeFailure('V2_ASR_ACCEPTED_OPERATION_REQUIRED');
       const messages=await api(page,'GET',`/api/chat/threads/${encodeURIComponent(state.scope.threadId)}/messages?limit=100`),current=guard.nativeTeachingState(operationId);
       if(messages.status!==200||current?.accepted?.runId!==runId)throw new ProbeFailure('V2_ASR_CANONICAL_RUN_REQUIRED');
       const run=await api(page,'GET',`/api/agent-runs/${encodeURIComponent(runId)}`),receipt=await api(page,'GET',`/api/agent-runs/${encodeURIComponent(runId)}/aidt-context`);
@@ -1065,10 +1078,10 @@ export async function main() {
       return {operationId,runId,status:'SUCCEEDED',actualAsrAndPublishReceipts:true,publishedFileBytesVerifiedSeparately:true};
     };
     const printFormal = async ({ stage: printStage, name, entityId, button, requiredTexts = [], imageHashes = [], expectedImageCount, sourceRevision }) => {
-      if (profile !== V2_VOICE_PROFILE || !ledger) throw new ProbeFailure('V2_PRINT_PROFILE_REQUIRED');
+      if (!isNamedAcceptanceProfile(profile) || !ledger) throw new ProbeFailure('V2_PRINT_PROFILE_REQUIRED');
       const outputPlan = plan.formalOutputs.find(item => item.name === name && item.stage === printStage);
       const jobs = plan.printJobs.filter(item => item.outputName === name && item.stage === printStage);
-      if (!outputPlan || jobs.length !== 3 || !Number.isSafeInteger(sourceRevision) || sourceRevision < 1) throw new ProbeFailure('V2_PRINT_FORMAL_OUTPUT_NOT_PLANNED');
+      if (!outputPlan || jobs.length !== (profile === CASE01_PROFILE ? 1 : 3) || !Number.isSafeInteger(sourceRevision) || sourceRevision < 1) throw new ProbeFailure('V2_PRINT_FORMAL_OUTPUT_NOT_PLANNED');
       const current = new URL(page.url());
       if (current.searchParams.get('entity') !== entityId) throw new ProbeFailure('V2_PRINT_FORMAL_ENTITY_CHANGED');
       const items = [];
@@ -1160,18 +1173,32 @@ export async function main() {
       readRun: question => readInterviewPort(question, `/api/agent-runs/${encodeURIComponent(question.runId)}`, 'AGENT_QA_INTERVIEW_RUN_CHANGED'),
       readReceipt: question => readInterviewPort(question, `/api/agent-runs/${encodeURIComponent(question.runId)}/aidt-context`, 'AGENT_QA_INTERVIEW_CONTEXT_CHANGED'),
     });
-    const asrPorts=profile===V2_VOICE_PROFILE&&asrReviewer?asrReviewer.bindPage({page,context,armToolDecision,
+    const asrPorts=isNamedAcceptanceProfile(profile)&&asrReviewer?asrReviewer.bindPage({page,context,armToolDecision,
       readRun:async q=>{const value=await api(page,'GET',`/api/agent-runs/${encodeURIComponent(q.runId)}`);if(value.status!==200)throw new ProbeFailure('V2_ASR_REVIEW_RUN_UNAVAILABLE');return value.data;},
       readStage:async q=>{if(q.projectId!==projectId||![2,6].includes(q.stageId))throw new ProbeFailure('V2_ASR_REVIEW_STAGE_SCOPE_CHANGED');const value=await api(page,'GET',`/api/projects/${projectId}/aidt/stages/${q.stageId}`);if(value.status!==200)throw new ProbeFailure('V2_ASR_REVIEW_STAGE_UNAVAILABLE');return value.data?.stage;}}):{};
-    const selectedJourney = profile === V2_VOICE_PROFILE ? (await import('./devapp-aidt-v2-journey.mjs')).runV2VoiceJourney : runAidtJourney;
+    const selectedJourney = profile === CASE01_PROFILE ? (await import('./devapp-aidt-case01-journey.mjs')).runCase01Journey : isNamedAcceptanceProfile(profile) ? (await import('./devapp-aidt-v2-journey.mjs')).runV2VoiceJourney : runAidtJourney;
     await selectedJourney({ page, context, expect, interviewStarter: metadata.interviewStarter, scope: { projectId, projectName: identity.projectName, runId: identity.run, runAttempt: identity.attempt, source: identity.source, tag: identity.tag, syntheticLabel: '合成验收数据，非真实访谈' },
+      saveCaseStage: profile === CASE01_PROFILE ? async ({stage,saved,screenshot}) => {
+        if (!Number.isInteger(stage) || stage < 1 || stage > 6 || saved?.projectId !== projectId || saved.stageId !== stage || !Number.isSafeInteger(saved.revision) || saved.revision < 1 || !screenshot) throw new ProbeFailure('CASE01_STAGE_FILE_SCOPE_INVALID');
+        const filename = `qa-case01-${identity.run}-${identity.attempt}-stage-${stage}.json`;
+        const text = JSON.stringify({ caseId:'AIDT-E2E-01', source:identity.source, controlSource:identity.controlSource, tag:identity.tag, projectId, stage, revision:saved.revision, savedContent:saved.content, screenshot },null,2);
+        sensitiveEvidence.assertSafe(text); const bytes=Buffer.from(text); if(bytes.length>1048576) throw new ProbeFailure('CASE01_STAGE_FILE_BOUND');
+        writeFileSync(resolve(output.out,filename),bytes,{flag:'wx',mode:0o600}); return {filename,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};
+      } : undefined,
       checkpoint, capture, outcomeDiagnosticOrgId: guard.identity().org, api: path => api(page, 'GET', path), saveStage, reviewAndSave, saveReport, saveDownload, savePrint, teachingFeedback,
-      ...(profile === V2_VOICE_PROFILE ? { plan, ledger, runtimeScope, nativeActionObserver, observeNativeAction: nativeActionObserver, runNativeOperation, prepareSourceImages, runV2UIAction, armToolDecision, completeAsrOperation, ...asrPorts, printFormal, readResearchDocument, audioFixture:readV2SyntheticAudioFixture(metadata,identity), surveyPublication:()=>guard.surveyPublication(), armStageSave: (stageId, confirmation) => guard.armStageSave(stageId, confirmation) } : {}),
+      ...(isNamedAcceptanceProfile(profile) ? { plan, ledger, runtimeScope, nativeActionObserver, observeNativeAction: nativeActionObserver, runNativeOperation, prepareSourceImages, runV2UIAction, armToolDecision, completeAsrOperation, ...asrPorts, printFormal, readResearchDocument, ...(profile === V2_VOICE_PROFILE ? { audioFixture:readV2SyntheticAudioFixture(metadata,identity) } : {}), surveyPublication:()=>guard.surveyPublication(), armStageSave: (stageId, confirmation) => guard.armStageSave(stageId, confirmation) } : {}),
       armInterviewEdit: () => guard.armStageSave(2, false), armCardCreate: stage => guard.armStageSave(stage, false),
       registerFixture: fixture => guard.registerFixture(fixture), armSurvey: id => guard.armSurvey(id), surveyReceipt: guard.surveyReceipt, armDesignCreate: () => guard.armDesignCreate(), armDesignGeneration: () => guard.armDesignGeneration(), armDesignImage: fixture => guard.armDesignImage(fixture), createAnonymousPage, createSurveyParticipant, reviewS1StudentResponse, reviewS2StudentResponse, report });
     const after = runtimeProof(identity);
     if (JSON.stringify(after) !== JSON.stringify(report.deployedRuntime)) throw new ProbeFailure('RUNTIME_CHANGED_DURING_ACCEPTANCE');
-    if (profile === V2_VOICE_PROFILE) {
+    if (profile === CASE01_PROFILE) {
+      report.v2Acceptance=ledger.summary(); report.requiredChecks=['homepage-ui-create-persist','unknown-project-denied','case01-s1-student-confirm','case01-s2-authorized-sources','case01-s3-persona-hmw','case01-s4-native-brainstorm','case01-s4-confirmed-ideas','case01-s5-text-image-version','case01-s6-survey-reflection','case01-return-four-save','case01-native-report-pdf'];
+      report.stageFileCoverageVerified=[1,2,3,4,5,6].every(n=>report.stageFileEvidence?.some(row=>row.stageId===n&&row.uiReopenVerified&&row.contentVerified));
+      report.uiChecksPassed=!guard.fatal()&&report.case01?.status==='EXECUTED_PENDING_INDEPENDENT_REVIEW'&&report.stageFileCoverageVerified&&report.requiredChecks.every(name=>report.checkpoints.some(row=>row.name===name&&row.status==='passed'));
+      report.passed=false; report.fullAcceptancePassed=false; report.failure=guard.fatal()??(report.uiChecksPassed?'CASE01_INDEPENDENT_PDF_AND_EVIDENCE_REVIEW_REQUIRED':'CASE01_INCOMPLETE');
+      return;
+    }
+    if (isNamedAcceptanceProfile(profile)) {
       report.asrReview=asrReviewer?.summary(); report.v2Acceptance = ledger.summary(); report.requiredChecks = plan.caseIds;
       report.passed = !guard.fatal() && report.v2Acceptance.fullAcceptancePassed;
       report.fullAcceptancePassed = report.passed; report.uiChecksPassed = !guard.fatal() && report.v2Acceptance.cases.every(item => item.status === 'PASSED' || item.caseId.startsWith('PRINT-') && item.status === 'BLOCKED');
@@ -1191,7 +1218,7 @@ export async function main() {
       && report.teachingEvidence.filter(item => !item.syntheticProblemFixture).every(item => item.status === 'passed');
     report.realModelVerified = false;
     if (!report.passed) report.failure = guard.fatal() ?? 'REQUIRED_CHECKS_NOT_ALL_PASSED';
-  } catch (error) { report.failure = safeCode(error); report.failedStage = stage; }
+  } catch (error) { report.failure = safeCode(error); report.failedStage = stage; if(report.case01?.status==='RUNNING'){report.case01.status='FAILED';report.case01.failure=report.failure;} }
   finally {
     clearTimeout(timer);
     normalLoginFingerprint = null;

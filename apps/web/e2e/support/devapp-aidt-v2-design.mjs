@@ -19,7 +19,7 @@ export async function importV2FrozenIdeaImages({ui,prototype,read,prepareSourceI
   await capture(`v2-s5-${role}-actual-source-images-imported`,5);await ui.navigate(prototype.target,{role,phase:'version-select-return'});
   return {revision:saved.revision,sourceCount:images.length,nativeImageIds:pin.images.map(image=>image.nativeImageId),sourceSha256s:images.map(image=>image.sha256),actualUploadAndSavedBinding:true};
 }
-export async function produceV2PrototypeVersions({ui,prototype,runNativeOperation,read,armDesignImage,capture,printFormal,prepareSourceImages,kinds=['image','html','webapp'],completeStage=true}) {
+export async function produceV2PrototypeVersions({ui,prototype,runNativeOperation,read,armDesignImage,capture,printFormal,prepareSourceImages,kinds=['image','html','webapp'],completeStage=true,studentImage}) {
   const {page,expect,btn,click,stage,save,refresh}=ui,id=prototype.target.entityId,versions=[];
   const list=async()=>{const got=await read(`/api/pm-designs/${encodeURIComponent(id)}/versions`);if(got.status!==200||!Array.isArray(got.data?.items))fail('V2_NATIVE_VERSION_LIST_REQUIRED');return got.data.items;};
   if(!Array.isArray(kinds)||!kinds.length||new Set(kinds).size!==kinds.length||kinds.some(kind=>!['image','html','webapp'].includes(kind)))fail('V2_PROTOTYPE_KIND_INVALID');
@@ -29,7 +29,8 @@ export async function produceV2PrototypeVersions({ui,prototype,runNativeOperatio
     if(kind==='image') {
       await ui.expand('用图片制作静态原型');
       const input=page.getByLabel('上传原型图片',{exact:true});await expect(input).toBeVisible();
-      const png=schematicPng(String(ui.scope.runId),73),filename=`qa-${ui.scope.runId}-prototype.png`;
+      if(studentImage && (studentImage.caseId!=='AIDT-E2E-01'||!Buffer.isBuffer(studentImage.bytes)||studentImage.bytes.length<512||studentImage.bytes.length>16384||studentImage.filename!==`qa-${ui.scope.runId}-prototype.png`))fail('CASE01_STUDENT_IMAGE_INVALID');
+      const png=studentImage?.bytes??schematicPng(String(ui.scope.runId),73),filename=studentImage?.filename??`qa-${ui.scope.runId}-prototype.png`;
       // This is a student-supplied synthetic drawing path; it is never called AI image-generation proof.
       await armDesignImage({id,fileName:filename,bytes:png});await input.setInputFiles({name:filename,mimeType:'image/png',buffer:png});
       await save(5,()=>click(btn('保存上传图片方案')),{uiAction:{actionId:`s5-${prototype.role}-normal-image-output`,steps:[{operationId:`s5-${prototype.role}-image-generate`,kind:'write',requestKind:'design-image',stageId:5,entityRole:prototype.role,entityId:id,resourceId:id,method:'POST',path:`/api/pm-designs/${id}/prototype/patch`},{operationId:`s5-${prototype.role}-image-bind`,kind:'write',requestKind:'stage-save',stageId:5,entityRole:prototype.role,entityId:id,method:'PUT',path:`/api/projects/${ui.scope.projectId}/aidt/stages/5`}]}});
