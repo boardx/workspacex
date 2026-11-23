@@ -15,6 +15,14 @@
  *     `listForIngestion` 不再把它当「尚未入图」。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { FsObjectStore } from "../../src/infrastructure/storage/fs-object-store";
+import { PgWhiteboardCollaborationStore } from "../../src/infrastructure/whiteboard/pg-collaboration-store";
+import { PgWhiteboardRepository } from "../../src/infrastructure/whiteboard/pg-whiteboard-repository";
+
 import { applyOntologyBatch } from "../../src/application/knowledge-graph/apply-ontology-batch";
 import { collectProjectEvidence } from "../../src/application/project/collect-project-evidence";
 import { authorizeProjectEvidenceAccess, listProjectEvidence } from "../../src/application/project/list-project-evidence";
@@ -75,6 +83,37 @@ beforeEach(async () => {
   await addProjectMember(ORG, P_A, OBSERVER, "observer", null);
   await seedOrg({ orgId: OTHER, projectId: `${OTHER}-p` });
 }, HOOK_TIMEOUT_MS);
+
+it("collects linked whiteboard notes from a durable object-backed snapshot", async () => {
+  const root = await mkdtemp(join(tmpdir(), "project-evidence-board-"));
+  try {
+    const principal = { orgId: ORG_ID, userId: OWNER };
+    const boards = new PgWhiteboardRepository(db);
+    const collaboration = new PgWhiteboardCollaborationStore(db, undefined, 120, new FsObjectStore(root));
+    const board = await boards.create(principal, { requestId: randomUUID(), name: "Evidence board" });
+    const noteId = randomUUID();
+    await collaboration.writeCommands(principal, board.id, {
+      epoch: 1, requestId: randomUUID(),
+      commands: [{ type: "create", object: {
+        id: noteId, schemaVersion: 1, kind: "sticky", geometry: { x: 10, y: 10, width: 180, height: 180, rotation: 0 },
+        text: "Durable evidence note", style: { fill: "#F8D76E" }, parentId: null, orderKey: noteId,
+      } }],
+    });
+    await asApp(ORG, async (session) => {
+      const stored = await session.query("SELECT snapshot IS NULL AS external, object_key IS NOT NULL AS has_key FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2", [ORG, board.id]);
+      expect(stored.rows).toEqual([{ external: true, has_key: true }]);
+      await session.query("INSERT INTO project_resource_links(org_id,project_id,kind,resource_id,linked_by) VALUES($1,$2,'whiteboard',$3,$4)", [ORG, P_A, board.id, OWNER]);
+    });
+    const decision = await authorizeProjectEvidenceAccess(deps, asUser(OWNER));
+    await collectProjectEvidence({ sources: new PgEvidenceSources(db, undefined, collaboration), evidence: repo }, {
+      orgId: ORG_ID, projectId: P_A, decision, kinds: ["whiteboard_note"],
+    });
+    const result = await listProjectEvidence(deps, { ...asUser(OWNER), sourceKind: "whiteboard_note" });
+    expect(result.items).toMatchObject([{ resourceId: board.id, excerpt: "Durable evidence note" }]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 describe("PgProjectEvidenceRepository（真实 PG）", () => {
   it("upsert 幂等：同源第二次 created=false、id 不变、摘录刷新；不同来源类各自一行", async () => {
