@@ -224,8 +224,8 @@ export function createAcceptanceGuard(identity, now = Date.now) {
       }
       const executionRead = decideOwnedTeachingExecutionRead(target, method, { actorId: actor, orgId: org, projectId, threads, ownedRuns, teachingLedger });
       if (executionRead) return executionRead;
-      const runRead = /^\/api\/agent-runs\/([A-Za-z0-9_.:-]+)(?:\/aidt-context)?$/.exec(path);
-      if (runRead && !target.search) return ownedRuns.has(runRead[1]) ? { allow: true, kind: 'owned-teaching-run-read', runId: runRead[1] } : { allow: false, kind: 'teaching-run-needs-binding', runId: runRead[1] };
+      const runRead = /^\/api\/agent-runs\/([A-Za-z0-9_.:-]+)(\/aidt-context)?$/.exec(path);
+      if (runRead && !target.search) return ownedRuns.has(runRead[1]) ? { allow: true, kind: 'owned-teaching-run-read', runId: runRead[1], runDetail: runRead[2] === undefined } : { allow: false, kind: 'teaching-run-needs-binding', runId: runRead[1] };
       const ownedChat = [...threads].some(id => path === `/api/chat/threads/${encodeURIComponent(id)}` || path.startsWith(`/api/chat/threads/${encodeURIComponent(id)}/`)
         || path === `/api/threads/${encodeURIComponent(id)}/skill-mounts` || path === `/api/threads/${encodeURIComponent(id)}/skill-deviations`);
       const projectChatList = projectId && path === '/api/chat/threads' && target.searchParams.get('projectId') === projectId;
@@ -355,7 +355,31 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     }
     return stop('MUTATION_OUT_OF_SCOPE');
   }
+
+  // Optional UI inference is blocked without spending a mutation or teaching slot.
+  // Ownership comes from the canonical accepted human and an existing normal run GET.
+  function ownedFollowUpSuggestion(request) {
+    const body = request.body;
+    if (fatal || identity.entryDiagnosticOnly || !ordinaryVerified || !actor || !org || !projectId
+      || request.method !== 'POST' || !object(body) || Object.keys(body).sort().join(',') !== 'agentId,threadId'
+      || typeof body.threadId !== 'string' || typeof body.agentId !== 'string'
+      || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$/.test(body.agentId)
+      || request.url !== ORIGIN + '/api/chat/threads/' + encodeURIComponent(body.threadId) + '/followup-suggestions'
+      || !threads.has(body.threadId) || !threadFacts.get(body.threadId)?.writable) return false;
+    const coordinates = threadCoordinates.get(body.threadId);
+    return [...teachingLedger.values()].some(entry => entry.wire && entry.accepted
+      && ownedRuns.has(entry.accepted.runId) && entry.followUpAgentId === body.agentId
+      && entry.scope.actorId === actor && entry.scope.projectId === projectId
+      && (entry.scope.orgId === undefined || entry.scope.orgId === org) && entry.scope.threadId === body.threadId
+      && coordinates?.stageId === entry.scope.stageId && coordinates.entityId === entry.scope.selector.entityId
+      && coordinates.purpose === (entry.scope.selector.purpose === 'summary' ? 'report' : 'stage'));
+  }
+
   function decide(request) {
+    if (ownedFollowUpSuggestion(request)) {
+      suggestionsBlocked++;
+      return { allow: false, kind: 'optional-suggestion-blocked', code: 'OPTIONAL_SUGGESTION_NOT_EXERCISED' };
+    }
     const decision = decideRequest(request);
     if (request.method === 'GET') {
       let path; try { path = new URL(request.url).pathname; } catch { /* Classify invalid targets without retaining request data. */ }
@@ -366,6 +390,21 @@ export function createAcceptanceGuard(identity, now = Date.now) {
     return decision;
   }
   function observe(decision, status, response) {
+    // Only the normal run-detail route can replace this private run fact.
+    // Context receipts and observations of other runs must not revoke it.
+    if (decision.kind === 'owned-teaching-run-read' && decision.runDetail === true) {
+      const entries = [...teachingLedger.values()].filter(entry => entry.accepted?.runId === decision.runId);
+      for (const entry of entries) delete entry.followUpAgentId;
+      const entry = entries.length === 1 ? entries[0] : null;
+      if (entry?.wire && ownedRuns.has(decision.runId) && status === 200 && response?.status === 'succeeded'
+        && response.runId === decision.runId && entry.accepted.inputMessageId === response.inputMessageId
+        && entry.scope.threadId === response.threadId && entry.scope.actorId === actor && entry.scope.projectId === projectId
+        && (entry.scope.orgId === undefined || entry.scope.orgId === org)
+        && typeof response.agentId === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$/.test(response.agentId)
+        && typeof response.resultMessageId === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$/.test(response.resultMessageId)
+        && Array.isArray(response.skillVersionIds) && response.skillVersionIds.length === 1
+        && response.skillVersionIds[0] === entry.scope.skillVersionId) entry.followUpAgentId = response.agentId;
+    }
     survey.observe(decision.kind, status, response);
     if (decision.kind === 'survey-create') resources.add(survey.receipt().id);
     if (decision.allow && ['nativeAgentCatalog', 'runtimeMetadata'].includes(decision.readCategory) && Number.isInteger(status) && status >= 100 && status <= 599) {
