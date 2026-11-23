@@ -87,6 +87,7 @@ jobs:
           node --test scripts/tests/devapp-aidt-history-diagnostic.independent.test.mjs
           node --test scripts/tests/devapp-aidt-first-rejected-mutation.independent.test.mjs
           node --test scripts/tests/devapp-aidt-outcome-navigation-diagnostic.independent.test.mjs
+          node --test scripts/tests/devapp-aidt-case01-independent.test.mjs
           node --test scripts/tests/devapp-aidt-s1-wait-diagnostic.independent.test.mjs
           node --test scripts/tests/devapp-aidt-s1-native-outcome.independent.test.mjs
           node --test scripts/tests/devapp-aidt-s6-source-independent.test.mjs
