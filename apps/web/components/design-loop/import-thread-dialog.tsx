@@ -167,8 +167,11 @@ export function ImportThreadDialog({
 
   /** 卸载之后不再 setState：`pick` / `confirm` 的请求可能比这个弹窗活得久。 */
   const aliveRef = React.useRef(true);
-  React.useEffect(() => () => {
-    aliveRef.current = false;
+  React.useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
   }, []);
 
   /** issue #3356 —— 翻下一页并**追加**（去重兜底同 `thread-pages.ts` 那条理由）。 */

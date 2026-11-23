@@ -4853,9 +4853,9 @@ describe("UIUX 16：从对话导入的三步里，别把人弄丢", () => {
     threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: "2026-09-08T03:00:00.000Z",
   };
 
-  const renderDialog = (onClose = vi.fn()) => {
+  const renderDialog = (onClose = vi.fn(), reactStrictMode = false) => {
     const onImported = vi.fn();
-    render(<ImportThreadDialog projectId="p1" onClose={onClose} onImported={onImported} />);
+    render(<ImportThreadDialog projectId="p1" onClose={onClose} onImported={onImported} />, { reactStrictMode });
     return { onClose, onImported };
   };
 
@@ -4904,7 +4904,7 @@ describe("UIUX 16：从对话导入的三步里，别把人弄丢", () => {
       }
       throw new Error(`unexpected ${path}`);
     });
-    renderDialog();
+    renderDialog(undefined, true);
     fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
 
     // ⭐ 反证锚点：去掉 `pendingId` 那两个分支（只剩整列变灰）⇒ 这两条红。
