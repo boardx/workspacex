@@ -86,6 +86,17 @@ describe("F03 快捷数字专家访谈 HTTP", () => {
     const history = await fetch(`${base}/interviews/digital`, { headers: auth }); expect(await history.json()).toMatchObject({items:[{interviewId:quick.interviewId,kind:"quick"}]});
   });
 
+  it("旧专家资料缺少简称和角色时仍可创建并读回快捷访谈", async () => {
+    await asApp(ORG, c => c.query("UPDATE agents SET initials=NULL,role=NULL WHERE org_id=$1 AND id=$2", [ORG, AGENT]));
+    const start = await fetch(`${base}/interviews/digital/quick`, { method: "POST", headers: auth, body: startBody("legacy-expert") });
+    expect(start.status).toBe(201);
+    const quick = C.operations.startQuickDigitalInterview.out.parse(await start.json());
+    expect(quick.expert).toMatchObject({ initials: "德国", role: "未填写角色" });
+    const saved = await fetch(`${base}/interviews/digital/quick/${quick.interviewId}`, { headers: auth });
+    expect(saved.status).toBe(200);
+    expect(await saved.json()).toMatchObject({ expert: { initials: "德国", role: "未填写角色" } });
+  });
+
   it("同一 requestId 重试只创建一条历史访谈", async () => {
     const responses = await Promise.all([1, 2].map(() => fetch(`${base}/interviews/digital/quick`, {
       method: "POST", headers: auth, body: startBody("retry-safe-start"),

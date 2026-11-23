@@ -8,7 +8,7 @@ import { decideInterviewVisibility } from "../../domain/interview/visibility-dec
 import type { DecisionIdFactory } from "../identity/ports";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import type { InterviewScopeRepository } from "./ports";
-import type { DigitalInterviewRepository } from "./digital-interview-ports";
+import type { DigitalInterviewRepository, StoredDigitalExpert } from "./digital-interview-ports";
 
 export type DigitalInterviewHistory = z.infer<typeof interview.operations.listDigitalInterviews.out>;
 
@@ -56,35 +56,38 @@ export async function listDigitalExperts(
   input: { orgId: OrgId; viewerUserId: string; domain?: string },
 ): Promise<z.infer<typeof interview.operations.listDigitalExperts.out>> {
   const rows = await repo.listVisibleExperts(input);
+  return { items: rows.map(presentDigitalExpert) };
+}
+
+export function presentDigitalExpert(row: StoredDigitalExpert): z.infer<typeof interview.DigitalExpertCatalogRow> {
+  const role = row.role?.trim() ? row.role : "未填写角色";
   return {
-    items: rows.map((row) => ({
-      expertId: row.expertId,
-      agentDefinitionId: row.agentDefinitionId,
-      agentVersion: row.agentVersion,
-      initials: row.initials,
-      displayName: row.displayName,
-      role: row.role,
-      domains: [...row.domains],
-      materialContextPackId: row.materialContextPackId,
-      materialVersion: row.materialVersion,
-      materialBoundary: row.materialContextPackId === null
-        ? "未绑定 Context Pack 材料版本"
-        : `Context Pack ${row.materialContextPackId} · ${row.materialVersion}`,
-      // 数字专家结论恒为探索性；绑定材料只增强可追溯性，不把推演升级为真人证据。
-      exploratory: true,
-      category: row.domains[0] ?? "未分类",
-      bio: row.role,
-      location: "未指定",
-      typicalAdvice: "暂无典型建议",
-      age: 0,
-      occupation: row.role,
-      goals: [],
-      interests: [],
-      painPoints: [],
-      motivations: [],
-      influences: [],
-      personalityTraits: { introvertExtrovert: 5, analyticalCreative: 5, busyTimeRich: 5 },
-      serviceValue: "暂无服务价值说明",
-    })),
+    expertId: row.expertId,
+    agentDefinitionId: row.agentDefinitionId,
+    agentVersion: row.agentVersion,
+    initials: row.initials?.trim() ? row.initials : Array.from(row.displayName.trim()).slice(0, 2).join("") || "?",
+    displayName: row.displayName,
+    role,
+    domains: [...row.domains],
+    materialContextPackId: row.materialContextPackId,
+    materialVersion: row.materialVersion,
+    materialBoundary: row.materialContextPackId === null
+      ? "未绑定 Context Pack 材料版本"
+      : `Context Pack ${row.materialContextPackId} · ${row.materialVersion}`,
+    // 数字专家结论恒为探索性；绑定材料只增强可追溯性，不把推演升级为真人证据。
+    exploratory: true,
+    category: row.domains[0] ?? "未分类",
+    bio: role,
+    location: "未指定",
+    typicalAdvice: "暂无典型建议",
+    age: 0,
+    occupation: role,
+    goals: [],
+    interests: [],
+    painPoints: [],
+    motivations: [],
+    influences: [],
+    personalityTraits: { introvertExtrovert: 5, analyticalCreative: 5, busyTimeRich: 5 },
+    serviceValue: "暂无服务价值说明",
   };
 }
