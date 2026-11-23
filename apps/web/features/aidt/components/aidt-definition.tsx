@@ -5,6 +5,7 @@ import * as React from "react";
 import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { useOptionalSession } from "@/components/session/session-provider";
+import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -488,11 +489,15 @@ export function AidtDefinitionChatArtifact({ entityId, messages, loading, runnin
   }, [canApply, candidate, cards, entityId, freshChange, historicalWithoutSource, revision, update]);
   const next = confirmAidtDefinitionChatEntity(draft, entityId, cards, revision);
   if (!entityKind || readOnly) return null;
+  const confirmationBlocker = next !== draft ? null : unavailable ? "请先恢复或刷新第 2 步的来源访问，再核对草稿。"
+    : entityKind === "surprise" ? "请选择「有意外发现」或「暂无意外发现」。有发现时，请填写原先判断、具体发现，并关联已确认的发现卡。"
+    : entityKind === "persona" ? "请先确认本组的意外发现记录，再填写画像并关联第 2 步已确认的发现卡。"
+    : "请先确认本组的意外发现记录和画像，再填写 HMW 并核对所关联的发现来源。";
 
   return <section aria-label="对话产物确认" className="space-y-3 rounded-xl border border-border bg-card p-4">
     <p className="text-13 font-medium">{kindLabels[entityKind]} · {saved && localConfirmed ? "已确认" : "草稿"}</p>
     {historicalWithoutSource && canApply && candidate && <Button type="button" size="sm" variant="outline" disabled={checkingSource} onClick={() => void freshChange((old, currentCards) => applyAidtDefinitionCandidate(old, entityId, candidate, currentCards, revision), false)}>采用本轮新稿</Button>}
-    {!localConfirmed && <Button type="button" disabled={next === draft || running || loading || checkingSource} onClick={() => void freshChange((old, currentCards) => confirmAidtDefinitionChatEntity(old, entityId, currentCards, revision), true)}>确认当前产物</Button>}
+    {!localConfirmed && <AidtConfirmAction disabled={running || loading || checkingSource} blocker={confirmationBlocker} onBlocked={() => setManualDraft(true)} onConfirm={() => void freshChange((old, currentCards) => confirmAidtDefinitionChatEntity(old, entityId, currentCards, revision), true)}>确认当前产物</AidtConfirmAction>}
     {localConfirmed && !saved && !running && !loading && <Button type="button" disabled={checkingSource} onClick={() => void freshChange((old, currentCards) => confirmAidtDefinitionChatEntity(old, entityId, currentCards, revision), true)}>重试保存确认</Button>}
     {(!localConfirmed || entityKind === "surprise") && !running && !loading && <Button type="button" size="sm" variant="ghost" disabled={checkingSource || unavailable} aria-expanded={manualDraft} onClick={() => setManualDraft(value => !value)}>{manualDraft ? "收起来源核对" : localConfirmed ? "修订记录" : "核对草稿和来源"}</Button>}
     {sourceFailure && <p role="alert" className="text-13">{sourceFailure}</p>}

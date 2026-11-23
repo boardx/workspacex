@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ImagePlus } from "lucide-react";
 import { AIDT_INTERVIEW_SYNTHETIC_ASR_PREFIX } from "@repo/contracts/aidt-test-research";
 import { interviewDiscoveryOrigin } from "../lib/aidt-interview-discovery";
@@ -11,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import type { AidtUiStageDraft, AidtDiscoveryCardDraft } from "../lib/aidt-ui-drafts";
 import {
-  aidtInterviewFindingReady, aidtInterviewMaterialKey, confirmAidtInterviewFinding,
+  aidtInterviewFindingMissing, aidtInterviewMaterialKey, confirmAidtInterviewFinding,
   getAidtInterviewFinding, isAidtInterviewArchived, isAidtInterviewConfirmed, isAidtObservation,
   readAidtInterviewMaterials, readAidtInterviewPhoto, readAidtInterviews,
   setAidtInterviewPhoto, writeAidtInterview, writeAidtInterviewFinding,
@@ -29,6 +30,7 @@ type Props = {
 
 /** One person, one photo, one finding and its concrete situation. Evidence stays secondary. */
 export function AidtInterviewFindingEditor({ projectId, interview, draft, readOnly, update }: Props) {
+  const [showMissing, setShowMissing] = useState(false);
   const { id, code } = interview;
   const observation = isAidtObservation(interview);
   const synthetic = Object.hasOwn(draft.fields, AIDT_INTERVIEW_SYNTHETIC_ASR_PREFIX + id);
@@ -36,6 +38,7 @@ export function AidtInterviewFindingEditor({ projectId, interview, draft, readOn
   const photo = readAidtInterviewPhoto(draft, interview, projectId);
   const materials = readAidtInterviewMaterials(draft.fields, id, projectId);
   const editable = !readOnly && !!interview.consent?.notes;
+  const missing = aidtInterviewFindingMissing(draft, interview, projectId);
   const confirmed = isAidtInterviewConfirmed(draft.fields, id);
   const aiOrigin = interviewDiscoveryOrigin(draft, id, projectId);
   const interpretationKey = `interviewInterpretation:${id}`;
@@ -125,12 +128,16 @@ export function AidtInterviewFindingEditor({ projectId, interview, draft, readOn
               return { ...next, fields: { ...next.fields, [interpretationKey]: interpretation } };
             });
           }} /></div>
-        <p className="break-words text-muted-foreground">{finding.sourceRef || "尚未关联已校对的原始材料。"} 在右侧「资料」中核对原件、摘录与位置。</p>
+        <p className="break-words text-muted-foreground">{finding.sourceRef || "尚未关联已校对的原始材料。"} 在右侧「{observation ? "材料" : "录音与转录"}」中核对原件、摘录与位置。</p>
       </div>
     </details>
     <div className="flex flex-wrap items-center gap-3">
-      <Button type="button" size="sm" disabled={!editable || confirmed || !aidtInterviewFindingReady(draft, interview, projectId)} onClick={() => update(old => confirmAidtInterviewFinding(old, id, projectId))}>{observation ? "确认观察发现卡" : "确认人物发现卡"}</Button>
-      <p className="text-12 text-muted-foreground">{confirmed ? "已确认；后续修改会保留为新草稿。" : observation ? "核对观察关注点、真实记录与材料位置后确认。" : "核对访谈清单与原始材料后确认。"}</p>
+      <Button type="button" size="sm" disabled={!editable || confirmed} aria-describedby={`${fieldId}-confirmation`} onClick={() => {
+        setShowMissing(missing.length > 0);
+        if (!missing.length) update(old => confirmAidtInterviewFinding(old, id, projectId));
+      }}>{observation ? "确认观察发现卡" : "确认人物发现卡"}</Button>
+      <p id={`${fieldId}-confirmation`} role="status" className="text-12 text-muted-foreground">{confirmed ? "已确认；后续修改会保留为新草稿。" : missing.length ? `还差 ${missing.length} 项 · 点击确认查看详情。` : "可确认并保存。"} </p>
     </div>
+    {showMissing && !confirmed && missing.length > 0 && <ul role="alert" className="mt-2 list-disc space-y-1 pl-5 text-12">{missing.map(item => <li key={item}>{item}</li>)}</ul>}
   </section>;
 }

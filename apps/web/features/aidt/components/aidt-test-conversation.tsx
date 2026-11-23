@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { projectResourceHref } from "@/components/project/project-resource-section";
@@ -132,9 +133,9 @@ export function AidtTestConversation({ projectId, entityId, draft, savedDraft, m
       <AidtTestGroups projectId={projectId} activeEntityId={entityId} draft={draft} readOnly={readOnly}
         update={update} sourcesOnly onSourceChange={requestSave} />
     </details>}
-    {(proposal || completed) && <div className="flex flex-wrap items-center gap-2">
-      {proposal && !readOnly && saved?.confirmedFromMessageId !== proposal.messageId && <Button type="button" variant="primary" disabled={!canSave || !proposed} onClick={() => {
-        if (!proposed || !canSave) return;
+    {(!readOnly || completed) && <div className="flex flex-wrap items-center gap-2">
+      {!readOnly && (proposal ? saved?.confirmedFromMessageId !== proposal.messageId : !completed) && <AidtConfirmAction variant="primary" disabled={loading || running} blocker={!proposal ? "请在当前对话整理测试结果草稿，并在「关联测试材料」中核对来源。" : !proposed ? "请核对测试材料来源，或在草稿中说明证据缺口。" : !canSave ? "小组当前无法保存。请检查保存回执，核对最新版本后重试。" : null} onConfirm={() => {
+        if (!proposal || !proposed || !canSave) return;
         if (retry) { requestSave(); return; }
         pending.current = { entityId, messageId: proposal.messageId };
         const evidence = JSON.stringify([group.source, group.material, group.surveyResponseId]);
@@ -143,7 +144,7 @@ export function AidtTestConversation({ projectId, entityId, draft, savedDraft, m
           if (!latest || JSON.stringify([latest.source, latest.material, latest.surveyResponseId]) !== evidence) return current;
           return confirmAidtTestProposal(current, proposal, sourceAccessible, access?.material);
         });
-      }}>{retry ? "重试保存测试成果" : "确认并保存测试成果"}</Button>}
+      }}>{retry ? "重试保存测试成果" : "确认并保存测试成果"}</AidtConfirmAction>}
       <span role="status" className="text-12 text-muted-foreground">{retry ? "确认尚未保存。" : proposal && !proposed ? "请在对话中核对来源或说明证据缺口。" : completed ? "已确认并保存。" : "核对右侧草稿后确认。"}</span>
     </div>}
   </section>;

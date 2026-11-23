@@ -41,7 +41,9 @@ it("opens the report output after an authorized Chat result without adopting or 
   await waitFor(() => expect(input.onDraftReady).toHaveBeenCalledWith(draft));
   expect(input.onChange).not.toHaveBeenCalled();
   expect(input.shared.save).not.toHaveBeenCalled();
-  expect(screen.queryByRole("button", { name: "确认小组报告" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "确认小组报告" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("请先采用或填写报告正文");
+  expect(input.shared.confirm).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole("button", { name: "采用报告草稿" }));
   expect(input.onChange).toHaveBeenCalledWith(draft);

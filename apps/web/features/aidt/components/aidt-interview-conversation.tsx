@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { isAidtObservation, isAidtInterviewArchived, readAidtInterviews, readAidtInterviewMaterials, writeAidtInterview, type AidtInterview } from "../lib/aidt-interviews";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
@@ -28,10 +29,10 @@ function GuideDecision({ interview, update }: { interview: AidtInterview; update
       }} /></label>}
     </div>)}
     {chosen.length > 1000 && <p role="status">请将清单整理到 1000 字以内。</p>}
-    <Button size="sm" disabled={!chosen || chosen.length > 1000 || (interview.guideConfirmed && chosen === interview.adopted)} onClick={() => update(draft => {
+    <AidtConfirmAction size="sm" disabled={interview.guideConfirmed && chosen === interview.adopted} blocker={!chosen ? (observation ? "至少勾选一个观察关注点。" : "至少勾选一道访谈问题。") : chosen.length > 1000 ? "请将清单整理到 1000 字以内。" : null} onConfirm={() => update(draft => {
       const current = readAidtInterviews(draft.fields).find(item => item.id === interview.id);
       return current && current.adopted === interview.adopted && !isAidtInterviewArchived(draft.fields, current.id) ? writeAidtInterview(draft, { ...current, adopted: chosen, guideConfirmed: true }) : draft;
-    })}>{interview.guideConfirmed && chosen === interview.adopted ? observation ? "已确认观察计划" : "已确认问题清单" : observation ? "确认这份观察计划" : "确认这份问题清单"}</Button>
+    })}>{interview.guideConfirmed && chosen === interview.adopted ? observation ? "已确认观察计划" : "已确认问题清单" : observation ? "确认这份观察计划" : "确认这份问题清单"}</AidtConfirmAction>
     {interview.guideConfirmed && <Button type="button" size="sm" variant="ghost" onClick={() => update(draft => {
       const current = readAidtInterviews(draft.fields).find(item => item.id === interview.id);
       return current && current.guideConfirmed && !isAidtInterviewArchived(draft.fields, current.id) ? writeAidtInterview(draft, { ...current, guideConfirmed: false }) : draft;

@@ -50,11 +50,12 @@ it("keeps saved persona synthetic origin through its actual template output, pri
   const draft = addAidtPersonaCandidate({ ...empty, fields: { surpriseStatus: "none", surpriseConfirmed: "true" } }, candidates[0]!, [card], 2);
   expect(draft).not.toBe(empty);
   const view = render(<AidtDefinitionOutput projectId={projectId} draft={draft} update={() => undefined} readOnly={false} availableCards={[card]} availableCardsRevision={2} discoveryCardFields={fields} entityId={candidates[0]!.id} />);
-  await waitFor(() => expect(screen.getByTestId("aidt-persona-canvas-preview")).toBeInTheDocument());
-  expect(screen.getByRole("region", { name: "当前产物" })).toHaveTextContent(/非真人/);
-  expect(screen.getByTestId("qa-canvas-render-boundary")).toHaveTextContent("需求");
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "打印画像" })); });
-  expect(mocks.pdf).toHaveBeenCalledOnce();
+  await waitFor(() => {
+    expect(screen.getByRole("region", { name: "当前产物" })).toHaveTextContent(/非真人/);
+    expect(screen.getByTestId("qa-canvas-render-boundary")).toHaveTextContent("需求");
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "打印画像" }));
+  await waitFor(() => expect(mocks.pdf).toHaveBeenCalledOnce());
   const [printed, , options] = mocks.pdf.mock.calls[0]!;
   expect(printed as HTMLElement).toHaveTextContent(/非真人/);
   expect((printed as HTMLElement).querySelector("img")).toHaveAttribute("alt", "用户画像画布完整内容");

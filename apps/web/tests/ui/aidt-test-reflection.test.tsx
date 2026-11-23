@@ -66,7 +66,9 @@ it("preserves an existing conflicting test version and blocks confirmation until
   expect(next.fields.reflectionConfirmed).toBe("");
   rerender(<AidtTestReflection draft={next} onChange={onChange} previousPrototype={prototype()} />);
   expect(screen.getByRole("alert")).toHaveTextContent("与本轮问题绑定的“V1 流程图”不同");
-  expect(screen.getByRole("button", { name: "确认本轮学习记录" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "确认本轮学习记录" }));
+  expect(screen.getByText(/^请补充：/)).toBeVisible();
+  expect(onChange).toHaveBeenCalledOnce();
 });
 it("disables every draft mutation after read-only downgrade", () => {
   const draft = emptyAidtUiDrafts()[6]!;

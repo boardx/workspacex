@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import type { AidtSharedReportController } from "../lib/use-aidt-shared-stages";
 import { isAidtReportDraft, readAidtChatReportDraft } from "../lib/aidt-summary-results";
@@ -78,7 +79,7 @@ function Conversation({ messages, loading, running, projectId, entityId, threadI
       {proposal && proposal !== text && <Button size="sm" variant="outline" disabled={shared.saving} onClick={() => adopt(proposal, true)}>采用报告草稿</Button>}
       {!pending && humanDraft && humanDraft !== text && <Button size="sm" variant="outline" disabled={shared.saving} onClick={() => adopt(humanDraft, false)}>采用我的改写</Button>}
       {canSave && <Button size="sm" data-testid="aidt-report-save" onClick={() => void shared.save()}>保存报告草稿</Button>}
-      {canConfirm && <Button size="sm" data-testid="aidt-report-confirm" onClick={() => void shared.confirm?.()}>确认小组报告</Button>}
+      {shared.confirm && (!shared.confirmedAtRevision || !shared.matchesServer) && <AidtConfirmAction size="sm" disabled={shared.saving || shared.loading} data-testid="aidt-report-confirm" blocker={canConfirm ? null : pending ? "请等报告草稿整理完成，再核对并采用。" : !text?.trim() ? "请先采用或填写报告正文，再保存小组报告。" : shared.needsBaseReview ? "请先核对服务器版本，再保存报告。" : "请先保存最新的报告正文和来源版本。"} onConfirm={() => void shared.confirm?.()}>确认小组报告</AidtConfirmAction>}
       {current?.failed && <Button size="sm" variant="outline" onClick={() => setRetry(count => count + 1)}>重新读取报告草稿</Button>}
       {shared.needsBaseReview && <Button size="sm" variant="outline" onClick={shared.reviewBase} disabled={shared.loading || shared.saving}>已核对服务器版本，继续保存</Button>}
     </div>

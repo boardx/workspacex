@@ -204,17 +204,32 @@ export function writeAidtInterviewFinding(draft: AidtUiStageDraft, interview: Ai
   };
 }
 
-export function aidtInterviewFindingReady(draft: AidtUiStageDraft, interview: AidtInterview, projectId?: string) {
+export function aidtInterviewFindingMissing(draft: AidtUiStageDraft, interview: AidtInterview, projectId?: string): string[] {
   const finding = getAidtInterviewFinding(draft, interview);
   const transcript = readAidtInterviewTranscript(draft.fields, interview.id);
-  return Boolean(interview.topicRevision && interview.guideConfirmed && interview.consent?.notes
-    && finding.headline.trim() && finding.context.trim() && transcript?.checked && transcript.locator.trim() && transcript.text.trim()
-    && readAidtInterviewMaterials(draft.fields, interview.id, projectId).some(material => material.key === transcript.sourceKey
-      && !material.reference.mime.startsWith("image/")
-      && (!material.reference.mime.startsWith("audio/") || interview.consent?.audio))
-    && (!finding.quote.trim() || transcript.text.includes(finding.quote.trim()))
-    && (finding.headlineKind === "student-summary" || finding.quote.trim() === finding.headline.trim()));
+  const observation = isAidtObservation(interview);
+  const source = readAidtInterviewMaterials(draft.fields, interview.id, projectId)
+    .find(material => material.key === transcript?.sourceKey && !material.reference.mime.startsWith("image/"));
+  return [
+    !interview.topicRevision && "从已确认的研究问题进入本卡，关联问题版本。",
+    !interview.guideConfirmed && (observation ? "在聊天中勾选关注点并确认观察计划。" : "在聊天中确认访谈问题清单。"),
+    !interview.consent?.notes && "在右侧「材料」记录实际的文字共享授权。",
+    !finding.headline.trim() && "填写「一句发现」。",
+    !finding.context.trim() && "填写「具体情况」。",
+    (!source || !transcript?.checked || !transcript.locator.trim() || !transcript.text.trim()) &&
+      (observation ? "在右侧「材料」选择观察原件、填写定位和摘录，并勾选已校对。" :
+        "在右侧「录音与转录」选择原件、填写定位和摘录，并勾选已校对。"),
+    source?.reference.mime.startsWith("audio/") && !interview.consent?.audio &&
+      "在右侧「材料」记录实际的原始录音共享授权。",
+    !!finding.quote.trim() && !!transcript?.text.trim() && !transcript.text.includes(finding.quote.trim()) &&
+      "将「可定位的受访者原话」与已校对摘录对齐。",
+    finding.headlineKind !== "student-summary" && finding.quote.trim() !== finding.headline.trim() &&
+      "标题使用受访者原话时，需与已填写的原话一致。",
+  ].filter((item): item is string => typeof item === "string");
+}
 
+export function aidtInterviewFindingReady(draft: AidtUiStageDraft, interview: AidtInterview, projectId?: string) {
+  return aidtInterviewFindingMissing(draft, interview, projectId).length === 0;
 }
 
 export function confirmAidtInterviewFinding(draft: AidtUiStageDraft, id: string, projectId: string) {

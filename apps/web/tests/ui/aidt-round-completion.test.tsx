@@ -81,7 +81,8 @@ it.each([4, 5])("requires the student's file review before confirming stage %i a
   const { rerender } = render(view());
   const button = screen.getByRole("button", { name: "确认本轮成果并保存" });
   await waitFor(() => expect(screen.getByRole("checkbox")).toBeEnabled());
-  expect(button).toBeDisabled();
+  fireEvent.click(button);
+  expect(screen.getByRole("alert")).toHaveTextContent("请先勾选上方的文件核对项。");
   fireEvent.click(screen.getByRole("checkbox"));
   await waitFor(() => expect(button).toBeEnabled());
   fireEvent.click(button);
@@ -89,7 +90,8 @@ it.each([4, 5])("requires the student's file review before confirming stage %i a
   expect(screen.queryByRole("link")).toBeNull();
   draft = { ...draft, fields: { ...draft.fields, extraStudentNote: "本轮内容改变" } }; rerender(view());
   expect(screen.getByRole("checkbox")).not.toBeChecked();
-  expect(button).toBeDisabled();
+  fireEvent.click(button);
+  expect(screen.getByRole("alert")).toHaveTextContent("请先勾选上方的文件核对项。");
   expect(save).not.toHaveBeenCalled();
 });
 

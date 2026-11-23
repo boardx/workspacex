@@ -27,7 +27,9 @@ export function AidtRoundCompletion({ projectId, step, draft, controller: c, rea
   const record = digest ? aidtRoundConfirmation(projectId, step.id, digest, filesRequired) : null;
   const confirmed = Boolean(record && draft.fields[AIDT_ROUND_COMPLETION_FIELD] === record);
   const filesChecked = !filesRequired || confirmed || Boolean(fileReview?.payload === payload && fileReview.checked);
+  const [attempted, setAttempted] = React.useState(false);
   const missing = aidtRoundMissingOutput(step.id, draft, { projectId, cards: c.stages[2]?.content.draft.discoveryCards, cardsRevision: c.stages[2]?.revision });
+  const blocker = missing ?? (!filesChecked ? "请先勾选上方的文件核对项。" : !record ? "本轮内容还在核对中，请等待核对完成。" : !c.canSave ? "当前成果暂时无法保存，请核对保存状态后重试。" : null);
   const complete = !missing && confirmed && c.matchesServer && c.server?.content.draft.fields[AIDT_ROUND_COMPLETION_FIELD] === record;
   React.useEffect(() => {
     if (!pending.current) return;
@@ -40,8 +42,10 @@ export function AidtRoundCompletion({ projectId, step, draft, controller: c, rea
     <p role="status" className="text-12 text-muted-foreground">{missing ?? (complete ? "已记录编辑者核对；仍可返回修订，不代表全员同意或研究已验证。" : confirmed ? "确认记录尚未保存；保存成功后继续。" : "核对本轮产出与缺口后确认。修改内容或来源后需重新确认。")}</p>
     {filesRequired && !complete && <label className="flex items-start gap-2 text-12"><input type="checkbox" checked={filesChecked} disabled={readOnly || c.write.phase === "saving"} onChange={event => { setFileReview({ payload, checked: event.currentTarget.checked }); if (!event.currentTarget.checked && confirmed) onConfirm(""); }} />{step.id === 4 ? "我已核对至少三份不同点子的PDF，并能查看入选点子的描述单" : "我已打开并核对实际用于测试的原型版本"}（学生核对）</label>}
     {hash?.payload === payload && hash.failed && <p role="alert" className="text-12">暂时无法核对本轮内容。<Button variant="ghost" size="sm" onClick={() => setRetry(value => value + 1)}>重试核对</Button></p>}
-    {complete ? nextHref && <Button asChild size="sm" variant="primary"><Link href={nextHref}>{step.id === 6 ? "整理小组报告" : `继续第${step.id + 1}步`}</Link></Button> : <Button size="sm" disabled={readOnly || Boolean(missing) || !record || !filesChecked || !c.canSave || c.write.phase === "saving"} onClick={() => {
-      if (readOnly || missing || !record || !filesChecked || !c.canSave) return;
+    {attempted && !complete && blocker && <p role="alert" className="text-12 font-medium">{blocker}</p>}
+    {complete ? nextHref && <Button asChild size="sm" variant="primary"><Link href={nextHref}>{step.id === 6 ? "整理小组报告" : `继续第${step.id + 1}步`}</Link></Button> : <Button size="sm" disabled={readOnly || c.write.phase === "saving" || (!record && !missing && filesChecked)} onClick={() => {
+      setAttempted(Boolean(blocker));
+      if (readOnly || blocker || !record) return;
       if (confirmed) void c.saveCurrent();
       else { pending.current = payload; onConfirm(record); }
     }}>{c.write.phase === "saving" ? "正在保存确认…" : confirmed ? "重试保存确认" : "确认本轮成果并保存"}</Button>}
