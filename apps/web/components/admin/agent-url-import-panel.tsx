@@ -219,9 +219,12 @@ export function AgentUrlImportPanel() {
   const active = React.useRef(true);
   const requestGeneration = React.useRef(0);
 
-  React.useEffect(() => () => {
-    active.current = false;
-    requestGeneration.current += 1;
+  React.useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+      requestGeneration.current += 1;
+    };
   }, []);
 
   const changeField = (
