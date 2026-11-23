@@ -87,8 +87,9 @@ export async function runOwnedFailureReader({ env = process.env, chromiumPort, r
     });
     const readJson = async (path, { expectedTokenSha256 }) => {
       const thread = '/api/chat/threads/' + encodeURIComponent(OWNED_FAILURE_SCOPE.threadId);
+      const threadDetail = thread + '?projectId=' + encodeURIComponent(OWNED_FAILURE_SCOPE.projectId);
       if (stopped || permit || typeof path !== 'string' || !(path.startsWith('/api/identity/me?orgId=') && /^\/api\/identity\/me\?orgId=[A-Za-z0-9_.%-]+$/.test(path)
-        || path === thread || path === thread + '/messages?limit=100' || /^\/api\/agent-runs\/[A-Za-z0-9_.:%-]+$/.test(path)) || !/^[a-f0-9]{64}$/.test(expectedTokenSha256 ?? '')) fail();
+        || path === threadDetail || path === thread + '/messages?limit=100' || /^\/api\/agent-runs\/[A-Za-z0-9_.:%-]+$/.test(path)) || !/^[a-f0-9]{64}$/.test(expectedTokenSha256 ?? '')) fail();
       permit = { path, claimed: false };
       try {
         const value = await page.evaluate(async ({ path, expected }) => {
