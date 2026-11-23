@@ -47,10 +47,10 @@ it('server use case forwards only its checked principal/org/capability and rejec
  await invokeLocalModel(deps as never,{...context,prompt:'prompt'});expect(complete).toHaveBeenCalledWith('prompt',context);
  repo.findOrgMembership.mockResolvedValueOnce(null as never);await expect(invokeLocalModel(deps as never,{...context,userId:'outsider',prompt:'prompt'})).rejects.toThrow();expect(probe).toHaveBeenCalledOnce();expect(complete).toHaveBeenCalledOnce();
 });
-it('membership is rechecked before sole-ledger start; non-run trial keeps run null, unknown totals and no free cost',async()=>{
+it('membership is rechecked before sole-ledger start; non-run trial keeps run null and bills the sum of reported counters',async()=>{
  const repo={findOrgMembership:vi.fn(async()=>({})),findOrganization:vi.fn(async()=>({kind:'personal-local'}))},startRequest=vi.fn(async()=>{}),record=vi.fn<TokenUsageMeterPort['record']>(async()=>{}),accounting=new PgLocalRequestAccounting(repo as never,{startRequest,record});
  const receipt=await accounting.start(context,{requestId:'local-http',modelId:'actual-local',startedAt:new Date().toISOString()});await receipt.terminal({endedAt:new Date().toISOString(),outcome:'succeeded',usage:{prompt:5,completion:3}});
- expect(startRequest).toHaveBeenCalledWith(context.orgId,expect.objectContaining({userId:'principal',runId:null,executionAttemptId:null,callPurpose:'local-trial'}));expect(record).toHaveBeenCalledWith(context.orgId,expect.objectContaining({eventId:'local-http',runId:null,totalSource:'unknown',tokensTotal:0,promptTokens:5,completionTokens:3}));expect(record.mock.calls[0]?.[1]).not.toHaveProperty('costMicros');
+ expect(startRequest).toHaveBeenCalledWith(context.orgId,expect.objectContaining({userId:'principal',runId:null,executionAttemptId:null,callPurpose:'local-trial'}));expect(record).toHaveBeenCalledWith(context.orgId,expect.objectContaining({eventId:'local-http',runId:null,totalSource:'reported',tokensTotal:8,promptTokens:5,completionTokens:3}));expect(record.mock.calls[0]?.[1]).not.toHaveProperty('costMicros');
  repo.findOrgMembership.mockResolvedValueOnce(null as never);await expect(accounting.start(context,{requestId:'denied',modelId:'actual-local',startedAt:new Date().toISOString()})).rejects.toThrow();expect(startRequest).toHaveBeenCalledOnce();
 });
 it('malformed local counters stay absent, not rounded or converted into invented total',()=>{

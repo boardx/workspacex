@@ -11,7 +11,13 @@ export class PgLocalRequestAccounting implements LocalRequestAccounting {
   await this.usage.startRequest(context.orgId,{...input,userId:context.userId,runId:null,projectId:null,executionAttemptId:null,modelProvider:'ollama-local',callPurpose:'local-trial'});
   return {terminal:async(receipt:Parameters<Awaited<ReturnType<LocalRequestAccounting['start']>>['terminal']>[0])=>{
    const u=receipt.usage;
-   await this.usage.record(context.orgId,{eventId:input.requestId,userId:context.userId,runId:null,modelProvider:'ollama-local',modelId:input.modelId,callPurpose:'local-trial',requestStartedAt:input.startedAt,requestEndedAt:receipt.endedAt,outcome:receipt.outcome,totalSource:u.total===undefined?'unknown':'reported',tokensTotal:u.total??0,promptTokens:u.prompt??null,completionTokens:u.completion??null});
+   // Ollama reports separate prompt and completion counters. Both are required to
+   // derive a total when the provider does not send one.
+   const summedTokens = u.prompt === undefined || u.completion === undefined
+     ? undefined
+     : u.prompt + u.completion;
+   const total = u.total ?? (Number.isSafeInteger(summedTokens) ? summedTokens : undefined);
+   await this.usage.record(context.orgId,{eventId:input.requestId,userId:context.userId,runId:null,modelProvider:'ollama-local',modelId:input.modelId,callPurpose:'local-trial',requestStartedAt:input.startedAt,requestEndedAt:receipt.endedAt,outcome:receipt.outcome,totalSource:total===undefined?'unknown':'reported',tokensTotal:total??0,promptTokens:u.prompt??null,completionTokens:u.completion??null});
   }};
  }
 }
