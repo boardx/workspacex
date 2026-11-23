@@ -18,6 +18,7 @@ import {
   DigitalInterviewPermissionRevokedMidwayError,
   NoInterviewAccessError,
 } from "./errors";
+import { presentDigitalExpert } from "./list-digital-interviews";
 import { getDigitalInterview } from "./get-digital-interview";
 import type { InterviewScopeRepository } from "./ports";
 
@@ -37,34 +38,7 @@ type QuickInput = { orgId: OrgId; actorId: string; interviewId: string };
 function presentQuick(stored: StoredQuickInterview) {
   return interview.QuickDigitalInterview.parse({
     ...stored,
-    expert: {
-      expertId: stored.expert.expertId,
-      agentDefinitionId: stored.expert.agentDefinitionId,
-      agentVersion: stored.expert.agentVersion,
-      initials: stored.expert.initials,
-      displayName: stored.expert.displayName,
-      role: stored.expert.role,
-      domains: stored.expert.domains,
-      materialContextPackId: stored.expert.materialContextPackId,
-      materialVersion: stored.expert.materialVersion,
-      materialBoundary: stored.expert.materialContextPackId === null
-        ? "未绑定 Context Pack 材料版本"
-        : `Context Pack ${stored.expert.materialContextPackId} · ${stored.expert.materialVersion}`,
-      exploratory: true,
-      category: stored.expert.domains[0] ?? "未分类",
-      bio: stored.expert.role,
-      location: "未指定",
-      typicalAdvice: "暂无典型建议",
-      age: 0,
-      occupation: stored.expert.role,
-      goals: [],
-      interests: [],
-      painPoints: [],
-      motivations: [],
-      influences: [],
-      personalityTraits: { introvertExtrovert: 5, analyticalCreative: 5, busyTimeRich: 5 },
-      serviceValue: "暂无服务价值说明",
-    },
+    expert: presentDigitalExpert(stored.expert),
     messages: stored.messages.map((message) => ({ ...message, exploratory: true })),
   });
 }

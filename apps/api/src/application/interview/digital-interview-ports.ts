@@ -30,9 +30,9 @@ export interface StoredDigitalExpert {
   readonly expertId: string;
   readonly agentDefinitionId: string;
   readonly agentVersion: string;
-  readonly initials: string;
+  readonly initials: string | null;
   readonly displayName: string;
-  readonly role: string;
+  readonly role: string | null;
   readonly domains: readonly string[];
   readonly materialContextPackId: string | null;
   readonly materialVersion: string | null;

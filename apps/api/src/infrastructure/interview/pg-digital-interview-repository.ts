@@ -262,9 +262,9 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
       const result = await session.query<{
         id: string;
         agent_version: string;
-        initials: string;
+        initials: string | null;
         name: string;
-        role: string;
+        role: string | null;
         domains: string[];
         material_context_pack_id: string | null;
         material_version: string | null;
