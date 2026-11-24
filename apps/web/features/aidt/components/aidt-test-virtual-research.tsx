@@ -98,7 +98,10 @@ export function AidtTestVirtualResearch({ projectId, group, draft, readOnly, upd
     if (!source || !currentVerified || readOnly) return;
     const pin = aidtVirtualResearchBinding(source);
     if (!pin || (!finding && !currentVerified.references.length)) return;
-    if (finding) pin.findings = [finding];
+    if (finding) {
+      const { anchor, category, quote, start, end } = finding;
+      pin.findings = [{ anchor, category, quote, start, end }];
+    }
     if (writeAidtVirtualResearch(draft, group, pin) === draft) { setError("当前小组记录容量不足或来源已改变，未覆盖原引用。请核对后重试。"); return; }
     change((current, latest) => latest.source?.id === pin.interviewId ? writeAidtVirtualResearch(current, latest, pin) : current);
   }
@@ -196,7 +199,7 @@ function AidtSelectSimulationEvidence({ markdown, report, onBind }: {
       <p>{suggested.exact ? "已自动匹配报告中的模拟对话原文，请核对后绑定。" : "已推荐与报告用词相关的模拟对话原文。请核对这段是否支持本轮发现。"}</p>
       <blockquote className="whitespace-pre-wrap break-words">{suggested.quote}</blockquote>
       <Button type="button" size="sm" onClick={() => onBind({
-        ...suggested, category, anchor: `aidt-selected-${suggested.start}-${suggested.end}`,
+        start: suggested.start, end: suggested.end, quote: suggested.quote, category, anchor: `aidt-selected-${suggested.start}-${suggested.end}`,
       })}>绑定报告与匹配依据</Button>
     </div>}
     {!suggested && <p className="text-12">报告没有可直接匹配的模拟对话原文。可手动选取支持本轮发现的依据。</p>}
