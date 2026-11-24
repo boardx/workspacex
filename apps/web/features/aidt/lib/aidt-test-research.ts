@@ -60,3 +60,25 @@ export function aidtVirtualResearchHref(projectId: string, interviewId: string, 
   if (step === "report" && binding) { params.set("documentId", binding.report.documentId); params.set("version", String(binding.report.version)); }
   return `/itv/${encodeURIComponent(interviewId)}/${step}?${params}`;
 }
+
+export function suggestAidtSimulationExcerpt(markdown: string, report: string) {
+  const terms = (value: string) => {
+    const normalized = value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+    return new Set(Array.from({ length: Math.max(0, normalized.length - 3) }, (_, index) => normalized.slice(index, index + 4)));
+  };
+  const reportTerms = terms(report);
+  let best: { start: number; end: number; quote: string; exact: boolean; score: number } | null = null;
+  for (const match of markdown.matchAll(/[^\r\n。！？!?]+[。！？!?]?/gu)) {
+    const quote = match[0].trim();
+    if (quote.length < 20 || quote.length > 500 || /^#|^\|/u.test(quote)) continue;
+    const start = match.index + match[0].indexOf(quote);
+    const end = start + quote.length;
+    if (report.includes(quote)) return { start, end, quote, exact: true };
+    const quoteTerms = terms(quote);
+    let overlap = 0;
+    for (const term of quoteTerms) if (reportTerms.has(term)) overlap++;
+    const score = overlap / Math.sqrt(quoteTerms.size);
+    if (overlap >= 6 && score > (best?.score ?? 0)) best = { start, end, quote, exact: false, score };
+  }
+  return best;
+}

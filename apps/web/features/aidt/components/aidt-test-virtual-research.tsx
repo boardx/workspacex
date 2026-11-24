@@ -11,7 +11,7 @@ import { listProjectResources } from "@/lib/live-project-resources";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { loadAidtTestResearchContext } from "../lib/aidt-test-prototype-context";
 import { previewAidtPdf } from "../lib/aidt-print-preview";
-import { aidtTestResearchPath, aidtVirtualResearchBinding, aidtVirtualResearchHref, readAidtVirtualResearch, verifyAidtVirtualResearch, writeAidtVirtualResearch, type AidtVirtualResearchBinding } from "../lib/aidt-test-research";
+import { suggestAidtSimulationExcerpt, aidtTestResearchPath, aidtVirtualResearchBinding, aidtVirtualResearchHref, readAidtVirtualResearch, verifyAidtVirtualResearch, writeAidtVirtualResearch, type AidtVirtualResearchBinding } from "../lib/aidt-test-research";
 import { readAidtTestGroups, updateAidtTestGroup, type AidtTestGroup } from "../lib/aidt-test-groups";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 
@@ -185,16 +185,7 @@ function AidtSelectSimulationEvidence({ markdown, report, onBind }: {
   report: string;
   onBind: (finding: AidtVirtualResearchBinding["findings"][number]) => void;
 }) {
-  const suggested = React.useMemo(() => {
-    const sentences = markdown.matchAll(/[^\r\n。！？!?]+[。！？!?]?/gu);
-    for (const match of sentences) {
-      const quote = match[0].trim();
-      if (quote.length < 20 || quote.length > 500 || !report.includes(quote)) continue;
-      const start = match.index + match[0].indexOf(quote);
-      return { start, end: start + quote.length, quote };
-    }
-    return null;
-  }, [markdown, report]);
+  const suggested = React.useMemo(() => suggestAidtSimulationExcerpt(markdown, report), [markdown, report]);
   const [range, setRange] = React.useState({ start: 0, end: 0 });
   const [category, setCategory] = React.useState<"function" | "need">("function");
   const quote = markdown.slice(range.start, range.end);
@@ -202,7 +193,7 @@ function AidtSelectSimulationEvidence({ markdown, report, onBind }: {
 
   return <>
     {suggested && <div className="space-y-2 text-13">
-      <p>已自动匹配报告中的模拟对话原文，请核对后绑定。</p>
+      <p>{suggested.exact ? "已自动匹配报告中的模拟对话原文，请核对后绑定。" : "已推荐与报告用词相关的模拟对话原文。请核对这段是否支持本轮发现。"}</p>
       <blockquote className="whitespace-pre-wrap break-words">{suggested.quote}</blockquote>
       <Button type="button" size="sm" onClick={() => onBind({
         ...suggested, category, anchor: `aidt-selected-${suggested.start}-${suggested.end}`,
