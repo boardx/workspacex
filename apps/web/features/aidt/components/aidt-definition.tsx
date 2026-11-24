@@ -4,6 +4,7 @@ import { AidtCardSources, useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
 import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
+import { ChatHostTextActionContext } from "@/components/chat/chat-host-panel";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
@@ -481,17 +482,63 @@ export function AidtDefinitionChatArtifact({ entityId, messages, loading, runnin
   const [manualDraft, setManualDraft] = React.useState(false);
   const applied = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!canApply || !candidate || historicalWithoutSource) return;
+    if (!canApply || !candidate || historicalWithoutSource || checkingSource) return;
     const key = JSON.stringify([entityId, candidate.messageId, revision, cards.map(card => card.id)]);
     if (applied.current === key) return;
     applied.current = key;
     void freshChange((old, currentCards) => applyAidtDefinitionCandidate(old, entityId, candidate, currentCards, revision), false);
-  }, [canApply, candidate, cards, entityId, freshChange, historicalWithoutSource, revision, update]);
+  }, [canApply, candidate, cards, checkingSource, entityId, freshChange, historicalWithoutSource, revision, update]);
+  const textAction = React.useContext(ChatHostTextActionContext);
+  const persona = entityKind === "persona" ? readAidtDefinition(draft.fields).personas.find(item => item.id === entityId) : undefined;
+  const selectedIds = persona?.cardIds ?? [];
+  const hasValidSelection = selectedIds.length > 0 && selectedIds.every(id => cards.some(card => card.id === id));
+  const surpriseConfirmed = isAidtSurpriseConfirmed(draft, cards, revision);
+  const canGenerate = !readOnly && !localConfirmed && !unavailable && hasValidSelection && surpriseConfirmed
+    && Boolean(revision && props.projectId && session?.sessionToken && textAction?.available && !textAction.occupied);
+  const generationScope = JSON.stringify([sourceScope, textAction?.threadId, selectedIds, surpriseConfirmed]);
+  const latestGenerationScope = React.useRef(generationScope);
+  latestGenerationScope.current = generationScope;
+  const generating = React.useRef(false);
+  async function generatePersona() {
+    if (!canGenerate || !props.projectId || !revision || !session?.sessionToken || !textAction || generating.current) return;
+    generating.current = true;
+    setCheckingSource(true);
+    setSourceFailure("");
+    const expected = sourceScope;
+    try {
+      const evidence = await loadAidtAuthorizedDefinitionEvidence({
+        projectId: props.projectId, revision, sessionToken: session.sessionToken, cardIds: selectedIds,
+      });
+      if (sourceCurrent.current !== expected || latestGenerationScope.current !== generationScope) return;
+      if (evidence.cards.length !== selectedIds.length || selectedIds.some(id => !evidence.cards.some(card => card.id === id))) {
+        setSourceFailure("已选发现卡有变化，请核对来源后重试。");
+        return;
+      }
+      const sent = await textAction.sendText([
+        "请根据以下已选的第 2 步人物发现卡，为当前卡片生成一份可供学生编辑的用户画像草稿。",
+        "仅综合材料支持的内容。区分学生概括、受访者原话和实际行为，缺少依据的情境、行为或需求写未知或待核实。不要替学生确认或保存。",
+        "请输出一个 aidt-definition JSON 围栏，kind 为 persona，字段为 name、situation、behavior、need、limits。用简短文字填写，不输出画布。",
+        evidence.syntheticCardIds.length ? AIDT_DEFINITION_SYNTHETIC_NOTICE : "",
+        ...evidence.cards.map(card => JSON.stringify({
+          participantCode: card.participantCode, headline: card.headline, headlineKind: card.headlineKind,
+          context: card.context, quote: card.quote, sourceRef: card.sourceRef,
+        })),
+      ].filter(Boolean).join("\n"));
+      if (!sent && sourceCurrent.current === expected) setSourceFailure("暂时无法发起画像生成，请检查对话输入框后重试。");
+    } catch {
+      if (sourceCurrent.current === expected) setSourceFailure("未能生成画像，请核对来源或稍后重试。已选发现卡仍保留。");
+    } finally {
+      generating.current = false;
+      if (sourceCurrent.current === expected) setCheckingSource(false);
+    }
+  }
   const next = confirmAidtDefinitionChatEntity(draft, entityId, cards, revision);
   if (!entityKind || readOnly) return null;
   const confirmationBlocker = next !== draft ? null : unavailable ? "请先恢复或刷新第 2 步的来源访问，再核对草稿。"
     : entityKind === "surprise" ? "请选择「有意外发现」或「暂无意外发现」。有发现时，请填写原先判断、具体发现，并关联已确认的发现卡。"
-    : entityKind === "persona" ? "请先确认本组的意外发现记录，再填写画像并关联第 2 步已确认的发现卡。"
+    : persona ? (!surpriseConfirmed ? "请先确认本组的意外发现记录。"
+      : !hasValidSelection ? "请在下方选择第 2 步已确认的人物发现卡。"
+      : "请根据已选发现卡生成画像，或补齐下方画像草稿。")
     : "请先确认本组的意外发现记录和画像，再填写 HMW 并核对所关联的发现来源。";
 
   return <section aria-label="对话产物确认" className="space-y-3 rounded-xl border border-border bg-card p-4">
@@ -499,9 +546,16 @@ export function AidtDefinitionChatArtifact({ entityId, messages, loading, runnin
     {historicalWithoutSource && canApply && candidate && <Button type="button" size="sm" variant="outline" disabled={checkingSource} onClick={() => void freshChange((old, currentCards) => applyAidtDefinitionCandidate(old, entityId, candidate, currentCards, revision), false)}>采用本轮新稿</Button>}
     {!localConfirmed && <AidtConfirmAction disabled={running || loading || checkingSource} blocker={confirmationBlocker} onBlocked={() => setManualDraft(true)} onConfirm={() => void freshChange((old, currentCards) => confirmAidtDefinitionChatEntity(old, entityId, currentCards, revision), true)}>确认当前产物</AidtConfirmAction>}
     {localConfirmed && !saved && !running && !loading && <Button type="button" disabled={checkingSource} onClick={() => void freshChange((old, currentCards) => confirmAidtDefinitionChatEntity(old, entityId, currentCards, revision), true)}>重试保存确认</Button>}
-    {(!localConfirmed || entityKind === "surprise") && !running && !loading && <Button type="button" size="sm" variant="ghost" disabled={checkingSource || unavailable} aria-expanded={manualDraft} onClick={() => setManualDraft(value => !value)}>{manualDraft ? "收起来源核对" : localConfirmed ? "修订记录" : "核对草稿和来源"}</Button>}
+    {!persona && (!localConfirmed || entityKind === "surprise") && !running && !loading && <Button type="button" size="sm" variant="ghost" disabled={checkingSource || unavailable} aria-expanded={manualDraft} onClick={() => setManualDraft(value => !value)}>{manualDraft ? "收起来源核对" : localConfirmed ? "修订记录" : "核对草稿和来源"}</Button>}
     {sourceFailure && <p role="alert" className="text-13">{sourceFailure}</p>}
-    {manualDraft && <AidtDefinitionChatEvidence {...props} entityId={entityId} cards={cards} revision={revision} />}
+    {persona && !localConfirmed && <>
+      <Button type="button" variant="outline" disabled={!canGenerate || checkingSource || running || loading}
+        onClick={() => void generatePersona()}>{running ? "正在生成画像…" : "根据已选发现卡生成画像"}</Button>
+      <AidtDefinitionEditor {...props} projectId={undefined} entityId={entityId} availableCards={cards}
+        availableCardsRevision={revision} discoveryCardFields={Object.fromEntries(cards.map(card => [`interviewConfirmed:${card.id}`, "true"]))}
+        readOnly={checkingSource || running || loading} inlinePersona />
+    </>}
+    {manualDraft && !persona && <AidtDefinitionChatEvidence {...props} entityId={entityId} cards={cards} revision={revision} />}
     {entityKind === "hmw" && saved && localConfirmed && readAidtDefinitionSelection(draft.fields)?.id !== entityId && <Button type="button" size="sm" variant="secondary" disabled={checkingSource} onClick={() => void freshChange((old, currentCards) => chooseAidtDefinitionHmw(old, entityId, new Set(currentCards.map(card => card.id))), true)}>选为本轮 HMW</Button>}
   </section>;
 }
@@ -592,7 +646,7 @@ function DefinitionSurpriseLinks({ choices, selected, disabled, onChange }: {
   </fieldset>;
 }
 
-export function AidtDefinitionEditor(props: AidtDefinitionProps & { entityId: string; sourcesOnly?: boolean }) {
+export function AidtDefinitionEditor(props: AidtDefinitionProps & { entityId: string; sourcesOnly?: boolean; inlinePersona?: boolean }) {
   const { projectId, draft, update, readOnly, entityId } = props;
   const { cards, revision, ready, stale, pinnedRevision, unavailable, unconfirmedCards, sourceFields, failed, retry } = useDefinitionEvidence(props);
   const { personas, hmws, invalid } = readAidtDefinition(draft.fields);
@@ -632,7 +686,7 @@ export function AidtDefinitionEditor(props: AidtDefinitionProps & { entityId: st
       <DefinitionText label="反例、适用范围或仍未知的地方" value={persona.limits} disabled={disabled} onChange={limits => editPersona({ limits })} /></>}
       <DefinitionSurpriseLinks choices={surprises} selected={persona.surpriseIds ?? []} disabled={disabled} onChange={surpriseIds => editPersona({ surpriseIds })} />
       <DefinitionEvidence projectId={projectId} sourceFields={sourceFields} cards={cards} unconfirmedCards={unconfirmedCards} revision={revision} selected={persona.cardIds} disabled={disabled} onChange={cardIds => editPersona({ cardIds })} />
-      {!props.sourcesOnly && <Button type="button" size="sm" disabled={disabled || persona.confirmed || !isAidtDefinitionPersonaReady(persona, availableCardIds, confirmedSurpriseIds)} onClick={() => editPersona({ confirmed: true })}>{persona.confirmed ? "画像已确认" : "确认画像"}</Button>}
+      {!props.sourcesOnly && !props.inlinePersona && <Button type="button" size="sm" disabled={disabled || persona.confirmed || !isAidtDefinitionPersonaReady(persona, availableCardIds, confirmedSurpriseIds)} onClick={() => editPersona({ confirmed: true })}>{persona.confirmed ? "画像已确认" : "确认画像"}</Button>}
     </>}
     {hmw && <>
       {!props.sourcesOnly && <><DefinitionText label="我们如何……（HMW）" value={hmw.text} limit={220} disabled={disabled} onChange={text => editHmw({ text })} />
@@ -642,7 +696,7 @@ export function AidtDefinitionEditor(props: AidtDefinitionProps & { entityId: st
       <DefinitionEvidence projectId={projectId} sourceFields={sourceFields} cards={cards} unconfirmedCards={unconfirmedCards} revision={revision} selected={hmw.cardIds} disabled={disabled} onChange={cardIds => editHmw({ cardIds })} />
       {!props.sourcesOnly && <div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={disabled || hmw.confirmed || !hmwReady} onClick={() => editHmw({ confirmed: true })}>{hmw.confirmed ? "HMW 已确认" : "确认 HMW"}</Button><Button type="button" size="sm" variant="outline" disabled={disabled || selected || !hmw.confirmed || !hmwReady} onClick={() => update(old => chooseAidtDefinitionHmw(old, entityId, availableCardIds))}>{selected ? "本轮选用" : "选为本轮 HMW"}</Button></div>}
     </>}
-    {!props.sourcesOnly && <><details className="border-t border-border pt-2 text-12"><summary className="cursor-pointer">归档这项产物</summary><p className="my-2 text-muted-foreground">归档后停止本轮使用，现有历史版本和下游引用仍可回查。</p><Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => persona ? editPersona({ archived: true }) : editHmw({ archived: true })}>确认归档</Button></details>
+    {!props.sourcesOnly && !props.inlinePersona && <><details className="border-t border-border pt-2 text-12"><summary className="cursor-pointer">归档这项产物</summary><p className="my-2 text-muted-foreground">归档后停止本轮使用，现有历史版本和下游引用仍可回查。</p><Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => persona ? editPersona({ archived: true }) : editHmw({ archived: true })}>确认归档</Button></details>
     <p className="text-12 text-muted-foreground">确认或归档后请保存到小组。创意发散承接本轮保存的 HMW 版本。</p></>}
   </section>;
 }
