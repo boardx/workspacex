@@ -2,6 +2,8 @@ import * as React from "react";
 import { expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { AidtIdeaClassification } from "@/features/aidt/components/aidt-idea-classification";
+import { AidtIdeaConversation } from "@/features/aidt/components/aidt-idea-conversation";
+import { confirmAidtIdeaFromChat } from "@/features/aidt/lib/aidt-idea-chat";
 import type { AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { confirmAidtIdeaClassification, invalidateAidtIdeaClassification, setAidtIdeaCategory, setAidtIdeaClassificationReason } from "@/features/aidt/lib/aidt-idea-classification";
 
@@ -80,4 +82,31 @@ it("requires review after external idea content edits while retaining the studen
   rerender(<AidtIdeaClassification draft={revised} onChange={vi.fn()} />);
   expect(screen.getByRole("checkbox", { name: "多口味试饮 · 最容易实现的" })).toBeChecked();
   expect(screen.getByTestId("aidt-classification-status")).toHaveTextContent("待学生确认分类");
+});
+
+it("requests a shared save when confirming classification from a confirmed idea conversation", () => {
+  const description = "先比较两条销路。再选择一个渠道试卖。";
+  const base = confirmAidtIdeaFromChat({ ...initial(), ideas: [{ id: "a", title: "试饮", description }] }, "a", description);
+  let draft = base;
+  const requestSave = vi.fn(() => draft);
+  const props = {
+    projectId: "project", entityId: "a", savedDraft: base, readOnly: false,
+    messages: [], loading: false, running: false, requestSave,
+  };
+  const update = (mutate: (previous: AidtUiStageDraft) => AidtUiStageDraft) => {
+    draft = mutate(draft);
+    view.rerender(<AidtIdeaConversation {...props} draft={draft} update={update} />);
+  };
+  const view = render(<AidtIdeaConversation {...props} draft={draft} update={update} />);
+  fireEvent.click(screen.getByRole("checkbox", { name: "试饮 · 最容易实现的" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "试饮 · 分类理由" }), { target: { value: "纸卡可以先试做" } });
+  expect(requestSave).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "确认本组分类" }));
+  expect(requestSave).toHaveBeenCalledTimes(1);
+  const saved = requestSave.mock.results[0]!.value!;
+  view.unmount();
+  render(<AidtIdeaConversation {...props} draft={saved} savedDraft={saved} update={vi.fn()} />);
+  expect(screen.getByRole("checkbox", { name: "试饮 · 最容易实现的" })).toBeChecked();
+  expect(screen.getByRole("textbox", { name: "试饮 · 分类理由" })).toHaveValue("纸卡可以先试做");
+  expect(screen.getByTestId("aidt-classification-status")).toHaveTextContent("学生已确认分类");
 });
