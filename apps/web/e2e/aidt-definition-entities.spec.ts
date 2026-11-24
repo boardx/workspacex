@@ -53,8 +53,11 @@ test("AIDT definition personas open distinct native Chat threads from the direct
   await expect(composer).toBeVisible();
   const artifact = page.getByRole("region", { name: "对话产物确认" });
   await page.setViewportSize({ width: 1200, height: 650 });
-  await artifact.getByRole("button", { name: "核对草稿和来源" }).click();
+  await artifact.getByRole("button", { name: "编辑草稿和来源", exact: true }).click();
+  await expect(artifact.getByRole("button", { name: "收起编辑区", exact: true })).toHaveAttribute("aria-expanded", "true");
   await artifact.getByRole("radio", { name: "有意外发现" }).check();
+  await expect(artifact.getByRole("textbox", { name: "原先我们怎么想", exact: true })).toBeVisible();
+  await expect(artifact.getByRole("textbox", { name: "意外发现的原始材料与定位", exact: true })).toBeVisible();
   const messages = page.getByTestId("copilotkit-v2-messages");
   const footer = messages.getByTestId("aidt-surprise-confirm");
   await messages.hover();
