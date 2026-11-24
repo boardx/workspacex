@@ -282,7 +282,7 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
           : !textReady
             ? { message: "文字设计已保存，但当前版本还未确认。请点击「确认已保存文字设计」。", label: "去确认文字设计", target: textId }
             : !workflow.matchesServer
-              ? { message: "本轮修改尚未收到小组保存回执。保存完成后再继续关联原型。", label: null, target: textId }
+              ? { message: "本轮修改尚未收到小组保存回执。保存完成后再继续关联原型。", label: "去核对保存状态", target: textId }
               : !ready
                 ? { message: preparationError ?? "当前所选点子的来源无法完整读取。请重新核对来源列表。", label: preparationError ? "去完善验证问题与制作说明" : "去核对来源点子", target: preparationError ? questionId : sourcesId }
                 : !readAidtPrototypeReference(draft)?.generatedFrameCount
@@ -330,25 +330,31 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
     {ready && <AidtPrototypeVersionPicker projectId={projectId} designEntityId={designId} readOnly={!textReady} value={readAidtPrototypeReference(draft)} selectionScope={draft.fields.prototypeTextConfirmation}
       onChange={reference => { if (!reference || reference.designId === designId) saveEntity(current => updateAidtPrototypeReference(current, reference)); }} />}
     <AidtPrototypeTextBinding projectId={projectId} designId={designId} draft={draft} matchesServer={workflow.matchesServer} readOnly={readOnly} onBind={saveEntity} /></div>
-    {!readOnly && (!confirmed || readAidtConfirmedPrototypeHandoff(stageDraft)?.id !== designId) && <AidtConfirmAction variant="primary" blocker={blocker?.message}
-      blockerAction={blocker?.label && <Link
-        className="mt-2 inline-block font-medium underline"
-        href={viewingHistory ? `?${currentParams.toString()}#${textId}` : blocker.target ? `#${blocker.target}` : aidtHref(projectId, 4)}
-        onClick={() => {
-          if (blocker.target === questionId) {
-            const question = document.getElementById(questionId);
-            if (question instanceof HTMLDetailsElement) question.open = true;
-          }
-          if (blocker.target === sourcesId) {
-            const chooser = document.getElementById(sourcesId)?.querySelector("details");
-            if (chooser) chooser.open = true;
-          }
-        }}>
-        {blocker.label}
-      </Link>} onConfirm={() => {
-      update(previous => confirmAidtPrototypeEntityHandoff(previous, designId));
-      requestSave();
-    }}>{confirmed ? "选为测试原型" : "确认本原型"}</AidtConfirmAction>}
+    {(!confirmed || readAidtConfirmedPrototypeHandoff(stageDraft)?.id !== designId) && <section aria-label="原型确认进度" className="space-y-2 rounded-container border border-border p-3">
+      <h3 className="font-medium">原型确认进度</h3>
+      <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
+        <li>来源点子 · {selection?.brainstormId ? "已采用" : "待采用"}</li>
+        <li>文字设计 · {textReady && textSaved ? "已确认" : "待保存并确认"}</li>
+        <li>验证问题与制作说明 · {ready ? "已就绪" : "待完善"}</li>
+        <li>原型版本 · {readAidtPrototypeReference(draft)?.generatedFrameCount ? "已选择" : "待制作或选择"}</li>
+        <li>制作依据 · {textReady && aidtPrototypeOutputMatchesText(draft, designId, readAidtPrototypeReference(draft)?.versionId ?? "") ? "已关联" : "待关联"}</li>
+      </ol>
+      {blocker ? <div className="rounded-md border border-border p-2">
+        <p role="status">{blocker.message}</p>
+        <Link className="mt-2 inline-block font-medium underline"
+          href={viewingHistory ? `?${currentParams.toString()}#${textId}` : blocker.target ? `#${blocker.target}` : aidtHref(projectId, 4)}
+          onClick={() => {
+            const target = blocker.target ? document.getElementById(blocker.target) : null;
+            const details = target instanceof HTMLDetailsElement ? target : target?.querySelector("details");
+            if (details && (blocker.target === questionId || blocker.target === sourcesId)) details.open = true;
+          }}>
+          {blocker.label}
+        </Link>
+      </div> : <Button variant="primary" type="button" onClick={() => {
+        update(previous => confirmAidtPrototypeEntityHandoff(previous, designId));
+        requestSave();
+      }}>{confirmed ? "选为测试原型" : "确认本原型"}</Button>}
+    </section>}
     {confirmed && workflow.matchesServer && !aidtAllActivePrototypeEntitiesConfirmed(stageDraft) && <p role="status">该原型已确认。还有其他原型待确认。</p>}
     </>}
   </section>;
