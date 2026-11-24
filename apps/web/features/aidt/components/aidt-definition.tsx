@@ -510,16 +510,13 @@ export function AidtDefinitionChatArtifact({ entityId, messages, loading, runnin
         projectId: props.projectId, revision, sessionToken: session.sessionToken, cardIds: selectedIds,
       });
       if (sourceCurrent.current !== expected || latestGenerationScope.current !== generationScope) return;
-      if (evidence.cards.length !== selectedIds.length || selectedIds.some(id => !evidence.cards.some(card => card.id === id))) {
-        setSourceFailure("已选发现卡有变化，请核对来源后重试。");
-        return;
-      }
+      const selectedCards = evidence.cards.filter(card => selectedIds.includes(card.id));
       const sent = await textAction.sendText([
         "请根据以下已选的第 2 步人物发现卡，为当前卡片生成一份可供学生编辑的用户画像草稿。",
         "仅综合材料支持的内容。区分学生概括、受访者原话和实际行为，缺少依据的情境、行为或需求写未知或待核实。不要替学生确认或保存。",
         "请输出一个 aidt-definition JSON 围栏，kind 为 persona，字段为 name、situation、behavior、need、limits。用简短文字填写，不输出画布。",
         evidence.syntheticCardIds.length ? AIDT_DEFINITION_SYNTHETIC_NOTICE : "",
-        ...evidence.cards.map(card => JSON.stringify({
+        ...selectedCards.map(card => JSON.stringify({
           participantCode: card.participantCode, headline: card.headline, headlineKind: card.headlineKind,
           context: card.context, quote: card.quote, sourceRef: card.sourceRef,
         })),

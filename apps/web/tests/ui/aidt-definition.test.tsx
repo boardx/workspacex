@@ -109,14 +109,20 @@ it("creates a primary surprise card and offers no workspace questions or forms",
 it("generates an editable persona from the selected interview and confirms only after review", async () => {
   const interviewId = "73e90275-e848-480f-8962-8d39d3b88b43";
   const sourceCard = { ...card, id: interviewId };
-  const sourceFields = { [`interviewConfirmed:${interviewId}`]: "true", [`interviewRecord:${interviewId}`]: JSON.stringify({ version: 1, id: interviewId, code: "U01",
+  const otherId = "73e90275-e848-480f-8962-8d39d3b88b44";
+  const otherCard = { ...card, id: otherId, participantCode: "U03", headline: "未勾选的访谈内容" };
+  const sourceFields: Record<string, string> = { [`interviewConfirmed:${interviewId}`]: "true", [`interviewRecord:${interviewId}`]: JSON.stringify({ version: 1, id: interviewId, code: "U01",
     topic: "午休点单", topicRevision: 1, goal: "了解经过", original: "说说上次经过？", adopted: "说说上次实际经过？", guideConfirmed: true,
     consent: { notes: true, audio: false, photos: false, observedAt: "2026-11-22T07:00:00Z" } }) };
-  const authorizedContext = { ...context, projectId: "qa-project", availableCards: [sourceCard, unconfirmed], discoveryCardFields: sourceFields };
+  sourceFields[`interviewConfirmed:${otherId}`] = "true";
+  sourceFields[`interviewRecord:${otherId}`] = JSON.stringify({
+    ...JSON.parse(sourceFields[`interviewRecord:${interviewId}`]!), id: otherId, code: "U03",
+  });
+  const authorizedContext = { ...context, projectId: "qa-project", availableCards: [sourceCard, otherCard, unconfirmed], discoveryCardFields: sourceFields };
   live.api.mockImplementation(async (url: string) => {
     if (url !== "/projects/qa-project/aidt/stages/2") throw new Error("Unexpected QA source read");
     return { stage: { projectId: "qa-project", stageId: 2, revision: 2, sourceStageRevisions: [], updatedBy: "qa-student", updatedAt: "2026-11-22T07:00:00Z",
-      content: { schemaVersion: 1, draft: { fields: sourceFields, ideas: [], selectedIdeaId: "", discoveryCards: [sourceCard] } } } };
+      content: { schemaVersion: 1, draft: { fields: sourceFields, ideas: [], selectedIdeaId: "", discoveryCards: [sourceCard, otherCard] } } } };
   });
   let durable = saveAidtDefinitionPersona(addAidtDefinitionEntity(noSurprise(), "persona", "p1"), {
     ...persona("p1"), situation: "", behavior: "", need: "", cardIds: [interviewId], confirmed: false,
@@ -144,6 +150,7 @@ it("generates an editable persona from the selected interview and confirms only 
   await waitFor(() => expect(generate).toBeEnabled());
   fireEvent.click(generate);
   await waitFor(() => expect(sendText).toHaveBeenCalledWith(expect.stringContaining(sourceCard.headline)));
+  expect(sendText.mock.calls[0]?.[0]).not.toContain(otherCard.headline);
   const output = screen.getByRole("region", { name: "当前产物" });
   await waitFor(() => expect(output).toHaveTextContent("口味标签"));
   expect(within(output).queryByRole("textbox")).toBeNull();
