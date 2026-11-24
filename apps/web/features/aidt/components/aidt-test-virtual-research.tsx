@@ -94,10 +94,11 @@ export function AidtTestVirtualResearch({ projectId, group, draft, readOnly, upd
     } catch { if (epoch.current === generation) setError("虚拟研究未能完整准备。若来源已创建，可打开原生研究继续；未创建时可重试，不自动运行模型。"); }
     finally { if (epoch.current === generation) setBusy(false); }
   }
-  function bind() {
+  function bind(finding?: AidtVirtualResearchBinding["findings"][number]) {
     if (!source || !currentVerified || readOnly) return;
     const pin = aidtVirtualResearchBinding(source);
-    if (!pin || !currentVerified.references.length) return;
+    if (!pin || (!finding && !currentVerified.references.length)) return;
+    if (finding) pin.findings = [finding];
     if (writeAidtVirtualResearch(draft, group, pin) === draft) { setError("当前小组记录容量不足或来源已改变，未覆盖原引用。请核对后重试。"); return; }
     change((current, latest) => latest.source?.id === pin.interviewId ? writeAidtVirtualResearch(current, latest, pin) : current);
   }
@@ -143,10 +144,13 @@ export function AidtTestVirtualResearch({ projectId, group, draft, readOnly, upd
       <nav className="flex flex-wrap gap-3 text-13" aria-label="原生虚拟研究流程">{(["intake", "outline", "runs", "report"] as const).map((step, index) => <Link key={step} className="text-primary underline" href={aidtVirtualResearchHref(projectId, sourceId, step, binding ?? undefined)} target="_blank" rel="noreferrer">{["编辑需求", "编辑并确认大纲", "查看模拟对话", "查看原生报告"][index]}</Link>)}</nav>
       <Button type="button" size="sm" variant="outline" onClick={refresh}>刷新研究成果</Button>
       {source === null && !error && <p role="status" className="text-12">正在读取原生研究…</p>}
-      {source && !verified && !binding && <p className="text-12 text-muted-foreground">在原生工作台确认大纲、完成模拟对话并生成有段落引用的报告后，回来绑定。</p>}
-      {verified && !binding && !readOnly && <Button type="button" size="sm" disabled={!verified.references.length} onClick={bind}>绑定已保存的研究报告</Button>}
-      {binding && !verified && currentVerified && !readOnly && <Button type="button" size="sm" disabled={!currentVerified.references.length} onClick={bind}>选择当前报告作为新修订</Button>}
-      {verified && !verified.references.length && <p role="alert" className="text-12">报告尚无可核对的模拟段落引用，不能绑定为可追溯成果。</p>}
+      {source && !verified && !binding && <p className="text-12 text-muted-foreground">在原生工作台确认大纲、完成模拟对话并保存报告后，回来绑定。</p>}
+      {verified && !binding && !readOnly && verified.references.length > 0 && <Button type="button" size="sm" onClick={() => bind()}>绑定已保存的研究报告</Button>}
+      {binding && !verified && currentVerified && !readOnly && currentVerified.references.length > 0 && <Button type="button" size="sm" onClick={() => bind()}>选择当前报告作为新修订</Button>}
+      {currentVerified && (!binding || !verified) && !currentVerified.references.length && <>
+        <p role="status" className="text-12">报告已生成，待选取模拟对话依据。</p>
+        {!readOnly && <AidtSelectSimulationEvidence key={currentVerified.runs.contentHash} markdown={currentVerified.runs.markdown} onBind={bind} />}
+      </>}
       {hasSavedMatch && verified && <>
         <p role="status" className="text-12">已选择大纲 V{binding!.outline.version}、模拟对话 V{binding!.runs.version}、报告 V{binding!.report.version}；小组保存状态以本页回执为准。</p>
         {(["outline", "runs"] as const).map(step => <details className="text-13" key={step}>
@@ -169,9 +173,33 @@ export function AidtTestVirtualResearch({ projectId, group, draft, readOnly, upd
           })}
           {!binding!.findings.some(item => item.category === category) && <p className="text-12 text-muted-foreground">尚未整理，不能据此推断没有问题。</p>}
         </section>)}
-        <details className="text-12"><summary className="cursor-pointer">逐条核对并整理模拟段落</summary><div className="mt-3 space-y-4">{verified.references.map(reference => <article id={`aidt-virtual-${group.id}-${reference.anchor}`} key={reference.anchor} tabIndex={-1} className="space-y-2 rounded-control border border-border p-3 focus-visible:ring-2 focus-visible:ring-ring"><p className="text-muted-foreground">模拟对话 V{binding!.runs.version} · 字符 {reference.start}–{reference.end}</p><blockquote className="whitespace-pre-wrap break-words">{reference.quote}</blockquote>{!readOnly && <div className="flex flex-wrap gap-2">{(["function", "need"] as const).map(category => <Button key={category} type="button" size="xs" variant="outline" aria-pressed={binding!.findings.some(item => item.anchor === reference.anchor && item.category === category)} onClick={() => classification(reference.anchor, category)}>{category === "function" ? "功能反馈" : "用户需求"}</Button>)}</div>}</article>)}</div></details>
+        <details className="text-12"><summary className="cursor-pointer">逐条核对并整理模拟段落</summary><div className="mt-3 space-y-4">{verified.references.map(reference => <article id={`aidt-virtual-${group.id}-${reference.anchor}`} key={reference.anchor} tabIndex={-1} className="space-y-2 rounded-control border border-border p-3 focus-visible:ring-2 focus-visible:ring-ring"><p className="text-muted-foreground">{reference.anchor.startsWith("aidt-selected-") ? "小组从模拟对话选取" : "报告引用"} · 模拟对话 V{binding!.runs.version} · 字符 {reference.start}–{reference.end}</p><blockquote className="whitespace-pre-wrap break-words">{reference.quote}</blockquote>{!readOnly && <div className="flex flex-wrap gap-2">{(["function", "need"] as const).map(category => <Button key={category} type="button" size="xs" variant="outline" aria-pressed={binding!.findings.some(item => item.anchor === reference.anchor && item.category === category)} onClick={() => classification(reference.anchor, category)}>{category === "function" ? "功能反馈" : "用户需求"}</Button>)}</div>}</article>)}</div></details>
       </>}
     </>}
     {error && <p role="alert" className="text-12 text-destructive">{error}</p>}
   </section>;
+}
+
+function AidtSelectSimulationEvidence({ markdown, onBind }: {
+  markdown: string;
+  onBind: (finding: AidtVirtualResearchBinding["findings"][number]) => void;
+}) {
+  const [range, setRange] = React.useState({ start: 0, end: 0 });
+  const [category, setCategory] = React.useState<"function" | "need">("function");
+  const quote = markdown.slice(range.start, range.end);
+  const canBind = Boolean(quote.trim()) && quote.length <= 500;
+
+  return <details className="space-y-2 text-13">
+    <summary className="cursor-pointer font-medium">从模拟对话选取依据</summary>
+    <p>在下方标选一段支持本轮发现的原文，最多 500 字。选段会随 AIDT 测试卡保存。</p>
+    <textarea aria-label="已保存的模拟对话原文" readOnly value={markdown} rows={8}
+      className="w-full rounded-md border border-border bg-background p-2"
+      onSelect={event => setRange({ start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd })} />
+    <p role="status">{canBind ? `已选 ${quote.length} 字` : "请选择 1 至 500 字的非空原文。"}</p>
+    <label>依据分类 <select value={category} onChange={event => setCategory(event.target.value === "need" ? "need" : "function")}>
+      <option value="function">功能反馈</option><option value="need">用户需求</option>
+    </select></label>
+    <Button type="button" size="sm" disabled={!canBind}
+      onClick={() => onBind({ ...range, quote, category, anchor: `aidt-selected-${range.start}-${range.end}` })}>保存依据并绑定报告</Button>
+  </details>;
 }

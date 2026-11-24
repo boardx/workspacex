@@ -43,6 +43,12 @@ export async function verifyAidtVirtualResearch(source: InterviewMarkdownEnvelop
     return [{ anchor: reference.anchor, quote: locator.quote, start: locator.start, end: locator.end }];
   });
   for (const finding of binding.findings) {
+    if (finding.anchor === `aidt-selected-${finding.start}-${finding.end}`
+      && finding.end === finding.start + finding.quote.length
+      && runs.markdown.slice(finding.start, finding.end) === finding.quote
+      && !references.some(reference => reference.anchor === finding.anchor)) {
+      references.push({ anchor: finding.anchor, quote: finding.quote, start: finding.start, end: finding.end });
+    }
     const reference = references.find(item => item.anchor === finding.anchor);
     if (!reference || finding.start !== reference.start || finding.end !== finding.start + finding.quote.length
       || finding.quote !== reference.quote.slice(0, 500) || runs.markdown.slice(finding.start, finding.end) !== finding.quote) return null;
