@@ -7,8 +7,8 @@ import type { AidtUiStageDraft } from "@/features/aidt/lib/aidt-ui-drafts";
 import { AIDT_IDEA_CATEGORIES, aidtClassifiableIdeas, confirmAidtIdeaClassification, readAidtIdeaClassification, repairAidtIdeaClassification, setAidtIdeaCategory, setAidtIdeaClassificationReason } from "@/features/aidt/lib/aidt-idea-classification";
 
 /** Controlled student-authored classification; shared persistence remains the parent's job. */
-export function AidtIdeaClassification({ draft, onChange, readOnly = false }: {
-  draft: AidtUiStageDraft; onChange: (next: AidtUiStageDraft) => void; readOnly?: boolean;
+export function AidtIdeaClassification({ draft, onChange, onConfirm, readOnly = false }: {
+  draft: AidtUiStageDraft; onChange: (next: AidtUiStageDraft) => void; onConfirm?: () => void; readOnly?: boolean;
 }): JSX.Element {
   const ideas = aidtClassifiableIdeas(draft), state = readAidtIdeaClassification(draft);
   const change = (next: AidtUiStageDraft): void => { if (!readOnly) onChange(next); };
@@ -36,7 +36,7 @@ export function AidtIdeaClassification({ draft, onChange, readOnly = false }: {
           return <section key={category.id} aria-label={`${category.label}分类`} className="rounded-md border border-border p-3"><h4 className="font-medium">{category.label}</h4>{members.length ? <ul className="mt-2 space-y-1">{members.map((idea) => <li key={idea.id} className="break-words">{idea.title.trim() || "未命名点子"}</li>)}</ul> : <p className="mt-2 text-muted-foreground">暂无；无需填满每一类。</p>}</section>;
         })}</div>
       </details>
-      <div className="flex flex-wrap items-center gap-3"><Button type="button" size="sm" variant="outline" disabled={readOnly || !state.canConfirm || state.confirmed} onClick={() => change(confirmAidtIdeaClassification(draft))}>确认本组分类</Button><p className="text-12 text-muted-foreground">{state.canConfirm ? "确认分类后，仍由小组独立选择进入原型的点子。" : "已分类的点子先补充理由；草稿仍可通过本步成果保存。"}</p></div>
+      <div className="flex flex-wrap items-center gap-3"><Button type="button" size="sm" variant="outline" disabled={readOnly || !state.canConfirm || state.confirmed} onClick={() => { change(confirmAidtIdeaClassification(draft)); onConfirm?.(); }}>确认本组分类</Button><p className="text-12 text-muted-foreground">{state.canConfirm ? "确认分类后，仍由小组独立选择进入原型的点子。" : "已分类的点子先补充理由；草稿仍可通过本步成果保存。"}</p></div>
     </>}
   </section>;
 }
