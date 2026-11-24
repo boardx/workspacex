@@ -792,6 +792,16 @@ test("directory creation saves named problems, findings, ideas and native Design
       } else expect(JSON.parse(stage.content.draft.fields["ideaHmwSource:" + id])).toEqual(hmw);
     }
     if (step === 5) {
+      const viewport = page.viewportSize()!;
+      await page.setViewportSize({ width: 1200, height: 650 });
+      const messages = page.getByTestId("copilotkit-v2-messages");
+      const prototype = messages.getByRole("region", { name: "原型对话操作" });
+      await expect(prototype.getByRole("textbox", { name: "可编辑文字设计" })).toBeVisible();
+      await messages.hover({ position: { x: 20, y: 30 } });
+      await page.mouse.wheel(0, 1800);
+      await expect(prototype.getByRole("button", { name: "确认本原型", exact: true })).toBeInViewport();
+      await expect(composer(page)).toBeInViewport();
+      await page.setViewportSize(viewport);
       const response = await page.request.get("/__fullstack_api/projects/" + projectId + "/aidt/stages/5", { headers });
       expect(response.ok()).toBe(true);
       const { stage } = await response.json();

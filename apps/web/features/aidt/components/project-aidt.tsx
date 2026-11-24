@@ -605,6 +605,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                     return true;
                   }} />
               } : isEntityReport && activeEntityId ? {
+                target: null,
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
                   <AidtReportConversation key={activeEntityId} messages={messages} loading={loading} running={running}
@@ -615,6 +616,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                     }} />
                 </>,
               } : step.id === 3 && activeEntityId ? {
+                target: null,
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
                   <AidtDefinitionChatArtifact key={activeEntityId} {...definitionProps} entityId={activeEntityId} messages={messages} loading={loading} running={running}
@@ -622,6 +624,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                   {advance}
                 </>,
               } : step.id === 5 && prototypeEntityId && activeEntityId ? {
+                target: null,
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
                   <AidtPrototypeConversation key={prototypeEntityId} projectId={projectId} designId={prototypeEntityId} ideaRevision={ideaRevision} returnContext={returnRevision && search.get("returnEntity") ? { revision: returnRevision, entityId: search.get("returnEntity")! } : undefined}
@@ -630,6 +633,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                   {advance}
                 </>,
               } : step.id === 6 && activeEntityId ? {
+                target: null,
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
                   <AidtTestConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId} readPrototypeEntity={readAidtPrototypeEntityDraft}
@@ -642,12 +646,14 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                   {advance}
                 </>,
               } : activeBrainstorm && currentStage ? {
+                target: null,
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
                   <AidtBrainstormConversation key={activeBrainstorm.id} projectId={projectId} session={activeBrainstorm} draft={currentStage.content.draft}
                     messages={messages} loading={loading} running={running} readOnly={!canWrite} saveDraft={shared.saveDraft} nextHref={nextStageHref ?? undefined} />
                 </>,
               } : step.id === 4 && activeEntityId ? {
+                target: null,
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
                   <AidtIdeaConversation key={activeEntityId} projectId={projectId} entityId={activeEntityId}
