@@ -148,8 +148,8 @@ export function AidtTestVirtualResearch({ projectId, group, draft, readOnly, upd
       {verified && !binding && !readOnly && verified.references.length > 0 && <Button type="button" size="sm" onClick={() => bind()}>绑定已保存的研究报告</Button>}
       {binding && !verified && currentVerified && !readOnly && currentVerified.references.length > 0 && <Button type="button" size="sm" onClick={() => bind()}>选择当前报告作为新修订</Button>}
       {currentVerified && (!binding || !verified) && !currentVerified.references.length && <>
-        <p role="status" className="text-12">报告已生成，待选取模拟对话依据。</p>
-        {!readOnly && <AidtSelectSimulationEvidence key={currentVerified.runs.contentHash} markdown={currentVerified.runs.markdown} onBind={bind} />}
+        <p role="status" className="text-12">报告已生成。</p>
+        {!readOnly && <AidtSelectSimulationEvidence key={currentVerified.runs.contentHash} markdown={currentVerified.runs.markdown} report={currentVerified.report.markdown} onBind={bind} />}
       </>}
       {hasSavedMatch && verified && <>
         <p role="status" className="text-12">已选择大纲 V{binding!.outline.version}、模拟对话 V{binding!.runs.version}、报告 V{binding!.report.version}；小组保存状态以本页回执为准。</p>
@@ -180,16 +180,36 @@ export function AidtTestVirtualResearch({ projectId, group, draft, readOnly, upd
   </section>;
 }
 
-function AidtSelectSimulationEvidence({ markdown, onBind }: {
+function AidtSelectSimulationEvidence({ markdown, report, onBind }: {
   markdown: string;
+  report: string;
   onBind: (finding: AidtVirtualResearchBinding["findings"][number]) => void;
 }) {
+  const suggested = React.useMemo(() => {
+    const sentences = markdown.matchAll(/[^\r\n。！？!?]+[。！？!?]?/gu);
+    for (const match of sentences) {
+      const quote = match[0].trim();
+      if (quote.length < 20 || quote.length > 500 || !report.includes(quote)) continue;
+      const start = match.index + match[0].indexOf(quote);
+      return { start, end: start + quote.length, quote };
+    }
+    return null;
+  }, [markdown, report]);
   const [range, setRange] = React.useState({ start: 0, end: 0 });
   const [category, setCategory] = React.useState<"function" | "need">("function");
   const quote = markdown.slice(range.start, range.end);
   const canBind = Boolean(quote.trim()) && quote.length <= 500;
 
-  return <details className="space-y-2 text-13">
+  return <>
+    {suggested && <div className="space-y-2 text-13">
+      <p>已自动匹配报告中的模拟对话原文，请核对后绑定。</p>
+      <blockquote className="whitespace-pre-wrap break-words">{suggested.quote}</blockquote>
+      <Button type="button" size="sm" onClick={() => onBind({
+        ...suggested, category, anchor: `aidt-selected-${suggested.start}-${suggested.end}`,
+      })}>绑定报告与匹配依据</Button>
+    </div>}
+    {!suggested && <p className="text-12">报告没有可直接匹配的模拟对话原文。可手动选取支持本轮发现的依据。</p>}
+    <details className="space-y-2 text-13">
     <summary className="cursor-pointer font-medium">从模拟对话选取依据</summary>
     <p>在下方标选一段支持本轮发现的原文，最多 500 字。选段会随 AIDT 测试卡保存。</p>
     <textarea aria-label="已保存的模拟对话原文" readOnly value={markdown} rows={8}
@@ -201,5 +221,5 @@ function AidtSelectSimulationEvidence({ markdown, onBind }: {
     </select></label>
     <Button type="button" size="sm" disabled={!canBind}
       onClick={() => onBind({ ...range, quote, category, anchor: `aidt-selected-${range.start}-${range.end}` })}>保存依据并绑定报告</Button>
-  </details>;
+  </details></>;
 }
