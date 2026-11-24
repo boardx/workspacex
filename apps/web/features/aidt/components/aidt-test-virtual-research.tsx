@@ -94,16 +94,25 @@ export function AidtTestVirtualResearch({ projectId, group, draft, readOnly, upd
     } catch { if (epoch.current === generation) setError("虚拟研究未能完整准备。若来源已创建，可打开原生研究继续；未创建时可重试，不自动运行模型。"); }
     finally { if (epoch.current === generation) setBusy(false); }
   }
+  const editingBoundEvidence = Boolean(binding && verified && verified.references.every(item => item.anchor.startsWith("aidt-selected-")));
+  const selectableEvidence = editingBoundEvidence ? verified : !verified || !binding ? currentVerified : null;
   function bind(finding?: AidtVirtualResearchBinding["findings"][number]) {
-    if (!source || !currentVerified || readOnly) return;
-    const pin = aidtVirtualResearchBinding(source);
-    if (!pin || (!finding && !currentVerified.references.length)) return;
-    if (finding) {
+    if (!source || readOnly) return;
+    const pin = finding && editingBoundEvidence ? binding : aidtVirtualResearchBinding(source);
+    if (!pin || (!finding && !currentVerified?.references.length)) return;
+    const apply = (current: AidtUiStageDraft, latest: AidtTestGroup) => {
+      if (latest.source?.id !== pin.interviewId) return current;
+      if (!finding) return writeAidtVirtualResearch(current, latest, pin);
+      const previous = readAidtVirtualResearch(current, latest.id);
+      const sameVersion = previous && JSON.stringify({ ...previous, findings: [] }) === JSON.stringify({ ...pin, findings: [] });
+      if (editingBoundEvidence && !sameVersion) return current;
+      const findings = sameVersion ? previous.findings : [];
       const { anchor, category, quote, start, end } = finding;
-      pin.findings = [{ anchor, category, quote, start, end }];
-    }
-    if (writeAidtVirtualResearch(draft, group, pin) === draft) { setError("当前小组记录容量不足或来源已改变，未覆盖原引用。请核对后重试。"); return; }
-    change((current, latest) => latest.source?.id === pin.interviewId ? writeAidtVirtualResearch(current, latest, pin) : current);
+      if (findings.some(item => item.anchor === anchor && item.category === category)) return current;
+      return writeAidtVirtualResearch(current, latest, { ...pin, findings: [...findings, { anchor, category, quote, start, end }] });
+    };
+    if (apply(draft, group) === draft) { setError("该依据已保存，或小组记录容量及来源有变化。原引用保留。"); return; }
+    change(apply);
   }
   async function printReport(step: "outline" | "runs" | "report" = "report") {
     if (!sourceId || !binding || !verified || printing) return;
@@ -150,9 +159,9 @@ export function AidtTestVirtualResearch({ projectId, group, draft, readOnly, upd
       {source && !verified && !binding && <p className="text-12 text-muted-foreground">在原生工作台确认大纲、完成模拟对话并保存报告后，回来绑定。</p>}
       {verified && !binding && !readOnly && verified.references.length > 0 && <Button type="button" size="sm" onClick={() => bind()}>绑定已保存的研究报告</Button>}
       {binding && !verified && currentVerified && !readOnly && currentVerified.references.length > 0 && <Button type="button" size="sm" onClick={() => bind()}>选择当前报告作为新修订</Button>}
-      {currentVerified && (!binding || !verified) && !currentVerified.references.length && <>
-        <p role="status" className="text-12">报告已生成。</p>
-        {!readOnly && <AidtSelectSimulationEvidence key={currentVerified.runs.contentHash} markdown={currentVerified.runs.markdown} report={currentVerified.report.markdown} onBind={bind} />}
+      {selectableEvidence && (editingBoundEvidence || !selectableEvidence.references.length) && <>
+        {!editingBoundEvidence && <p role="status" className="text-12">报告已生成。</p>}
+        {!readOnly && <AidtSelectSimulationEvidence key={selectableEvidence.runs.contentHash} markdown={selectableEvidence.runs.markdown} report={selectableEvidence.report.markdown} onBind={bind} />}
       </>}
       {hasSavedMatch && verified && <>
         <p role="status" className="text-12">已选择大纲 V{binding!.outline.version}、模拟对话 V{binding!.runs.version}、报告 V{binding!.report.version}；小组保存状态以本页回执为准。</p>
