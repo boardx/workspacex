@@ -615,6 +615,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                     }} />
                 </>,
               } : step.id === 3 && activeEntityId ? {
+                target: null,
                 render: (messages, loading, running) => <>
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
                   <AidtDefinitionChatArtifact key={activeEntityId} {...definitionProps} entityId={activeEntityId} messages={messages} loading={loading} running={running}
