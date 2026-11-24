@@ -1,3 +1,4 @@
+import { EditionProvider } from "@/lib/edition";
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -14,6 +15,12 @@ const org={orgId:"empty-saas",name:"Empty SaaS",kind:"organization",memberCount:
  plan:{plan:null,version:0,updatedAt:null,updatedBy:null,enforcement:"pending"}};
 afterEach(()=>{cleanup();vi.resetAllMocks();mocks.hasSession=false;mocks.scope="account-a";});
 describe("organization management API-bound screen",()=>{
+ it("shows online management guidance without requesting the catalog locally",()=>{
+  render(<EditionProvider edition="local" cloudUrl="https://example.com"><PlatformOrganizationsScreen state="default"/></EditionProvider>);
+  expect(screen.getByRole("link",{name:"打开在线正式系统"})).toHaveAttribute("href","https://example.com");
+  expect(mocks.list).not.toHaveBeenCalled();
+ });
+
  it("shows zero-member unconfigured organizations and saves versioned plan with mandatory audit reason",async()=>{
   mocks.list.mockResolvedValue({organizations:[org],nextCursor:null});
   mocks.detail.mockResolvedValue({organization:org,changes:[]});mocks.save.mockResolvedValue({plan:"enterprise",version:1,enforcement:"pending"});

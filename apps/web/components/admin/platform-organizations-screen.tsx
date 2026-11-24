@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ApiError } from "@/lib/api-client";
 import { listPlatformOrganizations, getPlatformOrganization, setPlatformOrganizationPlan,
   type OrganizationList, type OrganizationDetail, type PlanInput } from "@/lib/live-platform-organizations";
+import { useCloudUrl, useIsLocalEdition } from "@/lib/edition";
 import type { UiState } from "@/lib/ui-state";
 
 function explain(error: unknown): string {
@@ -29,6 +30,14 @@ const planLabel = (plan: PlanInput["plan"] | null) => plan === null ? "未配置
 /** lint-no-backend-badge:backed-by-children — real catalog, detail and plan APIs in this screen. */
 export function PlatformOrganizationsScreen(props:{state:UiState}){
   const context=useOptionalSession();
+  const local = useIsLocalEdition();
+  const cloudUrl = useCloudUrl();
+  if (local) return <AdminScreen state={props.state} moduleLabel="组织管理" title="组织与套餐" hideOrgIdentity liveBacked
+    intro="在线正式系统提供组织目录和套餐管理。"
+    emptyHint="请打开在线正式系统" denialReason="仅平台运营可见" successMessage="套餐已保存">
+    <p role="status">请使用在线账号查看和管理正式组织。</p>
+    {cloudUrl && <Button asChild variant="outline"><a href={cloudUrl} target="_blank" rel="noopener noreferrer">打开在线正式系统</a></Button>}
+  </AdminScreen>;
   return context?<ScopedOrganizations {...props}/>:<OrganizationsBody {...props}/>;
 }
 function ScopedOrganizations(props:{state:UiState}){
