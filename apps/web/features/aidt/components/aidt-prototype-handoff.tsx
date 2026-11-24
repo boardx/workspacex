@@ -3,6 +3,7 @@ import { AidtSavedTextPrint } from "./aidt-saved-text-print";
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AIDT_BRAINSTORM_METHODS } from "@repo/contracts/aidt-brainstorm";
 import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
@@ -242,6 +243,14 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
   const confirmed = isAidtPrototypeHandoffConfirmed(draft);
   const ready = Boolean(selection && ideas.length === selection.ideaIds.length && !aidtPrototypePreparationError(draft));
   const textConfirmation = readAidtPrototypeTextConfirmation(draft);
+  const search = useSearchParams();
+  const currentParams = new URLSearchParams(search?.toString());
+  const viewingHistory = currentParams.has("textRevision");
+  currentParams.delete("textRevision");
+  const guidanceId = React.useId();
+  const textId = guidanceId + "-text";
+  const sourcesId = guidanceId + "-sources";
+  const versionId = guidanceId + "-version";
   const textReady = !!selection?.brainstormId && isAidtPrototypeTextConfirmed(draft) && !!textConfirmation;
   const pendingMatches = pending && Object.entries(pending).every(([key, value]) => draft.fields[key] === value);
   const pendingDraft = pending && { ...draft, fields: { ...draft.fields, ...pending } };
@@ -251,13 +260,35 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
     update(previous => updateAidtPrototypeEntityDraft(previous, designId, change));
     requestSave();
   };
+  const savedText = workflow.savedPrototype
+    ? readAidtPrototypeEntityDraft(workflow.savedPrototype.content.draft, designId)
+    : null;
+  const textSaved = !!savedText?.fields.prototypeTextLineage
+    && savedText.fields.prototypeTextLineage === draft.fields.prototypeTextLineage
+    && savedText.fields.prototypeTextDesign === draft.fields.prototypeTextDesign
+    && savedText.fields.prototypeIdeaSource === draft.fields.prototypeIdeaSource;
+  const blocker = viewingHistory
+    ? { message: "你正在查看文字设计历史版本。请回到当前版本继续操作。", label: "编辑当前文字设计", target: textId }
+    : !selection?.brainstormId
+      ? ideaSource && readAidtPrototypeIdeaRounds(ideaSource).length
+        ? { message: "本原型还未采用已确认的来源列表和点子。请选择点子并点击「采用所选列表点子」。", label: "去选择来源点子", target: sourcesId }
+        : { message: "当前没有可用的已确认点子列表。请在第 4 步确认本轮头脑风暴成果。", label: "返回第 4 步「创意发散」", target: null }
+      : !draft.fields.prototypeTextDesign?.trim()
+        ? { message: "本轮文字设计还没有填写。请填写设计后保存并确认。", label: "去填写文字设计", target: textId }
+        : !textSaved
+          ? { message: "当前文字设计尚未按所选来源保存。请点击「保存文字设计」，再确认保存的版本。", label: "去保存文字设计", target: textId }
+          : !textReady
+            ? { message: "文字设计已保存，但当前版本还未确认。请点击「确认已保存文字设计」。", label: "去确认文字设计", target: textId }
+            : !confirmAidtPrototypeHandoff(draft)
+              ? { message: "请在「原型版本」区域选择实际产出的版本，并将它关联到本轮已确认的文字设计。", label: "去核对原型版本", target: versionId }
+              : null;
   if (archived || loading) return null;
   return <section aria-label="原型对话操作" className="space-y-3 rounded-container border border-border bg-card p-4 text-13">
-    <AidtPrototypeTextDesign projectId={projectId} designId={designId} stageDraft={stageDraft} savedStage={workflow.savedPrototype}
-      matchesServer={workflow.matchesServer} readOnly={readOnly} update={update} requestSave={requestSave} messages={messages} loading={loading} running={running} />
+    <div id={textId}><AidtPrototypeTextDesign projectId={projectId} designId={designId} stageDraft={stageDraft} savedStage={workflow.savedPrototype}
+      matchesServer={workflow.matchesServer} readOnly={readOnly} update={update} requestSave={requestSave} messages={messages} loading={loading} running={running} /></div>
     {!readOnly && !running && <>
-    {ideaSource && <AidtPrototypeIdeaChooser key={ideaSource.revision} source={ideaSource} readOnly={readOnly}
-      onAdopt={(stage, ids, roundId) => saveEntity(current => pinAidtPrototypeInputs(current, stage, ids, roundId))} />}
+    {ideaSource && <div id={sourcesId}><AidtPrototypeIdeaChooser key={ideaSource.revision} source={ideaSource} readOnly={readOnly}
+      onAdopt={(stage, ids, roundId) => saveEntity(current => pinAidtPrototypeInputs(current, stage, ids, roundId))} /></div>}
     {pending && (!pendingMatches || !isVerificationQuestionConfirmed(draft)) && <Button type="button" variant="primary" onClick={() => saveEntity(current => {
       const next = { ...current, fields: { ...current.fields, ...pending } };
       return canConfirmQuestion ? confirmAidtVerificationQuestion(next) ?? next : next;
@@ -268,10 +299,21 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
         const bound = bindAidtPrototypeTextOutput(current, projectId, designId, reference.versionId, basis, metadata);
         return bound === current ? current : updateAidtPrototypeReference(bound, reference);
       })} />}
-    {ready && <AidtPrototypeVersionPicker projectId={projectId} designEntityId={designId} readOnly={!textReady} value={readAidtPrototypeReference(draft)} selectionScope={draft.fields.prototypeTextConfirmation}
+    <div id={versionId}>{ready && <AidtPrototypeVersionPicker projectId={projectId} designEntityId={designId} readOnly={!textReady} value={readAidtPrototypeReference(draft)} selectionScope={draft.fields.prototypeTextConfirmation}
       onChange={reference => { if (!reference || reference.designId === designId) saveEntity(current => updateAidtPrototypeReference(current, reference)); }} />}
-    <AidtPrototypeTextBinding projectId={projectId} designId={designId} draft={draft} matchesServer={workflow.matchesServer} readOnly={readOnly} onBind={saveEntity} />
-    {!readOnly && (!confirmed || readAidtConfirmedPrototypeHandoff(stageDraft)?.id !== designId) && <AidtConfirmAction variant="primary" blocker={!textReady ? "请先保存并确认本轮文字设计。" : !confirmAidtPrototypeHandoff(draft) ? "请选择一个原型版本，并将它关联到本轮已确认的文字设计。" : null} onConfirm={() => {
+    <AidtPrototypeTextBinding projectId={projectId} designId={designId} draft={draft} matchesServer={workflow.matchesServer} readOnly={readOnly} onBind={saveEntity} /></div>
+    {!readOnly && (!confirmed || readAidtConfirmedPrototypeHandoff(stageDraft)?.id !== designId) && <AidtConfirmAction variant="primary" blocker={blocker?.message}
+      blockerAction={blocker && <Link
+        className="mt-2 inline-block font-medium underline"
+        href={viewingHistory ? `?${currentParams.toString()}#${textId}` : blocker.target ? `#${blocker.target}` : aidtHref(projectId, 4)}
+        onClick={() => {
+          if (blocker.target === sourcesId) {
+            const chooser = document.getElementById(sourcesId)?.querySelector("details");
+            if (chooser) chooser.open = true;
+          }
+        }}>
+        {blocker.label}
+      </Link>} onConfirm={() => {
       update(previous => confirmAidtPrototypeEntityHandoff(previous, designId));
       requestSave();
     }}>{confirmed ? "选为测试原型" : "确认本原型"}</AidtConfirmAction>}

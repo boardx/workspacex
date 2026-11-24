@@ -3,8 +3,9 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 
-export function AidtConfirmAction({ blocker, onConfirm, onBlocked, ...button }: Omit<React.ComponentProps<typeof Button>, "onClick" | "asChild"> & {
+export function AidtConfirmAction({ blocker, blockerAction, onConfirm, onBlocked, ...button }: Omit<React.ComponentProps<typeof Button>, "onClick" | "asChild"> & {
   blocker?: string | null;
+  blockerAction?: React.ReactNode;
   onConfirm: () => void;
   onBlocked?: () => void;
 }) {
@@ -20,6 +21,9 @@ export function AidtConfirmAction({ blocker, onConfirm, onBlocked, ...button }: 
       setAttempted(false);
       onConfirm();
     }} />
-    {attempted && blocker && <p id={messageId} role="alert" className="basis-full rounded-md border border-destructive/30 bg-destructive/5 p-2 text-13">{blocker}</p>}
+    {attempted && blocker && <div className="basis-full rounded-md border border-destructive/30 bg-destructive/5 p-2 text-13">
+      <p id={messageId} role="alert">{blocker}</p>
+      {blockerAction}
+    </div>}
   </>;
 }
