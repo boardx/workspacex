@@ -138,8 +138,15 @@ it("stages scoped Chat output, confirms it explicitly and keeps the inspector re
   expect(within(output).queryByRole("textbox")).toBeNull();
   expect(output).not.toHaveTextContent("U02");
   expect(readAidtDefinition(durable.fields).personas[0]?.confirmed).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "编辑草稿和来源" }));
+  const behavior = screen.getByRole("textbox", { name: "可观察的行为" });
+  fireEvent.change(behavior, { target: { value: "" } });
   fireEvent.click(screen.getByRole("button", { name: "确认当前产物" }));
-  await waitFor(() => expect(readAidtDefinition(durable.fields).personas[0]).toMatchObject({ id: "p1", confirmed: true, cardIds: [interviewId] }));
+  expect(screen.getByRole("alert")).toHaveTextContent("可观察的行为");
+  expect(screen.getByRole("alert")).not.toHaveTextContent("确认本组的意外发现");
+  fireEvent.change(behavior, { target: { value: "先比较两款饮品的口味" } });
+  fireEvent.click(screen.getByRole("button", { name: "确认当前产物" }));
+  await waitFor(() => expect(readAidtDefinition(durable.fields).personas[0]).toMatchObject({ id: "p1", confirmed: true, behavior: "先比较两款饮品的口味", cardIds: [interviewId] }));
 });
 
 it("keeps all active entities in the Stage 3 completion calculation", () => {
