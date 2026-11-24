@@ -74,7 +74,7 @@ export function AidtIdeaConversation({ projectId, entityId, draft, savedDraft, r
     </div>}
     {allConfirmed && <details className="space-y-2">
       <summary className="cursor-pointer text-13 font-medium">确认分类与原型交接</summary>
-      <AidtIdeaClassification draft={active} onChange={next => update(old => invalidateAidtIdeaSheets({ ...old, fields: {
+      <AidtIdeaClassification draft={active} onConfirm={requestSave} onChange={next => update(old => invalidateAidtIdeaSheets({ ...old, fields: {
         ...old.fields, ...Object.fromEntries(Object.values(AIDT_IDEA_CLASSIFICATION_FIELDS).map(key => [key, next.fields[key] ?? ""])),
       } }))} />
       {sheetsReady ? <fieldset className="space-y-2">
