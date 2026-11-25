@@ -359,12 +359,16 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
           event.preventDefault();
           const value = editing.name.trim();
           if (!value) return;
-          save(old => aidtDefinitionEntityKind(old, editing.id) && (Object.hasOwn(old.fields, aidtDefinitionCardNameKey(editing.id)) || Object.keys(old.fields).length < 95)
-            ? tags.apply({ ...old, fields: { ...old.fields, [aidtDefinitionCardNameKey(editing.id)]: value } }, editing.id) : old);
+          const nameKey = aidtDefinitionCardNameKey(editing.id);
+          const rename = (old: AidtUiStageDraft) => ({ ...old, fields: { ...old.fields, [nameKey]: value } });
+          if (!tags.validateEdit(rename(draft), editing.id)) return;
+          save(old => aidtDefinitionEntityKind(old, editing.id) && (Object.hasOwn(old.fields, nameKey) || Object.keys(old.fields).length < 95)
+            ? tags.applyEdit(rename(old), editing.id) ?? old : old);
           setEditing(null);
         }}>
           <Input aria-label="卡片名称" value={editing.name} maxLength={80} onChange={event => setEditing({ ...editing, name: event.target.value })} />
           {tags.field}
+          {tags.editError && <p role="alert">标签保存空间不足。请清空新增标签后重试。</p>}
           <Button type="submit" disabled={!editing.name.trim()}>保存修改</Button>
         </form>
       </DialogContent>

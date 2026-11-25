@@ -139,13 +139,15 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
     return `${aidtHref(projectId, 6)}&entity=${encodeURIComponent(entity)}`;
   }
   function changeCard(id: string, patch: { name: string } | { archived: boolean }) {
-    if (readOnly) return;
+    if (readOnly) return false;
+    if ("name" in patch && !tags.validateEdit(draft, id)) return false;
     update(current => {
       const existing = readAidtTestGroups(current.fields).find(item => item.id === id);
       if (!existing) return current;
       const next = updateAidtTestGroup(current, { ...existing, ...patch });
-      return "name" in patch ? tags.apply(next, id) : next;
+      return "name" in patch ? tags.applyEdit(next, id) ?? current : next;
     });
+    return true;
   }
   const removalName = available.find(group => group.id === removing)?.name;
   const creationFields = <>
@@ -191,9 +193,10 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
     </ul>
     {editing && !readOnly && <Dialog open onOpenChange={open => { if (!open) setEditing(undefined); }}><DialogContent>
       <DialogTitle>编辑测试卡</DialogTitle><DialogDescription>更改显示名称。</DialogDescription>
-      <form className="space-y-3" onSubmit={event => { event.preventDefault(); if (editing.name.trim()) { changeCard(editing.id, { name: editing.name.trim() }); setEditing(undefined); } }}>
+      <form className="space-y-3" onSubmit={event => { event.preventDefault(); if (editing.name.trim() && changeCard(editing.id, { name: editing.name.trim() })) setEditing(undefined); }}>
         <label className="block space-y-1 text-13">测试名称<Input value={editing.name} maxLength={80} onChange={event => setEditing({ ...editing, name: event.currentTarget.value })} /></label>
         {tags.field}
+        {tags.editError && <p role="alert">标签保存空间不足。请清空新增标签后重试。</p>}
         <Button type="submit" variant="primary" disabled={!editing.name.trim()}>保存修改</Button>
       </form>
     </DialogContent></Dialog>}
