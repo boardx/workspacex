@@ -85,3 +85,34 @@ it.each(["button", "enter"])("generates with the confirmed text and prepared ima
   expect(posts()[0]![1].body.text).toContain(basis.requiredContextText);
   expect(posts()[0]![1].body.text).toContain(method === "enter" ? "使用简洁的页面布局" : "生成原型");
 });
+
+it("shows compact model failures and retries the supplement without duplicating the basis", async () => {
+  request.mockImplementation(async (path: string, options?: { method?: string }) => {
+    if (path === "/pm-designs") return { items: [project] };
+    if (path === "/pm-designs/p1/comments") return { items: [] };
+    if (path === "/pm-designs/p1/chat" && options?.method === "POST")
+      return { project, reply: { source: "fallback", applied: [], suggestions: [], fallbackReason: "MODEL_TIMEOUT" } };
+    throw new Error(`Unexpected ${path}`);
+  });
+  render(<DesignDetailScreen projectId="p1" compactGeneration {...basis} beforeSend={async () => undefined} />);
+  await send();
+  expect(await screen.findByTestId("design-detail-fallback-reason")).toHaveTextContent("时限内");
+  expect(screen.getByTestId("design-detail-input")).toHaveValue("学生补充：只画已确认流程");
+  fireEvent.click(screen.getByTestId("design-detail-fewer-pages"));
+  await waitFor(() => expect(posts()).toHaveLength(2));
+  expect(posts()[1]![1].body).toMatchObject({ text: posts()[0]![1].body.text, maxScreens: 3 });
+});
+
+it("lets compact users remove an obsolete reference image", async () => {
+  const image = { id: "old", name: "旧点子.png", size: 128, mime: "image/png", createdAt: "2026-11-22" };
+  request.mockImplementation(async (path: string, options?: { method?: string }) => {
+    if (path === "/pm-designs") return { items: [{ ...project, refImages: [image] }] };
+    if (path === "/pm-designs/p1/comments") return { items: [] };
+    if (path === "/pm-designs/p1/ref-images/old" && options?.method === "DELETE") return { project };
+    throw new Error(`Unexpected ${path}`);
+  });
+  render(<DesignDetailScreen projectId="p1" compactGeneration {...basis} beforeSend={async () => undefined} />);
+  fireEvent.click(await screen.findByText("管理参考图（1）"));
+  fireEvent.click(screen.getByLabelText("删除参考图 旧点子.png"));
+  await waitFor(() => expect(screen.queryByText("管理参考图（1）")).toBeNull());
+});

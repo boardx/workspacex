@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
 import { DetailSpec, DetailTab, PushConfirm, PushSuccess } from "./detail-parts";
-import { DetailChatLog } from "./detail-chat-log";
+import { DesignFallbackFeedback, DetailChatLog } from "./detail-chat-log";
 import { ComposerContextOffer, type DesignComposerContextOffer } from "./composer-context-offer";
 import { CanvasToolbar } from "./detail-canvas-toolbar";
 import { DetailSidePanel } from "./detail-side-panel";
@@ -204,6 +204,7 @@ export function DesignDetailScreen({
    * 与"调用失败"的区别——用户实测时只看到一句"稍后会更新画布"，等了很久才发现根本
    * 没有东西在生成。
    */
+  const [compactRetryText, setCompactRetryText] = React.useState<string | null>(null);
   const [fallbackReason, setFallbackReason] = React.useState<DesignChatFallbackReason | null>(null);
   /**
    * 迭代 27：**中性通知**，与红色的 `chatError` 分开。
@@ -769,6 +770,8 @@ export function DesignDetailScreen({
     abortRef.current = controller;
     setSending(true);
     setChatError(null);
+    setFallbackReason(null);
+    setCompactRetryText(null);
     setRetryText(null);
     setSuggestions([]);
     setElapsed(0);
@@ -824,6 +827,11 @@ export function DesignDetailScreen({
       // 整页重生成（`frames` 被写回 ⇒ 树是新的，id 重新分配过）：旧的选中 id 可能撞上一个不相干的新节点，
       // 不能靠「id 字符串还找得到」判断身份延续——一律清掉。patch 保留 id，选中延续。
       if (reply.applied.includes("frames")) setSelectedId(null);
+      if (compactGeneration && reply.fallbackReason) {
+        setCompactRetryText(draftText);
+        setText(draftText);
+        return false;
+      }
       setText("");
       return true;
     } catch (err) {
@@ -923,6 +931,19 @@ export function DesignDetailScreen({
       </div>
     );
   }
+
+  const referenceImageStrip = <RefImageStrip
+    images={project.refImages}
+    disabled={sending}
+    onUpload={async (file) => {
+      const out = await uploadRefImage(project.id, file);
+      setLoad({ kind: "ready", project: out.project });
+    }}
+    onDelete={async (imageId) => {
+      const out = await deleteRefImage(project.id, imageId);
+      setLoad({ kind: "ready", project: out.project });
+    }}
+  />;
 
   return (
     <div className={cn("flex h-dvh flex-col bg-background text-background-foreground", contained && "min-w-0")} data-testid="design-detail" data-contained={contained ? "true" : undefined}>
@@ -1031,18 +1052,14 @@ export function DesignDetailScreen({
             </div>
           )}
           {referenceImagesControl?.({ project, disabled: sending, onProjectUpdated: value => { if (value.id === project.id) setLoad({ kind: "ready", project: value }); } })}
-          {!compactGeneration && <RefImageStrip
-            images={project.refImages}
-            disabled={sending}
-            onUpload={async (file) => {
-              const out = await uploadRefImage(project.id, file);
-              setLoad({ kind: "ready", project: out.project });
-            }}
-            onDelete={async (imageId) => {
-              const out = await deleteRefImage(project.id, imageId);
-              setLoad({ kind: "ready", project: out.project });
-            }}
-          />}
+          {compactGeneration && fallbackReason && <div className="px-3 pb-2">
+            <DesignFallbackFeedback reason={fallbackReason} retryText={compactRetryText} sending={sending}
+              onSend={(value, maxScreens) => void send(value, maxScreens)} />
+          </div>}
+          {compactGeneration ? project.refImages.length > 0 && <details className="px-3 pb-2 text-12">
+            <summary className="cursor-pointer">管理参考图（{project.refImages.length}）</summary>
+            {referenceImageStrip}
+          </details> : referenceImageStrip}
           {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除。批注模式下选中是「给它写批注」，不是对话焦点。 */}
           {focus !== null && canvasMode === "edit" && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-focus">
