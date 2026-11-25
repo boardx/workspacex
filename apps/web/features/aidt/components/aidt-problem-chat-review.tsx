@@ -65,7 +65,7 @@ export function AidtProblemChatReview({ projectId, entityId, stage, sessionToken
       改写命题: "聚焦想研究的用户、场景和体验，写出本轮命题。",
       研究方向: "说明选择哪个候选方向，以及选择理由。",
     };
-    return <>{candidateTools}<section role="status" aria-label="本步待补充" data-testid="aidt-problem-missing-input" className="mx-auto w-full max-w-2xl space-y-2 px-4 py-2 text-13">
+    return <>{candidateTools}<section role="status" aria-label="本步待补充" data-testid="aidt-problem-missing-input" className="w-full space-y-2 py-2 text-13">
       <p>本步还需要补充</p>
       {missing.length ? <ul className="list-disc space-y-1 pl-5">{missing.map(label => <li key={label}>{label}：{prompts[label]}</li>)}</ul> : <p>{roundMissing}</p>}
       <p>请在当前聊天中补充这些内容，再核对本轮成果。</p>
@@ -97,7 +97,7 @@ export function AidtProblemChatReview({ projectId, entityId, stage, sessionToken
     }
   };
   const confirmed = Boolean(draft.fields.roundCompletion && draft.fields.problemReflectionConfirmed === "true");
-  return <section aria-label="对话中的成果确认" data-testid="aidt-round-completion" className="mx-auto w-full max-w-2xl space-y-2 px-4 py-2 text-13">
+  return <section aria-label="对话中的成果确认" data-testid="aidt-round-completion" className="w-full space-y-2 py-2 text-13">
     {candidateTools}
     {confirmed ? <><p>本轮成果已确认并保存</p><Button asChild size="sm" variant="outline"><Link href={next}>继续第2步</Link></Button></> :
       <><p className="whitespace-pre-wrap break-words">{draft.fields.rewrittenTheme}</p>
