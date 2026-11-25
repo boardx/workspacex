@@ -170,3 +170,9 @@ it("records a standalone description without guessing its source type", () => {
   expect(fields.sourceDetails).toBe("学校正在讨论作业负担。");
   expect(fields.problemSources).toBe(prior.problemSources);
 });
+
+it.each(["问题来源尚未确定。", "我们撤回刚才的问题来源判断。", "我们尚未确认问题来源。"])(
+  "preserves the previous source when the new declaration is retracted: %s", retraction => {
+    keepsSource(project("问题来源来自亲自观察\n" + retraction));
+  },
+);

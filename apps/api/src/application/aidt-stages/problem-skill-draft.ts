@@ -226,7 +226,7 @@ function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite", ha
       if (!next || following > index && declaresComparisonQuote(next) && !declaresEarlierComparisonQuote(next)) break;
       const clauses = next.split(/[；;，,。！？]/u).map(clause => clause.trim().replace(/^(?:但|不过)\s*/u, ""));
       if (declaresEarlierComparisonQuote(next) || clauses.some(clause => declaresComparisonQuote(clause)
-        || kind === "source" && /^(?:(?:我们|本组|我|目前|现在)\s*)*(?:(?:撤回|收回)(?:上述|刚才|这个|该)?(?:的)?(?:选题)?来源(?:声明|说法|判断)?|(?:还没(?:有)?|尚未|暂未|没有|未)(?:确定|决定|确认)(?:选题)?来源|(?:选题)?来源(?:尚未确定|尚未决定|暂未确定|暂未决定|未定|不确定))/u.test(clause)
+        || kind === "source" && /^(?:(?:我们|本组|我|目前|现在)\s*)*(?:(?:撤回|收回)(?:上述|刚才|这个|该)?(?:的)?(?:选题|问题)?来源(?:声明|说法|判断)?|(?:还没(?:有)?|尚未|暂未|没有|未)(?:确定|决定|确认)(?:选题|问题)?来源|(?:选题|问题)?来源(?:尚未确定|尚未决定|暂未确定|暂未决定|未定|不确定))/u.test(clause)
         || kind === "rewrite" && (/^(?:(?:但|不过|我们|本组|我|目前|现在|本轮|这轮|先|暂时|暂且)\s*)*(?:还没(?:有)?|尚未|暂未|仍未|还未|没有|没|未|暂不|不|不要|不想|不打算|不准备|不急(?:于|着))(?:(?:先|现在|正式|继续|开始|完成|进行|替我们|帮我们|做出)\s*)*(?:重写|改写|重拟|修订)(?:命题|问题)?(?:了|好|完|下来|清楚)?$/u.test(clause)
           || /^(?:(?:我们|本组|我)\s*)*(?:撤回|收回)(?:上述|刚才|这个|该)?(?:的)?(?:重写|改写)(?:命题|问题)?/u.test(clause)))) { retracted = true; break; }
     }
