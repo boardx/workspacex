@@ -141,3 +141,19 @@ it.each([
 ])("does not record unasserted source types: %s", user => {
   keepsSource(project(user));
 });
+
+it.each(["命题是： 江西教育的减负", "改写命题：江西教育的减负", "学生重写命题：江西教育的减负"])(
+  "records the student's exact rewrite even when the assistant uses the original-topic heading: %s", user => {
+    const fields = project(user, "### 原始命题\n江西教育的减负（学生本轮提交的改写命题）");
+    expect(fields.rewrittenTheme).toBe("江西教育的减负");
+    keepsSource(fields);
+  },
+);
+
+it.each([
+  "> 改写命题：江西教育的减负",
+  "改写命题：江西教育的减负\n以上只是老师的示例。",
+  "命题是：江西教育的减负\n我们暂不改写命题。",
+])("keeps the prior rewrite for quoted or deferred changes: %s", user => {
+  keepsDecisions(project(user));
+});
