@@ -124,3 +124,20 @@ describe("student natural declarations preserve literal attribution and independ
     expect(project("重写为：" + value, assistant(value)).rewrittenTheme).toBe(value);
   });
 });
+
+it.each(["问题来源来自亲自观察", "问题来源是亲自观察。", "来源为亲自观察"])(
+  "records a source type independently of the description: %s", user => {
+    const fields = project(user, "收到来源类型，请补充具体观察。");
+    expect(fields.problemSources).toBe('["observation"]');
+    expect(fields.sourceDetails).toBe(prior.sourceDetails);
+  },
+);
+
+it.each([
+  "问题来源来自亲自观察吗？",
+  "问题来源来自亲自观察\n以上是老师的示例，不是我们小组的来源。",
+  "> 问题来源来自亲自观察",
+  "问题来源来自亲自观察\n我们撤回刚才的来源判断。",
+])("does not record unasserted source types: %s", user => {
+  keepsSource(project(user));
+});

@@ -180,7 +180,7 @@ function studentShortSelection(text: string): string | undefined {
 function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite"): { value: string; source?: string } | undefined {
   // Split only before another explicit student operation, not every sentence:
   // a source explanation may itself contain several literal sentences.
-  const lines = prose.split(/\r?\n/).flatMap(line => line.split(/(?<=[。！？：:])(?=\s*(?:(?:问题来源|来源类型|来源描述|来源说明|选题理由|选题价值|尚不确定)[：:]|(?:(?:我们|本组|我)(?:的|将命题|把命题)?)?(?:(?:选题)?来源(?:是|为)|重写为|(?:已经|明确|最终|决定|就)?(?:选择|选定|选(?!题)|确定|确认)|(?:暂不|尚未|暂未|还没(?:有)?|没有|未)(?:选择|选定|重写|改写|确定|确认))))/u));
+  const lines = prose.split(/\r?\n/).flatMap(line => line.split(/(?<=[。！？：:])(?=\s*(?:(?:问题来源|来源类型|来源描述|来源说明|选题理由|选题价值|尚不确定)[：:]|(?:(?:我们|本组|我)(?:的|将命题|把命题)?)?(?:(?:选题|问题)?来源(?:是|为|来自)|重写为|(?:已经|明确|最终|决定|就)?(?:选择|选定|选(?!题)|确定|确认)|(?:暂不|尚未|暂未|还没(?:有)?|没有|未)(?:选择|选定|重写|改写|确定|确认))))/u));
   let comparison = false, fenced = false;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index]!.trim();
@@ -194,22 +194,22 @@ function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite"): {
     const sourceType = kind === "source" ? /^(?:问题来源|来源类型)[：:]\s*(亲自观察|听到抱怨|我们的猜测|猜测)[。.]?$/u.exec(line) : null;
     const sourceExplanation = sourceType ? /^(?:来源描述|来源说明)[：:]\s*(\S.*)$/u.exec(lines[index + 1]?.trim() ?? "") : null;
     const match = sourceType && sourceExplanation ? [line, sourceType[1], sourceExplanation[1]] : kind === "source"
-      ? /^(?:(?:我们|本组|我)(?:的)?)?(?:选题)?来源(?:是|为)(亲自观察|听到抱怨|我们的猜测|猜测)[：:]\s*(\S.*)$/u.exec(line)
+      ? /^(?:(?:我们|本组|我)(?:的)?)?(?:选题|问题)?来源(?:是|为|来自)\s*(亲自观察|听到抱怨|我们的猜测|猜测)(?:[：:]\s*(\S.*)|[。.]?)$/u.exec(line)
       : /^(?:(?:我们|本组|我)(?:将命题|把命题)?)?重写为[：:]\s*(\S.*)$/u.exec(line);
     if (!match) continue;
-    let value = match[kind === "source" ? 2 : 1]!.trim();
-    if (kind === "source") {
+    let value = match[kind === "source" ? 2 : 1]?.trim() ?? "";
+    if (kind === "source" && value) {
       for (let continuation = index + (sourceExplanation ? 2 : 1); continuation < lines.length; continuation++) {
         const next = lines[continuation]!.trim();
         const label = quoteContextText(next).split(/[：:]/u, 1)[0]!.trim();
         if (!next || /^(?:>|```|~~~|#{1,6}\s|---+)/u.test(next) || Object.hasOwn(sections, label)
           || declaresComparisonQuote(next)
-          || /^(?:(?:我们|本组|我)(?:的|将命题|把命题)?)?(?:(?:选题)?来源(?:是|为)|重写为|(?:研究价值|选题价值|选题理由)(?:是|为))/u.test(next)
+          || /^(?:(?:我们|本组|我)(?:的|将命题|把命题)?)?(?:(?:选题|问题)?来源(?:是|为|来自)|重写为|(?:研究价值|选题价值|选题理由)(?:是|为))/u.test(next)
           || studentShortSelection(next) || studentDefersDecision(next)) break;
         value += "\n" + lines[continuation]!;
       }
     }
-    if (value.length > 650 || isAidtProblemControlText(value) || studentDefersDecision(value)
+    if (value.length > 650 || (value && isAidtProblemControlText(value)) || studentDefersDecision(value)
       || /^(?:暂无|未定|待定|还没定|没想好|尚未重写|暂未重写|待重写|待补充)[。.]?$/u.test(value)
       || kind === "source" && /[?？]/u.test(line)
       || value.split(/[；;，,。！？]/u).some(clause => declaresComparisonQuote(clause.trim())
@@ -282,7 +282,7 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
     else if (naturalGuess) patch.problemSources = JSON.stringify(["guess"]);
     else delete patch.problemSources;
     if (statedSourceDetails) patch.sourceDetails = statedSourceDetails;
-    else if (naturalSource) patch.sourceDetails = naturalSource.value;
+    else if (naturalSource?.value) patch.sourceDetails = naturalSource.value;
     else if (naturalGuess) patch.sourceDetails = naturalGuess;
     else delete patch.sourceDetails;
   }
