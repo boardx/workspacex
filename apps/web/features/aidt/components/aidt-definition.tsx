@@ -36,6 +36,7 @@ import { parseAidtResearchMaterial, researchMaterialKey } from "../lib/aidt-rese
 import { readAidtPersonaCanvas, type AidtPersonaCandidateHost } from "../lib/aidt-persona-candidates";
 import { AidtPersonaCandidates } from "./aidt-persona-candidates";
 import { AidtHmwCandidates } from "./aidt-hmw-candidates";
+import { CanvasStage } from "@/components/canvas/canvas-stage";
 import { AidtPersonaCanvasPreview } from "./aidt-persona-canvas-preview";
 import { useAidtDefinitionCandidateHost } from "../lib/use-aidt-definition-candidate-host";
 import { AidtSavedTextPrint } from "./aidt-saved-text-print";
@@ -180,6 +181,8 @@ const kindLabels = { surprise: "意外发现", persona: "用户画像", hmw: "HM
 function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCreate, candidateHost, candidateHref, ...props }: DirectoryProps) {
   const { draft, update, readOnly } = props;
   const evidence = useDefinitionEvidence(props);
+  const [canvasEntityId, setCanvasEntityId] = React.useState<string | null>(null);
+  const canvasDraft = savedDraft ?? (!requestSave ? draft : undefined);
   const { personas, hmws, surprises, invalid } = readAidtDefinition(draft.fields);
   const [editing, setEditing] = React.useState<{ id: string; name: string } | null>(null);
   const [removing, setRemoving] = React.useState<string | null>(null);
@@ -329,12 +332,20 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
           <h3 className="break-words text-16 font-semibold">{name}</h3>
           {!item.archived && <div className="flex flex-wrap items-center gap-2">
             {openAllowed(item.id) ? <Button asChild size="sm" variant="secondary"><Link href={entityHref(item.id)}>打开{kindLabels[item.kind]}对话</Link></Button> : <p className="text-12 text-muted-foreground">保存后可打开</p>}
+            {confirmed && (item.kind === "persona" || item.kind === "hmw") && <Button type="button" size="sm" variant="outline" onClick={() => setCanvasEntityId(item.id)}>查看画布</Button>}
             {canEdit && <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ id: item.id, name })}>改名</Button>}
             {canEdit && item.id !== AIDT_PRIMARY_SURPRISE_ID && <Button type="button" size="sm" variant="ghost" onClick={() => setRemoving(item.id)}>删除</Button>}
           </div>}
         </AidtEntityCard>;
       })}
     </ul>
+    {canvasEntityId && canvasDraft && <Dialog open onOpenChange={open => { if (!open) setCanvasEntityId(null); }}>
+      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+        <DialogTitle>{title(canvasEntityId, "产物画布")}</DialogTitle>
+        <DialogDescription>使用小组已保存的产物内容填充模板。</DialogDescription>
+        <DefinitionChatView props={{ ...props, draft: canvasDraft, readOnly: true }} entityId={canvasEntityId} />
+      </DialogContent>
+    </Dialog>}
     {editing && <Dialog open onOpenChange={open => { if (!open) setEditing(null); }}>
       <DialogContent><DialogTitle>修改卡片名称</DialogTitle><DialogDescription>该名称用于卡片列表。</DialogDescription>
         <form className="space-y-3" onSubmit={event => {
@@ -381,6 +392,17 @@ function DefinitionChatView({ props, entityId }: { props: AidtDefinitionProps; e
   ] : hmw ? [["研究方向", hmw.text], ["说明", hmw.rationale], ["关联画像", hmw.personaIds.map(id => personas.find(item => item.id === id)?.name).filter(Boolean).join("、")]]
     : primary?.status === "none" ? [["意外发现", "暂无"]]
       : [["原先想法", primary?.priorBelief ?? surprise?.priorBelief], ["观察到的差异", primary?.surprisingFinding ?? surprise?.observation], ["学生解释", primary?.interpretation ?? surprise?.interpretation], ["仍待核实", surprise?.unknowns]];
+  const singleLine = (value: string) => value.trim().replace(/\s+/gu, " ");
+  const personaSections = persona && [
+    ["用户描述", persona.situation], ["目标和需求", persona.need],
+    ["行为与偏好", persona.behavior], ["影响因素", persona.limits && `待核实：${persona.limits}`],
+  ];
+  const canvasCode = hmw?.text.trim()
+    ? ["模板: hmw", `我们可以如何: ${singleLine(hmw.text)}`].join("\n")
+    : persona && !personaCanvas && personaSections
+      ? ["模板: persona", `姓名: ${singleLine(persona.name)}`, ...personaSections.flatMap(([section, value]) =>
+          value?.trim() ? [`## ${section}`, `- ${singleLine(value)}`] : [])].join("\n")
+      : null;
   const currentSynthetic = evidence.syntheticCardIds.filter(id => selected.includes(id));
   const savedSynthetic = aidtSavedDefinitionSyntheticCardIds(draft.fields, entityId, selected);
   const sourceNotice = savedSynthetic.length || currentSynthetic.length ? AIDT_DEFINITION_SYNTHETIC_NOTICE : undefined;
@@ -390,6 +412,9 @@ function DefinitionChatView({ props, entityId }: { props: AidtDefinitionProps; e
     <h3 className="text-16 font-semibold">{kindLabels[entityKind]}</h3>
     {personaCanvas && <div className="space-y-2"><AidtPersonaCanvasPreview template={personaCanvas.template} code={personaCanvas.code} sourceNotice={sourceNotice} /><Link className="text-12 text-primary underline" href={`/chat/${encodeURIComponent(personaCanvas.source.threadId)}`}>查看生成对话</Link><p className="text-12 text-muted-foreground">后台模板 V{personaCanvas.template.version} · 来源第 2 步 V{personaCanvas.source.revision} · AI 草稿已由学生选入，确认状态见当前产物。</p></div>}
     {sourceNotice && !personaCanvas && <p className="text-12 text-muted-foreground">{sourceNotice}</p>}
+    {canvasCode && <div className="h-[28rem] overflow-hidden rounded-xl border border-border" data-testid="aidt-definition-template-canvas">
+      <CanvasStage markdown={"```canvas\n" + canvasCode + "\n```"} readOnly tool="select" zoom={1} fitOnLoad onMarkdownChange={() => undefined} />
+    </div>}
     {!filled.length ? <p className="text-13 text-muted-foreground">还没有产物草稿。</p> : <dl className="space-y-2 text-13">
       {filled.map(([label, value]) => <div key={label}><dt className="font-medium">{label}</dt><dd className="whitespace-pre-wrap break-words">{value}</dd></div>)}
     </dl>}
