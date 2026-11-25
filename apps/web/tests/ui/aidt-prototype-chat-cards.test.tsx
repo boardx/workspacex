@@ -27,7 +27,7 @@ it("projects the entity discussion to the read-only inspector, confirming only f
   function Harness() {
     const [stageDraft, setDraft] = React.useState(() => updateAidtPrototypeCard(empty(), designId, "菜单卡"));
     const shared = { designId, projectId: "project", workflow: { matchesServer: false }, stageDraft, update: setDraft, readOnly: false };
-    return <><AidtPrototypeConversation {...shared} messages={messages} loading={false} running={false} requestSave={requestSave} />
+    return <><AidtPrototypeConversation {...shared} messages={messages} loading={false} running={false} requestSave={requestSave} persistConfirmation={async () => false} />
       <AidtPrototypeEntityOutput {...shared} presentationOnly /><output data-testid="stage">{JSON.stringify(stageDraft)}</output></>;
   }
   render(<Harness />);

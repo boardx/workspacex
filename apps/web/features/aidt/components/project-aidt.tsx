@@ -626,7 +626,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                   <AidtPrototypeConversation key={prototypeEntityId} projectId={projectId} designId={prototypeEntityId} ideaRevision={ideaRevision} returnContext={returnRevision && search.get("returnEntity") ? { revision: returnRevision, entityId: search.get("returnEntity")! } : undefined}
                     stageDraft={prototypeDraft} update={mutate => updateStage(5, mutate)} workflow={prototypeWorkflow}
                     messages={messages} loading={loading} running={running} readOnly={!canWrite} requestSave={requestEntitySave}
-                    savePending={pendingEntitySave === entitySaveScope || shared.write.phase === "saving"} />
+                    savePending={pendingEntitySave === entitySaveScope || shared.write.phase === "saving"} persistConfirmation={shared.saveDraft} />
                   {advance}
                 </>,
               } : step.id === 6 && activeEntityId ? {
