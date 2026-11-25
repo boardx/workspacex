@@ -177,10 +177,10 @@ function studentShortSelection(text: string): string | undefined {
 
 /** Narrow natural aliases remain student declarations, never assistant inference.
  * Read the attribution paragraph before accepting a value, including retractions. */
-function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite"): { value: string; source?: string } | undefined {
+function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite", hasInitial = false): { value: string; source?: string } | undefined {
   // Split only before another explicit student operation, not every sentence:
   // a source explanation may itself contain several literal sentences.
-  const lines = prose.split(/\r?\n/).flatMap(line => line.split(/(?<=[。！？：:])(?=\s*(?:(?:问题来源|来源类型|来源描述|来源说明|选题理由|选题价值|尚不确定)[：:]|(?:(?:我们|本组|我)(?:的|将命题|把命题)?)?(?:(?:选题)?来源(?:是|为)|重写为|(?:已经|明确|最终|决定|就)?(?:选择|选定|选(?!题)|确定|确认)|(?:暂不|尚未|暂未|还没(?:有)?|没有|未)(?:选择|选定|重写|改写|确定|确认))))/u));
+  const lines = prose.split(/\r?\n/).flatMap(line => line.split(/(?<=[。！？：:])(?=\s*(?:(?:问题来源|来源类型|来源描述|来源说明|选题理由|选题价值|尚不确定)[：:]|(?:(?:我们|本组|我)(?:的|将命题|把命题)?)?(?:(?:选题|问题)?来源(?:是|为|来自)|重写为|(?:已经|明确|最终|决定|就)?(?:选择|选定|选(?!题)|确定|确认)|(?:暂不|尚未|暂未|还没(?:有)?|没有|未)(?:选择|选定|重写|改写|确定|确认))))/u));
   let comparison = false, fenced = false;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index]!.trim();
@@ -189,27 +189,29 @@ function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite"): {
     if (!line) { comparison = false; continue; }
     if (declaresComparisonQuote(line) || /^(?:例如|比如|示例|例子)(?:[：:（(。]|$)|^(?:老师|教师|引导师)(?:说|问|举例|引用|转述)/u.test(quoteContextText(line))) { comparison = true; continue; }
     if (comparison) continue;
-    // A separate type and explanation are accepted only as an adjacent explicit
-    // student pair in this same attribution scope, never from the AI's headings.
+    // A source description can be supplied independently in a later turn.
     const sourceType = kind === "source" ? /^(?:问题来源|来源类型)[：:]\s*(亲自观察|听到抱怨|我们的猜测|猜测)[。.]?$/u.exec(line) : null;
     const sourceExplanation = sourceType ? /^(?:来源描述|来源说明)[：:]\s*(\S.*)$/u.exec(lines[index + 1]?.trim() ?? "") : null;
-    const match = sourceType && sourceExplanation ? [line, sourceType[1], sourceExplanation[1]] : kind === "source"
-      ? /^(?:(?:我们|本组|我)(?:的)?)?(?:选题)?来源(?:是|为)(亲自观察|听到抱怨|我们的猜测|猜测)[：:]\s*(\S.*)$/u.exec(line)
-      : /^(?:(?:我们|本组|我)(?:将命题|把命题)?)?重写为[：:]\s*(\S.*)$/u.exec(line);
+    const standaloneDescription = kind === "source" ? /^来源描述[：:]\s*(\S.*)$/u.exec(line) : null;
+    const match = sourceType && sourceExplanation ? [line, sourceType[1], sourceExplanation[1]]
+      : standaloneDescription ? [line, undefined, standaloneDescription[1]]
+      : kind === "source" ? /^(?:(?:我们|本组|我)(?:的)?)?(?:选题|问题)?来源(?:是|为|来自)\s*(亲自观察|听到抱怨|我们的猜测|猜测)(?:[：:]\s*(\S.*)|[。.]?)$/u.exec(line)
+      : /^(?:(?:我们|本组|我)(?:将命题|把命题)?)?(?:重写为|改写为|(?:学生)?(?:改写|重写)命题)[：:]\s*(\S.*)$/u.exec(line)
+        ?? (hasInitial ? /^命题是[：:]\s*(\S.*)$/u.exec(line) : null);
     if (!match) continue;
-    let value = match[kind === "source" ? 2 : 1]!.trim();
-    if (kind === "source") {
+    let value = match[kind === "source" ? 2 : 1]?.trim() ?? "";
+    if (kind === "source" && value) {
       for (let continuation = index + (sourceExplanation ? 2 : 1); continuation < lines.length; continuation++) {
         const next = lines[continuation]!.trim();
         const label = quoteContextText(next).split(/[：:]/u, 1)[0]!.trim();
         if (!next || /^(?:>|```|~~~|#{1,6}\s|---+)/u.test(next) || Object.hasOwn(sections, label)
           || declaresComparisonQuote(next)
-          || /^(?:(?:我们|本组|我)(?:的|将命题|把命题)?)?(?:(?:选题)?来源(?:是|为)|重写为|(?:研究价值|选题价值|选题理由)(?:是|为))/u.test(next)
+          || /^(?:(?:我们|本组|我)(?:的|将命题|把命题)?)?(?:(?:选题|问题)?来源(?:是|为|来自)|重写为|(?:研究价值|选题价值|选题理由)(?:是|为))/u.test(next)
           || studentShortSelection(next) || studentDefersDecision(next)) break;
         value += "\n" + lines[continuation]!;
       }
     }
-    if (value.length > 650 || isAidtProblemControlText(value) || studentDefersDecision(value)
+    if (value.length > 650 || (value && isAidtProblemControlText(value)) || studentDefersDecision(value)
       || /^(?:暂无|未定|待定|还没定|没想好|尚未重写|暂未重写|待重写|待补充)[。.]?$/u.test(value)
       || kind === "source" && /[?？]/u.test(line)
       || value.split(/[；;，,。！？]/u).some(clause => declaresComparisonQuote(clause.trim())
@@ -224,11 +226,16 @@ function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite"): {
       if (!next || following > index && declaresComparisonQuote(next) && !declaresEarlierComparisonQuote(next)) break;
       const clauses = next.split(/[；;，,。！？]/u).map(clause => clause.trim().replace(/^(?:但|不过)\s*/u, ""));
       if (declaresEarlierComparisonQuote(next) || clauses.some(clause => declaresComparisonQuote(clause)
-        || kind === "source" && /^(?:(?:我们|本组|我|目前|现在)\s*)*(?:(?:撤回|收回)(?:上述|刚才|这个|该)?(?:的)?(?:选题)?来源(?:声明|说法|判断)?|(?:还没(?:有)?|尚未|暂未|没有|未)(?:确定|决定|确认)(?:选题)?来源|(?:选题)?来源(?:尚未确定|尚未决定|暂未确定|暂未决定|未定|不确定))/u.test(clause)
+        || kind === "source" && /^(?:(?:我们|本组|我|目前|现在)\s*)*(?:(?:撤回|收回)(?:上述|刚才|这个|该)?(?:的)?(?:选题|问题)?来源(?:声明|说法|判断)?|(?:还没(?:有)?|尚未|暂未|没有|未)(?:确定|决定|确认)(?:选题|问题)?来源|(?:选题|问题)?来源(?:尚未确定|尚未决定|暂未确定|暂未决定|未定|不确定))/u.test(clause)
         || kind === "rewrite" && (/^(?:(?:但|不过|我们|本组|我|目前|现在|本轮|这轮|先|暂时|暂且)\s*)*(?:还没(?:有)?|尚未|暂未|仍未|还未|没有|没|未|暂不|不|不要|不想|不打算|不准备|不急(?:于|着))(?:(?:先|现在|正式|继续|开始|完成|进行|替我们|帮我们|做出)\s*)*(?:重写|改写|重拟|修订)(?:命题|问题)?(?:了|好|完|下来|清楚)?$/u.test(clause)
           || /^(?:(?:我们|本组|我)\s*)*(?:撤回|收回)(?:上述|刚才|这个|该)?(?:的)?(?:重写|改写)(?:命题|问题)?/u.test(clause)))) { retracted = true; break; }
     }
-    if (!retracted) return { value, ...(kind === "source" ? { source: match[1] } : {}) };
+    if (!retracted) {
+      if (kind === "rewrite") return { value };
+      const source = standaloneDescription && /^(?:我(?:们)?|本组)(?:亲耳)?听到[^。！？；;]*抱怨/u.test(value)
+        ? "听到抱怨" : match[1];
+      return { value, ...(source ? { source } : {}) };
+    }
   }
   return undefined;
 }
@@ -259,12 +266,14 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
   const {directionsText,selectedText,...patch}=output;
   const selectedByStudent = /^(?:本组选择的研究方向|本轮选定方向)[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim() || studentShortSelection(student);
   const statedSelection = selectedByStudent && !studentDefersDecision(selectedByStudent) && !/^(?:暂无|未定|待定|还没定|没想好)[。.]?$/u.test(selectedByStudent) ? selectedByStudent : undefined;
-  const rewrittenByStudent = /^学生重写命题[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim() || naturalStudentDeclaration(student, "rewrite")?.value;
+  const rewrittenByStudent = naturalStudentDeclaration(student, "rewrite", Boolean(previous.initial?.trim() && !isAidtProblemControlText(previous.initial)))?.value;
   const statedRewrite = rewrittenByStudent && !studentDefersDecision(rewrittenByStudent)
     && !/^(?:暂无|未定|待定|还没定|没想好|尚未重写|暂未重写|待重写|待补充)[。.]?$/u.test(rewrittenByStudent) ? rewrittenByStudent : undefined;
   // Each consequential field needs its own student expression. Asking for a
   // comparison permits suggestions, not a selected direction or a student rewrite.
-  if (!statedRewrite || statedRewrite !== patch.rewrittenTheme) delete patch.rewrittenTheme;
+  // The student wording suffices when the reply has no dedicated rewrite field.
+  if (statedRewrite && (!patch.rewrittenTheme || patch.rewrittenTheme === statedRewrite)) patch.rewrittenTheme = statedRewrite;
+  else delete patch.rewrittenTheme;
   if (!statedSelection) delete patch.focus;
   const studentFields = problemSkillFields(student, false);
   const sourceTypeLine = /^来源类型[：:]([^\r\n]+)$/mu.exec(student)?.[1]?.trim();
@@ -278,11 +287,11 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
     const naturalSource = statedSourceType ? undefined : naturalStudentDeclaration(student, "source");
     const naturalGuess = statedSourceType ? undefined : explicitlyStatedGuessSource(student);
     if (statedSourceType) patch.problemSources = statedSourceType;
-    else if (naturalSource) patch.problemSources = JSON.stringify([naturalSource.source === "亲自观察" ? "observation" : naturalSource.source === "听到抱怨" ? "complaint" : "guess"]);
+    else if (naturalSource?.source) patch.problemSources = JSON.stringify([naturalSource.source === "亲自观察" ? "observation" : naturalSource.source === "听到抱怨" ? "complaint" : "guess"]);
     else if (naturalGuess) patch.problemSources = JSON.stringify(["guess"]);
     else delete patch.problemSources;
     if (statedSourceDetails) patch.sourceDetails = statedSourceDetails;
-    else if (naturalSource) patch.sourceDetails = naturalSource.value;
+    else if (naturalSource?.value) patch.sourceDetails = naturalSource.value;
     else if (naturalGuess) patch.sourceDetails = naturalGuess;
     else delete patch.sourceDetails;
   }

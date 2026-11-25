@@ -20,8 +20,8 @@ function assistant(rewrite = rewritten) {
   return ["### 原始命题", initial, "### 选题价值", "了解选择是否占用午休时间", "### 来源类型", "亲自观察",
     "### 来源说明", observation, "### 学生重写命题", "> " + rewrite, "### 研究范围", "菜单选择"].join("\n");
 }
-function project(user: string, reply = assistant()) {
-  const before: Draft = { fields: { "problemDraft:synthetic": JSON.stringify(prior), neighbor: "合成邻项保持" }, ideas: [], selectedIdeaId: "" };
+function project(user: string, reply = assistant(), saved = prior) {
+  const before: Draft = { fields: { "problemDraft:synthetic": JSON.stringify(saved), neighbor: "合成邻项保持" }, ideas: [], selectedIdeaId: "" };
   const result = projectProblemSkillDraft(before, "synthetic", { user, assistant: reply, messageId: "synthetic-only-turn" }) ?? before;
   expect(result.fields.neighbor).toBe(before.fields.neighbor);
   const fields = JSON.parse(result.fields["problemDraft:synthetic"]!) as Record<string, string>;
@@ -124,3 +124,55 @@ describe("student natural declarations preserve literal attribution and independ
     expect(project("重写为：" + value, assistant(value)).rewrittenTheme).toBe(value);
   });
 });
+
+it.each(["问题来源来自亲自观察", "问题来源是亲自观察。", "来源为亲自观察"])(
+  "records a source type independently of the description: %s", user => {
+    const fields = project(user, "收到来源类型，请补充具体观察。");
+    expect(fields.problemSources).toBe('["observation"]');
+    expect(fields.sourceDetails).toBe(prior.sourceDetails);
+  },
+);
+
+it.each([
+  "问题来源来自亲自观察吗？",
+  "问题来源来自亲自观察\n以上是老师的示例，不是我们小组的来源。",
+  "> 问题来源来自亲自观察",
+  "问题来源来自亲自观察\n我们撤回刚才的来源判断。",
+])("does not record unasserted source types: %s", user => {
+  keepsSource(project(user));
+});
+
+it.each(["命题是： 江西教育的减负", "改写命题：江西教育的减负", "学生重写命题：江西教育的减负"])(
+  "records the student's exact rewrite even when the assistant uses the original-topic heading: %s", user => {
+    const fields = project(user, "### 原始命题\n江西教育的减负（学生本轮提交的改写命题）");
+    expect(fields.rewrittenTheme).toBe("江西教育的减负");
+    keepsSource(fields);
+  },
+);
+
+it.each([
+  "> 改写命题：江西教育的减负",
+  "改写命题：江西教育的减负\n以上只是老师的示例。",
+  "命题是：江西教育的减负\n我们暂不改写命题。",
+])("keeps the prior rewrite for quoted or deferred changes: %s", user => {
+  keepsDecisions(project(user));
+});
+
+it("keeps a standalone student description and recognizes an explicitly heard complaint", () => {
+  const fields = project("来源描述：我听到学校在抱怨", "### 来源类型\n亲自观察\n### 来源说明\nAI 补写的内容",
+    { ...prior, problemSources: '["observation"]' });
+  expect(fields.sourceDetails).toBe("我听到学校在抱怨");
+  expect(fields.problemSources).toBe('["complaint"]');
+});
+
+it("records a standalone description without guessing its source type", () => {
+  const fields = project("来源描述：学校正在讨论作业负担。");
+  expect(fields.sourceDetails).toBe("学校正在讨论作业负担。");
+  expect(fields.problemSources).toBe(prior.problemSources);
+});
+
+it.each(["问题来源尚未确定。", "我们撤回刚才的问题来源判断。", "我们尚未确认问题来源。"])(
+  "preserves the previous source when the new declaration is retracted: %s", retraction => {
+    keepsSource(project("问题来源来自亲自观察\n" + retraction));
+  },
+);
