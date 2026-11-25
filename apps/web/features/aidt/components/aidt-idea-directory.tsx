@@ -42,10 +42,10 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
   const archived = allItems.filter(item => item.archived);
   const savedIds = new Set(saved ? readAidtIdeaDirectory(saved).filter(item => !item.archived).map(item => item.id) : []);
   const canSubmit = !readOnly && !saving && action && (action.kind === "delete"
-    || (Boolean(title.trim()) && title.trim() !== action.title && (action.kind !== "create" || allItems.length < AIDT_STAGE_IDEA_LIMIT)));
+    || (Boolean(title.trim()) && (action.kind !== "create" || allItems.length < AIDT_STAGE_IDEA_LIMIT)));
 
   function open(next: Action) {
-    tags.reset();
+    tags.reset(next.kind === "edit" ? next.id : undefined);
     setSourceId(initialSource?.id ?? (sources.length === 1 ? sources[0]!.id : ""));
     setTitle(next.title);
     setError(false);
@@ -63,7 +63,7 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
         const fields = source ? { ...created.fields, [`ideaHmwSource:${id}`]: JSON.stringify(source), ideaHmwSource: created.fields.ideaHmwSource || JSON.stringify(source) } : created.fields;
         return tags.apply({ ...created, fields }, id);
       }
-      return kind === "edit" ? renameAidtIdea(old, id, title) : archiveAidtIdea(old, id);
+      return kind === "edit" ? tags.apply(renameAidtIdea(old, id, title), id) : archiveAidtIdea(old, id);
     };
     if (!saveDraft) {
       update(change);
@@ -99,10 +99,10 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
       return <AidtEntityCard key={item.id} entityId={item.id}
         action={savedItem ? <Button asChild variant="primary" size="sm"><Link href={href(item.id)} aria-label={`打开「${item.title}」对话`}><MessageSquare className="size-4" aria-hidden />打开点子<ArrowUpRight className="size-3" aria-hidden /></Link></Button> : <Button type="button" size="sm" disabled>保存后打开对话</Button>}
         management={!readOnly && <>
-          <Button type="button" size="sm" variant="ghost" aria-label={`编辑点子 ${item.title}`} disabled={saving}
-            onClick={() => open({ kind: "edit", id: item.id, title: item.title })}><Pencil aria-hidden className="size-4" />编辑</Button>
-          <Button type="button" size="sm" variant="ghost" aria-label={`删除点子 ${item.title}`} disabled={saving}
-            onClick={() => open({ kind: "delete", id: item.id, title: item.title })}><Trash2 aria-hidden className="size-4" />删除</Button>
+          <Button type="button" size="sm" variant="outline" aria-label={`编辑点子 ${item.title}`} disabled={saving}
+            onClick={() => open({ kind: "edit", id: item.id, title: item.title })}><Pencil aria-hidden className="size-4" />改名与标签</Button>
+          <Button type="button" size="sm" variant="outline" aria-label={`删除点子 ${item.title}`} disabled={saving}
+            onClick={() => open({ kind: "delete", id: item.id, title: item.title })}><Trash2 aria-hidden className="size-4" /></Button>
         </>}>
         <AidtCardHeader label="点子"><AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : savedItem ? "已保存" : "待保存"}</AidtCardStatus></AidtCardHeader>
         <h3 className="break-words text-16 font-semibold">{item.title}</h3>
@@ -121,7 +121,8 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
           {action.kind !== "delete" && <div className="space-y-2"><label htmlFor={titleId} className="text-13">点子名称</label>
             <Input id={titleId} maxLength={120} value={title} onChange={event => setTitle(event.currentTarget.value)} disabled={saving} autoFocus />
           </div>}
-          {action.kind === "create" && <>{tags.field}<label className="block text-13">来源 HMW<select className="mt-1 block w-full rounded-control border border-border bg-background p-2" value={sourceId} onChange={event => setSourceId(event.target.value)}><option value="">请选择已确认的 HMW</option>{sources.map(item => <option key={item.id} value={item.id}>第 3 步 V{item.revision} · {item.text}</option>)}</select></label></>}
+          {action.kind !== "delete" && tags.field}
+          {action.kind === "create" && <><label className="block text-13">来源 HMW<select className="mt-1 block w-full rounded-control border border-border bg-background p-2" value={sourceId} onChange={event => setSourceId(event.target.value)}><option value="">请选择已确认的 HMW</option>{sources.map(item => <option key={item.id} value={item.id}>第 3 步 V{item.revision} · {item.text}</option>)}</select></label></>}
           {error && <p role="alert" className="text-13 text-destructive">保存失败，请重试。</p>}
           <DialogFooter><Button type="button" variant="ghost" disabled={saving} onClick={() => setAction(null)}>取消</Button>
             <Button type="submit" variant={action.kind === "delete" ? "destructive" : "primary"} disabled={!canSubmit || (action.kind === "create" && Boolean(onCreated) && !source)}>

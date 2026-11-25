@@ -14,7 +14,7 @@ export function useAidtCreateTags(draft: AidtUiStageDraft) {
     for (const tag of readAidtEntityCardTags(draft.fields, key.slice(cardTagPrefix.length))) known.set(tag, (known.get(tag) ?? 0) + 1);
   }
   return {
-    reset() { setTags([]); setEntry(""); },
+    reset(id?: string) { setTags(id ? readAidtEntityCardTags(draft.fields, id) : []); setEntry(""); },
     apply(next: AidtUiStageDraft, id: string) {
       const wanted = commitDraft(tags, entry, limits);
       const tagged = updateAidtEntityCardTags(next, id, wanted);

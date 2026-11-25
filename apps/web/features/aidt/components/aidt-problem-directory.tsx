@@ -43,10 +43,10 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
   const trimmedTitle = title.trim();
   const canSubmit = !readOnly && !mutationsDisabled && (creating
     ? !atCapacity && Boolean(trimmedTitle)
-    : Boolean(current && (deleting || (trimmedTitle && trimmedTitle !== current.title))));
+    : Boolean(current && (deleting || trimmedTitle)));
 
   function open(next: ProblemAction, target: HTMLButtonElement) {
-    tags.reset();
+    tags.reset(next.kind === "edit" ? next.id : undefined);
     trigger.current = target;
     setAction(next);
     setTitle(next.original);
@@ -63,7 +63,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
         const next = addAidtProblem(old, id, trimmedTitle);
         return next === old ? old : tags.apply(next, id);
       }
-      return kind === "edit" ? renameAidtProblem(old, id, trimmedTitle) : archiveAidtProblem(old, id);
+      return kind === "edit" ? tags.apply(renameAidtProblem(old, id, trimmedTitle), id) : archiveAidtProblem(old, id);
     });
     if (saved) {
       if (kind === "create") { focusCard.current = id; onCreated?.(id); }
@@ -93,10 +93,10 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
         return <AidtEntityCard key={item.id} entityId={item.id}
           action={<Button asChild variant="primary" size="sm"><Link id={`aidt-problem-card-${item.id}`} href={href(item.id)} aria-label={item.title}><MessageSquare className="size-4" aria-hidden />打开工作坊<ArrowUpRight className="size-3" aria-hidden /></Link></Button>}
           management={!readOnly && <>
-            <Button type="button" size="sm" variant="ghost" aria-label={`编辑问题 ${item.title}`} disabled={mutationsDisabled}
-              onClick={event => open({ kind: "edit", id: item.id, original: item.title }, event.currentTarget)}><Pencil className="size-3.5" aria-hidden />编辑</Button>
-            <Button type="button" size="sm" variant="ghost" aria-label={`删除问题 ${item.title}`} disabled={mutationsDisabled}
-              onClick={event => open({ kind: "delete", id: item.id, original: item.title }, event.currentTarget)}><Trash2 className="size-3.5" aria-hidden />删除</Button>
+            <Button type="button" size="sm" variant="outline" aria-label={`编辑问题 ${item.title}`} disabled={mutationsDisabled}
+              onClick={event => open({ kind: "edit", id: item.id, original: item.title }, event.currentTarget)}><Pencil aria-hidden className="size-4" />改名与标签</Button>
+            <Button type="button" size="sm" variant="outline" aria-label={`删除问题 ${item.title}`} disabled={mutationsDisabled}
+              onClick={event => open({ kind: "delete", id: item.id, original: item.title }, event.currentTarget)}><Trash2 aria-hidden className="size-4" /></Button>
           </>}>
           <AidtCardHeader label="研究命题"><AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : "已保存"}</AidtCardStatus></AidtCardHeader>
           <h3 className="break-words text-16 font-semibold">{item.title}</h3>
@@ -125,7 +125,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
               placeholder={creating ? "例如：新同学如何找到合适的自习空间？" : undefined}
               onChange={event => setTitle(event.currentTarget.value)} />
           </div>}
-          {creating && tags.field}
+          {!deleting && tags.field}
           {error && <p role="alert" className="text-13 text-destructive" data-testid="err-aidt-problem-save">{controller.needsBaseReview
             ? "另一位成员更新了问题列表。请关闭弹窗，核对最新版本后再操作。"
             : "操作尚未确认，请重试。"}</p>}

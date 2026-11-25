@@ -1,5 +1,7 @@
 "use client";
 
+import { Pencil, Trash2 } from "lucide-react";
+
 import * as React from "react";
 import Link from "next/link";
 import { AIDT_BRAINSTORM_CANDIDATE_LIMIT, AIDT_BRAINSTORM_METHODS, AIDT_BRAINSTORM_METHOD_GUIDES, AIDT_BRAINSTORM_PREFIX, aidtBrainstormTitle, readAidtBrainstorm, readAidtBrainstorms, type AidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
@@ -47,7 +49,7 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
   const planned = Number(count);
   const methodGuide = method ? AIDT_BRAINSTORM_METHOD_GUIDES[method] : undefined;
   const name = title.trim();
-  const valid = action?.kind === "delete" || Boolean(name && (action?.kind === "edit" ? name !== action.session.title
+  const valid = action?.kind === "delete" || Boolean(name && (action?.kind === "edit" ? true
     : selected && method && Number.isInteger(planned) && planned >= 1 && planned <= AIDT_BRAINSTORM_CANDIDATE_LIMIT));
   const style = "mt-1 w-full rounded-control border border-border bg-background p-2";
   const id = React.useId();
@@ -55,7 +57,7 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
   const archived = sessions.filter(session => session.archived);
 
   function open(next: NonNullable<typeof action>) {
-    tags.reset();
+    tags.reset(next.kind === "edit" ? next.session.id : undefined);
     setTitle(next.kind === "create" ? "" : aidtBrainstormTitle(next.session));
     setHmw("");
     setMethod("");
@@ -88,7 +90,8 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
         const existing = readAidtBrainstorm(old.fields, target.id);
         if (!existing || existing.archived) return old;
         const next = action.kind === "edit" ? { ...existing, title: name } : { ...existing, archived: true };
-        return { ...old, fields: { ...old.fields, [AIDT_BRAINSTORM_PREFIX + target.id]: JSON.stringify(next) } };
+        const updated = { ...old, fields: { ...old.fields, [AIDT_BRAINSTORM_PREFIX + target.id]: JSON.stringify(next) } };
+        return action.kind === "edit" ? tags.apply(updated, target.id) : updated;
       })) { setFailed(true); return; }
       setAction(null);
     } catch { setFailed(true); }
@@ -105,8 +108,8 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
     {active.length ? <ul className="grid gap-4 sm:grid-cols-2">{active.map(session => <AidtEntityCard key={session.id} entityId={session.id}
       action={<Button asChild variant="primary" size="sm"><Link href={href(session.id)} aria-label={`打开「${aidtBrainstormTitle(session)}」对话`}>打开场次</Link></Button>}
       management={!readOnly && <>
-        <Button type="button" size="sm" variant="ghost" aria-label={`编辑 ${aidtBrainstormTitle(session)}`} onClick={() => open({ kind: "edit", session })}>编辑</Button>
-        <Button type="button" size="sm" variant="ghost" aria-label={`删除 ${aidtBrainstormTitle(session)}`} onClick={() => open({ kind: "delete", session })}>删除</Button>
+        <Button type="button" size="sm" variant="outline" aria-label={`编辑 ${aidtBrainstormTitle(session)}`} onClick={() => open({ kind: "edit", session })}><Pencil aria-hidden className="size-4" />改名与标签</Button>
+        <Button type="button" size="sm" variant="outline" aria-label={`删除 ${aidtBrainstormTitle(session)}`} onClick={() => open({ kind: "delete", session })}><Trash2 aria-hidden className="size-4" /></Button>
       </>}>
       <AidtCardHeader label={AIDT_BRAINSTORM_METHODS[session.method]}><AidtCardStatus>已保存</AidtCardStatus></AidtCardHeader>
       <h3 className="break-words text-16 font-semibold">{aidtBrainstormTitle(session)}</h3>
@@ -125,8 +128,8 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
           {action.kind !== "delete" && <label className="block text-13">场次名称
             <Input className="mt-1" value={title} onChange={event => setTitle(event.target.value)} maxLength={120} disabled={saving} />
           </label>}
+          {action.kind !== "delete" && tags.field}
           {action.kind === "create" && <>
-            {tags.field}
             <label className="block text-13">HMW
               <select className={style} value={hmw} onChange={event => setHmw(event.target.value)} disabled={saving}>
                 <option value="">选择已确认的 HMW</option>

@@ -1,5 +1,7 @@
 "use client";
 
+import { Pencil, Trash2 } from "lucide-react";
+
 import { AidtCardSources, useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
 import { AidtCardFilters, AidtCardHeader, AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
@@ -336,8 +338,8 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
           action={!item.archived && (openAllowed(item.id) ? <Button asChild size="sm" variant="primary"><Link href={entityHref(item.id)}>打开{kindLabels[item.kind]}对话</Link></Button> : <Button type="button" size="sm" disabled>保存后可打开</Button>)}
           management={!item.archived && (canEdit || confirmed && (item.kind === "persona" || item.kind === "hmw")) && <>
             {confirmed && (item.kind === "persona" || item.kind === "hmw") && <Button type="button" size="sm" variant="outline" onClick={() => setCanvasEntityId(item.id)}>查看画布</Button>}
-            {canEdit && <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ id: item.id, name })}>改名</Button>}
-            {canEdit && item.id !== AIDT_PRIMARY_SURPRISE_ID && <Button type="button" size="sm" variant="ghost" onClick={() => setRemoving(item.id)}>删除</Button>}
+            {canEdit && <Button type="button" size="sm" variant="outline" onClick={() => { tags.reset(item.id); setEditing({ id: item.id, name }); }}><Pencil aria-hidden className="size-4" />改名与标签</Button>}
+            {canEdit && item.id !== AIDT_PRIMARY_SURPRISE_ID && <Button type="button" size="sm" variant="outline" onClick={() => setRemoving(item.id)} aria-label="删除卡片"><Trash2 aria-hidden className="size-4" /></Button>}
           </>}>
           <AidtCardHeader label={kindLabels[item.kind]}><AidtCardStatus confirmed={confirmed && !item.archived}>{item.archived ? "已移除" : confirmed ? "已确认" : "待确认"}</AidtCardStatus></AidtCardHeader>
           <h3 className="break-words text-16 font-semibold">{name}</h3>
@@ -358,11 +360,12 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
           const value = editing.name.trim();
           if (!value) return;
           save(old => aidtDefinitionEntityKind(old, editing.id) && (Object.hasOwn(old.fields, aidtDefinitionCardNameKey(editing.id)) || Object.keys(old.fields).length < 95)
-            ? { ...old, fields: { ...old.fields, [aidtDefinitionCardNameKey(editing.id)]: value } } : old);
+            ? tags.apply({ ...old, fields: { ...old.fields, [aidtDefinitionCardNameKey(editing.id)]: value } }, editing.id) : old);
           setEditing(null);
         }}>
           <Input aria-label="卡片名称" value={editing.name} maxLength={80} onChange={event => setEditing({ ...editing, name: event.target.value })} />
-          <Button type="submit" disabled={!editing.name.trim()}>保存名称</Button>
+          {tags.field}
+          <Button type="submit" disabled={!editing.name.trim()}>保存修改</Button>
         </form>
       </DialogContent>
     </Dialog>}
