@@ -9,6 +9,7 @@ import { AIDT_CANDIDATE_ACTIONS, type AidtCandidateRequestKind } from "@repo/con
 export type AidtCandidateTurn = { id: string; role: string; content?: unknown };
 export type AidtCandidateProvenance = { kind: AidtCandidateRequestKind; projectId: string; entityId: string; threadId: string; requestId: string; messageId: string; sourceKey: string };
 export type AidtCandidateAdopter<T> = (candidate: T, provenance: AidtCandidateProvenance) => void | Promise<void>;
+export type AidtCandidateBatchAdopter<T> = (candidates: readonly T[], provenance: AidtCandidateProvenance) => void | Promise<void>;
 export type AidtCandidateController<T> = {
   candidates: readonly T[]; selectedIndex: number | null; choose: (index: number) => void;
   pending: boolean; busy: boolean; status: string; active: boolean; canStart: boolean;
@@ -23,7 +24,7 @@ export function useAidtCandidateRequest<T>(options: {
   messages: readonly AidtCandidateTurn[]; loading: boolean; running: boolean; enabled: boolean;
   disabledReason?: string; instruction: string; parseReply: (text: string) => readonly T[];
   readCurrentSource: (signal: AbortSignal) => Promise<string | null>;
-}): AidtCandidateController<T> {
+}): AidtCandidateController<T> & { adoptMany: (indexes: readonly number[], onAdopt: AidtCandidateBatchAdopter<T>) => Promise<boolean> } {
   const action = React.useContext(ChatHostTextActionContext);
   const session = useOptionalSession()?.session;
   const scope = JSON.stringify([session?.currentOrgId, session?.userId, options.kind, options.projectId, options.entityId, action?.threadId]);
@@ -79,10 +80,10 @@ export function useAidtCandidateRequest<T>(options: {
     if (!candidates.length || candidates.length > 24) { clear(); setStatus("回复中没有可采用的候选，请补充材料后重试或继续手写。"); return; }
     setPreview({ request, messageId: reply.id, replyText: reply.content, candidates }); setStatus("");
   }, [options.messages, options.loading, options.running, action?.running, action?.failed, preview, pending, clear, owns, afterRequest]);
-  const adopt = async (onAdopt: AidtCandidateAdopter<T>) => {
-    if (!preview || selectedIndex === null || busy || !owns(preview.request)) return false;
-    const candidate = preview.candidates[selectedIndex];
-    if (candidate === undefined) return false;
+  const adoptMany = async (indexes: readonly number[], onAdopt: AidtCandidateBatchAdopter<T>) => {
+    if (!preview || !indexes.length || busy || !owns(preview.request)) return false;
+    const candidates = [...new Set(indexes)].map(index => preview.candidates[index]);
+    if (candidates.some(candidate => candidate === undefined)) return false;
     const turns = afterRequest(preview.request);
     if (!turns || turns.some(turn => turn.role === "user") || !turns.some(turn => turn.id === preview.messageId && turn.role === "assistant" && turn.content === preview.replyText)) { clear(); setStatus("对话已改变，请重新核对候选。"); return false; }
     setBusy(true);
@@ -95,12 +96,12 @@ export function useAidtCandidateRequest<T>(options: {
       if (!owns(preview.request)) return false;
       const latestTurns = afterRequest(preview.request);
       if (!owns(preview.request) || !latestTurns || latestTurns.some(turn => turn.role === "user") || !latestTurns.some(turn => turn.id === preview.messageId && turn.role === "assistant" && turn.content === preview.replyText)) return false;
-      await onAdopt(candidate, { kind: options.kind, projectId: options.projectId, entityId: options.entityId, threadId: preview.request.threadId, requestId: preview.request.id, messageId: durable.messageId, sourceKey: preview.request.sourceKey });
+      await onAdopt(candidates as T[], { kind: options.kind, projectId: options.projectId, entityId: options.entityId, threadId: preview.request.threadId, requestId: preview.request.id, messageId: durable.messageId, sourceKey: preview.request.sourceKey });
       if (live.current && owner.current === preview.request) { clear(); setStatus("已采用到本地可编辑草稿。请核对内容，再按原流程保存、确认。"); }
       return true;
     } catch { if (owns(preview.request)) setStatus("尚未采用，原内容保留。请核对后重试。"); return false; }
     finally { if (live.current) setBusy(false); }
   };
   const notice = !options.enabled || !options.sourceKey ? options.disabledReason || "请先补充自己的初稿和本步所需来源。" : action?.occupied ? "输入框还有草稿或附件，请先处理。" : !action?.threadId || action.projectId !== options.projectId ? "当前对话尚未就绪。" : "";
-  return { candidates: preview?.candidates ?? [], selectedIndex, choose: index => { if (!busy && preview && index >= 0 && index < preview.candidates.length) setSelectedIndex(index); }, pending, busy, status: status || notice, active: !!owner.current, canStart, start, cancel: () => { clear(); setStatus("已取消采用候选。已发出的聊天请求仍可能完成，原内容保留。"); }, adopt };
+  return { candidates: preview?.candidates ?? [], selectedIndex, choose: index => { if (!busy && preview && index >= 0 && index < preview.candidates.length) setSelectedIndex(index); }, pending, busy, status: status || notice, active: !!owner.current, canStart, start, cancel: () => { clear(); setStatus("已取消采用候选。已发出的聊天请求仍可能完成，原内容保留。"); }, adoptMany, adopt: onAdopt => selectedIndex === null ? Promise.resolve(false) : adoptMany([selectedIndex], (candidates, provenance) => onAdopt(candidates[0]!, provenance)) };
 }
