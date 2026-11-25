@@ -4,7 +4,7 @@ import { useAidtCreateTags } from "./aidt-card-create-fields";
 import { AIDT_STAGE_IDEA_LIMIT } from "@repo/contracts/aidt-stages";
 import type { AidtIdeaHmwSource } from "../lib/aidt-idea-handoff";
 import * as React from "react";
-import { AidtEntityCard } from "./aidt-entity-card";
+import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { ArrowUpRight, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -82,23 +82,24 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     }
   }
 
-  const create = !readOnly && <Button type="button" variant="outline" disabled={saving || allItems.length >= AIDT_STAGE_IDEA_LIMIT}
-    onClick={() => open({ kind: "create", id: `idea-${crypto.randomUUID()}`, title: "" })}>新建点子</Button>;
+  const create = !readOnly && <AidtNewEntityCardButton disabled={saving || allItems.length >= AIDT_STAGE_IDEA_LIMIT}
+    onClick={() => open({ kind: "create", id: `idea-${crypto.randomUUID()}`, title: "" })} />;
 
   return <section aria-label="点子列表" className="space-y-4" data-testid="aidt-idea-directory">
     <header className="flex items-center justify-between gap-3">
       <h2 className="text-xl font-semibold">点子列表</h2>
-      {items.length > 0 && create}
+      {create}
     </header>
     {items.length === 0 ? <div className="space-y-4 rounded-container border border-dashed border-border bg-muted p-8 text-center">
-      <p className="text-13 text-muted-foreground">暂无点子</p>{create}
-    </div> : <ul className="grid gap-3 sm:grid-cols-2">
+      <p className="text-13 text-muted-foreground">暂无点子</p>
+    </div> : <ul className="grid gap-4 sm:grid-cols-2">
       {items.map(item => <AidtEntityCard key={item.id} entityId={item.id}>
         {savedIds.has(item.id) ? <Link className="flex flex-1 items-start gap-3 rounded-container p-4 transition-colors hover:bg-muted" href={href(item.id)} aria-label={`打开「${item.title}」对话`}>
           <MessageSquare aria-hidden className="size-5 shrink-0 text-primary" />
           <div className="min-w-0 flex-1"><h3 className="break-words text-16 font-semibold">{item.title}</h3>
-            <p className="mt-2 text-12 text-muted-foreground">{saved && isAidtIdeaChatConfirmed(saved, item.id) ? "已确认" : "待确认"}</p>
-          </div><ArrowUpRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+          </div>
+          <AidtCardStatus confirmed={Boolean(saved && isAidtIdeaChatConfirmed(saved, item.id))}>{saved && isAidtIdeaChatConfirmed(saved, item.id) ? "已确认" : "已保存"}</AidtCardStatus>
+          <ArrowUpRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
         </Link> : <div className="p-4"><h3 className="break-words font-semibold">{item.title}</h3><p className="text-12 text-muted-foreground">保存后可打开对话</p></div>}
         {!readOnly && <div className="flex justify-end gap-1 border-t border-border px-3 py-2">
           <Button type="button" size="sm" variant="ghost" aria-label={`编辑点子 ${item.title}`} disabled={saving}

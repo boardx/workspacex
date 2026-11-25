@@ -2,7 +2,7 @@
 
 import { useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
-import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -163,15 +163,19 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
   </>;
 
   return <section className="space-y-4" aria-label="本组测试" data-testid="aidt-test-group-directory">
+    {automaticSave && !readOnly && <header className="flex items-center justify-between gap-3">
+      <h2 className="text-xl font-semibold">测试列表</h2>
+        <AidtNewEntityCardButton disabled={checking || limit} onClick={() => { setName(""); setError(""); setChosenEntity(""); setResearchPath(""); setSourceChecked(false); tags.reset(); creationId.current = null; setCreateOpen(true); }} />
+    </header>}
     {!available.length && <p className="text-13 text-muted-foreground">选一个已确认的原型，创建测试。</p>}
-    <ul aria-label="测试卡片" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <ul aria-label="测试卡片" className="grid gap-4 sm:grid-cols-2">
       {available.map(group => {
         const saved = savedById.get(group.id);
         const confirmed = Boolean(saved && !saved.archived && isAidtTestGroupConfirmed(saved));
         return <AidtEntityCard key={group.id} entityId={group.id} className="gap-3 p-4">
           <div className="flex items-start justify-between gap-3">
             <h2 className="break-words text-16 font-semibold">{group.name || "测试组"}</h2>
-            <span className={confirmed ? "shrink-0 rounded-full bg-primary/10 px-2 py-1 text-11 text-primary" : "shrink-0 rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground"}>{confirmed ? "已确认" : "待确认"}</span>
+            <AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : "待确认"}</AidtCardStatus>
           </div>
           <p className="text-12 text-muted-foreground">{AIDT_TEST_RESEARCH_LABELS[aidtTestResearchPath(group)]} · 第 5 步 V{group.stage5Revision} · 原型版本 {group.versionId}</p>
           <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3">
@@ -203,9 +207,8 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
     {archived.length > 0 && <details className="text-12"><summary>已移除（{archived.length}）</summary>
       <ul className="mt-2 space-y-2">{archived.map(group => <li key={group.id}>{group.name || "测试组"}{!readOnly && <Button type="button" size="xs" variant="ghost" onClick={() => changeCard(group.id, { archived: false })}>恢复</Button>}</li>)}</ul>
     </details>}
-    {!readOnly && <div className="space-y-3 border-t border-border pt-3">
+    {!readOnly && <div className={automaticSave ? undefined : "space-y-3 border-t border-border pt-3"}>
       {automaticSave ? <>
-        <AidtNewEntityCardButton disabled={checking || limit} onClick={() => { setName(""); setError(""); setChosenEntity(""); setResearchPath(""); setSourceChecked(false); tags.reset(); creationId.current = null; setCreateOpen(true); }} />
         <Dialog open={createOpen} onOpenChange={open => { if (!checking) setCreateOpen(open); }}>
           <DialogContent className="max-w-3xl">
             <DialogTitle>新建测试卡片</DialogTitle>

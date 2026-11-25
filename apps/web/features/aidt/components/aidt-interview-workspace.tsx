@@ -172,7 +172,6 @@ export function AidtInterviewWorkspace({ projectId, draft, update, readOnly, toC
           <h4 className="text-16 font-semibold" ref={listFocus} tabIndex={-1}>{records.some(isAidtObservation) ? "访谈与观察" : "访谈列表"}</h4>
           <AidtNewEntityCardButton disabled={!canAdd} onClick={() => { createId.current = crypto.randomUUID(); setCreating(true); }} />
         </div>
-        {topic.revision && <details className="text-12"><summary className="cursor-pointer">已确认研究问题 · 第 1 步 V{topic.revision}</summary><p className="mt-2 whitespace-pre-wrap">{topic.text}</p></details>}
         {!topic.revision && !topicError && <p className="text-12 text-muted-foreground">确认并保存第 1 步的研究问题后可新建访谈或观察。</p>}
         {topicError && <p role="alert" className="text-12">研究问题读取失败。<Button size="xs" variant="ghost" onClick={retry}>重试读取</Button></p>}
         {creating && canAdd && <InterviewCardEditor source={`第 1 步 V${topic.revision} · ${topic.text}`} knownTags={aggregateTags(records.filter(row => !isAidtInterviewArchived(draft.fields, row.id)))} close={() => setCreating(false)} save={add} />}

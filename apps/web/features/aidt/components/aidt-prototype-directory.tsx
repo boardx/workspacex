@@ -4,7 +4,7 @@ import { useAidtPrototypeIdeas } from "./aidt-prototype-handoff";
 import { AidtCardSources, useAidtCreateTags } from "./aidt-card-create-fields";
 import type { AidtSharedStage } from "../lib/live-aidt-stages";
 import * as React from "react";
-import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { AIDT_BRAINSTORM_METHODS } from "@repo/contracts/aidt-brainstorm";
 import { ArrowUpRight, Palette, Pencil, Trash2 } from "lucide-react";
@@ -143,11 +143,12 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
     {listError ? <div role="alert"><p>暂时无法读取原型。</p><Button type="button" variant="outline" onClick={reload}>重试</Button></div>
       : !resources ? <p role="status">正在读取原型…</p>
       : !cards.length ? <p className="rounded-container border border-dashed border-border bg-muted px-5 py-10 text-center text-13">暂无原型</p>
-      : <ul className="grid gap-3 sm:grid-cols-2">{cards.map(card => <AidtEntityCard key={card.id} entityId={card.id}>
+      : <ul className="grid gap-4 sm:grid-cols-2">{cards.map(card => <AidtEntityCard key={card.id} entityId={card.id}>
         <Link href={aidtPrototypeEntityHref(projectId, card.id, undefined, ideaRevision)} aria-label={card.name}
           className="flex items-center gap-3 rounded-container p-4 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
           <Palette className="size-5 shrink-0 text-primary" aria-hidden />
-          <span className="min-w-0 flex-1 break-words font-semibold">{card.name}<span className="block text-12 font-normal text-muted-foreground">{card.completed ? "已确认" : "未完成"}</span></span>
+          <span className="min-w-0 flex-1 break-words font-semibold">{card.name}</span>
+          <AidtCardStatus confirmed={card.completed}>{card.completed ? "已确认" : "待确认"}</AidtCardStatus>
           <ArrowUpRight className="size-4 shrink-0" aria-hidden />
         </Link>
         {canWrite && <div className="flex justify-end gap-1 border-t border-border px-3 py-2">

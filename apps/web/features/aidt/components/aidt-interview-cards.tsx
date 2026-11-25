@@ -2,9 +2,10 @@
 
 import { aidtInterviewTitle } from "@repo/contracts/aidt-stages";
 import * as React from "react";
-import { AidtEntityCard } from "./aidt-entity-card";
+import { AidtCardStatus, AidtEntityCard } from "./aidt-entity-card";
 import { ArrowUpRight, ListChecks, MessagesSquare, Paperclip, Pencil, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { TagField, commitDraft } from "@/components/ui/tag-input";
@@ -80,14 +81,13 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center gap-3">
       <span className="mr-auto text-13 font-medium">{showArchived ? "已移除" : active.some(isAidtObservation) ? "全部研究记录" : "全部访谈"} · {visible.length}</span>
-      {!showArchived && active.length > 0 && <div role="group" aria-label="筛选标签" className="flex min-w-0 flex-wrap gap-2">
-        {["", ...knownTags.keys()].map(value => <Button type="button" key={value} size="xs" variant={filter === value ? "primary" : "outline"} aria-pressed={filter === value} aria-label={value === "全部" ? "标签「全部」" : undefined} className="h-auto max-w-full whitespace-normal break-all rounded-full py-1.5" onClick={() => { if (value) selectTag(value); else clear(); }}>{value || "全部"}</Button>)}
-      </div>}
+
       {(archived.length > 0 || showArchived) && <Button type="button" size="sm" variant="ghost" onClick={() => { clear(); setShowArchived(!showArchived); }}>{showArchived ? "返回访谈" : "查看已移除"}</Button>}
     </div>
     {!showArchived && active.length > 0 && <div className="flex items-center gap-2"><Input aria-label="搜索卡片标签" placeholder="搜索标签" value={query} onChange={event => setQuery(event.currentTarget.value)} />{filtering && <Button type="button" size="sm" variant="ghost" onClick={clear}>清除筛选</Button>}</div>}
+    {!showArchived && knownTags.size > 0 && <TagFilterBar tags={[...knownTags].map(([tag, count]) => ({ tag, count }))} selected={filter ? [filter] : []} onChange={next => next.length ? selectTag(next[0]!) : clear()} prefix="aidt-interview" business="卡片" mode="single" allActive={!filtering} />}
     {!visible.length && <div role="status" className="grid justify-items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/30 px-5 py-10 text-center"><Users aria-hidden className="size-6 text-muted-foreground" /><h5 className="font-medium">{filtering ? "没有匹配的研究记录" : showArchived ? "没有已移除的访谈" : "尚无访谈卡"}</h5>{!showArchived && !filtering && <p className="text-13 text-muted-foreground">点击「新建访谈」建立第一张受访者卡。</p>}</div>}
-    <ul aria-label="访谈卡片" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{visible.map(record => {
+    <ul aria-label="访谈卡片" className="grid gap-4 sm:grid-cols-2">{visible.map(record => {
       const observation = isAidtObservation(record);
       const removed = isAidtInterviewArchived(draft.fields, record.id);
       const confirmed = isAidtInterviewConfirmed(draft.fields, record.id);
@@ -95,7 +95,7 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
       const status = removed ? "已归档" : confirmed ? "发现卡已核对" : record.guideConfirmed ? observation ? "观察计划已确认 · 发现待核对" : "清单已确认 · 发现待核对" : observation ? "观察计划草稿" : "提纲草稿";
       const materials = readAidtInterviewMaterials(draft.fields, record.id, projectId).length;
       return <AidtEntityCard key={record.id} entityId={record.id} className="relative gap-3 p-4" useSharedTags={false}>
-        <div className="flex items-center justify-between gap-2"><span className="rounded-md bg-primary/10 px-2 py-1 text-12 font-semibold text-primary">{record.code}</span><span className="text-12 text-muted-foreground">{status}</span></div>
+        <div className="flex items-center justify-between gap-2"><span className="rounded-md bg-primary/10 px-2 py-1 text-12 font-semibold text-primary">{record.code}</span><AidtCardStatus confirmed={confirmed && !removed}>{status}</AidtCardStatus></div>
         <h5 className="break-words text-16 font-semibold">{record.displayName || ((observation ? "观察 " : "受访者 ") + record.code)}</h5>
         {observation && <p className="text-12 text-muted-foreground">观察记录</p>}
         {record.goal && <p className="line-clamp-2 break-words text-13 text-muted-foreground">{record.goal}</p>}

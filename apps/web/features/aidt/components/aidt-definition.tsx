@@ -2,7 +2,7 @@
 
 import { AidtCardSources, useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
-import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { ChatHostTextActionContext } from "@/components/chat/chat-host-panel";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -277,7 +277,6 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
 
   return <section className="space-y-4" aria-label="综合与定义产物" data-testid="aidt-definition-directory">
     <div className="flex flex-wrap gap-2">
-      {!readOnly && <AidtNewEntityCardButton disabled={!canEdit} aria-expanded={choosingKind} aria-controls={kindOptionsId} onClick={() => setChoosingKind(value => !value)} />}
       {candidateHost && props.projectId && !readOnly && <>
         <AidtPersonaCandidates projectId={props.projectId} draft={draft} savedDraft={savedDraft} cards={interviewCards} revision={evidence.revision} definitionRevision={props.definitionRevision} disabled={!canAdd || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} host={candidateHost} onCreate={onCreate} />
         <AidtHmwCandidates projectId={props.projectId} draft={draft} savedDraft={savedDraft} cards={interviewCards} revision={evidence.revision} definitionRevision={props.definitionRevision} disabled={!canAdd || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} host={candidateHost} onCreate={onCreate} />
@@ -287,6 +286,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
         {canAdd && personas.some(item => item.confirmed && !item.archived) && hmws.length < AIDT_DEFINITION_ITEM_LIMIT ? <Button asChild variant="outline"><Link href={candidateHref("hmw")}>AI 构思 HMW</Link></Button> : <Button type="button" variant="outline" disabled>AI 构思 HMW</Button>}
       </>}
       {active.some(item => item.archived) && <Button type="button" variant="ghost" onClick={() => setShowArchived(value => !value)}>{showArchived ? "返回产物" : "查看已移除"}</Button>}
+      {!readOnly && <div className="ml-auto"><AidtNewEntityCardButton disabled={!canEdit} aria-expanded={choosingKind} aria-controls={kindOptionsId} onClick={() => setChoosingKind(value => !value)} /></div>}
     </div>
     {(choosingKind || kindToCreate) && <Dialog open onOpenChange={open => { if (!open && !creating) { setChoosingKind(false); setKind(null); } }}><DialogContent className="overflow-y-auto">
       <DialogTitle>{kindToCreate ? "新建" + labels[kindToCreate] : "新建卡片"}</DialogTitle>
@@ -323,12 +323,12 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
       {evidence.failed && <Button type="button" size="sm" variant="outline" onClick={evidence.retry}>重试读取</Button>}
       {props.availableCardsRevision && <Button type="button" size="sm" variant="outline" disabled={!canEdit} onClick={() => save(rebaseAidtDefinitionEvidence)}>改用新版证据</Button>}
     </div>}
-    <ul aria-label="综合与定义卡片" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <ul aria-label="综合与定义卡片" className="grid gap-4 sm:grid-cols-2">
       {active.filter(item => item.archived === showArchived).map(item => {
         const name = title(item.id, item.title);
         const confirmed = aidtDefinitionEntityConfirmed(savedDraft ?? (!requestSave ? draft : undefined), item.id, evidence.cards, evidence.revision);
         return <AidtEntityCard key={item.id} entityId={item.id} className="gap-3 p-4" useSharedTags={!item.archived}>
-          <p className="text-12 text-muted-foreground">{kindLabels[item.kind]} · {item.archived ? "已移除" : confirmed ? "已确认" : "待确认"}</p>
+          <div className="flex items-start gap-2"><p className="text-12 text-muted-foreground">{kindLabels[item.kind]}</p><AidtCardStatus confirmed={confirmed && !item.archived}>{item.archived ? "已移除" : confirmed ? "已确认" : "待确认"}</AidtCardStatus></div>
           <h3 className="break-words text-16 font-semibold">{name}</h3>
           {!item.archived && <div className="flex flex-wrap items-center gap-2">
             {openAllowed(item.id) ? <Button asChild size="sm" variant="secondary"><Link href={entityHref(item.id)}>打开{kindLabels[item.kind]}对话</Link></Button> : <p className="text-12 text-muted-foreground">保存后可打开</p>}
