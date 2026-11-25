@@ -56,6 +56,31 @@ const RETRYABLE_FALLBACK: ReadonlySet<DesignChatFallbackReason> = new Set([
   "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_BAD_JSON", "MODEL_OUTPUT_TRUNCATED",
 ]);
 
+export function DesignFallbackFeedback({ reason, retryText, sending, onSend }: {
+  reason: DesignChatFallbackReason;
+  retryText: string | null;
+  sending: boolean;
+  onSend: (text: string, maxScreens?: number) => void;
+}) {
+  return <div className="mt-1 flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+    <p role="status" data-testid="design-detail-fallback-reason">{FALLBACK_REASON_TEXT[reason]}</p>
+    {reason === "MODEL_TIMEOUT" && retryText !== null && !sending && (
+      <button type="button" onClick={() => onSend(retryText, FEWER_PAGES_CAP)}
+        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        data-testid="design-detail-fewer-pages">
+        只画 {FEWER_PAGES_CAP} 页再试
+      </button>
+    )}
+    {RETRYABLE_FALLBACK.has(reason) && retryText !== null && !sending && (
+      <button type="button" onClick={() => onSend(retryText)}
+        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        data-testid="design-detail-fallback-retry">
+        再试一次
+      </button>
+    )}
+  </div>;
+}
+
 export const DetailChatLog = React.forwardRef<HTMLDivElement, {
   readonly project: DesignProject;
   readonly suggestions: readonly string[];
@@ -137,49 +162,7 @@ export const DetailChatLog = React.forwardRef<HTMLDivElement, {
           )}
           {/* 2026-09-07：退路原因（闭集 → 人话），只挂最后一条，说清该重试还是该找运维 */}
           {turn.role === "ai" && i === project.chat.length - 1 && fallbackReason !== null && (
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
-              <p data-testid="design-detail-fallback-reason">{FALLBACK_REASON_TEXT[fallbackReason]}</p>
-              {/*
-                * 迭代 16（#3773 R8）：退路里**该重试的那几种**给一个「再试一次」。
-                *
-                * 在这之前这里只有一句解释，而屏上唯一的重试入口挂在"没能发送"那条
-                * 错误条带上——也就是说：网络层失败给了重试，**模型层失败反而没有**，
-                * 而后者才是用户真正会撞上的那一类（超时、被截断、输出不是 JSON）。
-                * 用户当时能做的只有把刚才那句话再手打一遍。
-                *
-                * 「没配模型」不给重试：它不是"再来一次就好"的事，重试一百次也一样，
-                * 那句话已经说了该找运维。给一个必然失败的按钮是在骗人。
-                */}
-              {/*
-                * 迭代 20：超时的那句话一直写着「试试少要几页」，而用户**没有任何
-                * 控制页数的手段**——页数由骨架轮自己定，界面上没有旋钮，
-                * 说「只画 3 页」也只是一句模型可以不听的话。又一句做不到的许诺。
-                * 现在这个按钮把那句话变成一个真的动作：`maxScreens` 是服务端
-                * 强制截断的上限，不是提示。
-                * 只在**超时**时给——别的退路原因（输出不是 JSON、没配模型）
-                * 与页数无关，给了只会把人往错的方向引。
-                */}
-              {fallbackReason === "MODEL_TIMEOUT" && lastUserText !== null && !sending && (
-                <button
-                  type="button"
-                  onClick={() => onSend(lastUserText, FEWER_PAGES_CAP)}
-                  className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  data-testid="design-detail-fewer-pages"
-                >
-                  只画 {FEWER_PAGES_CAP} 页再试
-                </button>
-              )}
-              {RETRYABLE_FALLBACK.has(fallbackReason) && lastUserText !== null && !sending && (
-                <button
-                  type="button"
-                  onClick={() => onSend(lastUserText)}
-                  className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  data-testid="design-detail-fallback-retry"
-                >
-                  再试一次
-                </button>
-              )}
-            </div>
+            <DesignFallbackFeedback reason={fallbackReason} retryText={lastUserText} sending={sending} onSend={onSend} />
           )}
           {/*
             * 迭代 30：每条气泡说一句「什么时候」。这条对话就是这个项目的全部来龙去脉，

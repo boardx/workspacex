@@ -5,8 +5,7 @@ import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import { loadAidtDesignHandoff, type AidtDesignHandoff } from "../lib/aidt-design-handoff";
 import { isAidtModuleEnabled } from "../lib/aidt-module-config";
 import { previewAidtDesign } from "../lib/aidt-prototype-print-preview";
-import { AidtPrototypeSourceImages } from "./aidt-prototype-source-images";
-import { requireAidtNativeSourceImages } from "../lib/aidt-prototype-source-images";
+import { importAidtNativeSourceImages, requireAidtNativeSourceImages, type AidtSourceImportState } from "../lib/aidt-prototype-source-images";
 import { listMyProjects } from "@/lib/live-design-workbench";
 import { aidtIterationDesignPrompt, loadAidtIterationDesignContext } from "../lib/aidt-iteration-design-context";
 import { loadAidtConfirmedPrototypeText } from "../lib/aidt-prototype-confirmed-text";
@@ -23,6 +22,7 @@ export function AidtDesignWorkspace(props: Props) {
   return <ScopedWorkspace key={scope} {...props} />;
 }
 function ScopedWorkspace({ projectId, teachingProjectId, stageId, sessionToken, returnRevision, returnEntity, prototypeEntityId, onBack, onNextDesign }: Props) {
+  const imageImport = React.useRef<AidtSourceImportState>({ pending: [], unknown: false });
   const [retry, setRetry] = React.useState(0);
   const [state, setState] = React.useState<{ handoff?: AidtDesignHandoff; learning?: string; error?: string } | null>(null);
   const printScope = JSON.stringify([projectId, teachingProjectId, stageId, sessionToken, prototypeEntityId, state?.handoff?.textBasis, state?.learning, state?.error, retry]);
@@ -52,17 +52,13 @@ function ScopedWorkspace({ projectId, teachingProjectId, stageId, sessionToken, 
   }, []);
   const blocked = !state ? "正在读取已保存的问题与制作说明，尚未启动生成。" : state.error;
   return <div className="flex min-h-0 flex-1 flex-col" data-testid="aidt-design-workspace">
-    <div className="space-y-2 border-b border-border px-4 py-3 text-12">
-      <p>已确认的文字设计与版本哈希会固定带入制作请求；输入框用于追加制作要求，审阅并发送才调用模型。制作完成后仍需明确绑定实际原型版本。</p>
-      {state?.error ? <p role="alert" data-testid="err-design-handoff">{state.error}</p> : !state ? <p role="status" data-testid="loading">正在读取制作说明…</p> : <p role="status">待审阅来源：{state.handoff?.sources.map(source => `第${source.stageId}步 V${source.revision}`).join("、")}</p>}
-      {state?.handoff?.warnings.map(warning => <p key={warning} className="text-muted-foreground">{warning}</p>)}
-      <Button type="button" size="sm" variant="outline" onClick={() => { setState(null); setRetry(value => value + 1); }}>重新读取已保存制作说明</Button>
-    </div>
-    <DesignDetailScreen contained projectId={projectId} autoStart={false} requiredContextText={state?.handoff ? aidtIterationDesignPrompt(state.handoff.offer.text, state.learning) : ""}
+    {(state?.error || state?.handoff?.warnings.length) ? <div className="space-y-2 border-b border-border px-4 py-3 text-12">
+      {state.error && <><p role="alert" data-testid="err-design-handoff">{state.error}</p>
+        <Button type="button" size="sm" variant="outline" onClick={() => { setState(null); setRetry(value => value + 1); }}>重新读取已保存制作说明</Button></>}
+      {state.handoff?.warnings.map(warning => <p key={warning} className="text-muted-foreground">{warning}</p>)}
+    </div> : null}
+    <DesignDetailScreen contained compactGeneration projectId={projectId} autoStart={false} requiredContextText={state?.handoff ? aidtIterationDesignPrompt(state.handoff.offer.text, state.learning) : ""}
       requiredContextId={state?.handoff ? state.learning ? JSON.stringify([state.handoff.offer.id, state.learning]) : state.handoff.offer.id : ""} sendBlockedReason={blocked} onBack={onBack} onNextDesign={onNextDesign}
-      referenceImagesControl={state?.handoff?.textBasis && sessionToken ? ({project,disabled,onProjectUpdated}) => <AidtPrototypeSourceImages
-        input={{projectId:teachingProjectId,stageId,sessionToken,prototypeEntityId,roundRevision:stageId === 5 && returnEntity ? undefined : returnRevision ? Number(returnRevision):undefined}}
-        handoff={state.handoff!} project={project} disabled={disabled} onProjectUpdated={onProjectUpdated} /> : undefined}
       beforeSend={async (signal, native) => {
         const expected = state?.handoff;
         if (!sessionToken || !expected?.textBasis) throw new Error("AIDT_PROTOTYPE_TEXT_CONFIRMATION_REQUIRED");
@@ -72,9 +68,17 @@ function ScopedWorkspace({ projectId, teachingProjectId, stageId, sessionToken, 
           || actual.textBasis?.textSha256 !== expected.textBasis.textSha256) throw new Error("AIDT_CONTEXT_CHANGED");
         const learning = stageId === 5 && returnEntity ? await loadAidtIterationDesignContext({ projectId: teachingProjectId, designId: projectId, entityId: returnEntity, revision: returnRevision, sessionToken, signal }) : undefined;
         if (learning !== state?.learning || signal.aborted) throw new Error("AIDT_CONTEXT_CHANGED");
+        const input = { projectId: teachingProjectId, stageId, sessionToken, prototypeEntityId, roundRevision, signal };
+        const currentPrototype = stageId === 5 && roundRevision === undefined;
+        if (currentPrototype) await importAidtNativeSourceImages(input, actual, projectId, imageImport.current, () => signal.throwIfAborted());
         const freshNative = (await listMyProjects()).items.find(item => item.id === projectId);
-        if (!native || !freshNative || signal.aborted || JSON.stringify(native.refImages) !== JSON.stringify(freshNative.refImages)) throw new Error("原生参考图已变化，请重新读取后发送。");
-        await requireAidtNativeSourceImages({projectId:teachingProjectId,stageId,sessionToken,prototypeEntityId,roundRevision,signal},actual,freshNative);
+        if (!native || !freshNative || signal.aborted || (!currentPrototype && JSON.stringify(native.refImages) !== JSON.stringify(freshNative.refImages)))
+          throw new Error("原生参考图已变化，请重新读取后发送。");
+        const latest = currentPrototype ? await loadAidtDesignHandoff(input) : actual;
+        if (latest.offer.id !== actual.offer.id || latest.offer.text !== actual.offer.text
+          || JSON.stringify(latest.sourceImages) !== JSON.stringify(actual.sourceImages)) throw new Error("AIDT_CONTEXT_CHANGED");
+        const sourceIds = await requireAidtNativeSourceImages(input, latest, freshNative);
+        return { ...freshNative, refImages: freshNative.refImages.filter(image => sourceIds.includes(image.id)) };
       }}
       printPreview={async project => {
         const identity = currentPrintScope.current;
