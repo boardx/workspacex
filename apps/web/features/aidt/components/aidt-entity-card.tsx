@@ -110,6 +110,10 @@ export function AidtEntityCardDirectory({ draft, readOnly, saveDraft, children }
   </CardTagsContext.Provider>;
 }
 
+export function AidtCardStatus({ children, confirmed }: { children: React.ReactNode; confirmed?: boolean }) {
+  return <span className={cn("ml-auto shrink-0 self-start rounded-full px-2 py-1 text-11 font-medium", confirmed ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{children}</span>;
+}
+
 export function AidtEntityCard({ entityId, className, children, useSharedTags = true }: {
   entityId: string;
   className?: string;

@@ -2,7 +2,7 @@
 
 import { AidtCardSources, useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
-import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { ChatHostTextActionContext } from "@/components/chat/chat-host-panel";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -320,12 +320,12 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
       {evidence.failed && <Button type="button" size="sm" variant="outline" onClick={evidence.retry}>重试读取</Button>}
       {props.availableCardsRevision && <Button type="button" size="sm" variant="outline" disabled={!canEdit} onClick={() => save(rebaseAidtDefinitionEvidence)}>改用新版证据</Button>}
     </div>}
-    <ul aria-label="综合与定义卡片" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <ul aria-label="综合与定义卡片" className="grid gap-4 sm:grid-cols-2">
       {active.filter(item => item.archived === showArchived).map(item => {
         const name = title(item.id, item.title);
         const confirmed = aidtDefinitionEntityConfirmed(savedDraft ?? (!requestSave ? draft : undefined), item.id, evidence.cards, evidence.revision);
         return <AidtEntityCard key={item.id} entityId={item.id} className="gap-3 p-4" useSharedTags={!item.archived}>
-          <p className="text-12 text-muted-foreground">{kindLabels[item.kind]} · {item.archived ? "已移除" : confirmed ? "已确认" : "待确认"}</p>
+          <div className="flex items-start gap-2"><p className="text-12 text-muted-foreground">{kindLabels[item.kind]}</p><AidtCardStatus confirmed={confirmed && !item.archived}>{item.archived ? "已移除" : confirmed ? "已确认" : "待确认"}</AidtCardStatus></div>
           <h3 className="break-words text-16 font-semibold">{name}</h3>
           {!item.archived && <div className="flex flex-wrap items-center gap-2">
             {openAllowed(item.id) ? <Button asChild size="sm" variant="secondary"><Link href={entityHref(item.id)}>打开{kindLabels[item.kind]}对话</Link></Button> : <p className="text-12 text-muted-foreground">保存后可打开</p>}

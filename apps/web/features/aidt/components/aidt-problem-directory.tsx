@@ -2,13 +2,13 @@
 
 import { useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
-import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { ArrowUpRight, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { AIDT_PROBLEM_TITLE_MAX_LENGTH, addAidtProblem, archiveAidtProblem, canAddAidtProblem, listAidtProblems, renameAidtProblem } from "../lib/aidt-problem-entities";
+import { AIDT_PROBLEM_TITLE_MAX_LENGTH, addAidtProblem, archiveAidtProblem, canAddAidtProblem, listAidtProblems, readAidtProblemEntityDraft, renameAidtProblem } from "../lib/aidt-problem-entities";
 import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 import type { useAidtSharedStages } from "../lib/use-aidt-shared-stages";
 
@@ -86,8 +86,11 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
         <p className="text-13 text-muted-foreground">{readOnly ? "小组新建的问题会显示在这里。" : "写下小组想了解的问题，再打开卡片进入工作坊。"}</p>
       </div>
       {create}
-    </div> : <ul className="grid gap-3 sm:grid-cols-2">
-      {items.map(item => <AidtEntityCard key={item.id} entityId={item.id}>
+    </div> : <ul className="grid gap-4 sm:grid-cols-2">
+      {items.map(item => {
+        const { fields } = readAidtProblemEntityDraft(draft, item.id);
+        const confirmed = Boolean(fields.roundCompletion && fields.problemReflectionConfirmed === "true");
+        return <AidtEntityCard key={item.id} entityId={item.id}>
         <Link id={`aidt-problem-card-${item.id}`} href={href(item.id)} aria-label={item.title}
           className="group flex flex-1 gap-3 rounded-container p-4 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
           <span className="grid size-9 shrink-0 place-items-center rounded-control bg-muted text-primary"><MessageSquare className="size-4" aria-hidden /></span>
@@ -95,6 +98,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
             <h3 className="break-words text-16 font-semibold leading-snug">{item.title}</h3>
             <p className="mt-2 text-12 text-muted-foreground">打开工作坊</p>
           </div>
+          <AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : "已保存"}</AidtCardStatus>
           <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden />
         </Link>
         {!readOnly && <div className="flex flex-wrap justify-end gap-1 border-t border-border px-3 py-2">
@@ -103,7 +107,8 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
           <Button type="button" size="sm" variant="ghost" aria-label={`删除问题 ${item.title}`} disabled={mutationsDisabled}
             onClick={event => open({ kind: "delete", id: item.id, original: item.title }, event.currentTarget)}><Trash2 className="size-3.5" aria-hidden />删除</Button>
         </div>}
-      </AidtEntityCard>)}
+      </AidtEntityCard>;
+      })}
     </ul>}
     {atCapacity && !readOnly && <p role="status" className="text-13 text-muted-foreground">本步已达到小组草稿容量上限。</p>}
     <Dialog open={Boolean(action && !readOnly)} onOpenChange={open => { if (!open && !saving) setAction(null); }}>

@@ -2,7 +2,7 @@
 
 import { useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
-import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -164,14 +164,14 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
 
   return <section className="space-y-4" aria-label="本组测试" data-testid="aidt-test-group-directory">
     {!available.length && <p className="text-13 text-muted-foreground">选一个已确认的原型，创建测试。</p>}
-    <ul aria-label="测试卡片" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <ul aria-label="测试卡片" className="grid gap-4 sm:grid-cols-2">
       {available.map(group => {
         const saved = savedById.get(group.id);
         const confirmed = Boolean(saved && !saved.archived && isAidtTestGroupConfirmed(saved));
         return <AidtEntityCard key={group.id} entityId={group.id} className="gap-3 p-4">
           <div className="flex items-start justify-between gap-3">
             <h2 className="break-words text-16 font-semibold">{group.name || "测试组"}</h2>
-            <span className={confirmed ? "shrink-0 rounded-full bg-primary/10 px-2 py-1 text-11 text-primary" : "shrink-0 rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground"}>{confirmed ? "已确认" : "待确认"}</span>
+            <AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : "待确认"}</AidtCardStatus>
           </div>
           <p className="text-12 text-muted-foreground">{AIDT_TEST_RESEARCH_LABELS[aidtTestResearchPath(group)]} · 第 5 步 V{group.stage5Revision} · 原型版本 {group.versionId}</p>
           <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3">

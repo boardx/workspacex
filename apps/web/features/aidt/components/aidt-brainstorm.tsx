@@ -6,7 +6,7 @@ import { AIDT_BRAINSTORM_CANDIDATE_LIMIT, AIDT_BRAINSTORM_METHODS, AIDT_BRAINSTO
 import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import { useAidtCreateTags } from "./aidt-card-create-fields";
 import { Input } from "@/components/ui/input";
 import { addAidtBrainstormCandidates, confirmAidtBrainstormCompletion, confirmAidtBrainstormSelection, createAidtBrainstorm, readAidtBrainstormProposals, readAidtBrainstormSelection, readAidtBrainstormSelectionForSession, readAidtConfirmedBrainstormRounds, aidtBrainstormRoundClassificationDraft, confirmAidtBrainstormClassification } from "../lib/aidt-brainstorm";
@@ -101,9 +101,9 @@ export function AidtBrainstormDirectory({ definition, draft, readOnly, href, onO
       {!readOnly && <AidtNewEntityCardButton disabled={!choices.length || saving} onClick={() => open({ kind: "create" })} />}
     </header>
     {!choices.length && <p className="text-13 text-muted-foreground">先在第 3 步确认一个 HMW。</p>}
-    {active.length ? <ul className="grid gap-3 sm:grid-cols-2">{active.map(session => <AidtEntityCard key={session.id} entityId={session.id}>
+    {active.length ? <ul className="grid gap-4 sm:grid-cols-2">{active.map(session => <AidtEntityCard key={session.id} entityId={session.id}>
       <Link className="block rounded-control px-4 py-3 transition-colors hover:bg-muted" href={href(session.id)} aria-label={`打开「${aidtBrainstormTitle(session)}」对话`}>
-        <h3 className="break-words font-semibold">{aidtBrainstormTitle(session)}</h3>
+        <div className="flex items-start gap-2"><h3 className="min-w-0 break-words text-16 font-semibold">{aidtBrainstormTitle(session)}</h3><AidtCardStatus>已保存</AidtCardStatus></div>
         <p className="text-13">{AIDT_BRAINSTORM_METHODS[session.method]} · {session.candidates.length}/{session.count} 个候选</p>
         <p className="break-words text-12 text-muted-foreground">{session.source.text} · V{session.source.revision}</p>
       </Link>
