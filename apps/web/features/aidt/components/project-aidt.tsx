@@ -429,7 +429,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
       : step.id === 4 ? aidtHref(projectId, 5) + "&ideaRevision=" + currentStage.revision
       : step.id === 5 ? prototypeHandoff ? aidtHref(projectId, 6) + "&" + new URLSearchParams({ prototypeEntity: prototypeHandoff.id, prototypeRevision: String(currentStage.revision) }) : null
       : step.id === 6 ? reportHref : aidtHref(projectId, 3);
-  const advance = nextStageHref ? <Button asChild variant="primary"><Link href={nextStageHref} data-testid="aidt-stage-next">{step.id === 6 ? "进入小组报告" : "进入下一步"}</Link></Button> : null;
+  const advance = nextStageHref ? <Button asChild size="sm" variant="primary"><Link href={nextStageHref} data-testid="aidt-stage-next">{step.id === 6 ? "进入小组报告" : "进入下一步"}</Link></Button> : null;
   const definitionProps = {
     projectId, draft: currentUi.drafts[3]!, update: (mutate: (draft: AidtUiStageDraft) => AidtUiStageDraft) => updateStage(3, mutate),
     readOnly: !canWrite, availableCards: shared.stages[2]?.content.draft.discoveryCards ?? [],
