@@ -501,6 +501,9 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
               prototypeEntity={search.get("prototypeEntity")} readPrototypeEntity={readAidtPrototypeEntityDraft}
               prototypeEntities={listAidtConfirmedPrototypeEntities(currentUi.drafts[5]!)} />}
           </AidtEntityCardDirectory>)}
+        {!canWrite ? null : (shared.write.phase === "error" || shared.write.phase === "conflict" || shared.needsBaseReview) && (
+          <AidtSharedStagePanel stageNumber={step.id} controller={shared} readOnly={false} showSave={false} onSourceChange={requestEntitySave} />
+        )}
         {!hasSummary && (advance ?? <details className="text-12 text-muted-foreground">
           <summary className="cursor-pointer font-medium">查看进入下一步还需要什么</summary>
           {pendingInterviews.length ? <ul className="mt-2 space-y-2">
