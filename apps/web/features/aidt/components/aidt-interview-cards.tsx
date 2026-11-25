@@ -2,7 +2,7 @@
 
 import { aidtInterviewTitle } from "@repo/contracts/aidt-stages";
 import * as React from "react";
-import { AidtCardStatus, AidtEntityCard } from "./aidt-entity-card";
+import { AidtCardHeader, AidtCardStatus, AidtEntityCard } from "./aidt-entity-card";
 import { ArrowUpRight, ListChecks, MessagesSquare, Paperclip, Pencil, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TagFilterBar } from "@/components/ui/tag-filter-bar";
@@ -94,20 +94,18 @@ export function AidtInterviewCards({ records, projectId, draft, readOnly, onOpen
       const saved = !savedIds || savedIds.has(record.id);
       const status = removed ? "已归档" : confirmed ? "发现卡已核对" : record.guideConfirmed ? observation ? "观察计划已确认 · 发现待核对" : "清单已确认 · 发现待核对" : observation ? "观察计划草稿" : "提纲草稿";
       const materials = readAidtInterviewMaterials(draft.fields, record.id, projectId).length;
-      return <AidtEntityCard key={record.id} entityId={record.id} className="relative gap-3 p-4" useSharedTags={false}>
-        <div className="flex items-center justify-between gap-2"><span className="rounded-md bg-primary/10 px-2 py-1 text-12 font-semibold text-primary">{record.code}</span><AidtCardStatus confirmed={confirmed && !removed}>{status}</AidtCardStatus></div>
+      return <AidtEntityCard key={record.id} entityId={record.id} className="relative" useSharedTags={false}
+        action={!removed && <Button type="button" size="sm" disabled={!saved} title={saved ? undefined : "保存到小组后可打开对话"} variant="primary" className="after:absolute after:inset-0 after:rounded-2xl after:content-['']" aria-label={aidtInterviewTitle(record.code, record.displayName) + (observation ? " 打开观察 · " : " 打开访谈 · ") + status} onClick={() => onOpen(record.id)}><MessagesSquare aria-hidden className="size-4" />{saved ? observation ? "打开观察" : "打开访谈" : "先保存到小组"}<ArrowUpRight aria-hidden className="size-3" /></Button>}
+        management={!readOnly && !removed && <>
+          <Button type="button" size="sm" variant="ghost" className="relative z-10" title={observation ? "修改观察名称和标签" : "修改受访者姓名和标签"} onClick={event => { actionOpener.current = event.currentTarget; setAction({ id: record.id, mode: "edit" }); }}><Pencil aria-hidden className="size-4" />改名与标签</Button>
+          <Button type="button" size="sm" variant="ghost" className="relative z-10" aria-label={observation ? "删除观察卡" : "删除访谈卡"} title={observation ? "删除观察卡" : "删除访谈卡"} onClick={event => { actionOpener.current = event.currentTarget; setAction({ id: record.id, mode: "remove" }); }}><Trash2 aria-hidden className="size-4" /></Button>
+        </>}>
+        <AidtCardHeader label={record.code}><AidtCardStatus confirmed={confirmed && !removed}>{status}</AidtCardStatus></AidtCardHeader>
         <h5 className="break-words text-16 font-semibold">{record.displayName || ((observation ? "观察 " : "受访者 ") + record.code)}</h5>
         {observation && <p className="text-12 text-muted-foreground">观察记录</p>}
         {record.goal && <p className="line-clamp-2 break-words text-13 text-muted-foreground">{record.goal}</p>}
         {!!record.tags?.length && <div className="flex flex-wrap gap-1">{record.tags.map(value => <span key={value} className="max-w-full break-all rounded-full bg-muted px-2 py-0.5 text-11">{value}</span>)}</div>}
-        <div className="mt-auto flex flex-wrap items-center gap-3 text-12 text-muted-foreground"><span className="inline-flex items-center gap-1"><ListChecks aria-hidden className="size-4" />{record.guideConfirmed ? observation ? "观察关注点已确认" : "提纲已确认" : record.original ? observation ? "观察计划已起草" : "提纲已起草" : observation ? "待写观察关注点" : "待写提纲"}</span><span className="inline-flex items-center gap-1"><Paperclip aria-hidden className="size-4" />{materials} 份材料</span></div>
-        <div className="flex items-center gap-1 border-t border-border pt-3">
-          {!removed && <Button type="button" size="sm" disabled={!saved} title={saved ? undefined : "保存到小组后可打开对话"} variant="secondary" className="mr-auto after:absolute after:inset-0 after:rounded-2xl after:content-['']" aria-label={aidtInterviewTitle(record.code, record.displayName) + (observation ? " 打开观察 · " : " 打开访谈 · ") + status} onClick={() => onOpen(record.id)}><MessagesSquare aria-hidden className="size-4" />{saved ? observation ? "打开观察" : "打开访谈" : "先保存到小组"}<ArrowUpRight aria-hidden className="size-3" /></Button>}
-          {!readOnly && !removed && <>
-            <Button type="button" size="sm" variant="ghost" className="relative z-10" title={observation ? "修改观察名称和标签" : "修改受访者姓名和标签"} onClick={event => { actionOpener.current = event.currentTarget; setAction({ id: record.id, mode: "edit" }); }}><Pencil aria-hidden className="size-4" />改名与标签</Button>
-            <Button type="button" size="sm" variant="ghost" className="relative z-10" aria-label={observation ? "删除观察卡" : "删除访谈卡"} title={observation ? "删除观察卡" : "删除访谈卡"} onClick={event => { actionOpener.current = event.currentTarget; setAction({ id: record.id, mode: "remove" }); }}><Trash2 aria-hidden className="size-4" /></Button>
-          </>}
-        </div>
+        <div className="flex flex-wrap items-center gap-3 text-12 text-muted-foreground"><span className="inline-flex items-center gap-1"><ListChecks aria-hidden className="size-4" />{record.guideConfirmed ? observation ? "观察关注点已确认" : "提纲已确认" : record.original ? observation ? "观察计划已起草" : "提纲已起草" : observation ? "待写观察关注点" : "待写提纲"}</span><span className="inline-flex items-center gap-1"><Paperclip aria-hidden className="size-4" />{materials} 份材料</span></div>
       </AidtEntityCard>;
     })}</ul>
     {subject && !readOnly && action?.mode === "edit" && <InterviewCardEditor returnFocusTo={actionOpener.current} record={subject} knownTags={knownTags} save={details => update(old => {

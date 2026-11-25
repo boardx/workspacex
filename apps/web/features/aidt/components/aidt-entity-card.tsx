@@ -40,6 +40,7 @@ type CardTags = {
   selected: string | null;
   query: string;
   knownTags: ReadonlyMap<string, number>;
+  filters: React.ReactNode;
   register: (id: string) => () => void;
   canEdit: boolean;
   saveTags: (id: string, tags: readonly string[]) => Promise<boolean>;
@@ -91,33 +92,47 @@ export function AidtEntityCardDirectory({ draft, readOnly, saveDraft, children }
     if (selected && !filter) setSelected(null);
   }, [selected, filter]);
   const clear = () => { setSelected(null); setQuery(""); };
-  return <CardTagsContext.Provider value={{
-    draft, labels, selected: filter, query, knownTags, register, canEdit: !readOnly,
-    saveTags: (id, tags) => saveDraft(previous => updateAidtEntityCardTags(previous, id, tags)),
-  }}>
-    {(labels.length > 0 || filtering) && <section className="space-y-3" aria-label="筛选卡片标签">
-      <div className="flex min-w-0 items-center gap-2">
+  const filters = <section className="space-y-3" aria-label="筛选卡片标签">
+      <p className="text-13 font-medium">全部卡片 · {matching}</p>
+      {cards.length > 0 && <div className="flex min-w-0 items-center gap-2">
         <Input aria-label="搜索卡片标签" placeholder="搜索标签" value={query} onChange={event => setQuery(event.currentTarget.value)} />
         {filtering && <Button type="button" size="sm" variant="ghost" onClick={clear}>清除筛选</Button>}
-      </div>
-      <TagFilterBar tags={filteredLabels.map(tag => ({ tag, count: knownTags.get(tag) }))} selected={filter ? [filter] : []}
-        onChange={next => { if (!next.length) clear(); else setSelected(next[0]!); }} prefix="aidt-card" business="卡片" mode="single" allActive={!filtering} />
+      </div>}
+      {labels.length > 0 && <TagFilterBar tags={filteredLabels.map(tag => ({ tag, count: knownTags.get(tag) }))} selected={filter ? [filter] : []}
+        onChange={next => { if (!next.length) clear(); else setSelected(next[0]!); }} prefix="aidt-card" business="卡片" mode="single" allActive={!filtering} />}
       {filtering && matching === 0 && <div role="status" data-testid="aidt-card-filter-empty" className="space-y-2 rounded-container border border-dashed border-border p-4 text-13">
         <p>没有匹配标签的卡片。</p><Button type="button" size="sm" variant="outline" onClick={clear}>显示全部卡片</Button>
       </div>}
-    </section>}
+    </section>;
+  return <CardTagsContext.Provider value={{
+    draft, labels, selected: filter, query, knownTags, filters, register, canEdit: !readOnly,
+    saveTags: (id, tags) => saveDraft(previous => updateAidtEntityCardTags(previous, id, tags)),
+  }}>
     {children}
   </CardTagsContext.Provider>;
 }
 
-export function AidtCardStatus({ children, confirmed }: { children: React.ReactNode; confirmed?: boolean }) {
-  return <span className={cn("ml-auto shrink-0 self-start rounded-full px-2 py-1 text-11 font-medium", confirmed ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{children}</span>;
+export function AidtCardFilters() {
+  return React.useContext(CardTagsContext)?.filters ?? null;
 }
 
-export function AidtEntityCard({ entityId, className, children, useSharedTags = true }: {
+export function AidtCardStatus({ children, confirmed }: { children: React.ReactNode; confirmed?: boolean }) {
+  return <span className={cn("ml-auto shrink-0 self-start rounded-full px-2 py-1 text-11 font-medium", confirmed ? "bg-muted text-card-foreground" : "bg-muted text-muted-foreground")}>{children}</span>;
+}
+
+export function AidtCardHeader({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  return <div className="flex items-start justify-between gap-2">
+    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-12 font-semibold">{label}</span>
+    {children}
+  </div>;
+}
+
+export function AidtEntityCard({ entityId, className, children, action, management, useSharedTags = true }: {
   entityId: string;
   className?: string;
   children: React.ReactNode;
+  action?: React.ReactNode;
+  management?: React.ReactNode;
   useSharedTags?: boolean;
 }) {
   const context = React.useContext(CardTagsContext);
@@ -126,10 +141,16 @@ export function AidtEntityCard({ entityId, className, children, useSharedTags = 
   const register = useSharedTags ? context?.register : undefined;
   React.useEffect(() => register?.(entityId), [entityId, register]);
   if (useSharedTags && context && (context.selected && !hasTag(tags, context.selected) || !matchesQuery(context.query, [], tags))) return null;
-  return <li data-testid="aidt-entity-card" className={cn("flex min-w-0 flex-col rounded-container border border-border bg-card text-card-foreground", className)}>
+  return <li data-testid="aidt-entity-card" className={cn("flex min-w-0 flex-col gap-3 rounded-container border border-border bg-card p-4 text-card-foreground", className)}>
     {children}
-    {tags.length > 0 && <ul aria-label="卡片标签" className="flex flex-wrap gap-1 px-4 pb-2 text-12">{tags.map(tag => <li key={tag} className="rounded-full bg-muted px-2 py-1">{tag}</li>)}</ul>}
-    {useSharedTags && context?.canEdit && <div className="px-4 pb-2"><Button size="xs" variant="ghost" onClick={() => setEditing(true)}>编辑标签</Button></div>}
+    {tags.length > 0 && <ul aria-label="卡片标签" className="flex flex-wrap gap-1 text-12">{tags.map(tag => <li key={tag} className="rounded-full bg-muted px-2 py-1">{tag}</li>)}</ul>}
+    {(action || management || useSharedTags && context?.canEdit) && <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+      <div className="min-w-0">{action}</div>
+      {(management || useSharedTags && context?.canEdit) && <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
+        {useSharedTags && context?.canEdit && <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>编辑标签</Button>}
+        {management}
+      </div>}
+    </div>}
     {editing && context && <CardTagsDialog context={context} entityId={entityId} tags={tags} close={() => setEditing(false)} />}
   </li>;
 }

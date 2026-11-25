@@ -2,7 +2,7 @@
 
 import { useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
-import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardFilters, AidtCardHeader, AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -163,30 +163,25 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
   </>;
 
   return <section className="space-y-4" aria-label="本组测试" data-testid="aidt-test-group-directory">
-    {automaticSave && !readOnly && <header className="flex items-center justify-between gap-3">
+    <header className="flex items-center justify-between gap-3">
       <h2 className="text-xl font-semibold">测试列表</h2>
-        <AidtNewEntityCardButton disabled={checking || limit} onClick={() => { setName(""); setError(""); setChosenEntity(""); setResearchPath(""); setSourceChecked(false); tags.reset(); creationId.current = null; setCreateOpen(true); }} />
-    </header>}
+      {automaticSave && !readOnly && <AidtNewEntityCardButton disabled={checking || limit} onClick={() => { setName(""); setError(""); setChosenEntity(""); setResearchPath(""); setSourceChecked(false); tags.reset(); creationId.current = null; setCreateOpen(true); }} />}
+    </header>
+    <AidtCardFilters />
     {!available.length && <p className="text-13 text-muted-foreground">选一个已确认的原型，创建测试。</p>}
     <ul aria-label="测试卡片" className="grid gap-4 sm:grid-cols-2">
       {available.map(group => {
         const saved = savedById.get(group.id);
         const confirmed = Boolean(saved && !saved.archived && isAidtTestGroupConfirmed(saved));
-        return <AidtEntityCard key={group.id} entityId={group.id} className="gap-3 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="break-words text-16 font-semibold">{group.name || "测试组"}</h2>
-            <AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : "待确认"}</AidtCardStatus>
-          </div>
+        return <AidtEntityCard key={group.id} entityId={group.id}
+          action={savedIds.has(group.id) ? <Button size="sm" variant="primary" asChild><Link href={openHref(group.id)} aria-label={`打开测试 ${group.name || "测试组"}`}>打开测试</Link></Button> : <Button type="button" size="sm" disabled>保存后打开对话</Button>}
+          management={!readOnly && <>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ id: group.id, name: group.name })}>编辑</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setRemoving(group.id)}>删除</Button>
+          </>}>
+          <AidtCardHeader label="测试"><AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : "待确认"}</AidtCardStatus></AidtCardHeader>
+          <h2 className="break-words text-16 font-semibold">{group.name || "测试组"}</h2>
           <p className="text-12 text-muted-foreground">{AIDT_TEST_RESEARCH_LABELS[aidtTestResearchPath(group)]} · 第 5 步 V{group.stage5Revision} · 原型版本 {group.versionId}</p>
-          <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3">
-            {savedIds.has(group.id)
-              ? <Button size="sm" variant="secondary" asChild><Link href={openHref(group.id)} aria-label={`打开测试 ${group.name || "测试组"}`}>打开测试</Link></Button>
-              : <span className="text-12 text-muted-foreground">保存后打开对话</span>}
-            {!readOnly && <>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ id: group.id, name: group.name })}>编辑</Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setRemoving(group.id)}>删除</Button>
-            </>}
-          </div>
         </AidtEntityCard>;
       })}
     </ul>

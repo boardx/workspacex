@@ -4,7 +4,7 @@ import { useAidtCreateTags } from "./aidt-card-create-fields";
 import { AIDT_STAGE_IDEA_LIMIT } from "@repo/contracts/aidt-stages";
 import type { AidtIdeaHmwSource } from "../lib/aidt-idea-handoff";
 import * as React from "react";
-import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardHeader, AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { ArrowUpRight, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -93,21 +93,21 @@ export function AidtIdeaDirectory({ draft, saved, href, update, readOnly, saveDr
     {items.length === 0 ? <div className="space-y-4 rounded-container border border-dashed border-border bg-muted p-8 text-center">
       <p className="text-13 text-muted-foreground">暂无点子</p>
     </div> : <ul className="grid gap-4 sm:grid-cols-2">
-      {items.map(item => <AidtEntityCard key={item.id} entityId={item.id}>
-        {savedIds.has(item.id) ? <Link className="flex flex-1 items-start gap-3 rounded-container p-4 transition-colors hover:bg-muted" href={href(item.id)} aria-label={`打开「${item.title}」对话`}>
-          <MessageSquare aria-hidden className="size-5 shrink-0 text-primary" />
-          <div className="min-w-0 flex-1"><h3 className="break-words text-16 font-semibold">{item.title}</h3>
-          </div>
-          <AidtCardStatus confirmed={Boolean(saved && isAidtIdeaChatConfirmed(saved, item.id))}>{saved && isAidtIdeaChatConfirmed(saved, item.id) ? "已确认" : "已保存"}</AidtCardStatus>
-          <ArrowUpRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-        </Link> : <div className="p-4"><h3 className="break-words font-semibold">{item.title}</h3><p className="text-12 text-muted-foreground">保存后可打开对话</p></div>}
-        {!readOnly && <div className="flex justify-end gap-1 border-t border-border px-3 py-2">
+      {items.map(item => {
+      const confirmed = Boolean(saved && isAidtIdeaChatConfirmed(saved, item.id));
+      const savedItem = savedIds.has(item.id);
+      return <AidtEntityCard key={item.id} entityId={item.id}
+        action={savedItem ? <Button asChild variant="primary" size="sm"><Link href={href(item.id)} aria-label={`打开「${item.title}」对话`}><MessageSquare className="size-4" aria-hidden />打开点子<ArrowUpRight className="size-3" aria-hidden /></Link></Button> : <Button type="button" size="sm" disabled>保存后打开对话</Button>}
+        management={!readOnly && <>
           <Button type="button" size="sm" variant="ghost" aria-label={`编辑点子 ${item.title}`} disabled={saving}
             onClick={() => open({ kind: "edit", id: item.id, title: item.title })}><Pencil aria-hidden className="size-4" />编辑</Button>
           <Button type="button" size="sm" variant="ghost" aria-label={`删除点子 ${item.title}`} disabled={saving}
             onClick={() => open({ kind: "delete", id: item.id, title: item.title })}><Trash2 aria-hidden className="size-4" />删除</Button>
-        </div>}
-      </AidtEntityCard>)}
+        </>}>
+        <AidtCardHeader label="点子"><AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : savedItem ? "已保存" : "待保存"}</AidtCardStatus></AidtCardHeader>
+        <h3 className="break-words text-16 font-semibold">{item.title}</h3>
+      </AidtEntityCard>;
+    })}
     </ul>}
     {archived.length > 0 && <details className="text-12"><summary className="cursor-pointer">已删除点子（{archived.length}）</summary>
       <ul className="mt-2 space-y-1">{archived.map(item => <li key={item.id}>{item.title}</li>)}</ul>

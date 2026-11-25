@@ -2,7 +2,7 @@
 
 import { useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
-import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardFilters, AidtCardHeader, AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { ArrowUpRight, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
       <h2 ref={heading} tabIndex={-1} id={headingId} className="text-xl font-semibold">问题列表</h2>
       {create}
     </header>
+    <AidtCardFilters />
     {items.length === 0 ? <div className="flex flex-col items-center gap-4 rounded-container border border-dashed border-border bg-muted px-5 py-12 text-center" data-testid="empty">
       <div className="grid size-12 place-items-center rounded-container border border-border bg-card text-primary"><MessageSquare className="size-6" aria-hidden /></div>
       <div className="space-y-1.5">
@@ -89,24 +90,17 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
       {items.map(item => {
         const { fields } = readAidtProblemEntityDraft(draft, item.id);
         const confirmed = Boolean(fields.roundCompletion && fields.problemReflectionConfirmed === "true");
-        return <AidtEntityCard key={item.id} entityId={item.id}>
-        <Link id={`aidt-problem-card-${item.id}`} href={href(item.id)} aria-label={item.title}
-          className="group flex flex-1 gap-3 rounded-container p-4 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-          <span className="grid size-9 shrink-0 place-items-center rounded-control bg-muted text-primary"><MessageSquare className="size-4" aria-hidden /></span>
-          <div className="min-w-0 flex-1">
-            <h3 className="break-words text-16 font-semibold leading-snug">{item.title}</h3>
-            <p className="mt-2 text-12 text-muted-foreground">打开工作坊</p>
-          </div>
-          <AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : "已保存"}</AidtCardStatus>
-          <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden />
-        </Link>
-        {!readOnly && <div className="flex flex-wrap justify-end gap-1 border-t border-border px-3 py-2">
-          <Button type="button" size="sm" variant="ghost" aria-label={`编辑问题 ${item.title}`} disabled={mutationsDisabled}
-            onClick={event => open({ kind: "edit", id: item.id, original: item.title }, event.currentTarget)}><Pencil className="size-3.5" aria-hidden />编辑</Button>
-          <Button type="button" size="sm" variant="ghost" aria-label={`删除问题 ${item.title}`} disabled={mutationsDisabled}
-            onClick={event => open({ kind: "delete", id: item.id, original: item.title }, event.currentTarget)}><Trash2 className="size-3.5" aria-hidden />删除</Button>
-        </div>}
-      </AidtEntityCard>;
+        return <AidtEntityCard key={item.id} entityId={item.id}
+          action={<Button asChild variant="primary" size="sm"><Link id={`aidt-problem-card-${item.id}`} href={href(item.id)} aria-label={item.title}><MessageSquare className="size-4" aria-hidden />打开工作坊<ArrowUpRight className="size-3" aria-hidden /></Link></Button>}
+          management={!readOnly && <>
+            <Button type="button" size="sm" variant="ghost" aria-label={`编辑问题 ${item.title}`} disabled={mutationsDisabled}
+              onClick={event => open({ kind: "edit", id: item.id, original: item.title }, event.currentTarget)}><Pencil className="size-3.5" aria-hidden />编辑</Button>
+            <Button type="button" size="sm" variant="ghost" aria-label={`删除问题 ${item.title}`} disabled={mutationsDisabled}
+              onClick={event => open({ kind: "delete", id: item.id, original: item.title }, event.currentTarget)}><Trash2 className="size-3.5" aria-hidden />删除</Button>
+          </>}>
+          <AidtCardHeader label="研究命题"><AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : "已保存"}</AidtCardStatus></AidtCardHeader>
+          <h3 className="break-words text-16 font-semibold">{item.title}</h3>
+        </AidtEntityCard>;
       })}
     </ul>}
     {atCapacity && !readOnly && <p role="status" className="text-13 text-muted-foreground">本步已达到小组草稿容量上限。</p>}
