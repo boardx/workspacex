@@ -66,14 +66,14 @@ export function DesignFallbackFeedback({ reason, retryText, sending, onSend }: {
     <p role="status" data-testid="design-detail-fallback-reason">{FALLBACK_REASON_TEXT[reason]}</p>
     {reason === "MODEL_TIMEOUT" && retryText !== null && !sending && (
       <button type="button" onClick={() => onSend(retryText, FEWER_PAGES_CAP)}
-        className="rounded-control border border-border px-1.5 py-0.5 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         data-testid="design-detail-fewer-pages">
         只画 {FEWER_PAGES_CAP} 页再试
       </button>
     )}
     {RETRYABLE_FALLBACK.has(reason) && retryText !== null && !sending && (
       <button type="button" onClick={() => onSend(retryText)}
-        className="rounded-control border border-border px-1.5 py-0.5 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         data-testid="design-detail-fallback-retry">
         再试一次
       </button>
