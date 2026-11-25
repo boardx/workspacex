@@ -2,6 +2,7 @@
 
 import { useBrowserTitle } from "@/components/system/browser-title";
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { ChatShareButton } from "./chat-share-button";
 import { ChatHandoffStream } from "@/components/chat/chat-handoff-panel";
 import { handoffDraftText, type HandoffView } from "@/lib/agent-handoff";
@@ -224,6 +225,7 @@ export function CopilotKitV2Shell({
   singleConversation = false,
   emptyState,
   hostPanel,
+  threadShareTarget,
 }: {
   initialThreadId: string | null;
   projectId?: string | null;
@@ -235,6 +237,8 @@ export function CopilotKitV2Shell({
   singleConversation?: boolean;
   emptyState?: (setDraft: (text: string) => void) => React.ReactNode;
   hostPanel?: ChatHostPanel;
+  /** Omitted keeps the native header; null waits for the host header to mount. */
+  threadShareTarget?: HTMLElement | null;
 }): JSX.Element {
   const { locale, t } = useI18n();
   const router = useRouter();
@@ -1185,6 +1189,7 @@ export function CopilotKitV2Shell({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [singleConversation]);
 
+  const threadShareButton = selectedThreadId && bearer && threadDetail?.thread.id === selectedThreadId && threadDetail.thread.createdBy === session?.userId && <ChatShareButton key={JSON.stringify([selectedThreadId, bearer, currentOrgId])} threadId={selectedThreadId} bearer={bearer} />;
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col md:flex-row">
       {!singleConversation && <><div className="flex items-center gap-2 border-b border-border px-3 py-2 md:hidden">
@@ -1354,7 +1359,7 @@ export function CopilotKitV2Shell({
             避免同一个动作两处可做）。标题取自 `cards`（左栏同一份数据源），未选中
             或还没建线程时不渲染标题、只显示隐私提示，不编一个假标题。
         */}
-        <div
+        {threadShareTarget === undefined ? <div
           className="flex min-h-0 shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-6 py-3"
           data-testid="copilotkit-v2-thread-topbar"
         >
@@ -1371,8 +1376,8 @@ export function CopilotKitV2Shell({
             <Lock aria-hidden className="h-2.5 w-2.5" />
             {projectId ? t("chatEntry.projectVisibility") : t("chatEntry.privateVisibility")}
           </span>
-          {selectedThreadId && bearer && threadDetail?.thread.id === selectedThreadId && threadDetail.thread.createdBy === session?.userId && <ChatShareButton key={JSON.stringify([selectedThreadId, bearer, currentOrgId])} threadId={selectedThreadId} bearer={bearer} />}
-        </div>
+          {threadShareButton}
+        </div> : threadShareTarget && threadShareButton ? createPortal(threadShareButton, threadShareTarget) : null}
         {/*
           ⚠ 2026-09-03 起 `key` 用的是 `panelMountKey`（组件内部状态，见顶部头注），
           不再是 `initialThreadId`（route 参数、Next Router 软导航结算后才会变，

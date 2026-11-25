@@ -694,3 +694,16 @@ describe("native host navigation adapter", () => {
     await waitFor(() => expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "true"));
   });
 });
+
+it("places the existing owner-only share button in the host header", async () => {
+  function Host() {
+    const [target, setTarget] = React.useState<HTMLDivElement | null>(null);
+    return <I18nProvider initialLocale="zh-CN">
+      <div ref={setTarget} data-testid="outer-header" />
+      <CopilotKitV2Shell initialThreadId={THREAD_A.id} threadShareTarget={target} singleConversation />
+    </I18nProvider>;
+  }
+  render(<Host />);
+  expect(await within(screen.getByTestId("outer-header")).findByRole("button", { name: "分享" })).toBeVisible();
+  expect(screen.queryByTestId("copilotkit-v2-thread-topbar")).toBeNull();
+});
