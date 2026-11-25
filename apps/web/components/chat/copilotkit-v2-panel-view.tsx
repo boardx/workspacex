@@ -256,10 +256,7 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps & { conv
               <div className="ml-auto h-8 w-1/2 rounded-lg bg-muted" />
               <div className="h-14 w-3/4 rounded-lg bg-muted" />
             </div>
-          ) : projectedMessages.length === 0 && !agent.isRunning && (streamSlots.lead || streamSlots.tail || streamSlots.emptyState) ? (
-            /* UIUX r1 屏 4：外壳塞进消息流的块（转交来源卡等）已是线程上下文，不再显示通用空态。 */
-            <div className="flex w-full flex-col gap-3">{streamSlots.lead}{streamSlots.tail}{streamSlots.emptyState?.(setInputDraft)}</div>
-          ) : projectedMessages.length === 0 && !agent.isRunning ? (
+          ) : isEmptyThread ? (
             /* issue #2130（TW-P0-1，回指 #2068）—— 任务型空状态取代此前的会话隐喻
                两行静态文字，见 `chat-task-workbench-empty-state.tsx` 文件头注。 */
             <TaskWorkbenchEmptyState
@@ -273,14 +270,14 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps & { conv
             // issue #2039（第 2 轮 gap #5）的阅读宽度约束已由本文件中央列那一处
             // `max-w-3xl` 统一承担（issue #2075 / TW-P2-1）——在这里再写一次就是同一个
             // 事实声明在两处：以后调宽度会漏改一个，两处不一致且没人会发现。
-            <div className="w-full">
+            <div className={cn("w-full", projectedMessages.length === 0 && !agent.isRunning && "flex flex-col gap-3")}>
               {streamSlots.lead}
               {/* issue #3619 —— `useAgent` 把服务端 `default` 注册为本面板独占的本地
                   proxy（本地 id 是上面的 `threadId`）。消息视图必须读取这个已注册
                   id；若仍读 `default`，runtime registry 在刷新同步窗口内没有该本地
                   key，会持续报 `Agent default not found`，历史虽已从 API 回读却无法
                   稳定渲染。服务端路由仍由 `useAgent.runtimeAgentId="default"` 决定。 */}
-              <CopilotChatConfigurationProvider agentId={threadId} threadId={threadId}>
+              {(projectedMessages.length > 0 || agent.isRunning) && <CopilotChatConfigurationProvider agentId={threadId} threadId={threadId}>
                 {/* CK-P3（issue #2054）—— 逐条消息操作（复制/评分/反馈）需要的两样东西
                     （真实落库 id 的解析索引、当前 agent 归因）经 context 下发：
                     `assistantMessage` slot 由框架实例化，本组件够不着它的 props。
@@ -337,8 +334,9 @@ export function CopilotKitV2PanelView(props: CopilotKitV2PanelViewProps & { conv
                     </ProducedFilesCtx.Provider>
                   </ArtifactLandingCtx.Provider>
                 </CopilotKitV2MessageActionsProvider>
-              </CopilotChatConfigurationProvider>
+              </CopilotChatConfigurationProvider>}
               {streamSlots.tail}
+              {projectedMessages.length === 0 && !agent.isRunning && streamSlots.emptyState?.(setInputDraft)}
             </div>
           )}
           {/* Keep the lifecycle anchor and announcement without a second visual progress panel.

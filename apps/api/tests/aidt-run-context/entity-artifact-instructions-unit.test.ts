@@ -1,12 +1,12 @@
 import { expect, it } from "vitest";
 import { aidtEntityArtifactInstructions } from "../../src/application/aidt-run-context/entity-artifact-instructions";
 
-it("binds ideation to the saved current activity and waits for student input before generating candidate drafts", () => {
+it("binds ideation to the saved current activity and permits an explicit AI preview before student input", () => {
   const instructions = aidtEntityArtifactInstructions("aidt-ideate");
   expect(instructions).toContain("brainstorm.activity.methodKey");
   expect(instructions).toContain("activity.methodGuide.startPrompt");
   expect(instructions).toContain("activity.methodGuide.description");
-  expect(instructions).toContain("尚无学生点子或活动材料时，不输出 aidt-ideas");
+  expect(instructions).toContain("即使没有学生点子，也按已保存的 HMW 和当前方法输出 AI 起始候选");
   expect(instructions).toContain("不自动分类、投票或选择");
   expect(instructions).toContain("不默认自由联想");
   expect(instructions).toContain("sessionId 只取当前 entityId");

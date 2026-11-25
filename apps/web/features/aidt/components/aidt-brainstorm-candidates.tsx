@@ -1,7 +1,5 @@
 "use client";
 import * as React from "react";
-import { isAidtGreetingText } from "@repo/contracts/aidt-stages";
-import { AIDT_CANDIDATE_ACTIONS } from "@repo/contracts/aidt-candidate-request";
 import { AIDT_BRAINSTORM_METHOD_GUIDES, AIDT_BRAINSTORM_METHODS, readAidtBrainstorm, type AidtBrainstorm } from "@repo/contracts/aidt-brainstorm";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -24,7 +22,6 @@ export function AidtBrainstormCandidates({ projectId, session, draft, messages, 
 }) {
   const token = useOptionalSession()?.session?.sessionToken;
   const source = sourceKey(projectId, draft, session.id);
-  const hasStudent = messages.some(turn => turn.role === "user" && typeof turn.content === "string" && turn.content.trim() && !isAidtGreetingText(turn.content) && !Object.values(AIDT_CANDIDATE_ACTIONS).some(header => (turn.content as string).startsWith(header + "\n")));
   const [edit, setEdit] = React.useState<{ source: string; value: Idea; provenance: AidtCandidateProvenance } | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [status, setStatus] = React.useState("");
@@ -34,9 +31,9 @@ export function AidtBrainstormCandidates({ projectId, session, draft, messages, 
   const latest = React.useRef({ source, readOnly }); latest.current = { source, readOnly };
   const guide = AIDT_BRAINSTORM_METHOD_GUIDES[session.method];
   const controller = useAidtCandidateRequest<Idea>({ kind: "ideation", projectId, entityId: session.id, sourceKey: source, messages, loading, running,
-    enabled: !readOnly && !session.archived && hasStudent && !!token && !edit && !saving && session.candidates.length < session.count,
-    disabledReason: edit ? "先保存或放弃当前独立点子草稿，再继续 AI 候选。" : !hasStudent ? "先按本轮方法写下自己的第一轮点子，再请 AI 协助拓展。" : session.candidates.length >= session.count ? "本轮候选数量已达到计划，请先整理、分类与选择已有点子。" : "当前场次只读或来源尚未就绪。",
-    instruction: `围绕本场次已冻结的 HMW 和方法‘${AIDT_BRAINSTORM_METHODS[session.method]}’继续拓展学生已经贡献的想法。方法指导：${guide.description}。只遵循当前场次方法；换位和类比是待验证假设，不是访谈事实。最多给 ${Math.min(3, Math.max(1, session.count - session.candidates.length))} 个不同候选，不否定、评分、分类、投票或替我选。沿用 aidt-ideas JSON 围栏格式 {"sessionId":"${session.id}","candidates":[{"title":"点子名称","description":"两三句核心说明"}]}。当前仅预览，我选择并编辑之后才会主动保存。`,
+    enabled: !readOnly && !session.archived && !!token && !edit && !saving && session.candidates.length < session.count,
+    disabledReason: edit ? "先保存或放弃当前独立点子草稿，再继续 AI 候选。" : session.candidates.length >= session.count ? "本轮候选数量已达到计划，请先整理、分类与选择已有点子。" : "当前场次只读或来源尚未就绪。",
+    instruction: `围绕本场次已冻结的 HMW 和方法‘${AIDT_BRAINSTORM_METHODS[session.method]}’提供 AI 点子候选。已有学生点子时在其基础上拓展，否则直接从 HMW 出发给出起始候选，并标明它们是 AI 建议。方法指导：${guide.description}。只遵循当前场次方法；换位和类比是待验证假设，不是访谈事实。最多给 ${Math.min(3, Math.max(1, session.count - session.candidates.length))} 个不同候选，不否定、评分、分类、投票或替我选。沿用 aidt-ideas JSON 围栏格式 {"sessionId":"${session.id}","candidates":[{"title":"点子名称","description":"两三句核心说明"}]}。当前仅预览，我选择并编辑之后才会主动保存。`,
     parseReply: text => readAidtBrainstormCandidateReply(text, session.id),
     readCurrentSource: async signal => { if (!token) return null; const { stage } = await readAidtStage(projectId, 4, token, signal); return stage ? sourceKey(projectId, stage.content.draft, session.id) : null; },
   });
