@@ -1,6 +1,7 @@
 import { StageDraft } from "@repo/contracts/aidt-stages";
 import { AidtPrototypeSourceImages } from "@repo/contracts/aidt-prototype-text";
-import { PROTOTYPE_MAX_REF_IMAGES, PROTOTYPE_REF_IMAGE_MAX_BYTES, isImageMime, type DesignProject } from "@/lib/live-design-workbench";
+import { ApiError } from "@/lib/api-client";
+import { listMyProjects, uploadRefImage, PROTOTYPE_MAX_REF_IMAGES, PROTOTYPE_REF_IMAGE_MAX_BYTES, isImageMime, type DesignProject } from "@/lib/live-design-workbench";
 import { loadAidtDesignHandoff, type AidtDesignHandoff, type AidtDesignHandoffInput } from "./aidt-design-handoff";
 import { readAidtResearchMaterial } from "./aidt-research-materials";
 import { readAidtStage, saveAidtStage } from "./live-aidt-stages";
@@ -76,6 +77,7 @@ export async function requireAidtNativeSourceImages(input: AidtDesignHandoffInpu
     throw new Error("请先明确载入并保存本轮冻结描述单图片，再制作原型。");
   for (const source of handoff.sourceImages ?? []) await readAidtSourceImageBytes(input,source);
   if (input.signal?.aborted) throw new Error("AIDT_CONTEXT_CHANGED");
+  return binding.images.map(image => image.nativeImageId);
 }
 /** Explicit user upload action stores its exact receipt with a normal stage CAS. */
 export async function saveAidtSourceImageReceipts(input: AidtDesignHandoffInput, expected: AidtDesignHandoff, images: SourceImageBinding[]) {
@@ -93,4 +95,54 @@ export async function saveAidtSourceImageReceipts(input: AidtDesignHandoffInput,
   if (draft === stage.content.draft) throw new Error("无法保存图片来源回执，未推进制作。");
   await saveAidtStage({projectId:input.projectId,stageId:5,operationId:crypto.randomUUID(),expectedRevision:stage.revision,
     sourceStageRevisions:stage.sourceStageRevisions,content:{...stage.content,draft:StageDraft.parse(draft)}},input.sessionToken,input.signal);
+}
+
+
+export type AidtSourceImportState = { pending: SourceImageBinding[]; unknown: boolean };
+
+/** Import on explicit generation or manual load, reusing verified upload receipts. */
+export async function importAidtNativeSourceImages(
+  context: AidtDesignHandoffInput, fresh: AidtDesignHandoff, designId: string, state: AidtSourceImportState,
+  check: () => void, onProjectUpdated: (project: DesignProject) => void = () => {},
+): Promise<DesignProject> {
+  if (state.unknown) throw new Error("本次上传结果尚不确定，请先核对原生参考图。");
+  const selected=assertAidtSourceImageCapacity(fresh);
+  // Each selected artifact has its own authorization even when identical bytes deduplicate into one native reference.
+  for(const source of fresh.sourceImages ?? []) {await readAidtSourceImageBytes(context,source);check();}
+  const {stage}=await readAidtStage(context.projectId,5,context.sessionToken,context.signal);check();
+  const original=stage && readAidtPrototypeEntityDraft(stage.content.draft,designId);
+  assertAidtSourceImageSelection(original ?? null, fresh);
+  const old=readAidtSourceImageBinding(original,fresh);
+  let savedReceiptsKey=old ? JSON.stringify(old.images) : "";
+  let native=(await listMyProjects()).items.find(item=>item.id===designId);check();
+  if(!native) throw new Error("当前无权读取原生 Design，未导入图片。");
+  const retained = old ?? readRetainedAidtSourceImageBinding(original ?? null, fresh, native);
+  const receipts=[...(retained?.images??[]),...state.pending].filter((image,index,all)=>all.findIndex(value=>value.nativeImageId===image.nativeImageId)===index)
+    .filter(image=>selected.some(source=>aidtSourceImageMatches(image,source)) && aidtNativeSourceImageMatches(image,native!));
+  for(const source of selected) {
+    check();
+    const actual=await readAidtSourceImageBytes(context,source);check();
+    if(receipts.some(image=>aidtSourceImageMatches(image,source))) continue;
+    if(native.refImages.length>=PROTOTYPE_MAX_REF_IMAGES) throw new Error("原生参考图位置已满。请核对现有参考图，不能覆盖或偷偷丢掉来源图。");
+    const extension=actual.reference.mime==="image/png"?"png":actual.reference.mime==="image/jpeg"?"jpg":"webp";
+    const filename=`aidt-source-${actual.reference.sha256}.${extension}`;
+    if(native.refImages.some(image=>image.name===filename)) throw new Error("发现同名但未保存关联回执的参考图。请在原生参考图中核对或移除，未重复上传，也未仅凭文件名采用。");
+    const file=new File([actual.blob],filename,{type:actual.reference.mime});
+    state.unknown=true;
+    let uploaded;
+    try {uploaded=await uploadRefImage(designId,file,{sessionToken:context.sessionToken,signal:context.signal});}
+    catch(cause) {if(cause instanceof ApiError && [400,401,403,404,409,413,415,422].includes(cause.status)) state.unknown=false;throw cause;}
+    state.unknown=false;check();
+    if(uploaded.project.id!==designId || !uploaded.project.refImages.some(image=>image.id===uploaded.image.id)
+      || uploaded.image.name!==filename || uploaded.image.size!==actual.reference.bytes || uploaded.image.mime!==actual.reference.mime) throw new Error("原生上传回执与本次原件不一致，未保存来源关联。");
+    native=uploaded.project;
+    const receipt:SourceImageBinding={sourceRunId:source.reference.runId,artifactId:source.reference.artifactId,versionId:source.reference.versionId,sha256:source.reference.sha256,
+      stage4Revision:source.stage4Revision,brainstormId:source.brainstormId,nativeImageId:uploaded.image.id,nativeName:uploaded.image.name,nativeSize:uploaded.image.size,nativeMime:uploaded.image.mime};
+    receipts.push(receipt);state.pending=[...receipts];onProjectUpdated(native);
+    await saveAidtSourceImageReceipts(context,fresh,receipts);check();savedReceiptsKey=JSON.stringify(receipts);
+  }
+  if(savedReceiptsKey!==JSON.stringify(receipts)) {await saveAidtSourceImageReceipts(context,fresh,receipts);check();}
+  state.pending = [];
+  onProjectUpdated(native);
+  return native;
 }

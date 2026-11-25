@@ -75,7 +75,7 @@ it("rechecks the same saved text before a native send and rejects a replacement 
   render(<AidtDesignWorkspace {...props} prototypeEntityId="design" />); await screen.findByText("已保存旧轮问题");
   const beforeSend = mock.native.mock.calls.at(-1)![0].beforeSend;
   const controller = new AbortController();
-  await expect(beforeSend(controller.signal, nativeProject)).resolves.toBeUndefined();
+  await expect(beforeSend(controller.signal, nativeProject)).resolves.toEqual(nativeProject);
   expect(mock.load.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({ projectId: "class", stageId: 6, prototypeEntityId: "design", sessionToken: "token", signal: controller.signal }));
   mock.load.mockResolvedValueOnce(result("不同确认稿"));
   await expect(beforeSend(controller.signal, nativeProject)).rejects.toThrow("AIDT_CONTEXT_CHANGED");
@@ -100,7 +100,7 @@ it("uses current confirmed S5 text plus independently pinned old learning in ret
   expect(native.requiredContextText).toContain("固定上轮学习"); expect(native.requiredContextText).not.toContain("已保存旧轮问题");
   expect(mock.load.mock.calls[0]![0]).toMatchObject({ stageId: 5, roundRevision: undefined, prototypeEntityId: "design" });
   expect(mock.learning).toHaveBeenCalledWith(expect.objectContaining({ projectId: "class", designId: "design", entityId: "test-group-a", revision: "31", sessionToken: "token" }));
-  await expect(native.beforeSend(new AbortController().signal, nativeProject)).resolves.toBeUndefined();
+  await expect(native.beforeSend(new AbortController().signal, nativeProject)).resolves.toEqual(nativeProject);
   mock.learning.mockResolvedValueOnce("另一测试组或已变化的学习内容");
   await expect(native.beforeSend(new AbortController().signal, nativeProject)).rejects.toThrow("AIDT_CONTEXT_CHANGED");
 });

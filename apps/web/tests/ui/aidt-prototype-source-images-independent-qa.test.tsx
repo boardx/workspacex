@@ -77,7 +77,7 @@ it("imports all three actual frozen image byte files with explicit student actio
   for (const [, init] of postCalls()) expect(init.headers.Authorization).toBe("Bearer synthetic-unit-token");
   const saved = readAidtSourceImageBinding(readAidtPrototypeEntityDraft(stage.content.draft, native.id), handoff);
   expect(saved?.images.map(image => image.nativeImageId)).toEqual(["native-1", "native-2", "native-3"]);
-  await expect(requireAidtNativeSourceImages(input, handoff, native)).resolves.toBeUndefined();
+  await expect(requireAidtNativeSourceImages(input, handoff, native)).resolves.toEqual(["native-1", "native-2", "native-3"]);
 });
 it("reopens saved matching one-image bindings without another upload or CAS", async () => {
   handoff = { ...handoff, sourceImages: handoff.sourceImages!.slice(0, 1) };
@@ -208,7 +208,7 @@ it("explicitly rebinds retained real V2 source image receipts after confirming V
   expect(postCalls()).toHaveLength(0); expect(mocks.save).toHaveBeenCalledOnce();
   const rebound = readAidtSourceImageBinding(readAidtPrototypeEntityDraft(stage.content.draft, native.id), handoff);
   expect(rebound?.textVersion).toBe("text-v3"); expect(rebound?.images.map(image => image.nativeImageId)).toEqual(v2NativeIds);
-  await expect(requireAidtNativeSourceImages(input, handoff, native)).resolves.toBeUndefined();
+  await expect(requireAidtNativeSourceImages(input, handoff, native)).resolves.toEqual(["native-1", "native-2", "native-3"]);
 });
 
 it.each(["revoked-source", "replaced-native-id", "changed-source-version"] as const)("does not reuse retained receipts after %s", async kind => {

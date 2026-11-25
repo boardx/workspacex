@@ -130,6 +130,7 @@ export function DesignDetailScreen({
   projectId,
   autoStart = false,
   contained = false,
+  compactGeneration = false,
   composerContextOffer,
   sendBlockedReason,
   requiredContextText,
@@ -144,6 +145,7 @@ export function DesignDetailScreen({
   projectId: string;
   /** Render the existing workbench vertically when hosted in a narrow Inspector. */
   contained?: boolean;
+  compactGeneration?: boolean;
   composerContextOffer?: DesignComposerContextOffer;
   /** Host-side readiness only; existing service permissions still apply. */
   sendBlockedReason?: string;
@@ -151,7 +153,7 @@ export function DesignDetailScreen({
   requiredContextText?: string;
   requiredContextId?: string;
   /** Host re-reads the exact confirmed source/consent immediately before each model send. */
-  beforeSend?: (signal: AbortSignal, project?: DesignProject) => Promise<void>;
+  beforeSend?: (signal: AbortSignal, project?: DesignProject) => Promise<DesignProject | void>;
   referenceImagesControl?: (input: { project: DesignProject; disabled: boolean; onProjectUpdated: (project: DesignProject) => void }) => React.ReactNode;
   printPreview?: React.ComponentProps<typeof PrototypeExportMenu>["printPreview"];
   /**
@@ -179,7 +181,8 @@ export function DesignDetailScreen({
   const contextActive = React.useRef(true);
   const withRequiredContext = (value: string) => !requiresContext ? value : contextInvalid ? null
     : `【已确认的原型制作依据（应用固定）】\n${requiredContextText}\n\n【学生补充】\n${value}`;
-  const effectiveTextLength = withRequiredContext(text)?.length ?? text.length;
+  const generationText = "请根据已确认的文字设计与参考图生成原型。";
+  const effectiveTextLength = withRequiredContext(text.trim() || (compactGeneration ? generationText : ""))?.length ?? text.length;
   const overLimit = effectiveTextLength > MAX_CHARS;
   const [sending, setSending] = React.useState(false);
   const [chatError, setChatError] = React.useState<string | null>(null);
@@ -754,9 +757,10 @@ export function DesignDetailScreen({
 
   /** 对标 R8：返回这一轮是否真的发成功了——批注据此才标「已交给 AI」。 */
   const send = async (override?: string, maxScreens?: number): Promise<boolean> => {
-    const value = (override ?? text).trim();
+    const draftText = (override ?? text).trim();
+    const value = draftText || (compactGeneration ? generationText : "");
     if (sendBlockedReason) { setNotice(sendBlockedReason); return false; }
-    if (value === "") return false;
+    if (value === "" || abortRef.current) return false;
     const requestText = withRequiredContext(value);
     if (requestText === null) { setNotice("已确认的制作依据不可用，请重新核对并确认文字设计稿。"); return false; }
     if (requiresContext && requestText.length > MAX_CHARS) { setNotice(`制作依据与补充说明合计超过 ${MAX_CHARS} 字，请精简并重新确认来源；未截断或发送。`); return false; }
@@ -787,7 +791,7 @@ export function DesignDetailScreen({
       })();
     }, GENERATION_POLL_MS);
     try {
-      await beforeSend?.(controller.signal, project);
+      const prepared = await beforeSend?.(controller.signal, project);
       if (!contextActive.current || controller.signal.aborted || latestContextScope.current !== requestScope || latestSendBlock.current) return false;
       const { project: updated, reply } = await apiAppendProjectChat(
         project.id,
@@ -796,7 +800,7 @@ export function DesignDetailScreen({
         controller.signal,
         // 迭代 13：项目当前的**全部**参考图随每一轮发出去——它是"贴在墙上的参考"，
         // 不是某一句话的附件（理由见 `ref-image-strip.tsx` 头注）。
-        project.refImages.map((r) => r.id),
+        (prepared ?? project).refImages.map((r) => r.id),
         maxScreens,
         // HTML 页里选中了元素 ⇒ 随消息发它的编号，服务端只改这一个元素（选中整页 ⇒ 不带）。
         focus !== null && canvasMode === "edit" && focusedHtml !== null && selectedRef !== null ? selectedRef : undefined,
@@ -827,7 +831,7 @@ export function DesignDetailScreen({
       if (controller.signal.aborted) {
         // 用户自己取消的：不是错误，草稿原样留在输入框。⚠ 服务端那次调用可能仍会完成并落库——
         // 下次读取会看到它；这里不假装它一定没发生。
-        setText(value);
+        setText(draftText);
         // 迭代 16（#3773 R2）：取消之前**已经画好并落库**的页要留在屏上。
         // 在这之前取消等于前功尽弃——服务端照样画完、照样计费，用户什么也没拿到。
         stopPoll();
@@ -843,7 +847,7 @@ export function DesignDetailScreen({
         setNotice("已取消。取消之前画好的页留着了；那一次调用可能还在服务端跑完，稍后刷新可能会看到更多页。");
         window.setTimeout(() => setNotice(null), 6000);
       } else {
-        setText(value);
+        setText(draftText);
         retryContext.current = requestScope;
         setRetryText(value);
         setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
@@ -970,7 +974,7 @@ export function DesignDetailScreen({
       <div className={cn("flex min-h-0 flex-1 flex-col", !contained && "md:flex-row")}>
         {/* 左：对话面板 360px（md+）；md 以下全宽、限高 */}
         <div className={cn("flex max-h-[40dvh] shrink-0 flex-col border-b border-border bg-panel", contained ? "min-w-0" : "md:max-h-none md:w-[360px] md:border-b-0 md:border-r")}>
-          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-12 font-medium">
+          {!compactGeneration && <><div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-12 font-medium">
             {/*
               * 迭代 25：原文是「设计协作」——一个不说明这里能做什么的词。第一次进来的人
               * 需要知道的是「在这儿说话，右边就会变」，不是这块区域在产品体系里叫什么。
@@ -987,7 +991,7 @@ export function DesignDetailScreen({
             lastUserText={lastUserText}
             lastApplied={lastApplied}
             onSend={(t, maxScreens) => void send(t, maxScreens)}
-          />
+          /></>}
           {sending && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-generating" role="status">
               <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
@@ -1027,7 +1031,7 @@ export function DesignDetailScreen({
             </div>
           )}
           {referenceImagesControl?.({ project, disabled: sending, onProjectUpdated: value => { if (value.id === project.id) setLoad({ kind: "ready", project: value }); } })}
-          <RefImageStrip
+          {!compactGeneration && <RefImageStrip
             images={project.refImages}
             disabled={sending}
             onUpload={async (file) => {
@@ -1038,7 +1042,7 @@ export function DesignDetailScreen({
               const out = await deleteRefImage(project.id, imageId);
               setLoad({ kind: "ready", project: out.project });
             }}
-          />
+          />}
           {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除。批注模式下选中是「给它写批注」，不是对话焦点。 */}
           {focus !== null && canvasMode === "edit" && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-focus">
@@ -1084,7 +1088,7 @@ export function DesignDetailScreen({
                 //   标准信号（KeyboardEvent.isComposing），jsdom 里为 undefined，视作非组字。
                 if (e.key !== "Enter" || e.shiftKey || (e.nativeEvent as { isComposing?: boolean }).isComposing === true) return;
                 e.preventDefault();
-                if (text.trim() === "" || sending) return;
+                if ((!compactGeneration && !text.trim()) || sending || overLimit || contextInvalid || sendBlockedReason) return;
                 void send();
               }}
               rows={2}
@@ -1094,7 +1098,7 @@ export function DesignDetailScreen({
                * 第一次来的人需要被问的是"你想做个什么"，不是"你要改什么"。
                */
               placeholder={
-                focus !== null
+                compactGeneration ? "补充设计要求（可选，回车发送）" : focus !== null
                   ? "要怎么改这个节点？（回车发送，Shift+Enter 换行）"
                   : project.prototype.length === 0
                     ? "说说你想做个什么，比如「一个记账 App，能记一笔、看这个月花了多少」（回车发送）"
@@ -1105,13 +1109,13 @@ export function DesignDetailScreen({
             />
             <Button
               variant="primary"
-              size="icon"
-              disabled={text.trim() === "" || sending || overLimit || contextInvalid || !!sendBlockedReason}
+              size={compactGeneration ? "md" : "icon"}
+              disabled={(!compactGeneration && text.trim() === "") || sending || overLimit || contextInvalid || !!sendBlockedReason}
               onClick={() => void send()}
-              aria-label="发送"
+              aria-label={compactGeneration ? text.trim() ? "发送" : "生成" : "发送"}
               data-testid="design-detail-send"
             >
-              {sending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Send aria-hidden className="h-4 w-4" />}
+              {sending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : compactGeneration ? text.trim() ? "发送" : "生成" : <Send aria-hidden className="h-4 w-4" />}
             </Button>
           </div>
         </div>

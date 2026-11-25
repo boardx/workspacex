@@ -69,3 +69,19 @@ it("retries the original student supplement and does not double-prefix the confi
   expect(beforeSend).toHaveBeenCalledTimes(2); expect(posts()[0]![1].body.text).toBe(posts()[1]![1].body.text);
   expect(posts()[1]![1].body.text.split(basis.requiredContextText)).toHaveLength(2);
 });
+
+it.each(["button", "enter"])("generates with the confirmed text and prepared images through %s", async method => {
+  const refImages = [{ id: "frozen-image", name: "source.png", size: 128, mime: "image/png", createdAt: "2026-11-22" }];
+  const beforeSend = vi.fn(async () => ({ ...project, refImages })) as unknown as NonNullable<React.ComponentProps<typeof DesignDetailScreen>["beforeSend"]>;
+  render(<DesignDetailScreen projectId="p1" compactGeneration {...basis} beforeSend={beforeSend} />);
+  const input = await screen.findByTestId("design-detail-input");
+  if (method === "button") fireEvent.click(screen.getByRole("button", { name: "生成" }));
+  else {
+    fireEvent.change(input, { target: { value: "使用简洁的页面布局" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+  }
+  await waitFor(() => expect(posts()).toHaveLength(1));
+  expect(posts()[0]![1].body).toMatchObject({ refImageIds: ["frozen-image"] });
+  expect(posts()[0]![1].body.text).toContain(basis.requiredContextText);
+  expect(posts()[0]![1].body.text).toContain(method === "enter" ? "使用简洁的页面布局" : "生成原型");
+});
