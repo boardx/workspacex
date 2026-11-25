@@ -20,8 +20,8 @@ function assistant(rewrite = rewritten) {
   return ["### 原始命题", initial, "### 选题价值", "了解选择是否占用午休时间", "### 来源类型", "亲自观察",
     "### 来源说明", observation, "### 学生重写命题", "> " + rewrite, "### 研究范围", "菜单选择"].join("\n");
 }
-function project(user: string, reply = assistant()) {
-  const before: Draft = { fields: { "problemDraft:synthetic": JSON.stringify(prior), neighbor: "合成邻项保持" }, ideas: [], selectedIdeaId: "" };
+function project(user: string, reply = assistant(), saved = prior) {
+  const before: Draft = { fields: { "problemDraft:synthetic": JSON.stringify(saved), neighbor: "合成邻项保持" }, ideas: [], selectedIdeaId: "" };
   const result = projectProblemSkillDraft(before, "synthetic", { user, assistant: reply, messageId: "synthetic-only-turn" }) ?? before;
   expect(result.fields.neighbor).toBe(before.fields.neighbor);
   const fields = JSON.parse(result.fields["problemDraft:synthetic"]!) as Record<string, string>;
@@ -156,4 +156,17 @@ it.each([
   "命题是：江西教育的减负\n我们暂不改写命题。",
 ])("keeps the prior rewrite for quoted or deferred changes: %s", user => {
   keepsDecisions(project(user));
+});
+
+it("keeps a standalone student description and recognizes an explicitly heard complaint", () => {
+  const fields = project("来源描述：我听到学校在抱怨", "### 来源类型\n亲自观察\n### 来源说明\nAI 补写的内容",
+    { ...prior, problemSources: '["observation"]' });
+  expect(fields.sourceDetails).toBe("我听到学校在抱怨");
+  expect(fields.problemSources).toBe('["complaint"]');
+});
+
+it("records a standalone description without guessing its source type", () => {
+  const fields = project("来源描述：学校正在讨论作业负担。");
+  expect(fields.sourceDetails).toBe("学校正在讨论作业负担。");
+  expect(fields.problemSources).toBe(prior.problemSources);
 });

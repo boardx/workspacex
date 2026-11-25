@@ -189,12 +189,13 @@ function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite", ha
     if (!line) { comparison = false; continue; }
     if (declaresComparisonQuote(line) || /^(?:例如|比如|示例|例子)(?:[：:（(。]|$)|^(?:老师|教师|引导师)(?:说|问|举例|引用|转述)/u.test(quoteContextText(line))) { comparison = true; continue; }
     if (comparison) continue;
-    // A separate type and explanation are accepted only as an adjacent explicit
-    // student pair in this same attribution scope, never from the AI's headings.
+    // A source description can be supplied independently in a later turn.
     const sourceType = kind === "source" ? /^(?:问题来源|来源类型)[：:]\s*(亲自观察|听到抱怨|我们的猜测|猜测)[。.]?$/u.exec(line) : null;
     const sourceExplanation = sourceType ? /^(?:来源描述|来源说明)[：:]\s*(\S.*)$/u.exec(lines[index + 1]?.trim() ?? "") : null;
-    const match = sourceType && sourceExplanation ? [line, sourceType[1], sourceExplanation[1]] : kind === "source"
-      ? /^(?:(?:我们|本组|我)(?:的)?)?(?:选题|问题)?来源(?:是|为|来自)\s*(亲自观察|听到抱怨|我们的猜测|猜测)(?:[：:]\s*(\S.*)|[。.]?)$/u.exec(line)
+    const standaloneDescription = kind === "source" ? /^来源描述[：:]\s*(\S.*)$/u.exec(line) : null;
+    const match = sourceType && sourceExplanation ? [line, sourceType[1], sourceExplanation[1]]
+      : standaloneDescription ? [line, undefined, standaloneDescription[1]]
+      : kind === "source" ? /^(?:(?:我们|本组|我)(?:的)?)?(?:选题|问题)?来源(?:是|为|来自)\s*(亲自观察|听到抱怨|我们的猜测|猜测)(?:[：:]\s*(\S.*)|[。.]?)$/u.exec(line)
       : /^(?:(?:我们|本组|我)(?:将命题|把命题)?)?(?:重写为|改写为|(?:学生)?(?:改写|重写)命题)[：:]\s*(\S.*)$/u.exec(line)
         ?? (hasInitial ? /^命题是[：:]\s*(\S.*)$/u.exec(line) : null);
     if (!match) continue;
@@ -229,7 +230,12 @@ function naturalStudentDeclaration(prose: string, kind: "source" | "rewrite", ha
         || kind === "rewrite" && (/^(?:(?:但|不过|我们|本组|我|目前|现在|本轮|这轮|先|暂时|暂且)\s*)*(?:还没(?:有)?|尚未|暂未|仍未|还未|没有|没|未|暂不|不|不要|不想|不打算|不准备|不急(?:于|着))(?:(?:先|现在|正式|继续|开始|完成|进行|替我们|帮我们|做出)\s*)*(?:重写|改写|重拟|修订)(?:命题|问题)?(?:了|好|完|下来|清楚)?$/u.test(clause)
           || /^(?:(?:我们|本组|我)\s*)*(?:撤回|收回)(?:上述|刚才|这个|该)?(?:的)?(?:重写|改写)(?:命题|问题)?/u.test(clause)))) { retracted = true; break; }
     }
-    if (!retracted) return { value, ...(kind === "source" ? { source: match[1] } : {}) };
+    if (!retracted) {
+      if (kind === "rewrite") return { value };
+      const source = standaloneDescription && /^(?:我(?:们)?|本组)(?:亲耳)?听到[^。！？；;]*抱怨/u.test(value)
+        ? "听到抱怨" : match[1];
+      return { value, ...(source ? { source } : {}) };
+    }
   }
   return undefined;
 }
@@ -281,7 +287,7 @@ export function projectProblemSkillDraft(draft: Draft, entityId: string, turn: {
     const naturalSource = statedSourceType ? undefined : naturalStudentDeclaration(student, "source");
     const naturalGuess = statedSourceType ? undefined : explicitlyStatedGuessSource(student);
     if (statedSourceType) patch.problemSources = statedSourceType;
-    else if (naturalSource) patch.problemSources = JSON.stringify([naturalSource.source === "亲自观察" ? "observation" : naturalSource.source === "听到抱怨" ? "complaint" : "guess"]);
+    else if (naturalSource?.source) patch.problemSources = JSON.stringify([naturalSource.source === "亲自观察" ? "observation" : naturalSource.source === "听到抱怨" ? "complaint" : "guess"]);
     else if (naturalGuess) patch.problemSources = JSON.stringify(["guess"]);
     else delete patch.problemSources;
     if (statedSourceDetails) patch.sourceDetails = statedSourceDetails;
