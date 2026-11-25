@@ -56,3 +56,17 @@ it("selects the current prototype through the existing confirmation action, pers
   await waitFor(() => expect(screen.getByTestId("aidt-stage-save-5")).toHaveTextContent("已保存草稿 · V4"));
   expect(screen.queryByRole("link", { name: "带入测试与迭代" })).toBeNull();
 });
+
+it("persists a large but valid prototype without overflowing the card record on confirmation", async () => {
+  const { confirmAidtPrototypeEntityHandoff, listAidtConfirmedPrototypeEntities } = await import("@/features/aidt/lib/aidt-prototype-handoff");
+  const id = "large";
+  const initial = storeFormalPrototypeFixture(emptyAidtUiDrafts()[5]!, id, candidate(id));
+  const key = `prototypeEntity:${id}`;
+  const raw = JSON.parse(initial.fields[key]!);
+  const length = 5990 - JSON.stringify({ ...raw, padding: "" }).length;
+  const input = StageDraft.parse({ ...initial, fields: { ...initial.fields, [key]: JSON.stringify({ ...raw, padding: "字".repeat(length) }) } });
+
+  const saved = StageDraft.parse(confirmAidtPrototypeEntityHandoff(input, id));
+  expect(saved.fields.prototypeHandoffEntity).toBe(id);
+  expect(listAidtConfirmedPrototypeEntities(saved).map(item => item.id)).toEqual([id]);
+});

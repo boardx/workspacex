@@ -216,11 +216,12 @@ function PrototypeArtifact({ draft, designId, projectId, ideaRevision, workflow,
 type PrototypeTurn = { id: string; role: string; content?: unknown };
 
 /** Native inline Chat actions; the Inspector only projects the current artifact. */
-export function AidtPrototypeConversation({ messages, loading, running, requestSave, savePending, ...props }: AidtPrototypeEntityProps & {
+export function AidtPrototypeConversation({ messages, loading, running, requestSave, savePending, persistConfirmation, ...props }: AidtPrototypeEntityProps & {
   messages: readonly PrototypeTurn[];
   loading: boolean;
   running: boolean;
   requestSave: () => void;
+  persistConfirmation: (change: (draft: AidtUiStageDraft) => AidtUiStageDraft) => Promise<boolean>;
   savePending?: boolean;
 }) {
   const { stageDraft, designId, workflow, projectId, readOnly, update } = props;
@@ -229,6 +230,23 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
   const serialized = proposal ? JSON.stringify(proposal) : "";
   const storedProposal = draft.fields.prototypeDiscussionProposal ?? "";
   const archived = draft.fields.prototypeArchived === "true";
+  const [confirming, setConfirming] = React.useState(false);
+  const [confirmationError, setConfirmationError] = React.useState(false);
+  const confirmInFlight = React.useRef(false);
+  async function persistPrototype() {
+    if (confirmInFlight.current || !workflow.matchesServer) return;
+    confirmInFlight.current = true;
+    setConfirming(true);
+    setConfirmationError(false);
+    try {
+      if (!await persistConfirmation(previous => confirmAidtPrototypeEntityHandoff(previous, designId))) setConfirmationError(true);
+    } catch {
+      setConfirmationError(true);
+    } finally {
+      confirmInFlight.current = false;
+      setConfirming(false);
+    }
+  }
   const lastProjected = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (readOnly || archived || loading || running || !serialized || lastProjected.current === serialized) return;
@@ -351,10 +369,10 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
           }}>
           {blocker.label}
         </Link>
-      </div> : <Button variant="primary" type="button" onClick={() => {
-        update(previous => confirmAidtPrototypeEntityHandoff(previous, designId));
-        requestSave();
-      }}>{confirmed ? "选为测试原型" : "确认本原型"}</Button>}
+      </div> : <Button variant="primary" type="button" disabled={confirming || savePending} onClick={() => void persistPrototype()}>
+        {confirming ? "正在保存确认…" : confirmed ? "选为测试原型" : "确认本原型"}
+      </Button>}
+      {confirmationError && <p role="alert">原型确认未保存。请核对小组最新版本后重试。</p>}
     </section>}
     {confirmed && workflow.matchesServer && !aidtAllActivePrototypeEntitiesConfirmed(stageDraft) && <p role="status">该原型已确认。还有其他原型待确认。</p>}
     </>}

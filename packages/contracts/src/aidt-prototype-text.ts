@@ -2,7 +2,7 @@ import { z } from "zod";
 import { PROTOTYPE_MAX_REF_IMAGES } from "./design-workbench";
 
 /** Internal persisted S5 field vocabulary. No new endpoint or authority. */
-export const AIDT_PROTOTYPE_TEXT_FIELDS = ["prototypeTextDesign", "prototypeTextVersion", "prototypeTextLineage", "prototypeTextConfirmation", "prototypeTextConfirmedText", "prototypeTextConfirmedLineage", "prototypeTextOutputBinding", "prototypeTextOutputBindings", "prototypeSourceImages"] as const;
+export const AIDT_PROTOTYPE_TEXT_FIELDS = ["prototypeTextDesign", "prototypeTextVersion", "prototypeTextLineage", "prototypeTextConfirmation", "prototypeTextConfirmedText", "prototypeTextConfirmedLineage", "prototypeTextOutputBinding", "prototypeTextOutputBindings", "prototypeSourceImages", "aidtPrototypeConfirmedHandoff"] as const;
 export const aidtPrototypeTextStorageKey = (id: string, field: typeof AIDT_PROTOTYPE_TEXT_FIELDS[number]) => `prototypeText:${id}:${field}`;
 export const AIDT_PROTOTYPE_TEXT_MAX_CHARS = 3000;
 const identifier = z.string().trim().min(1).max(256);
