@@ -4,7 +4,7 @@ import { useAidtPrototypeIdeas } from "./aidt-prototype-handoff";
 import { AidtCardSources, useAidtCreateTags } from "./aidt-card-create-fields";
 import type { AidtSharedStage } from "../lib/live-aidt-stages";
 import * as React from "react";
-import { AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
+import { AidtCardFilters, AidtCardHeader, AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
 import Link from "next/link";
 import { AIDT_BRAINSTORM_METHODS } from "@repo/contracts/aidt-brainstorm";
 import { ArrowUpRight, Palette, Pencil, Trash2 } from "lucide-react";
@@ -140,21 +140,18 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
       <h2 className="text-xl font-semibold">原型列表</h2>
       {canWrite && <AidtNewEntityCardButton disabled={!allowed || busy} onClick={() => open({ kind: "create" })} />}
     </header>
+    <AidtCardFilters />
     {listError ? <div role="alert"><p>暂时无法读取原型。</p><Button type="button" variant="outline" onClick={reload}>重试</Button></div>
       : !resources ? <p role="status">正在读取原型…</p>
       : !cards.length ? <p className="rounded-container border border-dashed border-border bg-muted px-5 py-10 text-center text-13">暂无原型</p>
-      : <ul className="grid gap-4 sm:grid-cols-2">{cards.map(card => <AidtEntityCard key={card.id} entityId={card.id}>
-        <Link href={aidtPrototypeEntityHref(projectId, card.id, undefined, ideaRevision)} aria-label={card.name}
-          className="flex items-center gap-3 rounded-container p-4 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
-          <Palette className="size-5 shrink-0 text-primary" aria-hidden />
-          <span className="min-w-0 flex-1 break-words font-semibold">{card.name}</span>
-          <AidtCardStatus confirmed={card.completed}>{card.completed ? "已确认" : "待确认"}</AidtCardStatus>
-          <ArrowUpRight className="size-4 shrink-0" aria-hidden />
-        </Link>
-        {canWrite && <div className="flex justify-end gap-1 border-t border-border px-3 py-2">
+      : <ul className="grid gap-4 sm:grid-cols-2">{cards.map(card => <AidtEntityCard key={card.id} entityId={card.id}
+        action={<Button asChild variant="primary" size="sm"><Link href={aidtPrototypeEntityHref(projectId, card.id, undefined, ideaRevision)} aria-label={card.name}><Palette className="size-4" aria-hidden />打开原型<ArrowUpRight className="size-3" aria-hidden /></Link></Button>}
+        management={canWrite && <>
           <Button type="button" variant="ghost" size="sm" disabled={!allowed || busy} aria-label={`编辑原型 ${card.name}`} onClick={() => open({ kind: "edit", id: card.id }, card.name)}><Pencil className="size-3.5" aria-hidden />编辑</Button>
           <Button type="button" variant="ghost" size="sm" disabled={!allowed || busy} aria-label={`删除原型 ${card.name}`} onClick={() => open({ kind: "delete", id: card.id })}><Trash2 className="size-3.5" aria-hidden />删除</Button>
-        </div>}
+        </>}>
+        <AidtCardHeader label="原型"><AidtCardStatus confirmed={card.completed}>{card.completed ? "已确认" : "待确认"}</AidtCardStatus></AidtCardHeader>
+        <h3 className="break-words text-16 font-semibold">{card.name}</h3>
       </AidtEntityCard>)}</ul>}
     {action && <Dialog open onOpenChange={open => { if (!open && !busy) setAction(null); }}>
       <DialogContent>
