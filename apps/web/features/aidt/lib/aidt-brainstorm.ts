@@ -27,10 +27,13 @@ export function createAidtBrainstorm(draft: AidtUiStageDraft, session: Session):
 }
 
 /** Parse only the existing model output format; this supplies no student or save decision. */
-function brainstormCandidateBlocks(text: string, sessionId: string): Candidate[][] {
+function brainstormCandidateBlocks(text: string, sessionId: string, allowJson = false): Candidate[][] {
   if (text.length > 100_000) return [];
   const blocks: Candidate[][] = [];
-  for (const match of text.matchAll(/\x60\x60\x60aidt-ideas\s*\r?\n([\s\S]*?)\r?\n\x60\x60\x60/g)) {
+  const fence = allowJson
+    ? /\x60\x60\x60(?:aidt-ideas|json)\s*\r?\n([\s\S]*?)\r?\n\x60\x60\x60/g
+    : /\x60\x60\x60aidt-ideas\s*\r?\n([\s\S]*?)\r?\n\x60\x60\x60/g;
+  for (const match of text.matchAll(fence)) {
     try {
       const parsed = z.object({ sessionId: z.literal(sessionId), candidates: descriptions }).strict().safeParse(JSON.parse(match[1]!));
       if (parsed.success) blocks.push(parsed.data.candidates);
@@ -39,7 +42,7 @@ function brainstormCandidateBlocks(text: string, sessionId: string): Candidate[]
   return blocks;
 }
 export function readAidtBrainstormCandidateReply(text: string, sessionId: string): Candidate[] {
-  return brainstormCandidateBlocks(text, sessionId).flat();
+  return brainstormCandidateBlocks(text, sessionId, true).flat();
 }
 
 export function readAidtBrainstormProposals(turns: readonly Turn[], sessionId: string): Proposal[] {
