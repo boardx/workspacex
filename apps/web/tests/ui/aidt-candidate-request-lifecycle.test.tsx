@@ -1,11 +1,12 @@
 import * as React from "react";
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ChatHostTextActionContext } from "@/components/chat/chat-host-panel";
 import { useAidtCandidateRequest, type AidtCandidateController, type AidtCandidateTurn } from "@/features/aidt/lib/use-aidt-candidate-request";
 import { useAidtDefinitionCandidateHost } from "@/features/aidt/lib/use-aidt-definition-candidate-host";
 import type { AidtPersonaGenerationRequest } from "@/features/aidt/lib/aidt-persona-candidates";
 import { AIDT_CANDIDATE_ACTIONS } from "@repo/contracts/aidt-candidate-request";
+import { AidtProblemCandidates } from "@/features/aidt/components/aidt-problem-candidates";
 import { SharedStage } from "@repo/contracts/aidt-stages";
 import { emptyAidtUiDrafts } from "@/features/aidt/lib/aidt-ui-drafts";
 import { readAidtDefinition, saveAidtDefinitionPersona } from "@/features/aidt/lib/aidt-definition";
@@ -148,4 +149,33 @@ it("ignores a successful durable read that completes after the actor changes", a
   mocks.session.userId = "different-actor"; rerender();
   await act(async () => { reading.resolve({ messageId: "durable-reply", runId: "native-run" }); expect(await work).toBe(false); });
   expect(adopt).not.toHaveBeenCalled();
+});
+
+it("requests only missing problem reflection as editable chat suggestions", async () => {
+  const stage = SharedStage.parse({
+    ...definitionStage,
+    stageId: 1,
+    sourceStageRevisions: [],
+    content: { schemaVersion: 1, draft: {
+      fields: {
+        ["problemEntity:" + sourceId]: JSON.stringify({ id: sourceId, title: "午休点单", archived: false }),
+        ["problemDraft:" + sourceId]: JSON.stringify({ initial: "午休点单" }),
+      },
+      ideas: [],
+      selectedIdeaId: "",
+    } },
+  });
+  const props = { stage, projectId: stage.projectId, entityId: sourceId, sessionToken: "qa-token", loading: false, running: false, onRefresh: vi.fn() };
+  const view = render(<Wrapper><AidtProblemCandidates {...props} messages={[]} /></Wrapper>);
+  const button = screen.getByRole("button", { name: "AI 提供命题候选" });
+  expect(button).toBeDisabled();
+  view.rerender(<Wrapper><AidtProblemCandidates {...props} messages={initialMessages} /></Wrapper>);
+  expect(button).toBeEnabled();
+  await act(async () => fireEvent.click(button));
+  expect(action.sendText).toHaveBeenCalledTimes(1);
+  expect(prompt).toContain(AIDT_CANDIDATE_ACTIONS.problem + "\n");
+  expect(prompt).toContain("选题理由、问题来源、来源描述");
+  expect(prompt).not.toContain("补充这些缺项：原始命题");
+  expect(prompt).toContain("待验证猜测");
+  expect(mocks.api).not.toHaveBeenCalled();
 });
