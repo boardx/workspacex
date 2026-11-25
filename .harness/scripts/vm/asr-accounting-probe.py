@@ -100,6 +100,28 @@ def draft_disconnect_counts(logs):
         counts[category] += 1
     return counts
 
+def draft_send_queue_samples(logs):
+    fields = ('startupMs', 'openAgeMs', 'audioAgeMs', 'audioSentMs', 'bufferedBytes',
+              'payloadBytes', 'slowQueueMs', 'pendingSends', 'maxSendCallbackMs',
+              'results', 'lastResultAgoMs')
+    samples = []
+    for line in logs.splitlines():
+        _, separator, payload = line.partition('ASR_DRAFT_SEND_QUEUE ')
+        if not separator:
+            continue
+        try:
+            data, _ = json.JSONDecoder().raw_decode(payload)
+        except ValueError:
+            continue
+        if not isinstance(data, dict) or not all(
+            (type(data.get(key)) is int and data[key] >= 0)
+            or (key == 'lastResultAgoMs' and key in data and data[key] is None)
+            for key in fields
+        ):
+            continue
+        samples.append({key: data[key] for key in fields})
+    return samples[-12:]
+
 def run():
     target=os.environ.get('ASR_PROBE_TARGET','devapp')
     projects={'devapp':'workspacex-image','cn':'workspacex-cn'}
@@ -121,6 +143,7 @@ def run():
         report['recentErrorCounts']={r:(logs.stdout+logs.stderr).count(r)for r in reasons}
         report['recentLogsReadAvailable']=logs.returncode==0
         report['recentDraftDisconnectCounts']=draft_disconnect_counts(logs.stdout+logs.stderr)
+        report['recentDraftSendQueueSamples']=draft_send_queue_samples(logs.stdout+logs.stderr)
     except Exception:report['recentLogsReadAvailable']=False
     try:
         report.update(json.loads(call(['docker','exec','-i',api['Id'],'node','--import','tsx','--input-type=module'],DATABASE)))

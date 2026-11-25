@@ -202,6 +202,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
   async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection?: "manual" | "recording"; readonly signal?: AbortSignal;readonly accountingContext?:AsrAccountingContext}): Promise<AsrSession> {
     const manual = options?.turnDetection === "manual";
     const draft = options?.accountingContext?.kind === "draft";
+    const draftStart = draft ? performance.now() : 0;
     const config = this.config;
     if (config === null) {
       throw new AsrNotConfiguredError(
@@ -263,6 +264,15 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       socket.on("error", onError);socket.on("close",onClose);
       if (options?.signal?.aborted) abortSocket();
     });}catch(error){await account('failed');throw error;}
+
+    const logger = this.logger;
+    const draftOpened = draft ? performance.now() : 0;
+    let draftFirstAudio: number | undefined;
+    let draftLastResult: number | undefined;
+    let draftResults = 0;
+    let draftSlowSince: number | undefined;
+    let draftMaxSendCallbackMs = 0;
+    let draftPendingSends = 0;
 
     const silenceMs = options?.turnDetection === "recording"
       ? resolveRecordingTurnSilenceMs(config.recordingTurnDetectionSilenceMs)
@@ -338,6 +348,10 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         return;
       }
       const transcript = parseDashscopeTranscriptEvent(event);
+      if (draft && transcript) {
+        draftLastResult = performance.now();
+        draftResults++;
+      }
       if (transcript?.kind === "partial") {
         handlers.onPartial({ text: transcript.text, confidence: transcript.confidence });
         return;
@@ -386,14 +400,46 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
           ...(manual ? {event_id: randomUUID()} : {}),
           audio: Buffer.from(frame).toString("base64"),
         });
-        if (realtimeAudioBacklogExceeded(socket.bufferedAmount, Buffer.byteLength(payload), draft)) {
+        const bufferedBytes = socket.bufferedAmount;
+        const payloadBytes = Buffer.byteLength(payload);
+        const now = draft ? performance.now() : 0;
+        if (draft) {
+          draftFirstAudio ??= now;
+          if (upstreamAudioFlowState("normal", bufferedBytes).state === "slow") draftSlowSince ??= now;
+          else draftSlowSince = undefined;
+        }
+        if (realtimeAudioBacklogExceeded(bufferedBytes, payloadBytes, draft)) {
+          if (draft) {
+            // One record per overflow. No audio, transcript, credential, or user identity.
+            logger.warn(`ASR_DRAFT_SEND_QUEUE ${JSON.stringify({
+              startupMs: Math.round(draftOpened - draftStart),
+              openAgeMs: Math.round(now - draftOpened),
+              audioAgeMs: Math.round(now - (draftFirstAudio ?? now)),
+              audioSentMs: Number(queuedPcmDurationMs(queuedPcmBytes, audio) ?? 0n),
+              bufferedBytes,
+              payloadBytes,
+              slowQueueMs: Math.round(now - (draftSlowSince ?? now)),
+              pendingSends: draftPendingSends,
+              maxSendCallbackMs: Math.round(draftMaxSendCallbackMs),
+              results: draftResults,
+              lastResultAgoMs: draftLastResult === undefined ? null : Math.round(now - draftLastResult),
+            })}`);
+          }
           reportError(AUDIO_BACKPRESSURE, "upstream audio send buffer exceeded its limit");
           closed = true;
           socket.terminate();
           return;
         }
-        observeFlow(socket.bufferedAmount);
-        socket.send(payload);
+        observeFlow(bufferedBytes);
+        if (draft) {
+          draftPendingSends++;
+          socket.send(payload, (error) => {
+            draftPendingSends--;
+            if (!error) draftMaxSendCallbackMs = Math.max(draftMaxSendCallbackMs, performance.now() - now);
+          });
+        } else {
+          socket.send(payload);
+        }
         queuedPcmBytes+=frame.byteLength;
       },
       commit() {
