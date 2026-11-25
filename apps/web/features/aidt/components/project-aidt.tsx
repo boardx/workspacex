@@ -625,7 +625,8 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
                   <AidtOpenOnNewTurn key={threadResolutionScope} messages={messages} loading={loading} open={() => setWorkspaceToolsOpen(true)} />
                   <AidtPrototypeConversation key={prototypeEntityId} projectId={projectId} designId={prototypeEntityId} ideaRevision={ideaRevision} returnContext={returnRevision && search.get("returnEntity") ? { revision: returnRevision, entityId: search.get("returnEntity")! } : undefined}
                     stageDraft={prototypeDraft} update={mutate => updateStage(5, mutate)} workflow={prototypeWorkflow}
-                    messages={messages} loading={loading} running={running} readOnly={!canWrite} requestSave={requestEntitySave} />
+                    messages={messages} loading={loading} running={running} readOnly={!canWrite} requestSave={requestEntitySave}
+                    savePending={pendingEntitySave === entitySaveScope || shared.write.phase === "saving"} />
                   {advance}
                 </>,
               } : step.id === 6 && activeEntityId ? {

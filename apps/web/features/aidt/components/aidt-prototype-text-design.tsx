@@ -3,7 +3,6 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AidtConfirmAction } from "./aidt-confirm-action";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -18,7 +17,7 @@ import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 
 type Props = { projectId: string; designId: string; stageDraft: AidtUiStageDraft; savedStage?: AidtSharedStage;
   matchesServer: boolean; readOnly: boolean; update: (change: (draft: AidtUiStageDraft) => AidtUiStageDraft) => void; requestSave: () => void;
-  messages?: readonly { id: string; role: string; content?: unknown }[]; loading?: boolean; running?: boolean };
+  messages?: readonly { id: string; role: string; content?: unknown }[]; loading?: boolean; running?: boolean; savePending?: boolean };
 const empty: AidtUiStageDraft = { fields: {}, ideas: [], selectedIdeaId: "" };
 
 /** Formal text is saved by the existing S5 save action; history is the real
@@ -30,7 +29,7 @@ export function AidtPrototypeTextDesign(props: Props) {
   return <TextDesign key={scope} {...props} scope={scope} requested={requested} sessionToken={session?.sessionToken} />;
 }
 
-function TextDesign({ projectId, designId, stageDraft, savedStage, matchesServer, readOnly, update, requestSave, scope, requested, sessionToken, messages = [], loading = false, running = false }: Props & { scope: string; requested: string | null; sessionToken?: string }) {
+function TextDesign({ projectId, designId, stageDraft, savedStage, matchesServer, readOnly, update, requestSave, scope, requested, sessionToken, messages = [], loading = false, running = false, savePending = false }: Props & { scope: string; requested: string | null; sessionToken?: string }) {
   const [historical, setHistorical] = React.useState<{ stage?: AidtSharedStage; error?: string }>();
   const [sourceState, setSourceState] = React.useState<{ key: string; value?: AidtPrototypeSources; error?: string }>();
   const [reload, refresh] = React.useReducer(value => value + 1, 0);
@@ -51,6 +50,12 @@ function TextDesign({ projectId, designId, stageDraft, savedStage, matchesServer
   const confirmation = readAidtPrototypeTextConfirmation(draft);
   const savedDraft = savedStage?.projectId === projectId ? readAidtPrototypeEntityDraft(savedStage.content.draft, designId) : null;
   const editable = !historic && !readOnly && draft.fields.prototypeArchived !== "true";
+  const serializedLineage = readable && sources?.value ? JSON.stringify(sources.value.lineage) : "";
+  const textSaved = !!serializedLineage && savedDraft?.fields.prototypeTextLineage === serializedLineage
+    && savedDraft.fields.prototypeTextDesign === text && savedDraft.fields.prototypeTextVersion === draft.fields.prototypeTextVersion
+    && savedDraft.fields.prototypeIdeaSource === draft.fields.prototypeIdeaSource;
+  const canSaveText = editable && !!serializedLineage && !!text.trim() && !textSaved && !savePending;
+  const canConfirmText = editable && !!selection?.brainstormId && textSaved && matchesServer && !confirmed && !savePending;
   const versionHref = (revision?: number) => `/aidt/${encodeURIComponent(projectId)}?${new URLSearchParams({ step: "5", entity: designId, ...(revision ? { textRevision: String(revision) } : {}) })}`;
   const lifecycle = JSON.stringify([scope, sourceKey, readable, sources?.value, text, viewStage?.revision]);
   const current = React.useRef(lifecycle); current.current = lifecycle;
@@ -89,17 +94,16 @@ function TextDesign({ projectId, designId, stageDraft, savedStage, matchesServer
 
   const change = (mutate: (old: AidtUiStageDraft) => AidtUiStageDraft) => update(old => updateAidtPrototypeEntityDraft(old, designId, mutate));
   function saveText() {
-    if (!editable || !readable || !sources?.value || !text.trim()) return;
-    const serialized = JSON.stringify(sources.value.lineage);
+    if (!canSaveText) return;
+    const serialized = serializedLineage;
     if (serialized.length > 6000) { setNotice("来源引用超过单项保存上限；请减少本轮组合的点子或分成不同原型。"); return; }
     change(old => old.fields.prototypeIdeaSource === draft.fields.prototypeIdeaSource && old.fields.prototypeTextVersion === draft.fields.prototypeTextVersion
       ? { ...old, fields: { ...old.fields, prototypeTextRequired: "true", prototypeTextLineage: serialized,
         prototypeTextConfirmation: old.fields.prototypeTextLineage === serialized ? old.fields.prototypeTextConfirmation ?? "" : "" } } : old);
-    requestSave(); setNotice("正在请求保存文字设计；以小组保存回执为准。");
+    setNotice(""); requestSave();
   }
   function confirmText() {
-    if (!editable || !selection?.brainstormId || !readable || !matchesServer || !savedStage || !savedDraft || savedDraft.fields.prototypeTextDesign !== text
-      || savedDraft.fields.prototypeTextVersion !== draft.fields.prototypeTextVersion) return;
+    if (!canConfirmText || !savedStage || !savedDraft) return;
     const next = confirmAidtPrototypeText(savedDraft, projectId, designId, savedStage.revision);
     if (!next) { setNotice("请先保存文字与来源，再确认；文字或来源过长时需精简后保存。"); return; }
     change(old => old.fields.prototypeTextDesign === text && old.fields.prototypeIdeaSource === savedDraft.fields.prototypeIdeaSource
@@ -150,8 +154,10 @@ function TextDesign({ projectId, designId, stageDraft, savedStage, matchesServer
           placeholder="写清怎样组合本轮点子、用户如何操作、关键界面或接触点，以及本轮验证范围。"
           onChange={event => { const value = event.currentTarget.value; change(old => editAidtPrototypeText(old, value, crypto.randomUUID())); setNotice(""); }} /></label>
           : <p className="whitespace-pre-wrap break-words">{text || "这个版本尚未记录文字设计。"}</p>}
-        {editable && <div className="flex flex-wrap gap-2"><Button size="sm" disabled={!text.trim()} onClick={saveText}>保存文字设计</Button>
-          <AidtConfirmAction size="sm" variant="outline" disabled={confirmed} blocker={!selection.brainstormId ? "请先选择一个已确认的点子列表。" : !text.trim() ? "请先填写文字设计。" : !matchesServer || !savedDraft?.fields.prototypeTextLineage ? "请先点击「保存文字设计」，再确认保存的版本。" : null} onConfirm={confirmText}>确认已保存文字设计</AidtConfirmAction></div>}
+        {editable && <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="primary" disabled={!canSaveText} onClick={saveText}>保存文字设计</Button>
+          <Button type="button" size="sm" variant="primary" disabled={!canConfirmText} onClick={confirmText}>确认已保存文字设计</Button>
+        </div>}
         {confirmed && confirmation && <p role="status">学生已确认<Link href={versionHref(confirmation.stageRevision)} className="text-primary underline">文字设计 · 第 5 步 V{confirmation.stageRevision}</Link>{!matchesServer && !historic ? "；确认尚待小组保存回执。" : "。"}</p>}
         {viewStage && text.trim() && (historic || matchesServer) && <Button size="sm" variant="outline" onClick={() => void print()}>预览／打印文字设计</Button>}
       </>}
