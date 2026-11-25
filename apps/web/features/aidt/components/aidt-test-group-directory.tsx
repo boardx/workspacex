@@ -163,6 +163,10 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
   </>;
 
   return <section className="space-y-4" aria-label="本组测试" data-testid="aidt-test-group-directory">
+    {automaticSave && !readOnly && <header className="flex items-center justify-between gap-3">
+      <h2 className="text-xl font-semibold">测试列表</h2>
+        <AidtNewEntityCardButton disabled={checking || limit} onClick={() => { setName(""); setError(""); setChosenEntity(""); setResearchPath(""); setSourceChecked(false); tags.reset(); creationId.current = null; setCreateOpen(true); }} />
+    </header>}
     {!available.length && <p className="text-13 text-muted-foreground">选一个已确认的原型，创建测试。</p>}
     <ul aria-label="测试卡片" className="grid gap-4 sm:grid-cols-2">
       {available.map(group => {
@@ -203,9 +207,8 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
     {archived.length > 0 && <details className="text-12"><summary>已移除（{archived.length}）</summary>
       <ul className="mt-2 space-y-2">{archived.map(group => <li key={group.id}>{group.name || "测试组"}{!readOnly && <Button type="button" size="xs" variant="ghost" onClick={() => changeCard(group.id, { archived: false })}>恢复</Button>}</li>)}</ul>
     </details>}
-    {!readOnly && <div className="space-y-3 border-t border-border pt-3">
+    {!readOnly && <div className={automaticSave ? undefined : "space-y-3 border-t border-border pt-3"}>
       {automaticSave ? <>
-        <AidtNewEntityCardButton disabled={checking || limit} onClick={() => { setName(""); setError(""); setChosenEntity(""); setResearchPath(""); setSourceChecked(false); tags.reset(); creationId.current = null; setCreateOpen(true); }} />
         <Dialog open={createOpen} onOpenChange={open => { if (!checking) setCreateOpen(open); }}>
           <DialogContent className="max-w-3xl">
             <DialogTitle>新建测试卡片</DialogTitle>

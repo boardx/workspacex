@@ -77,7 +77,7 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
   return <section aria-labelledby={headingId} className="space-y-4" data-testid="aidt-problem-directory">
     <header className="flex flex-wrap items-center justify-between gap-3">
       <h2 ref={heading} tabIndex={-1} id={headingId} className="text-xl font-semibold">问题列表</h2>
-      {items.length > 0 && create}
+      {create}
     </header>
     {items.length === 0 ? <div className="flex flex-col items-center gap-4 rounded-container border border-dashed border-border bg-muted px-5 py-12 text-center" data-testid="empty">
       <div className="grid size-12 place-items-center rounded-container border border-border bg-card text-primary"><MessageSquare className="size-6" aria-hidden /></div>
@@ -85,7 +85,6 @@ export function AidtProblemDirectory({ draft, href, controller, readOnly, onCrea
         <h3 className="text-16 font-semibold">{readOnly ? "暂无问题" : "先新建一个问题"}</h3>
         <p className="text-13 text-muted-foreground">{readOnly ? "小组新建的问题会显示在这里。" : "写下小组想了解的问题，再打开卡片进入工作坊。"}</p>
       </div>
-      {create}
     </div> : <ul className="grid gap-4 sm:grid-cols-2">
       {items.map(item => {
         const { fields } = readAidtProblemEntityDraft(draft, item.id);

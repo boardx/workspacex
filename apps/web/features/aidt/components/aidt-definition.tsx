@@ -274,7 +274,6 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
 
   return <section className="space-y-4" aria-label="综合与定义产物" data-testid="aidt-definition-directory">
     <div className="flex flex-wrap gap-2">
-      {!readOnly && <AidtNewEntityCardButton disabled={!canEdit} aria-expanded={choosingKind} aria-controls={kindOptionsId} onClick={() => setChoosingKind(value => !value)} />}
       {candidateHost && props.projectId && !readOnly && <>
         <AidtPersonaCandidates projectId={props.projectId} draft={draft} savedDraft={savedDraft} cards={interviewCards} revision={evidence.revision} definitionRevision={props.definitionRevision} disabled={!canAdd || personas.length >= AIDT_DEFINITION_ITEM_LIMIT} host={candidateHost} onCreate={onCreate} />
         <AidtHmwCandidates projectId={props.projectId} draft={draft} savedDraft={savedDraft} cards={interviewCards} revision={evidence.revision} definitionRevision={props.definitionRevision} disabled={!canAdd || hmws.length >= AIDT_DEFINITION_ITEM_LIMIT} host={candidateHost} onCreate={onCreate} />
@@ -284,6 +283,7 @@ function AidtDefinitionCardDirectory({ entityHref, requestSave, savedDraft, onCr
         {canAdd && personas.some(item => item.confirmed && !item.archived) && hmws.length < AIDT_DEFINITION_ITEM_LIMIT ? <Button asChild variant="outline"><Link href={candidateHref("hmw")}>AI 构思 HMW</Link></Button> : <Button type="button" variant="outline" disabled>AI 构思 HMW</Button>}
       </>}
       {active.some(item => item.archived) && <Button type="button" variant="ghost" onClick={() => setShowArchived(value => !value)}>{showArchived ? "返回产物" : "查看已移除"}</Button>}
+      {!readOnly && <AidtNewEntityCardButton className="ml-auto" disabled={!canEdit} aria-expanded={choosingKind} aria-controls={kindOptionsId} onClick={() => setChoosingKind(value => !value)} />}
     </div>
     {(choosingKind || kindToCreate) && <Dialog open onOpenChange={open => { if (!open && !creating) { setChoosingKind(false); setKind(null); } }}><DialogContent className="overflow-y-auto">
       <DialogTitle>{kindToCreate ? "新建" + labels[kindToCreate] : "新建卡片"}</DialogTitle>
