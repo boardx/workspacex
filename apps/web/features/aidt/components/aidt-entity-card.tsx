@@ -3,9 +3,7 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { TagField, commitDraft } from "@/components/ui/tag-input";
 import { TagFilterBar } from "@/components/ui/tag-filter-bar";
 import { aggregateTags, dedupeTags, hasTag, matchesQuery } from "@/lib/tag-utils";
 import { cn } from "@/lib/utils";
@@ -42,8 +40,6 @@ type CardTags = {
   knownTags: ReadonlyMap<string, number>;
   filters: React.ReactNode;
   register: (id: string) => () => void;
-  canEdit: boolean;
-  saveTags: (id: string, tags: readonly string[]) => Promise<boolean>;
 };
 const CardTagsContext = React.createContext<CardTags | null>(null);
 
@@ -56,10 +52,8 @@ export const AidtNewEntityCardButton = React.forwardRef<HTMLButtonElement, Pick<
 );
 
 
-export function AidtEntityCardDirectory({ draft, readOnly, saveDraft, children }: {
+export function AidtEntityCardDirectory({ draft, children }: {
   draft: AidtUiStageDraft;
-  readOnly: boolean;
-  saveDraft: (mutation: (draft: AidtUiStageDraft) => AidtUiStageDraft) => Promise<boolean>;
   children: React.ReactNode;
 }) {
   const [selected, setSelected] = React.useState<string | null>(null);
@@ -105,8 +99,7 @@ export function AidtEntityCardDirectory({ draft, readOnly, saveDraft, children }
       </div>}
     </section>;
   return <CardTagsContext.Provider value={{
-    draft, labels, selected: filter, query, knownTags, filters, register, canEdit: !readOnly,
-    saveTags: (id, tags) => saveDraft(previous => updateAidtEntityCardTags(previous, id, tags)),
+    draft, labels, selected: filter, query, knownTags, filters, register,
   }}>
     {children}
   </CardTagsContext.Provider>;
@@ -137,57 +130,17 @@ export function AidtEntityCard({ entityId, className, children, action, manageme
 }) {
   const context = React.useContext(CardTagsContext);
   const tags = useSharedTags && context ? readAidtEntityCardTags(context.draft.fields, entityId) : [];
-  const [editing, setEditing] = React.useState(false);
   const register = useSharedTags ? context?.register : undefined;
   React.useEffect(() => register?.(entityId), [entityId, register]);
   if (useSharedTags && context && (context.selected && !hasTag(tags, context.selected) || !matchesQuery(context.query, [], tags))) return null;
-  return <li data-testid="aidt-entity-card" className={cn("flex min-w-0 flex-col gap-3 rounded-container border border-border bg-card p-4 text-card-foreground", className)}>
+  return <li data-testid="aidt-entity-card" className={cn("flex min-h-[180px] min-w-0 flex-col gap-3 rounded-container border border-border bg-card p-4 text-card-foreground", className)}>
     {children}
     {tags.length > 0 && <ul aria-label="卡片标签" className="flex flex-wrap gap-1 text-12">{tags.map(tag => <li key={tag} className="rounded-full bg-muted px-2 py-1">{tag}</li>)}</ul>}
-    {(action || management || useSharedTags && context?.canEdit) && <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+    {(action || management) && <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
       <div className="min-w-0">{action}</div>
-      {(management || useSharedTags && context?.canEdit) && <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
-        {useSharedTags && context?.canEdit && <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>编辑标签</Button>}
+      {(management) && <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
         {management}
       </div>}
     </div>}
-    {editing && context && <CardTagsDialog context={context} entityId={entityId} tags={tags} close={() => setEditing(false)} />}
   </li>;
-}
-
-function CardTagsDialog({ context, entityId, tags, close }: { context: CardTags; entityId: string; tags: string[]; close: () => void }) {
-  const [draft, setDraft] = React.useState<readonly string[]>(tags);
-  const [entry, setEntry] = React.useState("");
-  const [saving, setSaving] = React.useState(false);
-  const [failed, setFailed] = React.useState(false);
-  const next = commitDraft(draft, entry, aidtCardTagLimits);
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (saving || !context.canEdit) return;
-    setSaving(true);
-    setFailed(false);
-    try {
-      if (JSON.stringify(tags) === JSON.stringify(next) || await context.saveTags(entityId, next)) close();
-      else setFailed(true);
-    } catch {
-      setFailed(true);
-    } finally {
-      setSaving(false);
-    }
-  }
-  return <Dialog open onOpenChange={open => { if (!open && !saving) close(); }}>
-    <DialogContent>
-      <DialogTitle>编辑卡片标签</DialogTitle>
-      <DialogDescription>搜索已有标签，或输入新标签。保存后对小组生效。</DialogDescription>
-      <form className="space-y-3" onSubmit={submit}>
-        <TagField label="卡片标签" {...aidtCardTagLimits} value={draft} onChange={setDraft} draft={entry} onDraftChange={setEntry}
-          knownTags={context.knownTags} noteFor={count => count + " 张卡片"} disabled={saving || !context.canEdit} testIdPrefix="card-edit-tag" />
-        {failed && <p role="alert">标签未保存，核对小组版本后可重试。</p>}
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="ghost" disabled={saving} onClick={close}>取消</Button>
-          <Button type="submit" disabled={saving || !context.canEdit}>{saving ? "正在保存…" : "保存标签"}</Button>
-        </div>
-      </form>
-    </DialogContent>
-  </Dialog>;
 }

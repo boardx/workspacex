@@ -42,7 +42,7 @@ it("creates a named tagged brainstorm card and keeps its saved route after renam
   function Harness() {
     const [draft, setDraft] = React.useState(() => emptyAidtUiDrafts()[4]!);
     const save = async (change: (current: typeof draft) => typeof draft) => { setDraft(change); return true; };
-    return <AidtEntityCardDirectory draft={draft} readOnly={false} saveDraft={save}>
+    return <AidtEntityCardDirectory draft={draft}>
       <AidtBrainstormDirectory definition={definition} draft={draft} readOnly={false}
         href={id => `/aidt/p?step=4&entity=${id}`} onOpen={id => opened.push(id)} saveDraft={save} />
     </AidtEntityCardDirectory>;
@@ -61,7 +61,9 @@ it("creates a named tagged brainstorm card and keeps its saved route after renam
   fireEvent.click(screen.getByRole("button", { name: "编辑 午休场次" }));
   const edit = within(await screen.findByRole("dialog", { name: "编辑头脑风暴" }));
   fireEvent.change(edit.getByRole("textbox", { name: "场次名称" }), { target: { value: "午休第二轮" } });
+  fireEvent.change(edit.getByRole("textbox", { name: "添加标签" }), { target: { value: "观察" } });
   fireEvent.click(edit.getByRole("button", { name: "保存名称" }));
+  await screen.findByTestId("aidt-card-tag-观察");
   expect((await screen.findByRole("link", { name: "打开「午休第二轮」对话" })).getAttribute("href")).toBe(link.getAttribute("href"));
   fireEvent.click(screen.getByRole("button", { name: "删除 午休第二轮" }));
   const removal = within(await screen.findByRole("dialog", { name: "删除头脑风暴" }));

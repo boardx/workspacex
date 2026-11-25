@@ -84,7 +84,7 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
   const target = action && action.kind !== "create" ? cards.find(card => card.id === action.id) : null;
   const allowed = canWrite && Boolean(saveDraft) && !mutationBusy;
   function open(next: Action, title = "") {
-    tags.reset();
+    tags.reset(next.kind === "edit" ? next.id : undefined);
     setRoundId("");
     setRoundRevision(null);
     selectIdeas(next.kind === "create" ? [] : choices.map(idea => idea.id));
@@ -128,7 +128,7 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
         onCreated?.(resource.id);
       } else {
         const id = action.id;
-        if (!await saveDraft(old => action.kind === "delete" ? archiveAidtPrototypeCard(old, id) : updateAidtPrototypeCard(old, id, name))) throw new Error("prototype card not saved");
+        if (!await saveDraft(old => action.kind === "delete" ? archiveAidtPrototypeCard(old, id) : tags.apply(updateAidtPrototypeCard(old, id, name), id))) throw new Error("prototype card not saved");
       }
       if (mounted.current) { setAction(null); reload(); }
     } catch { if (mounted.current) setSaveError(true); }
@@ -147,8 +147,8 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
       : <ul className="grid gap-4 sm:grid-cols-2">{cards.map(card => <AidtEntityCard key={card.id} entityId={card.id}
         action={<Button asChild variant="primary" size="sm"><Link href={aidtPrototypeEntityHref(projectId, card.id, undefined, ideaRevision)} aria-label={card.name}><Palette className="size-4" aria-hidden />打开原型<ArrowUpRight className="size-3" aria-hidden /></Link></Button>}
         management={canWrite && <>
-          <Button type="button" variant="ghost" size="sm" disabled={!allowed || busy} aria-label={`编辑原型 ${card.name}`} onClick={() => open({ kind: "edit", id: card.id }, card.name)}><Pencil className="size-3.5" aria-hidden />编辑</Button>
-          <Button type="button" variant="ghost" size="sm" disabled={!allowed || busy} aria-label={`删除原型 ${card.name}`} onClick={() => open({ kind: "delete", id: card.id })}><Trash2 className="size-3.5" aria-hidden />删除</Button>
+          <Button type="button" variant="outline" size="sm" disabled={!allowed || busy} aria-label={`编辑原型 ${card.name}`} onClick={() => open({ kind: "edit", id: card.id }, card.name)}><Pencil aria-hidden className="size-4" />改名与标签</Button>
+          <Button type="button" variant="outline" size="sm" disabled={!allowed || busy} aria-label={`删除原型 ${card.name}`} onClick={() => open({ kind: "delete", id: card.id })}><Trash2 aria-hidden className="size-4" /></Button>
         </>}>
         <AidtCardHeader label="原型"><AidtCardStatus confirmed={card.completed}>{card.completed ? "已确认" : "待确认"}</AidtCardStatus></AidtCardHeader>
         <h3 className="break-words text-16 font-semibold">{card.name}</h3>
@@ -159,7 +159,8 @@ function PrototypeCards({ projectId, canWrite, ideaRevision, draft = emptyDraft,
           <DialogDescription>{action.kind === "delete" ? `删除「${target?.name ?? "原型"}」卡片，已保存的 Design 版本与引用会保留。` : "在卡片中打开原生对话和 Design。"}</DialogDescription></DialogHeader>
         <form className="space-y-4" onSubmit={event => void submit(event)}>
           {action.kind !== "delete" && <div className="space-y-2"><label htmlFor={nameId}>原型名称</label><Input id={nameId} value={name} maxLength={80} disabled={busy} onChange={event => setName(event.target.value)} /></div>}
-          {action.kind === "create" && <>{tags.field}<label className="block text-13">已确认 Ideation 列表
+          {action.kind !== "delete" && tags.field}
+          {action.kind === "create" && <><label className="block text-13">已确认 Ideation 列表
             <select aria-label="已确认 Ideation 列表" className="mt-1 block w-full rounded-md border border-border bg-background p-2" value={selectedRound?.stableId ?? ""} disabled={busy}
               onChange={event => { setRoundId(event.target.value); setRoundRevision(source?.revision ?? null); selectIdeas([]); }}><option value="">选择一个已确认列表</option>
               {rounds.map(round => <option key={round.stableId} value={round.stableId}>{round.title} · {AIDT_BRAINSTORM_METHODS[round.method]} · 第4步 V{source?.revision}</option>)}

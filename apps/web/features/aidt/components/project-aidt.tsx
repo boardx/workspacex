@@ -473,7 +473,7 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
         {!hasSummary && (step.id < 6 || shared.read?.phase === "ready") && roundNavigation}
         {shared.read?.phase === "ready" && (hasSummary
           ? <AidtReportDirectory stage={shared.stages[6]} href={entityHref} />
-          : <AidtEntityCardDirectory key={shared.writeKey} draft={savedDraft ?? draft} readOnly={!canWrite} saveDraft={shared.saveDraft}>
+          : <AidtEntityCardDirectory key={shared.writeKey} draft={savedDraft ?? draft}>
           {step.id === 1 ? <AidtProblemDirectory key={`problems:${shared.writeKey}`} draft={savedDraft ?? emptyAidtUiDrafts()[1]!} href={entityHref} onCreated={openCreated} controller={shared} readOnly={!canWrite} />
           : step.id === 2 ? <>
               <AidtInterviewWorkspace projectId={projectId} draft={draft} update={update} readOnly={!canWrite} entityId={null}

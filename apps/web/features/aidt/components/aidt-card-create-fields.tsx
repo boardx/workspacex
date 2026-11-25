@@ -8,19 +8,31 @@ import type { AidtUiStageDraft } from "../lib/aidt-ui-drafts";
 export function useAidtCreateTags(draft: AidtUiStageDraft) {
   const [tags, setTags] = React.useState<readonly string[]>([]);
   const [entry, setEntry] = React.useState("");
+  const [editError, setEditError] = React.useState(false);
+  function applyTags(next: AidtUiStageDraft, id: string) {
+    const wanted = commitDraft(tags, entry, limits);
+    const tagged = updateAidtEntityCardTags(next, id, wanted);
+    return wanted.length && readAidtEntityCardTags(tagged.fields, id).length !== wanted.length ? null : tagged;
+  }
   const known = new Map<string, number>();
   for (const key of Object.keys(draft.fields)) {
     if (!key.startsWith(cardTagPrefix)) continue;
     for (const tag of readAidtEntityCardTags(draft.fields, key.slice(cardTagPrefix.length))) known.set(tag, (known.get(tag) ?? 0) + 1);
   }
   return {
-    reset() { setTags([]); setEntry(""); },
+    reset(id?: string) { setTags(id ? readAidtEntityCardTags(draft.fields, id) : []); setEntry(""); setEditError(false); },
     apply(next: AidtUiStageDraft, id: string) {
-      const wanted = commitDraft(tags, entry, limits);
-      const tagged = updateAidtEntityCardTags(next, id, wanted);
-      if (wanted.length && readAidtEntityCardTags(tagged.fields, id).length !== wanted.length) throw new Error("标签未保存");
+      const tagged = applyTags(next, id);
+      if (!tagged) throw new Error("标签未保存");
       return tagged;
     },
+    applyEdit: applyTags,
+    validateEdit(next: AidtUiStageDraft, id: string) {
+      const valid = applyTags(next, id) !== null;
+      setEditError(!valid);
+      return valid;
+    },
+    editError,
     field: <TagField label="卡片标签" {...limits} value={tags} onChange={setTags} knownTags={known} draft={entry} onDraftChange={setEntry} noteFor={count => count + " 张卡片"} testIdPrefix="card-create-tag" />,
   };
 }

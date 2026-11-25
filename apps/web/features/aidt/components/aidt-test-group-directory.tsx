@@ -1,5 +1,7 @@
 "use client";
 
+import { Pencil, Trash2 } from "lucide-react";
+
 import { useAidtCreateTags } from "./aidt-card-create-fields";
 import * as React from "react";
 import { AidtCardFilters, AidtCardHeader, AidtCardStatus, AidtEntityCard, AidtNewEntityCardButton } from "./aidt-entity-card";
@@ -137,11 +139,15 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
     return `${aidtHref(projectId, 6)}&entity=${encodeURIComponent(entity)}`;
   }
   function changeCard(id: string, patch: { name: string } | { archived: boolean }) {
-    if (readOnly) return;
+    if (readOnly) return false;
+    if ("name" in patch && !tags.validateEdit(draft, id)) return false;
     update(current => {
       const existing = readAidtTestGroups(current.fields).find(item => item.id === id);
-      return existing ? updateAidtTestGroup(current, { ...existing, ...patch }) : current;
+      if (!existing) return current;
+      const next = updateAidtTestGroup(current, { ...existing, ...patch });
+      return "name" in patch ? tags.applyEdit(next, id) ?? current : next;
     });
+    return true;
   }
   const removalName = available.find(group => group.id === removing)?.name;
   const creationFields = <>
@@ -176,8 +182,8 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
         return <AidtEntityCard key={group.id} entityId={group.id}
           action={savedIds.has(group.id) ? <Button size="sm" variant="primary" asChild><Link href={openHref(group.id)} aria-label={`打开测试 ${group.name || "测试组"}`}>打开测试</Link></Button> : <Button type="button" size="sm" disabled>保存后打开对话</Button>}
           management={!readOnly && <>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ id: group.id, name: group.name })}>编辑</Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setRemoving(group.id)}>删除</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => { tags.reset(group.id); setEditing({ id: group.id, name: group.name }); }}><Pencil aria-hidden className="size-4" />改名与标签</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setRemoving(group.id)} aria-label="删除卡片"><Trash2 aria-hidden className="size-4" /></Button>
           </>}>
           <AidtCardHeader label="测试"><AidtCardStatus confirmed={confirmed}>{confirmed ? "已确认" : "待确认"}</AidtCardStatus></AidtCardHeader>
           <h2 className="break-words text-16 font-semibold">{group.name || "测试组"}</h2>
@@ -187,8 +193,10 @@ function TestGroupDirectory({ projectId, draft, savedDraft, previousPrototype, p
     </ul>
     {editing && !readOnly && <Dialog open onOpenChange={open => { if (!open) setEditing(undefined); }}><DialogContent>
       <DialogTitle>编辑测试卡</DialogTitle><DialogDescription>更改显示名称。</DialogDescription>
-      <form className="space-y-3" onSubmit={event => { event.preventDefault(); if (editing.name.trim()) { changeCard(editing.id, { name: editing.name.trim() }); setEditing(undefined); } }}>
+      <form className="space-y-3" onSubmit={event => { event.preventDefault(); if (editing.name.trim() && changeCard(editing.id, { name: editing.name.trim() })) setEditing(undefined); }}>
         <label className="block space-y-1 text-13">测试名称<Input value={editing.name} maxLength={80} onChange={event => setEditing({ ...editing, name: event.currentTarget.value })} /></label>
+        {tags.field}
+        {tags.editError && <p role="alert">标签保存空间不足。请清空新增标签后重试。</p>}
         <Button type="submit" variant="primary" disabled={!editing.name.trim()}>保存修改</Button>
       </form>
     </DialogContent></Dialog>}
