@@ -38,6 +38,15 @@ class Probe(unittest.TestCase):
   report=json.loads(output.getvalue());self.assertEqual(report['matchingTariffs'],0)
   self.assertEqual(report['recentErrorCounts']['CREDIT_ACCOUNTING_UNAVAILABLE'],1)
   for private in ['secret','private token','user body','remote','api-id']:self.assertNotIn(private,output.getvalue())
+ def test_queue_samples_export_only_numeric_diagnostics(self):
+  data=dict.fromkeys(('startupMs','openAgeMs','audioAgeMs','audioSentMs','bufferedBytes',
+   'payloadBytes','slowQueueMs','pendingSends','maxSendCallbackMs','results'),1)
+  data['lastResultAgoMs']=None
+  expected=data.copy()
+  data['transcript']='private'
+  valid='ASR_DRAFT_SEND_QUEUE '+json.dumps(data)
+  invalid='ASR_DRAFT_SEND_QUEUE '+json.dumps(dict(data,bufferedBytes='private'))
+  self.assertEqual(m.draft_send_queue_samples(valid+'\n'+invalid),[expected])
  def test_database_probe_is_read_only_parameterized_and_refuses_filtered_zero(self):
   self.assertIn('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY',m.DATABASE)
   self.assertIn('SET LOCAL row_security=off',m.DATABASE)
