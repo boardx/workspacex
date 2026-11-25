@@ -98,8 +98,8 @@ export function AidtProblemChatReview({ projectId, entityId, stage, sessionToken
   };
   const confirmed = Boolean(draft.fields.roundCompletion && draft.fields.problemReflectionConfirmed === "true");
   return <section aria-label="对话中的成果确认" data-testid="aidt-round-completion" className="w-full space-y-2 py-2 text-13">
-    {candidateTools}
-    {confirmed ? <><p>本轮成果已确认并保存</p><Button asChild size="sm" variant="outline"><Link href={next}>继续第2步</Link></Button></> :
+    {!confirmed && candidateTools}
+    {confirmed ? <><p>本轮成果已确认并保存</p><Button asChild size="sm" variant="primary"><Link href={next}>继续第2步</Link></Button></> :
       <><p className="whitespace-pre-wrap break-words">{draft.fields.rewrittenTheme}</p>
         <Button type="button" size="sm" disabled={saving || running || loading} onClick={() => void confirm()}>{saving ? "正在保存确认…" : "确认本轮成果并保存"}</Button></>}
     {status && <p role="status">{status}</p>}

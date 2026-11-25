@@ -43,7 +43,7 @@ export function AidtDashboard({ href, drafts, shared, completed = null }: { href
         <h1 className="text-30 font-semibold tracking-tight text-background-foreground sm:text-40">六步，探索新的可能。</h1>
         <p className="text-14 leading-relaxed text-muted-foreground">从理解问题，到测试你的想法。</p>
       </div>
-      {actionStage && <Button asChild variant="primary" className="gap-2 rounded-pill px-5">
+      {actionStage && <Button asChild variant="primary" size={allComplete || firstStart ? "md" : "sm"} className={allComplete || firstStart ? "gap-2 rounded-pill px-5" : undefined}>
         <Link href={href(actionStage.id)} data-testid={allComplete ? "aidt-review-completed" : firstStart ? "aidt-first-start" : "aidt-continue-task"}>
           {allComplete ? "回顾成果" : firstStart ? "从第1步开始" : `继续第${actionStage.id}步`}<ArrowRight aria-hidden className="h-4 w-4" />
         </Link>
