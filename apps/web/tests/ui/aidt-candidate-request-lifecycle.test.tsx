@@ -65,6 +65,24 @@ it("does not adopt or persist a generated reply until the student explicitly sel
   expect(mocks.durableReply).toHaveBeenCalledOnce(); expect(mocks.durableReply).toHaveBeenCalledWith(expect.objectContaining({ projectId: "qa-project", threadId: "qa-thread", prompt, replyText: "候选甲；候选乙", sessionToken: "qa-token" }));
 });
 
+it("adopts the checked candidates together from one verified reply", async () => {
+  let options = base();
+  const { result, rerender } = renderHook(() => useAidtCandidateRequest(options), { wrapper: Wrapper });
+  await startCandidate(result.current);
+  options = { ...options, messages: replyTurns() };
+  rerender();
+  await waitFor(() => expect(result.current.candidates).toHaveLength(2));
+
+  const adopt = vi.fn();
+  await act(async () => {
+    expect(await result.current.adoptMany([0, 2], adopt)).toBe(false);
+    expect(await result.current.adoptMany([0, 1], adopt)).toBe(true);
+  });
+  expect(mocks.durableReply).toHaveBeenCalledOnce();
+  expect(adopt).toHaveBeenCalledWith(["候选甲", "候选乙"], expect.objectContaining({ messageId: "durable-reply" }));
+  expect(result.current.candidates).toEqual([]);
+});
+
 it("ignores a late source check after cancellation without sending anything", async () => {
   const check = deferred<string>(); const options = { ...base(), readCurrentSource: () => check.promise };
   const { result } = renderHook(() => useAidtCandidateRequest(options), { wrapper: Wrapper });

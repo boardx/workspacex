@@ -51,14 +51,15 @@ export function AidtIdeaConversation({ projectId, entityId, draft, savedDraft, r
   const selected = (chosen ?? readAidtIdeaHandoff(draft, projectId)?.selectedIds ?? []).filter(id => sheetIds.includes(id));
   const savedHandoff = savedDraft && allAidtIdeasConfirmed(savedDraft) && readAidtIdeaHandoff(savedDraft, projectId);
   const imageKey = researchMaterialKey("idea", entityId);
+  const image = parseAidtResearchMaterial(draft.fields[imageKey]);
   return <section aria-label="点子确认" className="space-y-3 rounded-container border border-border bg-card p-3">
     {handoff && !readAidtIdeaHmwSource(draft, entityId) && <AidtIdeaHmw context={handoff} draft={draft} readOnly={false} update={update} />}
     {!running && (!saved || revising) && <>
       <label className="block space-y-1 text-13">点子描述草稿
         <Textarea value={description} maxLength={2000} rows={3} onChange={event => setEdited({ base, value: event.currentTarget.value })} placeholder="两三句说明你想做什么、怎样帮助用户" />
       </label>
-      <details><summary className="cursor-pointer text-13">添加描述单配图</summary>
-        <AidtResearchMaterialControl projectId={projectId} imagesOnly label="点子配图" value={parseAidtResearchMaterial(draft.fields[imageKey])}
+      <details><summary className="cursor-pointer text-13">{image ? "查看或替换描述单配图" : "添加描述单配图"}</summary>
+        <AidtResearchMaterialControl projectId={projectId} imagesOnly label="点子配图" value={image}
           selectionScope={entityId} onChange={reference => update(old => invalidateAidtIdeaSheets({ ...old,
             fields: { ...old.fields, [imageKey]: reference ? JSON.stringify(reference) : "" },
           }))} />
@@ -70,7 +71,7 @@ export function AidtIdeaConversation({ projectId, entityId, draft, savedDraft, r
       }}>确认点子产物</Button>
     </>}
     {saved && !revising && <div className="flex items-center justify-between gap-2"><span className="text-13">点子已确认</span>
-      <Button type="button" variant="ghost" size="sm" onClick={() => { setEdited({ base, value: item.description }); setRevising(true); }}>改写描述</Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => { setEdited({ base, value: item.description }); setRevising(true); }}>{image ? "编辑描述或配图" : "改写描述"}</Button>
     </div>}
     {allConfirmed && <details className="space-y-2">
       <summary className="cursor-pointer text-13 font-medium">确认分类与原型交接</summary>
