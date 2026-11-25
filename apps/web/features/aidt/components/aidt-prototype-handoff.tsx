@@ -216,11 +216,12 @@ function PrototypeArtifact({ draft, designId, projectId, ideaRevision, workflow,
 type PrototypeTurn = { id: string; role: string; content?: unknown };
 
 /** Native inline Chat actions; the Inspector only projects the current artifact. */
-export function AidtPrototypeConversation({ messages, loading, running, requestSave, ...props }: AidtPrototypeEntityProps & {
+export function AidtPrototypeConversation({ messages, loading, running, requestSave, savePending, ...props }: AidtPrototypeEntityProps & {
   messages: readonly PrototypeTurn[];
   loading: boolean;
   running: boolean;
   requestSave: () => void;
+  savePending?: boolean;
 }) {
   const { stageDraft, designId, workflow, projectId, readOnly, update } = props;
   const draft = readAidtPrototypeEntityDraft(stageDraft, designId) ?? { fields: {}, ideas: [], selectedIdeaId: "" };
@@ -293,7 +294,7 @@ export function AidtPrototypeConversation({ messages, loading, running, requestS
   if (archived || loading) return null;
   return <section aria-label="原型对话操作" className="space-y-3 rounded-container border border-border bg-card p-4 text-13">
     <div id={textId}><AidtPrototypeTextDesign projectId={projectId} designId={designId} stageDraft={stageDraft} savedStage={workflow.savedPrototype}
-      matchesServer={workflow.matchesServer} readOnly={readOnly} update={update} requestSave={requestSave} messages={messages} loading={loading} running={running} /></div>
+      matchesServer={workflow.matchesServer} readOnly={readOnly} update={update} requestSave={requestSave} messages={messages} loading={loading} running={running} savePending={savePending} /></div>
     {!readOnly && !running && <>
     {ideaSource && <div id={sourcesId}><AidtPrototypeIdeaChooser key={ideaSource.revision} source={ideaSource} readOnly={readOnly}
       onAdopt={(stage, ids, roundId) => saveEntity(current => pinAidtPrototypeInputs(current, stage, ids, roundId))} /></div>}
