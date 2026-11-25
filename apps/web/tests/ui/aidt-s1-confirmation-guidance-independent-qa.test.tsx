@@ -14,14 +14,18 @@ const neighbor={initial:'邻居独立原始命题',whyWorthStudying:'邻居自�
 function stage(fields:Record<string,string>):AidtSharedStage{return {projectId:'synthetic-project',stageId:1,revision:3,sourceStageRevisions:[],updatedBy:'synthetic-member',updatedAt:'2026-11-22T14:00:00Z',content:StageContent.parse({schemaVersion:1,draft:{fields:{['problemEntity:'+entity]:JSON.stringify({id:entity,title:'本组实际合成命题',archived:false}),['problemDraft:'+entity]:JSON.stringify(fields),['problemEntity:'+other]:JSON.stringify({id:other,title:'邻居命题',archived:false}),['problemDraft:'+other]:JSON.stringify(neighbor)},ideas:[],selectedIdeaId:''}})};}
 const props=(value:AidtSharedStage)=>({projectId:value.projectId,entityId:entity,stage:value,sessionToken:'test-only-fixture',threadId:'thr_synthetic_current_entity',loading:false,running:false,messages:[],onRefresh:vi.fn()});
 beforeEach(()=>{vi.resetAllMocks();vi.mocked(reconcileAidtEntity).mockResolvedValue(undefined);vi.mocked(saveAidtStage).mockResolvedValue({} as Awaited<ReturnType<typeof saveAidtStage>>);});
-it('the actual three missing fields are individually visible with current-Chat instructions and actionable confirmation guidance without saving',async()=>{
- render(<AidtProblemChatReview {...props(stage(fixture.incomplete))}/>);
+it('the actual three missing fields are individually visible after a request, with current-Chat instructions and no save action',async()=>{
+ const current = props(stage(fixture.incomplete));
+ const view = render(<AidtProblemChatReview {...current} />);
+ await screen.findByTestId('independent-candidate-tools');
+ expect(screen.queryByTestId('aidt-problem-missing-input')).toBeNull();
+ view.rerender(<AidtProblemChatReview {...current} messages={[{ id: 'request', role: 'user', content: '请帮我们聚焦命题' }]} />);
  const status=await screen.findByTestId('aidt-problem-missing-input');
  expect(status).toHaveAttribute('role','status');expect(status).toHaveAttribute('aria-label','本步待补充');const items=within(status).getAllByRole('listitem');expect(items).toHaveLength(3);expect(items[0]).toHaveTextContent('选题理由');expect(items[1]).toHaveTextContent('问题来源');expect(items[2]).toHaveTextContent('来源描述');expect(status).toHaveTextContent('当前聊天');expect(status).toHaveTextContent('补充');
- fireEvent.click(screen.getByRole('button',{name:'确认本轮成果并保存'}));expect(screen.getByRole('alert')).toHaveTextContent('问题来源');expect(screen.queryByRole('link',{name:'继续第2步'})).toBeNull();expect(screen.queryByRole('textbox')).toBeNull();expect(screen.queryByRole('checkbox')).toBeNull();expect(saveAidtStage).not.toHaveBeenCalled();
+ expect(screen.queryByRole('button',{name:'确认本轮成果并保存'})).toBeNull();expect(screen.queryByRole('link',{name:'继续第2步'})).toBeNull();expect(screen.queryByRole('textbox')).toBeNull();expect(screen.queryByRole('checkbox')).toBeNull();expect(saveAidtStage).not.toHaveBeenCalled();
 });
-it.each<Record<string,string>>([{}, {initial:'你好！'}])('an empty/control-only welcome offers confirmation guidance and cannot borrow a complete neighbor: %j',async fields=>{
- render(<AidtProblemChatReview {...props(stage(fields))}/>);await screen.findByTestId('independent-candidate-tools');expect(screen.queryByTestId('aidt-problem-missing-input')).toBeNull();fireEvent.click(screen.getByRole('button',{name:'确认本轮成果并保存'}));expect(screen.getByRole('alert')).toHaveTextContent('问题来源');expect(screen.queryByRole('link',{name:'继续第2步'})).toBeNull();expect(screen.queryByText(neighbor.rewrittenTheme)).toBeNull();expect(saveAidtStage).not.toHaveBeenCalled();
+it.each<Record<string,string>>([{}, {initial:'你好！'}])('an empty/control-only welcome hides confirmation and cannot borrow a complete neighbor: %j',async fields=>{
+ render(<AidtProblemChatReview {...props(stage(fields))}/>);await screen.findByTestId('independent-candidate-tools');expect(screen.queryByTestId('aidt-problem-missing-input')).toBeNull();expect(screen.queryByRole('button',{name:'确认本轮成果并保存'})).toBeNull();expect(screen.queryByRole('link',{name:'继续第2步'})).toBeNull();expect(screen.queryByText(neighbor.rewrittenTheme)).toBeNull();expect(saveAidtStage).not.toHaveBeenCalled();
 });
 it('a complete but running draft offers no usable confirmation and performs no automatic save',async()=>{
  render(<AidtProblemChatReview {...props(stage(fixture.complete))} running/>);const button=await screen.findByRole('button',{name:'确认本轮成果并保存'});expect(button).toBeDisabled();fireEvent.click(button);expect(saveAidtStage).not.toHaveBeenCalled();expect(screen.queryByRole('link',{name:'继续第2步'})).toBeNull();expect(screen.queryByTestId('aidt-problem-missing-input')).toBeNull();
