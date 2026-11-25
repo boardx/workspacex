@@ -66,6 +66,19 @@ describe("AIDT grouped test records", () => {
     expect(confirmAidtTestProposal(initial, parsed, false)).toBe(initial);
   });
 
+  it("reads the existing no-change result without weakening card or field validation", () => {
+    const wire = {
+      entityId: one, task: "比较销路", reflection: "没有观察到真实用户行为",
+      round: { understandingChangeStatus: "no-change", returnStep: "undecided", returnReason: "需要更多材料" },
+    };
+    const reply = (data: typeof wire) => ({
+      id: "assistant", role: "assistant", content: ["```aidt-test-result", JSON.stringify(data), "```"].join("\n"),
+    });
+    expect(readAidtTestProposal([reply(wire)], one)?.result.round?.understandingChangeStatus).toBe("unchanged");
+    expect(readAidtTestProposal([reply(wire)], two)).toBeNull();
+    expect(readAidtTestProposal([reply({ ...wire, round: { ...wire.round, understandingChangeStatus: "invalid" } })], one)).toBeNull();
+  });
+
   it("ignores malformed or differently keyed values and never equates source text with evidence", () => {
     const group = createAidtTestGroup(snapshot, one)!;
     expect(readAidtTestGroups({ ["testGroup:" + two]: JSON.stringify(group), ["testGroup:" + one]: "invalid" })).toEqual([]);

@@ -96,6 +96,9 @@ export function AidtTestConversation({ projectId, entityId, draft, savedDraft, m
   const group = readAidtTestGroups(draft.fields).find(item => item.id === entityId && !item.archived);
   const saved = readAidtTestGroups(savedDraft?.fields ?? {}).find(item => item.id === entityId && !item.archived);
   const proposal = React.useMemo(() => loading || running ? null : readAidtTestProposal(messages, entityId), [entityId, loading, messages, running]);
+  const latestUserIndex = messages.findLastIndex(message => message.role === "user");
+  const hasResultReply = !loading && !running && messages.slice(latestUserIndex + 1).some(message =>
+    message.role === "assistant" && typeof message.content === "string" && /^```aidt-test-result[ \t]*$/m.test(message.content));
   const plan = React.useMemo(() => loading || running ? null : readAidtTestPlan(messages, entityId), [entityId, loading, messages, running]);
   const access = useTestEvidenceAccess(projectId, group);
   const sourceAccessible = group?.researchPath !== "virtual" && !group?.evidenceOrigin && Boolean(access?.material || (group?.method === "survey" && access?.response));
@@ -134,7 +137,7 @@ export function AidtTestConversation({ projectId, entityId, draft, savedDraft, m
         update={update} sourcesOnly onSourceChange={requestSave} />
     </details>}
     {(!readOnly || completed) && <div className="flex flex-wrap items-center gap-2">
-      {!readOnly && (proposal ? saved?.confirmedFromMessageId !== proposal.messageId : !completed) && <AidtConfirmAction variant="primary" disabled={loading || running} blocker={!proposal ? "请在当前对话整理测试结果草稿，并在「关联测试材料」中核对来源。" : !proposed ? "请核对测试材料来源，或在草稿中说明证据缺口。" : !canSave ? "小组当前无法保存。请检查保存回执，核对最新版本后重试。" : null} onConfirm={() => {
+      {!readOnly && (proposal ? saved?.confirmedFromMessageId !== proposal.messageId : !completed) && <AidtConfirmAction variant="primary" disabled={loading || running} blocker={!proposal ? hasResultReply ? "当前回复中的测试结果草稿无法用于确认。请在下方对话输入框发送「根据已关联材料重新整理本卡的测试结果，证据不足请明确标注」，等新回复后再确认。" : "还没有可确认的测试结果草稿。请在「关联测试材料」核对来源，然后在下方对话输入框请求整理本轮测试结果。" : !proposed ? "请核对测试材料来源，或在草稿中说明证据缺口。" : !canSave ? "小组当前无法保存。请检查保存回执，核对最新版本后重试。" : null} onConfirm={() => {
         if (!proposal || !proposed || !canSave) return;
         if (retry) { requestSave(); return; }
         pending.current = { entityId, messageId: proposal.messageId };

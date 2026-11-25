@@ -6,7 +6,8 @@ import { isAidtTestGroupConfirmed, readAidtTestGroups, updateAidtTestGroup, type
 import type { AidtUiStageDraft } from "./aidt-ui-drafts";
 
 const RoundProposal = z.object({
-  understandingChangeStatus: z.enum(["changed", "unchanged", "insufficient"]),
+  understandingChangeStatus: z.enum(["changed", "unchanged", "insufficient", "no-change"])
+    .transform(status => status === "no-change" ? "unchanged" : status),
   afterTestBelief: z.string().trim().max(1200).optional(),
   understandingEvidence: z.string().trim().max(1200).optional(),
   unresolvedQuestions: z.string().trim().max(1000).optional(),
@@ -37,7 +38,7 @@ const Plan = Proposal.pick({ entityId: true, task: true, situation: true });
 export type AidtTestPlanCandidate = z.infer<typeof Plan>;
 export type AidtTestResultCandidate = z.infer<typeof Proposal>;
 
-function parseCandidate<T>(content: string, entityId: string, fence: "aidt-test-plan" | "aidt-test-result", schema: z.ZodType<T & { entityId: string }>): T | null {
+function parseCandidate<T>(content: string, entityId: string, fence: "aidt-test-plan" | "aidt-test-result", schema: z.ZodType<T & { entityId: string }, z.ZodTypeDef, unknown>): T | null {
   const pattern = new RegExp("(?:^|\\r?\\n)```" + fence + "[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n```(?=\\r?\\n|$)", "g");
   const blocks = [...content.matchAll(pattern)];
   if (blocks.length !== 1 || !blocks[0]?.[1] || blocks[0][1].length > 10000) return null;
@@ -46,7 +47,7 @@ function parseCandidate<T>(content: string, entityId: string, fence: "aidt-test-
 export const parseAidtTestPlanCandidate = (text: string, entityId: string) => parseCandidate<AidtTestPlanCandidate>(text, entityId, "aidt-test-plan", Plan);
 export const parseAidtTestResultCandidate = (text: string, entityId: string) => parseCandidate<AidtTestResultCandidate>(text, entityId, "aidt-test-result", Proposal);
 
-function readAidtTestBlock<T>(messages: readonly AidtTestTurn[], entityId: string, fence: "aidt-test-plan" | "aidt-test-result", schema: z.ZodType<T & { entityId: string }>) {
+function readAidtTestBlock<T>(messages: readonly AidtTestTurn[], entityId: string, fence: "aidt-test-plan" | "aidt-test-result", schema: z.ZodType<T & { entityId: string }, z.ZodTypeDef, unknown>) {
   const block = new RegExp("(?:^|\\r?\\n)```" + fence + "[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n```(?=\\r?\\n|$)", "g");
   for (let index = messages.length - 1; index >= 0; index--) {
     const turn = messages[index]!;
