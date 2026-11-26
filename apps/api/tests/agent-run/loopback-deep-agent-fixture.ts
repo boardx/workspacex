@@ -1,3 +1,4 @@
+import { loopbackAidtProblemReply } from "../../scripts/loopback-aidt-problem";
 import { FILE_CONTEXT_MESSAGE_HEADER_PREFIX, FILE_RETRIEVAL_SOURCE_KINDS } from "../../src/application/agent-run/file-retrieval";
 import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../../src/application/agent-run/tool-trace-context";
 import { multistepPlanMessages } from "../../scripts/loopback-multistep-plan";
@@ -38,6 +39,7 @@ export function fixture(extraEnv: Record<string, string> = {}, fetchImpl?: typeo
     exports: {}, process: {env: {LOOPBACK_DEEP_AGENT_PROVIDER_PORT: "9999", LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: "multistep", ...extraEnv}, once: () => {}},
     require: (name: string) => {
       if (name === "node:http") return {createServer: (callback: typeof handle) => { handle = callback; return server; }};
+      if (name === "./loopback-aidt-problem") return { loopbackAidtProblemReply };
       if (name === "./loopback-multistep-plan") return {multistepPlanMessages};
       if (name === "./loopback-run-stream-hold") return {LoopbackRunStreamHold};
       if (name === "./loopback-run-cancellation") return {LoopbackRunCancellation};
