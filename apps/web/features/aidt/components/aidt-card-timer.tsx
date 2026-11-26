@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, GripVertical, Pause, Play, Plus, Timer } from "lucide-react";
+import { ChevronDown, Pause, Play, Plus, Timer } from "lucide-react";
 import { AidtTimerResponse, AIDT_TIMER_PATH, type AidtTimerAction } from "@repo/contracts/aidt-stages";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api-client";
@@ -24,7 +24,8 @@ export function AidtCardTimer({ projectId, stageId, entityId, sessionToken }: Pr
   const [error, setError] = useState("");
   const [position, setPosition] = useState<{ left: number; top: number }>();
   const floating = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ pointerId: number; offsetX: number; offsetY: number }>();
+  const drag = useRef<{ pointerId: number; offsetX: number; offsetY: number; startX: number; startY: number }>();
+  const dragged = useRef(false);
   const requestVersion = useRef(0);
   const panelId = useId();
   const path = AIDT_TIMER_PATH.replace(":projectId", encodeURIComponent(projectId))
@@ -139,46 +140,53 @@ export function AidtCardTimer({ projectId, stageId, entityId, sessionToken }: Pr
         setOpen(false);
       }
     }}>
-    <div className="flex items-center">
-      <button type="button" aria-label="移动计时器（也可使用方向键）" title="拖动计时器"
-        className="ml-1 grid size-9 shrink-0 touch-none cursor-grab place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring active:cursor-grabbing"
-        onPointerDown={event => {
-          if (!event.isPrimary || event.button !== 0 || !floating.current) return;
-          const bounds = floating.current.getBoundingClientRect();
-          event.currentTarget.setPointerCapture(event.pointerId);
-          drag.current = { pointerId: event.pointerId, offsetX: event.clientX - bounds.left, offsetY: event.clientY - bounds.top };
-        }}
-        onPointerMove={event => {
-          const pointer = drag.current;
-          if (pointer?.pointerId !== event.pointerId || !floating.current) return;
-          setPosition(keepTimerInView(event.clientX - pointer.offsetX, event.clientY - pointer.offsetY, floating.current.getBoundingClientRect()));
-        }}
-        onLostPointerCapture={event => {
-          if (drag.current?.pointerId === event.pointerId) drag.current = undefined;
-        }}
-        onKeyDown={event => {
-          const offsets: Record<string, [number, number]> = {
-            ArrowLeft: [-16, 0], ArrowRight: [16, 0], ArrowUp: [0, -16], ArrowDown: [0, 16],
-          };
-          const offset = offsets[event.key];
-          if (!offset || !floating.current) return;
-          event.preventDefault();
-          const bounds = floating.current.getBoundingClientRect();
-          setPosition(keepTimerInView(bounds.left + offset[0], bounds.top + offset[1], bounds));
-        }}>
-        <GripVertical className="size-4" aria-hidden />
-      </button>
-      <Button type="button" size="md" variant="ghost"
-        className={open ? "min-w-0 flex-1 justify-between rounded-t-2xl px-4 text-card-foreground" : "rounded-2xl px-3 text-card-foreground"}
-        aria-label={open ? "收起小组计时器" : undefined}
-        aria-expanded={open} aria-controls={open ? panelId : undefined} onClick={() => setOpen(!open)}>
-        <span className="flex items-center gap-2">
-          <Timer className="size-4" aria-hidden />
-          {open || !timer ? "小组计时" : <><span className="sr-only">小组计时，{status}，剩余</span><span className="font-mono tabular-nums">{time}</span></>}
-        </span>
-        {open && <ChevronDown className="size-4 text-muted-foreground" aria-hidden />}
-      </Button>
-    </div>
+    <Button type="button" size="md" variant="ghost"
+      className={`touch-none select-none cursor-grab active:cursor-grabbing text-card-foreground ${open ? "w-full justify-between rounded-t-2xl px-4" : "rounded-2xl px-3"}`}
+      aria-expanded={open} aria-controls={open ? panelId : undefined}
+      onClick={event => {
+        if (event.detail !== 0 && dragged.current) return;
+        setOpen(previous => !previous);
+      }}
+      onPointerDown={event => {
+        if (!event.isPrimary || event.button !== 0 || !floating.current) return;
+        const bounds = floating.current.getBoundingClientRect();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        dragged.current = false;
+        drag.current = {
+          pointerId: event.pointerId,
+          offsetX: event.clientX - bounds.left,
+          offsetY: event.clientY - bounds.top,
+          startX: event.clientX,
+          startY: event.clientY,
+        };
+      }}
+      onPointerMove={event => {
+        const pointer = drag.current;
+        if (pointer?.pointerId !== event.pointerId || !floating.current) return;
+        if (!dragged.current && Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) < 6) return;
+        dragged.current = true;
+        setPosition(keepTimerInView(event.clientX - pointer.offsetX, event.clientY - pointer.offsetY, floating.current.getBoundingClientRect()));
+      }}
+      onLostPointerCapture={event => {
+        if (drag.current?.pointerId === event.pointerId) drag.current = undefined;
+      }}
+      onKeyDown={event => {
+        const offsets: Record<string, [number, number]> = {
+          ArrowLeft: [-16, 0], ArrowRight: [16, 0], ArrowUp: [0, -16], ArrowDown: [0, 16],
+        };
+        const offset = offsets[event.key];
+        if (!offset || !floating.current) return;
+        event.preventDefault();
+        const bounds = floating.current.getBoundingClientRect();
+        setPosition(keepTimerInView(bounds.left + offset[0], bounds.top + offset[1], bounds));
+      }}>
+      <span className="flex items-center gap-2">
+        <Timer className="size-4" aria-hidden />
+        计时器
+        {!open && timer && <><span className="sr-only">，{status}，剩余</span><span className="font-mono tabular-nums">{time}</span></>}
+      </span>
+      {open && <ChevronDown className="size-4 text-muted-foreground" aria-hidden />}
+    </Button>
 
     {open && <div id={panelId} className="w-72 max-w-full space-y-3 px-3 pb-3">
       <p className="text-center text-12 text-muted-foreground">当前卡片 {roomCount} 人在场</p>
@@ -218,7 +226,7 @@ export function AidtCardTimer({ projectId, stageId, entityId, sessionToken }: Pr
         </div>
       </form>)}
       {canControl && timer && <div className="flex justify-center border-t border-border-subtle pt-1">
-        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void send({ action: "close" })}>结束小组计时</Button>
+        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void send({ action: "close" })}>结束计时</Button>
       </div>}
       {!canControl && <p className="text-12 text-muted-foreground">当前只能查看计时。</p>}
       {error && <p role="alert" className="text-12 text-destructive">{error}</p>}
