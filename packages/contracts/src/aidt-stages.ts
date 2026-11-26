@@ -92,6 +92,20 @@ export const StageError = z.enum(["AIDT_STAGE_NOT_FOUND", "AIDT_STAGE_READONLY",
 const location = z.object({ projectId: z.string().min(1), stageId: StageId });
 export const AIDT_ENTITY_THREAD_PREFIX = "thr_aidt_";
 export const AidtEntityId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/);
+export const AidtTimerLocation = location.extend({ entityId: AidtEntityId });
+const timerMs = z.number().int().min(0).max(86_400_000);
+export const AidtTimerCommand = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("start"), durationMs: timerMs.positive() }).strict(),
+  z.object({ action: z.literal("add"), durationMs: timerMs.positive() }).strict(),
+  z.object({ action: z.literal("pause") }).strict(),
+  z.object({ action: z.literal("resume") }).strict(),
+  z.object({ action: z.literal("close") }).strict(),
+]);
+export const AidtTimerState = z.object({ remainingMs: timerMs, endsAtMs: z.number().int().nullable() });
+export const AidtTimerResponse = z.object({ timer: AidtTimerState.nullable(), nowMs: z.number().int(), canControl: z.boolean() });
+export type AidtTimer = z.infer<typeof AidtTimerState>;
+export type AidtTimerAction = z.infer<typeof AidtTimerCommand>;
+export const AIDT_TIMER_PATH = "/projects/:projectId/aidt/stages/:stageId/entities/:entityId/timer";
 const entityLocation = location.extend({ entityId: AidtEntityId, purpose: z.enum(["stage", "report"]) }).strict()
   .refine(value => value.purpose !== "report" || value.stageId === 6);
 // Saving appends expectedRevision + 1, so the base must leave room for that new row.
