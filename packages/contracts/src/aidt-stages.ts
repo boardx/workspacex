@@ -102,7 +102,13 @@ export const AidtTimerCommand = z.discriminatedUnion("action", [
   z.object({ action: z.literal("close") }).strict(),
 ]);
 export const AidtTimerState = z.object({ remainingMs: timerMs, endsAtMs: z.number().int().nullable() });
-export const AidtTimerResponse = z.object({ timer: AidtTimerState.nullable(), nowMs: z.number().int(), canControl: z.boolean() });
+export const AidtTimerPresence = z.object({
+  action: z.enum(["heartbeat", "leave"]),
+  sessionId: z.string().uuid(),
+}).strict();
+export type AidtTimerPresenceAction = z.infer<typeof AidtTimerPresence>;
+export const AidtTimerRequest = z.union([AidtTimerCommand, AidtTimerPresence]);
+export const AidtTimerResponse = z.object({ timer: AidtTimerState.nullable(), nowMs: z.number().int(), canControl: z.boolean(), roomCount: z.number().int().nonnegative() });
 export type AidtTimer = z.infer<typeof AidtTimerState>;
 export type AidtTimerAction = z.infer<typeof AidtTimerCommand>;
 export const AIDT_TIMER_PATH = "/projects/:projectId/aidt/stages/:stageId/entities/:entityId/timer";

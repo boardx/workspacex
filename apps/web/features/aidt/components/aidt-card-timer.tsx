@@ -21,26 +21,52 @@ export function AidtCardTimer({ projectId, stageId, entityId, sessionToken }: Pr
     .replace(":stageId", String(stageId)).replace(":entityId", encodeURIComponent(entityId));
 
   useEffect(() => {
-    const controller = new AbortController();
-    let timeout: ReturnType<typeof setTimeout>;
-    async function poll() {
-      const version = requestVersion.current;
-      try {
-        const value = AidtTimerResponse.parse(await apiRequest(path, { method: "GET", sessionToken, signal: controller.signal }));
-        if (!controller.signal.aborted && version === requestVersion.current) setSample({ value, received: performance.now() });
-      } catch {
-        if (!controller.signal.aborted) setSample(previous => previous?.value.canControl
-          ? { ...previous, value: { ...previous.value, canControl: false } }
-          : previous);
-      } finally {
-        if (!controller.signal.aborted) timeout = setTimeout(poll, 3000);
+    let session: { id: string; controller: AbortController; timeout?: ReturnType<typeof setTimeout> } | undefined;
+
+    function enter() {
+      if (session) return;
+      const room = { id: crypto.randomUUID(), controller: new AbortController(), timeout: undefined as ReturnType<typeof setTimeout> | undefined };
+      session = room;
+      async function poll() {
+        const version = requestVersion.current;
+        const { signal } = room.controller;
+        try {
+          const value = AidtTimerResponse.parse(await apiRequest(path, {
+            method: "POST", sessionToken, signal, body: { action: "heartbeat", sessionId: room.id },
+          }));
+          if (!signal.aborted && version === requestVersion.current) setSample({ value, received: performance.now() });
+        } catch {
+          if (!signal.aborted && version === requestVersion.current) {
+            setSample(previous => previous?.value.canControl
+              ? { ...previous, value: { ...previous.value, canControl: false } }
+              : previous);
+          }
+        } finally {
+          if (!signal.aborted) room.timeout = setTimeout(poll, 3000);
+        }
       }
+      void poll();
     }
-    void poll();
+
+    function leave() {
+      if (!session) return;
+      const room = session;
+      session = undefined;
+      room.controller.abort();
+      clearTimeout(room.timeout);
+      void apiRequest(path, {
+        method: "POST", sessionToken, keepalive: true, body: { action: "leave", sessionId: room.id },
+      }).catch(() => { /* The server expires the lease if delivery fails. */ });
+    }
+
+    enter();
+    window.addEventListener("pagehide", leave);
+    window.addEventListener("pageshow", enter);
     const ticker = setInterval(() => setTick(performance.now()), 250);
     return () => {
-      controller.abort();
-      clearTimeout(timeout);
+      leave();
+      window.removeEventListener("pagehide", leave);
+      window.removeEventListener("pageshow", enter);
       clearInterval(ticker);
     };
   }, [path, sessionToken]);
@@ -62,7 +88,7 @@ export function AidtCardTimer({ projectId, stageId, entityId, sessionToken }: Pr
   }
 
   if (!sample) return null;
-  const { timer, nowMs, canControl } = sample.value;
+  const { timer, nowMs, canControl, roomCount } = sample.value;
   const remaining = timer?.endsAtMs == null
     ? timer?.remainingMs ?? 0
     : Math.max(0, timer.endsAtMs - nowMs - Math.max(0, tick - sample.received));
@@ -96,6 +122,7 @@ export function AidtCardTimer({ projectId, stageId, entityId, sessionToken }: Pr
     </Button>
 
     {open && <div id={panelId} className="w-72 max-w-full space-y-3 px-3 pb-3">
+      <p className="text-center text-12 text-muted-foreground">当前卡片 {roomCount} 人在场</p>
       <div className="grid justify-items-center gap-1 rounded-xl bg-muted px-3 py-4">
         <span role="status" className={timer && seconds === 0 ? "text-12 font-medium text-destructive" : "text-12 text-muted-foreground"}>{status}</span>
         <span role={timer ? "timer" : undefined} aria-label={timer ? "剩余时间" : undefined}

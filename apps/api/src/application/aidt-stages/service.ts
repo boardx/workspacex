@@ -1,4 +1,4 @@
-import { type AidtTimerAction } from "@repo/contracts/aidt-stages";
+import { type AidtTimerAction, type AidtTimerPresenceAction } from "@repo/contracts/aidt-stages";
 import { transitionAidtTimer } from "./timer";
 import { AIDT_BRAINSTORM_PREFIX, AIDT_BRAINSTORM_SELECTION_FIELD, readAidtBrainstorm, readAidtBrainstormSelection, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { randomUUID } from "node:crypto";
@@ -36,7 +36,7 @@ export class AidtStagesService {
       return fn(tx,read);
     }); } catch(e) { if(e instanceof AidtStageError) throw e; throw new AidtStageError("AIDT_STAGE_UNAVAILABLE"); }
   }
-  cardTimer(actor: StageActor, stageId: number, entityId: string, command?: AidtTimerAction) {
+  cardTimer(actor: StageActor, stageId: number, entityId: string, request?: AidtTimerAction | AidtTimerPresenceAction) {
     return this.access(actor, false, async (tx, decision) => {
       const saved = unwrap(await tx.current(stageId), decision);
       const design = stageId === 5 && tx.projectResources
@@ -47,12 +47,19 @@ export class AidtStagesService {
         throw new AidtStageError("AIDT_STAGE_NOT_FOUND");
       }
       const canControl = tx.project?.status === "active" && tx.project.orgStatus === "active";
+      const presence = request && "sessionId" in request ? request : undefined;
+      const command = request && !("sessionId" in request) ? request : undefined;
       if (command && !canControl) throw new AidtStageError("AIDT_STAGE_READONLY");
-      if (!tx.timer || !tx.saveTimer) throw new AidtStageError("AIDT_STAGE_UNAVAILABLE");
+      if (!tx.timer || !tx.saveTimer || !tx.timerPresence) throw new AidtStageError("AIDT_STAGE_UNAVAILABLE");
       const { timer, nowMs } = await tx.timer(stageId, entityId);
-      const next = command ? transitionAidtTimer(timer, command, nowMs) : timer;
+      if (!canControl) return { timer: null, nowMs, canControl, roomCount: 0 };
+
+      const { before, after: roomCount } = await tx.timerPresence(stageId, entityId, nowMs, presence);
+      // A first heartbeat after an empty period starts a fresh room, even if no leave request arrived.
+      const current = before > 0 && roomCount > 0 ? timer : null;
+      const next = command && roomCount > 0 ? transitionAidtTimer(current, command, nowMs) : current;
       if (next !== timer) await tx.saveTimer(stageId, entityId, next);
-      return { timer: next, nowMs, canControl };
+      return { timer: next, nowMs, canControl: roomCount > 0, roomCount };
     });
   }
   async entityThread(actor: StageActor, raw: { stageId: number; entityId: string; purpose: "stage" | "report" }) {

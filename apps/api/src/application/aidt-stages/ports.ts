@@ -1,4 +1,4 @@
-import type { AidtTimer, SaveStageInput, SharedStageValue } from "@repo/contracts/aidt-stages";
+import type { AidtTimer, AidtTimerPresenceAction, SaveStageInput, SharedStageValue } from "@repo/contracts/aidt-stages";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
 import type { ProjectResourceRow } from "../project/project-resource-ports";
@@ -6,6 +6,7 @@ import type { IdentityRepository } from "../identity/ports";
 export type StageActor = { orgId: OrgId; userId: string; projectId: string };
 export interface StageTransaction {
   timer?(stageId: number, entityId: string): Promise<{ timer: AidtTimer | null; nowMs: number }>;
+  timerPresence?(stageId: number, entityId: string, nowMs: number, action?: AidtTimerPresenceAction): Promise<{ before: number; after: number }>;
   saveTimer?(stageId: number, entityId: string, timer: AidtTimer | null): Promise<void>;
   identity: IdentityRepository;
   project: { status: string; orgStatus: string; aidt: boolean } | null;
