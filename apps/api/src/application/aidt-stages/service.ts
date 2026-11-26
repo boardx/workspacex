@@ -1,3 +1,5 @@
+import { type AidtTimerAction } from "@repo/contracts/aidt-stages";
+import { transitionAidtTimer } from "./timer";
 import { AIDT_BRAINSTORM_PREFIX, AIDT_BRAINSTORM_SELECTION_FIELD, readAidtBrainstorm, readAidtBrainstormSelection, readAidtBrainstorms } from "@repo/contracts/aidt-brainstorm";
 import { randomUUID } from "node:crypto";
 import { operations, SaveInput, isStageRequestTooLarge, isAidtConfirmedHmwSource, readIdeaHmwSource, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
@@ -33,6 +35,25 @@ export class AidtStagesService {
       }
       return fn(tx,read);
     }); } catch(e) { if(e instanceof AidtStageError) throw e; throw new AidtStageError("AIDT_STAGE_UNAVAILABLE"); }
+  }
+  cardTimer(actor: StageActor, stageId: number, entityId: string, command?: AidtTimerAction) {
+    return this.access(actor, false, async (tx, decision) => {
+      const saved = unwrap(await tx.current(stageId), decision);
+      const design = stageId === 5 && tx.projectResources
+        ? unwrap(await tx.projectResources(), decision)?.some(resource => resource.kind === "design" && resource.id === entityId && resource.status !== "archived")
+        : false;
+      if ((stageId === 5 && isAidtPrototypeEntityArchived(saved, entityId))
+        || (!design && aidtSavedEntityTitle(saved, entityId, "stage") === null)) {
+        throw new AidtStageError("AIDT_STAGE_NOT_FOUND");
+      }
+      const canControl = tx.project?.status === "active" && tx.project.orgStatus === "active";
+      if (command && !canControl) throw new AidtStageError("AIDT_STAGE_READONLY");
+      if (!tx.timer || !tx.saveTimer) throw new AidtStageError("AIDT_STAGE_UNAVAILABLE");
+      const { timer, nowMs } = await tx.timer(stageId, entityId);
+      const next = command ? transitionAidtTimer(timer, command, nowMs) : timer;
+      if (next !== timer) await tx.saveTimer(stageId, entityId, next);
+      return { timer: next, nowMs, canControl };
+    });
   }
   async entityThread(actor: StageActor, raw: { stageId: number; entityId: string; purpose: "stage" | "report" }) {
     const parsed = operations.entityThread.in.safeParse({ ...raw, projectId: actor.projectId });

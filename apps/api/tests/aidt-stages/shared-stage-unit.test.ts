@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
-import { operations, SaveInput, SharedStage, SourceStageRevision, StageContent, StageSummary, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
+import { operations, SaveInput, SharedStage, SourceStageRevision, StageContent, StageSummary, type AidtTimer, type SaveStageInput, type SharedStageValue } from "@repo/contracts/aidt-stages";
 import { AidtStagesService } from "../../src/application/aidt-stages/service";
 import { aidtSavedEntityContext } from "../../src/application/aidt-stages/entity-thread";
 import type { AidtStageRepository, StageActor, StageTransaction } from "../../src/application/aidt-stages/ports";
@@ -10,6 +10,7 @@ import { toOrgId } from "../../src/domain/org-id";
 const actor:StageActor={orgId:toOrgId("org-a"),userId:"student-a",projectId:"project-a"};
 function input(stageId=1,expectedRevision=0):SaveStageInput{return {projectId:actor.projectId,stageId,expectedRevision,operationId:randomUUID(),content:{schemaVersion:1,draft:{fields:{initial:"学生想法"},ideas:[],selectedIdeaId:""}},sourceStageRevisions:[]};}
 function fixture(){
+  const timers = new Map<string, AidtTimer>();
   const entityThreads = new Map<string, string>();
   const records:Array<{stage:SharedStageValue;requestKey:string;operationId:string;actor:string}>=[];
   const members=new Map([["student-a","owner"],["student-b","collaborator"]]);
@@ -22,8 +23,14 @@ function fixture(){
       findNonWorkshopStanding:async()=>({containerKind:"general",memberRole:members.get(who.userId)??null}),
       findBindings:async()=>new Map(),
     } as unknown as IdentityRepository;
-    const ref={kind:"project" as const,id:who.projectId};const own=()=>records.filter(r=>r.stage.projectId===who.projectId&&who.orgId===actor.orgId);
-    return await fn({identity,project:who.projectId===actor.projectId&&who.orgId===actor.orgId?state:null,
+    const ref={kind:"project" as const,id:who.projectId};const timerKey=(stageId:number,entityId:string)=>JSON.stringify([who.orgId,who.projectId,stageId,entityId]);const own=()=>records.filter(r=>r.stage.projectId===who.projectId&&who.orgId===actor.orgId);
+    return await fn({identity,project:[actor.projectId, "project-b"].includes(who.projectId)&&who.orgId===actor.orgId?state:null,
+      timer: async (stageId, entityId) => ({ timer: timers.get(timerKey(stageId, entityId)) ?? null, nowMs: 1000 }),
+      saveTimer: async (stageId, entityId, timer) => {
+        const key = timerKey(stageId, entityId);
+        if (timer) timers.set(key, timer);
+        else timers.delete(key);
+      },
       ensureEntityThread: async (threadId, title, syncInterviewTitle) => {
         if (syncInterviewTitle || !entityThreads.has(threadId)) entityThreads.set(threadId, title);
         return guard(ref, { threadId });
@@ -40,6 +47,34 @@ function fixture(){
   return {service:new AidtStagesService(repo,()=>true),repo,records,members,entityThreads,setState:(v:Partial<typeof state>)=>{state={...state,...v};},fail:()=>{fail=true;}};
 }
 describe("AIDT shared stage transaction behavior (in-memory ports, not PG evidence)",()=>{
+  it("shares countdown control between members of one card and isolates other cards and groups", async () => {
+    const { service, setState } = fixture();
+    const teammate = { ...actor, userId: "student-b" };
+    const otherGroup = { ...actor, projectId: "project-b" };
+    for (const member of [actor, otherGroup]) {
+      const draft = { ...input(2), projectId: member.projectId };
+      for (const id of ["first", "second"]) {
+        draft.content.draft.fields["interviewRecord:" + id] = JSON.stringify({ id, code: "U01" });
+      }
+      await service.save(member, draft);
+    }
+    await service.cardTimer(actor, 2, "first", { action: "start", durationMs: 60_000 });
+    expect((await service.cardTimer(teammate, 2, "first")).timer?.endsAtMs).toBe(61_000);
+    expect((await service.cardTimer(teammate, 2, "second")).timer).toBeNull();
+    expect((await service.cardTimer(otherGroup, 2, "first")).timer).toBeNull();
+    await service.cardTimer(teammate, 2, "first", { action: "pause" });
+    await Promise.all([actor, teammate].map(member =>
+      service.cardTimer(member, 2, "first", { action: "add", durationMs: 60_000 })));
+    expect((await service.cardTimer(actor, 2, "first")).timer).toEqual({ endsAtMs: null, remainingMs: 180_000 });
+    await service.cardTimer(teammate, 2, "first", { action: "resume" });
+    expect((await service.cardTimer(actor, 2, "first")).timer?.endsAtMs).toBe(181_000);
+    await service.cardTimer(teammate, 2, "first", { action: "close" });
+    expect((await service.cardTimer(actor, 2, "first")).timer).toBeNull();
+    await expect(service.cardTimer({ ...actor, userId: "admin" }, 2, "first")).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
+    await expect(service.cardTimer(actor, 2, "missing")).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
+    setState({ status: "archived" });
+    await expect(service.cardTimer(actor, 2, "first", { action: "start", durationMs: 60_000 })).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_READONLY" });
+  });
   it("defaults off with no storage touched",async()=>{const f=fixture();f.fail();await expect(new AidtStagesService(f.repo).get(actor,1)).rejects.toMatchObject({reasonCode:"AIDT_STAGE_NOT_FOUND"});});
   it("stores complete student draft and discovery cards, shared by another member",async()=>{const f=fixture();const v=input(2);v.content.draft.discoveryCards=[{id:"d1",participantCode:"P1",headline:"学生概括",headlineKind:"student-summary",context:"情境",quote:"",sourceRef:"缺口待补",photoRef:""}];await f.service.save(actor,v);expect((await f.service.get({...actor,userId:"student-b"},2)).stage).toMatchObject({revision:1,updatedBy:"student-a",content:v.content});expect(f.records).toHaveLength(1);});
   it("binds ten saved interviews exactly once and retains bindings across actors and renames", async () => {

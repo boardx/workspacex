@@ -1,4 +1,5 @@
 "use client";
+import { AidtCardTimer } from "./aidt-card-timer";
 import { aidtInterviewTitle } from "@repo/contracts/aidt-stages";
 import * as React from "react";
 import Link from "next/link";
@@ -574,6 +575,9 @@ export function ProjectAidt({ projectId, projectName, sub, canWrite, activeProto
     </div>}
   </>;
   return <section className={`flex min-h-0 flex-1 flex-col ${isProjectMemberChatEnabled() ? "pb-12 md:pb-0" : ""}`} data-testid="aidt-workspace" onClickCapture={navigateWorkspace}>
+    {activeEntityId && checkpointScope?.sessionToken && !reportMode && <AidtCardTimer
+      key={`${uiScope}:${step.id}:${activeEntityId}`} projectId={projectId} stageId={step.id}
+      entityId={activeEntityId} sessionToken={checkpointScope.sessionToken} />}
     <div className={problemStep || activeEntityId ? "flex min-h-0 flex-1 flex-col" : "flex min-h-0 flex-1 flex-col xl:flex-row xl:gap-3 xl:p-3"}>
       <div className={problemStep || activeEntityId ? "flex shrink-0 items-center gap-2 border-b border-border px-4 py-3" : "shrink-0 px-3 xl:w-44 xl:px-0"}>
         <Link href={activeEntityId ? directoryHref : aidtHref(projectId)} className="inline-flex shrink-0 items-center gap-2 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ArrowLeft aria-hidden className="h-3.5 w-3.5" />{activeInterview ? "返回访谈列表" : activeEntityId ? problemStep ? "返回问题列表" : "返回产物列表" : "项目总览"}</Link>

@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Put, Inject, Optional, Param, Query, HttpException } from "@nestjs/common";
-import { operations as C, isStageRequestTooLarge } from "@repo/contracts/aidt-stages";
+import { AIDT_TIMER_PATH, AidtTimerCommand, AidtTimerLocation, operations as C, isStageRequestTooLarge } from "@repo/contracts/aidt-stages";
 import { aidtEntityThreadId } from "../../application/aidt-stages/entity-thread";
 import { AIDT_RUN_CONTEXT_EXECUTION, type AidtRunContextExecutionPort } from "../../application/aidt-run-context/ports";
 import { AIDT_STAGES_SERVICE, AidtStagesService } from "../../application/aidt-stages/service";
@@ -13,6 +13,19 @@ function parse<T>(schema:{safeParse(v:unknown):{success:true;data:T}|{success:fa
 export class AidtStagesController {
   constructor(@Inject(AIDT_STAGES_SERVICE) private readonly service:AidtStagesService,
     @Optional() @Inject(AIDT_RUN_CONTEXT_EXECUTION) private readonly projection?:AidtRunContextExecutionPort) {}
+  @Get(AIDT_TIMER_PATH)
+  readCardTimer(@CurrentPrincipal() principal: Principal, @Param() params: Record<string, string>) {
+    assertPrincipal(principal);
+    const input = parse(AidtTimerLocation, { ...params, stageId: Number(params.stageId) });
+    return respond(() => this.service.cardTimer({ ...principal, projectId: input.projectId }, input.stageId, input.entityId));
+  }
+  @Post(AIDT_TIMER_PATH)
+  updateCardTimer(@CurrentPrincipal() principal: Principal, @Param() params: Record<string, string>, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = parse(AidtTimerLocation, { ...params, stageId: Number(params.stageId) });
+    const command = parse(AidtTimerCommand, body);
+    return respond(() => this.service.cardTimer({ ...principal, projectId: input.projectId }, input.stageId, input.entityId, command));
+  }
   @Post(C.reconcileEntity.path)
   reconcile(@CurrentPrincipal() principal:Principal,@Param("projectId") projectId:string,@Param("stageId") rawStage:string,@Param("entityId") entityId:string) {
     assertPrincipal(principal);

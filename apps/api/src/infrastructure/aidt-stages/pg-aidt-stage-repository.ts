@@ -34,6 +34,28 @@ export class PgAidtStageRepository implements AidtStageRepository {
       const ref={kind:"project" as const,id:actor.projectId};
       const db = boundDatabase(s, actor.orgId);
       return fn({identity:new PgIdentityRepository(db),
+        async timer(stageId, entityId) {
+          const key = [actor.orgId, actor.projectId, stageId, entityId];
+          const { rows } = await s.query<{ remaining_ms: number | null; ends_at_ms: string | null; now_ms: string }>(
+            `SELECT t.remaining_ms, t.ends_at_ms, floor(extract(epoch from clock_timestamp()) * 1000)::bigint AS now_ms
+             FROM (SELECT 1) AS clock LEFT JOIN aidt_card_timers t
+             ON t.org_id=$1 AND t.project_id=$2 AND t.stage_id=$3 AND t.entity_id=$4`, key);
+          const row = rows[0]!;
+          return { nowMs: Number(row.now_ms), timer: row.remaining_ms === null ? null : {
+            remainingMs: row.remaining_ms, endsAtMs: row.ends_at_ms === null ? null : Number(row.ends_at_ms),
+          } };
+        },
+        async saveTimer(stageId, entityId, timer) {
+          const key = [actor.orgId, actor.projectId, stageId, entityId];
+          if (timer === null) {
+            await s.query("DELETE FROM aidt_card_timers WHERE org_id=$1 AND project_id=$2 AND stage_id=$3 AND entity_id=$4", key);
+            return;
+          }
+          await s.query(`INSERT INTO aidt_card_timers (org_id, project_id, stage_id, entity_id, remaining_ms, ends_at_ms)
+            VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (org_id, project_id, stage_id, entity_id)
+            DO UPDATE SET remaining_ms=EXCLUDED.remaining_ms, ends_at_ms=EXCLUDED.ends_at_ms`,
+            [...key, timer.remainingMs, timer.endsAtMs]);
+        },
         projectResources: () => new PgProjectResourceRepository(db).listProjectResources(actor.orgId, actor.projectId),
         async ensureEntityThread(threadId, title, syncInterviewTitle) {
           // The project row lock above serializes this lookup, insert and audit.
