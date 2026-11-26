@@ -10,6 +10,8 @@ import { toOrgId } from "../../src/domain/org-id";
 const actor:StageActor={orgId:toOrgId("org-a"),userId:"student-a",projectId:"project-a"};
 function input(stageId=1,expectedRevision=0):SaveStageInput{return {projectId:actor.projectId,stageId,expectedRevision,operationId:randomUUID(),content:{schemaVersion:1,draft:{fields:{initial:"学生想法"},ideas:[],selectedIdeaId:""}},sourceStageRevisions:[]};}
 function fixture(){
+  let nowMs = 1000;
+  const presence = new Map<string, Map<string, { userId: string; expires: number }>>();
   const timers = new Map<string, AidtTimer>();
   const entityThreads = new Map<string, string>();
   const records:Array<{stage:SharedStageValue;requestKey:string;operationId:string;actor:string}>=[];
@@ -25,7 +27,17 @@ function fixture(){
     } as unknown as IdentityRepository;
     const ref={kind:"project" as const,id:who.projectId};const timerKey=(stageId:number,entityId:string)=>JSON.stringify([who.orgId,who.projectId,stageId,entityId]);const own=()=>records.filter(r=>r.stage.projectId===who.projectId&&who.orgId===actor.orgId);
     return await fn({identity,project:[actor.projectId, "project-b"].includes(who.projectId)&&who.orgId===actor.orgId?state:null,
-      timer: async (stageId, entityId) => ({ timer: timers.get(timerKey(stageId, entityId)) ?? null, nowMs: 1000 }),
+      timer: async (stageId, entityId) => ({ timer: timers.get(timerKey(stageId, entityId)) ?? null, nowMs }),
+      timerPresence: async (stageId, entityId, now, action) => {
+        const key = timerKey(stageId, entityId);
+        const sessions = presence.get(key) ?? new Map();
+        presence.set(key, sessions);
+        const count = () => new Set([...sessions.values()].filter(session => session.expires > now).map(session => session.userId)).size;
+        const before = count();
+        if (action?.action === "heartbeat") sessions.set(action.sessionId, { userId: who.userId, expires: now + 45_000 });
+        if (action?.action === "leave") sessions.delete(action.sessionId);
+        return { before, after: count() };
+      },
       saveTimer: async (stageId, entityId, timer) => {
         const key = timerKey(stageId, entityId);
         if (timer) timers.set(key, timer);
@@ -44,11 +56,11 @@ function fixture(){
       append:async(value,requestKey)=>{const stage={projectId:who.projectId,stageId:value.stageId,revision:value.expectedRevision+1,content:structuredClone(value.content),sourceStageRevisions:value.sourceStageRevisions,updatedBy:who.userId,updatedAt:new Date().toISOString()};records.push({stage,requestKey,actor:who.userId,operationId:value.operationId});return guard(ref,stage);},
     });}finally{release();}
   }};
-  return {service:new AidtStagesService(repo,()=>true),repo,records,members,entityThreads,setState:(v:Partial<typeof state>)=>{state={...state,...v};},fail:()=>{fail=true;}};
+  return {service:new AidtStagesService(repo,()=>true),repo,records,members,entityThreads,advanceTime:(ms:number)=>{nowMs+=ms;},setState:(v:Partial<typeof state>)=>{state={...state,...v};},fail:()=>{fail=true;}};
 }
 describe("AIDT shared stage transaction behavior (in-memory ports, not PG evidence)",()=>{
   it("shares countdown control between members of one card and isolates other cards and groups", async () => {
-    const { service, setState } = fixture();
+    const { service, setState, advanceTime } = fixture();
     const teammate = { ...actor, userId: "student-b" };
     const otherGroup = { ...actor, projectId: "project-b" };
     for (const member of [actor, otherGroup]) {
@@ -58,6 +70,14 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
       }
       await service.save(member, draft);
     }
+    const firstTab = randomUUID();
+    const secondTab = randomUUID();
+    const teammateTab = randomUUID();
+    const enter = (member: StageActor, sessionId: string) => service.cardTimer(member, 2, "first", { action: "heartbeat", sessionId });
+    const leave = (member: StageActor, sessionId: string) => service.cardTimer(member, 2, "first", { action: "leave", sessionId });
+    expect((await enter(actor, firstTab)).roomCount).toBe(1);
+    expect((await enter(actor, secondTab)).roomCount).toBe(1);
+    expect((await enter(teammate, teammateTab)).roomCount).toBe(2);
     await service.cardTimer(actor, 2, "first", { action: "start", durationMs: 60_000 });
     expect((await service.cardTimer(teammate, 2, "first")).timer?.endsAtMs).toBe(61_000);
     expect((await service.cardTimer(teammate, 2, "second")).timer).toBeNull();
@@ -70,6 +90,14 @@ describe("AIDT shared stage transaction behavior (in-memory ports, not PG eviden
     expect((await service.cardTimer(actor, 2, "first")).timer?.endsAtMs).toBe(181_000);
     await service.cardTimer(teammate, 2, "first", { action: "close" });
     expect((await service.cardTimer(actor, 2, "first")).timer).toBeNull();
+    await service.cardTimer(actor, 2, "first", { action: "start", durationMs: 60_000 });
+    expect(await leave(actor, firstTab)).toMatchObject({ roomCount: 2 });
+    expect(await leave(actor, secondTab)).toMatchObject({ roomCount: 1, timer: { endsAtMs: 61_000 } });
+    expect(await leave(teammate, teammateTab)).toMatchObject({ roomCount: 0, timer: null });
+    expect(await enter(actor, randomUUID())).toMatchObject({ roomCount: 1, timer: null });
+    await service.cardTimer(actor, 2, "first", { action: "start", durationMs: 60_000 });
+    advanceTime(45_001);
+    expect(await enter(teammate, randomUUID())).toMatchObject({ roomCount: 1, timer: null });
     await expect(service.cardTimer({ ...actor, userId: "admin" }, 2, "first")).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
     await expect(service.cardTimer(actor, 2, "missing")).rejects.toMatchObject({ reasonCode: "AIDT_STAGE_NOT_FOUND" });
     setState({ status: "archived" });

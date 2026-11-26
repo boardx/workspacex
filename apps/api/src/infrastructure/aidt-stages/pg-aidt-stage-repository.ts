@@ -45,6 +45,27 @@ export class PgAidtStageRepository implements AidtStageRepository {
             remainingMs: row.remaining_ms, endsAtMs: row.ends_at_ms === null ? null : Number(row.ends_at_ms),
           } };
         },
+        async timerPresence(stageId, entityId, nowMs, action) {
+          const key = [actor.orgId, actor.projectId, stageId, entityId];
+          const scope = "org_id=$1 AND project_id=$2 AND stage_id=$3 AND entity_id=$4";
+          const count = async () => {
+            const { rows } = await s.query<{ count: number }>(
+              `SELECT count(DISTINCT user_id)::integer AS count FROM aidt_card_timer_presence
+               WHERE ${scope} AND expires_at_ms>$5 AND NOT departed`, [...key, nowMs]);
+            return rows[0]!.count;
+          };
+          const before = await count();
+          if (!action) return { before, after: before };
+          await s.query(`DELETE FROM aidt_card_timer_presence WHERE ${scope} AND expires_at_ms<=$5`, [...key, nowMs]);
+          await s.query(`INSERT INTO aidt_card_timer_presence
+            (org_id, project_id, stage_id, entity_id, user_id, session_id, expires_at_ms, departed)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+            ON CONFLICT (org_id, project_id, stage_id, entity_id, user_id, session_id)
+            DO UPDATE SET expires_at_ms=EXCLUDED.expires_at_ms, departed=EXCLUDED.departed
+            WHERE NOT aidt_card_timer_presence.departed OR EXCLUDED.departed`,
+            [...key, actor.userId, action.sessionId, nowMs + 45_000, action.action === "leave"]);
+          return { before, after: await count() };
+        },
         async saveTimer(stageId, entityId, timer) {
           const key = [actor.orgId, actor.projectId, stageId, entityId];
           if (timer === null) {

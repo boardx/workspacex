@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Put, Inject, Optional, Param, Query, HttpException } from "@nestjs/common";
-import { AIDT_TIMER_PATH, AidtTimerCommand, AidtTimerLocation, operations as C, isStageRequestTooLarge } from "@repo/contracts/aidt-stages";
+import { AIDT_TIMER_PATH, AidtTimerRequest, AidtTimerLocation, operations as C, isStageRequestTooLarge } from "@repo/contracts/aidt-stages";
 import { aidtEntityThreadId } from "../../application/aidt-stages/entity-thread";
 import { AIDT_RUN_CONTEXT_EXECUTION, type AidtRunContextExecutionPort } from "../../application/aidt-run-context/ports";
 import { AIDT_STAGES_SERVICE, AidtStagesService } from "../../application/aidt-stages/service";
@@ -23,7 +23,7 @@ export class AidtStagesController {
   updateCardTimer(@CurrentPrincipal() principal: Principal, @Param() params: Record<string, string>, @Body() body: unknown) {
     assertPrincipal(principal);
     const input = parse(AidtTimerLocation, { ...params, stageId: Number(params.stageId) });
-    const command = parse(AidtTimerCommand, body);
+    const command = parse(AidtTimerRequest, body);
     return respond(() => this.service.cardTimer({ ...principal, projectId: input.projectId }, input.stageId, input.entityId, command));
   }
   @Post(C.reconcileEntity.path)

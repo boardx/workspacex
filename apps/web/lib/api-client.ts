@@ -176,6 +176,7 @@ export interface ApiRequestOptions {
    * `copilotkit-v2-shell.tsx` 的 `fetchThreadList`）。
    */
   readonly signal?: AbortSignal;
+  readonly keepalive?: boolean;
 }
 
 /**
@@ -232,6 +233,7 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
     credentials: "include",
     body: opts.multipartBody ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body)),
     signal: opts.signal,
+    keepalive: opts.keepalive,
   });
 
   const text = await res.text();
