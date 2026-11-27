@@ -25,7 +25,7 @@ test(`[A-${mode}] 独立检索模式：真实浏览器回答的通道和材料�
     expect(channels).not.toContain("记下的");
     if (mode === "vector_only") expect([...new Set(channels)]).toEqual(["相似"]);
     else { expect(channels).toContain("全文"); expect(channels).toContain("关联"); }
-    await expect(block.getByTestId("kg-channel-unavailable")).toHaveCount(0);
+    await expect(block.getByTestId("kg-channel-unavailable")).toHaveCount(0); // testid-gate: absent optional recall failures do not render a channel notice
     observations.push({ question, expected: answer, answer: turn.text, channels });
     await page.screenshot({ path: info.outputPath(`${mode}-${observations.length}.png`), fullPage: true });
   }
