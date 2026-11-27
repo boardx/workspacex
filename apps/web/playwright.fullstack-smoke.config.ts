@@ -410,6 +410,7 @@ export default defineConfig({
         "project-aidt-native.spec.ts",
         "aidt-member-collaboration.spec.ts",
         "aidt-entity-chat.spec.ts",
+        "aidt-interview-recording-scroll.spec.ts",
         "aidt-definition-entities.spec.ts",
         "aidt-test-entities.spec.ts",
         "project-invited-list-persistence.spec.ts",
