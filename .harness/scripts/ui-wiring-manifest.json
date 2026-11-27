@@ -3578,6 +3578,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/plan-control-live/page.tsx"
     },
+    "/preview/platform-configuration": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/platform-configuration/page.tsx"
+    },
     "/preview/pricing": {
       "kind": "preview",
       "screen": "apps/web/app/preview/pricing/page.tsx"
