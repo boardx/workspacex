@@ -55,7 +55,7 @@ it("committed reply updates only its entity without a browser; receipt replay an
   await contexts.projectCompleted(f.orgId,result);
   expect(await contexts.reconcileEntity(actor,1,entityId)).toBe(false);
   expect((await read()).revision).toBe(first.revision);
-  await run("我们亲自观察到这个问题","### 原始命题\n新手司机夜间高速公路开车\n### 来源类型\n亲自观察\n### 已知\n施工路段标识变化",false);
+  await run("问题来源：亲自观察\n来源描述：我们亲眼看见施工提示牌更换","### 原始命题\n新手司机夜间高速公路开车\n### 来源类型\n亲自观察\n### 已知\n施工路段标识变化",false);
   expect(await contexts.reconcileEntity(actor,1,entityId)).toBe(true);
   expect(JSON.parse((await read()).content.draft.fields["problemDraft:"+entityId]!)).toMatchObject({problemSources:'["observation"]',known:"施工路段标识变化"});
   const frozen = await f.save(1,{...first.content.draft.fields,["problemDraft:"+entityId]:JSON.stringify({initial:"你好",rewrittenTheme:"确认",roundCompletion:"旧记录"})});
