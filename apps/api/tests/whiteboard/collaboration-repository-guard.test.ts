@@ -11,7 +11,7 @@ const source = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-coll
 const lint = readFileSync(new URL('../../scripts/lint-permission-paths.mjs', import.meta.url), 'utf8');
 const kernel = readFileSync(new URL('../../src/kernel.module.ts', import.meta.url), 'utf8');
 const websocketFixture = readFileSync(new URL('./collaboration-ws.test.ts', import.meta.url), 'utf8');
-const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'restoreDeletion', 'writeCommands', 'writeCommandsInTransaction', 'commit', 'commitInTransaction', 'objectPrefix', 'readStored', 'writeStored', 'documentBytes', 'updateBytes', 'loadInTransaction', 'backfillLegacyBoard', 'backfillLegacyUpdatesInTransaction', 'backfillStorageInTransaction', 'compensateInTransaction'];
+const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'restoreDeletion', 'writeCommands', 'writeCommandsInTransaction', 'commit', 'commitInTransaction', 'objectPrefix', 'readStored', 'writeStored', 'documentBytes', 'updateBytes', 'loadInTransaction', 'backfillLegacyBoard', 'backfillLegacyUpdatesInTransaction', 'backfillStorageInTransaction', 'compensateInTransaction', 'readProjectSnapshots'];
 
 function inspect(code: string): { methods: Map<string, string>; tables: Set<string>; sql: string[] } {
   const file = ts.createSourceFile('pg-collaboration-store.ts', code, ts.ScriptTarget.Latest, true);
@@ -43,11 +43,18 @@ function inspect(code: string): { methods: Map<string, string>; tables: Set<stri
 function audit(code: string): string[] {
   const { methods, tables, sql } = inspect(code);
   const errors: string[] = [];
-  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates', 'whiteboard_comment_threads', 'whiteboard_collaboration_events', 'whiteboard_deletion_receipts']);
+  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates', 'whiteboard_comment_threads', 'whiteboard_collaboration_events', 'whiteboard_deletion_receipts', 'project_resource_links']);
   if (tables.size !== allowedTables.size || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
   if (sql.some(query => /\b(?:FROM|JOIN|INTO|UPDATE)\s+whiteboard_/i.test(query) && !/\borg_id\b/i.test(query))) errors.push('tenant SQL scope');
   if (/\bwithoutTenant\s*\(/.test(code)) errors.push('withoutTenant');
   if (methods.size !== expectedMethods.length || expectedMethods.some(name => !methods.has(name))) errors.push('method coverage');
+
+  const projectSnapshots = methods.get('readProjectSnapshots') ?? '';
+  const linkQueries = sql.filter(query => /\bproject_resource_links\b/i.test(query));
+  if (linkQueries.length !== 1
+    || !/FROM project_resource_links l\s+JOIN whiteboards w ON w.org_id=l.org_id AND w.id::text=l.resource_id\s+LEFT JOIN whiteboard_documents d ON d.org_id=w.org_id AND d.board_id=w.id\s+WHERE l.org_id=\$1 AND l.project_id=\$2 AND l.kind='whiteboard'/.test(linkQueries[0] ?? '')
+    || !projectSnapshots.includes('this.db.withTenant(orgId,')
+    || !projectSnapshots.includes('[orgId, projectId]')) errors.push('project snapshot scope');
 
   const access = methods.get('access') ?? '';
   if (!/FROM whiteboards WHERE org_id=\$1 AND id=\$2 FOR \$\{write \? 'UPDATE' : 'SHARE'\}/.test(access)) errors.push('board tenant lock');
