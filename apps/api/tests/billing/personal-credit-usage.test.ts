@@ -22,22 +22,22 @@ beforeAll(async()=>{ensureDatabase();await migrateOnce();db=new PgDatabase(appCo
   await meter.startRequest(org,{requestId:id,userId:actor,runId:null,callPurpose:"auxiliary",executionAttemptId:null,projectId:null,modelProvider:"test",modelId:"voice",startedAt:new Date().toISOString(),maximumTokens:1000});
   await meter.record(org,{eventId:id,userId:actor,runId:null,modelProvider:"test",modelId:"voice",tokensTotal:tokens,promptTokens:tokens,completionTokens:0,totalSource:"reported",outcome:"succeeded"});
  }
- // Unknown usage is pending, never a settled free call.
+ // A terminal failed call settles at zero even when usage is unknown.
  const id=prefix+"-unknown";await meter.startRequest(orgs[1]!,{requestId:id,userId:user,runId:null,callPurpose:"auxiliary",executionAttemptId:null,projectId:null,modelProvider:"test",modelId:"unknown",startedAt:new Date().toISOString()});
  await meter.record(orgs[1]!,{eventId:id,userId:user,runId:null,modelProvider:"test",modelId:"unknown",tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:"unknown",outcome:"failed"});
 });
 afterAll(async()=>{await asOwner(async c=>{await c.query("DELETE FROM credit_consumption_requests WHERE org_id=ANY($1::text[])",[orgs]);await c.query("DELETE FROM organizations WHERE id=ANY($1::text[])",[orgs]);await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=ANY($1::text[]))",[[user,other,...orgs]]);await c.query("DELETE FROM credit_wallets WHERE owner_id=ANY($1::text[])",[[user,other,...orgs]]);});await db.close();});
-it("uses per-request settled debit, distinguishes actor/payer and leaves unknown usage pending",async()=>{
- const out=await repo.summary(orgs[1]!,query);expect(out.current).toMatchObject({creditHundredths:"3",pendingCreditCalls:1});
+it("uses per-request settled debit, distinguishes actor/payer and settles failed unknown usage at zero",async()=>{
+ const out=await repo.summary(orgs[1]!,query);expect(out.current).toMatchObject({creditHundredths:"3",pendingCreditCalls:0});
  const calls=await repo.calls(orgs[1]!,{...query,limit:10,asOf:out.asOf});
- expect(calls.calls.find(x=>x.modelId==="unknown")).toMatchObject({creditStatus:"pending"});
+ expect(calls.calls.find(x=>x.modelId==="unknown")).toMatchObject({creditStatus:"settled",creditHundredths:"0"});
  expect(calls.calls.filter(x=>x.modelId==="voice").map(x=>x.creditHundredths).sort()).toEqual(["1","2"]);
  expect(calls.calls.every(x=>x.payer?.ownerType==="team"&&x.payer.ownerId===orgs[1]&&x.userId===user)).toBe(true);
 });
 it("self scope spans verified memberships, excludes another actor and foreign tenant, binds cursors to filters",async()=>{
  const {SelfAiUsageService}=await import("../../src/application/auth/self-ai-usage-service");
  const self=new SelfAiUsageService(identity,repo),principal={userId:user,orgId:orgs[0]!};
- const out=await self.summary(principal,query);expect(out.current).toMatchObject({totalTokens:"36",creditHundredths:"9",callCount:7,pendingCreditCalls:1});
+ const out=await self.summary(principal,query);expect(out.current).toMatchObject({totalTokens:"36",creditHundredths:"9",callCount:7,pendingCreditCalls:0});
  const first=await self.calls(principal,{...query,asOf:out.asOf});expect(first.calls).toHaveLength(2);expect(first.nextCursor).not.toBeNull();
  const second=await self.calls(principal,{...query,asOf:out.asOf,cursorTime:first.nextCursor!.occurredAt,cursorId:first.nextCursor!.id});
  expect(second.calls.every(x=>!first.calls.some(y=>x.id===y.id)&&x.userId===user&&x.orgId!==orgs[3])).toBe(true);
