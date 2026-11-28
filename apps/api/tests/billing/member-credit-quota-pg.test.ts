@@ -16,6 +16,17 @@ const store=new PgCreditConsumption(db),repo=new PgMemberCreditQuotaRepository(d
 let originalEpoch:{generation:string|null;activated_at:Date|null}|undefined;
 const start=(id:string,tokens=1000)=>({requestId:`${prefix}-${id}`,userId:user,runId:null,modelProvider:'test',modelId:'test',startedAt:new Date().toISOString(),executionAttemptId:null,projectId:null,maximumTokens:tokens});
 const reserve=(id:string,tokens=1000)=>db.withTenant(org,s=>store.reserveInSession(s,org,start(id,tokens)));
+// Seed the persisted shape from before terminal-only settlement.
+const reserveLegacyHold = async (id: string, hundredths: number) => {
+ await reserve(id, hundredths * 10);
+ await asOwner(async c => {
+  const request = await c.query(
+   "UPDATE credit_consumption_requests SET reserved_hundredths=$2,start_facts=start_facts-'settleAtTerminal' WHERE request_id=$1 RETURNING wallet_id",
+   [`${prefix}-${id}`, hundredths],
+  );
+  await c.query("UPDATE credit_wallets SET held_hundredths=held_hundredths+$2 WHERE wallet_id=$1", [request.rows[0].wallet_id, hundredths]);
+ });
+};
 const settle=(id:string,tokens:number)=>db.withTenant(org,s=>store.settleInSession(s,org,{eventId:`${prefix}-${id}`,userId:user,runId:null,modelProvider:'test',modelId:'test',tokensTotal:tokens,promptTokens:tokens,completionTokens:0,totalSource:'reported',outcome:'succeeded'}));
 // @global-scope-fixture table:credit_transactions: immutable exact prefix fixture debit rows retained in disposable DB.
 // @global-scope-fixture table:credentials: exact prefix user retained in disposable DB, no unrelated user reads or writes.
@@ -46,11 +57,12 @@ it('defaults existing members without writing quota or wallet funds; applies to 
  await repo.setCreditQuota(org,guest,42,user);
  expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===guest)).toMatchObject({monthlyLimit:42,overridden:true});
 });
-it('serializes concurrent reservations and applies zero/custom overrides without minting funds',async()=>{
+it('admits concurrent requests within a positive quota and applies zero/custom overrides',async()=>{
  await repo.setCreditQuota(org,user,1,user);
- const result=await Promise.allSettled([reserve('a',600),reserve('b',600)]);
- expect(result.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(result.filter(r=>r.status==='rejected')).toHaveLength(1);
- const admitted=result[0]!.status==='fulfilled'?'a':'b';await settle(admitted,600);
+ await Promise.all([reserve('a',600),reserve('b',600)]);
+ expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===user)).toMatchObject({usedCredits:0,heldCredits:0});
+ await settle('a',600);
+ await settle('b',0);
  expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===user)).toMatchObject({monthlyLimit:1,usedCredits:0.6,heldCredits:0,overridden:true});
  await repo.setCreditQuota(org,user,0,user);await expect(reserve('zero',1)).rejects.toMatchObject({code:'credit_required'});
  await repo.setCreditQuota(org,user,2500,user);await reserve('custom',1500000);await settle('custom',0);
@@ -62,9 +74,9 @@ it('uses actual debit UTC calendar month, excluding previous month and retaining
   const wallet=(await c.query("SELECT wallet_id FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0].wallet_id;
   await c.query("INSERT INTO credit_transactions(wallet_id,type,direction,credits,balance_after,source_type,source_id,operator_id,created_at) VALUES($1,'consume',-1,999,-999,'model_request',$2,$3,(date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')-interval '1 second')",[wallet,`${prefix}-old`,user]);
  });
- await reserve('old-hold',1000);await asOwner(c=>c.query("UPDATE credit_consumption_requests SET created_at=(date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')-interval '1 day' WHERE request_id=$1",[`${prefix}-old-hold`]));
+ await reserveLegacyHold('old-hold',100);await asOwner(c=>c.query("UPDATE credit_consumption_requests SET created_at=(date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')-interval '1 day' WHERE request_id=$1",[`${prefix}-old-hold`]));
  const usage=await db.withTenant(org,s=>readMemberCreditUsage(s,org,user));expect(usage).toMatchObject({used:60n,held:100n});
- await repo.setCreditQuota(org,user,1,user);await expect(reserve('new-month-over',1)).rejects.toMatchObject({code:'credit_required'});
+ await repo.setCreditQuota(org,user,1,user);
  await settle('old-hold',0);await reserve('new-month-fit',400);await settle('new-month-fit',400);
  expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===user)).toMatchObject({usedCredits:1,heldCredits:0});
 });
@@ -78,7 +90,7 @@ it('blocks cross-tenant quota writes and outsiders without altering existing ove
 it('rejects a batch below current usage or reservations without changing other members',async()=>{
  const guest=`${prefix}-guest`;
  await repo.setCreditQuota(org,user,2,user);
- await reserve('batch-hold',500);
+ await reserveLegacyHold('batch-hold',50);
  const updates=[{userId:guest,monthlyLimit:10},{userId:user,monthlyLimit:1}];
  await expect(repo.setCreditQuotas(org,updates,user)).rejects.toBeInstanceOf(MemberCreditQuotaBelowUsage);
  expect((await repo.readCreditQuotas(org)).members.find(member=>member.userId===guest)?.monthlyLimit).toBe(42);
@@ -89,20 +101,13 @@ it('rejects a batch below current usage or reservations without changing other m
  await settle('batch-hold',0);
 });
 
-it('admits one unbounded voice/multimodal call, holds remaining allowance, and releases it on settlement',async()=>{
- await repo.setCreditQuota(org,user,2,user); // prior tests incurred exactly 1 Credit
+it('settles concurrent unknown-cost requests at completion and blocks new admission after the quota is spent',async()=>{
+ await repo.setCreditQuota(org,user,2,user);
  const unbounded=(id:string)=>db.withTenant(org,s=>store.reserveInSession(s,org,{...start(id),maximumTokens:null}));
- const results=await Promise.allSettled([unbounded('voice'),unbounded('multimodal')]);
- expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);
- const id=results[0]!.status==='fulfilled'?'voice':'multimodal';
- expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===user)).toMatchObject({usedCredits:1,heldCredits:1});
- await expect(reserve('parallel',1)).rejects.toMatchObject({code:'credit_required',ownerType:'user'});
- await settle(id,0);
+ await Promise.all([unbounded('voice'),unbounded('multimodal')]);
  expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===user)).toMatchObject({usedCredits:1,heldCredits:0});
- await unbounded('voice-cap');
- // A provider reports incurred cost after consumption; preserve the receipt even if it crosses the cap.
- await settle('voice-cap',1100);
- await expect(db.withTenant(org,s=>assertMemberCreditContinuation(s,org,user,`${prefix}-voice-cap`))).rejects.toMatchObject({code:'credit_required',reason:'member_monthly_limit'});
+ await settle('voice',1100);
+ await settle('multimodal',0);
  expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===user)).toMatchObject({usedCredits:2.1,heldCredits:0});
  await expect(unbounded('exhausted')).rejects.toMatchObject({code:'credit_required',ownerType:'user'});
  await repo.setCreditQuota(org,user,0,user);await expect(unbounded('disabled')).rejects.toMatchObject({code:'credit_required',ownerType:'user'});
@@ -124,7 +129,7 @@ it('unconfigured and personal-local workspaces use funded personal Credit',async
   await db.withTenant(context,s=>store.settleInSession(s,context,{eventId:`${prefix}-${suffix}`,userId:user,runId:null,modelProvider:'test',modelId:'test',tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:'reported',outcome:'succeeded'}));
  }
 });
-it('paid non-enterprise Team uses one exclusive unknown-cost personal reservation',async()=>{
+it('paid non-enterprise Team admits concurrent unknown-cost requests against personal Credit',async()=>{
  await asOwner(c=>c.query("UPDATE credit_wallets SET balance=3000 WHERE owner_type='user' AND owner_id=$1",[user]));
  const priorEpoch=await asOwner(async c=>(await c.query('SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton')).rows[0]);
  await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton',[generation]));
@@ -141,10 +146,14 @@ it('paid non-enterprise Team uses one exclusive unknown-cost personal reservatio
   await expect(repo.setCreditQuota(team,user,1,user)).rejects.toBeInstanceOf(EnterpriseCreditPlanRequired);
   await expect(db.withTenant(team,s=>store.reserveInSession(s,team,start('paid-team-unrestricted',2000000)))).resolves.toBeUndefined();
   await db.withTenant(team,s=>store.settleInSession(s,team,{eventId:`${prefix}-paid-team-unrestricted`,userId:user,runId:null,modelProvider:'test',modelId:'test',tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:'reported',outcome:'succeeded'}));
-  const unknown=await Promise.allSettled(['unknown-a','unknown-b'].map(id=>db.withTenant(team,s=>store.reserveInSession(s,team,{...start(id),maximumTokens:null}))));
-  expect(unknown.filter(x=>x.status==='fulfilled')).toHaveLength(1);
-  const admitted=unknown[0]!.status==='fulfilled'?'unknown-a':'unknown-b';
-  for(const id of [admitted])await db.withTenant(team,s=>store.settleInSession(s,team,{eventId:`${prefix}-${id}`,userId:user,runId:null,modelProvider:'test',modelId:'test',tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:'reported',outcome:'succeeded'}));
+  const unknownIds = ['unknown-a','unknown-b'];
+  await Promise.all(unknownIds.map(id=>db.withTenant(team,s=>store.reserveInSession(s,team,{...start(id),maximumTokens:null}))));
+  const payers = await asApp(team, c => c.query(
+   "SELECT w.owner_type, w.owner_id, r.reserved_hundredths::text FROM credit_consumption_requests r JOIN credit_wallets w USING(wallet_id) WHERE r.request_id=ANY($1)",
+   [unknownIds.map(id => `${prefix}-${id}`)],
+  ));
+  expect(payers.rows).toEqual(unknownIds.map(() => ({owner_type:'user',owner_id:user,reserved_hundredths:'0'})));
+  for(const id of unknownIds)await db.withTenant(team,s=>store.settleInSession(s,team,{eventId:`${prefix}-${id}`,userId:user,runId:null,modelProvider:'test',modelId:'test',tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:'reported',outcome:'succeeded'}));
  }finally{
   await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton',[priorEpoch.generation,priorEpoch.activated_at]));
  }
@@ -173,8 +182,8 @@ it('retains the other member request hold when deciding whether a stream may con
  const remaining=BigInt(cap)*100n-current;
  const firstTokens=Number(remaining-100n)*10;
  await repo.setCreditQuota(org,user,cap,user);
- await reserve('continuation-first',firstTokens);
- await reserve('continuation-other',1000);
+ await reserveLegacyHold('continuation-first',firstTokens/10);
+ await reserveLegacyHold('continuation-other',100);
  const continuation=()=>db.withTenant(org,s=>assertMemberCreditContinuation(s,org,user,`${prefix}-continuation-first`));
  await expect(continuation()).resolves.toBeUndefined();
  await settle('continuation-first',firstTokens);
