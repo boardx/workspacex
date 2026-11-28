@@ -74,7 +74,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
       - name: Validate exact application identity and test control guards
@@ -92,7 +92,7 @@ jobs:
           node --test scripts/tests/devapp-aidt-s1-native-outcome.independent.test.mjs
           node --test scripts/tests/devapp-aidt-s6-source-independent.test.mjs
           node --test scripts/tests/devapp-aidt-v2-profile.test.mjs scripts/tests/devapp-aidt-v2-print.test.mjs scripts/tests/devapp-aidt-v2-integration.test.mjs scripts/tests/devapp-aidt-v2-request-guard.test.mjs scripts/tests/devapp-aidt-v2-action-window.test.mjs scripts/tests/devapp-aidt-v2-ui.test.mjs scripts/tests/devapp-aidt-v2-asr-review.test.mjs scripts/tests/devapp-aidt-v2-s2-asr.test.mjs scripts/tests/devapp-aidt-v2-negative.test.mjs apps/web/e2e/support/devapp-aidt-v2-survey-eight-guard-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-design-source-images-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-crud-independent.test.mjs apps/web/e2e/support/devapp-aidt-v2-virtual-normal-flow-independent.test.mjs
-          node --test .harness/scripts/ci-aidt-native.test.mjs
+          node --test .harness/scripts/ci-aidt-native.selftest.mjs
           node --test scripts/tests/devapp-aidt-agent-review.test.mjs scripts/tests/devapp-aidt-entry-proof.test.mjs
           node --test scripts/tests/devapp-aidt-agent-interview-independent.test.mjs scripts/tests/devapp-aidt-agent-interview-identity-independent.test.mjs
           node --check apps/web/e2e/support/devapp-aidt-acceptance.mjs
@@ -108,7 +108,7 @@ jobs:
           node scripts/build-aidt-acceptance-bundle.mjs "$bundle_path"
           manifest_digest="$(sha256sum "$bundle_path/SHA256SUMS")"
           printf 'manifest_sha256=%s\n' "${manifest_digest%% *}" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: ${{ inputs.live_dev }}
         with:
           name: aidt-acceptance-tools
@@ -144,10 +144,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           sparse-checkout: .harness
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: candidate/.nvmrc
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4.4.0
         with:
           package_json_file: candidate/package.json
       - name: Install isolated candidate dependencies
@@ -171,7 +171,7 @@ jobs:
         env:
           AIDT_NATIVE_TEST_OUTCOME: ${{ steps.native.outcome }}
         run: node "$GITHUB_WORKSPACE/control/.harness/scripts/ci-aidt-native.mjs" verdict
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: ${{ always() }}
         with:
           name: aidt-isolated-native-evidence
@@ -221,7 +221,7 @@ jobs:
           mkdir -m 700 "$AIDT_ACCEPTANCE_ROOT/source"
           printf 'AIDT_ACCEPTANCE_ROOT=%s\nPLAYWRIGHT_BROWSERS_PATH=%s/browsers\n' "$AIDT_ACCEPTANCE_ROOT" "$AIDT_ACCEPTANCE_ROOT" >> "$GITHUB_ENV"
           printf 'owned=true\n' >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: aidt-acceptance-tools
           path: ${{ env.AIDT_ACCEPTANCE_ROOT }}/source
@@ -244,7 +244,7 @@ jobs:
           AIDT_NODE_VERSION="$(cat .nvmrc)"
           [[ "$AIDT_NODE_VERSION" =~ ^[1-9][0-9]*(\.[0-9]+\.[0-9]+)?$ ]]
           printf 'node-version=%s\n' "$AIDT_NODE_VERSION" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ steps.bundle.outputs.node-version }}
       - name: Install only pinned browser test tools
@@ -261,7 +261,7 @@ jobs:
         id: live
         continue-on-error: true
         # A JavaScript action receives the runner's artifact authority in memory; shell steps do not.
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         env:
           AIDT_REUSABLE_QA_IDENTITY_SHA256: ${{ vars.AIDT_REUSABLE_QA_IDENTITY_SHA256 }}
           AIDT_REUSABLE_QA_EMAIL: ${{ inputs.reusable_ordinary_qa && secrets.AIDT_REUSABLE_QA_EMAIL || '' }}
@@ -317,7 +317,7 @@ jobs:
             if (code !== 0) core.setFailed('AIDT_LIVE_ACCEPTANCE_FAILED');
       - name: Upload only explicit safe evidence types
         if: ${{ always() && steps.private.outputs.owned == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: aidt-live-dev-evidence
           path: |
