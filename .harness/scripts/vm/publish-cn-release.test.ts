@@ -153,7 +153,7 @@ describe("China production release publisher",()=>{
     expect(sandboxDockerfile).toContain('ARG NPM_REGISTRY=https://registry.npmjs.org');
     expect(sandboxDockerfile).toContain('ARG APT_MIRROR=https://deb.debian.org');
     expect(sandboxDockerfile).toContain("require('node:tls').rootCertificates.join('\\\\n')");
-    expect(sandboxDockerfile).toContain('COPY --from=build /tmp/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt');
+    expect(sandboxDockerfile).toContain('COPY --from=build-dependencies /tmp/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt');
     const firstAptRun=sandboxDockerfile.indexOf('RUN sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g"');
     expect(firstAptRun).toBeGreaterThan(-1);
     expect(sandboxDockerfile.indexOf('apt-get update')).toBeGreaterThan(firstAptRun);
