@@ -101,11 +101,11 @@ export class PgCreditConsumption {
   const inserted=await s.query(`INSERT INTO credit_consumption_requests(request_id,org_id,user_id,wallet_id,model_provider,model_id,run_id,start_facts,reserved_hundredths,tariff_version,native_unit,native_quantum,native_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13) ON CONFLICT(request_id) DO NOTHING RETURNING request_id`,[input.requestId,orgId,input.userId,wallet.wallet_id,input.modelProvider,input.modelId,input.runId,facts({...immutable,settleAtTerminal:true,creditRateBps:bps===DEFAULT_CREDIT_RATE_BPS?undefined:bps,maximumTokenBound:extended.maximumTokens??null,nativeMaximumBound:extended.nativeMaximum??null,tokenBoundRequired:extended.tokenBoundRequired??false}),"0",version,native?.unit??null,quantum?.toString()??null,rate?.toString()??null]);
   if(!inserted.rows.length)throw this.error(p,"credit_start_replay_mismatch");
  }
- async settleInSession(s:TenantSession,orgId:OrgId,usage:TokenUsageRecord):Promise<void>{
+ async settleInSession(s:TenantSession,orgId:OrgId,usage:TokenUsageRecord,recordingUsageEvent=false):Promise<void>{
   // Replay/settlement uses the immutable admitted payer, without rechecking membership or licensing.
   const owner=(await s.query<{owner_type:"user"|"team"}>("SELECT w.owner_type FROM credit_consumption_requests r JOIN credit_wallets w ON w.wallet_id=r.wallet_id WHERE r.request_id=$1 AND r.org_id=$2",[usage.eventId??null,orgId])).rows[0];
   if(owner)await lockTeamFinancialOwner(s,orgId);
-  await settleCreditReceipt(s,orgId,usage);
+  await settleCreditReceipt(s,orgId,usage,recordingUsageEvent);
  }
  /** Reconcile only authoritative receipts; never expire uncertain holds on a timer. */
  async reconcile(orgId:OrgId,usage:TokenUsageRecord):Promise<void>{await this.db.withTenant(orgId,s=>this.settleInSession(s,orgId,usage));}
