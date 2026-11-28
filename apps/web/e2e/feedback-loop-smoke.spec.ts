@@ -222,8 +222,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     /* ── ③ Skill 级 · 缺陷 —— 会话内挂载态 chip 上 ── */
     const skillId = FULLSTACK_E2E.mountableSkillId;
     await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
-    await expect(page.getByTestId("chat-skill-mount-panel")).toHaveAttribute("data-mounted-count", "0");
-    await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
+    await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toHaveCount(0);
     await page.getByTestId("chat-skill-mount").click();
     const mounted = page.waitForResponse(
       (r) => r.request().method() === "POST" && /\/threads\/[^/]+\/skill-mounts(\?|$)/.test(r.url()),

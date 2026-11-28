@@ -158,10 +158,10 @@ await asOwner(client => client.query(
   [userId],
 ));
 
-// The canvas simulation uses the real Credit admission path for this seeded admin.
+// Canvas simulation and feedback use real Credit admission with separate seeded admins.
 await asOwner(client => client.query(
-  "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000) ON CONFLICT (owner_type, owner_id) DO NOTHING",
-  [adminUserId],
+  "INSERT INTO credit_wallets(owner_type, owner_id, balance) VALUES ('user', $1, 20000), ('user', $2, 20000) ON CONFLICT (owner_type, owner_id) DO NOTHING",
+  [adminUserId, feedbackAdminUserId],
 ));
 
 // The deterministic voice supplier still needs an explicit financial tariff:
