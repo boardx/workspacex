@@ -172,6 +172,10 @@ it("late original usage enriches one physical call, preserves raw base and histo
  const reported={...subject,outcome:"succeeded" as const,requestEndedAt:new Date(now+2).toISOString(),tokensTotal:5,promptTokens:3,completionTokens:2,totalSource:"reported" as const,costMicros:500n,currency:"CNY",priceVersion:"original-price"};
  await recordUsage(toOrgId(ORG),reported);await recordUsage(toOrgId(ORG),reported);
  await asApp(ORG,c=>c.query("SELECT pg_sleep(0.002)"));
+ const settlement = await asApp(ORG, c => c.query(
+  "SELECT state, debited_hundredths::text FROM credit_consumption_requests WHERE request_id=$1", [subject.eventId],
+ ));
+ expect(settlement.rows).toEqual([{state:"settled",debited_hundredths:"0"}]);
  const after=await report.summary(toOrgId(ORG),scoped),calls=await report.calls(toOrgId(ORG),{...scoped,asOf:after.asOf});
  expect(after.current).toMatchObject({callCount:1,totalTokens:"5",inputTokens:"3",outputTokens:"2",reportedCalls:1,unknownCalls:0});
  expect(calls.calls).toHaveLength(1);expect(calls.calls[0]).toMatchObject({id:subject.eventId,totalTokens:"5",costMicros:"500",priceVersion:"original-price",outcome:"failed"});

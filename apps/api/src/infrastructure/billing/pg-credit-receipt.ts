@@ -33,7 +33,7 @@ function quantity(receipt: Receipt): bigint | null {
 function immutable(receipt: Receipt) {return {tokens: receipt.tokens, source: receipt.source, native: receipt.native, outcome: receipt.outcome};}
 
 /** The durable usage receipt and this settlement must share the caller's transaction. */
-export async function settleCreditReceipt(s: TenantSession, orgId: OrgId, usage: TokenUsageRecord): Promise<void> {
+export async function settleCreditReceipt(s: TenantSession, orgId: OrgId, usage: TokenUsageRecord, recordingUsageEvent = false): Promise<void> {
   const admitted = (await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1 AND org_id=$2", [usage.eventId ?? null, orgId])).rows[0];
   if (!admitted) throw new CreditConsumptionError("credit_accounting_unavailable", "team", orgId, "credit_request_identity_missing");
   // Wallet → periods → request is the same order used by admission and granting.
@@ -67,6 +67,15 @@ export async function settleCreditReceipt(s: TenantSession, orgId: OrgId, usage:
       const previous = prior && quantity(prior), incoming = quantity(receipt);
       if (previous === null || previous === undefined || incoming === null || incoming > previous || prior!.source !== receipt.source || prior!.native?.unit !== receipt.native?.unit) throw unavailable("credit_receipt_replay_mismatch");
       await remember(0n, null); return;
+    }
+    // An unknown failed terminal call has already settled at zero. Later Token
+    // observations can enrich its reporting event, where PostgreSQL validates
+    // identity and monotonic facts, without reopening the financial settlement.
+    if (recordingUsageEvent && !progress && settleAtTerminal && row.debited_hundredths === "0"
+      && prior?.outcome === "failed" && prior.source === "unknown" && prior.native === null
+      && receipt.native === null && (receipt.source === "unknown" || receipt.source === "reported")) {
+      const original = await s.query("SELECT 1 FROM token_usage_events WHERE org_id=$1 AND id=$2", [orgId, row.request_id]);
+      if (original.rows.length > 0) return;
     }
     if (!prior || creditFacts(immutable(prior)) !== creditFacts(immutable(receipt))) throw unavailable("credit_receipt_replay_mismatch");
     const enriched = {...prior};

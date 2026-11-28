@@ -72,7 +72,7 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         await this.db.withTenant(orgId, async (s) => {
-          await this.credits.settleInSession(s, orgId, {...usage, eventId});
+          await this.credits.settleInSession(s, orgId, {...usage, eventId}, true);
           // Interim cumulative receipts record streaming progress. Only the terminal
           // total becomes a token event so quotas and charts do not count chunks twice.
           if (usage.billingReceipt?.final === false) return;
