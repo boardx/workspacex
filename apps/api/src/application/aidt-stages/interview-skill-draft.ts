@@ -1,17 +1,14 @@
 import type { SharedStageValue } from "@repo/contracts/aidt-stages";
 import { isAidtCandidateRequest } from "@repo/contracts/aidt-candidate-request";
-import { AIDT_INTERVIEW_SYNTHETIC_ASR_PREFIX, AidtSavedSyntheticAsrSchema } from "@repo/contracts/aidt-test-research";
-import { z } from "zod";
-
-const question = z.string().trim().min(1).max(1000);
-const draftPatch = z.object({
-  goal: z.string().trim().min(1).max(250).optional(),
-  questions: z.array(question).min(1).max(30).refine(items => items.join("\n").length <= 1000).optional(),
-  finding: z.object({
-    headline: z.string().trim().min(1).max(500).optional(), context: z.string().trim().min(1).max(1700).optional(),
-    interpretation: z.string().trim().min(1).max(1700).optional(), quote: z.string().trim().min(1).max(800).optional(),
-  }).strict().optional(),
-}).strict();
+import {
+  AIDT_INTERVIEW_SYNTHETIC_ASR_PREFIX,
+  AidtCheckedInterviewExcerptSchema,
+  AidtInterviewChatDraftPatchSchema,
+  AidtInterviewDraftRecordSchema,
+  AidtInterviewExcerptMaterialSchema,
+  AidtInterviewExcerptSchema,
+  AidtSavedSyntheticAsrSchema,
+} from "@repo/contracts/aidt-test-research";
 
 /** A named recipient constrains generic proposals until explicitly reassigned. */
 function interviewDraftRecipient(line: string): string | undefined {
@@ -56,28 +53,22 @@ export function readInterviewChatDraft(text: string, participantCode?: string) {
     else section = "";
   }
   if (!questions.length && !Object.keys(finding).length) return null;
-  const parsed = draftPatch.safeParse({ ...(goal && { goal }), ...(questions.length && { questions }), ...(Object.keys(finding).length && { finding }) });
+  const parsed = AidtInterviewChatDraftPatchSchema.safeParse({ ...(goal && { goal }), ...(questions.length && { questions }), ...(Object.keys(finding).length && { finding }) });
   return parsed.success ? parsed.data : null;
 }
 
 type Draft = SharedStageValue["content"]["draft"];
 type Turn = { verifiedFindingText?: readonly string[]; projectId?: string; user: string; assistant: string; messageId: string };
-const recordShape = z.object({
-  id: z.string().uuid(), version: z.literal(1), code: z.string().min(1).max(32), original: z.string(),
-  adopted: z.string(), goal: z.string(), guideConfirmed: z.boolean(), consent: z.object({ notes: z.boolean() }).passthrough().nullable(),
-}).passthrough();
-const sourceShape = z.object({ checked: z.literal(true), text: z.string().trim().min(1).max(1700), locator: z.string().trim().min(1).max(120), sourceKey: z.string() });
-const materialShape = z.object({ mime: z.string().min(1), name: z.string().min(1).max(300), artifactId: z.string().min(1), versionId: z.string().min(1), projectId: z.string().min(1) });
 function json(raw: string | undefined): unknown { try { return JSON.parse(raw ?? ""); } catch { return null; } }
 
 /** A saved marker never turns synthetic audio into participant evidence, even if damaged or revoked. */
 export function interviewSyntheticAsrContext(fields: Draft["fields"], entityId: string, projectId: string) {
   const raw = fields[AIDT_INTERVIEW_SYNTHETIC_ASR_PREFIX + entityId];
-  const transcript = sourceShape.extend({ checked: z.boolean() }).safeParse(json(fields["interviewTranscript:" + entityId]));
+  const transcript = AidtInterviewExcerptSchema.safeParse(json(fields["interviewTranscript:" + entityId]));
   if (raw === undefined && !(transcript.success && transcript.data.locator.startsWith("合成软件测试 ASR"))) return;
-  const interview = recordShape.safeParse(json(fields["interviewRecord:" + entityId]));
+  const interview = AidtInterviewDraftRecordSchema.safeParse(json(fields["interviewRecord:" + entityId]));
   const pin = raw && raw.length <= 6000 ? AidtSavedSyntheticAsrSchema.safeParse(json(raw)) : null;
-  const material = transcript.success ? materialShape.passthrough().safeParse(json(fields[transcript.data.sourceKey])) : null;
+  const material = transcript.success ? AidtInterviewExcerptMaterialSchema.passthrough().safeParse(json(fields[transcript.data.sourceKey])) : null;
   const matching = interview.success && interview.data.id === entityId && interview.data.consent?.notes
     && interview.data.consent.audio === true && fields["interviewArchived:" + entityId] !== "true"
     && transcript.success && transcript.data.sourceKey.startsWith("interviewMaterial:" + entityId + ":")
@@ -94,11 +85,11 @@ export function interviewSyntheticAsrContext(fields: Draft["fields"], entityId: 
 /** Only the reviewed excerpt can reach the teaching Skill, never recording bytes or raw ASR. */
 export function checkedInterviewExcerpt(fields: Draft["fields"], entityId: string, projectId: string) {
   if (interviewSyntheticAsrContext(fields,entityId,projectId)) return;
-  const interview = recordShape.safeParse(json(fields["interviewRecord:" + entityId]));
+  const interview = AidtInterviewDraftRecordSchema.safeParse(json(fields["interviewRecord:" + entityId]));
   if (!interview.success || interview.data.id !== entityId || !interview.data.consent?.notes || fields["interviewArchived:" + entityId] === "true") return;
-  const source = sourceShape.safeParse(json(fields["interviewTranscript:" + entityId]));
+  const source = AidtCheckedInterviewExcerptSchema.safeParse(json(fields["interviewTranscript:" + entityId]));
   if (!source.success || !source.data.sourceKey.startsWith("interviewMaterial:" + entityId + ":")) return;
-  const material = materialShape.safeParse(json(fields[source.data.sourceKey]));
+  const material = AidtInterviewExcerptMaterialSchema.safeParse(json(fields[source.data.sourceKey]));
   if (!material.success || material.data.projectId !== projectId || material.data.mime.startsWith("image/")
     || (material.data.mime.startsWith("audio/") && interview.data.consent.audio !== true)) return;
   return { text: source.data.text, locator: source.data.locator, name: material.data.name };
@@ -110,7 +101,7 @@ export function projectInterviewSkillDraft(draft: Draft, entityId: string, turn:
   if (isAidtCandidateRequest(turn.user, "interview")
     || (isAidtCandidateRequest(turn.user, "test") && /^合成音频转写请求：[0-9a-f-]{36}$/u.test(turn.user.trim().split(/\r?\n/u)[1] ?? ""))) return null;
   const key = "interviewRecord:" + entityId;
-  const record = recordShape.safeParse(json(draft.fields[key]));
+  const record = AidtInterviewDraftRecordSchema.safeParse(json(draft.fields[key]));
   if (!record.success || record.data.id !== entityId || draft.fields["interviewArchived:" + entityId] === "true"
     || !turn.messageId || turn.messageId.length > 256 || record.data.draftTurnId === turn.messageId) return null;
   const current = record.data, data = readInterviewChatDraft(turn.assistant, record.data.code);

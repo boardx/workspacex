@@ -29,3 +29,22 @@ export type AidtSavedSyntheticAsr = z.infer<typeof AidtSavedSyntheticAsrSchema>;
 
 /** S2 synthetic-file QA provenance, not participant consent or real interview evidence. */
 export const AIDT_INTERVIEW_SYNTHETIC_ASR_PREFIX = "interviewSyntheticAsr:";
+
+/** Stored interview draft and reviewed excerpt shapes read by AIDT Skills. */
+const question = z.string().trim().min(1).max(1000);
+export const AidtInterviewChatDraftPatchSchema = z.object({
+  goal: z.string().trim().min(1).max(250).optional(),
+  questions: z.array(question).min(1).max(30).refine(items => items.join("\n").length <= 1000).optional(),
+  finding: z.object({
+    headline: z.string().trim().min(1).max(500).optional(), context: z.string().trim().min(1).max(1700).optional(),
+    interpretation: z.string().trim().min(1).max(1700).optional(), quote: z.string().trim().min(1).max(800).optional(),
+  }).strict().optional(),
+}).strict();
+
+export const AidtInterviewDraftRecordSchema = z.object({
+  id: z.string().uuid(), version: z.literal(1), code: z.string().min(1).max(32), original: z.string(),
+  adopted: z.string(), goal: z.string(), guideConfirmed: z.boolean(), consent: z.object({ notes: z.boolean() }).passthrough().nullable(),
+}).passthrough();
+export const AidtCheckedInterviewExcerptSchema = z.object({ checked: z.literal(true), text: z.string().trim().min(1).max(1700), locator: z.string().trim().min(1).max(120), sourceKey: z.string() });
+export const AidtInterviewExcerptMaterialSchema = z.object({ mime: z.string().min(1), name: z.string().min(1).max(300), artifactId: z.string().min(1), versionId: z.string().min(1), projectId: z.string().min(1) });
+export const AidtInterviewExcerptSchema = AidtCheckedInterviewExcerptSchema.extend({ checked: z.boolean() });
