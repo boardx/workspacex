@@ -125,7 +125,7 @@ export function AidtCardTimer({ projectId, stageId, entityId, sessionToken }: Pr
           <label className="flex min-w-0 flex-1 items-center gap-2 text-12 text-muted-foreground">
             <input type="number" min={1} max={1440} value={minutes} aria-label="自定义分钟数"
               onChange={event => setMinutes(event.target.value)}
-              className="h-9 min-w-0 flex-1 rounded-control border border-border bg-background px-2 text-13 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              className="h-9 min-w-0 flex-1 rounded-control border border-border bg-background px-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             分钟
           </label>
           <Button type="submit" variant="primary" disabled={busy || !canStart}><Play className="size-4" aria-hidden />开始</Button>

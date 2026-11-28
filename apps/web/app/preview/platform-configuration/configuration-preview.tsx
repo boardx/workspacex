@@ -98,7 +98,7 @@ export function ConfigurationPreview() {
   }
 
   return (
-    <section className="flex min-w-0 flex-col gap-5 p-6 text-foreground">
+    <section className="flex min-w-0 flex-col gap-5 p-6">
       <header>
         <h1 className="text-2xl font-semibold">配置管理</h1>
         <p className="mt-1 text-sm text-muted-foreground">使用示例数据预览查看和编辑流程。</p>

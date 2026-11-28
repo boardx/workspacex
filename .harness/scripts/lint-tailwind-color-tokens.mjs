@@ -48,7 +48,6 @@ const WEB = join(ROOT, "apps", "web");
  */
 const LEGACY = [
   { file: "components/board-workspace-preview/workspace.tsx", cls: "text-foreground", count: 1 },
-  { file: "components/chat/knowledge/answer-knowledge-footer.tsx", cls: "text-foreground", count: 1 },
   { file: "components/itv/digital-interview-workflow.tsx", cls: "text-foreground", count: 4 },
   { file: "components/itv/expert-avatar.tsx", cls: "text-foreground", count: 2 },
   { file: "components/itv/interview-experts-step.tsx", cls: "text-foreground", count: 1 },
