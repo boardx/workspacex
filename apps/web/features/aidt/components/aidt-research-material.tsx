@@ -162,7 +162,7 @@ function MaterialPreview({ context, reference, alt, quote, onImageState, compact
       {state.text !== undefined && <p className="text-11 text-muted-foreground">原文预览最多前10000字；完整原件请下载。这里不会转写或改写内容。</p>}
       {!compact && originalDownload}
     </>}
-    {compact && <details className="text-11"><summary className="cursor-pointer rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">照片来源</summary>
+    {compact && <details className="text-11"><summary className="cursor-pointer rounded-md text-muted-foreground transition-colors hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">照片来源</summary>
       <div className="mt-2 space-y-2"><p className="break-words text-12 font-medium">{shown.name}</p>{provenance}{originalDownload}</div>
     </details>}
   </div>;

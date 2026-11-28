@@ -111,7 +111,7 @@ export function AidtInterviewFindingEditor({ projectId, interview, draft, readOn
     </div>
 
     <details className="border-t border-border pt-3 text-12" data-testid="aidt-finding-sources">
-      <summary className="cursor-pointer rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{observation ? "观察依据与来源" : "原话与来源"}</summary>
+      <summary className="cursor-pointer rounded-md text-muted-foreground transition-colors hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{observation ? "观察依据与来源" : "原话与来源"}</summary>
       <div className="mt-4 space-y-4">
         {observation ? <p>观察发现使用学生概括；实际行为、情境与学生解释分别记录，不补写受访者原话。</p> : <><div className="space-y-2"><p>标题来源</p><Select aria-label="标题来源" value={finding.headlineKind} disabled={!editable}
           options={[{ value: "student-summary", label: "学生概括" }, { value: "quote", label: synthetic ? "合成转写摘录" : "受访者原话" }]}
