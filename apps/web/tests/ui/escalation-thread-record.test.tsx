@@ -136,7 +136,8 @@ describe("① 卡片按消息流顺序出现", () => {
     // Check that seam as well as the original ordering/uniqueness invariant.
     const controller = readFileSync(resolve(__dirname, "../../components/chat/copilotkit-v2-panel-body.tsx"), "utf8");
     expect(controller).toContain('import { CopilotKitV2PanelView } from "./copilotkit-v2-panel-view";');
-    expect(controller).toContain("<CopilotKitV2PanelView {...useCopilotKitV2PanelController(props)} />");
+    expect(controller).toContain("const view = useCopilotKitV2PanelController(props);");
+    expect(controller).toContain("<CopilotKitV2PanelView {...view}");
     expect(controller).not.toContain("<RestoredRunApproval");
     const src = readFileSync(resolve(__dirname, "../../components/chat/copilotkit-v2-panel-view.tsx"), "utf8");
     const timeline = src.indexOf("<TaskTimeline");
