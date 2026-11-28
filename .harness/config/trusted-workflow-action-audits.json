@@ -58,6 +58,21 @@
       }
     },
     {
+      "kind": "javascript",
+      "action": "actions/github-script",
+      "workflowRef": "ed597411d8f924073f98dfc5c65a23a2325f34cd",
+      "release": "v8.0.0",
+      "source": {
+        "repository": "actions/github-script",
+        "commit": "ed597411d8f924073f98dfc5c65a23a2325f34cd",
+        "actionPath": "action.yml",
+        "sourceUrl": "https://raw.githubusercontent.com/actions/github-script/ed597411d8f924073f98dfc5c65a23a2325f34cd/action.yml",
+        "snapshotPath": ".harness/fixtures/github-actions/actions-github-script-ed597411/action.yml",
+        "sha256": "2155c7b84863afcfe81a73ab8eafcb2c2f304a995cbe282c31617aa847dff1d8",
+        "runsUsing": "node24"
+      }
+    },
+    {
       "kind": "composite",
       "action": "aliyun/setup-aliyun-cli-action",
       "workflowRef": "09a5f86915bb556e27bf050e9a5e339aeb073df5",
